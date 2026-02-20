@@ -1,16 +1,42 @@
-# React + Vite
+# Maximus Sports — March Madness Intelligence Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+College basketball intelligence: daily reports, game previews, upset alerts, and Reddit discussion.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+cp .env.example .env
+```
 
-## React Compiler
+Edit `.env` and add your Reddit API credentials from [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps):
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
+- `REDDIT_USER_AGENT` (e.g. `MaximusSports/1.0`)
 
-## Expanding the ESLint configuration
+## Run
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+# Terminal 1: Vite dev server (frontend)
+npm run dev
+
+# Terminal 2: Reddit proxy (backend)
+npm run dev:server
+```
+
+Or run both at once:
+
+```bash
+npm run dev:all
+```
+
+Frontend: http://localhost:5173  
+Reddit proxy: http://localhost:3001
+
+## Tech Stack
+
+- Vite + React
+- React Router
+- Express (Reddit API proxy)
+- Plain CSS / CSS modules
