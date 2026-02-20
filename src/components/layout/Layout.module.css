@@ -1,0 +1,24 @@
+.root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: calc(100vh - var(--topnav-height));
+}
+
+.main {
+  flex: 1;
+  padding: var(--space-lg);
+  overflow-x: hidden;
+  background: var(--color-bg);
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: var(--space-md);
+  }
+}
