@@ -1,10 +1,21 @@
-import styles from './Placeholder.module.css';
+import { Link } from 'react-router-dom';
+import { TEAMS } from '../data/teams';
+import styles from './Teams.module.css';
 
 export default function Teams() {
   return (
     <div className={styles.page}>
       <h1>Teams</h1>
-      <p>Team profiles, stats, and bracketology context. Coming soon.</p>
+      <p className={styles.subtitle}>Browse team pages with Reddit discussion & sentiment</p>
+      <ul className={styles.teamList}>
+        {TEAMS.map((team) => (
+          <li key={team.slug}>
+            <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
+              {team.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

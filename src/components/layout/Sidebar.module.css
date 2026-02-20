@@ -48,7 +48,7 @@
 }
 
 .link.active {
-  background: rgba(196, 30, 58, 0.08);
+  background: rgba(60, 121, 180, 0.1);
   color: var(--color-primary);
   font-weight: 500;
 }
@@ -56,6 +56,32 @@
 .icon {
   font-size: 1rem;
   opacity: 0.9;
+}
+
+.caret {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.teamDropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-xs) 0 var(--space-sm) var(--space-xl);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.teamLink {
+  font-size: 0.8rem;
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.teamLink:hover,
+.teamLinkActive {
+  color: var(--color-primary);
 }
 
 .quickLinks {
