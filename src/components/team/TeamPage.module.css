@@ -113,11 +113,11 @@
   color: var(--color-text-muted);
 }
 
-.upvotes,
-.comments {
+.source {
+  font-weight: 500;
   color: var(--color-text-secondary);
 }
 
-.sub {
+.date {
   margin-left: auto;
 }

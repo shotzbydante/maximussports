@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
-import { fetchTeamPosts } from '../../api/reddit';
+import { fetchTeamNews } from '../../api/news';
 import styles from './TeamPage.module.css';
+
+function formatDate(str) {
+  if (!str) return '';
+  try {
+    const d = new Date(str);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return str;
+  }
+}
 
 export default function TeamPage() {
   const { slug } = useParams();
   const team = getTeamBySlug(slug);
-  const [posts, setPosts] = useState([]);
+  const [headlines, setHeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -19,8 +29,8 @@ export default function TeamPage() {
 
     setLoading(true);
     setError(null);
-    fetchTeamPosts(slug)
-      .then((data) => setPosts(data.posts || []))
+    fetchTeamNews(slug)
+      .then((data) => setHeadlines(data.headlines || []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [slug, team]);
@@ -40,42 +50,40 @@ export default function TeamPage() {
       <div className={styles.header}>
         <Link to="/teams" className={styles.backLink}>← Teams</Link>
         <h1>{team.name}</h1>
-        <p className={styles.subtitle}>Reddit discussion & sentiment</p>
+        <p className={styles.subtitle}>Latest news & headlines</p>
       </div>
 
       <section className={styles.postsSection}>
-        <h2 className={styles.sectionTitle}>Recent Reddit Posts</h2>
+        <h2 className={styles.sectionTitle}>Recent Headlines</h2>
 
         {loading && (
           <div className={styles.loading}>
             <span className={styles.spinner} />
-            <p>Loading posts...</p>
+            <p>Loading headlines...</p>
           </div>
         )}
 
         {error && (
           <div className={styles.error}>
             <p>{error}</p>
-            <p className={styles.errorHint}>Make sure the Reddit proxy server is running and .env has valid credentials.</p>
           </div>
         )}
 
-        {!loading && !error && posts.length === 0 && (
+        {!loading && !error && headlines.length === 0 && (
           <div className={styles.empty}>
-            <p>No posts found for this team.</p>
+            <p>No headlines found for this team.</p>
           </div>
         )}
 
-        {!loading && !error && posts.length > 0 && (
+        {!loading && !error && headlines.length > 0 && (
           <ul className={styles.postList}>
-            {posts.map((post) => (
-              <li key={post.id} className={styles.post}>
-                <a href={post.permalink} target="_blank" rel="noopener noreferrer" className={styles.postLink}>
-                  <h3 className={styles.postTitle}>{post.title}</h3>
+            {headlines.map((h) => (
+              <li key={h.id} className={styles.post}>
+                <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.postLink}>
+                  <h3 className={styles.postTitle}>{h.title}</h3>
                   <div className={styles.postMeta}>
-                    <span className={styles.upvotes}>↑ {post.upvotes}</span>
-                    <span className={styles.comments}>💬 {post.numComments}</span>
-                    <span className={styles.sub}>r/{post.subreddit}</span>
+                    <span className={styles.source}>{h.source}</span>
+                    <span className={styles.date}>{formatDate(h.pubDate)}</span>
                   </div>
                 </a>
               </li>

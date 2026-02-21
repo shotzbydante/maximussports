@@ -80,11 +80,11 @@ export const newsFeed = [
   },
 ];
 
-export const redditSentiment = [
-  { team: 'UConn', subreddit: 'r/CollegeBasketball', sentiment: 0.78, posts: 124 },
-  { team: 'Duke', subreddit: 'r/CollegeBasketball', sentiment: 0.65, posts: 98 },
-  { team: 'Houston', subreddit: 'r/CollegeBasketball', sentiment: 0.72, posts: 67 },
-  { team: 'Kentucky', subreddit: 'r/CollegeBasketball', sentiment: 0.42, posts: 156 },
+export const teamNewsPreview = [
+  { team: 'Duke', slug: 'duke-blue-devils', headlines: 12 },
+  { team: 'Houston', slug: 'houston-cougars', headlines: 8 },
+  { team: 'Purdue', slug: 'purdue-boilermakers', headlines: 15 },
+  { team: 'Kansas', slug: 'kansas-jayhawks', headlines: 11 },
 ];
 
 export const statCards = [

@@ -60,7 +60,7 @@ export default function Sidebar() {
           <a href="/#matchups" className={styles.quickLink}>Matchups</a>
           <a href="/#odds" className={styles.quickLink}>Odds Movement</a>
           <a href="/#news" className={styles.quickLink}>News Feed</a>
-          <a href="/#sentiment" className={styles.quickLink}>Reddit Sentiment</a>
+          <a href="/#news-teams" className={styles.quickLink}>Team News</a>
         </div>
       </div>
     </aside>

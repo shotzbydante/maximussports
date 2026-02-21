@@ -3,14 +3,14 @@ import {
   topMatchups,
   oddsMovement,
   newsFeed,
-  redditSentiment,
+  teamNewsPreview,
   statCards,
 } from '../data/mockData';
 import StatCard from '../components/shared/StatCard';
 import MatchupPreview from '../components/dashboard/MatchupPreview';
 import OddsMovementWidget from '../components/dashboard/OddsMovementWidget';
 import NewsFeed from '../components/dashboard/NewsFeed';
-import RedditSentiment from '../components/dashboard/RedditSentiment';
+import TeamNewsPreview from '../components/dashboard/TeamNewsPreview';
 import styles from './Home.module.css';
 
 export default function Home() {
@@ -63,8 +63,8 @@ export default function Home() {
           <div className={styles.widgetSection} id="news">
             <NewsFeed items={newsFeed} />
           </div>
-          <div className={styles.widgetSection} id="sentiment">
-            <RedditSentiment items={redditSentiment} />
+          <div className={styles.widgetSection} id="news-teams">
+            <TeamNewsPreview items={teamNewsPreview} />
           </div>
         </aside>
       </div>
