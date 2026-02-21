@@ -1,17 +1,9 @@
 /**
- * Express proxy server for Reddit API.
- * Handles OAuth and proxies requests to avoid CORS.
+ * Vercel Serverless Function: fetch top 5 Reddit posts for a team.
+ * GET /api/reddit/team/:slug
  */
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import { getTeamBySlug } from '../src/data/teams.js';
 
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
-app.use(express.json());
+import { getTeamBySlug } from '../../../src/data/teams.js';
 
 async function getRedditToken() {
   const clientId = process.env.REDDIT_CLIENT_ID;
@@ -19,7 +11,7 @@ async function getRedditToken() {
   const userAgent = process.env.REDDIT_USER_AGENT || 'MaximusSports/1.0';
 
   if (!clientId || !clientSecret) {
-    throw new Error('REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set in .env');
+    throw new Error('REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set');
   }
 
   const res = await fetch('https://www.reddit.com/api/v1/access_token', {
@@ -57,10 +49,33 @@ async function fetchReddit(url, token) {
   return res.json();
 }
 
-app.get('/api/reddit/team/:slug', async (req, res) => {
-  const { slug } = req.params;
-  const team = getTeamBySlug(slug);
+function parseSlug(req) {
+  const slug = req.query?.slug;
+  if (slug) return slug;
+  const url = req.url || '';
+  const match = url.match(/\/api\/reddit\/team\/([^/?]+)/);
+  return match ? match[1] : null;
+}
 
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const slug = parseSlug(req);
+  if (!slug) {
+    return res.status(400).json({ error: 'Missing slug' });
+  }
+
+  const team = getTeamBySlug(slug);
   if (!team) {
     return res.status(404).json({ error: 'Team not found' });
   }
@@ -70,7 +85,6 @@ app.get('/api/reddit/team/:slug', async (req, res) => {
     const posts = [];
     const limit = 5;
 
-    // Try subreddit first (if not CollegeBasketball - that's our fallback)
     if (team.subreddit && team.subreddit !== 'CollegeBasketball') {
       const url = `https://oauth.reddit.com/r/${team.subreddit}/search.json?q=${encodeURIComponent(team.keywords)}&sort=relevance&limit=${limit}&restrict_sr=on`;
       const data = await fetchReddit(url, token);
@@ -91,7 +105,6 @@ app.get('/api/reddit/team/:slug', async (req, res) => {
       }
     }
 
-    // Fallback or supplement: search r/CollegeBasketball
     if (posts.length < limit) {
       const searchUrl = `https://oauth.reddit.com/r/CollegeBasketball/search.json?q=${encodeURIComponent(team.keywords)}&sort=relevance&limit=${limit}&restrict_sr=on`;
       const data = await fetchReddit(searchUrl, token);
@@ -116,17 +129,12 @@ app.get('/api/reddit/team/:slug', async (req, res) => {
       }
     }
 
-    // Sort by upvotes and take top 5
     posts.sort((a, b) => b.upvotes - a.upvotes);
     const topPosts = posts.slice(0, limit);
 
     res.json({ team: team.name, posts: topPosts });
   } catch (err) {
-    console.error('Reddit proxy error:', err.message);
+    console.error('Reddit API error:', err.message);
     res.status(500).json({ error: err.message || 'Failed to fetch Reddit posts' });
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`Reddit proxy server running on http://localhost:${PORT}`);
-});
+}

@@ -15,28 +15,34 @@ Edit `.env` and add your Reddit API credentials from [reddit.com/prefs/apps](htt
 - `REDDIT_CLIENT_SECRET`
 - `REDDIT_USER_AGENT` (e.g. `MaximusSports/1.0`)
 
-## Run
+## Run Locally
 
 ```bash
-# Terminal 1: Vite dev server (frontend)
 npm run dev
-
-# Terminal 2: Reddit proxy (backend)
-npm run dev:server
 ```
 
-Or run both at once:
+Frontend: http://localhost:5173
+
+For local Reddit API (serverless function):
 
 ```bash
-npm run dev:all
+npx vercel dev
 ```
 
-Frontend: http://localhost:5173  
-Reddit proxy: http://localhost:3001
+## Deploy to Vercel
+
+1. Import the GitHub repo into Vercel: [vercel.com/new](https://vercel.com/new)
+2. Add environment variables in Project Settings → Environment Variables:
+   - `REDDIT_CLIENT_ID`
+   - `REDDIT_CLIENT_SECRET`
+   - `REDDIT_USER_AGENT`
+3. Deploy
+
+Vercel will build the frontend and deploy the `/api/reddit/team/[slug]` serverless function. The frontend calls `/api/reddit/team/:slug` (same origin).
 
 ## Tech Stack
 
 - Vite + React
 - React Router
-- Express (Reddit API proxy)
+- Vercel Serverless Functions (Reddit API proxy)
 - Plain CSS / CSS modules
