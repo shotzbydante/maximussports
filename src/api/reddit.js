@@ -1,6 +1,6 @@
 /**
  * Client-side Reddit API wrapper.
- * Calls our Express proxy to avoid CORS and expose Reddit OAuth.
+ * Calls Vercel serverless endpoint /api/reddit/team/:slug
  */
 
 const API_BASE = import.meta.env.VITE_REDDIT_PROXY_URL || '';
