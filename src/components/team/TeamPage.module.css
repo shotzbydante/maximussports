@@ -82,9 +82,27 @@
 }
 
 .sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-muted);
   border-bottom: 1px solid var(--color-border-light);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.toggle input {
+  margin: 0;
 }
 
 .sectionLabel {

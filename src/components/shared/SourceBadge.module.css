@@ -21,3 +21,23 @@
   background: rgba(183, 152, 108, 0.15);
   color: var(--color-beige-dune);
 }
+
+.badgeYahoo {
+  background: rgba(90, 30, 50, 0.12);
+  color: #600050;
+}
+
+.badgeCBS {
+  background: rgba(0, 80, 160, 0.12);
+  color: #004090;
+}
+
+.badgeNCAA {
+  background: rgba(0, 51, 102, 0.12);
+  color: #003366;
+}
+
+.badgeGeneric {
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-text-muted);
+}

@@ -1,16 +1,25 @@
 /**
  * Small badge indicating data source for provenance.
- * Sources: ESPN | Google News | Mock
+ * ESPN | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Team Feed names
  */
 
 import styles from './SourceBadge.module.css';
 
-const VALID_SOURCES = ['ESPN', 'Google News', 'Mock'];
+const KNOWN_SOURCES = ['ESPN', 'Google News', 'Yahoo Sports', 'CBS Sports', 'NCAA.com', 'Mock'];
+const SOURCE_STYLES = {
+  ESPN: styles.badgeESPN,
+  'Google News': styles.badgeGoogleNews,
+  'Yahoo Sports': styles.badgeYahoo,
+  'CBS Sports': styles.badgeCBS,
+  'NCAA.com': styles.badgeNCAA,
+  Mock: styles.badgeMock,
+};
 
 export default function SourceBadge({ source = 'Mock' }) {
-  const s = VALID_SOURCES.includes(source) ? source : 'Mock';
+  const s = typeof source === 'string' && source.trim() ? source : 'Mock';
+  const style = SOURCE_STYLES[s] || styles.badgeGeneric;
   return (
-    <span className={`${styles.badge} ${styles[`badge${s.replace(/\s/g, '')}`]}`} title={`Data source: ${s}`}>
+    <span className={`${styles.badge} ${style}`} title={`Data source: ${s}`}>
       {s}
     </span>
   );

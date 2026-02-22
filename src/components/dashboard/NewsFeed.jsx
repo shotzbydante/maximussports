@@ -15,14 +15,14 @@ export default function NewsFeed({ items = [], source = 'Mock' }) {
         <SourceBadge source={source} />
       </div>
       {items.length === 0 ? (
-        <p className={styles.empty}>No headlines available. Check back later.</p>
+        <p className={styles.empty}>Source unavailable. Check back later.</p>
       ) : (
       <ul className={styles.list}>
         {items.map((item) => (
           <li key={item.id} className={styles.item}>
             <div className={styles.itemHeader}>
               <span className={`${styles.sentiment} ${sentimentClass[item.sentiment] || styles.neutral}`} />
-              <span className={styles.source}>{item.source}</span>
+              <SourceBadge source={item.source || source} />
               <span className={styles.time}>{item.time}</span>
             </div>
             <h4 className={styles.headline}>

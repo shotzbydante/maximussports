@@ -3,6 +3,29 @@
  * Fetches team headlines from /api/news/team/:slug (Google News RSS, no API key).
  */
 
+/**
+ * Fetch aggregated news from /api/news/aggregate.
+ * @param {Object} options
+ * @param {string} [options.teamSlug] - Team slug (enables Google News + optional team feeds)
+ * @param {boolean} [options.includeNational=false] - Include national feeds (Yahoo, CBS, NCAA)
+ * @param {boolean} [options.includeTeamFeeds=false] - Include team-specific RSS feeds
+ * @returns {Promise<{ items: Array<{ title, link, pubDate, source, feedType, teamSlug? }> }>}
+ */
+export async function fetchAggregateNews(options = {}) {
+  const params = new URLSearchParams();
+  if (options.teamSlug) params.set('teamSlug', options.teamSlug);
+  if (options.includeNational) params.set('includeNational', 'true');
+  if (options.includeTeamFeeds) params.set('includeTeamFeeds', 'true');
+  const qs = params.toString();
+  const url = qs ? `/api/news/aggregate?${qs}` : '/api/news/aggregate';
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function fetchTeamNews(teamSlug) {
   const res = await fetch(`/api/news/team/${teamSlug}`);
 

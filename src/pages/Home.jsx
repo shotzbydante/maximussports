@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { dailyReport, topMatchups, oddsMovement, newsFeed as mockNewsFeed } from '../data/mockData';
-import { fetchAggregatedNews } from '../api/news';
+import { fetchAggregatedNews, fetchAggregateNews } from '../api/news';
 import { fetchScores } from '../api/scores';
 import { fetchRankings } from '../api/rankings';
 import { getPinnedTeams } from '../utils/pinnedTeams';
@@ -24,6 +24,19 @@ import styles from './Home.module.css';
 const SCORES_REFRESH_MS = 60_000;
 
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
+
+function formatRelativeTime(pubDate) {
+  if (!pubDate) return '';
+  const d = new Date(pubDate);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 function isFinal(status) {
   const s = (status || '').toLowerCase();
@@ -71,15 +84,34 @@ export default function Home() {
 
   useEffect(() => {
     fetchAggregatedNews(pinnedSlugs)
-      .then(({ teamNews, newsFeed }) => {
-        setNewsData({ teamNews, newsFeed });
-        setNewsSource('Google News');
+      .then(({ teamNews }) => {
+        setNewsData((prev) => ({ ...prev, teamNews }));
+      })
+      .catch(() => {
+        setNewsData((prev) => ({ ...prev, teamNews: [] }));
+      });
+  }, [pinnedSlugs.join(',')]);
+
+  useEffect(() => {
+    fetchAggregateNews({ includeNational: true })
+      .then(({ items }) => {
+        const newsFeed = items.map((item, i) => ({
+          id: item.link || `agg-${i}`,
+          title: item.title,
+          source: item.source || 'News',
+          time: formatRelativeTime(item.pubDate),
+          link: item.link,
+          excerpt: '',
+          sentiment: 'neutral',
+        }));
+        setNewsData((prev) => ({ ...prev, newsFeed }));
+        setNewsSource('Multiple');
       })
       .catch(() => {
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed }));
         setNewsSource('Mock');
       });
-  }, [pinnedSlugs.join(',')]);
+  }, []);
 
   useEffect(() => {
     fetchRankings()

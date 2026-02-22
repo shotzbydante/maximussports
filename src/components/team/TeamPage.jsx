@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
-import { fetchTeamNews } from '../../api/news';
+import { fetchTeamNews, fetchAggregateNews } from '../../api/news';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
+import SourceBadge from '../shared/SourceBadge';
 import styles from './TeamPage.module.css';
 
 function formatDate(str) {
@@ -29,6 +30,7 @@ export default function TeamPage() {
   const [headlines, setHeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [allSources, setAllSources] = useState(false);
 
   useEffect(() => {
     if (!team) {
@@ -37,11 +39,30 @@ export default function TeamPage() {
     }
     setLoading(true);
     setError(null);
-    fetchTeamNews(slug)
-      .then((data) => setHeadlines(data.headlines || []))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [slug, team]);
+    if (allSources) {
+      fetchAggregateNews({
+        teamSlug: slug,
+        includeNational: true,
+        includeTeamFeeds: true,
+      })
+        .then(({ items }) => {
+          setHeadlines(items.map((item, i) => ({
+            id: item.link || `agg-${i}`,
+            title: item.title,
+            link: item.link,
+            pubDate: item.pubDate,
+            source: item.source || 'News',
+          })));
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    } else {
+      fetchTeamNews(slug)
+        .then((data) => setHeadlines((data.headlines || []).map((h) => ({ ...h, source: h.source || 'Google News' }))))
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    }
+  }, [slug, team, allSources]);
 
   if (!team) {
     return (
@@ -73,7 +94,18 @@ export default function TeamPage() {
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>
-          <span className={styles.sectionLabel}>Last 90 days</span>
+          <span className={styles.sectionLabel}>
+            {allSources ? 'All sources' : 'Google News (90 days)'}
+          </span>
+          <label className={styles.toggle}>
+            <input
+              type="checkbox"
+              checked={allSources}
+              onChange={(e) => setAllSources(e.target.checked)}
+              aria-label="Include all sources"
+            />
+            All sources
+          </label>
         </div>
 
         {loading && (
@@ -96,7 +128,7 @@ export default function TeamPage() {
                 <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
                   <span className={styles.title}>{h.title}</span>
                   <span className={styles.meta}>
-                    <span className={styles.source}>{h.source}</span>
+                    <SourceBadge source={h.source} />
                     <span className={styles.date}>{formatDate(h.pubDate)}</span>
                   </span>
                   <span className={styles.chevron}>→</span>

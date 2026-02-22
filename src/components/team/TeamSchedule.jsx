@@ -154,7 +154,9 @@ export default function TeamSchedule({ slug }) {
                     {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
                   </span>
                   <span className={styles.colResult}>
-                    {ev.ourScore}–{ev.oppScore}
+                    {ev.ourScore != null && ev.oppScore != null
+                      ? `${ev.ourScore}–${ev.oppScore}`
+                      : '—'}
                   </span>
                   <span className={styles.colStatus}>{ev.status}</span>
                 </div>

@@ -39,6 +39,17 @@ export default async function handler(req, res) {
     const data = await espnRes.json();
     const rawEvents = data?.events || [];
 
+    function toScore(val) {
+      if (val == null) return null;
+      if (typeof val === 'number' && !isNaN(val)) return String(val);
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object' && val !== null) {
+        const v = val.displayValue ?? val['#text'] ?? val.value;
+        if (v != null) return String(v);
+      }
+      return null;
+    }
+
     const events = rawEvents.map((ev) => {
       const comp = ev?.competitions?.[0];
       const competitors = comp?.competitors || [];
@@ -52,8 +63,8 @@ export default async function handler(req, res) {
 
       const homeTeam = home?.team?.displayName || home?.team?.shortDisplayName || 'TBD';
       const awayTeam = away?.team?.displayName || away?.team?.shortDisplayName || 'TBD';
-      const homeScore = home?.score != null ? String(home.score) : null;
-      const awayScore = away?.score != null ? String(away.score) : null;
+      const homeScore = toScore(home?.score);
+      const awayScore = toScore(away?.score);
 
       const homeId = home?.team?.id;
       const targetId = String(teamId);
