@@ -8,6 +8,8 @@ import {
   statCards,
 } from '../data/mockData';
 import { fetchAggregatedNews } from '../api/news';
+import { fetchScores } from '../api/scores';
+import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import MatchupPreview from '../components/dashboard/MatchupPreview';
 import OddsMovementWidget from '../components/dashboard/OddsMovementWidget';
@@ -22,11 +24,19 @@ export default function Home() {
     teamNews: teamNewsPreview,
     newsFeed: mockNewsFeed,
   });
+  const [scores, setScores] = useState({ games: [], loading: true, error: null });
 
   useEffect(() => {
     fetchAggregatedNews(FEATURED_SLUGS)
       .then(({ teamNews, newsFeed }) => setNewsData({ teamNews, newsFeed }))
       .catch(() => setNewsData({ teamNews: teamNewsPreview, newsFeed: mockNewsFeed }));
+  }, []);
+
+  useEffect(() => {
+    setScores((s) => ({ ...s, loading: true, error: null }));
+    fetchScores()
+      .then((games) => setScores({ games, loading: false, error: null }))
+      .catch((err) => setScores({ games: [], loading: false, error: err.message }));
   }, []);
 
   return (
@@ -43,6 +53,16 @@ export default function Home() {
             </span>
           ))}
         </div>
+      </section>
+
+      {/* Live Scores */}
+      <section className={styles.liveScoresSection}>
+        <LiveScores
+          games={scores.games}
+          loading={scores.loading}
+          error={scores.error}
+          compact
+        />
       </section>
 
       {/* Stat Cards */}

@@ -19,7 +19,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ### Backend
 - **Platform:** Vercel Serverless Functions
 - **News API:** `/api/news/team/[slug].js` — fetches Google News RSS, parses with `fast-xml-parser`, returns top 10 headlines (90-day lookback)
-- **No env vars required** — Google News RSS is free, no API key
+- **Scores API:** `/api/scores/index.js` — proxies ESPN college basketball scoreboard, returns simplified game list (gameId, teams, scores, status, startTime, network, venue)
+- **No env vars required** — Google News RSS and ESPN endpoints are free, no API key
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -37,7 +38,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/data/teams.js` | 74 ESPN Bubble Watch teams (conference, oddsTier, keywords) |
 | `src/data/mockData.js` | Mock dashboard data (matchups, odds, news, stats) |
 | `src/api/news.js` | Client fetcher + `fetchAggregatedNews` for multi-team news |
+| `src/api/scores.js` | Client fetcher `fetchScores()` for live scores |
 | `api/news/team/[slug].js` | Serverless: Google News RSS → JSON |
+| `api/scores/index.js` | Serverless: ESPN scoreboard proxy → simplified JSON |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
@@ -45,7 +48,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - `Home` — Dashboard (hero, stat cards, matchups, odds, aggregated news feed, team news counts)
 - `Teams` — Bubble Watch list by conference + odds tier
 - `TeamPage` — Team header + last 90 days headlines
-- `Games` — Key matchups (spreads, O/U, upset watch)
+- `Games` — Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
 
@@ -53,6 +56,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Layout:** `TopNav`, `Sidebar`, `Layout`
 - **Shared:** `StatCard`, `TrendArrow`, `TeamLogo`
 - **Dashboard:** `MatchupPreview`, `OddsMovementWidget`, `NewsFeed`, `TeamNewsPreview`
+- **Scores:** `LiveScores` (Bloomberg-style table, live game highlighting)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -62,6 +66,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/news/team/:slug` | GET | Top 10 Google News headlines for team (90-day query, sorted by pubDate) |
+| `/api/scores` | GET | College basketball scoreboard (proxied from ESPN, simplified JSON) |
 
 ---
 
@@ -98,7 +103,18 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
-## Latest Changes (MVP — Feb 21, 2025)
+## Latest Changes (Feb 21, 2025)
+
+**Live scores (ESPN):**
+- Added `/api/scores` serverless route proxying ESPN college basketball scoreboard
+- Added `src/api/scores.js` and `LiveScores` component (Bloomberg-style table)
+- Home: Live Scores section (compact) after hero
+- Games: Live Scores (full list) with 60s auto-refresh
+- Error fallback: "Live scores temporarily unavailable"
+
+---
+
+## Previous Changes (MVP — Feb 21, 2025)
 
 1. **Games page** — Replaced placeholder with key matchups list using `topMatchups` from mockData.
 2. **Insights page** — Added daily report block, rankings snapshot (AP Top 5, bracket favorites, biggest movers), and filterable Bubble Watch table (conference + tier).

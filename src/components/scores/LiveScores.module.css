@@ -1,0 +1,120 @@
+/* Bloomberg-style live scores */
+.widget {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin: 0 0 0;
+  padding: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 80px 90px;
+  gap: var(--space-md);
+  font-size: 0.85rem;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+  align-items: center;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowHeader {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  background: rgba(60, 121, 180, 0.04);
+}
+
+.row.rowLive {
+  background: rgba(45, 138, 110, 0.08);
+  border-left: 3px solid var(--color-up);
+}
+
+/* Full layout: matchup, score, status, start time */
+.tableFull .row {
+  grid-template-columns: 1fr 80px 100px 70px;
+}
+
+/* Compact layout: matchup, score, status only (no start time col) */
+.tableCompact .row {
+  grid-template-columns: 1fr 70px 90px;
+}
+
+.colMatchup {
+  min-width: 0;
+}
+
+.colScore {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-align: right;
+}
+
+.colStatus {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.statusLive {
+  color: var(--color-up);
+  font-weight: 600;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--color-up);
+  border-radius: 50%;
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.colTime {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.fallback {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  padding: var(--space-md);
+  margin: 0;
+}
+
+.refreshing {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: var(--space-xs) var(--space-md);
+  text-align: right;
+  border-top: 1px solid var(--color-border-light);
+}
