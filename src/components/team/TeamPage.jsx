@@ -93,7 +93,7 @@ export default function TeamPage() {
         </div>
       </header>
 
-      <MaximusInsight />
+      <MaximusInsight slug={slug} />
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>

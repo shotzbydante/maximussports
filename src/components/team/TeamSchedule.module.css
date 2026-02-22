@@ -126,3 +126,28 @@
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+.atsBadge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: var(--space-xs);
+  font-family: var(--font-mono);
+}
+
+.atsW {
+  background: rgba(45, 138, 110, 0.15);
+  color: var(--color-up);
+}
+
+.atsL {
+  background: rgba(196, 92, 74, 0.15);
+  color: var(--color-down);
+}
+
+.atsP {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-beige-dune);
+}

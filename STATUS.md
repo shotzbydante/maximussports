@@ -23,7 +23,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Rankings API:** `/api/rankings/index.js` — proxies ESPN AP Top 25 rankings, returns `{ rankings: [{ teamName, rank, teamId }] }`
 - **Schedule API:** `/api/schedule/[teamId].js` — ESPN team schedule (past + upcoming games)
 - **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
-- **Odds API:** `/api/odds/index.js` — proxy The Odds API (NCAA basketball spreads, totals, moneyline); optional `ODDS_API_KEY` env var; 5-min cache
+- **Odds API:** `/api/odds/index.js` — proxy The Odds API (NCAA basketball spreads, totals, moneyline); optional `ODDS_API_KEY`; 5-min cache
+- **Odds History API:** `/api/odds-history/index.js` — proxy Odds API historical odds (spreads); params `?from=YYYY-MM-DD&to=YYYY-MM-DD`; requires paid plan; 7-min cache
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -50,7 +51,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/utils/teamIdMap.js` | `buildSlugToIdFromRankings` — slug → ESPN team ID |
 | `src/api/schedule.js` | Client fetcher `fetchTeamSchedule(teamId)` |
 | `src/api/teamIds.js` | Client fetcher `fetchTeamIds()` for slug→id map |
-| `src/api/odds.js` | Client fetcher `fetchOdds(params)` + `mergeGamesWithOdds()` |
+| `src/api/odds.js` | Client: `fetchOdds()`, `fetchOddsHistory()`, `mergeGamesWithOdds()`, `matchOddsHistoryToEvent()` |
+| `src/utils/ats.js` | ATS helpers: `computeATS()`, `computeATSForEvent()`, `getOurSpread()`, `aggregateATS()` |
 | `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
 | `api/news/team/[slug].js` | Serverless: Google News RSS → JSON (per-team) |
@@ -60,13 +62,14 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/schedule/[teamId].js` | Serverless: ESPN team schedule → `{ events }` |
 | `api/teamIds/index.js` | Serverless: ESPN teams → `{ slugToId }` |
 | `api/odds/index.js` | Serverless: The Odds API proxy → `{ games }` (gameId, spread, total, moneyline) |
+| `api/odds-history/index.js` | Serverless: Odds API historical → `{ games }` (gameId, homeTeam, awayTeam, spread, sportsbook) |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
 ### Pages
 - `Home` — Pinned Teams Dashboard: pinned teams, **Top 25 Rankings** (full AP Top 25, clickable to team page), Dynamic Alerts, Dynamic Stats, hero, Live Scores, matchups, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
-- `TeamPage` — **Maximus's Insight** (ATS bubble), team header, last 90 days headlines, **Full Schedule** with odds (past + upcoming, ESPN + Odds API)
+- `TeamPage` — **Maximus's Insight** (real ATS: season, 30d, 7d W‑L‑P + cover %), team header, headlines, **Full Schedule** (past: spread + ATS badge; upcoming: odds)
 - `Games` — Key Dates (top), Daily Schedule (collapsible), Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
@@ -79,7 +82,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Shared:** `SourceBadge` (ESPN | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Odds API | team feeds)
 - **Home:** `PinnedTeamsSection`, `Top25Rankings` (full AP Top 25, links to team pages), `DynamicAlerts`, `DynamicStats`
 - **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible panels per date)
-- **Team:** `TeamSchedule` (Full Schedule — past + upcoming, ESPN + odds for upcoming), `MaximusInsight` (ATS bubble, Odds API)
+- **Team:** `TeamSchedule` (past: spread + ATS badge W/L/P; upcoming: spread + O/U), `MaximusInsight` (real ATS: season/30d/7d)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -94,7 +97,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
 | `/api/teamIds` | GET | slug → ESPN team ID map |
-| `/api/odds` | GET | NCAA basketball odds. Params: `date` (YYYY-MM-DD), `team` (slug, optional). Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
+| `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
+| `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Returns spreads for ATS. Requires `ODDS_API_KEY` |
 
 ---
 
@@ -132,6 +136,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 22, 2025)
+
+**Full ATS Analytics (Odds API paid plan):**
+- **`/api/odds-history`** — Proxy Odds API historical odds; `?from=YYYY-MM-DD&to=YYYY-MM-DD`; markets=spreads; 7‑min cache; max 31 days per request
+- **`src/utils/ats.js`** — `computeATS(teamScore, oppScore, teamSpread)` → W/L/P; `getOurSpread()`; `computeATSForEvent()`; `aggregateATS()` → W‑L‑P + cover %
+- **MaximusInsight** — Real ATS data: Season to date, Last 30 days, Last 7 days (W‑L‑P + cover %); fetches schedule + odds history; graceful fallback on error
+- **TeamSchedule** — Past games: closing spread + ATS badge (W/L/P) next to score; `fetchOddsHistory()` for date range
+- **SourceBadge** Odds API on ATS outputs; Bloomberg style + Air Force One palette; missing odds show "—"
 
 **Odds API Integration:**
 - **`/api/odds`** — Vercel serverless proxy for The Odds API (basketball_ncaab); regions=us, markets=spreads,totals,h2h; 5-min in-memory cache; `ODDS_API_KEY` required

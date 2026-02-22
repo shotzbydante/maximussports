@@ -7,7 +7,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchRankings } from '../../api/rankings';
 import { fetchTeamIds } from '../../api/teamIds';
 import { fetchTeamSchedule } from '../../api/schedule';
-import { fetchOdds } from '../../api/odds';
+import { fetchOdds, fetchOddsHistory, matchOddsHistoryToEvent } from '../../api/odds';
+import { computeATSForEvent } from '../../utils/ats';
 import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
 import { TEAMS, getTeamBySlug } from '../../data/teams';
 import SourceBadge from '../shared/SourceBadge';
@@ -64,6 +65,7 @@ function matchOddsToEvent(ev, oddsGames, teamName) {
 export default function TeamSchedule({ slug }) {
   const [events, setEvents] = useState([]);
   const [oddsGames, setOddsGames] = useState([]);
+  const [oddsHistoryGames, setOddsHistoryGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [teamId, setTeamId] = useState(null);
@@ -130,12 +132,30 @@ export default function TeamSchedule({ slug }) {
       .catch(() => setOddsGames([]));
   }, []);
 
+  const past = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const pastDateRange = past.length > 0
+    ? (() => {
+        const dates = past.map((e) => e.date).filter(Boolean);
+        const min = dates.reduce((a, b) => (a < b ? a : b));
+        const max = dates.reduce((a, b) => (a > b ? a : b));
+        return { from: new Date(min).toISOString().slice(0, 10), to: new Date(max).toISOString().slice(0, 10) };
+      })()
+    : null;
+
+  useEffect(() => {
+    if (!pastDateRange) {
+      setOddsHistoryGames([]);
+      return;
+    }
+    fetchOddsHistory(pastDateRange)
+      .then((res) => setOddsHistoryGames(res?.games ?? []))
+      .catch(() => setOddsHistoryGames([]));
+  }, [pastDateRange?.from, pastDateRange?.to]);
+
   if (!slug) return null;
 
   const team = getTeamBySlug(slug);
   const teamName = team?.name ?? '';
-
-  const past = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
   const upcoming = events.filter((e) => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   return (
@@ -144,7 +164,7 @@ export default function TeamSchedule({ slug }) {
         <h2 className={styles.title}>Full Schedule</h2>
         <div className={styles.sourceBadges}>
           <SourceBadge source="ESPN" />
-          {oddsGames.length > 0 && <SourceBadge source="Odds API" />}
+          {(oddsGames.length > 0 || oddsHistoryGames.length > 0) && <SourceBadge source="Odds API" />}
         </div>
       </div>
 
@@ -180,21 +200,32 @@ export default function TeamSchedule({ slug }) {
           {past.length > 0 && (
             <>
               <div className={styles.groupLabel}>Past</div>
-              {past.slice(0, 20).map((ev) => (
-                <div key={ev.id} className={`${styles.row} ${styles.rowPast}`}>
-                  <span className={styles.colDate}>{formatDatePST(ev.date)}</span>
-                  <span className={styles.colOpp}>
-                    {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
-                  </span>
-                  <span className={styles.colOdds}>—</span>
-                  <span className={styles.colResult}>
-                    {ev.ourScore != null && ev.oppScore != null
-                      ? `${ev.ourScore}–${ev.oppScore}`
-                      : '—'}
-                  </span>
-                  <span className={styles.colStatus}>{ev.status}</span>
-                </div>
-              ))}
+              {past.slice(0, 20).map((ev) => {
+                const histOdds = matchOddsHistoryToEvent(ev, oddsHistoryGames, teamName);
+                const spread = histOdds?.spread ?? '—';
+                const ats = computeATSForEvent(ev, histOdds, teamName);
+                const scoreStr = ev.ourScore != null && ev.oppScore != null
+                  ? `${ev.ourScore}–${ev.oppScore}`
+                  : '—';
+                return (
+                  <div key={ev.id} className={`${styles.row} ${styles.rowPast}`}>
+                    <span className={styles.colDate}>{formatDatePST(ev.date)}</span>
+                    <span className={styles.colOpp}>
+                      {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
+                    </span>
+                    <span className={styles.colOdds}>{spread}</span>
+                    <span className={styles.colResult}>
+                      {scoreStr}
+                      {ats && (
+                        <span className={`${styles.atsBadge} ${styles[`ats${ats}`]}`} title={`ATS: ${ats === 'W' ? 'Cover' : ats === 'L' ? 'No cover' : 'Push'}`}>
+                          {ats}
+                        </span>
+                      )}
+                    </span>
+                    <span className={styles.colStatus}>{ev.status}</span>
+                  </div>
+                );
+              })}
             </>
           )}
 

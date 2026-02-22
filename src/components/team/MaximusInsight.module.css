@@ -50,3 +50,49 @@
   color: var(--color-text-muted);
   margin: 0;
 }
+
+.records {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.recordRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  font-size: 0.85rem;
+}
+
+.recordLabel {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.recordValue {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
