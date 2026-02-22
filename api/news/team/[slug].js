@@ -1,10 +1,11 @@
 /**
- * Vercel Serverless Function: fetch top 5 Google News headlines for a team.
+ * Vercel Serverless Function: fetch top 10 Google News headlines for a team.
  * GET /api/news/team/:slug
- * No API key required — uses Google News RSS.
+ * Filters for men's basketball; sorts by recency.
  */
 
 import { XMLParser } from 'fast-xml-parser';
+import { isMensBasketball } from '../filters.js';
 import { getTeamBySlug } from '../../../src/data/teams.js';
 
 function parseSlug(req) {
@@ -70,13 +71,14 @@ export default async function handler(req, res) {
     const parsed = parser.parse(xml);
     const items = parsed?.rss?.channel?.item;
     const raw = Array.isArray(items) ? items : items ? [items] : [];
-    raw.sort((a, b) => {
+    const mbbFiltered = raw.filter((item) => isMensBasketball(item.title || ''));
+    mbbFiltered.sort((a, b) => {
       const da = new Date(a.pubDate || 0).getTime();
       const db = new Date(b.pubDate || 0).getTime();
       return db - da;
     });
     const limit = 10;
-    const headlines = raw.slice(0, limit).map((item, i) => ({
+    const headlines = mbbFiltered.slice(0, limit).map((item, i) => ({
       id: item.guid?.['#text'] || item.link || `news-${i}`,
       title: item.title || 'No title',
       link: item.link || '',

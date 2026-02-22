@@ -2,9 +2,21 @@
  * Vercel Serverless: Aggregate news from Google News + national feeds + team feeds.
  * GET /api/news/aggregate?teamSlug=&includeNational=&includeTeamFeeds=
  * Returns { items: [{ title, link, pubDate, source, feedType, teamSlug? }] }.
+ * Filters for men's basketball; sorts by source priority then recency.
  */
 
 import { XMLParser } from 'fast-xml-parser';
+import { isMensBasketball } from './filters.js';
+
+const SOURCE_PRIORITY = {
+  espn: 1,
+  'ncaa.com': 2,
+  ncaa: 2,
+  cbs: 3,
+  cbssports: 3,
+  yahoo: 4,
+  yahoosports: 4,
+};
 import { getTeamBySlug } from '../../../src/data/teams.js';
 import { NATIONAL_FEEDS, TEAM_FEEDS } from '../../../src/data/newsSources.js';
 
@@ -140,12 +152,23 @@ export default async function handler(req, res) {
       seen.add(key);
       return true;
     });
-    deduped.sort((a, b) => {
+    const mbbFiltered = deduped.filter((item) => isMensBasketball(item.title));
+    const sourcePriority = (src) => {
+      const k = (src || '').toLowerCase().replace(/\s+/g, '');
+      for (const [key, p] of Object.entries(SOURCE_PRIORITY)) {
+        if (k.includes(key)) return p;
+      }
+      return 99;
+    };
+    mbbFiltered.sort((a, b) => {
+      const pa = sourcePriority(a.source);
+      const pb = sourcePriority(b.source);
+      if (pa !== pb) return pa - pb;
       const da = new Date(a.pubDate || 0).getTime();
       const db = new Date(b.pubDate || 0).getTime();
       return db - da;
     });
-    res.json({ items: deduped });
+    res.json({ items: mbbFiltered });
   } catch (err) {
     console.error('Aggregate news error:', err.message);
     res.status(500).json({ error: err.message || 'Failed to fetch news' });

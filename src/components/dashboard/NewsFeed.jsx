@@ -14,6 +14,7 @@ export default function NewsFeed({ items = [], source = 'Mock' }) {
         <h3 className={styles.title}>News & Headlines</h3>
         <SourceBadge source={source} />
       </div>
+      <p className={styles.sourceLegend}>Sources: ESPN, NCAA, CBS, Yahoo, Team Feeds, Google News</p>
       {items.length === 0 ? (
         <p className={styles.empty}>Source unavailable. Check back later.</p>
       ) : (

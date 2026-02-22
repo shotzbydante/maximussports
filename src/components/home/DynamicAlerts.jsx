@@ -1,11 +1,13 @@
 /**
  * Dynamic Upsets & Alerts — ESPN scores + odds tiers.
  * Detects: Lock loses to Long shot; tier gap >= 2.
+ * Shows closing spread per alert (Odds API history).
  * Updates every 60s.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchScores } from '../../api/scores';
+import { fetchOddsHistory, matchOddsHistoryToGame } from '../../api/odds';
 import { getOddsTier } from '../../utils/teamSlug';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './DynamicAlerts.module.css';
@@ -97,11 +99,13 @@ function buildAlert(game) {
     underdogName,
     favored,
     underdog,
+    spread: null,
   };
 }
 
 export default function DynamicAlerts() {
   const [games, setGames] = useState([]);
+  const [oddsHistory, setOddsHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -129,13 +133,29 @@ export default function DynamicAlerts() {
     return () => clearInterval(id);
   }, [loadScores]);
 
-  const alerts = games.filter(isUpset).map(buildAlert);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    fetchOddsHistory({ from: todayStr, to: todayStr })
+      .then((res) => setOddsHistory(res?.games ?? []))
+      .catch(() => setOddsHistory([]));
+  }, []);
+
+  const upsetGames = games.filter(isUpset);
+  const alerts = upsetGames.map((g) => {
+    const a = buildAlert(g);
+    const odds = matchOddsHistoryToGame(g, oddsHistory);
+    a.spread = odds?.spread ?? null;
+    return a;
+  });
 
   return (
     <section className={styles.section}>
       <div className={styles.header}>
         <h2 className={styles.title}>Upsets & Alerts</h2>
-        <SourceBadge source="ESPN" />
+        <div className={styles.sourceBadges}>
+          <SourceBadge source="ESPN" />
+          <SourceBadge source="Odds API" />
+        </div>
       </div>
 
       {loading && !games.length && (
@@ -160,6 +180,7 @@ export default function DynamicAlerts() {
               </div>
               <div className={styles.alertMeta}>
                 {formatTime(a.startTime)} · {a.gameStatus}
+                {a.spread != null ? ` · Spread: ${a.spread}` : ' · Spread: —'}
               </div>
             </div>
           ))}

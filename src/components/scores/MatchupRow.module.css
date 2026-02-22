@@ -1,8 +1,9 @@
 .row {
   display: grid;
-  grid-template-columns: 1fr 70px 90px 85px 60px auto;
-  gap: var(--space-md);
+  grid-template-columns: minmax(140px, 1fr) 75px 95px 95px 70px auto;
+  gap: var(--space-lg);
   font-size: 0.85rem;
+  line-height: 1.5;
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--color-border-light);
   align-items: center;
@@ -10,6 +11,20 @@
 
 .row:last-child {
   border-bottom: none;
+}
+
+@media (max-width: 767px) {
+  .row .time,
+  .row .network {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: 1fr 60px auto;
+    gap: var(--space-sm);
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
 }
 
 .rowLive {

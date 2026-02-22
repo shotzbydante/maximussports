@@ -10,6 +10,12 @@
   margin-bottom: var(--space-md);
 }
 
+.sourceBadges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .title {
   font-size: 0.75rem;
   font-weight: 600;
@@ -67,4 +73,23 @@
   font-family: var(--font-mono);
   color: var(--color-text-muted);
   margin-top: var(--space-xs);
+}
+
+@media (max-width: 767px) {
+  .section {
+    margin-bottom: var(--space-lg);
+  }
+
+  .alert {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .alertScore {
+    font-size: 0.9rem;
+  }
+
+  .alertText {
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
 }

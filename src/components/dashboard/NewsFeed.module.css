@@ -6,6 +6,13 @@
   box-shadow: var(--shadow-card);
 }
 
+.sourceLegend {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  margin: -var(--space-sm) 0 var(--space-sm);
+  padding: 0 var(--space-md);
+}
+
 .widgetHeader {
   display: flex;
   align-items: center;

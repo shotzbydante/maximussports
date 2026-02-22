@@ -56,8 +56,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/utils/dateChunks.js` | `SEASON_START` (2025-11-01), `chunkDateRange(from, to, maxDays=31)` |
 | `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
-| `api/news/team/[slug].js` | Serverless: Google News RSS → JSON (per-team) |
-| `api/news/aggregate.js` | Serverless: Google + national + team feeds → `{ items }` |
+| `api/news/team/[slug].js` | Serverless: Google News RSS; MBB filter → JSON (per-team) |
+| `api/news/filters.js` | Men's basketball allowlist + exclude filter (`isMensBasketball`) |
+| `api/news/aggregate.js` | Serverless: Google + national + team feeds; MBB filter; source-priority sort → `{ items }` |
 | `api/scores/index.js` | Serverless: ESPN scoreboard proxy → simplified JSON |
 | `api/rankings/index.js` | Serverless: ESPN AP Top 25 → `{ rankings }` (incl. teamId) |
 | `api/schedule/[teamId].js` | Serverless: ESPN team schedule → `{ events }` |
@@ -70,7 +71,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ### Pages
 - `Home` — Pinned Teams Dashboard: pinned teams, **Top 25 Rankings** (full AP Top 25, clickable to team page), Dynamic Alerts, Dynamic Stats, hero, Live Scores, matchups, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
-- `TeamPage` — **Maximus's Insight** (real ATS: season, 30d, 7d W‑L‑P + cover %), team header, headlines, **Full Schedule** (past: spread + ATS badge; upcoming: odds)
+- `TeamPage` — **Maximus's Insight** (ATS), team header, **News** (Last 7 days default; collapsible Previous 90 days; source legend), **Full Schedule** (past: spread + ATS; upcoming: odds)
 - `Games` — Key Dates (top), Daily Schedule (collapsible), Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
@@ -81,8 +82,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Dashboard:** `MatchupPreview`, `OddsMovementWidget`, `NewsFeed`, `TeamNewsPreview`
 - **Scores:** `LiveScores`, `MatchupRow` (team links, PST, network, source badge)
 - **Shared:** `SourceBadge` (ESPN | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Odds API | team feeds)
-- **Home:** `PinnedTeamsSection`, `Top25Rankings` (full AP Top 25, links to team pages), `DynamicAlerts`, `DynamicStats`
-- **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible panels per date)
+- **Home:** `PinnedTeamsSection`, `Top25Rankings` (collapsible; desktop expanded, mobile collapsed), `DynamicAlerts` (closing spread, ESPN + Odds API badges), `DynamicStats`
+- **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible; zebra striping; mobile-responsive)
 - **Team:** `TeamSchedule` (past: spread + ATS badge W/L/P; upcoming: spread + O/U), `MaximusInsight` (real ATS: season/30d/7d)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
@@ -137,6 +138,16 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 22, 2025)
+
+**UI Cleanup + Readability + News Filtering:**
+- **Top 25 Rankings** — Collapsible with chevron; default expanded on desktop (≥768px), collapsed on mobile
+- **Upsets & Alerts** — Closing spread per alert (from Odds API history); "—" if unavailable; SourceBadge ESPN + Odds API
+- **Games / Daily Schedule** — Increased spacing, line-height; wider columns (opponent, time, status); zebra striping; mobile: hide time/network, 3-column compact layout
+- **Team Page News** — Last 7 days shown by default; collapsible "Previous 90 days"; single source (aggregate: Google + national + team feeds)
+- **Men's basketball filtering** — `api/news/filters.js`: allowlist (men's basketball, MBB, college basketball, etc.) + exclude (women, WBB, softball, football, baseball, etc.); applied in aggregate and team news APIs
+- **Source ranking** — Aggregate news sorted by priority: ESPN > NCAA.com > CBS Sports > Yahoo Sports > Team feeds > Google News, then recency
+- **Source badge legend** — "Sources: ESPN, NCAA, CBS, Yahoo, Team Feeds, Google News" near News sections (NewsFeed, TeamPage)
+- **Empty state** — "No men's basketball news in the last 7 days" when filtering removes all items
 
 **ATS + Spread Chunking Fix:**
 - **`src/utils/dateChunks.js`** — `SEASON_START = "2025-11-01"`; `chunkDateRange(from, to, maxDays=31)` for 31-day windows

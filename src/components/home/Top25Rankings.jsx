@@ -1,6 +1,6 @@
 /**
  * Top 25 Rankings — full AP Top 25 list from ESPN.
- * Each row: rank, team name (link to team page), conference, tier badge.
+ * Collapsible: expanded on desktop, collapsed on mobile by default.
  */
 
 import { useState, useEffect } from 'react';
@@ -20,10 +20,32 @@ const TIER_CLASS = {
   'Long shot': styles.tierLong,
 };
 
+const MOBILE_MQ = '(max-width: 767px)';
+
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(query).matches;
+  });
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const handler = () => setMatches(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
+
 export default function Top25Rankings() {
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isMobile = useMediaQuery(MOBILE_MQ);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpanded(!isMobile);
+  }, [isMobile]);
 
   useEffect(() => {
     fetchRankings()
@@ -36,12 +58,22 @@ export default function Top25Rankings() {
     return getTeamSlug(teamName) ?? getSlugFromRankingsName(teamName, TEAMS);
   };
 
+  const isExpanded = expanded;
+
   return (
     <section className={styles.section}>
-      <div className={styles.header}>
+      <button
+        type="button"
+        className={styles.header}
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={isExpanded}
+      >
         <h2 className={styles.title}>Top 25 Rankings</h2>
-        <SourceBadge source="ESPN" />
-      </div>
+        <div className={styles.headerRight}>
+          <SourceBadge source="ESPN" />
+          <span className={styles.chevron} aria-hidden>{isExpanded ? '▾' : '▸'}</span>
+        </div>
+      </button>
 
       {loading && (
         <div className={styles.loading}>Loading…</div>
@@ -51,7 +83,7 @@ export default function Top25Rankings() {
         <div className={styles.error}>Rankings unavailable</div>
       )}
 
-      {!loading && !error && rankings.length > 0 && (
+      {!loading && !error && rankings.length > 0 && isExpanded && (
         <div className={styles.table}>
           <div className={`${styles.row} ${styles.rowHeader}`}>
             <span className={styles.colRank}>#</span>

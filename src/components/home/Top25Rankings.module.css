@@ -8,6 +8,28 @@
   justify-content: space-between;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.header:hover {
+  opacity: 0.9;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.chevron {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .title {
@@ -117,4 +139,12 @@
 
 .tierNa {
   color: var(--color-text-muted);
+}
+
+@media (max-width: 767px) {
+  .row {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    padding: var(--space-sm) var(--space-md);
+  }
 }

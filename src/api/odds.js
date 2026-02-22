@@ -101,6 +101,23 @@ export function matchOddsHistoryToEvent(ev, oddsGames, teamName) {
 }
 
 /**
+ * Match odds history game to a score game (homeTeam, awayTeam, startTime).
+ * Used for DynamicAlerts closing spread.
+ */
+export function matchOddsHistoryToGame(game, oddsGames) {
+  if (!oddsGames?.length || !game?.homeTeam || !game?.awayTeam) return null;
+  const evDate = game.startTime ? new Date(game.startTime).toISOString().slice(0, 10) : '';
+  for (const o of oddsGames) {
+    const oDate = o.commenceTime ? new Date(o.commenceTime).toISOString().slice(0, 10) : '';
+    if (oDate !== evDate) continue;
+    const h = namesMatch(game.homeTeam, o.homeTeam);
+    const a = namesMatch(game.awayTeam, o.awayTeam);
+    if (h && a) return o;
+  }
+  return null;
+}
+
+/**
  * Merge ESPN scores with Odds API games by matching home/away teams and date.
  * @param {Array} scoreGames - from fetchScores
  * @param {Array} oddsGames - from fetchOdds().games

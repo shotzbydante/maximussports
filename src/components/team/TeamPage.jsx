@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
-import { fetchTeamNews, fetchAggregateNews } from '../../api/news';
+import { fetchAggregateNews } from '../../api/news';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
 import MaximusInsight from './MaximusInsight';
@@ -31,7 +31,7 @@ export default function TeamPage() {
   const [headlines, setHeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [allSources, setAllSources] = useState(false);
+  const [prev90Expanded, setPrev90Expanded] = useState(false);
 
   useEffect(() => {
     if (!team) {
@@ -40,30 +40,29 @@ export default function TeamPage() {
     }
     setLoading(true);
     setError(null);
-    if (allSources) {
-      fetchAggregateNews({
-        teamSlug: slug,
-        includeNational: true,
-        includeTeamFeeds: true,
+    fetchAggregateNews({
+      teamSlug: slug,
+      includeNational: true,
+      includeTeamFeeds: true,
+    })
+      .then(({ items }) => {
+        const mapped = items.map((item, i) => ({
+          id: item.link || `agg-${i}`,
+          title: item.title,
+          link: item.link,
+          pubDate: item.pubDate,
+          source: item.source || 'News',
+        }));
+        setHeadlines(mapped);
       })
-        .then(({ items }) => {
-          setHeadlines(items.map((item, i) => ({
-            id: item.link || `agg-${i}`,
-            title: item.title,
-            link: item.link,
-            pubDate: item.pubDate,
-            source: item.source || 'News',
-          })));
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
-    } else {
-      fetchTeamNews(slug)
-        .then((data) => setHeadlines((data.headlines || []).map((h) => ({ ...h, source: h.source || 'Google News' }))))
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
-    }
-  }, [slug, team, allSources]);
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [slug, team]);
+
+  const now = Date.now();
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const last7 = headlines.filter((h) => new Date(h.pubDate || 0).getTime() >= sevenDaysAgo);
+  const prev90 = headlines.filter((h) => new Date(h.pubDate || 0).getTime() < sevenDaysAgo);
 
   if (!team) {
     return (
@@ -97,18 +96,8 @@ export default function TeamPage() {
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>
-          <span className={styles.sectionLabel}>
-            {allSources ? 'All sources' : 'Google News (90 days)'}
-          </span>
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={allSources}
-              onChange={(e) => setAllSources(e.target.checked)}
-              aria-label="Include all sources"
-            />
-            All sources
-          </label>
+          <span className={styles.sectionLabel}>News</span>
+          <span className={styles.sourceLegend}>ESPN · NCAA · CBS · Yahoo · Team Feeds · Google News</span>
         </div>
 
         {loading && (
@@ -121,24 +110,63 @@ export default function TeamPage() {
         {error && <div className={styles.error}>{error}</div>}
 
         {!loading && !error && headlines.length === 0 && (
-          <div className={styles.empty}>No headlines found.</div>
+          <div className={styles.empty}>No men&apos;s basketball news in the last 90 days.</div>
         )}
 
         {!loading && !error && headlines.length > 0 && (
-          <ul className={styles.list}>
-            {headlines.map((h) => (
-              <li key={h.id} className={styles.row}>
-                <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
-                  <span className={styles.title}>{h.title}</span>
-                  <span className={styles.meta}>
-                    <SourceBadge source={h.source} />
-                    <span className={styles.date}>{formatDate(h.pubDate)}</span>
-                  </span>
-                  <span className={styles.chevron}>→</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className={styles.newsSubsection}>
+              <h4 className={styles.subsectionTitle}>Last 7 days</h4>
+              {last7.length === 0 ? (
+                <div className={styles.empty}>No men&apos;s basketball news in the last 7 days.</div>
+              ) : (
+                <ul className={styles.list}>
+                  {last7.map((h) => (
+                    <li key={h.id} className={styles.row}>
+                      <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
+                        <span className={styles.title}>{h.title}</span>
+                        <span className={styles.meta}>
+                          <SourceBadge source={h.source} />
+                          <span className={styles.date}>{formatDate(h.pubDate)}</span>
+                        </span>
+                        <span className={styles.chevron}>→</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {prev90.length > 0 && (
+              <div className={styles.newsSubsection}>
+                <button
+                  type="button"
+                  className={styles.collapseHeader}
+                  onClick={() => setPrev90Expanded((e) => !e)}
+                  aria-expanded={prev90Expanded}
+                >
+                  <span className={styles.subsectionTitle}>Previous 90 days</span>
+                  <span className={styles.collapseChevron} aria-hidden>{prev90Expanded ? '▾' : '▸'}</span>
+                </button>
+                {prev90Expanded && (
+                  <ul className={styles.list}>
+                    {prev90.map((h) => (
+                      <li key={h.id} className={styles.row}>
+                        <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
+                          <span className={styles.title}>{h.title}</span>
+                          <span className={styles.meta}>
+                            <SourceBadge source={h.source} />
+                            <span className={styles.date}>{formatDate(h.pubDate)}</span>
+                          </span>
+                          <span className={styles.chevron}>→</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
 
