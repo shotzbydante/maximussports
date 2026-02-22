@@ -4,6 +4,7 @@ import { getTeamBySlug } from '../../data/teams';
 import { fetchTeamNews, fetchAggregateNews } from '../../api/news';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
+import MaximusInsight from './MaximusInsight';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './TeamPage.module.css';
 
@@ -91,6 +92,8 @@ export default function TeamPage() {
           </div>
         </div>
       </header>
+
+      <MaximusInsight />
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>

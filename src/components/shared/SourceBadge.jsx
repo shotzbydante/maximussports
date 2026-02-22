@@ -5,7 +5,7 @@
 
 import styles from './SourceBadge.module.css';
 
-const KNOWN_SOURCES = ['ESPN', 'Google News', 'Yahoo Sports', 'CBS Sports', 'NCAA.com', 'Mock'];
+const KNOWN_SOURCES = ['ESPN', 'Google News', 'Yahoo Sports', 'CBS Sports', 'NCAA.com', 'Mock', 'Odds API'];
 const SOURCE_STYLES = {
   ESPN: styles.badgeESPN,
   'Google News': styles.badgeGoogleNews,
@@ -13,6 +13,7 @@ const SOURCE_STYLES = {
   'CBS Sports': styles.badgeCBS,
   'NCAA.com': styles.badgeNCAA,
   Mock: styles.badgeMock,
+  'Odds API': styles.badgeOddsAPI,
 };
 
 export default function SourceBadge({ source = 'Mock' }) {

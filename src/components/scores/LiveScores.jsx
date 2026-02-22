@@ -35,7 +35,11 @@ function isLive(status) {
   );
 }
 
-export default function LiveScores({ games = [], loading, error, compact = false, showTitle = true, source = 'ESPN' }) {
+function hasOdds(g) {
+  return g.spread != null || g.total != null;
+}
+
+export default function LiveScores({ games = [], loading, error, compact = false, showTitle = true, source = 'ESPN', showOdds = true }) {
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
       {showTitle && <h3 className={styles.title}>Live Scores</h3>}
@@ -72,13 +76,17 @@ export default function LiveScores({ games = [], loading, error, compact = false
       {showTitle && (
         <div className={styles.widgetHeader}>
           <h3 className={styles.title}>Live Scores</h3>
-          <SourceBadge source={source} />
+          <div className={styles.sourceBadges}>
+            <SourceBadge source={source} />
+            {showOdds && games.some(hasOdds) && <SourceBadge source="Odds API" />}
+          </div>
         </div>
       )}
-      <div className={`${styles.table} ${compact ? styles.tableCompact : styles.tableFull}`}>
+      <div className={`${styles.table} ${compact ? styles.tableCompact : styles.tableFull} ${!showOdds ? styles.tableNoOdds : ''}`}>
         <div className={`${styles.row} ${styles.rowHeader}`}>
           <span className={styles.colMatchup}>Matchup</span>
           <span className={styles.colScore}>Score</span>
+          {showOdds && <span className={styles.colOdds}>Spread / O/U</span>}
           <span className={styles.colStatus}>Status</span>
           {!compact && <span className={styles.colTime}>Start</span>}
         </div>
@@ -129,6 +137,17 @@ export default function LiveScores({ games = [], loading, error, compact = false
                   <span className={styles.tbd}>—</span>
                 )}
               </span>
+              {showOdds && (
+                <span className={styles.colOdds}>
+                  {hasOdds(g) ? (
+                    <span className={styles.oddsText}>
+                      {g.spread ?? '—'} / {g.total != null ? `O/U ${g.total}` : '—'}
+                    </span>
+                  ) : (
+                    <span className={styles.tbd}>—</span>
+                  )}
+                </span>
+              )}
               <span className={styles.colStatus}>
                 <span className={live ? styles.statusLive : ''}>{g.gameStatus}</span>
                 {live && <span className={styles.dot} />}

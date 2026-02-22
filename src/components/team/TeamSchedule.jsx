@@ -7,8 +7,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchRankings } from '../../api/rankings';
 import { fetchTeamIds } from '../../api/teamIds';
 import { fetchTeamSchedule } from '../../api/schedule';
+import { fetchOdds } from '../../api/odds';
 import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
-import { TEAMS } from '../../data/teams';
+import { TEAMS, getTeamBySlug } from '../../data/teams';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './TeamSchedule.module.css';
 
@@ -42,8 +43,27 @@ function formatTimePST(iso) {
   }
 }
 
+function matchOddsToEvent(ev, oddsGames, teamName) {
+  if (!oddsGames?.length || !teamName) return null;
+  const evDate = ev.date ? new Date(ev.date).toISOString().slice(0, 10) : '';
+  const norm = (s) => (s || '').toLowerCase().trim();
+  const evOpp = norm(ev.opponent);
+  const teamNorm = norm(teamName);
+  for (const o of oddsGames) {
+    const oDate = o.commenceTime ? new Date(o.commenceTime).toISOString().slice(0, 10) : '';
+    if (oDate !== evDate) continue;
+    const home = norm(o.homeTeam);
+    const away = norm(o.awayTeam);
+    const hasTeam = home.includes(teamNorm) || away.includes(teamNorm) || teamNorm.includes(home) || teamNorm.includes(away);
+    const hasOpp = home.includes(evOpp) || away.includes(evOpp) || evOpp.includes(home) || evOpp.includes(away);
+    if (hasTeam && hasOpp) return o;
+  }
+  return null;
+}
+
 export default function TeamSchedule({ slug }) {
   const [events, setEvents] = useState([]);
+  const [oddsGames, setOddsGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [teamId, setTeamId] = useState(null);
@@ -104,7 +124,16 @@ export default function TeamSchedule({ slug }) {
     return () => { cancelled = true; };
   }, [slug, resolveTeamId]);
 
+  useEffect(() => {
+    fetchOdds()
+      .then((res) => setOddsGames(res?.games ?? []))
+      .catch(() => setOddsGames([]));
+  }, []);
+
   if (!slug) return null;
+
+  const team = getTeamBySlug(slug);
+  const teamName = team?.name ?? '';
 
   const past = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
   const upcoming = events.filter((e) => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -113,7 +142,10 @@ export default function TeamSchedule({ slug }) {
     <section className={styles.section}>
       <div className={styles.header}>
         <h2 className={styles.title}>Full Schedule</h2>
-        <SourceBadge source="ESPN" />
+        <div className={styles.sourceBadges}>
+          <SourceBadge source="ESPN" />
+          {oddsGames.length > 0 && <SourceBadge source="Odds API" />}
+        </div>
       </div>
 
       {loading && (
@@ -140,6 +172,7 @@ export default function TeamSchedule({ slug }) {
           <div className={`${styles.row} ${styles.rowHeader}`}>
             <span>Date</span>
             <span>Opponent</span>
+            <span>Spread / O/U</span>
             <span>Result</span>
             <span>Status</span>
           </div>
@@ -148,11 +181,12 @@ export default function TeamSchedule({ slug }) {
             <>
               <div className={styles.groupLabel}>Past</div>
               {past.slice(0, 20).map((ev) => (
-                <div key={ev.id} className={styles.row}>
+                <div key={ev.id} className={`${styles.row} ${styles.rowPast}`}>
                   <span className={styles.colDate}>{formatDatePST(ev.date)}</span>
                   <span className={styles.colOpp}>
                     {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
                   </span>
+                  <span className={styles.colOdds}>—</span>
                   <span className={styles.colResult}>
                     {ev.ourScore != null && ev.oppScore != null
                       ? `${ev.ourScore}–${ev.oppScore}`
@@ -167,18 +201,31 @@ export default function TeamSchedule({ slug }) {
           {upcoming.length > 0 && (
             <>
               <div className={styles.groupLabel}>Upcoming</div>
-              {upcoming.map((ev) => (
-                <div key={ev.id} className={styles.row}>
-                  <span className={styles.colDate}>
-                    {formatDatePST(ev.date)} {formatTimePST(ev.date)} PST
-                  </span>
-                  <span className={styles.colOpp}>
-                    {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
-                  </span>
-                  <span className={styles.colResult}>—</span>
-                  <span className={styles.colStatus}>{ev.status}</span>
-                </div>
-              ))}
+              {upcoming.map((ev) => {
+                const odds = matchOddsToEvent(ev, oddsGames, teamName);
+                const hasOdds = odds?.spread != null || odds?.total != null;
+                return (
+                  <div key={ev.id} className={styles.row}>
+                    <span className={styles.colDate}>
+                      {formatDatePST(ev.date)} {formatTimePST(ev.date)} PST
+                    </span>
+                    <span className={styles.colOpp}>
+                      {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
+                    </span>
+                    <span className={styles.colOdds}>
+                      {hasOdds ? (
+                        <span className={styles.oddsText}>
+                          {odds.spread ?? '—'} / {odds.total != null ? `O/U ${odds.total}` : '—'}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </span>
+                    <span className={styles.colResult}>—</span>
+                    <span className={styles.colStatus}>{ev.status}</span>
+                  </div>
+                );
+              })}
             </>
           )}
         </div>

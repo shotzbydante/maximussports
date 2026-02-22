@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { topMatchups } from '../data/mockData';
 import { fetchScores } from '../api/scores';
+import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
+import { getTeamSlug } from '../utils/teamSlug';
 import KeyDatesWidget from '../components/home/KeyDatesWidget';
 import DailySchedule from '../components/home/DailySchedule';
 import LiveScores from '../components/scores/LiveScores';
@@ -15,8 +17,14 @@ export default function Games() {
 
   const loadScores = useCallback(() => {
     setScores((s) => ({ ...s, loading: true }));
-    fetchScores()
-      .then((games) => setScores({ games, loading: false, error: null }))
+    Promise.all([
+      fetchScores(),
+      fetchOdds().catch(() => ({ games: [] })),
+    ])
+      .then(([games, oddsRes]) => {
+        const merged = mergeGamesWithOdds(games, oddsRes?.games ?? [], getTeamSlug);
+        setScores({ games: merged, loading: false, error: null });
+      })
       .catch((err) => setScores((s) => ({ ...s, loading: false, error: err.message })));
   }, []);
 

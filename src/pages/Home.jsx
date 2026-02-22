@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { dailyReport, topMatchups, oddsMovement, newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchAggregatedNews, fetchAggregateNews } from '../api/news';
 import { fetchScores } from '../api/scores';
+import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
 import { fetchRankings } from '../api/rankings';
 import { getPinnedTeams } from '../utils/pinnedTeams';
 import { getOddsTier } from '../utils/teamSlug';
@@ -121,8 +122,14 @@ export default function Home() {
 
   const loadScores = useCallback(() => {
     setScores((s) => ({ ...s, loading: true }));
-    fetchScores()
-      .then((games) => setScores({ games, loading: false, error: null }))
+    Promise.all([
+      fetchScores(),
+      fetchOdds().catch(() => ({ games: [] })),
+    ])
+      .then(([games, oddsRes]) => {
+        const merged = mergeGamesWithOdds(games, oddsRes?.games ?? [], getTeamSlug);
+        setScores({ games: merged, loading: false, error: null });
+      })
       .catch((err) => setScores({ games: [], loading: false, error: err.message }));
   }, []);
 

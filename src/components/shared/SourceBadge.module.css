@@ -41,3 +41,8 @@
   background: rgba(60, 121, 180, 0.1);
   color: var(--color-text-muted);
 }
+
+.badgeOddsAPI {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-beige-dune);
+}

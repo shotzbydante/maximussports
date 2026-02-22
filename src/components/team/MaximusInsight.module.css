@@ -1,0 +1,52 @@
+/* Bloomberg-style bubble — Air Force One palette */
+.bubble {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: var(--space-lg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-muted);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.content {
+  padding: var(--space-md);
+  font-size: 0.85rem;
+}
+
+.label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-sm);
+}
+
+.unavailable {
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-xs);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}

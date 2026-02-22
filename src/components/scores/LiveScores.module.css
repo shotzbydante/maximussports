@@ -58,14 +58,38 @@
   border-left: 3px solid var(--color-up);
 }
 
-/* Full layout: matchup, score, status, start time */
+/* Full layout: matchup, score, spread/ou (if showOdds), status, start time */
 .tableFull .row {
+  grid-template-columns: 1fr 80px 100px 100px 70px;
+}
+
+.tableFull.tableNoOdds .row {
   grid-template-columns: 1fr 80px 100px 70px;
 }
 
-/* Compact layout: matchup, score, status only (no start time col) */
+/* Compact layout: matchup, score, spread (if showOdds), status */
 .tableCompact .row {
+  grid-template-columns: 1fr 70px 90px 90px;
+}
+
+.tableCompact.tableNoOdds .row {
   grid-template-columns: 1fr 70px 90px;
+}
+
+.sourceBadges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.colOdds {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.oddsText {
+  white-space: nowrap;
 }
 
 .colMatchup {

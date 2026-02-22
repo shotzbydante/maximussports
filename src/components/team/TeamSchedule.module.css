@@ -60,12 +60,28 @@
 
 .row {
   display: grid;
-  grid-template-columns: 140px 1fr 80px 100px;
+  grid-template-columns: 140px 1fr 90px 80px 100px;
   gap: var(--space-md);
   align-items: center;
   padding: var(--space-sm) var(--space-md);
   font-size: 0.85rem;
   border-bottom: 1px solid var(--color-border-light);
+}
+
+.header .sourceBadges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.colOdds {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.oddsText {
+  white-space: nowrap;
 }
 
 .row:last-child {
