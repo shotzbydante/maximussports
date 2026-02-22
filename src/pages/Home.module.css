@@ -60,7 +60,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-md);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 @media (max-width: 1024px) {
@@ -77,8 +77,8 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: var(--space-xl);
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-lg);
 }
 
 @media (max-width: 1200px) {
@@ -88,12 +88,14 @@
 }
 
 .sectionTitle {
-  font-size: 0.85rem;
-  margin-bottom: var(--space-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: var(--space-md);
   padding-bottom: var(--space-xs);
   border-bottom: 1px solid var(--color-primary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
 }
 
 .matchupList {

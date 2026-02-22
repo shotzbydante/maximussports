@@ -1,11 +1,13 @@
+import { useState, useEffect } from 'react';
 import {
   dailyReport,
   topMatchups,
   oddsMovement,
-  newsFeed,
+  newsFeed as mockNewsFeed,
   teamNewsPreview,
   statCards,
 } from '../data/mockData';
+import { fetchAggregatedNews } from '../api/news';
 import StatCard from '../components/shared/StatCard';
 import MatchupPreview from '../components/dashboard/MatchupPreview';
 import OddsMovementWidget from '../components/dashboard/OddsMovementWidget';
@@ -13,7 +15,20 @@ import NewsFeed from '../components/dashboard/NewsFeed';
 import TeamNewsPreview from '../components/dashboard/TeamNewsPreview';
 import styles from './Home.module.css';
 
+const FEATURED_SLUGS = ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
+
 export default function Home() {
+  const [newsData, setNewsData] = useState({
+    teamNews: teamNewsPreview,
+    newsFeed: mockNewsFeed,
+  });
+
+  useEffect(() => {
+    fetchAggregatedNews(FEATURED_SLUGS)
+      .then(({ teamNews, newsFeed }) => setNewsData({ teamNews, newsFeed }))
+      .catch(() => setNewsData({ teamNews: teamNewsPreview, newsFeed: mockNewsFeed }));
+  }, []);
+
   return (
     <div className={styles.home}>
       {/* Hero / Daily Report */}
@@ -61,10 +76,10 @@ export default function Home() {
             <OddsMovementWidget movements={oddsMovement} />
           </div>
           <div className={styles.widgetSection} id="news">
-            <NewsFeed items={newsFeed} />
+            <NewsFeed items={newsData.newsFeed} />
           </div>
           <div className={styles.widgetSection} id="news-teams">
-            <TeamNewsPreview items={teamNewsPreview} />
+            <TeamNewsPreview items={newsData.teamNews} />
           </div>
         </aside>
       </div>

@@ -1,0 +1,137 @@
+.table {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--color-bg-muted);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.filterLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.labelText {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.select {
+  font-size: 0.85rem;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+.wrapper {
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.grid th {
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(60, 121, 180, 0.04);
+}
+
+.grid td {
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.grid tbody tr:hover {
+  background: var(--color-bg-muted);
+}
+
+.colTeam {
+  min-width: 220px;
+}
+
+.colConf {
+  min-width: 100px;
+}
+
+.colTier {
+  min-width: 100px;
+}
+
+.teamLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.teamLink:hover {
+  color: var(--color-primary);
+}
+
+.chevron {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.tierLock {
+  background: rgba(45, 138, 110, 0.15);
+  color: var(--color-up);
+}
+
+.tierShould {
+  background: rgba(60, 121, 180, 0.15);
+  color: var(--color-metro-blue);
+}
+
+.tierWork {
+  background: rgba(183, 152, 108, 0.2);
+  color: var(--color-beige-dune);
+}
+
+.tierLong {
+  background: rgba(196, 92, 74, 0.15);
+  color: var(--color-down);
+}
+
+.count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border-light);
+  font-family: var(--font-mono);
+}
