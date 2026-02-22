@@ -139,6 +139,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2025)
 
+**Production Fixes (Tulsa, Liberty, McNeese, etc.):**
+- **Diagnostics** — `/api/teamIds`: Always returns `{ slugToId, missingSlugs }`; on error returns 200 with fallback overrides; `/api/news/aggregate?debug=true`: returns `{ items, sourcesTried, errors }`; `/api/odds-history?debug=true` and `/api/odds?debug=true`: return `{ games, debug: { gamesCount, cacheHit, firstGame } }`
+- **Team ID fallback map** — Expanded TEAM_ID_OVERRIDES: Tulsa 202, Liberty 2335, McNeese 2377, Grand Canyon 166, Dayton 2126, South Florida 58, Belmont 2057, Nevada 2440, Boise State 68, Santa Clara 221, New Mexico 167, VCU 2670; teamIds never returns 500 (falls back to overrides on ESPN error)
+- **News 500s fix** — User-Agent header on all fetches; `safeParseXml()` guards XML parse errors; per-feed failures never throw; always 200; fallback chain: full → Google only → Google+Yahoo → empty
+- **Odds/ATS** — odds-history and odds return 200 with `{ games: [] }` on error instead of 500; ATS shows "—" when no odds
+
 **News 500s Fix + Pinned Team Records:**
 - **News API staged fallback** — `/api/news/aggregate`: 1) Full stack (Google + National + Team Feeds) → 2) Google only → 3) Google + Yahoo → 4) empty array 200. Never returns 500; all fetches wrapped in try/catch; per-feed failures return []; always 200 with `{ items: [] }`
 - **Google News safety** — teamSlug URL-decoded; fallback query when team not in teams.js; teamSlug always yields Google News attempt
