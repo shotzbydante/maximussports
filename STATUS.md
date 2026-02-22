@@ -140,7 +140,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ## Latest Changes (Feb 22, 2025)
 
 **Vercel module path fix:**
-- **Serverless imports** — api/teamIds, api/news/aggregate: changed `../../../src/` → `../../src/` (correct relative path from api subdir to project root); api/news/team/[slug].js keeps `../../../src/` (3 levels deep)
+- **Serverless imports** — api/teamIds, api/news/aggregate: use `../../src/` (two levels up from api subdir to project root); api/news/team/[slug].js uses `../../../src/` (3 levels deep). Fixes ERR_MODULE_NOT_FOUND for /var/src/...
 
 **Production Fixes (Tulsa, Liberty, McNeese, etc.):**
 - **Diagnostics** — `/api/teamIds`: Always returns `{ slugToId, missingSlugs }`; on error returns 200 with fallback overrides; `/api/news/aggregate?debug=true`: returns `{ items, sourcesTried, errors }`; `/api/odds-history?debug=true` and `/api/odds?debug=true`: return `{ games, debug: { gamesCount, cacheHit, firstGame } }`
