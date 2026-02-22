@@ -142,7 +142,14 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'Odds API not configured (ODDS_API_KEY)' });
+  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
+  if (!apiKey) {
+    const payload = { games: [], error: 'missing_key', hasOddsKey: false };
+    if (debug) {
+      payload.debug = { gamesCount: 0, cacheHit: false, firstGame: null, hasOddsKey: false };
+    }
+    return res.status(200).json(payload);
+  }
 
   const fromStr = req.query?.from;
   const toStr = req.query?.to;
@@ -158,7 +165,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'from must be <= to' });
   }
 
-  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
   const fullCacheKey = getCacheKey({ from: fromStr, to: toStr });
   const fullCached = getCached(fullCacheKey);
 
@@ -168,6 +174,8 @@ export default async function handler(req, res) {
         gamesCount: result.games?.length ?? 0,
         cacheHit: !!fullCached,
         firstGame: result.games?.[0] ? { homeTeam: result.games[0].homeTeam, awayTeam: result.games[0].awayTeam, spread: result.games[0].spread } : null,
+        hasOddsKey: true,
+        ...(result.error && { error: result.error }),
       };
     }
     return result;
@@ -193,6 +201,6 @@ export default async function handler(req, res) {
     res.json(addDebug(result));
   } catch (err) {
     console.error('Odds history proxy error:', err.message);
-    res.status(200).json(addDebug({ games: [] }));
+    res.status(200).json(addDebug({ games: [], error: err.message }));
   }
 }

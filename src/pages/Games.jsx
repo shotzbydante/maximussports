@@ -16,16 +16,23 @@ export default function Games() {
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
 
   const loadScores = useCallback(() => {
-    setScores((s) => ({ ...s, loading: true }));
+    setScores((s) => ({ ...s, loading: true, oddsError: null, oddsMessage: null }));
     Promise.all([
       fetchScores(),
-      fetchOdds().catch(() => ({ games: [] })),
+      fetchOdds().catch(() => ({ games: [], error: 'fetch_failed' })),
     ])
       .then(([games, oddsRes]) => {
-        const merged = mergeGamesWithOdds(games, oddsRes?.games ?? [], getTeamSlug);
-        setScores({ games: merged, loading: false, error: null });
+        const oddsGames = oddsRes?.games ?? [];
+        const merged = mergeGamesWithOdds(games, oddsGames, getTeamSlug);
+        let oddsMessage = null;
+        if (oddsRes?.error === 'missing_key') {
+          oddsMessage = 'Odds API key missing in production.';
+        } else if (oddsRes?.hasOddsKey === true && oddsGames.length === 0) {
+          oddsMessage = games.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
+        }
+        setScores({ games: merged, loading: false, error: null, oddsError: oddsRes?.error, oddsMessage });
       })
-      .catch((err) => setScores((s) => ({ ...s, loading: false, error: err.message })));
+      .catch((err) => setScores((s) => ({ ...s, loading: false, error: err.message, oddsError: null, oddsMessage: null })));
   }, []);
 
   useEffect(() => {
@@ -61,6 +68,7 @@ export default function Games() {
           games={scores.games}
           loading={scores.loading}
           error={scores.error}
+          oddsMessage={scores.oddsMessage}
           compact={false}
           showTitle={false}
         />

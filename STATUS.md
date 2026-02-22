@@ -1,6 +1,6 @@
 # Maximus Sports — Project Status
 
-**Last updated:** Feb 22, 2025
+**Last updated:** Feb 22, 2026
 
 ## Summary
 
@@ -137,7 +137,18 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
-## Latest Changes (Feb 22, 2025)
+## Latest Changes (Feb 22, 2026)
+
+**Odds API diagnostics & production fix:**
+- **Debug instrumentation** — `/api/odds?debug=true` and `/api/odds-history?from=...&to=...&debug=true` return `{ games, debug: { gamesCount, cacheHit, firstGame, hasOddsKey, error? } }`
+- **Vercel env var check** — Both APIs return 200 with `{ games: [], error: "missing_key", hasOddsKey: false }` when ODDS_API_KEY missing (no 503)
+- **Frontend missing odds state** — LiveScores shows: "Odds API key missing in production." when error=missing_key; "Odds API returned no games." when 0 games from API; "No odds currently available." when empty schedule
+- **mergeGamesWithOdds** — Normalizes team names (strip mascots, punctuation, University, State); matches by date (same day); chooses closest commenceTime when multiple matches; dev-only debug log for no-match
+- **Odds API fallback** — When primary markets (spreads,totals,h2h) return empty, tries spreads,totals then spreads only
+
+---
+
+## Previous Changes (Feb 22, 2025)
 
 **News timeouts fix (priority fetch + cache):**
 - **Priority fetch** — `/api/news/aggregate`: Google News first (10s timeout), then other feeds via Promise.allSettled (5s). Google baseline used immediately; national/team feeds merged without blocking

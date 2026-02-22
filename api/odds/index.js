@@ -79,14 +79,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey) {
-    return res.status(503).json({ error: 'Odds API not configured (ODDS_API_KEY)' });
-  }
-
   const dateParam = req.query?.date;
   const teamParam = req.query?.team;
   const debug = req.query?.debug === 'true' || req.query?.debug === '1';
+
+  const apiKey = process.env.ODDS_API_KEY;
+  const hasOddsKey = !!apiKey;
+  if (!apiKey) {
+    const payload = { games: [], error: 'missing_key', hasOddsKey: false };
+    if (debug) {
+      payload.debug = { gamesCount: 0, cacheHit: false, firstGame: null, hasOddsKey: false };
+    }
+    return res.status(200).json(payload);
+  }
   const cacheKey = getCacheKey({ date: dateParam, team: teamParam });
   const cached = getCached(cacheKey);
 
@@ -96,6 +101,8 @@ export default async function handler(req, res) {
         gamesCount: payload.games?.length ?? 0,
         cacheHit: !!cached,
         firstGame: payload.games?.[0] ? { homeTeam: payload.games[0].homeTeam, awayTeam: payload.games[0].awayTeam, spread: payload.games[0].spread } : null,
+        hasOddsKey: true,
+        ...(payload.error && { error: payload.error }),
       };
     }
     return payload;
@@ -119,22 +126,30 @@ export default async function handler(req, res) {
       params.set('commenceTimeTo', `${dateParam}T23:59:59Z`);
     }
 
-    const url = `${ODDS_BASE}?${params.toString()}`;
-    const oddsRes = await fetch(url);
+    let raw = null;
+    let oddsRes = null;
+    const tryMarkets = ['spreads,totals,h2h', 'spreads,totals', 'spreads'];
 
-    const remaining = oddsRes.headers.get('x-requests-remaining');
-    const used = oddsRes.headers.get('x-requests-used');
+    for (const markets of tryMarkets) {
+      params.set('markets', markets);
+      const url = `${ODDS_BASE}?${params.toString()}`;
+      oddsRes = await fetch(url);
 
-    if (!oddsRes.ok) {
-      const errBody = await oddsRes.text();
-      console.error('Odds API error:', oddsRes.status, errBody);
-      throw new Error(`Odds API failed: ${oddsRes.status}`);
+      if (!oddsRes.ok) {
+        const errBody = await oddsRes.text();
+        console.error('Odds API error:', oddsRes.status, errBody);
+        throw new Error(`Odds API failed: ${oddsRes.status}`);
+      }
+
+      raw = await oddsRes.json();
+      if (!Array.isArray(raw)) {
+        throw new Error('Unexpected Odds API response');
+      }
+      if (raw.length > 0) break;
     }
 
-    const raw = await oddsRes.json();
-    if (!Array.isArray(raw)) {
-      throw new Error('Unexpected Odds API response');
-    }
+    const remaining = oddsRes?.headers?.get?.('x-requests-remaining');
+    const used = oddsRes?.headers?.get?.('x-requests-used');
 
     const games = raw.map((ev) => {
       const { spread, total, moneyline, sportsbook } = extractOdds(ev.bookmakers);
@@ -159,6 +174,6 @@ export default async function handler(req, res) {
     res.json(addDebug(result));
   } catch (err) {
     console.error('Odds API proxy error:', err.message);
-    res.status(200).json(addDebug({ games: [] }));
+    res.status(200).json(addDebug({ games: [], error: err.message }));
   }
 }

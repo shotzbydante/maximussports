@@ -39,7 +39,7 @@ function hasOdds(g) {
   return g.spread != null || g.total != null;
 }
 
-export default function LiveScores({ games = [], loading, error, compact = false, showTitle = true, source = 'ESPN', showOdds = true }) {
+export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true }) {
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
       {showTitle && <h3 className={styles.title}>Live Scores</h3>}
@@ -161,6 +161,9 @@ export default function LiveScores({ games = [], loading, error, compact = false
           );
         })}
       </div>
+      {oddsMessage && showOdds && (
+        <p className={styles.oddsMessage}>{oddsMessage}</p>
+      )}
       {loading && games.length > 0 && (
         <div className={styles.refreshing}>Updating…</div>
       )}
