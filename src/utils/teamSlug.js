@@ -3,7 +3,7 @@
  * Used for linking scores/matchups to team pages.
  */
 
-import { TEAMS } from '../data/teams';
+import { TEAMS } from '../data/teams.js';
 
 /** Normalize for matching: lowercase, remove punctuation, collapse whitespace */
 function normalize(s) {

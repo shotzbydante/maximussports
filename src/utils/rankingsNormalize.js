@@ -4,7 +4,7 @@
  * collapse whitespace, apply alias map.
  */
 
-import { getTeamSlug } from './teamSlug';
+import { getTeamSlug } from './teamSlug.js';
 
 const RANKINGS_ALIAS = {
   uconn: 'connecticut',

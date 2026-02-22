@@ -3,9 +3,9 @@
  * Built from rankings data (Top 25) + ESPN teams list.
  */
 
-import { getTeamSlug } from './teamSlug';
-import { getSlugFromRankingsName } from './rankingsNormalize';
-import { TEAMS } from '../data/teams';
+import { getTeamSlug } from './teamSlug.js';
+import { getSlugFromRankingsName } from './rankingsNormalize.js';
+import { TEAMS } from '../data/teams.js';
 
 /**
  * Build slug → ESPN team ID map from rankings API response.

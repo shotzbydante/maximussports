@@ -139,6 +139,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**Vercel ESM import fix (src/utils):**
+- **ESM requires .js in import paths** — In `src/utils/teamSlug.js`, `rankingsNormalize.js`, and `teamIdMap.js`, all relative imports now include the `.js` extension (e.g. `'../data/teams.js'`, `'./teamSlug.js'`). Fixes `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/src/data/teams'` on Vercel serverless.
+
 **Team IDs: Big Ten overrides + debug:**
 - **TEAM_ID_OVERRIDES** — Added Big Ten schools so every `teams.js` slug can resolve: Iowa (2294), Indiana (84), Wisconsin (275), Ohio State (194), Michigan (130), Purdue (2509), Illinois (356), Nebraska (158), Michigan State (127); plus existing UCLA, USC, Washington. `/api/teamIds` now includes e.g. `iowa-hawkeyes`.
 - **Debug flag** — `/api/teamIds?debug=true` returns `missingSlugs` and `missingCount`; without `debug`, response is `{ slugToId }` only.
