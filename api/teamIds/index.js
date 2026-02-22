@@ -32,6 +32,8 @@ export default async function handler(req, res) {
 
     const slugToId = {};
     const sports = data?.sports || [];
+    const unmatchedEspnTeams = [];
+
     for (const sport of sports) {
       const leagues = sport?.leagues || [];
       for (const league of leagues) {
@@ -39,11 +41,37 @@ export default async function handler(req, res) {
         for (const t of teams) {
           const team = t?.team || t;
           const id = team?.id ? String(team.id) : null;
-          const displayName = team?.displayName || [team?.location, team?.name].filter(Boolean).join(' ');
-          const slug = getTeamSlug(displayName);
-          if (id && slug) slugToId[slug] = id;
+          if (!id) continue;
+
+          const displayName = team?.displayName || '';
+          const location = team?.location || '';
+          const name = team?.name || '';
+          const shortDisplayName = team?.shortDisplayName || '';
+
+          const variants = [
+            displayName,
+            [location, name].filter(Boolean).join(' '),
+            shortDisplayName,
+            [shortDisplayName, name].filter(Boolean).join(' '),
+          ].filter(Boolean);
+
+          let slug = null;
+          for (const v of variants) {
+            slug = getTeamSlug(v);
+            if (slug) break;
+          }
+
+          if (slug) {
+            slugToId[slug] = id;
+          } else {
+            unmatchedEspnTeams.push({ id, displayName, location, name });
+          }
         }
       }
+    }
+
+    if (unmatchedEspnTeams.length > 0) {
+      console.debug('[teamIds] Unmatched ESPN teams:', unmatchedEspnTeams);
     }
 
     res.json({ slugToId });

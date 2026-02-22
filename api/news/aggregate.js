@@ -6,7 +6,7 @@
  */
 
 import { XMLParser } from 'fast-xml-parser';
-import { isMensBasketball } from './filters.js';
+import { isMensBasketball, isMensBasketballLoose } from './filters.js';
 
 const SOURCE_PRIORITY = {
   espn: 1,
@@ -152,7 +152,10 @@ export default async function handler(req, res) {
       seen.add(key);
       return true;
     });
-    const mbbFiltered = deduped.filter((item) => isMensBasketball(item.title));
+    let mbbFiltered = deduped.filter((item) => isMensBasketball(item.title));
+    if (mbbFiltered.length === 0 && deduped.length > 0) {
+      mbbFiltered = deduped.filter((item) => isMensBasketballLoose(item.title));
+    }
     const sourcePriority = (src) => {
       const k = (src || '').toLowerCase().replace(/\s+/g, '');
       for (const [key, p] of Object.entries(SOURCE_PRIORITY)) {

@@ -17,6 +17,16 @@ const MBB_ALLOWLIST = [
   "basketball",
 ];
 
+/** Fallback allowlist when primary filter yields no items (looser match) */
+const MBB_LOOSE_ALLOWLIST = [
+  "college basketball",
+  "basketball",
+  "NCAA",
+  "March Madness",
+  "Final Four",
+  "bracket",
+];
+
 const MBB_EXCLUDE = [
   "women",
   "wbb",
@@ -43,6 +53,25 @@ export function isMensBasketball(title) {
   }
 
   for (const al of MBB_ALLOWLIST) {
+    if (t.includes(norm(al))) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Looser filter when primary MBB filter yields no items.
+ * Still excludes women's/wbb/football/etc; allows college basketball, NCAA, etc.
+ */
+export function isMensBasketballLoose(title) {
+  const t = norm(title);
+  if (!t) return false;
+
+  for (const ex of MBB_EXCLUDE) {
+    if (t.includes(norm(ex))) return false;
+  }
+
+  for (const al of MBB_LOOSE_ALLOWLIST) {
     if (t.includes(norm(al))) return true;
   }
 

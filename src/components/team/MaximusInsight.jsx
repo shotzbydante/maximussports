@@ -62,6 +62,7 @@ export default function MaximusInsight({ slug }) {
 
       const teamId = slugToId[slug];
       if (!teamId) {
+        console.debug('[MaximusInsight] No teamId for slug:', slug, '— ATS unavailable');
         setAtsData(null);
         setLoading(false);
         return;
@@ -161,6 +162,10 @@ export default function MaximusInsight({ slug }) {
           <p className={styles.unavailable}>
             ATS unavailable — {error}
           </p>
+        )}
+
+        {!loading && !error && !atsData && slug && (
+          <p className={styles.hint}>No schedule or team ID — check if team is in ESPN MBB.</p>
         )}
 
         {!loading && !error && atsData && (

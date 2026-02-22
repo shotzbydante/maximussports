@@ -139,6 +139,14 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2025)
 
+**Team ID, ATS, News Robustness (Washington Huskies, Purdue, etc.):**
+- **Team ID resolution** — `/api/teamIds`: Try multiple ESPN name variants (displayName, location+name, shortDisplayName); log unmatched teams to console; added aliases in `teamSlug.js` for Washington, UCLA, USC, Purdue, Duke, etc.
+- **ATS/odds matching** — `matchOddsHistoryToEvent`: Use `getTeamSlug` for canonical team matching when string match fails; improves Odds API ↔ ESPN name alignment
+- **News gaps** — `api/news/filters.js`: Added `isMensBasketballLoose`; when MBB filter yields no items, apply looser filter (college basketball, NCAA, bracket, etc.) so Google News + national feeds still populate
+- **UI fallbacks** — TeamSchedule: clearer message when team ID unresolved; MaximusInsight: debug log + fallback hint; empty panels show explicit messages
+
+---
+
 **UI Cleanup + Readability + News Filtering:**
 - **Top 25 Rankings** — Collapsible with chevron; default expanded on desktop (≥768px), collapsed on mobile
 - **Upsets & Alerts** — Closing spread per alert (from Odds API history); "—" if unavailable; SourceBadge ESPN + Odds API

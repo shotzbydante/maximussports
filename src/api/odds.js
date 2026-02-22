@@ -4,6 +4,8 @@
  * Requires ODDS_API_KEY on the server.
  */
 
+import { getTeamSlug } from '../utils/teamSlug';
+
 /**
  * @param {{ date?: string, team?: string }} params
  * @param {string} [params.date] - YYYY-MM-DD (optional)
@@ -57,14 +59,20 @@ function normName(s) {
 }
 
 function namesMatch(a, b) {
+  if (!a || !b) return false;
   const na = normName(a);
   const nb = normName(b);
-  if (!na || !nb) return false;
-  if (na === nb) return true;
-  if (na.includes(nb) || nb.includes(na)) return true;
-  const ta = na.replace(/\s+/g, '');
-  const tb = nb.replace(/\s+/g, '');
-  return ta === tb || ta.includes(tb) || tb.includes(ta);
+  if (na && nb) {
+    if (na === nb) return true;
+    if (na.includes(nb) || nb.includes(na)) return true;
+    const ta = na.replace(/\s+/g, '');
+    const tb = nb.replace(/\s+/g, '');
+    if (ta === tb || ta.includes(tb) || tb.includes(ta)) return true;
+  }
+  const slugA = getTeamSlug(a);
+  const slugB = getTeamSlug(b);
+  if (slugA && slugB) return slugA === slugB;
+  return false;
 }
 
 /**

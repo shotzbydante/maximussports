@@ -105,6 +105,7 @@ export default function TeamSchedule({ slug }) {
         if (cancelled) return;
         setTeamId(id);
         if (!id) {
+          console.debug('[TeamSchedule] No teamId for slug:', slug, '— schedule unavailable');
           setEvents([]);
           setLoading(false);
           return;
@@ -176,7 +177,7 @@ export default function TeamSchedule({ slug }) {
       )}
 
       {!loading && !teamId && (
-        <div className={styles.unavailable}>Schedule unavailable</div>
+        <div className={styles.unavailable}>Schedule unavailable — team ID could not be resolved. Try refreshing.</div>
       )}
 
       {!loading && error && (
