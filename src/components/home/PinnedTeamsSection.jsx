@@ -1,5 +1,5 @@
 /**
- * Pinned Teams Dashboard — multi-select + search, cards with rank, next game, headlines.
+ * Pinned Teams Dashboard — multi-select + search, cards with rank, next game, headlines, records.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -15,8 +15,14 @@ import {
 import { fetchRankings } from '../../api/rankings';
 import { fetchScores } from '../../api/scores';
 import { fetchTeamNews } from '../../api/news';
+import { fetchTeamIds } from '../../api/teamIds';
+import { fetchTeamSchedule } from '../../api/schedule';
+import { fetchOddsHistory, matchOddsHistoryToEvent } from '../../api/odds';
+import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
 import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getTeamSlug } from '../../utils/teamSlug';
+import { computeATSForEvent, aggregateATS } from '../../utils/ats';
+import { SEASON_START } from '../../utils/dateChunks';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './PinnedTeamsSection.module.css';
@@ -48,6 +54,7 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
   const [rankMap, setRankMap] = useState({});
   const [scores, setScores] = useState({ games: [], loading: false });
   const [teamNews, setTeamNews] = useState({});
+  const [teamRecords, setTeamRecords] = useState({});
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
 
@@ -109,6 +116,91 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
       });
       setTeamNews(next);
     });
+  }, [pinned.join(',')]);
+
+  // Load records (season, L10, ATS) for pinned teams
+  useEffect(() => {
+    if (pinned.length === 0) {
+      setTeamRecords({});
+      return;
+    }
+    const slugs = pinned.slice(0, 8);
+    let cancelled = false;
+
+    Promise.all([fetchRankings(), fetchTeamIds()])
+      .then(([rankingsRes, teamIdsRes]) => {
+        const slugToId = {};
+        if (rankingsRes?.rankings) Object.assign(slugToId, buildSlugToIdFromRankings(rankingsRes));
+        if (teamIdsRes?.slugToId) Object.assign(slugToId, teamIdsRes.slugToId);
+        return slugToId;
+      })
+      .then((slugToId) => {
+        if (cancelled) return;
+        return Promise.all(
+          slugs
+            .filter((s) => slugToId[s])
+            .map(async (slug) => {
+              const team = getTeamBySlug(slug);
+              if (!team) return { slug, record: null };
+              try {
+                const sched = await fetchTeamSchedule(slugToId[slug]);
+                const past = (sched?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+                if (past.length === 0) return { slug, record: null };
+
+                const seasonW = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
+                const seasonL = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
+                const last10 = past.slice(0, 10);
+                const l10W = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
+                const l10L = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
+
+                let ats = null;
+                try {
+                  const dates = past.map((e) => e.date).filter(Boolean);
+                  if (dates.length > 0) {
+                    const min = dates.reduce((a, b) => (a < b ? a : b));
+                    const max = dates.reduce((a, b) => (a > b ? a : b));
+                    const from = new Date(min).toISOString().slice(0, 10) < SEASON_START ? new Date(min).toISOString().slice(0, 10) : SEASON_START;
+                    const to = new Date(max).toISOString().slice(0, 10);
+                    const hist = await fetchOddsHistory({ from, to });
+                    const oddsGames = hist?.games ?? [];
+                    const outcomes = past.map((ev) => {
+                      const odds = matchOddsHistoryToEvent(ev, oddsGames, team.name);
+                      return computeATSForEvent(ev, odds, team.name);
+                    });
+                    const agg = aggregateATS(outcomes);
+                    if (agg.total > 0) ats = agg;
+                  }
+                } catch {
+                  ats = null;
+                }
+
+                return {
+                  slug,
+                  record: {
+                    season: { w: seasonW, l: seasonL },
+                    last10: { w: l10W, l: l10L },
+                    ats,
+                  },
+                };
+              } catch {
+                return { slug, record: null };
+              }
+            })
+        );
+      })
+      .then((results) => {
+        if (cancelled) return;
+        const next = {};
+        results.forEach(({ slug, record }) => {
+          next[slug] = record;
+        });
+        setTeamRecords(next);
+      })
+      .catch(() => {
+        if (!cancelled) setTeamRecords({});
+      });
+
+    return () => { cancelled = true; };
   }, [pinned.join(',')]);
 
   const filteredTeams = search.trim()
@@ -278,6 +370,40 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
                     ))}
                   </ul>
                 )}
+                {(() => {
+                  const rec = teamRecords[slug];
+                  const season = rec?.season;
+                  const last10 = rec?.last10;
+                  const ats = rec?.ats;
+                  const seasonStr = season?.w != null && season?.l != null ? `${season.w}–${season.l}` : '—';
+                  const l10Str = last10?.w != null && last10?.l != null ? `${last10.w}–${last10.l}` : '—';
+                  const atsStr = ats?.total > 0 ? `${ats.w}–${ats.l}${ats.p > 0 ? `–${ats.p}` : ''}` : '—';
+                  const hasData = seasonStr !== '—' || l10Str !== '—' || atsStr !== '—';
+                  return (
+                    <>
+                      <div className={styles.recordsRow}>
+                        <span className={styles.recordCell}>
+                          <span className={styles.recordLabel}>Season</span>
+                          <span className={styles.recordValue}>{seasonStr}</span>
+                        </span>
+                        <span className={styles.recordCell}>
+                          <span className={styles.recordLabel}>L10</span>
+                          <span className={styles.recordValue}>{l10Str}</span>
+                        </span>
+                        <span className={styles.recordCell}>
+                          <span className={styles.recordLabel}>ATS</span>
+                          <span className={styles.recordValue}>{atsStr}</span>
+                        </span>
+                      </div>
+                      {hasData && (
+                        <div className={styles.recordsSource}>
+                          <SourceBadge source="ESPN" />
+                          <SourceBadge source="Odds API" />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 <Link to={`/teams/${slug}`} className={styles.teamLink}>
                   View team →
                 </Link>

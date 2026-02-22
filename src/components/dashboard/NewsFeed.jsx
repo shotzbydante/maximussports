@@ -16,7 +16,7 @@ export default function NewsFeed({ items = [], source = 'Mock' }) {
       </div>
       <p className={styles.sourceLegend}>Sources: ESPN, NCAA, CBS, Yahoo, Team Feeds, Google News</p>
       {items.length === 0 ? (
-        <p className={styles.empty}>Source unavailable. Check back later.</p>
+        <p className={styles.empty}>No men&apos;s basketball news available. Try again later.</p>
       ) : (
       <ul className={styles.list}>
         {items.map((item) => (

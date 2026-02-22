@@ -139,6 +139,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2025)
 
+**News 500s Fix + Pinned Team Records:**
+- **News API staged fallback** — `/api/news/aggregate`: 1) Full stack (Google + National + Team Feeds) → 2) Google only → 3) Google + Yahoo → 4) empty array 200. Never returns 500; all fetches wrapped in try/catch; per-feed failures return []; always 200 with `{ items: [] }`
+- **Google News safety** — teamSlug URL-decoded; fallback query when team not in teams.js; teamSlug always yields Google News attempt
+- **Frontend empty message** — NewsFeed and TeamPage: "No men's basketball news available. Try again later."
+- **Pinned Team Records** — Season (W–L), Last 10 (W–L), ATS (W–L–P) at bottom of each pinned card; compact 3-column row; ESPN schedule + odds-history + ATS logic; "—" when missing; SourceBadge ESPN + Odds API when data present
+
 **Team ID Overrides + News API Local Testing:**
 - **Manual Team ID overrides** — `api/teamIds/index.js`: `TEAM_ID_OVERRIDES` map (washington-huskies 264, uconn-huskies 41, ucla-bruins 26, usc-trojans 30); used first before ESPN list; ensures Washington Huskies and others resolve when ESPN matching fails
 - **Missing slugs debugging** — Response includes `missingSlugs` when any teams.js team lacks an ID; logged to console for debugging
