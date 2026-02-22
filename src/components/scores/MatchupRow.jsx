@@ -1,12 +1,18 @@
 /**
- * Single matchup row: teams (linked), score, status, time (PST), network.
- * Team names link to /teams/<slug> when slug is known.
+ * Single matchup row: teams (linked, with tier badges), score, status, time (PST), network.
  */
 
 import { Link } from 'react-router-dom';
-import { getTeamSlug } from '../../utils/teamSlug';
+import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './MatchupRow.module.css';
+
+const TIER_CLASS = {
+  Lock: styles.tierLock,
+  'Should be in': styles.tierShould,
+  'Work to do': styles.tierWork,
+  'Long shot': styles.tierLong,
+};
 
 function formatTimePST(iso) {
   if (!iso) return '—';
@@ -35,27 +41,42 @@ function isLive(status) {
   );
 }
 
+function TierBadge({ tier }) {
+  if (!tier) return <span className={styles.tierNa}>N/A</span>;
+  return (
+    <span className={`${styles.tierBadge} ${TIER_CLASS[tier] || ''}`}>
+      {tier}
+    </span>
+  );
+}
+
 export default function MatchupRow({ game, source = 'ESPN' }) {
   const { homeTeam, awayTeam, homeScore, awayScore, gameStatus, startTime, network } = game;
   const homeSlug = getTeamSlug(homeTeam);
   const awaySlug = getTeamSlug(awayTeam);
+  const homeTier = getOddsTier(homeTeam);
+  const awayTier = getOddsTier(awayTeam);
   const live = isLive(gameStatus);
 
-  const TeamLink = ({ name, slug }) =>
-    slug ? (
-      <Link to={`/teams/${slug}`} className={styles.link}>
-        {name}
-      </Link>
-    ) : (
-      <span>{name}</span>
-    );
+  const TeamCell = ({ name, slug, tier }) => (
+    <span className={styles.teamCell}>
+      {slug ? (
+        <Link to={`/teams/${slug}`} className={styles.link}>
+          {name}
+        </Link>
+      ) : (
+        <span>{name}</span>
+      )}
+      <TierBadge tier={tier} />
+    </span>
+  );
 
   return (
     <div className={`${styles.row} ${live ? styles.rowLive : ''}`}>
       <span className={styles.matchup}>
-        <TeamLink name={awayTeam} slug={awaySlug} />
+        <TeamCell name={awayTeam} slug={awaySlug} tier={awayTier} />
         <span className={styles.at}> @ </span>
-        <TeamLink name={homeTeam} slug={homeSlug} />
+        <TeamCell name={homeTeam} slug={homeSlug} tier={homeTier} />
       </span>
       <span className={styles.score}>
         {awayScore != null && homeScore != null ? (

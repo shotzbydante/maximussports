@@ -5,7 +5,7 @@
 
 import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
-import { getTeamSlug } from '../../utils/teamSlug';
+import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import styles from './LiveScores.module.css';
 
 function formatStartTime(iso) {
@@ -13,10 +13,11 @@ function formatStartTime(iso) {
   try {
     const d = new Date(iso);
     return d.toLocaleTimeString('en-US', {
+      timeZone: 'America/Los_Angeles',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-    });
+    }) + ' PST';
   } catch {
     return '—';
   }
@@ -89,17 +90,35 @@ export default function LiveScores({ games = [], loading, error, compact = false
               className={`${styles.row} ${live ? styles.rowLive : ''}`}
             >
               <span className={styles.colMatchup}>
-                {getTeamSlug(g.awayTeam) ? (
-                  <Link to={`/teams/${getTeamSlug(g.awayTeam)}`} className={styles.teamLink}>{g.awayTeam}</Link>
-                ) : (
-                  <span>{g.awayTeam}</span>
-                )}
+                <span className={styles.teamCell}>
+                  {getTeamSlug(g.awayTeam) ? (
+                    <Link to={`/teams/${getTeamSlug(g.awayTeam)}`} className={styles.teamLink}>{g.awayTeam}</Link>
+                  ) : (
+                    <span>{g.awayTeam}</span>
+                  )}
+                  {getOddsTier(g.awayTeam) ? (
+                    <span className={`${styles.tierBadge} ${styles[`tier${String(getOddsTier(g.awayTeam)).replace(/\s/g, '')}`]}`}>
+                      {getOddsTier(g.awayTeam)}
+                    </span>
+                  ) : (
+                    <span className={styles.tierNa}>N/A</span>
+                  )}
+                </span>
                 <span className={styles.at}> @ </span>
-                {getTeamSlug(g.homeTeam) ? (
-                  <Link to={`/teams/${getTeamSlug(g.homeTeam)}`} className={styles.teamLink}>{g.homeTeam}</Link>
-                ) : (
-                  <span>{g.homeTeam}</span>
-                )}
+                <span className={styles.teamCell}>
+                  {getTeamSlug(g.homeTeam) ? (
+                    <Link to={`/teams/${getTeamSlug(g.homeTeam)}`} className={styles.teamLink}>{g.homeTeam}</Link>
+                  ) : (
+                    <span>{g.homeTeam}</span>
+                  )}
+                  {getOddsTier(g.homeTeam) ? (
+                    <span className={`${styles.tierBadge} ${styles[`tier${String(getOddsTier(g.homeTeam)).replace(/\s/g, '')}`]}`}>
+                      {getOddsTier(g.homeTeam)}
+                    </span>
+                  ) : (
+                    <span className={styles.tierNa}>N/A</span>
+                  )}
+                </span>
               </span>
               <span className={styles.colScore}>
                 {g.awayScore != null && g.homeScore != null ? (

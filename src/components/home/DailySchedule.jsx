@@ -67,7 +67,6 @@ export default function DailySchedule() {
     <div className={styles.widget}>
       <div className={styles.header}>
         <h3 className={styles.title}>Daily Schedule</h3>
-        <SourceBadge source="ESPN" />
       </div>
       <div className={styles.panels}>
         {dates.map((dateStr) => {
@@ -89,7 +88,10 @@ export default function DailySchedule() {
                 <span className={styles.panelCount}>
                   {loading ? '…' : games.length > 0 ? `${games.length} games` : '—'}
                 </span>
-                <span className={styles.chevron}>{isExpanded ? '▾' : '▸'}</span>
+                <span className={styles.panelBadge}>
+                  <SourceBadge source="ESPN" />
+                </span>
+                <span className={styles.chevron} aria-hidden>{isExpanded ? '▾' : '▸'}</span>
               </button>
               {isExpanded && (
                 <div className={styles.panelBody}>

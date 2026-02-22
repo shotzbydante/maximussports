@@ -124,3 +124,15 @@ export function getTeamSlug(name) {
 
   return null;
 }
+
+/**
+ * Get odds tier for a team by display name (e.g., ESPN name).
+ * @param {string} name - Display name
+ * @returns {string|null} - 'Lock' | 'Should be in' | 'Work to do' | 'Long shot' | null
+ */
+export function getOddsTier(name) {
+  const slug = getTeamSlug(name);
+  if (!slug) return null;
+  const team = TEAMS.find((t) => t.slug === slug);
+  return team?.oddsTier ?? null;
+}

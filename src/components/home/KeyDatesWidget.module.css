@@ -3,7 +3,6 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
 }
 
 .header {
@@ -12,8 +11,18 @@
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.icon {
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 .title {
@@ -25,51 +34,97 @@
   margin: 0;
 }
 
-.table {
-  display: flex;
-  flex-direction: column;
-}
-
-.row {
+.grid {
   display: grid;
-  grid-template-columns: 1fr 90px 90px;
-  gap: var(--space-md);
-  font-size: 0.8rem;
-  padding: var(--space-xs) var(--space-md);
-  border-bottom: 1px solid var(--color-border-light);
-  align-items: center;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-md);
 }
 
-.row:last-child {
-  border-bottom: none;
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-.rowHeader {
-  font-size: 0.65rem;
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  min-height: 44px;
+}
+
+.cardUpcoming {
+  background: transparent;
+}
+
+.cardPast {
+  opacity: 0.65;
+}
+
+.cardPast .cardMonth,
+.cardPast .cardDay {
+  color: var(--color-text-muted);
+}
+
+.cardToday {
+  background: rgba(60, 121, 180, 0.08);
+  border-color: var(--color-metro-blue);
+}
+
+.cardToday .cardDay {
+  color: var(--color-metro-blue);
+  font-weight: 700;
+}
+
+.cardDate {
+  flex-shrink: 0;
+  text-align: center;
+  min-width: 32px;
+}
+
+.cardMonth {
+  display: block;
+  font-size: 0.6rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
-  background: rgba(60, 121, 180, 0.04);
 }
 
-.colLabel {
-  font-weight: 500;
-}
-
-.colLabelBold {
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-
-.rowHighlight {
-  background: rgba(60, 121, 180, 0.06);
-  border-left: 3px solid var(--color-metro-blue);
-}
-
-.colDate,
-.colTime {
+.cardDay {
+  display: block;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.cardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.cardTime {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  margin-top: 1px;
 }

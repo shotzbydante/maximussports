@@ -3,7 +3,6 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
 }
 
 .header {
@@ -12,8 +11,7 @@
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .title {
@@ -43,38 +41,43 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-md);
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-align: left;
   color: var(--color-text);
 }
 
 .panelHeader:hover {
-  background: var(--color-bg-muted);
+  background: rgba(60, 121, 180, 0.04);
 }
 
 .panelDate {
   font-weight: 600;
+  min-width: 90px;
 }
 
 .panelCount {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
 }
 
-.chevron {
+.panelBadge {
   margin-left: auto;
-  font-size: 0.75rem;
+  margin-right: var(--space-sm);
+}
+
+.chevron {
+  font-size: 0.7rem;
   color: var(--color-text-muted);
 }
 
 .panelBody {
-  padding: 0 0 var(--space-md);
+  padding: 0 var(--space-md) var(--space-md);
 }
 
 .table {
@@ -86,13 +89,13 @@
   display: grid;
   grid-template-columns: 1fr 70px 90px 85px 60px auto;
   gap: var(--space-md);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
-  padding: var(--space-xs) var(--space-md);
-  background: rgba(60, 121, 180, 0.04);
+  padding: var(--space-xs) 0;
+  background: transparent;
 }
 
 .rowHeader {

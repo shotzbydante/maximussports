@@ -13,12 +13,22 @@
 }
 
 .rowLive {
-  background: rgba(45, 138, 110, 0.08);
-  border-left: 3px solid var(--color-up);
+  background: rgba(45, 138, 110, 0.05);
+  border-left: 2px solid var(--color-up);
 }
 
 .matchup {
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.teamCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .link {
@@ -78,4 +88,38 @@
 
 .badge {
   justify-self: end;
+}
+
+.tierBadge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.tierLock {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up);
+}
+
+.tierShould {
+  background: rgba(60, 121, 180, 0.12);
+  color: var(--color-metro-blue);
+}
+
+.tierWork {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-beige-dune);
+}
+
+.tierLong {
+  background: rgba(196, 92, 74, 0.12);
+  color: var(--color-down);
+}
+
+.tierNa {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
 }

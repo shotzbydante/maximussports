@@ -4,7 +4,6 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
 }
 
 .widgetHeader {
@@ -14,7 +13,7 @@
   gap: var(--space-sm);
   padding: var(--space-md);
   padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .title {
@@ -51,7 +50,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
-  background: rgba(60, 121, 180, 0.04);
+  background: transparent;
 }
 
 .row.rowLive {
@@ -71,6 +70,16 @@
 
 .colMatchup {
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.teamCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .teamLink {
@@ -133,4 +142,38 @@
   padding: var(--space-xs) var(--space-md);
   text-align: right;
   border-top: 1px solid var(--color-border-light);
+}
+
+.tierBadge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.tierLock {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up);
+}
+
+.tierShouldbein {
+  background: rgba(60, 121, 180, 0.12);
+  color: var(--color-metro-blue);
+}
+
+.tierWorktodo {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-beige-dune);
+}
+
+.tierLongshot {
+  background: rgba(196, 92, 74, 0.12);
+  color: var(--color-down);
+}
+
+.tierNa {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
 }

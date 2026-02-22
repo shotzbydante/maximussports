@@ -52,15 +52,15 @@
 }
 
 .keyDatesSection {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .dailyScheduleSection {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .liveScoresSection {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .sectionHeader {
@@ -76,7 +76,7 @@
 }
 
 .statsSection {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .insight {
