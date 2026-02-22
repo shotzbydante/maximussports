@@ -177,7 +177,9 @@ export default function TeamSchedule({ slug }) {
       )}
 
       {!loading && !teamId && (
-        <div className={styles.unavailable}>Schedule unavailable — team ID could not be resolved. Try refreshing.</div>
+        <div className={styles.unavailable} role="alert">
+          No schedule data — team ID for this school could not be resolved. Schedule and odds will not appear.
+        </div>
       )}
 
       {!loading && error && (

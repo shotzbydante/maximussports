@@ -98,7 +98,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
 | `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
-| `/api/teamIds` | GET | slug → ESPN team ID map |
+| `/api/teamIds` | GET | slug → ESPN team ID map. `?debug=true` → also `missingSlugs`, `missingCount` |
 | `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
 | `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Chunks long ranges into 31-day windows; merges and dedupes. Requires `ODDS_API_KEY` |
 
@@ -139,6 +139,11 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**Team IDs: Big Ten overrides + debug:**
+- **TEAM_ID_OVERRIDES** — Added Big Ten schools so every `teams.js` slug can resolve: Iowa (2294), Indiana (84), Wisconsin (275), Ohio State (194), Michigan (130), Purdue (2509), Illinois (356), Nebraska (158), Michigan State (127); plus existing UCLA, USC, Washington. `/api/teamIds` now includes e.g. `iowa-hawkeyes`.
+- **Debug flag** — `/api/teamIds?debug=true` returns `missingSlugs` and `missingCount`; without `debug`, response is `{ slugToId }` only.
+- **TeamSchedule** — Message when team ID missing: "No schedule data — team ID for this school could not be resolved. Schedule and odds will not appear." Shown only when ID is truly missing (after load).
+
 **Odds API diagnostics & production fix:**
 - **Debug instrumentation** — `/api/odds?debug=true` and `/api/odds-history?from=...&to=...&debug=true` return `{ games, debug: { gamesCount, cacheHit, firstGame, hasOddsKey, error? } }`
 - **Vercel env var check** — Both APIs return 200 with `{ games: [], error: "missing_key", hasOddsKey: false }` when ODDS_API_KEY missing (no 503)
@@ -161,7 +166,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Serverless imports** — api/teamIds, api/news/aggregate: use `../../src/` (two levels up from api subdir to project root); api/news/team/[slug].js uses `../../../src/` (3 levels deep). Fixes ERR_MODULE_NOT_FOUND for /var/src/...
 
 **Production Fixes (Tulsa, Liberty, McNeese, etc.):**
-- **Diagnostics** — `/api/teamIds`: Always returns `{ slugToId, missingSlugs }`; on error returns 200 with fallback overrides; `/api/news/aggregate?debug=true`: returns `{ items, sourcesTried, errors }`; `/api/odds-history?debug=true` and `/api/odds?debug=true`: return `{ games, debug: { gamesCount, cacheHit, firstGame } }`
+- **Diagnostics** — `/api/teamIds`: Returns `{ slugToId }`; `?debug=true` adds `missingSlugs`, `missingCount`; on error returns 200 with fallback overrides; `/api/news/aggregate?debug=true`: returns `{ items, sourcesTried, errors }`; `/api/odds-history?debug=true` and `/api/odds?debug=true`: return `{ games, debug: { gamesCount, cacheHit, firstGame } }`
 - **Team ID fallback map** — Expanded TEAM_ID_OVERRIDES: Tulsa 202, Liberty 2335, McNeese 2377, Grand Canyon 166, Dayton 2126, South Florida 58, Belmont 2057, Nevada 2440, Boise State 68, Santa Clara 221, New Mexico 167, VCU 2670; teamIds never returns 500 (falls back to overrides on ESPN error)
 - **News 500s fix** — User-Agent header on all fetches; `safeParseXml()` guards XML parse errors; per-feed failures never throw; always 200; fallback chain: full → Google only → Google+Yahoo → empty
 - **Odds/ATS** — odds-history and odds return 200 with `{ games: [] }` on error instead of 500; ATS shows "—" when no odds

@@ -1,7 +1,7 @@
 /**
  * Vercel Serverless: ESPN teams list → slug → team ID map.
  * GET /api/teamIds
- * Returns { slugToId: { ... }, missingSlugs?: string[] }.
+ * Returns { slugToId }. With ?debug=true adds missingSlugs, missingCount.
  * Uses TEAM_ID_OVERRIDES first, then ESPN list via getTeamSlug matching.
  */
 
@@ -13,10 +13,21 @@ const ESPN_TEAMS_URL =
 
 /** Hardcoded fallback map for ESPN team IDs when ESPN list fails to match. */
 const TEAM_ID_OVERRIDES = {
-  'washington-huskies': '264',
-  'uconn-huskies': '41',
+  // Big Ten
+  'michigan-wolverines': '130',
+  'purdue-boilermakers': '2509',
+  'illinois-fighting-illini': '356',
+  'nebraska-cornhuskers': '158',
+  'michigan-state-spartans': '127',
+  'wisconsin-badgers': '275',
+  'iowa-hawkeyes': '2294',
+  'indiana-hoosiers': '84',
+  'ohio-state-buckeyes': '194',
   'ucla-bruins': '26',
   'usc-trojans': '30',
+  'washington-huskies': '264',
+  // Other conferences / mid-majors
+  'uconn-huskies': '41',
   'tulsa-golden-hurricane': '202',
   'liberty-flames': '2335',
   'mcneese-cowboys': '2377',
@@ -45,6 +56,8 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
 
   try {
     const slugToId = {};
@@ -107,7 +120,11 @@ export default async function handler(req, res) {
       console.debug('[teamIds] Unmatched ESPN teams:', unmatchedEspnTeams);
     }
 
-    const payload = { slugToId, missingSlugs };
+    const payload = { slugToId };
+    if (debug) {
+      payload.missingSlugs = missingSlugs;
+      payload.missingCount = missingSlugs.length;
+    }
     res.json(payload);
   } catch (err) {
     console.error('TeamIds API error:', err.message);
@@ -115,6 +132,9 @@ export default async function handler(req, res) {
     for (const s of ALL_SLUGS) {
       if (TEAM_ID_OVERRIDES[s]) fallback[s] = TEAM_ID_OVERRIDES[s];
     }
-    res.status(200).json({ slugToId: fallback, missingSlugs: ALL_SLUGS.filter((s) => !fallback[s]) });
+    const missingSlugs = ALL_SLUGS.filter((s) => !fallback[s]);
+    const payload = { slugToId: fallback };
+    if (debug) payload.missingSlugs = missingSlugs;
+    res.status(200).json(payload);
   }
 }
