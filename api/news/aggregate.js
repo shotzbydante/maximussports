@@ -8,8 +8,8 @@
 
 import { XMLParser } from 'fast-xml-parser';
 import { isMensBasketball, isMensBasketballLoose } from './filters.js';
-import { getTeamBySlug } from '../../../src/data/teams.js';
-import { NATIONAL_FEEDS, TEAM_FEEDS } from '../../../src/data/newsSources.js';
+import { getTeamBySlug } from '../../src/data/teams.js';
+import { NATIONAL_FEEDS, TEAM_FEEDS } from '../../src/data/newsSources.js';
 
 const SOURCE_PRIORITY = {
   espn: 1,

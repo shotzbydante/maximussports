@@ -5,8 +5,8 @@
  * Uses TEAM_ID_OVERRIDES first, then ESPN list via getTeamSlug matching.
  */
 
-import { getTeamSlug } from '../../../src/utils/teamSlug.js';
-import { TEAMS } from '../../../src/data/teams.js';
+import { getTeamSlug } from '../../src/utils/teamSlug.js';
+import { TEAMS } from '../../src/data/teams.js';
 
 const ESPN_TEAMS_URL =
   'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=400';
