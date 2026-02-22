@@ -1,6 +1,6 @@
 # Maximus Sports — Project Status
 
-**Last updated:** Feb 21, 2025
+**Last updated:** Feb 22, 2025
 
 ## Summary
 
@@ -20,6 +20,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Platform:** Vercel Serverless Functions
 - **News API:** `/api/news/team/[slug].js` — fetches Google News RSS, parses with `fast-xml-parser`, returns top 10 headlines (90-day lookback)
 - **Scores API:** `/api/scores/index.js` — proxies ESPN college basketball scoreboard, returns simplified game list (gameId, teams, scores, status, startTime, network, venue)
+- **Rankings API:** `/api/rankings/index.js` — proxies ESPN AP Top 25 rankings, returns `{ rankings: [{ teamName, rank }] }`
 - **No env vars required** — Google News RSS and ESPN endpoints are free, no API key
 
 ### Design System
@@ -39,19 +40,23 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/data/mockData.js` | Mock dashboard data (matchups, odds, news, stats) |
 | `src/api/news.js` | Client fetcher + `fetchAggregatedNews` for multi-team news |
 | `src/api/scores.js` | Client fetcher `fetchScores()`, `fetchScoresByDate(date)` |
+| `src/api/rankings.js` | Client fetcher `fetchRankings()` for AP Top 25 |
 | `src/utils/teamSlug.js` | Maps ESPN team names → teams.js slugs |
+| `src/utils/pinnedTeams.js` | localStorage get/set for pinned team slugs |
+| `src/utils/rankingsNormalize.js` | ESPN name normalization + `buildSlugToRankMap` |
 | `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
 | `api/news/team/[slug].js` | Serverless: Google News RSS → JSON |
 | `api/scores/index.js` | Serverless: ESPN scoreboard proxy → simplified JSON |
+| `api/rankings/index.js` | Serverless: ESPN AP Top 25 → `{ rankings }` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
 ### Pages
-- `Home` — Tournament hub: Key Dates, Daily Schedule (collapsible), hero, Live Scores (60s refresh), stats, matchups, sidebar with source badges
+- `Home` — Pinned Teams Dashboard: pinned teams (multi-select + search, localStorage), Dynamic Alerts (upsets from ESPN + tiers), Dynamic Stats (upset count, ranked in action, news velocity), hero, Live Scores, matchups, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
 - `TeamPage` — Team header + last 90 days headlines
-- `Games` — Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
+- `Games` — Key Dates (top), Daily Schedule (collapsible), Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
 
@@ -61,7 +66,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Dashboard:** `MatchupPreview`, `OddsMovementWidget`, `NewsFeed`, `TeamNewsPreview`
 - **Scores:** `LiveScores`, `MatchupRow` (team links, PST, network, source badge)
 - **Shared:** `SourceBadge` (ESPN | Google News | Mock)
-- **Home:** `KeyDatesWidget`, `DailySchedule` (collapsible panels per date)
+- **Home:** `PinnedTeamsSection` (multi-select, search, cards with rank/next game/headlines), `DynamicAlerts` (upsets), `DynamicStats` (ESPN/Google News)
+- **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible panels per date)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -72,6 +78,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 |----------|--------|-------------|
 | `/api/news/team/:slug` | GET | Top 10 Google News headlines for team (90-day query, sorted by pubDate) |
 | `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
+| `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank) |
 
 ---
 
@@ -108,7 +115,25 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
-## Latest Changes (Feb 21, 2025)
+## Latest Changes (Feb 22, 2025)
+
+**Home → Pinned Teams Dashboard:**
+- **Pinned Teams** — Multi-select list + search "Add team", localStorage; cards with team name/logo, tier badge, ESPN rank (if Top 25), next game (from ESPN scores), latest 3 headlines (Google News), link to Team page
+- **Dynamic Alerts** — Upsets & Alerts: ESPN scores + odds tiers; Lock loses to Long shot, tier gap ≥ 2; 60s refresh; SourceBadge ESPN
+- **Dynamic Stats** — Replaced mock stat cards: Upset alerts today, Ranked teams in action (Top 25 playing), News velocity (pinned teams headlines); SourceBadge per card
+- **Key Dates + Daily Schedule moved** — Now on Games page (top), compact Bloomberg layout
+
+**ESPN Rankings Integration:**
+- **`/api/rankings`** — Serverless route proxying ESPN AP Top 25; returns `{ rankings: [{ teamName, rank }] }`
+- **`src/utils/rankingsNormalize.js`** — Name normalization (lowercase, remove punctuation/university/college/the, alias map: uconn→connecticut, miami fl→miami, nc state→north carolina state, etc.)
+- **Rank display** — Pinned team cards show #rank if in Top 25; MatchupRow/DailySchedule show #rank next to team name
+
+**Helpers:**
+- **`src/utils/pinnedTeams.js`** — `getPinnedTeams`, `setPinnedTeams`, `addPinnedTeam`, `removePinnedTeam`, `togglePinnedTeam`
+
+---
+
+## Previous Changes (Feb 21, 2025)
 
 **Tournament-tracking hub:**
 - **Key Dates** — Top of Home, conference finals + NCAA dates, times in PST
@@ -151,3 +176,10 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 7. **v2 — Newsletter / export** — PDF or email report export
 8. **Tests** — Unit/integration tests
 9. **PWA** — Optional service worker for offline
+
+### Proposed next (Feb 22 session)
+- **Search** — Teams filter by name/conference; news keyword filter on TeamPage
+- **Team detail widgets** — Record, rank on TeamPage (mock until real API)
+- **News caching** — TTL cache in news API (in-memory or Vercel KV)
+- **Vercel Analytics** — Add `@vercel/analytics`
+- **Date picker** — Games/Daily Schedule date selector (API supports `?date=YYYYMMDD`)

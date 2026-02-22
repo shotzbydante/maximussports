@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { topMatchups } from '../data/mockData';
 import { fetchScores } from '../api/scores';
+import KeyDatesWidget from '../components/home/KeyDatesWidget';
+import DailySchedule from '../components/home/DailySchedule';
 import LiveScores from '../components/scores/LiveScores';
 import SourceBadge from '../components/shared/SourceBadge';
 import MatchupPreview from '../components/dashboard/MatchupPreview';
@@ -33,6 +35,14 @@ export default function Games() {
         <h1>Games</h1>
         <p className={styles.subtitle}>Live scores, key matchups, spreads, and upset watch</p>
       </header>
+
+      <section className={styles.section}>
+        <KeyDatesWidget />
+      </section>
+
+      <section className={styles.section}>
+        <DailySchedule />
+      </section>
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>

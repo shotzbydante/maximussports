@@ -1,46 +1,89 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  dailyReport,
-  topMatchups,
-  oddsMovement,
-  newsFeed as mockNewsFeed,
-  teamNewsPreview,
-  statCards,
-} from '../data/mockData';
+import { Link } from 'react-router-dom';
+import { dailyReport, topMatchups, oddsMovement, newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchAggregatedNews } from '../api/news';
 import { fetchScores } from '../api/scores';
+import { fetchRankings } from '../api/rankings';
+import { getPinnedTeams } from '../utils/pinnedTeams';
+import { getOddsTier } from '../utils/teamSlug';
+import { getTeamSlug } from '../utils/teamSlug';
+import { buildSlugToRankMap } from '../utils/rankingsNormalize';
+import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
-import KeyDatesWidget from '../components/home/KeyDatesWidget';
-import DailySchedule from '../components/home/DailySchedule';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
 import MatchupPreview from '../components/dashboard/MatchupPreview';
 import OddsMovementWidget from '../components/dashboard/OddsMovementWidget';
 import NewsFeed from '../components/dashboard/NewsFeed';
-import TeamNewsPreview from '../components/dashboard/TeamNewsPreview';
+import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
+import DynamicAlerts from '../components/home/DynamicAlerts';
+import DynamicStats from '../components/home/DynamicStats';
 import styles from './Home.module.css';
 
-const FEATURED_SLUGS = ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 const SCORES_REFRESH_MS = 60_000;
 
+const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
+
+function isFinal(status) {
+  const s = (status || '').toLowerCase();
+  return s === 'final' || s.includes('final');
+}
+
+function countUpsets(games) {
+  let count = 0;
+  for (const g of games) {
+    if (!isFinal(g.gameStatus)) continue;
+    const homeTier = getOddsTier(g.homeTeam);
+    const awayTier = getOddsTier(g.awayTeam);
+    const homeVal = TIER_VALUE[homeTier] ?? 4;
+    const awayVal = TIER_VALUE[awayTier] ?? 4;
+    const homeScore = parseInt(g.homeScore, 10);
+    const awayScore = parseInt(g.awayScore, 10);
+    if (isNaN(homeScore) || isNaN(awayScore)) continue;
+    const homeWon = homeScore > awayScore;
+    const tierGap = Math.abs(homeVal - awayVal);
+    if (tierGap < 2) continue;
+    if (homeWon && awayVal < homeVal) count++;
+    else if (!homeWon && homeVal < awayVal) count++;
+  }
+  return count;
+}
+
+function countRankedInAction(games, rankMap) {
+  const rankedSlugs = new Set(Object.keys(rankMap));
+  let count = 0;
+  for (const g of games) {
+    const homeSlug = getTeamSlug(g.homeTeam);
+    const awaySlug = getTeamSlug(g.awayTeam);
+    if (rankedSlugs.has(homeSlug) || rankedSlugs.has(awaySlug)) count++;
+  }
+  return count;
+}
+
 export default function Home() {
-  const [newsData, setNewsData] = useState({
-    teamNews: teamNewsPreview,
-    newsFeed: mockNewsFeed,
-  });
+  const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
+  const [rankMap, setRankMap] = useState({});
   const [newsSource, setNewsSource] = useState('Mock');
+  const [pinned, setPinned] = useState(() => getPinnedTeams());
+  const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   useEffect(() => {
-    fetchAggregatedNews(FEATURED_SLUGS)
+    fetchAggregatedNews(pinnedSlugs)
       .then(({ teamNews, newsFeed }) => {
         setNewsData({ teamNews, newsFeed });
         setNewsSource('Google News');
       })
       .catch(() => {
-        setNewsData({ teamNews: teamNewsPreview, newsFeed: mockNewsFeed });
+        setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed }));
         setNewsSource('Mock');
       });
+  }, [pinnedSlugs.join(',')]);
+
+  useEffect(() => {
+    fetchRankings()
+      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
+      .catch(() => setRankMap({}));
   }, []);
 
   const loadScores = useCallback(() => {
@@ -59,19 +102,24 @@ export default function Home() {
     return () => clearInterval(id);
   }, [loadScores]);
 
+  const upsetCount = countUpsets(scores.games);
+  const rankedInAction = countRankedInAction(scores.games, rankMap);
+  const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (t.headlines || 0), 0);
+
+  const dynamicStats = [
+    { label: 'Upset Alerts Today', value: upsetCount, trend: upsetCount > 0 ? 'up' : 'neutral', subtext: 'ESPN scores + tiers', source: 'ESPN' },
+    { label: 'Ranked Teams in Action', value: rankedInAction, trend: 'neutral', subtext: 'Top 25 playing today', source: 'ESPN' },
+    { label: 'News Velocity', value: newsVelocity, trend: newsVelocity > 0 ? 'up' : 'neutral', subtext: 'Headlines (pinned teams)', source: newsSource },
+  ];
+
   return (
     <div className={styles.home}>
-      {/* Key Dates (top) */}
-      <section className={styles.keyDatesSection}>
-        <KeyDatesWidget />
-      </section>
+      <PinnedTeamsSection onPinnedChange={setPinned} />
 
-      {/* Daily Schedule (collapsible, ESPN, auto-refresh today) */}
-      <section className={styles.dailyScheduleSection}>
-        <DailySchedule />
-      </section>
+      <DynamicAlerts />
 
-      {/* Hero / Daily Report */}
+      <DynamicStats stats={dynamicStats} />
+
       <section className={styles.hero}>
         <div className={styles.heroBadge}>
           <SourceBadge source="Mock" />
@@ -88,7 +136,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Live Scores (today snapshot, 60s refresh) */}
       <section className={styles.liveScoresSection}>
         <LiveScores
           games={scores.games}
@@ -98,26 +145,6 @@ export default function Home() {
         />
       </section>
 
-      {/* Stat Cards */}
-      <section className={styles.statsSection}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Snapshot</h2>
-          <SourceBadge source="Mock" />
-        </div>
-        <div className={styles.stats}>
-          {statCards.map((stat) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              trend={stat.trend}
-              subtext={stat.subtext}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* Main Grid */}
       <div className={styles.grid}>
         <section className={styles.matchups} id="matchups">
           <div className={styles.sectionHeader}>
@@ -138,9 +165,21 @@ export default function Home() {
           <div className={styles.widgetSection} id="news">
             <NewsFeed items={newsData.newsFeed} source={newsSource} />
           </div>
-          <div className={styles.widgetSection} id="news-teams">
-            <TeamNewsPreview items={newsData.teamNews} source={newsSource} />
-          </div>
+          {newsData.teamNews.length > 0 && (
+            <div className={styles.widgetSection} id="news-teams">
+              <div className={styles.widgetHeader}>
+                <h3 className={styles.widgetTitle}>Pinned Team News</h3>
+                <SourceBadge source={newsSource} />
+              </div>
+              <div className={styles.teamNewsList}>
+                {newsData.teamNews.map((t) => (
+                  <Link key={t.slug} to={`/teams/${t.slug}`} className={styles.teamNewsItem}>
+                    {t.team} — {t.headlines} headlines
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>

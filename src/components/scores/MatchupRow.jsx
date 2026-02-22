@@ -50,16 +50,19 @@ function TierBadge({ tier }) {
   );
 }
 
-export default function MatchupRow({ game, source = 'ESPN' }) {
+export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
   const { homeTeam, awayTeam, homeScore, awayScore, gameStatus, startTime, network } = game;
   const homeSlug = getTeamSlug(homeTeam);
   const awaySlug = getTeamSlug(awayTeam);
   const homeTier = getOddsTier(homeTeam);
   const awayTier = getOddsTier(awayTeam);
+  const homeRank = homeSlug ? rankMap[homeSlug] : null;
+  const awayRank = awaySlug ? rankMap[awaySlug] : null;
   const live = isLive(gameStatus);
 
-  const TeamCell = ({ name, slug, tier }) => (
+  const TeamCell = ({ name, slug, tier, rank }) => (
     <span className={styles.teamCell}>
+      {rank != null && <span className={styles.rank}>#{rank}</span>}
       {slug ? (
         <Link to={`/teams/${slug}`} className={styles.link}>
           {name}
@@ -74,9 +77,9 @@ export default function MatchupRow({ game, source = 'ESPN' }) {
   return (
     <div className={`${styles.row} ${live ? styles.rowLive : ''}`}>
       <span className={styles.matchup}>
-        <TeamCell name={awayTeam} slug={awaySlug} tier={awayTier} />
+        <TeamCell name={awayTeam} slug={awaySlug} tier={awayTier} rank={awayRank} />
         <span className={styles.at}> @ </span>
-        <TeamCell name={homeTeam} slug={homeSlug} tier={homeTier} />
+        <TeamCell name={homeTeam} slug={homeSlug} tier={homeTier} rank={homeRank} />
       </span>
       <span className={styles.score}>
         {awayScore != null && homeScore != null ? (

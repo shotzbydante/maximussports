@@ -5,6 +5,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchScoresByDate } from '../../api/scores';
+import { fetchRankings } from '../../api/rankings';
+import { TEAMS } from '../../data/teams';
+import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getScheduleDates, formatDateLabel, toDateStr } from '../../utils/dates';
 import MatchupRow from '../scores/MatchupRow';
 import SourceBadge from '../shared/SourceBadge';
@@ -14,6 +17,7 @@ export default function DailySchedule() {
   const dates = useMemo(() => getScheduleDates(14), []);
   const todayStr = useMemo(() => toDateStr(new Date()), []);
   const [byDate, setByDate] = useState({});
+  const [rankMap, setRankMap] = useState({});
   const [expanded, setExpanded] = useState(() => {
     const o = {};
     dates.forEach((d, i) => {
@@ -44,6 +48,12 @@ export default function DailySchedule() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    fetchRankings()
+      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
+      .catch(() => setRankMap({}));
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -115,7 +125,7 @@ export default function DailySchedule() {
                         <span />
                       </div>
                       {games.map((g) => (
-                        <MatchupRow key={g.gameId} game={g} source="ESPN" />
+                        <MatchupRow key={g.gameId} game={g} source="ESPN" rankMap={rankMap} />
                       ))}
                     </div>
                   )}
