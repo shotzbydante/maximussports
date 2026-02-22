@@ -1,9 +1,9 @@
 /**
  * Vercel Serverless: Aggregate news from Google News + national feeds + team feeds.
  * GET /api/news/aggregate?teamSlug=&includeNational=&includeTeamFeeds=
- * Returns { items: [...] }. Never returns 500; uses staged fallback:
- * 1) Full stack → 2) Google only → 3) Google + Yahoo → 4) empty array 200.
- * Always applies men's basketball filtering.
+ * Returns { items, sourcesTried, errors }. Never returns 500.
+ * Priority: Google first (10s), then other feeds (3-5s) via allSettled.
+ * Per-source cache (10 min TTL) for timeouts.
  */
 
 import { XMLParser } from 'fast-xml-parser';
@@ -23,10 +23,30 @@ const SOURCE_PRIORITY = {
 
 const YAHOO_FEED = NATIONAL_FEEDS.find((f) => f.id === 'yahoo') || NATIONAL_FEEDS[0];
 
-const FETCH_OPTS = {
-  signal: AbortSignal.timeout(8000),
-  headers: { 'User-Agent': 'MaximusSports/1.0 (+https://maximussports.app)' },
+const GOOGLE_TIMEOUT_MS = 10_000;
+const FEED_TIMEOUT_MS = 5_000;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+
+const HEADERS = {
+  'User-Agent': 'MaximusSports/1.0 (+https://maximussports.vercel.app)',
+  Accept: 'application/rss+xml, application/xml, text/xml',
 };
+
+const cache = new Map();
+
+function getCacheKey(feedId, extra = '') {
+  return `${feedId}${extra}`;
+}
+
+function getCached(key) {
+  const entry = cache.get(key);
+  if (!entry || Date.now() > entry.expires) return null;
+  return entry.data;
+}
+
+function setCache(key, data) {
+  cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+}
 
 function parseBool(val) {
   if (val === 'true' || val === '1') return true;
@@ -62,16 +82,32 @@ function safeParseXml(xml, fallback = {}) {
   }
 }
 
-async function fetchRssItems(url, feedId, feedName, feedType, teamSlug = null, errorsRef = null) {
+async function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, FETCH_OPTS);
+    const res = await fetch(url, { signal: controller.signal, headers: HEADERS });
+    clearTimeout(id);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const xml = await res.text();
+    return await res.text();
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+async function fetchRssItems(url, feedId, feedName, feedType, teamSlug = null, timeoutMs = FEED_TIMEOUT_MS) {
+  const cacheKey = getCacheKey(feedId, url);
+  const cached = getCached(cacheKey);
+  if (cached) return { items: cached, ok: true };
+
+  try {
+    const xml = await fetchWithTimeout(url, timeoutMs);
     const parsed = safeParseXml(xml);
     const channel = parsed?.rss?.channel || parsed?.feed;
     const rawItems = channel?.item || channel?.entry;
     const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
-    return items.map((item) => {
+    const result = items.map((item) => {
       const link = item?.link?.['#text'] || item?.link?.['@_href'] || item?.link || '';
       const title = item?.title?.['#text'] || item?.title || 'No title';
       const pubDate = item?.pubDate || item?.published || item?.updated || '';
@@ -85,24 +121,28 @@ async function fetchRssItems(url, feedId, feedName, feedType, teamSlug = null, e
         teamSlug,
       };
     });
+    if (result.length > 0) setCache(cacheKey, result);
+    return { items: result, ok: true };
   } catch (err) {
-    console.warn(`[aggregate] Feed ${feedId} failed:`, err.message);
-    if (errorsRef) errorsRef.push(`${feedId}: ${err.message}`);
-    return [];
+    const stale = getCached(cacheKey);
+    if (stale) return { items: stale, ok: true };
+    return { items: [], ok: false, error: err.message };
   }
 }
 
-async function fetchGoogleNews(team, errorsRef = null) {
+async function fetchGoogleNews(team, timeoutMs = GOOGLE_TIMEOUT_MS) {
+  const query = buildGoogleQuery(team);
+  const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
+  const cacheKey = getCacheKey('google', rssUrl);
+  const cached = getCached(cacheKey);
+  if (cached) return { items: cached, ok: true };
+
   try {
-    const query = buildGoogleQuery(team);
-    const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
-    const res = await fetch(rssUrl, FETCH_OPTS);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const xml = await res.text();
+    const xml = await fetchWithTimeout(rssUrl, timeoutMs);
     const parsed = safeParseXml(xml);
     const items = parsed?.rss?.channel?.item;
     const raw = Array.isArray(items) ? items : items ? [items] : [];
-    return raw.map((item) => ({
+    const result = raw.map((item) => ({
       title: item.title || 'No title',
       link: item.link || '',
       pubDate: item.pubDate || '',
@@ -110,10 +150,12 @@ async function fetchGoogleNews(team, errorsRef = null) {
       feedType: 'google',
       teamSlug: team.slug,
     }));
+    if (result.length > 0) setCache(cacheKey, result);
+    return { items: result, ok: true };
   } catch (err) {
-    console.warn('[aggregate] Google News failed:', err.message);
-    if (errorsRef) errorsRef.push(`google: ${err.message}`);
-    return [];
+    const stale = getCached(cacheKey);
+    if (stale) return { items: stale, ok: true };
+    return { items: [], ok: false, error: err.message };
   }
 }
 
@@ -160,45 +202,51 @@ export default async function handler(req, res) {
   const teamSlug = typeof rawTeamSlug === 'string' ? decodeURIComponent(rawTeamSlug).trim() : null;
   const includeNational = parseBool(req.query?.includeNational);
   const includeTeamFeeds = parseBool(req.query?.includeTeamFeeds);
-  const debug = parseBool(req.query?.debug);
 
   const sourcesTried = [];
   const errors = [];
 
-  let team = teamSlug ? getTeamBySlug(teamSlug) : null;
-  if (!team && teamSlug) {
-    const fallbackName = teamSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    team = { slug: teamSlug, name: fallbackName, keywords: `${fallbackName} basketball` };
-  }
-
-  const safeResponse = (items, extra = {}) => {
+  const safeResponse = (items) => {
     const filtered = dedupeAndFilter(items, isMensBasketball);
-    const payload = { items: sortBySource(filtered) };
-    if (debug) Object.assign(payload, { sourcesTried, errors: errors.length ? errors : undefined });
-    Object.assign(payload, extra);
-    res.status(200).json(payload);
+    return res.status(200).json({
+      items: sortBySource(filtered),
+      sourcesTried,
+      errors: errors.length ? errors : [],
+    });
   };
 
   try {
-    let all = [];
-    let googleItems = [];
+    let team = teamSlug ? getTeamBySlug(teamSlug) : null;
+    if (!team && teamSlug) {
+      const fallbackName = teamSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      team = { slug: teamSlug, name: fallbackName, keywords: `${fallbackName} basketball` };
+    }
 
+    let baseline = [];
+
+    // 1) Fetch Google News FIRST (10s)
     if (team) {
       sourcesTried.push('google');
-      googleItems = await fetchGoogleNews(team, errors);
-      all = [...googleItems];
+      const result = await fetchGoogleNews(team, GOOGLE_TIMEOUT_MS);
+      if (result.ok && result.items.length > 0) {
+        baseline = [...result.items];
+      } else if (result.error) {
+        errors.push(`google: ${result.error}`);
+      }
     } else if (teamSlug) {
       sourcesTried.push('google-fallback');
       const fallbackQuery = encodeURIComponent(`"${teamSlug.replace(/-/g, ' ')}" basketball when:90d`);
-      try {
-        const rssUrl = `https://news.google.com/rss/search?q=${fallbackQuery}&hl=en-US&gl=US&ceid=US:en`;
-        const res = await fetch(rssUrl, FETCH_OPTS);
-        if (res.ok) {
-          const xml = await res.text();
+      const rssUrl = `https://news.google.com/rss/search?q=${fallbackQuery}&hl=en-US&gl=US&ceid=US:en`;
+      const cacheKey = getCacheKey('google-fallback', rssUrl);
+      const cachedFallback = getCached(cacheKey);
+      if (cachedFallback) baseline = cachedFallback;
+      else {
+        try {
+          const xml = await fetchWithTimeout(rssUrl, GOOGLE_TIMEOUT_MS);
           const parsed = safeParseXml(xml);
           const items = parsed?.rss?.channel?.item;
           const raw = Array.isArray(items) ? items : items ? [items] : [];
-          all = raw.map((item) => ({
+          baseline = raw.map((item) => ({
             title: item.title || 'No title',
             link: item.link || '',
             pubDate: item.pubDate || '',
@@ -206,45 +254,54 @@ export default async function handler(req, res) {
             feedType: 'google',
             teamSlug,
           }));
+          if (baseline.length > 0) setCache(cacheKey, baseline);
+        } catch (e) {
+          errors.push(`google-fallback: ${e.message}`);
+          const stale = getCached(cacheKey);
+          if (stale) baseline = stale;
         }
-      } catch (e) {
-        console.warn('[aggregate] Fallback Google query failed:', e.message);
-        errors.push(`google-fallback: ${e.message}`);
       }
     }
 
-    const nationalItems = includeNational
-      ? (await Promise.all(NATIONAL_FEEDS.map((f) => {
+    if (baseline.length > 0) {
+      const otherTasks = [];
+
+      if (includeNational) {
+        for (const f of NATIONAL_FEEDS) {
           sourcesTried.push(f.id);
-          return fetchRssItems(f.url, f.id, f.name, 'national', null, errors);
-        }))).flat()
-      : [];
-    const teamFeedItems =
-      includeTeamFeeds && teamSlug && TEAM_FEEDS[teamSlug]
-        ? (await Promise.all(TEAM_FEEDS[teamSlug].map((f) => {
-            sourcesTried.push(`team-${f.id}`);
-            return fetchRssItems(f.url, f.id, f.name, 'team', teamSlug, errors);
-          }))).flat()
-        : [];
+          otherTasks.push(fetchRssItems(f.url, f.id, f.name, 'national', null));
+        }
+      }
+      if (includeTeamFeeds && teamSlug && TEAM_FEEDS[teamSlug]) {
+        for (const f of TEAM_FEEDS[teamSlug]) {
+          sourcesTried.push(`team-${f.id}`);
+          otherTasks.push(fetchRssItems(f.url, f.id, f.name, 'team', teamSlug));
+        }
+      }
 
-    const fullStack = [...all, ...nationalItems, ...teamFeedItems];
-    if (fullStack.length > 0) {
-      return safeResponse(fullStack);
+      const settled = otherTasks.length > 0 ? await Promise.allSettled(otherTasks) : [];
+      const extra = settled.flatMap((s) => {
+        if (s.status === 'fulfilled' && s.value?.ok && s.value?.items?.length > 0) return s.value.items;
+        if (s.status === 'rejected') errors.push(s.reason?.message || 'unknown');
+        if (s.status === 'fulfilled' && !s.value?.ok && s.value?.error) errors.push(s.value.error);
+        return [];
+      });
+
+      return safeResponse([...baseline, ...extra]);
     }
 
-    if (all.length > 0) {
-      return safeResponse(all);
-    }
-
+    // 2) Fallback: Yahoo only (5s)
     if (YAHOO_FEED) {
-      const yahooItems = await fetchRssItems(YAHOO_FEED.url, YAHOO_FEED.id, YAHOO_FEED.name, 'national');
-      const combined = [...all, ...yahooItems];
-      if (combined.length > 0) return safeResponse(combined);
+      sourcesTried.push('yahoo');
+      const result = await fetchRssItems(YAHOO_FEED.url, YAHOO_FEED.id, YAHOO_FEED.name, 'national', null);
+      if (result.ok && result.items.length > 0) return safeResponse(result.items);
+      if (result.error) errors.push(`yahoo: ${result.error}`);
     }
 
     return safeResponse([]);
   } catch (err) {
     console.error('[aggregate] Error:', err.message);
-    return res.status(200).json({ items: [] });
+    errors.push(err.message);
+    return res.status(200).json({ items: [], sourcesTried: sourcesTried || [], errors });
   }
 }

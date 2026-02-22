@@ -139,6 +139,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2025)
 
+**News timeouts fix (priority fetch + cache):**
+- **Priority fetch** — `/api/news/aggregate`: Google News first (10s timeout), then other feeds via Promise.allSettled (5s). Google baseline used immediately; national/team feeds merged without blocking
+- **Per-source cache** — In-memory cache per feed (10 min TTL). On timeout, return cached result if available
+- **AbortController** — All fetches use AbortController + timeout; non-blocking
+- **Headers** — User-Agent: MaximusSports/1.0 (+https://maximussports.vercel.app); Accept: application/rss+xml, application/xml, text/xml
+- **Response shape** — Always 200 with `{ items, sourcesTried, errors }`; never 500
+
 **Vercel module path fix:**
 - **Serverless imports** — api/teamIds, api/news/aggregate: use `../../src/` (two levels up from api subdir to project root); api/news/team/[slug].js uses `../../../src/` (3 levels deep). Fixes ERR_MODULE_NOT_FOUND for /var/src/...
 
