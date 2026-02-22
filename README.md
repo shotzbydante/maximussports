@@ -49,8 +49,11 @@ Frontend: http://localhost:5173
 For local API (serverless functions):
 
 ```bash
+vercel login    # required before first use
 npx vercel dev
 ```
+
+News API (`/api/news/aggregate`, `/api/news/team/:slug`) works in local dev when using `vercel dev`.
 
 ## Deploy to Vercel
 

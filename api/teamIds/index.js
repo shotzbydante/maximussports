@@ -1,14 +1,25 @@
 /**
  * Vercel Serverless: ESPN teams list → slug → team ID map.
  * GET /api/teamIds
- * Returns { slugToId: { "michigan-wolverines": "130", ... } }.
- * Matches ESPN teams to teams.js slugs via getTeamSlug(displayName).
+ * Returns { slugToId: { ... }, missingSlugs?: string[] }.
+ * Uses TEAM_ID_OVERRIDES first, then ESPN list via getTeamSlug matching.
  */
 
 import { getTeamSlug } from '../../../src/utils/teamSlug.js';
+import { TEAMS } from '../../../src/data/teams.js';
 
 const ESPN_TEAMS_URL =
   'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=400';
+
+/** Manual overrides for ESPN team IDs when ESPN list fails to match. */
+const TEAM_ID_OVERRIDES = {
+  'washington-huskies': '264',
+  'uconn-huskies': '41',
+  'ucla-bruins': '26',
+  'usc-trojans': '30',
+};
+
+const ALL_SLUGS = TEAMS.map((t) => t.slug);
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,13 +35,18 @@ export default async function handler(req, res) {
   }
 
   try {
+    const slugToId = {};
+
+    for (const [slug, id] of Object.entries(TEAM_ID_OVERRIDES)) {
+      if (ALL_SLUGS.includes(slug)) slugToId[slug] = String(id);
+    }
+
     const espnRes = await fetch(ESPN_TEAMS_URL);
     if (!espnRes.ok) {
       throw new Error(`ESPN fetch failed: ${espnRes.status}`);
     }
     const data = await espnRes.json();
 
-    const slugToId = {};
     const sports = data?.sports || [];
     const unmatchedEspnTeams = [];
 
@@ -62,7 +78,7 @@ export default async function handler(req, res) {
           }
 
           if (slug) {
-            slugToId[slug] = id;
+            if (!slugToId[slug]) slugToId[slug] = id;
           } else {
             unmatchedEspnTeams.push({ id, displayName, location, name });
           }
@@ -70,11 +86,17 @@ export default async function handler(req, res) {
       }
     }
 
+    const missingSlugs = ALL_SLUGS.filter((s) => !slugToId[s]);
+    if (missingSlugs.length > 0) {
+      console.debug('[teamIds] Missing slugs (add to TEAM_ID_OVERRIDES if needed):', missingSlugs);
+    }
     if (unmatchedEspnTeams.length > 0) {
       console.debug('[teamIds] Unmatched ESPN teams:', unmatchedEspnTeams);
     }
 
-    res.json({ slugToId });
+    const payload = { slugToId };
+    if (missingSlugs.length > 0) payload.missingSlugs = missingSlugs;
+    res.json(payload);
   } catch (err) {
     console.error('TeamIds API error:', err.message);
     res.status(500).json({ error: err.message || 'Failed to fetch team IDs' });

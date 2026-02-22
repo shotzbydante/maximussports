@@ -139,6 +139,11 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2025)
 
+**Team ID Overrides + News API Local Testing:**
+- **Manual Team ID overrides** — `api/teamIds/index.js`: `TEAM_ID_OVERRIDES` map (washington-huskies 264, uconn-huskies 41, ucla-bruins 26, usc-trojans 30); used first before ESPN list; ensures Washington Huskies and others resolve when ESPN matching fails
+- **Missing slugs debugging** — Response includes `missingSlugs` when any teams.js team lacks an ID; logged to console for debugging
+- **News API local testing** — README: run `vercel login` before `vercel dev`; note that `/api/news/aggregate` works in local dev with vercel dev
+
 **Team ID, ATS, News Robustness (Washington Huskies, Purdue, etc.):**
 - **Team ID resolution** — `/api/teamIds`: Try multiple ESPN name variants (displayName, location+name, shortDisplayName); log unmatched teams to console; added aliases in `teamSlug.js` for Washington, UCLA, USC, Purdue, Duke, etc.
 - **ATS/odds matching** — `matchOddsHistoryToEvent`: Use `getTeamSlug` for canonical team matching when string match fails; improves Odds API ↔ ESPN name alignment
