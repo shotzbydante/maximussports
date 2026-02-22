@@ -69,7 +69,7 @@
   flex-direction: column;
   gap: 2px;
   margin: var(--space-xs) 0 var(--space-sm) var(--space-xl);
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
 }
 

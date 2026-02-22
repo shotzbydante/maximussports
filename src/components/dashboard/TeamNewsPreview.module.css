@@ -22,12 +22,12 @@
 .item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-sm);
   color: inherit;
   text-decoration: none;
-  transition: background 0.15s;
+  transition: background 0.1s;
 }
 
 .item:hover {
@@ -35,12 +35,14 @@
 }
 
 .team {
+  flex: 1;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: var(--color-text);
 }
 
 .meta {
-  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   color: var(--color-text-muted);
 }

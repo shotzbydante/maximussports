@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import TeamLogo from '../shared/TeamLogo';
 import styles from './TeamNewsPreview.module.css';
 
 export default function TeamNewsPreview({ items }) {
@@ -12,8 +13,9 @@ export default function TeamNewsPreview({ items }) {
             to={`/teams/${item.slug}`}
             className={styles.item}
           >
+            <TeamLogo team={{ name: item.team, slug: item.slug, logo: `/logos/${item.slug}.svg` }} size={22} />
             <span className={styles.team}>{item.team}</span>
-            <span className={styles.meta}>{item.headlines} headlines</span>
+            <span className={styles.meta}>{item.headlines}</span>
           </Link>
         ))}
       </div>

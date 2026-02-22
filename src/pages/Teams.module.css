@@ -1,32 +1,124 @@
 .page {
-  max-width: 800px;
+  max-width: 900px;
+}
+
+.header {
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .subtitle {
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-lg);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: var(--space-xs) 0 0;
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.conferenceSection {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-elevated);
+}
+
+.conferenceTitle {
+  font-size: 0.85rem;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-muted);
+  border-bottom: 1px solid var(--color-border-light);
+  margin: 0;
+}
+
+.tierBlock {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.tierBlock:last-child {
+  border-bottom: none;
+}
+
+.tierLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  display: block;
+  padding: var(--space-xs) var(--space-md);
+  background: rgba(60, 121, 180, 0.04);
 }
 
 .teamList {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.teamList li {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.teamList li:last-child {
+  border-bottom: none;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
   gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.9rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.1s;
 }
 
-.teamLink {
-  display: block;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-elevated);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-light);
-  font-size: 0.95rem;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.teamLink:hover {
+.teamRow:hover {
   background: var(--color-bg-muted);
-  border-color: var(--color-primary);
+  color: inherit;
+}
+
+.teamName {
+  flex: 1;
+  font-weight: 500;
+}
+
+.badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.tierLock {
+  background: rgba(45, 138, 110, 0.15);
+  color: var(--color-up);
+}
+
+.tierShould {
+  background: rgba(60, 121, 180, 0.15);
+  color: var(--color-metro-blue);
+}
+
+.tierWork {
+  background: rgba(183, 152, 108, 0.2);
+  color: var(--color-beige-dune);
+}
+
+.tierLong {
+  background: rgba(196, 92, 74, 0.15);
+  color: var(--color-down);
+}
+
+.chevron {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }

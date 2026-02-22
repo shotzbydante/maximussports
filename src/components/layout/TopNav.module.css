@@ -25,14 +25,14 @@
 .brandText {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text);
 }
 
 .brandTagline {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
   margin-left: var(--space-sm);
   padding-left: var(--space-sm);
@@ -45,8 +45,8 @@
 }
 
 .link {
-  padding: var(--space-sm) var(--space-md);
-  font-size: 0.9rem;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);

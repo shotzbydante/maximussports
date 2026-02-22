@@ -18,7 +18,7 @@ function parseSlug(req) {
 function buildQuery(team) {
   const name = team.name;
   const keywords = team.keywords || team.name;
-  return encodeURIComponent(`"${name}" OR "${keywords}"`);
+  return encodeURIComponent(`"${name}" OR "${keywords}" when:90d`);
 }
 
 function extractSource(item) {
@@ -70,7 +70,12 @@ export default async function handler(req, res) {
     const parsed = parser.parse(xml);
     const items = parsed?.rss?.channel?.item;
     const raw = Array.isArray(items) ? items : items ? [items] : [];
-    const limit = 5;
+    raw.sort((a, b) => {
+      const da = new Date(a.pubDate || 0).getTime();
+      const db = new Date(b.pubDate || 0).getTime();
+      return db - da;
+    });
+    const limit = 10;
     const headlines = raw.slice(0, limit).map((item, i) => ({
       id: item.guid?.['#text'] || item.link || `news-${i}`,
       title: item.title || 'No title',
