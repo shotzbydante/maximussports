@@ -1,8 +1,11 @@
 /**
  * Live scores display — Bloomberg-style compact table.
- * Highlights in-progress games.
+ * Highlights in-progress games. Team names link to /teams/<slug>.
  */
 
+import { Link } from 'react-router-dom';
+import SourceBadge from '../shared/SourceBadge';
+import { getTeamSlug } from '../../utils/teamSlug';
 import styles from './LiveScores.module.css';
 
 function formatStartTime(iso) {
@@ -31,7 +34,7 @@ function isLive(status) {
   );
 }
 
-export default function LiveScores({ games = [], loading, error, compact = false, showTitle = true }) {
+export default function LiveScores({ games = [], loading, error, compact = false, showTitle = true, source = 'ESPN' }) {
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
       {showTitle && <h3 className={styles.title}>Live Scores</h3>}
@@ -65,7 +68,12 @@ export default function LiveScores({ games = [], loading, error, compact = false
 
   return (
     <div className={styles.widget}>
-      {showTitle && <h3 className={styles.title}>Live Scores</h3>}
+      {showTitle && (
+        <div className={styles.widgetHeader}>
+          <h3 className={styles.title}>Live Scores</h3>
+          <SourceBadge source={source} />
+        </div>
+      )}
       <div className={`${styles.table} ${compact ? styles.tableCompact : styles.tableFull}`}>
         <div className={`${styles.row} ${styles.rowHeader}`}>
           <span className={styles.colMatchup}>Matchup</span>
@@ -81,9 +89,17 @@ export default function LiveScores({ games = [], loading, error, compact = false
               className={`${styles.row} ${live ? styles.rowLive : ''}`}
             >
               <span className={styles.colMatchup}>
-                <span className={styles.away}>{g.awayTeam}</span>
+                {getTeamSlug(g.awayTeam) ? (
+                  <Link to={`/teams/${getTeamSlug(g.awayTeam)}`} className={styles.teamLink}>{g.awayTeam}</Link>
+                ) : (
+                  <span>{g.awayTeam}</span>
+                )}
                 <span className={styles.at}> @ </span>
-                <span className={styles.home}>{g.homeTeam}</span>
+                {getTeamSlug(g.homeTeam) ? (
+                  <Link to={`/teams/${getTeamSlug(g.homeTeam)}`} className={styles.teamLink}>{g.homeTeam}</Link>
+                ) : (
+                  <span>{g.homeTeam}</span>
+                )}
               </span>
               <span className={styles.colScore}>
                 {g.awayScore != null && g.homeScore != null ? (

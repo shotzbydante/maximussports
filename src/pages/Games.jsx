@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { topMatchups } from '../data/mockData';
 import { fetchScores } from '../api/scores';
 import LiveScores from '../components/scores/LiveScores';
+import SourceBadge from '../components/shared/SourceBadge';
 import MatchupPreview from '../components/dashboard/MatchupPreview';
 import styles from './Games.module.css';
 
@@ -34,7 +35,10 @@ export default function Games() {
       </header>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Live Scores</h2>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>Live Scores</h2>
+          <SourceBadge source="ESPN" />
+        </div>
         <LiveScores
           games={scores.games}
           loading={scores.loading}
@@ -45,7 +49,10 @@ export default function Games() {
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Key Matchups</h2>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>Key Matchups</h2>
+          <SourceBadge source="Mock" />
+        </div>
         <div className={styles.matchupList}>
           {topMatchups.map((m) => (
             <MatchupPreview key={m.id} matchup={m} />

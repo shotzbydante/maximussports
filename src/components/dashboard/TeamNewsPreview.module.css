@@ -6,11 +6,19 @@
   box-shadow: var(--shadow-card);
 }
 
-.title {
-  font-size: 1rem;
+.widgetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-sm);
   border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: 1rem;
+  margin: 0;
 }
 
 .list {

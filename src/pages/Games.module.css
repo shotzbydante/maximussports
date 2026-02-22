@@ -27,6 +27,18 @@
   margin-bottom: var(--space-xl);
 }
 
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.sectionHeader .sectionTitle {
+  margin-bottom: 0;
+}
+
 .sectionTitle {
   font-size: 0.75rem;
   font-weight: 600;

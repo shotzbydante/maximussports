@@ -4,12 +4,19 @@
 }
 
 .hero {
+  position: relative;
   background: linear-gradient(135deg, var(--color-metro-blue) 0%, var(--color-primary-hover) 100%);
   color: white;
   padding: var(--space-lg);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-lg);
   box-shadow: var(--shadow-lg);
+}
+
+.heroBadge {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
 }
 
 .heroDate {
@@ -44,7 +51,31 @@
   gap: var(--space-md);
 }
 
+.keyDatesSection {
+  margin-bottom: var(--space-lg);
+}
+
+.dailyScheduleSection {
+  margin-bottom: var(--space-lg);
+}
+
 .liveScoresSection {
+  margin-bottom: var(--space-lg);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.sectionHeader .sectionTitle {
+  margin-bottom: 0;
+}
+
+.statsSection {
   margin-bottom: var(--space-lg);
 }
 

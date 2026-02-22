@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom';
 import TeamLogo from '../shared/TeamLogo';
+import SourceBadge from '../shared/SourceBadge';
 import styles from './TeamNewsPreview.module.css';
 
-export default function TeamNewsPreview({ items }) {
+export default function TeamNewsPreview({ items, source = 'Mock' }) {
   return (
     <div className={styles.widget}>
-      <h3 className={styles.title}>Team News</h3>
+      <div className={styles.widgetHeader}>
+        <h3 className={styles.title}>Team News</h3>
+        <SourceBadge source={source} />
+      </div>
       <div className={styles.list}>
         {items.map((item) => (
           <Link

@@ -1,0 +1,81 @@
+.row {
+  display: grid;
+  grid-template-columns: 1fr 70px 90px 85px 60px auto;
+  gap: var(--space-md);
+  font-size: 0.85rem;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+  align-items: center;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowLive {
+  background: rgba(45, 138, 110, 0.08);
+  border-left: 3px solid var(--color-up);
+}
+
+.matchup {
+  min-width: 0;
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--color-primary);
+}
+
+.at {
+  color: var(--color-text-muted);
+}
+
+.score {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.status {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.statusLive {
+  color: var(--color-up);
+  font-weight: 600;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--color-up);
+  border-radius: 50%;
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+  animation: matchupPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes matchupPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.time {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.network {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.badge {
+  justify-self: end;
+}

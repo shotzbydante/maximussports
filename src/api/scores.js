@@ -14,3 +14,18 @@ export async function fetchScores() {
 
   return res.json();
 }
+
+/**
+ * Fetch scores for a specific date (YYYY-MM-DD).
+ */
+export async function fetchScoresByDate(dateStr) {
+  const date = dateStr.replace(/-/g, '');
+  const res = await fetch(`/api/scores?date=${date}`);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}

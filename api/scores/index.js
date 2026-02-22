@@ -51,7 +51,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const espnRes = await fetch(ESPN_SCOREBOARD_URL);
+    const dateParam = req.query?.date;
+    const url = dateParam
+      ? `${ESPN_SCOREBOARD_URL}?dates=${String(dateParam).replace(/-/g, '')}`
+      : ESPN_SCOREBOARD_URL;
+    const espnRes = await fetch(url);
     if (!espnRes.ok) {
       throw new Error(`ESPN fetch failed: ${espnRes.status}`);
     }

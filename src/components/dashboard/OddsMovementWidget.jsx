@@ -1,9 +1,13 @@
+import SourceBadge from '../shared/SourceBadge';
 import styles from './OddsMovementWidget.module.css';
 
-export default function OddsMovementWidget({ movements }) {
+export default function OddsMovementWidget({ movements, source = 'Mock' }) {
   return (
     <div className={styles.widget}>
-      <h3 className={styles.title}>Odds Movement</h3>
+      <div className={styles.widgetHeader}>
+        <h3 className={styles.title}>Odds Movement</h3>
+        <SourceBadge source={source} />
+      </div>
       <div className={styles.table}>
         <div className={styles.header}>
           <span>Matchup</span>

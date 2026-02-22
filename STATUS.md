@@ -38,14 +38,17 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/data/teams.js` | 74 ESPN Bubble Watch teams (conference, oddsTier, keywords) |
 | `src/data/mockData.js` | Mock dashboard data (matchups, odds, news, stats) |
 | `src/api/news.js` | Client fetcher + `fetchAggregatedNews` for multi-team news |
-| `src/api/scores.js` | Client fetcher `fetchScores()` for live scores |
+| `src/api/scores.js` | Client fetcher `fetchScores()`, `fetchScoresByDate(date)` |
+| `src/utils/teamSlug.js` | Maps ESPN team names → teams.js slugs |
+| `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
+| `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
 | `api/news/team/[slug].js` | Serverless: Google News RSS → JSON |
 | `api/scores/index.js` | Serverless: ESPN scoreboard proxy → simplified JSON |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
 ### Pages
-- `Home` — Dashboard (hero, stat cards, matchups, odds, aggregated news feed, team news counts)
+- `Home` — Tournament hub: Key Dates, Daily Schedule (collapsible), hero, Live Scores (60s refresh), stats, matchups, sidebar with source badges
 - `Teams` — Bubble Watch list by conference + odds tier
 - `TeamPage` — Team header + last 90 days headlines
 - `Games` — Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
@@ -56,7 +59,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Layout:** `TopNav`, `Sidebar`, `Layout`
 - **Shared:** `StatCard`, `TrendArrow`, `TeamLogo`
 - **Dashboard:** `MatchupPreview`, `OddsMovementWidget`, `NewsFeed`, `TeamNewsPreview`
-- **Scores:** `LiveScores` (Bloomberg-style table, live game highlighting)
+- **Scores:** `LiveScores`, `MatchupRow` (team links, PST, network, source badge)
+- **Shared:** `SourceBadge` (ESPN | Google News | Mock)
+- **Home:** `KeyDatesWidget`, `DailySchedule` (collapsible panels per date)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -66,7 +71,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/news/team/:slug` | GET | Top 10 Google News headlines for team (90-day query, sorted by pubDate) |
-| `/api/scores` | GET | College basketball scoreboard (proxied from ESPN, simplified JSON) |
+| `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
 
 ---
 
@@ -104,6 +109,15 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 21, 2025)
+
+**Tournament-tracking hub:**
+- **Key Dates** — Top of Home, conference finals + NCAA dates, times in PST
+- **Daily Schedule** — Collapsible panels per date (now → Selection Sunday), ESPN data, "No scheduled games yet" when empty
+- **MatchupRow** — Team links via `getTeamSlug`, time (PST), network, SourceBadge per game
+- **SourceBadge** — ESPN / Google News / Mock on every score/news widget
+- **teamSlug.js** — Maps ESPN names to slugs (exact, normalized, alias map)
+- **fetchScoresByDate(date)** — API supports `?date=YYYYMMDD`
+- **60s auto-refresh** — Home Live Scores + Daily Schedule today panel
 
 **Live scores (ESPN):**
 - Added `/api/scores` serverless route proxying ESPN college basketball scoreboard

@@ -1,3 +1,4 @@
+import SourceBadge from '../shared/SourceBadge';
 import styles from './NewsFeed.module.css';
 
 const sentimentClass = {
@@ -6,10 +7,13 @@ const sentimentClass = {
   neutral: styles.neutral,
 };
 
-export default function NewsFeed({ items = [] }) {
+export default function NewsFeed({ items = [], source = 'Mock' }) {
   return (
     <div className={styles.widget}>
-      <h3 className={styles.title}>News & Headlines</h3>
+      <div className={styles.widgetHeader}>
+        <h3 className={styles.title}>News & Headlines</h3>
+        <SourceBadge source={source} />
+      </div>
       {items.length === 0 ? (
         <p className={styles.empty}>No headlines available. Check back later.</p>
       ) : (
