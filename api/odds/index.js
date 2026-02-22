@@ -84,14 +84,26 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Odds API not configured (ODDS_API_KEY)' });
   }
 
-  try {
-    const dateParam = req.query?.date;
-    const teamParam = req.query?.team;
+  const dateParam = req.query?.date;
+  const teamParam = req.query?.team;
+  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
+  const cacheKey = getCacheKey({ date: dateParam, team: teamParam });
+  const cached = getCached(cacheKey);
 
-    const cacheKey = getCacheKey({ date: dateParam, team: teamParam });
-    const cached = getCached(cacheKey);
+  const addDebug = (payload) => {
+    if (debug) {
+      payload.debug = {
+        gamesCount: payload.games?.length ?? 0,
+        cacheHit: !!cached,
+        firstGame: payload.games?.[0] ? { homeTeam: payload.games[0].homeTeam, awayTeam: payload.games[0].awayTeam, spread: payload.games[0].spread } : null,
+      };
+    }
+    return payload;
+  };
+
+  try {
     if (cached) {
-      return res.json(cached);
+      return res.json(addDebug({ ...cached }));
     }
 
     const params = new URLSearchParams({
@@ -144,9 +156,9 @@ export default async function handler(req, res) {
     };
 
     setCache(cacheKey, result);
-    res.json(result);
+    res.json(addDebug(result));
   } catch (err) {
     console.error('Odds API proxy error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to fetch odds' });
+    res.status(200).json(addDebug({ games: [] }));
   }
 }

@@ -158,9 +158,22 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'from must be <= to' });
   }
 
+  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
   const fullCacheKey = getCacheKey({ from: fromStr, to: toStr });
   const fullCached = getCached(fullCacheKey);
-  if (fullCached) return res.json(fullCached);
+
+  const addDebug = (result) => {
+    if (debug) {
+      result.debug = {
+        gamesCount: result.games?.length ?? 0,
+        cacheHit: !!fullCached,
+        firstGame: result.games?.[0] ? { homeTeam: result.games[0].homeTeam, awayTeam: result.games[0].awayTeam, spread: result.games[0].spread } : null,
+      };
+    }
+    return result;
+  };
+
+  if (fullCached) return res.json(addDebug({ ...fullCached }));
 
   try {
     const chunks = chunkDateRange(fromStr, toStr, 31);
@@ -177,9 +190,9 @@ export default async function handler(req, res) {
     const games = Array.from(gameMap.values());
     const result = { games };
     setCache(fullCacheKey, result);
-    res.json(result);
+    res.json(addDebug(result));
   } catch (err) {
     console.error('Odds history proxy error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to fetch odds history' });
+    res.status(200).json(addDebug({ games: [] }));
   }
 }

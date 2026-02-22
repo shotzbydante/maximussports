@@ -106,6 +106,12 @@ const ALIASES = {
   "marquette": "Marquette Golden Eagles",
   "north carolina": "North Carolina Tar Heels",
   "unc": "North Carolina Tar Heels",
+  "tulsa": "Tulsa Golden Hurricane",
+  "tulsa golden hurricane": "Tulsa Golden Hurricane",
+  "liberty": "Liberty Flames",
+  "liberty flames": "Liberty Flames",
+  "mcneese": "McNeese Cowboys",
+  "mcneese cowboys": "McNeese Cowboys",
 };
 
 /**

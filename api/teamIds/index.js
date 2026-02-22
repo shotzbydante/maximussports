@@ -11,12 +11,24 @@ import { TEAMS } from '../../../src/data/teams.js';
 const ESPN_TEAMS_URL =
   'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=400';
 
-/** Manual overrides for ESPN team IDs when ESPN list fails to match. */
+/** Hardcoded fallback map for ESPN team IDs when ESPN list fails to match. */
 const TEAM_ID_OVERRIDES = {
   'washington-huskies': '264',
   'uconn-huskies': '41',
   'ucla-bruins': '26',
   'usc-trojans': '30',
+  'tulsa-golden-hurricane': '202',
+  'liberty-flames': '2335',
+  'mcneese-cowboys': '2377',
+  'grand-canyon-lopes': '166',
+  'dayton-flyers': '2126',
+  'south-florida-bulls': '58',
+  'belmont-bruins': '2057',
+  'nevada-wolf-pack': '2440',
+  'boise-state-broncos': '68',
+  'santa-clara-broncos': '221',
+  'new-mexico-lobos': '167',
+  'vcu-rams': '2670',
 };
 
 const ALL_SLUGS = TEAMS.map((t) => t.slug);
@@ -87,18 +99,22 @@ export default async function handler(req, res) {
     }
 
     const missingSlugs = ALL_SLUGS.filter((s) => !slugToId[s]);
+
     if (missingSlugs.length > 0) {
-      console.debug('[teamIds] Missing slugs (add to TEAM_ID_OVERRIDES if needed):', missingSlugs);
+      console.debug('[teamIds] Missing slugs (add to TEAM_ID_OVERRIDES):', missingSlugs);
     }
     if (unmatchedEspnTeams.length > 0) {
       console.debug('[teamIds] Unmatched ESPN teams:', unmatchedEspnTeams);
     }
 
-    const payload = { slugToId };
-    if (missingSlugs.length > 0) payload.missingSlugs = missingSlugs;
+    const payload = { slugToId, missingSlugs };
     res.json(payload);
   } catch (err) {
     console.error('TeamIds API error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to fetch team IDs' });
+    const fallback = {};
+    for (const s of ALL_SLUGS) {
+      if (TEAM_ID_OVERRIDES[s]) fallback[s] = TEAM_ID_OVERRIDES[s];
+    }
+    res.status(200).json({ slugToId: fallback, missingSlugs: ALL_SLUGS.filter((s) => !fallback[s]) });
   }
 }
