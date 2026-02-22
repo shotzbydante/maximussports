@@ -17,7 +17,7 @@ function getInitials(name) {
   return (first[0] + (last?.[0] || first[1] || '')).toUpperCase();
 }
 
-/** Inline SVG monogram fallback */
+/** Inline SVG monogram fallback when no file loads */
 function Monogram({ initials, className }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
@@ -29,27 +29,48 @@ function Monogram({ initials, className }) {
   );
 }
 
+/** Resolve logo path: prefer .svg, then .png (from fetch-logos script) */
+function getLogoPath(slug) {
+  if (!slug) return null;
+  return [`/logos/${slug}.svg`, `/logos/${slug}.png`];
+}
+
 export default function TeamLogo({ team, size = 28 }) {
+  const [attempt, setAttempt] = useState(0);
   const [imgError, setImgError] = useState(false);
-  const logoPath = team?.logo || `/logos/${team?.slug}.svg`;
+  const slug = team?.slug;
+  const paths = slug ? getLogoPath(slug) : [];
+  const currentPath = paths[attempt] || null;
   const initials = getInitials(team?.name);
+
+  const handleError = () => {
+    if (attempt + 1 < paths.length) {
+      setAttempt((a) => a + 1);
+    } else {
+      setImgError(true);
+    }
+  };
 
   if (!team) return null;
 
+  if (imgError || !currentPath) {
+    return (
+      <span className={styles.wrapper} style={{ width: size, height: size }}>
+        <Monogram initials={initials} className={styles.monogram} />
+      </span>
+    );
+  }
+
   return (
     <span className={styles.wrapper} style={{ width: size, height: size }}>
-      {imgError ? (
-        <Monogram initials={initials} className={styles.monogram} />
-      ) : (
-        <img
-          src={logoPath}
-          alt=""
-          width={size}
-          height={size}
-          onError={() => setImgError(true)}
-          className={styles.img}
-        />
-      )}
+      <img
+        src={currentPath}
+        alt=""
+        width={size}
+        height={size}
+        onError={handleError}
+        className={styles.img}
+      />
     </span>
   );
 }

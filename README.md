@@ -12,6 +12,16 @@ Team headlines come from **Google News RSS** — free, no sign-up or API key req
 npm install
 ```
 
+## Team Logos
+
+Populate logos (optional): fetches from ESPN CDN and generates fallbacks for unmatched teams.
+
+```bash
+npm run fetch-logos
+```
+
+Output: `public/logos/<slug>.png` (ESPN) or `public/logos/<slug>.svg` (monogram fallback). Flags: `--force` replace existing; `--fallbacks-only` generate SVGs only (no fetch).
+
 ## Run Locally
 
 ```bash
