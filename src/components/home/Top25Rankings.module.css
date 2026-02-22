@@ -1,0 +1,120 @@
+.section {
+  margin-bottom: var(--space-xl);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.loading,
+.error,
+.empty {
+  padding: var(--space-md);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 36px 1fr 120px 90px;
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowHeader {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.colRank {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.colTeam {
+  min-width: 0;
+}
+
+.teamLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.teamLink:hover {
+  color: var(--color-primary);
+}
+
+.colConf {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.colTier {
+  font-size: 0.75rem;
+}
+
+.tier {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.tierLock {
+  background: rgba(45, 138, 110, 0.15);
+  color: var(--color-up);
+}
+
+.tierShould {
+  background: rgba(60, 121, 180, 0.15);
+  color: var(--color-metro-blue);
+}
+
+.tierWork {
+  background: rgba(183, 152, 108, 0.2);
+  color: var(--color-beige-dune);
+}
+
+.tierLong {
+  background: rgba(196, 92, 74, 0.15);
+  color: var(--color-down);
+}
+
+.tierNa {
+  color: var(--color-text-muted);
+}

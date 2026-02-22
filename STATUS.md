@@ -20,7 +20,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Platform:** Vercel Serverless Functions
 - **News API:** `/api/news/team/[slug].js` — fetches Google News RSS, parses with `fast-xml-parser`, returns top 10 headlines (90-day lookback)
 - **Scores API:** `/api/scores/index.js` — proxies ESPN college basketball scoreboard, returns simplified game list (gameId, teams, scores, status, startTime, network, venue)
-- **Rankings API:** `/api/rankings/index.js` — proxies ESPN AP Top 25 rankings, returns `{ rankings: [{ teamName, rank }] }`
+- **Rankings API:** `/api/rankings/index.js` — proxies ESPN AP Top 25 rankings, returns `{ rankings: [{ teamName, rank, teamId }] }`
+- **Schedule API:** `/api/schedule/[teamId].js` — ESPN team schedule (past + upcoming games)
+- **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
 - **No env vars required** — Google News RSS and ESPN endpoints are free, no API key
 
 ### Design System
@@ -44,18 +46,23 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/utils/teamSlug.js` | Maps ESPN team names → teams.js slugs |
 | `src/utils/pinnedTeams.js` | localStorage get/set for pinned team slugs |
 | `src/utils/rankingsNormalize.js` | ESPN name normalization + `buildSlugToRankMap` |
+| `src/utils/teamIdMap.js` | `buildSlugToIdFromRankings` — slug → ESPN team ID |
+| `src/api/schedule.js` | Client fetcher `fetchTeamSchedule(teamId)` |
+| `src/api/teamIds.js` | Client fetcher `fetchTeamIds()` for slug→id map |
 | `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
 | `api/news/team/[slug].js` | Serverless: Google News RSS → JSON |
 | `api/scores/index.js` | Serverless: ESPN scoreboard proxy → simplified JSON |
-| `api/rankings/index.js` | Serverless: ESPN AP Top 25 → `{ rankings }` |
+| `api/rankings/index.js` | Serverless: ESPN AP Top 25 → `{ rankings }` (incl. teamId) |
+| `api/schedule/[teamId].js` | Serverless: ESPN team schedule → `{ events }` |
+| `api/teamIds/index.js` | Serverless: ESPN teams → `{ slugToId }` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
 ### Pages
-- `Home` — Pinned Teams Dashboard: pinned teams (multi-select + search, localStorage), Dynamic Alerts (upsets from ESPN + tiers), Dynamic Stats (upset count, ranked in action, news velocity), hero, Live Scores, matchups, sidebar
+- `Home` — Pinned Teams Dashboard: pinned teams, **Top 25 Rankings** (full AP Top 25, clickable to team page), Dynamic Alerts, Dynamic Stats, hero, Live Scores, matchups, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
-- `TeamPage` — Team header + last 90 days headlines
+- `TeamPage` — Team header + last 90 days headlines + **Full Schedule** (past + upcoming, ESPN, SourceBadge)
 - `Games` — Key Dates (top), Daily Schedule (collapsible), Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
@@ -66,8 +73,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Dashboard:** `MatchupPreview`, `OddsMovementWidget`, `NewsFeed`, `TeamNewsPreview`
 - **Scores:** `LiveScores`, `MatchupRow` (team links, PST, network, source badge)
 - **Shared:** `SourceBadge` (ESPN | Google News | Mock)
-- **Home:** `PinnedTeamsSection` (multi-select, search, cards with rank/next game/headlines), `DynamicAlerts` (upsets), `DynamicStats` (ESPN/Google News)
+- **Home:** `PinnedTeamsSection`, `Top25Rankings` (full AP Top 25, links to team pages), `DynamicAlerts`, `DynamicStats`
 - **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible panels per date)
+- **Team:** `TeamSchedule` (Full Schedule — past + upcoming, ESPN)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -78,7 +86,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 |----------|--------|-------------|
 | `/api/news/team/:slug` | GET | Top 10 Google News headlines for team (90-day query, sorted by pubDate) |
 | `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
-| `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank) |
+| `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
+| `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
+| `/api/teamIds` | GET | slug → ESPN team ID map |
 
 ---
 
@@ -130,6 +140,15 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 **Helpers:**
 - **`src/utils/pinnedTeams.js`** — `getPinnedTeams`, `setPinnedTeams`, `addPinnedTeam`, `removePinnedTeam`, `togglePinnedTeam`
+
+**Top 25 Rankings (Home):**
+- **`Top25Rankings`** — Full AP Top 25 list from ESPN; rank, team name (link to /teams/:slug or /teams), conference, tier badge; SourceBadge ESPN
+- Rankings API now returns `teamId` per ranking
+
+**Team Page Full Schedule:**
+- **`/api/schedule/[teamId]`** — ESPN team schedule endpoint; past games (final scores), upcoming (date/time PST); opponent, result, home/away, status
+- **`/api/teamIds`** — ESPN teams list → slug→id map (via getTeamSlug matching)
+- **`TeamSchedule`** — Fetches rankings + teamIds to resolve slug→id, then schedule; "Schedule unavailable" if no match
 
 ---
 

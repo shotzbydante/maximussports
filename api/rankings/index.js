@@ -39,6 +39,7 @@ export default async function handler(req, res) {
       return {
         teamName: teamName.trim() || 'Unknown',
         rank: r.current ?? r.rank ?? null,
+        teamId: team.id ? String(team.id) : null,
       };
     });
 

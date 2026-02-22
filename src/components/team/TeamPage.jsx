@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import { fetchTeamNews } from '../../api/news';
 import TeamLogo from '../shared/TeamLogo';
+import TeamSchedule from './TeamSchedule';
 import styles from './TeamPage.module.css';
 
 function formatDate(str) {
@@ -105,6 +106,8 @@ export default function TeamPage() {
           </ul>
         )}
       </section>
+
+      <TeamSchedule slug={slug} />
     </div>
   );
 }

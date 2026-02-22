@@ -16,6 +16,7 @@ import MatchupPreview from '../components/dashboard/MatchupPreview';
 import OddsMovementWidget from '../components/dashboard/OddsMovementWidget';
 import NewsFeed from '../components/dashboard/NewsFeed';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
+import Top25Rankings from '../components/home/Top25Rankings';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import styles from './Home.module.css';
@@ -115,6 +116,8 @@ export default function Home() {
   return (
     <div className={styles.home}>
       <PinnedTeamsSection onPinnedChange={setPinned} />
+
+      <Top25Rankings />
 
       <DynamicAlerts />
 
