@@ -24,7 +24,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Schedule API:** `/api/schedule/[teamId].js` — ESPN team schedule (past + upcoming games)
 - **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
 - **Odds API:** `/api/odds/index.js` — proxy The Odds API (NCAA basketball spreads, totals, moneyline); optional `ODDS_API_KEY`; 5-min cache
-- **Odds History API:** `/api/odds-history/index.js` — proxy Odds API historical odds (spreads); params `?from=YYYY-MM-DD&to=YYYY-MM-DD`; requires paid plan; 7-min cache
+- **Odds History API:** `/api/odds-history/index.js` — proxy Odds API historical odds (spreads); accepts long ranges via 31-day chunking; per-chunk + full-result cache (7 min)
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -53,6 +53,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/api/teamIds.js` | Client fetcher `fetchTeamIds()` for slug→id map |
 | `src/api/odds.js` | Client: `fetchOdds()`, `fetchOddsHistory()`, `mergeGamesWithOdds()`, `matchOddsHistoryToEvent()` |
 | `src/utils/ats.js` | ATS helpers: `computeATS()`, `computeATSForEvent()`, `getOurSpread()`, `aggregateATS()` |
+| `src/utils/dateChunks.js` | `SEASON_START` (2025-11-01), `chunkDateRange(from, to, maxDays=31)` |
 | `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
 | `api/news/team/[slug].js` | Serverless: Google News RSS → JSON (per-team) |
@@ -98,7 +99,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
 | `/api/teamIds` | GET | slug → ESPN team ID map |
 | `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
-| `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Returns spreads for ATS. Requires `ODDS_API_KEY` |
+| `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Chunks long ranges into 31-day windows; merges and dedupes. Requires `ODDS_API_KEY` |
 
 ---
 
@@ -136,6 +137,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 22, 2025)
+
+**ATS + Spread Chunking Fix:**
+- **`src/utils/dateChunks.js`** — `SEASON_START = "2025-11-01"`; `chunkDateRange(from, to, maxDays=31)` for 31-day windows
+- **`/api/odds-history`** — Accepts long date ranges; splits into 31-day chunks; fetches each chunk; caches per chunk (7 min); merges and dedupes by gameId+commenceTime; returns single merged games list
+- **MaximusInsight** — Uses `SEASON_START`; requests season-to-date odds (SEASON_START → today) via chunked API; last 30d and last 7d ATS
+- **`matchOddsHistoryToEvent()`** — Improved matching: normalized team names, same game date, home/away alignment; prefers exact home/away match
+- **TeamSchedule** — Spread + ATS badge on past games when odds available (unchanged, now populated by chunked history)
 
 **Full ATS Analytics (Odds API paid plan):**
 - **`/api/odds-history`** — Proxy Odds API historical odds; `?from=YYYY-MM-DD&to=YYYY-MM-DD`; markets=spreads; 7‑min cache; max 31 days per request

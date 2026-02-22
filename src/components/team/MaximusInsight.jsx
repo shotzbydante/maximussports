@@ -10,16 +10,10 @@ import { fetchTeamSchedule } from '../../api/schedule';
 import { fetchOddsHistory, matchOddsHistoryToEvent } from '../../api/odds';
 import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
 import { getTeamBySlug } from '../../data/teams';
+import { SEASON_START } from '../../utils/dateChunks';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './MaximusInsight.module.css';
-
-/** NCAA season start (approx) */
-function getSeasonStart() {
-  const d = new Date();
-  const year = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
-  return `${year}-11-01`;
-}
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -86,7 +80,7 @@ export default function MaximusInsight({ slug }) {
 
       const minDate = toDateStr(new Date(past[0].date));
       const maxDate = toDateStr(new Date(past[past.length - 1].date));
-      const from = minDate;
+      const from = minDate < SEASON_START ? minDate : SEASON_START;
       const to = maxDate;
 
       let oddsGames = [];
@@ -105,7 +99,6 @@ export default function MaximusInsight({ slug }) {
       thirtyAgo.setDate(thirtyAgo.getDate() - 30);
       const sevenAgo = new Date(now);
       sevenAgo.setDate(sevenAgo.getDate() - 7);
-      const seasonStart = getSeasonStart();
 
       const outcomes = past.map((ev) => {
         const odds = matchOddsHistoryToEvent(ev, oddsGames, team.name);
@@ -115,7 +108,7 @@ export default function MaximusInsight({ slug }) {
       const withDate = past.map((ev, i) => ({ ev, outcome: outcomes[i], date: ev.date }));
 
       const seasonOutcomes = withDate
-        .filter(({ date }) => date && new Date(date) >= new Date(seasonStart))
+        .filter(({ date }) => date && new Date(date) >= new Date(SEASON_START))
         .map(({ outcome }) => outcome)
         .filter(Boolean);
 

@@ -44,25 +44,60 @@ export async function fetchOddsHistory(params) {
   return res.json();
 }
 
+/** Normalize team name for matching: lowercase, collapse whitespace, remove common suffixes */
+function normName(s) {
+  if (!s || typeof s !== 'string') return '';
+  return s
+    .toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[.,()\-&]/g, ' ')
+    .replace(/\b(university|univ\.?|college|of)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function namesMatch(a, b) {
+  const na = normName(a);
+  const nb = normName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const ta = na.replace(/\s+/g, '');
+  const tb = nb.replace(/\s+/g, '');
+  return ta === tb || ta.includes(tb) || tb.includes(ta);
+}
+
 /**
- * Match odds history game to schedule event (by date + teams).
+ * Match odds history game to schedule event.
+ * Uses normalized team names, same game date, and home/away alignment.
+ * If multiple match, returns first (API returns earliest snapshot first).
  */
 export function matchOddsHistoryToEvent(ev, oddsGames, teamName) {
   if (!oddsGames?.length || !teamName) return null;
   const evDate = ev.date ? new Date(ev.date).toISOString().slice(0, 10) : '';
-  const norm = (s) => (s || '').toLowerCase().trim();
-  const evOpp = norm(ev.opponent);
-  const teamNorm = norm(teamName);
+  const evOpp = ev.opponent || '';
+  const isHome = ev.homeAway === 'home';
+
+  const candidates = [];
   for (const o of oddsGames) {
     const oDate = o.commenceTime ? new Date(o.commenceTime).toISOString().slice(0, 10) : '';
     if (oDate !== evDate) continue;
-    const home = norm(o.homeTeam);
-    const away = norm(o.awayTeam);
-    const hasTeam = home.includes(teamNorm) || away.includes(teamNorm) || teamNorm.includes(home) || teamNorm.includes(away);
-    const hasOpp = home.includes(evOpp) || away.includes(evOpp) || evOpp.includes(home) || evOpp.includes(away);
-    if (hasTeam && hasOpp) return o;
+
+    const oHome = o.homeTeam || '';
+    const oAway = o.awayTeam || '';
+
+    const teamMatchesHome = namesMatch(teamName, oHome);
+    const teamMatchesAway = namesMatch(teamName, oAway);
+    const oppMatchesHome = namesMatch(evOpp, oHome);
+    const oppMatchesAway = namesMatch(evOpp, oAway);
+
+    if (isHome && teamMatchesHome && oppMatchesAway) candidates.push(o);
+    else if (!isHome && teamMatchesAway && oppMatchesHome) candidates.push(o);
+    else if ((teamMatchesHome || teamMatchesAway) && (oppMatchesHome || oppMatchesAway)) candidates.push(o);
   }
-  return null;
+
+  if (candidates.length === 0) return null;
+  return candidates[0];
 }
 
 /**
