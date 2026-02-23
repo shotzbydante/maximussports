@@ -1,12 +1,13 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import styles from './TopNav.module.css';
 
 export default function TopNav() {
   return (
     <header className={styles.topnav}>
       <div className={styles.brand}>
-        <span className={styles.brandIcon}>🏀</span>
-        <span className={styles.brandText}>Maximus Sports</span>
+        <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
+          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} />
+        </Link>
         <span className={styles.brandTagline}>March Madness Intelligence</span>
       </div>
       <nav className={styles.nav}>

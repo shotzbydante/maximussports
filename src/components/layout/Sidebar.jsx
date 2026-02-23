@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
 import styles from './Sidebar.module.css';
 
@@ -14,6 +14,11 @@ export default function Sidebar() {
 
   return (
     <aside className={styles.sidebar}>
+      <div className={styles.brandWrap}>
+        <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
+          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} />
+        </Link>
+      </div>
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Navigate</span>
         <nav className={styles.nav}>

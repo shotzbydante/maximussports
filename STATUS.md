@@ -139,6 +139,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**Home layout, conference defaults, branding logo:**
+- **Home** — ATS Leaderboard moved to sit **below pinned teams** and **above Top 25** (order: Pinned Teams → ATS Leaderboard → Top 25 → Dynamic Alerts → Dynamic Stats → Live Scores).
+- **Teams page** — All conference widgets (Big Ten, SEC, ACC, etc.) are **expanded by default**.
+- **News Feed page** — All conference widgets are **expanded by default**.
+- **Branding** — Top-left "Maximus Sports" text + basketball icon replaced with provided **text logo image** (`public/logo.png`). TopNav and Sidebar show the logo; logo scales on desktop (max-height 36px, max-width 180px) and mobile (28px / 140px); tagline "March Madness Intelligence" retained in header on desktop.
+
 **Teams nav hierarchy, Top 25 logos, News Feed headers:**
 - **Sidebar Teams** — Two-level expansion: “Teams” is a NavLink to `/teams`; a separate chevron toggles the conference list. Under Teams, only conference names are shown; clicking a conference expands to show that conference’s teams. Indentation: conference row +8px, team row +20px; team rows use a slightly smaller font (0.75rem). Chevrons on both levels.
 - **Teams click** — Clicking “Teams” (label/icon) goes to the dedicated Teams page (Top 25 + search + filters + collapsible conferences).

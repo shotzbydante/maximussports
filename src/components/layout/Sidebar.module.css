@@ -10,6 +10,25 @@
   box-shadow: var(--shadow-sm);
 }
 
+.brandWrap {
+  padding: 0 var(--space-md) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.brandLink {
+  display: block;
+  line-height: 0;
+}
+
+.brandLogo {
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  max-height: 44px;
+  object-fit: contain;
+}
+
 .section {
   padding: 0 var(--space-md);
 }

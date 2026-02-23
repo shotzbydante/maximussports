@@ -163,6 +163,10 @@ export default function Home() {
 
       <PinnedTeamsSection onPinnedChange={setPinned} />
 
+      <section className={styles.atsSection}>
+        <ATSLeaderboard />
+      </section>
+
       <Top25Rankings />
 
       <DynamicAlerts />
@@ -177,10 +181,6 @@ export default function Home() {
           oddsMessage={scores.oddsMessage}
           compact
         />
-      </section>
-
-      <section className={styles.atsSection}>
-        <ATSLeaderboard />
       </section>
 
       <div className={styles.grid}>

@@ -31,7 +31,7 @@ export default function NewsFeed() {
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(() => {
     const o = {};
-    CONF_ORDER.forEach((c, i) => { o[c] = i < 2; });
+    CONF_ORDER.forEach((c) => { o[c] = true; });
     return o;
   });
 
