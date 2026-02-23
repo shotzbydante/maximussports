@@ -1,6 +1,6 @@
 # Maximus Sports — Project Status
 
-**Last updated:** Feb 22, 2026
+**Last updated:** Feb 23, 2026
 
 ## Summary
 
@@ -25,7 +25,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
 - **Odds API:** `/api/odds/index.js` — proxy The Odds API (NCAA basketball spreads, totals, moneyline); optional `ODDS_API_KEY`; 5-min cache
 - **Odds History API:** `/api/odds-history/index.js` — proxy Odds API historical odds (spreads); accepts long ranges via 31-day chunking; per-chunk + full-result cache (7 min)
-- **Summary API:** `/api/summary/index.js` — OpenAI Chat Completions (gpt-4o-mini); aggregates scores, rankings, news; returns 3–6 sentence Home synopsis; 30-min in-memory cache (key `home_summary`); `?force=true` bypasses cache; missing `OPENAI_API_KEY` returns 200 with fallback text
+- **Summary API:** `/api/summary/index.js` — OpenAI Chat Completions (gpt-4o-mini); aggregates scores (today + yesterday), rankings, odds, odds-history, news aggregate; returns 3–6 sentence Home synopsis; 30-min in-memory cache; `?stream=true` for SSE, `?force=true` bypasses cache, `?debug=true` returns data counts + DATA STATUS (no stream); missing `OPENAI_API_KEY` returns 200 with fallback text; DATA STATUS line injected into prompt so model only says “unavailable” when count = 0
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -101,7 +101,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
 | `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
-| `/api/summary` | GET | Dynamic Home synopsis (OpenAI). Optional `?force=true` to bypass 30-min cache. Returns `{ summary }`. |
+| `/api/summary` | GET | Dynamic Home synopsis (OpenAI). `?stream=true` for SSE; `?force=true` bypasses 30-min cache; `?debug=true` returns `{ scoresCount, rankingsCount, oddsCount, oddsHistoryCount, headlinesCount, sampleScore, sampleHeadline, dataStatusLine }` (no stream). |
 | `/api/teamIds` | GET | slug → ESPN team ID map. `?debug=true` → also `missingSlugs`, `missingCount` |
 | `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
 | `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Chunks long ranges into 31-day windows; merges and dedupes. Requires `ODDS_API_KEY` |
@@ -141,7 +141,23 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
-## Latest Changes (Feb 22, 2026)
+## Latest Changes (Feb 23, 2026)
+
+**Summary data availability fix (ESPN / Odds / News):**
+- **Counts before prompt** — `/api/summary` now computes and uses `scoresCount`, `rankingsCount`, `oddsCount`, `oddsHistoryCount`, `headlinesCount`. A source is marked “unavailable” only when its count = 0.
+- **ESPN** — Uses `/api/scores` for today + yesterday and `/api/rankings` (Top 25). If `scoresCount > 0`, summary never says ESPN is missing.
+- **Odds** — Uses `/api/odds` and `/api/odds-history` (yesterday→today); spreads merged into scores. Odds marked missing only when both `oddsCount` and `oddsHistoryCount` are 0.
+- **News** — Uses `/api/news/aggregate?includeNational=true` (Google + Yahoo at minimum). If `headlinesCount > 0`, summary never says news is missing.
+- **Debug mode** — `GET /api/summary?debug=true` returns JSON: `{ scoresCount, rankingsCount, oddsCount, oddsHistoryCount, headlinesCount, sampleScore, sampleHeadline, dataStatusLine }` for verification (no stream, no OpenAI call).
+- **DATA STATUS in prompt** — A “DATA STATUS — ESPN: OK (X scores, Y ranked). Odds: OK (…). News: OK (…).” line is injected into the summary prompt and returned in debug; any source with 0 count is marked MISSING.
+- **Prompt text** — Summary prompt is built from real data arrays; model instructed to only say a source is unavailable when DATA STATUS marks it MISSING, and to reference actual games and headlines when present.
+- **Stream dataStatus** — First SSE event from `/api/summary?stream=true` includes `dataStatus` (counts + dataStatusLine) so the client can show badges without a second request.
+- **Home: “Show data status” toggle** — Small toggle (default OFF) on the Home page. When ON, a compact badge row appears under the summary: “ESPN OK / Odds OK / News OK” (or PARTIAL / MISSING). Badges are color-coded: green = OK, amber = PARTIAL (&lt;3 items), red = MISSING (0). When toggle is ON and status not yet loaded, client calls `?debug=true` to fetch counts.
+- **Client** — `fetchSummaryDebug()` in `src/api/summary.js` for debug payload; Home captures `dataStatus` from stream or debug and renders badge row when toggle is on.
+
+---
+
+## Previous Changes (Feb 22, 2026)
 
 **Dynamic Home synopsis (OpenAI) — streaming, sources, welcome persistence:**
 - **Welcome persistence** — Bold welcome message stays visible **at all times**; only hidden after the user **explicitly clicks Refresh** (then recap-only view).

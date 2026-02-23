@@ -75,22 +75,27 @@ export default async function handler(req, res) {
 
   const stream = req.query?.stream === 'true' || req.query?.stream === '1';
   const force = req.query?.force === 'true' || req.query?.force === '1';
+  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
 
-  if (!stream) {
-    return res.status(400).json({ error: 'Use ?stream=true' });
+  if (!stream && !debug) {
+    return res.status(400).json({ error: 'Use ?stream=true or ?debug=true' });
   }
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
+  if (debug) {
+    res.setHeader('Content-Type', 'application/json');
+  } else {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+  }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
+  if (!debug && (!apiKey || apiKey.trim() === '')) {
     send(res, { error: true, message: 'Summary unavailable — OpenAI key not configured.' });
     return res.end();
   }
 
-  if (!force && cache.value != null && cache.updatedAt != null && Date.now() < cache.expires) {
+  if (!debug && !force && cache.value != null && cache.updatedAt != null && Date.now() < cache.expires) {
     send(res, { text: cache.value, done: true, updatedAt: cache.updatedAt });
     return res.end();
   }
@@ -184,6 +189,41 @@ export default async function handler(req, res) {
       return { ...g, spread: o?.spread };
     });
 
+  // Counts: only mark a source "unavailable" when count = 0
+  const scoresCount = allScores.length;
+  const rankingsCount = rankings.length;
+  const oddsCount = oddsGames.length;
+  const oddsHistoryCount = oddsHistoryGames.length;
+  const headlinesCount = headlines.length;
+
+  const espnOk = scoresCount > 0 || rankingsCount > 0;
+  const oddsOk = oddsCount > 0 || oddsHistoryCount > 0;
+  const newsOk = headlinesCount > 0;
+
+  const dataStatusLine = [
+    `ESPN: ${espnOk ? `OK (${scoresCount} scores, ${rankingsCount} ranked teams)` : 'MISSING'}`,
+    `Odds: ${oddsOk ? `OK (${oddsCount} spreads, ${oddsHistoryCount} ATS)` : 'MISSING'}`,
+    `News: ${newsOk ? `OK (${headlinesCount} headlines)` : 'MISSING'}`,
+  ].join('. ');
+  const dataStatusPrompt = `DATA STATUS — ${dataStatusLine}`;
+
+  if (debug) {
+    const sampleScore = finalGames[0] || upcomingGames[0] || allScores[0]
+      ? `${(finalGames[0] || upcomingGames[0] || allScores[0]).awayTeam} @ ${(finalGames[0] || upcomingGames[0] || allScores[0]).homeTeam}`
+      : null;
+    const sampleHeadline = headlines[0] ? headlines[0].title : null;
+    return res.status(200).json({
+      scoresCount,
+      rankingsCount,
+      oddsCount,
+      oddsHistoryCount,
+      headlinesCount,
+      sampleScore,
+      sampleHeadline,
+      dataStatusLine: dataStatusPrompt,
+    });
+  }
+
   const pstDate = getPstDate();
   const top25List = rankings.slice(0, 25).map((r) => `#${r.rank} ${r.teamName}`).join(', ') || 'None';
 
@@ -204,29 +244,29 @@ export default async function handler(req, res) {
     ? headlines.map((h) => `- ${h.title} (${h.source})`).join('\n')
     : 'No headlines available.';
 
-  const hasESPN = scoresToday.length > 0 || scoresYesterday.length > 0 || rankings.length > 0;
-  const hasOdds = oddsGames.length > 0 || oddsHistoryGames.length > 0;
-  const hasNews = headlines.length > 0;
   const dataAvailability = [
-    hasESPN ? 'ESPN (scores, rankings)' : 'ESPN data unavailable',
-    hasOdds ? 'Odds API (spreads, ATS)' : 'Odds API data unavailable',
-    hasNews ? 'Google/Yahoo news' : 'News (Google/Yahoo) unavailable',
+    espnOk ? 'ESPN (scores, rankings)' : 'ESPN data unavailable',
+    oddsOk ? 'Odds API (spreads, ATS)' : 'Odds API data unavailable',
+    newsOk ? 'Google/Yahoo news' : 'News (Google/Yahoo) unavailable',
   ].join('; ');
 
   const systemPrompt = `You are a friendly sports host for Maximus Sports. Write a conversational daily briefing. Use short paragraphs, not long bullet lists.
 
-DATA SOURCES (you must reference these explicitly):
+DATA SOURCES (reference explicitly when present):
 - ESPN: schedules, scores, and Top 25 rankings.
 - Odds API: spreads and ATS (Against The Spread) outcomes.
 - Google / Yahoo: news headlines tied to teams.
 
 RULES:
-1. Every game you mention MUST include its spread and ATS result (Cover/Loss/Push) where that data is available. If spread or ATS is missing for a game, say "spread/ATS unavailable" for that game.
-2. If any dataset is missing (ESPN, Odds API, or news), you MUST say so in the summary (e.g. "Odds data was unavailable for this period" or "News was unavailable").
-3. Include: (a) Games in the last 24 hours with final score and ATS outcome, (b) Upcoming games (especially tomorrow) with spreads, (c) Top 25 context from ESPN, (d) 2–4 headlines tied to those teams.
-4. Style: "Here's the rundown for today…" and "Looking ahead to tomorrow…" Short paragraphs, narrative tone.`;
+1. Use the "DATA STATUS" line in the user message: only say a source is "unavailable" or "missing" when that source is marked MISSING there. If ESPN/Odds/News show OK with counts, do NOT say they are unavailable.
+2. Every game you mention MUST include its spread and ATS result (Cover/Loss/Push) where that data is available. If spread or ATS is missing for a game, say "spread/ATS unavailable" for that game.
+3. Build the recap from the actual data provided: when game/headline lists are empty, briefly note that; when not empty, reference real games and headlines by name.
+4. Include when data exists: (a) Games in the last 24 hours with final score and ATS outcome, (b) Upcoming games with spreads, (c) Top 25 context from ESPN, (d) 2–4 headlines tied to those teams.
+5. Style: "Here's the rundown for today…" and "Looking ahead to tomorrow…" Short paragraphs, narrative tone.`;
 
   const userPrompt = `Today's date (PST): ${pstDate}
+
+${dataStatusPrompt}
 
 Data availability: ${dataAvailability}
 
@@ -243,6 +283,18 @@ ${upcomingText}
 ${headlinesText}
 
 Write a conversational daily recap. Mention ESPN for scores/rankings, Odds API for spreads and ATS, and Google/Yahoo for news. For every game you mention, include spread and ATS result where applicable. If any data source was unavailable, say so. Use 2–4 short paragraphs.`;
+
+  // Send data status first so client can show badges (e.g. ?debug=true verification)
+  send(res, {
+    dataStatus: {
+      scoresCount,
+      rankingsCount,
+      oddsCount,
+      oddsHistoryCount,
+      headlinesCount,
+      dataStatusLine: dataStatusPrompt,
+    },
+  });
 
   try {
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {

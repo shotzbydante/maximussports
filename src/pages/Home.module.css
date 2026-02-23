@@ -121,6 +121,61 @@
   cursor: not-allowed;
 }
 
+.summaryActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.dataStatusToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dataStatusToggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-primary);
+}
+
+.dataStatusBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.dataStatusBadges span {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+}
+
+.badgeOk {
+  background: rgba(45, 138, 110, 0.18);
+  color: #1d6b52;
+}
+
+.badgePartial {
+  background: rgba(183, 152, 108, 0.25);
+  color: #8a6d3a;
+}
+
+.badgeMissing {
+  background: rgba(196, 92, 74, 0.2);
+  color: #a63d2e;
+}
+
 @media (max-width: 767px) {
   .bannerMascot {
     height: 96px;

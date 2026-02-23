@@ -9,6 +9,7 @@ import { getPinnedTeams } from '../utils/pinnedTeams';
 import { getOddsTier } from '../utils/teamSlug';
 import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
+import { fetchSummaryDebug } from '../api/summary';
 import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
@@ -92,6 +93,8 @@ export default function Home() {
   const [summaryUpdatedAt, setSummaryUpdatedAt] = useState(null);
   const [summaryError, setSummaryError] = useState(false);
   const [hideStaticWelcomeAfterRefresh, setHideStaticWelcomeAfterRefresh] = useState(false);
+  const [showDataStatus, setShowDataStatus] = useState(false);
+  const [dataStatus, setDataStatus] = useState(null);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const streamBufferRef = useRef('');
@@ -203,6 +206,9 @@ export default function Home() {
           summaryEventSourceRef.current = null;
           return;
         }
+        if (data.dataStatus) {
+          setDataStatus(data.dataStatus);
+        }
         if (data.text) {
           streamBufferRef.current += data.text;
           if (!streamIntervalRef.current) {
@@ -262,6 +268,49 @@ export default function Home() {
     fetchSummaryStream(true);
   };
 
+  const handleToggleDataStatus = () => {
+    const next = !showDataStatus;
+    setShowDataStatus(next);
+    if (next && dataStatus == null) {
+      fetchSummaryDebug()
+        .then((d) => setDataStatus({
+          scoresCount: d.scoresCount,
+          rankingsCount: d.rankingsCount,
+          oddsCount: d.oddsCount,
+          oddsHistoryCount: d.oddsHistoryCount,
+          headlinesCount: d.headlinesCount,
+          dataStatusLine: d.dataStatusLine,
+        }))
+        .catch(() => setDataStatus(null));
+    }
+  };
+
+  // Badge status: ok (green), partial (amber), missing (red)
+  const getESPNStatus = () => {
+    if (!dataStatus) return 'missing';
+    const { scoresCount = 0, rankingsCount = 0 } = dataStatus;
+    const n = scoresCount + rankingsCount;
+    if (n === 0) return 'missing';
+    if (n < 3) return 'partial';
+    return 'ok';
+  };
+  const getOddsStatus = () => {
+    if (!dataStatus) return 'missing';
+    const { oddsCount = 0, oddsHistoryCount = 0 } = dataStatus;
+    const n = oddsCount + oddsHistoryCount;
+    if (n === 0) return 'missing';
+    if (n < 3) return 'partial';
+    return 'ok';
+  };
+  const getNewsStatus = () => {
+    if (!dataStatus) return 'missing';
+    const n = dataStatus.headlinesCount ?? 0;
+    if (n === 0) return 'missing';
+    if (n < 3) return 'partial';
+    return 'ok';
+  };
+  const statusLabel = (status) => (status === 'ok' ? 'OK' : status === 'partial' ? 'PARTIAL' : 'MISSING');
+
   const upsetCount = countUpsets(scores.games);
   const rankedInAction = countRankedInAction(scores.games, rankMap);
   const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (t.headlines || 0), 0);
@@ -294,15 +343,39 @@ export default function Home() {
               Last updated: {formatSummaryDate(summaryUpdatedAt)}
             </p>
           )}
-          <button
-            type="button"
-            className={styles.summaryRefresh}
-            onClick={handleRefreshSummary}
-            disabled={summaryStreaming}
-            aria-label="Regenerate summary"
-          >
-            {summaryStreaming ? 'Generating…' : 'Refresh'}
-          </button>
+          <div className={styles.summaryActions}>
+            <button
+              type="button"
+              className={styles.summaryRefresh}
+              onClick={handleRefreshSummary}
+              disabled={summaryStreaming}
+              aria-label="Regenerate summary"
+            >
+              {summaryStreaming ? 'Generating…' : 'Refresh'}
+            </button>
+            <label className={styles.dataStatusToggle}>
+              <input
+                type="checkbox"
+                checked={showDataStatus}
+                onChange={handleToggleDataStatus}
+                aria-label="Show data status"
+              />
+              <span>Show data status</span>
+            </label>
+          </div>
+          {showDataStatus && (
+            <div className={styles.dataStatusBadges} role="status" aria-live="polite">
+              <span className={styles[`badge${getESPNStatus().charAt(0).toUpperCase() + getESPNStatus().slice(1)}`]}>
+                ESPN {statusLabel(getESPNStatus())}
+              </span>
+              <span className={styles[`badge${getOddsStatus().charAt(0).toUpperCase() + getOddsStatus().slice(1)}`]}>
+                Odds {statusLabel(getOddsStatus())}
+              </span>
+              <span className={styles[`badge${getNewsStatus().charAt(0).toUpperCase() + getNewsStatus().slice(1)}`]}>
+                News {statusLabel(getNewsStatus())}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
