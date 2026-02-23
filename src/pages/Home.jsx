@@ -156,6 +156,7 @@ export default function Home() {
   return (
     <div className={styles.home}>
       <div className={styles.banner}>
+        <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <p className={styles.bannerText}>
           Welcome to Maximus Sports, your one stop shop for Men&apos;s College Basketball team news, bubble watch, odds analysis, and more.
         </p>

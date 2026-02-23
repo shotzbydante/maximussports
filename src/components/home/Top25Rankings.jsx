@@ -99,7 +99,11 @@ export default function Top25Rankings() {
             const linkTo = slug ? `/teams/${slug}` : '/teams';
 
             return (
-              <div key={r.rank} className={styles.row}>
+              <Link
+                key={r.rank}
+                to={linkTo}
+                className={`${styles.row} ${styles.rowLink}`}
+              >
                 <span className={styles.colRank}>{r.rank}</span>
                 <span className={styles.colTeam}>
                   {teamForLogo && (
@@ -107,9 +111,7 @@ export default function Top25Rankings() {
                       <TeamLogo team={teamForLogo} size={24} />
                     </span>
                   )}
-                  <Link to={linkTo} className={styles.teamLink}>
-                    {r.teamName}
-                  </Link>
+                  <span className={styles.teamName}>{r.teamName}</span>
                 </span>
                 <span className={styles.colConf}>
                   {team?.conference ?? '—'}
@@ -123,7 +125,7 @@ export default function Top25Rankings() {
                     <span className={styles.tierNa}>—</span>
                   )}
                 </span>
-              </div>
+              </Link>
             );
           })}
         </div>

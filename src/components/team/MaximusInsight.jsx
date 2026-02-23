@@ -158,6 +158,7 @@ export default function MaximusInsight({ slug }) {
   return (
     <section className={styles.bubble}>
       <div className={styles.header}>
+        <img src="/mascot.png" alt="" className={styles.headerMascot} aria-hidden />
         <h3 className={styles.title}>Maximus&apos;s Insight</h3>
         <SourceBadge source="Odds API" />
       </div>

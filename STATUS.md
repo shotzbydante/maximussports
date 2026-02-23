@@ -139,6 +139,11 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**Top bar logo, Top 25 clickable rows, mascot:**
+- **Top bar logo** — Maximus Sports text logo in the top bar is **2x larger** (max-height 96px / max-width 440px desktop; 64px / 280px mobile). Top nav height increased to 100px to accommodate; logo remains aligned with "March Madness Intelligence" tagline.
+- **Top 25 Rankings (Home)** — Each team row is **fully clickable** and navigates to `/teams/:slug`; row hover state (background + primary color on team name) for affordance.
+- **Mascot** — Robot mascot PNG added at `public/mascot.png`. **Home banner:** mascot placed to the left of the welcome text so it appears to "speak" the message (56px height desktop, 44px mobile). **Team pages:** mascot appears next to the "Maximus's Insight" widget title (48px desktop, 40px mobile) so the robot is shown as delivering the insight. CSS modules + tokens; responsive.
+
 **Home layout, conference defaults, branding logo:**
 - **Home** — ATS Leaderboard moved to sit **below pinned teams** and **above Top 25** (order: Pinned Teams → ATS Leaderboard → Top 25 → Dynamic Alerts → Dynamic Stats → Live Scores).
 - **Teams page** — All conference widgets (Big Ten, SEC, ACC, etc.) are **expanded by default**.
