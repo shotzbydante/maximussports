@@ -79,6 +79,10 @@
   color: var(--color-down);
 }
 
+.atsSection {
+  margin-bottom: var(--space-lg);
+}
+
 .newsSection {
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);

@@ -1,19 +1,34 @@
 /**
- * Vercel Serverless: Short ChatGPT summary for a pinned team card (1–2 sentences).
- * POST /api/summary/team with body { slug, headlines: [{ title, source? }] }.
- * Uses only the provided headlines; no external API calls. Cache ~30 min per team slug.
+ * Vercel Serverless: GPT team briefing for Team page (2–4 sentences).
+ * POST /api/summary/team with body { slug?, teamName, upcomingGames, lastWeek, atsSummary, headlines }.
+ * Uses only the provided payload; no external API calls. Cache 30 min per team slug.
+ * Returns { summary, updatedAt } (ISO string when generated or from cache).
  */
-
-import crypto from 'node:crypto';
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const OPENAI_MODEL = 'gpt-4o-mini';
 
 const teamCache = {};
 
-function hashHeadlines(headlines) {
-  const key = JSON.stringify(headlines.map((h) => h.title || '').sort());
-  return crypto.createHash('sha256').update(key).digest('hex');
+function cacheKey(slug, payloadHash) {
+  return slug ? `${slug}:${payloadHash}` : `anon:${payloadHash}`;
+}
+
+function hashPayload(payload) {
+  const str = JSON.stringify({
+    teamName: payload.teamName,
+    upcomingGames: payload.upcomingGames,
+    lastWeek: payload.lastWeek,
+    atsSummary: payload.atsSummary,
+    headlines: (payload.headlines || []).map((h) => h.title || h),
+  });
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + c;
+    hash = hash & hash;
+  }
+  return String(hash);
 }
 
 export default async function handler(req, res) {
@@ -45,32 +60,30 @@ export default async function handler(req, res) {
   }
 
   const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
+  const teamName = typeof body.teamName === 'string' ? body.teamName.trim() : (slug && slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')) || 'Team';
+  const upcomingGames = Array.isArray(body.upcomingGames) ? body.upcomingGames : [];
+  const lastWeek = Array.isArray(body.lastWeek) ? body.lastWeek : [];
+  const atsSummary = body.atsSummary != null ? body.atsSummary : {};
   const headlines = Array.isArray(body.headlines) ? body.headlines : [];
 
-  if (!slug) {
-    return res.status(400).json({ error: 'Missing slug' });
-  }
-
-  if (headlines.length === 0) {
-    return res.status(200).json({ summary: null, message: 'Summary unavailable — no headlines for this team.' });
-  }
-
-  const cacheKey = `${slug}:${hashHeadlines(headlines)}`;
-  const cached = teamCache[cacheKey];
+  const payload = { teamName, upcomingGames, lastWeek, atsSummary, headlines };
+  const key = cacheKey(slug || 'team', hashPayload(payload));
+  const cached = teamCache[key];
   if (cached && Date.now() < cached.expires) {
-    return res.status(200).json({ summary: cached.value });
+    return res.status(200).json({ summary: cached.summary, updatedAt: cached.updatedAt });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
-    return res.status(200).json({ summary: null, message: 'Summary unavailable.' });
+    return res.status(200).json({ summary: null, updatedAt: null, message: 'Summary unavailable.' });
   }
 
-  const teamName = slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ').replace(/\s+/g, ' ');
-  const headlinesText = headlines.map((h) => `- ${h.title || ''} (${h.source || ''})`).join('\n');
-
-  const systemPrompt = 'You are a sports news summarizer. In 1–2 short sentences, summarize the key themes or news for this team based ONLY on the headlines below. Be concise and factual.';
-  const userPrompt = `Team: ${teamName}\n\nHeadlines:\n${headlinesText}\n\nWrite 1–2 sentences summarizing this team's news.`;
+  const systemPrompt = 'You are a concise sports analyst. Write a short, friendly team briefing in 2–4 sentences. Mention upcoming games with spreads, last week performance (W–L, ATS), and 1–2 key headlines. Avoid bullet points. Keep it conversational.';
+  const userPrompt = `Team: ${teamName}
+Upcoming games: ${JSON.stringify(upcomingGames)}
+Last week: ${JSON.stringify(lastWeek)}
+ATS: ${JSON.stringify(atsSummary)}
+Headlines: ${JSON.stringify(headlines)}`;
 
   try {
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -85,7 +98,7 @@ export default async function handler(req, res) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 120,
+        max_tokens: 220,
         temperature: 0.3,
       }),
     });
@@ -93,17 +106,18 @@ export default async function handler(req, res) {
     if (!openaiRes.ok) {
       const errBody = await openaiRes.text();
       console.error('OpenAI team summary error:', openaiRes.status, errBody);
-      return res.status(200).json({ summary: null, message: 'Summary unavailable.' });
+      return res.status(200).json({ summary: null, updatedAt: null, message: 'Summary unavailable.' });
     }
 
     const data = await openaiRes.json();
     const summary = data?.choices?.[0]?.message?.content?.trim() || null;
+    const updatedAt = new Date().toISOString();
 
-    teamCache[cacheKey] = { value: summary, expires: Date.now() + CACHE_TTL_MS };
+    teamCache[key] = { summary, updatedAt, expires: Date.now() + CACHE_TTL_MS };
 
-    return res.status(200).json({ summary });
+    return res.status(200).json({ summary, updatedAt });
   } catch (err) {
     console.error('Team summary API error:', err.message);
-    return res.status(200).json({ summary: null, message: 'Summary unavailable.' });
+    return res.status(200).json({ summary: null, updatedAt: null, message: 'Summary unavailable.' });
   }
 }

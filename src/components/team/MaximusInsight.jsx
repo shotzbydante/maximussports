@@ -35,7 +35,7 @@ function RecordRow({ label, rec }) {
   );
 }
 
-function computeAtsFromScheduleAndHistory(schedule, oddsHistory, teamName) {
+export function computeAtsFromScheduleAndHistory(schedule, oddsHistory, teamName) {
   const past = (schedule?.events || [])
     .filter((e) => e.isFinal)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -70,7 +70,7 @@ function computeAtsFromScheduleAndHistory(schedule, oddsHistory, teamName) {
   };
 }
 
-export default function MaximusInsight({ slug, initialData }) {
+export default function MaximusInsight({ slug, initialData, atsOnly = false }) {
   const [atsData, setAtsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -209,11 +209,18 @@ export default function MaximusInsight({ slug, initialData }) {
 
   return (
     <section className={styles.bubble}>
-      <div className={styles.header}>
-        <img src="/mascot.png" alt="" className={styles.headerMascot} aria-hidden />
-        <h3 className={styles.title}>Maximus&apos;s Insight</h3>
-        <SourceBadge source="Odds API" />
-      </div>
+      {atsOnly ? (
+        <div className={styles.header}>
+          <h3 className={styles.title}>ATS</h3>
+          <SourceBadge source="Odds API" />
+        </div>
+      ) : (
+        <div className={styles.header}>
+          <img src="/mascot.png" alt="" className={styles.headerMascot} aria-hidden />
+          <h3 className={styles.title}>Maximus&apos;s Insight</h3>
+          <SourceBadge source="Odds API" />
+        </div>
+      )}
       <div className={styles.content}>
         <p className={styles.label}>ATS (Against The Spread)</p>
 

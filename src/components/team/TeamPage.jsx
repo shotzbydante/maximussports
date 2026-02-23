@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import { fetchTeamPage } from '../../api/team';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
-import MaximusInsight from './MaximusInsight';
+import MaximusInsight, { computeAtsFromScheduleAndHistory } from './MaximusInsight';
+import TeamSummaryBox from './TeamSummaryBox';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './TeamPage.module.css';
 
@@ -60,6 +61,19 @@ export default function TeamPage() {
 
   const rank = batch?.rank ?? null;
 
+  const { scheduleForSummary, atsForSummary } = useMemo(() => {
+    const events = batch?.schedule?.events ?? [];
+    const upcoming = events.filter((e) => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const recent = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const ats = batch?.schedule && batch?.oddsHistory && team
+      ? computeAtsFromScheduleAndHistory(batch.schedule, batch.oddsHistory, team.name)
+      : null;
+    return {
+      scheduleForSummary: { upcoming, recent },
+      atsForSummary: ats,
+    };
+  }, [batch?.schedule, batch?.oddsHistory, team]);
+
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const last7 = headlines.filter((h) => new Date(h.pubDate || 0).getTime() >= sevenDaysAgo);
@@ -94,7 +108,22 @@ export default function TeamPage() {
         </div>
       </header>
 
-      <MaximusInsight slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory } : null} />
+      <TeamSummaryBox
+        slug={slug}
+        team={team}
+        schedule={scheduleForSummary}
+        ats={atsForSummary}
+        news={headlines}
+        dataReady={!!batch}
+      />
+
+      <section className={styles.atsSection}>
+        <MaximusInsight
+          slug={slug}
+          initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory } : null}
+          atsOnly
+        />
+      </section>
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>

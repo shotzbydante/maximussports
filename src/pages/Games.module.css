@@ -54,6 +54,50 @@
   border-bottom: 1px solid var(--color-primary);
 }
 
+.liveScoresSection {
+  margin-bottom: var(--space-xl);
+}
+
+.liveScoresSection.hasLive .liveScoresHeader {
+  background: linear-gradient(135deg, rgba(60, 121, 180, 0.12) 0%, rgba(45, 138, 110, 0.08) 100%);
+  border: 1px solid rgba(60, 121, 180, 0.35);
+  box-shadow: 0 0 12px rgba(60, 121, 180, 0.15);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.liveScoresHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.liveScoresTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.livePill {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-up);
+  color: white;
+  text-transform: uppercase;
+  animation: livePillPulse 2s ease-in-out infinite;
+}
+
+@keyframes livePillPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
 .matchupList {
   display: flex;
   flex-direction: column;

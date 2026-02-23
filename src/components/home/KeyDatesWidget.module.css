@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid var(--color-border-light);
 }
 
@@ -37,8 +37,8 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-sm);
-  padding: var(--space-md);
+  gap: var(--space-xs);
+  padding: var(--space-sm);
 }
 
 @media (min-width: 900px) {
@@ -56,11 +56,12 @@
 .card {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  min-height: 44px;
+  min-height: 36px;
+  line-height: 1.2;
 }
 
 .cardUpcoming {
@@ -89,7 +90,7 @@
 .cardDate {
   flex-shrink: 0;
   text-align: center;
-  min-width: 32px;
+  min-width: 28px;
 }
 
 .cardMonth {
@@ -104,7 +105,7 @@
 .cardDay {
   display: block;
   font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-text);
 }
@@ -116,15 +117,17 @@
 
 .cardLabel {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text);
+  line-height: 1.2;
 }
 
 .cardTime {
   display: block;
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--color-text-muted);
-  margin-top: 1px;
+  margin-top: 0;
+  line-height: 1.2;
 }

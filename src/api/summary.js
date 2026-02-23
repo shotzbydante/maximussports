@@ -54,6 +54,43 @@ export async function fetchSummaryStream(payload, options = {}) {
 }
 
 /**
+ * Builds the payload for the Team page GPT summary (upcoming, last week, ATS, headlines).
+ * @param {{ team: object, schedule: { upcoming?: array, recent?: array }, ats: object, news: array }}
+ * @returns {object} Payload for POST /api/summary/team
+ */
+export function buildTeamSummaryPayload({ team, schedule, ats, news }) {
+  return {
+    teamName: team?.name,
+    upcomingGames: (schedule?.upcoming || []).slice(0, 5),
+    lastWeek: (schedule?.recent || []).slice(0, 5),
+    atsSummary: ats ?? {},
+    headlines: (news || []).slice(0, 4).map((h) => ({ title: h.title, source: h.source })),
+  };
+}
+
+/**
+ * Fetches the Team page GPT briefing using the full payload (no extra API calls in handler).
+ * @param {{ slug: string, payload: object }} params - payload from buildTeamSummaryPayload
+ * @returns {Promise<{ summary: string | null, updatedAt: string | null, message?: string }>}
+ */
+export async function fetchTeamSummaryFromPayload({ slug, payload }) {
+  if (!payload) {
+    return { summary: null, updatedAt: null, message: 'Summary unavailable — no payload.' };
+  }
+  const res = await fetch('/api/summary/team', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: slug || '', ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  return {
+    summary: data.summary ?? null,
+    updatedAt: data.updatedAt ?? null,
+    message: data.message,
+  };
+}
+
+/**
  * Fetches a short GPT summary for a pinned team card (1–2 sentences) from its headlines.
  * @param {{ slug: string, headlines: Array<{ title: string, source?: string }> }} params
  * @returns {Promise<{ summary: string | null, message?: string }>}
@@ -67,9 +104,13 @@ export async function fetchTeamSummary({ slug, headlines }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       slug,
+      teamName: slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      upcomingGames: [],
+      lastWeek: [],
+      atsSummary: {},
       headlines: headlines.map((h) => ({ title: h.title, source: h.source })),
     }),
   });
   const data = await res.json().catch(() => ({}));
-  return { summary: data.summary ?? null, message: data.message };
+  return { summary: data.summary ?? null, updatedAt: data.updatedAt ?? null, message: data.message };
 }

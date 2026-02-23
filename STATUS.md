@@ -28,7 +28,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Odds History API:** `/api/odds-history/index.js` — Odds API historical; cache 20 min; CDN `s-maxage=600, stale-while-revalidate=900`.
 - **News Aggregate API:** `/api/news/aggregate.js` — full-response cache 20 min; CDN `s-maxage=600, stale-while-revalidate=900`.
 - **Summary API:** `/api/summary/index.js` — POST only; payload hash cache 30 min; rate limit 1/min per IP; SSE streaming; no internal API calls.
-- **Team Summary API:** `/api/summary/team.js` — POST `{ slug, headlines }`; cache ~30 min per slug; CDN `s-maxage=900, stale-while-revalidate=1800`.
+- **Team Summary API:** `/api/summary/team.js` — POST `{ slug, teamName, upcomingGames, lastWeek, atsSummary, headlines }`; payload-only (no internal API calls); cache 30 min per team; returns `{ summary, updatedAt }`; CDN `s-maxage=900, stale-while-revalidate=1800`.
 - **Home batch API:** `/api/home/index.js` — GET; returns scores + odds + rankings + headlines + dataStatus in one round trip; CDN cache 60s.
 - **Team batch API:** `/api/team/[slug].js` — GET; returns schedule + odds history + team news + rank (+ teamId); CDN cache 120s.
 
@@ -72,8 +72,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/odds/index.js` | Serverless: The Odds API proxy → `{ games }` (gameId, spread, total, moneyline) |
 | `api/odds-history/index.js` | Serverless: Odds API historical → `{ games }` (gameId, homeTeam, awayTeam, spread, sportsbook) |
 | `api/summary/index.js` | Serverless: POST summary with payload; hash cache; rate limit; no internal API calls |
-| `api/summary/team.js` | Serverless: POST team summary from headlines only; 30-min cache per slug |
-| `src/api/summary.js` | Client: `fetchSummaryStream(payload, { force, onMessage })`, `fetchTeamSummary({ slug, headlines })` |
+| `api/summary/team.js` | Serverless: POST team briefing from payload only (teamName, upcoming, lastWeek, ATS, headlines); 30-min cache; returns `summary` + `updatedAt` |
+| `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryFromPayload`, `fetchTeamSummary` (pinned cards) |
 | `src/api/home.js` | Client: `fetchHome()` — batch scores/odds/rankings/headlines; request coalescing |
 | `src/api/team.js` | Client: `fetchTeamPage(slug)` — batch schedule/oddsHistory/teamNews/rank; request coalescing |
 | `api/_cache.js` | Shared: `createCache(ttlMs)`, `coalesce(key, fetcher)` for serverless |
@@ -85,8 +85,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ### Pages
 - `Home` — **Dynamic welcome synopsis** (OpenAI) in banner (or static fallback); Pinned Teams, ATS Leaderboard, Top 25 Rankings, Dynamic Alerts, Dynamic Stats, Live Scores, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
-- `TeamPage` — **Maximus's Insight** (ATS), team header, **News** (Last 7 days default; collapsible Previous 90 days; source legend), **Full Schedule** (past: spread + ATS; upcoming: odds)
-- `Games` — Key Dates (top), Daily Schedule (collapsible), Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
+- `TeamPage` — Team header; **Maximus's Insight** (GPT team briefing: upcoming games + spreads, last week W–L/ATS, headlines; Refresh + Last updated PST); **ATS** (separate section: season/30d/7d); **News** (Last 7 days; collapsible Previous 90 days); **Full Schedule**
+- `Games` — Key Dates (compact grid); Live Scores only when there are live/in-progress games (explicit date + LIVE pill, vivid header); Daily Schedule directly below Key Dates (or below Live Scores when shown)
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
 
@@ -98,7 +98,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Shared:** `SourceBadge` (ESPN | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Odds API | team feeds)
 - **Home:** `PinnedTeamsSection`, `Top25Rankings` (collapsible; desktop expanded, mobile collapsed), `DynamicAlerts` (closing spread, ESPN + Odds API badges), `DynamicStats`
 - **Games:** `KeyDatesWidget`, `DailySchedule` (collapsible; zebra striping; mobile-responsive)
-- **Team:** `TeamSchedule` (past: spread + ATS badge W/L/P; upcoming: spread + O/U), `MaximusInsight` (real ATS: season/30d/7d)
+- **Team:** `TeamSummaryBox` (GPT briefing, Refresh, Last updated PST), `MaximusInsight` (ATS records; `atsOnly` variant for ATS section), `TeamSchedule` (past: spread + ATS; upcoming: spread + O/U)
 - **Insights:** `RankingsTable` (conference + tier filters)
 
 ---
@@ -113,7 +113,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
 | `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. Query: `?stream=true` (required), `?force=true` bypass cache. Response: SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
-| `/api/summary/team` | POST | Pinned team card summary. Body: `{ slug, headlines }`. Returns `{ summary }` or message if no headlines. Cache ~30 min per slug. |
+| `/api/summary/team` | POST | Team page briefing. Body: `{ slug?, teamName, upcomingGames, lastWeek, atsSummary, headlines }`. Payload-only; returns `{ summary, updatedAt }`. Cache 30 min per team. Pinned cards use same endpoint with minimal payload. |
 | `/api/home` | GET | Batch: scores, odds, rankings, headlines, dataStatus. One round trip for Home. CDN 60s. |
 | `/api/team/:slug` | GET | Batch: schedule, oddsHistory, teamNews, rank, teamId. One round trip for Team page. CDN 120s. |
 | `/api/teamIds` | GET | slug → ESPN team ID map. `?debug=true` → also `missingSlugs`, `missingCount` |
@@ -156,6 +156,26 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 23, 2026)
+
+**Games page — Key Dates compact, Live Scores conditional + date + LIVE pill:**
+- **Key Dates** — Tighter grid (reduced gap/padding), smaller card padding and line-height, smaller font for day/time; remains readable and compact.
+- **Live Scores** — Shown only when there is at least one live or in-progress game (Q1/Q2, 1st/2nd, halftime, or score-like status). When hidden, Daily Schedule appears directly below Key Dates.
+- **When live** — Title: “Live Scores — Today (Feb 23, PST)” (date in PST); vivid accent header (gradient background + subtle glow border); small “LIVE” pill badge (red, uppercase).
+- **Daily Schedule** — Unchanged; stays directly below Key Dates when Live Scores is hidden, or below Live Scores when present.
+
+**Team page — Maximus’s Insight (GPT) + separate ATS section:**
+- **Maximus’s Insight** — Standalone section at top with GPT team briefing (2–4 sentences): upcoming games with spreads, last week W–L and ATS, ATS overall and spread context, 1–2 headlines. **Refresh** button (manual); **Last updated: &lt;date/time PST&gt;** below summary. Cache 30 min per team; cached responses return same `updatedAt`.
+- **ATS** — Moved to its own section below Maximus’s Insight; same ATS records (season/30d/7d) with “ATS” header and Odds API badge.
+- **Data source** — Team summary uses only already-loaded Team page data: `buildTeamSummaryPayload({ team, schedule: { upcoming, recent }, ats, news })` built on client; POST to `/api/summary/team` with no internal API calls in the handler.
+- **Client** — `TeamSummaryBox` builds payload from batch (schedule events → upcoming/recent, `computeAtsFromScheduleAndHistory` for ATS); fetches on mount when `dataReady={!!batch}`; shows summary, Refresh, and Last updated PST.
+
+**Team Summary API (`/api/summary/team`):**
+- **Payload** — Accepts `teamName`, `upcomingGames`, `lastWeek`, `atsSummary`, `headlines` (and optional `slug` for cache key). No external API calls; prompt uses only this payload.
+- **Prompt** — System: concise sports analyst; 2–4 sentences; mention upcoming games with spreads, last week W–L/ATS, 1–2 headlines; conversational, no bullet points. User: Team + JSON for upcoming, last week, ATS, headlines.
+- **Response** — `{ summary, updatedAt }` (ISO when generated or from cache). Cache stores `updatedAt` so cached responses return the same timestamp.
+- **Client** — `buildTeamSummaryPayload` and `fetchTeamSummaryFromPayload` in `src/api/summary.js`; pinned cards still use `fetchTeamSummary` with minimal payload (backward compatible).
+
+---
 
 **Performance overhaul (cache, batch APIs, defer, skeletons):**
 - **Server-side caching** — `api/_cache.js`: `createCache(ttlMs)` and `coalesce(key, fetcher)` for in-flight request coalescing. All critical APIs use it: scores (3 min), rankings (5 min), odds (10 min), odds-history (20 min), news/aggregate (20 min full-response), summary (30 min hash), summary/team (30 min per slug). Cached payload returned when valid.

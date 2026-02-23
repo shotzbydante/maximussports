@@ -10,6 +10,26 @@ import styles from './Games.module.css';
 
 const REFRESH_INTERVAL_MS = 60 * 1000;
 
+function isLiveOrInProgress(status) {
+  const s = (status || '').toLowerCase();
+  return (
+    s.startsWith('q1 ') ||
+    s.startsWith('q2 ') ||
+    s.startsWith('1st ') ||
+    s.startsWith('2nd ') ||
+    s === 'halftime' ||
+    (s.includes(':') && !s.includes('AM') && !s.includes('PM'))
+  );
+}
+
+function getLiveScoresDateLabel() {
+  return new Date().toLocaleDateString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export default function Games() {
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
 
@@ -42,6 +62,10 @@ export default function Games() {
     return () => clearInterval(id);
   }, [loadScores]);
 
+  const hasLiveOrInProgress = scores.games.some((g) => isLiveOrInProgress(g.gameStatus));
+  const showLiveScores = scores.games.length > 0 && hasLiveOrInProgress;
+  const liveScoresDateLabel = getLiveScoresDateLabel();
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -53,20 +77,27 @@ export default function Games() {
         <KeyDatesWidget />
       </section>
 
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Live Scores</h2>
-          <SourceBadge source="ESPN" />
-        </div>
-        <LiveScores
-          games={scores.games}
-          loading={scores.loading}
-          error={scores.error}
-          oddsMessage={scores.oddsMessage}
-          compact={false}
-          showTitle={false}
-        />
-      </section>
+      {showLiveScores && (
+        <section className={`${styles.liveScoresSection} ${styles.hasLive}`}>
+          <div className={styles.liveScoresHeader}>
+            <div className={styles.liveScoresTitleRow}>
+              <h2 className={styles.sectionTitle}>
+                Live Scores — Today ({liveScoresDateLabel}, PST)
+              </h2>
+              <span className={styles.livePill} aria-hidden>LIVE</span>
+            </div>
+            <SourceBadge source="ESPN" />
+          </div>
+          <LiveScores
+            games={scores.games}
+            loading={scores.loading}
+            error={scores.error}
+            oddsMessage={scores.oddsMessage}
+            compact={false}
+            showTitle={false}
+          />
+        </section>
+      )}
 
       <section className={styles.section}>
         <DailySchedule />
