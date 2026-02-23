@@ -25,6 +25,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
 - **Odds API:** `/api/odds/index.js` — proxy The Odds API (NCAA basketball spreads, totals, moneyline); optional `ODDS_API_KEY`; 5-min cache
 - **Odds History API:** `/api/odds-history/index.js` — proxy Odds API historical odds (spreads); accepts long ranges via 31-day chunking; per-chunk + full-result cache (7 min)
+- **Summary API:** `/api/summary/index.js` — OpenAI Chat Completions (gpt-4o-mini); aggregates scores, rankings, news; returns 3–6 sentence Home synopsis; 30-min in-memory cache (key `home_summary`); `?force=true` bypasses cache; missing `OPENAI_API_KEY` returns 200 with fallback text
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -65,11 +66,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/teamIds/index.js` | Serverless: ESPN teams → `{ slugToId }` |
 | `api/odds/index.js` | Serverless: The Odds API proxy → `{ games }` (gameId, spread, total, moneyline) |
 | `api/odds-history/index.js` | Serverless: Odds API historical → `{ games }` (gameId, homeTeam, awayTeam, spread, sportsbook) |
+| `api/summary/index.js` | Serverless: OpenAI summary of scores + rankings + news; 30-min cache; `OPENAI_API_KEY` |
+| `src/api/summary.js` | Client fetcher `fetchSummary({ force })` for Home banner |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
 ### Pages
-- `Home` — Pinned Teams Dashboard: pinned teams, **Top 25 Rankings** (full AP Top 25, clickable to team page), Dynamic Alerts, Dynamic Stats, hero, Live Scores, matchups, sidebar
+- `Home` — **Dynamic welcome synopsis** (OpenAI) in banner (or static fallback); Pinned Teams, ATS Leaderboard, Top 25 Rankings, Dynamic Alerts, Dynamic Stats, Live Scores, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
 - `TeamPage` — **Maximus's Insight** (ATS), team header, **News** (Last 7 days default; collapsible Previous 90 days; source legend), **Full Schedule** (past: spread + ATS; upcoming: odds)
 - `Games` — Key Dates (top), Daily Schedule (collapsible), Live scores (60s auto-refresh) + key matchups (spreads, O/U, upset watch)
@@ -98,6 +101,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
 | `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
+| `/api/summary` | GET | Dynamic Home synopsis (OpenAI). Optional `?force=true` to bypass 30-min cache. Returns `{ summary }`. |
 | `/api/teamIds` | GET | slug → ESPN team ID map. `?debug=true` → also `missingSlugs`, `missingCount` |
 | `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
 | `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Chunks long ranges into 31-day windows; merges and dedupes. Requires `ODDS_API_KEY` |
@@ -138,6 +142,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 22, 2026)
+
+**Dynamic Home synopsis (OpenAI):**
+- **Summary API** — New `/api/summary` serverless endpoint: aggregates scores, rankings, and news; calls OpenAI Chat Completions (gpt-4o-mini); returns 3–6 sentence recap. **Caching:** 30-minute in-memory cache (key `home_summary`); `?force=true` bypasses cache. **Env:** `OPENAI_API_KEY` required for generation; if missing, returns 200 with fallback text.
+- **Home Welcome box** — Static text replaced with **generated summary**; loading state: shimmer + "Generating summary…"; **Refresh** button calls `/api/summary?force=true` to regenerate. Fallback to static welcome message if summary empty or API unavailable.
+- **Prompt data** — Top 25, today’s final scores and upcoming games (from scores API), top 3–5 headlines (news aggregate); date in PST; short punchy style, 1–2 bullets or paragraphs.
+- **README + STATUS** — OpenAI setup (env var, Vercel config) documented.
 
 **Assets refresh, whitespace reduction, conference logos fix:**
 - **Home banner mascot** — Replaced 3D robot with new **2D robot PNG**; saved as `public/mascot.png`. Mascot **slightly larger** (120px desktop, 96px mobile); **reduced** banner padding and gap (e.g. `padding: var(--space-xs) var(--space-md)`, `gap: var(--space-sm)`) for a more compact box; text unchanged.

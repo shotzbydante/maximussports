@@ -19,6 +19,7 @@ import Top25Rankings from '../components/home/Top25Rankings';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
+import { fetchSummary } from '../api/summary';
 import styles from './Home.module.css';
 
 const SCORES_REFRESH_MS = 60_000;
@@ -73,12 +74,17 @@ function countRankedInAction(games, rankMap) {
   return count;
 }
 
+const FALLBACK_BANNER = "Welcome to Maximus Sports, your one stop shop for Men's College Basketball team news, bubble watch, odds analysis, and more.";
+
 export default function Home() {
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
   const [rankMap, setRankMap] = useState({});
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
+  const [summary, setSummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryRefreshing, setSummaryRefreshing] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   useEffect(() => {
@@ -143,6 +149,22 @@ export default function Home() {
     return () => clearInterval(id);
   }, [loadScores]);
 
+  useEffect(() => {
+    setSummaryLoading(true);
+    fetchSummary()
+      .then(({ summary: text }) => setSummary(text || ''))
+      .catch(() => setSummary(''))
+      .finally(() => setSummaryLoading(false));
+  }, []);
+
+  const handleRefreshSummary = () => {
+    setSummaryRefreshing(true);
+    fetchSummary({ force: true })
+      .then(({ summary: text }) => setSummary(text || ''))
+      .catch(() => setSummary(''))
+      .finally(() => setSummaryRefreshing(false));
+  };
+
   const upsetCount = countUpsets(scores.games);
   const rankedInAction = countRankedInAction(scores.games, rankMap);
   const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (t.headlines || 0), 0);
@@ -157,9 +179,27 @@ export default function Home() {
     <div className={styles.home}>
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
-        <p className={styles.bannerText}>
-          Welcome to Maximus Sports, your one stop shop for Men&apos;s College Basketball team news, bubble watch, odds analysis, and more.
-        </p>
+        <div className={styles.bannerContent}>
+          {(summaryLoading || summaryRefreshing) ? (
+            <div className={styles.summaryLoading} aria-live="polite">
+              <span className={styles.summaryShimmer} />
+              <span className={styles.summaryLoadingText}>Generating summary…</span>
+            </div>
+          ) : (
+            <p className={styles.bannerText}>
+              {summary || FALLBACK_BANNER}
+            </p>
+          )}
+          <button
+            type="button"
+            className={styles.summaryRefresh}
+            onClick={handleRefreshSummary}
+            disabled={summaryRefreshing}
+            aria-label="Regenerate summary"
+          >
+            {summaryRefreshing ? 'Generating…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       <PinnedTeamsSection onPinnedChange={setPinned} />
