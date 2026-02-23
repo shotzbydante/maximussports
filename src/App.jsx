@@ -5,6 +5,7 @@ import Teams from './pages/Teams';
 import TeamPage from './components/team/TeamPage';
 import Games from './pages/Games';
 import Insights from './pages/Insights';
+import NewsFeed from './pages/NewsFeed';
 import Alerts from './pages/Alerts';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="teams/:slug" element={<TeamPage />} />
           <Route path="games" element={<Games />} />
           <Route path="insights" element={<Insights />} />
+          <Route path="news" element={<NewsFeed />} />
           <Route path="alerts" element={<Alerts />} />
         </Route>
       </Routes>

@@ -1,7 +1,8 @@
 .widget {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -10,8 +11,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--card-padding);
+  border-bottom: 1px solid var(--divider-color);
 }
 
 .title {
@@ -29,7 +30,7 @@
 }
 
 .panel {
-  border-bottom: 1px solid var(--color-border-light);
+  border-bottom: 1px solid var(--divider-color);
 }
 
 .panel:last-child {
@@ -41,18 +42,19 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: var(--space-xs) var(--space-md);
-  background: none;
+  padding: var(--space-sm) var(--card-padding);
+  background: rgba(60, 121, 180, 0.04);
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: var(--body-font-size);
   text-align: left;
   color: var(--color-text);
+  transition: background 0.15s;
 }
 
 .panelHeader:hover {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(60, 121, 180, 0.08);
 }
 
 .panelDate {

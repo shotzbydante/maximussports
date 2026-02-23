@@ -1,0 +1,40 @@
+/**
+ * Design tokens — Coinbase-style consumer polish + Air Force One palette.
+ * Use for cards, section headers, spacing, badges.
+ */
+
+:root {
+  /* Card & surface */
+  --radius-card: 12px;
+  --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --card-padding: 20px;
+  --card-border: 1px solid rgba(60, 121, 180, 0.12);
+
+  /* Typography */
+  --header-font-size: 13px;
+  --header-letter-spacing: 0.08em;
+  --heading-size: 22px;
+  --body-font-size: 14px;
+  --body-line-height: 1.5;
+
+  /* Dividers */
+  --divider-color: #e6eef5;
+
+  /* Controls */
+  --pill-height: 30px;
+  --pill-radius: 999px;
+  --badge-font-size: 11px;
+
+  /* Spacing (softer) */
+  --space-sm: 8px;
+  --space-md: 14px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --card-padding: 24px;
+  }
+}

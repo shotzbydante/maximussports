@@ -2,7 +2,7 @@
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   background: var(--color-bg-elevated);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border-light);
   padding: var(--space-lg) 0;
   display: flex;
   flex-direction: column;
@@ -38,8 +38,18 @@
   padding: var(--space-sm) var(--space-md);
   font-size: 0.9rem;
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: background 0.15s, color 0.15s;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.link.expanded {
+  background: rgba(60, 121, 180, 0.06);
 }
 
 .link:hover {
@@ -67,37 +77,49 @@
 .teamDropdown {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
   margin: var(--space-xs) 0 var(--space-sm) var(--space-xl);
-  max-height: 320px;
+  max-height: 360px;
   overflow-y: auto;
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--divider-color, #e6eef5);
+}
+
+.confGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.confLabel {
+  font-size: var(--header-font-size, 11px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--header-letter-spacing, 0.08em);
+  color: var(--color-text-muted);
+  margin-top: var(--space-sm);
+  padding: 0 var(--space-xs);
+}
+
+.confGroup:first-child .confLabel {
+  margin-top: 0;
+}
+
+.teamLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .teamLink {
   font-size: 0.8rem;
   padding: var(--space-xs) var(--space-sm);
   color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
 }
 
 .teamLink:hover,
 .teamLinkActive {
-  color: var(--color-primary);
-}
-
-.quickLinks {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.quickLink {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
-}
-
-.quickLink:hover {
   color: var(--color-primary);
 }
 

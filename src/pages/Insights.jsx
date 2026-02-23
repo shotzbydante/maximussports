@@ -1,18 +1,82 @@
-import { dailyReport, rankingsContext } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { dailyReport } from '../data/mockData';
+import { fetchRankings } from '../api/rankings';
+import { getTeamSlug } from '../utils/teamSlug';
+import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
+import { TEAMS } from '../data/teams';
 import RankingsTable from '../components/insights/RankingsTable';
+import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import styles from './Insights.module.css';
 
 export default function Insights() {
-  const { apTop5, bracketFavorites, biggestMovers } = rankingsContext;
+  const [rankings, setRankings] = useState([]);
+
+  useEffect(() => {
+    fetchRankings()
+      .then((data) => setRankings(data?.rankings || []))
+      .catch(() => setRankings([]));
+  }, []);
+
+  const getSlug = (teamName) => getTeamSlug(teamName) ?? getSlugFromRankingsName(teamName, TEAMS);
+  const apTop5 = rankings.slice(0, 5);
+  const bracketFavorites = rankings.slice(0, 4);
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>Insights</h1>
-        <p className={styles.subtitle}>Daily intelligence, rankings, and bubble watch</p>
+        <h1>Odds Insights</h1>
+        <p className={styles.subtitle}>Daily intelligence, rankings, and ATS leaderboards</p>
       </header>
 
-      {/* Daily Report */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Rankings Snapshot</h2>
+        <div className={styles.snapshot}>
+          <div className={styles.snapshotCol}>
+            <span className={styles.snapshotLabel}>AP Top 5</span>
+            <ol className={styles.snapshotList}>
+              {apTop5.length > 0 ? (
+                apTop5.map((r, i) => {
+                  const slug = getSlug(r.teamName);
+                  return (
+                    <li key={r.rank}>
+                      {r.rank}. {slug ? <Link to={`/teams/${slug}`}>{r.teamName}</Link> : r.teamName}
+                    </li>
+                  );
+                })
+              ) : (
+                <li>Loading…</li>
+              )}
+            </ol>
+          </div>
+          <div className={styles.snapshotCol}>
+            <span className={styles.snapshotLabel}>Bracket Favorites</span>
+            <ul className={styles.snapshotList}>
+              {bracketFavorites.length > 0 ? (
+                bracketFavorites.map((r) => {
+                  const slug = getSlug(r.teamName);
+                  return (
+                    <li key={r.rank}>
+                      {slug ? <Link to={`/teams/${slug}`}>{r.teamName}</Link> : r.teamName}
+                    </li>
+                  );
+                })
+              ) : (
+                <li>Loading…</li>
+              )}
+            </ul>
+          </div>
+          <div className={styles.snapshotCol}>
+            <span className={styles.snapshotLabel}>Biggest Movers</span>
+            <p className={styles.snapshotNote}>Rankings update weekly. Check team pages for trend.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.atsSection}>
+        <ATSLeaderboard />
+      </section>
+
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Daily Report</h2>
         <div className={styles.report}>
@@ -29,43 +93,6 @@ export default function Insights() {
         </div>
       </section>
 
-      {/* Quick Rankings Context */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Rankings Snapshot</h2>
-        <div className={styles.snapshot}>
-          <div className={styles.snapshotCol}>
-            <span className={styles.snapshotLabel}>AP Top 5</span>
-            <ol className={styles.snapshotList}>
-              {apTop5.map((team, i) => (
-                <li key={team}>{i + 1}. {team}</li>
-              ))}
-            </ol>
-          </div>
-          <div className={styles.snapshotCol}>
-            <span className={styles.snapshotLabel}>Bracket Favorites</span>
-            <ul className={styles.snapshotList}>
-              {bracketFavorites.map((team) => (
-                <li key={team}>{team}</li>
-              ))}
-            </ul>
-          </div>
-          <div className={styles.snapshotCol}>
-            <span className={styles.snapshotLabel}>Biggest Movers</span>
-            <ul className={styles.snapshotList}>
-              {biggestMovers.map(({ team, direction, spots }) => (
-                <li key={team}>
-                  {team}
-                  <span className={direction === 'up' ? styles.moveUp : styles.moveDown}>
-                    {direction === 'up' ? '↑' : '↓'} {spots}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Filterable Rankings Table */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Bubble Watch — Full Rankings</h2>
         <RankingsTable />

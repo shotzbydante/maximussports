@@ -139,6 +139,15 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**UI polish (Coinbase-style) + feature updates:**
+- **Design tokens** — `src/styles/tokens.css`: `--radius-card`, `--shadow-card`, `--card-padding`, `--header-font-size`, `--body-font-size`, `--divider-color`, `--pill-height`, `--badge-font-size`, `--space-*`. Imported in `index.css`. Air Force One palette + Bloomberg data density retained; softer spacing, 12px card radius, subtle shadows, clearer section headers.
+- **Left nav** — New hierarchy: Home, Games, Teams (dropdown by conference → team), Odds Insights, News Feed. Quick Links removed.
+- **Home** — Welcome banner above pinned teams; Top 25 clearly collapsible (card + accent header); mock hero and "Today's Key Matchups" removed; Odds Movement widget removed; Live Scores kept; **ATS Leaderboard** added (Top 10 best / Bottom 10 ATS for Season, Last 30, Last 7 from rankings + odds history). Sidebar: News Feed + Pinned Team News only.
+- **Games** — Key dates compressed (no mock label); Live Scores moved above Daily Schedule (with spreads); Daily Schedule improved (clearer dividers, shaded panel headers); Key Matchups removed.
+- **Teams** — Top 25 section at top; search bar + filter by conference + tier; each conference section collapsible (card style). Team profile pages unchanged.
+- **Odds Insights** (Insights page) — Rankings Snapshot uses real ESPN data: AP Top 5 and Bracket Favorites with links to team pages; Biggest Movers note. ATS Leaderboard (best/worst 10) added. Daily Report + Bubble Watch table kept.
+- **News Feed** — New page at `/news`: collapsible sections by conference (Big Ten, SEC, etc.); each section shows main stories (aggregate news API, last 30 days). Route added in App.
+
 **ATS priority loading + news deferral:**
 - **ATS first on TeamPage** — MaximusInsight loads immediately; if ATS is in cache, it shows instantly and refreshes in background. News fetch is deferred (150ms) so ATS/schedule render first.
 - **ATS first on Pinned Teams** — Records row (Season, L10, ATS) appears above headlines; ATS uses in-memory cache so it can show before full record load. News fetch deferred 100ms so records/ATS load first.

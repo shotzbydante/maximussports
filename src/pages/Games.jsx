@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { topMatchups } from '../data/mockData';
 import { fetchScores } from '../api/scores';
 import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
 import { getTeamSlug } from '../utils/teamSlug';
@@ -7,7 +6,6 @@ import KeyDatesWidget from '../components/home/KeyDatesWidget';
 import DailySchedule from '../components/home/DailySchedule';
 import LiveScores from '../components/scores/LiveScores';
 import SourceBadge from '../components/shared/SourceBadge';
-import MatchupPreview from '../components/dashboard/MatchupPreview';
 import styles from './Games.module.css';
 
 const REFRESH_INTERVAL_MS = 60 * 1000;
@@ -48,15 +46,11 @@ export default function Games() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>Games</h1>
-        <p className={styles.subtitle}>Live scores, key matchups, spreads, and upset watch</p>
+        <p className={styles.subtitle}>Live scores, spreads, and daily schedule</p>
       </header>
 
-      <section className={styles.section}>
+      <section className={styles.sectionCompact}>
         <KeyDatesWidget />
-      </section>
-
-      <section className={styles.section}>
-        <DailySchedule />
       </section>
 
       <section className={styles.section}>
@@ -75,15 +69,7 @@ export default function Games() {
       </section>
 
       <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Key Matchups</h2>
-          <SourceBadge source="Mock" />
-        </div>
-        <div className={styles.matchupList}>
-          {topMatchups.map((m) => (
-            <MatchupPreview key={m.id} matchup={m} />
-          ))}
-        </div>
+        <DailySchedule />
       </section>
     </div>
   );

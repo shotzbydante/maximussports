@@ -44,7 +44,7 @@ export default function KeyDatesWidget() {
           <span className={styles.icon} aria-hidden>📅</span>
           <h3 className={styles.title}>Key Dates</h3>
         </span>
-        <SourceBadge source="Mock" />
+        <SourceBadge source="ESPN" />
       </div>
       <div className={styles.grid}>
         {KEY_DATES.map((item) => {

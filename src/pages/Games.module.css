@@ -27,6 +27,10 @@
   margin-bottom: var(--space-xl);
 }
 
+.sectionCompact {
+  margin-bottom: var(--space-md);
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;

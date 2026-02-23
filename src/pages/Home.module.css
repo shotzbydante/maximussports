@@ -1,6 +1,31 @@
 .home {
   max-width: 1400px;
   margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+.banner {
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--card-padding);
+  margin-bottom: var(--space-xl);
+}
+
+.bannerText {
+  font-size: var(--body-font-size);
+  line-height: var(--body-line-height);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.atsSection {
+  margin-bottom: var(--space-xl);
+}
+
+.mainCol {
+  min-width: 0;
 }
 
 .hero {

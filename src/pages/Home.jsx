@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { dailyReport, topMatchups, oddsMovement, newsFeed as mockNewsFeed } from '../data/mockData';
+import { newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchAggregatedNews, fetchAggregateNews } from '../api/news';
 import { fetchScores } from '../api/scores';
 import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
@@ -13,17 +13,15 @@ import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
-import MatchupPreview from '../components/dashboard/MatchupPreview';
-import OddsMovementWidget from '../components/dashboard/OddsMovementWidget';
 import NewsFeed from '../components/dashboard/NewsFeed';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
 import Top25Rankings from '../components/home/Top25Rankings';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
+import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import styles from './Home.module.css';
 
 const SCORES_REFRESH_MS = 60_000;
-
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
 
 function formatRelativeTime(pubDate) {
@@ -85,12 +83,8 @@ export default function Home() {
 
   useEffect(() => {
     fetchAggregatedNews(pinnedSlugs)
-      .then(({ teamNews }) => {
-        setNewsData((prev) => ({ ...prev, teamNews }));
-      })
-      .catch(() => {
-        setNewsData((prev) => ({ ...prev, teamNews: [] }));
-      });
+      .then(({ teamNews }) => setNewsData((prev) => ({ ...prev, teamNews })))
+      .catch(() => setNewsData((prev) => ({ ...prev, teamNews: [] })));
   }, [pinnedSlugs.join(',')]);
 
   useEffect(() => {
@@ -161,6 +155,12 @@ export default function Home() {
 
   return (
     <div className={styles.home}>
+      <div className={styles.banner}>
+        <p className={styles.bannerText}>
+          Welcome to Maximus Sports, your one stop shop for Men&apos;s College Basketball team news, bubble watch, odds analysis, and more.
+        </p>
+      </div>
+
       <PinnedTeamsSection onPinnedChange={setPinned} />
 
       <Top25Rankings />
@@ -168,22 +168,6 @@ export default function Home() {
       <DynamicAlerts />
 
       <DynamicStats stats={dynamicStats} />
-
-      <section className={styles.hero}>
-        <div className={styles.heroBadge}>
-          <SourceBadge source="Mock" />
-        </div>
-        <span className={styles.heroDate}>{dailyReport.date}</span>
-        <h1 className={styles.heroHeadline}>{dailyReport.headline}</h1>
-        <p className={styles.heroSummary}>{dailyReport.summary}</p>
-        <div className={styles.heroInsights}>
-          {dailyReport.keyInsights.map((insight) => (
-            <span key={insight.label} className={styles.insight}>
-              <strong>{insight.label}:</strong> {insight.value}
-            </span>
-          ))}
-        </div>
-      </section>
 
       <section className={styles.liveScoresSection}>
         <LiveScores
@@ -195,23 +179,15 @@ export default function Home() {
         />
       </section>
 
-      <div className={styles.grid}>
-        <section className={styles.matchups} id="matchups">
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Today&apos;s Key Matchups</h2>
-            <SourceBadge source="Mock" />
-          </div>
-          <div className={styles.matchupList}>
-            {topMatchups.map((m) => (
-              <MatchupPreview key={m.id} matchup={m} />
-            ))}
-          </div>
-        </section>
+      <section className={styles.atsSection}>
+        <ATSLeaderboard />
+      </section>
 
+      <div className={styles.grid}>
+        <div className={styles.mainCol}>
+          {/* reserved for future content */}
+        </div>
         <aside className={styles.sidebar}>
-          <div className={styles.widgetSection} id="odds">
-            <OddsMovementWidget movements={oddsMovement} source="Mock" />
-          </div>
           <div className={styles.widgetSection} id="news">
             <NewsFeed items={newsData.newsFeed} source={newsSource} />
           </div>

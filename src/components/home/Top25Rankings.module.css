@@ -1,5 +1,10 @@
 .section {
   margin-bottom: var(--space-xl);
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
 .header {
@@ -7,18 +12,19 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
   width: 100%;
-  padding: 0;
-  background: none;
+  padding: var(--card-padding);
+  background: rgba(60, 121, 180, 0.06);
   border: none;
+  border-bottom: 1px solid var(--divider-color);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
+  transition: background 0.15s;
 }
 
 .header:hover {
-  opacity: 0.9;
+  background: rgba(60, 121, 180, 0.1);
 }
 
 .headerRight {
@@ -33,12 +39,12 @@
 }
 
 .title {
-  font-size: 0.75rem;
+  font-size: var(--header-font-size);
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
+  letter-spacing: var(--header-letter-spacing);
+  color: var(--color-text);
 }
 
 .loading,
@@ -53,9 +59,7 @@
 }
 
 .table {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  padding: var(--space-sm);
   overflow: hidden;
 }
 
