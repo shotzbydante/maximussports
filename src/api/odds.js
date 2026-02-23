@@ -3,7 +3,7 @@
  * Odds data is provided by /api/home and /api/team/[slug].
  */
 
-import { getTeamSlug } from '../utils/teamSlug';
+import { getTeamSlug } from '../utils/teamSlug.js';
 
 /** Normalize team name for matching: lowercase, strip mascots, punctuation, University, State */
 function normName(s) {

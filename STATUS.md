@@ -256,8 +256,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **News header rename** — TeamPage section title changed from "News" to "[Team Name] News Feed" (fallback: "Team News Feed").
 - **Performance** — News no longer blocks ATS/schedule; Bloomberg style + Air Force One palette unchanged.
 
-**Vercel ESM import fix (src/utils):**
-- **ESM requires .js in import paths** — In `src/utils/teamSlug.js`, `rankingsNormalize.js`, and `teamIdMap.js`, all relative imports now include the `.js` extension (e.g. `'../data/teams.js'`, `'./teamSlug.js'`). Fixes `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/src/data/teams'` on Vercel serverless.
+**Vercel ESM import fix (src/utils + src/api):**
+- **ESM requires .js in import paths** — In `src/utils/teamSlug.js`, `rankingsNormalize.js`, and `teamIdMap.js`, all relative imports include the `.js` extension. In `src/api/odds.js`, the import from `../utils/teamSlug` is now `../utils/teamSlug.js`. Fixes `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/src/utils/teamSlug'` (and similar) on Vercel serverless.
 
 **Team IDs: Big Ten overrides + debug:**
 - **TEAM_ID_OVERRIDES** — Added Big Ten schools so every `teams.js` slug can resolve: Iowa (2294), Indiana (84), Wisconsin (275), Ohio State (194), Michigan (130), Purdue (2509), Illinois (356), Nebraska (158), Michigan State (127); plus existing UCLA, USC, Washington. `/api/teamIds` now includes e.g. `iowa-hawkeyes`.
