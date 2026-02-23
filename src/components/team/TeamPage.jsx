@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
-import { fetchAggregateNews } from '../../api/news';
+import { fetchTeamPage } from '../../api/team';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
 import MaximusInsight from './MaximusInsight';
@@ -28,40 +28,37 @@ const TIER_CLASS = {
 export default function TeamPage() {
   const { slug } = useParams();
   const team = getTeamBySlug(slug);
+  const [batch, setBatch] = useState(null);
   const [headlines, setHeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [prev90Expanded, setPrev90Expanded] = useState(false);
 
-  // Defer news until after ATS/schedule have a chance to render and load
+  // Batch load: schedule + odds history + team news + rank (ATS/schedule first; defer news)
   useEffect(() => {
-    if (!team) {
+    if (!team || !slug) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    const tid = setTimeout(() => {
-      fetchAggregateNews({
-        teamSlug: slug,
-        includeNational: true,
-        includeTeamFeeds: true,
+    fetchTeamPage(slug)
+      .then((data) => {
+        setBatch(data);
+        const news = (data.teamNews || []).map((item, i) => ({
+          id: item.link || item.id || `news-${i}`,
+          title: item.title,
+          link: item.link,
+          pubDate: item.pubDate,
+          source: item.source || 'News',
+        }));
+        setHeadlines(news);
       })
-        .then(({ items }) => {
-          const mapped = items.map((item, i) => ({
-            id: item.link || `agg-${i}`,
-            title: item.title,
-            link: item.link,
-            pubDate: item.pubDate,
-            source: item.source || 'News',
-          }));
-          setHeadlines(mapped);
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
-    }, 150);
-    return () => clearTimeout(tid);
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, [slug, team]);
+
+  const rank = batch?.rank ?? null;
 
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
@@ -87,6 +84,7 @@ export default function TeamPage() {
           <div className={styles.headerInfo}>
             <h1>{team.name}</h1>
             <div className={styles.headerMeta}>
+              {rank != null && <span className={styles.rank}>#{rank}</span>}
               <span className={styles.conference}>{team.conference}</span>
               <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
                 {team.oddsTier}
@@ -96,7 +94,7 @@ export default function TeamPage() {
         </div>
       </header>
 
-      <MaximusInsight slug={slug} />
+      <MaximusInsight slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory } : null} />
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>
@@ -174,7 +172,7 @@ export default function TeamPage() {
         )}
       </section>
 
-      <TeamSchedule slug={slug} />
+      <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
     </div>
   );
 }

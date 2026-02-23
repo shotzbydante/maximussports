@@ -1,29 +1,18 @@
 /**
  * Vercel Serverless: proxy The Odds API historical odds (NCAA basketball).
- * GET /api/odds-history
- * Params: ?from=YYYY-MM-DD&to=YYYY-MM-DD (required)
- * Supports long ranges via 31-day chunking; each chunk cached 7 min.
- * Requires ODDS_API_KEY (paid plan for historical).
- * Response: { games: [{ gameId, homeTeam, awayTeam, commenceTime, spread, sportsbook }] }
+ * GET /api/odds-history?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * Supports long ranges via 31-day chunking. Cache: 20 min. CDN: s-maxage=600, stale-while-revalidate=900.
  */
+
+import { createCache } from '../_cache.js';
 
 const ODDS_HISTORY_BASE = 'https://api.the-odds-api.com/v4/historical/sports/basketball_ncaab/odds';
 
-const cache = new Map();
-const CACHE_TTL_MS = 7 * 60 * 1000; // 7 min
+const CACHE_TTL_MS = 20 * 60 * 1000; // 20 min
+const historyCache = createCache(CACHE_TTL_MS);
 
 function getCacheKey(params) {
-  return JSON.stringify(params);
-}
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (!entry || Date.now() > entry.expires) return null;
-  return entry.data;
-}
-
-function setCache(key, data) {
-  cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+  return `odds-history:${JSON.stringify(params)}`;
 }
 
 function chunkDateRange(from, to, maxDays = 31) {
@@ -79,7 +68,7 @@ function extractSpread(bookmakers) {
 
 async function fetchChunk(apiKey, fromStr, toStr) {
   const cacheKey = getCacheKey({ from: fromStr, to: toStr });
-  const cached = getCached(cacheKey);
+  const cached = historyCache.get(cacheKey);
   if (cached) return cached;
 
   const days = getDaysBetween(fromStr, toStr);
@@ -129,7 +118,7 @@ async function fetchChunk(apiKey, fromStr, toStr) {
 
   const games = Array.from(gameMap.values());
   const result = { games };
-  setCache(cacheKey, result);
+  historyCache.set(cacheKey, result);
   return result;
 }
 
@@ -165,8 +154,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'from must be <= to' });
   }
 
+  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=900');
+
   const fullCacheKey = getCacheKey({ from: fromStr, to: toStr });
-  const fullCached = getCached(fullCacheKey);
+  const fullCached = historyCache.get(fullCacheKey);
 
   const addDebug = (result) => {
     if (debug) {
@@ -184,6 +175,9 @@ export default async function handler(req, res) {
   if (fullCached) return res.json(addDebug({ ...fullCached }));
 
   try {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      console.time(`[api/odds-history] ${fullCacheKey}`);
+    }
     const chunks = chunkDateRange(fromStr, toStr, 31);
     const gameMap = new Map();
 
@@ -197,7 +191,10 @@ export default async function handler(req, res) {
 
     const games = Array.from(gameMap.values());
     const result = { games };
-    setCache(fullCacheKey, result);
+    historyCache.set(fullCacheKey, result);
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      console.timeEnd(`[api/odds-history] ${fullCacheKey}`);
+    }
     res.json(addDebug(result));
   } catch (err) {
     console.error('Odds history proxy error:', err.message);

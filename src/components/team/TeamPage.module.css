@@ -41,6 +41,11 @@
   font-size: 0.8rem;
 }
 
+.headerMeta .rank {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
 .conference {
   color: var(--color-text-muted);
 }

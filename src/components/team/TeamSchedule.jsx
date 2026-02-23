@@ -62,13 +62,22 @@ function matchOddsToEvent(ev, oddsGames, teamName) {
   return null;
 }
 
-export default function TeamSchedule({ slug }) {
+export default function TeamSchedule({ slug, initialData }) {
   const [events, setEvents] = useState([]);
   const [oddsGames, setOddsGames] = useState([]);
   const [oddsHistoryGames, setOddsHistoryGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [teamId, setTeamId] = useState(null);
+
+  useEffect(() => {
+    if (!initialData?.schedule || !slug) return;
+    setEvents(initialData.schedule?.events || []);
+    setTeamId(initialData.teamId ?? null);
+    setOddsHistoryGames(initialData.oddsHistory?.games ?? []);
+    setLoading(false);
+    setError(null);
+  }, [slug, initialData]);
 
   const resolveTeamId = useCallback(async () => {
     const [rankingsRes, teamIdsRes] = await Promise.allSettled([
@@ -95,6 +104,7 @@ export default function TeamSchedule({ slug }) {
       setLoading(false);
       return;
     }
+    if (initialData?.schedule) return;
 
     let cancelled = false;
     setLoading(true);
@@ -125,7 +135,7 @@ export default function TeamSchedule({ slug }) {
       });
 
     return () => { cancelled = true; };
-  }, [slug, resolveTeamId]);
+  }, [slug, resolveTeamId, initialData]);
 
   useEffect(() => {
     fetchOdds()
@@ -144,6 +154,7 @@ export default function TeamSchedule({ slug }) {
     : null;
 
   useEffect(() => {
+    if (initialData?.oddsHistory?.games?.length) return;
     if (!pastDateRange) {
       setOddsHistoryGames([]);
       return;
@@ -151,7 +162,7 @@ export default function TeamSchedule({ slug }) {
     fetchOddsHistory(pastDateRange)
       .then((res) => setOddsHistoryGames(res?.games ?? []))
       .catch(() => setOddsHistoryGames([]));
-  }, [pastDateRange?.from, pastDateRange?.to]);
+  }, [pastDateRange?.from, pastDateRange?.to, initialData?.oddsHistory]);
 
   if (!slug) return null;
 

@@ -2,11 +2,11 @@
  * Vercel Serverless: Aggregate news from Google News + national feeds + team feeds.
  * GET /api/news/aggregate?teamSlug=&includeNational=&includeTeamFeeds=
  * Returns { items, sourcesTried, errors }. Never returns 500.
- * Priority: Google first (10s), then other feeds (3-5s) via allSettled.
- * Per-source cache (10 min TTL) for timeouts.
+ * Full-response cache: 20 min. CDN: s-maxage=600, stale-while-revalidate=900.
  */
 
 import { XMLParser } from 'fast-xml-parser';
+import { createCache } from '../_cache.js';
 import { isMensBasketball, isMensBasketballLoose } from './filters.js';
 import { getTeamBySlug } from '../../src/data/teams.js';
 import { NATIONAL_FEEDS, TEAM_FEEDS } from '../../src/data/newsSources.js';
@@ -25,27 +25,28 @@ const YAHOO_FEED = NATIONAL_FEEDS.find((f) => f.id === 'yahoo') || NATIONAL_FEED
 
 const GOOGLE_TIMEOUT_MS = 10_000;
 const FEED_TIMEOUT_MS = 5_000;
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+const FEED_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min per feed
+const aggregateCache = createCache(20 * 60 * 1000); // 20 min full response
 
 const HEADERS = {
   'User-Agent': 'MaximusSports/1.0 (+https://maximussports.vercel.app)',
   Accept: 'application/rss+xml, application/xml, text/xml',
 };
 
-const cache = new Map();
+const feedCache = new Map();
 
 function getCacheKey(feedId, extra = '') {
   return `${feedId}${extra}`;
 }
 
 function getCached(key) {
-  const entry = cache.get(key);
+  const entry = feedCache.get(key);
   if (!entry || Date.now() > entry.expires) return null;
   return entry.data;
 }
 
 function setCache(key, data) {
-  cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+  feedCache.set(key, { data, expires: Date.now() + FEED_CACHE_TTL_MS });
 }
 
 function parseBool(val) {
@@ -194,6 +195,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=900');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -203,19 +205,30 @@ export default async function handler(req, res) {
   const includeNational = parseBool(req.query?.includeNational);
   const includeTeamFeeds = parseBool(req.query?.includeTeamFeeds);
 
+  const aggregateKey = `aggregate:${teamSlug || ''}:${includeNational}:${includeTeamFeeds}`;
+  const cachedResponse = aggregateCache.get(aggregateKey);
+  if (cachedResponse) {
+    return res.status(200).json(cachedResponse);
+  }
+
   const sourcesTried = [];
   const errors = [];
 
   const safeResponse = (items) => {
     const filtered = dedupeAndFilter(items, isMensBasketball);
-    return res.status(200).json({
+    const payload = {
       items: sortBySource(filtered),
       sourcesTried,
       errors: errors.length ? errors : [],
-    });
+    };
+    aggregateCache.set(aggregateKey, payload);
+    return res.status(200).json(payload);
   };
 
   try {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      console.time(`[api/news/aggregate] ${aggregateKey}`);
+    }
     let team = teamSlug ? getTeamBySlug(teamSlug) : null;
     if (!team && teamSlug) {
       const fallbackName = teamSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -287,18 +300,43 @@ export default async function handler(req, res) {
         return [];
       });
 
-      return safeResponse([...baseline, ...extra]);
+      const payload = {
+        items: sortBySource(dedupeAndFilter([...baseline, ...extra], isMensBasketball)),
+        sourcesTried,
+        errors: errors.length ? errors : [],
+      };
+      aggregateCache.set(aggregateKey, payload);
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        console.timeEnd(`[api/news/aggregate] ${aggregateKey}`);
+      }
+      return res.status(200).json(payload);
     }
 
     // 2) Fallback: Yahoo only (5s)
     if (YAHOO_FEED) {
       sourcesTried.push('yahoo');
       const result = await fetchRssItems(YAHOO_FEED.url, YAHOO_FEED.id, YAHOO_FEED.name, 'national', null);
-      if (result.ok && result.items.length > 0) return safeResponse(result.items);
+      if (result.ok && result.items.length > 0) {
+      const payload = {
+        items: sortBySource(dedupeAndFilter(result.items, isMensBasketball)),
+        sourcesTried,
+        errors: errors.length ? errors : [],
+      };
+      aggregateCache.set(aggregateKey, payload);
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        console.timeEnd(`[api/news/aggregate] ${aggregateKey}`);
+      }
+      return res.status(200).json(payload);
+    }
       if (result.error) errors.push(`yahoo: ${result.error}`);
     }
 
-    return safeResponse([]);
+    const emptyPayload = { items: [], sourcesTried, errors: errors.length ? errors : [] };
+    aggregateCache.set(aggregateKey, emptyPayload);
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      console.timeEnd(`[api/news/aggregate] ${aggregateKey}`);
+    }
+    return res.status(200).json(emptyPayload);
   } catch (err) {
     console.error('[aggregate] Error:', err.message);
     errors.push(err.message);

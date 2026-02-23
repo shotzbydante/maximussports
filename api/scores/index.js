@@ -2,10 +2,16 @@
  * Vercel Serverless Function: proxy ESPN college basketball scoreboard.
  * GET /api/scores
  * No API key required — ESPN endpoints are unofficial; keep isolated for easy replacement.
+ * Cache: 3 min. CDN: s-maxage=60, stale-while-revalidate=120.
  */
+
+import { createCache, coalesce } from '../_cache.js';
 
 const ESPN_SCOREBOARD_URL =
   'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard';
+
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 min
+const scoresCache = createCache(CACHE_TTL_MS);
 
 function getGameStatus(status) {
   if (!status) return 'Scheduled';
@@ -50,18 +56,30 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+
+  const dateParam = req.query?.date;
+  const cacheKey = `scores:${dateParam || 'default'}`;
+  const cached = scoresCache.get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   try {
-    const dateParam = req.query?.date;
-    const url = dateParam
-      ? `${ESPN_SCOREBOARD_URL}?dates=${String(dateParam).replace(/-/g, '')}`
-      : ESPN_SCOREBOARD_URL;
-    const espnRes = await fetch(url);
-    if (!espnRes.ok) {
-      throw new Error(`ESPN fetch failed: ${espnRes.status}`);
-    }
-    const data = await espnRes.json();
-    const events = data?.events || [];
-    const games = events.map((event) => {
+    const games = await coalesce(cacheKey, async () => {
+      const url = dateParam
+        ? `${ESPN_SCOREBOARD_URL}?dates=${String(dateParam).replace(/-/g, '')}`
+        : ESPN_SCOREBOARD_URL;
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        console.time(`[api/scores] ${cacheKey}`);
+      }
+      const espnRes = await fetch(url);
+      if (!espnRes.ok) {
+        throw new Error(`ESPN fetch failed: ${espnRes.status}`);
+      }
+      const data = await espnRes.json();
+      const events = data?.events || [];
+      const result = events.map((event) => {
       const comp = event?.competitions?.[0];
       const competitors = comp?.competitors || [];
       const home = competitors.find((c) => c.homeAway === 'home');
@@ -79,8 +97,14 @@ export default async function handler(req, res) {
         network: getNetwork(comp),
         venue: getVenue(comp),
       };
+      });
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        console.timeEnd(`[api/scores] ${cacheKey}`);
+      }
+      return result;
     });
 
+    scoresCache.set(cacheKey, games);
     res.json(games);
   } catch (err) {
     console.error('Scores API error:', err.message);

@@ -35,10 +35,61 @@ function RecordRow({ label, rec }) {
   );
 }
 
-export default function MaximusInsight({ slug }) {
+function computeAtsFromScheduleAndHistory(schedule, oddsHistory, teamName) {
+  const past = (schedule?.events || [])
+    .filter((e) => e.isFinal)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (past.length === 0) return { season: null, last30: null, last7: null };
+  const oddsGames = oddsHistory?.games ?? [];
+  const now = new Date();
+  const thirtyAgo = new Date(now);
+  thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+  const sevenAgo = new Date(now);
+  sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const outcomes = past.map((ev) => {
+    const odds = matchOddsHistoryToEvent(ev, oddsGames, teamName);
+    return computeATSForEvent(ev, odds, teamName);
+  });
+  const withDate = past.map((ev, i) => ({ ev, outcome: outcomes[i], date: ev.date }));
+  const seasonOutcomes = withDate
+    .filter(({ date }) => date && new Date(date) >= new Date(SEASON_START))
+    .map(({ outcome }) => outcome)
+    .filter(Boolean);
+  const last30Outcomes = withDate
+    .filter(({ date }) => date && new Date(date) >= thirtyAgo)
+    .map(({ outcome }) => outcome)
+    .filter(Boolean);
+  const last7Outcomes = withDate
+    .filter(({ date }) => date && new Date(date) >= sevenAgo)
+    .map(({ outcome }) => outcome)
+    .filter(Boolean);
+  return {
+    season: aggregateATS(seasonOutcomes),
+    last30: aggregateATS(last30Outcomes),
+    last7: aggregateATS(last7Outcomes),
+  };
+}
+
+export default function MaximusInsight({ slug, initialData }) {
   const [atsData, setAtsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!slug || !initialData?.schedule || !initialData?.oddsHistory) return;
+    const team = getTeamBySlug(slug);
+    if (!team) return;
+    try {
+      const data = computeAtsFromScheduleAndHistory(initialData.schedule, initialData.oddsHistory, team.name);
+      setAtsData(data);
+      setAtsCache(slug, data);
+      setLoading(false);
+      setError(null);
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  }, [slug, initialData]);
 
   const loadData = useCallback(async (skipLoadingState = false) => {
     if (!slug) return;
@@ -143,6 +194,7 @@ export default function MaximusInsight({ slug }) {
 
   useEffect(() => {
     if (!slug) return;
+    if (initialData?.schedule && initialData?.oddsHistory) return;
     const cached = getAtsCache(slug);
     if (cached) {
       setAtsData(cached);
@@ -151,7 +203,7 @@ export default function MaximusInsight({ slug }) {
     } else {
       loadData(false);
     }
-  }, [slug, loadData]);
+  }, [slug, loadData, initialData]);
 
   if (!slug) return null;
 

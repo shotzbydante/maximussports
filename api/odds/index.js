@@ -1,29 +1,19 @@
 /**
  * Vercel Serverless Function: proxy The Odds API (NCAA basketball).
  * GET /api/odds
- * Params: ?date=YYYY-MM-DD (optional), ?team=slug (optional - filter by team, client-normalized)
- * Requires ODDS_API_KEY env var.
- * Response: { games: [{ gameId, homeTeam, awayTeam, commenceTime, spread, total, moneyline, sportsbook }] }
+ * Params: ?date=YYYY-MM-DD (optional), ?team=slug (optional)
+ * Requires ODDS_API_KEY env var. Cache: 10 min. CDN: s-maxage=300, stale-while-revalidate=600.
  */
+
+import { createCache, coalesce } from '../_cache.js';
 
 const ODDS_BASE = 'https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds';
 
-// Simple in-memory cache: key -> { data, expires }
-const cache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+const oddsCache = createCache(CACHE_TTL_MS);
 
 function getCacheKey(params) {
-  return JSON.stringify(params);
-}
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (!entry || Date.now() > entry.expires) return null;
-  return entry.data;
-}
-
-function setCache(key, data) {
-  cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+  return `odds:${JSON.stringify(params)}`;
 }
 
 function extractOdds(bookmakers) {
@@ -92,8 +82,11 @@ export default async function handler(req, res) {
     }
     return res.status(200).json(payload);
   }
+
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+
   const cacheKey = getCacheKey({ date: dateParam, team: teamParam });
-  const cached = getCached(cacheKey);
+  const cached = oddsCache.get(cacheKey);
 
   const addDebug = (payload) => {
     if (debug) {
@@ -113,7 +106,11 @@ export default async function handler(req, res) {
       return res.json(addDebug({ ...cached }));
     }
 
-    const params = new URLSearchParams({
+    const result = await coalesce(cacheKey, async () => {
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        console.time(`[api/odds] ${cacheKey}`);
+      }
+      const params = new URLSearchParams({
       regions: 'us',
       markets: 'spreads,totals,h2h',
       oddsFormat: 'american',
@@ -165,12 +162,17 @@ export default async function handler(req, res) {
       };
     });
 
-    const result = {
-      games,
-      meta: remaining != null ? { requestsRemaining: parseInt(remaining, 10), requestsUsed: parseInt(used, 10) } : undefined,
-    };
+      const out = {
+        games,
+        meta: remaining != null ? { requestsRemaining: parseInt(remaining, 10), requestsUsed: parseInt(used, 10) } : undefined,
+      };
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        console.timeEnd(`[api/odds] ${cacheKey}`);
+      }
+      return out;
+    });
 
-    setCache(cacheKey, result);
+    oddsCache.set(cacheKey, result);
     res.json(addDebug(result));
   } catch (err) {
     console.error('Odds API proxy error:', err.message);

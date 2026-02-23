@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
-import { fetchAggregatedNews, fetchAggregateNews } from '../api/news';
-import { fetchScores } from '../api/scores';
-import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
-import { fetchRankings } from '../api/rankings';
+import { fetchAggregatedNews } from '../api/news';
+import { fetchHome } from '../api/home';
+import { mergeGamesWithOdds } from '../api/odds';
 import { getPinnedTeams } from '../utils/pinnedTeams';
 import { getOddsTier } from '../utils/teamSlug';
 import { getTeamSlug } from '../utils/teamSlug';
@@ -114,16 +113,25 @@ export default function Home() {
   const streamBufferRef = useRef('');
   const streamIntervalRef = useRef(null);
 
-  useEffect(() => {
-    fetchAggregatedNews(pinnedSlugs)
-      .then(({ teamNews }) => setNewsData((prev) => ({ ...prev, teamNews })))
-      .catch(() => setNewsData((prev) => ({ ...prev, teamNews: [] })));
-  }, [pinnedSlugs.join(',')]);
-
-  useEffect(() => {
-    fetchAggregateNews({ includeNational: true })
-      .then(({ items }) => {
-        const newsFeed = items.map((item, i) => ({
+  // Batch load: scores + odds + rankings + headlines in one call; then start summary immediately
+  const loadHomeBatch = useCallback(() => {
+    setScores((s) => ({ ...s, loading: true }));
+    fetchHome()
+      .then(({ scores: scoresArray, odds: oddsData, rankings: rankingsData, headlines: items, dataStatus: status }) => {
+        const oddsGames = oddsData?.games ?? [];
+        const merged = mergeGamesWithOdds(Array.isArray(scoresArray) ? scoresArray : [], oddsGames, getTeamSlug);
+        let oddsMessage = null;
+        if (oddsData?.error === 'missing_key') {
+          oddsMessage = 'Odds API key missing in production.';
+        } else if (oddsData?.hasOddsKey === true && oddsGames.length === 0) {
+          oddsMessage = scoresArray?.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
+        }
+        setScores({ games: merged, loading: false, error: null, oddsError: oddsData?.error, oddsMessage });
+        const rankings = rankingsData?.rankings || [];
+        setRankMap(buildSlugToRankMap({ rankings }, TEAMS));
+        setTop25(rankings);
+        setDataStatus(status);
+        const newsFeed = (items || []).map((item, i) => ({
           id: item.link || `agg-${i}`,
           title: item.title,
           source: item.source || 'News',
@@ -135,52 +143,39 @@ export default function Home() {
         setNewsData((prev) => ({ ...prev, newsFeed }));
         setNewsSource('Multiple');
       })
-      .catch(() => {
+      .catch((err) => {
+        setScores({ games: [], loading: false, error: err.message, oddsError: null, oddsMessage: null });
+        setRankMap({});
+        setTop25([]);
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed }));
         setNewsSource('Mock');
       });
   }, []);
 
   useEffect(() => {
-    fetchRankings()
-      .then((data) => {
-        setRankMap(buildSlugToRankMap(data, TEAMS));
-        setTop25(data?.rankings || []);
-      })
-      .catch(() => {
-        setRankMap({});
-        setTop25([]);
-      });
-  }, []);
-
-  const loadScores = useCallback(() => {
-    setScores((s) => ({ ...s, loading: true, oddsError: null, oddsMessage: null }));
-    Promise.all([
-      fetchScores(),
-      fetchOdds().catch(() => ({ games: [], error: 'fetch_failed' })),
-    ])
-      .then(([games, oddsRes]) => {
-        const oddsGames = oddsRes?.games ?? [];
-        const merged = mergeGamesWithOdds(games, oddsGames, getTeamSlug);
-        let oddsMessage = null;
-        if (oddsRes?.error === 'missing_key') {
-          oddsMessage = 'Odds API key missing in production.';
-        } else if (oddsRes?.hasOddsKey === true && oddsGames.length === 0) {
-          oddsMessage = games.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
-        }
-        setScores({ games: merged, loading: false, error: null, oddsError: oddsRes?.error, oddsMessage });
-      })
-      .catch((err) => setScores({ games: [], loading: false, error: err.message, oddsError: null, oddsMessage: null }));
-  }, []);
+    loadHomeBatch();
+  }, [loadHomeBatch]);
 
   useEffect(() => {
-    loadScores();
-  }, [loadScores]);
-
-  useEffect(() => {
-    const id = setInterval(loadScores, SCORES_REFRESH_MS);
+    const id = setInterval(loadHomeBatch, SCORES_REFRESH_MS);
     return () => clearInterval(id);
-  }, [loadScores]);
+  }, [loadHomeBatch]);
+
+  // Defer pinned team news and summaries (non-critical)
+  useEffect(() => {
+    const defer = typeof requestIdleCallback !== 'undefined'
+      ? (fn) => requestIdleCallback(fn, { timeout: 500 })
+      : (fn) => setTimeout(fn, 0);
+    const id = defer(() => {
+      fetchAggregatedNews(pinnedSlugs)
+        .then(({ teamNews }) => setNewsData((prev) => ({ ...prev, teamNews })))
+        .catch(() => setNewsData((prev) => ({ ...prev, teamNews: [] })));
+    });
+    return () => {
+      if (typeof cancelIdleCallback !== 'undefined' && typeof id === 'number') cancelIdleCallback(id);
+      else if (typeof id === 'number') clearTimeout(id);
+    };
+  }, [pinnedSlugs.join(',')]);
 
   const STREAM_FLUSH_MS = 80;
 
@@ -338,7 +333,14 @@ export default function Home() {
             <p className={styles.bannerStaticWelcome}>{STATIC_WELCOME}</p>
           )}
           {summaryStreaming && summaryText === '' && (
-            <span className={styles.summaryLoadingText} aria-live="polite">Generating summary…</span>
+            <>
+              <span className={styles.summaryLoadingText} aria-live="polite">Generating summary…</span>
+              <div className={styles.summarySkeleton} aria-hidden>
+                <div className={styles.summarySkeletonLine} />
+                <div className={styles.summarySkeletonLine} />
+                <div className={styles.summarySkeletonLine} />
+              </div>
+            </>
           )}
           {summaryText !== '' && (
             <p className={styles.bannerText}>
@@ -392,7 +394,7 @@ export default function Home() {
 
       <PinnedTeamsSection onPinnedChange={setPinned} />
 
-      <section className={styles.atsSection}>
+      <section className={styles.atsSection} aria-busy={scores.loading}>
         <ATSLeaderboard
           onDataLoaded={useCallback(({ best, worst }) => {
             setAtsLeaders({ best: best || [], worst: worst || [] });
