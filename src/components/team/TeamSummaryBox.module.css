@@ -1,7 +1,9 @@
+/* Chat/speech bubble — same style as Home recap (Air Force One + Coinbase polish) */
 .bubble {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   margin-bottom: var(--space-lg);
 }
@@ -17,14 +19,14 @@
 
 .headerMascot {
   flex-shrink: 0;
-  height: 48px;
+  height: 56px;
   width: auto;
   object-fit: contain;
 }
 
 @media (max-width: 767px) {
   .headerMascot {
-    height: 40px;
+    height: 44px;
   }
 }
 
@@ -46,6 +48,17 @@
   margin: 0 0 var(--space-sm);
   line-height: 1.45;
   color: var(--color-text);
+  white-space: pre-line;
+}
+
+.cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to { visibility: hidden; }
 }
 
 .updated {
@@ -80,10 +93,16 @@
 
 .loading {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  flex-direction: column;
+  gap: var(--space-xs);
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .spinner {
@@ -99,8 +118,35 @@
   to { transform: rotate(360deg); }
 }
 
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.skeletonLine {
+  height: 0.9em;
+  width: 100%;
+  max-width: 320px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-border-light) 0%,
+    var(--color-bg-muted) 50%,
+    var(--color-border-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .error {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
-  margin: 0;
+  margin: 0 0 var(--space-sm);
 }

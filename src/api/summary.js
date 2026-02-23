@@ -54,22 +54,76 @@ export async function fetchSummaryStream(payload, options = {}) {
 }
 
 /**
- * Builds the payload for the Team page GPT summary (upcoming, last week, ATS, headlines).
+ * Builds the payload for the Team page GPT insight (upcoming, last week, ATS, tier, headlines).
  * @param {{ team: object, schedule: { upcoming?: array, recent?: array }, ats: object, news: array }}
  * @returns {object} Payload for POST /api/summary/team
  */
 export function buildTeamSummaryPayload({ team, schedule, ats, news }) {
   return {
     teamName: team?.name,
+    tier: team?.oddsTier ?? '',
     upcomingGames: (schedule?.upcoming || []).slice(0, 5),
     lastWeek: (schedule?.recent || []).slice(0, 5),
     atsSummary: ats ?? {},
-    headlines: (news || []).slice(0, 4).map((h) => ({ title: h.title, source: h.source })),
+    headlines: (news || []).slice(0, 4).map((h) => ({ title: h?.title, source: h?.source })),
   };
 }
 
 /**
- * Fetches the Team page GPT briefing using the full payload (no extra API calls in handler).
+ * Streams team insight from POST /api/summary/team?stream=true. Calls onMessage for each SSE event.
+ * @param {{ slug: string, payload: object }} params - payload from buildTeamSummaryPayload
+ * @param {{ force?: boolean, onMessage: (data: object) => void }} options - force bypasses cache
+ * @returns {Promise<void>}
+ */
+export async function fetchTeamSummaryStream({ slug, payload }, options = {}) {
+  const { force = false, onMessage } = options;
+  if (!onMessage || typeof onMessage !== 'function') {
+    throw new Error('onMessage callback required');
+  }
+  if (!payload) {
+    onMessage({ error: true, message: 'Summary unavailable — no payload.' });
+    return;
+  }
+  const qs = new URLSearchParams({ stream: 'true' });
+  if (force) qs.set('force', 'true');
+  const res = await fetch(`/api/summary/team?${qs.toString()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: slug || '', ...payload }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    onMessage({ error: true, message: err.error || `HTTP ${res.status}` });
+    return;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          onMessage(data);
+        } catch (_) {}
+      }
+    }
+  }
+  if (buffer.trim().startsWith('data: ')) {
+    try {
+      onMessage(JSON.parse(buffer.trim().slice(6)));
+    } catch (_) {}
+  }
+}
+
+/**
+ * Fetches the Team page GPT briefing (non-streaming). Used by pinned team cards.
  * @param {{ slug: string, payload: object }} params - payload from buildTeamSummaryPayload
  * @returns {Promise<{ summary: string | null, updatedAt: string | null, message?: string }>}
  */
@@ -105,6 +159,7 @@ export async function fetchTeamSummary({ slug, headlines }) {
     body: JSON.stringify({
       slug,
       teamName: slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      tier: '',
       upcomingGames: [],
       lastWeek: [],
       atsSummary: {},
