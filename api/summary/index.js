@@ -1,296 +1,239 @@
 /**
  * Vercel Serverless: Dynamic Home synopsis via OpenAI (SSE streaming).
- * GET /api/summary?stream=true&force=true to bypass cache and stream.
- * Data sources: ESPN (scores, rankings), Odds API (spreads, ATS), Google/Yahoo (news).
- * Caches result 30 min. Requires OPENAI_API_KEY.
+ * POST /api/summary with body { top25, atsLeaders, recentGames, upcomingGames, headlines }.
+ * No internal API calls — uses only the payload. Cache keyed by payload hash (30 min).
+ * Rate limit: max 1 refresh per 60 seconds per IP; if exceeded, returns cached summary with message.
+ * GET ?stream=true no longer used; use POST with body. GET ?debug=true with POST body returns counts only.
  */
 
+import crypto from 'node:crypto';
+
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const RATE_LIMIT_MS = 60 * 1000; // 1 minute
 const OPENAI_MODEL = 'gpt-4o-mini';
 
-const cache = { value: null, updatedAt: null, expires: 0 };
+const cacheByHash = {};
+const lastRequestByIp = {};
 
-function getBaseUrl(req) {
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  const host = req.headers?.host || 'localhost:3000';
-  const proto = req.headers?.['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-  return `${proto}://${host}`;
+function hashPayload(payload) {
+  return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
 function getPstDate() {
   return new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function getPstDateOnly() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-}
-
-function parseSpread(s) {
-  if (s == null || s === '') return null;
-  const n = parseFloat(String(s).replace(',', '.'));
-  return isNaN(n) ? null : n;
-}
-
-/** ATS: spread is for away team. Returns { awayATS, homeATS } */
-function computeATS(awayScore, homeScore, spreadStr) {
-  const spread = parseSpread(spreadStr);
-  if (spread == null) return { awayATS: null, homeATS: null };
-  const a = parseFloat(awayScore);
-  const h = parseFloat(homeScore);
-  if (isNaN(a) || isNaN(h)) return { awayATS: null, homeATS: null };
-  const awayAdj = a + spread;
-  const margin = awayAdj - h;
-  let awayATS = 'P';
-  if (Math.abs(margin) > 0.001) awayATS = margin > 0 ? 'W' : 'L';
-  const homeMargin = h - spread - a;
-  let homeATS = 'P';
-  if (Math.abs(homeMargin) > 0.001) homeATS = homeMargin > 0 ? 'W' : 'L';
-  return { awayATS, homeATS };
-}
-
-async function fetchJson(baseUrl, path) {
-  const res = await fetch(`${baseUrl}${path}`, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`${path} ${res.status}`);
-  return res.json();
-}
-
 function send(res, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+function getClientIp(req) {
+  return req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req.headers?.['x-real-ip'] || 'unknown';
+}
+
+function parseBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch {
+        resolve({});
+      }
+    });
+  });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   const stream = req.query?.stream === 'true' || req.query?.stream === '1';
   const force = req.query?.force === 'true' || req.query?.force === '1';
   const debug = req.query?.debug === 'true' || req.query?.debug === '1';
 
-  if (!stream && !debug) {
-    return res.status(400).json({ error: 'Use ?stream=true or ?debug=true' });
+  if (req.method === 'GET') {
+    if (debug) {
+      return res.status(400).json({ error: 'Send POST with payload body for summary or debug.' });
+    }
+    return res.status(400).json({ error: 'Use POST with body { top25, atsLeaders, recentGames, upcomingGames, headlines } and ?stream=true' });
   }
 
-  if (debug) {
-    res.setHeader('Content-Type', 'application/json');
-  } else {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!debug && (!apiKey || apiKey.trim() === '')) {
-    send(res, { error: true, message: 'Summary unavailable — OpenAI key not configured.' });
-    return res.end();
-  }
+  const payload = await parseBody(req);
+  const top25 = Array.isArray(payload.top25) ? payload.top25.slice(0, 25) : [];
+  const atsLeaders = payload.atsLeaders && typeof payload.atsLeaders === 'object'
+    ? {
+        best: Array.isArray(payload.atsLeaders.best) ? payload.atsLeaders.best.slice(0, 10) : [],
+        worst: Array.isArray(payload.atsLeaders.worst) ? payload.atsLeaders.worst.slice(0, 10) : [],
+      }
+    : { best: [], worst: [] };
+  const recentGames = Array.isArray(payload.recentGames) ? payload.recentGames.slice(0, 20) : [];
+  const upcomingGames = Array.isArray(payload.upcomingGames) ? payload.upcomingGames.slice(0, 20) : [];
+  const headlines = Array.isArray(payload.headlines) ? payload.headlines.slice(0, 10) : [];
 
-  if (!debug && !force && cache.value != null && cache.updatedAt != null && Date.now() < cache.expires) {
-    send(res, { text: cache.value, done: true, updatedAt: cache.updatedAt });
-    return res.end();
-  }
+  const normalized = { top25, atsLeaders, recentGames, upcomingGames, headlines };
+  const hash = hashPayload(normalized);
 
-  const baseUrl = getBaseUrl(req);
-  const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const matchOdds = (scoreGame, oddsList) => {
-    const h = norm(scoreGame.homeTeam);
-    const a = norm(scoreGame.awayTeam);
-    return oddsList.find((o) => {
-      const oh = norm(o.homeTeam);
-      const oa = norm(o.awayTeam);
-      return (h.includes(oh) || oh.includes(h)) && (a.includes(oa) || oa.includes(a));
-    });
-  };
-
-  let scoresToday = [];
-  let scoresYesterday = [];
-  let rankings = [];
-  let headlines = [];
-  let oddsGames = [];
-  let oddsHistoryGames = [];
-
-  const todayPst = getPstDateOnly();
-  const todayYMD = todayPst.replace(/-/g, '');
-  const yesterday = new Date(todayPst + 'T12:00:00');
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
-  const yesterdayYMD = yesterdayStr.replace(/-/g, '');
-
-  try {
-    const [todayRes, yesterdayRes, rankingsRes, newsRes, oddsRes, historyRes] = await Promise.allSettled([
-      fetchJson(baseUrl, '/api/scores'),
-      fetchJson(baseUrl, `/api/scores?date=${yesterdayYMD}`),
-      fetchJson(baseUrl, '/api/rankings'),
-      fetchJson(baseUrl, '/api/news/aggregate?includeNational=true'),
-      fetchJson(baseUrl, '/api/odds').catch(() => ({ games: [] })),
-      fetchJson(baseUrl, `/api/odds-history?from=${yesterdayStr}&to=${todayPst}`).catch(() => ({ games: [] })),
-    ]);
-
-    if (todayRes.status === 'fulfilled') {
-      const data = todayRes.value;
-      scoresToday = Array.isArray(data) ? data : (data?.games || []);
-    }
-    if (yesterdayRes.status === 'fulfilled') {
-      const data = yesterdayRes.value;
-      scoresYesterday = Array.isArray(data) ? data : (data?.games || []);
-    }
-    if (rankingsRes.status === 'fulfilled') {
-      rankings = rankingsRes.value?.rankings || [];
-    }
-    if (newsRes.status === 'fulfilled') {
-      const items = newsRes.value?.items || [];
-      headlines = items.slice(0, 5).map((i) => ({ title: i.title || '', source: i.source || '' }));
-    }
-    if (oddsRes.status === 'fulfilled' && oddsRes.value?.games) {
-      oddsGames = oddsRes.value.games;
-    }
-    if (historyRes.status === 'fulfilled' && historyRes.value?.games) {
-      oddsHistoryGames = historyRes.value.games;
-    }
-  } catch (err) {
-    console.error('Summary API data fetch error:', err.message);
-  }
-
-  const allScores = [...scoresYesterday, ...scoresToday];
-  const finalGames = allScores
-    .filter((g) => {
-      const s = (g.gameStatus || '').toLowerCase();
-      return s === 'final' || s.includes('final');
-    })
-    .map((g) => {
-      const o = matchOdds(g, oddsHistoryGames) || matchOdds(g, oddsGames);
-      const spread = o?.spread;
-      const { awayATS, homeATS } = computeATS(g.awayScore, g.homeScore, spread);
-      return {
-        ...g,
-        spread,
-        awayATS: awayATS || null,
-        homeATS: homeATS || null,
-      };
-    });
-
-  const upcomingGames = scoresToday
-    .filter((g) => {
-      const s = (g.gameStatus || '').toLowerCase();
-      return s !== 'final' && !s.includes('final') && (g.homeTeam || g.awayTeam);
-    })
-    .map((g) => {
-      const o = matchOdds(g, oddsGames);
-      return { ...g, spread: o?.spread };
-    });
-
-  // Counts: only mark a source "unavailable" when count = 0
-  const scoresCount = allScores.length;
-  const rankingsCount = rankings.length;
-  const oddsCount = oddsGames.length;
-  const oddsHistoryCount = oddsHistoryGames.length;
+  const top25Count = top25.length;
+  const atsBestCount = atsLeaders.best.length;
+  const atsWorstCount = atsLeaders.worst.length;
+  const recentCount = recentGames.length;
+  const upcomingCount = upcomingGames.length;
   const headlinesCount = headlines.length;
 
-  const espnOk = scoresCount > 0 || rankingsCount > 0;
-  const oddsOk = oddsCount > 0 || oddsHistoryCount > 0;
-  const newsOk = headlinesCount > 0;
-
   const dataStatusLine = [
-    `ESPN: ${espnOk ? `OK (${scoresCount} scores, ${rankingsCount} ranked teams)` : 'MISSING'}`,
-    `Odds: ${oddsOk ? `OK (${oddsCount} spreads, ${oddsHistoryCount} ATS)` : 'MISSING'}`,
-    `News: ${newsOk ? `OK (${headlinesCount} headlines)` : 'MISSING'}`,
+    `Top 25: ${top25Count > 0 ? `OK (${top25Count})` : 'MISSING'}`,
+    `ATS leaders: ${atsBestCount + atsWorstCount > 0 ? `OK (${atsBestCount} best, ${atsWorstCount} worst)` : 'MISSING'}`,
+    `Recent games: ${recentCount > 0 ? `OK (${recentCount})` : 'MISSING'}`,
+    `Upcoming: ${upcomingCount > 0 ? `OK (${upcomingCount})` : 'MISSING'}`,
+    `Headlines: ${headlinesCount > 0 ? `OK (${headlinesCount})` : 'MISSING'}`,
   ].join('. ');
   const dataStatusPrompt = `DATA STATUS — ${dataStatusLine}`;
 
   if (debug) {
-    const sampleScore = finalGames[0] || upcomingGames[0] || allScores[0]
-      ? `${(finalGames[0] || upcomingGames[0] || allScores[0]).awayTeam} @ ${(finalGames[0] || upcomingGames[0] || allScores[0]).homeTeam}`
-      : null;
-    const sampleHeadline = headlines[0] ? headlines[0].title : null;
+    res.setHeader('Content-Type', 'application/json');
     return res.status(200).json({
-      scoresCount,
-      rankingsCount,
-      oddsCount,
-      oddsHistoryCount,
+      scoresCount: recentCount,
+      rankingsCount: top25Count,
+      oddsCount: upcomingCount,
+      oddsHistoryCount: 0,
       headlinesCount,
-      sampleScore,
-      sampleHeadline,
       dataStatusLine: dataStatusPrompt,
+      sampleScore: recentGames[0] ? `${recentGames[0].awayTeam || ''} @ ${recentGames[0].homeTeam || ''}` : null,
+      sampleHeadline: headlines[0]?.title ?? null,
     });
   }
 
-  const pstDate = getPstDate();
-  const top25List = rankings.slice(0, 25).map((r) => `#${r.rank} ${r.teamName}`).join(', ') || 'None';
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
 
-  const last24hLines = finalGames.map((g) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    send(res, { error: true, message: 'Summary unavailable — OpenAI key not configured.' });
+    return res.end();
+  }
+
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const cached = cacheByHash[hash];
+  const rateLimited = lastRequestByIp[ip] != null && (now - lastRequestByIp[ip]) < RATE_LIMIT_MS;
+
+  if (cached && Date.now() < cached.expires && !force) {
+    send(res, {
+      dataStatus: {
+        scoresCount: recentCount,
+        rankingsCount: top25Count,
+        oddsCount: upcomingCount,
+        oddsHistoryCount: 0,
+        headlinesCount,
+        dataStatusLine: dataStatusPrompt,
+      },
+    });
+    if (cached.value) {
+      send(res, { text: cached.value, done: true, updatedAt: cached.updatedAt });
+    } else {
+      send(res, { done: true, updatedAt: cached.updatedAt });
+    }
+    return res.end();
+  }
+
+  if (rateLimited) {
+    const cachedForHash = cacheByHash[hash];
+    if (cachedForHash?.value) {
+      send(res, {
+        dataStatus: {
+          scoresCount: recentCount,
+          rankingsCount: top25Count,
+          oddsCount: upcomingCount,
+          oddsHistoryCount: 0,
+          headlinesCount,
+          dataStatusLine: dataStatusPrompt,
+        },
+      });
+      send(res, { text: cachedForHash.value, done: true, updatedAt: cachedForHash.updatedAt, rateLimitMessage: 'Please wait a minute before refreshing again.' });
+      return res.end();
+    }
+    send(res, { error: true, message: 'Please wait a minute before refreshing again.' });
+    return res.end();
+  }
+
+  lastRequestByIp[ip] = now;
+
+  const top25List = top25.map((r) => (r.rank != null && r.teamName != null ? `#${r.rank} ${r.teamName}` : r.teamName || r.name || '')).filter(Boolean).join(', ') || 'None';
+  const recentLines = recentGames.map((g) => {
+    const away = g.awayTeam || '';
+    const home = g.homeTeam || '';
+    const awayScore = g.awayScore ?? '-';
+    const homeScore = g.homeScore ?? '-';
     const spread = g.spread != null ? ` spread ${g.spread}` : '';
     const ats = g.awayATS != null ? ` (ATS: away ${g.awayATS}, home ${g.homeATS})` : '';
-    return `${g.awayTeam} ${g.awayScore ?? '-'} @ ${g.homeTeam} ${g.homeScore ?? '-'}${spread}${ats}`;
+    return `${away} ${awayScore} @ ${home} ${homeScore}${spread}${ats}`;
   });
-  const last24hText = last24hLines.length ? last24hLines.join('\n') : 'No games in the last 24 hours with final scores.';
-
-  const upcomingLines = upcomingGames.slice(0, 12).map((g) => {
+  const recentText = recentLines.length ? recentLines.join('\n') : 'No recent games with final scores.';
+  const upcomingLines = upcomingGames.map((g) => {
     const spread = g.spread != null ? ` — spread: ${g.spread}` : '';
-    return `${g.awayTeam} @ ${g.homeTeam}${spread} (${g.gameStatus || 'Upcoming'})`;
+    return `${g.awayTeam || ''} @ ${g.homeTeam || ''}${spread} (${g.gameStatus || 'Upcoming'})`;
   });
   const upcomingText = upcomingLines.length ? upcomingLines.join('\n') : 'No upcoming games listed.';
-
+  const atsBestText = atsLeaders.best.length
+    ? atsLeaders.best.map((r, i) => `${i + 1}. ${r.name || r.slug || ''} ${r.rec ? `${r.rec.w}-${r.rec.l}${(r.rec.p > 0 ? `-${r.rec.p}` : '')} (${r.rec.coverPct ?? ''}%)` : ''}`).join('\n')
+    : 'No ATS best data.';
+  const atsWorstText = atsLeaders.worst.length
+    ? atsLeaders.worst.map((r, i) => `${atsLeaders.worst.length - i}. ${r.name || r.slug || ''} ${r.rec ? `${r.rec.w}-${r.rec.l}${(r.rec.p > 0 ? `-${r.rec.p}` : '')}` : ''}`).join('\n')
+    : 'No ATS worst data.';
   const headlinesText = headlines.length
-    ? headlines.map((h) => `- ${h.title} (${h.source})`).join('\n')
+    ? headlines.map((h) => `- ${h.title || ''} (${h.source || 'News'})`).join('\n')
     : 'No headlines available.';
-
-  const dataAvailability = [
-    espnOk ? 'ESPN (scores, rankings)' : 'ESPN data unavailable',
-    oddsOk ? 'Odds API (spreads, ATS)' : 'Odds API data unavailable',
-    newsOk ? 'Google/Yahoo news' : 'News (Google/Yahoo) unavailable',
-  ].join('; ');
 
   const systemPrompt = `You are a friendly sports host for Maximus Sports. Write a conversational daily briefing. Use short paragraphs, not long bullet lists.
 
-DATA SOURCES (reference explicitly when present):
-- ESPN: schedules, scores, and Top 25 rankings.
-- Odds API: spreads and ATS (Against The Spread) outcomes.
-- Google / Yahoo: news headlines tied to teams.
-
 RULES:
-1. Use the "DATA STATUS" line in the user message: only say a source is "unavailable" or "missing" when that source is marked MISSING there. If ESPN/Odds/News show OK with counts, do NOT say they are unavailable.
-2. Every game you mention MUST include its spread and ATS result (Cover/Loss/Push) where that data is available. If spread or ATS is missing for a game, say "spread/ATS unavailable" for that game.
-3. Build the recap from the actual data provided: when game/headline lists are empty, briefly note that; when not empty, reference real games and headlines by name.
-4. Include when data exists: (a) Games in the last 24 hours with final score and ATS outcome, (b) Upcoming games with spreads, (c) Top 25 context from ESPN, (d) 2–4 headlines tied to those teams.
-5. Style: "Here's the rundown for today…" and "Looking ahead to tomorrow…" Short paragraphs, narrative tone.`;
+1. Use ONLY the data provided below. If an array is empty, explicitly state that part is unavailable.
+2. Recap must include when data exists: (a) Top 25 results from recent games, (b) Upcoming Top 25 games with spreads, (c) ATS leaderboard highlights (best and worst), (d) Headlines.
+3. Every game you mention should include spread and ATS result where that data is in the payload.
+4. Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
 
-  const userPrompt = `Today's date (PST): ${pstDate}
+  const userPrompt = `Today's date (PST): ${getPstDate()}
 
 ${dataStatusPrompt}
 
-Data availability: ${dataAvailability}
-
---- ESPN: AP Top 25 (rankings) ---
+--- Top 25 (rankings) ---
 ${top25List}
 
---- ESPN: Games in the last 24 hours (final scores). Odds API: spread + ATS where available ---
-${last24hText}
+--- Recent games (final scores, spread + ATS where available) ---
+${recentText}
 
---- Upcoming games (Odds API: spreads when available) ---
+--- Upcoming games (spreads when available) ---
 ${upcomingText}
 
---- Google / Yahoo: Headlines (tie 2–4 to the teams above) ---
+--- ATS leaderboard: Top 10 (best cover %) ---
+${atsBestText}
+
+--- ATS leaderboard: Bottom 10 ---
+${atsWorstText}
+
+--- Headlines ---
 ${headlinesText}
 
-Write a conversational daily recap. Mention ESPN for scores/rankings, Odds API for spreads and ATS, and Google/Yahoo for news. For every game you mention, include spread and ATS result where applicable. If any data source was unavailable, say so. Use 2–4 short paragraphs.`;
+Write a conversational daily recap using only the data above. If any section is empty or "None", say that part is unavailable. Use 2–4 short paragraphs.`;
 
-  // Send data status first so client can show badges (e.g. ?debug=true verification)
   send(res, {
     dataStatus: {
-      scoresCount,
-      rankingsCount,
-      oddsCount,
-      oddsHistoryCount,
+      scoresCount: recentCount,
+      rankingsCount: top25Count,
+      oddsCount: upcomingCount,
+      oddsHistoryCount: 0,
       headlinesCount,
       dataStatusLine: dataStatusPrompt,
     },
@@ -351,9 +294,11 @@ Write a conversational daily recap. Mention ESPN for scores/rankings, Odds API f
     }
 
     const updatedAt = new Date().toISOString();
-    cache.value = fullContent.trim() || null;
-    cache.updatedAt = updatedAt;
-    cache.expires = Date.now() + CACHE_TTL_MS;
+    cacheByHash[hash] = {
+      value: fullContent.trim() || null,
+      updatedAt,
+      expires: Date.now() + CACHE_TTL_MS,
+    };
 
     send(res, { done: true, updatedAt });
     res.end();

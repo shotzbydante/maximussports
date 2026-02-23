@@ -25,7 +25,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
 - **Odds API:** `/api/odds/index.js` — proxy The Odds API (NCAA basketball spreads, totals, moneyline); optional `ODDS_API_KEY`; 5-min cache
 - **Odds History API:** `/api/odds-history/index.js` — proxy Odds API historical odds (spreads); accepts long ranges via 31-day chunking; per-chunk + full-result cache (7 min)
-- **Summary API:** `/api/summary/index.js` — OpenAI Chat Completions (gpt-4o-mini); aggregates scores (today + yesterday), rankings, odds, odds-history, news aggregate; returns 3–6 sentence Home synopsis; 30-min in-memory cache; `?stream=true` for SSE, `?force=true` bypasses cache, `?debug=true` returns data counts + DATA STATUS (no stream); missing `OPENAI_API_KEY` returns 200 with fallback text; DATA STATUS line injected into prompt so model only says “unavailable” when count = 0
+- **Summary API:** `/api/summary/index.js` — POST only; body `{ top25, atsLeaders, recentGames, upcomingGames, headlines }` (data already loaded on Home; no internal ESPN/Odds/News calls). OpenAI gpt-4o-mini streams 3–6 sentence recap. Cache keyed by payload SHA256 hash (30 min). Rate limit: max 1 refresh per 60 s per IP; if exceeded returns cached summary with message or error. DATA STATUS from payload counts.
+- **Team Summary API:** `/api/summary/team.js` — POST `{ slug, headlines }`; returns short GPT summary (1–2 sentences) for pinned team card; cache ~30 min per slug; no external APIs; “Summary unavailable” if no headlines.
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -66,8 +67,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/teamIds/index.js` | Serverless: ESPN teams → `{ slugToId }` |
 | `api/odds/index.js` | Serverless: The Odds API proxy → `{ games }` (gameId, spread, total, moneyline) |
 | `api/odds-history/index.js` | Serverless: Odds API historical → `{ games }` (gameId, homeTeam, awayTeam, spread, sportsbook) |
-| `api/summary/index.js` | Serverless: OpenAI summary of scores + rankings + news; 30-min cache; `OPENAI_API_KEY` |
-| `src/api/summary.js` | Client fetcher `fetchSummary({ force })` for Home banner |
+| `api/summary/index.js` | Serverless: POST summary with payload; hash cache; rate limit; no internal API calls |
+| `api/summary/team.js` | Serverless: POST team summary from headlines only; 30-min cache per slug |
+| `src/api/summary.js` | Client: `fetchSummaryStream(payload, { force, onMessage })`, `fetchTeamSummary({ slug, headlines })` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
@@ -101,7 +103,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
 | `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
 | `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
-| `/api/summary` | GET | Dynamic Home synopsis (OpenAI). `?stream=true` for SSE; `?force=true` bypasses 30-min cache; `?debug=true` returns `{ scoresCount, rankingsCount, oddsCount, oddsHistoryCount, headlinesCount, sampleScore, sampleHeadline, dataStatusLine }` (no stream). |
+| `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. Query: `?stream=true` (required), `?force=true` bypass cache. Response: SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
+| `/api/summary/team` | POST | Pinned team card summary. Body: `{ slug, headlines }`. Returns `{ summary }` or message if no headlines. Cache ~30 min per slug. |
 | `/api/teamIds` | GET | slug → ESPN team ID map. `?debug=true` → also `missingSlugs`, `missingCount` |
 | `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
 | `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Chunks long ranges into 31-day windows; merges and dedupes. Requires `ODDS_API_KEY` |
@@ -143,7 +146,18 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 23, 2026)
 
-**Summary data availability fix (ESPN / Odds / News):**
+**Summary simplified to use Home-loaded data only; pinned team GPT summaries:**
+- **Summary API (POST only)** — No internal calls to `/api/scores`, `/api/rankings`, `/api/odds`, `/api/news`. Accepts POST body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }` as sole source of truth. Recap built from these arrays; empty arrays → “unavailable” in prompt.
+- **Home payload** — Client builds `summaryPayload` from existing state: Top 25 from rankings fetch, ATS best/worst from `ATSLeaderboard` via `onDataLoaded`, recent/upcoming games from `scores.games` (final vs non-final), headlines from `newsData.newsFeed`. Sends POST to `/api/summary?stream=true`; SSE streaming unchanged.
+- **Cache** — 30-minute cache keyed by payload hash (`crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')`). Same payload returns cached summary immediately.
+- **Rate limit** — Max 1 refresh per 60 seconds per client (IP). If exceeded: return cached summary with message “Please wait a minute before refreshing again.” or error if no cache for current payload.
+- **Data availability badges** — Use payload counts (not API counts) for “Show data status” badges (ESPN/Odds/News OK / PARTIAL / MISSING).
+- **Pinned team ChatGPT summary** — Each pinned team card shows a short GPT summary (1–2 sentences) from that card’s headlines only. `POST /api/summary/team` with `{ slug, headlines }`; no external APIs; cache ~30 min per team slug. Non-streaming. “Summary unavailable” if card has no headlines.
+- **ATSLeaderboard** — New prop `onDataLoaded({ best, worst })` so Home can include ATS leaderboard data in the summary payload.
+
+---
+
+**Previous (Feb 23): Summary data availability fix (ESPN / Odds / News):**
 - **Counts before prompt** — `/api/summary` now computes and uses `scoresCount`, `rankingsCount`, `oddsCount`, `oddsHistoryCount`, `headlinesCount`. A source is marked “unavailable” only when its count = 0.
 - **ESPN** — Uses `/api/scores` for today + yesterday and `/api/rankings` (Top 25). If `scoresCount > 0`, summary never says ESPN is missing.
 - **Odds** — Uses `/api/odds` and `/api/odds-history` (yesterday→today); spreads merged into scores. Odds marked missing only when both `oddsCount` and `oddsHistoryCount` are 0.

@@ -24,6 +24,7 @@ import { getTeamSlug } from '../../utils/teamSlug';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
 import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import { SEASON_START } from '../../utils/dateChunks';
+import { fetchTeamSummary } from '../../api/summary';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './PinnedTeamsSection.module.css';
@@ -56,6 +57,7 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
   const [scores, setScores] = useState({ games: [], loading: false });
   const [teamNews, setTeamNews] = useState({});
   const [teamRecords, setTeamRecords] = useState({});
+  const [teamSummaries, setTeamSummaries] = useState({});
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
 
@@ -209,6 +211,26 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
     }, 100);
     return () => clearTimeout(tid);
   }, [pinned.join(',')]);
+
+  // GPT summary per pinned team (from that card's headlines only); cache on server ~30 min
+  useEffect(() => {
+    if (pinned.length === 0) return;
+    pinned.slice(0, 8).forEach((slug) => {
+      const headlines = teamNews[slug] || [];
+      if (headlines.length === 0) {
+        setTeamSummaries((prev) => ({ ...prev, [slug]: null }));
+        return;
+      }
+      fetchTeamSummary({
+        slug,
+        headlines: headlines.map((h) => ({ title: h.title, source: h.source })),
+      }).then(({ summary }) => {
+        setTeamSummaries((prev) => ({ ...prev, [slug]: summary }));
+      }).catch(() => {
+        setTeamSummaries((prev) => ({ ...prev, [slug]: null }));
+      });
+    });
+  }, [pinned.join(','), teamNews]);
 
   const filteredTeams = search.trim()
     ? TEAMS.filter(
@@ -396,6 +418,17 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
                     </>
                   );
                 })()}
+                <div className={styles.teamSummary}>
+                  {headlines.length > 0 ? (
+                    (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
+                      <p className={styles.teamSummaryText}>{teamSummaries[slug]}</p>
+                    ) : (
+                      <p className={styles.teamSummaryUnavailable}>Summary unavailable</p>
+                    )
+                  ) : (
+                    <p className={styles.teamSummaryUnavailable}>Summary unavailable</p>
+                  )}
+                </div>
                 {headlines.length > 0 && (
                   <ul className={styles.headlines}>
                     {headlines.map((h) => (

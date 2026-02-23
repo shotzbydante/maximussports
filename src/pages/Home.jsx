@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchAggregatedNews, fetchAggregateNews } from '../api/news';
@@ -9,7 +9,7 @@ import { getPinnedTeams } from '../utils/pinnedTeams';
 import { getOddsTier } from '../utils/teamSlug';
 import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
-import { fetchSummaryDebug } from '../api/summary';
+import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
@@ -82,10 +82,23 @@ function formatSummaryDate(iso) {
   return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+const buildSummaryPayload = ({ top25, atsBest, atsWorst, recentGames, upcomingGames, headlines }) => ({
+  top25: top25?.slice(0, 25) || [],
+  atsLeaders: {
+    best: atsBest?.slice(0, 10) || [],
+    worst: atsWorst?.slice(0, 10) || [],
+  },
+  recentGames: (recentGames || []).slice(0, 20),
+  upcomingGames: (upcomingGames || []).slice(0, 20),
+  headlines: (headlines || []).slice(0, 10),
+});
+
 export default function Home() {
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
   const [rankMap, setRankMap] = useState({});
+  const [top25, setTop25] = useState([]);
+  const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
   const [summaryText, setSummaryText] = useState('');
@@ -95,6 +108,7 @@ export default function Home() {
   const [hideStaticWelcomeAfterRefresh, setHideStaticWelcomeAfterRefresh] = useState(false);
   const [showDataStatus, setShowDataStatus] = useState(false);
   const [dataStatus, setDataStatus] = useState(null);
+  const [rateLimitMessage, setRateLimitMessage] = useState(null);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const streamBufferRef = useRef('');
@@ -129,8 +143,14 @@ export default function Home() {
 
   useEffect(() => {
     fetchRankings()
-      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
-      .catch(() => setRankMap({}));
+      .then((data) => {
+        setRankMap(buildSlugToRankMap(data, TEAMS));
+        setTop25(data?.rankings || []);
+      })
+      .catch(() => {
+        setRankMap({});
+        setTop25([]);
+      });
   }, []);
 
   const loadScores = useCallback(() => {
@@ -162,7 +182,6 @@ export default function Home() {
     return () => clearInterval(id);
   }, [loadScores]);
 
-  const summaryEventSourceRef = useRef(null);
   const STREAM_FLUSH_MS = 80;
 
   const flushStreamBuffer = useCallback(() => {
@@ -173,11 +192,21 @@ export default function Home() {
     }
   }, []);
 
+  const buildPayload = useCallback(() => {
+    const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
+    const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
+    const headlines = (newsData.newsFeed || []).map((h) => ({ title: h.title, source: h.source }));
+    return buildSummaryPayload({
+      top25,
+      atsBest: atsLeaders.best,
+      atsWorst: atsLeaders.worst,
+      recentGames,
+      upcomingGames,
+      headlines,
+    });
+  }, [scores.games, newsData.newsFeed, top25, atsLeaders.best, atsLeaders.worst]);
+
   const fetchSummaryStream = useCallback((force = false) => {
-    if (summaryEventSourceRef.current) {
-      summaryEventSourceRef.current.close();
-      summaryEventSourceRef.current = null;
-    }
     if (streamIntervalRef.current) {
       clearInterval(streamIntervalRef.current);
       streamIntervalRef.current = null;
@@ -186,13 +215,12 @@ export default function Home() {
     setSummaryText('');
     setSummaryError(false);
     setSummaryStreaming(true);
-    const url = `/api/summary?stream=true${force ? '&force=true' : ''}`;
-    const es = new EventSource(url);
-    summaryEventSourceRef.current = es;
+    setRateLimitMessage(null);
 
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
+    const payload = buildPayload();
+    fetchSummaryStreamApi(payload, {
+      force,
+      onMessage(data) {
         if (data.error) {
           if (streamIntervalRef.current) {
             clearInterval(streamIntervalRef.current);
@@ -202,8 +230,6 @@ export default function Home() {
           setSummaryText(data.message || SUMMARY_ERROR);
           setSummaryError(true);
           setSummaryStreaming(false);
-          es.close();
-          summaryEventSourceRef.current = null;
           return;
         }
         if (data.dataStatus) {
@@ -225,43 +251,27 @@ export default function Home() {
           }
           flushStreamBuffer();
           setSummaryStreaming(false);
-          es.close();
-          summaryEventSourceRef.current = null;
+          setRateLimitMessage(data.rateLimitMessage || null);
         }
-      } catch (_) {
-        if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-        streamIntervalRef.current = null;
-        streamBufferRef.current = '';
-        setSummaryText(SUMMARY_ERROR);
-        setSummaryError(true);
-        setSummaryStreaming(false);
-        es.close();
-        summaryEventSourceRef.current = null;
-      }
-    };
-
-    es.onerror = () => {
-      if (streamIntervalRef.current) {
-        clearInterval(streamIntervalRef.current);
-        streamIntervalRef.current = null;
-      }
-      flushStreamBuffer();
-      setSummaryStreaming(false);
-      es.close();
-      summaryEventSourceRef.current = null;
-      setSummaryText((t) => (t === '' ? SUMMARY_ERROR : t));
+      },
+    }).catch(() => {
+      if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+      streamBufferRef.current = '';
+      setSummaryText(SUMMARY_ERROR);
       setSummaryError(true);
-    };
-  }, [flushStreamBuffer]);
+      setSummaryStreaming(false);
+    });
+  }, [buildPayload, flushStreamBuffer]);
 
+  const hasRequestedInitialRef = useRef(false);
   useEffect(() => {
+    if (hasRequestedInitialRef.current) return;
+    const hasData = top25.length > 0 || (scores.games && scores.games.length > 0);
+    if (!hasData) return;
+    hasRequestedInitialRef.current = true;
     fetchSummaryStream(false);
-    return () => {
-      if (summaryEventSourceRef.current) {
-        summaryEventSourceRef.current.close();
-      }
-    };
-  }, []);
+  }, [top25, scores.games, fetchSummaryStream]);
 
   const handleRefreshSummary = () => {
     setHideStaticWelcomeAfterRefresh(true);
@@ -269,42 +279,40 @@ export default function Home() {
   };
 
   const handleToggleDataStatus = () => {
-    const next = !showDataStatus;
-    setShowDataStatus(next);
-    if (next && dataStatus == null) {
-      fetchSummaryDebug()
-        .then((d) => setDataStatus({
-          scoresCount: d.scoresCount,
-          rankingsCount: d.rankingsCount,
-          oddsCount: d.oddsCount,
-          oddsHistoryCount: d.oddsHistoryCount,
-          headlinesCount: d.headlinesCount,
-          dataStatusLine: d.dataStatusLine,
-        }))
-        .catch(() => setDataStatus(null));
-    }
+    setShowDataStatus((prev) => !prev);
   };
 
-  // Badge status: ok (green), partial (amber), missing (red)
+  const dataStatusForBadges = useMemo(() => {
+    if (dataStatus) return dataStatus;
+    const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
+    const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
+    const headlines = newsData.newsFeed || [];
+    return {
+      scoresCount: recentGames.length,
+      rankingsCount: top25.length,
+      oddsCount: upcomingGames.length,
+      oddsHistoryCount: 0,
+      headlinesCount: headlines.length,
+    };
+  }, [dataStatus, scores.games, top25.length, newsData.newsFeed]);
+
+  // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
-    if (!dataStatus) return 'missing';
-    const { scoresCount = 0, rankingsCount = 0 } = dataStatus;
+    const { scoresCount = 0, rankingsCount = 0 } = dataStatusForBadges;
     const n = scoresCount + rankingsCount;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
     return 'ok';
   };
   const getOddsStatus = () => {
-    if (!dataStatus) return 'missing';
-    const { oddsCount = 0, oddsHistoryCount = 0 } = dataStatus;
+    const { oddsCount = 0, oddsHistoryCount = 0 } = dataStatusForBadges;
     const n = oddsCount + oddsHistoryCount;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
     return 'ok';
   };
   const getNewsStatus = () => {
-    if (!dataStatus) return 'missing';
-    const n = dataStatus.headlinesCount ?? 0;
+    const n = dataStatusForBadges.headlinesCount ?? 0;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
     return 'ok';
@@ -342,6 +350,9 @@ export default function Home() {
             <p className={styles.summaryUpdated}>
               Last updated: {formatSummaryDate(summaryUpdatedAt)}
             </p>
+          )}
+          {rateLimitMessage && (
+            <p className={styles.rateLimitMessage}>{rateLimitMessage}</p>
           )}
           <div className={styles.summaryActions}>
             <button
@@ -382,7 +393,11 @@ export default function Home() {
       <PinnedTeamsSection onPinnedChange={setPinned} />
 
       <section className={styles.atsSection}>
-        <ATSLeaderboard />
+        <ATSLeaderboard
+          onDataLoaded={useCallback(({ best, worst }) => {
+            setAtsLeaders({ best: best || [], worst: worst || [] });
+          }, [])}
+        />
       </section>
 
       <Top25Rankings />

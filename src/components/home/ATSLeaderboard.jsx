@@ -30,7 +30,7 @@ function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function ATSLeaderboard() {
+export default function ATSLeaderboard({ onDataLoaded }) {
   const [period, setPeriod] = useState('season');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +129,12 @@ export default function ATSLeaderboard() {
 
   const best10 = sorted.slice(0, 10);
   const worst10 = sorted.slice(-10).reverse();
+
+  useEffect(() => {
+    if (rows.length > 0 && typeof onDataLoaded === 'function') {
+      onDataLoaded({ best: best10, worst: worst10 });
+    }
+  }, [rows, period, onDataLoaded]);
 
   return (
     <section className={styles.card}>
