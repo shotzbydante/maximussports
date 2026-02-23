@@ -83,7 +83,9 @@ export default function TeamSchedule({ slug, initialData }) {
 
   const team = getTeamBySlug(slug);
   const teamName = team?.name ?? '';
-  const upcoming = events.filter((e) => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const eventsList = Array.isArray(events) ? events : [];
+  const pastGames = eventsList.filter((e) => e?.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const upcoming = eventsList.filter((e) => !e?.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   return (
     <section className={styles.section}>
@@ -112,11 +114,11 @@ export default function TeamSchedule({ slug, initialData }) {
         <div className={styles.error}>{error}</div>
       )}
 
-      {!loading && teamId && !error && events.length === 0 && (
+      {!loading && teamId && !error && eventsList.length === 0 && (
         <div className={styles.empty}>No games found</div>
       )}
 
-      {!loading && teamId && !error && events.length > 0 && (
+      {!loading && teamId && !error && eventsList.length > 0 && (
         <div className={styles.table}>
           <div className={`${styles.row} ${styles.rowHeader}`}>
             <span>Date</span>
@@ -126,10 +128,10 @@ export default function TeamSchedule({ slug, initialData }) {
             <span>Status</span>
           </div>
 
-          {past.length > 0 && (
+          {pastGames.length > 0 && (
             <>
               <div className={styles.groupLabel}>Past</div>
-              {past.slice(0, 20).map((ev) => {
+              {pastGames.slice(0, 20).map((ev) => {
                 const histOdds = matchOddsHistoryToEvent(ev, oddsHistoryGames, teamName);
                 const spread = histOdds?.spread ?? '—';
                 const ats = computeATSForEvent(ev, histOdds, teamName);
@@ -158,7 +160,7 @@ export default function TeamSchedule({ slug, initialData }) {
             </>
           )}
 
-          {upcoming.length > 0 && (
+          {Array.isArray(upcoming) && upcoming.length > 0 && (
             <>
               <div className={styles.groupLabel}>Upcoming</div>
               {upcoming.map((ev) => (

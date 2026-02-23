@@ -135,6 +135,11 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 23, 2026)
 
+**Team page runtime fix (ReferenceError: past is not defined):**
+- **TeamSchedule.jsx** — Defined `pastGames` from `events` (filter isFinal, sort by date desc) and use it for the Past section; `past` was referenced but never defined. Added `eventsList = Array.isArray(events) ? events : []` and derive `pastGames`/`upcoming` from it; guard upcoming render with `Array.isArray(upcoming) && upcoming.length > 0`. Missing schedule data no longer crashes.
+
+---
+
 **API consolidation (≤12 serverless / Hobby plan):**
 - **Removed standalone routes:** `/api/scores`, `/api/rankings`, `/api/odds`, `/api/odds-history`, `/api/news/aggregate`, `/api/news/team/[slug]`, `/api/teamIds`, `/api/schedule/[teamId]`. All behavior moved into `/api/home` and `/api/team/[slug]` via `api/_sources.js` (no HTTP between APIs).
 - **Client:** Home, Games, DailySchedule, Insights, NewsFeed use only `fetchHome()`. Team page and PinnedTeamsSection use only `fetchTeamPage(slug)` for schedule/oddsHistory/records/ATS. Summary endpoints unchanged.
