@@ -91,7 +91,11 @@ export default function Home() {
   const [summaryStreaming, setSummaryStreaming] = useState(false);
   const [summaryUpdatedAt, setSummaryUpdatedAt] = useState(null);
   const [summaryError, setSummaryError] = useState(false);
+  const [hideStaticWelcomeAfterRefresh, setHideStaticWelcomeAfterRefresh] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
+
+  const streamBufferRef = useRef('');
+  const streamIntervalRef = useRef(null);
 
   useEffect(() => {
     fetchAggregatedNews(pinnedSlugs)
@@ -156,12 +160,26 @@ export default function Home() {
   }, [loadScores]);
 
   const summaryEventSourceRef = useRef(null);
+  const STREAM_FLUSH_MS = 80;
+
+  const flushStreamBuffer = useCallback(() => {
+    if (streamBufferRef.current) {
+      const chunk = streamBufferRef.current;
+      streamBufferRef.current = '';
+      setSummaryText((prev) => prev + chunk);
+    }
+  }, []);
 
   const fetchSummaryStream = useCallback((force = false) => {
     if (summaryEventSourceRef.current) {
       summaryEventSourceRef.current.close();
       summaryEventSourceRef.current = null;
     }
+    if (streamIntervalRef.current) {
+      clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+    }
+    streamBufferRef.current = '';
     setSummaryText('');
     setSummaryError(false);
     setSummaryStreaming(true);
@@ -173,6 +191,11 @@ export default function Home() {
       try {
         const data = JSON.parse(e.data);
         if (data.error) {
+          if (streamIntervalRef.current) {
+            clearInterval(streamIntervalRef.current);
+            streamIntervalRef.current = null;
+          }
+          streamBufferRef.current = '';
           setSummaryText(data.message || SUMMARY_ERROR);
           setSummaryError(true);
           setSummaryStreaming(false);
@@ -181,17 +204,28 @@ export default function Home() {
           return;
         }
         if (data.text) {
-          setSummaryText((prev) => prev + data.text);
+          streamBufferRef.current += data.text;
+          if (!streamIntervalRef.current) {
+            streamIntervalRef.current = setInterval(flushStreamBuffer, STREAM_FLUSH_MS);
+          }
         }
         if (data.updatedAt) {
           setSummaryUpdatedAt(data.updatedAt);
         }
         if (data.done) {
+          if (streamIntervalRef.current) {
+            clearInterval(streamIntervalRef.current);
+            streamIntervalRef.current = null;
+          }
+          flushStreamBuffer();
           setSummaryStreaming(false);
           es.close();
           summaryEventSourceRef.current = null;
         }
       } catch (_) {
+        if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+        streamIntervalRef.current = null;
+        streamBufferRef.current = '';
         setSummaryText(SUMMARY_ERROR);
         setSummaryError(true);
         setSummaryStreaming(false);
@@ -201,13 +235,18 @@ export default function Home() {
     };
 
     es.onerror = () => {
+      if (streamIntervalRef.current) {
+        clearInterval(streamIntervalRef.current);
+        streamIntervalRef.current = null;
+      }
+      flushStreamBuffer();
       setSummaryStreaming(false);
       es.close();
       summaryEventSourceRef.current = null;
       setSummaryText((t) => (t === '' ? SUMMARY_ERROR : t));
       setSummaryError(true);
     };
-  }, []);
+  }, [flushStreamBuffer]);
 
   useEffect(() => {
     fetchSummaryStream(false);
@@ -219,6 +258,7 @@ export default function Home() {
   }, []);
 
   const handleRefreshSummary = () => {
+    setHideStaticWelcomeAfterRefresh(true);
     fetchSummaryStream(true);
   };
 
@@ -237,7 +277,7 @@ export default function Home() {
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
-          {(summaryError || summaryText === '') && (
+          {!hideStaticWelcomeAfterRefresh && (
             <p className={styles.bannerStaticWelcome}>{STATIC_WELCOME}</p>
           )}
           {summaryStreaming && summaryText === '' && (

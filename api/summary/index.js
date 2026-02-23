@@ -1,8 +1,8 @@
 /**
  * Vercel Serverless: Dynamic Home synopsis via OpenAI (SSE streaming).
  * GET /api/summary?stream=true&force=true to bypass cache and stream.
- * Caches result in memory for 30 minutes (key: home_summary + updatedAt).
- * Requires OPENAI_API_KEY. Sends error event if key missing.
+ * Data sources: ESPN (scores, rankings), Odds API (spreads, ATS), Google/Yahoo (news).
+ * Caches result 30 min. Requires OPENAI_API_KEY.
  */
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -23,9 +23,31 @@ function getPstDate() {
   return new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function getPstTimestamp(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+function getPstDateOnly() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+function parseSpread(s) {
+  if (s == null || s === '') return null;
+  const n = parseFloat(String(s).replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
+/** ATS: spread is for away team. Returns { awayATS, homeATS } */
+function computeATS(awayScore, homeScore, spreadStr) {
+  const spread = parseSpread(spreadStr);
+  if (spread == null) return { awayATS: null, homeATS: null };
+  const a = parseFloat(awayScore);
+  const h = parseFloat(homeScore);
+  if (isNaN(a) || isNaN(h)) return { awayATS: null, homeATS: null };
+  const awayAdj = a + spread;
+  const margin = awayAdj - h;
+  let awayATS = 'P';
+  if (Math.abs(margin) > 0.001) awayATS = margin > 0 ? 'W' : 'L';
+  const homeMargin = h - spread - a;
+  let homeATS = 'P';
+  if (Math.abs(homeMargin) > 0.001) homeATS = homeMargin > 0 ? 'W' : 'L';
+  return { awayATS, homeATS };
 }
 
 async function fetchJson(baseUrl, path) {
@@ -68,45 +90,12 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  // Cache hit: send full text and done immediately (no streaming)
   if (!force && cache.value != null && cache.updatedAt != null && Date.now() < cache.expires) {
     send(res, { text: cache.value, done: true, updatedAt: cache.updatedAt });
     return res.end();
   }
 
   const baseUrl = getBaseUrl(req);
-  let scores = [];
-  let rankings = [];
-  let headlines = [];
-  let oddsGames = [];
-
-  try {
-    const [scoresRes, rankingsRes, newsRes, oddsRes] = await Promise.allSettled([
-      fetchJson(baseUrl, '/api/scores'),
-      fetchJson(baseUrl, '/api/rankings'),
-      fetchJson(baseUrl, '/api/news/aggregate?includeNational=true'),
-      fetchJson(baseUrl, '/api/odds').catch(() => ({ games: [] })),
-    ]);
-
-    if (scoresRes.status === 'fulfilled') {
-      const data = scoresRes.value;
-      scores = Array.isArray(data) ? data : (data?.games || []);
-    }
-    if (rankingsRes.status === 'fulfilled') {
-      rankings = rankingsRes.value?.rankings || [];
-    }
-    if (newsRes.status === 'fulfilled') {
-      const items = newsRes.value?.items || [];
-      headlines = items.slice(0, 5).map((i) => ({ title: i.title || '', source: i.source || '' }));
-    }
-    if (oddsRes.status === 'fulfilled' && oddsRes.value?.games) {
-      oddsGames = oddsRes.value.games;
-    }
-  } catch (err) {
-    console.error('Summary API data fetch error:', err.message);
-  }
-
-  const pstDate = getPstDate();
   const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const matchOdds = (scoreGame, oddsList) => {
     const h = norm(scoreGame.homeTeam);
@@ -118,52 +107,142 @@ export default async function handler(req, res) {
     });
   };
 
-  const finalGames = scores.filter((g) => {
-    const s = (g.gameStatus || '').toLowerCase();
-    return s === 'final' || s.includes('final');
-  }).map((g) => {
-    const o = matchOdds(g, oddsGames);
-    return { ...g, spread: o?.spread };
-  });
-  const upcomingGames = scores.filter((g) => {
-    const s = (g.gameStatus || '').toLowerCase();
-    return s !== 'final' && !s.includes('final') && (g.homeTeam || g.awayTeam);
-  }).map((g) => {
-    const o = matchOdds(g, oddsGames);
-    return { ...g, spread: o?.spread };
-  });
+  let scoresToday = [];
+  let scoresYesterday = [];
+  let rankings = [];
+  let headlines = [];
+  let oddsGames = [];
+  let oddsHistoryGames = [];
 
+  const todayPst = getPstDateOnly();
+  const todayYMD = todayPst.replace(/-/g, '');
+  const yesterday = new Date(todayPst + 'T12:00:00');
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const yesterdayYMD = yesterdayStr.replace(/-/g, '');
+
+  try {
+    const [todayRes, yesterdayRes, rankingsRes, newsRes, oddsRes, historyRes] = await Promise.allSettled([
+      fetchJson(baseUrl, '/api/scores'),
+      fetchJson(baseUrl, `/api/scores?date=${yesterdayYMD}`),
+      fetchJson(baseUrl, '/api/rankings'),
+      fetchJson(baseUrl, '/api/news/aggregate?includeNational=true'),
+      fetchJson(baseUrl, '/api/odds').catch(() => ({ games: [] })),
+      fetchJson(baseUrl, `/api/odds-history?from=${yesterdayStr}&to=${todayPst}`).catch(() => ({ games: [] })),
+    ]);
+
+    if (todayRes.status === 'fulfilled') {
+      const data = todayRes.value;
+      scoresToday = Array.isArray(data) ? data : (data?.games || []);
+    }
+    if (yesterdayRes.status === 'fulfilled') {
+      const data = yesterdayRes.value;
+      scoresYesterday = Array.isArray(data) ? data : (data?.games || []);
+    }
+    if (rankingsRes.status === 'fulfilled') {
+      rankings = rankingsRes.value?.rankings || [];
+    }
+    if (newsRes.status === 'fulfilled') {
+      const items = newsRes.value?.items || [];
+      headlines = items.slice(0, 5).map((i) => ({ title: i.title || '', source: i.source || '' }));
+    }
+    if (oddsRes.status === 'fulfilled' && oddsRes.value?.games) {
+      oddsGames = oddsRes.value.games;
+    }
+    if (historyRes.status === 'fulfilled' && historyRes.value?.games) {
+      oddsHistoryGames = historyRes.value.games;
+    }
+  } catch (err) {
+    console.error('Summary API data fetch error:', err.message);
+  }
+
+  const allScores = [...scoresYesterday, ...scoresToday];
+  const finalGames = allScores
+    .filter((g) => {
+      const s = (g.gameStatus || '').toLowerCase();
+      return s === 'final' || s.includes('final');
+    })
+    .map((g) => {
+      const o = matchOdds(g, oddsHistoryGames) || matchOdds(g, oddsGames);
+      const spread = o?.spread;
+      const { awayATS, homeATS } = computeATS(g.awayScore, g.homeScore, spread);
+      return {
+        ...g,
+        spread,
+        awayATS: awayATS || null,
+        homeATS: homeATS || null,
+      };
+    });
+
+  const upcomingGames = scoresToday
+    .filter((g) => {
+      const s = (g.gameStatus || '').toLowerCase();
+      return s !== 'final' && !s.includes('final') && (g.homeTeam || g.awayTeam);
+    })
+    .map((g) => {
+      const o = matchOdds(g, oddsGames);
+      return { ...g, spread: o?.spread };
+    });
+
+  const pstDate = getPstDate();
   const top25List = rankings.slice(0, 25).map((r) => `#${r.rank} ${r.teamName}`).join(', ') || 'None';
-  const resultsWithSpread = finalGames.map((g) => {
-    const spread = g.spread != null ? ` (spread ${g.spread})` : '';
-    return `${g.awayTeam} ${g.awayScore ?? '-'} @ ${g.homeTeam} ${g.homeScore ?? '-'}${spread}`;
+
+  const last24hLines = finalGames.map((g) => {
+    const spread = g.spread != null ? ` spread ${g.spread}` : '';
+    const ats = g.awayATS != null ? ` (ATS: away ${g.awayATS}, home ${g.homeATS})` : '';
+    return `${g.awayTeam} ${g.awayScore ?? '-'} @ ${g.homeTeam} ${g.homeScore ?? '-'}${spread}${ats}`;
   });
-  const resultsText = resultsWithSpread.length ? resultsWithSpread.join('\n') : 'No final scores yet today.';
-  const upcomingWithSpread = upcomingGames.slice(0, 10).map((g) => {
+  const last24hText = last24hLines.length ? last24hLines.join('\n') : 'No games in the last 24 hours with final scores.';
+
+  const upcomingLines = upcomingGames.slice(0, 12).map((g) => {
     const spread = g.spread != null ? ` — spread: ${g.spread}` : '';
     return `${g.awayTeam} @ ${g.homeTeam}${spread} (${g.gameStatus || 'Upcoming'})`;
   });
-  const upcomingText = upcomingWithSpread.length ? upcomingWithSpread.join('\n') : 'No upcoming games listed.';
+  const upcomingText = upcomingLines.length ? upcomingLines.join('\n') : 'No upcoming games listed.';
+
   const headlinesText = headlines.length
     ? headlines.map((h) => `- ${h.title} (${h.source})`).join('\n')
     : 'No headlines available.';
 
-  const systemPrompt = `You are a friendly sports host for Maximus Sports, a March Madness / men's college basketball hub. Write a conversational daily briefing (not a bullet list). Use short paragraphs and inline highlights. Style: "Here's the rundown for today…" and "Looking ahead to tomorrow…" Mention the date (PST). Cover: (a) Top 25 games that happened today with final scores and ATS when relevant, (b) Top 25 games coming up with spreads, (c) 2–4 significant headlines tied to those teams. Keep it narrative and scannable.`;
+  const hasESPN = scoresToday.length > 0 || scoresYesterday.length > 0 || rankings.length > 0;
+  const hasOdds = oddsGames.length > 0 || oddsHistoryGames.length > 0;
+  const hasNews = headlines.length > 0;
+  const dataAvailability = [
+    hasESPN ? 'ESPN (scores, rankings)' : 'ESPN data unavailable',
+    hasOdds ? 'Odds API (spreads, ATS)' : 'Odds API data unavailable',
+    hasNews ? 'Google/Yahoo news' : 'News (Google/Yahoo) unavailable',
+  ].join('; ');
+
+  const systemPrompt = `You are a friendly sports host for Maximus Sports. Write a conversational daily briefing. Use short paragraphs, not long bullet lists.
+
+DATA SOURCES (you must reference these explicitly):
+- ESPN: schedules, scores, and Top 25 rankings.
+- Odds API: spreads and ATS (Against The Spread) outcomes.
+- Google / Yahoo: news headlines tied to teams.
+
+RULES:
+1. Every game you mention MUST include its spread and ATS result (Cover/Loss/Push) where that data is available. If spread or ATS is missing for a game, say "spread/ATS unavailable" for that game.
+2. If any dataset is missing (ESPN, Odds API, or news), you MUST say so in the summary (e.g. "Odds data was unavailable for this period" or "News was unavailable").
+3. Include: (a) Games in the last 24 hours with final score and ATS outcome, (b) Upcoming games (especially tomorrow) with spreads, (c) Top 25 context from ESPN, (d) 2–4 headlines tied to those teams.
+4. Style: "Here's the rundown for today…" and "Looking ahead to tomorrow…" Short paragraphs, narrative tone.`;
 
   const userPrompt = `Today's date (PST): ${pstDate}
 
-AP Top 25: ${top25List}
+Data availability: ${dataAvailability}
 
-Today's final results (include spread when available for ATS context):
-${resultsText}
+--- ESPN: AP Top 25 (rankings) ---
+${top25List}
 
-Upcoming / in-progress games (with spread when available):
+--- ESPN: Games in the last 24 hours (final scores). Odds API: spread + ATS where available ---
+${last24hText}
+
+--- Upcoming games (Odds API: spreads when available) ---
 ${upcomingText}
 
-Headlines (tie 2–4 to today's/upcoming teams):
+--- Google / Yahoo: Headlines (tie 2–4 to the teams above) ---
 ${headlinesText}
 
-Write a conversational daily recap in 2–4 short paragraphs. Start with "Here's the rundown for today…" or similar. Then "Looking ahead to tomorrow…" for upcoming games. Weave in 2–4 headlines. No long bullet lists.`;
+Write a conversational daily recap. Mention ESPN for scores/rankings, Odds API for spreads and ATS, and Google/Yahoo for news. For every game you mention, include spread and ATS result where applicable. If any data source was unavailable, say so. Use 2–4 short paragraphs.`;
 
   try {
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -178,7 +257,7 @@ Write a conversational daily recap in 2–4 short paragraphs. Start with "Here's
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 600,
+        max_tokens: 700,
         temperature: 0.5,
         stream: true,
       }),
@@ -214,9 +293,7 @@ Write a conversational daily recap in 2–4 short paragraphs. Start with "Here's
               fullContent += delta;
               send(res, { text: delta, done: false });
             }
-          } catch (_) {
-            // skip malformed chunk
-          }
+          } catch (_) {}
         }
       }
     }

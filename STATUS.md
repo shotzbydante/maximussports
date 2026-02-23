@@ -143,10 +143,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
-**Dynamic Home synopsis (OpenAI) — streaming & conversational:**
-- **Summary API (SSE)** — `/api/summary?stream=true` returns **Server-Sent Events**: streamed text chunks (`{ text, done: false }`), then `{ done: true, updatedAt }`. **Cache:** 30-min in-memory; on cache hit, single event with full text + `done: true` + `updatedAt`. **`?force=true`** bypasses cache and streams new response. **Data:** scores + odds (spreads merged), rankings, news aggregate; prompt asks for (a) Top 25 games today with final scores + ATS context, (b) Top 25 upcoming with spreads, (c) 2–4 headlines; **conversational** narrative ("Here's the rundown for today…", "Looking ahead to tomorrow…"), short paragraphs, no long bullet lists.
-- **Home Welcome box** — **Static welcome** (bold) always visible at top when no summary or on API failure. **Streaming UI:** EventSource opens `?stream=true` (and `force=true` on Refresh); text types out in real time; **typing cursor** (▌) and "Generating summary…" while streaming. **Last updated:** "Last updated: &lt;date/time PST&gt;" below summary (from cache or when stream completes). **Fallback:** "Summary unavailable — try again later." on error; static welcome remains visible.
-- **README + STATUS** — OpenAI setup (env var, Vercel config) documented.
+**Dynamic Home synopsis (OpenAI) — streaming, sources, welcome persistence:**
+- **Welcome persistence** — Bold welcome message stays visible **at all times**; only hidden after the user **explicitly clicks Refresh** (then recap-only view).
+- **Streaming throttle** — Client buffers incoming SSE chunks and flushes to UI every **80ms** so text appears more slowly and is easier to read in real time.
+- **Data sources (explicit)** — **ESPN:** schedules, scores, Top 25 rankings. **Odds API:** spreads and ATS performance (historical odds for last 24h). **Google + Yahoo:** news from aggregate tied to those teams. Prompt requires naming these sources; if any dataset is missing, the summary must say that data was unavailable.
+- **Content requirements** — Recap must include: **games in the last 24 hours** (historical) with final score + ATS outcome; **upcoming games tomorrow** with spreads; **Top 25** context from ESPN; **2–4 headlines** tied to those teams. **Every game mentioned** must include spread and ATS result where applicable. Prompt enforces this; model instructed to say "spread/ATS unavailable" when missing.
+- **Summary API** — Fetches scores for today + yesterday (last 24h), odds-history for that range (ATS computed per game), rankings, news aggregate. Builds data-availability string and passes to prompt. SSE streaming unchanged; 30-min cache; `?force=true` bypasses cache.
+- **UI** — Same palette and typography; last updated timestamp (PST) and fallback behavior unchanged.
 
 **Assets refresh, whitespace reduction, conference logos fix:**
 - **Home banner mascot** — Replaced 3D robot with new **2D robot PNG**; saved as `public/mascot.png`. Mascot **slightly larger** (120px desktop, 96px mobile); **reduced** banner padding and gap (e.g. `padding: var(--space-xs) var(--space-md)`, `gap: var(--space-sm)`) for a more compact box; text unchanged.
