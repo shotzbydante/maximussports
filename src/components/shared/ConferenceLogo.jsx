@@ -1,5 +1,5 @@
 /**
- * Conference logo — uses /public/conferences/{slug}.png with fallback to initials badge.
+ * Conference logo — uses /public/conferences/{slug}.png or .svg with fallback to initials badge.
  */
 
 import { useState } from 'react';
@@ -14,14 +14,20 @@ function getInitials(conference) {
 }
 
 export default function ConferenceLogo({ conference, size = 28 }) {
-  const [imgError, setImgError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const slug = getConferenceSlug(conference);
-  const src = slug ? `/conferences/${slug}.png` : null;
+  const extensions = ['png', 'svg'];
+  const ext = extensions[attempt];
+  const src = slug && ext ? `/conferences/${slug}.${ext}` : null;
   const initials = getInitials(conference);
 
   if (!conference) return null;
 
-  if (imgError || !src) {
+  const handleError = () => {
+    if (attempt + 1 < extensions.length) setAttempt((a) => a + 1);
+  };
+
+  if (!src || attempt >= extensions.length) {
     return (
       <span className={styles.fallback} style={{ width: size, height: size }} aria-hidden>
         {initials}
@@ -36,7 +42,7 @@ export default function ConferenceLogo({ conference, size = 28 }) {
       width={size}
       height={size}
       className={styles.img}
-      onError={() => setImgError(true)}
+      onError={handleError}
       aria-hidden
     />
   );

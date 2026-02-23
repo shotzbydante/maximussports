@@ -7,18 +7,18 @@
 .banner {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   background: var(--color-bg-elevated);
   border: var(--card-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-md);
   margin-bottom: var(--space-xl);
 }
 
 .bannerMascot {
   flex-shrink: 0;
-  height: 112px;
+  height: 120px;
   width: auto;
   object-fit: contain;
 }
@@ -32,11 +32,11 @@
 
 @media (max-width: 767px) {
   .bannerMascot {
-    height: 88px;
+    height: 96px;
   }
   .banner {
-    gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-md);
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
   }
 }
 
