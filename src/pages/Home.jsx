@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
-import { fetchAggregatedNews } from '../api/news';
 import { fetchHome } from '../api/home';
 import { mergeGamesWithOdds } from '../api/odds';
 import { getPinnedTeams } from '../utils/pinnedTeams';
@@ -9,7 +8,7 @@ import { getOddsTier } from '../utils/teamSlug';
 import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
-import { TEAMS } from '../data/teams';
+import { TEAMS, getTeamBySlug } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
@@ -93,11 +92,12 @@ const buildSummaryPayload = ({ top25, atsBest, atsWorst, recentGames, upcomingGa
 });
 
 export default function Home() {
-  const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed });
+  const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed, pinnedTeamNewsMap: {} });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
   const [rankMap, setRankMap] = useState({});
   const [top25, setTop25] = useState([]);
   const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
+  const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
   const [summaryText, setSummaryText] = useState('');
@@ -113,25 +113,30 @@ export default function Home() {
   const streamBufferRef = useRef('');
   const streamIntervalRef = useRef(null);
 
-  // Batch load: scores + odds + rankings + headlines in one call; then start summary immediately
+  // Single batch: scores + odds + rankings + headlines + atsLeaders + pinnedTeamNews
   const loadHomeBatch = useCallback(() => {
     setScores((s) => ({ ...s, loading: true }));
-    fetchHome()
-      .then(({ scores: scoresArray, odds: oddsData, rankings: rankingsData, headlines: items, dataStatus: status }) => {
-        const oddsGames = oddsData?.games ?? [];
+    fetchHome({ pinnedSlugs })
+      .then((data) => {
+        const scoresArray = data.scores ?? [];
+        const oddsData = data.odds ?? {};
+        const oddsGames = oddsData.games ?? [];
         const merged = mergeGamesWithOdds(Array.isArray(scoresArray) ? scoresArray : [], oddsGames, getTeamSlug);
         let oddsMessage = null;
-        if (oddsData?.error === 'missing_key') {
+        if (oddsData.error === 'missing_key') {
           oddsMessage = 'Odds API key missing in production.';
-        } else if (oddsData?.hasOddsKey === true && oddsGames.length === 0) {
-          oddsMessage = scoresArray?.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
+        } else if (oddsData.hasOddsKey === true && oddsGames.length === 0) {
+          oddsMessage = scoresArray.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
         }
-        setScores({ games: merged, loading: false, error: null, oddsError: oddsData?.error, oddsMessage });
-        const rankings = rankingsData?.rankings || [];
+        setScores({ games: merged, loading: false, error: null, oddsError: oddsData.error, oddsMessage });
+        const rankings = data.rankings?.rankings || [];
         setRankMap(buildSlugToRankMap({ rankings }, TEAMS));
         setTop25(rankings);
-        setDataStatus(status);
-        const newsFeed = (items || []).map((item, i) => ({
+        setDataStatus(data.dataStatus ?? null);
+        setAtsLeaders(data.atsLeaders ?? { best: [], worst: [] });
+        setOddsHistory(data.oddsHistory ?? { games: [] });
+        const items = data.headlines ?? [];
+        const newsFeed = items.map((item, i) => ({
           id: item.link || `agg-${i}`,
           title: item.title,
           source: item.source || 'News',
@@ -140,17 +145,24 @@ export default function Home() {
           excerpt: '',
           sentiment: 'neutral',
         }));
-        setNewsData((prev) => ({ ...prev, newsFeed }));
+        const pinnedTeamNewsMap = data.pinnedTeamNews && typeof data.pinnedTeamNews === 'object' ? data.pinnedTeamNews : {};
+        const teamNews = Object.entries(pinnedTeamNewsMap).map(([slug, headlines]) => ({
+          slug,
+          team: getTeamBySlug(slug)?.name ?? slug,
+          headlines: (headlines || []).length,
+        }));
+        setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
         setNewsSource('Multiple');
       })
       .catch((err) => {
         setScores({ games: [], loading: false, error: err.message, oddsError: null, oddsMessage: null });
         setRankMap({});
         setTop25([]);
-        setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed }));
+        setAtsLeaders({ best: [], worst: [] });
+        setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed, teamNews: [] }));
         setNewsSource('Mock');
       });
-  }, []);
+  }, [pinnedSlugs.join(',')]);
 
   useEffect(() => {
     loadHomeBatch();
@@ -160,22 +172,6 @@ export default function Home() {
     const id = setInterval(loadHomeBatch, SCORES_REFRESH_MS);
     return () => clearInterval(id);
   }, [loadHomeBatch]);
-
-  // Defer pinned team news and summaries (non-critical)
-  useEffect(() => {
-    const defer = typeof requestIdleCallback !== 'undefined'
-      ? (fn) => requestIdleCallback(fn, { timeout: 500 })
-      : (fn) => setTimeout(fn, 0);
-    const id = defer(() => {
-      fetchAggregatedNews(pinnedSlugs)
-        .then(({ teamNews }) => setNewsData((prev) => ({ ...prev, teamNews })))
-        .catch(() => setNewsData((prev) => ({ ...prev, teamNews: [] })));
-    });
-    return () => {
-      if (typeof cancelIdleCallback !== 'undefined' && typeof id === 'number') cancelIdleCallback(id);
-      else if (typeof id === 'number') clearTimeout(id);
-    };
-  }, [pinnedSlugs.join(',')]);
 
   const STREAM_FLUSH_MS = 80;
 
@@ -316,7 +312,7 @@ export default function Home() {
 
   const upsetCount = countUpsets(scores.games);
   const rankedInAction = countRankedInAction(scores.games, rankMap);
-  const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (t.headlines || 0), 0);
+  const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (typeof t.headlines === 'number' ? t.headlines : (t.headlines?.length || 0)), 0);
 
   const dynamicStats = [
     { label: 'Upset Alerts Today', value: upsetCount, trend: upsetCount > 0 ? 'up' : 'neutral', subtext: 'ESPN scores + tiers', source: 'ESPN' },
@@ -392,19 +388,20 @@ export default function Home() {
         </div>
       </div>
 
-      <PinnedTeamsSection onPinnedChange={setPinned} />
+      <PinnedTeamsSection
+        onPinnedChange={setPinned}
+        rankMap={rankMap}
+        games={scores.games}
+        teamNewsBySlug={newsData.pinnedTeamNewsMap}
+      />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
-        <ATSLeaderboard
-          onDataLoaded={useCallback(({ best, worst }) => {
-            setAtsLeaders({ best: best || [], worst: worst || [] });
-          }, [])}
-        />
+        <ATSLeaderboard atsLeaders={atsLeaders} />
       </section>
 
-      <Top25Rankings />
+      <Top25Rankings rankings={top25} />
 
-      <DynamicAlerts />
+      <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
 
       <DynamicStats stats={dynamicStats} />
 

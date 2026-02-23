@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchAggregateNews } from '../api/news';
+import { fetchHome } from '../api/home';
 import { getTeamsGroupedByConference } from '../data/teams';
 import SourceBadge from '../components/shared/SourceBadge';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
@@ -28,9 +28,9 @@ export default function NewsFeed() {
 
   useEffect(() => {
     setLoading(true);
-    fetchAggregateNews({ includeNational: true })
-      .then(({ items: list }) => setItems(list || []))
-      .catch((err) => setError(err.message))
+    fetchHome()
+      .then((data) => setItems(data?.headlines || []))
+      .catch((err) => setError(err?.message || 'Failed to load news'))
       .finally(() => setLoading(false));
   }, []);
 

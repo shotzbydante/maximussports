@@ -1,6 +1,6 @@
 /**
- * Batch Home API: one call for scores + odds + rankings + headlines + dataStatus.
- * Use for initial load to reduce round trips.
+ * Consolidated Home/Games API: one call for scores, odds, rankings, headlines, atsLeaders, dataStatus.
+ * Optional: ?dates=YYYYMMDD,YYYYMMDD for scoresByDate; ?pinnedSlugs=slug1,slug2 for pinnedTeamNews.
  */
 
 const inFlight = new Map();
@@ -15,13 +15,22 @@ function coalesce(key, fetcher) {
   return promise;
 }
 
-export async function fetchHome() {
-  const key = 'home';
+/**
+ * @param {{ dates?: string[], pinnedSlugs?: string[] }} options
+ * @returns {Promise<{ scores, scoresByDate?, odds, oddsHistory, rankings, headlines, atsLeaders, dataStatus, pinnedTeamNews? }>}
+ */
+export async function fetchHome(options = {}) {
+  const { dates, pinnedSlugs } = options;
+  const qs = new URLSearchParams();
+  if (Array.isArray(dates) && dates.length > 0) qs.set('dates', dates.join(','));
+  if (Array.isArray(pinnedSlugs) && pinnedSlugs.length > 0) qs.set('pinnedSlugs', pinnedSlugs.join(','));
+  const key = `home:${qs.toString()}`;
   return coalesce(key, async () => {
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
       console.time('[client] fetchHome');
     }
-    const res = await fetch('/api/home');
+    const url = qs.toString() ? `/api/home?${qs.toString()}` : '/api/home';
+    const res = await fetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `HTTP ${res.status}`);

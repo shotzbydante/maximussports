@@ -1,53 +1,9 @@
 /**
- * Client-side odds API wrapper.
- * Fetches NCAA basketball odds from /api/odds (proxies The Odds API).
- * Requires ODDS_API_KEY on the server.
+ * Odds helpers: merge games with odds, match odds history to events/games.
+ * Odds data is provided by /api/home and /api/team/[slug].
  */
 
 import { getTeamSlug } from '../utils/teamSlug';
-
-/**
- * @param {{ date?: string, team?: string, debug?: boolean }} params
- * @param {string} [params.date] - YYYY-MM-DD (optional)
- * @param {string} [params.team] - team slug for filtering (optional, done client-side)
- * @returns {Promise<{ games: Array, error?: string, hasOddsKey?: boolean, meta?: object, debug?: object }>}
- */
-export async function fetchOdds(params = {}) {
-  const search = new URLSearchParams();
-  if (params.date) search.set('date', params.date);
-  if (params.team) search.set('team', params.team);
-  if (params.debug) search.set('debug', 'true');
-
-  const qs = search.toString();
-  const url = `/api/odds${qs ? `?${qs}` : ''}`;
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  return res.json();
-}
-
-/**
- * Fetch historical odds for ATS computation (requires paid Odds API plan).
- * @param {{ from: string, to: string, debug?: boolean }} params - YYYY-MM-DD
- * @returns {Promise<{ games: Array, error?: string, hasOddsKey?: boolean, debug?: object }>}
- */
-export async function fetchOddsHistory(params) {
-  const { from, to, debug } = params || {};
-  if (!from || !to) throw new Error('from and to (YYYY-MM-DD) required');
-  const qs = new URLSearchParams({ from, to });
-  if (debug) qs.set('debug', 'true');
-  const url = `/api/odds-history?${qs.toString()}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 /** Normalize team name for matching: lowercase, strip mascots, punctuation, University, State */
 function normName(s) {
@@ -146,8 +102,8 @@ export function matchOddsHistoryToGame(game, oddsGames) {
  * - Matches by date (same day)
  * - If multiple matches, chooses closest commenceTime to score game
  * - Debug logs (dev only) when match not found
- * @param {Array} scoreGames - from fetchScores
- * @param {Array} oddsGames - from fetchOdds().games
+ * @param {Array} scoreGames - from /api/home scores
+ * @param {Array} oddsGames - from /api/home odds.games
  * @param {function} getSlug - (name) => slug | null, e.g. getTeamSlug
  * @returns {Array} score games with spread, total, moneyline, oddsSource merged in
  */

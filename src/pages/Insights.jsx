@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dailyReport } from '../data/mockData';
-import { fetchRankings } from '../api/rankings';
+import { fetchHome } from '../api/home';
 import { getTeamSlug } from '../utils/teamSlug';
 import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
@@ -11,11 +11,18 @@ import styles from './Insights.module.css';
 
 export default function Insights() {
   const [rankings, setRankings] = useState([]);
+  const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
 
   useEffect(() => {
-    fetchRankings()
-      .then((data) => setRankings(data?.rankings || []))
-      .catch(() => setRankings([]));
+    fetchHome()
+      .then((data) => {
+        setRankings(data?.rankings?.rankings || []);
+        setAtsLeaders(data?.atsLeaders ?? { best: [], worst: [] });
+      })
+      .catch(() => {
+        setRankings([]);
+        setAtsLeaders({ best: [], worst: [] });
+      });
   }, []);
 
   const getSlug = (teamName) => getTeamSlug(teamName) ?? getSlugFromRankingsName(teamName, TEAMS);
@@ -74,7 +81,7 @@ export default function Insights() {
       </section>
 
       <section className={styles.atsSection}>
-        <ATSLeaderboard />
+        <ATSLeaderboard atsLeaders={atsLeaders} />
       </section>
 
       <section className={styles.section}>

@@ -12,13 +12,8 @@ import {
   addPinnedTeam,
   removePinnedTeam,
 } from '../../utils/pinnedTeams';
-import { fetchRankings } from '../../api/rankings';
-import { fetchScores } from '../../api/scores';
-import { fetchTeamNews } from '../../api/news';
-import { fetchTeamIds } from '../../api/teamIds';
-import { fetchTeamSchedule } from '../../api/schedule';
-import { fetchOddsHistory, matchOddsHistoryToEvent } from '../../api/odds';
-import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
+import { fetchTeamPage } from '../../api/team';
+import { matchOddsHistoryToEvent } from '../../api/odds';
 import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
@@ -51,11 +46,20 @@ function formatTimePST(iso) {
   }
 }
 
-export default function PinnedTeamsSection({ onPinnedChange }) {
+export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {} }) {
   const [pinned, setPinned] = useState(() => getPinnedTeams());
-  const [rankMap, setRankMap] = useState({});
-  const [scores, setScores] = useState({ games: [], loading: false });
-  const [teamNews, setTeamNews] = useState({});
+  const [rankMap, setRankMap] = useState(rankMapProp);
+  const [scores, setScores] = useState({ games: Array.isArray(gamesProp) ? gamesProp : [], loading: false });
+  const [teamNews, setTeamNews] = useState(() => {
+    if (teamNewsBySlugProp && typeof teamNewsBySlugProp === 'object') {
+      const next = {};
+      Object.entries(teamNewsBySlugProp).forEach(([slug, headlines]) => {
+        next[slug] = Array.isArray(headlines) ? headlines.slice(0, 3) : [];
+      });
+      return next;
+    }
+    return {};
+  });
   const [teamRecords, setTeamRecords] = useState({});
   const [teamSummaries, setTeamSummaries] = useState({});
   const [search, setSearch] = useState('');
@@ -84,22 +88,25 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
     notify();
   }, [notify]);
 
-  // Load rankings
   useEffect(() => {
-    fetchRankings()
-      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
-      .catch(() => setRankMap({}));
-  }, []);
+    if (Object.keys(rankMapProp).length > 0) setRankMap(rankMapProp);
+  }, [rankMapProp]);
 
-  // Load scores
   useEffect(() => {
-    setScores((s) => ({ ...s, loading: true }));
-    fetchScores()
-      .then((games) => setScores({ games, loading: false }))
-      .catch(() => setScores({ games: [], loading: false }));
-  }, []);
+    if (Array.isArray(gamesProp)) setScores((s) => ({ ...s, games: gamesProp }));
+  }, [gamesProp]);
 
-  // Load records (season, L10, ATS) first — ATS priority
+  useEffect(() => {
+    if (teamNewsBySlugProp && typeof teamNewsBySlugProp === 'object') {
+      const next = {};
+      Object.entries(teamNewsBySlugProp).forEach(([slug, headlines]) => {
+        next[slug] = Array.isArray(headlines) ? headlines.slice(0, 3) : [];
+      });
+      setTeamNews(next);
+    }
+  }, [teamNewsBySlugProp]);
+
+  // Load records (season, L10, ATS) via /api/team/[slug]
   useEffect(() => {
     if (pinned.length === 0) {
       setTeamRecords({});
@@ -108,108 +115,59 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
     const slugs = pinned.slice(0, 8);
     let cancelled = false;
 
-    Promise.all([fetchRankings(), fetchTeamIds()])
-      .then(([rankingsRes, teamIdsRes]) => {
-        const slugToId = {};
-        if (rankingsRes?.rankings) Object.assign(slugToId, buildSlugToIdFromRankings(rankingsRes));
-        if (teamIdsRes?.slugToId) Object.assign(slugToId, teamIdsRes.slugToId);
-        return slugToId;
-      })
-      .then((slugToId) => {
-        if (cancelled) return;
-        return Promise.all(
-          slugs
-            .filter((s) => slugToId[s])
-            .map(async (slug) => {
-              const team = getTeamBySlug(slug);
-              if (!team) return { slug, record: null };
-              try {
-                const sched = await fetchTeamSchedule(slugToId[slug]);
-                const past = (sched?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
-                if (past.length === 0) return { slug, record: null };
+    Promise.all(
+      slugs.map(async (slug) => {
+        const team = getTeamBySlug(slug);
+        if (!team) return { slug, record: null };
+        try {
+          const data = await fetchTeamPage(slug);
+          const past = (data?.schedule?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+          if (past.length === 0) return { slug, record: null };
 
-                const seasonW = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
-                const seasonL = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
-                const last10 = past.slice(0, 10);
-                const l10W = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
-                const l10L = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
+          const seasonW = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
+          const seasonL = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
+          const last10 = past.slice(0, 10);
+          const l10W = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
+          const l10L = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
 
-                let ats = null;
-                try {
-                  const dates = past.map((e) => e.date).filter(Boolean);
-                  if (dates.length > 0) {
-                    const min = dates.reduce((a, b) => (a < b ? a : b));
-                    const max = dates.reduce((a, b) => (a > b ? a : b));
-                    const from = new Date(min).toISOString().slice(0, 10) < SEASON_START ? new Date(min).toISOString().slice(0, 10) : SEASON_START;
-                    const to = new Date(max).toISOString().slice(0, 10);
-                    const hist = await fetchOddsHistory({ from, to });
-                    const oddsGames = hist?.games ?? [];
-                    const outcomes = past.map((ev) => {
-                      const odds = matchOddsHistoryToEvent(ev, oddsGames, team.name);
-                      return computeATSForEvent(ev, odds, team.name);
-                    });
-                    const agg = aggregateATS(outcomes);
-                    if (agg.total > 0) {
-                      ats = agg;
-                      setAtsCache(slug, { season: agg, last30: null, last7: null });
-                    }
-                  }
-                } catch {
-                  ats = null;
-                }
+          const oddsGames = data?.oddsHistory?.games ?? [];
+          let ats = null;
+          if (oddsGames.length > 0) {
+            const outcomes = past.map((ev) => {
+              const odds = matchOddsHistoryToEvent(ev, oddsGames, team.name);
+              return computeATSForEvent(ev, odds, team.name);
+            });
+            const agg = aggregateATS(outcomes);
+            if (agg.total > 0) {
+              ats = agg;
+              setAtsCache(slug, { season: agg, last30: null, last7: null });
+            }
+          }
 
-                return {
-                  slug,
-                  record: {
-                    season: { w: seasonW, l: seasonL },
-                    last10: { w: l10W, l: l10L },
-                    ats,
-                  },
-                };
-              } catch {
-                return { slug, record: null };
-              }
-            })
-        );
+          return {
+            slug,
+            record: {
+              season: { w: seasonW, l: seasonL },
+              last10: { w: l10W, l: l10L },
+              ats,
+            },
+          };
+        } catch {
+          return { slug, record: null };
+        }
       })
-      .then((results) => {
-        if (cancelled) return;
-        const next = {};
-        results.forEach(({ slug, record }) => {
-          next[slug] = record;
-        });
-        setTeamRecords(next);
-      })
-      .catch(() => {
-        if (!cancelled) setTeamRecords({});
+    ).then((results) => {
+      if (cancelled) return;
+      const next = {};
+      results.forEach(({ slug, record }) => {
+        next[slug] = record;
       });
+      setTeamRecords(next);
+    }).catch(() => {
+      if (!cancelled) setTeamRecords({});
+    });
 
     return () => { cancelled = true; };
-  }, [pinned.join(',')]);
-
-  // Defer news until after records/ATS have started loading
-  useEffect(() => {
-    if (pinned.length === 0) {
-      setTeamNews({});
-      return;
-    }
-    const slugs = pinned.slice(0, 8);
-    const tid = setTimeout(() => {
-      Promise.all(
-        slugs.map((slug) =>
-          fetchTeamNews(slug)
-            .then((res) => ({ slug, headlines: res?.headlines || [] }))
-            .catch(() => ({ slug, headlines: [] }))
-        )
-      ).then((results) => {
-        const next = {};
-        results.forEach(({ slug, headlines }) => {
-          next[slug] = headlines.slice(0, 3);
-        });
-        setTeamNews(next);
-      });
-    }, 100);
-    return () => clearTimeout(tid);
   }, [pinned.join(',')]);
 
   // GPT summary per pinned team (from that card's headlines only); cache on server ~30 min

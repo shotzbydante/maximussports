@@ -5,7 +5,6 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchRankings } from '../../api/rankings';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import { getTeamBySlug } from '../../data/teams';
@@ -37,9 +36,9 @@ function useMediaQuery(query) {
   return matches;
 }
 
-export default function Top25Rankings() {
-  const [rankings, setRankings] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function Top25Rankings({ rankings: rankingsProp }) {
+  const [rankings, setRankings] = useState(rankingsProp ?? []);
+  const [loading, setLoading] = useState(!rankingsProp);
   const [error, setError] = useState(null);
   const isMobile = useMediaQuery(MOBILE_MQ);
   const [expanded, setExpanded] = useState(false);
@@ -49,11 +48,11 @@ export default function Top25Rankings() {
   }, [isMobile]);
 
   useEffect(() => {
-    fetchRankings()
-      .then((data) => setRankings(data?.rankings || []))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+    if (Array.isArray(rankingsProp)) {
+      setRankings(rankingsProp);
+      setLoading(false);
+    }
+  }, [rankingsProp]);
 
   const getSlug = (teamName) => {
     return getTeamSlug(teamName) ?? getSlugFromRankingsName(teamName, TEAMS);

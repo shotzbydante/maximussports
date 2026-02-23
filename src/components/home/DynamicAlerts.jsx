@@ -5,9 +5,8 @@
  * Updates every 60s.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { fetchScores } from '../../api/scores';
-import { fetchOddsHistory, matchOddsHistoryToGame } from '../../api/odds';
+import { useState, useEffect } from 'react';
+import { matchOddsHistoryToGame } from '../../api/odds';
 import { getOddsTier } from '../../utils/teamSlug';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './DynamicAlerts.module.css';
@@ -103,42 +102,11 @@ function buildAlert(game) {
   };
 }
 
-export default function DynamicAlerts() {
-  const [games, setGames] = useState([]);
-  const [oddsHistory, setOddsHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const loadScores = useCallback(() => {
-    setLoading(true);
-    fetchScores()
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data?.games || [];
-        setGames(list);
-        setError(null);
-      })
-      .catch((err) => {
-        setGames([]);
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    loadScores();
-  }, [loadScores]);
-
-  useEffect(() => {
-    const id = setInterval(loadScores, 60_000);
-    return () => clearInterval(id);
-  }, [loadScores]);
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  useEffect(() => {
-    fetchOddsHistory({ from: todayStr, to: todayStr })
-      .then((res) => setOddsHistory(res?.games ?? []))
-      .catch(() => setOddsHistory([]));
-  }, []);
+export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: oddsHistoryProp = [] }) {
+  const games = Array.isArray(gamesProp) ? gamesProp : [];
+  const oddsHistory = Array.isArray(oddsHistoryProp) ? oddsHistoryProp : [];
+  const loading = false;
+  const error = null;
 
   const upsetGames = games.filter(isUpset);
   const alerts = upsetGames.map((g) => {

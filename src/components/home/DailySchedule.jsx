@@ -1,11 +1,10 @@
 /**
  * Daily Schedule: collapsible panels per date (now → Selection Sunday).
- * Uses ESPN /api/scores?date=YYYYMMDD. Shows "No scheduled games yet" when empty.
+ * Uses /api/home?dates=YYYYMMDD,... for scores and rankings.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchScoresByDate } from '../../api/scores';
-import { fetchRankings } from '../../api/rankings';
+import { fetchHome } from '../../api/home';
 import { TEAMS } from '../../data/teams';
 import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getScheduleDates, formatDateLabel, toDateStr } from '../../utils/dates';
@@ -27,22 +26,26 @@ export default function DailySchedule() {
   });
 
   const loadAll = useCallback(() => {
-    Promise.all(
-      dates.map(async (dateStr) => {
-        try {
-          const games = await fetchScoresByDate(dateStr);
-          return { dateStr, data: { games, loading: false, error: null } };
-        } catch (err) {
-          return { dateStr, data: { games: [], loading: false, error: err.message } };
-        }
+    const dateParams = dates.map((d) => d.replace(/-/g, ''));
+    fetchHome({ dates: dateParams })
+      .then((data) => {
+        const scoresByDate = data.scoresByDate || {};
+        const next = {};
+        dates.forEach((dateStr) => {
+          const key = dateStr.replace(/-/g, '');
+          next[dateStr] = { games: scoresByDate[key] ?? [], loading: false, error: null };
+        });
+        setByDate((prev) => ({ ...prev, ...next }));
+        const rankings = data.rankings?.rankings ?? [];
+        setRankMap(buildSlugToRankMap({ rankings }, TEAMS));
       })
-    ).then((results) => {
-      const next = {};
-      results.forEach(({ dateStr, data }) => {
-        next[dateStr] = data;
+      .catch(() => {
+        const next = {};
+        dates.forEach((dateStr) => {
+          next[dateStr] = { games: [], loading: false, error: 'Scores unavailable' };
+        });
+        setByDate((prev) => ({ ...prev, ...next }));
       });
-      setByDate((prev) => ({ ...prev, ...next }));
-    });
   }, [dates]);
 
   useEffect(() => {
@@ -50,15 +53,12 @@ export default function DailySchedule() {
   }, [loadAll]);
 
   useEffect(() => {
-    fetchRankings()
-      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
-      .catch(() => setRankMap({}));
-  }, []);
-
-  useEffect(() => {
     const id = setInterval(() => {
-      fetchScoresByDate(todayStr)
-        .then((games) => {
+      fetchHome({ dates: [todayStr.replace(/-/g, '')] })
+        .then((data) => {
+          const scoresByDate = data.scoresByDate || {};
+          const key = todayStr.replace(/-/g, '');
+          const games = scoresByDate[key] ?? [];
           setByDate((prev) => ({
             ...prev,
             [todayStr]: { games, loading: false, error: null },

@@ -4,21 +4,14 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { fetchRankings } from '../../api/rankings';
-import { fetchTeamIds } from '../../api/teamIds';
-import { fetchTeamSchedule } from '../../api/schedule';
-import { fetchOddsHistory, matchOddsHistoryToEvent } from '../../api/odds';
-import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
+import { fetchTeamPage } from '../../api/team';
+import { matchOddsHistoryToEvent } from '../../api/odds';
 import { getTeamBySlug } from '../../data/teams';
 import { SEASON_START } from '../../utils/dateChunks';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
 import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './MaximusInsight.module.css';
-
-function toDateStr(d) {
-  return d.toISOString().slice(0, 10);
-}
 
 function RecordRow({ label, rec }) {
   if (!rec || rec.total === 0) return null;
@@ -102,28 +95,8 @@ export default function MaximusInsight({ slug, initialData, atsOnly = false }) {
     }
 
     try {
-      const [rankingsRes, teamIdsRes] = await Promise.allSettled([
-        fetchRankings(),
-        fetchTeamIds(),
-      ]);
-      const slugToId = {};
-      if (rankingsRes.status === 'fulfilled' && rankingsRes.value?.rankings) {
-        Object.assign(slugToId, buildSlugToIdFromRankings(rankingsRes.value));
-      }
-      if (teamIdsRes.status === 'fulfilled' && teamIdsRes.value?.slugToId) {
-        Object.assign(slugToId, teamIdsRes.value.slugToId);
-      }
-
-      const teamId = slugToId[slug];
-      if (!teamId) {
-        console.debug('[MaximusInsight] No teamId for slug:', slug, '— ATS unavailable');
-        setAtsData(null);
-        setLoading(false);
-        return;
-      }
-
-      const sched = await fetchTeamSchedule(teamId);
-      const past = (sched?.events || [])
+      const data = await fetchTeamPage(slug);
+      const past = (data?.schedule?.events || [])
         .filter((e) => e.isFinal)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -133,22 +106,7 @@ export default function MaximusInsight({ slug, initialData, atsOnly = false }) {
         return;
       }
 
-      const minDate = toDateStr(new Date(past[0].date));
-      const maxDate = toDateStr(new Date(past[past.length - 1].date));
-      const from = minDate < SEASON_START ? minDate : SEASON_START;
-      const to = maxDate;
-
-      let oddsGames = [];
-      try {
-        const hist = await fetchOddsHistory({ from, to });
-        oddsGames = hist?.games ?? [];
-      } catch (err) {
-        setError(err.message);
-        setAtsData(null);
-        setLoading(false);
-        return;
-      }
-
+      const oddsGames = data?.oddsHistory?.games ?? [];
       const now = new Date();
       const thirtyAgo = new Date(now);
       thirtyAgo.setDate(thirtyAgo.getDate() - 30);
@@ -177,13 +135,13 @@ export default function MaximusInsight({ slug, initialData, atsOnly = false }) {
         .map(({ outcome }) => outcome)
         .filter(Boolean);
 
-      const data = {
+      const atsResult = {
         season: aggregateATS(seasonOutcomes),
         last30: aggregateATS(last30Outcomes),
         last7: aggregateATS(last7Outcomes),
       };
-      setAtsData(data);
-      setAtsCache(slug, data);
+      setAtsData(atsResult);
+      setAtsCache(slug, atsResult);
     } catch (err) {
       setError(err.message);
       setAtsData(null);

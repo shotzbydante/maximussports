@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchScores } from '../api/scores';
-import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
-import { fetchRankings } from '../api/rankings';
+import { fetchHome } from '../api/home';
+import { mergeGamesWithOdds } from '../api/odds';
 import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
@@ -40,20 +39,21 @@ export default function Games() {
 
   const loadScores = useCallback(() => {
     setScores((s) => ({ ...s, loading: true, oddsError: null, oddsMessage: null }));
-    Promise.all([
-      fetchScores(),
-      fetchOdds().catch(() => ({ games: [], error: 'fetch_failed' })),
-    ])
-      .then(([games, oddsRes]) => {
-        const oddsGames = oddsRes?.games ?? [];
-        const merged = mergeGamesWithOdds(games, oddsGames, getTeamSlug);
+    fetchHome()
+      .then((data) => {
+        const gamesArray = data.scores ?? [];
+        const oddsRes = data.odds ?? {};
+        const oddsGames = oddsRes.games ?? [];
+        const merged = mergeGamesWithOdds(gamesArray, oddsGames, getTeamSlug);
         let oddsMessage = null;
-        if (oddsRes?.error === 'missing_key') {
+        if (oddsRes.error === 'missing_key') {
           oddsMessage = 'Odds API key missing in production.';
-        } else if (oddsRes?.hasOddsKey === true && oddsGames.length === 0) {
-          oddsMessage = games.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
+        } else if (oddsRes.hasOddsKey === true && oddsGames.length === 0) {
+          oddsMessage = gamesArray.length > 0 ? 'Odds API returned no games.' : 'No odds currently available.';
         }
-        setScores({ games: merged, loading: false, error: null, oddsError: oddsRes?.error, oddsMessage });
+        setScores({ games: merged, loading: false, error: null, oddsError: oddsRes.error, oddsMessage });
+        const rankings = data.rankings?.rankings ?? [];
+        setRankMap(buildSlugToRankMap({ rankings }, TEAMS));
       })
       .catch((err) => setScores((s) => ({ ...s, loading: false, error: err.message, oddsError: null, oddsMessage: null })));
   }, []);
@@ -66,12 +66,6 @@ export default function Games() {
     const id = setInterval(loadScores, REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
   }, [loadScores]);
-
-  useEffect(() => {
-    fetchRankings()
-      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
-      .catch(() => setRankMap({}));
-  }, []);
 
   const hasLiveOrInProgress = scores.games.some((g) => isLiveOrInProgress(g.gameStatus));
   const showLiveScores = scores.games.length > 0 && hasLiveOrInProgress;

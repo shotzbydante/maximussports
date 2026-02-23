@@ -1,16 +1,12 @@
 /**
- * Full Schedule — past + upcoming games from ESPN.
- * Uses /api/schedule/:teamId. Requires slug → ESPN team ID mapping.
+ * Full Schedule — past + upcoming games. Data from /api/team/[slug] (initialData or fetchTeamPage).
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { fetchRankings } from '../../api/rankings';
-import { fetchTeamIds } from '../../api/teamIds';
-import { fetchTeamSchedule } from '../../api/schedule';
-import { fetchOdds, fetchOddsHistory, matchOddsHistoryToEvent } from '../../api/odds';
+import { useState, useEffect } from 'react';
+import { fetchTeamPage } from '../../api/team';
+import { matchOddsHistoryToEvent } from '../../api/odds';
 import { computeATSForEvent } from '../../utils/ats';
-import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
-import { TEAMS, getTeamBySlug } from '../../data/teams';
+import { getTeamBySlug } from '../../data/teams';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './TeamSchedule.module.css';
 
@@ -44,125 +40,44 @@ function formatTimePST(iso) {
   }
 }
 
-function matchOddsToEvent(ev, oddsGames, teamName) {
-  if (!oddsGames?.length || !teamName) return null;
-  const evDate = ev.date ? new Date(ev.date).toISOString().slice(0, 10) : '';
-  const norm = (s) => (s || '').toLowerCase().trim();
-  const evOpp = norm(ev.opponent);
-  const teamNorm = norm(teamName);
-  for (const o of oddsGames) {
-    const oDate = o.commenceTime ? new Date(o.commenceTime).toISOString().slice(0, 10) : '';
-    if (oDate !== evDate) continue;
-    const home = norm(o.homeTeam);
-    const away = norm(o.awayTeam);
-    const hasTeam = home.includes(teamNorm) || away.includes(teamNorm) || teamNorm.includes(home) || teamNorm.includes(away);
-    const hasOpp = home.includes(evOpp) || away.includes(evOpp) || evOpp.includes(home) || evOpp.includes(away);
-    if (hasTeam && hasOpp) return o;
-  }
-  return null;
-}
-
 export default function TeamSchedule({ slug, initialData }) {
   const [events, setEvents] = useState([]);
-  const [oddsGames, setOddsGames] = useState([]);
   const [oddsHistoryGames, setOddsHistoryGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [teamId, setTeamId] = useState(null);
 
   useEffect(() => {
-    if (!initialData?.schedule || !slug) return;
-    setEvents(initialData.schedule?.events || []);
-    setTeamId(initialData.teamId ?? null);
-    setOddsHistoryGames(initialData.oddsHistory?.games ?? []);
-    setLoading(false);
-    setError(null);
-  }, [slug, initialData]);
-
-  const resolveTeamId = useCallback(async () => {
-    const [rankingsRes, teamIdsRes] = await Promise.allSettled([
-      fetchRankings(),
-      fetchTeamIds(),
-    ]);
-
-    const slugToId = {};
-
-    if (rankingsRes.status === 'fulfilled' && rankingsRes.value?.rankings) {
-      const fromRankings = buildSlugToIdFromRankings(rankingsRes.value);
-      Object.assign(slugToId, fromRankings);
-    }
-
-    if (teamIdsRes.status === 'fulfilled' && teamIdsRes.value?.slugToId) {
-      Object.assign(slugToId, teamIdsRes.value.slugToId);
-    }
-
-    return slugToId[slug] || null;
-  }, [slug]);
-
-  useEffect(() => {
     if (!slug) {
       setLoading(false);
       return;
     }
-    if (initialData?.schedule) return;
-
+    if (initialData?.schedule || initialData?.oddsHistory || initialData?.teamId != null) {
+      setEvents(initialData.schedule?.events || []);
+      setTeamId(initialData.teamId ?? null);
+      setOddsHistoryGames(initialData.oddsHistory?.games ?? []);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
-
-    resolveTeamId()
-      .then((id) => {
-        if (cancelled) return;
-        setTeamId(id);
-        if (!id) {
-          console.debug('[TeamSchedule] No teamId for slug:', slug, '— schedule unavailable');
-          setEvents([]);
-          setLoading(false);
-          return;
-        }
-        return fetchTeamSchedule(id);
-      })
+    fetchTeamPage(slug)
       .then((data) => {
         if (cancelled) return;
-        if (data) setEvents(data?.events || []);
-        setError(null);
+        setEvents(data?.schedule?.events || []);
+        setTeamId(data?.teamId ?? null);
+        setOddsHistoryGames(data?.oddsHistory?.games ?? []);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (!cancelled) setError(err?.message || 'Failed to load schedule');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-
     return () => { cancelled = true; };
-  }, [slug, resolveTeamId, initialData]);
-
-  useEffect(() => {
-    fetchOdds()
-      .then((res) => setOddsGames(res?.games ?? []))
-      .catch(() => setOddsGames([]));
-  }, []);
-
-  const past = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const pastDateRange = past.length > 0
-    ? (() => {
-        const dates = past.map((e) => e.date).filter(Boolean);
-        const min = dates.reduce((a, b) => (a < b ? a : b));
-        const max = dates.reduce((a, b) => (a > b ? a : b));
-        return { from: new Date(min).toISOString().slice(0, 10), to: new Date(max).toISOString().slice(0, 10) };
-      })()
-    : null;
-
-  useEffect(() => {
-    if (initialData?.oddsHistory?.games?.length) return;
-    if (!pastDateRange) {
-      setOddsHistoryGames([]);
-      return;
-    }
-    fetchOddsHistory(pastDateRange)
-      .then((res) => setOddsHistoryGames(res?.games ?? []))
-      .catch(() => setOddsHistoryGames([]));
-  }, [pastDateRange?.from, pastDateRange?.to, initialData?.oddsHistory]);
+  }, [slug, initialData?.schedule, initialData?.oddsHistory, initialData?.teamId]);
 
   if (!slug) return null;
 
@@ -176,7 +91,7 @@ export default function TeamSchedule({ slug, initialData }) {
         <h2 className={styles.title}>Full Schedule</h2>
         <div className={styles.sourceBadges}>
           <SourceBadge source="ESPN" />
-          {(oddsGames.length > 0 || oddsHistoryGames.length > 0) && <SourceBadge source="Odds API" />}
+          {oddsHistoryGames.length > 0 && <SourceBadge source="Odds API" />}
         </div>
       </div>
 
@@ -246,31 +161,19 @@ export default function TeamSchedule({ slug, initialData }) {
           {upcoming.length > 0 && (
             <>
               <div className={styles.groupLabel}>Upcoming</div>
-              {upcoming.map((ev) => {
-                const odds = matchOddsToEvent(ev, oddsGames, teamName);
-                const hasOdds = odds?.spread != null || odds?.total != null;
-                return (
-                  <div key={ev.id} className={styles.row}>
-                    <span className={styles.colDate}>
-                      {formatDatePST(ev.date)} {formatTimePST(ev.date)} PST
-                    </span>
-                    <span className={styles.colOpp}>
-                      {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
-                    </span>
-                    <span className={styles.colOdds}>
-                      {hasOdds ? (
-                        <span className={styles.oddsText}>
-                          {odds.spread ?? '—'} / {odds.total != null ? `O/U ${odds.total}` : '—'}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </span>
-                    <span className={styles.colResult}>—</span>
-                    <span className={styles.colStatus}>{ev.status}</span>
-                  </div>
-                );
-              })}
+              {upcoming.map((ev) => (
+                <div key={ev.id} className={styles.row}>
+                  <span className={styles.colDate}>
+                    {formatDatePST(ev.date)} {formatTimePST(ev.date)} PST
+                  </span>
+                  <span className={styles.colOpp}>
+                    {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
+                  </span>
+                  <span className={styles.colOdds}>—</span>
+                  <span className={styles.colResult}>—</span>
+                  <span className={styles.colStatus}>{ev.status}</span>
+                </div>
+              ))}
             </>
           )}
         </div>

@@ -17,20 +17,16 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Fonts:** DM Sans, JetBrains Mono, Oswald
 
 ### Backend
-- **Platform:** Vercel Serverless Functions
-- **News API:** `/api/news/team/[slug].js` — fetches Google News RSS (per-team); `/api/news/aggregate.js` — aggregates Google + national feeds (Yahoo, CBS, NCAA) + team RSS
-- **Cache utility:** `api/_cache.js` — `createCache(ttlMs)` and `coalesce(key, fetcher)` for in-memory TTL cache and in-flight request coalescing across serverless functions.
-- **Scores API:** `/api/scores/index.js` — ESPN scoreboard proxy; cache 3 min (createCache); CDN `s-maxage=60, stale-while-revalidate=120`.
-- **Rankings API:** `/api/rankings/index.js` — ESPN AP Top 25; cache 5 min; CDN `s-maxage=120, stale-while-revalidate=300`.
-- **Schedule API:** `/api/schedule/[teamId].js` — ESPN team schedule (past + upcoming games)
-- **Team IDs API:** `/api/teamIds/index.js` — ESPN teams list → `{ slugToId }` for schedule lookup
-- **Odds API:** `/api/odds/index.js` — The Odds API proxy; cache 10 min; CDN `s-maxage=300, stale-while-revalidate=600`.
-- **Odds History API:** `/api/odds-history/index.js` — Odds API historical; cache 20 min; CDN `s-maxage=600, stale-while-revalidate=900`.
-- **News Aggregate API:** `/api/news/aggregate.js` — full-response cache 20 min; CDN `s-maxage=600, stale-while-revalidate=900`.
+- **Platform:** Vercel Serverless Functions (≤12 for Hobby plan; consolidated to 4–6 endpoints).
+- **Cache utility:** `api/_cache.js` — `createCache(ttlMs)` and `coalesce(key, fetcher)` for in-memory TTL and in-flight coalescing.
+- **Shared sources:** `api/_sources.js` — shared fetchers (scores, rankings, odds, odds-history, teamIds, schedule, news aggregate, team news) used only by `/api/home` and `/api/team/[slug]`; no HTTP between APIs.
+- **Home API:** `/api/home/index.js` — GET; returns scores, odds, rankings, atsLeaders, headlines, dataStatus (and optionally scoresByDate, pinnedTeamNews). Uses _sources only; per-section caching. CDN 60s.
+- **Team API:** `/api/team/[slug].js` — GET; returns team, schedule, oddsHistory, teamNews, rank, teamId, tier. Uses _sources only. CDN 120s.
 - **Summary API:** `/api/summary/index.js` — POST only; payload hash cache 30 min; rate limit 1/min per IP; SSE streaming; no internal API calls.
-- **Team Summary API:** `/api/summary/team.js` — POST body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. Payload-only (no internal API calls). `?stream=true` → SSE stream (chunks + done + updatedAt); `?force=true` bypasses cache. Non-stream: returns `{ summary, updatedAt }`. Cache 30 min per team.
-- **Home batch API:** `/api/home/index.js` — GET; returns scores + odds + rankings + headlines + dataStatus in one round trip; CDN cache 60s.
-- **Team batch API:** `/api/team/[slug].js` — GET; returns schedule + odds history + team news + rank (+ teamId); CDN cache 120s.
+- **Team Summary API:** `/api/summary/team.js` — POST body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. Payload-only. `?stream=true` → SSE; `?force=true` bypasses cache. Cache 30 min per team.
+- **Health:** `/api/health.js` — GET; returns `{ ok: true, timestamp }` (optional).
+- **Removed standalone routes:** `/api/scores`, `/api/rankings`, `/api/odds`, `/api/odds-history`, `/api/news/aggregate`, `/api/news/team/[slug]`, `/api/teamIds`, `/api/schedule/[teamId]` — functionality folded into home and team.
+- **News filters:** `api/news/filters.js` — MBB allowlist/exclude; used by _sources for news aggregate and team news (not a route).
 
 ### Design System
 - **Palette:** Metro Blue #3C79B4, Andrea #C9ECF5, Angora White #F6F6F6, Beige Dune #B7986C
@@ -48,37 +44,26 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/data/teams.js` | 74 ESPN Bubble Watch teams (conference, oddsTier, keywords) |
 | `src/data/mockData.js` | Mock dashboard data (matchups, odds, news, stats) |
 | `src/data/newsSources.js` | `NATIONAL_FEEDS` (Yahoo, CBS, NCAA), `TEAM_FEEDS` (team-specific RSS) |
-| `src/api/news.js` | Client fetcher: `fetchTeamNews`, `fetchAggregatedNews`, `fetchAggregateNews` |
-| `src/api/scores.js` | Client fetcher `fetchScores()`, `fetchScoresByDate(date)` |
-| `src/api/rankings.js` | Client fetcher `fetchRankings()` for AP Top 25 |
 | `src/utils/teamSlug.js` | Maps ESPN team names → teams.js slugs |
 | `src/utils/pinnedTeams.js` | localStorage get/set for pinned team slugs |
 | `src/utils/rankingsNormalize.js` | ESPN name normalization + `buildSlugToRankMap` |
-| `src/utils/teamIdMap.js` | `buildSlugToIdFromRankings` — slug → ESPN team ID |
-| `src/api/schedule.js` | Client fetcher `fetchTeamSchedule(teamId)` |
-| `src/api/teamIds.js` | Client fetcher `fetchTeamIds()` for slug→id map |
-| `src/api/odds.js` | Client: `fetchOdds()`, `fetchOddsHistory()`, `mergeGamesWithOdds()`, `matchOddsHistoryToEvent()` |
+| `src/utils/teamIdMap.js` | `buildSlugToIdFromRankings` — slug → ESPN team ID (used in api/home) |
+| `src/api/odds.js` | Client: `mergeGamesWithOdds()`, `matchOddsHistoryToEvent()`, `matchOddsHistoryToGame()` (odds from /api/home, /api/team) |
 | `src/utils/ats.js` | ATS helpers: `computeATS()`, `computeATSForEvent()`, `getOurSpread()`, `aggregateATS()` |
 | `src/utils/dateChunks.js` | `SEASON_START` (2025-11-01), `chunkDateRange(from, to, maxDays=31)` |
 | `src/utils/dates.js` | Schedule date helpers (now → Selection Sunday) |
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
-| `api/news/team/[slug].js` | Serverless: Google News RSS; MBB filter → JSON (per-team) |
-| `api/news/filters.js` | Men's basketball allowlist + exclude filter (`isMensBasketball`) |
-| `api/news/aggregate.js` | Serverless: Google + national + team feeds; MBB filter; source-priority sort → `{ items }` |
-| `api/scores/index.js` | Serverless: ESPN scoreboard proxy → simplified JSON |
-| `api/rankings/index.js` | Serverless: ESPN AP Top 25 → `{ rankings }` (incl. teamId) |
-| `api/schedule/[teamId].js` | Serverless: ESPN team schedule → `{ events }` |
-| `api/teamIds/index.js` | Serverless: ESPN teams → `{ slugToId }` |
-| `api/odds/index.js` | Serverless: The Odds API proxy → `{ games }` (gameId, spread, total, moneyline) |
-| `api/odds-history/index.js` | Serverless: Odds API historical → `{ games }` (gameId, homeTeam, awayTeam, spread, sportsbook) |
-| `api/summary/index.js` | Serverless: POST summary with payload; hash cache; rate limit; no internal API calls |
-| `api/summary/team.js` | Serverless: POST team insight; payload (teamName, tier, upcoming, lastWeek, ATS, headlines); `?stream=true` SSE, `?force=true` bypass cache; 30-min cache |
-| `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryStream` (Team page), `fetchTeamSummaryFromPayload`, `fetchTeamSummary` (pinned) |
-| `src/api/home.js` | Client: `fetchHome()` — batch scores/odds/rankings/headlines; request coalescing |
-| `src/api/team.js` | Client: `fetchTeamPage(slug)` — batch schedule/oddsHistory/teamNews/rank; request coalescing |
+| `api/news/filters.js` | Men's basketball allowlist + exclude (`isMensBasketball`); used by _sources |
+| `api/_sources.js` | Shared fetchers: scores, rankings, odds, odds-history, teamIds, schedule, news aggregate, team news (all use _cache) |
 | `api/_cache.js` | Shared: `createCache(ttlMs)`, `coalesce(key, fetcher)` for serverless |
-| `api/home/index.js` | Batch: scores + odds + rankings + headlines + dataStatus |
-| `api/team/[slug].js` | Batch: schedule + odds history + team news + rank |
+| `api/home/index.js` | GET: scores, odds, rankings, atsLeaders, headlines, dataStatus; optional dates, pinnedSlugs |
+| `api/team/[slug].js` | GET: team, schedule, oddsHistory, teamNews, rank, teamId, tier |
+| `api/summary/index.js` | POST: summary with payload; hash cache; rate limit; SSE streaming |
+| `api/summary/team.js` | POST: team insight; `?stream=true` SSE, `?force=true` bypass cache; 30-min cache |
+| `api/health.js` | GET: `{ ok: true, timestamp }` (optional) |
+| `src/api/home.js` | Client: `fetchHome({ dates?, pinnedSlugs? })` — single source for Home/Games/NewsFeed/Insights |
+| `src/api/team.js` | Client: `fetchTeamPage(slug)` — single source for Team page + PinnedTeamsSection records |
+| `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryStream`, `fetchTeamSummary` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
 
@@ -103,22 +88,15 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
-## APIs
+## APIs (consolidated; ≤12 serverless functions)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/news/team/:slug` | GET | Top 10 Google News headlines for team (90-day query) |
-| `/api/news/aggregate` | GET | Aggregated news. Params: `teamSlug`, `includeNational`, `includeTeamFeeds` |
-| `/api/scores` | GET | College basketball scoreboard. Optional `?date=YYYYMMDD` for specific date |
-| `/api/rankings` | GET | ESPN AP Top 25 rankings (teamName, rank, teamId) |
-| `/api/schedule/:teamId` | GET | ESPN team schedule (past + upcoming) |
-| `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. Query: `?stream=true` (required), `?force=true` bypass cache. Response: SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
-| `/api/summary/team` | POST | Team page insight. Body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. `?stream=true` → SSE; `?force=true` bypasses cache. Payload-only; returns `{ summary, updatedAt }` when not streaming. Cache 30 min per team. Pinned cards use same endpoint (no stream). |
-| `/api/home` | GET | Batch: scores, odds, rankings, headlines, dataStatus. One round trip for Home. CDN 60s. |
-| `/api/team/:slug` | GET | Batch: schedule, oddsHistory, teamNews, rank, teamId. One round trip for Team page. CDN 120s. |
-| `/api/teamIds` | GET | slug → ESPN team ID map. `?debug=true` → also `missingSlugs`, `missingCount` |
-| `/api/odds` | GET | NCAA basketball odds. Params: `date`, `team`. Returns spreads, totals, moneyline. Requires `ODDS_API_KEY` |
-| `/api/odds-history` | GET | Historical odds (paid plan). Params: `from`, `to` (YYYY-MM-DD). Chunks long ranges into 31-day windows; merges and dedupes. Requires `ODDS_API_KEY` |
+| `/api/home` | GET | Batch: scores, odds, rankings, atsLeaders, headlines, dataStatus. Optional `?dates=YYYYMMDD,YYYYMMDD`, `?pinnedSlugs=slug1,slug2` for scoresByDate and pinnedTeamNews. Home, Games, DailySchedule, Insights, NewsFeed use this only. CDN 60s. |
+| `/api/team/:slug` | GET | Batch: team, schedule, oddsHistory, teamNews, rank, teamId, tier. Team page and PinnedTeamsSection (records/ATS) use this only. CDN 120s. |
+| `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. `?stream=true` (required), `?force=true` bypass cache. SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
+| `/api/summary/team` | POST | Team page insight. Body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. `?stream=true` → SSE; `?force=true` bypasses cache. Payload-only. Cache 30 min per team. Pinned cards use same endpoint (no stream). |
+| `/api/health` | GET | Optional. Returns `{ ok: true, timestamp }`. No cache. |
 
 ---
 
@@ -156,6 +134,16 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 23, 2026)
+
+**API consolidation (≤12 serverless / Hobby plan):**
+- **Removed standalone routes:** `/api/scores`, `/api/rankings`, `/api/odds`, `/api/odds-history`, `/api/news/aggregate`, `/api/news/team/[slug]`, `/api/teamIds`, `/api/schedule/[teamId]`. All behavior moved into `/api/home` and `/api/team/[slug]` via `api/_sources.js` (no HTTP between APIs).
+- **Client:** Home, Games, DailySchedule, Insights, NewsFeed use only `fetchHome()`. Team page and PinnedTeamsSection use only `fetchTeamPage(slug)` for schedule/oddsHistory/records/ATS. Summary endpoints unchanged.
+- **Client API cleanup:** Removed `src/api/scores.js`, `src/api/rankings.js`, `src/api/teamIds.js`, `src/api/schedule.js`, `src/api/news.js`. `src/api/odds.js` keeps only `mergeGamesWithOdds`, `matchOddsHistoryToEvent`, `matchOddsHistoryToGame`.
+- **Components:** PinnedTeamsSection receives `rankMap`, `games`, `teamNewsBySlug` from Home; records/ATS via `fetchTeamPage(slug)` per pinned team. TeamSchedule and MaximusInsight use `initialData` or `fetchTeamPage(slug)` only (no rankings/teamIds/schedule/odds fetches).
+- **Optional:** `/api/health` GET returns `{ ok: true, timestamp }`.
+- **STATUS.md** updated for consolidated API and key files.
+
+---
 
 **Games page — Key Dates compact; Today's Scores (renamed) + rankings:**
 - **Key Dates** — Tighter grid (reduced gap/padding), smaller card padding and line-height; remains readable and compact.
