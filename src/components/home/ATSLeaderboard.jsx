@@ -17,6 +17,7 @@ import { getTeamSlug } from '../../utils/teamSlug';
 import { SEASON_START } from '../../utils/dateChunks';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
 import SourceBadge from '../shared/SourceBadge';
+import TeamLogo from '../shared/TeamLogo';
 import styles from './ATSLeaderboard.module.css';
 
 const PERIODS = [
@@ -160,7 +161,12 @@ export default function ATSLeaderboard() {
                 {best10.map((r, i) => (
                   <li key={r.slug} className={styles.row}>
                     <span className={styles.rank}>{i + 1}</span>
-                    <Link to={`/teams/${r.slug}`} className={styles.teamLink}>{r.name}</Link>
+                    <span className={styles.teamCell}>
+                      <span className={styles.teamLogoWrap}>
+                        <TeamLogo team={getTeamBySlug(r.slug) || { slug: r.slug, name: r.name }} size={24} />
+                      </span>
+                      <Link to={`/teams/${r.slug}`} className={styles.teamLink}>{r.name}</Link>
+                    </span>
                     <span className={styles.rec}>
                       {r.rec.w}-{r.rec.l}{r.rec.p > 0 ? `-${r.rec.p}` : ''}
                       {r.rec.coverPct != null && ` (${r.rec.coverPct}%)`}
@@ -175,7 +181,12 @@ export default function ATSLeaderboard() {
                 {worst10.map((r, i) => (
                   <li key={r.slug} className={styles.row}>
                     <span className={styles.rank}>{sorted.length - i}</span>
-                    <Link to={`/teams/${r.slug}`} className={styles.teamLink}>{r.name}</Link>
+                    <span className={styles.teamCell}>
+                      <span className={styles.teamLogoWrap}>
+                        <TeamLogo team={getTeamBySlug(r.slug) || { slug: r.slug, name: r.name }} size={24} />
+                      </span>
+                      <Link to={`/teams/${r.slug}`} className={styles.teamLink}>{r.name}</Link>
+                    </span>
                     <span className={styles.rec}>
                       {r.rec.w}-{r.rec.l}{r.rec.p > 0 ? `-${r.rec.p}` : ''}
                       {r.rec.coverPct != null && ` (${r.rec.coverPct}%)`}

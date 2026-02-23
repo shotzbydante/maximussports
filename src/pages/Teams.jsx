@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getTeamsGroupedByConference, TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
+import ConferenceLogo from '../components/shared/ConferenceLogo';
 import Top25Rankings from '../components/home/Top25Rankings';
 import styles from './Teams.module.css';
 
@@ -116,6 +117,9 @@ export default function Teams() {
               onClick={() => setExpanded((e) => ({ ...e, [conference]: !e[conference] }))}
               aria-expanded={expanded[conference]}
             >
+              <span className={styles.conferenceLogoWrap}>
+                <ConferenceLogo conference={conference} size={28} />
+              </span>
               <span className={styles.conferenceTitle}>{conference}</span>
               <span className={styles.chevron} aria-hidden>{expanded[conference] ? '▾' : '▸'}</span>
             </button>

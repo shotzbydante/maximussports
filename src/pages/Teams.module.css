@@ -53,6 +53,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--card-padding);
   font-size: var(--header-font-size);
   font-weight: 600;
@@ -65,6 +66,15 @@
   cursor: pointer;
   text-align: left;
   font-family: inherit;
+}
+
+.conferenceLogoWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
 .conferenceHeader:hover {

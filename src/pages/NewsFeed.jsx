@@ -2,19 +2,10 @@ import { useState, useEffect } from 'react';
 import { fetchAggregateNews } from '../api/news';
 import { getTeamsGroupedByConference } from '../data/teams';
 import SourceBadge from '../components/shared/SourceBadge';
+import ConferenceLogo from '../components/shared/ConferenceLogo';
 import styles from './NewsFeed.module.css';
 
 const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
-
-/** Letter-mark for conference (first letter or abbreviation) */
-function ConferenceIcon({ conference }) {
-  const mark = conference === 'Big Ten' ? 'B10' : conference === 'Big 12' ? 'B12' : conference.slice(0, 1);
-  return (
-    <span className={styles.confIcon} aria-hidden>
-      {mark}
-    </span>
-  );
-}
 
 function formatDate(pubDate) {
   if (!pubDate) return '';
@@ -75,7 +66,9 @@ export default function NewsFeed() {
                 onClick={() => setExpanded((e) => ({ ...e, [conference]: !e[conference] }))}
                 aria-expanded={expanded[conference]}
               >
-                <ConferenceIcon conference={conference} />
+                <span className={styles.confLogoWrap}>
+                  <ConferenceLogo conference={conference} size={28} />
+                </span>
                 <span className={styles.sectionTitle}>{conference}</span>
                 {teams.length > 0 && (
                   <span className={styles.teamCount}>{teams.length} teams</span>

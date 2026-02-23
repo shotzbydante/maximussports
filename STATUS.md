@@ -139,6 +139,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**Favicon, top bar, banner, ATS logos, conference logos:**
+- **Favicon** — Lightning bolt replaced with robot mascot; `public/favicon.png` (from mascot) and `index.html` updated to use it.
+- **Top bar** — Maximus Sports logo made **2x bigger** (max-height 56px, max-width 280px desktop; 48px/220px mobile). Top bar height **reduced** to 72px to remove excess blank space; "March Madness Intelligence" kept to the right, vertically aligned; sleek, premium look.
+- **Welcome banner** — Robot mascot **2x larger** (112px desktop, 88px mobile); padding/height **condensed** (tighter padding, less gap) for a tighter layout; text unchanged.
+- **ATS Leaderboard (Home)** — Each team’s **logo** appears next to its name via existing `TeamLogo` component (Top 10 and Bottom 10).
+- **Conference logos** — Blue "B10"-style letter badges replaced with **conference logo or fallback**: `ConferenceLogo` component uses `public/conferences/<slug>.png` (e.g. big-ten, sec, acc, big-12, big-east, mwc, aac, wcc, a10, cusa, mvc, mac, southland, others). **Fallback:** initials badge (B10, B12, first letter) when image missing. Applied to **News Feed** and **Teams** page conference headers. `scripts/download-conference-logos.js` attempts ESPN CDN URLs (currently 404); add PNGs to `public/conferences/` for real logos.
+
 **Top bar logo, Top 25 clickable rows, mascot:**
 - **Top bar logo** — Maximus Sports text logo in the top bar is **2x larger** (max-height 96px / max-width 440px desktop; 64px / 280px mobile). Top nav height increased to 100px to accommodate; logo remains aligned with "March Madness Intelligence" tagline.
 - **Top 25 Rankings (Home)** — Each team row is **fully clickable** and navigates to `/teams/:slug`; row hover state (background + primary color on team name) for affordance.
