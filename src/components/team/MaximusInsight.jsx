@@ -12,6 +12,7 @@ import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
 import { getTeamBySlug } from '../../data/teams';
 import { SEASON_START } from '../../utils/dateChunks';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
+import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './MaximusInsight.module.css';
 
@@ -39,13 +40,15 @@ export default function MaximusInsight({ slug }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (skipLoadingState = false) => {
     if (!slug) return;
     const team = getTeamBySlug(slug);
     if (!team) return;
 
-    setLoading(true);
-    setError(null);
+    if (!skipLoadingState) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const [rankingsRes, teamIdsRes] = await Promise.allSettled([
@@ -123,11 +126,13 @@ export default function MaximusInsight({ slug }) {
         .map(({ outcome }) => outcome)
         .filter(Boolean);
 
-      setAtsData({
+      const data = {
         season: aggregateATS(seasonOutcomes),
         last30: aggregateATS(last30Outcomes),
         last7: aggregateATS(last7Outcomes),
-      });
+      };
+      setAtsData(data);
+      setAtsCache(slug, data);
     } catch (err) {
       setError(err.message);
       setAtsData(null);
@@ -137,8 +142,16 @@ export default function MaximusInsight({ slug }) {
   }, [slug]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!slug) return;
+    const cached = getAtsCache(slug);
+    if (cached) {
+      setAtsData(cached);
+      setLoading(false);
+      loadData(true);
+    } else {
+      loadData(false);
+    }
+  }, [slug, loadData]);
 
   if (!slug) return null;
 

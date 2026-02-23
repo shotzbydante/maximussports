@@ -139,6 +139,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**ATS priority loading + news deferral:**
+- **ATS first on TeamPage** — MaximusInsight loads immediately; if ATS is in cache, it shows instantly and refreshes in background. News fetch is deferred (150ms) so ATS/schedule render first.
+- **ATS first on Pinned Teams** — Records row (Season, L10, ATS) appears above headlines; ATS uses in-memory cache so it can show before full record load. News fetch deferred 100ms so records/ATS load first.
+- **In-memory ATS cache** — `src/utils/atsCache.js`: 7-min TTL per team slug; `getAtsCache(slug)` / `setAtsCache(slug, data)`. Cache hit returns instantly on TeamPage and Pinned cards.
+- **News header rename** — TeamPage section title changed from "News" to "[Team Name] News Feed" (fallback: "Team News Feed").
+- **Performance** — News no longer blocks ATS/schedule; Bloomberg style + Air Force One palette unchanged.
+
 **Vercel ESM import fix (src/utils):**
 - **ESM requires .js in import paths** — In `src/utils/teamSlug.js`, `rankingsNormalize.js`, and `teamIdMap.js`, all relative imports now include the `.js` extension (e.g. `'../data/teams.js'`, `'./teamSlug.js'`). Fixes `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/src/data/teams'` on Vercel serverless.
 

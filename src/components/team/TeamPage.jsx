@@ -33,6 +33,7 @@ export default function TeamPage() {
   const [error, setError] = useState(null);
   const [prev90Expanded, setPrev90Expanded] = useState(false);
 
+  // Defer news until after ATS/schedule have a chance to render and load
   useEffect(() => {
     if (!team) {
       setLoading(false);
@@ -40,23 +41,26 @@ export default function TeamPage() {
     }
     setLoading(true);
     setError(null);
-    fetchAggregateNews({
-      teamSlug: slug,
-      includeNational: true,
-      includeTeamFeeds: true,
-    })
-      .then(({ items }) => {
-        const mapped = items.map((item, i) => ({
-          id: item.link || `agg-${i}`,
-          title: item.title,
-          link: item.link,
-          pubDate: item.pubDate,
-          source: item.source || 'News',
-        }));
-        setHeadlines(mapped);
+    const tid = setTimeout(() => {
+      fetchAggregateNews({
+        teamSlug: slug,
+        includeNational: true,
+        includeTeamFeeds: true,
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+        .then(({ items }) => {
+          const mapped = items.map((item, i) => ({
+            id: item.link || `agg-${i}`,
+            title: item.title,
+            link: item.link,
+            pubDate: item.pubDate,
+            source: item.source || 'News',
+          }));
+          setHeadlines(mapped);
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    }, 150);
+    return () => clearTimeout(tid);
   }, [slug, team]);
 
   const now = Date.now();
@@ -96,7 +100,7 @@ export default function TeamPage() {
 
       <section className={styles.newsSection}>
         <div className={styles.sectionHead}>
-          <span className={styles.sectionLabel}>News</span>
+          <span className={styles.sectionLabel}>{team?.name ? `${team.name} News Feed` : 'Team News Feed'}</span>
           <span className={styles.sourceLegend}>ESPN · NCAA · CBS · Yahoo · Team Feeds · Google News</span>
         </div>
 

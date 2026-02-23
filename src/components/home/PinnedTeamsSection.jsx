@@ -22,6 +22,7 @@ import { buildSlugToIdFromRankings } from '../../utils/teamIdMap';
 import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { computeATSForEvent, aggregateATS } from '../../utils/ats';
+import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import { SEASON_START } from '../../utils/dateChunks';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
@@ -96,29 +97,7 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
       .catch(() => setScores({ games: [], loading: false }));
   }, []);
 
-  // Load news for pinned teams
-  useEffect(() => {
-    if (pinned.length === 0) {
-      setTeamNews({});
-      return;
-    }
-    const slugs = pinned.slice(0, 8);
-    Promise.all(
-      slugs.map((slug) =>
-        fetchTeamNews(slug)
-          .then((res) => ({ slug, headlines: res?.headlines || [] }))
-          .catch(() => ({ slug, headlines: [] }))
-      )
-    ).then((results) => {
-      const next = {};
-      results.forEach(({ slug, headlines }) => {
-        next[slug] = headlines.slice(0, 3);
-      });
-      setTeamNews(next);
-    });
-  }, [pinned.join(',')]);
-
-  // Load records (season, L10, ATS) for pinned teams
+  // Load records (season, L10, ATS) first — ATS priority
   useEffect(() => {
     if (pinned.length === 0) {
       setTeamRecords({});
@@ -168,7 +147,10 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
                       return computeATSForEvent(ev, odds, team.name);
                     });
                     const agg = aggregateATS(outcomes);
-                    if (agg.total > 0) ats = agg;
+                    if (agg.total > 0) {
+                      ats = agg;
+                      setAtsCache(slug, { season: agg, last30: null, last7: null });
+                    }
                   }
                 } catch {
                   ats = null;
@@ -201,6 +183,31 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
       });
 
     return () => { cancelled = true; };
+  }, [pinned.join(',')]);
+
+  // Defer news until after records/ATS have started loading
+  useEffect(() => {
+    if (pinned.length === 0) {
+      setTeamNews({});
+      return;
+    }
+    const slugs = pinned.slice(0, 8);
+    const tid = setTimeout(() => {
+      Promise.all(
+        slugs.map((slug) =>
+          fetchTeamNews(slug)
+            .then((res) => ({ slug, headlines: res?.headlines || [] }))
+            .catch(() => ({ slug, headlines: [] }))
+        )
+      ).then((results) => {
+        const next = {};
+        results.forEach(({ slug, headlines }) => {
+          next[slug] = headlines.slice(0, 3);
+        });
+        setTeamNews(next);
+      });
+    }, 100);
+    return () => clearTimeout(tid);
   }, [pinned.join(',')]);
 
   const filteredTeams = search.trim()
@@ -354,27 +361,12 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
                     </span>
                   </div>
                 )}
-                {headlines.length > 0 && (
-                  <ul className={styles.headlines}>
-                    {headlines.map((h) => (
-                      <li key={h.id || h.title}>
-                        <a
-                          href={h.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={styles.headlineLink}
-                        >
-                          {h.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
                 {(() => {
                   const rec = teamRecords[slug];
+                  const cached = getAtsCache(slug);
                   const season = rec?.season;
                   const last10 = rec?.last10;
-                  const ats = rec?.ats;
+                  const ats = rec?.ats ?? (cached?.season?.total > 0 ? cached.season : null);
                   const seasonStr = season?.w != null && season?.l != null ? `${season.w}–${season.l}` : '—';
                   const l10Str = last10?.w != null && last10?.l != null ? `${last10.w}–${last10.l}` : '—';
                   const atsStr = ats?.total > 0 ? `${ats.w}–${ats.l}${ats.p > 0 ? `–${ats.p}` : ''}` : '—';
@@ -404,6 +396,22 @@ export default function PinnedTeamsSection({ onPinnedChange }) {
                     </>
                   );
                 })()}
+                {headlines.length > 0 && (
+                  <ul className={styles.headlines}>
+                    {headlines.map((h) => (
+                      <li key={h.id || h.title}>
+                        <a
+                          href={h.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.headlineLink}
+                        >
+                          {h.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <Link to={`/teams/${slug}`} className={styles.teamLink}>
                   View team →
                 </Link>
