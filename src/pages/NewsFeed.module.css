@@ -59,22 +59,40 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   padding: var(--card-padding);
   font-size: var(--header-font-size);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: var(--header-letter-spacing);
   color: var(--color-text);
-  background: transparent;
+  background: rgba(60, 121, 180, 0.08);
   border: none;
+  border-bottom: 1px solid var(--divider-color);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
 }
 
 .sectionHeader:hover {
-  background: rgba(60, 121, 180, 0.04);
+  background: rgba(60, 121, 180, 0.12);
+}
+
+.confIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(60, 121, 180, 0.18);
+  color: var(--color-metro-blue);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
 }
 
 .sectionTitle {

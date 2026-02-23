@@ -68,54 +68,113 @@
   opacity: 0.9;
 }
 
-.caret {
-  margin-left: auto;
-  font-size: 0.65rem;
+.teamsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.teamsRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.teamsRow .link {
+  flex: 1;
+  min-width: 0;
+}
+
+.caretBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  margin-right: var(--space-xs);
+  background: none;
+  border: none;
+  cursor: pointer;
   color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+}
+
+.caretBtn:hover {
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+}
+
+.caret {
+  font-size: 0.65rem;
+  color: inherit;
 }
 
 .teamDropdown {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  margin: var(--space-xs) 0 var(--space-sm) var(--space-xl);
+  gap: 0;
+  margin: var(--space-xs) 0 var(--space-sm) 0;
+  padding-left: 8px;
   max-height: 360px;
   overflow-y: auto;
-  padding-left: var(--space-sm);
   border-left: 1px solid var(--divider-color, #e6eef5);
+  margin-left: var(--space-md);
 }
 
 .confGroup {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
-.confLabel {
-  font-size: var(--header-font-size, 11px);
+.confRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-xs);
+  font-size: var(--header-font-size, 12px);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: var(--header-letter-spacing, 0.08em);
   color: var(--color-text-muted);
-  margin-top: var(--space-sm);
-  padding: 0 var(--space-xs);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  border-radius: var(--radius-sm);
 }
 
-.confGroup:first-child .confLabel {
+.confRow:hover {
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.06);
+}
+
+.confGroup:first-child .confRow {
   margin-top: 0;
+}
+
+.confLabel {
+  flex: 1;
 }
 
 .teamLinks {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
+  padding-left: 12px;
+  margin-left: 0;
+  border-left: none;
 }
 
 .teamLink {
-  font-size: 0.8rem;
-  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.75rem;
+  padding: 3px var(--space-sm);
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
+  display: block;
 }
 
 .teamLink:hover,

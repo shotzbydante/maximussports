@@ -139,6 +139,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
+**Teams nav hierarchy, Top 25 logos, News Feed headers:**
+- **Sidebar Teams** — Two-level expansion: “Teams” is a NavLink to `/teams`; a separate chevron toggles the conference list. Under Teams, only conference names are shown; clicking a conference expands to show that conference’s teams. Indentation: conference row +8px, team row +20px; team rows use a slightly smaller font (0.75rem). Chevrons on both levels.
+- **Teams click** — Clicking “Teams” (label/icon) goes to the dedicated Teams page (Top 25 + search + filters + collapsible conferences).
+- **Top 25 logos** — Home Top 25 section shows team logos next to team names via existing `TeamLogo` component with slug lookup.
+- **News Feed conference headers** — Each conference (Big Ten, SEC, etc.) has a letter-mark icon (e.g. B10, B12, first letter) in a rounded badge; header uses a distinct shade (rgba 0.08 default, 0.12 hover). Bloomberg style and Air Force One palette kept.
+
 **UI polish (Coinbase-style) + feature updates:**
 - **Design tokens** — `src/styles/tokens.css`: `--radius-card`, `--shadow-card`, `--card-padding`, `--header-font-size`, `--body-font-size`, `--divider-color`, `--pill-height`, `--badge-font-size`, `--space-*`. Imported in `index.css`. Air Force One palette + Bloomberg data density retained; softer spacing, 12px card radius, subtle shadows, clearer section headers.
 - **Left nav** — New hierarchy: Home, Games, Teams (dropdown by conference → team), Odds Insights, News Feed. Quick Links removed.

@@ -11,6 +11,7 @@ import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import { getTeamBySlug } from '../../data/teams';
 import { TEAMS } from '../../data/teams';
 import SourceBadge from '../shared/SourceBadge';
+import TeamLogo from '../shared/TeamLogo';
 import styles from './Top25Rankings.module.css';
 
 const TIER_CLASS = {
@@ -94,12 +95,18 @@ export default function Top25Rankings() {
           {rankings.map((r) => {
             const slug = getSlug(r.teamName);
             const team = slug ? getTeamBySlug(slug) : null;
+            const teamForLogo = team || (slug ? { slug, name: r.teamName, logo: `/logos/${slug}.svg` } : null);
             const linkTo = slug ? `/teams/${slug}` : '/teams';
 
             return (
               <div key={r.rank} className={styles.row}>
                 <span className={styles.colRank}>{r.rank}</span>
                 <span className={styles.colTeam}>
+                  {teamForLogo && (
+                    <span className={styles.colLogo}>
+                      <TeamLogo team={teamForLogo} size={24} />
+                    </span>
+                  )}
                   <Link to={linkTo} className={styles.teamLink}>
                     {r.teamName}
                   </Link>
