@@ -79,6 +79,10 @@
   color: var(--color-down);
 }
 
+.insightSection {
+  margin-bottom: var(--space-lg);
+}
+
 .atsSection {
   margin-bottom: var(--space-lg);
 }

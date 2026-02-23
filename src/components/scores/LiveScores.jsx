@@ -39,10 +39,10 @@ function hasOdds(g) {
   return g.spread != null || g.total != null;
 }
 
-export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true }) {
+export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {} }) {
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
-      {showTitle && <h3 className={styles.title}>Live Scores</h3>}
+      {showTitle && <h3 className={styles.title}>Today&apos;s Scores</h3>}
       {children}
     </div>
   );
@@ -75,7 +75,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
     <div className={styles.widget}>
       {showTitle && (
         <div className={styles.widgetHeader}>
-          <h3 className={styles.title}>Live Scores</h3>
+          <h3 className={styles.title}>Today&apos;s Scores</h3>
           <div className={styles.sourceBadges}>
             <SourceBadge source={source} />
             {showOdds && games.some(hasOdds) && <SourceBadge source="Odds API" />}
@@ -92,6 +92,10 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
         </div>
         {games.map((g) => {
           const live = isLive(g.gameStatus);
+          const awaySlug = getTeamSlug(g.awayTeam);
+          const homeSlug = getTeamSlug(g.homeTeam);
+          const awayRank = awaySlug ? rankMap[awaySlug] : null;
+          const homeRank = homeSlug ? rankMap[homeSlug] : null;
           return (
             <div
               key={g.gameId}
@@ -99,8 +103,9 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
             >
               <span className={styles.colMatchup}>
                 <span className={styles.teamCell}>
-                  {getTeamSlug(g.awayTeam) ? (
-                    <Link to={`/teams/${getTeamSlug(g.awayTeam)}`} className={styles.teamLink}>{g.awayTeam}</Link>
+                  {awayRank != null && <span className={styles.rank}>#{awayRank}</span>}
+                  {awaySlug ? (
+                    <Link to={`/teams/${awaySlug}`} className={styles.teamLink}>{g.awayTeam}</Link>
                   ) : (
                     <span>{g.awayTeam}</span>
                   )}
@@ -114,8 +119,9 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                 </span>
                 <span className={styles.at}> @ </span>
                 <span className={styles.teamCell}>
-                  {getTeamSlug(g.homeTeam) ? (
-                    <Link to={`/teams/${getTeamSlug(g.homeTeam)}`} className={styles.teamLink}>{g.homeTeam}</Link>
+                  {homeRank != null && <span className={styles.rank}>#{homeRank}</span>}
+                  {homeSlug ? (
+                    <Link to={`/teams/${homeSlug}`} className={styles.teamLink}>{g.homeTeam}</Link>
                   ) : (
                     <span>{g.homeTeam}</span>
                   )}

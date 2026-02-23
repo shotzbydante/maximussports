@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchScores } from '../api/scores';
 import { fetchOdds, mergeGamesWithOdds } from '../api/odds';
+import { fetchRankings } from '../api/rankings';
 import { getTeamSlug } from '../utils/teamSlug';
+import { buildSlugToRankMap } from '../utils/rankingsNormalize';
+import { TEAMS } from '../data/teams';
 import KeyDatesWidget from '../components/home/KeyDatesWidget';
 import DailySchedule from '../components/home/DailySchedule';
 import LiveScores from '../components/scores/LiveScores';
@@ -22,16 +25,18 @@ function isLiveOrInProgress(status) {
   );
 }
 
-function getLiveScoresDateLabel() {
+function getTodaysScoresDateLabel() {
   return new Date().toLocaleDateString('en-US', {
     timeZone: 'America/Los_Angeles',
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
   });
 }
 
 export default function Games() {
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
+  const [rankMap, setRankMap] = useState({});
 
   const loadScores = useCallback(() => {
     setScores((s) => ({ ...s, loading: true, oddsError: null, oddsMessage: null }));
@@ -62,9 +67,15 @@ export default function Games() {
     return () => clearInterval(id);
   }, [loadScores]);
 
+  useEffect(() => {
+    fetchRankings()
+      .then((data) => setRankMap(buildSlugToRankMap(data, TEAMS)))
+      .catch(() => setRankMap({}));
+  }, []);
+
   const hasLiveOrInProgress = scores.games.some((g) => isLiveOrInProgress(g.gameStatus));
   const showLiveScores = scores.games.length > 0 && hasLiveOrInProgress;
-  const liveScoresDateLabel = getLiveScoresDateLabel();
+  const todaysScoresDateLabel = getTodaysScoresDateLabel();
 
   return (
     <div className={styles.page}>
@@ -82,7 +93,7 @@ export default function Games() {
           <div className={styles.liveScoresHeader}>
             <div className={styles.liveScoresTitleRow}>
               <h2 className={styles.sectionTitle}>
-                Live Scores — Today ({liveScoresDateLabel}, PST)
+                Today&apos;s Scores — {todaysScoresDateLabel} (PST)
               </h2>
               <span className={styles.livePill} aria-hidden>LIVE</span>
             </div>
@@ -95,6 +106,7 @@ export default function Games() {
             oddsMessage={scores.oddsMessage}
             compact={false}
             showTitle={false}
+            rankMap={rankMap}
           />
         </section>
       )}

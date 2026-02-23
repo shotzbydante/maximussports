@@ -108,16 +108,18 @@ export default function TeamPage() {
         </div>
       </header>
 
-      <TeamSummaryBox
-        slug={slug}
-        team={team}
-        schedule={scheduleForSummary}
-        ats={atsForSummary}
-        news={headlines}
-        dataReady={!!batch}
-      />
+      <section className={styles.insightSection} aria-label="Maximus's Insight">
+        <TeamSummaryBox
+          slug={slug}
+          team={team}
+          schedule={scheduleForSummary}
+          ats={atsForSummary}
+          news={headlines}
+          dataReady={!!batch}
+        />
+      </section>
 
-      <section className={styles.atsSection}>
+      <section className={styles.atsSection} aria-label="ATS">
         <MaximusInsight
           slug={slug}
           initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory } : null}

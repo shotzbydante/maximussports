@@ -85,8 +85,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ### Pages
 - `Home` — **Dynamic welcome synopsis** (OpenAI) in banner (or static fallback); Pinned Teams, ATS Leaderboard, Top 25 Rankings, Dynamic Alerts, Dynamic Stats, Live Scores, sidebar
 - `Teams` — Bubble Watch list by conference + odds tier
-- `TeamPage` — Team header; **Maximus's Insight** (distinct top section, chat/speech bubble style like Home recap: GPT insight with upcoming games + spreads, NCAA tier/prospects, record + ATS, 2–3 sentences news; **streaming** SSE + typing cursor; **Refresh** bypasses cache; mascot in header); **ATS** (separate section below); **News**; **Full Schedule**
-- `Games` — Key Dates (compact grid); Live Scores only when there are live/in-progress games (explicit date + LIVE pill, vivid header); Daily Schedule directly below Key Dates (or below Live Scores when shown)
+- `TeamPage` — Render order: (1) **TeamSummaryBox** (Maximus's Insight chat bubble, top section), (2) **ATS** section (separate card), (3) **News** feed, (4) **Schedule**. Insight section wrapped in `<section aria-label="Maximus's Insight">` so the bubble is always visible and first.
+- `Games` — Key Dates (compact grid); **Today's Scores** (renamed from Live Scores) when there are live/in-progress games — header “Today's Scores — &lt;date&gt; (PST)” with LIVE pill; team **rankings** (#rank) next to each team name (rankMap from fetchRankings, same badge styling as Daily Schedule); Daily Schedule below
 - `Insights` — Daily report, rankings snapshot, filterable Bubble Watch table
 - `Alerts` — Upset alerts + odds movement
 
@@ -157,14 +157,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 23, 2026)
 
-**Games page — Key Dates compact, Live Scores conditional + date + LIVE pill:**
-- **Key Dates** — Tighter grid (reduced gap/padding), smaller card padding and line-height, smaller font for day/time; remains readable and compact.
-- **Live Scores** — Shown only when there is at least one live or in-progress game (Q1/Q2, 1st/2nd, halftime, or score-like status). When hidden, Daily Schedule appears directly below Key Dates.
-- **When live** — Title: “Live Scores — Today (Feb 23, PST)” (date in PST); vivid accent header (gradient background + subtle glow border); small “LIVE” pill badge (red, uppercase).
-- **Daily Schedule** — Unchanged; stays directly below Key Dates when Live Scores is hidden, or below Live Scores when present.
+**Games page — Key Dates compact; Today's Scores (renamed) + rankings:**
+- **Key Dates** — Tighter grid (reduced gap/padding), smaller card padding and line-height; remains readable and compact.
+- **Today's Scores** (renamed from Live Scores) — Shown only when there is at least one live or in-progress game. Header: “Today's Scores — &lt;date&gt; (PST)” (e.g. Feb 23, 2025); vivid accent header + LIVE pill. Each team shows **AP rank** next to name (#rank, same styling as Daily Schedule); Games page fetches rankings and passes `rankMap` to LiveScores.
+- **Daily Schedule** — Directly below Key Dates when Today's Scores is hidden, or below Today's Scores when present.
 
 **Team page — Maximus’s Insight (streaming, chat bubble) + ATS section:**
-- **Layout** — Maximus’s Insight is a **distinct top section** on every Team page. **Chat/speech bubble style** (same as Home recap): `--card-border`, `--radius-card`, `--shadow-card`; **mascot** next to the summary header. **ATS** is its own section below the insight box.
+- **Layout** — Render order: (1) **TeamSummaryBox** in `<section className={insightSection} aria-label="Maximus's Insight">` so the chat bubble is the top section and always mounted; (2) **ATS** in `<section aria-label="ATS">`; (3) News feed; (4) Schedule. Chat/speech bubble style (same as Home recap); mascot in header.
 - **Insight content (ChatGPT)** — Uses only data already loaded on the Team page. Covers: (1) **Upcoming games + spreads**, (2) **NCAA tier/tournament prospects** (from team tier: Lock, Should be in, Work to do, Long shot), (3) **Latest record + ATS performance** (recent W–L and ATS trends), (4) **2–3 sentences** summarizing latest team-specific news.
 - **Streaming** — Team insight **streams** like the Home summary. **SSE** via `POST /api/summary/team?stream=true`; **typing cursor** (▌) shown while streaming; throttled flush (80ms) for readable reveal.
 - **Refresh** — **Refresh** button in the insight box; **cache 30 min** per team; **Refresh bypasses cache** (`?force=true`).
