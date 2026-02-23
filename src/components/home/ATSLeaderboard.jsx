@@ -16,11 +16,11 @@ const PERIODS = [
   { key: 'last7', label: 'Last 7' },
 ];
 
-export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] } }) {
+export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, slowLoading = false }) {
   const [period, setPeriod] = useState('season');
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
-  const loading = false;
+  const loading = slowLoading && best.length === 0 && worst.length === 0;
   const error = null;
 
   const periodKey = period;

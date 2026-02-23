@@ -20,7 +20,10 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Platform:** Vercel Serverless Functions (≤12 for Hobby plan; consolidated to 4–6 endpoints).
 - **Cache utility:** `api/_cache.js` — `createCache(ttlMs)` and `coalesce(key, fetcher)` for in-memory TTL and in-flight coalescing.
 - **Shared sources:** `api/_sources.js` — shared fetchers (scores, rankings, odds, odds-history, teamIds, schedule, news aggregate, team news) used only by `/api/home` and `/api/team/[slug]`; no HTTP between APIs.
-- **Home API:** `/api/home/index.js` — GET; returns scores, odds, rankings, atsLeaders, headlines, dataStatus (and optionally scoresByDate, pinnedTeamNews). Uses _sources only; per-section caching. CDN 60s.
+- **Home API (full):** `/api/home/index.js` — GET; returns scores, odds, rankings, atsLeaders, headlines, dataStatus (and optionally scoresByDate, pinnedTeamNews). Used by Games, DailySchedule, Insights, NewsFeed. CDN 60s.
+- **Home Fast:** `/api/home/fast.js` — GET; returns only scoresToday, scoresYesterday, rankingsTop25, atsLeaders (empty), pinnedTeamsMeta, dataStatus. Cache 2 min (key: `home:fast` or `home:fast:slug1,slug2`). No odds, no news, no ATS.
+- **Home Slow:** `/api/home/slow.js` — GET; returns headlines, odds, oddsHistory, atsLeaders (computed), pinnedTeamNews, upcomingGamesWithSpreads, slowDataStatus. Cache 20 min (key: `home:slow` or `home:slow:slug1,slug2`).
+- **Home page UX:** Client fetches `/api/home/fast` immediately for first paint (scores, rankings, pinned meta); fetches `/api/home/slow` in background and merges with `mergeHomeData(fast, slow)`. Skeletons for ATS/news until slow loads.
 - **Team API:** `/api/team/[slug].js` — GET; returns team, schedule, oddsHistory, teamNews, rank, teamId, tier. Uses _sources only. CDN 120s.
 - **Summary API:** `/api/summary/index.js` — POST only; payload hash cache 30 min; rate limit 1/min per IP; SSE streaming; no internal API calls.
 - **Team Summary API:** `/api/summary/team.js` — POST body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. Payload-only. `?stream=true` → SSE; `?force=true` bypasses cache. Cache 30 min per team.
@@ -56,12 +59,14 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/news/filters.js` | Men's basketball allowlist + exclude (`isMensBasketball`); used by _sources |
 | `api/_sources.js` | Shared fetchers: scores, rankings, odds, odds-history, teamIds, schedule, news aggregate, team news (all use _cache) |
 | `api/_cache.js` | Shared: `createCache(ttlMs)`, `coalesce(key, fetcher)` for serverless |
-| `api/home/index.js` | GET: scores, odds, rankings, atsLeaders, headlines, dataStatus; optional dates, pinnedSlugs |
+| `api/home/index.js` | GET (full): scores, odds, rankings, atsLeaders, headlines, dataStatus; used by Games, DailySchedule, Insights, NewsFeed |
+| `api/home/fast.js` | GET: scoresToday, scoresYesterday, rankingsTop25, pinnedTeamsMeta, dataStatus; cache 2 min |
+| `api/home/slow.js` | GET: headlines, odds, oddsHistory, atsLeaders, pinnedTeamNews, upcomingGamesWithSpreads; cache 20 min |
 | `api/team/[slug].js` | GET: team, schedule, oddsHistory, teamNews, rank, teamId, tier |
 | `api/summary/index.js` | POST: summary with payload; hash cache; rate limit; SSE streaming |
 | `api/summary/team.js` | POST: team insight; `?stream=true` SSE, `?force=true` bypass cache; 30-min cache |
 | `api/health.js` | GET: `{ ok: true, timestamp }` (optional) |
-| `src/api/home.js` | Client: `fetchHome({ dates?, pinnedSlugs? })` — single source for Home/Games/NewsFeed/Insights |
+| `src/api/home.js` | Client: `fetchHomeFast()`, `fetchHomeSlow()`, `mergeHomeData(fast, slow)` for Home; `fetchHome()` for Games/DailySchedule/Insights/NewsFeed |
 | `src/api/team.js` | Client: `fetchTeamPage(slug)` — single source for Team page + PinnedTeamsSection records |
 | `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryStream`, `fetchTeamSummary` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
@@ -92,7 +97,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/home` | GET | Batch: scores, odds, rankings, atsLeaders, headlines, dataStatus. Optional `?dates=YYYYMMDD,YYYYMMDD`, `?pinnedSlugs=slug1,slug2` for scoresByDate and pinnedTeamNews. Home, Games, DailySchedule, Insights, NewsFeed use this only. CDN 60s. |
+| `/api/home` | GET | Full batch (legacy): scores, odds, rankings, atsLeaders, headlines, dataStatus. Optional `?dates=`, `?pinnedSlugs=`. Used by Games, DailySchedule, Insights, NewsFeed. CDN 60s. |
+| `/api/home/fast` | GET | Fast path: scoresToday, scoresYesterday, rankingsTop25, pinnedTeamsMeta, dataStatus. Cache 2 min. No odds/news/ATS. Home page fetches this first. |
+| `/api/home/slow` | GET | Slow path: headlines, odds, oddsHistory, atsLeaders, pinnedTeamNews, upcomingGamesWithSpreads. Cache 20 min. Home page fetches in background and merges. |
 | `/api/team/:slug` | GET | Batch: team, schedule, oddsHistory, teamNews, rank, teamId, tier. Team page and PinnedTeamsSection (records/ATS) use this only. CDN 120s. |
 | `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. `?stream=true` (required), `?force=true` bypass cache. SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
 | `/api/summary/team` | POST | Team page insight. Body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. `?stream=true` → SSE; `?force=true` bypasses cache. Payload-only. Cache 30 min per team. Pinned cards use same endpoint (no stream). |
@@ -134,6 +141,15 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 23, 2026)
+
+**Home fast + slow (stale-while-revalidate):**
+- **/api/home/fast** — Returns only scoresToday, scoresYesterday, rankingsTop25, atsLeaders (empty), pinnedTeamsMeta, dataStatus. Cache 2 min; key `home:fast` or `home:fast:slug1,slug2`.
+- **/api/home/slow** — Returns headlines, odds, oddsHistory, atsLeaders (computed), pinnedTeamNews, upcomingGamesWithSpreads, slowDataStatus. Cache 20 min; key `home:slow` or `home:slow:slug1,slug2`.
+- **Client** — Home page: `fetchHomeFast({ pinnedSlugs })` first → apply scores, rankings, dataStatus, pinned meta; then `fetchHomeSlow({ pinnedSlugs })` in background → merge with `mergeHomeData(fast, slow)`, merge games with odds, update state. Games, DailySchedule, Insights, NewsFeed still use `fetchHome()` (full /api/home).
+- **mergeHomeData(fast, slow)** — Merges payloads; prefers slow for odds, headlines, ATS, pinnedTeamNews. Merged dataStatus from fast + slow.
+- **UX** — ATSLeaderboard shows “Loading ATS…” when `slowLoading` and no atsLeaders; partial data (scores without spreads) shown immediately.
+
+---
 
 **Team page runtime fix (ReferenceError: past is not defined):**
 - **TeamSchedule.jsx** — Defined `pastGames` from `events` (filter isFinal, sort by date desc) and use it for the Past section; `past` was referenced but never defined. Added `eventsList = Array.isArray(events) ? events : []` and derive `pastGames`/`upcoming` from it; guard upcoming render with `Array.isArray(upcoming) && upcoming.length > 0`. Missing schedule data no longer crashes.
