@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchAggregatedNews, fetchAggregateNews } from '../api/news';
@@ -19,8 +19,10 @@ import Top25Rankings from '../components/home/Top25Rankings';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
-import { fetchSummary } from '../api/summary';
 import styles from './Home.module.css';
+
+const STATIC_WELCOME = "Welcome to Maximus Sports, your one stop shop for Men's College Basketball team news, bubble watch, odds analysis, and more.";
+const SUMMARY_ERROR = 'Summary unavailable — try again later.';
 
 const SCORES_REFRESH_MS = 60_000;
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
@@ -74,7 +76,10 @@ function countRankedInAction(games, rankMap) {
   return count;
 }
 
-const FALLBACK_BANNER = "Welcome to Maximus Sports, your one stop shop for Men's College Basketball team news, bubble watch, odds analysis, and more.";
+function formatSummaryDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
 export default function Home() {
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed });
@@ -82,9 +87,10 @@ export default function Home() {
   const [rankMap, setRankMap] = useState({});
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
-  const [summary, setSummary] = useState('');
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryRefreshing, setSummaryRefreshing] = useState(false);
+  const [summaryText, setSummaryText] = useState('');
+  const [summaryStreaming, setSummaryStreaming] = useState(false);
+  const [summaryUpdatedAt, setSummaryUpdatedAt] = useState(null);
+  const [summaryError, setSummaryError] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   useEffect(() => {
@@ -149,20 +155,71 @@ export default function Home() {
     return () => clearInterval(id);
   }, [loadScores]);
 
+  const summaryEventSourceRef = useRef(null);
+
+  const fetchSummaryStream = useCallback((force = false) => {
+    if (summaryEventSourceRef.current) {
+      summaryEventSourceRef.current.close();
+      summaryEventSourceRef.current = null;
+    }
+    setSummaryText('');
+    setSummaryError(false);
+    setSummaryStreaming(true);
+    const url = `/api/summary?stream=true${force ? '&force=true' : ''}`;
+    const es = new EventSource(url);
+    summaryEventSourceRef.current = es;
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.error) {
+          setSummaryText(data.message || SUMMARY_ERROR);
+          setSummaryError(true);
+          setSummaryStreaming(false);
+          es.close();
+          summaryEventSourceRef.current = null;
+          return;
+        }
+        if (data.text) {
+          setSummaryText((prev) => prev + data.text);
+        }
+        if (data.updatedAt) {
+          setSummaryUpdatedAt(data.updatedAt);
+        }
+        if (data.done) {
+          setSummaryStreaming(false);
+          es.close();
+          summaryEventSourceRef.current = null;
+        }
+      } catch (_) {
+        setSummaryText(SUMMARY_ERROR);
+        setSummaryError(true);
+        setSummaryStreaming(false);
+        es.close();
+        summaryEventSourceRef.current = null;
+      }
+    };
+
+    es.onerror = () => {
+      setSummaryStreaming(false);
+      es.close();
+      summaryEventSourceRef.current = null;
+      setSummaryText((t) => (t === '' ? SUMMARY_ERROR : t));
+      setSummaryError(true);
+    };
+  }, []);
+
   useEffect(() => {
-    setSummaryLoading(true);
-    fetchSummary()
-      .then(({ summary: text }) => setSummary(text || ''))
-      .catch(() => setSummary(''))
-      .finally(() => setSummaryLoading(false));
+    fetchSummaryStream(false);
+    return () => {
+      if (summaryEventSourceRef.current) {
+        summaryEventSourceRef.current.close();
+      }
+    };
   }, []);
 
   const handleRefreshSummary = () => {
-    setSummaryRefreshing(true);
-    fetchSummary({ force: true })
-      .then(({ summary: text }) => setSummary(text || ''))
-      .catch(() => setSummary(''))
-      .finally(() => setSummaryRefreshing(false));
+    fetchSummaryStream(true);
   };
 
   const upsetCount = countUpsets(scores.games);
@@ -180,24 +237,31 @@ export default function Home() {
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
-          {(summaryLoading || summaryRefreshing) ? (
-            <div className={styles.summaryLoading} aria-live="polite">
-              <span className={styles.summaryShimmer} />
-              <span className={styles.summaryLoadingText}>Generating summary…</span>
-            </div>
-          ) : (
+          {(summaryError || summaryText === '') && (
+            <p className={styles.bannerStaticWelcome}>{STATIC_WELCOME}</p>
+          )}
+          {summaryStreaming && summaryText === '' && (
+            <span className={styles.summaryLoadingText} aria-live="polite">Generating summary…</span>
+          )}
+          {summaryText !== '' && (
             <p className={styles.bannerText}>
-              {summary || FALLBACK_BANNER}
+              {summaryText}
+              {summaryStreaming && <span className={styles.cursor} aria-hidden>▌</span>}
+            </p>
+          )}
+          {summaryUpdatedAt && !summaryStreaming && (
+            <p className={styles.summaryUpdated}>
+              Last updated: {formatSummaryDate(summaryUpdatedAt)}
             </p>
           )}
           <button
             type="button"
             className={styles.summaryRefresh}
             onClick={handleRefreshSummary}
-            disabled={summaryRefreshing}
+            disabled={summaryStreaming}
             aria-label="Regenerate summary"
           >
-            {summaryRefreshing ? 'Generating…' : 'Refresh'}
+            {summaryStreaming ? 'Generating…' : 'Refresh'}
           </button>
         </div>
       </div>

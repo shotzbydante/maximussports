@@ -31,12 +31,36 @@
   gap: var(--space-sm);
 }
 
+.bannerStaticWelcome {
+  font-size: var(--body-font-size);
+  line-height: var(--body-line-height);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
 .bannerText {
   font-size: var(--body-font-size);
   line-height: var(--body-line-height);
   color: var(--color-text-secondary);
   margin: 0;
   white-space: pre-line;
+}
+
+.cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to { visibility: hidden; }
+}
+
+.summaryUpdated {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
 }
 
 .summaryLoading {

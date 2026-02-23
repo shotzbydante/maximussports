@@ -143,10 +143,9 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 22, 2026)
 
-**Dynamic Home synopsis (OpenAI):**
-- **Summary API** — New `/api/summary` serverless endpoint: aggregates scores, rankings, and news; calls OpenAI Chat Completions (gpt-4o-mini); returns 3–6 sentence recap. **Caching:** 30-minute in-memory cache (key `home_summary`); `?force=true` bypasses cache. **Env:** `OPENAI_API_KEY` required for generation; if missing, returns 200 with fallback text.
-- **Home Welcome box** — Static text replaced with **generated summary**; loading state: shimmer + "Generating summary…"; **Refresh** button calls `/api/summary?force=true` to regenerate. Fallback to static welcome message if summary empty or API unavailable.
-- **Prompt data** — Top 25, today’s final scores and upcoming games (from scores API), top 3–5 headlines (news aggregate); date in PST; short punchy style, 1–2 bullets or paragraphs.
+**Dynamic Home synopsis (OpenAI) — streaming & conversational:**
+- **Summary API (SSE)** — `/api/summary?stream=true` returns **Server-Sent Events**: streamed text chunks (`{ text, done: false }`), then `{ done: true, updatedAt }`. **Cache:** 30-min in-memory; on cache hit, single event with full text + `done: true` + `updatedAt`. **`?force=true`** bypasses cache and streams new response. **Data:** scores + odds (spreads merged), rankings, news aggregate; prompt asks for (a) Top 25 games today with final scores + ATS context, (b) Top 25 upcoming with spreads, (c) 2–4 headlines; **conversational** narrative ("Here's the rundown for today…", "Looking ahead to tomorrow…"), short paragraphs, no long bullet lists.
+- **Home Welcome box** — **Static welcome** (bold) always visible at top when no summary or on API failure. **Streaming UI:** EventSource opens `?stream=true` (and `force=true` on Refresh); text types out in real time; **typing cursor** (▌) and "Generating summary…" while streaming. **Last updated:** "Last updated: &lt;date/time PST&gt;" below summary (from cache or when stream completes). **Fallback:** "Summary unavailable — try again later." on error; static welcome remains visible.
 - **README + STATUS** — OpenAI setup (env var, Vercel config) documented.
 
 **Assets refresh, whitespace reduction, conference logos fix:**
