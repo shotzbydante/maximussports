@@ -118,6 +118,7 @@ export default function Home() {
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
   const [atsWarming, setAtsWarming] = useState(false);
+  const [atsLeadersSourceLabel, setAtsLeadersSourceLabel] = useState(null);
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
@@ -148,6 +149,7 @@ export default function Home() {
         setDataStatus(fastData.dataStatus ?? null);
         setAtsLeaders(fastData.atsLeaders ?? { best: [], worst: [] });
         setAtsWarming(fastData.atsWarming ?? false);
+        setAtsLeadersSourceLabel(fastData.atsLeadersSourceLabel ?? null);
         setHeadlinesWarming(fastData.headlinesWarming ?? false);
         setOddsHistory({ games: [] });
         const meta = fastData.pinnedTeamsMeta ?? [];
@@ -205,6 +207,7 @@ export default function Home() {
             setHeadlinesWarming(merged.headlinesWarming ?? false);
             const nextAts = merged.atsLeaders ?? { best: [], worst: [] };
             setAtsLeaders(nextAts);
+            setAtsLeadersSourceLabel(merged.atsLeadersSourceLabel ?? null);
             setAtsLeadersCache(nextAts);
             setOddsHistory(merged.oddsHistory ?? { games: [] });
             const items = merged.headlines ?? [];
@@ -544,7 +547,7 @@ export default function Home() {
       />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
-        <ATSLeaderboard atsLeaders={atsLeaders} slowLoading={slowLoading} atsWarming={atsWarming} />
+        <ATSLeaderboard atsLeaders={atsLeaders} slowLoading={slowLoading} atsWarming={atsWarming} atsLeadersSourceLabel={atsLeadersSourceLabel} />
       </section>
 
       <Top25Rankings rankings={top25} />

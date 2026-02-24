@@ -1,6 +1,7 @@
 /**
  * Compute ATS leaders (best/worst) from rankings + odds-history + schedules.
- * Used by /api/home/slow and by /api/home/fast warmer.
+ * Full-league: all teams with resolved IDs. Fallback: Top 25 + Lock + "Should be in" when sparse.
+ * Used by /api/home/slow, /api/home/fast warmer, and /api/ats/warm.
  */
 
 import {
@@ -22,45 +23,17 @@ function toDateStr(d) {
 }
 
 /**
- * Fetches rankings, odds history, team IDs, then computes ATS per team and returns best/worst.
- * @returns {Promise<{ best: array, worst: array }>}
+ * Compute ATS for a list of team slugs. Returns sorted best/worst rows.
  */
-export async function computeAtsLeadersFromSources() {
-  const today = toDateStr(new Date());
+async function computeAtsForTeamList(teamSlugs, slugToId, oddsHistoryGames) {
   const thirtyAgo = new Date();
   thirtyAgo.setDate(thirtyAgo.getDate() - 30);
   const sevenAgo = new Date();
   sevenAgo.setDate(sevenAgo.getDate() - 7);
 
-  const [oddsHistoryData, teamIdsData, rankingsData] = await Promise.all([
-    fetchOddsHistorySource(SEASON_START, today),
-    fetchTeamIdsSource(),
-    fetchRankingsSource(),
-  ]);
-
-  const oddsHistoryGames = oddsHistoryData?.games || [];
-  const slugToId = teamIdsData?.slugToId || {};
-  const rankings = rankingsData?.rankings || [];
-  if (rankings.length === 0) {
-    return { best: [], worst: [], unavailableReason: 'rankings empty' };
-  }
-  if (oddsHistoryGames.length === 0) {
-    return { best: [], worst: [], unavailableReason: 'odds history empty' };
-  }
-
-  const slugToIdMerged = { ...slugToId, ...buildSlugToIdFromRankings({ rankings }) };
-  const teamSlugs = [];
-  for (const r of rankings.slice(0, 18)) {
-    const slug = getTeamSlug(r.teamName) ?? getSlugFromRankingsName(r.teamName, TEAMS);
-    if (slug && slugToIdMerged[slug]) {
-      const team = getTeamBySlug(slug);
-      teamSlugs.push({ slug, name: team?.name ?? r.teamName });
-    }
-  }
-
   const results = await Promise.all(
     teamSlugs.map(async ({ slug, name }) => {
-      const teamId = slugToIdMerged[slug];
+      const teamId = slugToId[slug];
       if (!teamId) return null;
       try {
         const sched = await fetchScheduleSource(teamId);
@@ -104,5 +77,93 @@ export async function computeAtsLeadersFromSources() {
   return {
     best: sorted.slice(0, 10),
     worst: sorted.slice(-10).reverse(),
+  };
+}
+
+/**
+ * Full-league team list: all TEAMS that have a resolved slugToId.
+ */
+function buildFullLeagueTeamSlugs(slugToId) {
+  return TEAMS.filter((t) => slugToId[t.slug]).map((t) => ({ slug: t.slug, name: t.name }));
+}
+
+/**
+ * Fallback: Top 25 (from rankings) + Lock + "Should be in" tiers.
+ */
+function buildFallbackTeamSlugs(rankings, slugToId) {
+  const seen = new Set();
+  const out = [];
+  for (const r of rankings.slice(0, 25)) {
+    const slug = getTeamSlug(r.teamName) ?? getSlugFromRankingsName(r.teamName, TEAMS);
+    if (slug && slugToId[slug] && !seen.has(slug)) {
+      seen.add(slug);
+      const team = getTeamBySlug(slug);
+      out.push({ slug, name: team?.name ?? r.teamName });
+    }
+  }
+  for (const t of TEAMS) {
+    if ((t.oddsTier === 'Lock' || t.oddsTier === 'Should be in') && slugToId[t.slug] && !seen.has(t.slug)) {
+      seen.add(t.slug);
+      out.push({ slug: t.slug, name: t.name });
+    }
+  }
+  return out;
+}
+
+/**
+ * Fetches rankings, odds history, team IDs; computes ATS for all teams, fallback if sparse.
+ * @returns {Promise<{ best: array, worst: array, unavailableReason?: string, source?: string, sourceLabel?: string }>}
+ */
+export async function computeAtsLeadersFromSources() {
+  const today = toDateStr(new Date());
+  const [oddsHistoryData, teamIdsData, rankingsData] = await Promise.all([
+    fetchOddsHistorySource(SEASON_START, today),
+    fetchTeamIdsSource(),
+    fetchRankingsSource(),
+  ]);
+
+  const oddsHistoryGames = oddsHistoryData?.games || [];
+  const slugToId = { ...(teamIdsData?.slugToId || {}), ...buildSlugToIdFromRankings({ rankings: rankingsData?.rankings || [] }) };
+  const rankings = rankingsData?.rankings || [];
+
+  if (rankings.length === 0) {
+    return { best: [], worst: [], unavailableReason: 'rankings empty' };
+  }
+  if (oddsHistoryGames.length === 0) {
+    return { best: [], worst: [], unavailableReason: 'odds history empty' };
+  }
+
+  // 1) Full-league: all teams with resolved IDs
+  const fullLeagueSlugs = buildFullLeagueTeamSlugs(slugToId);
+  const full = await computeAtsForTeamList(fullLeagueSlugs, slugToId, oddsHistoryGames);
+  const hasFull = (full.best?.length || 0) + (full.worst?.length || 0) > 0;
+
+  if (hasFull) {
+    return {
+      best: full.best,
+      worst: full.worst,
+      source: 'full',
+      sourceLabel: 'Full league',
+    };
+  }
+
+  // 2) Fallback: Top 25 + Lock + "Should be in"
+  const fallbackSlugs = buildFallbackTeamSlugs(rankings, slugToId);
+  const fallback = await computeAtsForTeamList(fallbackSlugs, slugToId, oddsHistoryGames);
+  const hasFallback = (fallback.best?.length || 0) + (fallback.worst?.length || 0) > 0;
+
+  if (hasFallback) {
+    return {
+      best: fallback.best,
+      worst: fallback.worst,
+      source: 'fallback',
+      sourceLabel: 'Top 25 / Locks + Should Be In',
+    };
+  }
+
+  return {
+    best: [],
+    worst: [],
+    unavailableReason: 'odds history empty or no ATS data for any team',
   };
 }

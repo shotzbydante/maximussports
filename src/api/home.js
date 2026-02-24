@@ -42,6 +42,7 @@ export function mergeHomeData(fast, slow) {
     rankingsTop25: f.rankingsTop25 || [],
     pinnedTeamsMeta: f.pinnedTeamsMeta || [],
     atsLeaders: hasAtsFromSlow ? s.atsLeaders : (f.atsLeaders || { best: [], worst: [] }),
+    atsLeadersSourceLabel: s.atsLeadersSourceLabel ?? f.atsLeadersSourceLabel ?? null,
     headlines: s.headlines ?? f.headlines ?? [],
     pinnedTeamNews: (s.pinnedTeamNews && Object.keys(s.pinnedTeamNews).length > 0) ? s.pinnedTeamNews : (f.pinnedTeamNews || {}),
     upcomingGamesWithSpreads: s.upcomingGamesWithSpreads ?? f.upcomingGamesWithSpreads ?? [],

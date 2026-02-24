@@ -11,19 +11,14 @@ import {
   fetchOddsSource,
   fetchOddsHistorySource,
   fetchTeamIdsSource,
-  fetchScheduleSource,
   fetchNewsAggregateSource,
   fetchTeamNewsSource,
   fetchScoresSource,
 } from '../_sources.js';
 import { getAtsLeaders, setAtsLeaders, setHeadlines } from './cache.js';
-import { SEASON_START } from '../../src/utils/dateChunks.js';
-import { getTeamBySlug, TEAMS } from '../../src/data/teams.js';
+import { computeAtsLeadersFromSources } from './atsLeaders.js';
 import { getTeamSlug } from '../../src/utils/teamSlug.js';
-import { getSlugFromRankingsName } from '../../src/utils/rankingsNormalize.js';
-import { buildSlugToIdFromRankings } from '../../src/utils/teamIdMap.js';
-import { computeATSForEvent, aggregateATS } from '../../src/utils/ats.js';
-import { matchOddsHistoryToEvent, mergeGamesWithOdds } from '../../src/api/odds.js';
+import { mergeGamesWithOdds } from '../../src/api/odds.js';
 
 const CACHE_MS = 20 * 60 * 1000; // 20 min
 const FETCH_TIMEOUT_MS = 8000;   // 8s per upstream fetch
@@ -193,81 +188,21 @@ export default async function handler(req, res) {
           oddsHistoryGames = [];
           slowTimeout = true;
         }
-        const slugToId = teamIdsData?.slugToId || {};
-        const rankings = rankingsData?.rankings || [];
-        if (rankings.length > 0) {
-          Object.assign(slugToId, buildSlugToIdFromRankings({ rankings }));
-        }
-
         let atsLeaders = { best: [], worst: [] };
         if (useCachedAts) {
-          atsLeaders = getAtsLeaders();
+          const cached = getAtsLeaders();
+          atsLeaders = { best: cached.best, worst: cached.worst, sourceLabel: cached.sourceLabel };
+        } else {
+          const atsResult = await computeAtsLeadersFromSources();
+          atsLeaders = {
+            best: atsResult.best || [],
+            worst: atsResult.worst || [],
+            source: atsResult.source,
+            sourceLabel: atsResult.sourceLabel,
+          };
+          setAtsLeaders(atsLeaders);
         }
-        if (!useCachedAts && rankings.length > 0 && oddsHistoryGames.length > 0) {
-      const thirtyAgo = new Date();
-      thirtyAgo.setDate(thirtyAgo.getDate() - 30);
-      const sevenAgo = new Date();
-      sevenAgo.setDate(sevenAgo.getDate() - 7);
-      const teamSlugs = [];
-      for (const r of rankings.slice(0, 18)) {
-        const slug = getTeamSlug(r.teamName) ?? getSlugFromRankingsName(r.teamName, TEAMS);
-        if (slug && slugToId[slug]) {
-          const team = getTeamBySlug(slug);
-          teamSlugs.push({ slug, name: team?.name ?? r.teamName });
-        }
-      }
-
-      const results = await Promise.all(
-        teamSlugs.map(async ({ slug, name }) => {
-          const teamId = slugToId[slug];
-          if (!teamId) return null;
-          try {
-            const sched = await fetchScheduleSource(teamId);
-            const past = (sched?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
-            if (past.length === 0) return null;
-            const outcomes = past.map((ev) => {
-              const oddsMatch = matchOddsHistoryToEvent(ev, oddsHistoryGames, name);
-              return computeATSForEvent(ev, oddsMatch, name);
-            });
-            const withDate = past.map((ev, i) => ({ ev, outcome: outcomes[i], date: ev.date }));
-            const seasonOut = withDate
-              .filter(({ date }) => date && new Date(date) >= new Date(SEASON_START))
-              .map(({ outcome }) => outcome)
-              .filter(Boolean);
-            const last30Out = withDate
-              .filter(({ date }) => date && new Date(date) >= thirtyAgo)
-              .map(({ outcome }) => outcome)
-              .filter(Boolean);
-            const last7Out = withDate
-              .filter(({ date }) => date && new Date(date) >= sevenAgo)
-              .map(({ outcome }) => outcome)
-              .filter(Boolean);
-            return {
-              slug,
-              name,
-              season: aggregateATS(seasonOut),
-              last30: aggregateATS(last30Out),
-              last7: aggregateATS(last7Out),
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-
-      const rows = results.filter(Boolean);
-      const sorted = [...rows]
-        .map((r) => ({ ...r, rec: r.season }))
-        .filter((r) => r.rec?.total > 0)
-        .sort((a, b) => (b.rec.coverPct ?? 0) - (a.rec.coverPct ?? 0));
-      atsLeaders = {
-        best: sorted.slice(0, 10),
-        worst: sorted.slice(-10).reverse(),
-      };
-    }
-
-    setAtsLeaders(atsLeaders);
-    const atsLeadersCount = atsLeaders.best.length + atsLeaders.worst.length;
+        const atsLeadersCount = atsLeaders.best.length + atsLeaders.worst.length;
     if (isDev) console.log('[api/home/slow] atsLeaders written to cache, count:', atsLeadersCount);
     setHeadlines(headlines);
 
@@ -298,7 +233,8 @@ export default async function handler(req, res) {
           headlines,
           odds: { games: odds.games, error: odds.error, hasOddsKey: odds.hasOddsKey },
           oddsHistory: { games: oddsHistoryGames },
-          atsLeaders,
+          atsLeaders: { best: atsLeaders.best, worst: atsLeaders.worst },
+          atsLeadersSourceLabel: atsLeaders.sourceLabel ?? null,
           pinnedTeamNews,
           upcomingGamesWithSpreads,
           slowDataStatus,

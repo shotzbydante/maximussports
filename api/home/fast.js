@@ -107,6 +107,8 @@ export default async function handler(req, res) {
       atsLeadersCount: cached.atsLeadersCount ?? atsCount,
       atsWarming: cached.atsWarming ?? false,
       headlinesWarming: cached.headlinesWarming ?? false,
+      atsLeadersTimestamp: cached.atsLeadersTimestamp ?? null,
+      atsLeadersSourceLabel: cached.atsLeadersSourceLabel ?? null,
     });
   }
 
@@ -150,6 +152,8 @@ export default async function handler(req, res) {
 
     const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
     const atsWarming = atsEmpty && !atsUnavailableReason;
+    const atsLeadersTimestamp = atsLeaders.timestamp ?? null;
+    const atsLeadersSourceLabel = atsLeaders.sourceLabel ?? null;
     const dataStatus = {
       scoresCount: scoresToday.length,
       scoresYesterdayCount: scoresYesterday.length,
@@ -169,13 +173,15 @@ export default async function handler(req, res) {
       scoresYesterday,
       rankingsTop25,
       rankings: { rankings: rankingsTop25 },
-      atsLeaders,
+      atsLeaders: { best: atsLeaders.best || [], worst: atsLeaders.worst || [] },
       headlines,
       pinnedTeamsMeta,
       dataStatus,
       atsLeadersCount: atsCount,
       atsWarming,
       headlinesWarming: headlinesEmpty,
+      atsLeadersTimestamp,
+      atsLeadersSourceLabel,
     };
     if (atsUnavailableReason) payload.atsUnavailableReason = atsUnavailableReason;
 

@@ -16,12 +16,13 @@ const PERIODS = [
   { key: 'last7', label: 'Last 7' },
 ];
 
-export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, slowLoading = false, atsWarming = false }) {
+export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, slowLoading = false, atsWarming = false, atsLeadersSourceLabel = null }) {
   const [period, setPeriod] = useState('season');
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
   const loading = (slowLoading || atsWarming) && best.length === 0 && worst.length === 0;
   const error = null;
+  const isFallback = atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league';
 
   const periodKey = period;
   const best10 = best.map((r) => ({ ...r, rec: r[periodKey] })).filter((r) => r.rec?.total > 0);
@@ -30,7 +31,12 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
   return (
     <section className={styles.card}>
       <div className={styles.header}>
-        <h3 className={styles.title}>ATS Leaderboard</h3>
+        <div>
+          <h3 className={styles.title}>ATS Leaderboard</h3>
+          {isFallback && atsLeadersSourceLabel && (
+            <span className={styles.sourceLabel}>{atsLeadersSourceLabel}</span>
+          )}
+        </div>
         <div className={styles.headerRight}>
           <div className={styles.pills}>
             {PERIODS.map((p) => (
@@ -48,7 +54,7 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
         </div>
       </div>
       <div className={styles.content}>
-        {loading && <div className={styles.loading}>Loading ATS…</div>}
+        {loading && <div className={styles.loading}>Warming ATS cache…</div>}
         {error && <div className={styles.error}>{error}</div>}
         {!loading && !error && (
           <div className={styles.grid}>

@@ -20,8 +20,19 @@ const ATS_KEY = 'home:atsLeaders';
 const HEADLINES_KEY = 'home:headlines';
 const ATS_UNAVAILABLE_KEY = 'home:atsUnavailableReason';
 
+/**
+ * Cached value: { best, worst, timestamp?, source?, sourceLabel? }
+ */
 export function getAtsLeaders() {
-  return atsCache.get(ATS_KEY) ?? { best: [], worst: [] };
+  const cached = atsCache.get(ATS_KEY);
+  if (!cached) return { best: [], worst: [] };
+  return {
+    best: cached.best || [],
+    worst: cached.worst || [],
+    timestamp: cached.timestamp ?? null,
+    source: cached.source ?? null,
+    sourceLabel: cached.sourceLabel ?? null,
+  };
 }
 
 export function setAtsLeaders(atsLeaders) {
@@ -29,7 +40,13 @@ export function setAtsLeaders(atsLeaders) {
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
   if (best.length > 0 || worst.length > 0) {
-    atsCache.set(ATS_KEY, { best, worst });
+    atsCache.set(ATS_KEY, {
+      best,
+      worst,
+      timestamp: Date.now(),
+      source: atsLeaders.source ?? null,
+      sourceLabel: atsLeaders.sourceLabel ?? null,
+    });
     atsUnavailableCache.set(ATS_UNAVAILABLE_KEY, null);
   }
 }
