@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
+import { fetchTeamBatch, fetchTeamPage } from '../api/team';
 import { mergeGamesWithOdds } from '../api/odds';
 import { getPinnedTeams } from '../utils/pinnedTeams';
 import { getOddsTier } from '../utils/teamSlug';
@@ -9,6 +10,7 @@ import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
+import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
@@ -18,6 +20,7 @@ import Top25Rankings from '../components/home/Top25Rankings';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
+import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import styles from './Home.module.css';
 
 const STATIC_WELCOME = "Welcome to Maximus Sports, your one stop shop for Men's College Basketball team news, bubble watch, odds analysis, and more.";
@@ -97,7 +100,10 @@ export default function Home() {
   const [slowLoading, setSlowLoading] = useState(true);
   const [rankMap, setRankMap] = useState({});
   const [top25, setTop25] = useState([]);
-  const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
+  const [atsLeaders, setAtsLeaders] = useState(() => {
+    const c = getAtsLeadersCacheMaybeStale();
+    return (c?.data?.best?.length || c?.data?.worst?.length) ? c.data : { best: [], worst: [] };
+  });
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
@@ -109,6 +115,7 @@ export default function Home() {
   const [showDataStatus, setShowDataStatus] = useState(false);
   const [dataStatus, setDataStatus] = useState(null);
   const [rateLimitMessage, setRateLimitMessage] = useState(null);
+  const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const streamBufferRef = useRef('');
@@ -144,6 +151,17 @@ export default function Home() {
         setNewsData((prev) => ({ ...prev, newsFeed: [], teamNews, pinnedTeamNewsMap }));
         setNewsSource('Multiple');
 
+        if (pinnedSlugs.length > 0) {
+          const scheduleBatch = typeof requestIdleCallback !== 'undefined'
+            ? (cb) => requestIdleCallback(cb, { timeout: 500 })
+            : (cb) => setTimeout(cb, 100);
+          scheduleBatch(() => {
+            fetchTeamBatch(pinnedSlugs)
+              .then(({ teams }) => setPinnedTeamDataBySlug(teams || {}))
+              .catch(() => {});
+          });
+        }
+
         fetchHomeSlow({ pinnedSlugs })
           .then((slowData) => {
             setSlowLoading(false);
@@ -162,7 +180,9 @@ export default function Home() {
             setRankMap(buildSlugToRankMap({ rankings: merged.rankings?.rankings ?? [] }, TEAMS));
             setTop25(merged.rankings?.rankings ?? []);
             setDataStatus(merged.dataStatus ?? null);
-            setAtsLeaders(merged.atsLeaders ?? { best: [], worst: [] });
+            const nextAts = merged.atsLeaders ?? { best: [], worst: [] };
+            setAtsLeaders(nextAts);
+            setAtsLeadersCache(nextAts);
             setOddsHistory(merged.oddsHistory ?? { games: [] });
             const items = merged.headlines ?? [];
             const newsFeed = items.map((item, i) => ({
@@ -206,6 +226,36 @@ export default function Home() {
     const id = setInterval(loadHomeBatch, SCORES_REFRESH_MS);
     return () => clearInterval(id);
   }, [loadHomeBatch]);
+
+  const STAGGER_MS = 2500;
+  useEffect(() => {
+    if (pinnedSlugs.length === 0) return;
+    const timeouts = [];
+    pinnedSlugs.slice(0, 8).forEach((slug, i) => {
+      const t = setTimeout(() => {
+        fetchTeamPage(slug)
+          .then((data) => {
+            const ats = data.schedule && data.oddsHistory && data.team
+              ? computeAtsFromScheduleAndHistory(data.schedule, data.oddsHistory, data.team.name)
+              : { season: null, last30: null, last7: null };
+            setPinnedTeamDataBySlug((prev) => ({
+              ...prev,
+              [slug]: {
+                team: data.team,
+                schedule: data.schedule,
+                oddsHistory: data.oddsHistory,
+                teamNews: data.teamNews,
+                rank: data.rank,
+                ats,
+              },
+            }));
+          })
+          .catch(() => {});
+      }, i * STAGGER_MS);
+      timeouts.push(t);
+    });
+    return () => timeouts.forEach(clearTimeout);
+  }, [pinnedSlugs.join(',')]);
 
   const STREAM_FLUSH_MS = 80;
 
@@ -427,6 +477,7 @@ export default function Home() {
         rankMap={rankMap}
         games={scores.games}
         teamNewsBySlug={newsData.pinnedTeamNewsMap}
+        pinnedTeamDataBySlug={pinnedTeamDataBySlug}
       />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>

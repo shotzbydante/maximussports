@@ -24,7 +24,10 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Home Fast:** `/api/home/fast.js` — GET; returns only scoresToday, scoresYesterday, rankingsTop25, atsLeaders (empty), pinnedTeamsMeta, dataStatus. Cache 2 min (key: `home:fast` or `home:fast:slug1,slug2`). No odds, no news, no ATS.
 - **Home Slow:** `/api/home/slow.js` — GET; returns headlines, odds, oddsHistory, atsLeaders (computed), pinnedTeamNews, upcomingGamesWithSpreads, slowDataStatus. Cache 20 min (key: `home:slow` or `home:slow:slug1,slug2`).
 - **Home page UX:** Client fetches `/api/home/fast` immediately for first paint (scores, rankings, pinned meta); fetches `/api/home/slow` in background and merges with `mergeHomeData(fast, slow)`. Skeletons for ATS/news until slow loads.
-- **Team API:** `/api/team/[slug].js` — GET; returns team, schedule, oddsHistory, teamNews, rank, teamId, tier. Uses _sources only. CDN 120s.
+- **Team API:** `/api/team/[slug].js` — GET; returns team, schedule, oddsHistory, teamNews, rank, teamId, tier. Team page only; no prefetch for other teams. CDN 120s.
+- **Team Batch:** `/api/team/batch.js` — GET `?slugs=slug1,slug2,...` (max 5). Returns schedule + ATS + headlines per slug. Cache 7 min. Used for pinned teams only after Home fast renders. Client chunks into groups of 5, coalesces by key, 5 min client cache (show cached immediately, refresh in background if stale).
+- **Pinned teams:** After `/api/home/fast` renders, Home calls `fetchTeamBatch(pinnedSlugs)` (requestIdleCallback); staggered refresh: one pinned team every 2.5s via `fetchTeamPage(slug)` to smooth updates.
+- **ATS leaderboard:** Client cache (5 min) via `atsLeadersCache.js`; show cached first, skeleton if no cache, update in background when slow returns.
 - **Summary API:** `/api/summary/index.js` — POST only; payload hash cache 30 min; rate limit 1/min per IP; SSE streaming; no internal API calls.
 - **Team Summary API:** `/api/summary/team.js` — POST body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. Payload-only. `?stream=true` → SSE; `?force=true` bypasses cache. Cache 30 min per team.
 - **Health:** `/api/health.js` — GET; returns `{ ok: true, timestamp }` (optional).
@@ -62,12 +65,14 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/home/index.js` | GET (full): scores, odds, rankings, atsLeaders, headlines, dataStatus; used by Games, DailySchedule, Insights, NewsFeed |
 | `api/home/fast.js` | GET: scoresToday, scoresYesterday, rankingsTop25, pinnedTeamsMeta, dataStatus; cache 2 min |
 | `api/home/slow.js` | GET: headlines, odds, oddsHistory, atsLeaders, pinnedTeamNews, upcomingGamesWithSpreads; cache 20 min |
-| `api/team/[slug].js` | GET: team, schedule, oddsHistory, teamNews, rank, teamId, tier |
+| `api/team/[slug].js` | GET: team, schedule, oddsHistory, teamNews, rank, teamId, tier (Team page only) |
+| `api/team/batch.js` | GET: ?slugs=slug1,slug2 (max 5). Schedule + ATS + headlines per slug; cache 7 min |
 | `api/summary/index.js` | POST: summary with payload; hash cache; rate limit; SSE streaming |
 | `api/summary/team.js` | POST: team insight; `?stream=true` SSE, `?force=true` bypass cache; 30-min cache |
 | `api/health.js` | GET: `{ ok: true, timestamp }` (optional) |
 | `src/api/home.js` | Client: `fetchHomeFast()`, `fetchHomeSlow()`, `mergeHomeData(fast, slow)` for Home; `fetchHome()` for Games/DailySchedule/Insights/NewsFeed |
-| `src/api/team.js` | Client: `fetchTeamPage(slug)` — single source for Team page + PinnedTeamsSection records |
+| `src/api/team.js` | Client: `fetchTeamPage(slug)` (Team page); `fetchTeamBatch(slugs)` chunked by 5, coalesced, 5 min client cache |
+| `src/utils/atsLeadersCache.js` | In-memory ATS leaderboard cache (5 min); show cached first, update in background |
 | `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryStream`, `fetchTeamSummary` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
 | `vercel.json` | Build config, SPA rewrites |
@@ -100,7 +105,8 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/home` | GET | Full batch (legacy): scores, odds, rankings, atsLeaders, headlines, dataStatus. Optional `?dates=`, `?pinnedSlugs=`. Used by Games, DailySchedule, Insights, NewsFeed. CDN 60s. |
 | `/api/home/fast` | GET | Fast path: scoresToday, scoresYesterday, rankingsTop25, pinnedTeamsMeta, dataStatus. Cache 2 min. No odds/news/ATS. Home page fetches this first. |
 | `/api/home/slow` | GET | Slow path: headlines, odds, oddsHistory, atsLeaders, pinnedTeamNews, upcomingGamesWithSpreads. Cache 20 min. Home page fetches in background and merges. |
-| `/api/team/:slug` | GET | Batch: team, schedule, oddsHistory, teamNews, rank, teamId, tier. Team page and PinnedTeamsSection (records/ATS) use this only. CDN 120s. |
+| `/api/team/:slug` | GET | Team page only: team, schedule, oddsHistory, teamNews, rank, teamId, tier. No prefetch for other teams. CDN 120s. |
+| `/api/team/batch` | GET | `?slugs=slug1,slug2,...` (max 5). Schedule + ATS + headlines per slug. Pinned teams only, after Home fast. Cache 7 min. |
 | `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. `?stream=true` (required), `?force=true` bypass cache. SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
 | `/api/summary/team` | POST | Team page insight. Body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. `?stream=true` → SSE; `?force=true` bypasses cache. Payload-only. Cache 30 min per team. Pinned cards use same endpoint (no stream). |
 | `/api/health` | GET | Optional. Returns `{ ok: true, timestamp }`. No cache. |
@@ -141,6 +147,17 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 23, 2026)
+
+**“Needed now” team data + batch + cache:**
+- **Home** — Only `/api/home/fast` and `/api/home/slow`; no prefetch of all teams. Team data only for pinned teams after initial render.
+- **/api/team/batch** — GET `?slugs=slug1,slug2,...` (max 5). Returns schedule, ATS, headlines per slug. Cache 7 min. Client: chunk slugs into 5, coalesce by key (`slugs.join(',')`), in-memory cache 5 min (return cached immediately, background refresh if stale). After fast renders, Home calls `fetchTeamBatch(pinnedSlugs)` (requestIdleCallback).
+- **Staggered refresh** — One pinned team refreshed every 2.5s via `fetchTeamPage(slug)`; updates `pinnedTeamDataBySlug` so UI stays smooth.
+- **PinnedTeamsSection** — Uses `pinnedTeamDataBySlug` from Home (batch + staggered); no per-slug fetch. Derives teamRecords and teamNews from batch data.
+- **ATS leaderboard** — `atsLeadersCache.js`: show cached (5 min) first; if no cache show skeleton; when slow returns update cache and UI.
+- **Team page** — Only `/api/team/:slug`; no other team data fetched unless user visits that team.
+- **UI priority** — Summary + scores + rankings first; pinned team details and ATS after.
+
+---
 
 **Home fast + slow (stale-while-revalidate):**
 - **/api/home/fast** — Returns only scoresToday, scoresYesterday, rankingsTop25, atsLeaders (empty), pinnedTeamsMeta, dataStatus. Cache 2 min; key `home:fast` or `home:fast:slug1,slug2`.

@@ -12,13 +12,8 @@ import {
   addPinnedTeam,
   removePinnedTeam,
 } from '../../utils/pinnedTeams';
-import { fetchTeamPage } from '../../api/team';
-import { matchOddsHistoryToEvent } from '../../api/odds';
-import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getTeamSlug } from '../../utils/teamSlug';
-import { computeATSForEvent, aggregateATS } from '../../utils/ats';
-import { getAtsCache, setAtsCache } from '../../utils/atsCache';
-import { SEASON_START } from '../../utils/dateChunks';
+import { setAtsCache } from '../../utils/atsCache';
 import { fetchTeamSummary } from '../../api/summary';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
@@ -46,7 +41,20 @@ function formatTimePST(iso) {
   }
 }
 
-export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {} }) {
+function recordFromBatchData(batchSlot) {
+  if (!batchSlot?.schedule?.events) return null;
+  const past = batchSlot.schedule.events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (past.length === 0) return null;
+  const seasonW = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
+  const seasonL = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
+  const last10 = past.slice(0, 10);
+  const l10W = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
+  const l10L = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
+  const ats = batchSlot.ats?.season?.total > 0 ? batchSlot.ats.season : null;
+  return { season: { w: seasonW, l: seasonL }, last10: { w: l10W, l: l10L }, ats };
+}
+
+export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {}, pinnedTeamDataBySlug = {} }) {
   const [pinned, setPinned] = useState(() => getPinnedTeams());
   const [rankMap, setRankMap] = useState(rankMapProp);
   const [scores, setScores] = useState({ games: Array.isArray(gamesProp) ? gamesProp : [], loading: false });
@@ -106,69 +114,32 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     }
   }, [teamNewsBySlugProp]);
 
-  // Load records (season, L10, ATS) via /api/team/[slug]
+  // Derive teamRecords and teamNews from batch data (from Home: /api/team/batch + staggered refresh)
   useEffect(() => {
     if (pinned.length === 0) {
       setTeamRecords({});
       return;
     }
     const slugs = pinned.slice(0, 8);
-    let cancelled = false;
-
-    Promise.all(
-      slugs.map(async (slug) => {
-        const team = getTeamBySlug(slug);
-        if (!team) return { slug, record: null };
-        try {
-          const data = await fetchTeamPage(slug);
-          const past = (data?.schedule?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
-          if (past.length === 0) return { slug, record: null };
-
-          const seasonW = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
-          const seasonL = past.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
-          const last10 = past.slice(0, 10);
-          const l10W = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) > Number(e.oppScore)).length;
-          const l10L = last10.filter((e) => (e.ourScore != null && e.oppScore != null) && Number(e.ourScore) < Number(e.oppScore)).length;
-
-          const oddsGames = data?.oddsHistory?.games ?? [];
-          let ats = null;
-          if (oddsGames.length > 0) {
-            const outcomes = past.map((ev) => {
-              const odds = matchOddsHistoryToEvent(ev, oddsGames, team.name);
-              return computeATSForEvent(ev, odds, team.name);
-            });
-            const agg = aggregateATS(outcomes);
-            if (agg.total > 0) {
-              ats = agg;
-              setAtsCache(slug, { season: agg, last30: null, last7: null });
-            }
-          }
-
-          return {
-            slug,
-            record: {
-              season: { w: seasonW, l: seasonL },
-              last10: { w: l10W, l: l10L },
-              ats,
-            },
-          };
-        } catch {
-          return { slug, record: null };
+    const records = {};
+    const news = {};
+    slugs.forEach((slug) => {
+      const slot = pinnedTeamDataBySlug[slug];
+      if (slot) {
+        const rec = recordFromBatchData(slot);
+        if (rec) {
+          records[slug] = rec;
+          if (rec.ats) setAtsCache(slug, { season: rec.ats, last30: null, last7: null });
         }
-      })
-    ).then((results) => {
-      if (cancelled) return;
-      const next = {};
-      results.forEach(({ slug, record }) => {
-        next[slug] = record;
-      });
-      setTeamRecords(next);
-    }).catch(() => {
-      if (!cancelled) setTeamRecords({});
+        const headlines = slot.teamNews || [];
+        news[slug] = Array.isArray(headlines) ? headlines.slice(0, 3) : [];
+      }
     });
-
-    return () => { cancelled = true; };
-  }, [pinned.join(',')]);
+    setTeamRecords(records);
+    if (Object.keys(news).length > 0) {
+      setTeamNews((prev) => ({ ...prev, ...news }));
+    }
+  }, [pinned.join(','), pinnedTeamDataBySlug]);
 
   // GPT summary per pinned team (from that card's headlines only); cache on server ~30 min
   useEffect(() => {
