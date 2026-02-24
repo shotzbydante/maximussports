@@ -13,7 +13,7 @@ import {
   removePinnedTeam,
 } from '../../utils/pinnedTeams';
 import { getTeamSlug } from '../../utils/teamSlug';
-import { setAtsCache } from '../../utils/atsCache';
+import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import { fetchTeamSummary } from '../../api/summary';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
