@@ -41,8 +41,11 @@ export async function computeAtsLeadersFromSources() {
   const oddsHistoryGames = oddsHistoryData?.games || [];
   const slugToId = teamIdsData?.slugToId || {};
   const rankings = rankingsData?.rankings || [];
-  if (rankings.length === 0 || oddsHistoryGames.length === 0) {
-    return { best: [], worst: [] };
+  if (rankings.length === 0) {
+    return { best: [], worst: [], unavailableReason: 'rankings empty' };
+  }
+  if (oddsHistoryGames.length === 0) {
+    return { best: [], worst: [], unavailableReason: 'odds history empty' };
   }
 
   const slugToIdMerged = { ...slugToId, ...buildSlugToIdFromRankings({ rankings }) };

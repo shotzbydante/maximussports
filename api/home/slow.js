@@ -56,7 +56,13 @@ export default async function handler(req, res) {
   const key = cacheKey(pinnedSlugs);
   const cached = homeSlowCache.get(key);
   if (cached) {
-    return res.status(200).json({ ...cached, _cached: true });
+    const atsLeadersCount = (cached.atsLeaders?.best?.length || 0) + (cached.atsLeaders?.worst?.length || 0);
+    return res.status(200).json({
+      ...cached,
+      _cached: true,
+      atsLeadersCount: cached.atsLeadersCount ?? atsLeadersCount,
+      atsCacheWrite: false,
+    });
   }
 
   try {
@@ -163,6 +169,8 @@ export default async function handler(req, res) {
     }
 
     setAtsLeaders(atsLeaders);
+    const atsLeadersCount = atsLeaders.best.length + atsLeaders.worst.length;
+    console.log('[api/home/slow] atsLeaders written to cache, count:', atsLeadersCount);
     setHeadlines(headlines);
 
     const pinnedTeamNews = {};
@@ -196,6 +204,8 @@ export default async function handler(req, res) {
       pinnedTeamNews,
       upcomingGamesWithSpreads,
       slowDataStatus,
+      atsLeadersCount,
+      atsCacheWrite: true,
     };
 
     homeSlowCache.set(key, payload);
@@ -216,6 +226,8 @@ export default async function handler(req, res) {
         atsLeadersCount: 0,
         dataStatusLine: 'Slow fetch failed.',
       },
+      atsLeadersCount: 0,
+      atsCacheWrite: false,
     });
   }
 }

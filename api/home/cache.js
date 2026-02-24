@@ -10,21 +10,36 @@ import { createCache } from '../_cache.js';
 
 const ATS_TTL_MS = 10 * 60 * 1000;  // 10 min
 const HEADLINES_TTL_MS = 5 * 60 * 1000;  // 5 min
+const ATS_UNAVAILABLE_TTL_MS = 2 * 60 * 1000;  // 2 min
 
 const atsCache = createCache(ATS_TTL_MS);
 const headlinesCache = createCache(HEADLINES_TTL_MS);
+const atsUnavailableCache = createCache(ATS_UNAVAILABLE_TTL_MS);
 
 const ATS_KEY = 'home:atsLeaders';
 const HEADLINES_KEY = 'home:headlines';
+const ATS_UNAVAILABLE_KEY = 'home:atsUnavailableReason';
 
 export function getAtsLeaders() {
   return atsCache.get(ATS_KEY) ?? { best: [], worst: [] };
 }
 
 export function setAtsLeaders(atsLeaders) {
-  if (atsLeaders && (atsLeaders.best?.length > 0 || atsLeaders.worst?.length > 0)) {
-    atsCache.set(ATS_KEY, { best: atsLeaders.best || [], worst: atsLeaders.worst || [] });
+  if (!atsLeaders) return;
+  const best = atsLeaders.best || [];
+  const worst = atsLeaders.worst || [];
+  if (best.length > 0 || worst.length > 0) {
+    atsCache.set(ATS_KEY, { best, worst });
+    atsUnavailableCache.set(ATS_UNAVAILABLE_KEY, null);
   }
+}
+
+export function getAtsUnavailableReason() {
+  return atsUnavailableCache.get(ATS_UNAVAILABLE_KEY) ?? null;
+}
+
+export function setAtsUnavailableReason(reason) {
+  if (reason) atsUnavailableCache.set(ATS_UNAVAILABLE_KEY, reason);
 }
 
 export function getHeadlines() {

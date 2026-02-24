@@ -9,21 +9,42 @@
 import { createCache } from '../_cache.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getTeamBySlug } from '../../src/data/teams.js';
-import { getAtsLeaders, setAtsLeaders, getHeadlines, setHeadlines } from './cache.js';
+import { getAtsLeaders, setAtsLeaders, getHeadlines, setHeadlines, getAtsUnavailableReason, setAtsUnavailableReason } from './cache.js';
 import { computeAtsLeadersFromSources } from './atsLeaders.js';
 
 const CACHE_MS = 2 * 60 * 1000; // 2 min
 const homeFastCache = createCache(CACHE_MS);
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
+let inFlightAtsWarm = false;
+
 function warmAtsCache() {
   if (isDev) console.log('[api/home/fast] ATS warmer start');
   computeAtsLeadersFromSources()
-    .then((ats) => {
+    .then((result) => {
+      const { unavailableReason, ...ats } = result;
       setAtsLeaders(ats);
-      if (isDev) console.log('[api/home/fast] ATS warmer end', (ats?.best?.length || 0) + (ats?.worst?.length || 0), 'leaders');
+      if (unavailableReason) setAtsUnavailableReason(unavailableReason);
+      if (isDev) console.log('[api/home/fast] ATS warmer end', (ats?.best?.length || 0) + (ats?.worst?.length || 0), 'leaders', unavailableReason ? `(${unavailableReason})` : '');
     })
     .catch((err) => console.error('[api/home/fast] ATS warmer error:', err?.message));
+}
+
+function runFallbackAtsWarm() {
+  if (isDev) console.log('[api/home/fast] ATS fallback job start');
+  computeAtsLeadersFromSources()
+    .then((result) => {
+      const { unavailableReason, ...ats } = result;
+      setAtsLeaders(ats);
+      if (unavailableReason) setAtsUnavailableReason(unavailableReason);
+      if (isDev) console.log('[api/home/fast] ATS fallback end', (ats?.best?.length || 0) + (ats?.worst?.length || 0), 'leaders', unavailableReason || '');
+    })
+    .catch((err) => {
+      console.error('[api/home/fast] ATS fallback error:', err?.message);
+    })
+    .finally(() => {
+      inFlightAtsWarm = false;
+    });
 }
 
 function warmHeadlinesCache() {
@@ -40,6 +61,11 @@ function warmHeadlinesCache() {
 function fireWarmers(atsEmpty, headlinesEmpty) {
   if (atsEmpty) {
     setTimeout(() => { void warmAtsCache(); }, 0);
+    setTimeout(() => {
+      if (inFlightAtsWarm) return;
+      inFlightAtsWarm = true;
+      runFallbackAtsWarm();
+    }, 2000);
   }
   if (headlinesEmpty) {
     setTimeout(() => { void warmHeadlinesCache(); }, 0);
@@ -74,9 +100,11 @@ export default async function handler(req, res) {
   const key = cacheKey(pinnedSlugs);
   const cached = homeFastCache.get(key);
   if (cached) {
+    const atsCount = (cached.atsLeaders?.best?.length || 0) + (cached.atsLeaders?.worst?.length || 0);
     return res.status(200).json({
       ...cached,
       _cached: true,
+      atsLeadersCount: cached.atsLeadersCount ?? atsCount,
       atsWarming: cached.atsWarming ?? false,
       headlinesWarming: cached.headlinesWarming ?? false,
     });
@@ -115,11 +143,13 @@ export default async function handler(req, res) {
     let headlines = getHeadlines();
     const atsEmpty = !atsLeaders.best?.length && !atsLeaders.worst?.length;
     const headlinesEmpty = !Array.isArray(headlines) || headlines.length === 0;
+    const atsUnavailableReason = atsEmpty ? getAtsUnavailableReason() : null;
     if (atsEmpty) atsLeaders = { best: [], worst: [] };
     if (headlinesEmpty) headlines = [];
     fireWarmers(atsEmpty, headlinesEmpty);
 
     const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
+    const atsWarming = atsEmpty && !atsUnavailableReason;
     const dataStatus = {
       scoresCount: scoresToday.length,
       scoresYesterdayCount: scoresYesterday.length,
@@ -143,9 +173,11 @@ export default async function handler(req, res) {
       headlines,
       pinnedTeamsMeta,
       dataStatus,
-      atsWarming: atsEmpty,
+      atsLeadersCount: atsCount,
+      atsWarming,
       headlinesWarming: headlinesEmpty,
     };
+    if (atsUnavailableReason) payload.atsUnavailableReason = atsUnavailableReason;
 
     homeFastCache.set(key, payload);
     res.status(200).json(payload);

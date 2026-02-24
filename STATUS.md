@@ -153,6 +153,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 **“Needed now” team data + batch + cache:**
 - **Home** — Only `/api/home/fast` and `/api/home/slow`; no prefetch of all teams. Team data only for pinned teams after initial render.
 
+**ATS leaders cache reliability:**
+- **/api/home/fast** — When ATS cache empty: (1) kick off warmAtsCache immediately, (2) one-time fallback job after 2s that recomputes ATS and writes to cache (even if warmer failed). Guard `inFlightAtsWarm` prevents duplicate fallback jobs. Response includes `atsLeadersCount`, `atsWarming`; when ATS cannot be computed (e.g. odds history empty), `atsWarming: false` and `atsUnavailableReason` (e.g. "odds history empty").
+- **/api/home/slow** — Always calls `setAtsLeaders(atsLeaders)` after computing; logs count. Response includes `atsLeadersCount` and `atsCacheWrite: true` (false when cached). Cached response includes `atsLeadersCount` and `atsCacheWrite: false`.
+- **cache.js** — `getAtsUnavailableReason` / `setAtsUnavailableReason` (short TTL) so fast can return reason when fallback determined ATS unavailable.
+- **computeAtsLeadersFromSources** — Returns `{ best, worst, unavailableReason? }` when rankings or odds history empty.
+
 **Cache warming (warm-up, flags, cron):**
 - **/api/home/fast** — Warmers fire immediately when cache empty: `setTimeout(() => void warm(), 0)`. Dev-only logs for warm-up start/end. Response includes `atsWarming` and `headlinesWarming` when ATS/headlines empty. Warmers write to same `api/home/cache.js` instance fast reads from.
 - **Vercel cron** — `vercel.json` cron hits `/api/home/slow` every 5 min (`*/5 * * * *`) to keep caches warm.
