@@ -39,6 +39,11 @@ function cacheKey(pinnedSlugs) {
   return `home:slow${slugPart ? `:${slugPart}` : ''}`;
 }
 
+function getOddsKeyDebug() {
+  const key = process.env.ODDS_API_KEY || '';
+  return { hasOddsKey: !!process.env.ODDS_API_KEY, oddsKeyLength: key.length };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -62,6 +67,7 @@ export default async function handler(req, res) {
       _cached: true,
       atsLeadersCount: cached.atsLeadersCount ?? atsLeadersCount,
       atsCacheWrite: false,
+      ...getOddsKeyDebug(),
     });
   }
 
@@ -84,6 +90,7 @@ export default async function handler(req, res) {
       slowDataStatus,
       atsLeadersCount: 0,
       atsCacheWrite: false,
+      ...getOddsKeyDebug(),
     });
   }
 
@@ -228,6 +235,7 @@ export default async function handler(req, res) {
       slowDataStatus,
       atsLeadersCount,
       atsCacheWrite: true,
+      ...getOddsKeyDebug(),
     };
 
     homeSlowCache.set(key, payload);
@@ -250,6 +258,7 @@ export default async function handler(req, res) {
       },
       atsLeadersCount: 0,
       atsCacheWrite: false,
+      ...getOddsKeyDebug(),
     });
   }
 }
