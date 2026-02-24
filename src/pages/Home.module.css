@@ -169,6 +169,12 @@
   cursor: not-allowed;
 }
 
+.summaryUpdatingBadge {
+  font-size: 0.7rem;
+  color: var(--color-primary);
+  opacity: 0.9;
+}
+
 .summaryActions {
   display: flex;
   align-items: center;

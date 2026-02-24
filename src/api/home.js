@@ -60,6 +60,7 @@ function mergeDataStatus(fastStatus, slowStatus) {
     oddsCount: s.oddsCount ?? f.oddsCount ?? 0,
     oddsHistoryCount: s.oddsHistoryCount ?? f.oddsHistoryCount ?? 0,
     headlinesCount: s.headlinesCount ?? f.headlinesCount ?? 0,
+    atsLeadersCount: s.atsLeadersCount ?? f.atsLeadersCount ?? 0,
     dataStatusLine: [f.dataStatusLine, s.dataStatusLine].filter(Boolean).join(' ') || 'Unknown',
   };
 }

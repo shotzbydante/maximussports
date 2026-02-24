@@ -16,6 +16,7 @@ import {
   fetchTeamNewsSource,
   fetchScoresSource,
 } from '../_sources.js';
+import { setAtsLeaders, setHeadlines } from './cache.js';
 import { SEASON_START } from '../../src/utils/dateChunks.js';
 import { getTeamBySlug, TEAMS } from '../../src/data/teams.js';
 import { getTeamSlug } from '../../src/utils/teamSlug.js';
@@ -160,6 +161,9 @@ export default async function handler(req, res) {
         worst: sorted.slice(-10).reverse(),
       };
     }
+
+    setAtsLeaders(atsLeaders);
+    setHeadlines(headlines);
 
     const pinnedTeamNews = {};
     if (pinnedNewsRaw && pinnedSlugs.length > 0) {

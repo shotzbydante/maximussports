@@ -129,16 +129,20 @@ export default async function handler(req, res) {
   const cached = cacheByHash[hash];
   const rateLimited = lastRequestByIp[ip] != null && (now - lastRequestByIp[ip]) < RATE_LIMIT_MS;
 
+  const atsLeadersCount = atsBestCount + atsWorstCount;
+  const dataStatusPayload = {
+    scoresCount: recentCount,
+    rankingsCount: top25Count,
+    oddsCount: upcomingCount,
+    oddsHistoryCount: 0,
+    headlinesCount,
+    atsLeadersCount,
+    dataStatusLine: dataStatusPrompt,
+  };
+
   if (cached && Date.now() < cached.expires && !force) {
     send(res, {
-      dataStatus: {
-        scoresCount: recentCount,
-        rankingsCount: top25Count,
-        oddsCount: upcomingCount,
-        oddsHistoryCount: 0,
-        headlinesCount,
-        dataStatusLine: dataStatusPrompt,
-      },
+      dataStatus: dataStatusPayload,
     });
     if (cached.value) {
       send(res, { text: cached.value, done: true, updatedAt: cached.updatedAt });
@@ -152,14 +156,7 @@ export default async function handler(req, res) {
     const cachedForHash = cacheByHash[hash];
     if (cachedForHash?.value) {
       send(res, {
-        dataStatus: {
-          scoresCount: recentCount,
-          rankingsCount: top25Count,
-          oddsCount: upcomingCount,
-          oddsHistoryCount: 0,
-          headlinesCount,
-          dataStatusLine: dataStatusPrompt,
-        },
+        dataStatus: dataStatusPayload,
       });
       send(res, { text: cachedForHash.value, done: true, updatedAt: cachedForHash.updatedAt, rateLimitMessage: 'Please wait a minute before refreshing again.' });
       return res.end();
@@ -169,6 +166,9 @@ export default async function handler(req, res) {
   }
 
   lastRequestByIp[ip] = now;
+
+  const hasAtsOrHeadlines = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0) > 0 || headlines.length > 0;
+  const useFallbackPrompt = !hasAtsOrHeadlines;
 
   const top25List = top25.map((r) => (r.rank != null && r.teamName != null ? `#${r.rank} ${r.teamName}` : r.teamName || r.name || '')).filter(Boolean).join(', ') || 'None';
   const recentLines = recentGames.map((g) => {
@@ -196,7 +196,14 @@ export default async function handler(req, res) {
     ? headlines.map((h) => `- ${h.title || ''} (${h.source || 'News'})`).join('\n')
     : 'No headlines available.';
 
-  const systemPrompt = `You are a friendly sports host for Maximus Sports. Write a conversational daily briefing. Use short paragraphs, not long bullet lists.
+  const systemPrompt = useFallbackPrompt
+    ? `You are a friendly sports host for Maximus Sports. Write a short daily briefing.
+
+RULES:
+1. Use ONLY the data provided below. ATS and news/headlines are NOT available yet — say so explicitly (e.g. "ATS and news are not available yet").
+2. Still cover: (a) Today's games and recent scores, (b) Top 25 context from the rankings and any games involving ranked teams.
+3. Keep it to 2–3 short paragraphs. Narrative tone.`
+    : `You are a friendly sports host for Maximus Sports. Write a conversational daily briefing. Use short paragraphs, not long bullet lists.
 
 RULES:
 1. Use ONLY the data provided below. If an array is empty, explicitly state that part is unavailable.
@@ -204,7 +211,22 @@ RULES:
 3. Every game you mention should include spread and ATS result where that data is in the payload.
 4. Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
 
-  const userPrompt = `Today's date (PST): ${getPstDate()}
+  const userPrompt = useFallbackPrompt
+    ? `Today's date (PST): ${getPstDate()}
+
+${dataStatusPrompt}
+
+--- Top 25 (rankings) ---
+${top25List}
+
+--- Recent games (final scores) ---
+${recentText}
+
+--- Upcoming games ---
+${upcomingText}
+
+ATS and headlines data are not in the payload yet. Write a brief recap using only scores and Top 25 above. Explicitly say that ATS and news are not available yet. Use 2–3 short paragraphs.`
+    : `Today's date (PST): ${getPstDate()}
 
 ${dataStatusPrompt}
 
@@ -229,14 +251,7 @@ ${headlinesText}
 Write a conversational daily recap using only the data above. If any section is empty or "None", say that part is unavailable. Use 2–4 short paragraphs.`;
 
   send(res, {
-    dataStatus: {
-      scoresCount: recentCount,
-      rankingsCount: top25Count,
-      oddsCount: upcomingCount,
-      oddsHistoryCount: 0,
-      headlinesCount,
-      dataStatusLine: dataStatusPrompt,
-    },
+    dataStatus: dataStatusPayload,
   });
 
   try {

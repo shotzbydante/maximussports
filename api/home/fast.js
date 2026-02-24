@@ -1,16 +1,31 @@
 /**
  * Fast Home data. GET /api/home/fast
  * Query: ?pinnedSlugs=slug1,slug2 (optional).
- * Returns: scoresToday, scoresYesterday, rankingsTop25, atsLeaders (empty), pinnedTeamsMeta, dataStatus.
- * Cache: 2 min. No odds, no news, no ATS computation.
+ * Returns: scoresToday, scoresYesterday, rankingsTop25, atsLeaders, headlines, pinnedTeamsMeta, dataStatus.
+ * ATS + headlines from shared cache; if cache empty return empty and trigger non-blocking refresh.
+ * Cache: 2 min.
  */
 
 import { createCache } from '../_cache.js';
-import { fetchScoresSource, fetchRankingsSource } from '../_sources.js';
+import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getTeamBySlug } from '../../src/data/teams.js';
+import { getAtsLeaders, setAtsLeaders, getHeadlines, setHeadlines } from './cache.js';
+import { computeAtsLeadersFromSources } from './atsLeaders.js';
 
 const CACHE_MS = 2 * 60 * 1000; // 2 min
 const homeFastCache = createCache(CACHE_MS);
+
+function warmAtsCache() {
+  computeAtsLeadersFromSources()
+    .then((ats) => setAtsLeaders(ats))
+    .catch((err) => console.error('[api/home/fast] ATS warmer error:', err?.message));
+}
+
+function warmHeadlinesCache() {
+  fetchNewsAggregateSource({ includeNational: true })
+    .then((data) => setHeadlines(data?.items || []))
+    .catch((err) => console.error('[api/home/fast] headlines warmer error:', err?.message));
+}
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -71,13 +86,30 @@ export default async function handler(req, res) {
       };
     });
 
+    // ATS + headlines from shared cache; warm in background if missing
+    let atsLeaders = getAtsLeaders();
+    let headlines = getHeadlines();
+    if ((!atsLeaders.best?.length && !atsLeaders.worst?.length)) {
+      atsLeaders = { best: [], worst: [] };
+      setImmediate(warmAtsCache);
+    }
+    if (!Array.isArray(headlines) || headlines.length === 0) {
+      headlines = [];
+      setImmediate(warmHeadlinesCache);
+    }
+
+    const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
     const dataStatus = {
       scoresCount: scoresToday.length,
       scoresYesterdayCount: scoresYesterday.length,
       rankingsCount: rankingsTop25.length,
+      atsLeadersCount: atsCount,
+      headlinesCount: headlines.length,
       dataStatusLine: [
         `Scores: ${scoresToday.length > 0 ? `OK (${scoresToday.length})` : 'MISSING'}`,
         `Top 25: ${rankingsTop25.length > 0 ? `OK (${rankingsTop25.length})` : 'MISSING'}`,
+        `ATS: ${atsCount > 0 ? 'OK' : 'MISSING'}`,
+        `Headlines: ${headlines.length > 0 ? `OK (${headlines.length})` : 'MISSING'}`,
       ].join('. '),
     };
 
@@ -86,7 +118,8 @@ export default async function handler(req, res) {
       scoresYesterday,
       rankingsTop25,
       rankings: { rankings: rankingsTop25 },
-      atsLeaders: { best: [], worst: [] },
+      atsLeaders,
+      headlines,
       pinnedTeamsMeta,
       dataStatus,
     };
@@ -95,17 +128,22 @@ export default async function handler(req, res) {
     res.status(200).json(payload);
   } catch (err) {
     console.error('[api/home/fast] error:', err.message);
+    setImmediate(warmAtsCache);
+    setImmediate(warmHeadlinesCache);
     res.status(200).json({
       scoresToday: [],
       scoresYesterday: [],
       rankingsTop25: [],
       rankings: { rankings: [] },
       atsLeaders: { best: [], worst: [] },
+      headlines: [],
       pinnedTeamsMeta: [],
       dataStatus: {
         scoresCount: 0,
         scoresYesterdayCount: 0,
         rankingsCount: 0,
+        atsLeadersCount: 0,
+        headlinesCount: 0,
         dataStatusLine: 'Fast fetch failed.',
       },
     });

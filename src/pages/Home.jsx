@@ -116,10 +116,15 @@ export default function Home() {
   const [dataStatus, setDataStatus] = useState(null);
   const [rateLimitMessage, setRateLimitMessage] = useState(null);
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
+  const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const streamBufferRef = useRef('');
   const streamIntervalRef = useRef(null);
+  const summaryGeneratedWithoutAtsNewsRef = useRef(false);
+  const didOneTimeRetryRef = useRef(false);
+  const lastSummaryDataStatusRef = useRef(null);
+  const fetchSummaryStreamRef = useRef(() => {});
 
   // Fast path first, then slow in background; merge when slow arrives.
   const loadHomeBatch = useCallback(() => {
@@ -148,7 +153,19 @@ export default function Home() {
           team: name,
           headlines: 0,
         }));
-        setNewsData((prev) => ({ ...prev, newsFeed: [], teamNews, pinnedTeamNewsMap }));
+        const fastHeadlines = fastData.headlines ?? [];
+        const newsFeedFromFast = Array.isArray(fastHeadlines)
+          ? fastHeadlines.map((item, i) => ({
+              id: item.link || item.id || `fast-${i}`,
+              title: item.title,
+              source: item.source || 'News',
+              time: formatRelativeTime(item.pubDate),
+              link: item.link,
+              excerpt: '',
+              sentiment: 'neutral',
+            }))
+          : [];
+        setNewsData((prev) => ({ ...prev, newsFeed: newsFeedFromFast, teamNews, pinnedTeamNewsMap }));
         setNewsSource('Multiple');
 
         if (pinnedSlugs.length > 0) {
@@ -201,6 +218,15 @@ export default function Home() {
               headlines: (headlines || []).length,
             }));
             setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
+            if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
+              const ats = merged.dataStatus?.atsLeadersCount ?? 0;
+              const head = merged.dataStatus?.headlinesCount ?? 0;
+              if (ats > 0 || head > 0) {
+                didOneTimeRetryRef.current = true;
+                setSummaryUpdatingBadge(true);
+                fetchSummaryStreamRef.current?.(true);
+              }
+            }
           })
           .catch(() => {
             setSlowLoading(false);
@@ -308,6 +334,7 @@ export default function Home() {
           return;
         }
         if (data.dataStatus) {
+          lastSummaryDataStatusRef.current = data.dataStatus;
           setDataStatus(data.dataStatus);
         }
         if (data.text) {
@@ -326,7 +353,14 @@ export default function Home() {
           }
           flushStreamBuffer();
           setSummaryStreaming(false);
+          setSummaryUpdatingBadge(false);
           setRateLimitMessage(data.rateLimitMessage || null);
+          const status = lastSummaryDataStatusRef.current || data.dataStatus;
+          const atsOk = (status?.atsLeadersCount ?? 0) > 0;
+          const headlinesOk = (status?.headlinesCount ?? 0) > 0;
+          if (!atsOk && !headlinesOk) {
+            summaryGeneratedWithoutAtsNewsRef.current = true;
+          }
         }
       },
     }).catch(() => {
@@ -338,6 +372,10 @@ export default function Home() {
       setSummaryStreaming(false);
     });
   }, [buildPayload, flushStreamBuffer]);
+
+  useEffect(() => {
+    fetchSummaryStreamRef.current = fetchSummaryStream;
+  }, [fetchSummaryStream]);
 
   const hasRequestedInitialRef = useRef(false);
   useEffect(() => {
@@ -360,16 +398,17 @@ export default function Home() {
   const dataStatusForBadges = useMemo(() => {
     if (dataStatus) return dataStatus;
     const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
-    const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
     const headlines = newsData.newsFeed || [];
+    const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
     return {
       scoresCount: recentGames.length,
       rankingsCount: top25.length,
-      oddsCount: upcomingGames.length,
+      oddsCount: 0,
       oddsHistoryCount: 0,
       headlinesCount: headlines.length,
+      atsLeadersCount: atsCount,
     };
-  }, [dataStatus, scores.games, top25.length, newsData.newsFeed]);
+  }, [dataStatus, scores.games, top25.length, newsData.newsFeed, atsLeaders.best, atsLeaders.worst]);
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
@@ -388,6 +427,12 @@ export default function Home() {
   };
   const getNewsStatus = () => {
     const n = dataStatusForBadges.headlinesCount ?? 0;
+    if (n === 0) return 'missing';
+    if (n < 3) return 'partial';
+    return 'ok';
+  };
+  const getAtsStatus = () => {
+    const n = dataStatusForBadges.atsLeadersCount ?? 0;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
     return 'ok';
@@ -446,6 +491,11 @@ export default function Home() {
             >
               {summaryStreaming ? 'Generating…' : 'Refresh'}
             </button>
+            {summaryUpdatingBadge && (
+              <span className={styles.summaryUpdatingBadge} aria-live="polite">
+                Updating summary…
+              </span>
+            )}
             <label className={styles.dataStatusToggle}>
               <input
                 type="checkbox"
@@ -463,6 +513,9 @@ export default function Home() {
               </span>
               <span className={styles[`badge${getOddsStatus().charAt(0).toUpperCase() + getOddsStatus().slice(1)}`]}>
                 Odds {statusLabel(getOddsStatus())}
+              </span>
+              <span className={styles[`badge${getAtsStatus().charAt(0).toUpperCase() + getAtsStatus().slice(1)}`]}>
+                ATS {statusLabel(getAtsStatus())}
               </span>
               <span className={styles[`badge${getNewsStatus().charAt(0).toUpperCase() + getNewsStatus().slice(1)}`]}>
                 News {statusLabel(getNewsStatus())}
