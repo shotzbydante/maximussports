@@ -164,6 +164,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Slow uses shared ATS** — `/api/home/slow` no longer inlines ATS logic; calls `computeAtsLeadersFromSources()` and writes result to cache; response includes `atsLeadersSourceLabel`.
 - **UI** — ATS leaderboard shows "Warming ATS cache…" when cache empty and warming; when fallback source is used, shows subtitle "Top 25 / Locks + Should Be In". `mergeHomeData()` passes `atsLeadersSourceLabel` from fast/slow.
 
+**Home ATS leaderboard render fix:**
+- **atsLoading** — Always cleared in a `finally` block after `fetchHome()` so the UI can render (loading state never stuck).
+- **Fallback** — If `fetchHome()` returns empty atsLeaders, Home pulls from client cache (`getAtsLeadersCacheMaybeStale`); if still empty, ATSLeaderboard shows "No ATS data available" instead of a blank box.
+- **Optional slow** — When `fetchHome()` returns empty atsLeaders, a background `fetchHomeSlow()` runs and updates atsLeaders when slow returns data.
+- **ATSLeaderboard** — `loading` = (any loading flag) and no data; when there is data (even partial), the grid renders. Empty state message when not loading and no data.
+- **Dev** — `console.log('home atsLeaders', data?.atsLeaders)` in development after `fetchHome()`.
+
 ---
 
 ## Previous Changes (Feb 23, 2026)

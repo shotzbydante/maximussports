@@ -20,7 +20,8 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
   const [period, setPeriod] = useState('season');
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
-  const loading = (slowLoading || atsWarming || atsLoading) && best.length === 0 && worst.length === 0;
+  const hasData = best.length > 0 || worst.length > 0;
+  const loading = (slowLoading || atsWarming || atsLoading) && !hasData;
   const error = null;
   const isFallback = atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league';
 
@@ -56,7 +57,8 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
       <div className={styles.content}>
         {loading && <div className={styles.loading}>Warming ATS cache…</div>}
         {error && <div className={styles.error}>{error}</div>}
-        {!loading && !error && (
+        {!loading && !error && !hasData && <div className={styles.loading}>No ATS data available</div>}
+        {!loading && !error && hasData && (
           <div className={styles.grid}>
             <div className={styles.col}>
               <span className={styles.colLabel}>Top 10 (cover %)</span>

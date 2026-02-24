@@ -10,7 +10,7 @@ import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
-import { setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
@@ -100,7 +100,10 @@ export default function Home() {
   const [slowLoading, setSlowLoading] = useState(true);
   const [rankMap, setRankMap] = useState({});
   const [top25, setTop25] = useState([]);
-  const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
+  const [atsLeaders, setAtsLeaders] = useState(() => {
+    const c = getAtsLeadersCacheMaybeStale();
+    return (c?.data?.best?.length || c?.data?.worst?.length) ? c.data : { best: [], worst: [] };
+  });
   const [atsLoading, setAtsLoading] = useState(true);
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
@@ -125,18 +128,38 @@ export default function Home() {
   const lastSummaryDataStatusRef = useRef(null);
   const fetchSummaryStreamRef = useRef(() => {});
 
-  // ATS leaderboard: same data source as Odds Insights — fetchHome() only.
+  // ATS leaderboard: same data source as Odds Insights — fetchHome(); fallback to client cache and optional slow.
   useEffect(() => {
     fetchHome()
       .then((data) => {
+        if (import.meta.env?.DEV) {
+          console.log('home atsLeaders', data?.atsLeaders);
+        }
         const next = data?.atsLeaders ?? { best: [], worst: [] };
-        setAtsLeaders(next);
-        setAtsLeadersCache(next);
-        setAtsLoading(false);
+        const hasNext = (next.best?.length || 0) + (next.worst?.length || 0) > 0;
+        if (hasNext) {
+          setAtsLeaders(next);
+          setAtsLeadersCache(next);
+        } else {
+          const fromCache = getAtsLeadersCacheMaybeStale()?.data;
+          if (fromCache && ((fromCache.best?.length || 0) + (fromCache.worst?.length || 0) > 0)) {
+            setAtsLeaders(fromCache);
+          }
+          // Optional: background fetch from slow for ATS
+          fetchHomeSlow({ pinnedSlugs: [] })
+            .then((slowData) => {
+              const slowAts = slowData?.atsLeaders ?? { best: [], worst: [] };
+              if ((slowAts.best?.length || 0) + (slowAts.worst?.length || 0) > 0) {
+                setAtsLeaders(slowAts);
+                setAtsLeadersCache(slowAts);
+              }
+            })
+            .catch(() => {});
+        }
         if (
+          hasNext &&
           !didOneTimeRetryRef.current &&
-          summaryGeneratedWithoutAtsNewsRef.current &&
-          ((next.best?.length || 0) + (next.worst?.length || 0) > 0)
+          summaryGeneratedWithoutAtsNewsRef.current
         ) {
           didOneTimeRetryRef.current = true;
           setSummaryUpdatingBadge(true);
@@ -144,7 +167,14 @@ export default function Home() {
         }
       })
       .catch(() => {
-        setAtsLeaders({ best: [], worst: [] });
+        const fromCache = getAtsLeadersCacheMaybeStale()?.data;
+        if (fromCache && ((fromCache.best?.length || 0) + (fromCache.worst?.length || 0) > 0)) {
+          setAtsLeaders(fromCache);
+        } else {
+          setAtsLeaders({ best: [], worst: [] });
+        }
+      })
+      .finally(() => {
         setAtsLoading(false);
       });
   }, []);
