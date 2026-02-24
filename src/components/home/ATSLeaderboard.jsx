@@ -16,11 +16,11 @@ const PERIODS = [
   { key: 'last7', label: 'Last 7' },
 ];
 
-export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, slowLoading = false, atsWarming = false, atsLeadersSourceLabel = null }) {
+export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, slowLoading = false, atsWarming = false, atsLoading = false, atsLeadersSourceLabel = null }) {
   const [period, setPeriod] = useState('season');
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
-  const loading = (slowLoading || atsWarming) && best.length === 0 && worst.length === 0;
+  const loading = (slowLoading || atsWarming || atsLoading) && best.length === 0 && worst.length === 0;
   const error = null;
   const isFallback = atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league';
 

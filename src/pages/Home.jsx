@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
-import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
+import { fetchHome, fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamBatch, fetchTeamPage } from '../api/team';
 import { mergeGamesWithOdds } from '../api/odds';
 import { getPinnedTeams } from '../utils/pinnedTeams';
@@ -10,7 +10,7 @@ import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
-import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { setAtsLeadersCache } from '../utils/atsLeadersCache';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
@@ -100,10 +100,8 @@ export default function Home() {
   const [slowLoading, setSlowLoading] = useState(true);
   const [rankMap, setRankMap] = useState({});
   const [top25, setTop25] = useState([]);
-  const [atsLeaders, setAtsLeaders] = useState(() => {
-    const c = getAtsLeadersCacheMaybeStale();
-    return (c?.data?.best?.length || c?.data?.worst?.length) ? c.data : { best: [], worst: [] };
-  });
+  const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
+  const [atsLoading, setAtsLoading] = useState(true);
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
@@ -117,8 +115,6 @@ export default function Home() {
   const [rateLimitMessage, setRateLimitMessage] = useState(null);
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
-  const [atsWarming, setAtsWarming] = useState(false);
-  const [atsLeadersSourceLabel, setAtsLeadersSourceLabel] = useState(null);
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
@@ -128,6 +124,30 @@ export default function Home() {
   const didOneTimeRetryRef = useRef(false);
   const lastSummaryDataStatusRef = useRef(null);
   const fetchSummaryStreamRef = useRef(() => {});
+
+  // ATS leaderboard: same data source as Odds Insights — fetchHome() only.
+  useEffect(() => {
+    fetchHome()
+      .then((data) => {
+        const next = data?.atsLeaders ?? { best: [], worst: [] };
+        setAtsLeaders(next);
+        setAtsLeadersCache(next);
+        setAtsLoading(false);
+        if (
+          !didOneTimeRetryRef.current &&
+          summaryGeneratedWithoutAtsNewsRef.current &&
+          ((next.best?.length || 0) + (next.worst?.length || 0) > 0)
+        ) {
+          didOneTimeRetryRef.current = true;
+          setSummaryUpdatingBadge(true);
+          setTimeout(() => fetchSummaryStreamRef.current?.(true), 0);
+        }
+      })
+      .catch(() => {
+        setAtsLeaders({ best: [], worst: [] });
+        setAtsLoading(false);
+      });
+  }, []);
 
   // Fast path first, then slow in background; merge when slow arrives.
   const loadHomeBatch = useCallback(() => {
@@ -147,9 +167,6 @@ export default function Home() {
         setRankMap(buildSlugToRankMap({ rankings }, TEAMS));
         setTop25(rankings);
         setDataStatus(fastData.dataStatus ?? null);
-        setAtsLeaders(fastData.atsLeaders ?? { best: [], worst: [] });
-        setAtsWarming(fastData.atsWarming ?? false);
-        setAtsLeadersSourceLabel(fastData.atsLeadersSourceLabel ?? null);
         setHeadlinesWarming(fastData.headlinesWarming ?? false);
         setOddsHistory({ games: [] });
         const meta = fastData.pinnedTeamsMeta ?? [];
@@ -203,12 +220,7 @@ export default function Home() {
             setRankMap(buildSlugToRankMap({ rankings: merged.rankings?.rankings ?? [] }, TEAMS));
             setTop25(merged.rankings?.rankings ?? []);
             setDataStatus(merged.dataStatus ?? null);
-            setAtsWarming(merged.atsWarming ?? false);
             setHeadlinesWarming(merged.headlinesWarming ?? false);
-            const nextAts = merged.atsLeaders ?? { best: [], worst: [] };
-            setAtsLeaders(nextAts);
-            setAtsLeadersSourceLabel(merged.atsLeadersSourceLabel ?? null);
-            setAtsLeadersCache(nextAts);
             setOddsHistory(merged.oddsHistory ?? { games: [] });
             const items = merged.headlines ?? [];
             const newsFeed = items.map((item, i) => ({
@@ -228,9 +240,8 @@ export default function Home() {
             }));
             setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
             if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
-              const ats = merged.dataStatus?.atsLeadersCount ?? 0;
               const head = merged.dataStatus?.headlinesCount ?? 0;
-              if (ats > 0 || head > 0) {
+              if (head > 0) {
                 didOneTimeRetryRef.current = true;
                 setSummaryUpdatingBadge(true);
                 fetchSummaryStreamRef.current?.(true);
@@ -248,7 +259,6 @@ export default function Home() {
         setDataStatus(null);
         setTop25([]);
         setAtsLeaders({ best: [], worst: [] });
-        setAtsWarming(false);
         setHeadlinesWarming(false);
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed, teamNews: [], pinnedTeamNewsMap: {} }));
         setNewsSource('Mock');
@@ -444,7 +454,7 @@ export default function Home() {
     return 'ok';
   };
   const getAtsStatus = () => {
-    if (atsWarming) return 'warming';
+    if (atsLoading) return 'warming';
     const n = dataStatusForBadges.atsLeadersCount ?? 0;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
@@ -547,7 +557,7 @@ export default function Home() {
       />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
-        <ATSLeaderboard atsLeaders={atsLeaders} slowLoading={slowLoading} atsWarming={atsWarming} atsLeadersSourceLabel={atsLeadersSourceLabel} />
+        <ATSLeaderboard atsLeaders={atsLeaders} atsLoading={atsLoading} />
       </section>
 
       <Top25Rankings rankings={top25} />
