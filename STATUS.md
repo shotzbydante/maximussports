@@ -156,6 +156,12 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 **“Needed now” team data + batch + cache:**
 - **Home** — Only `/api/home/fast` and `/api/home/slow`; no prefetch of all teams. Team data only for pinned teams after initial render.
 
+**/api/home/slow timeouts (never hang):**
+- **Strict timeouts** — Each upstream fetch has an 8s timeout (`withTimeout(promise, 8000)`). Overall handler must respond within 10s (`Promise.race` with 10s deadline).
+- **On timeout** — If any fetch times out or overall deadline hits: return cached payload immediately if available, else empty arrays and `slowDataStatus`; set **slowTimeout: true** in response.
+- **Optional** — If elapsed time exceeds 6s after fetches, skip odds-history for ATS and use cached ATS from `getAtsLeaders()` instead of computing (sets slowTimeout).
+- **Response** — All responses include **slowTimeout** (true when timeouts occurred, false otherwise).
+
 **Fix /api/home/slow crash (Cannot read properties of undefined reading 'DEV'):**
 - **src/api/odds.js** — Replaced `import.meta.env.DEV` (undefined in Node/Vercel) with safe `const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production'`. Debug logging guarded by `isDev`.
 - **api/home/slow.js** — Added `isDev`; guard `console.log` (atsLeaders cache count) behind `isDev`. No `.DEV` or undefined env access.
