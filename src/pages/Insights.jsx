@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dailyReport } from '../data/mockData';
 import { fetchHome } from '../api/home';
+import { setAtsLeadersCache } from '../utils/atsLeadersCache';
 import { getTeamSlug } from '../utils/teamSlug';
 import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
@@ -17,7 +18,11 @@ export default function Insights() {
     fetchHome()
       .then((data) => {
         setRankings(data?.rankings?.rankings || []);
-        setAtsLeaders(data?.atsLeaders ?? { best: [], worst: [] });
+        const next = data?.atsLeaders ?? { best: [], worst: [] };
+        setAtsLeaders(next);
+        if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {
+          setAtsLeadersCache(next);
+        }
       })
       .catch(() => {
         setRankings([]);

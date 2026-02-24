@@ -55,10 +55,9 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
         </div>
       </div>
       <div className={styles.content}>
-        {loading && <div className={styles.loading}>Warming ATS cache…</div>}
+        {(!hasData || loading) && <div className={styles.loading}>Loading ATS…</div>}
         {error && <div className={styles.error}>{error}</div>}
-        {!loading && !error && !hasData && <div className={styles.loading}>No ATS data available</div>}
-        {!loading && !error && hasData && (
+        {!error && hasData && (
           <div className={styles.grid}>
             <div className={styles.col}>
               <span className={styles.colLabel}>Top 10 (cover %)</span>

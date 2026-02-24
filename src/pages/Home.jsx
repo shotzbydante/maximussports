@@ -10,7 +10,7 @@ import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
-import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { getAtsLeadersCache, getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
@@ -104,7 +104,10 @@ export default function Home() {
     const c = getAtsLeadersCacheMaybeStale();
     return (c?.data?.best?.length || c?.data?.worst?.length) ? c.data : { best: [], worst: [] };
   });
-  const [atsLoading, setAtsLoading] = useState(true);
+  const [atsLoading, setAtsLoading] = useState(() => {
+    const c = getAtsLeadersCache();
+    return !(c?.best?.length || c?.worst?.length);
+  });
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
@@ -128,36 +131,26 @@ export default function Home() {
   const lastSummaryDataStatusRef = useRef(null);
   const fetchSummaryStreamRef = useRef(() => {});
 
-  // ATS leaderboard: same data source as Odds Insights — fetchHome(); fallback to client cache and optional slow.
+  // ATS leaderboard: same endpoint as Odds Insights — fetchHome() for data.atsLeaders only. Cache first; skip network if fresh cache.
   useEffect(() => {
+    const cached = getAtsLeadersCache();
+    if (cached && ((cached.best?.length || 0) + (cached.worst?.length || 0) > 0)) {
+      setAtsLeaders(cached);
+      setAtsLoading(false);
+      return;
+    }
     fetchHome()
       .then((data) => {
         if (import.meta.env?.DEV) {
           console.log('home atsLeaders', data?.atsLeaders);
         }
         const next = data?.atsLeaders ?? { best: [], worst: [] };
-        const hasNext = (next.best?.length || 0) + (next.worst?.length || 0) > 0;
-        if (hasNext) {
-          setAtsLeaders(next);
+        setAtsLeaders(next);
+        if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {
           setAtsLeadersCache(next);
-        } else {
-          const fromCache = getAtsLeadersCacheMaybeStale()?.data;
-          if (fromCache && ((fromCache.best?.length || 0) + (fromCache.worst?.length || 0) > 0)) {
-            setAtsLeaders(fromCache);
-          }
-          // Optional: background fetch from slow for ATS
-          fetchHomeSlow({ pinnedSlugs: [] })
-            .then((slowData) => {
-              const slowAts = slowData?.atsLeaders ?? { best: [], worst: [] };
-              if ((slowAts.best?.length || 0) + (slowAts.worst?.length || 0) > 0) {
-                setAtsLeaders(slowAts);
-                setAtsLeadersCache(slowAts);
-              }
-            })
-            .catch(() => {});
         }
         if (
-          hasNext &&
+          (next.best?.length || 0) + (next.worst?.length || 0) > 0 &&
           !didOneTimeRetryRef.current &&
           summaryGeneratedWithoutAtsNewsRef.current
         ) {
@@ -170,8 +163,6 @@ export default function Home() {
         const fromCache = getAtsLeadersCacheMaybeStale()?.data;
         if (fromCache && ((fromCache.best?.length || 0) + (fromCache.worst?.length || 0) > 0)) {
           setAtsLeaders(fromCache);
-        } else {
-          setAtsLeaders({ best: [], worst: [] });
         }
       })
       .finally(() => {

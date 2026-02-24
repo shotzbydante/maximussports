@@ -164,12 +164,11 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Slow uses shared ATS** — `/api/home/slow` no longer inlines ATS logic; calls `computeAtsLeadersFromSources()` and writes result to cache; response includes `atsLeadersSourceLabel`.
 - **UI** — ATS leaderboard shows "Warming ATS cache…" when cache empty and warming; when fallback source is used, shows subtitle "Top 25 / Locks + Should Be In". `mergeHomeData()` passes `atsLeadersSourceLabel` from fast/slow.
 
-**Home ATS leaderboard render fix:**
-- **atsLoading** — Always cleared in a `finally` block after `fetchHome()` so the UI can render (loading state never stuck).
-- **Fallback** — If `fetchHome()` returns empty atsLeaders, Home pulls from client cache (`getAtsLeadersCacheMaybeStale`); if still empty, ATSLeaderboard shows "No ATS data available" instead of a blank box.
-- **Optional slow** — When `fetchHome()` returns empty atsLeaders, a background `fetchHomeSlow()` runs and updates atsLeaders when slow returns data.
-- **ATSLeaderboard** — `loading` = (any loading flag) and no data; when there is data (even partial), the grid renders. Empty state message when not loading and no data.
-- **Dev** — `console.log('home atsLeaders', data?.atsLeaders)` in development after `fetchHome()`.
+**Home ATS leaderboard — same data as Odds Insights:**
+- **Same endpoint** — Home fetches ATS via `fetchHome()` (full `/api/home`), using only `data.atsLeaders`. Background call after mount; does not block initial render.
+- **ATS cache sync** — When Home receives atsLeaders from `fetchHome()`, it writes to `atsLeadersCache`. Odds Insights writes to `atsLeadersCache` when it receives atsLeaders. Home initializes state from `atsLeadersCache` so ATS shows immediately on navigation when cache is populated.
+- **No empty state** — If atsLeaders is empty, ATSLeaderboard shows "Loading ATS…" until cache or `fetchHome()` fills it (no blank box, no "No ATS data available").
+- **Share ATS state** — If fresh cache exists (e.g. user visited Odds Insights first), Home reads from `getAtsLeadersCache()`, sets atsLoading false, and skips the network call; otherwise Home calls `fetchHome()` and updates state and cache. Dev: `console.log('home atsLeaders', data?.atsLeaders)` when `fetchHome()` resolves.
 
 ---
 
