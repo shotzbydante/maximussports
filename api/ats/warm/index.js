@@ -4,8 +4,8 @@
  * Call every 5–10 min via Vercel cron.
  */
 
-import { getAtsLeaders, setAtsLeaders } from '../home/cache.js';
-import { computeAtsLeadersFromSources } from '../home/atsLeaders.js';
+import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
+import { computeAtsLeadersFromSources } from '../../home/atsLeaders.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
