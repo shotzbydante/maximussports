@@ -117,6 +117,8 @@ export default function Home() {
   const [rateLimitMessage, setRateLimitMessage] = useState(null);
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
+  const [atsWarming, setAtsWarming] = useState(false);
+  const [headlinesWarming, setHeadlinesWarming] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const streamBufferRef = useRef('');
@@ -145,6 +147,8 @@ export default function Home() {
         setTop25(rankings);
         setDataStatus(fastData.dataStatus ?? null);
         setAtsLeaders(fastData.atsLeaders ?? { best: [], worst: [] });
+        setAtsWarming(fastData.atsWarming ?? false);
+        setHeadlinesWarming(fastData.headlinesWarming ?? false);
         setOddsHistory({ games: [] });
         const meta = fastData.pinnedTeamsMeta ?? [];
         const pinnedTeamNewsMap = {};
@@ -197,6 +201,8 @@ export default function Home() {
             setRankMap(buildSlugToRankMap({ rankings: merged.rankings?.rankings ?? [] }, TEAMS));
             setTop25(merged.rankings?.rankings ?? []);
             setDataStatus(merged.dataStatus ?? null);
+            setAtsWarming(merged.atsWarming ?? false);
+            setHeadlinesWarming(merged.headlinesWarming ?? false);
             const nextAts = merged.atsLeaders ?? { best: [], worst: [] };
             setAtsLeaders(nextAts);
             setAtsLeadersCache(nextAts);
@@ -239,6 +245,8 @@ export default function Home() {
         setDataStatus(null);
         setTop25([]);
         setAtsLeaders({ best: [], worst: [] });
+        setAtsWarming(false);
+        setHeadlinesWarming(false);
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed, teamNews: [], pinnedTeamNewsMap: {} }));
         setNewsSource('Mock');
       });
@@ -426,18 +434,20 @@ export default function Home() {
     return 'ok';
   };
   const getNewsStatus = () => {
+    if (headlinesWarming) return 'warming';
     const n = dataStatusForBadges.headlinesCount ?? 0;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
     return 'ok';
   };
   const getAtsStatus = () => {
+    if (atsWarming) return 'warming';
     const n = dataStatusForBadges.atsLeadersCount ?? 0;
     if (n === 0) return 'missing';
     if (n < 3) return 'partial';
     return 'ok';
   };
-  const statusLabel = (status) => (status === 'ok' ? 'OK' : status === 'partial' ? 'PARTIAL' : 'MISSING');
+  const statusLabel = (status) => (status === 'ok' ? 'OK' : status === 'partial' ? 'PARTIAL' : status === 'warming' ? 'WARMING' : 'MISSING');
 
   const upsetCount = countUpsets(scores.games);
   const rankedInAction = countRankedInAction(scores.games, rankMap);
@@ -534,7 +544,7 @@ export default function Home() {
       />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
-        <ATSLeaderboard atsLeaders={atsLeaders} slowLoading={slowLoading} />
+        <ATSLeaderboard atsLeaders={atsLeaders} slowLoading={slowLoading} atsWarming={atsWarming} />
       </section>
 
       <Top25Rankings rankings={top25} />
@@ -559,7 +569,7 @@ export default function Home() {
         </div>
         <aside className={styles.sidebar}>
           <div className={styles.widgetSection} id="news">
-            <NewsFeed items={newsData.newsFeed} source={newsSource} />
+            <NewsFeed items={newsData.newsFeed} source={newsSource} loading={headlinesWarming && (newsData.newsFeed || []).length === 0} />
           </div>
           {newsData.teamNews.length > 0 && (
             <div className={styles.widgetSection} id="news-teams">

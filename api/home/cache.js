@@ -1,7 +1,9 @@
 /**
  * Shared server-side cache for ATS leaders and headlines.
- * Used by /api/home/fast (read + warm) and /api/home/slow (write).
- * Keeps fast response non-blocking while allowing warmers to populate cache.
+ * Single module = single cache instance. Used by:
+ * - /api/home/fast: read (getAtsLeaders, getHeadlines) + write via warmers (setAtsLeaders, setHeadlines)
+ * - /api/home/slow: write after computing (setAtsLeaders, setHeadlines)
+ * Warmers in fast write into this same cache so the next fast request gets warm data.
  */
 
 import { createCache } from '../_cache.js';

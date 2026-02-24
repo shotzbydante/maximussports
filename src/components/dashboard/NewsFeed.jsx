@@ -7,7 +7,7 @@ const sentimentClass = {
   neutral: styles.neutral,
 };
 
-export default function NewsFeed({ items = [], source = 'Mock' }) {
+export default function NewsFeed({ items = [], source = 'Mock', loading = false }) {
   return (
     <div className={styles.widget}>
       <div className={styles.widgetHeader}>
@@ -15,7 +15,9 @@ export default function NewsFeed({ items = [], source = 'Mock' }) {
         <SourceBadge source={source} />
       </div>
       <p className={styles.sourceLegend}>Sources: ESPN, NCAA, CBS, Yahoo, Team Feeds, Google News</p>
-      {items.length === 0 ? (
+      {loading ? (
+        <p className={styles.empty}>Loading headlines…</p>
+      ) : items.length === 0 ? (
         <p className={styles.empty}>No men&apos;s basketball news available. Try again later.</p>
       ) : (
       <ul className={styles.list}>

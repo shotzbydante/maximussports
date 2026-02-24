@@ -77,7 +77,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/utils/atsLeadersCache.js` | In-memory ATS leaderboard cache (5 min); show cached first, update in background |
 | `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryStream`, `fetchTeamSummary` |
 | `scripts/fetch-logos.js` | Fetch ESPN logos → `public/logos/*.png` or generate fallback SVGs |
-| `vercel.json` | Build config, SPA rewrites |
+| `vercel.json` | Build config, SPA rewrites, cron for `/api/home/slow` every 5 min |
 
 ### Pages
 - `Home` — **Dynamic welcome synopsis** (OpenAI) in banner (or static fallback); Pinned Teams, ATS Leaderboard, Top 25 Rankings, Dynamic Alerts, Dynamic Stats, Live Scores, sidebar
@@ -152,6 +152,11 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 **“Needed now” team data + batch + cache:**
 - **Home** — Only `/api/home/fast` and `/api/home/slow`; no prefetch of all teams. Team data only for pinned teams after initial render.
+
+**Cache warming (warm-up, flags, cron):**
+- **/api/home/fast** — Warmers fire immediately when cache empty: `setTimeout(() => void warm(), 0)`. Dev-only logs for warm-up start/end. Response includes `atsWarming` and `headlinesWarming` when ATS/headlines empty. Warmers write to same `api/home/cache.js` instance fast reads from.
+- **Vercel cron** — `vercel.json` cron hits `/api/home/slow` every 5 min (`*/5 * * * *`) to keep caches warm.
+- **Home** — When `atsWarming`/`headlinesWarming`: ATS shows "Loading ATS…", News shows "Loading headlines…"; data status badges show "WARMING" (amber). mergeHomeData passes warming flags and clears when slow delivers data.
 
 **ATS + Headlines in fast path; summary timing and fallback:**
 - **/api/home/fast** — Now returns atsLeaders and headlines from shared server cache (`api/home/cache.js`). If cache empty, returns empty and triggers non-blocking warmers (ATS via `computeAtsLeadersFromSources()`, headlines via `fetchNewsAggregateSource`).

@@ -230,6 +230,11 @@
   color: #a63d2e;
 }
 
+.badgeWarming {
+  background: rgba(183, 152, 108, 0.25);
+  color: #8a6d3a;
+}
+
 @media (max-width: 767px) {
   .bannerMascot {
     height: 96px;

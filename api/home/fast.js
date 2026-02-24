@@ -14,17 +14,36 @@ import { computeAtsLeadersFromSources } from './atsLeaders.js';
 
 const CACHE_MS = 2 * 60 * 1000; // 2 min
 const homeFastCache = createCache(CACHE_MS);
+const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 function warmAtsCache() {
+  if (isDev) console.log('[api/home/fast] ATS warmer start');
   computeAtsLeadersFromSources()
-    .then((ats) => setAtsLeaders(ats))
+    .then((ats) => {
+      setAtsLeaders(ats);
+      if (isDev) console.log('[api/home/fast] ATS warmer end', (ats?.best?.length || 0) + (ats?.worst?.length || 0), 'leaders');
+    })
     .catch((err) => console.error('[api/home/fast] ATS warmer error:', err?.message));
 }
 
 function warmHeadlinesCache() {
+  if (isDev) console.log('[api/home/fast] headlines warmer start');
   fetchNewsAggregateSource({ includeNational: true })
-    .then((data) => setHeadlines(data?.items || []))
+    .then((data) => {
+      const items = data?.items || [];
+      setHeadlines(items);
+      if (isDev) console.log('[api/home/fast] headlines warmer end', items.length, 'items');
+    })
     .catch((err) => console.error('[api/home/fast] headlines warmer error:', err?.message));
+}
+
+function fireWarmers(atsEmpty, headlinesEmpty) {
+  if (atsEmpty) {
+    setTimeout(() => { void warmAtsCache(); }, 0);
+  }
+  if (headlinesEmpty) {
+    setTimeout(() => { void warmHeadlinesCache(); }, 0);
+  }
 }
 
 function toDateStr(d) {
@@ -55,7 +74,12 @@ export default async function handler(req, res) {
   const key = cacheKey(pinnedSlugs);
   const cached = homeFastCache.get(key);
   if (cached) {
-    return res.status(200).json({ ...cached, _cached: true });
+    return res.status(200).json({
+      ...cached,
+      _cached: true,
+      atsWarming: cached.atsWarming ?? false,
+      headlinesWarming: cached.headlinesWarming ?? false,
+    });
   }
 
   try {
@@ -86,17 +110,14 @@ export default async function handler(req, res) {
       };
     });
 
-    // ATS + headlines from shared cache; warm in background if missing
+    // ATS + headlines from shared cache (same instance warmers write to); fire warmers immediately when empty
     let atsLeaders = getAtsLeaders();
     let headlines = getHeadlines();
-    if ((!atsLeaders.best?.length && !atsLeaders.worst?.length)) {
-      atsLeaders = { best: [], worst: [] };
-      setImmediate(warmAtsCache);
-    }
-    if (!Array.isArray(headlines) || headlines.length === 0) {
-      headlines = [];
-      setImmediate(warmHeadlinesCache);
-    }
+    const atsEmpty = !atsLeaders.best?.length && !atsLeaders.worst?.length;
+    const headlinesEmpty = !Array.isArray(headlines) || headlines.length === 0;
+    if (atsEmpty) atsLeaders = { best: [], worst: [] };
+    if (headlinesEmpty) headlines = [];
+    fireWarmers(atsEmpty, headlinesEmpty);
 
     const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
     const dataStatus = {
@@ -122,14 +143,15 @@ export default async function handler(req, res) {
       headlines,
       pinnedTeamsMeta,
       dataStatus,
+      atsWarming: atsEmpty,
+      headlinesWarming: headlinesEmpty,
     };
 
     homeFastCache.set(key, payload);
     res.status(200).json(payload);
   } catch (err) {
     console.error('[api/home/fast] error:', err.message);
-    setImmediate(warmAtsCache);
-    setImmediate(warmHeadlinesCache);
+    fireWarmers(true, true);
     res.status(200).json({
       scoresToday: [],
       scoresYesterday: [],
@@ -146,6 +168,8 @@ export default async function handler(req, res) {
         headlinesCount: 0,
         dataStatusLine: 'Fast fetch failed.',
       },
+      atsWarming: true,
+      headlinesWarming: true,
     });
   }
 }

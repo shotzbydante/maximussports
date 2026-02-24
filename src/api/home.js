@@ -33,19 +33,23 @@ function qsFromOptions(options) {
 export function mergeHomeData(fast, slow) {
   const f = fast || {};
   const s = slow || {};
+  const hasAtsFromSlow = s.atsLeaders?.best?.length || s.atsLeaders?.worst?.length;
+  const hasHeadlinesFromSlow = Array.isArray(s.headlines) && s.headlines.length > 0;
   return {
     scores: f.scoresToday || [],
     scoresYesterday: f.scoresYesterday || [],
     rankings: f.rankings || { rankings: f.rankingsTop25 || [] },
     rankingsTop25: f.rankingsTop25 || [],
     pinnedTeamsMeta: f.pinnedTeamsMeta || [],
-    atsLeaders: (s.atsLeaders?.best?.length || s.atsLeaders?.worst?.length) ? s.atsLeaders : (f.atsLeaders || { best: [], worst: [] }),
+    atsLeaders: hasAtsFromSlow ? s.atsLeaders : (f.atsLeaders || { best: [], worst: [] }),
     headlines: s.headlines ?? f.headlines ?? [],
     pinnedTeamNews: (s.pinnedTeamNews && Object.keys(s.pinnedTeamNews).length > 0) ? s.pinnedTeamNews : (f.pinnedTeamNews || {}),
     upcomingGamesWithSpreads: s.upcomingGamesWithSpreads ?? f.upcomingGamesWithSpreads ?? [],
     odds: s.odds ?? f.odds ?? { games: [], error: null, hasOddsKey: false },
     oddsHistory: s.oddsHistory ?? f.oddsHistory ?? { games: [] },
     dataStatus: mergeDataStatus(f.dataStatus, s.slowDataStatus),
+    atsWarming: hasAtsFromSlow ? false : (f.atsWarming ?? false),
+    headlinesWarming: hasHeadlinesFromSlow ? false : (f.headlinesWarming ?? false),
     _cached: f._cached || s._cached,
   };
 }
