@@ -156,6 +156,10 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 **“Needed now” team data + batch + cache:**
 - **Home** — Only `/api/home/fast` and `/api/home/slow`; no prefetch of all teams. Team data only for pinned teams after initial render.
 
+**Fix /api/home/slow crash (Cannot read properties of undefined reading 'DEV'):**
+- **src/api/odds.js** — Replaced `import.meta.env.DEV` (undefined in Node/Vercel) with safe `const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production'`. Debug logging guarded by `isDev`.
+- **api/home/slow.js** — Added `isDev`; guard `console.log` (atsLeaders cache count) behind `isDev`. No `.DEV` or undefined env access.
+
 **ATS leaders cache reliability:**
 - **/api/home/fast** — When ATS cache empty: (1) kick off warmAtsCache immediately, (2) one-time fallback job after 2s that recomputes ATS and writes to cache (even if warmer failed). Guard `inFlightAtsWarm` prevents duplicate fallback jobs. Response includes `atsLeadersCount`, `atsWarming`; when ATS cannot be computed (e.g. odds history empty), `atsWarming: false` and `atsUnavailableReason` (e.g. "odds history empty").
 - **/api/home/slow** — Always calls `setAtsLeaders(atsLeaders)` after computing; logs count. Response includes `atsLeadersCount` and `atsCacheWrite: true` (false when cached). Cached response includes `atsLeadersCount` and `atsCacheWrite: false`.

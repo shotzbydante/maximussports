@@ -27,6 +27,7 @@ import { matchOddsHistoryToEvent, mergeGamesWithOdds } from '../../src/api/odds.
 
 const CACHE_MS = 20 * 60 * 1000; // 20 min
 const homeSlowCache = createCache(CACHE_MS);
+const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production';
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -199,7 +200,7 @@ export default async function handler(req, res) {
 
     setAtsLeaders(atsLeaders);
     const atsLeadersCount = atsLeaders.best.length + atsLeaders.worst.length;
-    console.log('[api/home/slow] atsLeaders written to cache, count:', atsLeadersCount);
+    if (isDev) console.log('[api/home/slow] atsLeaders written to cache, count:', atsLeadersCount);
     setHeadlines(headlines);
 
     const pinnedTeamNews = {};

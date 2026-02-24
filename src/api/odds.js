@@ -5,6 +5,8 @@
 
 import { getTeamSlug } from '../utils/teamSlug.js';
 
+const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production';
+
 /** Normalize team name for matching: lowercase, strip mascots, punctuation, University, State */
 function normName(s) {
   if (!s || typeof s !== 'string') return '';
@@ -131,7 +133,7 @@ export function mergeGamesWithOdds(scoreGames, oddsGames, getSlug) {
       }
     }
     if (candidates.length === 0) {
-      if (import.meta.env.DEV) {
+      if (isDev) {
         console.debug('[mergeGamesWithOdds] No match:', { home, away, dateKey, oddsCount: oddsGames.length });
       }
       return null;
