@@ -31,6 +31,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Summary API:** `/api/summary/index.js` — POST only; payload hash cache 30 min; rate limit 1/min per IP; SSE streaming; no internal API calls.
 - **Team Summary API:** `/api/summary/team.js` — POST body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. Payload-only. `?stream=true` → SSE; `?force=true` bypasses cache. Cache 30 min per team.
 - **Health:** `/api/health.js` — GET; returns `{ ok: true, timestamp }` (optional).
+- **Env check:** `/api/env-check.js` — GET; returns `{ hasOddsKey, keyLength }` (never the key). For runtime verification of ODDS_API_KEY.
 - **Removed standalone routes:** `/api/scores`, `/api/rankings`, `/api/odds`, `/api/odds-history`, `/api/news/aggregate`, `/api/news/team/[slug]`, `/api/teamIds`, `/api/schedule/[teamId]` — functionality folded into home and team.
 - **News filters:** `api/news/filters.js` — MBB allowlist/exclude; used by _sources for news aggregate and team news (not a route).
 
@@ -72,6 +73,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/summary/index.js` | POST: summary with payload; hash cache; rate limit; SSE streaming |
 | `api/summary/team.js` | POST: team insight; `?stream=true` SSE, `?force=true` bypass cache; 30-min cache |
 | `api/health.js` | GET: `{ ok: true, timestamp }` (optional) |
+| `api/env-check.js` | GET: `{ hasOddsKey, keyLength }` — verify ODDS_API_KEY at runtime (key never returned) |
 | `src/api/home.js` | Client: `fetchHomeFast()`, `fetchHomeSlow()`, `mergeHomeData(fast, slow)` for Home; `fetchHome()` for Games/DailySchedule/Insights/NewsFeed |
 | `src/api/team.js` | Client: `fetchTeamPage(slug)` (Team page); `fetchTeamBatch(slugs)` chunked by 5, coalesced, 5 min client cache |
 | `src/utils/atsLeadersCache.js` | In-memory ATS leaderboard cache (5 min); show cached first, update in background |
@@ -112,6 +114,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `/api/summary` | POST | Home synopsis (OpenAI). Body: `{ top25, atsLeaders: { best, worst }, recentGames, upcomingGames, headlines }`. `?stream=true` (required), `?force=true` bypass cache. SSE stream. Cache by payload hash (30 min). Rate limit 1/min per IP. |
 | `/api/summary/team` | POST | Team page insight. Body: `{ slug?, teamName, tier?, upcomingGames, lastWeek, atsSummary, headlines }`. `?stream=true` → SSE; `?force=true` bypasses cache. Payload-only. Cache 30 min per team. Pinned cards use same endpoint (no stream). |
 | `/api/health` | GET | Optional. Returns `{ ok: true, timestamp }`. No cache. |
+| `/api/env-check` | GET | Returns `{ hasOddsKey, keyLength }`. Verifies ODDS_API_KEY present at runtime; never returns the key. No cache. |
 
 ---
 

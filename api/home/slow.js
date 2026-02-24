@@ -65,6 +65,28 @@ export default async function handler(req, res) {
     });
   }
 
+  if (!process.env.ODDS_API_KEY || process.env.ODDS_API_KEY.trim() === '') {
+    const slowDataStatus = {
+      headlinesCount: 0,
+      oddsCount: 0,
+      oddsHistoryCount: 0,
+      atsLeadersCount: 0,
+      dataStatusLine: 'Odds API key missing. Headlines/ATS skipped.',
+    };
+    return res.status(200).json({
+      hasOddsKey: false,
+      headlines: [],
+      odds: { games: [], error: 'missing_key', hasOddsKey: false },
+      oddsHistory: { games: [] },
+      atsLeaders: { best: [], worst: [] },
+      pinnedTeamNews: {},
+      upcomingGamesWithSpreads: [],
+      slowDataStatus,
+      atsLeadersCount: 0,
+      atsCacheWrite: false,
+    });
+  }
+
   try {
     const today = toDateStr(new Date());
     const tomorrow = (() => {
