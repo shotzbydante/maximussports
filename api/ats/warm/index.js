@@ -1,10 +1,10 @@
 /**
- * GET /api/ats/warm — Warm LAST 30 first: quick real Last 30 → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
+ * GET /api/ats/warm — Warm LAST 30 first: team ATS (same source as pinned cards) → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
 import { setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../../_globalCache.js';
-import { computeRealAtsQuickRecent } from '../../home/atsQuickReal.js';
+import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 
 const LAST30_KEY = getAtsLeadersKeyForWindow('last30');
@@ -26,9 +26,9 @@ export default async function handler(req, res) {
   let cacheNote = null;
 
   try {
-    let result = await computeRealAtsQuickRecent({ windowDays: 30, pinnedSlugs: [] });
-    const quickHasLeaders = (result.best?.length || 0) + (result.worst?.length || 0) > 0 && result.status !== 'EMPTY';
-    if (!quickHasLeaders) {
+    let result = await computeAtsLeadersFromTeamAts({ windowDays: 30, teamSlugs: [] });
+    const teamAtsHasLeaders = (result.best?.length || 0) + (result.worst?.length || 0) > 0 && result.status !== 'EMPTY';
+    if (!teamAtsHasLeaders) {
       result = await computeFastFallbackFromRankingsOnly();
     }
     const bestCount = result.best?.length ?? 0;
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         console.warn('[api/ats/warm] KV write failed (in-memory updated):', kvErr?.message);
       }
     }
-    cacheNote = quickHasLeaders ? 'computed_quick_real' : 'computed_proxy';
+    cacheNote = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
     if (isDev) {
       console.log('[api/ats/warm] success', { status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence, kvWriteOk });
     }

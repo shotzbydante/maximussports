@@ -82,6 +82,7 @@ export default async function handler(req, res) {
         status: payload.atsMeta.status ?? null,
         confidence: payload.atsMeta.confidence ?? null,
         sourceLabel: payload.atsMeta.sourceLabel ?? null,
+        cacheNote: payload.atsMeta.cacheNote ?? null,
       }
     : null;
   const atsWindow = payload.atsWindow === 'last7' || payload.atsWindow === 'season' ? payload.atsWindow : 'last30';
@@ -190,7 +191,7 @@ export default async function handler(req, res) {
       ? 'ATS data is from a partial source (medium confidence). Be cautious but assertive when mentioning ATS leaders.'
     : 'ATS data is from a proxy or early signal (low confidence). Clearly qualify it as "early signal" or "Top 25 slice" when mentioning ATS.';
   const atsWindowInstruction = hasAtsOrHeadlines
-    ? `ATS window: ${atsWindow}. Use phrasing like: ${atsWindowPhrase}. Avoid season claims when data is last30 or last7 only.`
+    ? `ATS window: ${atsWindow}. Use phrasing like: ${atsWindowPhrase}. Require "over the last 30 days" or "over the last 7 days" when atsWindow is last30 or last7. Forbid season claims (e.g. "this season") unless atsWindow=season AND atsMeta.confidence is high.`
     : '';
 
   const top25List = top25.map((r) => (r.rank != null && r.teamName != null ? `#${r.rank} ${r.teamName}` : r.teamName || r.name || '')).filter(Boolean).join(', ') || 'None';

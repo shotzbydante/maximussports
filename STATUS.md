@@ -181,7 +181,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Overwrite rules:** NEVER write EMPTY to KV. NEVER overwrite FULL or good FALLBACK with EMPTY. Prefer FULL > real FALLBACK > proxy FALLBACK > EMPTY.
 
 ### Fast “Quick Real” ATS Compute
-- **`computeRealAtsQuickRecent({ windowDays, pinnedSlugs, maxTeams })`** in `api/home/atsQuickReal.js`: team set = pinned + Top 25 (dedupe, cap 40); recent odds-history range only; early exit per team after ~8–12 games; concurrency 6; per-request ~800–1200 ms; total deadline ~3.5 s. Returns best 10 / worst 10 by cover % (tie-break by games). atsMeta: status FALLBACK, confidence medium, sourceLabel e.g. “Pinned + Top 25 (Last 30 real ATS)”.
+- **`computeAtsLeadersFromTeamAts (team ATS source; see atsLeadersFromTeamAts.js). Legacy: computeRealAtsQuickRecent({ windowDays, pinnedSlugs, maxTeams })`** in `api/home/atsQuickReal.js`: team set = pinned + Top 25 (dedupe, cap 40); recent odds-history range only; early exit per team after ~8–12 games; concurrency 6; per-request ~800–1200 ms; total deadline ~3.5 s. Returns best 10 / worst 10 by cover % (tie-break by games). atsMeta: status FALLBACK, confidence medium, sourceLabel e.g. “Pinned + Top 25 (Last 30 real ATS)”.
 
 ### Endpoint Behavior
 - **`/api/ats/warm`:** Warm LAST 30 first: try quick real Last 30 → write KV; if fail, proxy fallback → write KV. Never write EMPTY.

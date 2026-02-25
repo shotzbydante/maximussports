@@ -2,13 +2,13 @@
  * Single shared ATS pipeline. getAtsLeadersPipeline() used by /api/home, /api/home/fast, /api/home/slow.
  * Default ATS window = Last 30. Windowed KV keys: last30, last7, season.
  * Reads from KV first; on miss computes quick real (last30/last7) or proxy; writes to KV. Never overwrites KV with EMPTY.
- * Prefer FULL > real FALLBACK > proxy FALLBACK > EMPTY. Returns atsMeta with cacheNote: kv_hit | kv_stale | computed_quick_real | computed_proxy.
+ * Prefer FULL > real FALLBACK > proxy FALLBACK > EMPTY. Returns atsMeta with cacheNote: kv_hit | kv_stale | computed_recent_team_ats | computed_proxy.
  */
 
 import { coalesce } from '../_cache.js';
 import { getAtsLeaders, setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
 import { getWithMeta, setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../_globalCache.js';
-import { computeRealAtsQuickRecent } from './atsQuickReal.js';
+import { computeAtsLeadersFromTeamAts } from './atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from './atsFastFallback.js';
 
 const DEBUG_ATS = process.env.DEBUG_ATS === '1';
@@ -121,21 +121,33 @@ export async function getAtsLeadersPipeline(options = {}) {
   const windowDays = atsWindow === 'last7' ? 7 : 30;
   try {
     const result = await coalesce(coalesceKey, async () => {
-      let out = await computeRealAtsQuickRecent({ windowDays, pinnedSlugs });
-      const quickHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
-      if (!quickHasLeaders) {
+      const pipelineStart = Date.now();
+      let out = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: pinnedSlugs });
+      const teamAtsHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
+      if (!teamAtsHasLeaders) {
         out = await computeFastFallbackFromRankingsOnly();
       }
       const best = out.best || [];
       const worst = out.worst || [];
-      const cacheNoteVal = quickHasLeaders ? 'computed_quick_real' : 'computed_proxy';
-      await writeAtsToKvIfValid(kvKey, best, worst, {
-        status: out.status,
-        confidence: out.confidence ?? 'low',
-        reason: out.reason ?? null,
-        sourceLabel: out.sourceLabel ?? null,
-        generatedAt: out.generatedAt ?? new Date().toISOString(),
-      });
+      const cacheNoteVal = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
+      if (DEBUG_ATS) {
+        console.log('[atsPipeline]', atsWindow, cacheNoteVal, {
+          best: best.length,
+          worst: worst.length,
+          status: out.status,
+          durationMs: Date.now() - pipelineStart,
+          teamsWithAts: out.teamsWithAts,
+        });
+      }
+      if (teamAtsHasLeaders || best.length > 0 || worst.length > 0) {
+        await writeAtsToKvIfValid(kvKey, best, worst, {
+          status: out.status,
+          confidence: out.confidence ?? 'low',
+          reason: out.reason ?? null,
+          sourceLabel: out.sourceLabel ?? null,
+          generatedAt: out.generatedAt ?? new Date().toISOString(),
+        });
+      }
       setAtsLeaders({
         best,
         worst,

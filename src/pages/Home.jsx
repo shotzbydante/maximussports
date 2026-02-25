@@ -122,7 +122,7 @@ const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, atsWindow, rec
     best: atsBest?.slice(0, 10) || [],
     worst: atsWorst?.slice(0, 10) || [],
   },
-  atsMeta: atsMeta && typeof atsMeta === 'object' ? { status: atsMeta.status, confidence: atsMeta.confidence, sourceLabel: atsMeta.sourceLabel } : null,
+  atsMeta: atsMeta && typeof atsMeta === 'object' ? { status: atsMeta.status, confidence: atsMeta.confidence, sourceLabel: atsMeta.sourceLabel, cacheNote: atsMeta.cacheNote } : null,
   atsWindow: atsWindow || 'last30',
   recentGames: (recentGames || []).slice(0, 20),
   upcomingGames: (upcomingGames || []).slice(0, 20),

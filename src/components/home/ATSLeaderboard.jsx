@@ -51,22 +51,27 @@ export default function ATSLeaderboard({
   }, [best.length, worst.length]);
 
   const periodKey = period;
-  const isProxy = status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
+  const isRealTeamAts = atsMeta?.cacheNote === 'computed_recent_team_ats' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.includes('recent ATS'));
+  const isProxy = !isRealTeamAts && status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
   const best10 = best.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
   const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
-  const showRecordAsNa = (rec) => isProxy || !rec?.total || (rec.total === 0 && rec.w === 0 && rec.l === 0);
+  const showRecordAsNa = (rec) => isProxy || !rec || rec.total == null || (rec.total === 0 && (rec.w ?? 0) === 0 && (rec.l ?? 0) === 0);
   const recordLabel = (r) => {
     const rec = r.rec;
     if (showRecordAsNa(rec)) return 'N/A';
-    if (!rec || rec.total === 0) return 'N/A';
-    return `${rec.w}-${rec.l}${(rec.p > 0 ? `-${rec.p}` : '')}${rec.coverPct != null ? ` (${rec.coverPct}%)` : ''}`;
+    const decided = (rec.w ?? 0) + (rec.l ?? 0);
+    if (decided === 0) return 'N/A';
+    const wl = `${rec.w ?? 0}-${rec.l ?? 0}`;
+    const push = (rec.p ?? 0) > 0 ? `-${rec.p}` : '';
+    const pct = rec.coverPct != null ? ` (${rec.coverPct}%)` : '';
+    return `${wl}${push}${pct}`;
   };
 
   const showSeasonWarming = seasonWarming && period === 'season';
   const headerTitle =
     status === 'FULL'
       ? 'ATS Leaders (full league)'
-      : status === 'FALLBACK' && atsMeta?.confidence === 'medium' && (atsMeta?.sourceLabel?.includes('Pinned') || atsMeta?.sourceLabel?.includes('real'))
+      : isRealTeamAts || (status === 'FALLBACK' && (atsMeta?.confidence === 'medium' || atsMeta?.confidence === 'high') && (atsMeta?.sourceLabel?.includes('Pinned') || atsMeta?.sourceLabel?.includes('recent ATS')))
         ? 'ATS Leaders (real, Pinned + Top 25)'
         : isProxy
           ? 'ATS Leaders (Top 25 proxy)'
