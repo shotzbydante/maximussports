@@ -2,5 +2,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [{"source": "/((?!api/).*)", "destination": "/index.html"}],
-  "crons": [{"path": "/api/home/slow", "schedule": "*/5 * * * *"}, {"path": "/api/ats/warm", "schedule": "*/7 * * * *"}]
+  "crons": [
+    {"path": "/api/home/slow", "schedule": "*/5 * * * *"},
+    {"path": "/api/ats/warm", "schedule": "*/7 * * * *"},
+    {"path": "/api/ats/warmFull", "schedule": "*/15 * * * *"}
+  ]
 }
