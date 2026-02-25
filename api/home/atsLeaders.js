@@ -127,10 +127,10 @@ export async function computeAtsLeadersFromSources() {
   const rankings = rankingsData?.rankings || [];
 
   if (rankings.length === 0) {
-    return { best: [], worst: [], unavailableReason: 'rankings empty' };
+    return { best: [], worst: [], status: 'EMPTY', reason: 'rankings_empty', sourceLabel: null, unavailableReason: 'rankings empty' };
   }
   if (oddsHistoryGames.length === 0) {
-    return { best: [], worst: [], unavailableReason: 'odds history empty' };
+    return { best: [], worst: [], status: 'EMPTY', reason: 'odds_history_empty', sourceLabel: null, unavailableReason: 'odds history empty' };
   }
 
   // 1) Full-league: all teams with resolved IDs
@@ -144,6 +144,8 @@ export async function computeAtsLeadersFromSources() {
       worst: full.worst,
       source: 'full',
       sourceLabel: 'Full league',
+      status: 'FULL',
+      reason: null,
     };
   }
 
@@ -158,12 +160,17 @@ export async function computeAtsLeadersFromSources() {
       worst: fallback.worst,
       source: 'fallback',
       sourceLabel: 'Top 25 / Locks + Should Be In',
+      status: 'FALLBACK',
+      reason: null,
     };
   }
 
   return {
     best: [],
     worst: [],
+    status: 'EMPTY',
+    reason: 'no_ats_data',
+    sourceLabel: null,
     unavailableReason: 'odds history empty or no ATS data for any team',
   };
 }

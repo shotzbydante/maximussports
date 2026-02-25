@@ -21,26 +21,34 @@ export default async function handler(req, res) {
 
   try {
     const result = await getAtsLeadersPipeline({ warm: true });
-    const atsLeadersCount = (result.best?.length || 0) + (result.worst?.length || 0);
+    const bestCount = result.best?.length ?? 0;
+    const worstCount = result.worst?.length ?? 0;
+    const status = result.status ?? (bestCount + worstCount > 0 ? 'FULL' : 'EMPTY');
     if (isDev) {
-      console.log('[api/ats/warm] success', { atsLeadersCount, sourceLabel: result.sourceLabel });
+      console.log('[api/ats/warm] success', { status, bestCount, worstCount, sourceLabel: result.sourceLabel, reason: result.reason });
     }
     return res.status(200).json({
       ok: true,
-      atsLeadersCount,
-      source: result.source ?? null,
+      status,
+      bestCount,
+      worstCount,
       sourceLabel: result.sourceLabel ?? null,
-      ...(result.unavailableReason ? { unavailableReason: result.unavailableReason } : {}),
+      ...(result.reason ? { reason: result.reason } : {}),
     });
   } catch (err) {
     console.error('[api/ats/warm] error:', err?.message);
     if (err?.stack) console.error('[api/ats/warm] stack', err.stack);
     const cached = getAtsLeaders();
-    const atsLeadersCount = (cached.best?.length || 0) + (cached.worst?.length || 0);
+    const bestCount = cached.best?.length ?? 0;
+    const worstCount = cached.worst?.length ?? 0;
     return res.status(200).json({
       ok: false,
       error: err?.message,
-      atsLeadersCount,
+      status: cached.atsMeta?.status ?? 'EMPTY',
+      bestCount,
+      worstCount,
+      sourceLabel: cached.atsMeta?.sourceLabel ?? null,
+      reason: cached.atsMeta?.reason ?? err?.message ?? 'warm_failed',
     });
   }
 }

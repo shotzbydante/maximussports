@@ -97,12 +97,14 @@ export default async function handler(req, res) {
   const cached = homeFastCache.get(key);
   if (cached) {
     const atsCount = (cached.atsLeaders?.best?.length || 0) + (cached.atsLeaders?.worst?.length || 0);
-    const meta = buildCacheMeta({ hit: true, ageMs: null, stale: false }, { sourceLabel: cached.atsLeadersSourceLabel ?? null });
+    const atsMeta = cached.atsMeta ?? { status: atsCount > 0 ? 'FULL' : 'EMPTY', reason: cached.atsUnavailableReason ?? null, sourceLabel: cached.atsLeadersSourceLabel ?? null, generatedAt: cached.generatedAt ?? new Date().toISOString() };
+    const meta = buildCacheMeta({ hit: true, ageMs: null, stale: false }, { sourceLabel: cached.atsLeadersSourceLabel ?? atsMeta.sourceLabel ?? null });
     return res.status(200).json({
       ...cached,
+      atsMeta,
       _cached: true,
       atsLeadersCount: cached.atsLeadersCount ?? atsCount,
-      atsWarming: cached.atsWarming ?? false,
+      atsWarming: false,
       headlinesWarming: cached.headlinesWarming ?? false,
       atsLeadersTimestamp: cached.atsLeadersTimestamp ?? null,
       atsLeadersSourceLabel: cached.atsLeadersSourceLabel ?? null,
@@ -141,20 +143,25 @@ export default async function handler(req, res) {
       };
     });
 
-    // ATS + headlines from shared cache (same instance warmers write to); fire warmers immediately when empty
+    // ATS + headlines from shared cache. Always return atsMeta so client can show empty state instead of loading forever.
     let atsLeaders = getAtsLeaders();
     let headlines = getHeadlines();
     const atsEmpty = !atsLeaders.best?.length && !atsLeaders.worst?.length;
     const headlinesEmpty = !Array.isArray(headlines) || headlines.length === 0;
-    const atsUnavailableReason = atsEmpty ? getAtsUnavailableReason() : null;
     if (atsEmpty) atsLeaders = { best: [], worst: [] };
     if (headlinesEmpty) headlines = [];
     fireWarmers(atsEmpty, headlinesEmpty);
 
     const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
-    const atsWarming = atsEmpty && !atsUnavailableReason;
+    const atsMeta = atsLeaders.atsMeta ?? {
+      status: 'EMPTY',
+      reason: getAtsUnavailableReason() || 'cold_start',
+      sourceLabel: null,
+      generatedAt: new Date().toISOString(),
+    };
+    const atsWarming = false;
     const atsLeadersTimestamp = atsLeaders.timestamp ?? null;
-    const atsLeadersSourceLabel = atsLeaders.sourceLabel ?? null;
+    const atsLeadersSourceLabel = atsLeaders.sourceLabel ?? atsMeta.sourceLabel ?? null;
     const dataStatus = {
       scoresCount: scoresToday.length,
       scoresYesterdayCount: scoresYesterday.length,
@@ -171,7 +178,7 @@ export default async function handler(req, res) {
 
     const cacheMeta = buildCacheMeta(
       { hit: atsCount > 0, ageMs: null, stale: false },
-      { sourceLabel: atsLeadersSourceLabel ?? null, partial: atsCount === 0 && (rankingsTop25.length > 0 || scoresToday.length > 0), errors: atsUnavailableReason ? [atsUnavailableReason] : [] }
+      { sourceLabel: atsLeadersSourceLabel ?? null, partial: atsCount === 0 && (rankingsTop25.length > 0 || scoresToday.length > 0), errors: atsMeta.reason ? [atsMeta.reason] : [] }
     );
     const payload = {
       scoresToday,
@@ -179,6 +186,7 @@ export default async function handler(req, res) {
       rankingsTop25,
       rankings: { rankings: rankingsTop25 },
       atsLeaders: { best: atsLeaders.best || [], worst: atsLeaders.worst || [] },
+      atsMeta,
       headlines,
       pinnedTeamsMeta,
       dataStatus,
@@ -193,19 +201,20 @@ export default async function handler(req, res) {
       sourceLabel: cacheMeta.sourceLabel,
       ...(cacheMeta.errors?.length ? { errors: cacheMeta.errors } : {}),
     };
-    if (atsUnavailableReason) payload.atsUnavailableReason = atsUnavailableReason;
 
     homeFastCache.set(key, payload);
     res.status(200).json(payload);
   } catch (err) {
     console.error('[api/home/fast] error:', err.message);
     fireWarmers(true, true);
+    const atsMeta = { status: 'EMPTY', reason: 'fast_fetch_failed', sourceLabel: null, generatedAt: new Date().toISOString() };
     res.status(200).json({
       scoresToday: [],
       scoresYesterday: [],
       rankingsTop25: [],
       rankings: { rankings: [] },
       atsLeaders: { best: [], worst: [] },
+      atsMeta,
       headlines: [],
       pinnedTeamsMeta: [],
       dataStatus: {
@@ -216,7 +225,7 @@ export default async function handler(req, res) {
         headlinesCount: 0,
         dataStatusLine: 'Fast fetch failed.',
       },
-      atsWarming: true,
+      atsWarming: false,
       headlinesWarming: true,
     });
   }

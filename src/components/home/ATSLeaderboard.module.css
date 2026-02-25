@@ -86,6 +86,39 @@
   color: var(--color-down);
 }
 
+.emptyState {
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+.emptyStateMessage {
+  font-size: var(--body-font-size);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-xs);
+}
+
+.emptyStateReason {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-md);
+}
+
+.retryButton {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--pill-radius);
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--badge-font-size);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.retryButton:hover {
+  background: rgba(60, 121, 180, 0.1);
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

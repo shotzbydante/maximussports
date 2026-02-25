@@ -21,51 +21,73 @@ const HEADLINES_KEY = 'home:headlines';
 const ATS_UNAVAILABLE_KEY = 'home:atsUnavailableReason';
 
 /**
- * Cached value: { best, worst, timestamp?, source?, sourceLabel? }
+ * Cached value: { best, worst, timestamp?, source?, sourceLabel?, status?, reason?, generatedAt? }
  */
 export function getAtsLeaders() {
   const cached = atsCache.get(ATS_KEY);
-  if (!cached) return { best: [], worst: [] };
+  if (!cached) return { best: [], worst: [], atsMeta: null };
+  const atsMeta = {
+    status: cached.status ?? (cached.best?.length || cached.worst?.length ? 'FULL' : 'EMPTY'),
+    reason: cached.reason ?? null,
+    sourceLabel: cached.sourceLabel ?? null,
+    generatedAt: cached.generatedAt ?? null,
+  };
   return {
     best: cached.best || [],
     worst: cached.worst || [],
     timestamp: cached.timestamp ?? null,
     source: cached.source ?? null,
     sourceLabel: cached.sourceLabel ?? null,
+    atsMeta,
   };
 }
 
 /**
  * Return ATS from cache even if expired (stale-while-revalidate). Safe fallback when fresh unavailable.
- * @returns {{ best: array, worst: array, timestamp?: number, sourceLabel?: string, ageMs?: number, stale?: boolean } | null}
  */
 export function getAtsLeadersMaybeStale() {
   const entry = atsCache.getMaybeStale(ATS_KEY);
   if (!entry?.value) return null;
   const cached = entry.value;
+  const atsMeta = {
+    status: cached.status ?? (cached.best?.length || cached.worst?.length ? 'FULL' : 'EMPTY'),
+    reason: cached.reason ?? null,
+    sourceLabel: cached.sourceLabel ?? null,
+    generatedAt: cached.generatedAt ?? null,
+  };
   return {
     best: cached.best || [],
     worst: cached.worst || [],
     timestamp: cached.timestamp ?? null,
     source: cached.source ?? null,
     sourceLabel: cached.sourceLabel ?? null,
+    atsMeta,
     ageMs: entry.ageMs,
     stale: entry.stale,
   };
 }
 
+/**
+ * Store ATS leaders and meta. Call even when best/worst are empty (status EMPTY) so fast can return atsMeta.
+ */
 export function setAtsLeaders(atsLeaders) {
   if (!atsLeaders) return;
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
-  if (best.length > 0 || worst.length > 0) {
-    atsCache.set(ATS_KEY, {
-      best,
-      worst,
-      timestamp: Date.now(),
-      source: atsLeaders.source ?? null,
-      sourceLabel: atsLeaders.sourceLabel ?? null,
-    });
+  const now = new Date().toISOString();
+  atsCache.set(ATS_KEY, {
+    best,
+    worst,
+    timestamp: Date.now(),
+    source: atsLeaders.source ?? null,
+    sourceLabel: atsLeaders.sourceLabel ?? null,
+    status: atsLeaders.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
+    reason: atsLeaders.reason ?? null,
+    generatedAt: atsLeaders.generatedAt ?? now,
+  });
+  if (atsLeaders.reason) {
+    atsUnavailableCache.set(ATS_UNAVAILABLE_KEY, atsLeaders.reason);
+  } else if (best.length > 0 || worst.length > 0) {
     atsUnavailableCache.set(ATS_UNAVAILABLE_KEY, null);
   }
 }

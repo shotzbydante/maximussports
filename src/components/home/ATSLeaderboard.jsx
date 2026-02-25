@@ -1,6 +1,7 @@
 /**
  * ATS Leaderboard — Top 10 best / Top 10 worst ATS (Season, Last 30, Last 7).
- * Data from /api/home (atsLeaders). When atsLeaders prop is provided, no fetch.
+ * Props: atsLeaders, atsMeta (status FULL|FALLBACK|EMPTY, reason), loading, onRetry.
+ * Loading → skeleton; EMPTY → empty state + Retry; FALLBACK → optional label; FULL → normal.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,14 +17,24 @@ const PERIODS = [
   { key: 'last7', label: 'Last 7' },
 ];
 
-export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, slowLoading = false, atsWarming = false, atsLoading = false, atsLeadersSourceLabel = null }) {
+export default function ATSLeaderboard({
+  atsLeaders = { best: [], worst: [] },
+  atsMeta = null,
+  loading = false,
+  onRetry = null,
+  slowLoading = false,
+  atsWarming = false,
+  atsLoading = false,
+  atsLeadersSourceLabel = null,
+}) {
   const [period, setPeriod] = useState('season');
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
   const hasData = best.length > 0 || worst.length > 0;
-  const loading = (slowLoading || atsWarming || atsLoading) && !hasData;
-  const error = null;
-  const isFallback = atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league';
+  const status = atsMeta?.status ?? (hasData ? 'FULL' : 'EMPTY');
+  const showLoading = loading || ((slowLoading || atsWarming || atsLoading) && !hasData && status !== 'EMPTY');
+  const showEmpty = status === 'EMPTY' || (!hasData && atsMeta != null);
+  const isFallback = status === 'FALLBACK' || (atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league');
   const prevCountRef = useRef(0);
   useEffect(() => {
     const count = best.length + worst.length;
@@ -42,8 +53,8 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
       <div className={styles.header}>
         <div>
           <h3 className={styles.title}>ATS Leaderboard</h3>
-          {isFallback && atsLeadersSourceLabel && (
-            <span className={styles.sourceLabel}>{atsLeadersSourceLabel}</span>
+          {isFallback && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && (
+            <span className={styles.sourceLabel}>{atsLeadersSourceLabel || atsMeta.sourceLabel || 'Fallback leaderboard'}</span>
           )}
         </div>
         <div className={styles.headerRight}>
@@ -63,9 +74,19 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
         </div>
       </div>
       <div className={styles.content}>
-        {(!hasData || loading) && <div className={styles.loading}>Loading ATS…</div>}
-        {error && <div className={styles.error}>{error}</div>}
-        {!error && hasData && (
+        {showLoading && <div className={styles.loading}>Loading ATS…</div>}
+        {showEmpty && !showLoading && (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateMessage}>ATS not available right now.</p>
+            {atsMeta?.reason && <p className={styles.emptyStateReason}>{atsMeta.reason}</p>}
+            {typeof onRetry === 'function' && (
+              <button type="button" className={styles.retryButton} onClick={onRetry}>
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+        {!showLoading && !showEmpty && hasData && (
           <div className={styles.grid}>
             <div className={styles.col}>
               <span className={styles.colLabel}>Top 10 (cover %)</span>

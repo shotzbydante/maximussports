@@ -16,6 +16,8 @@ export default function Insights() {
     const c = getAtsLeadersCacheMaybeStale()?.data;
     return (c?.best?.length || c?.worst?.length) ? c : { best: [], worst: [] };
   });
+  const [atsMeta, setAtsMeta] = useState(null);
+  const [atsLoading, setAtsLoading] = useState(true);
 
   useEffect(() => {
     fetchHomeFast()
@@ -23,6 +25,8 @@ export default function Insights() {
         setRankings(data?.rankingsTop25 ?? data?.rankings?.rankings ?? []);
         const next = data?.atsLeaders ?? { best: [], worst: [] };
         setAtsLeaders(next);
+        setAtsMeta(data?.atsMeta ?? { status: (next.best?.length || next.worst?.length) ? 'FULL' : 'EMPTY', reason: null, sourceLabel: null });
+        setAtsLoading(false);
         if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {
           setAtsLeadersCache(next);
         }
@@ -30,6 +34,8 @@ export default function Insights() {
       .catch(() => {
         setRankings([]);
         setAtsLeaders({ best: [], worst: [] });
+        setAtsMeta({ status: 'EMPTY', reason: 'fetch_failed', sourceLabel: null });
+        setAtsLoading(false);
       });
   }, []);
 
@@ -89,7 +95,21 @@ export default function Insights() {
       </section>
 
       <section className={styles.atsSection}>
-        <ATSLeaderboard atsLeaders={atsLeaders} />
+        <ATSLeaderboard
+          atsLeaders={atsLeaders}
+          atsMeta={atsMeta}
+          loading={atsLoading}
+          onRetry={() => {
+            setAtsLoading(true);
+            fetchHomeFast().then((data) => {
+              const next = data?.atsLeaders ?? { best: [], worst: [] };
+              setAtsLeaders(next);
+              setAtsMeta(data?.atsMeta ?? null);
+              setAtsLoading(false);
+              if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) setAtsLeadersCache(next);
+            }).catch(() => setAtsLoading(false));
+          }}
+        />
       </section>
 
       <section className={styles.section}>
