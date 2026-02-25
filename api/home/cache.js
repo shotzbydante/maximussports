@@ -21,7 +21,7 @@ const HEADLINES_KEY = 'home:headlines';
 const ATS_UNAVAILABLE_KEY = 'home:atsUnavailableReason';
 
 /**
- * Cached value: { best, worst, timestamp?, source?, sourceLabel?, status?, reason?, generatedAt? }
+ * Cached value: { best, worst, timestamp?, source?, sourceLabel?, status?, reason?, confidence?, generatedAt? }
  */
 export function getAtsLeaders() {
   const cached = atsCache.get(ATS_KEY);
@@ -30,6 +30,7 @@ export function getAtsLeaders() {
     status: cached.status ?? (cached.best?.length || cached.worst?.length ? 'FULL' : 'EMPTY'),
     reason: cached.reason ?? null,
     sourceLabel: cached.sourceLabel ?? null,
+    confidence: cached.confidence ?? (cached.status === 'FULL' ? 'high' : cached.status === 'FALLBACK' ? 'medium' : 'low'),
     generatedAt: cached.generatedAt ?? null,
   };
   return {
@@ -53,6 +54,7 @@ export function getAtsLeadersMaybeStale() {
     status: cached.status ?? (cached.best?.length || cached.worst?.length ? 'FULL' : 'EMPTY'),
     reason: cached.reason ?? null,
     sourceLabel: cached.sourceLabel ?? null,
+    confidence: cached.confidence ?? (cached.status === 'FULL' ? 'high' : cached.status === 'FALLBACK' ? 'medium' : 'low'),
     generatedAt: cached.generatedAt ?? null,
   };
   return {
@@ -68,12 +70,26 @@ export function getAtsLeadersMaybeStale() {
 }
 
 /**
- * Store ATS leaders and meta. Call even when best/worst are empty (status EMPTY) so fast can return atsMeta.
+ * Whether the cache currently has a result we should not overwrite with EMPTY.
+ */
+export function hasAtsFallbackOrFull() {
+  const cached = atsCache.get(ATS_KEY);
+  if (!cached) return false;
+  const status = cached.status ?? (cached.best?.length || cached.worst?.length ? 'FULL' : 'EMPTY');
+  return status === 'FALLBACK' || status === 'FULL' || (cached.best?.length || 0) + (cached.worst?.length || 0) > 0;
+}
+
+/**
+ * Store ATS leaders and meta. Does not overwrite existing FALLBACK/FULL with EMPTY (keeps last good cache).
  */
 export function setAtsLeaders(atsLeaders) {
   if (!atsLeaders) return;
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
+  const status = atsLeaders.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY');
+  if (status === 'EMPTY' && (best.length === 0 && worst.length === 0) && hasAtsFallbackOrFull()) {
+    return;
+  }
   const now = new Date().toISOString();
   atsCache.set(ATS_KEY, {
     best,
@@ -81,8 +97,9 @@ export function setAtsLeaders(atsLeaders) {
     timestamp: Date.now(),
     source: atsLeaders.source ?? null,
     sourceLabel: atsLeaders.sourceLabel ?? null,
-    status: atsLeaders.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
+    status,
     reason: atsLeaders.reason ?? null,
+    confidence: atsLeaders.confidence ?? (status === 'FULL' ? 'high' : status === 'FALLBACK' ? 'medium' : 'low'),
     generatedAt: atsLeaders.generatedAt ?? now,
   });
   if (atsLeaders.reason) {

@@ -12,10 +12,12 @@ const WARM_DEADLINE_MS = 10000;
 
 function buildAtsMeta(result, fromCache = false, stale = false) {
   const status = result?.status ?? (result?.best?.length || result?.worst?.length ? 'FULL' : 'EMPTY');
+  const confidence = result?.confidence ?? (status === 'FULL' ? 'high' : status === 'FALLBACK' ? 'medium' : 'low');
   return {
     status,
     reason: result?.reason ?? result?.unavailableReason ?? null,
     sourceLabel: result?.sourceLabel ?? null,
+    confidence,
     generatedAt: result?.generatedAt ?? new Date().toISOString(),
     fromCache: !!fromCache,
     stale: !!stale,
@@ -30,6 +32,7 @@ async function computeAndSet() {
   const best = result.best || [];
   const worst = result.worst || [];
   const status = result.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY');
+  const confidence = result.confidence ?? (status === 'FULL' ? 'high' : status === 'FALLBACK' ? 'medium' : 'low');
   const generatedAt = new Date().toISOString();
   const payload = {
     best,
@@ -38,6 +41,7 @@ async function computeAndSet() {
     sourceLabel: result.sourceLabel ?? null,
     status,
     reason: result.reason ?? result.unavailableReason ?? null,
+    confidence,
     generatedAt,
   };
   setAtsLeaders(payload);
@@ -73,7 +77,7 @@ export async function getAtsLeadersPipeline(options = {}) {
       };
     } catch (err) {
       if (isDev) console.log('[atsPipeline] warm timeout or error', err?.message);
-      const emptyPayload = { best: [], worst: [], status: 'EMPTY', reason: err?.message === 'ats_timeout' ? 'odds_history_timeout' : (err?.message || 'warm_failed'), sourceLabel: null, generatedAt: new Date().toISOString() };
+      const emptyPayload = { best: [], worst: [], status: 'EMPTY', reason: err?.message === 'ats_timeout' ? 'odds_history_timeout' : (err?.message || 'warm_failed'), sourceLabel: null, confidence: 'low', generatedAt: new Date().toISOString() };
       setAtsLeaders(emptyPayload);
       return { ...emptyPayload, atsMeta: buildAtsMeta(emptyPayload, false, false), fromCache: false };
     }
@@ -132,7 +136,7 @@ export async function getAtsLeadersPipeline(options = {}) {
         ageMs: stale.ageMs,
       };
     }
-    const emptyMeta = buildAtsMeta({ status: 'EMPTY', reason: err?.message || 'computation_failed', sourceLabel: null }, false, false);
+    const emptyMeta = buildAtsMeta({ status: 'EMPTY', reason: err?.message || 'computation_failed', sourceLabel: null, confidence: 'low' }, false, false);
     return {
       best: [],
       worst: [],

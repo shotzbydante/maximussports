@@ -1,8 +1,10 @@
 /**
  * Compute ATS leaders (best/worst) from rankings + odds-history + schedules.
  * Full-league: all teams with resolved IDs. Fallback: Top 25 + Lock + "Should be in" when sparse.
- * Used by /api/home/slow, /api/home/fast warmer, and /api/ats/warm.
+ * Used by /api/home/slow and /api/ats/warmFull. Not used by /api/ats/warm (fast fallback only).
  */
+
+const DEBUG_ATS = process.env.DEBUG_ATS === '1';
 
 import {
   fetchRankingsSource,
@@ -22,8 +24,20 @@ function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
 
+const CONCURRENCY = 6;
+
+async function runChunked(arr, fn) {
+  const results = [];
+  for (let i = 0; i < arr.length; i += CONCURRENCY) {
+    const chunk = arr.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.all(chunk.map(fn));
+    results.push(...chunkResults);
+  }
+  return results;
+}
+
 /**
- * Compute ATS for a list of team slugs. Returns sorted best/worst rows.
+ * Compute ATS for a list of team slugs. Returns sorted best/worst rows. Uses controlled concurrency.
  */
 async function computeAtsForTeamList(teamSlugs, slugToId, oddsHistoryGames) {
   const thirtyAgo = new Date();
@@ -31,8 +45,7 @@ async function computeAtsForTeamList(teamSlugs, slugToId, oddsHistoryGames) {
   const sevenAgo = new Date();
   sevenAgo.setDate(sevenAgo.getDate() - 7);
 
-  const results = await Promise.all(
-    teamSlugs.map(async ({ slug, name }) => {
+  const results = await runChunked(teamSlugs, async ({ slug, name }) => {
       const teamId = slugToId[slug];
       if (!teamId) return null;
       try {
@@ -66,8 +79,7 @@ async function computeAtsForTeamList(teamSlugs, slugToId, oddsHistoryGames) {
       } catch {
         return null;
       }
-    })
-  );
+  });
 
   const rows = results.filter(Boolean);
   const sorted = [...rows]
@@ -126,16 +138,20 @@ export async function computeAtsLeadersFromSources() {
   const slugToId = { ...(teamIdsData?.slugToId || {}), ...buildSlugToIdFromRankings({ rankings: rankingsData?.rankings || [] }) };
   const rankings = rankingsData?.rankings || [];
 
+  const t0 = DEBUG_ATS ? Date.now() : 0;
   if (rankings.length === 0) {
-    return { best: [], worst: [], status: 'EMPTY', reason: 'rankings_empty', sourceLabel: null, unavailableReason: 'rankings empty' };
+    return { best: [], worst: [], status: 'EMPTY', reason: 'rankings_empty', sourceLabel: null, confidence: 'low', unavailableReason: 'rankings empty' };
   }
   if (oddsHistoryGames.length === 0) {
-    return { best: [], worst: [], status: 'EMPTY', reason: 'odds_history_empty', sourceLabel: null, unavailableReason: 'odds history empty' };
+    return { best: [], worst: [], status: 'EMPTY', reason: 'odds_history_empty', sourceLabel: null, confidence: 'low', unavailableReason: 'odds history empty' };
   }
+  if (DEBUG_ATS) console.log('[atsLeaders] fetch rankings+teamIds+oddsHistory', { rankingsCount: rankings.length, oddsHistoryCount: oddsHistoryGames.length, ms: Date.now() - t0 });
 
   // 1) Full-league: all teams with resolved IDs
   const fullLeagueSlugs = buildFullLeagueTeamSlugs(slugToId);
+  const t1 = DEBUG_ATS ? Date.now() : 0;
   const full = await computeAtsForTeamList(fullLeagueSlugs, slugToId, oddsHistoryGames);
+  if (DEBUG_ATS) console.log('[atsLeaders] full-league compute', { best: full.best?.length, worst: full.worst?.length, ms: Date.now() - t1 });
   const hasFull = (full.best?.length || 0) + (full.worst?.length || 0) > 0;
 
   if (hasFull) {
@@ -146,12 +162,15 @@ export async function computeAtsLeadersFromSources() {
       sourceLabel: 'Full league',
       status: 'FULL',
       reason: null,
+      confidence: 'high',
     };
   }
 
   // 2) Fallback: Top 25 + Lock + "Should be in"
   const fallbackSlugs = buildFallbackTeamSlugs(rankings, slugToId);
+  const t2 = DEBUG_ATS ? Date.now() : 0;
   const fallback = await computeAtsForTeamList(fallbackSlugs, slugToId, oddsHistoryGames);
+  if (DEBUG_ATS) console.log('[atsLeaders] fallback compute', { best: fallback.best?.length, worst: fallback.worst?.length, ms: Date.now() - t2 });
   const hasFallback = (fallback.best?.length || 0) + (fallback.worst?.length || 0) > 0;
 
   if (hasFallback) {
@@ -162,15 +181,18 @@ export async function computeAtsLeadersFromSources() {
       sourceLabel: 'Top 25 / Locks + Should Be In',
       status: 'FALLBACK',
       reason: null,
+      confidence: 'medium',
     };
   }
 
+  if (DEBUG_ATS) console.log('[atsLeaders] total elapsed', Date.now() - t0);
   return {
     best: [],
     worst: [],
     status: 'EMPTY',
     reason: 'no_ats_data',
     sourceLabel: null,
+    confidence: 'low',
     unavailableReason: 'odds history empty or no ATS data for any team',
   };
 }

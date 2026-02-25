@@ -54,7 +54,12 @@ export default function ATSLeaderboard({
         <div>
           <h3 className={styles.title}>ATS Leaderboard</h3>
           {isFallback && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && (
-            <span className={styles.sourceLabel}>{atsLeadersSourceLabel || atsMeta.sourceLabel || 'Fallback leaderboard'}</span>
+            <span className={styles.sourceLabel}>
+              {atsLeadersSourceLabel || atsMeta.sourceLabel || 'Fallback leaderboard'}
+              {atsMeta?.confidence && atsMeta.confidence !== 'high' && (
+                <span className={styles.confidence}> ({atsMeta.confidence} confidence)</span>
+              )}
+            </span>
           )}
         </div>
         <div className={styles.headerRight}>

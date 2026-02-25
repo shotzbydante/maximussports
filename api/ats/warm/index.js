@@ -1,11 +1,11 @@
 /**
- * GET /api/ats/warm — Cron warm-up for ATS leaders cache.
- * Calls getAtsLeadersPipeline({ warm: true }) to compute and populate cache; returns JSON summary.
- * No heavy work beyond warming cache. Call every 5–10 min via Vercel cron.
+ * GET /api/ats/warm — Fast fallback warm (~1–2s). No odds history or per-team schedule.
+ * Uses only rankings + team IDs; produces proxy leaderboard so Home never shows empty.
+ * Cache gets FALLBACK with confidence "low". Cron every 5–10 min.
  */
 
-import { getAtsLeaders } from '../../home/cache.js';
-import { getAtsLeadersPipeline } from '../../home/atsPipeline.js';
+import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
+import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 
 export default async function handler(req, res) {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
@@ -20,19 +20,20 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const result = await getAtsLeadersPipeline({ warm: true });
+    const result = await computeFastFallbackFromRankingsOnly();
     const bestCount = result.best?.length ?? 0;
     const worstCount = result.worst?.length ?? 0;
-    const status = result.status ?? (bestCount + worstCount > 0 ? 'FULL' : 'EMPTY');
+    setAtsLeaders(result);
     if (isDev) {
-      console.log('[api/ats/warm] success', { status, bestCount, worstCount, sourceLabel: result.sourceLabel, reason: result.reason });
+      console.log('[api/ats/warm] success', { status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence });
     }
     return res.status(200).json({
       ok: true,
-      status,
+      status: result.status,
       bestCount,
       worstCount,
       sourceLabel: result.sourceLabel ?? null,
+      confidence: result.confidence ?? 'low',
       ...(result.reason ? { reason: result.reason } : {}),
     });
   } catch (err) {
@@ -48,6 +49,7 @@ export default async function handler(req, res) {
       bestCount,
       worstCount,
       sourceLabel: cached.atsMeta?.sourceLabel ?? null,
+      confidence: cached.atsMeta?.confidence ?? 'low',
       reason: cached.atsMeta?.reason ?? err?.message ?? 'warm_failed',
     });
   }

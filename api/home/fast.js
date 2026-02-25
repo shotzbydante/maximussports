@@ -97,7 +97,7 @@ export default async function handler(req, res) {
   const cached = homeFastCache.get(key);
   if (cached) {
     const atsCount = (cached.atsLeaders?.best?.length || 0) + (cached.atsLeaders?.worst?.length || 0);
-    const atsMeta = cached.atsMeta ?? { status: atsCount > 0 ? 'FULL' : 'EMPTY', reason: cached.atsUnavailableReason ?? null, sourceLabel: cached.atsLeadersSourceLabel ?? null, generatedAt: cached.generatedAt ?? new Date().toISOString() };
+    const atsMeta = cached.atsMeta ?? { status: atsCount > 0 ? 'FULL' : 'EMPTY', reason: cached.atsUnavailableReason ?? null, sourceLabel: cached.atsLeadersSourceLabel ?? null, confidence: atsCount > 0 ? 'high' : 'low', generatedAt: cached.generatedAt ?? new Date().toISOString() };
     const meta = buildCacheMeta({ hit: true, ageMs: null, stale: false }, { sourceLabel: cached.atsLeadersSourceLabel ?? atsMeta.sourceLabel ?? null });
     return res.status(200).json({
       ...cached,
@@ -157,6 +157,7 @@ export default async function handler(req, res) {
       status: 'EMPTY',
       reason: getAtsUnavailableReason() || 'cold_start',
       sourceLabel: null,
+      confidence: 'low',
       generatedAt: new Date().toISOString(),
     };
     const atsWarming = false;
@@ -207,7 +208,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('[api/home/fast] error:', err.message);
     fireWarmers(true, true);
-    const atsMeta = { status: 'EMPTY', reason: 'fast_fetch_failed', sourceLabel: null, generatedAt: new Date().toISOString() };
+    const atsMeta = { status: 'EMPTY', reason: 'fast_fetch_failed', sourceLabel: null, confidence: 'low', generatedAt: new Date().toISOString() };
     res.status(200).json({
       scoresToday: [],
       scoresYesterday: [],

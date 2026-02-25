@@ -34,6 +34,11 @@
   margin-top: var(--space-xs);
 }
 
+.confidence {
+  font-weight: 400;
+  opacity: 0.9;
+}
+
 .headerRight {
   display: flex;
   align-items: center;
