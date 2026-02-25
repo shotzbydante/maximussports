@@ -16,7 +16,7 @@ import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
 import NewsFeed from '../components/dashboard/NewsFeed';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
-import Top25Rankings from '../components/home/Top25Rankings';
+import RankingsTable from '../components/insights/RankingsTable';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
@@ -339,6 +339,11 @@ export default function Home() {
   useEffect(() => {
     loadHomeBatch();
   }, [loadHomeBatch]);
+
+  /* Trigger ATS pipeline early so KV warms and subsequent/fast response has data. */
+  useEffect(() => {
+    maybeWarmAts();
+  }, []);
 
   useEffect(() => {
     const id = setInterval(loadHomeBatch, SCORES_REFRESH_MS);
@@ -665,7 +670,9 @@ export default function Home() {
         />
       </section>
 
-      <Top25Rankings rankings={top25} />
+      <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
+        <RankingsTable title="Bubble Watch - Full Rankings" rankings={top25} />
+      </section>
 
       <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
 

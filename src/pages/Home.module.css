@@ -314,6 +314,10 @@
   margin-bottom: var(--space-xl);
 }
 
+.bubbleWatchSection {
+  margin-bottom: var(--space-xl);
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;

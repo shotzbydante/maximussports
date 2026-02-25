@@ -76,6 +76,43 @@
   grid-template-columns: 1fr 70px 90px;
 }
 
+@media (max-width: 600px) {
+  .widget {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table {
+    min-width: 320px;
+  }
+  .table .row {
+    min-width: 320px;
+    grid-template-columns: minmax(120px, 1fr) 56px 72px 72px;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.8rem;
+  }
+  .tableCompact.tableNoOdds .row {
+    min-width: 260px;
+    grid-template-columns: minmax(120px, 1fr) 56px 72px;
+  }
+  .colOdds,
+  .oddsText {
+    font-size: 0.65rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .colMatchup {
+    gap: 2px;
+  }
+  .teamCell {
+    flex-wrap: wrap;
+  }
+  .tierBadge {
+    font-size: 0.5rem;
+    padding: 1px 2px;
+  }
+}
+
 .sourceBadges {
   display: flex;
   align-items: center;

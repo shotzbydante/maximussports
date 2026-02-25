@@ -5,12 +5,30 @@
   overflow: hidden;
 }
 
+.sectionTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-md);
+  padding: 0 var(--space-md);
+  padding-top: var(--space-md);
+}
+
 .filters {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-lg);
   padding: var(--space-md);
   background: var(--color-bg-muted);
   border-bottom: 1px solid var(--color-border-light);
+}
+
+@media (max-width: 600px) {
+  .filters {
+    gap: var(--space-sm);
+  }
 }
 
 .filterLabel {
@@ -39,6 +57,36 @@
 
 .wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 600px) {
+  .wrapper {
+    margin: 0 var(--space-xs);
+  }
+  .grid {
+    font-size: 0.8rem;
+  }
+  .grid th,
+  .grid td {
+    padding: var(--space-xs) var(--space-sm);
+  }
+  .colTeam {
+    min-width: 160px;
+  }
+  .colConf {
+    min-width: 70px;
+  }
+  .colTier {
+    min-width: 85px;
+  }
+  .teamLink {
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .teamLink span:first-of-type {
+    min-width: 0;
+  }
 }
 
 .grid {
@@ -97,6 +145,16 @@
   font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-left: auto;
+}
+
+.top25Badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-bg-muted);
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: var(--space-xs);
 }
 
 .badge {

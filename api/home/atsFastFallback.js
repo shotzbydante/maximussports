@@ -11,7 +11,8 @@ import { buildSlugToIdFromRankings } from '../../src/utils/teamIdMap.js';
 
 const DEBUG_ATS = process.env.DEBUG_ATS === '1';
 
-const EMPTY_REC = { w: 0, l: 0, p: 0, total: 1, coverPct: null };
+/* Use total: 0 so UI shows N/A instead of misleading 0-0. */
+const EMPTY_REC = { w: 0, l: 0, p: 0, total: 0, coverPct: null };
 
 /**
  * Build proxy rows from Top 25: same shape as ATS rows but with no ATS data (rec.total = 0).

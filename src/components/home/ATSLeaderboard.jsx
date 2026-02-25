@@ -138,7 +138,11 @@ export default function ATSLeaderboard({
           </div>
         )}
         {!showLoading && !showEmpty && hasData && (
-          <div className={styles.grid}>
+          <>
+            {(best10.length < 10 || worst10.length < 10) && (best10.length > 0 || worst10.length > 0) && (
+              <p className={styles.insufficientNote}>Insufficient data for full leaderboard. Showing {best10.length} top and {worst10.length} bottom.</p>
+            )}
+            <div className={styles.grid}>
             <div className={styles.col}>
               <span className={styles.colLabel}>Top 10 (cover %)</span>
               <ul className={styles.list}>
@@ -174,6 +178,7 @@ export default function ATSLeaderboard({
               </ul>
             </div>
           </div>
+          </>
         )}
       </div>
     </section>
