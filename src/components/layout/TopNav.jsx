@@ -14,17 +14,17 @@ export default function TopNav() {
         <NavLink to="/" end className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
           Home
         </NavLink>
-        <NavLink to="/teams" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Teams
-        </NavLink>
         <NavLink to="/games" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
           Games
         </NavLink>
-        <NavLink to="/insights" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Insights
+        <NavLink to="/teams" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
+          Teams
         </NavLink>
-        <NavLink to="/alerts" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Alerts
+        <NavLink to="/insights" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
+          Odds Insights
+        </NavLink>
+        <NavLink to="/news" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
+          News Feed
         </NavLink>
       </nav>
     </header>

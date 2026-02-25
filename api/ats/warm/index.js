@@ -1,12 +1,13 @@
 /**
- * GET /api/ats/warm — Tier 1: quick real ATS (pinned + Top 25), then Tier 0: proxy fallback.
- * Writes to KV so all Home requests read the same data. Never writes EMPTY to KV.
+ * GET /api/ats/warm — Warm LAST 30 first: quick real Last 30 → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { setJson, getJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../../_globalCache.js';
-import { computeRealAtsQuick } from '../../home/atsQuickReal.js';
+import { setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../../_globalCache.js';
+import { computeRealAtsQuickRecent } from '../../home/atsQuickReal.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
+
+const LAST30_KEY = getAtsLeadersKeyForWindow('last30');
 
 export default async function handler(req, res) {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
@@ -25,9 +26,9 @@ export default async function handler(req, res) {
   let cacheNote = null;
 
   try {
-    let result = await computeRealAtsQuick({ pinnedSlugs: [] });
-    const quickHasLeaders = (result.best?.length || 0) + (result.worst?.length || 0) > 0;
-    if (!quickHasLeaders || result.status === 'EMPTY') {
+    let result = await computeRealAtsQuickRecent({ windowDays: 30, pinnedSlugs: [] });
+    const quickHasLeaders = (result.best?.length || 0) + (result.worst?.length || 0) > 0 && result.status !== 'EMPTY';
+    if (!quickHasLeaders) {
       result = await computeFastFallbackFromRankingsOnly();
     }
     const bestCount = result.best?.length ?? 0;
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
             generatedAt: result.generatedAt ?? new Date().toISOString(),
           },
         };
-        await setJson(ATS_LEADERS_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
+        await setJson(LAST30_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
         kvWriteOk = true;
       } catch (kvErr) {
         console.warn('[api/ats/warm] KV write failed (in-memory updated):', kvErr?.message);
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
       reason = cached.atsMeta?.reason ?? reason;
     } else {
       try {
-        const kvVal = await getJson(ATS_LEADERS_KEY);
+        const kvVal = await getJson(LAST30_KEY);
         kvReadOk = true;
         if (kvVal?.atsLeaders) {
           const b = kvVal.atsLeaders.best || [];

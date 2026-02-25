@@ -116,13 +116,14 @@ function maybeWarmAts() {
   } catch (_) {}
 }
 
-const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, recentGames, upcomingGames, headlines }) => ({
+const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, atsWindow, recentGames, upcomingGames, headlines }) => ({
   top25: top25?.slice(0, 25) || [],
   atsLeaders: {
     best: atsBest?.slice(0, 10) || [],
     worst: atsWorst?.slice(0, 10) || [],
   },
   atsMeta: atsMeta && typeof atsMeta === 'object' ? { status: atsMeta.status, confidence: atsMeta.confidence, sourceLabel: atsMeta.sourceLabel } : null,
+  atsWindow: atsWindow || 'last30',
   recentGames: (recentGames || []).slice(0, 20),
   upcomingGames: (upcomingGames || []).slice(0, 20),
   headlines: (headlines || []).slice(0, 10),
@@ -142,6 +143,8 @@ export default function Home() {
     const c = getAtsLeadersCacheMaybeStale();
     return c?.atsMeta ?? null;
   });
+  const [atsWindow, setAtsWindow] = useState('last30');
+  const [seasonWarming, setSeasonWarming] = useState(false);
   const [atsLoading, setAtsLoading] = useState(true);
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
@@ -196,7 +199,7 @@ export default function Home() {
     if (!hasAtsData(cur.leaders)) maybeWarmAts();
     setScores((s) => ({ ...s, loading: true }));
     setSlowLoading(true);
-    fetchHomeFast({ pinnedSlugs })
+    fetchHomeFast({ pinnedSlugs, atsWindow })
       .then((fastData) => {
         const scoresToday = fastData.scoresToday ?? [];
         const rankings = fastData.rankings?.rankings ?? fastData.rankingsTop25 ?? [];
@@ -219,6 +222,8 @@ export default function Home() {
         setAtsLeaders(chosenLeaders);
         setAtsMeta(chosenMeta);
         setAtsLoading(false);
+        setAtsWindow(fastData.atsWindow ?? 'last30');
+        setSeasonWarming(!!fastData.seasonWarming);
         if (hasAtsData(chosenLeaders)) {
           setAtsLeadersCache(chosenLeaders);
         }
@@ -301,6 +306,8 @@ export default function Home() {
             const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, mergedAts, slowAtsMeta ?? cur.meta);
             setAtsLeaders(chosenLeaders);
             if (chosenMeta) setAtsMeta(chosenMeta);
+            if (merged.atsWindow) setAtsWindow(merged.atsWindow);
+            if (merged.seasonWarming != null) setSeasonWarming(!!merged.seasonWarming);
             if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
             setAtsLoading(false);
             if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
@@ -387,11 +394,12 @@ export default function Home() {
       atsBest: atsLeaders.best,
       atsWorst: atsLeaders.worst,
       atsMeta,
+      atsWindow,
       recentGames,
       upcomingGames,
       headlines,
     });
-  }, [scores.games, newsData.newsFeed, top25, atsLeaders.best, atsLeaders.worst, atsMeta]);
+  }, [scores.games, newsData.newsFeed, top25, atsLeaders.best, atsLeaders.worst, atsMeta, atsWindow]);
 
   const fetchSummaryStream = useCallback((force = false) => {
     if (streamIntervalRef.current) {
@@ -626,13 +634,29 @@ export default function Home() {
           atsLeaders={atsLeaders}
           atsMeta={atsMeta}
           loading={atsLoading}
-          onRetry={() => {
+          atsWindow={atsWindow}
+          seasonWarming={seasonWarming}
+          onPeriodChange={(win) => {
+            setAtsWindow(win);
             setAtsLoading(true);
-            fetchHomeFast({ pinnedSlugs }).then((d) => {
+            fetchHomeFast({ pinnedSlugs, atsWindow: win }).then((d) => {
               const ats = d.atsLeaders ?? { best: [], worst: [] };
               const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
               setAtsLeaders(ats);
               setAtsMeta(meta);
+              setSeasonWarming(!!d.seasonWarming);
+              setAtsLoading(false);
+              if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
+            }).catch(() => setAtsLoading(false));
+          }}
+          onRetry={() => {
+            setAtsLoading(true);
+            fetchHomeFast({ pinnedSlugs, atsWindow }).then((d) => {
+              const ats = d.atsLeaders ?? { best: [], worst: [] };
+              const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
+              setAtsLeaders(ats);
+              setAtsMeta(meta);
+              setSeasonWarming(!!d.seasonWarming);
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
             }).catch(() => setAtsLoading(false));

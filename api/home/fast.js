@@ -92,8 +92,10 @@ export default async function handler(req, res) {
   const pinnedSlugs = typeof pinnedSlugsParam === 'string' && pinnedSlugsParam.trim()
     ? pinnedSlugsParam.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
+  const atsWindowParam = req.query?.atsWindow;
+  const atsWindow = (atsWindowParam === 'last7' || atsWindowParam === 'season') ? atsWindowParam : 'last30';
 
-  const key = cacheKey(pinnedSlugs);
+  const key = cacheKey(pinnedSlugs) + (atsWindow !== 'last30' ? `:${atsWindow}` : '');
   const cached = homeFastCache.get(key);
   if (cached) {
     const atsCount = (cached.atsLeaders?.best?.length || 0) + (cached.atsLeaders?.worst?.length || 0);
@@ -102,6 +104,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ...cached,
       atsMeta,
+      atsWindow: cached.atsWindow ?? atsWindow,
+      seasonWarming: cached.seasonWarming,
       _cached: true,
       atsLeadersCount: cached.atsLeadersCount ?? atsCount,
       atsWarming: false,
@@ -127,7 +131,7 @@ export default async function handler(req, res) {
       fetchScoresSource(),
       fetchScoresSource(yesterday.replace(/-/g, '')),
       fetchRankingsSource(),
-      getAtsLeadersPipeline({ pinnedSlugs }),
+      getAtsLeadersPipeline({ pinnedSlugs, atsWindow }),
     ]);
 
     const scoresToday = Array.isArray(scoresTodayRaw) ? scoresTodayRaw : [];
@@ -155,6 +159,8 @@ export default async function handler(req, res) {
       cacheNote: atsResult.atsMeta?.cacheNote ?? 'computed_fallback',
     };
     if (atsResult.atsMeta?.cacheNote) atsMeta.cacheNote = atsResult.atsMeta.cacheNote;
+    const atsWindowOut = atsResult.atsWindow ?? atsWindow;
+    const seasonWarming = atsResult.seasonWarming === true;
     let headlines = getHeadlines();
     const headlinesEmpty = !Array.isArray(headlines) || headlines.length === 0;
     if (headlinesEmpty) headlines = [];
@@ -187,6 +193,8 @@ export default async function handler(req, res) {
       rankings: { rankings: rankingsTop25 },
       atsLeaders: { best: atsLeaders.best || [], worst: atsLeaders.worst || [] },
       atsMeta,
+      atsWindow: atsWindowOut,
+      seasonWarming: seasonWarming || undefined,
       headlines,
       pinnedTeamsMeta,
       dataStatus,

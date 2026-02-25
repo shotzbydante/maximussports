@@ -12,9 +12,9 @@ import TeamLogo from '../shared/TeamLogo';
 import styles from './ATSLeaderboard.module.css';
 
 const PERIODS = [
-  { key: 'season', label: 'Season' },
   { key: 'last30', label: 'Last 30' },
   { key: 'last7', label: 'Last 7' },
+  { key: 'season', label: 'Season' },
 ];
 
 export default function ATSLeaderboard({
@@ -26,8 +26,14 @@ export default function ATSLeaderboard({
   atsWarming = false,
   atsLoading = false,
   atsLeadersSourceLabel = null,
+  atsWindow = 'last30',
+  seasonWarming = false,
+  onPeriodChange = null,
 }) {
-  const [period, setPeriod] = useState('season');
+  const [period, setPeriod] = useState(atsWindow || 'last30');
+  useEffect(() => {
+    setPeriod(atsWindow || 'last30');
+  }, [atsWindow]);
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
   const hasData = best.length > 0 || worst.length > 0;
@@ -46,15 +52,17 @@ export default function ATSLeaderboard({
 
   const periodKey = period;
   const isProxy = status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
-  const best10 = best.map((r) => ({ ...r, rec: r[periodKey] ?? r.season }));
-  const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] ?? r.season }));
-  const showRecordAsNa = (rec) => isProxy || !rec?.total;
+  const best10 = best.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
+  const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
+  const showRecordAsNa = (rec) => isProxy || !rec?.total || (rec.total === 0 && rec.w === 0 && rec.l === 0);
   const recordLabel = (r) => {
     const rec = r.rec;
     if (showRecordAsNa(rec)) return 'N/A';
+    if (!rec || rec.total === 0) return 'N/A';
     return `${rec.w}-${rec.l}${(rec.p > 0 ? `-${rec.p}` : '')}${rec.coverPct != null ? ` (${rec.coverPct}%)` : ''}`;
   };
 
+  const showSeasonWarming = seasonWarming && period === 'season';
   const headerTitle =
     status === 'FULL'
       ? 'ATS Leaders (full league)'
@@ -77,7 +85,10 @@ export default function ATSLeaderboard({
       <div className={styles.header}>
         <div>
           <h3 className={styles.title}>{headerTitle}</h3>
-          {confidenceLabel && (
+          {showSeasonWarming && (
+            <span className={styles.sourceLabel}>Season warming — showing Last 30</span>
+          )}
+          {confidenceLabel && !showSeasonWarming && (
             <span className={styles.sourceLabel}>
               {confidenceLabel}
               {atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : ''}
@@ -96,7 +107,10 @@ export default function ATSLeaderboard({
                 key={p.key}
                 type="button"
                 className={`${styles.pill} ${period === p.key ? styles.pillActive : ''}`}
-                onClick={() => setPeriod(p.key)}
+                onClick={() => {
+                  setPeriod(p.key);
+                  if (typeof onPeriodChange === 'function') onPeriodChange(p.key);
+                }}
               >
                 {p.label}
               </button>

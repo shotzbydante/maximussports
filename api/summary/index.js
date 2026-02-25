@@ -84,6 +84,7 @@ export default async function handler(req, res) {
         sourceLabel: payload.atsMeta.sourceLabel ?? null,
       }
     : null;
+  const atsWindow = payload.atsWindow === 'last7' || payload.atsWindow === 'season' ? payload.atsWindow : 'last30';
   const recentGames = Array.isArray(payload.recentGames) ? payload.recentGames.slice(0, 20) : [];
   const upcomingGames = Array.isArray(payload.upcomingGames) ? payload.upcomingGames.slice(0, 20) : [];
   const headlines = Array.isArray(payload.headlines) ? payload.headlines.slice(0, 10) : [];
@@ -180,6 +181,7 @@ export default async function handler(req, res) {
   const atsStatus = atsMeta?.status ?? (atsLeaders.best?.length || atsLeaders.worst?.length ? 'FULL' : null);
   const atsConfidence = atsMeta?.confidence ?? 'low';
   const atsSourceLabel = atsMeta?.sourceLabel ?? null;
+  const atsWindowPhrase = atsWindow === 'last7' ? 'Over the last 7 days… / Recently…' : atsWindow === 'season' ? 'This season…' : 'Over the last 30 days… / Recently…';
   const atsQualifier =
     !hasAtsOrHeadlines ? ''
     : atsStatus === 'FULL'
@@ -187,6 +189,9 @@ export default async function handler(req, res) {
     : atsConfidence === 'medium'
       ? 'ATS data is from a partial source (medium confidence). Be cautious but assertive when mentioning ATS leaders.'
     : 'ATS data is from a proxy or early signal (low confidence). Clearly qualify it as "early signal" or "Top 25 slice" when mentioning ATS.';
+  const atsWindowInstruction = hasAtsOrHeadlines
+    ? `ATS window: ${atsWindow}. Use phrasing like: ${atsWindowPhrase}. Avoid season claims when data is last30 or last7 only.`
+    : '';
 
   const top25List = top25.map((r) => (r.rank != null && r.teamName != null ? `#${r.rank} ${r.teamName}` : r.teamName || r.name || '')).filter(Boolean).join(', ') || 'None';
   const recentLines = recentGames.map((g) => {
@@ -228,7 +233,7 @@ RULES:
 2. Recap must include when data exists: (a) Top 25 results from recent games, (b) Upcoming Top 25 games with spreads, (c) ATS leaderboard highlights (best and worst), (d) Headlines.
 3. Every game you mention should include spread and ATS result where that data is in the payload.
 4. ATS phrasing: ${atsQualifier ? atsQualifier : 'Mention ATS leaders when present.'}
-5. Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
+5. ${atsWindowInstruction ? atsWindowInstruction + ' ' : ''}Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
 
   const userPrompt = useFallbackPrompt
     ? `Today's date (PST): ${getPstDate()}
@@ -264,6 +269,7 @@ ${atsBestText}
 --- ATS leaderboard: Bottom 10 ---
 ${atsWorstText}
 ${atsSourceLabel ? `\n(ATS source: ${atsSourceLabel}, confidence: ${atsConfidence})` : ''}
+${atsWindow ? `\n(ATS window: ${atsWindow})` : ''}
 
 --- Headlines ---
 ${headlinesText}

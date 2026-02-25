@@ -17,10 +17,11 @@ function coalesce(key, fetcher) {
 }
 
 function qsFromOptions(options) {
-  const { dates, pinnedSlugs } = options;
+  const { dates, pinnedSlugs, atsWindow } = options;
   const qs = new URLSearchParams();
   if (Array.isArray(dates) && dates.length > 0) qs.set('dates', dates.join(','));
   if (Array.isArray(pinnedSlugs) && pinnedSlugs.length > 0) qs.set('pinnedSlugs', pinnedSlugs.join(','));
+  if (atsWindow && atsWindow !== 'last30') qs.set('atsWindow', atsWindow);
   return qs;
 }
 
@@ -43,6 +44,8 @@ export function mergeHomeData(fast, slow) {
     pinnedTeamsMeta: f.pinnedTeamsMeta || [],
     atsLeaders: hasAtsFromSlow ? s.atsLeaders : (f.atsLeaders || { best: [], worst: [] }),
     atsMeta: s.atsMeta ?? f.atsMeta ?? null,
+    atsWindow: f.atsWindow ?? s.atsWindow ?? 'last30',
+    seasonWarming: f.seasonWarming ?? s.seasonWarming ?? false,
     atsLeadersSourceLabel: s.atsLeadersSourceLabel ?? f.atsLeadersSourceLabel ?? null,
     headlines: s.headlines ?? f.headlines ?? [],
     pinnedTeamNews: (s.pinnedTeamNews && Object.keys(s.pinnedTeamNews).length > 0) ? s.pinnedTeamNews : (f.pinnedTeamNews || {}),

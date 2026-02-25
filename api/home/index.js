@@ -36,12 +36,14 @@ export default async function handler(req, res) {
 
   const datesParam = req.query?.dates;
   const pinnedSlugsParam = req.query?.pinnedSlugs;
+  const atsWindowParam = req.query?.atsWindow;
   const dateStrs = typeof datesParam === 'string' && datesParam.trim()
     ? datesParam.split(',').map((d) => String(d).trim().replace(/-/g, '')).filter((d) => /^\d{8}$/.test(d))
     : null;
   const pinnedSlugs = typeof pinnedSlugsParam === 'string' && pinnedSlugsParam.trim()
     ? pinnedSlugsParam.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
+  const atsWindow = (atsWindowParam === 'last7' || atsWindowParam === 'season') ? atsWindowParam : 'last30';
 
   try {
     const today = toDateStr(new Date());
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
 
     const ATS_TIMEOUT_MS = 8000;
     const atsPromise = Promise.race([
-      getAtsLeadersPipeline(),
+      getAtsLeadersPipeline({ pinnedSlugs, atsWindow }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('ATS timeout')), ATS_TIMEOUT_MS)),
     ]).catch(() => {
       const stale = getAtsLeadersMaybeStale();
@@ -111,6 +113,8 @@ export default async function handler(req, res) {
       generatedAt: new Date().toISOString(),
       cacheNote: atsResult?.atsMeta?.cacheNote ?? 'computed_fallback',
     };
+    const atsWindowOut = atsResult?.atsWindow ?? atsWindow;
+    const seasonWarming = atsResult?.seasonWarming === true;
 
     const dataStatus = {
       scoresCount: scoresArray.length,
@@ -145,6 +149,8 @@ export default async function handler(req, res) {
       headlines,
       atsLeaders,
       atsMeta,
+      atsWindow: atsWindowOut,
+      seasonWarming: seasonWarming || undefined,
       dataStatus,
       generatedAt: cacheMeta.generatedAt,
       cache: cacheMeta.cache,

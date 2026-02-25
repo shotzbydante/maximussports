@@ -1,15 +1,14 @@
 /**
- * GET /api/ats/warmFull — Full-league ATS warm. Uses odds history; may take up to ~30s.
- * Writes to KV only when result is FULL with non-empty best/worst. Otherwise returns cached (KV or in-memory).
- * Vercel Pro: maxDuration 30s for this route.
+ * GET /api/ats/warmFull — Season FULL compute only. Writes to ats:leaders:season:v1 only on FULL success. Do not overwrite good data on failure.
  */
 
 export const config = { maxDuration: 30 };
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { getJson, setJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../../_globalCache.js';
+import { getJson, setJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../../_globalCache.js';
 import { computeAtsLeadersFromSources } from '../../home/atsLeaders.js';
 
+const SEASON_KEY = getAtsLeadersKeyForWindow('season');
 const FULL_DEADLINE_MS = 28000;
 
 export default async function handler(req, res) {
@@ -45,7 +44,7 @@ export default async function handler(req, res) {
       };
       setAtsLeaders(payload);
       try {
-        await setJson(ATS_LEADERS_KEY, {
+        await setJson(SEASON_KEY, {
           atsLeaders: { best: payload.best, worst: payload.worst },
           atsMeta: {
             status: 'FULL',
@@ -59,7 +58,7 @@ export default async function handler(req, res) {
         console.warn('[api/ats/warmFull] KV write failed (in-memory updated):', kvErr?.message);
       }
       if (isDev) {
-        console.log('[api/ats/warmFull] KV updated with FULL', { bestCount, worstCount });
+        console.log('[api/ats/warmFull] KV updated with FULL (season)', { bestCount, worstCount });
       }
       return res.status(200).json({
         ok: true,
@@ -102,7 +101,7 @@ export default async function handler(req, res) {
       reason = cached.atsMeta?.reason ?? reason;
     } else {
       try {
-        const kvVal = await getJson(ATS_LEADERS_KEY);
+        const kvVal = await getJson(SEASON_KEY);
         if (kvVal?.atsLeaders) {
           const b = kvVal.atsLeaders.best || [];
           const w = kvVal.atsLeaders.worst || [];

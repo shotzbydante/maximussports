@@ -1,6 +1,6 @@
 # Maximus Sports — Project Status
 
-**Last updated:** Feb 24, 2026
+**Last updated:** Feb 25, 2026
 
 ## Summary
 
@@ -167,7 +167,54 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
-## Latest Changes (Feb 24, 2026)
+## Latest Changes (Feb 25, 2026)
+
+**Recent-First ATS + Unified Navigation (Critical UX Fix)**
+
+### Recent-First ATS Strategy
+- **Default ATS window = Last 30 days** for meaningful “who’s hot” signal and faster real data.
+- **Window priority:** LAST 30 (default), LAST 7, SEASON (best-effort). If Season selected but not FULL/high confidence, show Last 30 with “Season warming” note; never show blank.
+
+### Windowed ATS Caching (Vercel KV)
+- **Separate KV keys:** `ats:leaders:last30:v1`, `ats:leaders:last7:v1`, `ats:leaders:season:v1`.
+- **Payload:** `atsLeaders: { best, worst }`, `atsMeta: { status, confidence, reason?, sourceLabel?, generatedAt, cacheNote? }`.
+- **Overwrite rules:** NEVER write EMPTY to KV. NEVER overwrite FULL or good FALLBACK with EMPTY. Prefer FULL > real FALLBACK > proxy FALLBACK > EMPTY.
+
+### Fast “Quick Real” ATS Compute
+- **`computeRealAtsQuickRecent({ windowDays, pinnedSlugs, maxTeams })`** in `api/home/atsQuickReal.js`: team set = pinned + Top 25 (dedupe, cap 40); recent odds-history range only; early exit per team after ~8–12 games; concurrency 6; per-request ~800–1200 ms; total deadline ~3.5 s. Returns best 10 / worst 10 by cover % (tie-break by games). atsMeta: status FALLBACK, confidence medium, sourceLabel e.g. “Pinned + Top 25 (Last 30 real ATS)”.
+
+### Endpoint Behavior
+- **`/api/ats/warm`:** Warm LAST 30 first: try quick real Last 30 → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
+- **`/api/ats/warmFull`:** Season FULL compute only; write to `ats:leaders:season:v1` only on FULL success; do not overwrite good data on failure.
+- **`/api/home/fast`** and **`/api/home`:** Default ATS window = Last 30. Query `?atsWindow=last30|last7|season`. Pipeline: read KV for window key → on miss compute quick real (last30/last7) or proxy → write KV if non-EMPTY. Expose `atsMeta.cacheNote`: `kv_hit`, `kv_stale`, `computed_quick_real`, `computed_proxy`. Response includes `atsWindow`, `seasonWarming` when applicable.
+
+### Home Page Behavior
+- **Auto-warm:** On first load if ATS empty, call `/api/ats/warm`; throttle with sessionStorage ~5 min.
+- **Window toggles:** LAST 30 (default), LAST 7, SEASON. Changing period refetches with `atsWindow`. If Season not FULL, display Last 30 data with “Season warming” indicator.
+- **Proxy:** Record column shows N/A; never show 0-0; clearly labeled low confidence.
+
+### Summary Bot Alignment
+- Payload includes `atsWindow` (last30, last7, season) and `atsMeta`. Bot phrasing: “Over the last 30 days…”, “Recently…”; avoid season claims when data is recent-only.
+
+### Navigation Change (Critical UX Fix)
+- **Top horizontal nav now matches left nav exactly:** Home, Games, Teams, Odds Insights, News Feed. Same order, same labels, same routes. Removed obsolete “Insights” and “Alerts” tabs. Active tab highlighting and responsive behavior preserved.
+
+### Test Instructions
+- **ATS:** Incognito Home → ATS should appear within ~1–3 s; default view Last 30; real records when available; proxy only when necessary; no manual refresh; no reverting to empty; KV hits on repeat visits.
+- **Navigation:** Top nav matches left nav; no Insights or Alerts; links route correctly; active tab highlighting works; no layout regressions.
+
+### Verification Checklist
+- [ ] Incognito Home shows ATS within ~1–3 s
+- [ ] Default ATS view is Last 30
+- [ ] Real records appear when available; proxy only when necessary
+- [ ] No manual refresh required; no reverting to empty after load
+- [ ] KV hits on repeat visits
+- [ ] Top nav matches left nav (Home, Games, Teams, Odds Insights, News Feed)
+- [ ] No Insights or Alerts tabs; links route correctly; active tab highlighting works; no layout regressions
+
+---
+
+## Previous Changes (Feb 24, 2026)
 
 **Vercel-optimized caching + shared ATS pipeline:**
 - **Server cache utility** (`api/_cache.js`): `getMaybeStale(key)` for stale-while-revalidate; `buildCacheMeta()` for response metadata. Safe fallback to empty when no cache.

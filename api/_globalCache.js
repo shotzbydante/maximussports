@@ -1,14 +1,30 @@
 /**
  * Vercel KV wrapper for shared ATS leaders cache.
- * Key: ats:leaders:v1
- * Payload: { atsLeaders: { best, worst }, atsMeta: { status, confidence, reason?, sourceLabel?, generatedAt, deps? } }
+ * Windowed keys: ats:leaders:last30:v1, ats:leaders:last7:v1, ats:leaders:season:v1
+ * Payload: { atsLeaders: { best, worst }, atsMeta: { status, confidence, reason?, sourceLabel?, generatedAt, cacheNote? } }
  * TTL: fresh 5 min, max 60 min. Never overwrite existing value with EMPTY (enforced by callers).
  * When KV is not configured (e.g. local dev), getJson returns null and setJson no-ops.
  */
 
-const ATS_LEADERS_KEY = 'ats:leaders:v1';
+const ATS_LEADERS_LAST30_KEY = 'ats:leaders:last30:v1';
+const ATS_LEADERS_LAST7_KEY = 'ats:leaders:last7:v1';
+const ATS_LEADERS_SEASON_KEY = 'ats:leaders:season:v1';
+
+/** @deprecated Use getAtsLeadersKeyForWindow instead. Kept for backward compatibility during migration. */
+const ATS_LEADERS_KEY = ATS_LEADERS_LAST30_KEY;
+
 const FRESH_SECONDS = 5 * 60;   // 5 min
 const MAX_TTL_SECONDS = 60 * 60; // 60 min
+
+/**
+ * @param {'last30'|'last7'|'season'} window
+ * @returns {string}
+ */
+function getAtsLeadersKeyForWindow(window) {
+  if (window === 'last7') return ATS_LEADERS_LAST7_KEY;
+  if (window === 'season') return ATS_LEADERS_SEASON_KEY;
+  return ATS_LEADERS_LAST30_KEY;
+}
 
 let kv = null;
 async function getKv() {
@@ -74,4 +90,12 @@ export async function getWithMeta(key) {
   return { value, ageSeconds, stale };
 }
 
-export { ATS_LEADERS_KEY, FRESH_SECONDS, MAX_TTL_SECONDS };
+export {
+  ATS_LEADERS_KEY,
+  ATS_LEADERS_LAST30_KEY,
+  ATS_LEADERS_LAST7_KEY,
+  ATS_LEADERS_SEASON_KEY,
+  getAtsLeadersKeyForWindow,
+  FRESH_SECONDS,
+  MAX_TTL_SECONDS,
+};

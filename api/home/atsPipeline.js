@@ -1,16 +1,16 @@
 /**
  * Single shared ATS pipeline. getAtsLeadersPipeline() used by /api/home, /api/home/fast, /api/home/slow.
- * Reads from KV first; on miss computes fast fallback and writes to KV. Never overwrites KV with EMPTY.
- * Returns atsMeta (status FULL|FALLBACK|EMPTY, reason, sourceLabel, cacheNote) so UI never shows infinite loading.
+ * Default ATS window = Last 30. Windowed KV keys: last30, last7, season.
+ * Reads from KV first; on miss computes quick real (last30/last7) or proxy; writes to KV. Never overwrites KV with EMPTY.
+ * Prefer FULL > real FALLBACK > proxy FALLBACK > EMPTY. Returns atsMeta with cacheNote: kv_hit | kv_stale | computed_quick_real | computed_proxy.
  */
 
 import { coalesce } from '../_cache.js';
 import { getAtsLeaders, setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
-import { getWithMeta, setJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../_globalCache.js';
-import { computeRealAtsQuick } from './atsQuickReal.js';
+import { getWithMeta, setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../_globalCache.js';
+import { computeRealAtsQuickRecent } from './atsQuickReal.js';
 import { computeFastFallbackFromRankingsOnly } from './atsFastFallback.js';
 
-const ATS_COALESCE_KEY = 'ats:leaders';
 const DEBUG_ATS = process.env.DEBUG_ATS === '1';
 
 function buildAtsMeta(result, fromCache = false, stale = false, cacheNote = null) {
@@ -51,10 +51,13 @@ function kvPayloadToResult(kvValue, cacheNote) {
   };
 }
 
-/** Never write EMPTY to KV. */
-function writeAtsToKvIfValid(best, worst, atsMeta) {
+/** Never write EMPTY to KV. Never overwrite FULL or good FALLBACK with EMPTY. */
+async function writeAtsToKvIfValid(key, best, worst, atsMeta) {
   const status = atsMeta?.status ?? (best?.length || worst?.length ? 'FULL' : 'EMPTY');
   if (status === 'EMPTY' && !(best?.length || worst?.length)) return;
+  const existing = await getJson(key);
+  const existingStatus = existing?.atsMeta?.status;
+  if (status === 'EMPTY' && (existingStatus === 'FULL' || existingStatus === 'FALLBACK') && (existing?.atsLeaders?.best?.length || existing?.atsLeaders?.worst?.length)) return;
   const payload = {
     atsLeaders: { best: best || [], worst: worst || [] },
     atsMeta: {
@@ -65,23 +68,26 @@ function writeAtsToKvIfValid(best, worst, atsMeta) {
       generatedAt: atsMeta?.generatedAt ?? new Date().toISOString(),
     },
   };
-  setJson(ATS_LEADERS_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
+  await setJson(key, payload, { exSeconds: MAX_TTL_SECONDS });
 }
 
 /**
- * Get ATS leaders. Reads from KV first; on miss tries quick real (pinned + Top 25) then proxy, writes to KV, returns.
- * Always returns atsMeta with cacheNote: "kv_hit" | "kv_stale" | "computed_quick_real" | "computed_proxy".
- * @param {{ pinnedSlugs?: string[] }} options - optional for /api/home/fast to pass pinned teams
+ * Get ATS leaders for a window. Default atsWindow = last30.
+ * Reads from KV (window key) first; on miss: last30/last7 = quick real then proxy; season = read-only (best-effort), else serve last30 with "Season warming".
+ * Always returns atsMeta with cacheNote: kv_hit | kv_stale | computed_quick_real | computed_proxy.
+ * @param {{ pinnedSlugs?: string[], atsWindow?: 'last30'|'last7'|'season' }} options
  */
 export async function getAtsLeadersPipeline(options = {}) {
-  const { pinnedSlugs = [] } = options;
+  const { pinnedSlugs = [], atsWindow = 'last30' } = options;
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+  const kvKey = getAtsLeadersKeyForWindow(atsWindow);
 
-  const kvEntry = await getWithMeta(ATS_LEADERS_KEY);
+  const kvEntry = await getWithMeta(kvKey);
   if (kvEntry?.value) {
     const cacheNote = kvEntry.stale ? 'kv_stale' : 'kv_hit';
-    if (DEBUG_ATS) console.log('[atsPipeline] KV', cacheNote, { ageSeconds: kvEntry.ageSeconds });
+    if (DEBUG_ATS) console.log('[atsPipeline] KV', atsWindow, cacheNote, { ageSeconds: kvEntry.ageSeconds });
     const result = kvPayloadToResult(kvEntry.value, cacheNote);
+    result.atsWindow = atsWindow;
     setAtsLeaders({
       best: result.best,
       worst: result.worst,
@@ -94,9 +100,28 @@ export async function getAtsLeadersPipeline(options = {}) {
     return result;
   }
 
+  if (atsWindow === 'season') {
+    const last30Key = getAtsLeadersKeyForWindow('last30');
+    const last30Entry = await getWithMeta(last30Key);
+    if (last30Entry?.value && (last30Entry.value.atsLeaders?.best?.length || last30Entry.value.atsLeaders?.worst?.length)) {
+      const result = kvPayloadToResult(last30Entry.value, last30Entry.stale ? 'kv_stale' : 'kv_hit');
+      result.atsWindow = 'last30';
+      result.seasonWarming = true;
+      if (result.atsMeta) result.atsMeta.cacheNote = result.atsMeta.cacheNote || 'season_warming';
+      return result;
+    }
+    const pipelineResult = await getAtsLeadersPipeline({ pinnedSlugs, atsWindow: 'last30' });
+    pipelineResult.atsWindow = 'last30';
+    pipelineResult.seasonWarming = true;
+    if (pipelineResult.atsMeta) pipelineResult.atsMeta.cacheNote = pipelineResult.atsMeta.cacheNote || 'season_warming';
+    return pipelineResult;
+  }
+
+  const coalesceKey = `ats:leaders:${atsWindow}`;
+  const windowDays = atsWindow === 'last7' ? 7 : 30;
   try {
-    const result = await coalesce(ATS_COALESCE_KEY, async () => {
-      let out = await computeRealAtsQuick({ pinnedSlugs });
+    const result = await coalesce(coalesceKey, async () => {
+      let out = await computeRealAtsQuickRecent({ windowDays, pinnedSlugs });
       const quickHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
       if (!quickHasLeaders) {
         out = await computeFastFallbackFromRankingsOnly();
@@ -104,7 +129,7 @@ export async function getAtsLeadersPipeline(options = {}) {
       const best = out.best || [];
       const worst = out.worst || [];
       const cacheNoteVal = quickHasLeaders ? 'computed_quick_real' : 'computed_proxy';
-      writeAtsToKvIfValid(best, worst, {
+      await writeAtsToKvIfValid(kvKey, best, worst, {
         status: out.status,
         confidence: out.confidence ?? 'low',
         reason: out.reason ?? null,
@@ -126,10 +151,11 @@ export async function getAtsLeadersPipeline(options = {}) {
     const best = result.best || [];
     const worst = result.worst || [];
     const cacheNote = result.cacheNote ?? 'computed_proxy';
-    if (isDev) console.log('[atsPipeline]', cacheNote, { best: best.length, worst: worst.length, status: result.status });
+    if (isDev) console.log('[atsPipeline]', atsWindow, cacheNote, { best: best.length, worst: worst.length, status: result.status });
     return {
       best,
       worst,
+      atsWindow,
       sourceLabel: result.sourceLabel ?? null,
       source: result.source ?? null,
       status: result.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
@@ -148,6 +174,7 @@ export async function getAtsLeadersPipeline(options = {}) {
       return {
         best: stale.best || [],
         worst: stale.worst || [],
+        atsWindow,
         sourceLabel: stale.sourceLabel ?? null,
         source: stale.source ?? null,
         status: meta.status ?? 'FULL',
@@ -163,6 +190,7 @@ export async function getAtsLeadersPipeline(options = {}) {
     return {
       best: [],
       worst: [],
+      atsWindow,
       sourceLabel: null,
       status: 'EMPTY',
       reason: emptyMeta.reason,

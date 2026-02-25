@@ -191,12 +191,14 @@ export default async function handler(req, res) {
         }
         let atsLeaders = { best: [], worst: [] };
         let atsMeta = null;
+        let atsWindowOut = 'last30';
+        let seasonWarmingOut = false;
         if (useCachedAts) {
           const cached = getAtsLeaders();
           atsLeaders = { best: cached.best, worst: cached.worst, sourceLabel: cached.sourceLabel };
           atsMeta = cached.atsMeta ?? { status: (cached.best?.length || cached.worst?.length) ? 'FULL' : 'EMPTY', reason: null, sourceLabel: cached.sourceLabel };
         } else {
-          const atsResult = await getAtsLeadersPipeline();
+          const atsResult = await getAtsLeadersPipeline({ pinnedSlugs, atsWindow: 'last30' });
           atsLeaders = {
             best: atsResult.best || [],
             worst: atsResult.worst || [],
@@ -204,6 +206,8 @@ export default async function handler(req, res) {
             sourceLabel: atsResult.sourceLabel,
           };
           atsMeta = atsResult.atsMeta ?? { status: atsResult.status ?? 'EMPTY', reason: atsResult.reason ?? null, sourceLabel: atsResult.sourceLabel ?? null, generatedAt: atsResult.generatedAt };
+          atsWindowOut = atsResult.atsWindow ?? 'last30';
+          seasonWarmingOut = !!atsResult.seasonWarming;
         }
         const atsLeadersCount = atsLeaders.best.length + atsLeaders.worst.length;
     if (isDev) console.log('[api/home/slow] atsLeaders written to cache, count:', atsLeadersCount);
@@ -242,6 +246,8 @@ export default async function handler(req, res) {
           oddsHistory: { games: oddsHistoryGames },
           atsLeaders: { best: atsLeaders.best, worst: atsLeaders.worst },
           atsMeta: atsMeta ?? { status: atsLeadersCount > 0 ? 'FULL' : 'EMPTY', reason: null, sourceLabel: atsLeaders.sourceLabel ?? null },
+          atsWindow: atsWindowOut,
+          seasonWarming: seasonWarmingOut || undefined,
           atsLeadersSourceLabel: atsLeaders.sourceLabel ?? null,
           pinnedTeamNews,
           upcomingGamesWithSpreads,
