@@ -135,19 +135,33 @@ export default function Home() {
   useEffect(() => {
     const cached = getAtsLeadersCache();
     if (cached && ((cached.best?.length || 0) + (cached.worst?.length || 0) > 0)) {
+      if (import.meta.env?.DEV) {
+        console.log('[Home ATS] using fresh cache, skip fetchHome', { best: cached.best?.length, worst: cached.worst?.length });
+      }
       setAtsLeaders(cached);
       setAtsLoading(false);
       return;
     }
+    if (import.meta.env?.DEV) {
+      console.log('[Home ATS] fetchHome() starting (no fresh cache)');
+    }
     fetchHome()
       .then((data) => {
         if (import.meta.env?.DEV) {
-          console.log('home atsLeaders', data?.atsLeaders);
+          console.log('[Home ATS] fetchHome() resolved', {
+            hasAtsLeaders: !!data?.atsLeaders,
+            bestCount: data?.atsLeaders?.best?.length ?? 0,
+            worstCount: data?.atsLeaders?.worst?.length ?? 0,
+            raw: data?.atsLeaders,
+          });
         }
         const next = data?.atsLeaders ?? { best: [], worst: [] };
         setAtsLeaders(next);
         if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {
           setAtsLeadersCache(next);
+          if (import.meta.env?.DEV) {
+            console.log('[Home ATS] state + cache updated with atsLeaders');
+          }
         }
         if (
           (next.best?.length || 0) + (next.worst?.length || 0) > 0 &&
@@ -159,14 +173,23 @@ export default function Home() {
           setTimeout(() => fetchSummaryStreamRef.current?.(true), 0);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (import.meta.env?.DEV) {
+          console.error('[Home ATS] fetchHome() failed', err?.message ?? err);
+        }
         const fromCache = getAtsLeadersCacheMaybeStale()?.data;
         if (fromCache && ((fromCache.best?.length || 0) + (fromCache.worst?.length || 0) > 0)) {
           setAtsLeaders(fromCache);
+          if (import.meta.env?.DEV) {
+            console.log('[Home ATS] fallback: set atsLeaders from stale cache');
+          }
         }
       })
       .finally(() => {
         setAtsLoading(false);
+        if (import.meta.env?.DEV) {
+          console.log('[Home ATS] fetchHome() finished, atsLoading=false');
+        }
       });
   }, []);
 

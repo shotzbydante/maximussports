@@ -3,7 +3,7 @@
  * Data from /api/home (atsLeaders). When atsLeaders prop is provided, no fetch.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import SourceBadge from '../shared/SourceBadge';
@@ -24,6 +24,14 @@ export default function ATSLeaderboard({ atsLeaders = { best: [], worst: [] }, s
   const loading = (slowLoading || atsWarming || atsLoading) && !hasData;
   const error = null;
   const isFallback = atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league';
+  const prevCountRef = useRef(0);
+  useEffect(() => {
+    const count = best.length + worst.length;
+    if (import.meta.env?.DEV && count > 0 && count !== prevCountRef.current) {
+      console.log('[ATSLeaderboard] atsLeaders updated, re-render', { bestCount: best.length, worstCount: worst.length });
+      prevCountRef.current = count;
+    }
+  }, [best.length, worst.length]);
 
   const periodKey = period;
   const best10 = best.map((r) => ({ ...r, rec: r[periodKey] })).filter((r) => r.rec?.total > 0);

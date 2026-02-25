@@ -170,6 +170,12 @@ export default async function handler(req, res) {
       ].join('. '),
     };
 
+    const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
+    const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+    if (isDev) {
+      console.log('[api/home] response', { atsLeadersCount: atsCount, scoresCount: scoresArray.length, rankingsCount: rankings.length });
+    }
+
     const payload = {
       scores: scoresArray,
       odds: { games: odds.games, error: odds.error, hasOddsKey: odds.hasOddsKey },
@@ -200,6 +206,7 @@ export default async function handler(req, res) {
     res.status(200).json(payload);
   } catch (err) {
     console.error('[api/home] error:', err.message);
+    if (err?.stack) console.error('[api/home] stack', err.stack);
     res.status(200).json({
       scores: [],
       odds: { games: [], error: null, hasOddsKey: false },

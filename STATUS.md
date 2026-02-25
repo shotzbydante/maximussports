@@ -164,6 +164,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Slow uses shared ATS** — `/api/home/slow` no longer inlines ATS logic; calls `computeAtsLeadersFromSources()` and writes result to cache; response includes `atsLeadersSourceLabel`.
 - **UI** — ATS leaderboard shows "Warming ATS cache…" when cache empty and warming; when fallback source is used, shows subtitle "Top 25 / Locks + Should Be In". `mergeHomeData()` passes `atsLeadersSourceLabel` from fast/slow.
 
+**Debugging (client + server):**
+- **Client (Home):** In development, console logs: `[Home ATS] fetchHome() starting` before request; `[Home ATS] fetchHome() resolved` with `hasAtsLeaders`, `bestCount`, `worstCount`, and raw atsLeaders after response; `[Home ATS] state + cache updated` when data is set; `[Home ATS] fetchHome() failed` with error in catch; `[Home ATS] fetchHome() finished, atsLoading=false` in finally. Use Network tab to confirm `/api/home` returns and response includes `atsLeaders`. State is updated in the same effect via `setAtsLeaders(next)` so ATSLeaderboard re-renders when data arrives.
+- **Client (ATSLeaderboard):** In development, logs `[ATSLeaderboard] atsLeaders updated, re-render` when best/worst counts change so you can verify the component receives new data.
+- **Server /api/home:** Logs `[api/home] response` with `atsLeadersCount`, `scoresCount`, `rankingsCount` in non-production. On error, logs `[api/home] error` and stack.
+- **Server /api/ats/warm:** Logs `[api/ats/warm] request` (method + url) and `[api/ats/warm] success` with atsLeadersCount/source. On error, logs message and stack. Route must be at `api/ats/warm/index.js` for Vercel (directory-based); `vercel.json` cron path is `/api/ats/warm`. If you get 404, confirm the file exists at `api/ats/warm/index.js` and redeploy; check Vercel dashboard → Logs for these messages.
+- **Caching:** Client uses `atsLeadersCache` (5 min TTL). Server `/api/home` uses in-memory caches in `_sources.js` and does not share with `/api/ats/warm` server cache. Warm endpoint writes to `api/home/cache.js` for fast/slow to read; full `/api/home` computes ATS inline and does not read that cache.
+
 **Home ATS leaderboard — same data as Odds Insights:**
 - **Same endpoint** — Home fetches ATS via `fetchHome()` (full `/api/home`), using only `data.atsLeaders`. Background call after mount; does not block initial render.
 - **ATS cache sync** — When Home receives atsLeaders from `fetchHome()`, it writes to `atsLeadersCache`. Odds Insights writes to `atsLeadersCache` when it receives atsLeaders. Home initializes state from `atsLeadersCache` so ATS shows immediately on navigation when cache is populated.
