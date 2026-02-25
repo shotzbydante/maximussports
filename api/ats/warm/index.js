@@ -1,5 +1,6 @@
 /**
- * GET /api/ats/warm — Warm LAST 30 first: team ATS (same source as pinned cards) → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
+ * GET /api/ats/warm — Warm ATS for a window. ?window=last30|last7 (default last30).
+ * Team ATS (same source as pinned cards) → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
@@ -7,12 +8,15 @@ import { setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '..
 import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 
-const LAST30_KEY = getAtsLeadersKeyForWindow('last30');
-
 export default async function handler(req, res) {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+  const windowParam = (req.query?.window || 'last30').toLowerCase();
+  const window = (windowParam === 'last7') ? 'last7' : 'last30';
+  const windowDays = window === 'last7' ? 7 : 30;
+  const kvKey = getAtsLeadersKeyForWindow(window);
+
   if (isDev) {
-    console.log('[api/ats/warm] request', req.method, req.url || req.originalUrl || '');
+    console.log('[api/ats/warm] request', req.method, req.url || req.originalUrl || '', { window });
   }
 
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,7 +30,7 @@ export default async function handler(req, res) {
   let cacheNote = null;
 
   try {
-    let result = await computeAtsLeadersFromTeamAts({ windowDays: 30, teamSlugs: [] });
+    let result = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [] });
     const teamAtsHasLeaders = (result.best?.length || 0) + (result.worst?.length || 0) > 0 && result.status !== 'EMPTY';
     if (!teamAtsHasLeaders) {
       result = await computeFastFallbackFromRankingsOnly();
@@ -44,9 +48,10 @@ export default async function handler(req, res) {
             reason: result.reason ?? null,
             sourceLabel: result.sourceLabel ?? null,
             generatedAt: result.generatedAt ?? new Date().toISOString(),
+            cacheNote: teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy',
           },
         };
-        await setJson(LAST30_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
+        await setJson(kvKey, payload, { exSeconds: MAX_TTL_SECONDS });
         kvWriteOk = true;
       } catch (kvErr) {
         console.warn('[api/ats/warm] KV write failed (in-memory updated):', kvErr?.message);
@@ -54,10 +59,11 @@ export default async function handler(req, res) {
     }
     cacheNote = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
     if (isDev) {
-      console.log('[api/ats/warm] success', { status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence, kvWriteOk });
+      console.log('[api/ats/warm] success', { window, status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence, kvWriteOk });
     }
     return res.status(200).json({
       ok: true,
+      window,
       status: result.status,
       bestCount,
       worstCount,
@@ -87,7 +93,7 @@ export default async function handler(req, res) {
       reason = cached.atsMeta?.reason ?? reason;
     } else {
       try {
-        const kvVal = await getJson(LAST30_KEY);
+        const kvVal = await getJson(kvKey);
         kvReadOk = true;
         if (kvVal?.atsLeaders) {
           const b = kvVal.atsLeaders.best || [];

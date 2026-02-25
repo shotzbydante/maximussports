@@ -51,13 +51,18 @@ function kvPayloadToResult(kvValue, cacheNote) {
   };
 }
 
-/** Never write EMPTY to KV. Never overwrite FULL or good FALLBACK with EMPTY. */
-async function writeAtsToKvIfValid(key, best, worst, atsMeta) {
+/** Never write EMPTY to KV. Never overwrite FULL or good FALLBACK with EMPTY. Never overwrite real (FULL or medium+ FALLBACK) with proxy (low-confidence FALLBACK). */
+async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) {
   const status = atsMeta?.status ?? (best?.length || worst?.length ? 'FULL' : 'EMPTY');
   if (status === 'EMPTY' && !(best?.length || worst?.length)) return;
   const existing = await getJson(key);
   const existingStatus = existing?.atsMeta?.status;
+  const existingConfidence = existing?.atsMeta?.confidence;
+  const existingNote = existing?.atsMeta?.cacheNote;
   if (status === 'EMPTY' && (existingStatus === 'FULL' || existingStatus === 'FALLBACK') && (existing?.atsLeaders?.best?.length || existing?.atsLeaders?.worst?.length)) return;
+  const isIncomingProxy = cacheNote === 'computed_proxy' || (atsMeta?.confidence === 'low' && (atsMeta?.sourceLabel?.toLowerCase?.().includes('fallback') ?? false));
+  const isExistingReal = existingStatus === 'FULL' || (existingStatus === 'FALLBACK' && existingConfidence !== 'low') || existingNote === 'computed_recent_team_ats';
+  if (isIncomingProxy && isExistingReal && (existing?.atsLeaders?.best?.length || existing?.atsLeaders?.worst?.length)) return;
   const payload = {
     atsLeaders: { best: best || [], worst: worst || [] },
     atsMeta: {
@@ -66,6 +71,7 @@ async function writeAtsToKvIfValid(key, best, worst, atsMeta) {
       reason: atsMeta?.reason ?? null,
       sourceLabel: atsMeta?.sourceLabel ?? null,
       generatedAt: atsMeta?.generatedAt ?? new Date().toISOString(),
+      cacheNote: cacheNote ?? null,
     },
   };
   await setJson(key, payload, { exSeconds: MAX_TTL_SECONDS });
@@ -146,7 +152,7 @@ export async function getAtsLeadersPipeline(options = {}) {
           reason: out.reason ?? null,
           sourceLabel: out.sourceLabel ?? null,
           generatedAt: out.generatedAt ?? new Date().toISOString(),
-        });
+        }, cacheNoteVal);
       }
       setAtsLeaders({
         best,

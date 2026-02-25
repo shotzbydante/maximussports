@@ -107,13 +107,18 @@ function chooseAts(currentLeaders, currentMeta, incomingLeaders, incomingMeta) {
 }
 
 const WARM_THROTTLE_MS = 5 * 60 * 1000;
-function maybeWarmAts() {
+function warmAtsBothWindows() {
   try {
     const last = sessionStorage.getItem('lastWarmAt');
     if (last && Date.now() - parseInt(last, 10) < WARM_THROTTLE_MS) return;
     sessionStorage.setItem('lastWarmAt', String(Date.now()));
     fetch('/api/ats/warm', { method: 'GET' }).catch(() => {});
+    fetch('/api/ats/warm?window=last7', { method: 'GET' }).catch(() => {});
   } catch (_) {}
+}
+
+function maybeWarmAts() {
+  warmAtsBothWindows();
 }
 
 const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, atsWindow, recentGames, upcomingGames, headlines }) => ({
@@ -340,15 +345,34 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
-  /* Trigger ATS pipeline early so KV warms and subsequent/fast response has data. */
+  /* Trigger warm for both last30 and last7 immediately on mount so KV is ready for cold (e.g. incognito) sessions. */
   useEffect(() => {
-    maybeWarmAts();
+    warmAtsBothWindows();
   }, []);
 
+  /* After warm has time to complete, re-fetch ATS once so proxy can be replaced by real data (incognito cold start). */
+  const atsRefetchAfterWarmRef = useRef(false);
   useEffect(() => {
-    const id = setInterval(loadHomeBatch, SCORES_REFRESH_MS);
-    return () => clearInterval(id);
-  }, [loadHomeBatch]);
+    if (atsRefetchAfterWarmRef.current) return;
+    const isProxy = atsMeta?.cacheNote === 'computed_proxy' || (atsMeta?.confidence === 'low' && hasAtsData(atsLeaders));
+    const isEmpty = !hasAtsData(atsLeaders);
+    if (!isProxy && !isEmpty) return;
+    atsRefetchAfterWarmRef.current = true;
+    const t = setTimeout(() => {
+      fetchHomeFast({ pinnedSlugs, atsWindow })
+        .then((d) => {
+          const cur = atsStateRef.current;
+          const incoming = d.atsLeaders ?? { best: [], worst: [] };
+          const incomingMeta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
+          const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, incoming, incomingMeta);
+          setAtsLeaders(chosenLeaders);
+          setAtsMeta(chosenMeta);
+          if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
+        })
+        .catch(() => {});
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [atsMeta?.cacheNote, atsMeta?.confidence, atsLeaders.best?.length, atsLeaders.worst?.length, pinnedSlugs, atsWindow]);
 
   const STAGGER_MS = 2500;
   useEffect(() => {

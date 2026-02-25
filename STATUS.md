@@ -169,6 +169,17 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 25, 2026)
 
+**ATS Incognito Cold-Start and 10/10 Reliability (Feb 25, 2026)**
+
+- **Why:** ATS Leaders was inconsistent: in incognito it often stayed in proxy mode (all N/A) or took too long to show real data; in normal browsing it sometimes showed only 8 top / 8 bottom with "Insufficient data" even when more teams could qualify.
+- **Warm both windows on mount:** Home now triggers `/api/ats/warm` and `/api/ats/warm?window=last7` immediately on mount (non-blocking, same 5-min throttle). Warm endpoint accepts `?window=last30|last7` and writes to the corresponding KV key so both default and Last 7 views are pre-filled for cold sessions.
+- **Re-fetch after warm:** When the initial fast response returns proxy or empty, Home schedules a single follow-up `fetchHomeFast` at 2.8s. That gives the warm requests time to complete and write real data to KV; the follow-up then reads KV (or runs pipeline with warm cache) and replaces proxy with real via existing `chooseAts` logic (never replace real with proxy).
+- **KV: do not overwrite real with proxy:** Pipeline and warm now pass `cacheNote` into KV payloads. `writeAtsToKvIfValid` skips writing when the incoming result is proxy (e.g. `computed_proxy`, low confidence) and the existing KV value is real (FULL, or FALLBACK with medium/high confidence, or `cacheNote: computed_recent_team_ats`). So proxy responses never overwrite good real leaderboards in KV.
+- **Larger team pool and deadlines:** `computeAtsLeadersFromTeamAts` now builds the candidate list from pinned + Top 25 + remaining TEAMS with resolved IDs (up to 60 teams) so more teams can meet the 8-game (last30) / 5-game (last7) thresholds and yield 10 top / 10 bottom. Last-30 deadline increased to 4.2s and last-7 to 3.2s; per-team timeout reduced to 700ms so more teams are attempted within the deadline.
+- **Acceptance:** Incognito Home should show real ATS (last30) within about 1–3s in typical cases; normal browsing should not regress to proxy; 10/10 rows when enough teams qualify; `/api/home/fast?atsWindow=last30` returns `atsMeta.cacheNote = computed_recent_team_ats` or `kv_hit` when real data is used.
+
+---
+
 **Recent-First ATS + Unified Navigation (Critical UX Fix)**
 
 ### Recent-First ATS Strategy

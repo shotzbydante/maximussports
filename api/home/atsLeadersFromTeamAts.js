@@ -14,11 +14,11 @@ import { computeATSForEvent, aggregateATS } from '../../src/utils/ats.js';
 import { matchOddsHistoryToEvent } from '../../src/api/odds.js';
 
 const DEBUG_ATS = process.env.DEBUG_ATS === '1';
-const MAX_TEAMS = 40;
+const MAX_TEAMS = 60;
 const CONCURRENCY = 6;
-const PER_TEAM_TIMEOUT_MS = 800;
-const DEADLINE_LAST30_MS = 2500;
-const DEADLINE_LAST7_MS = 2000;
+const PER_TEAM_TIMEOUT_MS = 700;
+const DEADLINE_LAST30_MS = 4200;
+const DEADLINE_LAST7_MS = 3200;
 const MIN_GAMES_LAST30 = 8;
 const MIN_GAMES_LAST7 = 5;
 
@@ -56,7 +56,7 @@ function computeAtsForWindow(schedule, oddsHistoryGames, teamName, windowStart) 
 }
 
 /**
- * Build team list: pinned first, then Top 25, dedupe, cap MAX_TEAMS.
+ * Build team list: pinned first, then Top 25, then rest of TEAMS with resolved IDs (expanded pool for 10/10 reliability). Dedupe, cap MAX_TEAMS.
  */
 function buildTeamList(pinnedSlugs = [], rankings = [], slugToId = {}) {
   const seen = new Set();
@@ -73,6 +73,12 @@ function buildTeamList(pinnedSlugs = [], rankings = [], slugToId = {}) {
     seen.add(slug);
     const team = getTeamBySlug(slug);
     out.push({ slug, name: team?.name ?? r.teamName, teamId: slugToId[slug] });
+  }
+  for (const t of TEAMS) {
+    if (out.length >= MAX_TEAMS) break;
+    if (!t?.slug || !slugToId[t.slug] || seen.has(t.slug)) continue;
+    seen.add(t.slug);
+    out.push({ slug: t.slug, name: t.name, teamId: slugToId[t.slug] });
   }
   return out.slice(0, MAX_TEAMS);
 }
