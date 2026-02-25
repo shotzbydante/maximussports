@@ -35,6 +35,25 @@ export function getAtsLeaders() {
   };
 }
 
+/**
+ * Return ATS from cache even if expired (stale-while-revalidate). Safe fallback when fresh unavailable.
+ * @returns {{ best: array, worst: array, timestamp?: number, sourceLabel?: string, ageMs?: number, stale?: boolean } | null}
+ */
+export function getAtsLeadersMaybeStale() {
+  const entry = atsCache.getMaybeStale(ATS_KEY);
+  if (!entry?.value) return null;
+  const cached = entry.value;
+  return {
+    best: cached.best || [],
+    worst: cached.worst || [],
+    timestamp: cached.timestamp ?? null,
+    source: cached.source ?? null,
+    sourceLabel: cached.sourceLabel ?? null,
+    ageMs: entry.ageMs,
+    stale: entry.stale,
+  };
+}
+
 export function setAtsLeaders(atsLeaders) {
   if (!atsLeaders) return;
   const best = atsLeaders.best || [];

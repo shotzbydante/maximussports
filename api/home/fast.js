@@ -6,11 +6,11 @@
  * Cache: 2 min.
  */
 
-import { createCache } from '../_cache.js';
+import { createCache, buildCacheMeta } from '../_cache.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getTeamBySlug } from '../../src/data/teams.js';
-import { getAtsLeaders, setAtsLeaders, getHeadlines, setHeadlines, getAtsUnavailableReason, setAtsUnavailableReason } from './cache.js';
-import { computeAtsLeadersFromSources } from './atsLeaders.js';
+import { getAtsLeaders, getHeadlines, setHeadlines, getAtsUnavailableReason, setAtsUnavailableReason } from './cache.js';
+import { getAtsLeadersPipeline } from './atsPipeline.js';
 
 const CACHE_MS = 2 * 60 * 1000; // 2 min
 const homeFastCache = createCache(CACHE_MS);
@@ -20,24 +20,20 @@ let inFlightAtsWarm = false;
 
 function warmAtsCache() {
   if (isDev) console.log('[api/home/fast] ATS warmer start');
-  computeAtsLeadersFromSources()
+  getAtsLeadersPipeline()
     .then((result) => {
-      const { unavailableReason, ...ats } = result;
-      setAtsLeaders(ats);
-      if (unavailableReason) setAtsUnavailableReason(unavailableReason);
-      if (isDev) console.log('[api/home/fast] ATS warmer end', (ats?.best?.length || 0) + (ats?.worst?.length || 0), 'leaders', unavailableReason ? `(${unavailableReason})` : '');
+      if (result.unavailableReason) setAtsUnavailableReason(result.unavailableReason);
+      if (isDev) console.log('[api/home/fast] ATS warmer end', (result?.best?.length || 0) + (result?.worst?.length || 0), 'leaders', result.unavailableReason ? `(${result.unavailableReason})` : '');
     })
     .catch((err) => console.error('[api/home/fast] ATS warmer error:', err?.message));
 }
 
 function runFallbackAtsWarm() {
   if (isDev) console.log('[api/home/fast] ATS fallback job start');
-  computeAtsLeadersFromSources()
+  getAtsLeadersPipeline()
     .then((result) => {
-      const { unavailableReason, ...ats } = result;
-      setAtsLeaders(ats);
-      if (unavailableReason) setAtsUnavailableReason(unavailableReason);
-      if (isDev) console.log('[api/home/fast] ATS fallback end', (ats?.best?.length || 0) + (ats?.worst?.length || 0), 'leaders', unavailableReason || '');
+      if (result.unavailableReason) setAtsUnavailableReason(result.unavailableReason);
+      if (isDev) console.log('[api/home/fast] ATS fallback end', (result?.best?.length || 0) + (result?.worst?.length || 0), 'leaders', result.unavailableReason || '');
     })
     .catch((err) => {
       console.error('[api/home/fast] ATS fallback error:', err?.message);
@@ -87,7 +83,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+  res.setHeader('Cache-Control', 'public, s-maxage=90, stale-while-revalidate=300');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -101,6 +97,7 @@ export default async function handler(req, res) {
   const cached = homeFastCache.get(key);
   if (cached) {
     const atsCount = (cached.atsLeaders?.best?.length || 0) + (cached.atsLeaders?.worst?.length || 0);
+    const meta = buildCacheMeta({ hit: true, ageMs: null, stale: false }, { sourceLabel: cached.atsLeadersSourceLabel ?? null });
     return res.status(200).json({
       ...cached,
       _cached: true,
@@ -109,6 +106,10 @@ export default async function handler(req, res) {
       headlinesWarming: cached.headlinesWarming ?? false,
       atsLeadersTimestamp: cached.atsLeadersTimestamp ?? null,
       atsLeadersSourceLabel: cached.atsLeadersSourceLabel ?? null,
+      generatedAt: meta.generatedAt,
+      cache: meta.cache,
+      partial: meta.partial,
+      sourceLabel: meta.sourceLabel,
     });
   }
 
@@ -168,6 +169,10 @@ export default async function handler(req, res) {
       ].join('. '),
     };
 
+    const cacheMeta = buildCacheMeta(
+      { hit: atsCount > 0, ageMs: null, stale: false },
+      { sourceLabel: atsLeadersSourceLabel ?? null, partial: atsCount === 0 && (rankingsTop25.length > 0 || scoresToday.length > 0), errors: atsUnavailableReason ? [atsUnavailableReason] : [] }
+    );
     const payload = {
       scoresToday,
       scoresYesterday,
@@ -182,6 +187,11 @@ export default async function handler(req, res) {
       headlinesWarming: headlinesEmpty,
       atsLeadersTimestamp,
       atsLeadersSourceLabel,
+      generatedAt: cacheMeta.generatedAt,
+      cache: cacheMeta.cache,
+      partial: cacheMeta.partial,
+      sourceLabel: cacheMeta.sourceLabel,
+      ...(cacheMeta.errors?.length ? { errors: cacheMeta.errors } : {}),
     };
     if (atsUnavailableReason) payload.atsUnavailableReason = atsUnavailableReason;
 

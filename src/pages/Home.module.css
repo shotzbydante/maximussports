@@ -247,6 +247,7 @@
 
 .atsSection {
   margin-bottom: var(--space-xl);
+  min-height: 200px; /* Reserve space so ATS doesn't cause layout jump when loading */
 }
 
 .mainCol {

@@ -16,13 +16,10 @@ import {
   fetchTeamNewsSource,
 } from '../_sources.js';
 import { SEASON_START } from '../../src/utils/dateChunks.js';
-import { getTeamBySlug } from '../../src/data/teams.js';
-import { TEAMS } from '../../src/data/teams.js';
-import { getTeamSlug } from '../../src/utils/teamSlug.js';
-import { getSlugFromRankingsName } from '../../src/utils/rankingsNormalize.js';
 import { buildSlugToIdFromRankings } from '../../src/utils/teamIdMap.js';
-import { computeATSForEvent, aggregateATS } from '../../src/utils/ats.js';
-import { matchOddsHistoryToEvent } from '../../src/api/odds.js';
+import { getAtsLeadersPipeline } from './atsPipeline.js';
+import { getAtsLeadersMaybeStale } from './cache.js';
+import { buildCacheMeta } from '../_cache.js';
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -32,7 +29,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+  res.setHeader('Cache-Control', 'public, s-maxage=90, stale-while-revalidate=300');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -54,6 +51,15 @@ export default async function handler(req, res) {
       return toDateStr(d);
     })();
 
+    const ATS_TIMEOUT_MS = 8000;
+    const atsPromise = Promise.race([
+      getAtsLeadersPipeline(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('ATS timeout')), ATS_TIMEOUT_MS)),
+    ]).catch(() => {
+      const stale = getAtsLeadersMaybeStale();
+      return stale ? { best: stale.best || [], worst: stale.worst || [], sourceLabel: stale.sourceLabel, fromCache: true, stale: true } : { best: [], worst: [], sourceLabel: null };
+    });
+
     const [
       scoresToday,
       rankingsData,
@@ -63,6 +69,7 @@ export default async function handler(req, res) {
       oddsHistoryData,
       scoresByDateRaw,
       pinnedNewsRaw,
+      atsResult,
     ] = await Promise.all([
       fetchScoresSource(),
       fetchRankingsSource(),
@@ -76,6 +83,7 @@ export default async function handler(req, res) {
       pinnedSlugs.length > 0
         ? Promise.all(pinnedSlugs.map((slug) => fetchTeamNewsSource(slug)))
         : Promise.resolve(null),
+      atsPromise,
     ]);
 
     const scoresArray = Array.isArray(scoresToday) ? scoresToday : [];
@@ -91,70 +99,10 @@ export default async function handler(req, res) {
       Object.assign(slugToId, buildSlugToIdFromRankings({ rankings }));
     }
 
-    let atsLeaders = { best: [], worst: [] };
-    if (rankings.length > 0) {
-      const thirtyAgo = new Date();
-      thirtyAgo.setDate(thirtyAgo.getDate() - 30);
-      const sevenAgo = new Date();
-      sevenAgo.setDate(sevenAgo.getDate() - 7);
-      const oddsGames = oddsHistoryData.games || [];
-      const teamSlugs = [];
-      for (const r of rankings.slice(0, 18)) {
-        const slug = getTeamSlug(r.teamName) ?? getSlugFromRankingsName(r.teamName, TEAMS);
-        if (slug && slugToId[slug]) {
-          const team = getTeamBySlug(slug);
-          teamSlugs.push({ slug, name: team?.name ?? r.teamName });
-        }
-      }
-
-      const results = await Promise.all(
-        teamSlugs.map(async ({ slug, name }) => {
-          const teamId = slugToId[slug];
-          if (!teamId) return null;
-          try {
-            const sched = await fetchScheduleSource(teamId);
-            const past = (sched?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
-            if (past.length === 0) return null;
-            const outcomes = past.map((ev) => {
-              const oddsMatch = matchOddsHistoryToEvent(ev, oddsGames, name);
-              return computeATSForEvent(ev, oddsMatch, name);
-            });
-            const withDate = past.map((ev, i) => ({ ev, outcome: outcomes[i], date: ev.date }));
-            const seasonOut = withDate
-              .filter(({ date }) => date && new Date(date) >= new Date(SEASON_START))
-              .map(({ outcome }) => outcome)
-              .filter(Boolean);
-            const last30Out = withDate
-              .filter(({ date }) => date && new Date(date) >= thirtyAgo)
-              .map(({ outcome }) => outcome)
-              .filter(Boolean);
-            const last7Out = withDate
-              .filter(({ date }) => date && new Date(date) >= sevenAgo)
-              .map(({ outcome }) => outcome)
-              .filter(Boolean);
-            return {
-              slug,
-              name,
-              season: aggregateATS(seasonOut),
-              last30: aggregateATS(last30Out),
-              last7: aggregateATS(last7Out),
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-
-      const rows = results.filter(Boolean);
-      const sorted = [...rows]
-        .map((r) => ({ ...r, rec: r.season }))
-        .filter((r) => r.rec?.total > 0)
-        .sort((a, b) => (b.rec.coverPct ?? 0) - (a.rec.coverPct ?? 0));
-      atsLeaders = {
-        best: sorted.slice(0, 10),
-        worst: sorted.slice(-10).reverse(),
-      };
-    }
+    const atsLeaders = {
+      best: atsResult?.best ?? [],
+      worst: atsResult?.worst ?? [],
+    };
 
     const dataStatus = {
       scoresCount: scoresArray.length,
@@ -173,8 +121,13 @@ export default async function handler(req, res) {
     const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
     const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
     if (isDev) {
-      console.log('[api/home] response', { atsLeadersCount: atsCount, scoresCount: scoresArray.length, rankingsCount: rankings.length });
+      console.log('[api/home] response', { atsLeadersCount: atsCount, fromCache: atsResult?.fromCache, stale: atsResult?.stale });
     }
+
+    const cacheMeta = buildCacheMeta(
+      { hit: !!atsResult?.fromCache, ageMs: atsResult?.ageMs ?? null, stale: !!atsResult?.stale },
+      { sourceLabel: atsResult?.sourceLabel ?? null, partial: atsCount === 0 && (rankings.length > 0 || scoresArray.length > 0), errors: atsResult?.unavailableReason ? [atsResult.unavailableReason] : [] }
+    );
 
     const payload = {
       scores: scoresArray,
@@ -184,6 +137,11 @@ export default async function handler(req, res) {
       headlines,
       atsLeaders,
       dataStatus,
+      generatedAt: cacheMeta.generatedAt,
+      cache: cacheMeta.cache,
+      partial: cacheMeta.partial,
+      sourceLabel: cacheMeta.sourceLabel,
+      ...(cacheMeta.errors?.length ? { errors: cacheMeta.errors } : {}),
     };
 
     if (scoresByDateRaw && dateStrs && dateStrs.length > 0) {
@@ -207,12 +165,15 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('[api/home] error:', err.message);
     if (err?.stack) console.error('[api/home] stack', err.stack);
+    const fallback = getAtsLeadersMaybeStale();
+    const atsLeadersFallback = fallback ? { best: fallback.best || [], worst: fallback.worst || [] } : { best: [], worst: [] };
+    const meta = buildCacheMeta({ hit: !!fallback, stale: !!fallback }, { partial: true, errors: [err.message] });
     res.status(200).json({
       scores: [],
       odds: { games: [], error: null, hasOddsKey: false },
       rankings: { rankings: [] },
       headlines: [],
-      atsLeaders: { best: [], worst: [] },
+      atsLeaders: atsLeadersFallback,
       dataStatus: {
         scoresCount: 0,
         rankingsCount: 0,
@@ -221,6 +182,10 @@ export default async function handler(req, res) {
         headlinesCount: 0,
         dataStatusLine: 'Batch fetch failed.',
       },
+      generatedAt: meta.generatedAt,
+      cache: meta.cache,
+      partial: true,
+      errors: meta.errors,
     });
   }
 }

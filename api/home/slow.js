@@ -5,7 +5,7 @@
  * Cache: 20 min.
  */
 
-import { createCache } from '../_cache.js';
+import { createCache, buildCacheMeta } from '../_cache.js';
 import {
   fetchRankingsSource,
   fetchOddsSource,
@@ -15,8 +15,9 @@ import {
   fetchTeamNewsSource,
   fetchScoresSource,
 } from '../_sources.js';
-import { getAtsLeaders, setAtsLeaders, setHeadlines } from './cache.js';
-import { computeAtsLeadersFromSources } from './atsLeaders.js';
+import { SEASON_START } from '../../src/utils/dateChunks.js';
+import { getAtsLeaders, setHeadlines } from './cache.js';
+import { getAtsLeadersPipeline } from './atsPipeline.js';
 import { getTeamSlug } from '../../src/utils/teamSlug.js';
 import { mergeGamesWithOdds } from '../../src/api/odds.js';
 
@@ -58,7 +59,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -193,14 +194,13 @@ export default async function handler(req, res) {
           const cached = getAtsLeaders();
           atsLeaders = { best: cached.best, worst: cached.worst, sourceLabel: cached.sourceLabel };
         } else {
-          const atsResult = await computeAtsLeadersFromSources();
+          const atsResult = await getAtsLeadersPipeline();
           atsLeaders = {
             best: atsResult.best || [],
             worst: atsResult.worst || [],
             source: atsResult.source,
             sourceLabel: atsResult.sourceLabel,
           };
-          setAtsLeaders(atsLeaders);
         }
         const atsLeadersCount = atsLeaders.best.length + atsLeaders.worst.length;
     if (isDev) console.log('[api/home/slow] atsLeaders written to cache, count:', atsLeadersCount);
@@ -229,6 +229,10 @@ export default async function handler(req, res) {
       ].join('. '),
     };
 
+        const cacheMeta = buildCacheMeta(
+          { hit: false, ageMs: null, stale: false },
+          { sourceLabel: atsLeaders.sourceLabel ?? null, partial: slowTimeout, errors: slowTimeout ? ['Timeout; partial data'] : [] }
+        );
         const payload = {
           headlines,
           odds: { games: odds.games, error: odds.error, hasOddsKey: odds.hasOddsKey },
@@ -242,6 +246,11 @@ export default async function handler(req, res) {
           atsCacheWrite: true,
           slowTimeout,
           ...getOddsKeyDebug(),
+          generatedAt: cacheMeta.generatedAt,
+          cache: cacheMeta.cache,
+          partial: cacheMeta.partial,
+          sourceLabel: cacheMeta.sourceLabel,
+          ...(cacheMeta.errors?.length ? { errors: cacheMeta.errors } : {}),
         };
         return payload;
       })().catch((err) => {

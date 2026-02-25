@@ -1,6 +1,7 @@
 /**
  * Shared in-memory cache with TTL for serverless functions.
- * Use for scores, odds, odds-history, news, summary.
+ * Supports stale-while-revalidate: getMaybeStale() returns value + age/stale so callers
+ * can serve stale immediately while revalidating. In-memory cache may reset on cold starts.
  * In-flight request coalescing: same key waits on existing promise instead of duplicate fetch.
  */
 
@@ -10,7 +11,8 @@ export function createCache(ttlMs = 60000) {
     get(key) {
       const entry = store.get(key);
       if (!entry) return null;
-      if (Date.now() - entry.time > ttlMs) {
+      const ageMs = Date.now() - entry.time;
+      if (ageMs > ttlMs) {
         store.delete(key);
         return null;
       }
@@ -18,6 +20,17 @@ export function createCache(ttlMs = 60000) {
     },
     set(key, value) {
       store.set(key, { value, time: Date.now() });
+    },
+    /**
+     * Return cached value with metadata. Does not delete when expired; caller can serve stale.
+     * @returns {{ value: any, ageMs: number, stale: boolean } | null}
+     */
+    getMaybeStale(key, ttlMsOverride = ttlMs) {
+      const entry = store.get(key);
+      if (!entry) return null;
+      const ageMs = Date.now() - entry.time;
+      const stale = ageMs > ttlMsOverride;
+      return { value: entry.value, ageMs, stale };
     },
   };
 }
@@ -40,4 +53,25 @@ export async function coalesce(key, fetcher) {
     });
   inFlight.set(key, promise);
   return promise;
+}
+
+/**
+ * Build response metadata for CDN/cache debugging.
+ * @param {{ hit: boolean, ageMs?: number, stale?: boolean }} cache
+ * @param {{ generatedAt: string, partial?: boolean, sourceLabel?: string, errors?: string[] }} opts
+ */
+export function buildCacheMeta(cache, opts = {}) {
+  const meta = {
+    generatedAt: new Date().toISOString(),
+    cache: {
+      hit: !!cache?.hit,
+      ageMs: cache?.ageMs ?? null,
+      stale: !!cache?.stale,
+    },
+    partial: opts.partial ?? false,
+    sourceLabel: opts.sourceLabel ?? null,
+    errors: Array.isArray(opts.errors) ? opts.errors : (opts.errors ? [opts.errors] : []),
+  };
+  if (meta.errors.length === 0) delete meta.errors;
+  return meta;
 }

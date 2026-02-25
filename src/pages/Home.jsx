@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
-import { fetchHome, fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
+import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamBatch, fetchTeamPage } from '../api/team';
 import { mergeGamesWithOdds } from '../api/odds';
 import { getPinnedTeams } from '../utils/pinnedTeams';
@@ -131,66 +131,14 @@ export default function Home() {
   const lastSummaryDataStatusRef = useRef(null);
   const fetchSummaryStreamRef = useRef(() => {});
 
-  // ATS leaderboard: same endpoint as Odds Insights — fetchHome() for data.atsLeaders only. Cache first; skip network if fresh cache.
+  // ATS: initial state from client cache (instant). loadHomeBatch fills from fast/slow and updates cache — no separate fetch.
   useEffect(() => {
     const cached = getAtsLeadersCache();
     if (cached && ((cached.best?.length || 0) + (cached.worst?.length || 0) > 0)) {
-      if (import.meta.env?.DEV) {
-        console.log('[Home ATS] using fresh cache, skip fetchHome', { best: cached.best?.length, worst: cached.worst?.length });
-      }
+      if (import.meta.env?.DEV) console.log('[Home ATS] initial from cache', { best: cached.best?.length, worst: cached.worst?.length });
       setAtsLeaders(cached);
       setAtsLoading(false);
-      return;
     }
-    if (import.meta.env?.DEV) {
-      console.log('[Home ATS] fetchHome() starting (no fresh cache)');
-    }
-    fetchHome()
-      .then((data) => {
-        if (import.meta.env?.DEV) {
-          console.log('[Home ATS] fetchHome() resolved', {
-            hasAtsLeaders: !!data?.atsLeaders,
-            bestCount: data?.atsLeaders?.best?.length ?? 0,
-            worstCount: data?.atsLeaders?.worst?.length ?? 0,
-            raw: data?.atsLeaders,
-          });
-        }
-        const next = data?.atsLeaders ?? { best: [], worst: [] };
-        setAtsLeaders(next);
-        if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {
-          setAtsLeadersCache(next);
-          if (import.meta.env?.DEV) {
-            console.log('[Home ATS] state + cache updated with atsLeaders');
-          }
-        }
-        if (
-          (next.best?.length || 0) + (next.worst?.length || 0) > 0 &&
-          !didOneTimeRetryRef.current &&
-          summaryGeneratedWithoutAtsNewsRef.current
-        ) {
-          didOneTimeRetryRef.current = true;
-          setSummaryUpdatingBadge(true);
-          setTimeout(() => fetchSummaryStreamRef.current?.(true), 0);
-        }
-      })
-      .catch((err) => {
-        if (import.meta.env?.DEV) {
-          console.error('[Home ATS] fetchHome() failed', err?.message ?? err);
-        }
-        const fromCache = getAtsLeadersCacheMaybeStale()?.data;
-        if (fromCache && ((fromCache.best?.length || 0) + (fromCache.worst?.length || 0) > 0)) {
-          setAtsLeaders(fromCache);
-          if (import.meta.env?.DEV) {
-            console.log('[Home ATS] fallback: set atsLeaders from stale cache');
-          }
-        }
-      })
-      .finally(() => {
-        setAtsLoading(false);
-        if (import.meta.env?.DEV) {
-          console.log('[Home ATS] fetchHome() finished, atsLoading=false');
-        }
-      });
   }, []);
 
   // Fast path first, then slow in background; merge when slow arrives.
@@ -213,6 +161,13 @@ export default function Home() {
         setDataStatus(fastData.dataStatus ?? null);
         setHeadlinesWarming(fastData.headlinesWarming ?? false);
         setOddsHistory({ games: [] });
+        const fastAts = fastData.atsLeaders ?? { best: [], worst: [] };
+        if ((fastAts.best?.length || 0) + (fastAts.worst?.length || 0) > 0) {
+          setAtsLeaders(fastAts);
+          setAtsLeadersCache(fastAts);
+          setAtsLoading(false);
+          if (import.meta.env?.DEV) console.log('[Home ATS] from fast', { best: fastAts.best?.length, worst: fastAts.worst?.length });
+        }
         const meta = fastData.pinnedTeamsMeta ?? [];
         const pinnedTeamNewsMap = {};
         const teamNews = meta.map(({ slug, name }) => ({
@@ -283,6 +238,12 @@ export default function Home() {
               headlines: (headlines || []).length,
             }));
             setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
+            const mergedAts = merged.atsLeaders ?? { best: [], worst: [] };
+            if ((mergedAts.best?.length || 0) + (mergedAts.worst?.length || 0) > 0) {
+              setAtsLeaders(mergedAts);
+              setAtsLeadersCache(mergedAts);
+            }
+            setAtsLoading(false);
             if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
               const head = merged.dataStatus?.headlinesCount ?? 0;
               if (head > 0) {

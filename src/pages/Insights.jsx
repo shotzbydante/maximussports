@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dailyReport } from '../data/mockData';
-import { fetchHome } from '../api/home';
-import { setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { fetchHomeFast } from '../api/home';
+import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
 import { getTeamSlug } from '../utils/teamSlug';
 import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
@@ -12,12 +12,15 @@ import styles from './Insights.module.css';
 
 export default function Insights() {
   const [rankings, setRankings] = useState([]);
-  const [atsLeaders, setAtsLeaders] = useState({ best: [], worst: [] });
+  const [atsLeaders, setAtsLeaders] = useState(() => {
+    const c = getAtsLeadersCacheMaybeStale()?.data;
+    return (c?.best?.length || c?.worst?.length) ? c : { best: [], worst: [] };
+  });
 
   useEffect(() => {
-    fetchHome()
+    fetchHomeFast()
       .then((data) => {
-        setRankings(data?.rankings?.rankings || []);
+        setRankings(data?.rankingsTop25 ?? data?.rankings?.rankings ?? []);
         const next = data?.atsLeaders ?? { best: [], worst: [] };
         setAtsLeaders(next);
         if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {

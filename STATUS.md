@@ -18,12 +18,13 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ### Backend
 - **Platform:** Vercel Serverless Functions (≤12 for Hobby plan; consolidated to 4–6 endpoints).
-- **Cache utility:** `api/_cache.js` — `createCache(ttlMs)` and `coalesce(key, fetcher)` for in-memory TTL and in-flight coalescing.
+- **Cache utility:** `api/_cache.js` — `createCache(ttlMs)` (with `getMaybeStale()` for SWR), `coalesce(key, fetcher)`, `buildCacheMeta()` for response metadata. In-memory cache may reset on cold starts.
 - **Shared sources:** `api/_sources.js` — shared fetchers (scores, rankings, odds, odds-history, teamIds, schedule, news aggregate, team news) used only by `/api/home` and `/api/team/[slug]`; no HTTP between APIs.
-- **Home API (full):** `/api/home/index.js` — GET; returns scores, odds, rankings, atsLeaders, headlines, dataStatus (and optionally scoresByDate, pinnedTeamNews). Used by Games, DailySchedule, Insights, NewsFeed. CDN 60s.
-- **Home Fast:** `/api/home/fast.js` — GET; returns scoresToday, scoresYesterday, rankingsTop25, **atsLeaders**, **headlines**, pinnedTeamsMeta, dataStatus, atsLeadersTimestamp, atsLeadersSourceLabel. ATS + headlines from shared cache (`api/home/cache.js`), stored with timestamp and source label; if cache empty returns empty and triggers non-blocking warmers. Cache 2 min. **Always returns cached atsLeaders when available** (even if slow has not run).
-- **Home Slow:** `/api/home/slow.js` — GET; returns headlines, odds, oddsHistory, atsLeaders (via shared `computeAtsLeadersFromSources()`), atsLeadersSourceLabel, pinnedTeamNews, upcomingGamesWithSpreads, slowDataStatus. Writes atsLeaders and headlines to shared cache. Cache 20 min.
-- **ATS Warm:** `/api/ats/warm.js` — GET; cron-only. Computes full-league ATS leaders (with fallback), writes to shared cache, returns `{ ok, atsLeadersCount }`. Vercel cron every 7 min.
+- **ATS pipeline:** `api/home/atsPipeline.js` — `getAtsLeadersPipeline({ warm?: boolean })` used by /api/home, /api/home/fast (warmers), /api/home/slow, /api/ats/warm. Cache + coalescing + stale-while-revalidate; never hangs.
+- **Home API (full):** `/api/home/index.js` — GET; returns scores, odds, rankings, atsLeaders (via pipeline, 8s timeout then stale/empty), headlines, dataStatus, generatedAt, cache meta. CDN 90s / SWR 300s.
+- **Home Fast:** `/api/home/fast.js` — GET; scoresToday, scoresYesterday, rankingsTop25, atsLeaders (from cache), headlines, dataStatus; warmers call pipeline when cache empty. Response includes generatedAt, cache, sourceLabel. CDN 90s / SWR 300s.
+- **Home Slow:** `/api/home/slow.js` — GET; headlines, odds, oddsHistory, atsLeaders (via pipeline or cache), pinnedTeamNews, upcomingGamesWithSpreads, slowDataStatus, cache meta. Cache 20 min; timeouts so endpoint never hangs.
+- **ATS Warm:** `/api/ats/warm/index.js` — GET; calls `getAtsLeadersPipeline({ warm: true })`, returns JSON summary. Vercel cron every 7 min. No heavy work beyond warming cache.
 - **Home page UX:** Client fetches `/api/home/fast` first (scores, rankings, ATS from cache when warm, headlines when cached); fetches `/api/home/slow` in background and merges with `mergeHomeData(fast, slow)`. ATS leaderboard shows "Warming ATS cache…" when cache empty; shows "Top 25 / Locks + Should Be In" subtitle when fallback source is used. Summary starts after fast returns; one-time summary refresh when slow delivers ATS/headlines if first summary was generated without them.
 - **Team API:** `/api/team/[slug].js` — GET; returns team, schedule, oddsHistory, teamNews, rank, teamId, tier. Team page only; no prefetch for other teams. CDN 120s.
 - **Team Batch:** `/api/team/batch.js` — GET `?slugs=slug1,slug2,...` (max 5). Returns schedule + ATS + headlines per slug. Cache 7 min. Used for pinned teams only after Home fast renders. Client chunks into groups of 5, coalesces by key, 5 min client cache (show cached immediately, refresh in background if stale).
@@ -63,13 +64,14 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `src/data/keyDates.js` | Conference finals + NCAA key dates (PST) |
 | `api/news/filters.js` | Men's basketball allowlist + exclude (`isMensBasketball`); used by _sources |
 | `api/_sources.js` | Shared fetchers: scores, rankings, odds, odds-history, teamIds, schedule, news aggregate, team news (all use _cache) |
-| `api/_cache.js` | Shared: `createCache(ttlMs)`, `coalesce(key, fetcher)` for serverless |
-| `api/home/index.js` | GET (full): scores, odds, rankings, atsLeaders, headlines, dataStatus; used by Games, DailySchedule, Insights, NewsFeed |
-| `api/home/fast.js` | GET: scoresToday, scoresYesterday, rankingsTop25, atsLeaders, headlines, pinnedTeamsMeta, dataStatus; cache 2 min; warmers for ATS/headlines when cache empty |
-| `api/home/cache.js` | Shared server cache for atsLeaders (with timestamp, source, sourceLabel) and headlines; read by fast, written by slow, fast warmers, and /api/ats/warm |
-| `api/home/atsLeaders.js` | computeAtsLeadersFromSources(): full-league ATS from all teams; fallback Top 25 + Lock + "Should be in"; used by slow, fast warmers, /api/ats/warm |
-| `api/home/slow.js` | GET: headlines, odds, oddsHistory, atsLeaders, atsLeadersSourceLabel, pinnedTeamNews, upcomingGamesWithSpreads; cache 20 min; uses shared atsLeaders module |
-| `api/ats/warm.js` | GET: cron warm-up; computes ATS, writes to cache, returns { ok, atsLeadersCount }; schedule */7 * * * * |
+| `api/_cache.js` | Shared: `createCache(ttlMs)`, `getMaybeStale()`, `coalesce()`, `buildCacheMeta()` |
+| `api/home/atsPipeline.js` | `getAtsLeadersPipeline({ warm })` — single ATS pipeline for home, fast, slow, warm; cache + coalesce + SWR |
+| `api/home/index.js` | GET (full): scores, odds, rankings, atsLeaders (pipeline + timeout), headlines, dataStatus, generatedAt, cache meta |
+| `api/home/fast.js` | GET: scoresToday, scoresYesterday, rankingsTop25, atsLeaders (cache), headlines; warmers use pipeline; response cache meta |
+| `api/home/cache.js` | Shared server cache for atsLeaders (+ getAtsLeadersMaybeStale); read by fast/slow, written by pipeline |
+| `api/home/atsLeaders.js` | computeAtsLeadersFromSources(); used only by atsPipeline |
+| `api/home/slow.js` | GET: headlines, odds, oddsHistory, atsLeaders (pipeline or cache), pinnedTeamNews, upcomingGamesWithSpreads; cache meta |
+| `api/ats/warm/index.js` | GET: cron; getAtsLeadersPipeline({ warm: true }); returns { ok, atsLeadersCount }; */7 * * * * |
 | `api/team/[slug].js` | GET: team, schedule, oddsHistory, teamNews, rank, teamId, tier (Team page only) |
 | `api/team/batch.js` | GET: ?slugs=slug1,slug2 (max 5). Schedule + ATS + headlines per slug; cache 7 min |
 | `api/summary/index.js` | POST: summary with payload; hash cache; rate limit; SSE streaming |
@@ -154,7 +156,26 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ---
 
+## Manual verification checklist (Vercel Pro caching / fast Home)
+
+- [ ] **Home loads quickly** even when upstream APIs (ESPN, Odds) are slow — scores/rankings from fast path; ATS from cache or pipeline with timeout.
+- [ ] **ATS appears within ~0–1s** when cache is warm (cron or prior request); when cold, compact "Loading ATS…" in reserved layout (no jump).
+- [ ] **Switching Home ↔ Odds Insights** does not refetch ATS unnecessarily — client cache (`atsLeadersCache`) and shared fast response; Insights uses `fetchHomeFast()` and cache.
+- [ ] **GET /api/ats/warm** returns 200 and warms cache; response `{ ok, atsLeadersCount, sourceLabel? }`; no 404 (route: `api/ats/warm/index.js`).
+- [ ] **CDN caching headers** on responses: `Cache-Control: public, s-maxage=..., stale-while-revalidate=...` on /api/home, /api/home/fast, /api/home/slow; responses include `generatedAt`, `cache: { hit, ageMs, stale }`, `sourceLabel`, and optionally `errors`.
+- [ ] **Dev-only logs** (NODE_ENV !== 'production'): cache hit/miss, stale served, warm endpoint execution in server logs.
+
+---
+
 ## Latest Changes (Feb 24, 2026)
+
+**Vercel-optimized caching + shared ATS pipeline:**
+- **Server cache utility** (`api/_cache.js`): `getMaybeStale(key)` for stale-while-revalidate; `buildCacheMeta()` for response metadata. Safe fallback to empty when no cache.
+- **Shared ATS pipeline** (`api/home/atsPipeline.js`): `getAtsLeadersPipeline({ warm })` used by /api/home, /api/home/fast (warmers), /api/home/slow, /api/ats/warm. Coalescing, 10 min TTL, serve stale on failure.
+- **CDN-friendly responses**: Cache-Control `public, s-maxage=90, stale-while-revalidate=300` (home/fast); responses include `generatedAt`, `cache: { hit, ageMs, stale }`, `partial`, `sourceLabel`, `errors`.
+- **Full /api/home**: ATS via pipeline with 8s timeout; on timeout returns stale or empty; never hangs.
+- **Warm endpoint**: GET /api/ats/warm calls pipeline with `{ warm: true }` only; returns JSON summary.
+- **Client**: Home gets ATS from fast/slow (no separate fetchHome for ATS); updates client `atsLeadersCache` from fast and merged slow; Insights uses cache + fetchHomeFast(); ATS section has min-height to avoid layout jump.
 
 **Full-league ATS leaderboard, cached + cron:**
 - **ATS from all teams** — `api/home/atsLeaders.js`: `computeAtsLeadersFromSources()` now uses **all teams** (TEAMS with resolved slugToId) + rankings + odds-history for best/worst Top 10 / Bottom 10. If odds-history empty, response includes `unavailableReason`.
