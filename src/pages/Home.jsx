@@ -83,12 +83,13 @@ function formatSummaryDate(iso) {
   return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-const buildSummaryPayload = ({ top25, atsBest, atsWorst, recentGames, upcomingGames, headlines }) => ({
+const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, recentGames, upcomingGames, headlines }) => ({
   top25: top25?.slice(0, 25) || [],
   atsLeaders: {
     best: atsBest?.slice(0, 10) || [],
     worst: atsWorst?.slice(0, 10) || [],
   },
+  atsMeta: atsMeta && typeof atsMeta === 'object' ? { status: atsMeta.status, confidence: atsMeta.confidence, sourceLabel: atsMeta.sourceLabel } : null,
   recentGames: (recentGames || []).slice(0, 20),
   upcomingGames: (upcomingGames || []).slice(0, 20),
   headlines: (headlines || []).slice(0, 10),
@@ -343,11 +344,12 @@ export default function Home() {
       top25,
       atsBest: atsLeaders.best,
       atsWorst: atsLeaders.worst,
+      atsMeta,
       recentGames,
       upcomingGames,
       headlines,
     });
-  }, [scores.games, newsData.newsFeed, top25, atsLeaders.best, atsLeaders.worst]);
+  }, [scores.games, newsData.newsFeed, top25, atsLeaders.best, atsLeaders.worst, atsMeta]);
 
   const fetchSummaryStream = useCallback((force = false) => {
     if (streamIntervalRef.current) {

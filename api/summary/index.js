@@ -77,11 +77,18 @@ export default async function handler(req, res) {
         worst: Array.isArray(payload.atsLeaders.worst) ? payload.atsLeaders.worst.slice(0, 10) : [],
       }
     : { best: [], worst: [] };
+  const atsMeta = payload.atsMeta && typeof payload.atsMeta === 'object'
+    ? {
+        status: payload.atsMeta.status ?? null,
+        confidence: payload.atsMeta.confidence ?? null,
+        sourceLabel: payload.atsMeta.sourceLabel ?? null,
+      }
+    : null;
   const recentGames = Array.isArray(payload.recentGames) ? payload.recentGames.slice(0, 20) : [];
   const upcomingGames = Array.isArray(payload.upcomingGames) ? payload.upcomingGames.slice(0, 20) : [];
   const headlines = Array.isArray(payload.headlines) ? payload.headlines.slice(0, 10) : [];
 
-  const normalized = { top25, atsLeaders, recentGames, upcomingGames, headlines };
+  const normalized = { top25, atsLeaders, atsMeta, recentGames, upcomingGames, headlines };
   const hash = hashPayload(normalized);
 
   const top25Count = top25.length;
@@ -170,6 +177,17 @@ export default async function handler(req, res) {
   const hasAtsOrHeadlines = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0) > 0 || headlines.length > 0;
   const useFallbackPrompt = !hasAtsOrHeadlines;
 
+  const atsStatus = atsMeta?.status ?? (atsLeaders.best?.length || atsLeaders.worst?.length ? 'FULL' : null);
+  const atsConfidence = atsMeta?.confidence ?? 'low';
+  const atsSourceLabel = atsMeta?.sourceLabel ?? null;
+  const atsQualifier =
+    !hasAtsOrHeadlines ? ''
+    : atsStatus === 'FULL'
+      ? 'ATS leaderboard is from full-league data (high confidence). Mention ATS leaders definitively.'
+    : atsConfidence === 'medium'
+      ? 'ATS data is from a partial source (medium confidence). Be cautious but assertive when mentioning ATS leaders.'
+    : 'ATS data is from a proxy or early signal (low confidence). Clearly qualify it as "early signal" or "Top 25 slice" when mentioning ATS.';
+
   const top25List = top25.map((r) => (r.rank != null && r.teamName != null ? `#${r.rank} ${r.teamName}` : r.teamName || r.name || '')).filter(Boolean).join(', ') || 'None';
   const recentLines = recentGames.map((g) => {
     const away = g.awayTeam || '';
@@ -209,7 +227,8 @@ RULES:
 1. Use ONLY the data provided below. If an array is empty, explicitly state that part is unavailable.
 2. Recap must include when data exists: (a) Top 25 results from recent games, (b) Upcoming Top 25 games with spreads, (c) ATS leaderboard highlights (best and worst), (d) Headlines.
 3. Every game you mention should include spread and ATS result where that data is in the payload.
-4. Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
+4. ATS phrasing: ${atsQualifier ? atsQualifier : 'Mention ATS leaders when present.'}
+5. Style: "Here's the rundown for today…" and "Looking ahead…" Short paragraphs, narrative tone.`;
 
   const userPrompt = useFallbackPrompt
     ? `Today's date (PST): ${getPstDate()}
@@ -244,6 +263,7 @@ ${atsBestText}
 
 --- ATS leaderboard: Bottom 10 ---
 ${atsWorstText}
+${atsSourceLabel ? `\n(ATS source: ${atsSourceLabel}, confidence: ${atsConfidence})` : ''}
 
 --- Headlines ---
 ${headlinesText}

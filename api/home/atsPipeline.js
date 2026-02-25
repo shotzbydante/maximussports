@@ -1,19 +1,21 @@
 /**
- * Single shared ATS pipeline. getAtsLeadersPipeline() used by /api/home, /api/home/fast, /api/home/slow, /api/ats/warm.
- * Returns atsMeta (status FULL|FALLBACK|EMPTY, reason, sourceLabel) so UI can show empty state instead of loading forever.
+ * Single shared ATS pipeline. getAtsLeadersPipeline() used by /api/home, /api/home/fast, /api/home/slow.
+ * Reads from KV first; on miss computes fast fallback and writes to KV. Never overwrites KV with EMPTY.
+ * Returns atsMeta (status FULL|FALLBACK|EMPTY, reason, sourceLabel, cacheNote) so UI never shows infinite loading.
  */
 
 import { coalesce } from '../_cache.js';
 import { getAtsLeaders, setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
-import { computeAtsLeadersFromSources } from './atsLeaders.js';
+import { getWithMeta, setJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../_globalCache.js';
+import { computeFastFallbackFromRankingsOnly } from './atsFastFallback.js';
 
 const ATS_COALESCE_KEY = 'ats:leaders';
-const WARM_DEADLINE_MS = 10000;
+const DEBUG_ATS = process.env.DEBUG_ATS === '1';
 
-function buildAtsMeta(result, fromCache = false, stale = false) {
+function buildAtsMeta(result, fromCache = false, stale = false, cacheNote = null) {
   const status = result?.status ?? (result?.best?.length || result?.worst?.length ? 'FULL' : 'EMPTY');
   const confidence = result?.confidence ?? (status === 'FULL' ? 'high' : status === 'FALLBACK' ? 'medium' : 'low');
-  return {
+  const meta = {
     status,
     reason: result?.reason ?? result?.unavailableReason ?? null,
     sourceLabel: result?.sourceLabel ?? null,
@@ -22,90 +24,103 @@ function buildAtsMeta(result, fromCache = false, stale = false) {
     fromCache: !!fromCache,
     stale: !!stale,
   };
+  if (cacheNote) meta.cacheNote = cacheNote;
+  return meta;
 }
 
-/**
- * Compute ATS from sources and write to cache (including EMPTY with reason). Used by warm and on cache miss.
- */
-async function computeAndSet() {
-  const result = await computeAtsLeadersFromSources();
-  const best = result.best || [];
-  const worst = result.worst || [];
-  const status = result.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY');
-  const confidence = result.confidence ?? (status === 'FULL' ? 'high' : status === 'FALLBACK' ? 'medium' : 'low');
-  const generatedAt = new Date().toISOString();
-  const payload = {
+function kvPayloadToResult(kvValue, cacheNote) {
+  const atsLeaders = kvValue.atsLeaders ?? {};
+  const best = atsLeaders.best || [];
+  const worst = atsLeaders.worst || [];
+  const atsMeta = kvValue.atsMeta ?? {};
+  const meta = {
+    ...atsMeta,
+    cacheNote,
+  };
+  return {
     best,
     worst,
-    source: result.source ?? null,
-    sourceLabel: result.sourceLabel ?? null,
-    status,
-    reason: result.reason ?? result.unavailableReason ?? null,
-    confidence,
-    generatedAt,
+    sourceLabel: atsMeta.sourceLabel ?? null,
+    source: atsMeta.source ?? null,
+    status: atsMeta.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
+    reason: atsMeta.reason ?? null,
+    generatedAt: atsMeta.generatedAt ?? null,
+    atsMeta: meta,
+    fromCache: true,
   };
-  setAtsLeaders(payload);
-  return { ...payload, unavailableReason: result.unavailableReason };
+}
+
+/** Never write EMPTY to KV. */
+function writeAtsToKvIfValid(best, worst, atsMeta) {
+  const status = atsMeta?.status ?? (best?.length || worst?.length ? 'FULL' : 'EMPTY');
+  if (status === 'EMPTY' && !(best?.length || worst?.length)) return;
+  const payload = {
+    atsLeaders: { best: best || [], worst: worst || [] },
+    atsMeta: {
+      status,
+      confidence: atsMeta?.confidence ?? 'low',
+      reason: atsMeta?.reason ?? null,
+      sourceLabel: atsMeta?.sourceLabel ?? null,
+      generatedAt: atsMeta?.generatedAt ?? new Date().toISOString(),
+    },
+  };
+  setJson(ATS_LEADERS_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
 }
 
 /**
- * Get ATS leaders. Serves from cache when available; optionally compute (e.g. for cron warm).
- * Always returns atsMeta (status FULL|FALLBACK|EMPTY, reason) so UI never shows infinite loading.
- * @param {{ warm?: boolean }} options - warm: true = compute and populate cache (for /api/ats/warm); enforces deadline.
+ * Get ATS leaders. Reads from KV first; on miss computes fast fallback, writes to KV (if not EMPTY), returns.
+ * Always returns atsMeta with cacheNote: "kv_hit" | "kv_stale" | "computed_fallback".
  */
-export async function getAtsLeadersPipeline(options = {}) {
-  const { warm = false } = options;
+export async function getAtsLeadersPipeline() {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
-  if (warm) {
-    if (isDev) console.log('[atsPipeline] warm: computing with deadline', WARM_DEADLINE_MS, 'ms');
-    const deadline = new Promise((_, reject) => setTimeout(() => reject(new Error('ats_timeout')), WARM_DEADLINE_MS));
-    try {
-      const result = await Promise.race([computeAndSet(), deadline]);
-      const count = (result.best?.length || 0) + (result.worst?.length || 0);
-      if (isDev) console.log('[atsPipeline] warm done', { count, status: result.status, sourceLabel: result.sourceLabel });
-      return {
-        best: result.best || [],
-        worst: result.worst || [],
-        sourceLabel: result.sourceLabel ?? null,
-        source: result.source ?? null,
-        status: result.status ?? 'EMPTY',
-        reason: result.reason ?? result.unavailableReason ?? null,
-        generatedAt: result.generatedAt ?? new Date().toISOString(),
-        atsMeta: buildAtsMeta(result, false, false),
-        fromCache: false,
-      };
-    } catch (err) {
-      if (isDev) console.log('[atsPipeline] warm timeout or error', err?.message);
-      const emptyPayload = { best: [], worst: [], status: 'EMPTY', reason: err?.message === 'ats_timeout' ? 'odds_history_timeout' : (err?.message || 'warm_failed'), sourceLabel: null, confidence: 'low', generatedAt: new Date().toISOString() };
-      setAtsLeaders(emptyPayload);
-      return { ...emptyPayload, atsMeta: buildAtsMeta(emptyPayload, false, false), fromCache: false };
-    }
-  }
-
-  const cached = getAtsLeaders();
-  const hasCachedData = (cached.best?.length || 0) + (cached.worst?.length || 0) > 0;
-  const hasCachedMeta = cached.atsMeta?.status != null;
-  if (hasCachedData || hasCachedMeta) {
-    if (isDev) console.log('[atsPipeline] cache hit', { best: cached.best?.length, worst: cached.worst?.length, status: cached.atsMeta?.status });
-    return {
-      best: cached.best || [],
-      worst: cached.worst || [],
-      sourceLabel: cached.sourceLabel ?? null,
-      source: cached.source ?? null,
-      status: cached.atsMeta?.status ?? (hasCachedData ? 'FULL' : 'EMPTY'),
-      reason: cached.atsMeta?.reason ?? null,
-      generatedAt: cached.atsMeta?.generatedAt ?? null,
-      atsMeta: cached.atsMeta ?? buildAtsMeta(cached, true, false),
-      fromCache: true,
-    };
+  const kvEntry = await getWithMeta(ATS_LEADERS_KEY);
+  if (kvEntry?.value) {
+    const cacheNote = kvEntry.stale ? 'kv_stale' : 'kv_hit';
+    if (DEBUG_ATS) console.log('[atsPipeline] KV', cacheNote, { ageSeconds: kvEntry.ageSeconds });
+    const result = kvPayloadToResult(kvEntry.value, cacheNote);
+    setAtsLeaders({
+      best: result.best,
+      worst: result.worst,
+      status: result.status,
+      sourceLabel: result.sourceLabel,
+      reason: result.reason,
+      confidence: result.atsMeta.confidence,
+      generatedAt: result.generatedAt,
+    });
+    return result;
   }
 
   try {
-    const result = await coalesce(ATS_COALESCE_KEY, computeAndSet);
+    const result = await coalesce(ATS_COALESCE_KEY, async () => {
+      const fallback = await computeFastFallbackFromRankingsOnly();
+      const best = fallback.best || [];
+      const worst = fallback.worst || [];
+      writeAtsToKvIfValid(best, worst, {
+        status: fallback.status,
+        confidence: fallback.confidence,
+        reason: fallback.reason,
+        sourceLabel: fallback.sourceLabel,
+        generatedAt: fallback.generatedAt,
+      });
+      setAtsLeaders({
+        best,
+        worst,
+        source: fallback.source ?? null,
+        sourceLabel: fallback.sourceLabel ?? null,
+        status: fallback.status,
+        reason: fallback.reason ?? null,
+        confidence: fallback.confidence ?? 'low',
+        generatedAt: fallback.generatedAt ?? new Date().toISOString(),
+      });
+      return {
+        ...fallback,
+        unavailableReason: fallback.reason ?? null,
+      };
+    });
     const best = result.best || [];
     const worst = result.worst || [];
-    if (isDev) console.log('[atsPipeline] computed', { best: best.length, worst: worst.length, status: result.status });
+    if (isDev) console.log('[atsPipeline] computed_fallback', { best: best.length, worst: worst.length, status: result.status });
     return {
       best,
       worst,
@@ -114,7 +129,7 @@ export async function getAtsLeadersPipeline(options = {}) {
       status: result.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
       reason: result.reason ?? result.unavailableReason ?? null,
       generatedAt: result.generatedAt ?? new Date().toISOString(),
-      atsMeta: buildAtsMeta(result, false, false),
+      atsMeta: buildAtsMeta(result, false, false, 'computed_fallback'),
       fromCache: false,
       unavailableReason: result.unavailableReason,
     };
@@ -122,21 +137,23 @@ export async function getAtsLeadersPipeline(options = {}) {
     if (isDev) console.log('[atsPipeline] compute failed, serving stale if any', err?.message);
     const stale = getAtsLeadersMaybeStale();
     if (stale && (stale.atsMeta || (stale.best?.length || 0) + (stale.worst?.length || 0) > 0)) {
+      const meta = stale.atsMeta ?? buildAtsMeta(stale, true, true);
+      meta.cacheNote = 'kv_stale';
       return {
         best: stale.best || [],
         worst: stale.worst || [],
         sourceLabel: stale.sourceLabel ?? null,
         source: stale.source ?? null,
-        status: stale.atsMeta?.status ?? 'FULL',
-        reason: stale.atsMeta?.reason ?? null,
-        generatedAt: stale.atsMeta?.generatedAt ?? null,
-        atsMeta: stale.atsMeta ?? buildAtsMeta(stale, true, true),
+        status: meta.status ?? 'FULL',
+        reason: meta.reason ?? null,
+        generatedAt: meta.generatedAt ?? null,
+        atsMeta: meta,
         fromCache: true,
         stale: true,
         ageMs: stale.ageMs,
       };
     }
-    const emptyMeta = buildAtsMeta({ status: 'EMPTY', reason: err?.message || 'computation_failed', sourceLabel: null, confidence: 'low' }, false, false);
+    const emptyMeta = buildAtsMeta({ status: 'EMPTY', reason: err?.message || 'computation_failed', sourceLabel: null, confidence: 'low' }, false, false, 'computed_fallback');
     return {
       best: [],
       worst: [],

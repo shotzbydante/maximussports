@@ -103,6 +103,14 @@ export default async function handler(req, res) {
       best: atsResult?.best ?? [],
       worst: atsResult?.worst ?? [],
     };
+    const atsMeta = atsResult?.atsMeta ?? {
+      status: (atsLeaders.best?.length || atsLeaders.worst?.length) ? 'FULL' : 'EMPTY',
+      reason: atsResult?.unavailableReason ?? null,
+      sourceLabel: atsResult?.sourceLabel ?? null,
+      confidence: 'low',
+      generatedAt: new Date().toISOString(),
+      cacheNote: atsResult?.atsMeta?.cacheNote ?? 'computed_fallback',
+    };
 
     const dataStatus = {
       scoresCount: scoresArray.length,
@@ -136,6 +144,7 @@ export default async function handler(req, res) {
       rankings: { rankings },
       headlines,
       atsLeaders,
+      atsMeta,
       dataStatus,
       generatedAt: cacheMeta.generatedAt,
       cache: cacheMeta.cache,

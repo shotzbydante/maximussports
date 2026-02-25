@@ -9,7 +9,7 @@
 import { createCache, buildCacheMeta } from '../_cache.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getTeamBySlug } from '../../src/data/teams.js';
-import { getAtsLeaders, getHeadlines, setHeadlines, getAtsUnavailableReason, setAtsUnavailableReason } from './cache.js';
+import { getHeadlines, setHeadlines, getAtsUnavailableReason, setAtsUnavailableReason } from './cache.js';
 import { getAtsLeadersPipeline } from './atsPipeline.js';
 
 const CACHE_MS = 2 * 60 * 1000; // 2 min
@@ -123,10 +123,11 @@ export default async function handler(req, res) {
       return toDateStr(d);
     })();
 
-    const [scoresTodayRaw, scoresYesterdayRaw, rankingsData] = await Promise.all([
+    const [scoresTodayRaw, scoresYesterdayRaw, rankingsData, atsResult] = await Promise.all([
       fetchScoresSource(),
       fetchScoresSource(yesterday.replace(/-/g, '')),
       fetchRankingsSource(),
+      getAtsLeadersPipeline(),
     ]);
 
     const scoresToday = Array.isArray(scoresTodayRaw) ? scoresTodayRaw : [];
@@ -143,26 +144,24 @@ export default async function handler(req, res) {
       };
     });
 
-    // ATS + headlines from shared cache. Always return atsMeta so client can show empty state instead of loading forever.
-    let atsLeaders = getAtsLeaders();
-    let headlines = getHeadlines();
-    const atsEmpty = !atsLeaders.best?.length && !atsLeaders.worst?.length;
-    const headlinesEmpty = !Array.isArray(headlines) || headlines.length === 0;
-    if (atsEmpty) atsLeaders = { best: [], worst: [] };
-    if (headlinesEmpty) headlines = [];
-    fireWarmers(atsEmpty, headlinesEmpty);
-
-    const atsCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
-    const atsMeta = atsLeaders.atsMeta ?? {
-      status: 'EMPTY',
-      reason: getAtsUnavailableReason() || 'cold_start',
-      sourceLabel: null,
-      confidence: 'low',
+    const atsLeaders = { best: atsResult.best || [], worst: atsResult.worst || [] };
+    const atsCount = atsLeaders.best.length + atsLeaders.worst.length;
+    const atsMeta = atsResult.atsMeta ?? {
+      status: atsCount > 0 ? 'FULL' : 'EMPTY',
+      reason: getAtsUnavailableReason() || (atsCount === 0 ? 'cold_start' : null),
+      sourceLabel: atsResult.sourceLabel ?? null,
+      confidence: atsCount > 0 ? 'high' : 'low',
       generatedAt: new Date().toISOString(),
+      cacheNote: atsResult.atsMeta?.cacheNote ?? 'computed_fallback',
     };
+    if (atsResult.atsMeta?.cacheNote) atsMeta.cacheNote = atsResult.atsMeta.cacheNote;
+    let headlines = getHeadlines();
+    const headlinesEmpty = !Array.isArray(headlines) || headlines.length === 0;
+    if (headlinesEmpty) headlines = [];
+    fireWarmers(atsCount === 0, headlinesEmpty);
     const atsWarming = false;
-    const atsLeadersTimestamp = atsLeaders.timestamp ?? null;
-    const atsLeadersSourceLabel = atsLeaders.sourceLabel ?? atsMeta.sourceLabel ?? null;
+    const atsLeadersTimestamp = atsMeta.generatedAt ?? null;
+    const atsLeadersSourceLabel = atsMeta.sourceLabel ?? atsResult.sourceLabel ?? null;
     const dataStatus = {
       scoresCount: scoresToday.length,
       scoresYesterdayCount: scoresYesterday.length,
