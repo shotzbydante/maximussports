@@ -83,6 +83,39 @@ function formatSummaryDate(iso) {
   return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+const ATS_TIER = { FULL: 3, FALLBACK: 2, EMPTY: 0 };
+function atsTier(meta) {
+  if (!meta?.status) return ATS_TIER.EMPTY;
+  if (meta.status === 'FULL') return ATS_TIER.FULL;
+  if (meta.status === 'FALLBACK') return meta.confidence === 'medium' ? 2 : 1;
+  return ATS_TIER.EMPTY;
+}
+function hasAtsData(leaders) {
+  return (leaders?.best?.length || 0) + (leaders?.worst?.length || 0) > 0;
+}
+/** Never downgrade: prefer FULL > real FALLBACK > proxy FALLBACK > EMPTY; never replace non-empty with empty. */
+function chooseAts(currentLeaders, currentMeta, incomingLeaders, incomingMeta) {
+  const curHas = hasAtsData(currentLeaders);
+  const inHas = hasAtsData(incomingLeaders);
+  if (!inHas && curHas) return { leaders: currentLeaders, meta: currentMeta };
+  if (!inHas) return { leaders: incomingLeaders ?? { best: [], worst: [] }, meta: incomingMeta ?? currentMeta };
+  if (!curHas) return { leaders: incomingLeaders, meta: incomingMeta };
+  const curTier = atsTier(currentMeta);
+  const inTier = atsTier(incomingMeta);
+  if (inTier > curTier) return { leaders: incomingLeaders, meta: incomingMeta };
+  return { leaders: currentLeaders, meta: currentMeta };
+}
+
+const WARM_THROTTLE_MS = 5 * 60 * 1000;
+function maybeWarmAts() {
+  try {
+    const last = sessionStorage.getItem('lastWarmAt');
+    if (last && Date.now() - parseInt(last, 10) < WARM_THROTTLE_MS) return;
+    sessionStorage.setItem('lastWarmAt', String(Date.now()));
+    fetch('/api/ats/warm', { method: 'GET' }).catch(() => {});
+  } catch (_) {}
+}
+
 const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, recentGames, upcomingGames, headlines }) => ({
   top25: top25?.slice(0, 25) || [],
   atsLeaders: {
@@ -132,6 +165,11 @@ export default function Home() {
   const didOneTimeRetryRef = useRef(false);
   const lastSummaryDataStatusRef = useRef(null);
   const fetchSummaryStreamRef = useRef(() => {});
+  const atsStateRef = useRef({ leaders: { best: [], worst: [] }, meta: null });
+
+  useEffect(() => {
+    atsStateRef.current = { leaders: atsLeaders, meta: atsMeta };
+  }, [atsLeaders, atsMeta]);
 
   useEffect(() => {
     if (import.meta.env?.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugAts') === '1' && atsMeta != null) {
@@ -154,6 +192,8 @@ export default function Home() {
 
   // Fast path first, then slow in background; merge when slow arrives.
   const loadHomeBatch = useCallback(() => {
+    const cur = atsStateRef.current;
+    if (!hasAtsData(cur.leaders)) maybeWarmAts();
     setScores((s) => ({ ...s, loading: true }));
     setSlowLoading(true);
     fetchHomeFast({ pinnedSlugs })
@@ -174,11 +214,13 @@ export default function Home() {
         setOddsHistory({ games: [] });
         const fastAts = fastData.atsLeaders ?? { best: [], worst: [] };
         const fastAtsMeta = fastData.atsMeta ?? { status: 'EMPTY', reason: 'cold_start', sourceLabel: null, generatedAt: null };
-        setAtsLeaders(fastAts);
-        setAtsMeta(fastAtsMeta);
+        const cur = atsStateRef.current;
+        const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, fastAts, fastAtsMeta);
+        setAtsLeaders(chosenLeaders);
+        setAtsMeta(chosenMeta);
         setAtsLoading(false);
-        if ((fastAts.best?.length || 0) + (fastAts.worst?.length || 0) > 0) {
-          setAtsLeadersCache(fastAts);
+        if (hasAtsData(chosenLeaders)) {
+          setAtsLeadersCache(chosenLeaders);
         }
         if (import.meta.env?.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugAts') === '1') {
           console.log('[Home ATS] fast', { atsMeta: fastAtsMeta, bestCount: fastAts.best?.length ?? 0, worstCount: fastAts.worst?.length ?? 0 });
@@ -254,12 +296,12 @@ export default function Home() {
             }));
             setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
             const mergedAts = merged.atsLeaders ?? { best: [], worst: [] };
-            const slowAtsMeta = merged.atsMeta ?? (merged.atsLeadersSourceLabel ? { status: (mergedAts.best?.length || mergedAts.worst?.length) ? 'FULL' : 'EMPTY', reason: null, sourceLabel: merged.atsLeadersSourceLabel } : null);
-            if (slowAtsMeta) setAtsMeta(slowAtsMeta);
-            if ((mergedAts.best?.length || 0) + (mergedAts.worst?.length || 0) > 0) {
-              setAtsLeaders(mergedAts);
-              setAtsLeadersCache(mergedAts);
-            }
+            const slowAtsMeta = merged.atsMeta ?? (merged.atsLeadersSourceLabel ? { status: (mergedAts.best?.length || mergedAts.worst?.length) ? 'FULL' : 'EMPTY', reason: null, sourceLabel: merged.atsLeadersSourceLabel, confidence: 'high' } : null);
+            const cur = atsStateRef.current;
+            const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, mergedAts, slowAtsMeta ?? cur.meta);
+            setAtsLeaders(chosenLeaders);
+            if (chosenMeta) setAtsMeta(chosenMeta);
+            if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
             setAtsLoading(false);
             if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
               const head = merged.dataStatus?.headlinesCount ?? 0;

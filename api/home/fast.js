@@ -127,7 +127,7 @@ export default async function handler(req, res) {
       fetchScoresSource(),
       fetchScoresSource(yesterday.replace(/-/g, '')),
       fetchRankingsSource(),
-      getAtsLeadersPipeline(),
+      getAtsLeadersPipeline({ pinnedSlugs }),
     ]);
 
     const scoresToday = Array.isArray(scoresTodayRaw) ? scoresTodayRaw : [];

@@ -1,11 +1,11 @@
 /**
- * GET /api/ats/warm — Fast fallback warm (~1–2s). No odds history or per-team schedule.
- * Writes FALLBACK ATS to KV so all Home requests (any region/instance) read the same data.
- * Cron every 5–7 min.
+ * GET /api/ats/warm — Tier 1: quick real ATS (pinned + Top 25), then Tier 0: proxy fallback.
+ * Writes to KV so all Home requests read the same data. Never writes EMPTY to KV.
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
 import { setJson, getJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../../_globalCache.js';
+import { computeRealAtsQuick } from '../../home/atsQuickReal.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 
 export default async function handler(req, res) {
@@ -20,8 +20,16 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  let kvWriteOk = false;
+  let kvReadOk = false;
+  let cacheNote = null;
+
   try {
-    const result = await computeFastFallbackFromRankingsOnly();
+    let result = await computeRealAtsQuick({ pinnedSlugs: [] });
+    const quickHasLeaders = (result.best?.length || 0) + (result.worst?.length || 0) > 0;
+    if (!quickHasLeaders || result.status === 'EMPTY') {
+      result = await computeFastFallbackFromRankingsOnly();
+    }
     const bestCount = result.best?.length ?? 0;
     const worstCount = result.worst?.length ?? 0;
     setAtsLeaders(result);
@@ -38,12 +46,14 @@ export default async function handler(req, res) {
           },
         };
         await setJson(ATS_LEADERS_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
+        kvWriteOk = true;
       } catch (kvErr) {
         console.warn('[api/ats/warm] KV write failed (in-memory updated):', kvErr?.message);
       }
     }
+    cacheNote = quickHasLeaders ? 'computed_quick_real' : 'computed_proxy';
     if (isDev) {
-      console.log('[api/ats/warm] success', { status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence });
+      console.log('[api/ats/warm] success', { status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence, kvWriteOk });
     }
     return res.status(200).json({
       ok: true,
@@ -52,6 +62,9 @@ export default async function handler(req, res) {
       worstCount,
       sourceLabel: result.sourceLabel ?? null,
       confidence: result.confidence ?? 'low',
+      kvWriteOk,
+      kvReadOk,
+      cacheNote,
       ...(result.reason ? { reason: result.reason } : {}),
     });
   } catch (err) {
@@ -74,6 +87,7 @@ export default async function handler(req, res) {
     } else {
       try {
         const kvVal = await getJson(ATS_LEADERS_KEY);
+        kvReadOk = true;
         if (kvVal?.atsLeaders) {
           const b = kvVal.atsLeaders.best || [];
           const w = kvVal.atsLeaders.worst || [];
@@ -99,6 +113,9 @@ export default async function handler(req, res) {
       sourceLabel,
       confidence,
       reason,
+      kvWriteOk,
+      kvReadOk,
+      ...(cacheNote ? { cacheNote } : {}),
     });
   }
 }

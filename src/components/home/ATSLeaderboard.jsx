@@ -45,20 +45,47 @@ export default function ATSLeaderboard({
   }, [best.length, worst.length]);
 
   const periodKey = period;
-  const best10 = best.map((r) => ({ ...r, rec: r[periodKey] })).filter((r) => r.rec?.total > 0);
-  const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] })).filter((r) => r.rec?.total > 0);
+  const isProxy = status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
+  const best10 = best.map((r) => ({ ...r, rec: r[periodKey] ?? r.season }));
+  const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] ?? r.season }));
+  const showRecordAsNa = (rec) => isProxy || !rec?.total;
+  const recordLabel = (r) => {
+    const rec = r.rec;
+    if (showRecordAsNa(rec)) return 'N/A';
+    return `${rec.w}-${rec.l}${(rec.p > 0 ? `-${rec.p}` : '')}${rec.coverPct != null ? ` (${rec.coverPct}%)` : ''}`;
+  };
+
+  const headerTitle =
+    status === 'FULL'
+      ? 'ATS Leaders (full league)'
+      : status === 'FALLBACK' && atsMeta?.confidence === 'medium' && (atsMeta?.sourceLabel?.includes('Pinned') || atsMeta?.sourceLabel?.includes('real'))
+        ? 'ATS Leaders (real, Pinned + Top 25)'
+        : isProxy
+          ? 'ATS Leaders (Top 25 proxy)'
+          : 'ATS Leaders';
+  const confidenceLabel =
+    status === 'FULL'
+      ? 'High confidence'
+      : atsMeta?.confidence === 'medium'
+        ? 'Medium confidence'
+        : atsMeta?.confidence === 'low'
+          ? 'Low confidence'
+          : null;
 
   return (
     <section className={styles.card}>
       <div className={styles.header}>
         <div>
-          <h3 className={styles.title}>ATS Leaderboard</h3>
-          {isFallback && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && (
+          <h3 className={styles.title}>{headerTitle}</h3>
+          {confidenceLabel && (
             <span className={styles.sourceLabel}>
-              {atsLeadersSourceLabel || atsMeta.sourceLabel || 'Fallback leaderboard'}
-              {atsMeta?.confidence && atsMeta.confidence !== 'high' && (
-                <span className={styles.confidence}> ({atsMeta.confidence} confidence)</span>
-              )}
+              {confidenceLabel}
+              {atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : ''}
+            </span>
+          )}
+          {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && (
+            <span className={styles.sourceLabel}>
+              {atsLeadersSourceLabel || atsMeta.sourceLabel}
             </span>
           )}
         </div>
@@ -105,10 +132,7 @@ export default function ATSLeaderboard({
                       </span>
                       <Link to={`/teams/${r.slug}`} className={styles.teamLink}>{r.name}</Link>
                     </span>
-                    <span className={styles.rec}>
-                      {r.rec.w}-{r.rec.l}{r.rec.p > 0 ? `-${r.rec.p}` : ''}
-                      {r.rec.coverPct != null && ` (${r.rec.coverPct}%)`}
-                    </span>
+                    <span className={styles.rec}>{recordLabel(r)}</span>
                   </li>
                 ))}
               </ul>
@@ -125,10 +149,7 @@ export default function ATSLeaderboard({
                       </span>
                       <Link to={`/teams/${r.slug}`} className={styles.teamLink}>{r.name}</Link>
                     </span>
-                    <span className={styles.rec}>
-                      {r.rec.w}-{r.rec.l}{r.rec.p > 0 ? `-${r.rec.p}` : ''}
-                      {r.rec.coverPct != null && ` (${r.rec.coverPct}%)`}
-                    </span>
+                    <span className={styles.rec}>{recordLabel(r)}</span>
                   </li>
                 ))}
               </ul>

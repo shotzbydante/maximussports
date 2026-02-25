@@ -7,6 +7,7 @@
 import { coalesce } from '../_cache.js';
 import { getAtsLeaders, setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
 import { getWithMeta, setJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../_globalCache.js';
+import { computeRealAtsQuick } from './atsQuickReal.js';
 import { computeFastFallbackFromRankingsOnly } from './atsFastFallback.js';
 
 const ATS_COALESCE_KEY = 'ats:leaders';
@@ -68,10 +69,12 @@ function writeAtsToKvIfValid(best, worst, atsMeta) {
 }
 
 /**
- * Get ATS leaders. Reads from KV first; on miss computes fast fallback, writes to KV (if not EMPTY), returns.
- * Always returns atsMeta with cacheNote: "kv_hit" | "kv_stale" | "computed_fallback".
+ * Get ATS leaders. Reads from KV first; on miss tries quick real (pinned + Top 25) then proxy, writes to KV, returns.
+ * Always returns atsMeta with cacheNote: "kv_hit" | "kv_stale" | "computed_quick_real" | "computed_proxy".
+ * @param {{ pinnedSlugs?: string[] }} options - optional for /api/home/fast to pass pinned teams
  */
-export async function getAtsLeadersPipeline() {
+export async function getAtsLeadersPipeline(options = {}) {
+  const { pinnedSlugs = [] } = options;
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
   const kvEntry = await getWithMeta(ATS_LEADERS_KEY);
@@ -93,34 +96,37 @@ export async function getAtsLeadersPipeline() {
 
   try {
     const result = await coalesce(ATS_COALESCE_KEY, async () => {
-      const fallback = await computeFastFallbackFromRankingsOnly();
-      const best = fallback.best || [];
-      const worst = fallback.worst || [];
+      let out = await computeRealAtsQuick({ pinnedSlugs });
+      const quickHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
+      if (!quickHasLeaders) {
+        out = await computeFastFallbackFromRankingsOnly();
+      }
+      const best = out.best || [];
+      const worst = out.worst || [];
+      const cacheNoteVal = quickHasLeaders ? 'computed_quick_real' : 'computed_proxy';
       writeAtsToKvIfValid(best, worst, {
-        status: fallback.status,
-        confidence: fallback.confidence,
-        reason: fallback.reason,
-        sourceLabel: fallback.sourceLabel,
-        generatedAt: fallback.generatedAt,
+        status: out.status,
+        confidence: out.confidence ?? 'low',
+        reason: out.reason ?? null,
+        sourceLabel: out.sourceLabel ?? null,
+        generatedAt: out.generatedAt ?? new Date().toISOString(),
       });
       setAtsLeaders({
         best,
         worst,
-        source: fallback.source ?? null,
-        sourceLabel: fallback.sourceLabel ?? null,
-        status: fallback.status,
-        reason: fallback.reason ?? null,
-        confidence: fallback.confidence ?? 'low',
-        generatedAt: fallback.generatedAt ?? new Date().toISOString(),
+        source: out.source ?? null,
+        sourceLabel: out.sourceLabel ?? null,
+        status: out.status,
+        reason: out.reason ?? null,
+        confidence: out.confidence ?? 'low',
+        generatedAt: out.generatedAt ?? new Date().toISOString(),
       });
-      return {
-        ...fallback,
-        unavailableReason: fallback.reason ?? null,
-      };
+      return { ...out, cacheNote: cacheNoteVal, unavailableReason: out.reason ?? null };
     });
     const best = result.best || [];
     const worst = result.worst || [];
-    if (isDev) console.log('[atsPipeline] computed_fallback', { best: best.length, worst: worst.length, status: result.status });
+    const cacheNote = result.cacheNote ?? 'computed_proxy';
+    if (isDev) console.log('[atsPipeline]', cacheNote, { best: best.length, worst: worst.length, status: result.status });
     return {
       best,
       worst,
@@ -129,7 +135,7 @@ export async function getAtsLeadersPipeline() {
       status: result.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
       reason: result.reason ?? result.unavailableReason ?? null,
       generatedAt: result.generatedAt ?? new Date().toISOString(),
-      atsMeta: buildAtsMeta(result, false, false, 'computed_fallback'),
+      atsMeta: buildAtsMeta(result, false, false, cacheNote),
       fromCache: false,
       unavailableReason: result.unavailableReason,
     };

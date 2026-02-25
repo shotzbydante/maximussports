@@ -1,9 +1,8 @@
 /**
- * Conference logo — uses /public/conferences/{slug}.png or .svg with fallback to initials badge.
+ * Conference logo — real PNG when available via getConferenceLogo; otherwise initials only (no fake logo).
  */
 
-import { useState } from 'react';
-import { getConferenceSlug } from '../../utils/conferenceSlug';
+import { getConferenceLogo } from '../../utils/conferenceLogos';
 import styles from './ConferenceLogo.module.css';
 
 function getInitials(conference) {
@@ -14,36 +13,26 @@ function getInitials(conference) {
 }
 
 export default function ConferenceLogo({ conference, size = 28 }) {
-  const [attempt, setAttempt] = useState(0);
-  const slug = getConferenceSlug(conference);
-  const extensions = ['png', 'svg'];
-  const ext = extensions[attempt];
-  const src = slug && ext ? `/conferences/${slug}.${ext}` : null;
+  const logo = getConferenceLogo(conference);
   const initials = getInitials(conference);
 
   if (!conference) return null;
 
-  const handleError = () => {
-    if (attempt + 1 < extensions.length) setAttempt((a) => a + 1);
-  };
-
-  if (!src || attempt >= extensions.length) {
+  if (logo?.src) {
     return (
-      <span className={styles.fallback} style={{ width: size, height: size }} aria-hidden>
-        {initials}
-      </span>
+      <img
+        src={logo.src}
+        alt={logo.alt}
+        width={size}
+        height={size}
+        className={styles.img}
+      />
     );
   }
 
   return (
-    <img
-      src={src}
-      alt=""
-      width={size}
-      height={size}
-      className={styles.img}
-      onError={handleError}
-      aria-hidden
-    />
+    <span className={styles.fallback} style={{ width: size, height: size }} aria-hidden>
+      {initials}
+    </span>
   );
 }
