@@ -18,7 +18,7 @@ async function getKv() {
     kv = mod.kv ?? mod.default;
     return kv;
   } catch (err) {
-    if (process.env.DEBUG_ATS === '1') console.warn('[globalCache] KV not available', err?.message);
+    console.warn('[globalCache] KV not available:', err?.message);
     kv = null;
     return null;
   }
@@ -36,7 +36,7 @@ export async function getJson(key) {
     if (raw == null) return null;
     return typeof raw === 'object' ? raw : JSON.parse(String(raw));
   } catch (err) {
-    if (process.env.DEBUG_ATS === '1') console.warn('[globalCache] getJson error', err?.message);
+    console.warn('[globalCache] getJson error:', err?.message);
     return null;
   }
 }
@@ -54,7 +54,7 @@ export async function setJson(key, value, opts = {}) {
     const payload = typeof value === 'string' ? value : JSON.stringify(value);
     await client.set(key, payload, { ex });
   } catch (err) {
-    if (process.env.DEBUG_ATS === '1') console.warn('[globalCache] setJson error', err?.message);
+    console.warn('[globalCache] setJson error:', err?.message);
   }
 }
 

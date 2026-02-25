@@ -7,7 +7,7 @@
 export const config = { maxDuration: 30 };
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { getJson, setJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../_globalCache.js';
+import { getJson, setJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../../_globalCache.js';
 import { computeAtsLeadersFromSources } from '../../home/atsLeaders.js';
 
 const FULL_DEADLINE_MS = 28000;
@@ -44,16 +44,20 @@ export default async function handler(req, res) {
         generatedAt: new Date().toISOString(),
       };
       setAtsLeaders(payload);
-      await setJson(ATS_LEADERS_KEY, {
-        atsLeaders: { best: payload.best, worst: payload.worst },
-        atsMeta: {
-          status: 'FULL',
-          confidence: 'high',
-          reason: payload.reason,
-          sourceLabel: payload.sourceLabel,
-          generatedAt: payload.generatedAt,
-        },
-      }, { exSeconds: MAX_TTL_SECONDS });
+      try {
+        await setJson(ATS_LEADERS_KEY, {
+          atsLeaders: { best: payload.best, worst: payload.worst },
+          atsMeta: {
+            status: 'FULL',
+            confidence: 'high',
+            reason: payload.reason,
+            sourceLabel: payload.sourceLabel,
+            generatedAt: payload.generatedAt,
+          },
+        }, { exSeconds: MAX_TTL_SECONDS });
+      } catch (kvErr) {
+        console.warn('[api/ats/warmFull] KV write failed (in-memory updated):', kvErr?.message);
+      }
       if (isDev) {
         console.log('[api/ats/warmFull] KV updated with FULL', { bestCount, worstCount });
       }
@@ -97,18 +101,22 @@ export default async function handler(req, res) {
       confidence = cached.atsMeta?.confidence ?? 'low';
       reason = cached.atsMeta?.reason ?? reason;
     } else {
-      const kvVal = await getJson(ATS_LEADERS_KEY);
-      if (kvVal?.atsLeaders) {
-        const b = kvVal.atsLeaders.best || [];
-        const w = kvVal.atsLeaders.worst || [];
-        bestCount = b.length;
-        worstCount = w.length;
-        if (bestCount + worstCount > 0) {
-          status = kvVal.atsMeta?.status ?? 'FALLBACK';
-          sourceLabel = kvVal.atsMeta?.sourceLabel ?? null;
-          confidence = kvVal.atsMeta?.confidence ?? 'low';
-          reason = kvVal.atsMeta?.reason ?? reason;
+      try {
+        const kvVal = await getJson(ATS_LEADERS_KEY);
+        if (kvVal?.atsLeaders) {
+          const b = kvVal.atsLeaders.best || [];
+          const w = kvVal.atsLeaders.worst || [];
+          bestCount = b.length;
+          worstCount = w.length;
+          if (bestCount + worstCount > 0) {
+            status = kvVal.atsMeta?.status ?? 'FALLBACK';
+            sourceLabel = kvVal.atsMeta?.sourceLabel ?? null;
+            confidence = kvVal.atsMeta?.confidence ?? 'low';
+            reason = kvVal.atsMeta?.reason ?? reason;
+          }
         }
+      } catch (kvErr) {
+        console.warn('[api/ats/warmFull] KV read failed:', kvErr?.message);
       }
     }
     return res.status(200).json({

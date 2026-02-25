@@ -5,7 +5,7 @@
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { setJson, getJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../_globalCache.js';
+import { setJson, getJson, ATS_LEADERS_KEY, MAX_TTL_SECONDS } from '../../_globalCache.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 
 export default async function handler(req, res) {
@@ -26,17 +26,21 @@ export default async function handler(req, res) {
     const worstCount = result.worst?.length ?? 0;
     setAtsLeaders(result);
     if (result.status !== 'EMPTY' || bestCount > 0 || worstCount > 0) {
-      const payload = {
-        atsLeaders: { best: result.best || [], worst: result.worst || [] },
-        atsMeta: {
-          status: result.status ?? 'FALLBACK',
-          confidence: result.confidence ?? 'low',
-          reason: result.reason ?? null,
-          sourceLabel: result.sourceLabel ?? null,
-          generatedAt: result.generatedAt ?? new Date().toISOString(),
-        },
-      };
-      await setJson(ATS_LEADERS_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
+      try {
+        const payload = {
+          atsLeaders: { best: result.best || [], worst: result.worst || [] },
+          atsMeta: {
+            status: result.status ?? 'FALLBACK',
+            confidence: result.confidence ?? 'low',
+            reason: result.reason ?? null,
+            sourceLabel: result.sourceLabel ?? null,
+            generatedAt: result.generatedAt ?? new Date().toISOString(),
+          },
+        };
+        await setJson(ATS_LEADERS_KEY, payload, { exSeconds: MAX_TTL_SECONDS });
+      } catch (kvErr) {
+        console.warn('[api/ats/warm] KV write failed (in-memory updated):', kvErr?.message);
+      }
     }
     if (isDev) {
       console.log('[api/ats/warm] success', { status: result.status, bestCount, worstCount, sourceLabel: result.sourceLabel, confidence: result.confidence });
@@ -68,18 +72,22 @@ export default async function handler(req, res) {
       confidence = cached.atsMeta?.confidence ?? 'low';
       reason = cached.atsMeta?.reason ?? reason;
     } else {
-      const kvVal = await getJson(ATS_LEADERS_KEY);
-      if (kvVal?.atsLeaders) {
-        const b = kvVal.atsLeaders.best || [];
-        const w = kvVal.atsLeaders.worst || [];
-        bestCount = b.length;
-        worstCount = w.length;
-        if (bestCount + worstCount > 0) {
-          status = kvVal.atsMeta?.status ?? 'FALLBACK';
-          sourceLabel = kvVal.atsMeta?.sourceLabel ?? null;
-          confidence = kvVal.atsMeta?.confidence ?? 'low';
-          reason = kvVal.atsMeta?.reason ?? reason;
+      try {
+        const kvVal = await getJson(ATS_LEADERS_KEY);
+        if (kvVal?.atsLeaders) {
+          const b = kvVal.atsLeaders.best || [];
+          const w = kvVal.atsLeaders.worst || [];
+          bestCount = b.length;
+          worstCount = w.length;
+          if (bestCount + worstCount > 0) {
+            status = kvVal.atsMeta?.status ?? 'FALLBACK';
+            sourceLabel = kvVal.atsMeta?.sourceLabel ?? null;
+            confidence = kvVal.atsMeta?.confidence ?? 'low';
+            reason = kvVal.atsMeta?.reason ?? reason;
+          }
         }
+      } catch (kvErr) {
+        console.warn('[api/ats/warm] KV read failed:', kvErr?.message);
       }
     }
     return res.status(200).json({
