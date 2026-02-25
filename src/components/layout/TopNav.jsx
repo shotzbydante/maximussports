@@ -1,7 +1,29 @@
+import { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import styles from './TopNav.module.css';
 
+const NAV_LINKS = [
+  { to: '/', end: true, label: 'Home' },
+  { to: '/games', end: false, label: 'Games' },
+  { to: '/teams', end: false, label: 'Teams' },
+  { to: '/insights', end: false, label: 'Odds Insights' },
+  { to: '/news', end: false, label: 'News Feed' },
+];
+
 export default function TopNav() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    document.addEventListener('click', close);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('click', close);
+      document.body.style.overflow = '';
+    };
+  }, [menuOpen]);
+
   return (
     <header className={styles.topnav}>
       <div className={styles.brand}>
@@ -10,23 +32,51 @@ export default function TopNav() {
         </Link>
         <span className={styles.brandTagline}>March Madness Intelligence</span>
       </div>
-      <nav className={styles.nav}>
-        <NavLink to="/" end className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Home
-        </NavLink>
-        <NavLink to="/games" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Games
-        </NavLink>
-        <NavLink to="/teams" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Teams
-        </NavLink>
-        <NavLink to="/insights" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          Odds Insights
-        </NavLink>
-        <NavLink to="/news" className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}>
-          News Feed
-        </NavLink>
+      <button
+        type="button"
+        className={styles.hamburger}
+        onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+        aria-expanded={menuOpen}
+        aria-label="Open menu"
+      >
+        <span className={styles.hamburgerBar} />
+        <span className={styles.hamburgerBar} />
+        <span className={styles.hamburgerBar} />
+      </button>
+      <nav className={styles.nav} aria-hidden={menuOpen ? false : undefined}>
+        {NAV_LINKS.map(({ to, end, label }) => (
+          <span key={to} className={styles.navItem}>
+            {end ? (
+              <NavLink to={to} end className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                {label}
+              </NavLink>
+            ) : (
+              <NavLink to={to} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                {label}
+              </NavLink>
+            )}
+          </span>
+        ))}
       </nav>
+      {menuOpen && (
+        <div className={styles.navOverlay} aria-hidden>
+          <nav className={styles.navDropdown} onClick={(e) => e.stopPropagation()}>
+            {NAV_LINKS.map(({ to, end, label }) => (
+              <span key={to} className={styles.navDropdownItem}>
+                {end ? (
+                  <NavLink to={to} end className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                    {label}
+                  </NavLink>
+                ) : (
+                  <NavLink to={to} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                    {label}
+                  </NavLink>
+                )}
+              </span>
+            ))}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

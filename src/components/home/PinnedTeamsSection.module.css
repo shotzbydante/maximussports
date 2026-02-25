@@ -155,6 +155,16 @@
   gap: var(--space-md);
 }
 
+@media (max-width: 600px) {
+  .cards {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+  .card {
+    min-width: 0;
+  }
+}
+
 .emptyState {
   grid-column: 1 / -1;
   padding: var(--space-xl);

@@ -154,7 +154,7 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
         try {
           const sched = await raceWithTimeout(fetchScheduleSource(t.teamId), PER_TEAM_TIMEOUT_MS);
           const rec = computeAtsForWindow(sched, oddsHistoryGames, t.name, windowStart);
-          if (!rec || rec.total < minGames) return null;
+          if (!rec || rec.total < 2) return null;
           return {
             slug: t.slug,
             name: t.name,
@@ -177,6 +177,7 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     results.push(...chunkResults);
   }
 
+  /* Include teams with at least 2 games so we can show 10 each when pool allows. Prefer higher game count in sort. */
   const rows = results.filter(Boolean);
   const sorted = [...rows].sort((a, b) => {
     const cpA = a.coverPct ?? 0;
