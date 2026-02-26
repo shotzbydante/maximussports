@@ -139,7 +139,7 @@ export default function ATSLeaderboard({
           {confidenceLabel && !showSeasonWarming && !showProgressUI && (
             <span className={styles.sourceLabel}>
               {confidenceLabel}
-              {atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : ''}
+              {atsMeta?.reason === 'client_last_known_fallback' ? ' · Stale data (from earlier in this session)' : (atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : '')}
             </span>
           )}
           {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && !showProgressUI && (

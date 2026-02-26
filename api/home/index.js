@@ -20,7 +20,7 @@ import { buildSlugToIdFromRankings } from '../../src/utils/teamIdMap.js';
 import { getAtsLeadersPipeline } from './atsPipeline.js';
 import { getAtsLeadersMaybeStale } from './cache.js';
 import { buildCacheMeta } from '../_cache.js';
-import { getQueryParam } from '../_requestUrl.js';
+import { getQueryParam, getOriginFromReq } from '../_requestUrl.js';
 
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
@@ -48,6 +48,13 @@ export default async function handler(req, res) {
     ? pinnedSlugsParam.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
   const atsWindow = (atsWindowParam === 'last7' || atsWindowParam === 'season') ? atsWindowParam : 'last30';
+
+  const origin = getOriginFromReq(req);
+  if (origin) {
+    try {
+      fetch(`${origin.replace(/\/$/, '')}/api/ats/warmAll`, { method: 'POST' }).catch(() => {});
+    } catch (_) {}
+  }
 
   try {
     const today = toDateStr(new Date());

@@ -5,6 +5,24 @@
  */
 
 /**
+ * Derive request origin (proto + host) from headers. Safe, never throws.
+ * Used for server-side fire-and-forget calls (e.g. ATS refresh) without env vars.
+ * @param {import('http').IncomingMessage} req
+ * @returns {string | null} e.g. "https://example.com" or null if headers unavailable
+ */
+export function getOriginFromReq(req) {
+  try {
+    if (!req?.headers) return null;
+    const proto = (req.headers['x-forwarded-proto'] && String(req.headers['x-forwarded-proto']).split(',')[0].trim()) || 'https';
+    const host = (req.headers['x-forwarded-host'] && String(req.headers['x-forwarded-host']).split(',')[0].trim()) || (req.headers['host'] && String(req.headers['host']).split(',')[0].trim()) || null;
+    if (!host) return null;
+    return `${proto}://${host}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * @param {import('http').IncomingMessage} req
  * @returns {URL}
  */

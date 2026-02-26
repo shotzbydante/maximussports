@@ -1,26 +1,22 @@
 /**
  * GET /api/ats/leaders?window=last30|last7|season
- * KV-only: return immediately. If stale > 30m, still return data with confidence low.
- * When KV missing, return warming payload with nextAction and refreshEndpoint.
+ * KV-only: return immediately. If stale > 30m, return stale data and trigger background refresh (never downgrade to empty).
+ * When KV missing, return warming payload with nextAction and refreshEndpoint; fire-and-forget refresh via getOriginFromReq.
  */
 
 import { getJson, getWithMeta, getAtsLeadersKeyForWindow } from '../../_globalCache.js';
-import { getQueryParam } from '../../_requestUrl.js';
+import { getQueryParam, getOriginFromReq } from '../../_requestUrl.js';
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
 const STALE_30M_SEC = 30 * 60;
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
-function getServerKickBaseUrl() {
+function kickRefresh(origin, window) {
+  if (!origin || typeof origin !== 'string') return;
   try {
-    const p = process.env?.VERCEL_PROJECT_PRODUCTION_URL;
-    if (p && typeof p === 'string') return p.startsWith('http') ? p : `https://${p}`;
-    const v = process.env?.VERCEL_URL;
-    if (v && typeof v === 'string') return v.startsWith('http') ? v : `https://${v}`;
-    return null;
-  } catch {
-    return null;
-  }
+    const url = `${origin.replace(/\/$/, '')}/api/ats/refresh?window=${window}`;
+    fetch(url, { method: 'POST' }).catch(() => {});
+  } catch (_) {}
 }
 
 export default async function handler(req, res) {
@@ -51,15 +47,16 @@ export default async function handler(req, res) {
       ...(isOld && { confidence: 'low', reason: 'stale' }),
     };
     if (isDev) console.log('[ats] leaders kv_hit', { window, age: ageSeconds, stale: meta.stale });
-    const kickBase = getServerKickBaseUrl();
-    if (isOld && kickBase) {
-      fetch(`${kickBase}/api/ats/refresh?window=${window}`, { method: 'POST' }).catch(() => {});
-    } else if (isOld && isDev) {
-      console.log('[ats] skip server kick (no VERCEL_URL/VERCEL_PROJECT_PRODUCTION_URL)');
+    const origin = getOriginFromReq(req);
+    if (isOld && origin) {
+      if (isDev) console.log('[api/ats/leaders] refresh kick (stale)', { origin, window });
+      kickRefresh(origin, window);
     }
+    const atsMetaOut = { ...atsMeta };
+    if (isOld && origin) atsMetaOut.kickedBy = 'server';
     return res.status(200).json({
       atsLeaders: meta.value.atsLeaders ?? { best: [], worst: [] },
-      atsMeta,
+      atsMeta: atsMetaOut,
       atsWindow: window,
       seasonWarming: meta.value.seasonWarming ?? false,
     });
@@ -90,10 +87,10 @@ export default async function handler(req, res) {
   }
 
   if (isDev) console.log('[ats] leaders warming', { window });
-  const kickBase = getServerKickBaseUrl();
-  if (isDev) console.log('[ats] kick refresh window=%s baseUrl=%s', window, kickBase || 'none');
-  if (kickBase) {
-    fetch(`${kickBase}/api/ats/refresh?window=${window}`, { method: 'POST' }).catch(() => {});
+  const origin = getOriginFromReq(req);
+  if (origin) {
+    if (isDev) console.log('[api/ats/leaders] refresh kick (missing)', { origin, window });
+    kickRefresh(origin, window);
   }
   return res.status(200).json({
     atsLeaders: { best: [], worst: [] },
@@ -107,6 +104,7 @@ export default async function handler(req, res) {
       stage: 'empty',
       nextAction: 'refresh',
       refreshEndpoint: `/api/ats/refresh?window=${window}`,
+      kickedBy: 'server',
     },
     atsWindow: window,
     seasonWarming: false,

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { dailyReport } from '../data/mockData';
 import { fetchHomeFast } from '../api/home';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
-import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { getTeamSlug } from '../utils/teamSlug';
 import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
@@ -13,12 +13,15 @@ import styles from './Insights.module.css';
 
 export default function Insights() {
   const [rankings, setRankings] = useState([]);
-  const [atsLeaders, setAtsLeaders] = useState(() => {
-    const c = getAtsLeadersCacheMaybeStale()?.data;
-    return (c?.best?.length || c?.worst?.length) ? c : { best: [], worst: [] };
-  });
-  const [atsMeta, setAtsMeta] = useState(null);
-  const [atsLoading, setAtsLoading] = useState(true);
+  const {
+    atsLeaders,
+    atsMeta,
+    atsWindow,
+    atsLoading,
+    seasonWarming,
+    onRetry: atsOnRetry,
+    onPeriodChange: atsOnPeriodChange,
+  } = useAtsLeaders({ initialWindow: 'last30' });
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
@@ -27,19 +30,9 @@ export default function Insights() {
     fetchHomeFast()
       .then((data) => {
         setRankings(data?.rankingsTop25 ?? data?.rankings?.rankings ?? []);
-        const next = data?.atsLeaders ?? { best: [], worst: [] };
-        setAtsLeaders(next);
-        setAtsMeta(data?.atsMeta ?? { status: (next.best?.length || next.worst?.length) ? 'FULL' : 'EMPTY', reason: null, sourceLabel: null });
-        setAtsLoading(false);
-        if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) {
-          setAtsLeadersCache(next);
-        }
       })
       .catch(() => {
         setRankings([]);
-        setAtsLeaders({ best: [], worst: [] });
-        setAtsMeta({ status: 'EMPTY', reason: 'fetch_failed', sourceLabel: null });
-        setAtsLoading(false);
       });
   }, []);
 
@@ -123,16 +116,10 @@ export default function Insights() {
           atsLeaders={atsLeaders}
           atsMeta={atsMeta}
           loading={atsLoading}
-          onRetry={() => {
-            setAtsLoading(true);
-            fetchHomeFast().then((data) => {
-              const next = data?.atsLeaders ?? { best: [], worst: [] };
-              setAtsLeaders(next);
-              setAtsMeta(data?.atsMeta ?? null);
-              setAtsLoading(false);
-              if ((next.best?.length || 0) + (next.worst?.length || 0) > 0) setAtsLeadersCache(next);
-            }).catch(() => setAtsLoading(false));
-          }}
+          atsWindow={atsWindow}
+          seasonWarming={seasonWarming}
+          onRetry={atsOnRetry}
+          onPeriodChange={atsOnPeriodChange}
         />
       </section>
 
