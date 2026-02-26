@@ -7,7 +7,7 @@
 
 import { getJson, setJson, MAX_TTL_SECONDS } from '../../_globalCache.js';
 import { getTeamSlug, buildChampionshipLookup, normalize, stripLastWords } from '../../../src/utils/teamSlug.js';
-import { TEAMS } from '../../../src/data/teams.js';
+import { TEAMS } from '../../../data/teams.js';
 
 const CHAMPIONSHIP_KV_KEY = 'odds:championship:ncaab:v1';
 const CHAMPIONSHIP_TTL_SECONDS = Math.min(60 * 60, MAX_TTL_SECONDS); // 60 min

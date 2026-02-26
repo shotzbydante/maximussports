@@ -169,6 +169,15 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 25, 2026)
 
+**Phase 4 cleanup + ATS time-to-real fix (Feb 25, 2026)**
+
+- **Deferred championship odds fetch to idle/after ATS** so it never competes with ATS on cold start. Championship fetch runs only after the initial `fetchHomeFast` response returns, via `requestIdleCallback` (timeout 1500ms) or `setTimeout(1500)`; scheduled once per page load. ATS warm + fast path remain first in line.
+- **Moved shared TEAMS list to `/data/teams.js`** (project root). Serverless `api/odds/championship` imports from `data/teams.js` instead of `src/data/teams.js` to avoid pulling client `src/` into serverless. `src/data/teams.js` re-exports from `data/teams.js` so the app is unchanged.
+- **Safer championship outcome mapping guardrails** in `buildChampionshipLookup`: strip-last-2-words matches are only added when the remaining base has ≥2 tokens and is not in the blocked set (`state`, `tech`, `college`, `university`, `usc`, `uc`, `miami`, `saint`, `st`) to reduce false matches.
+- **Bounded polling**: added `homeFastRefetchInFlightRef` so the 3s/8s ATS refetches do not overlap. Dev-only logs: warm start, fetchHomeFast start/end, championship fetch start/end, refetch schedule fire.
+
+---
+
 **ATS Loading UX + Bounded Polling (Feb 25, 2026)**
 
 - **Stage metadata (server → client):** ATS pipeline and responses now include `atsMeta.stage`, `atsMeta.source` (kv_hit | computed | proxy), `atsMeta.startedAt` / `atsMeta.updatedAt` / `atsMeta.elapsedMs`, and when available `atsMeta.teamCountAttempted` / `atsMeta.teamCountCompleted`. UI can show determinate progress when counts exist, otherwise indeterminate.

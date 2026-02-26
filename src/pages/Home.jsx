@@ -178,6 +178,8 @@ export default function Home() {
   const lastSummaryDataStatusRef = useRef(null);
   const fetchSummaryStreamRef = useRef(() => {});
   const atsStateRef = useRef({ leaders: { best: [], worst: [] }, meta: null });
+  const championshipScheduledRef = useRef(false);
+  const homeFastRefetchInFlightRef = useRef(false);
 
   useEffect(() => {
     atsStateRef.current = { leaders: atsLeaders, meta: atsMeta };
@@ -202,14 +204,40 @@ export default function Home() {
     }
   }, []);
 
+  /* Championship odds: deferred until after ATS warm + initial fast response (requestIdleCallback or 1500ms). Scheduled once per page load from inside loadHomeBatch .then(). */
+  const runChampionshipFetch = useCallback(() => {
+    if (championshipScheduledRef.current) return;
+    championshipScheduledRef.current = true;
+    const run = () => {
+      if (import.meta.env?.DEV) console.log('[Home ATS] championship fetch start', Date.now());
+      fetchChampionshipOdds()
+        .then(({ odds, oddsMeta }) => {
+          setChampionshipOdds(odds ?? {});
+          setChampionshipOddsMeta(oddsMeta ?? null);
+          setChampionshipOddsLoading(false);
+          if (import.meta.env?.DEV) console.log('[Home ATS] championship fetch end', Date.now());
+        })
+        .catch(() => {
+          setChampionshipOdds({});
+          setChampionshipOddsMeta(null);
+          setChampionshipOddsLoading(false);
+          if (import.meta.env?.DEV) console.log('[Home ATS] championship fetch error', Date.now());
+        });
+    };
+    if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(run, { timeout: 1500 });
+    else setTimeout(run, 1500);
+  }, []);
+
   // Fast path first, then slow in background; merge when slow arrives.
   const loadHomeBatch = useCallback(() => {
+    if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast start', Date.now());
     const cur = atsStateRef.current;
     if (!hasAtsData(cur.leaders)) maybeWarmAts();
     setScores((s) => ({ ...s, loading: true }));
     setSlowLoading(true);
     fetchHomeFast({ pinnedSlugs, atsWindow })
       .then((fastData) => {
+        if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast end', Date.now());
         const scoresToday = fastData.scoresToday ?? [];
         const rankings = fastData.rankings?.rankings ?? fastData.rankingsTop25 ?? [];
         setScores({
@@ -271,6 +299,8 @@ export default function Home() {
               .catch(() => {});
           });
         }
+
+        runChampionshipFetch();
 
         fetchHomeSlow({ pinnedSlugs })
           .then((slowData) => {
@@ -343,7 +373,7 @@ export default function Home() {
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed, teamNews: [], pinnedTeamNewsMap: {} }));
         setNewsSource('Mock');
       });
-  }, [pinnedSlugs.join(',')]);
+  }, [pinnedSlugs.join(','), runChampionshipFetch]);
 
   useEffect(() => {
     loadHomeBatch();
@@ -351,32 +381,12 @@ export default function Home() {
 
   /* Trigger warm for both last30 and last7 immediately on mount so KV is ready for cold (e.g. incognito) sessions. */
   useEffect(() => {
+    if (import.meta.env?.DEV) console.log('[Home ATS] warm start', Date.now());
     warmAtsBothWindows();
+    if (import.meta.env?.DEV) console.log('[Home ATS] warm scheduled (fire-and-forget)', Date.now());
   }, []);
 
-  /* Championship odds: fetch after mount, non-blocking; not part of home fast path. */
-  useEffect(() => {
-    let cancelled = false;
-    setChampionshipOddsLoading(true);
-    fetchChampionshipOdds()
-      .then(({ odds, oddsMeta }) => {
-        if (!cancelled) {
-          setChampionshipOdds(odds ?? {});
-          setChampionshipOddsMeta(oddsMeta ?? null);
-          setChampionshipOddsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setChampionshipOdds({});
-          setChampionshipOddsMeta(null);
-          setChampionshipOddsLoading(false);
-        }
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  /* Bounded polling: when proxy or empty, refetch at 3s and 8s from first such state (max 2 attempts). Stops when real data arrives. */
+  /* Bounded polling: when proxy or empty, refetch at 3s and 8s from first such state (max 2 attempts). Stops when real data arrives. inFlight prevents overlapping refetches. */
   const atsPollScheduledRef = useRef(false);
   useEffect(() => {
     const isProxy = atsMeta?.cacheNote === 'computed_proxy' || (atsMeta?.confidence === 'low' && hasAtsData(atsLeaders));
@@ -385,6 +395,9 @@ export default function Home() {
     if (atsPollScheduledRef.current) return;
     atsPollScheduledRef.current = true;
     const doFetch = () => {
+      if (homeFastRefetchInFlightRef.current) return;
+      homeFastRefetchInFlightRef.current = true;
+      if (import.meta.env?.DEV) console.log('[Home ATS] refetch schedule fire', Date.now());
       fetchHomeFast({ pinnedSlugs, atsWindow })
         .then((d) => {
           const cur = atsStateRef.current;
@@ -395,7 +408,8 @@ export default function Home() {
           setAtsMeta(chosenMeta);
           if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { homeFastRefetchInFlightRef.current = false; });
     };
     const t1 = setTimeout(doFetch, 3000);
     const t2 = setTimeout(doFetch, 8000);

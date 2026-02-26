@@ -194,10 +194,21 @@ export function stripLastWords(name, n) {
   return parts.slice(0, -n).join(' ');
 }
 
+/** Blocked base tokens for strip-2: too short or ambiguous (avoid false matches). */
+const STRIP2_BLOCKED = new Set(['state', 'tech', 'college', 'university', 'usc', 'uc', 'miami', 'saint', 'st']);
+
+function isStrip2BaseAllowed(normalizedBase) {
+  if (!normalizedBase || typeof normalizedBase !== 'string') return false;
+  const tokens = normalizedBase.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return false;
+  const first = tokens[0].toLowerCase();
+  if (STRIP2_BLOCKED.has(first)) return false;
+  return true;
+}
+
 /**
  * Build runtime lookup for championship odds: normalized name keys -> slug.
- * Used by api/odds/championship to map Odds API outcome names to slugs.
- * Keys: full normalized name, name without mascot (1 or 2 words), Odds-style normalizations.
+ * Prefer exact normalized full-name, then alias map, then strip mascot (1 word). Only use strip-2 when base has >=2 tokens and not in blocked set.
  * @returns {Record<string, string>} normKey -> slug (first win)
  */
 export function buildChampionshipLookup() {
@@ -212,7 +223,7 @@ export function buildChampionshipLookup() {
     if (n1 && !lookup[n1]) lookup[n1] = slug;
     const noMascot2 = stripLastWords(name, 2);
     const n2 = normalize(noMascot2);
-    if (n2 && !lookup[n2]) lookup[n2] = slug;
+    if (n2 && isStrip2BaseAllowed(n2) && !lookup[n2]) lookup[n2] = slug;
     const oddsNorm = normalizeForOdds(name);
     if (oddsNorm && !lookup[oddsNorm]) lookup[oddsNorm] = slug;
     const oddsNorm1 = normalizeForOdds(noMascot1);
