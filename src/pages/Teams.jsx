@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getTeamsGroupedByConference, TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
+import ChampionshipBadge from '../components/shared/ChampionshipBadge';
 import Top25Rankings from '../components/home/Top25Rankings';
+import { fetchChampionshipOdds } from '../api/championshipOdds';
 import styles from './Teams.module.css';
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
@@ -24,6 +26,26 @@ export default function Teams() {
     CONF_ORDER.forEach((c) => { o[c] = true; });
     return o;
   });
+  const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchChampionshipOdds()
+      .then(({ odds }) => {
+        if (!cancelled) {
+          setChampionshipOdds(odds ?? {});
+          setChampionshipOddsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setChampionshipOdds({});
+          setChampionshipOddsLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredTeams = useMemo(() => {
     let list = TEAMS;
@@ -137,6 +159,7 @@ export default function Teams() {
                             <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
                               <TeamLogo team={team} size={24} />
                               <span className={styles.teamName}>{team.name}</span>
+                              <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} loading={championshipOddsLoading} />
                               <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
                               <span className={styles.chevron}>→</span>
                             </Link>

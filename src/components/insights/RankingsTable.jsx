@@ -4,6 +4,7 @@ import { TEAMS } from '../../data/teams';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import TeamLogo from '../shared/TeamLogo';
+import ChampionshipBadge from '../shared/ChampionshipBadge';
 import styles from './RankingsTable.module.css';
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
@@ -27,7 +28,7 @@ function buildSlugToRank(rankings) {
   return map;
 }
 
-export default function RankingsTable({ rankings: rankingsProp, title }) {
+export default function RankingsTable({ rankings: rankingsProp, title, championshipOdds = {}, championshipOddsLoading = false }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
   const [sortBy, setSortBy] = useState('default');
@@ -139,6 +140,7 @@ export default function RankingsTable({ rankings: rankingsProp, title }) {
                           #{rank}
                         </span>
                       )}
+                      <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} loading={championshipOddsLoading} />
                       <span className={styles.chevron}>→</span>
                     </Link>
                   </td>

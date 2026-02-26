@@ -11,6 +11,7 @@ import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
 import { getAtsLeadersCache, getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { fetchChampionshipOdds } from '../api/championshipOdds';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
@@ -165,6 +166,8 @@ export default function Home() {
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
+  const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const streamBufferRef = useRef('');
@@ -348,6 +351,26 @@ export default function Home() {
   /* Trigger warm for both last30 and last7 immediately on mount so KV is ready for cold (e.g. incognito) sessions. */
   useEffect(() => {
     warmAtsBothWindows();
+  }, []);
+
+  /* Championship odds: fetch after mount, non-blocking; not part of home fast path. */
+  useEffect(() => {
+    let cancelled = false;
+    setChampionshipOddsLoading(true);
+    fetchChampionshipOdds()
+      .then(({ odds }) => {
+        if (!cancelled) {
+          setChampionshipOdds(odds ?? {});
+          setChampionshipOddsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setChampionshipOdds({});
+          setChampionshipOddsLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
   }, []);
 
   /* Bounded polling: when proxy or empty, refetch at 3s and 8s from first such state (max 2 attempts). Stops when real data arrives. */
@@ -700,7 +723,12 @@ export default function Home() {
       </section>
 
       <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
-        <RankingsTable title="Bubble Watch - Full Rankings" rankings={top25} />
+        <RankingsTable
+          title="Bubble Watch - Full Rankings"
+          rankings={top25}
+          championshipOdds={championshipOdds}
+          championshipOddsLoading={championshipOddsLoading}
+        />
       </section>
 
       <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />

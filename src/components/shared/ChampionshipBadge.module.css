@@ -1,0 +1,13 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  margin-left: var(--space-xs, 4px);
+}
+
+.placeholder {
+  opacity: 0.6;
+}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dailyReport } from '../data/mockData';
 import { fetchHomeFast } from '../api/home';
+import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
 import { getTeamSlug } from '../utils/teamSlug';
 import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
@@ -18,6 +19,8 @@ export default function Insights() {
   });
   const [atsMeta, setAtsMeta] = useState(null);
   const [atsLoading, setAtsLoading] = useState(true);
+  const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
 
   useEffect(() => {
     fetchHomeFast()
@@ -37,6 +40,24 @@ export default function Insights() {
         setAtsMeta({ status: 'EMPTY', reason: 'fetch_failed', sourceLabel: null });
         setAtsLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchChampionshipOdds()
+      .then(({ odds }) => {
+        if (!cancelled) {
+          setChampionshipOdds(odds ?? {});
+          setChampionshipOddsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setChampionshipOdds({});
+          setChampionshipOddsLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const getSlug = (teamName) => getTeamSlug(teamName) ?? getSlugFromRankingsName(teamName, TEAMS);
@@ -130,7 +151,11 @@ export default function Insights() {
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Bubble Watch — Full Rankings</h2>
-        <RankingsTable />
+        <RankingsTable
+          rankings={rankings}
+          championshipOdds={championshipOdds}
+          championshipOddsLoading={championshipOddsLoading}
+        />
       </section>
     </div>
   );

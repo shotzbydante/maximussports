@@ -7,6 +7,8 @@ import TeamSchedule from './TeamSchedule';
 import MaximusInsight, { computeAtsFromScheduleAndHistory } from './MaximusInsight';
 import TeamSummaryBox from './TeamSummaryBox';
 import SourceBadge from '../shared/SourceBadge';
+import ChampionshipBadge from '../shared/ChampionshipBadge';
+import { fetchChampionshipOdds } from '../../api/championshipOdds';
 import styles from './TeamPage.module.css';
 
 function formatDate(str) {
@@ -34,6 +36,8 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [prev90Expanded, setPrev90Expanded] = useState(false);
+  const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
 
   // Batch load: schedule + odds history + team news + rank (ATS/schedule first; defer news)
   useEffect(() => {
@@ -58,6 +62,26 @@ export default function TeamPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [slug, team]);
+
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    setChampionshipOddsLoading(true);
+    fetchChampionshipOdds()
+      .then(({ odds }) => {
+        if (!cancelled) {
+          setChampionshipOdds(odds ?? {});
+          setChampionshipOddsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setChampionshipOdds({});
+          setChampionshipOddsLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
 
   const rank = batch?.rank ?? null;
 
@@ -103,6 +127,7 @@ export default function TeamPage() {
               <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
                 {team.oddsTier}
               </span>
+              <ChampionshipBadge slug={slug} oddsMap={championshipOdds} loading={championshipOddsLoading} />
             </div>
           </div>
         </div>
