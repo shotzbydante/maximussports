@@ -80,10 +80,13 @@ function kvPayloadToResult(kvValue, cacheNote, ageSeconds = 0) {
   };
 }
 
-/** Never write EMPTY to KV. Never overwrite FULL or good FALLBACK with EMPTY. Never overwrite real (FULL or medium+ FALLBACK) with proxy (low-confidence FALLBACK). Exported for /api/ats/refresh. */
+/** Write when we have usable data (>= 5 in best or worst). Never overwrite FULL/good FALLBACK with EMPTY or with low-confidence proxy. Exported for /api/ats/refresh. */
 export async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) {
-  const status = atsMeta?.status ?? (best?.length || worst?.length ? 'FULL' : 'EMPTY');
-  if (status === 'EMPTY' && !(best?.length || worst?.length)) return;
+  const bestLen = best?.length ?? 0;
+  const worstLen = worst?.length ?? 0;
+  const hasUsable = bestLen >= 5 || worstLen >= 5;
+  if (!hasUsable) return;
+  const status = atsMeta?.status ?? (bestLen || worstLen ? 'FULL' : 'EMPTY');
   const existing = await getJson(key);
   const existingStatus = existing?.atsMeta?.status;
   const existingConfidence = existing?.atsMeta?.confidence;
@@ -92,14 +95,15 @@ export async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) 
   const isIncomingProxy = cacheNote === 'computed_proxy' || (atsMeta?.confidence === 'low' && (atsMeta?.sourceLabel?.toLowerCase?.().includes('fallback') ?? false));
   const isExistingReal = existingStatus === 'FULL' || (existingStatus === 'FALLBACK' && existingConfidence !== 'low') || existingNote === 'computed_recent_team_ats';
   if (isIncomingProxy && isExistingReal && (existing?.atsLeaders?.best?.length || existing?.atsLeaders?.worst?.length)) return;
+  const generatedAt = atsMeta?.generatedAt ?? new Date().toISOString();
   const payload = {
     atsLeaders: { best: best || [], worst: worst || [] },
     atsMeta: {
-      status,
+      status: status === 'EMPTY' && hasUsable ? 'FALLBACK' : status,
       confidence: atsMeta?.confidence ?? 'low',
       reason: atsMeta?.reason ?? null,
       sourceLabel: atsMeta?.sourceLabel ?? null,
-      generatedAt: atsMeta?.generatedAt ?? new Date().toISOString(),
+      generatedAt,
       cacheNote: cacheNote ?? null,
     },
   };
@@ -282,12 +286,13 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30' } = {})
   const best = out.best || [];
   const worst = out.worst || [];
   const cacheNote = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
+  const isFallback = !teamAtsHasLeaders;
   return {
     best,
     worst,
     status: out.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
-    confidence: out.confidence ?? 'low',
-    reason: out.reason ?? null,
+    confidence: isFallback ? 'low' : (out.confidence ?? 'low'),
+    reason: isFallback ? 'rankings_fallback' : (out.reason ?? null),
     sourceLabel: out.sourceLabel ?? null,
     generatedAt: out.generatedAt ?? new Date().toISOString(),
     cacheNote,

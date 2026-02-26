@@ -174,6 +174,17 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 25, 2026)
 
+**ATS lock hardening + server kick fix + fallback semantics (Feb 25, 2026)**
+
+- **Atomic lock:** `tryAcquireLock` in `_globalCache.js` uses Redis SET with `nx: true` and `ex` when supported; falls back to token-verify (set lockKey = `{ token, createdAt }`, re-read and only proceed if stored token matches). Lock release is TTL-only; no explicit release.
+- **Server kick URL:** GET /api/ats/leaders builds base URL from `VERCEL_URL` (adds `https://` if missing) or `VERCEL_PROJECT_PRODUCTION_URL`; if neither is set, skips fire-and-forget refresh and logs in dev only. Never throws.
+- **KV write semantics:** `writeAtsToKvIfValid` writes when `best.length >= 5 || worst.length >= 5` (usable data). `atsMeta.generatedAt` always set on refresh output. Fallback (rankings-only) sets `reason: 'rankings_fallback'` and `confidence: 'low'` so UI can label it.
+- **Client warming:** `fetchAtsRefresh` returns `{ status: 'ok'|'locked'|'failed' }`. When GET returns warming: if refresh returns `locked`, do not count as attempt and schedule one more GET at +1500ms; if `ok` or `failed`, count attempt and schedule GET at +1200ms; if `failed` and follow-up GET still empty, stop auto attempts (rely on Retry). Max 2 rounds per window per session.
+- **Last-known cache:** In `src/api/atsLeaders.js`, last successful response per window is stored in memory (10 min TTL). When GET returns warming/empty or fetch errors, if last-known exists and is not expired, return it with `atsMeta.source: 'client_last_known'` and `confidence: 'low'`.
+- **cacheAgeSec / unknown_age:** `getWithMeta` returns `ageSeconds: null` when `generatedAt` is missing; GET /api/ats/leaders then sets `reason: 'unknown_age'` and `confidence: 'low'` and omits cacheAgeSec. Stale still derived from `ageSeconds > FRESH_SECONDS` when age is known.
+
+---
+
 **ATS refresh + triggers + logo (Feb 25, 2026)**
 
 - **POST /api/ats/refresh:** New endpoint `POST /api/ats/refresh?window=last30|last7|season` computes ATS leaders (same logic as pipeline: `computeAtsLeadersFromTeamAts` + `computeFastFallbackFromRankingsOnly`) with a 9s timeout and writes to KV. Uses KV lock `ats:leaders:refresh_lock:{window}` (TTL 60s) and per-instance `inFlight` map to prevent stampede. On compute failure does not overwrite KV; returns 200 `{ status: "failed", used: "stale"|"none" }`. On lock held returns 202 `{ status: "locked" }`.

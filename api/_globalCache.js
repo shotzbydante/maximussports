@@ -77,7 +77,8 @@ export async function setJson(key, value, opts = {}) {
 const LOCK_TTL_SECONDS = 60;
 
 /**
- * Try to acquire a distributed lock. Best-effort: get then set (small race window).
+ * Try to acquire a distributed lock atomically. Uses NX if supported, else token-verify.
+ * Lock release is by TTL only; no explicit release required.
  * @param {string} lockKey
  * @param {number} [ttlSec]
  * @returns {Promise<boolean>} true if lock acquired, false if already held
@@ -86,10 +87,20 @@ export async function tryAcquireLock(lockKey, ttlSec = LOCK_TTL_SECONDS) {
   const client = await getKv();
   if (!client) return false;
   try {
-    const existing = await client.get(lockKey);
-    if (existing != null) return false;
-    await client.set(lockKey, '1', { ex: ttlSec });
-    return true;
+    const result = await client.set(lockKey, '1', { nx: true, ex: ttlSec });
+    if (result === 'OK' || result === true) return true;
+    return false;
+  } catch (_) {
+    /* NX may not be supported; fall through to token-verify */
+  }
+  try {
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    const payload = JSON.stringify({ token, createdAt: Date.now() });
+    await client.set(lockKey, payload, { ex: ttlSec });
+    const raw = await client.get(lockKey);
+    const stored = (typeof raw === 'string' && raw.startsWith('{')) ? JSON.parse(raw) : raw;
+    if (stored && stored.token === token) return true;
+    return false;
   } catch (err) {
     console.warn('[globalCache] tryAcquireLock error:', err?.message);
     return false;
@@ -98,17 +109,18 @@ export async function tryAcquireLock(lockKey, ttlSec = LOCK_TTL_SECONDS) {
 
 /**
  * Returns cached payload with age/stale for SWR. Uses generatedAt from payload for age.
+ * When generatedAt is missing, ageSeconds is null and stale is false (caller should set reason='unknown_age').
  * @param {string} key
- * @returns {Promise<{ value: object, ageSeconds: number, stale: boolean } | null>}
+ * @returns {Promise<{ value: object, ageSeconds: number|null, stale: boolean } | null>}
  */
 export async function getWithMeta(key) {
   const value = await getJson(key);
   if (!value) return null;
   const generatedAt = value.atsMeta?.generatedAt;
-  const ageSeconds = generatedAt
+  const ageSeconds = generatedAt != null
     ? Math.floor((Date.now() - new Date(generatedAt).getTime()) / 1000)
-    : 0;
-  const stale = ageSeconds > FRESH_SECONDS;
+    : null;
+  const stale = ageSeconds != null && ageSeconds > FRESH_SECONDS;
   return { value, ageSeconds, stale };
 }
 

@@ -353,56 +353,62 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
-  /* ATS leaders: fetch from /api/ats/leaders. If warming, kick refresh and refetch (max 2 per window per session). */
+  /* ATS leaders: fetch from /api/ats/leaders. If warming, kick refresh then refetch. Locked does not count as attempt; failed + still empty stops. */
   useEffect(() => {
     let cancelled = false;
     const window = 'last30';
+
+    function applyResult(d) {
+      const cur = atsStateRef.current;
+      const { leaders: L, meta: M } = chooseAts(cur.leaders, cur.meta, d.atsLeaders ?? { best: [], worst: [] }, d.atsMeta ?? null);
+      setAtsLeaders(L);
+      setAtsMeta(M ?? null);
+      if (d.atsWindow) setAtsWindow(d.atsWindow);
+      if (hasAtsData(L)) setAtsLeadersCache(L);
+      setAtsLoading(false);
+      return d.atsMeta?.reason === 'ats_data_warming' && !hasAtsData(L);
+    }
+
+    function doFollowUpGet(delayMs, stopIfStillEmpty = false) {
+      setTimeout(() => {
+        if (cancelled) return;
+        fetchAtsLeaders(window).then((d2) => {
+          if (cancelled) return;
+          const stillWarming = applyResult(d2);
+          if (!stillWarming) return;
+          if (stopIfStillEmpty) return;
+          if (atsRefreshAttemptsRef.current[window] >= 2) return;
+          fetchAtsRefresh(window).then(({ status }) => {
+            if (cancelled) return;
+            if (status === 'locked') {
+              doFollowUpGet(1500, false);
+              return;
+            }
+            atsRefreshAttemptsRef.current[window]++;
+            doFollowUpGet(1200, status === 'failed');
+          });
+        });
+      }, delayMs);
+    }
+
     setAtsLoading(true);
     fetchAtsLeaders(window)
       .then((d) => {
         if (cancelled) return;
-        const cur = atsStateRef.current;
-        const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, d.atsLeaders ?? { best: [], worst: [] }, d.atsMeta ?? null);
-        setAtsLeaders(chosenLeaders);
-        setAtsMeta(chosenMeta ?? null);
-        setSeasonWarming(!!d.seasonWarming);
-        if (d.atsWindow) setAtsWindow(d.atsWindow);
-        if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
-        setAtsLoading(false);
-
-        if (d.atsMeta?.reason === 'ats_data_warming' && atsRefreshAttemptsRef.current[window] < 2) {
-          atsRefreshAttemptsRef.current[window]++;
-          setTimeout(() => fetchAtsRefresh(window), 250);
-          setTimeout(() => {
+        const stillWarming = applyResult(d);
+        if (!stillWarming || atsRefreshAttemptsRef.current[window] >= 2) return;
+        setTimeout(() => {
+          if (cancelled) return;
+          fetchAtsRefresh(window).then(({ status }) => {
             if (cancelled) return;
-            fetchAtsLeaders(window).then((d2) => {
-              if (cancelled) return;
-              const cur2 = atsStateRef.current;
-              const { leaders: L2, meta: M2 } = chooseAts(cur2.leaders, cur2.meta, d2.atsLeaders ?? { best: [], worst: [] }, d2.atsMeta ?? null);
-              setAtsLeaders(L2);
-              setAtsMeta(M2);
-              if (d2.atsWindow) setAtsWindow(d2.atsWindow);
-              if (hasAtsData(L2)) setAtsLeadersCache(L2);
-              setAtsLoading(false);
-              if (d2.atsMeta?.reason === 'ats_data_warming' && atsRefreshAttemptsRef.current[window] < 2) {
-                atsRefreshAttemptsRef.current[window]++;
-                setTimeout(() => fetchAtsRefresh(window), 250);
-                setTimeout(() => {
-                  if (cancelled) return;
-                  fetchAtsLeaders(window).then((d3) => {
-                    if (cancelled) return;
-                    const cur3 = atsStateRef.current;
-                    const { leaders: L3, meta: M3 } = chooseAts(cur3.leaders, cur3.meta, d3.atsLeaders ?? { best: [], worst: [] }, d3.atsMeta ?? null);
-                    setAtsLeaders(L3);
-                    setAtsMeta(M3);
-                    if (hasAtsData(L3)) setAtsLeadersCache(L3);
-                    setAtsLoading(false);
-                  });
-                }, 1200);
-              }
-            });
-          }, 1200);
-        }
+            if (status === 'locked') {
+              doFollowUpGet(1500, false);
+              return;
+            }
+            atsRefreshAttemptsRef.current[window]++;
+            doFollowUpGet(1200, status === 'failed');
+          });
+        }, 250);
       })
       .catch(() => { if (!cancelled) setAtsLoading(false); });
     return () => { cancelled = true; };
@@ -768,18 +774,20 @@ export default function Home() {
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
               if (d.atsMeta?.reason === 'ats_data_warming' && atsRefreshAttemptsRef.current[win] < 2) {
-                atsRefreshAttemptsRef.current[win]++;
-                setTimeout(() => fetchAtsRefresh(win), 250);
-                setTimeout(() => {
-                  fetchAtsLeaders(win).then((d2) => {
-                    const cur = atsStateRef.current;
-                    const { leaders: L2, meta: M2 } = chooseAts(cur.leaders, cur.meta, d2.atsLeaders ?? { best: [], worst: [] }, d2.atsMeta ?? null);
-                    setAtsLeaders(L2);
-                    setAtsMeta(M2);
-                    if (hasAtsData(L2)) setAtsLeadersCache(L2);
-                    setAtsLoading(false);
-                  });
-                }, 1200);
+                fetchAtsRefresh(win).then(({ status }) => {
+                  const delay = status === 'locked' ? 1500 : 1200;
+                  if (status !== 'locked') atsRefreshAttemptsRef.current[win]++;
+                  setTimeout(() => {
+                    fetchAtsLeaders(win).then((d2) => {
+                      const cur = atsStateRef.current;
+                      const { leaders: L2, meta: M2 } = chooseAts(cur.leaders, cur.meta, d2.atsLeaders ?? { best: [], worst: [] }, d2.atsMeta ?? null);
+                      setAtsLeaders(L2);
+                      setAtsMeta(M2);
+                      if (hasAtsData(L2)) setAtsLeadersCache(L2);
+                      setAtsLoading(false);
+                    });
+                  }, delay);
+                });
               }
             }).catch(() => setAtsLoading(false));
           }}
