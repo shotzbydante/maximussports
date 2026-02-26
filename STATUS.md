@@ -24,6 +24,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 - **Home API (full):** `/api/home/index.js` — GET; returns scores, odds, rankings, atsLeaders (via pipeline, 8s timeout then stale/empty), headlines, dataStatus, generatedAt, cache meta. CDN 90s / SWR 300s.
 - **Home Fast:** `/api/home/fast.js` — GET; scoresToday, scoresYesterday, rankingsTop25, atsLeaders (from cache), headlines, dataStatus; warmers call pipeline when cache empty. Response includes generatedAt, cache, sourceLabel. CDN 90s / SWR 300s.
 - **Home Slow:** `/api/home/slow.js` — GET; headlines, odds, oddsHistory, atsLeaders (via pipeline or cache), pinnedTeamNews, upcomingGamesWithSpreads, slowDataStatus, cache meta. Cache 20 min; timeouts so endpoint never hangs.
+- **ATS Leaders (read-only):** `GET /api/ats/leaders?window=last30|last7|season` — reads KV and returns immediately (kv_hit/kv_stale or empty). No compute on this path; Cache-Control s-maxage=60, stale-while-revalidate=300. Home ATS section fetches from here; fast path unchanged.
 - **ATS Warm:** `/api/ats/warm/index.js` — GET; calls `getAtsLeadersPipeline({ warm: true })`, returns JSON summary. Vercel cron every 7 min. No heavy work beyond warming cache.
 - **Home page UX:** Client fetches `/api/home/fast` first (scores, rankings, ATS from cache when warm, headlines when cached); fetches `/api/home/slow` in background and merges with `mergeHomeData(fast, slow)`. ATS leaderboard shows "Warming ATS cache…" when cache empty; shows "Top 25 / Locks + Should Be In" subtitle when fallback source is used. Summary starts after fast returns; one-time summary refresh when slow delivers ATS/headlines if first summary was generated without them.
 - **Team API:** `/api/team/[slug].js` — GET; returns team, schedule, oddsHistory, teamNews, rank, teamId, tier. Team page only; no prefetch for other teams. CDN 120s.
@@ -71,6 +72,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/home/cache.js` | Shared server cache for atsLeaders (+ getAtsLeadersMaybeStale); read by fast/slow, written by pipeline |
 | `api/home/atsLeaders.js` | computeAtsLeadersFromSources(); used only by atsPipeline |
 | `api/home/slow.js` | GET: headlines, odds, oddsHistory, atsLeaders (pipeline or cache), pinnedTeamNews, upcomingGamesWithSpreads; cache meta |
+| `api/ats/leaders/index.js` | GET: ?window=last30\|last7\|season; reads KV only, returns atsLeaders/atsMeta (kv_hit/kv_stale or empty); Cache-Control s-maxage=60, stale-while-revalidate=300 |
 | `api/ats/warm/index.js` | GET: cron; getAtsLeadersPipeline({ warm: true }); returns { ok, atsLeadersCount }; */7 * * * * |
 | `api/team/[slug].js` | GET: team, schedule, oddsHistory, teamNews, rank, teamId, tier (Team page only) |
 | `api/team/batch.js` | GET: ?slugs=slug1,slug2 (max 5). Schedule + ATS + headlines per slug; cache 7 min |
@@ -79,6 +81,7 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 | `api/health.js` | GET: `{ ok: true, timestamp }` (optional) |
 | `api/env-check.js` | GET: `{ hasOddsKey, keyLength }` — verify ODDS_API_KEY at runtime (key never returned) |
 | `src/api/home.js` | Client: `fetchHomeFast()`, `fetchHomeSlow()`, `mergeHomeData(fast, slow)` for Home; `fetchHome()` for Games/DailySchedule/Insights/NewsFeed |
+| `src/api/atsLeaders.js` | Client: `fetchAtsLeaders(window)` — GET /api/ats/leaders with module-level de-dupe; used by Home ATS section only |
 | `src/api/team.js` | Client: `fetchTeamPage(slug)` (Team page); `fetchTeamBatch(slugs)` chunked by 5, coalesced, 5 min client cache |
 | `src/utils/atsLeadersCache.js` | In-memory ATS leaderboard cache (5 min); show cached first, update in background |
 | `src/api/summary.js` | Client: `fetchSummaryStream`, `buildTeamSummaryPayload`, `fetchTeamSummaryStream`, `fetchTeamSummary` |
@@ -168,6 +171,14 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 ---
 
 ## Latest Changes (Feb 25, 2026)
+
+**Phase 5 cleanup (Feb 25, 2026)**
+
+- **ATS Leaders via dedicated endpoint:** New `GET /api/ats/leaders?window=last30|last7|season` reads KV only and returns immediately (kv_hit or kv_stale). Cache-Control: `public, s-maxage=60, stale-while-revalidate=300`. Home fetches ATS from this endpoint separately from `fetchHomeFast`; initial load and period change/Retry call only `/api/ats/leaders`. No new Odds API or heavy work on the fast path; ATS usually renders within 1–2s when KV has data. Empty KV returns lightweight payload with `reason: ats_data_warming`; UI shows “ATS data warming up.”
+- **Championship odds mapping:** Stronger name normalization in `normalizeForOdds`: “st”/“st.” (after school name) → “state”, “okla” → “oklahoma”, “ariz” → “arizona”. Explicit ALIASES for Michigan St, Arizona St, Oklahoma St, Grand Canyon (Antelopes/Lopes), Nevada Wolf Pack, Tulsa Golden Hurricane. Championship API uses `normalizeForOdds` in `outcomeNameToSlug` so sportsbook variants (e.g. “Michigan St”, “Oklahoma St”) map correctly. Dev-only observability: when mapped count is low or missing teams &gt; 0, `oddsMeta` includes `missingTeamSlugsSample` (max 15) and `unmappedOutcomesSample` (max 25).
+- **Logo and Today’s Scores:** TopNav logo set to 52–56px height (desktop), 44–48px (mobile) with subtle drop shadow; header stays sleek. Home passes `rankMap` to LiveScores so Today’s Scores shows Top 25 rank badges (#rank) next to team names when rankings exist.
+
+---
 
 **Phase 4 cleanup + ATS time-to-real fix (Feb 25, 2026)**
 

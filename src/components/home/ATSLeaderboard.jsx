@@ -180,7 +180,11 @@ export default function ATSLeaderboard({
         {showEmpty && !showLoading && (
           <div className={styles.emptyState}>
             <p className={styles.emptyStateMessage}>ATS not available right now.</p>
-            {atsMeta?.reason && <p className={styles.emptyStateReason}>{atsMeta.reason}</p>}
+            {atsMeta?.reason && (
+              <p className={styles.emptyStateReason}>
+                {atsMeta.reason === 'ats_data_warming' ? 'ATS data warming up.' : atsMeta.reason}
+              </p>
+            )}
             {typeof onRetry === 'function' && (
               <button type="button" className={styles.retryButton} onClick={onRetry}>
                 Retry

@@ -11,6 +11,7 @@ import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
 import { getAtsLeadersCache, getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
+import { fetchAtsLeaders } from '../api/atsLeaders';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
@@ -228,11 +229,10 @@ export default function Home() {
     else setTimeout(run, 1500);
   }, []);
 
-  // Fast path first, then slow in background; merge when slow arrives.
+  // Fast path: scores, rankings, headlines only. ATS comes from /api/ats/leaders (separate fetch).
   const loadHomeBatch = useCallback(() => {
     if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast start', Date.now());
-    const cur = atsStateRef.current;
-    if (!hasAtsData(cur.leaders)) maybeWarmAts();
+    if (!hasAtsData(atsStateRef.current.leaders)) maybeWarmAts();
     setScores((s) => ({ ...s, loading: true }));
     setSlowLoading(true);
     fetchHomeFast({ pinnedSlugs, atsWindow })
@@ -252,21 +252,6 @@ export default function Home() {
         setDataStatus(fastData.dataStatus ?? null);
         setHeadlinesWarming(fastData.headlinesWarming ?? false);
         setOddsHistory({ games: [] });
-        const fastAts = fastData.atsLeaders ?? { best: [], worst: [] };
-        const fastAtsMeta = fastData.atsMeta ?? { status: 'EMPTY', reason: 'cold_start', sourceLabel: null, generatedAt: null };
-        const cur = atsStateRef.current;
-        const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, fastAts, fastAtsMeta);
-        setAtsLeaders(chosenLeaders);
-        setAtsMeta(chosenMeta);
-        setAtsLoading(false);
-        setAtsWindow(fastData.atsWindow ?? 'last30');
-        setSeasonWarming(!!fastData.seasonWarming);
-        if (hasAtsData(chosenLeaders)) {
-          setAtsLeadersCache(chosenLeaders);
-        }
-        if (import.meta.env?.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugAts') === '1') {
-          console.log('[Home ATS] fast', { atsMeta: fastAtsMeta, bestCount: fastAts.best?.length ?? 0, worstCount: fastAts.worst?.length ?? 0 });
-        }
         const meta = fastData.pinnedTeamsMeta ?? [];
         const pinnedTeamNewsMap = {};
         const teamNews = meta.map(({ slug, name }) => ({
@@ -339,16 +324,6 @@ export default function Home() {
               headlines: (headlines || []).length,
             }));
             setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
-            const mergedAts = merged.atsLeaders ?? { best: [], worst: [] };
-            const slowAtsMeta = merged.atsMeta ?? (merged.atsLeadersSourceLabel ? { status: (mergedAts.best?.length || mergedAts.worst?.length) ? 'FULL' : 'EMPTY', reason: null, sourceLabel: merged.atsLeadersSourceLabel, confidence: 'high' } : null);
-            const cur = atsStateRef.current;
-            const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, mergedAts, slowAtsMeta ?? cur.meta);
-            setAtsLeaders(chosenLeaders);
-            if (chosenMeta) setAtsMeta(chosenMeta);
-            if (merged.atsWindow) setAtsWindow(merged.atsWindow);
-            if (merged.seasonWarming != null) setSeasonWarming(!!merged.seasonWarming);
-            if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
-            setAtsLoading(false);
             if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
               const head = merged.dataStatus?.headlinesCount ?? 0;
               if (head > 0) {
@@ -368,8 +343,6 @@ export default function Home() {
         setRankMap({});
         setDataStatus(null);
         setTop25([]);
-        setAtsLeaders({ best: [], worst: [] });
-        setHeadlinesWarming(false);
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed, teamNews: [], pinnedTeamNewsMap: {} }));
         setNewsSource('Mock');
       });
@@ -379,6 +352,26 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
+  /* ATS leaders: fetch from dedicated /api/ats/leaders (KV SWR). High priority, separate from fetchHomeFast. */
+  useEffect(() => {
+    let cancelled = false;
+    setAtsLoading(true);
+    fetchAtsLeaders('last30')
+      .then((d) => {
+        if (cancelled) return;
+        const cur = atsStateRef.current;
+        const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, d.atsLeaders ?? { best: [], worst: [] }, d.atsMeta ?? null);
+        setAtsLeaders(chosenLeaders);
+        setAtsMeta(chosenMeta ?? null);
+        setSeasonWarming(!!d.seasonWarming);
+        if (d.atsWindow) setAtsWindow(d.atsWindow);
+        if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
+        setAtsLoading(false);
+      })
+      .catch(() => { if (!cancelled) setAtsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   /* Trigger warm for both last30 and last7 immediately on mount so KV is ready for cold (e.g. incognito) sessions. */
   useEffect(() => {
     if (import.meta.env?.DEV) console.log('[Home ATS] warm start', Date.now());
@@ -386,7 +379,7 @@ export default function Home() {
     if (import.meta.env?.DEV) console.log('[Home ATS] warm scheduled (fire-and-forget)', Date.now());
   }, []);
 
-  /* Bounded polling: when proxy or empty, refetch at 3s and 8s from first such state (max 2 attempts). Stops when real data arrives. inFlight prevents overlapping refetches. */
+  /* Bounded polling: when proxy or empty, refetch /api/ats/leaders at 3s and 8s. inFlight prevents overlapping refetches. */
   const atsPollScheduledRef = useRef(false);
   useEffect(() => {
     const isProxy = atsMeta?.cacheNote === 'computed_proxy' || (atsMeta?.confidence === 'low' && hasAtsData(atsLeaders));
@@ -398,7 +391,7 @@ export default function Home() {
       if (homeFastRefetchInFlightRef.current) return;
       homeFastRefetchInFlightRef.current = true;
       if (import.meta.env?.DEV) console.log('[Home ATS] refetch schedule fire', Date.now());
-      fetchHomeFast({ pinnedSlugs, atsWindow })
+      fetchAtsLeaders(atsWindow)
         .then((d) => {
           const cur = atsStateRef.current;
           const incoming = d.atsLeaders ?? { best: [], worst: [] };
@@ -417,7 +410,7 @@ export default function Home() {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [atsMeta?.cacheNote, atsMeta?.confidence, atsLeaders.best?.length, atsLeaders.worst?.length, pinnedSlugs, atsWindow]);
+  }, [atsMeta?.cacheNote, atsMeta?.confidence, atsLeaders.best?.length, atsLeaders.worst?.length, atsWindow]);
 
   const STAGGER_MS = 2500;
   useEffect(() => {
@@ -713,7 +706,7 @@ export default function Home() {
           onPeriodChange={(win) => {
             setAtsWindow(win);
             setAtsLoading(true);
-            fetchHomeFast({ pinnedSlugs, atsWindow: win }).then((d) => {
+            fetchAtsLeaders(win).then((d) => {
               const ats = d.atsLeaders ?? { best: [], worst: [] };
               const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
               setAtsLeaders(ats);
@@ -725,7 +718,7 @@ export default function Home() {
           }}
           onRetry={() => {
             setAtsLoading(true);
-            fetchHomeFast({ pinnedSlugs, atsWindow }).then((d) => {
+            fetchAtsLeaders(atsWindow).then((d) => {
               const ats = d.atsLeaders ?? { best: [], worst: [] };
               const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
               setAtsLeaders(ats);
@@ -734,7 +727,6 @@ export default function Home() {
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
             }).catch(() => setAtsLoading(false));
-            fetchHomeSlow({ pinnedSlugs }).catch(() => {});
           }}
         />
       </section>
@@ -760,6 +752,7 @@ export default function Home() {
           error={scores.error}
           oddsMessage={scores.oddsMessage}
           compact
+          rankMap={rankMap}
         />
       </section>
 

@@ -6,15 +6,22 @@
  */
 
 import { getJson, setJson, MAX_TTL_SECONDS } from '../../_globalCache.js';
-import { getTeamSlug, buildChampionshipLookup, normalize, stripLastWords } from '../../../src/utils/teamSlug.js';
+import { getTeamSlug, buildChampionshipLookup, normalize, normalizeForOdds, stripLastWords } from '../../../src/utils/teamSlug.js';
 import { TEAMS } from '../../../data/teams.js';
 
 const CHAMPIONSHIP_KV_KEY = 'odds:championship:ncaab:v1';
 const CHAMPIONSHIP_TTL_SECONDS = Math.min(60 * 60, MAX_TTL_SECONDS); // 60 min
 const ODDS_API_SPORT = 'basketball_ncaab_championship_winner';
-const UNMAPPED_SAMPLE_MAX = 20;
+const UNMAPPED_SAMPLE_MAX = 25;
 
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+
+/** Dev-only: slugs we expect but have no odds for (max 15). */
+function getMissingTeamSlugsSample(odds) {
+  if (!isDev || !Array.isArray(TEAMS)) return undefined;
+  const have = new Set(Object.keys(odds || {}));
+  return TEAMS.map((t) => t.slug).filter((slug) => !have.has(slug)).slice(0, 15);
+}
 
 function ageSecondsFromUpdatedAt(updatedAt) {
   if (!updatedAt) return null;
@@ -33,7 +40,7 @@ function impliedProbFromAmerican(american) {
 }
 
 function buildOddsMeta(opts) {
-  const { stage, source, elapsedMs, updatedAt, cacheAgeSec, errorNote, bookmakerCountReturned, mappedOutcomesCount, unmappedOutcomesSample, missingTeamsCount, coveragePct } = opts;
+  const { stage, source, elapsedMs, updatedAt, cacheAgeSec, errorNote, bookmakerCountReturned, mappedOutcomesCount, unmappedOutcomesSample, missingTeamsCount, missingTeamSlugsSample, coveragePct } = opts;
   const meta = {
     stage,
     source,
@@ -46,12 +53,14 @@ function buildOddsMeta(opts) {
   if (mappedOutcomesCount != null) meta.mappedOutcomesCount = mappedOutcomesCount;
   if (missingTeamsCount != null) meta.missingTeamsCount = missingTeamsCount;
   if (coveragePct != null) meta.coveragePct = coveragePct;
-  if (isDev && Array.isArray(unmappedOutcomesSample) && unmappedOutcomesSample.length > 0) meta.unmappedOutcomesSample = unmappedOutcomesSample;
+  if (isDev && Array.isArray(unmappedOutcomesSample) && unmappedOutcomesSample.length > 0) meta.unmappedOutcomesSample = unmappedOutcomesSample.slice(0, 25);
+  if (isDev && Array.isArray(missingTeamSlugsSample) && missingTeamSlugsSample.length > 0) meta.missingTeamSlugsSample = missingTeamSlugsSample.slice(0, 15);
   return meta;
 }
 
 /**
- * Resolve outcome name to slug: getTeamSlug first, then lookup (normalized, strip mascot).
+ * Resolve outcome name to slug: getTeamSlug first, then lookup (normalized + odds-expanded, strip mascot).
+ * Uses normalizeForOdds so "Michigan St", "Oklahoma St", "Arizona St" etc. map correctly.
  */
 function outcomeNameToSlug(name, lookup) {
   if (!name || typeof name !== 'string') return null;
@@ -61,10 +70,16 @@ function outcomeNameToSlug(name, lookup) {
   if (slug) return slug;
   const n = normalize(trimmed);
   if (lookup[n]) return lookup[n];
+  const no = normalizeForOdds(trimmed);
+  if (no && lookup[no]) return lookup[no];
   const n1 = normalize(stripLastWords(trimmed, 1));
   if (n1 && lookup[n1]) return lookup[n1];
+  const no1 = normalizeForOdds(stripLastWords(trimmed, 1));
+  if (no1 && lookup[no1]) return lookup[no1];
   const n2 = normalize(stripLastWords(trimmed, 2));
   if (n2 && lookup[n2]) return lookup[n2];
+  const no2 = normalizeForOdds(stripLastWords(trimmed, 2));
+  if (no2 && lookup[no2]) return lookup[no2];
   return null;
 }
 
@@ -152,6 +167,8 @@ export default async function handler(req, res) {
       if (isDev) console.log('[api/odds/championship] KV hit', { keys: Object.keys(cached.odds).length, ageSec });
       const totalTeams = (typeof TEAMS !== 'undefined' && Array.isArray(TEAMS)) ? TEAMS.length : 0;
       const mappedCount = Object.keys(cached.odds).length;
+      const missingCount = totalTeams ? totalTeams - mappedCount : 0;
+      const addDevSamples = isDev && (mappedCount < 50 || missingCount > 0);
       return res.status(200).json({
         odds: cached.odds,
         oddsMeta: buildOddsMeta({
@@ -164,6 +181,7 @@ export default async function handler(req, res) {
           mappedOutcomesCount: mappedCount,
           missingTeamsCount: totalTeams ? totalTeams - mappedCount : null,
           coveragePct: totalTeams ? Math.round((mappedCount / totalTeams) * 1000) / 10 : null,
+          ...(addDevSamples && { missingTeamSlugsSample: getMissingTeamSlugsSample(cached.odds) }),
         }),
       });
     }
@@ -237,6 +255,7 @@ export default async function handler(req, res) {
       }, { exSeconds: CHAMPIONSHIP_TTL_SECONDS });
     }
 
+    const addDevSamples = isDev && (mappedCount < 50 || (missingTeamsCount != null && missingTeamsCount > 0));
     return res.status(200).json({
       odds,
       oddsMeta: buildOddsMeta({
@@ -250,6 +269,7 @@ export default async function handler(req, res) {
         unmappedOutcomesSample: isDev ? unmappedOutcomesSample : undefined,
         missingTeamsCount,
         coveragePct,
+        ...(addDevSamples && { missingTeamSlugsSample: getMissingTeamSlugsSample(odds) }),
       }),
     });
   } catch (err) {

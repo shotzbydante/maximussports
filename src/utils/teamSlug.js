@@ -16,10 +16,19 @@ export function normalize(s) {
     .trim();
 }
 
-/** Variant for Odds API: "St." -> "state" so "St. John's" matches. */
-function normalizeForOdds(s) {
+/**
+ * Variant for Odds API: expand "st"/"st." (after school name) -> "state", "okla" -> "oklahoma", "ariz" -> "arizona".
+ * Only replace " st" / " st." (space before) so "St. John's" stays intact.
+ */
+export function normalizeForOdds(s) {
+  if (!s || typeof s !== 'string') return '';
   const n = normalize(s);
-  return n.replace(/\bst\b\.?\s*/g, 'state ').replace(/\s+/g, ' ').trim();
+  return n
+    .replace(/\s+st\.?\s*/g, ' state ')
+    .replace(/\bokla\b/g, 'oklahoma')
+    .replace(/\bariz\b/g, 'arizona')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Build slug-like token from name for fuzzy match */
@@ -130,8 +139,15 @@ const ALIASES = {
   "boise state": "Boise State Broncos",
   "dayton": "Dayton Flyers",
   "grand canyon": "Grand Canyon Lopes",
+  "grand canyon antelopes": "Grand Canyon Lopes",
+  "grand canyon lopes": "Grand Canyon Lopes",
   "nevada": "Nevada Wolf Pack",
+  "nevada wolf pack": "Nevada Wolf Pack",
   "south florida": "South Florida Bulls",
+  // Odds API abbreviations (e.g. "Michigan St", "Arizona St", "Oklahoma St")
+  "michigan st": "Michigan State Spartans",
+  "arizona st": "Arizona State Sun Devils",
+  "oklahoma st": "Oklahoma State Cowboys",
 };
 
 /**
