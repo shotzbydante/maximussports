@@ -1,10 +1,9 @@
 /**
  * Chatbot Summary Engine — instant, client-side synthesis for Home and Team pages.
- * Uses only data already on the page. No network calls. Deterministic.
- * Returns a string with **bold** and *italic*; use renderFormattedSummary() for React.
+ * Uses only data already on the page. No network calls. Deterministic (no Math.random).
+ * Returns a string with **bold** and *italic*; use FormattedSummary for React.
  */
 
-// ——— APPROVED QUOTE LIBRARY ———
 const QUOTES = {
   energy: [
     'Boo-yah!',
@@ -36,17 +35,31 @@ const QUOTES = {
   ],
 };
 
+/** Deterministic hash from string (stable for same input). */
+function simpleHash(str) {
+  let h = 0;
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+  }
+  return Math.abs(h);
+}
+
+/** Pick one quote from pool deterministically (no Math.random). Uses date + situation + used count as seed. */
 function pickQuote(situation, used = new Set()) {
   const pool = QUOTES[situation];
   if (!pool || pool.length === 0) return null;
   const available = pool.filter((q) => !used.has(q));
   if (available.length === 0) return null;
-  const q = available[Math.floor(Math.random() * available.length)];
+  const dateStr = typeof globalThis !== 'undefined' && globalThis.Date ? new Date().toDateString() : '';
+  const seed = simpleHash(dateStr + situation + used.size);
+  const index = seed % available.length;
+  const q = available[index];
   used.add(q);
   return q;
 }
 
-/** Parse **bold** and *italic* (bold takes precedence). Returns array of { type: 'text'|'bold'|'italic', content: string }. */
+/** Parse **bold** and *italic* (bold takes precedence). Returns array of { type, content }. */
 export function parseFormattedSummary(text) {
   if (!text || typeof text !== 'string') return [];
   const parts = [];
@@ -99,8 +112,15 @@ function winLoss(rec) {
   const w = rec.w ?? 0;
   const l = rec.l ?? 0;
   if (w + l === 0) return null;
-  return `${w}-${l}`;
+  return w + '-' + l;
 }
+
+function wordCount(str) {
+  if (!str || typeof str !== 'string') return 0;
+  return str.trim().split(/\s+/).filter(Boolean).length;
+}
+
+const DEV = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
 
 /**
  * Generate instant chatbot summary for Home or Team page.
@@ -109,13 +129,29 @@ function winLoss(rec) {
  * @returns {string} Formatted summary with **bold** and *italic* (and emojis).
  */
 export function generateChatSummary(pageType, data) {
-  if (pageType === 'home') return generateHomeSummary(data || {});
-  if (pageType === 'team') return generateTeamSummary(data || {});
+  const d = data || {};
+  if (pageType === 'home') {
+    const result = generateHomeSummary(d);
+    const text = typeof result === 'string' ? result : (result && result.text) || '';
+    if (DEV && text) {
+      console.log('[chatSummary] home', { wordCount: wordCount(text), sections: (result && result.sections) || [] });
+    }
+    return text;
+  }
+  if (pageType === 'team') {
+    const result = generateTeamSummary(d);
+    const text = typeof result === 'string' ? result : (result && result.text) || '';
+    if (DEV && text) {
+      console.log('[chatSummary] team', { wordCount: wordCount(text), sections: (result && result.sections) || [] });
+    }
+    return text;
+  }
   return '';
 }
 
 function generateHomeSummary(data) {
   const usedQuotes = new Set();
+  const sections = [];
   const top25 = data.top25 || [];
   const atsBest = data.atsLeaders?.best || data.atsBest || [];
   const atsWorst = data.atsLeaders?.worst || data.atsWorst || [];
@@ -126,59 +162,104 @@ function generateHomeSummary(data) {
   const upsetCount = data.upsetCount ?? 0;
   const rankedInAction = data.rankedInAction ?? 0;
   const atsWindow = data.atsWindow || 'last30';
+  const pinnedTeams = data.pinnedTeams || [];
+  const bubbleWatchSlice = data.bubbleWatchSlice || [];
 
   const hasRankings = top25.length > 0;
   const hasScores = recentGames.length > 0 || upcomingGames.length > 0;
   const hasAts = atsBest.length > 0 || atsWorst.length > 0;
   const hasNews = headlines.length > 0;
   const hasChampOdds = Object.keys(championshipOdds).length > 0;
+  const hasPinned = pinnedTeams.length > 0;
+  const hasBubble = bubbleWatchSlice.length > 0;
 
   const paragraphs = [];
 
-  // Opening overview
-  if (hasRankings || hasScores) {
-    let opening = 'March Madness season is in full swing. ';
-    if (hasRankings) {
-      const topTeam = top25[0];
-      const name = topTeam?.teamName || 'the polls';
-      opening += '**' + name + '** leads the way in the latest rankings. ';
+  // —— 1. Opening: landscape + at least 2 team names when possible ——
+  let opening = 'March Madness season is in full swing. ';
+  if (hasRankings) {
+    sections.push('rankings');
+    const first = top25[0];
+    const firstName = (first && (first.teamName || first.name)) || 'the polls';
+    opening += '**' + firstName + '** leads the latest rankings. ';
+    if (top25.length >= 2 && top25[1]) {
+      const secondName = top25[1].teamName || top25[1].name || '';
+      if (secondName) opening += '**' + secondName + '** is right behind. ';
     }
-    if (rankedInAction > 0) {
-      opening += '👀 **' + rankedInAction + '** ranked team' + (rankedInAction > 1 ? 's' : '') + ' in action today. ';
-    }
-    if (upsetCount > 0) {
-      opening += "We've seen **" + upsetCount + "** upset" + (upsetCount > 1 ? 's' : '') + ' already — buckle up. ';
-    }
-    paragraphs.push(opening.trim());
-  } else if (hasNews) {
-    paragraphs.push('The college hoops landscape is shifting. Headlines are rolling in and the bubble is taking shape. 📈');
-  } else {
-    paragraphs.push("Welcome to the hub. As scores and rankings load, we'll break down who's hot and who's not. 🏀");
+  }
+  if (rankedInAction > 0) {
+    opening += '**' + rankedInAction + '** ranked team' + (rankedInAction > 1 ? 's' : '') + ' in action today. ';
+  }
+  if (upsetCount > 0) {
+    opening += "We've seen **" + upsetCount + "** upset" + (upsetCount > 1 ? 's' : '') + ' already — buckle up. ';
+  }
+  if (!hasRankings && !hasScores && hasNews) {
+    opening = 'The college hoops landscape is shifting. Headlines are rolling in and the bubble is taking shape. ';
+  }
+  if (!hasRankings && !hasScores && !hasNews) {
+    opening = "Welcome to the hub. As scores and rankings load, we'll break down who's hot and who's not. ";
+  }
+  paragraphs.push(opening.trim());
+  if (paragraphs[0].length < 80 && hasNews && headlines[0]) {
+    paragraphs[0] += " Top story: " + (headlines[0].title || headlines[0]).slice(0, 60) + (headlines[0].title && headlines[0].title.length > 60 ? '…' : '') + '.';
   }
 
-  // Standout teams / ATS
+  // —— 2. ATS **or** market watch / bracket pressure fallback (never skip) ——
   if (hasAts) {
+    sections.push('ats');
     const best = firstTeamName(atsBest);
     const worst = firstTeamName(atsWorst);
     const recBest = atsBest[0]?.[atsWindow] || atsBest[0]?.season || atsBest[0]?.rec;
     const recWorst = atsWorst[0]?.[atsWindow] || atsWorst[0]?.season || atsWorst[0]?.rec;
     const wlBest = winLoss(recBest);
     const wlWorst = winLoss(recWorst);
+    const pctBest = recBest && recBest.coverPct != null ? recBest.coverPct : null;
     let atsLine = 'On the spread: ';
     if (best && wlBest) {
-      atsLine += '**' + best + '** is covering at ' + wlBest + ' (' + atsWindow.replace('last', 'L').replace('30', '30').replace('7', '7') + '). ';
+      atsLine += '**' + best + '** is covering at ' + wlBest + (pctBest != null ? ' (' + pctBest + '% cover)' : '') + ' over ' + atsWindow.replace('last', 'L') + '. ';
     }
     if (worst && wlWorst) {
       atsLine += 'Meanwhile **' + worst + '** has struggled ATS at ' + wlWorst + '. ';
     }
-    atsLine += '🎯 Worth watching when the lines drop.';
+    atsLine += 'Worth watching when the lines drop.';
     paragraphs.push(atsLine);
-    const energyQuote = pickQuote('energy', usedQuotes);
-    if (best && energyQuote) paragraphs.push(`*"${energyQuote}"*`);
+    const q = pickQuote('energy', usedQuotes);
+    if (q) paragraphs.push('*"' + q + '"*');
+  } else {
+    sections.push('marketWatch');
+    let fallback = '';
+    if (hasChampOdds) {
+      const entries = Object.entries(championshipOdds)
+        .filter(([, v]) => v != null && (v.bestChanceAmerican != null || v.american != null))
+        .sort((a, b) => {
+          const aVal = a[1].bestChanceAmerican ?? a[1].american ?? 9999;
+          const bVal = b[1].bestChanceAmerican ?? b[1].american ?? 9999;
+          return aVal - bVal;
+        })
+        .slice(0, 3);
+      if (entries.length > 0) {
+        const names = entries.map(([slug]) => slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')).join(', ');
+        fallback = 'Championship odds still favor **' + names + '**. ';
+      }
+    }
+    if (rankedInAction > 0) fallback += 'Ranked teams are in action — check the board for live lines. ';
+    if (hasPinned) {
+      const names = pinnedTeams.slice(0, 2).map((p) => p.name || p.teamName).filter(Boolean);
+      if (names.length) fallback += 'Pinned: **' + names.join('**, **') + '**. ';
+    }
+    if (hasNews) fallback += 'Headlines are rolling in; the bubble is moving. ';
+    if (upcomingGames.length > 0) fallback += '**' + upcomingGames.length + '** games on the slate. ';
+    if (hasBubble) {
+      const bubbleNames = bubbleWatchSlice.slice(0, 2).map((b) => b.teamName || b.name).filter(Boolean);
+      if (bubbleNames.length) fallback += 'Bubble watch: **' + bubbleNames.join('**, **') + '** need results. ';
+    }
+    if (!fallback) fallback = 'ATS data is still loading — use Refresh once the board is ready. Market angles and bracket pressure will sharpen as more data lands.';
+    paragraphs.push(fallback.trim());
   }
 
-  // Championship odds
+  // —— 3. Championship odds or bracket angle ——
   if (hasChampOdds) {
+    sections.push('odds');
     const entries = Object.entries(championshipOdds)
       .filter(([, v]) => v != null && (v.bestChanceAmerican != null || v.american != null))
       .sort((a, b) => {
@@ -189,24 +270,28 @@ function generateHomeSummary(data) {
       .slice(0, 3);
     if (entries.length > 0) {
       const names = entries.map(([slug]) => slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')).join(', ');
-      paragraphs.push('Championship odds favor the usual suspects — **' + names + '** are right in the mix. 🏆');
-      const legendQuote = pickQuote('legends', usedQuotes);
-      if (legendQuote) paragraphs.push(`*"${legendQuote}"*`);
+      paragraphs.push('Championship odds favor **' + names + '** — bracket pressure is real. ');
+      const q = pickQuote('legends', usedQuotes);
+      if (q) paragraphs.push('*"' + q + '"*');
     }
   }
 
-  // Forward-looking
+  // —— 4. Forward-looking: next matchup, storyline, or market angle ——
   if (upcomingGames.length > 0) {
-    paragraphs.push('Up next: **' + upcomingGames.length + '** game' + (upcomingGames.length > 1 ? 's' : '') + ' on the slate. Check the board and lock in your picks. 💪');
+    paragraphs.push('Up next: **' + upcomingGames.length + '** game' + (upcomingGames.length > 1 ? 's' : '') + ' on the slate. Check the board and lock in your picks before lines move.');
   } else if (hasNews) {
-    paragraphs.push("Keep an eye on the news feed and bubble watch — things change fast this time of year. ⚠️");
+    paragraphs.push("Keep an eye on the news feed and bubble watch — things change fast this time of year.");
+  } else {
+    paragraphs.push("When more games and odds load, we'll highlight the best angles and storylines.");
   }
 
-  return paragraphs.filter(Boolean).join('\n\n');
+  const text = paragraphs.filter(Boolean).join('\n\n');
+  return DEV ? { text, sections } : text;
 }
 
 function generateTeamSummary(data) {
   const usedQuotes = new Set();
+  const sections = [];
   const team = data.team || {};
   const teamName = team.name || 'This team';
   const schedule = data.schedule || {};
@@ -221,58 +306,75 @@ function generateTeamSummary(data) {
 
   const paragraphs = [];
 
-  // Current trajectory
+  // —— 1. Team identity + trajectory (rank, record, tier) ——
+  sections.push('identity');
   let trajectory = '**' + teamName + '**';
-  if (rank != null) trajectory += ' (No. **' + rank + '**)';
+  if (rank != null) {
+    trajectory += ' (No. **' + rank + '**)';
+    sections.push('rank');
+  }
   trajectory += ' — ';
   if (recent.length > 0) {
     const withScores = recent.filter((e) => e.homeScore != null && e.awayScore != null);
     if (withScores.length > 0) {
       const wins = recent.filter((e) => e.result === 'W' || (e.homeScore != null && e.awayScore != null && (e.isHome ? e.homeScore > e.awayScore : e.awayScore > e.homeScore))).length;
       const total = recent.length;
-      trajectory += `they've gone ${wins}-${total - wins} in their last ${total} — `;
+      trajectory += "they've gone " + wins + '-' + (total - wins) + " in their last " + total + " — ";
+      sections.push('recent');
     }
   }
-  trajectory += `${team.oddsTier || 'bubble'} territory.`;
+  trajectory += (team.oddsTier || 'bubble') + ' territory.';
   paragraphs.push(trajectory);
   const motQuote = pickQuote('motivation', usedQuotes);
-  if (motQuote) paragraphs.push(`*"${motQuote}"*`);
+  if (motQuote) paragraphs.push('*"' + motQuote + '"*');
 
-  // Recent + ATS
+  // —— 2. ATS **or** season record / trajectory fallback ——
   const last7Ats = ats.last7;
   const last30Ats = ats.last30;
   const seasonAts = ats.season;
   const rec = last7Ats || last30Ats || seasonAts;
   if (rec && rec.total > 0) {
+    sections.push('ats');
     const wl = winLoss(rec);
     if (wl) {
-      const pct = rec.coverPct != null ? ` (${rec.coverPct}% cover)` : '';
-      const vibe = rec.coverPct >= 55 ? "They've been covering — sharp money has noticed. 🔥" : rec.coverPct <= 45 ? 'Tough stretch against the number. 😬' : 'Right around the number.';
+      const pct = rec.coverPct != null ? ' (' + rec.coverPct + '% cover)' : '';
+      const vibe = rec.coverPct >= 55 ? "They've been covering — sharp money has noticed." : rec.coverPct <= 45 ? 'Tough stretch against the number.' : 'Right around the number.';
       paragraphs.push('ATS: **' + wl + '**' + pct + ' over their recent games. ' + vibe);
+    }
+  } else {
+    if (recent.length > 0) {
+      paragraphs.push('Recent results are in; ATS data will sharpen as odds history loads. Focus on the next matchup and line movement.');
+    } else {
+      paragraphs.push('Season context and ATS angles will appear as more data loads. For now, the next game and news feed tell the story.');
     }
   }
 
-  // Next game / betting
+  // —— 3. Next matchup + line (or upcoming opponent) ——
   if (nextEvent && (consensus.spread != null || consensus.total != null || consensus.moneyline != null)) {
+    sections.push('nextLine');
     const opp = nextEvent.opponent || 'TBD';
     let line = 'Next up: **vs ' + opp + '**. ';
     if (consensus.spread != null) {
       const s = consensus.spread;
-      line += `Spread: ${s > 0 ? '+' : ''}${s}. `;
+      line += 'Spread: ' + (s > 0 ? '+' : '') + s + '. ';
     }
-    if (consensus.total != null) line += `Total: ${consensus.total}. `;
-    line += '🧊 Lock in before the line moves.';
+    if (consensus.total != null) line += 'Total: ' + consensus.total + '. ';
+    line += 'Lock in before the line moves.';
     paragraphs.push(line);
   } else if (upcoming.length > 0) {
     const next = upcoming[0];
     const opp = next.opponent || next.awayTeam || next.homeTeam || 'TBD';
-    paragraphs.push('Up next: **' + opp + '**. Get the latest line when it drops. 👀');
+    paragraphs.push('Up next: **' + opp + '**. Get the latest line when it drops.');
   }
 
-  // Closing
+  // —— 4. Strength/weakness or news ——
   if (news.length > 0) {
-    paragraphs.push('**' + news.length + '** headline' + (news.length > 1 ? 's' : '') + ' in the feed — stay tuned for updates. 📈');
+    sections.push('news');
+    paragraphs.push('**' + news.length + '** headline' + (news.length > 1 ? 's' : '') + ' in the feed — stay tuned for updates.');
+  } else {
+    paragraphs.push('Keep an eye on the schedule and next line; we\'ll surface strengths and betting angles as more data lands.');
   }
 
-  return paragraphs.filter(Boolean).join('\n\n');
+  const text = paragraphs.filter(Boolean).join('\n\n');
+  return DEV ? { text, sections } : text;
 }

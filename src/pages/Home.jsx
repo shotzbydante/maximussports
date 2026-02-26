@@ -120,6 +120,7 @@ export default function Home() {
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
+  const [summaryRefreshTick, setSummaryRefreshTick] = useState(0);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const championshipScheduledRef = useRef(false);
@@ -326,30 +327,41 @@ export default function Home() {
   }, [dataStatus, scores.games, top25.length, newsData.newsFeed, atsLeaders.best, atsLeaders.worst]);
 
   const hasMinimalData = !scores.loading || (scores.games && scores.games.length > 0) || top25.length > 0 || (newsData.newsFeed && newsData.newsFeed.length > 0);
-  const summaryText = useMemo(() => {
-    if (!hasMinimalData) return '';
+  const summaryData = useMemo(() => {
     const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
     const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
-    const headlines = (newsData.newsFeed || []).map((h) => ({ title: h.title, source: h.source }));
-    return generateChatSummary('home', {
-      top25,
-      atsLeaders,
-      atsMeta,
-      atsWindow,
+    const headlines = (newsData.newsFeed || []).slice(0, 5).map((h) => ({ title: h.title, source: h.source }));
+    const pinnedTeams = Object.values(pinnedTeamDataBySlug || {}).map((v) => ({
+      name: v.team?.name,
+      conference: v.team?.conference,
+      oddsTier: v.team?.oddsTier,
+      rank: v.rank,
+      ats: v.ats,
+    })).filter((p) => p.name);
+    const bubbleWatchSlice = (top25 || []).slice(10, 15);
+    return {
+      top25: top25 || [],
+      championshipOdds: championshipOdds || {},
       recentGames,
       upcomingGames,
+      atsLeaders: atsLeaders || { best: [], worst: [] },
+      atsMeta: atsMeta || null,
+      atsWindow: atsWindow || 'last30',
       headlines,
-      championshipOdds,
-      upsetCount: countUpsets(scores.games),
-      rankedInAction: countRankedInAction(scores.games, rankMap),
-    });
-  }, [hasMinimalData, top25, scores.games, rankMap, newsData.newsFeed, atsLeaders, atsMeta, atsWindow, championshipOdds]);
+      pinnedTeams,
+      bubbleWatchSlice,
+      rankedInAction: countRankedInAction(scores.games || [], rankMap),
+      upsetCount: countUpsets(scores.games || []),
+    };
+  }, [top25, scores.games, rankMap, newsData.newsFeed, atsLeaders, atsMeta, atsWindow, championshipOdds, pinnedTeamDataBySlug]);
+  const summaryText = useMemo(() => {
+    if (!hasMinimalData) return '';
+    return generateChatSummary('home', summaryData);
+  }, [hasMinimalData, summaryData, summaryRefreshTick]);
 
-  useEffect(() => {
-    if (import.meta.env.DEV && summaryText) {
-      console.log('[chatSummary] home summary active', summaryText.slice(0, 80) + (summaryText.length > 80 ? '…' : ''));
-    }
-  }, [summaryText]);
+  const handleRefreshSummary = () => {
+    setSummaryRefreshTick((t) => t + 1);
+  };
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
@@ -403,6 +415,14 @@ export default function Home() {
             <p className={styles.bannerText}>Loading today&apos;s intel…</p>
           )}
           <div className={styles.summaryActions}>
+            <button
+              type="button"
+              className={styles.summaryRefresh}
+              onClick={handleRefreshSummary}
+              aria-label="Recompute summary from current data"
+            >
+              Refresh
+            </button>
             <label className={styles.dataStatusToggle}>
               <input
                 type="checkbox"
