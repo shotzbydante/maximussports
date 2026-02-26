@@ -174,6 +174,20 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 25, 2026)
 
+**Phase X: Home ATS cold-load reliability fix (Feb 25, 2026)**
+
+- **Home ATS on first visit:** Home now always fetches `GET /api/ats/leaders?window=last30` in a dedicated `useEffect` that runs once on mount. It is not tied to `loadHomeBatch` or `/api/home/fast`. Visiting Odds Insights is no longer required to "wake up" ATS; Home works on first visit in incognito/cold sessions.
+- **Dedicated fetch + AbortController:** ATS fetch uses its own `AbortController` created inside the ATS-only effect; aborted only on unmount cleanup. No shared controller with other requests.
+- **Client last-known cache:** In `src/api/atsLeaders.js`, "last success" is stored only when the response is usable: `best.length >= 5` or `worst.length >= 5`. Warming/empty responses are never stored as last-known. When returning a client fallback, meta is set to `source: 'client_last_known'`, `reason: 'client_last_known_fallback'`, `confidence: 'low'`.
+- **Per-window de-dupe:** In-flight key is stable per window: `ats:leaders:last30` (not page-specific). Prevents cross-window request blocking.
+- **Bounded retries when warming:** If the first GET returns warming and there is no usable client last-known, Home schedules one retry GET after 1500ms and, if still warming, one more after 3500ms from mount. Then auto retries stop; user can click Retry. No tight polling or automatic POST refresh loops from Home.
+- **React re-render:** All ATS state updates on Home use new objects/arrays (`setAtsLeaders({ best: [...], worst: [...] })`, `setAtsMeta({ ... })`) so React reliably re-renders.
+- **Shared loading UI:** `src/utils/atsLeaderboardUI.js` exports `shouldShowAtsLoading(leaders, meta)` and `shouldShowAtsEmptyState(leaders, meta)`. `ATSLeaderboard` uses these so Home and Insights show the same blue progress bar and status text when warming; empty state is hidden while warming.
+- **Server kick refresh:** `api/ats/leaders/index.js` uses a robust base URL: prefers `VERCEL_PROJECT_PRODUCTION_URL` (with `https://` if missing), else `VERCEL_URL`. Never throws if URL is missing. DEV-only log: `[ats] kick refresh window=... baseUrl=...|none`.
+- **DEV-only logs (Home):** `[ATS Home] mount fetch start`, `mount fetch success`, `mount fetch warming`, `mount fetch error`, `cleanup abort` (and retry logs) only when `import.meta.env.DEV`.
+
+---
+
 **ATS lock hardening + server kick fix + fallback semantics (Feb 25, 2026)**
 
 - **Atomic lock:** `tryAcquireLock` in `_globalCache.js` uses Redis SET with `nx: true` and `ex` when supported; falls back to token-verify (set lockKey = `{ token, createdAt }`, re-read and only proceed if stored token matches). Lock release is TTL-only; no explicit release.

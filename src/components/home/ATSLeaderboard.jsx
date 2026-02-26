@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
+import { shouldShowAtsLoading, shouldShowAtsEmptyState } from '../../utils/atsLeaderboardUI';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
 import styles from './ATSLeaderboard.module.css';
@@ -51,11 +52,12 @@ export default function ATSLeaderboard({
   const hasData = best.length > 0 || worst.length > 0;
   const status = atsMeta?.status ?? (hasData ? 'FULL' : 'EMPTY');
   const showLoading = loading || ((slowLoading || atsWarming || atsLoading) && !hasData && status !== 'EMPTY');
-  const showEmpty = status === 'EMPTY' || (!hasData && atsMeta != null);
+  const showProgressFromHelper = shouldShowAtsLoading(atsLeaders, atsMeta);
   const isFallback = status === 'FALLBACK' || (atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league');
   const isRealTeamAts = atsMeta?.cacheNote === 'computed_recent_team_ats' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.includes('recent ATS'));
   const isProxy = !isRealTeamAts && status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
-  const showProgressUI = showLoading || (hasData && isProxy);
+  const showProgressUI = showLoading || showProgressFromHelper || (hasData && isProxy);
+  const showEmpty = shouldShowAtsEmptyState(atsLeaders, atsMeta);
   if (showProgressUI && loadStartRef.current == null) loadStartRef.current = Date.now();
   if (!showProgressUI) loadStartRef.current = null;
   useEffect(() => {

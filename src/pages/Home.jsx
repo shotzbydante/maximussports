@@ -195,12 +195,12 @@ export default function Home() {
     }
   }, [atsMeta, atsLeaders.best?.length, atsLeaders.worst?.length]);
 
-  // ATS: initial state from client cache (instant). loadHomeBatch sets atsMeta + atsLeaders from fast response; atsLoading becomes false once we have response.
+  // ATS: optional initial state from client cache (instant). Does not block the dedicated ATS fetch effect below.
   useEffect(() => {
     const cached = getAtsLeadersCache();
     const hasCachedData = cached && ((cached.best?.length || 0) + (cached.worst?.length || 0) > 0);
     if (cached) {
-      setAtsLeaders({ best: cached.best || [], worst: cached.worst || [] });
+      setAtsLeaders({ best: [...(cached.best || [])], worst: [...(cached.worst || [])] });
       setAtsMeta(hasCachedData ? { status: 'FULL', reason: null, sourceLabel: null } : { status: 'EMPTY', reason: null, sourceLabel: null });
       setAtsLoading(false);
     }
@@ -353,65 +353,75 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
-  /* ATS leaders: fetch from /api/ats/leaders. If warming, kick refresh then refetch. Locked does not count as attempt; failed + still empty stops. */
+  /* ATS leaders: dedicated mount-only fetch from GET /api/ats/leaders. Not tied to loadHomeBatch. AbortController only for this effect; cleanup on unmount. */
   useEffect(() => {
+    const ac = new AbortController();
     let cancelled = false;
-    const window = 'last30';
+    const windowKey = 'last30';
+    const mountTime = Date.now();
 
     function applyResult(d) {
+      if (cancelled) return false;
       const cur = atsStateRef.current;
-      const { leaders: L, meta: M } = chooseAts(cur.leaders, cur.meta, d.atsLeaders ?? { best: [], worst: [] }, d.atsMeta ?? null);
-      setAtsLeaders(L);
-      setAtsMeta(M ?? null);
+      const incomingLeaders = d.atsLeaders ?? { best: [], worst: [] };
+      const incomingMeta = d.atsMeta ?? null;
+      const { leaders: L, meta: M } = chooseAts(cur.leaders, cur.meta, incomingLeaders, incomingMeta);
+      setAtsLeaders({ best: [...(L.best || [])], worst: [...(L.worst || [])] });
+      setAtsMeta(M ? { ...M } : null);
       if (d.atsWindow) setAtsWindow(d.atsWindow);
       if (hasAtsData(L)) setAtsLeadersCache(L);
       setAtsLoading(false);
       return d.atsMeta?.reason === 'ats_data_warming' && !hasAtsData(L);
     }
 
-    function doFollowUpGet(delayMs, stopIfStillEmpty = false) {
-      setTimeout(() => {
-        if (cancelled) return;
-        fetchAtsLeaders(window).then((d2) => {
+    let retry1Scheduled = false;
+    let retry2Scheduled = false;
+
+    function doRetryGet(retryNum) {
+      if (cancelled) return;
+      if (import.meta.env?.DEV) console.log('[ATS Home] retry GET', { retryNum, window: windowKey });
+      fetchAtsLeaders(windowKey, { signal: ac.signal })
+        .then((d2) => {
           if (cancelled) return;
           const stillWarming = applyResult(d2);
-          if (!stillWarming) return;
-          if (stopIfStillEmpty) return;
-          if (atsRefreshAttemptsRef.current[window] >= 2) return;
-          fetchAtsRefresh(window).then(({ status }) => {
-            if (cancelled) return;
-            if (status === 'locked') {
-              doFollowUpGet(1500, false);
-              return;
-            }
-            atsRefreshAttemptsRef.current[window]++;
-            doFollowUpGet(1200, status === 'failed');
-          });
+          if (import.meta.env?.DEV) console.log('[ATS Home] mount fetch success (retry)', { stillWarming });
+          if (stillWarming && retryNum === 1 && !retry2Scheduled) {
+            retry2Scheduled = true;
+            const delay = Math.max(0, 3500 - (Date.now() - mountTime));
+            setTimeout(() => doRetryGet(2), delay);
+          }
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          if (import.meta.env?.DEV) console.log('[ATS Home] mount fetch error (retry)', err?.message);
+          setAtsLoading(false);
         });
-      }, delayMs);
     }
 
+    if (import.meta.env?.DEV) console.log('[ATS Home] mount fetch start');
     setAtsLoading(true);
-    fetchAtsLeaders(window)
+    fetchAtsLeaders(windowKey, { signal: ac.signal })
       .then((d) => {
         if (cancelled) return;
         const stillWarming = applyResult(d);
-        if (!stillWarming || atsRefreshAttemptsRef.current[window] >= 2) return;
-        setTimeout(() => {
-          if (cancelled) return;
-          fetchAtsRefresh(window).then(({ status }) => {
-            if (cancelled) return;
-            if (status === 'locked') {
-              doFollowUpGet(1500, false);
-              return;
-            }
-            atsRefreshAttemptsRef.current[window]++;
-            doFollowUpGet(1200, status === 'failed');
-          });
-        }, 250);
+        if (d.atsMeta?.reason === 'ats_data_warming' && import.meta.env?.DEV) console.log('[ATS Home] mount fetch warming');
+        else if (import.meta.env?.DEV) console.log('[ATS Home] mount fetch success');
+        if (!stillWarming || retry1Scheduled) return;
+        retry1Scheduled = true;
+        const delay = Math.max(0, 1500 - (Date.now() - mountTime));
+        setTimeout(() => doRetryGet(1), delay);
       })
-      .catch(() => { if (!cancelled) setAtsLoading(false); });
-    return () => { cancelled = true; };
+      .catch((err) => {
+        if (cancelled) return;
+        if (import.meta.env?.DEV) console.log('[ATS Home] mount fetch error', err?.message);
+        setAtsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+      if (import.meta.env?.DEV) console.log('[ATS Home] cleanup abort');
+    };
   }, []);
 
   /* Trigger warm for both last30 and last7 immediately on mount so KV is ready for cold (e.g. incognito) sessions. */
@@ -439,8 +449,8 @@ export default function Home() {
           const incoming = d.atsLeaders ?? { best: [], worst: [] };
           const incomingMeta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
           const { leaders: chosenLeaders, meta: chosenMeta } = chooseAts(cur.leaders, cur.meta, incoming, incomingMeta);
-          setAtsLeaders(chosenLeaders);
-          setAtsMeta(chosenMeta);
+          setAtsLeaders({ best: [...(chosenLeaders.best || [])], worst: [...(chosenLeaders.worst || [])] });
+          setAtsMeta(chosenMeta ? { ...chosenMeta } : null);
           if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
         })
         .catch(() => {})
@@ -768,8 +778,8 @@ export default function Home() {
             fetchAtsLeaders(win).then((d) => {
               const ats = d.atsLeaders ?? { best: [], worst: [] };
               const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
-              setAtsLeaders(ats);
-              setAtsMeta(meta);
+              setAtsLeaders({ best: [...(ats.best || [])], worst: [...(ats.worst || [])] });
+              setAtsMeta(meta ? { ...meta } : null);
               setSeasonWarming(!!d.seasonWarming);
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
@@ -781,8 +791,8 @@ export default function Home() {
                     fetchAtsLeaders(win).then((d2) => {
                       const cur = atsStateRef.current;
                       const { leaders: L2, meta: M2 } = chooseAts(cur.leaders, cur.meta, d2.atsLeaders ?? { best: [], worst: [] }, d2.atsMeta ?? null);
-                      setAtsLeaders(L2);
-                      setAtsMeta(M2);
+                      setAtsLeaders({ best: [...(L2.best || [])], worst: [...(L2.worst || [])] });
+                      setAtsMeta(M2 ? { ...M2 } : null);
                       if (hasAtsData(L2)) setAtsLeadersCache(L2);
                       setAtsLoading(false);
                     });
@@ -797,8 +807,8 @@ export default function Home() {
             fetchAtsLeaders(atsWindow).then((d) => {
               const ats = d.atsLeaders ?? { best: [], worst: [] };
               const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
-              setAtsLeaders(ats);
-              setAtsMeta(meta);
+              setAtsLeaders({ best: [...(ats.best || [])], worst: [...(ats.worst || [])] });
+              setAtsMeta(meta ? { ...meta } : null);
               setSeasonWarming(!!d.seasonWarming);
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
@@ -807,8 +817,8 @@ export default function Home() {
               fetchAtsLeaders(atsWindow).then((d) => {
                 const cur = atsStateRef.current;
                 const { leaders: L, meta: M } = chooseAts(cur.leaders, cur.meta, d.atsLeaders ?? { best: [], worst: [] }, d.atsMeta ?? null);
-                setAtsLeaders(L);
-                setAtsMeta(M);
+                setAtsLeaders({ best: [...(L.best || [])], worst: [...(L.worst || [])] });
+                setAtsMeta(M ? { ...M } : null);
                 if (hasAtsData(L)) setAtsLeadersCache(L);
                 setAtsLoading(false);
               });

@@ -12,10 +12,10 @@ const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'produ
 
 function getServerKickBaseUrl() {
   try {
-    const v = process.env?.VERCEL_URL;
-    if (v && typeof v === 'string') return v.startsWith('http') ? v : `https://${v}`;
     const p = process.env?.VERCEL_PROJECT_PRODUCTION_URL;
     if (p && typeof p === 'string') return p.startsWith('http') ? p : `https://${p}`;
+    const v = process.env?.VERCEL_URL;
+    if (v && typeof v === 'string') return v.startsWith('http') ? v : `https://${v}`;
     return null;
   } catch {
     return null;
@@ -89,10 +89,9 @@ export default async function handler(req, res) {
 
   if (isDev) console.log('[ats] leaders warming', { window });
   const kickBase = getServerKickBaseUrl();
+  if (isDev) console.log('[ats] kick refresh window=%s baseUrl=%s', window, kickBase || 'none');
   if (kickBase) {
     fetch(`${kickBase}/api/ats/refresh?window=${window}`, { method: 'POST' }).catch(() => {});
-  } else if (isDev) {
-    console.log('[ats] skip server kick (no URL)');
   }
   return res.status(200).json({
     atsLeaders: { best: [], worst: [] },

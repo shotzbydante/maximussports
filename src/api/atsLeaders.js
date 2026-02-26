@@ -1,12 +1,16 @@
 /**
  * Client fetcher for ATS leaders. GET /api/ats/leaders?window=last30|last7|season
- * Module-level de-dupe (inFlight). Last-known cache (10 min) returned when GET is warming/empty.
+ * Per-window de-dupe (inFlightByWindow). Last-known cache only when response was usable (>=5 best or >=5 worst).
  */
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
 const LAST_KNOWN_TTL_MS = 10 * 60 * 1000;
+const MIN_LEADERS_FOR_CACHE = 5;
 
-let inFlight = null;
+/** @type {Record<string, Promise<any>>} */
+const inFlightByWindow = {};
+
+/** @type {Record<string, { data: any, ts: number }>} */
 const lastSuccessByWindow = {};
 
 function hasData(data) {
@@ -15,8 +19,24 @@ function hasData(data) {
   return b > 0 || w > 0;
 }
 
+/** Only treat as "usable" for last-known cache when we have enough leaders. */
+function isUsableData(data) {
+  const b = data?.atsLeaders?.best?.length ?? 0;
+  const w = data?.atsLeaders?.worst?.length ?? 0;
+  return b >= MIN_LEADERS_FOR_CACHE || w >= MIN_LEADERS_FOR_CACHE;
+}
+
 function isWarming(data) {
   return data?.atsMeta?.reason === 'ats_data_warming' || (data?.atsMeta?.source === 'empty' && !hasData(data));
+}
+
+function clientLastKnownMeta(prevMeta) {
+  return {
+    ...(prevMeta ?? {}),
+    source: 'client_last_known',
+    reason: 'client_last_known_fallback',
+    confidence: 'low',
+  };
 }
 
 /**
@@ -26,14 +46,15 @@ function isWarming(data) {
  */
 export async function fetchAtsLeaders(window = 'last30', opts = {}) {
   const w = VALID_WINDOWS.includes(window) ? window : 'last30';
-  if (inFlight) return inFlight;
-  inFlight = (async () => {
+  const inFlightKey = `ats:leaders:${w}`;
+  if (inFlightByWindow[inFlightKey]) return inFlightByWindow[inFlightKey];
+  inFlightByWindow[inFlightKey] = (async () => {
     try {
       const res = await fetch(`/api/ats/leaders?window=${w}`, { signal: opts?.signal });
       if (!res.ok) {
         const last = lastSuccessByWindow[w];
         if (last && Date.now() - last.ts < LAST_KNOWN_TTL_MS) {
-          return { ...last.data, atsMeta: { ...last.data.atsMeta, source: 'client_last_known', confidence: 'low' } };
+          return { ...last.data, atsMeta: clientLastKnownMeta(last.data.atsMeta) };
         }
         return {
           atsLeaders: { best: [], worst: [] },
@@ -49,18 +70,18 @@ export async function fetchAtsLeaders(window = 'last30', opts = {}) {
         atsWindow: data.atsWindow ?? w,
         seasonWarming: data.seasonWarming ?? false,
       };
-      if (hasData(out)) lastSuccessByWindow[w] = { data: out, ts: Date.now() };
+      if (isUsableData(out)) lastSuccessByWindow[w] = { data: out, ts: Date.now() };
       if (isWarming(out)) {
         const last = lastSuccessByWindow[w];
         if (last && Date.now() - last.ts < LAST_KNOWN_TTL_MS) {
-          return { ...last.data, atsMeta: { ...last.data.atsMeta, source: 'client_last_known', confidence: 'low' } };
+          return { ...last.data, atsMeta: clientLastKnownMeta(last.data.atsMeta) };
         }
       }
       return out;
     } catch (err) {
       const last = lastSuccessByWindow[w];
       if (last && Date.now() - last.ts < LAST_KNOWN_TTL_MS) {
-        return { ...last.data, atsMeta: { ...last.data.atsMeta, source: 'client_last_known', confidence: 'low' } };
+        return { ...last.data, atsMeta: clientLastKnownMeta(last.data.atsMeta) };
       }
       if (opts?.signal?.aborted) {
         return {
@@ -77,10 +98,10 @@ export async function fetchAtsLeaders(window = 'last30', opts = {}) {
         seasonWarming: false,
       };
     } finally {
-      inFlight = null;
+      delete inFlightByWindow[inFlightKey];
     }
   })();
-  return inFlight;
+  return inFlightByWindow[inFlightKey];
 }
 
 /**
