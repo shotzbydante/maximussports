@@ -11,6 +11,7 @@ import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from
 import { getTeamBySlug } from '../../src/data/teams.js';
 import { getHeadlines, setHeadlines, getAtsUnavailableReason, setAtsUnavailableReason } from './cache.js';
 import { getAtsLeadersPipeline } from './atsPipeline.js';
+import { getQueryParam, getRequestUrl } from '../_requestUrl.js';
 
 const CACHE_MS = 2 * 60 * 1000; // 2 min
 const homeFastCache = createCache(CACHE_MS);
@@ -88,11 +89,15 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const pinnedSlugsParam = req.query?.pinnedSlugs;
+  const url = getRequestUrl(req);
+  const pinnedSlugsFromGetAll = url.searchParams.getAll('pinnedSlugs');
+  const pinnedSlugsParam = pinnedSlugsFromGetAll.length > 0
+    ? pinnedSlugsFromGetAll.join(',')
+    : getQueryParam(req, 'pinnedSlugs');
   const pinnedSlugs = typeof pinnedSlugsParam === 'string' && pinnedSlugsParam.trim()
     ? pinnedSlugsParam.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
-  const atsWindowParam = req.query?.atsWindow;
+  const atsWindowParam = getQueryParam(req, 'atsWindow');
   const atsWindow = (atsWindowParam === 'last7' || atsWindowParam === 'season') ? atsWindowParam : 'last30';
 
   const key = cacheKey(pinnedSlugs) + (atsWindow !== 'last30' ? `:${atsWindow}` : '');
