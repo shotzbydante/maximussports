@@ -1,6 +1,7 @@
 .badge {
   display: inline-flex;
   align-items: center;
+  min-width: 4.25rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-muted);

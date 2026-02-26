@@ -28,6 +28,13 @@ function buildSlugToRank(rankings) {
   return map;
 }
 
+/** American odds → implied probability (higher = better chance to win). */
+function impliedProbFromAmerican(american) {
+  if (american == null || typeof american !== 'number') return null;
+  if (american < 0) return (-american) / ((-american) + 100);
+  return 100 / (american + 100);
+}
+
 export default function RankingsTable({ rankings: rankingsProp, title, championshipOdds = {}, championshipOddsLoading = false }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
@@ -66,11 +73,24 @@ export default function RankingsTable({ rankings: rankingsProp, title, champions
         if (aIn && bIn) return aRank - bRank;
         return defaultSort(a, b);
       });
+    } else if (sortBy === 'championship') {
+      list.sort((a, b) => {
+        const aEntry = championshipOdds[a.slug];
+        const bEntry = championshipOdds[b.slug];
+        const aProb = aEntry?.american != null ? impliedProbFromAmerican(aEntry.american) : null;
+        const bProb = bEntry?.american != null ? impliedProbFromAmerican(bEntry.american) : null;
+        const aHas = aProb != null;
+        const bHas = bProb != null;
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        if (!aHas && !bHas) return defaultSort(a, b);
+        return bProb - aProb;
+      });
     } else {
       list.sort(defaultSort);
     }
     return list;
-  }, [conference, tier, sortBy, hasTop25, slugToRank]);
+  }, [conference, tier, sortBy, hasTop25, slugToRank, championshipOdds]);
 
   return (
     <div className={styles.table}>
@@ -102,18 +122,20 @@ export default function RankingsTable({ rankings: rankingsProp, title, champions
             ))}
           </select>
         </label>
-        {hasTop25 && (
-          <label className={styles.filterLabel}>
-            <span className={styles.labelText}>Sort</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className={styles.select}
-            >
-              <option value="default">Default</option>
-              <option value="top25">Top 25</option>
-            </select>
-          </label>
+        <label className={styles.filterLabel}>
+          <span className={styles.labelText}>Sort</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={styles.select}
+          >
+            <option value="default">Default</option>
+            {hasTop25 && <option value="top25">Top 25</option>}
+            <option value="championship">Championship Odds</option>
+          </select>
+        </label>
+        {sortBy === 'championship' && championshipOddsLoading && (
+          <span className={styles.sortHint}>Loading odds…</span>
         )}
       </div>
 

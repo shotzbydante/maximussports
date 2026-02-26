@@ -45,10 +45,12 @@ function pickBookmaker(events) {
     (bm.markets ?? []).some((m) => (m.key || '').toLowerCase() === 'outrights')
   );
   if (withOutrights.length === 0) return null;
-  const keyLower = (title) => (title || '').toLowerCase().replace(/\s+/g, '');
+  const keyNorm = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
   for (const pref of PREFERRED_BOOKS) {
-    const bm = withOutrights.find((b) => keyLower(b.title).includes(pref));
-    if (bm) return bm;
+    const byKey = withOutrights.find((b) => keyNorm(b.key).includes(pref));
+    if (byKey) return byKey;
+    const byTitle = withOutrights.find((b) => keyNorm(b.title).includes(pref));
+    if (byTitle) return byTitle;
   }
   return withOutrights[0];
 }

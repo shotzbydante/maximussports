@@ -9,7 +9,10 @@ import TeamSummaryBox from './TeamSummaryBox';
 import SourceBadge from '../shared/SourceBadge';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
 import { fetchChampionshipOdds } from '../../api/championshipOdds';
+import { fetchTeamNextLine } from '../../api/teamNextLine';
 import styles from './TeamPage.module.css';
+
+const NEXT_LINE_SLOW_MS = 18000;
 
 function formatDate(str) {
   if (!str) return '';
@@ -19,6 +22,18 @@ function formatDate(str) {
   } catch {
     return str;
   }
+}
+function formatDateTime(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return iso;
+  }
+}
+function formatSpread(n) {
+  if (n == null || typeof n !== 'number') return '—';
+  return n > 0 ? `+${n}` : String(n);
 }
 
 const TIER_CLASS = {
@@ -38,6 +53,9 @@ export default function TeamPage() {
   const [prev90Expanded, setPrev90Expanded] = useState(false);
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
+  const [nextLine, setNextLine] = useState({ nextEvent: null, consensus: {}, outliers: {}, contributingBooks: {}, oddsMeta: {} });
+  const [nextLineLoading, setNextLineLoading] = useState(true);
+  const [nextLineLoadStarted, setNextLineLoadStarted] = useState(null);
 
   // Batch load: schedule + odds history + team news + rank (ATS/schedule first; defer news)
   useEffect(() => {
@@ -83,7 +101,30 @@ export default function TeamPage() {
     return () => { cancelled = true; };
   }, [slug]);
 
+  useEffect(() => {
+    if (!slug) return;
+    setNextLineLoading(true);
+    setNextLineLoadStarted(Date.now());
+    let cancelled = false;
+    fetchTeamNextLine(slug)
+      .then((data) => {
+        if (!cancelled) {
+          setNextLine(data);
+          setNextLineLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNextLine({ nextEvent: null, consensus: {}, outliers: {}, contributingBooks: {}, oddsMeta: { stage: 'error' } });
+          setNextLineLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
+
   const rank = batch?.rank ?? null;
+  const nextLineSlow = nextLineLoadStarted != null && nextLineLoading && (Date.now() - nextLineLoadStarted > NEXT_LINE_SLOW_MS);
+  const nextLineShowRetry = nextLine.oddsMeta?.stage === 'error' || nextLineSlow;
 
   const { scheduleForSummary, atsForSummary } = useMemo(() => {
     const events = batch?.schedule?.events ?? [];
@@ -150,6 +191,71 @@ export default function TeamPage() {
           initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory } : null}
           atsOnly
         />
+      </section>
+
+      <section className={styles.nextLineSection} aria-label="Next game line">
+        <div className={styles.nextLineCard}>
+          <h3 className={styles.nextLineTitle}>Next Game Line</h3>
+          {nextLineLoading && !nextLine.nextEvent && (
+            <p className={styles.nextLineMeta}>Loading odds…</p>
+          )}
+          {nextLineShowRetry && (
+            <div className={styles.nextLineRetryRow}>
+              {nextLineSlow && <span className={styles.nextLineSlow}>Still loading…</span>}
+              <button
+                type="button"
+                className={styles.retryButton}
+                onClick={() => {
+                  setNextLineLoadStarted(Date.now());
+                  setNextLineLoading(true);
+                  fetchTeamNextLine(slug).then((data) => {
+                    setNextLine(data);
+                    setNextLineLoading(false);
+                  }).catch(() => setNextLineLoading(false));
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {!nextLineLoading && nextLine.nextEvent && (
+            <>
+              <p className={styles.nextLineGame}>
+                vs <strong>{nextLine.nextEvent.opponent || 'TBD'}</strong>
+                {nextLine.nextEvent.commenceTime && (
+                  <span className={styles.nextLineTime}> · {formatDateTime(nextLine.nextEvent.commenceTime)}</span>
+                )}
+              </p>
+              <div className={styles.nextLineConsensus}>
+                <span>Spread: {formatSpread(nextLine.consensus?.spread)}</span>
+                <span>Total: {nextLine.consensus?.total != null ? nextLine.consensus.total : '—'}</span>
+                {nextLine.consensus?.moneyline != null && (
+                  <span>ML: {nextLine.consensus.moneyline > 0 ? `+${nextLine.consensus.moneyline}` : nextLine.consensus.moneyline}</span>
+                )}
+              </div>
+              {nextLine.outliers?.bestSpreadOutlier && (
+                <p className={styles.nextLineOutlier}>
+                  Outlier: {nextLine.outliers.bestSpreadOutlier.bookTitle} {formatSpread(nextLine.outliers.bestSpreadOutlier.spread)}
+                  {nextLine.consensus?.spread != null && (
+                    <> (consensus {formatSpread(nextLine.consensus.spread)})</>
+                  )}
+                </p>
+              )}
+              {nextLine.outliers?.bestTotalOutlier && !nextLine.outliers?.bestSpreadOutlier && (
+                <p className={styles.nextLineOutlier}>
+                  Total outlier: {nextLine.outliers.bestTotalOutlier.bookTitle} {nextLine.outliers.bestTotalOutlier.total}
+                  {nextLine.consensus?.total != null && <> (consensus {nextLine.consensus.total})</>}
+                </p>
+              )}
+              {nextLine.oddsMeta?.updatedAt && (
+                <p className={styles.nextLineMeta}>Last updated: {formatDateTime(nextLine.oddsMeta.updatedAt)}</p>
+              )}
+            </>
+          )}
+          {!nextLineLoading && !nextLine.nextEvent && nextLine.oddsMeta?.stage === 'no_upcoming' && (
+            <p className={styles.nextLineMeta}>No upcoming game.</p>
+          )}
+        </div>
       </section>
 
       <section className={styles.newsSection}>

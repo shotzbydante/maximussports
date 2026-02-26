@@ -31,6 +31,22 @@
   border-color: var(--color-primary);
 }
 
+.filterLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sortLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.sortHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 .select {
   height: var(--pill-height);
   padding: 0 var(--space-md);

@@ -87,6 +87,84 @@
   margin-bottom: var(--space-lg);
 }
 
+.nextLineSection {
+  margin-bottom: var(--space-lg);
+}
+
+.nextLineCard {
+  padding: var(--space-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card);
+  background: var(--color-bg-elevated);
+}
+
+.nextLineTitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-sm);
+}
+
+.nextLineGame {
+  font-size: var(--body-font-size);
+  margin: 0 0 var(--space-xs);
+}
+
+.nextLineTime {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.nextLineConsensus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: 0.85rem;
+  margin-bottom: var(--space-xs);
+}
+
+.nextLineOutlier {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-xs);
+}
+
+.nextLineMeta {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.nextLineRetryRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.nextLineSlow {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.retryButton {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--pill-radius);
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.retryButton:hover {
+  background: rgba(60, 121, 180, 0.1);
+}
+
 .newsSection {
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);

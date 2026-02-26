@@ -45,6 +45,12 @@
   color: var(--color-text-muted);
 }
 
+.sortHint {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  align-self: center;
+}
+
 .select {
   font-size: 0.85rem;
   padding: var(--space-xs) var(--space-sm);

@@ -17,6 +17,12 @@ const TIER_CLASS = {
   'Long shot': styles.tierLong,
 };
 
+function impliedProbFromAmerican(american) {
+  if (american == null || typeof american !== 'number') return null;
+  if (american < 0) return (-american) / ((-american) + 100);
+  return 100 / (american + 100);
+}
+
 export default function Teams() {
   const [search, setSearch] = useState('');
   const [conferenceFilter, setConferenceFilter] = useState('');
@@ -28,6 +34,7 @@ export default function Teams() {
   });
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('default');
 
   useEffect(() => {
     let cancelled = false;
@@ -67,9 +74,38 @@ export default function Teams() {
     return list;
   }, [search, conferenceFilter, tierFilter]);
 
+  const sortedTeams = useMemo(() => {
+    const list = [...filteredTeams];
+    if (sortBy === 'championship') {
+      list.sort((a, b) => {
+        const aEntry = championshipOdds[a.slug];
+        const bEntry = championshipOdds[b.slug];
+        const aProb = aEntry?.american != null ? impliedProbFromAmerican(aEntry.american) : null;
+        const bProb = bEntry?.american != null ? impliedProbFromAmerican(bEntry.american) : null;
+        const aHas = aProb != null;
+        const bHas = bProb != null;
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        if (!aHas && !bHas) return a.name.localeCompare(b.name);
+        return bProb - aProb;
+      });
+    } else {
+      list.sort((a, b) => {
+        const ac = CONF_ORDER.indexOf(a.conference);
+        const bc = CONF_ORDER.indexOf(b.conference);
+        if (ac !== bc) return ac - bc;
+        const at = TIER_ORDER.indexOf(a.oddsTier);
+        const bt = TIER_ORDER.indexOf(b.oddsTier);
+        if (at !== bt) return at - bt;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    return list;
+  }, [filteredTeams, sortBy, championshipOdds]);
+
   const grouped = useMemo(() => {
     const byConf = {};
-    for (const team of filteredTeams) {
+    for (const team of sortedTeams) {
       if (!byConf[team.conference]) byConf[team.conference] = {};
       const tier = team.oddsTier;
       if (!byConf[team.conference][tier]) byConf[team.conference][tier] = [];
@@ -84,7 +120,7 @@ export default function Teams() {
       conference: conf,
       tiers: byConf[conf] || {},
     }));
-  }, [filteredTeams]);
+  }, [sortedTeams]);
 
   return (
     <div className={styles.page}>
@@ -128,6 +164,21 @@ export default function Teams() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <label className={styles.filterLabel}>
+          <span className={styles.sortLabel}>Sort</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={styles.select}
+            aria-label="Sort by"
+          >
+            <option value="default">Default</option>
+            <option value="championship">Championship Odds</option>
+          </select>
+        </label>
+        {sortBy === 'championship' && championshipOddsLoading && (
+          <span className={styles.sortHint}>Loading odds…</span>
+        )}
       </div>
 
       <div className={styles.grid}>
