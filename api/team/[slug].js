@@ -10,9 +10,10 @@ import { buildSlugToRankMap } from '../../src/utils/rankingsNormalize.js';
 import { getTeamBySlug, TEAMS } from '../../src/data/teams.js';
 
 function getSlugFromReq(req) {
-  const url = req.url || '';
-  const match = url.match(/\/api\/team\/([^/?]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  const urlObj = new URL(req.url || '/', 'http://localhost');
+  const segments = urlObj.pathname.split('/').filter(Boolean);
+  const slug = segments[2];
+  return slug ? decodeURIComponent(slug) : null;
 }
 
 function toDateStr(d) {
