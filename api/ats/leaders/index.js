@@ -5,6 +5,7 @@
  */
 
 import { getJson, getWithMeta, getAtsLeadersKeyForWindow } from '../../_globalCache.js';
+import { getQueryParam } from '../../_requestUrl.js';
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
 const STALE_30M_SEC = 30 * 60;
@@ -30,8 +31,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const windowParam = (req.query?.window || 'last30').toLowerCase();
+  const windowParam = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
   const window = VALID_WINDOWS.includes(windowParam) ? windowParam : 'last30';
+  if (isDev) console.log('[api/ats/leaders] parsed', { window });
   const key = getAtsLeadersKeyForWindow(window);
 
   const meta = await getWithMeta(key);

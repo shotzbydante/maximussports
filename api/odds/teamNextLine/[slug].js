@@ -7,6 +7,7 @@
 import { getJson, setJson } from '../../_globalCache.js';
 import { fetchTeamIdsSource, fetchScheduleSource } from '../../_sources.js';
 import { getTeamBySlug } from '../../../src/data/teams.js';
+import { getPathSegments } from '../../_requestUrl.js';
 
 const ODDS_BASE = 'https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds';
 const KV_KEY_PREFIX = 'odds:teamNextLine:';
@@ -331,7 +332,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const slug = typeof req.query?.slug === 'string' ? req.query.slug.trim() : null;
+  const segments = getPathSegments(req);
+  const slugRaw = segments.length > 0 ? segments[segments.length - 1] : null;
+  const slug = slugRaw ? decodeURIComponent(slugRaw).trim() : null;
+  if (isDev) console.log('[api/odds/teamNextLine] parsed', { slug });
   if (!slug) return res.status(400).json(emptyPayload('error', 'error', 'missing_slug'));
 
   const startedAt = Date.now();

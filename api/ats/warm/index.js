@@ -8,10 +8,11 @@ import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
 import { setJson, getJson, getWithMeta, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS, FRESH_SECONDS } from '../../_globalCache.js';
 import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
+import { getQueryParam } from '../../_requestUrl.js';
 
 export default async function handler(req, res) {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
-  const windowParam = (req.query?.window || 'last30').toLowerCase();
+  const windowParam = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
   const window = (windowParam === 'last7') ? 'last7' : 'last30';
   const windowDays = window === 'last7' ? 7 : 30;
   const kvKey = getAtsLeadersKeyForWindow(window);

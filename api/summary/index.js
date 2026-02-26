@@ -7,6 +7,7 @@
  */
 
 import crypto from 'node:crypto';
+import { getQueryParam } from '../_requestUrl.js';
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute
@@ -54,9 +55,14 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const stream = req.query?.stream === 'true' || req.query?.stream === '1';
-  const force = req.query?.force === 'true' || req.query?.force === '1';
-  const debug = req.query?.debug === 'true' || req.query?.debug === '1';
+  const streamParam = getQueryParam(req, 'stream');
+  const forceParam = getQueryParam(req, 'force');
+  const debugParam = getQueryParam(req, 'debug');
+  const stream = streamParam === 'true' || streamParam === '1';
+  const force = forceParam === 'true' || forceParam === '1';
+  const debug = debugParam === 'true' || debugParam === '1';
+  const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+  if (isDev) console.log('[api/summary] parsed', { stream, force, debug });
 
   if (req.method === 'GET') {
     if (debug) {

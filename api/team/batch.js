@@ -18,6 +18,7 @@ import { buildSlugToIdFromRankings } from '../../src/utils/teamIdMap.js';
 import { getTeamBySlug, TEAMS } from '../../src/data/teams.js';
 import { computeATSForEvent, aggregateATS } from '../../src/utils/ats.js';
 import { matchOddsHistoryToEvent } from '../../src/api/odds.js';
+import { getQueryParam, getRequestUrl } from '../_requestUrl.js';
 
 const CACHE_MS = 7 * 60 * 1000; // 7 min
 const MAX_SLUGS = 5;
@@ -68,10 +69,16 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const slugsParam = req.query?.slugs;
+  const url = getRequestUrl(req);
+  const slugsFromGetAll = url.searchParams.getAll('slugs');
+  const slugsParam = slugsFromGetAll.length > 0
+    ? slugsFromGetAll.join(',')
+    : getQueryParam(req, 'slugs');
   const slugs = typeof slugsParam === 'string' && slugsParam.trim()
     ? slugsParam.split(',').map((s) => s.trim()).filter(Boolean).slice(0, MAX_SLUGS)
     : [];
+  const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+  if (isDev) console.log('[api/team/batch] parsed', { slugs });
   if (slugs.length === 0) {
     return res.status(200).json({ teams: {} });
   }

@@ -20,6 +20,7 @@ import { getAtsLeaders, setHeadlines } from './cache.js';
 import { getAtsLeadersPipeline } from './atsPipeline.js';
 import { getTeamSlug } from '../../src/utils/teamSlug.js';
 import { mergeGamesWithOdds } from '../../src/api/odds.js';
+import { getQueryParam } from '../_requestUrl.js';
 
 const CACHE_MS = 20 * 60 * 1000; // 20 min
 const FETCH_TIMEOUT_MS = 8000;   // 8s per upstream fetch
@@ -64,7 +65,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const pinnedSlugsParam = req.query?.pinnedSlugs;
+  const pinnedSlugsParam = getQueryParam(req, 'pinnedSlugs');
+  if (isDev) console.log('[api/home/slow] parsed', { pinnedSlugs: pinnedSlugsParam ?? null });
   const pinnedSlugs = typeof pinnedSlugsParam === 'string' && pinnedSlugsParam.trim()
     ? pinnedSlugsParam.split(',').map((s) => s.trim()).filter(Boolean)
     : [];

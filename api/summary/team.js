@@ -8,6 +8,8 @@
  * Non-stream: returns { summary, updatedAt }. Stream: sends data: { text?, done?, updatedAt?, error?, message? }.
  */
 
+import { getQueryParam } from '../_requestUrl.js';
+
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const OPENAI_MODEL = 'gpt-4o-mini';
 
@@ -67,8 +69,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const stream = req.query?.stream === 'true' || req.query?.stream === '1';
-  const force = req.query?.force === 'true' || req.query?.force === '1';
+  const streamParam = getQueryParam(req, 'stream');
+  const forceParam = getQueryParam(req, 'force');
+  const stream = streamParam === 'true' || streamParam === '1';
+  const force = forceParam === 'true' || forceParam === '1';
+  const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+  if (isDev) console.log('[api/summary/team] parsed', { stream, force });
 
   let body = {};
   try {

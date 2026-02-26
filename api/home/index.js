@@ -20,6 +20,9 @@ import { buildSlugToIdFromRankings } from '../../src/utils/teamIdMap.js';
 import { getAtsLeadersPipeline } from './atsPipeline.js';
 import { getAtsLeadersMaybeStale } from './cache.js';
 import { buildCacheMeta } from '../_cache.js';
+import { getQueryParam } from '../_requestUrl.js';
+
+const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 function toDateStr(d) {
   return d.toISOString().slice(0, 10);
@@ -34,9 +37,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const datesParam = req.query?.dates;
-  const pinnedSlugsParam = req.query?.pinnedSlugs;
-  const atsWindowParam = req.query?.atsWindow;
+  const datesParam = getQueryParam(req, 'dates');
+  const pinnedSlugsParam = getQueryParam(req, 'pinnedSlugs');
+  const atsWindowParam = getQueryParam(req, 'atsWindow');
+  if (isDev) console.log('[api/home] parsed', { dates: datesParam ?? null, pinnedSlugs: pinnedSlugsParam ?? null, atsWindow: atsWindowParam ?? null });
   const dateStrs = typeof datesParam === 'string' && datesParam.trim()
     ? datesParam.split(',').map((d) => String(d).trim().replace(/-/g, '')).filter((d) => /^\d{8}$/.test(d))
     : null;

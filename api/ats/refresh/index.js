@@ -6,6 +6,7 @@
 
 import { getJson, setJson, tryAcquireLock, getAtsLeadersKeyForWindow } from '../../_globalCache.js';
 import { computeAtsLeadersForRefresh, writeAtsToKvIfValid } from '../../home/atsPipeline.js';
+import { getQueryParam } from '../../_requestUrl.js';
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
 const LOCK_KEY_PREFIX = 'ats:leaders:refresh_lock:';
@@ -25,8 +26,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const windowParam = (req.query?.window || 'last30').toLowerCase();
+  const windowParam = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
   const window = VALID_WINDOWS.includes(windowParam) ? windowParam : 'last30';
+  if (isDev) console.log('[api/ats/refresh] parsed', { window });
   const lockKey = `${LOCK_KEY_PREFIX}${window}`;
   const kvKey = getAtsLeadersKeyForWindow(window);
 
