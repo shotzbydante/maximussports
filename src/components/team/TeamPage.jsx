@@ -35,6 +35,10 @@ function formatSpread(n) {
   if (n == null || typeof n !== 'number') return '—';
   return n > 0 ? `+${n}` : String(n);
 }
+function formatMoneyline(n) {
+  if (n == null || typeof n !== 'number') return '—';
+  return n > 0 ? `+${n}` : String(n);
+}
 
 const TIER_CLASS = {
   Lock: styles.tierLock,
@@ -53,7 +57,7 @@ export default function TeamPage() {
   const [prev90Expanded, setPrev90Expanded] = useState(false);
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
-  const [nextLine, setNextLine] = useState({ nextEvent: null, consensus: {}, outliers: {}, contributingBooks: {}, oddsMeta: {} });
+  const [nextLine, setNextLine] = useState({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: {} });
   const [nextLineLoading, setNextLineLoading] = useState(true);
   const [nextLineLoadStarted, setNextLineLoadStarted] = useState(null);
 
@@ -115,7 +119,7 @@ export default function TeamPage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setNextLine({ nextEvent: null, consensus: {}, outliers: {}, contributingBooks: {}, oddsMeta: { stage: 'error' } });
+          setNextLine({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: { stage: 'error' } });
           setNextLineLoading(false);
         }
       });
@@ -230,22 +234,45 @@ export default function TeamPage() {
                 <span>Spread: {formatSpread(nextLine.consensus?.spread)}</span>
                 <span>Total: {nextLine.consensus?.total != null ? nextLine.consensus.total : '—'}</span>
                 {nextLine.consensus?.moneyline != null && (
-                  <span>ML: {nextLine.consensus.moneyline > 0 ? `+${nextLine.consensus.moneyline}` : nextLine.consensus.moneyline}</span>
+                  <span>ML: {formatMoneyline(nextLine.consensus.moneyline)}</span>
                 )}
               </div>
-              {nextLine.outliers?.bestSpreadOutlier && (
+              {nextLine.outliers?.spreadBestForTeam && (
                 <p className={styles.nextLineOutlier}>
-                  Outlier: {nextLine.outliers.bestSpreadOutlier.bookTitle} {formatSpread(nextLine.outliers.bestSpreadOutlier.spread)}
+                  Best spread: {nextLine.outliers.spreadBestForTeam.bookTitle} {formatSpread(nextLine.outliers.spreadBestForTeam.spread)}
                   {nextLine.consensus?.spread != null && (
                     <> (consensus {formatSpread(nextLine.consensus.spread)})</>
                   )}
                 </p>
               )}
-              {nextLine.outliers?.bestTotalOutlier && !nextLine.outliers?.bestSpreadOutlier && (
+              {nextLine.outliers?.moneylineBest && (
                 <p className={styles.nextLineOutlier}>
-                  Total outlier: {nextLine.outliers.bestTotalOutlier.bookTitle} {nextLine.outliers.bestTotalOutlier.total}
+                  Best ML: {nextLine.outliers.moneylineBest.bookTitle} {formatMoneyline(nextLine.outliers.moneylineBest.moneyline)}
+                </p>
+              )}
+              {(nextLine.outliers?.spreadOutlier || nextLine.outliers?.bestSpreadOutlier) && (!nextLine.outliers?.spreadBestForTeam || (nextLine.outliers.spreadOutlier?.bookKey || nextLine.outliers.bestSpreadOutlier?.bookKey) !== nextLine.outliers.spreadBestForTeam?.bookKey) && (
+                <p className={styles.nextLineOutlier}>
+                  Outlier: {(nextLine.outliers.spreadOutlier || nextLine.outliers.bestSpreadOutlier).bookTitle} {formatSpread((nextLine.outliers.spreadOutlier || nextLine.outliers.bestSpreadOutlier).spread)}
+                  {nextLine.consensus?.spread != null && <> (consensus {formatSpread(nextLine.consensus.spread)})</>}
+                </p>
+              )}
+              {nextLine.outliers?.totalOutlier && (
+                <p className={styles.nextLineOutlier}>
+                  Total outlier: {nextLine.outliers.totalOutlier.bookTitle} {nextLine.outliers.totalOutlier.total}
                   {nextLine.consensus?.total != null && <> (consensus {nextLine.consensus.total})</>}
                 </p>
+              )}
+              {nextLine.movement?.samples > 0 && (
+                <div className={styles.nextLineMovement}>
+                  <span>Market movement (last {nextLine.movement.windowMinutes}m): </span>
+                  {nextLine.movement.spread?.delta != null && (
+                    <span>Spread {nextLine.movement.spread.delta > 0 ? '↑' : nextLine.movement.spread.delta < 0 ? '↓' : ''} {nextLine.movement.spread.delta > 0 ? '+' : ''}{nextLine.movement.spread.delta}</span>
+                  )}
+                  {nextLine.movement.total?.delta != null && (
+                    <span>Total {nextLine.movement.total.delta > 0 ? '↑' : nextLine.movement.total.delta < 0 ? '↓' : ''} {nextLine.movement.total.delta > 0 ? '+' : ''}{nextLine.movement.total.delta}</span>
+                  )}
+                  <span className={styles.nextLineMovementMeta}>Based on {nextLine.movement.samples} samples</span>
+                </div>
               )}
               {nextLine.oddsMeta?.updatedAt && (
                 <p className={styles.nextLineMeta}>Last updated: {formatDateTime(nextLine.oddsMeta.updatedAt)}</p>

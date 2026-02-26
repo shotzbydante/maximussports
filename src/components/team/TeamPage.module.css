@@ -131,6 +131,21 @@
   margin: 0 0 var(--space-xs);
 }
 
+.nextLineMovement {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-xs);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: baseline;
+}
+
+.nextLineMovementMeta {
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+
 .nextLineMeta {
   font-size: 0.7rem;
   color: var(--color-text-muted);

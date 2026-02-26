@@ -10,15 +10,96 @@ import { getTeamBySlug } from '../../../src/data/teams.js';
 
 const ODDS_BASE = 'https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds';
 const KV_KEY_PREFIX = 'odds:teamNextLine:';
+const MOVEMENT_KEY_PREFIX = 'odds:movement:';
 const KV_VERSION = 'v1';
 const TTL_SHORT_SEC = 120;
 const TTL_LONG_SEC = 300;
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+const SNAPSHOT_MIN_INTERVAL_SEC = 300;
+const MOVEMENT_MAX_SNAPSHOTS = 48;
+const MOVEMENT_MAX_AGE_SEC = 24 * 60 * 60;
+const MOVEMENT_WINDOW_MINUTES = 60;
 
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 function kvKey(slug) {
   return `${KV_KEY_PREFIX}${slug}:${KV_VERSION}`;
+}
+
+function movementKey(eventId) {
+  return `${MOVEMENT_KEY_PREFIX}${eventId}:${KV_VERSION}`;
+}
+
+/**
+ * Compute movement over window: from = snapshot closest to (now - window), to = current.
+ */
+function computeMovement(snapshots, currentConsensus, windowMinutes) {
+  const out = emptyMovement();
+  out.windowMinutes = windowMinutes;
+  if (!Array.isArray(snapshots) || snapshots.length === 0) return out;
+  const now = Date.now();
+  const windowMs = windowMinutes * 60 * 1000;
+  const targetFrom = now - windowMs;
+  let fromSnap = null;
+  let minDist = Infinity;
+  for (const s of snapshots) {
+    const t = s?.t ? new Date(s.t).getTime() : 0;
+    if (Number.isNaN(t)) continue;
+    const dist = Math.abs(t - targetFrom);
+    if (dist < minDist && t <= now) {
+      minDist = dist;
+      fromSnap = s;
+    }
+  }
+  if (!fromSnap && snapshots.length > 0) fromSnap = snapshots[0];
+  const toSnap = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+  const from = fromSnap?.consensus;
+  const to = currentConsensus || toSnap?.consensus;
+  out.samples = snapshots.length;
+  if (from?.spread != null && to?.spread != null) {
+    out.spread = { from: from.spread, to: to.spread, delta: to.spread - from.spread };
+  }
+  if (from?.total != null && to?.total != null) {
+    out.total = { from: from.total, to: to.total, delta: to.total - from.total };
+  }
+  if (from?.moneyline != null && to?.moneyline != null) {
+    out.moneyline = { from: from.moneyline, to: to.moneyline, delta: to.moneyline - from.moneyline };
+  }
+  return out;
+}
+
+/**
+ * Append snapshot to movement history; trim to max length and prune >24h. Only append if last is older than min interval.
+ * Returns the trimmed snapshot list (for computing movement).
+ */
+async function appendMovementSnapshot(eventId, consensus, booksUsed) {
+  const key = movementKey(eventId);
+  const hasAny = consensus?.spread != null || consensus?.total != null || consensus?.moneyline != null;
+  if (!hasAny) return [];
+  let list = await getJson(key).catch(() => null);
+  if (!Array.isArray(list)) list = [];
+  const now = Date.now();
+  const last = list.length > 0 ? list[list.length - 1] : null;
+  const lastT = last?.t ? new Date(last.t).getTime() : 0;
+  if (last && (now - lastT) / 1000 < SNAPSHOT_MIN_INTERVAL_SEC) return list;
+  const snapshot = {
+    t: new Date().toISOString(),
+    consensus: {
+      spread: consensus?.spread ?? null,
+      total: consensus?.total ?? null,
+      moneyline: consensus?.moneyline ?? null,
+    },
+    booksUsed: booksUsed || { spreads: 0, totals: 0, h2h: 0 },
+  };
+  list.push(snapshot);
+  const cut = now - MOVEMENT_MAX_AGE_SEC * 1000;
+  const pruned = list.filter((s) => {
+    const t = s?.t ? new Date(s.t).getTime() : 0;
+    return !Number.isNaN(t) && t >= cut;
+  });
+  const trimmed = pruned.slice(-MOVEMENT_MAX_SNAPSHOTS);
+  await setJson(key, trimmed, { exSeconds: MOVEMENT_MAX_AGE_SEC + 3600 }).catch(() => {});
+  return trimmed;
 }
 
 function ageSecFrom(cachedAtIso) {
@@ -51,12 +132,30 @@ function namesMatch(a, b) {
   return na.replace(/\s+/g, '') === nb.replace(/\s+/g, '');
 }
 
+function emptyMovement() {
+  return {
+    windowMinutes: MOVEMENT_WINDOW_MINUTES,
+    spread: { from: null, to: null, delta: null },
+    total: { from: null, to: null, delta: null },
+    moneyline: { from: null, to: null, delta: null },
+    samples: 0,
+  };
+}
+
 function emptyPayload(stage, source, errorNote) {
   const updatedAt = new Date().toISOString();
   return {
     nextEvent: null,
     consensus: { spread: null, spreadPrice: null, total: null, totalPrice: null, moneyline: null },
-    outliers: { bestSpreadOutlier: null, bestTotalOutlier: null },
+    outliers: {
+      spreadOutlier: null,
+      spreadBestForTeam: null,
+      totalOutlier: null,
+      moneylineBest: null,
+      bestSpreadOutlier: null,
+      bestTotalOutlier: null,
+    },
+    movement: emptyMovement(),
     contributingBooks: { spreads: 0, totals: 0, h2h: 0 },
     oddsMeta: { stage, source, elapsedMs: 0, updatedAt, cacheAgeSec: null, ...(errorNote && { errorNote }) },
   };
@@ -73,17 +172,21 @@ function getNextEvent(events, teamName, homeAway) {
   return upcoming[0] || null;
 }
 
-/** Fetch raw odds for a date window (one external call). */
-async function fetchOddsForDateRange(apiKey, fromIso, toIso) {
+/** Fetch raw odds: by date range, or by eventIds when known (one event = one call). */
+async function fetchOddsForDateRange(apiKey, fromIso, toIso, eventId = null) {
   const params = new URLSearchParams({
     regions: 'us',
     markets: 'spreads,totals,h2h',
     oddsFormat: 'american',
     dateFormat: 'iso',
-    commenceTimeFrom: fromIso,
-    commenceTimeTo: toIso,
     apiKey,
   });
+  if (eventId) {
+    params.set('eventIds', eventId);
+  } else {
+    params.set('commenceTimeFrom', fromIso);
+    params.set('commenceTimeTo', toIso);
+  }
   const res = await fetch(`${ODDS_BASE}?${params.toString()}`);
   if (isDev && res.headers) {
     const rem = res.headers.get('x-requests-remaining');
@@ -157,20 +260,26 @@ function buildConsensusAndOutliers(bookOdds, consensusSpread, consensusTotal, co
   const totals = bookOdds.map((b) => b.total).filter((v) => v != null);
   const moneylines = bookOdds.map((b) => b.moneyline).filter((v) => v != null);
 
-  let bestSpreadOutlier = null;
-  if (consensusSpread != null && spreads.length > 1) {
-    let maxDelta = -1;
+  let spreadOutlier = null;
+  let spreadBestForTeam = null;
+  if (consensusSpread != null && spreads.length >= 1) {
+    let maxAbsDelta = -1;
+    let bestSpread = null;
     for (const b of bookOdds) {
       if (b.spread == null) continue;
       const delta = Math.abs(b.spread - consensusSpread);
-      if (delta > maxDelta) {
-        maxDelta = delta;
-        bestSpreadOutlier = { bookKey: b.key, bookTitle: b.title, spread: b.spread, deltaFromConsensus: b.spread - consensusSpread };
+      if (delta > maxAbsDelta) {
+        maxAbsDelta = delta;
+        spreadOutlier = { bookKey: b.key, bookTitle: b.title, spread: b.spread, deltaFromConsensus: b.spread - consensusSpread };
+      }
+      if (bestSpread == null || b.spread > bestSpread.spread) {
+        bestSpread = { bookKey: b.key, bookTitle: b.title, spread: b.spread, deltaFromConsensus: b.spread - consensusSpread };
       }
     }
+    spreadBestForTeam = bestSpread;
   }
 
-  let bestTotalOutlier = null;
+  let totalOutlier = null;
   if (consensusTotal != null && totals.length > 1) {
     let maxDelta = -1;
     for (const b of bookOdds) {
@@ -178,9 +287,21 @@ function buildConsensusAndOutliers(bookOdds, consensusSpread, consensusTotal, co
       const delta = Math.abs(b.total - consensusTotal);
       if (delta > maxDelta) {
         maxDelta = delta;
-        bestTotalOutlier = { bookKey: b.key, bookTitle: b.title, total: b.total, deltaFromConsensus: b.total - consensusTotal };
+        totalOutlier = { bookKey: b.key, bookTitle: b.title, total: b.total, deltaFromConsensus: b.total - consensusTotal };
       }
     }
+  }
+
+  let moneylineBest = null;
+  if (consensusMoneyline != null && moneylines.length >= 1) {
+    let best = null;
+    for (const b of bookOdds) {
+      if (b.moneyline == null) continue;
+      if (best == null || b.moneyline > best.moneyline) {
+        best = { bookKey: b.key, bookTitle: b.title, moneyline: b.moneyline, deltaFromConsensus: b.moneyline - consensusMoneyline };
+      }
+    }
+    moneylineBest = best;
   }
 
   return {
@@ -192,7 +313,14 @@ function buildConsensusAndOutliers(bookOdds, consensusSpread, consensusTotal, co
       moneyline: consensusMoneyline,
     },
     contributingBooks: { spreads: spreads.length, totals: totals.length, h2h: moneylines.length },
-    outliers: { bestSpreadOutlier, bestTotalOutlier },
+    outliers: {
+      spreadOutlier,
+      spreadBestForTeam,
+      totalOutlier,
+      moneylineBest,
+      bestSpreadOutlier: spreadOutlier,
+      bestTotalOutlier: totalOutlier,
+    },
   };
 }
 
@@ -217,8 +345,16 @@ export default async function handler(req, res) {
     if (cached?.nextEvent && cacheAgeSec != null && cacheAgeSec < ttl) {
       const elapsedMs = Date.now() - startedAt;
       const { cachedAt: _ca, ttlSec: _ttl, ...rest } = cached;
+      let movement = rest.movement || emptyMovement();
+      if (cached.nextEvent?.eventId) {
+        const snapList = await getJson(movementKey(cached.nextEvent.eventId)).catch(() => null);
+        if (Array.isArray(snapList) && snapList.length > 0) {
+          movement = computeMovement(snapList, cached.consensus, MOVEMENT_WINDOW_MINUTES);
+        }
+      }
       return res.status(200).json({
         ...rest,
+        movement,
         oddsMeta: { ...(cached.oddsMeta || {}), stage: 'kv_hit', source: 'kv_hit', elapsedMs, cacheAgeSec },
       });
     }
@@ -227,8 +363,14 @@ export default async function handler(req, res) {
     if (!apiKey) {
       if (cached?.nextEvent) {
         const { cachedAt: _ca, ttlSec: _ttl, ...rest } = cached;
+        let movement = rest.movement || emptyMovement();
+        if (cached.nextEvent?.eventId) {
+          const snapList = await getJson(movementKey(cached.nextEvent.eventId)).catch(() => null);
+          if (Array.isArray(snapList) && snapList.length > 0) movement = computeMovement(snapList, cached.consensus, MOVEMENT_WINDOW_MINUTES);
+        }
         return res.status(200).json({
           ...rest,
+          movement,
           oddsMeta: { ...(cached.oddsMeta || {}), stage: 'error', source: 'stale_cache', elapsedMs: Date.now() - startedAt, cacheAgeSec, errorNote: 'no_api_key' },
         });
       }
@@ -252,16 +394,24 @@ export default async function handler(req, res) {
     const gameDate = new Date(nextEv.date);
     const fromIso = gameDate.toISOString().slice(0, 10) + 'T00:00:00Z';
     const toIso = gameDate.toISOString().slice(0, 10) + 'T23:59:59Z';
+    const sameGameCached = cached?.nextEvent?.eventId && cached?.nextEvent?.commenceTime && nextEv.date && String(cached.nextEvent.commenceTime).slice(0, 16) === String(nextEv.date).slice(0, 16);
+    const useEventId = sameGameCached ? cached.nextEvent.eventId : null;
 
     let rawEvents = [];
     try {
-      rawEvents = await fetchOddsForDateRange(apiKey, fromIso, toIso);
+      rawEvents = await fetchOddsForDateRange(apiKey, fromIso, toIso, useEventId);
     } catch (err) {
       if (isDev) console.warn('[teamNextLine] fetch odds', err?.message);
       if (cached?.nextEvent) {
         const { cachedAt: _ca, ttlSec: _ttl, ...rest } = cached;
+        let movement = rest.movement || emptyMovement();
+        if (cached.nextEvent?.eventId) {
+          const snapList = await getJson(movementKey(cached.nextEvent.eventId)).catch(() => null);
+          if (Array.isArray(snapList) && snapList.length > 0) movement = computeMovement(snapList, cached.consensus, MOVEMENT_WINDOW_MINUTES);
+        }
         return res.status(200).json({
           ...rest,
+          movement,
           oddsMeta: { ...(cached.oddsMeta || {}), stage: 'error', source: 'stale_cache', elapsedMs: Date.now() - startedAt, cacheAgeSec, errorNote: err?.message },
         });
       }
@@ -281,7 +431,8 @@ export default async function handler(req, res) {
           sportKey: 'basketball_ncaab',
         },
         consensus: { spread: null, spreadPrice: null, total: null, totalPrice: null, moneyline: null },
-        outliers: { bestSpreadOutlier: null, bestTotalOutlier: null },
+        outliers: { spreadOutlier: null, spreadBestForTeam: null, totalOutlier: null, moneylineBest: null, bestSpreadOutlier: null, bestTotalOutlier: null },
+        movement: emptyMovement(),
         contributingBooks: { spreads: 0, totals: 0, h2h: 0 },
         oddsMeta: { stage: 'fetched', source: 'computed', elapsedMs: Date.now() - startedAt, updatedAt: new Date().toISOString(), cacheAgeSec: null, errorNote: 'no_matching_odds_event' },
       };
@@ -309,10 +460,14 @@ export default async function handler(req, res) {
     const eventCommenceMs = new Date(nextEv.date).getTime();
     const ttlSec = eventCommenceMs - Date.now() > TWELVE_HOURS_MS ? TTL_LONG_SEC : TTL_SHORT_SEC;
 
+    const snapList = await appendMovementSnapshot(oddsEvent.id, consensus, contributingBooks);
+    const movement = computeMovement(snapList, consensus, MOVEMENT_WINDOW_MINUTES);
+
     const payload = {
       nextEvent,
       consensus,
       outliers,
+      movement,
       contributingBooks,
       oddsMeta: { stage: 'fetched', source: 'computed', elapsedMs, updatedAt, cacheAgeSec: 0 },
       cachedAt: updatedAt,
@@ -329,8 +484,14 @@ export default async function handler(req, res) {
     const cacheAgeSec = cached?.cachedAt ? ageSecFrom(cached.cachedAt) : null;
     if (cached?.nextEvent) {
       const { cachedAt: _ca, ttlSec: _ttl, ...rest } = cached;
+      let movement = rest.movement || emptyMovement();
+      if (cached.nextEvent?.eventId) {
+        const snapList = await getJson(movementKey(cached.nextEvent.eventId)).catch(() => null);
+        if (Array.isArray(snapList) && snapList.length > 0) movement = computeMovement(snapList, cached.consensus, MOVEMENT_WINDOW_MINUTES);
+      }
       return res.status(200).json({
         ...rest,
+        movement,
         oddsMeta: { ...(cached.oddsMeta || {}), stage: 'error', source: 'stale_cache', elapsedMs: Date.now() - startedAt, cacheAgeSec, errorNote: err?.message },
       });
     }

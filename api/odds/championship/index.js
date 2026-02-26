@@ -5,7 +5,7 @@
  */
 
 import { getJson, setJson, MAX_TTL_SECONDS } from '../../_globalCache.js';
-import { getTeamSlug } from '../../../src/utils/teamSlug.js';
+import { getTeamSlug, buildChampionshipLookup, normalize, stripLastWords } from '../../../src/utils/teamSlug.js';
 
 const CHAMPIONSHIP_KV_KEY = 'odds:championship:ncaab:v1';
 const CHAMPIONSHIP_TTL_SECONDS = Math.min(60 * 60, MAX_TTL_SECONDS); // 60 min
@@ -56,20 +56,44 @@ function pickBookmaker(events) {
 }
 
 /**
+ * Resolve outcome name to slug: getTeamSlug first, then lookup (normalized, strip mascot).
+ */
+function outcomeNameToSlug(name, lookup) {
+  if (!name || typeof name !== 'string') return null;
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const slug = getTeamSlug(trimmed);
+  if (slug) return slug;
+  const n = normalize(trimmed);
+  if (lookup[n]) return lookup[n];
+  const n1 = normalize(stripLastWords(trimmed, 1));
+  if (n1 && lookup[n1]) return lookup[n1];
+  const n2 = normalize(stripLastWords(trimmed, 2));
+  if (n2 && lookup[n2]) return lookup[n2];
+  return null;
+}
+
+/**
  * Build slug -> { american, book, updatedAt, source, cacheAgeSec } from one bookmaker.
+ * Uses robust mapping (getTeamSlug + runtime lookup). Logs unmapped outcome names (max 20).
  */
 function mapOutcomesToSlugs(bookmaker, updatedAt, source, cacheAgeSec) {
   const odds = {};
+  const lookup = buildChampionshipLookup();
   const markets = bookmaker?.markets ?? [];
   const outrights = markets.find((m) => (m.key || '').toLowerCase() === 'outrights');
   const outcomes = outrights?.outcomes ?? [];
   const book = (bookmaker?.title || '').trim() || null;
+  const unmapped = [];
 
   for (const o of outcomes) {
     const name = (o.name || '').trim();
     if (!name) continue;
-    const slug = getTeamSlug(name);
-    if (!slug) continue;
+    const slug = outcomeNameToSlug(name, lookup);
+    if (!slug) {
+      unmapped.push(name);
+      continue;
+    }
     const american = typeof o.price === 'number' ? o.price : null;
     odds[slug] = {
       american,
@@ -78,6 +102,9 @@ function mapOutcomesToSlugs(bookmaker, updatedAt, source, cacheAgeSec) {
       source,
       cacheAgeSec,
     };
+  }
+  if (isDev && unmapped.length > 0) {
+    console.log('[api/odds/championship] unmapped outcome names (max 20):', unmapped.slice(0, 20));
   }
   return odds;
 }

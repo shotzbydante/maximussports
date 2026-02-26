@@ -5,8 +5,8 @@
 
 import { TEAMS } from '../data/teams.js';
 
-/** Normalize for matching: lowercase, remove punctuation, collapse whitespace */
-function normalize(s) {
+/** Normalize for matching: lowercase, remove punctuation, collapse whitespace. Exported for championship odds lookup. */
+export function normalize(s) {
   if (!s || typeof s !== 'string') return '';
   return s
     .toLowerCase()
@@ -14,6 +14,12 @@ function normalize(s) {
     .replace(/[.,()\-&]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** Variant for Odds API: "St." -> "state" so "St. John's" matches. */
+function normalizeForOdds(s) {
+  const n = normalize(s);
+  return n.replace(/\bst\b\.?\s*/g, 'state ').replace(/\s+/g, ' ').trim();
 }
 
 /** Build slug-like token from name for fuzzy match */
@@ -112,6 +118,20 @@ const ALIASES = {
   "liberty flames": "Liberty Flames",
   "mcneese": "McNeese Cowboys",
   "mcneese cowboys": "McNeese Cowboys",
+  // Odds API / championship outrights variants (minimal)
+  "oklahoma": "Oklahoma Sooners",
+  "oklahoma sooners": "Oklahoma Sooners",
+  "michigan state": "Michigan State Spartans",
+  "stanford": "Stanford Cardinal",
+  "syracuse": "Syracuse Orange",
+  "west virginia": "West Virginia Mountaineers",
+  "cincinnati": "Cincinnati Bearcats",
+  "belmont": "Belmont Bruins",
+  "boise state": "Boise State Broncos",
+  "dayton": "Dayton Flyers",
+  "grand canyon": "Grand Canyon Lopes",
+  "nevada": "Nevada Wolf Pack",
+  "south florida": "South Florida Bulls",
 };
 
 /**
@@ -164,4 +184,44 @@ export function getOddsTier(name) {
   if (!slug) return null;
   const team = TEAMS.find((t) => t.slug === slug);
   return team?.oddsTier ?? null;
+}
+
+/** Strip last N words from name for mascot stripping. Exported for championship lookup. */
+export function stripLastWords(name, n) {
+  if (!name || typeof name !== 'string') return '';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= n) return '';
+  return parts.slice(0, -n).join(' ');
+}
+
+/**
+ * Build runtime lookup for championship odds: normalized name keys -> slug.
+ * Used by api/odds/championship to map Odds API outcome names to slugs.
+ * Keys: full normalized name, name without mascot (1 or 2 words), Odds-style normalizations.
+ * @returns {Record<string, string>} normKey -> slug (first win)
+ */
+export function buildChampionshipLookup() {
+  const lookup = Object.create(null);
+  for (const team of TEAMS) {
+    const slug = team.slug;
+    const name = team.name || '';
+    const n = normalize(name);
+    if (n && !lookup[n]) lookup[n] = slug;
+    const noMascot1 = stripLastWords(name, 1);
+    const n1 = normalize(noMascot1);
+    if (n1 && !lookup[n1]) lookup[n1] = slug;
+    const noMascot2 = stripLastWords(name, 2);
+    const n2 = normalize(noMascot2);
+    if (n2 && !lookup[n2]) lookup[n2] = slug;
+    const oddsNorm = normalizeForOdds(name);
+    if (oddsNorm && !lookup[oddsNorm]) lookup[oddsNorm] = slug;
+    const oddsNorm1 = normalizeForOdds(noMascot1);
+    if (oddsNorm1 && !lookup[oddsNorm1]) lookup[oddsNorm1] = slug;
+  }
+  for (const [aliasKey, aliasName] of Object.entries(ALIASES)) {
+    const team = TEAMS.find((t) => t.name === aliasName);
+    if (team && !lookup[normalize(aliasKey)]) lookup[normalize(aliasKey)] = team.slug;
+    if (team && !lookup[normalize(aliasName)]) lookup[normalize(aliasName)] = team.slug;
+  }
+  return lookup;
 }

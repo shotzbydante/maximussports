@@ -15,7 +15,8 @@ export async function fetchTeamNextLine(slug) {
     return {
       nextEvent: data.nextEvent ?? null,
       consensus: data.consensus ?? {},
-      outliers: data.outliers ?? { bestSpreadOutlier: null, bestTotalOutlier: null },
+      outliers: data.outliers ?? { spreadOutlier: null, spreadBestForTeam: null, totalOutlier: null, moneylineBest: null, bestSpreadOutlier: null, bestTotalOutlier: null },
+      movement: data.movement ?? null,
       contributingBooks: data.contributingBooks ?? { spreads: 0, totals: 0, h2h: 0 },
       oddsMeta: data.oddsMeta ?? {},
     };
