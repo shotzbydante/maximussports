@@ -8,7 +8,7 @@ import { getPinnedTeams } from '../utils/pinnedTeams';
 import { getOddsTier } from '../utils/teamSlug';
 import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
-import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
+import { generateChatSummary } from '../utils/chatSummary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
@@ -21,11 +21,11 @@ import RankingsTable from '../components/insights/RankingsTable';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
+import FormattedSummary from '../components/shared/FormattedSummary';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import styles from './Home.module.css';
 
 const STATIC_WELCOME = "Welcome to Maximus Sports, your one stop shop for Men's College Basketball team news, bubble watch, odds analysis, and more.";
-const SUMMARY_ERROR = 'Summary unavailable — try again later.';
 
 const SCORES_REFRESH_MS = 60_000;
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
@@ -79,11 +79,6 @@ function countRankedInAction(games, rankMap) {
   return count;
 }
 
-function formatSummaryDate(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
 function hasAtsData(leaders) {
   return (leaders?.best?.length || 0) + (leaders?.worst?.length || 0) > 0;
 }
@@ -101,19 +96,6 @@ function warmAtsBothWindows() {
 function maybeWarmAts() {
   warmAtsBothWindows();
 }
-
-const buildSummaryPayload = ({ top25, atsBest, atsWorst, atsMeta, atsWindow, recentGames, upcomingGames, headlines }) => ({
-  top25: top25?.slice(0, 25) || [],
-  atsLeaders: {
-    best: atsBest?.slice(0, 10) || [],
-    worst: atsWorst?.slice(0, 10) || [],
-  },
-  atsMeta: atsMeta && typeof atsMeta === 'object' ? { status: atsMeta.status, confidence: atsMeta.confidence, sourceLabel: atsMeta.sourceLabel, cacheNote: atsMeta.cacheNote } : null,
-  atsWindow: atsWindow || 'last30',
-  recentGames: (recentGames || []).slice(0, 20),
-  upcomingGames: (upcomingGames || []).slice(0, 20),
-  headlines: (headlines || []).slice(0, 10),
-});
 
 export default function Home() {
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed, pinnedTeamNewsMap: {} });
@@ -133,28 +115,15 @@ export default function Home() {
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
-  const [summaryText, setSummaryText] = useState('');
-  const [summaryStreaming, setSummaryStreaming] = useState(false);
-  const [summaryUpdatedAt, setSummaryUpdatedAt] = useState(null);
-  const [summaryError, setSummaryError] = useState(false);
-  const [hideStaticWelcomeAfterRefresh, setHideStaticWelcomeAfterRefresh] = useState(false);
   const [showDataStatus, setShowDataStatus] = useState(false);
   const [dataStatus, setDataStatus] = useState(null);
-  const [rateLimitMessage, setRateLimitMessage] = useState(null);
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
-  const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
-  const streamBufferRef = useRef('');
-  const streamIntervalRef = useRef(null);
-  const summaryGeneratedWithoutAtsNewsRef = useRef(false);
-  const didOneTimeRetryRef = useRef(false);
-  const lastSummaryDataStatusRef = useRef(null);
-  const fetchSummaryStreamRef = useRef(() => {});
   const championshipScheduledRef = useRef(false);
   const homeFastRefetchInFlightRef = useRef(false);
   const atsLeadersRef = useRef(atsLeaders);
@@ -289,14 +258,6 @@ export default function Home() {
               headlines: (headlines || []).length,
             }));
             setNewsData((prev) => ({ ...prev, newsFeed, teamNews, pinnedTeamNewsMap }));
-            if (!didOneTimeRetryRef.current && summaryGeneratedWithoutAtsNewsRef.current) {
-              const head = merged.dataStatus?.headlinesCount ?? 0;
-              if (head > 0) {
-                didOneTimeRetryRef.current = true;
-                setSummaryUpdatingBadge(true);
-                fetchSummaryStreamRef.current?.(true);
-              }
-            }
           })
           .catch(() => {
             setSlowLoading(false);
@@ -347,116 +308,6 @@ export default function Home() {
     return () => timeouts.forEach(clearTimeout);
   }, [pinnedSlugs.join(',')]);
 
-  const STREAM_FLUSH_MS = 80;
-
-  const flushStreamBuffer = useCallback(() => {
-    if (streamBufferRef.current) {
-      const chunk = streamBufferRef.current;
-      streamBufferRef.current = '';
-      setSummaryText((prev) => prev + chunk);
-    }
-  }, []);
-
-  const buildPayload = useCallback(() => {
-    const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
-    const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
-    const headlines = (newsData.newsFeed || []).map((h) => ({ title: h.title, source: h.source }));
-    return buildSummaryPayload({
-      top25,
-      atsBest: atsLeaders.best,
-      atsWorst: atsLeaders.worst,
-      atsMeta,
-      atsWindow,
-      recentGames,
-      upcomingGames,
-      headlines,
-    });
-  }, [scores.games, newsData.newsFeed, top25, atsLeaders.best, atsLeaders.worst, atsMeta, atsWindow]);
-
-  const fetchSummaryStream = useCallback((force = false) => {
-    if (streamIntervalRef.current) {
-      clearInterval(streamIntervalRef.current);
-      streamIntervalRef.current = null;
-    }
-    streamBufferRef.current = '';
-    setSummaryText('');
-    setSummaryError(false);
-    setSummaryStreaming(true);
-    setRateLimitMessage(null);
-
-    const payload = buildPayload();
-    fetchSummaryStreamApi(payload, {
-      force,
-      onMessage(data) {
-        if (data.error) {
-          if (streamIntervalRef.current) {
-            clearInterval(streamIntervalRef.current);
-            streamIntervalRef.current = null;
-          }
-          streamBufferRef.current = '';
-          setSummaryText(data.message || SUMMARY_ERROR);
-          setSummaryError(true);
-          setSummaryStreaming(false);
-          return;
-        }
-        if (data.dataStatus) {
-          lastSummaryDataStatusRef.current = data.dataStatus;
-          setDataStatus(data.dataStatus);
-        }
-        if (data.text) {
-          streamBufferRef.current += data.text;
-          if (!streamIntervalRef.current) {
-            streamIntervalRef.current = setInterval(flushStreamBuffer, STREAM_FLUSH_MS);
-          }
-        }
-        if (data.updatedAt) {
-          setSummaryUpdatedAt(data.updatedAt);
-        }
-        if (data.done) {
-          if (streamIntervalRef.current) {
-            clearInterval(streamIntervalRef.current);
-            streamIntervalRef.current = null;
-          }
-          flushStreamBuffer();
-          setSummaryStreaming(false);
-          setSummaryUpdatingBadge(false);
-          setRateLimitMessage(data.rateLimitMessage || null);
-          const status = lastSummaryDataStatusRef.current || data.dataStatus;
-          const atsOk = (status?.atsLeadersCount ?? 0) > 0;
-          const headlinesOk = (status?.headlinesCount ?? 0) > 0;
-          if (!atsOk && !headlinesOk) {
-            summaryGeneratedWithoutAtsNewsRef.current = true;
-          }
-        }
-      },
-    }).catch(() => {
-      if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-      streamIntervalRef.current = null;
-      streamBufferRef.current = '';
-      setSummaryText(SUMMARY_ERROR);
-      setSummaryError(true);
-      setSummaryStreaming(false);
-    });
-  }, [buildPayload, flushStreamBuffer]);
-
-  useEffect(() => {
-    fetchSummaryStreamRef.current = fetchSummaryStream;
-  }, [fetchSummaryStream]);
-
-  const hasRequestedInitialRef = useRef(false);
-  useEffect(() => {
-    if (hasRequestedInitialRef.current) return;
-    const hasData = top25.length > 0 || (scores.games && scores.games.length > 0);
-    if (!hasData) return;
-    hasRequestedInitialRef.current = true;
-    fetchSummaryStream(false);
-  }, [top25, scores.games, fetchSummaryStream]);
-
-  const handleRefreshSummary = () => {
-    setHideStaticWelcomeAfterRefresh(true);
-    fetchSummaryStream(true);
-  };
-
   const handleToggleDataStatus = () => {
     setShowDataStatus((prev) => !prev);
   };
@@ -475,6 +326,24 @@ export default function Home() {
       atsLeadersCount: atsCount,
     };
   }, [dataStatus, scores.games, top25.length, newsData.newsFeed, atsLeaders.best, atsLeaders.worst]);
+
+  const summaryText = useMemo(() => {
+    const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
+    const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
+    const headlines = (newsData.newsFeed || []).map((h) => ({ title: h.title, source: h.source }));
+    return generateChatSummary('home', {
+      top25,
+      atsLeaders,
+      atsMeta,
+      atsWindow,
+      recentGames,
+      upcomingGames,
+      headlines,
+      championshipOdds,
+      upsetCount: countUpsets(scores.games),
+      rankedInAction: countRankedInAction(scores.games, rankMap),
+    });
+  }, [top25, scores.games, rankMap, newsData.newsFeed, atsLeaders, atsMeta, atsWindow, championshipOdds]);
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
@@ -522,48 +391,12 @@ export default function Home() {
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
-          {!hideStaticWelcomeAfterRefresh && (
+          {summaryText ? (
+            <FormattedSummary text={summaryText} className={styles.bannerText} />
+          ) : (
             <p className={styles.bannerStaticWelcome}>{STATIC_WELCOME}</p>
           )}
-          {summaryStreaming && summaryText === '' && (
-            <>
-              <span className={styles.summaryLoadingText} aria-live="polite">Generating summary…</span>
-              <div className={styles.summarySkeleton} aria-hidden>
-                <div className={styles.summarySkeletonLine} />
-                <div className={styles.summarySkeletonLine} />
-                <div className={styles.summarySkeletonLine} />
-              </div>
-            </>
-          )}
-          {summaryText !== '' && (
-            <p className={styles.bannerText}>
-              {summaryText}
-              {summaryStreaming && <span className={styles.cursor} aria-hidden>▌</span>}
-            </p>
-          )}
-          {summaryUpdatedAt && !summaryStreaming && (
-            <p className={styles.summaryUpdated}>
-              Last updated: {formatSummaryDate(summaryUpdatedAt)}
-            </p>
-          )}
-          {rateLimitMessage && (
-            <p className={styles.rateLimitMessage}>{rateLimitMessage}</p>
-          )}
           <div className={styles.summaryActions}>
-            <button
-              type="button"
-              className={styles.summaryRefresh}
-              onClick={handleRefreshSummary}
-              disabled={summaryStreaming}
-              aria-label="Regenerate summary"
-            >
-              {summaryStreaming ? 'Generating…' : 'Refresh'}
-            </button>
-            {summaryUpdatingBadge && (
-              <span className={styles.summaryUpdatingBadge} aria-live="polite">
-                Updating summary…
-              </span>
-            )}
             <label className={styles.dataStatusToggle}>
               <input
                 type="checkbox"

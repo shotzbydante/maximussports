@@ -188,6 +188,8 @@ export default function TeamPage() {
           schedule={scheduleForSummary}
           ats={atsForSummary}
           news={headlines}
+          rank={rank}
+          nextLine={nextLine}
           dataReady={!!batch}
         />
       </section>
