@@ -1,7 +1,7 @@
 /**
  * ATS Leaderboard — Top 10 best / Top 10 worst ATS (Season, Last 30, Last 7).
- * Props: atsLeaders, atsMeta (status FULL|FALLBACK|EMPTY, reason), loading, onRetry.
- * Loading → skeleton; EMPTY → empty state + Retry; FALLBACK → optional label; FULL → normal.
+ * Props: atsLeaders, atsMeta (status FULL|FALLBACK|EMPTY, reason, stage, elapsedMs), loading, onRetry.
+ * Loading → progress bar + status line; EMPTY → empty state + Retry; after 20s waiting → "Still working… Retry".
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +17,16 @@ const PERIODS = [
   { key: 'season', label: 'Season' },
 ];
 
+const ATS_LOADING_SLOW_MS = 20000;
+
+function statusMessageFromStage(stage, isProxy) {
+  if (stage === 'kv_stale') return 'refreshing cache';
+  if (stage === 'cache_hit_real') return null;
+  if (stage === 'done' && isProxy) return 'upgrading to full league';
+  if (stage === 'done') return null;
+  return 'warming cache / computing league ATS';
+}
+
 export default function ATSLeaderboard({
   atsLeaders = { best: [], worst: [] },
   atsMeta = null,
@@ -31,6 +41,8 @@ export default function ATSLeaderboard({
   onPeriodChange = null,
 }) {
   const [period, setPeriod] = useState(atsWindow || 'last30');
+  const [now, setNow] = useState(() => Date.now());
+  const loadStartRef = useRef(null);
   useEffect(() => {
     setPeriod(atsWindow || 'last30');
   }, [atsWindow]);
@@ -41,6 +53,21 @@ export default function ATSLeaderboard({
   const showLoading = loading || ((slowLoading || atsWarming || atsLoading) && !hasData && status !== 'EMPTY');
   const showEmpty = status === 'EMPTY' || (!hasData && atsMeta != null);
   const isFallback = status === 'FALLBACK' || (atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league');
+  const isRealTeamAts = atsMeta?.cacheNote === 'computed_recent_team_ats' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.includes('recent ATS'));
+  const isProxy = !isRealTeamAts && status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
+  const showProgressUI = showLoading || (hasData && isProxy);
+  if (showProgressUI && loadStartRef.current == null) loadStartRef.current = Date.now();
+  if (!showProgressUI) loadStartRef.current = null;
+  useEffect(() => {
+    if (!showProgressUI) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [showProgressUI]);
+  const waitingElapsedMs = loadStartRef.current != null ? now - loadStartRef.current : 0;
+  const showSlowMessage = showProgressUI && waitingElapsedMs >= ATS_LOADING_SLOW_MS;
+  const progressPercent = (atsMeta?.teamCountAttempted != null && atsMeta?.teamCountCompleted != null && atsMeta.teamCountAttempted > 0)
+    ? Math.round((100 * atsMeta.teamCountCompleted) / atsMeta.teamCountAttempted)
+    : null;
   const prevCountRef = useRef(0);
   useEffect(() => {
     const count = best.length + worst.length;
@@ -51,8 +78,6 @@ export default function ATSLeaderboard({
   }, [best.length, worst.length]);
 
   const periodKey = period;
-  const isRealTeamAts = atsMeta?.cacheNote === 'computed_recent_team_ats' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.includes('recent ATS'));
-  const isProxy = !isRealTeamAts && status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
   const best10 = best.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
   const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
   const showRecordAsNa = (rec) => isProxy || !rec || rec.total == null || (rec.total === 0 && (rec.w ?? 0) === 0 && (rec.l ?? 0) === 0);
@@ -85,21 +110,37 @@ export default function ATSLeaderboard({
           ? 'Low confidence'
           : null;
 
+  const loadingStatusMsg = statusMessageFromStage(atsMeta?.stage, isProxy);
+
   return (
     <section className={styles.card}>
+      {showProgressUI && (
+        <div className={styles.progressWrap} role="progressbar" aria-valuenow={progressPercent ?? undefined} aria-valuemin={0} aria-valuemax={100} aria-label="Loading ATS Leaders">
+          <div className={styles.progressTrack}>
+            {progressPercent != null ? (
+              <div className={styles.progressBar} style={{ width: `${Math.min(100, progressPercent)}%` }} />
+            ) : (
+              <div className={styles.progressBarIndeterminate} />
+            )}
+          </div>
+        </div>
+      )}
       <div className={styles.header}>
         <div>
           <h3 className={styles.title}>{headerTitle}</h3>
+          {showProgressUI && loadingStatusMsg && (
+            <span className={styles.loadingStatus}>Loading ATS Leaders… ({loadingStatusMsg})</span>
+          )}
           {showSeasonWarming && (
             <span className={styles.sourceLabel}>Season warming — showing Last 30</span>
           )}
-          {confidenceLabel && !showSeasonWarming && (
+          {confidenceLabel && !showSeasonWarming && !showProgressUI && (
             <span className={styles.sourceLabel}>
               {confidenceLabel}
               {atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : ''}
             </span>
           )}
-          {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && (
+          {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && !showProgressUI && (
             <span className={styles.sourceLabel}>
               {atsLeadersSourceLabel || atsMeta.sourceLabel}
             </span>
@@ -125,7 +166,17 @@ export default function ATSLeaderboard({
         </div>
       </div>
       <div className={styles.content}>
-        {showLoading && <div className={styles.loading}>Loading ATS…</div>}
+        {showSlowMessage && (
+          <div className={styles.slowMessage}>
+            <p className={styles.slowMessageText}>Still working…</p>
+            {typeof onRetry === 'function' && (
+              <button type="button" className={styles.retryButton} onClick={onRetry}>
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+        {showLoading && !showSlowMessage && <div className={styles.loading}>Loading ATS…</div>}
         {showEmpty && !showLoading && (
           <div className={styles.emptyState}>
             <p className={styles.emptyStateMessage}>ATS not available right now.</p>

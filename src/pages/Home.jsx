@@ -350,15 +350,15 @@ export default function Home() {
     warmAtsBothWindows();
   }, []);
 
-  /* After warm has time to complete, re-fetch ATS once so proxy can be replaced by real data (incognito cold start). */
-  const atsRefetchAfterWarmRef = useRef(false);
+  /* Bounded polling: when proxy or empty, refetch at 3s and 8s from first such state (max 2 attempts). Stops when real data arrives. */
+  const atsPollScheduledRef = useRef(false);
   useEffect(() => {
-    if (atsRefetchAfterWarmRef.current) return;
     const isProxy = atsMeta?.cacheNote === 'computed_proxy' || (atsMeta?.confidence === 'low' && hasAtsData(atsLeaders));
     const isEmpty = !hasAtsData(atsLeaders);
     if (!isProxy && !isEmpty) return;
-    atsRefetchAfterWarmRef.current = true;
-    const t = setTimeout(() => {
+    if (atsPollScheduledRef.current) return;
+    atsPollScheduledRef.current = true;
+    const doFetch = () => {
       fetchHomeFast({ pinnedSlugs, atsWindow })
         .then((d) => {
           const cur = atsStateRef.current;
@@ -370,8 +370,13 @@ export default function Home() {
           if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
         })
         .catch(() => {});
-    }, 2800);
-    return () => clearTimeout(t);
+    };
+    const t1 = setTimeout(doFetch, 3000);
+    const t2 = setTimeout(doFetch, 8000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [atsMeta?.cacheNote, atsMeta?.confidence, atsLeaders.best?.length, atsLeaders.worst?.length, pinnedSlugs, atsWindow]);
 
   const STAGGER_MS = 2500;

@@ -13,9 +13,26 @@ import { computeFastFallbackFromRankingsOnly } from './atsFastFallback.js';
 
 const DEBUG_ATS = process.env.DEBUG_ATS === '1';
 
-function buildAtsMeta(result, fromCache = false, stale = false, cacheNote = null) {
+function stageFromCacheNote(cacheNote, fromCache, stale) {
+  if (fromCache && cacheNote === 'kv_hit') return stale ? 'kv_stale' : 'cache_hit_real';
+  if (fromCache && cacheNote === 'kv_stale') return 'kv_stale';
+  if (cacheNote === 'computed_recent_team_ats') return 'done';
+  if (cacheNote === 'computed_proxy') return 'done';
+  if (cacheNote === 'computed_fallback') return 'done';
+  if (cacheNote === 'season_warming') return 'done';
+  return cacheNote || 'done';
+}
+
+function sourceFromCacheNote(cacheNote, fromCache) {
+  if (fromCache) return 'kv_hit';
+  if (cacheNote === 'computed_proxy') return 'proxy';
+  return 'computed';
+}
+
+function buildAtsMeta(result, fromCache = false, stale = false, cacheNote = null, startedAt = null) {
   const status = result?.status ?? (result?.best?.length || result?.worst?.length ? 'FULL' : 'EMPTY');
   const confidence = result?.confidence ?? (status === 'FULL' ? 'high' : status === 'FALLBACK' ? 'medium' : 'low');
+  const now = Date.now();
   const meta = {
     status,
     reason: result?.reason ?? result?.unavailableReason ?? null,
@@ -26,17 +43,29 @@ function buildAtsMeta(result, fromCache = false, stale = false, cacheNote = null
     stale: !!stale,
   };
   if (cacheNote) meta.cacheNote = cacheNote;
+  meta.stage = stageFromCacheNote(cacheNote, fromCache, stale);
+  meta.source = sourceFromCacheNote(cacheNote, fromCache);
+  if (startedAt != null) {
+    meta.startedAt = new Date(startedAt).toISOString();
+    meta.updatedAt = new Date(now).toISOString();
+    meta.elapsedMs = now - startedAt;
+  }
+  if (result?.teamsAttempted != null) meta.teamCountAttempted = result.teamsAttempted;
+  if (result?.teamsWithAts != null) meta.teamCountCompleted = result.teamsWithAts;
   return meta;
 }
 
-function kvPayloadToResult(kvValue, cacheNote) {
+function kvPayloadToResult(kvValue, cacheNote, ageSeconds = 0) {
   const atsLeaders = kvValue.atsLeaders ?? {};
   const best = atsLeaders.best || [];
   const worst = atsLeaders.worst || [];
   const atsMeta = kvValue.atsMeta ?? {};
+  const stale = ageSeconds > 0; // caller passes age from getWithMeta
   const meta = {
     ...atsMeta,
     cacheNote,
+    stage: stageFromCacheNote(cacheNote, true, stale),
+    source: 'kv_hit',
   };
   return {
     best,
@@ -84,6 +113,7 @@ async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) {
  * @param {{ pinnedSlugs?: string[], atsWindow?: 'last30'|'last7'|'season' }} options
  */
 export async function getAtsLeadersPipeline(options = {}) {
+  const startedAt = Date.now();
   const { pinnedSlugs = [], atsWindow = 'last30' } = options;
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
   const kvKey = getAtsLeadersKeyForWindow(atsWindow);
@@ -92,8 +122,13 @@ export async function getAtsLeadersPipeline(options = {}) {
   if (kvEntry?.value) {
     const cacheNote = kvEntry.stale ? 'kv_stale' : 'kv_hit';
     if (DEBUG_ATS) console.log('[atsPipeline] KV', atsWindow, cacheNote, { ageSeconds: kvEntry.ageSeconds });
-    const result = kvPayloadToResult(kvEntry.value, cacheNote);
+    const result = kvPayloadToResult(kvEntry.value, cacheNote, kvEntry.ageSeconds);
     result.atsWindow = atsWindow;
+    const meta = result.atsMeta || {};
+    meta.startedAt = new Date(startedAt).toISOString();
+    meta.updatedAt = new Date().toISOString();
+    meta.elapsedMs = Date.now() - startedAt;
+    result.atsMeta = meta;
     setAtsLeaders({
       best: result.best,
       worst: result.worst,
@@ -110,8 +145,13 @@ export async function getAtsLeadersPipeline(options = {}) {
     const last30Key = getAtsLeadersKeyForWindow('last30');
     const last30Entry = await getWithMeta(last30Key);
     if (last30Entry?.value && (last30Entry.value.atsLeaders?.best?.length || last30Entry.value.atsLeaders?.worst?.length)) {
-      const result = kvPayloadToResult(last30Entry.value, last30Entry.stale ? 'kv_stale' : 'kv_hit');
+      const result = kvPayloadToResult(last30Entry.value, last30Entry.stale ? 'kv_stale' : 'kv_hit', last30Entry.ageSeconds);
       result.atsWindow = 'last30';
+      const meta = result.atsMeta || {};
+      meta.startedAt = new Date(startedAt).toISOString();
+      meta.updatedAt = new Date().toISOString();
+      meta.elapsedMs = Date.now() - startedAt;
+      result.atsMeta = meta;
       result.seasonWarming = true;
       if (result.atsMeta) result.atsMeta.cacheNote = result.atsMeta.cacheNote || 'season_warming';
       return result;
@@ -119,7 +159,11 @@ export async function getAtsLeadersPipeline(options = {}) {
     const pipelineResult = await getAtsLeadersPipeline({ pinnedSlugs, atsWindow: 'last30' });
     pipelineResult.atsWindow = 'last30';
     pipelineResult.seasonWarming = true;
-    if (pipelineResult.atsMeta) pipelineResult.atsMeta.cacheNote = pipelineResult.atsMeta.cacheNote || 'season_warming';
+    if (pipelineResult.atsMeta) {
+      pipelineResult.atsMeta.cacheNote = pipelineResult.atsMeta.cacheNote || 'season_warming';
+      pipelineResult.atsMeta.stage = 'done';
+      pipelineResult.atsMeta.elapsedMs = (pipelineResult.atsMeta.elapsedMs ?? 0) + (Date.now() - startedAt);
+    }
     return pipelineResult;
   }
 
@@ -179,32 +223,35 @@ export async function getAtsLeadersPipeline(options = {}) {
       status: result.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
       reason: result.reason ?? result.unavailableReason ?? null,
       generatedAt: result.generatedAt ?? new Date().toISOString(),
-      atsMeta: buildAtsMeta(result, false, false, cacheNote),
+      atsMeta: buildAtsMeta(result, false, false, cacheNote, startedAt),
       fromCache: false,
       unavailableReason: result.unavailableReason,
     };
   } catch (err) {
     if (isDev) console.log('[atsPipeline] compute failed, serving stale if any', err?.message);
-    const stale = getAtsLeadersMaybeStale();
-    if (stale && (stale.atsMeta || (stale.best?.length || 0) + (stale.worst?.length || 0) > 0)) {
-      const meta = stale.atsMeta ?? buildAtsMeta(stale, true, true);
+    const staleData = getAtsLeadersMaybeStale();
+    if (staleData && (staleData.atsMeta || (staleData.best?.length || 0) + (staleData.worst?.length || 0) > 0)) {
+      const meta = staleData.atsMeta ?? buildAtsMeta(staleData, true, true, 'kv_stale', startedAt);
       meta.cacheNote = 'kv_stale';
+      meta.stage = 'kv_stale';
+      meta.source = 'kv_hit';
+      meta.elapsedMs = Date.now() - startedAt;
       return {
-        best: stale.best || [],
-        worst: stale.worst || [],
+        best: staleData.best || [],
+        worst: staleData.worst || [],
         atsWindow,
-        sourceLabel: stale.sourceLabel ?? null,
-        source: stale.source ?? null,
+        sourceLabel: staleData.sourceLabel ?? null,
+        source: staleData.source ?? null,
         status: meta.status ?? 'FULL',
         reason: meta.reason ?? null,
         generatedAt: meta.generatedAt ?? null,
         atsMeta: meta,
         fromCache: true,
         stale: true,
-        ageMs: stale.ageMs,
+        ageMs: staleData.ageMs,
       };
     }
-    const emptyMeta = buildAtsMeta({ status: 'EMPTY', reason: err?.message || 'computation_failed', sourceLabel: null, confidence: 'low' }, false, false, 'computed_fallback');
+    const emptyMeta = buildAtsMeta({ status: 'EMPTY', reason: err?.message || 'computation_failed', sourceLabel: null, confidence: 'low' }, false, false, 'computed_fallback', startedAt);
     return {
       best: [],
       worst: [],

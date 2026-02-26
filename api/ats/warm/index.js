@@ -1,10 +1,11 @@
 /**
  * GET /api/ats/warm — Warm ATS for a window. ?window=last30|last7 (default last30).
  * Team ATS (same source as pinned cards) → write KV; if fail, proxy fallback → write KV. Never write EMPTY.
+ * Early exit: if KV already has real+fresh data for this window, return immediately without recomputing.
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../../_globalCache.js';
+import { setJson, getJson, getWithMeta, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS, FRESH_SECONDS } from '../../_globalCache.js';
 import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 
@@ -28,6 +29,36 @@ export default async function handler(req, res) {
   let kvWriteOk = false;
   let kvReadOk = false;
   let cacheNote = null;
+
+  /* Early exit: if KV has real (non-proxy) data and is fresh, skip compute. */
+  try {
+    const kvEntry = await getWithMeta(kvKey);
+    if (kvEntry?.value) {
+      const status = kvEntry.value.atsMeta?.status;
+      const confidence = kvEntry.value.atsMeta?.confidence;
+      const note = kvEntry.value.atsMeta?.cacheNote;
+      const isReal = status === 'FULL' || (status === 'FALLBACK' && confidence !== 'low') || note === 'computed_recent_team_ats';
+      const isFresh = !kvEntry.stale && kvEntry.ageSeconds < FRESH_SECONDS;
+      const hasLeaders = (kvEntry.value.atsLeaders?.best?.length || 0) + (kvEntry.value.atsLeaders?.worst?.length || 0) > 0;
+      if (hasLeaders && isReal && isFresh) {
+        kvReadOk = true;
+        if (isDev) console.log('[api/ats/warm] early exit', { window, status, confidence, ageSeconds: kvEntry.ageSeconds });
+        return res.status(200).json({
+          ok: true,
+          window,
+          status: status ?? 'FULL',
+          bestCount: kvEntry.value.atsLeaders?.best?.length ?? 0,
+          worstCount: kvEntry.value.atsLeaders?.worst?.length ?? 0,
+          sourceLabel: kvEntry.value.atsMeta?.sourceLabel ?? null,
+          confidence: confidence ?? 'high',
+          kvWriteOk: false,
+          kvReadOk: true,
+          cacheNote: note ?? 'kv_hit',
+          earlyExit: true,
+        });
+      }
+    }
+  } catch (_) {}
 
   try {
     let result = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [] });

@@ -169,6 +169,16 @@ March Madness Intelligence Hub — a college basketball web app with daily repor
 
 ## Latest Changes (Feb 25, 2026)
 
+**ATS Loading UX + Bounded Polling (Feb 25, 2026)**
+
+- **Stage metadata (server → client):** ATS pipeline and responses now include `atsMeta.stage`, `atsMeta.source` (kv_hit | computed | proxy), `atsMeta.startedAt` / `atsMeta.updatedAt` / `atsMeta.elapsedMs`, and when available `atsMeta.teamCountAttempted` / `atsMeta.teamCountCompleted`. UI can show determinate progress when counts exist, otherwise indeterminate.
+- **Warm early exit:** `/api/ats/warm` checks KV first; if the window already has real (non-proxy) data and is fresh (< 5 min), returns immediately with `earlyExit: true` and skips recompute to reduce server load and speed up repeat calls.
+- **Bounded polling:** When the initial fast response is proxy or empty, Home schedules two refetches at **3s** and **8s** (max 2 attempts). Stops as soon as real data arrives; no infinite loops. Improves typical time-to-real for cold/incognito.
+- **ATS Leaderboard loading UI:** Progress bar at top of the ATS card (determinate % when teamCountCompleted/Attempted exist, else indeterminate animation). Status line under title: “Loading ATS Leaders… (warming cache / computing league ATS)” or “(upgrading to full league)” when proxy is shown. After **20s** waiting: “Still working…” with a **Retry** button that triggers one `fetchHomeFast` (respects existing throttle). Retry does not bypass warm throttle.
+- **Acceptance:** Cold incognito shows progress UI immediately; typical upgrade to real ATS within ~5–15s; warm/returning users get near-instant KV hits; no regressions to other home sections.
+
+---
+
 **ATS Incognito Cold-Start and 10/10 Reliability (Feb 25, 2026)**
 
 - **Why:** ATS Leaders was inconsistent: in incognito it often stayed in proxy mode (all N/A) or took too long to show real data; in normal browsing it sometimes showed only 8 top / 8 bottom with "Insufficient data" even when more teams could qualify.

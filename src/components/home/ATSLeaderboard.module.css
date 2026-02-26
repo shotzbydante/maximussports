@@ -6,6 +6,60 @@
   padding: var(--card-padding);
 }
 
+.progressWrap {
+  margin-bottom: var(--space-sm);
+}
+
+.progressTrack {
+  height: 4px;
+  background: var(--divider-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.progressBarIndeterminate {
+  height: 100%;
+  width: 40%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  animation: atsProgressIndeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes atsProgressIndeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.loadingStatus {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+}
+
+.slowMessage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background: rgba(183, 152, 108, 0.08);
+  border-radius: var(--radius-card);
+}
+
+.slowMessageText {
+  margin: 0;
+  font-size: var(--body-font-size);
+  color: var(--color-text-secondary);
+}
+
 .header {
   display: flex;
   align-items: center;
