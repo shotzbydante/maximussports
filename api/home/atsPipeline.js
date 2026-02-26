@@ -80,8 +80,8 @@ function kvPayloadToResult(kvValue, cacheNote, ageSeconds = 0) {
   };
 }
 
-/** Never write EMPTY to KV. Never overwrite FULL or good FALLBACK with EMPTY. Never overwrite real (FULL or medium+ FALLBACK) with proxy (low-confidence FALLBACK). */
-async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) {
+/** Never write EMPTY to KV. Never overwrite FULL or good FALLBACK with EMPTY. Never overwrite real (FULL or medium+ FALLBACK) with proxy (low-confidence FALLBACK). Exported for /api/ats/refresh. */
+export async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) {
   const status = atsMeta?.status ?? (best?.length || worst?.length ? 'FULL' : 'EMPTY');
   if (status === 'EMPTY' && !(best?.length || worst?.length)) return;
   const existing = await getJson(key);
@@ -265,4 +265,31 @@ export async function getAtsLeadersPipeline(options = {}) {
       unavailableReason: err?.message || 'ATS computation failed',
     };
   }
+}
+
+/**
+ * Compute-only ATS leaders for a window (no KV read). Used by POST /api/ats/refresh.
+ * @param {{ atsWindow: 'last30'|'last7'|'season' }}
+ * @returns {Promise<{ best: array, worst: array, status: string, confidence: string, reason?: string, sourceLabel?: string, generatedAt: string, cacheNote: string }>}
+ */
+export async function computeAtsLeadersForRefresh({ atsWindow = 'last30' } = {}) {
+  const windowDays = atsWindow === 'last7' ? 7 : 30;
+  let out = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [] });
+  const teamAtsHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
+  if (!teamAtsHasLeaders) {
+    out = await computeFastFallbackFromRankingsOnly();
+  }
+  const best = out.best || [];
+  const worst = out.worst || [];
+  const cacheNote = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
+  return {
+    best,
+    worst,
+    status: out.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
+    confidence: out.confidence ?? 'low',
+    reason: out.reason ?? null,
+    sourceLabel: out.sourceLabel ?? null,
+    generatedAt: out.generatedAt ?? new Date().toISOString(),
+    cacheNote,
+  };
 }

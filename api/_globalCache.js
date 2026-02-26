@@ -74,6 +74,28 @@ export async function setJson(key, value, opts = {}) {
   }
 }
 
+const LOCK_TTL_SECONDS = 60;
+
+/**
+ * Try to acquire a distributed lock. Best-effort: get then set (small race window).
+ * @param {string} lockKey
+ * @param {number} [ttlSec]
+ * @returns {Promise<boolean>} true if lock acquired, false if already held
+ */
+export async function tryAcquireLock(lockKey, ttlSec = LOCK_TTL_SECONDS) {
+  const client = await getKv();
+  if (!client) return false;
+  try {
+    const existing = await client.get(lockKey);
+    if (existing != null) return false;
+    await client.set(lockKey, '1', { ex: ttlSec });
+    return true;
+  } catch (err) {
+    console.warn('[globalCache] tryAcquireLock error:', err?.message);
+    return false;
+  }
+}
+
 /**
  * Returns cached payload with age/stale for SWR. Uses generatedAt from payload for age.
  * @param {string} key

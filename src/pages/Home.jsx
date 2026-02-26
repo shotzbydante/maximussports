@@ -11,7 +11,7 @@ import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { fetchSummaryStream as fetchSummaryStreamApi } from '../api/summary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
 import { getAtsLeadersCache, getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
-import { fetchAtsLeaders } from '../api/atsLeaders';
+import { fetchAtsLeaders, fetchAtsRefresh } from '../api/atsLeaders';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
@@ -181,6 +181,7 @@ export default function Home() {
   const atsStateRef = useRef({ leaders: { best: [], worst: [] }, meta: null });
   const championshipScheduledRef = useRef(false);
   const homeFastRefetchInFlightRef = useRef(false);
+  const atsRefreshAttemptsRef = useRef({ last30: 0, last7: 0, season: 0 });
 
   useEffect(() => {
     atsStateRef.current = { leaders: atsLeaders, meta: atsMeta };
@@ -352,11 +353,12 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
-  /* ATS leaders: fetch from dedicated /api/ats/leaders (KV SWR). High priority, separate from fetchHomeFast. */
+  /* ATS leaders: fetch from /api/ats/leaders. If warming, kick refresh and refetch (max 2 per window per session). */
   useEffect(() => {
     let cancelled = false;
+    const window = 'last30';
     setAtsLoading(true);
-    fetchAtsLeaders('last30')
+    fetchAtsLeaders(window)
       .then((d) => {
         if (cancelled) return;
         const cur = atsStateRef.current;
@@ -367,6 +369,40 @@ export default function Home() {
         if (d.atsWindow) setAtsWindow(d.atsWindow);
         if (hasAtsData(chosenLeaders)) setAtsLeadersCache(chosenLeaders);
         setAtsLoading(false);
+
+        if (d.atsMeta?.reason === 'ats_data_warming' && atsRefreshAttemptsRef.current[window] < 2) {
+          atsRefreshAttemptsRef.current[window]++;
+          setTimeout(() => fetchAtsRefresh(window), 250);
+          setTimeout(() => {
+            if (cancelled) return;
+            fetchAtsLeaders(window).then((d2) => {
+              if (cancelled) return;
+              const cur2 = atsStateRef.current;
+              const { leaders: L2, meta: M2 } = chooseAts(cur2.leaders, cur2.meta, d2.atsLeaders ?? { best: [], worst: [] }, d2.atsMeta ?? null);
+              setAtsLeaders(L2);
+              setAtsMeta(M2);
+              if (d2.atsWindow) setAtsWindow(d2.atsWindow);
+              if (hasAtsData(L2)) setAtsLeadersCache(L2);
+              setAtsLoading(false);
+              if (d2.atsMeta?.reason === 'ats_data_warming' && atsRefreshAttemptsRef.current[window] < 2) {
+                atsRefreshAttemptsRef.current[window]++;
+                setTimeout(() => fetchAtsRefresh(window), 250);
+                setTimeout(() => {
+                  if (cancelled) return;
+                  fetchAtsLeaders(window).then((d3) => {
+                    if (cancelled) return;
+                    const cur3 = atsStateRef.current;
+                    const { leaders: L3, meta: M3 } = chooseAts(cur3.leaders, cur3.meta, d3.atsLeaders ?? { best: [], worst: [] }, d3.atsMeta ?? null);
+                    setAtsLeaders(L3);
+                    setAtsMeta(M3);
+                    if (hasAtsData(L3)) setAtsLeadersCache(L3);
+                    setAtsLoading(false);
+                  });
+                }, 1200);
+              }
+            });
+          }, 1200);
+        }
       })
       .catch(() => { if (!cancelled) setAtsLoading(false); });
     return () => { cancelled = true; };
@@ -683,6 +719,23 @@ export default function Home() {
               <span className={styles[`badge${getNewsStatus().charAt(0).toUpperCase() + getNewsStatus().slice(1)}`]}>
                 News {statusLabel(getNewsStatus())}
               </span>
+              {atsMeta && (
+                <div className={styles.dataStatusAtsMeta}>
+                  ATS: source={atsMeta.source ?? '—'} cacheAgeSec={atsMeta.cacheAgeSec ?? '—'} generatedAt={atsMeta.generatedAt ? new Date(atsMeta.generatedAt).toLocaleTimeString() : '—'} confidence={atsMeta.confidence ?? '—'} reason={atsMeta.reason ?? '—'}
+                  {atsMeta.refreshEndpoint && ` · refresh: ${atsMeta.refreshEndpoint}`}
+                </div>
+              )}
+              {championshipOddsMeta && (championshipOddsMeta.missingTeamSlugsSample?.length > 0 || championshipOddsMeta.unmappedOutcomesSample?.length > 0) && (
+                <details className={styles.dataStatusChampionshipDetails}>
+                  <summary>Championship odds mapping (dev)</summary>
+                  {championshipOddsMeta.missingTeamSlugsSample?.length > 0 && (
+                    <div>Missing slugs sample: {championshipOddsMeta.missingTeamSlugsSample.slice(0, 10).join(', ')}{championshipOddsMeta.missingTeamSlugsSample.length > 10 ? '…' : ''}</div>
+                  )}
+                  {championshipOddsMeta.unmappedOutcomesSample?.length > 0 && (
+                    <div>Unmapped outcomes sample: {championshipOddsMeta.unmappedOutcomesSample.slice(0, 10).join(', ')}{championshipOddsMeta.unmappedOutcomesSample.length > 10 ? '…' : ''}</div>
+                  )}
+                </details>
+              )}
             </div>
           )}
         </div>
@@ -714,10 +767,25 @@ export default function Home() {
               setSeasonWarming(!!d.seasonWarming);
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
+              if (d.atsMeta?.reason === 'ats_data_warming' && atsRefreshAttemptsRef.current[win] < 2) {
+                atsRefreshAttemptsRef.current[win]++;
+                setTimeout(() => fetchAtsRefresh(win), 250);
+                setTimeout(() => {
+                  fetchAtsLeaders(win).then((d2) => {
+                    const cur = atsStateRef.current;
+                    const { leaders: L2, meta: M2 } = chooseAts(cur.leaders, cur.meta, d2.atsLeaders ?? { best: [], worst: [] }, d2.atsMeta ?? null);
+                    setAtsLeaders(L2);
+                    setAtsMeta(M2);
+                    if (hasAtsData(L2)) setAtsLeadersCache(L2);
+                    setAtsLoading(false);
+                  });
+                }, 1200);
+              }
             }).catch(() => setAtsLoading(false));
           }}
           onRetry={() => {
             setAtsLoading(true);
+            fetchAtsRefresh(atsWindow);
             fetchAtsLeaders(atsWindow).then((d) => {
               const ats = d.atsLeaders ?? { best: [], worst: [] };
               const meta = d.atsMeta ?? { status: 'EMPTY', reason: null, sourceLabel: null };
@@ -727,6 +795,16 @@ export default function Home() {
               setAtsLoading(false);
               if ((ats.best?.length || 0) + (ats.worst?.length || 0) > 0) setAtsLeadersCache(ats);
             }).catch(() => setAtsLoading(false));
+            setTimeout(() => {
+              fetchAtsLeaders(atsWindow).then((d) => {
+                const cur = atsStateRef.current;
+                const { leaders: L, meta: M } = chooseAts(cur.leaders, cur.meta, d.atsLeaders ?? { best: [], worst: [] }, d.atsMeta ?? null);
+                setAtsLeaders(L);
+                setAtsMeta(M);
+                if (hasAtsData(L)) setAtsLeadersCache(L);
+                setAtsLoading(false);
+              });
+            }, 2500);
           }}
         />
       </section>

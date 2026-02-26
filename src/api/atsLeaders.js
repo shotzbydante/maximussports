@@ -55,3 +55,12 @@ export async function fetchAtsLeaders(window = 'last30', opts = {}) {
   })();
   return inFlight;
 }
+
+/**
+ * POST /api/ats/refresh?window=... to trigger server compute and KV write. Fire-and-forget.
+ * @param {'last30'|'last7'|'season'} window
+ */
+export function fetchAtsRefresh(window = 'last30') {
+  const w = VALID_WINDOWS.includes(window) ? window : 'last30';
+  fetch(`/api/ats/refresh?window=${w}`, { method: 'POST' }).catch(() => {});
+}

@@ -205,6 +205,25 @@
   margin-top: var(--space-xs);
 }
 
+.dataStatusAtsMeta {
+  width: 100%;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+  word-break: break-word;
+}
+
+.dataStatusChampionshipDetails {
+  width: 100%;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+}
+
+.dataStatusChampionshipDetails summary {
+  cursor: pointer;
+}
+
 .dataStatusBadges span {
   display: inline-block;
   padding: 2px 8px;

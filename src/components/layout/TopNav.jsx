@@ -28,7 +28,12 @@ export default function TopNav() {
     <header className={styles.topnav}>
       <div className={styles.brand}>
         <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
-          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} />
+          <img
+          src="/maximus-logo.png"
+          alt="Maximus Sports"
+          className={styles.brandLogo}
+          onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
+        />
         </Link>
         <span className={styles.brandTagline}>March Madness Intelligence</span>
       </div>
