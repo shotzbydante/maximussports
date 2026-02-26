@@ -20,6 +20,7 @@ export default function Insights() {
   const [atsMeta, setAtsMeta] = useState(null);
   const [atsLoading, setAtsLoading] = useState(true);
   const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,15 +46,17 @@ export default function Insights() {
   useEffect(() => {
     let cancelled = false;
     fetchChampionshipOdds()
-      .then(({ odds }) => {
+      .then(({ odds, oddsMeta }) => {
         if (!cancelled) {
           setChampionshipOdds(odds ?? {});
+          setChampionshipOddsMeta(oddsMeta ?? null);
           setChampionshipOddsLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setChampionshipOdds({});
+          setChampionshipOddsMeta(null);
           setChampionshipOddsLoading(false);
         }
       });
@@ -154,6 +157,7 @@ export default function Insights() {
         <RankingsTable
           rankings={rankings}
           championshipOdds={championshipOdds}
+          championshipOddsMeta={championshipOddsMeta}
           championshipOddsLoading={championshipOddsLoading}
         />
       </section>

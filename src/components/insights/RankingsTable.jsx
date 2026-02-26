@@ -35,7 +35,7 @@ function impliedProbFromAmerican(american) {
   return 100 / (american + 100);
 }
 
-export default function RankingsTable({ rankings: rankingsProp, title, championshipOdds = {}, championshipOddsLoading = false }) {
+export default function RankingsTable({ rankings: rankingsProp, title, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
   const [sortBy, setSortBy] = useState('default');
@@ -77,8 +77,10 @@ export default function RankingsTable({ rankings: rankingsProp, title, champions
       list.sort((a, b) => {
         const aEntry = championshipOdds[a.slug];
         const bEntry = championshipOdds[b.slug];
-        const aProb = aEntry?.american != null ? impliedProbFromAmerican(aEntry.american) : null;
-        const bProb = bEntry?.american != null ? impliedProbFromAmerican(bEntry.american) : null;
+        const aAmerican = aEntry?.bestChanceAmerican ?? aEntry?.american;
+        const bAmerican = bEntry?.bestChanceAmerican ?? bEntry?.american;
+        const aProb = aAmerican != null ? impliedProbFromAmerican(aAmerican) : null;
+        const bProb = bAmerican != null ? impliedProbFromAmerican(bAmerican) : null;
         const aHas = aProb != null;
         const bHas = bProb != null;
         if (aHas && !bHas) return -1;
@@ -162,7 +164,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, champions
                           #{rank}
                         </span>
                       )}
-                      <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} loading={championshipOddsLoading} />
+                      <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
                       <span className={styles.chevron}>→</span>
                     </Link>
                   </td>

@@ -33,21 +33,24 @@ export default function Teams() {
     return o;
   });
   const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const [sortBy, setSortBy] = useState('default');
 
   useEffect(() => {
     let cancelled = false;
     fetchChampionshipOdds()
-      .then(({ odds }) => {
+      .then(({ odds, oddsMeta }) => {
         if (!cancelled) {
           setChampionshipOdds(odds ?? {});
+          setChampionshipOddsMeta(oddsMeta ?? null);
           setChampionshipOddsLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setChampionshipOdds({});
+          setChampionshipOddsMeta(null);
           setChampionshipOddsLoading(false);
         }
       });
@@ -80,8 +83,10 @@ export default function Teams() {
       list.sort((a, b) => {
         const aEntry = championshipOdds[a.slug];
         const bEntry = championshipOdds[b.slug];
-        const aProb = aEntry?.american != null ? impliedProbFromAmerican(aEntry.american) : null;
-        const bProb = bEntry?.american != null ? impliedProbFromAmerican(bEntry.american) : null;
+        const aAmerican = aEntry?.bestChanceAmerican ?? aEntry?.american;
+        const bAmerican = bEntry?.bestChanceAmerican ?? bEntry?.american;
+        const aProb = aAmerican != null ? impliedProbFromAmerican(aAmerican) : null;
+        const bProb = bAmerican != null ? impliedProbFromAmerican(bAmerican) : null;
         const aHas = aProb != null;
         const bHas = bProb != null;
         if (aHas && !bHas) return -1;
@@ -210,7 +215,7 @@ export default function Teams() {
                             <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
                               <TeamLogo team={team} size={24} />
                               <span className={styles.teamName}>{team.name}</span>
-                              <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} loading={championshipOddsLoading} />
+                              <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
                               <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
                               <span className={styles.chevron}>→</span>
                             </Link>

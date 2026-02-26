@@ -1,16 +1,18 @@
 /**
  * GET /api/odds/championship — NCAAB championship winner odds by team slug.
- * Fetches outrights from The Odds API (server-side only), maps outcomes to slugs, caches in KV.
+ * Aggregates across ALL bookmakers (single API response, no extra quota). Maps outcome names to slugs,
+ * computes bestChanceAmerican (shortest odds) and bestPayoutAmerican (longest odds) per slug.
  * Early exit if KV has fresh data. On 429/error, returns stale KV or empty with oddsMeta.
  */
 
 import { getJson, setJson, MAX_TTL_SECONDS } from '../../_globalCache.js';
 import { getTeamSlug, buildChampionshipLookup, normalize, stripLastWords } from '../../../src/utils/teamSlug.js';
+import { TEAMS } from '../../../src/data/teams.js';
 
 const CHAMPIONSHIP_KV_KEY = 'odds:championship:ncaab:v1';
 const CHAMPIONSHIP_TTL_SECONDS = Math.min(60 * 60, MAX_TTL_SECONDS); // 60 min
 const ODDS_API_SPORT = 'basketball_ncaab_championship_winner';
-const PREFERRED_BOOKS = ['fanduel', 'draftkings']; // stable single-book choice
+const UNMAPPED_SAMPLE_MAX = 20;
 
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
@@ -23,7 +25,15 @@ function ageSecondsFromUpdatedAt(updatedAt) {
   }
 }
 
-function buildOddsMeta(stage, source, elapsedMs, updatedAt, cacheAgeSec, errorNote) {
+/** American odds → implied probability (higher = better chance). */
+function impliedProbFromAmerican(american) {
+  if (american == null || typeof american !== 'number') return null;
+  if (american < 0) return (-american) / ((-american) + 100);
+  return 100 / (american + 100);
+}
+
+function buildOddsMeta(opts) {
+  const { stage, source, elapsedMs, updatedAt, cacheAgeSec, errorNote, bookmakerCountReturned, mappedOutcomesCount, unmappedOutcomesSample, missingTeamsCount, coveragePct } = opts;
   const meta = {
     stage,
     source,
@@ -32,27 +42,12 @@ function buildOddsMeta(stage, source, elapsedMs, updatedAt, cacheAgeSec, errorNo
     cacheAgeSec: cacheAgeSec ?? null,
   };
   if (errorNote) meta.errorNote = errorNote;
+  if (bookmakerCountReturned != null) meta.bookmakerCountReturned = bookmakerCountReturned;
+  if (mappedOutcomesCount != null) meta.mappedOutcomesCount = mappedOutcomesCount;
+  if (missingTeamsCount != null) meta.missingTeamsCount = missingTeamsCount;
+  if (coveragePct != null) meta.coveragePct = coveragePct;
+  if (isDev && Array.isArray(unmappedOutcomesSample) && unmappedOutcomesSample.length > 0) meta.unmappedOutcomesSample = unmappedOutcomesSample;
   return meta;
-}
-
-/**
- * Pick one bookmaker: prefer PREFERRED_BOOKS, else first with outrights market.
- */
-function pickBookmaker(events) {
-  const event = Array.isArray(events) ? events[0] : null;
-  const bookmakers = event?.bookmakers ?? [];
-  const withOutrights = bookmakers.filter((bm) =>
-    (bm.markets ?? []).some((m) => (m.key || '').toLowerCase() === 'outrights')
-  );
-  if (withOutrights.length === 0) return null;
-  const keyNorm = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
-  for (const pref of PREFERRED_BOOKS) {
-    const byKey = withOutrights.find((b) => keyNorm(b.key).includes(pref));
-    if (byKey) return byKey;
-    const byTitle = withOutrights.find((b) => keyNorm(b.title).includes(pref));
-    if (byTitle) return byTitle;
-  }
-  return withOutrights[0];
 }
 
 /**
@@ -74,39 +69,67 @@ function outcomeNameToSlug(name, lookup) {
 }
 
 /**
- * Build slug -> { american, book, updatedAt, source, cacheAgeSec } from one bookmaker.
- * Uses robust mapping (getTeamSlug + runtime lookup). Logs unmapped outcome names (max 20).
+ * Aggregate outrights from ALL bookmakers: per slug collect all American prices,
+ * then set bestChanceAmerican (highest implied prob) and bestPayoutAmerican (lowest implied prob).
+ * Returns { odds, unmappedOutcomesSample }.
  */
-function mapOutcomesToSlugs(bookmaker, updatedAt, source, cacheAgeSec) {
-  const odds = {};
+function aggregateAllBookmakers(events, updatedAt) {
   const lookup = buildChampionshipLookup();
-  const markets = bookmaker?.markets ?? [];
-  const outrights = markets.find((m) => (m.key || '').toLowerCase() === 'outrights');
-  const outcomes = outrights?.outcomes ?? [];
-  const book = (bookmaker?.title || '').trim() || null;
+  const slugToAmericans = Object.create(null);
   const unmapped = [];
 
-  for (const o of outcomes) {
-    const name = (o.name || '').trim();
-    if (!name) continue;
-    const slug = outcomeNameToSlug(name, lookup);
-    if (!slug) {
-      unmapped.push(name);
-      continue;
+  const event = Array.isArray(events) ? events[0] : null;
+  const bookmakers = event?.bookmakers ?? [];
+  const withOutrights = bookmakers.filter((bm) =>
+    (bm.markets ?? []).some((m) => (m.key || '').toLowerCase() === 'outrights')
+  );
+
+  for (const bm of withOutrights) {
+    const outrights = (bm.markets ?? []).find((m) => (m.key || '').toLowerCase() === 'outrights');
+    const outcomes = outrights?.outcomes ?? [];
+    for (const o of outcomes) {
+      const name = (o.name || '').trim();
+      if (!name) continue;
+      const slug = outcomeNameToSlug(name, lookup);
+      if (!slug) {
+        if (unmapped.length < UNMAPPED_SAMPLE_MAX) unmapped.push(name);
+        continue;
+      }
+      const american = typeof o.price === 'number' ? o.price : null;
+      if (american == null) continue;
+      if (!slugToAmericans[slug]) slugToAmericans[slug] = [];
+      slugToAmericans[slug].push(american);
     }
-    const american = typeof o.price === 'number' ? o.price : null;
+  }
+
+  const odds = {};
+  for (const [slug, americans] of Object.entries(slugToAmericans)) {
+    if (americans.length === 0) continue;
+    let bestChanceAmerican = americans[0];
+    let bestPayoutAmerican = americans[0];
+    let bestProb = impliedProbFromAmerican(americans[0]);
+    let worstProb = bestProb;
+    for (let i = 1; i < americans.length; i++) {
+      const p = impliedProbFromAmerican(americans[i]);
+      if (p != null && (bestProb == null || p > bestProb)) {
+        bestProb = p;
+        bestChanceAmerican = americans[i];
+      }
+      if (p != null && (worstProb == null || p < worstProb)) {
+        worstProb = p;
+        bestPayoutAmerican = americans[i];
+      }
+    }
     odds[slug] = {
-      american,
-      book,
-      updatedAt: updatedAt || new Date().toISOString(),
-      source,
-      cacheAgeSec,
+      bestChanceAmerican,
+      bestPayoutAmerican,
+      booksCount: withOutrights.length,
+      samplesCount: americans.length,
+      updatedAt,
     };
   }
-  if (isDev && unmapped.length > 0) {
-    console.log('[api/odds/championship] unmapped outcome names (max 20):', unmapped.slice(0, 20));
-  }
-  return odds;
+
+  return { odds, unmappedOutcomesSample: unmapped, bookmakerCountReturned: bookmakers.length };
 }
 
 export default async function handler(req, res) {
@@ -127,9 +150,21 @@ export default async function handler(req, res) {
     if (hasRealData && isFresh) {
       const elapsedMs = Date.now() - startedAt;
       if (isDev) console.log('[api/odds/championship] KV hit', { keys: Object.keys(cached.odds).length, ageSec });
+      const totalTeams = (typeof TEAMS !== 'undefined' && Array.isArray(TEAMS)) ? TEAMS.length : 0;
+      const mappedCount = Object.keys(cached.odds).length;
       return res.status(200).json({
         odds: cached.odds,
-        oddsMeta: buildOddsMeta('kv_hit', 'kv_hit', elapsedMs, cached.updatedAt, ageSec),
+        oddsMeta: buildOddsMeta({
+          stage: 'kv_hit',
+          source: 'kv_hit',
+          elapsedMs,
+          updatedAt: cached.updatedAt,
+          cacheAgeSec: ageSec,
+          bookmakerCountReturned: cached.oddsMeta?.bookmakerCountReturned,
+          mappedOutcomesCount: mappedCount,
+          missingTeamsCount: totalTeams ? totalTeams - mappedCount : null,
+          coveragePct: totalTeams ? Math.round((mappedCount / totalTeams) * 1000) / 10 : null,
+        }),
       });
     }
 
@@ -138,12 +173,12 @@ export default async function handler(req, res) {
       if (hasRealData) {
         return res.status(200).json({
           odds: cached.odds,
-          oddsMeta: buildOddsMeta('stale_cache', 'stale_cache', Date.now() - startedAt, cached.updatedAt, ageSec, 'no_api_key'),
+          oddsMeta: buildOddsMeta({ stage: 'stale_cache', source: 'stale_cache', elapsedMs: Date.now() - startedAt, updatedAt: cached.updatedAt, cacheAgeSec: ageSec, errorNote: 'no_api_key', mappedOutcomesCount: Object.keys(cached.odds).length }),
         });
       }
       return res.status(200).json({
         odds: {},
-        oddsMeta: buildOddsMeta('error', 'error', Date.now() - startedAt, new Date().toISOString(), null, 'no_api_key'),
+        oddsMeta: buildOddsMeta({ stage: 'error', source: 'error', elapsedMs: Date.now() - startedAt, updatedAt: new Date().toISOString(), errorNote: 'no_api_key' }),
       });
     }
 
@@ -162,12 +197,12 @@ export default async function handler(req, res) {
       if (hasRealData) {
         return res.status(200).json({
           odds: cached.odds,
-          oddsMeta: buildOddsMeta('rate_limited', 'stale_cache', Date.now() - startedAt, cached.updatedAt, ageSec, 'rate_limited'),
+          oddsMeta: buildOddsMeta({ stage: 'rate_limited', source: 'stale_cache', elapsedMs: Date.now() - startedAt, updatedAt: cached.updatedAt, cacheAgeSec: ageSec, errorNote: 'rate_limited' }),
         });
       }
       return res.status(200).json({
         odds: {},
-        oddsMeta: buildOddsMeta('rate_limited', 'error', Date.now() - startedAt, new Date().toISOString(), null, 'rate_limited'),
+        oddsMeta: buildOddsMeta({ stage: 'rate_limited', source: 'error', elapsedMs: Date.now() - startedAt, updatedAt: new Date().toISOString(), errorNote: 'rate_limited' }),
       });
     }
 
@@ -175,33 +210,47 @@ export default async function handler(req, res) {
       if (hasRealData) {
         return res.status(200).json({
           odds: cached.odds,
-          oddsMeta: buildOddsMeta('error', 'stale_cache', Date.now() - startedAt, cached.updatedAt, ageSec, `http_${fetchRes.status}`),
+          oddsMeta: buildOddsMeta({ stage: 'error', source: 'stale_cache', elapsedMs: Date.now() - startedAt, updatedAt: cached.updatedAt, cacheAgeSec: ageSec, errorNote: `http_${fetchRes.status}` }),
         });
       }
       return res.status(200).json({
         odds: {},
-        oddsMeta: buildOddsMeta('error', 'error', Date.now() - startedAt, new Date().toISOString(), null, `http_${fetchRes.status}`),
+        oddsMeta: buildOddsMeta({ stage: 'error', source: 'error', elapsedMs: Date.now() - startedAt, updatedAt: new Date().toISOString(), errorNote: `http_${fetchRes.status}` }),
       });
     }
 
     const data = await fetchRes.json();
     const events = Array.isArray(data) ? data : data?.data ?? [];
-    const bookmaker = pickBookmaker(events);
     const updatedAt = new Date().toISOString();
-    const odds = bookmaker ? mapOutcomesToSlugs(bookmaker, updatedAt, 'computed', 0) : {};
+    const { odds, unmappedOutcomesSample, bookmakerCountReturned } = aggregateAllBookmakers(events, updatedAt);
+    const mappedCount = Object.keys(odds).length;
+    const totalTeams = (typeof TEAMS !== 'undefined' && Array.isArray(TEAMS)) ? TEAMS.length : 0;
+    const missingTeamsCount = totalTeams ? totalTeams - mappedCount : null;
+    const coveragePct = totalTeams ? Math.round((mappedCount / totalTeams) * 1000) / 10 : null;
+    const elapsedMs = Date.now() - startedAt;
 
     if (Object.keys(odds).length > 0) {
       await setJson(CHAMPIONSHIP_KV_KEY, {
         odds,
         updatedAt,
-        oddsMeta: buildOddsMeta('fetched', 'computed', Date.now() - startedAt, updatedAt, 0),
+        oddsMeta: { bookmakerCountReturned, mappedOutcomesCount: mappedCount, missingTeamsCount, coveragePct },
       }, { exSeconds: CHAMPIONSHIP_TTL_SECONDS });
     }
 
-    const elapsedMs = Date.now() - startedAt;
     return res.status(200).json({
       odds,
-      oddsMeta: buildOddsMeta('fetched', 'computed', elapsedMs, updatedAt, 0),
+      oddsMeta: buildOddsMeta({
+        stage: 'fetched',
+        source: 'computed',
+        elapsedMs,
+        updatedAt,
+        cacheAgeSec: 0,
+        bookmakerCountReturned,
+        mappedOutcomesCount: mappedCount,
+        unmappedOutcomesSample: isDev ? unmappedOutcomesSample : undefined,
+        missingTeamsCount,
+        coveragePct,
+      }),
     });
   } catch (err) {
     if (isDev) console.warn('[api/odds/championship] error', err?.message);
@@ -212,12 +261,12 @@ export default async function handler(req, res) {
     if (hasRealData) {
       return res.status(200).json({
         odds: cached.odds,
-        oddsMeta: buildOddsMeta('error', 'stale_cache', Date.now() - startedAt, cached.updatedAt, ageSec, err?.message || 'fetch_failed'),
+        oddsMeta: buildOddsMeta({ stage: 'error', source: 'stale_cache', elapsedMs: Date.now() - startedAt, updatedAt: cached.updatedAt, cacheAgeSec: ageSec, errorNote: err?.message || 'fetch_failed' }),
       });
     }
     return res.status(200).json({
       odds: {},
-      oddsMeta: buildOddsMeta('error', 'error', Date.now() - startedAt, new Date().toISOString(), null, err?.message || 'fetch_failed'),
+      oddsMeta: buildOddsMeta({ stage: 'error', source: 'error', elapsedMs: Date.now() - startedAt, updatedAt: new Date().toISOString(), errorNote: err?.message || 'fetch_failed' }),
     });
   }
 }

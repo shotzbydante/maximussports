@@ -167,6 +167,7 @@ export default function Home() {
   const [summaryUpdatingBadge, setSummaryUpdatingBadge] = useState(false);
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
   const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
@@ -358,15 +359,17 @@ export default function Home() {
     let cancelled = false;
     setChampionshipOddsLoading(true);
     fetchChampionshipOdds()
-      .then(({ odds }) => {
+      .then(({ odds, oddsMeta }) => {
         if (!cancelled) {
           setChampionshipOdds(odds ?? {});
+          setChampionshipOddsMeta(oddsMeta ?? null);
           setChampionshipOddsLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setChampionshipOdds({});
+          setChampionshipOddsMeta(null);
           setChampionshipOddsLoading(false);
         }
       });
@@ -727,6 +730,7 @@ export default function Home() {
           title="Bubble Watch - Full Rankings"
           rankings={top25}
           championshipOdds={championshipOdds}
+          championshipOddsMeta={championshipOddsMeta}
           championshipOddsLoading={championshipOddsLoading}
         />
       </section>

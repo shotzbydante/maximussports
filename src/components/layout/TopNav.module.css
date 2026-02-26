@@ -28,10 +28,10 @@
 
 .brandLogo {
   display: block;
-  max-height: 52px;
+  max-height: 62px;
   width: auto;
   height: auto;
-  max-width: 320px;
+  max-width: 384px;
   object-fit: contain;
   vertical-align: middle;
 }
@@ -123,8 +123,8 @@
 
 @media (max-width: 768px) {
   .brandLogo {
-    max-height: 44px;
-    max-width: 240px;
+    max-height: 52px;
+    max-width: 288px;
   }
   .brandTagline {
     display: none;

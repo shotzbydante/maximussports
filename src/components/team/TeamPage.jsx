@@ -56,6 +56,7 @@ export default function TeamPage() {
   const [error, setError] = useState(null);
   const [prev90Expanded, setPrev90Expanded] = useState(false);
   const [championshipOdds, setChampionshipOdds] = useState({});
+  const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const [nextLine, setNextLine] = useState({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: {} });
   const [nextLineLoading, setNextLineLoading] = useState(true);
@@ -90,15 +91,17 @@ export default function TeamPage() {
     let cancelled = false;
     setChampionshipOddsLoading(true);
     fetchChampionshipOdds()
-      .then(({ odds }) => {
+      .then(({ odds, oddsMeta }) => {
         if (!cancelled) {
           setChampionshipOdds(odds ?? {});
+          setChampionshipOddsMeta(oddsMeta ?? null);
           setChampionshipOddsLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setChampionshipOdds({});
+          setChampionshipOddsMeta(null);
           setChampionshipOddsLoading(false);
         }
       });
@@ -172,7 +175,7 @@ export default function TeamPage() {
               <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
                 {team.oddsTier}
               </span>
-              <ChampionshipBadge slug={slug} oddsMap={championshipOdds} loading={championshipOddsLoading} />
+              <ChampionshipBadge slug={slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
             </div>
           </div>
         </div>
@@ -230,14 +233,22 @@ export default function TeamPage() {
                   <span className={styles.nextLineTime}> · {formatDateTime(nextLine.nextEvent.commenceTime)}</span>
                 )}
               </p>
-              <div className={styles.nextLineConsensus}>
-                <span>Spread: {formatSpread(nextLine.consensus?.spread)}</span>
-                <span>Total: {nextLine.consensus?.total != null ? nextLine.consensus.total : '—'}</span>
-                {nextLine.consensus?.moneyline != null && (
-                  <span>ML: {formatMoneyline(nextLine.consensus.moneyline)}</span>
-                )}
-              </div>
-              {nextLine.outliers?.spreadBestForTeam && (
+              {(() => {
+                const hasConsensus = nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null;
+                if (!hasConsensus) {
+                  return <p className={styles.nextLineMeta}>Line not available yet.</p>;
+                }
+                return (
+                  <div className={styles.nextLineConsensus}>
+                    <span>Spread: {formatSpread(nextLine.consensus?.spread)}</span>
+                    <span>Total: {nextLine.consensus?.total != null ? nextLine.consensus.total : '—'}</span>
+                    {nextLine.consensus?.moneyline != null && (
+                      <span>ML: {formatMoneyline(nextLine.consensus.moneyline)}</span>
+                    )}
+                  </div>
+                );
+              })()}
+              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && nextLine.outliers?.spreadBestForTeam && (
                 <p className={styles.nextLineOutlier}>
                   Best spread: {nextLine.outliers.spreadBestForTeam.bookTitle} {formatSpread(nextLine.outliers.spreadBestForTeam.spread)}
                   {nextLine.consensus?.spread != null && (
@@ -245,24 +256,24 @@ export default function TeamPage() {
                   )}
                 </p>
               )}
-              {nextLine.outliers?.moneylineBest && (
+              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && nextLine.outliers?.moneylineBest && (
                 <p className={styles.nextLineOutlier}>
                   Best ML: {nextLine.outliers.moneylineBest.bookTitle} {formatMoneyline(nextLine.outliers.moneylineBest.moneyline)}
                 </p>
               )}
-              {(nextLine.outliers?.spreadOutlier || nextLine.outliers?.bestSpreadOutlier) && (!nextLine.outliers?.spreadBestForTeam || (nextLine.outliers.spreadOutlier?.bookKey || nextLine.outliers.bestSpreadOutlier?.bookKey) !== nextLine.outliers.spreadBestForTeam?.bookKey) && (
+              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && (nextLine.outliers?.spreadOutlier || nextLine.outliers?.bestSpreadOutlier) && (!nextLine.outliers?.spreadBestForTeam || (nextLine.outliers.spreadOutlier?.bookKey || nextLine.outliers.bestSpreadOutlier?.bookKey) !== nextLine.outliers.spreadBestForTeam?.bookKey) && (
                 <p className={styles.nextLineOutlier}>
                   Outlier: {(nextLine.outliers.spreadOutlier || nextLine.outliers.bestSpreadOutlier).bookTitle} {formatSpread((nextLine.outliers.spreadOutlier || nextLine.outliers.bestSpreadOutlier).spread)}
                   {nextLine.consensus?.spread != null && <> (consensus {formatSpread(nextLine.consensus.spread)})</>}
                 </p>
               )}
-              {nextLine.outliers?.totalOutlier && (
+              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && nextLine.outliers?.totalOutlier && (
                 <p className={styles.nextLineOutlier}>
                   Total outlier: {nextLine.outliers.totalOutlier.bookTitle} {nextLine.outliers.totalOutlier.total}
                   {nextLine.consensus?.total != null && <> (consensus {nextLine.consensus.total})</>}
                 </p>
               )}
-              {nextLine.movement?.samples > 0 && (
+              {nextLine.movement?.samples > 0 && (nextLine.movement.spread?.delta !== 0 || nextLine.movement.total?.delta !== 0 || nextLine.movement.moneyline?.delta !== 0) && (
                 <div className={styles.nextLineMovement}>
                   <span>Market movement (last {nextLine.movement.windowMinutes}m): </span>
                   {nextLine.movement.spread?.delta != null && (
