@@ -25,8 +25,6 @@ import FormattedSummary from '../components/shared/FormattedSummary';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import styles from './Home.module.css';
 
-const STATIC_WELCOME = "Welcome to Maximus Sports, your one stop shop for Men's College Basketball team news, bubble watch, odds analysis, and more.";
-
 const SCORES_REFRESH_MS = 60_000;
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
 
@@ -327,7 +325,9 @@ export default function Home() {
     };
   }, [dataStatus, scores.games, top25.length, newsData.newsFeed, atsLeaders.best, atsLeaders.worst]);
 
+  const hasMinimalData = !scores.loading || (scores.games && scores.games.length > 0) || top25.length > 0 || (newsData.newsFeed && newsData.newsFeed.length > 0);
   const summaryText = useMemo(() => {
+    if (!hasMinimalData) return '';
     const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
     const upcomingGames = (scores.games || []).filter((g) => !isFinal(g.gameStatus));
     const headlines = (newsData.newsFeed || []).map((h) => ({ title: h.title, source: h.source }));
@@ -343,7 +343,13 @@ export default function Home() {
       upsetCount: countUpsets(scores.games),
       rankedInAction: countRankedInAction(scores.games, rankMap),
     });
-  }, [top25, scores.games, rankMap, newsData.newsFeed, atsLeaders, atsMeta, atsWindow, championshipOdds]);
+  }, [hasMinimalData, top25, scores.games, rankMap, newsData.newsFeed, atsLeaders, atsMeta, atsWindow, championshipOdds]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && summaryText) {
+      console.log('[chatSummary] home summary active', summaryText.slice(0, 80) + (summaryText.length > 80 ? '…' : ''));
+    }
+  }, [summaryText]);
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
@@ -394,7 +400,7 @@ export default function Home() {
           {summaryText ? (
             <FormattedSummary text={summaryText} className={styles.bannerText} />
           ) : (
-            <p className={styles.bannerStaticWelcome}>{STATIC_WELCOME}</p>
+            <p className={styles.bannerText}>Loading today&apos;s intel…</p>
           )}
           <div className={styles.summaryActions}>
             <label className={styles.dataStatusToggle}>

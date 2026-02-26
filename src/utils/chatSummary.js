@@ -141,13 +141,13 @@ function generateHomeSummary(data) {
     if (hasRankings) {
       const topTeam = top25[0];
       const name = topTeam?.teamName || 'the polls';
-      opening += `**${name}** leads the way in the latest rankings. `;
+      opening += '**' + name + '** leads the way in the latest rankings. ';
     }
     if (rankedInAction > 0) {
-      opening += `👀 **${rankedInAction}** ranked team${rankedInAction > 1 ? 's' : ''} in action today. `;
+      opening += '👀 **' + rankedInAction + '** ranked team' + (rankedInAction > 1 ? 's' : '') + ' in action today. ';
     }
     if (upsetCount > 0) {
-      opening += `We've seen **${upsetCount}** upset${upsetCount > 1 ? 's' : ''} already — buckle up. `;
+      opening += "We've seen **" + upsetCount + "** upset" + (upsetCount > 1 ? 's' : '') + ' already — buckle up. ';
     }
     paragraphs.push(opening.trim());
   } else if (hasNews) {
@@ -166,10 +166,10 @@ function generateHomeSummary(data) {
     const wlWorst = winLoss(recWorst);
     let atsLine = 'On the spread: ';
     if (best && wlBest) {
-      atsLine += `**${best}** is covering at ${wlBest} (${atsWindow.replace('last', 'L').replace('30', '30').replace('7', '7')}). ';
+      atsLine += '**' + best + '** is covering at ' + wlBest + ' (' + atsWindow.replace('last', 'L').replace('30', '30').replace('7', '7') + '). ';
     }
     if (worst && wlWorst) {
-      atsLine += `Meanwhile **${worst}** has struggled ATS at ${wlWorst}. `;
+      atsLine += 'Meanwhile **' + worst + '** has struggled ATS at ' + wlWorst + '. ';
     }
     atsLine += '🎯 Worth watching when the lines drop.';
     paragraphs.push(atsLine);
@@ -189,7 +189,7 @@ function generateHomeSummary(data) {
       .slice(0, 3);
     if (entries.length > 0) {
       const names = entries.map(([slug]) => slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')).join(', ');
-      paragraphs.push(`Championship odds favor the usual suspects — **${names}** are right in the mix. 🏆`);
+      paragraphs.push('Championship odds favor the usual suspects — **' + names + '** are right in the mix. 🏆');
       const legendQuote = pickQuote('legends', usedQuotes);
       if (legendQuote) paragraphs.push(`*"${legendQuote}"*`);
     }
@@ -197,7 +197,7 @@ function generateHomeSummary(data) {
 
   // Forward-looking
   if (upcomingGames.length > 0) {
-    paragraphs.push(`Up next: **${upcomingGames.length}** game${upcomingGames.length > 1 ? 's' : ''} on the slate. Check the board and lock in your picks. 💪`);
+    paragraphs.push('Up next: **' + upcomingGames.length + '** game' + (upcomingGames.length > 1 ? 's' : '') + ' on the slate. Check the board and lock in your picks. 💪');
   } else if (hasNews) {
     paragraphs.push("Keep an eye on the news feed and bubble watch — things change fast this time of year. ⚠️");
   }
@@ -222,8 +222,8 @@ function generateTeamSummary(data) {
   const paragraphs = [];
 
   // Current trajectory
-  let trajectory = `**${teamName}**`;
-  if (rank != null) trajectory += ` (No. **${rank}**)`;
+  let trajectory = '**' + teamName + '**';
+  if (rank != null) trajectory += ' (No. **' + rank + '**)';
   trajectory += ' — ';
   if (recent.length > 0) {
     const withScores = recent.filter((e) => e.homeScore != null && e.awayScore != null);
@@ -248,14 +248,14 @@ function generateTeamSummary(data) {
     if (wl) {
       const pct = rec.coverPct != null ? ` (${rec.coverPct}% cover)` : '';
       const vibe = rec.coverPct >= 55 ? "They've been covering — sharp money has noticed. 🔥" : rec.coverPct <= 45 ? 'Tough stretch against the number. 😬' : 'Right around the number.';
-      paragraphs.push(`ATS: **${wl}**${pct} over their recent games. ${vibe}`);
+      paragraphs.push('ATS: **' + wl + '**' + pct + ' over their recent games. ' + vibe);
     }
   }
 
   // Next game / betting
   if (nextEvent && (consensus.spread != null || consensus.total != null || consensus.moneyline != null)) {
     const opp = nextEvent.opponent || 'TBD';
-    let line = `Next up: **vs ${opp}**. `;
+    let line = 'Next up: **vs ' + opp + '**. ';
     if (consensus.spread != null) {
       const s = consensus.spread;
       line += `Spread: ${s > 0 ? '+' : ''}${s}. `;
@@ -266,12 +266,12 @@ function generateTeamSummary(data) {
   } else if (upcoming.length > 0) {
     const next = upcoming[0];
     const opp = next.opponent || next.awayTeam || next.homeTeam || 'TBD';
-    paragraphs.push(`Up next: **${opp}**. Get the latest line when it drops. 👀`);
+    paragraphs.push('Up next: **' + opp + '**. Get the latest line when it drops. 👀');
   }
 
   // Closing
   if (news.length > 0) {
-    paragraphs.push(`**${news.length}** headline${news.length > 1 ? 's' : ''} in the feed — stay tuned for updates. 📈`);
+    paragraphs.push('**' + news.length + '** headline' + (news.length > 1 ? 's' : '') + ' in the feed — stay tuned for updates. 📈');
   }
 
   return paragraphs.filter(Boolean).join('\n\n');
