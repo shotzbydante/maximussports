@@ -5,37 +5,129 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
-.title {
-  font-size: 0.75rem;
+.sectionLabel {
+  font-size: 0.7rem;
   font-weight: 600;
-  margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
 }
 
-.cards {
+.tiles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-md);
 }
 
-.card {
-  position: relative;
+/* Base tile */
+.tile {
+  background: var(--color-bg-elevated);
+  border-radius: 10px;
+  border: 1px solid var(--color-border-light);
+  padding: 16px 18px 14px;
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
 
-.badgeWrap {
-  display: block;
-  margin-top: var(--space-xs);
+.tile:hover {
+  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.1);
+}
+
+/* Alert variant — upset happened */
+.tile--alert {
+  border-color: rgba(196, 92, 74, 0.25);
+  background: linear-gradient(135deg, #fff 80%, rgba(196, 92, 74, 0.04) 100%);
+}
+
+/* Active variant — ranked teams */
+.tile--active {
+  border-color: rgba(60, 121, 180, 0.22);
+}
+
+/* News variant */
+.tile--news {
+  border-color: rgba(45, 138, 110, 0.22);
+}
+
+/* Neutral variant */
+.tile--neutral {
+  opacity: 0.9;
+}
+
+.tileTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tileIcon {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.icon--alert { color: var(--color-down); }
+.icon--active { color: var(--color-primary); }
+.icon--news { color: var(--color-up); }
+.icon--neutral { color: var(--color-text-muted); }
+
+.tileLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.tileValue {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+
+.value--alert { color: var(--color-down); }
+.value--active { color: var(--color-primary); }
+.value--news { color: var(--color-up); }
+.value--neutral { color: var(--color-text-muted); }
+
+.tileContext {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
 }
 
 @media (max-width: 900px) {
-  .cards {
+  .tiles {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+  }
+
+  .tileValue {
+    font-size: 1.8rem;
+  }
+
+  .tile {
+    padding: 12px 14px 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tiles {
     grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .tileValue {
+    font-size: 2rem;
   }
 }

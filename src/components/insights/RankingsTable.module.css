@@ -6,14 +6,13 @@
 }
 
 .sectionTitle {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
   margin: 0 0 var(--space-md);
-  padding: 0 var(--space-md);
-  padding-top: var(--space-md);
+  padding: var(--space-md) var(--space-md) 0;
 }
 
 .filters {

@@ -1,9 +1,10 @@
-/* Bloomberg-style live scores */
+/* Modern live scores feed */
 .widget {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
 }
 
 .widgetHeader {
@@ -11,106 +12,16 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  padding-bottom: var(--space-sm);
+  padding: 14px var(--space-md) 10px;
   border-bottom: 1px solid var(--color-border-light);
 }
 
 .title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-.table {
-  display: flex;
-  flex-direction: column;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1fr 80px 90px;
-  gap: var(--space-md);
-  font-size: 0.85rem;
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--color-border-light);
-  align-items: center;
-}
-
-.row:last-child {
-  border-bottom: none;
-}
-
-.rowHeader {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
-  background: transparent;
-}
-
-.row.rowLive {
-  background: rgba(45, 138, 110, 0.08);
-  border-left: 3px solid var(--color-up);
-}
-
-/* Full layout: matchup, score, spread/ou (if showOdds), status, start time */
-.tableFull .row {
-  grid-template-columns: 1fr 80px 100px 100px 70px;
-}
-
-.tableFull.tableNoOdds .row {
-  grid-template-columns: 1fr 80px 100px 70px;
-}
-
-/* Compact layout: matchup, score, spread (if showOdds), status */
-.tableCompact .row {
-  grid-template-columns: 1fr 70px 90px 90px;
-}
-
-.tableCompact.tableNoOdds .row {
-  grid-template-columns: 1fr 70px 90px;
-}
-
-@media (max-width: 600px) {
-  .widget {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .table {
-    min-width: 320px;
-  }
-  .table .row {
-    min-width: 320px;
-    grid-template-columns: minmax(120px, 1fr) 56px 72px 72px;
-    gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-sm);
-    font-size: 0.8rem;
-  }
-  .tableCompact.tableNoOdds .row {
-    min-width: 260px;
-    grid-template-columns: minmax(120px, 1fr) 56px 72px;
-  }
-  .colOdds,
-  .oddsText {
-    font-size: 0.65rem;
-    white-space: normal;
-    word-break: break-word;
-  }
-  .colMatchup {
-    gap: 2px;
-  }
-  .teamCell {
-    flex-wrap: wrap;
-  }
-  .tierBadge {
-    font-size: 0.5rem;
-    padding: 1px 2px;
-  }
 }
 
 .sourceBadges {
@@ -119,93 +30,221 @@
   gap: var(--space-xs);
 }
 
-.colOdds {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+/* Game list */
+.gameList {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Individual game card */
+.gameCard {
+  padding: 10px var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background 0.1s;
+}
+
+.gameCard:last-child {
+  border-bottom: none;
+}
+
+.gameCard:hover {
+  background: rgba(60, 121, 180, 0.025);
+}
+
+.gameCardLive {
+  background: rgba(45, 138, 110, 0.05);
+  border-left: 2px solid var(--color-up);
+}
+
+.gameCardLive:hover {
+  background: rgba(45, 138, 110, 0.08);
+}
+
+/* Team rows */
+.teamRow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.teamRowWinner .teamName {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.teamRowLoser .teamName {
   color: var(--color-text-muted);
 }
 
-.oddsText {
-  white-space: nowrap;
+.teamRowLoser .teamScore {
+  color: var(--color-text-muted);
 }
 
-.colMatchup {
-  min-width: 0;
+/* Logo */
+.teamLogoWrap {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
 }
 
-.teamCell {
-  display: inline-flex;
+/* Team info */
+.teamInfo {
+  display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .rank {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.teamLink {
-  color: inherit;
-  text-decoration: none;
-}
-
-.teamLink:hover {
-  color: var(--color-primary);
-}
-
-.colScore {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  text-align: right;
-}
-
-.colStatus {
-  font-size: 0.8rem;
+.teamName {
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.1s;
 }
 
-.statusLive {
-  color: var(--color-up);
+a.teamName:hover {
+  color: var(--color-primary);
+}
+
+/* Score */
+.teamScore {
+  font-family: var(--font-mono);
+  font-size: 1rem;
   font-weight: 600;
+  color: var(--color-text-secondary);
+  text-align: right;
+  min-width: 32px;
 }
 
-.dot {
+.scoreWinner {
+  font-size: 1.05rem;
+  color: var(--color-text);
+}
+
+/* Footer: status badge + time + odds */
+.gameFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 5px;
+  padding-left: 36px; /* indent to align under team names */
+}
+
+/* Status badge */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.status--final {
+  background: rgba(90, 90, 90, 0.1);
+  color: #555;
+}
+
+.status--live {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up);
+}
+
+.status--upcoming {
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-primary);
+}
+
+.liveDot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   background: var(--color-up);
   border-radius: 50%;
-  margin-left: var(--space-xs);
-  vertical-align: middle;
   animation: livePulse 1.5s ease-in-out infinite;
 }
 
 @keyframes livePulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.35; }
 }
 
-.colTime {
+.gameTime {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.65rem;
   color: var(--color-text-muted);
 }
 
+.oddsText {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Tier badges */
+.tierBadge {
+  font-size: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.tier--Lock {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up);
+}
+
+.tier--Shouldbein {
+  background: rgba(60, 121, 180, 0.12);
+  color: var(--color-metro-blue);
+}
+
+.tier--Worktodo {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-beige-dune);
+}
+
+.tier--Longshot {
+  background: rgba(196, 92, 74, 0.12);
+  color: var(--color-down);
+}
+
+/* Fallback / messages */
 .fallback {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   padding: var(--space-md);
   margin: 0;
 }
 
 .oddsMessage {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
   padding: var(--space-sm) var(--space-md);
   margin: 0;
@@ -213,43 +252,37 @@
 }
 
 .refreshing {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
-  padding: var(--space-xs) var(--space-md);
+  padding: 6px var(--space-md);
   text-align: right;
   border-top: 1px solid var(--color-border-light);
 }
 
-.tierBadge {
-  font-size: 0.55rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 1px 3px;
-  border-radius: 2px;
-}
+/* Mobile */
+@media (max-width: 600px) {
+  .gameCard {
+    padding: 8px var(--space-sm);
+  }
 
-.tierLock {
-  background: rgba(45, 138, 110, 0.12);
-  color: var(--color-up);
-}
+  .gameFooter {
+    padding-left: 32px;
+  }
 
-.tierShouldbein {
-  background: rgba(60, 121, 180, 0.12);
-  color: var(--color-metro-blue);
-}
+  .teamLogoWrap {
+    width: 24px;
+    height: 24px;
+  }
 
-.tierWorktodo {
-  background: rgba(183, 152, 108, 0.15);
-  color: var(--color-beige-dune);
-}
+  .teamName {
+    font-size: 0.8rem;
+  }
 
-.tierLongshot {
-  background: rgba(196, 92, 74, 0.12);
-  color: var(--color-down);
-}
+  .teamScore {
+    font-size: 0.9rem;
+  }
 
-.tierNa {
-  font-size: 0.6rem;
-  color: var(--color-text-muted);
+  .tierBadge {
+    display: none;
+  }
 }

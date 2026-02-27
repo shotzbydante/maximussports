@@ -1,10 +1,12 @@
 /**
- * Live scores display — Bloomberg-style compact table.
- * Highlights in-progress games. Team names link to /teams/<slug>.
+ * Live scores feed — modern card layout with team logos.
+ * Each game is a self-contained card: logos, names, scores, status.
+ * Team names link to /teams/<slug>.
  */
 
 import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
+import TeamLogo from '../shared/TeamLogo';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import styles from './LiveScores.module.css';
 
@@ -17,10 +19,15 @@ function formatStartTime(iso) {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-    }) + ' PST';
+    }) + ' PT';
   } catch {
     return '—';
   }
+}
+
+function isFinal(status) {
+  const s = (status || '').toLowerCase();
+  return s === 'final' || s.includes('final');
 }
 
 function isLive(status) {
@@ -31,7 +38,7 @@ function isLive(status) {
     s.startsWith('1st ') ||
     s.startsWith('2nd ') ||
     s === 'halftime' ||
-    (s.includes(':') && !s.includes('AM') && !s.includes('PM'))
+    (s.includes(':') && !s.includes('am') && !s.includes('pm'))
   );
 }
 
@@ -39,134 +46,142 @@ function hasOdds(g) {
   return g.spread != null || g.total != null;
 }
 
+function getStatusVariant(status) {
+  if (isFinal(status)) return 'final';
+  if (isLive(status)) return 'live';
+  return 'upcoming';
+}
+
+function StatusBadge({ status }) {
+  const variant = getStatusVariant(status);
+  return (
+    <span className={`${styles.statusBadge} ${styles[`status--${variant}`]}`}>
+      {variant === 'live' && <span className={styles.liveDot} />}
+      {status}
+    </span>
+  );
+}
+
 export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {} }) {
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
-      {showTitle && <h3 className={styles.title}>Today&apos;s Scores</h3>}
+      {showTitle && (
+        <div className={styles.widgetHeader}>
+          <span className={styles.title}>Today&apos;s Scores</span>
+        </div>
+      )}
       {children}
     </div>
   );
 
   if (error) {
-    return (
-      <Fallback>
-        <p className={styles.fallback}>Live scores temporarily unavailable</p>
-      </Fallback>
-    );
+    return <Fallback><p className={styles.fallback}>Live scores temporarily unavailable</p></Fallback>;
   }
-
   if (loading && games.length === 0) {
-    return (
-      <Fallback>
-        <p className={styles.fallback}>Loading scores…</p>
-      </Fallback>
-    );
+    return <Fallback><p className={styles.fallback}>Loading scores…</p></Fallback>;
   }
-
   if (games.length === 0) {
-    return (
-      <Fallback>
-        <p className={styles.fallback}>No games scheduled</p>
-      </Fallback>
-    );
+    return <Fallback><p className={styles.fallback}>No games scheduled today</p></Fallback>;
   }
 
   return (
     <div className={styles.widget}>
       {showTitle && (
         <div className={styles.widgetHeader}>
-          <h3 className={styles.title}>Today&apos;s Scores</h3>
+          <span className={styles.title}>Today&apos;s Scores</span>
           <div className={styles.sourceBadges}>
             <SourceBadge source={source} />
             {showOdds && games.some(hasOdds) && <SourceBadge source="Odds API" />}
           </div>
         </div>
       )}
-      <div className={`${styles.table} ${compact ? styles.tableCompact : styles.tableFull} ${!showOdds ? styles.tableNoOdds : ''}`}>
-        <div className={`${styles.row} ${styles.rowHeader}`}>
-          <span className={styles.colMatchup}>Matchup</span>
-          <span className={styles.colScore}>Score</span>
-          {showOdds && <span className={styles.colOdds}>Spread / O/U</span>}
-          <span className={styles.colStatus}>Status</span>
-          {!compact && <span className={styles.colTime}>Start</span>}
-        </div>
+
+      <div className={styles.gameList}>
         {games.map((g) => {
           const live = isLive(g.gameStatus);
+          const finished = isFinal(g.gameStatus);
           const awaySlug = getTeamSlug(g.awayTeam);
           const homeSlug = getTeamSlug(g.homeTeam);
           const awayRank = awaySlug ? rankMap[awaySlug] : null;
           const homeRank = homeSlug ? rankMap[homeSlug] : null;
+
+          const awayScoreNum = parseInt(g.awayScore, 10);
+          const homeScoreNum = parseInt(g.homeScore, 10);
+          const hasScore = !isNaN(awayScoreNum) && !isNaN(homeScoreNum);
+          const awayWon = finished && hasScore && awayScoreNum > homeScoreNum;
+          const homeWon = finished && hasScore && homeScoreNum > awayScoreNum;
+
+          const awayTeamObj = { slug: awaySlug, name: g.awayTeam };
+          const homeTeamObj = { slug: homeSlug, name: g.homeTeam };
+
+          const awayTier = getOddsTier(g.awayTeam);
+          const homeTier = getOddsTier(g.homeTeam);
+
           return (
-            <div
-              key={g.gameId}
-              className={`${styles.row} ${live ? styles.rowLive : ''}`}
-            >
-              <span className={styles.colMatchup}>
-                <span className={styles.teamCell}>
+            <div key={g.gameId} className={`${styles.gameCard} ${live ? styles.gameCardLive : ''}`}>
+              {/* Away team row */}
+              <div className={`${styles.teamRow} ${awayWon ? styles.teamRowWinner : ''} ${finished && !awayWon ? styles.teamRowLoser : ''}`}>
+                <span className={styles.teamLogoWrap}>
+                  <TeamLogo team={awayTeamObj} size={24} />
+                </span>
+                <span className={styles.teamInfo}>
                   {awayRank != null && <span className={styles.rank}>#{awayRank}</span>}
                   {awaySlug ? (
-                    <Link to={`/teams/${awaySlug}`} className={styles.teamLink}>{g.awayTeam}</Link>
+                    <Link to={`/teams/${awaySlug}`} className={styles.teamName}>{g.awayTeam}</Link>
                   ) : (
-                    <span>{g.awayTeam}</span>
+                    <span className={styles.teamName}>{g.awayTeam}</span>
                   )}
-                  {getOddsTier(g.awayTeam) ? (
-                    <span className={`${styles.tierBadge} ${styles[`tier${String(getOddsTier(g.awayTeam)).replace(/\s/g, '')}`]}`}>
-                      {getOddsTier(g.awayTeam)}
+                  {awayTier && (
+                    <span className={`${styles.tierBadge} ${styles[`tier--${awayTier.replace(/\s/g, '')}`]}`}>
+                      {awayTier}
                     </span>
-                  ) : (
-                    <span className={styles.tierNa}>N/A</span>
                   )}
                 </span>
-                <span className={styles.at}> @ </span>
-                <span className={styles.teamCell}>
+                <span className={`${styles.teamScore} ${awayWon ? styles.scoreWinner : ''}`}>
+                  {hasScore ? awayScoreNum : '—'}
+                </span>
+              </div>
+
+              {/* Home team row */}
+              <div className={`${styles.teamRow} ${homeWon ? styles.teamRowWinner : ''} ${finished && !homeWon ? styles.teamRowLoser : ''}`}>
+                <span className={styles.teamLogoWrap}>
+                  <TeamLogo team={homeTeamObj} size={24} />
+                </span>
+                <span className={styles.teamInfo}>
                   {homeRank != null && <span className={styles.rank}>#{homeRank}</span>}
                   {homeSlug ? (
-                    <Link to={`/teams/${homeSlug}`} className={styles.teamLink}>{g.homeTeam}</Link>
+                    <Link to={`/teams/${homeSlug}`} className={styles.teamName}>{g.homeTeam}</Link>
                   ) : (
-                    <span>{g.homeTeam}</span>
+                    <span className={styles.teamName}>{g.homeTeam}</span>
                   )}
-                  {getOddsTier(g.homeTeam) ? (
-                    <span className={`${styles.tierBadge} ${styles[`tier${String(getOddsTier(g.homeTeam)).replace(/\s/g, '')}`]}`}>
-                      {getOddsTier(g.homeTeam)}
+                  {homeTier && (
+                    <span className={`${styles.tierBadge} ${styles[`tier--${homeTier.replace(/\s/g, '')}`]}`}>
+                      {homeTier}
                     </span>
-                  ) : (
-                    <span className={styles.tierNa}>N/A</span>
                   )}
                 </span>
-              </span>
-              <span className={styles.colScore}>
-                {g.awayScore != null && g.homeScore != null ? (
-                  <span className={styles.scores}>
-                    {g.awayScore} – {g.homeScore}
-                  </span>
-                ) : (
-                  <span className={styles.tbd}>—</span>
+                <span className={`${styles.teamScore} ${homeWon ? styles.scoreWinner : ''}`}>
+                  {hasScore ? homeScoreNum : '—'}
+                </span>
+              </div>
+
+              {/* Game footer: status + odds */}
+              <div className={styles.gameFooter}>
+                <StatusBadge status={g.gameStatus} />
+                {!compact && !finished && g.startTime && (
+                  <span className={styles.gameTime}>{formatStartTime(g.startTime)}</span>
                 )}
-              </span>
-              {showOdds && (
-                <span className={styles.colOdds}>
-                  {hasOdds(g) ? (
-                    <span className={styles.oddsText}>
-                      {g.spread ?? '—'} / {g.total != null ? `O/U ${g.total}` : '—'}
-                    </span>
-                  ) : (
-                    <span className={styles.tbd}>—</span>
-                  )}
-                </span>
-              )}
-              <span className={styles.colStatus}>
-                <span className={live ? styles.statusLive : ''}>{g.gameStatus}</span>
-                {live && <span className={styles.dot} />}
-              </span>
-              {!compact && (
-                <span className={styles.colTime}>
-                  {formatStartTime(g.startTime)}
-                </span>
-              )}
+                {showOdds && hasOdds(g) && (
+                  <span className={styles.oddsText}>
+                    {g.spread != null ? `${g.spread > 0 ? '+' : ''}${g.spread}` : ''}{g.spread != null && g.total != null ? ' · ' : ''}{g.total != null ? `O/U ${g.total}` : ''}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
+
       {oddsMessage && showOdds && (
         <p className={styles.oddsMessage}>{oddsMessage}</p>
       )}

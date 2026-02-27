@@ -7,20 +7,21 @@
 .banner {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   background: var(--color-bg-elevated);
-  border: var(--card-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(60, 121, 180, 0.06);
+  padding: 14px var(--space-lg);
   margin-bottom: var(--space-xl);
 }
 
 .bannerMascot {
   flex-shrink: 0;
-  height: 120px;
+  height: 100px;
   width: auto;
   object-fit: contain;
+  opacity: 0.92;
 }
 
 .bannerContent {
@@ -28,7 +29,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 6px;
 }
 
 .bannerStaticWelcome {
@@ -397,13 +398,13 @@
 }
 
 .sectionTitle {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--color-primary);
+  border-bottom: 1px solid var(--color-border-light);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
 }
 

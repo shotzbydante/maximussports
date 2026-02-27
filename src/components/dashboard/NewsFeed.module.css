@@ -1,16 +1,10 @@
+/* Premium intelligence news feed */
 .widget {
   background: var(--color-bg-elevated);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
+  border-radius: 10px;
   border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-card);
-}
-
-.sourceLegend {
-  font-size: 0.6rem;
-  color: var(--color-text-muted);
-  margin: -var(--space-sm) 0 var(--space-sm);
-  padding: 0 var(--space-md);
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+  overflow: hidden;
 }
 
 .widgetHeader {
@@ -18,98 +12,158 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
+  padding: 14px var(--space-md) 10px;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .title {
-  font-size: 1rem;
-  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
 }
 
+.sourceLegend {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}
+
+/* News list */
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
 }
 
 .item {
-  padding-bottom: var(--space-md);
+  padding: 11px var(--space-md);
   border-bottom: 1px solid var(--color-border-light);
+  cursor: default;
+  transition: background 0.1s;
 }
 
 .item:last-child {
-  padding-bottom: 0;
   border-bottom: none;
 }
 
-.itemHeader {
+.item:hover {
+  background: rgba(60, 121, 180, 0.025);
+}
+
+/* Meta row: source badge + timestamp */
+.itemMeta {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
+  gap: 6px;
+  margin-bottom: 5px;
 }
 
-.sentiment {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.sentiment.positive {
-  background: var(--color-up);
-}
-
-.sentiment.negative {
-  background: var(--color-down);
-}
-
-.sentiment.neutral {
-  background: var(--color-text-muted);
-}
-
-.source {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
+.sourceBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
 }
 
 .time {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--color-text-muted);
   margin-left: auto;
+  white-space: nowrap;
+  font-family: var(--font-mono);
 }
 
+/* Headline */
 .headline {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--color-text);
-  margin: 0 0 var(--space-xs);
-  line-height: 1.3;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.headline .link {
+.link {
   color: inherit;
   text-decoration: none;
 }
 
-.headline .link:hover {
+.link:hover {
   color: var(--color-primary);
 }
 
 .excerpt {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
-  margin: 0;
+  margin: 4px 0 0;
   line-height: 1.4;
 }
 
+/* Empty / fallback */
 .empty {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
+  padding: var(--space-md);
   margin: 0;
+}
+
+/* Loading skeleton */
+.loadingList {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonItem {
+  padding: 11px var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeletonItem:last-child {
+  border-bottom: none;
+}
+
+.skeletonBadge {
+  height: 14px;
+  width: 52px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--color-border-light) 0%, var(--color-bg-muted) 50%, var(--color-border-light) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+
+.skeletonLine {
+  height: 13px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-border-light) 0%, var(--color-bg-muted) 50%, var(--color-border-light) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .item {
+    padding: 9px var(--space-sm);
+  }
+
+  .headline {
+    font-size: 0.825rem;
+  }
 }
