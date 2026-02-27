@@ -1,21 +1,27 @@
 /**
  * GET /api/ats/leaders?window=last30|last7|season
- * KV-only: return immediately. If stale > 30m, return stale data and trigger background refresh (never downgrade to empty).
- * When KV missing, return warming payload with nextAction and refreshEndpoint; fire-and-forget refresh via getOriginFromReq.
+ * Three-tier KV read — never returns missing when any cached data exists.
+ * (1) fresh KV hit  => leaders + meta.source='kv_fresh' | 'kv_stale'
+ * (2) lastKnown hit => leaders + meta.source='kv_last_known' + atsStatus='stale'
+ * (3) else          => empty + atsStatus='missing' + kicks background refresh
  */
 
 import { getJson, getWithMeta, getAtsLeadersKeyForWindow, getAtsLeadersLastKnownKeyForWindow } from '../../_globalCache.js';
 import { getQueryParam, getOriginFromReq } from '../../_requestUrl.js';
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
-const STALE_30M_SEC = 30 * 60;
+const STALE_KICK_SEC = 30 * 60; // kick refresh after 30 min
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
-function kickRefresh(origin, window) {
+function hasData(leaders) {
+  return Array.isArray(leaders?.best) && leaders.best.length > 0
+    || Array.isArray(leaders?.worst) && leaders.worst.length > 0;
+}
+
+function kickRefresh(origin, win) {
   if (!origin || typeof origin !== 'string') return;
   try {
-    const url = `${origin.replace(/\/$/, '')}/api/ats/refresh?window=${window}`;
-    fetch(url, { method: 'POST' }).catch(() => {});
+    fetch(`${origin.replace(/\/$/, '')}/api/ats/refresh?window=${win}`, { method: 'POST' }).catch(() => {});
   } catch (_) {}
 }
 
@@ -28,102 +34,63 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const windowParam = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
-  const window = VALID_WINDOWS.includes(windowParam) ? windowParam : 'last30';
-  if (isDev) console.log('[api/ats/leaders] parsed', { window });
-  const key = getAtsLeadersKeyForWindow(window);
-  const lastKnownKey = getAtsLeadersLastKnownKeyForWindow(window);
+  const win = VALID_WINDOWS.includes(windowParam) ? windowParam : 'last30';
+  const key = getAtsLeadersKeyForWindow(win);
+  const lastKnownKey = getAtsLeadersLastKnownKeyForWindow(win);
+  const origin = getOriginFromReq(req);
 
-  const meta = await getWithMeta(key);
-  if (meta?.value) {
-    const ageSeconds = meta.ageSeconds;
-    const hasAge = ageSeconds != null;
-    const source = meta.stale ? 'kv_stale' : 'kv_hit';
-    const isOld = hasAge && ageSeconds > STALE_30M_SEC;
+  // ── Tier 1: fresh KV ─────────────────────────────────────────────────────
+  const kvEntry = await getWithMeta(key);
+  if (kvEntry?.value && hasData(kvEntry.value.atsLeaders)) {
+    const ageSec = kvEntry.ageSeconds;
+    const source = kvEntry.stale ? 'kv_stale' : 'kv_fresh';
+    const isOld = ageSec != null && ageSec > STALE_KICK_SEC;
     const atsMeta = {
-      ...(meta.value.atsMeta ?? {}),
+      ...(kvEntry.value.atsMeta ?? {}),
       source,
       stage: source,
-      ...(hasAge && { cacheAgeSec: ageSeconds }),
-      ...(!hasAge && { confidence: 'low', reason: 'unknown_age' }),
-      ...(isOld && { confidence: 'low', reason: 'stale' }),
+      ...(ageSec != null ? { cacheAgeSec: ageSec } : { confidence: 'low', reason: 'unknown_age' }),
+      ...(isOld ? { confidence: 'low', reason: 'stale' } : {}),
     };
-    if (isDev) console.log('[ats] leaders kv_hit', { window, age: ageSeconds, stale: meta.stale });
-    const origin = getOriginFromReq(req);
-    if (isOld && origin) {
-      if (isDev) console.log('[api/ats/leaders] refresh kick (stale)', { origin, window });
-      kickRefresh(origin, window);
-    }
-    const atsMetaOut = { ...atsMeta };
-    if (isOld && origin) atsMetaOut.kickedBy = 'server';
+    if (isOld && origin) kickRefresh(origin, win);
+    if (isDev) console.log('[ats/leaders]', { win, source, leaders: (kvEntry.value.atsLeaders?.best?.length ?? 0) + (kvEntry.value.atsLeaders?.worst?.length ?? 0), ageSec, status: atsMeta.status });
     return res.status(200).json({
-      atsLeaders: meta.value.atsLeaders ?? { best: [], worst: [] },
-      atsMeta: atsMetaOut,
-      atsWindow: window,
-      seasonWarming: meta.value.seasonWarming ?? false,
-      atsStatus: meta.stale ? 'stale' : 'fresh',
+      atsLeaders: kvEntry.value.atsLeaders ?? { best: [], worst: [] },
+      atsMeta: { ...atsMeta, ...(isOld && origin ? { kickedBy: 'server' } : {}) },
+      atsWindow: win,
+      seasonWarming: kvEntry.value.seasonWarming ?? false,
+      atsStatus: kvEntry.stale ? 'stale' : 'fresh',
     });
   }
 
-  const raw = await getJson(key);
-  if (raw && (raw.atsLeaders?.best?.length || raw.atsLeaders?.worst?.length)) {
-    const generatedAt = raw.atsMeta?.generatedAt;
-    const ageSeconds = generatedAt != null
-      ? Math.floor((Date.now() - new Date(generatedAt).getTime()) / 1000)
-      : null;
-    const hasAge = ageSeconds != null;
-    const isOld = hasAge && ageSeconds > STALE_30M_SEC;
-    if (isDev) console.log('[ats] leaders kv_hit (raw)', { window, age: ageSeconds });
-    return res.status(200).json({
-      atsLeaders: raw.atsLeaders,
-      atsMeta: {
-        ...(raw.atsMeta ?? {}),
-        source: 'kv_hit',
-        stage: 'kv_hit',
-        ...(hasAge && { cacheAgeSec: ageSeconds }),
-        ...(!hasAge && { confidence: 'low', reason: 'unknown_age' }),
-        ...(isOld && { confidence: 'low', reason: 'stale' }),
-      },
-      atsWindow: window,
-      seasonWarming: raw.seasonWarming ?? false,
-      atsStatus: isOld ? 'stale' : 'fresh',
-    });
-  }
-
-  // Fall back to long-lived last-known KV when the primary key is missing.
-  const lastKnownMeta = await getWithMeta(lastKnownKey);
-  if (lastKnownMeta?.value && (lastKnownMeta.value.atsLeaders?.best?.length || lastKnownMeta.value.atsLeaders?.worst?.length)) {
-    const ageSeconds = lastKnownMeta.ageSeconds;
-    const hasAge = ageSeconds != null;
-    const origin = getOriginFromReq(req);
-    const isOld = hasAge && ageSeconds > STALE_30M_SEC;
-    if (isDev) console.log('[ats] leaders lastKnown hit', { window, age: ageSeconds });
-    if (isOld && origin) {
-      if (isDev) console.log('[api/ats/leaders] refresh kick (lastKnown)', { origin, window });
-      kickRefresh(origin, window);
-    }
+  // ── Tier 2: lastKnown KV ──────────────────────────────────────────────────
+  const lastKnownEntry = await getWithMeta(lastKnownKey);
+  if (lastKnownEntry?.value && hasData(lastKnownEntry.value.atsLeaders)) {
+    const ageSec = lastKnownEntry.ageSeconds;
+    const isOld = ageSec != null && ageSec > STALE_KICK_SEC;
+    if (isOld && origin) kickRefresh(origin, win);
     const atsMeta = {
-      ...(lastKnownMeta.value.atsMeta ?? {}),
+      ...(lastKnownEntry.value.atsMeta ?? {}),
       source: 'kv_last_known',
       stage: 'kv_last_known',
+      status: lastKnownEntry.value.atsMeta?.status ?? 'FALLBACK',
       reason: 'last_known_fallback',
-      ...(hasAge && { cacheAgeSec: ageSeconds, staleAgeSec: ageSeconds }),
-      ...(!hasAge && { confidence: 'low' }),
+      confidence: lastKnownEntry.value.atsMeta?.confidence ?? 'low',
+      ...(ageSec != null ? { cacheAgeSec: ageSec, staleAgeSec: ageSec } : {}),
     };
+    if (isDev) console.log('[ats/leaders]', { win, source: 'kv_last_known', leaders: (lastKnownEntry.value.atsLeaders?.best?.length ?? 0) + (lastKnownEntry.value.atsLeaders?.worst?.length ?? 0), ageSec, status: atsMeta.status });
     return res.status(200).json({
-      atsLeaders: lastKnownMeta.value.atsLeaders ?? { best: [], worst: [] },
+      atsLeaders: lastKnownEntry.value.atsLeaders ?? { best: [], worst: [] },
       atsMeta,
-      atsWindow: window,
-      seasonWarming: lastKnownMeta.value.seasonWarming ?? false,
+      atsWindow: win,
+      seasonWarming: lastKnownEntry.value.seasonWarming ?? false,
       atsStatus: 'stale',
     });
   }
 
-  if (isDev) console.log('[ats] leaders warming', { window });
-  const origin = getOriginFromReq(req);
-  if (origin) {
-    if (isDev) console.log('[api/ats/leaders] refresh kick (missing)', { origin, window });
-    kickRefresh(origin, window);
-  }
+  // ── Tier 3: missing — kick refresh ───────────────────────────────────────
+  if (origin) kickRefresh(origin, win);
+  if (isDev) console.log('[ats/leaders]', { win, source: 'empty', status: 'missing' });
   return res.status(200).json({
     atsLeaders: { best: [], worst: [] },
     atsMeta: {
@@ -135,10 +102,10 @@ export default async function handler(req, res) {
       source: 'empty',
       stage: 'empty',
       nextAction: 'refresh',
-      refreshEndpoint: `/api/ats/refresh?window=${window}`,
-      kickedBy: 'server',
+      refreshEndpoint: `/api/ats/refresh?window=${win}`,
+      kickedBy: origin ? 'server' : 'none',
     },
-    atsWindow: window,
+    atsWindow: win,
     seasonWarming: false,
     atsStatus: 'missing',
   });

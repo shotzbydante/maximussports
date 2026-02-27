@@ -4,6 +4,7 @@
  * Returns a string with **bold** and *italic*; use FormattedSummary for React.
  */
 
+// Approved brand-safe quote set — do not add profanity or unapproved quotes.
 const QUOTES = {
   energy: [
     'Boo-yah!',
@@ -16,16 +17,14 @@ const QUOTES = {
   motivation: [
     "Clear eyes, full hearts, can't lose!",
     'Juuuuuuuuust a bit outside.',
-    'If you put your effort and concentration into playing to your potential...',
-    "Ducks fly together!",
-    "Show me the money!",
+    'Ducks fly together!',
+    'Show me the money!',
   ],
   humor: [
     'Google me, Chuck!',
     'Rings, Erneh!',
     "That's turrible.",
-    "Are you too good for your home?! Answer me!",
-    "Stay humble. Stay hungry.",
+    'Are you too good for your home?! Answer me!',
   ],
 };
 

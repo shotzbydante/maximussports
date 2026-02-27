@@ -1,24 +1,50 @@
 /**
  * GET /api/chat/homeSummary?force=0|1
  * Three-tier KV cache for AI-generated home briefings.
- * fresh KV (15 min) → lastKnown KV (72 h) → generate inline (force=1) or kick background.
- * Background generation: fire-and-forget GET ?force=1&bg=1 from the stale/missing path.
- * Never blocks the caller on generation unless force=1 is explicitly passed.
+ * fresh KV (15 min) → lastKnown KV (72 h) → generate inline (force=1) or kick bg.
+ * Rate limiting: forceLock (45 s) prevents OpenAI stampedes on force=1.
+ * genLock (90 s) prevents concurrent bg generation.
+ * No self-HTTP calls — uses buildHomeSummaryData() directly.
  */
 
-import { getJson, setJson } from '../_globalCache.js';
-import { getOriginFromReq, getQueryParam } from '../_requestUrl.js';
+import { getJson, setJson, tryAcquireLock } from '../_globalCache.js';
+import { getQueryParam } from '../_requestUrl.js';
+import { buildHomeSummaryData } from '../_lib/homeData.js';
 
-const FRESH_KEY = 'chat:home:summary:v1';
-const LASTKNOWN_KEY = 'chat:home:lastKnown:v1';
-const FRESH_TTL_SEC = 15 * 60;        // 15 min
-const LASTKNOWN_TTL_SEC = 72 * 3600;  // 72 hours
-const OPENAI_MODEL = 'gpt-4o-mini';
-const MAX_TOKENS = 520;
-const FETCH_TIMEOUT_MS = 5000;
-const OPENAI_TIMEOUT_MS = 25000;
+const FRESH_KEY      = 'chat:home:summary:v1';
+const LASTKNOWN_KEY  = 'chat:home:lastKnown:v1';
+const GEN_LOCK_KEY   = 'chat:home:genLock';
+const FORCE_LOCK_KEY = 'chat:home:forceLock';
+
+const FRESH_TTL_SEC      = 15 * 60;       // 15 min
+const LASTKNOWN_TTL_SEC  = 72 * 3600;     // 72 h
+const GEN_LOCK_TTL_SEC   = 90;
+const FORCE_LOCK_TTL_SEC = 45;
+
+const OPENAI_MODEL    = 'gpt-4o-mini';
+const MAX_TOKENS      = 850;
+const TEMPERATURE     = 0.5;
+const OPENAI_TIMEOUT  = 28000;
 
 const isDev = process.env.NODE_ENV !== 'production';
+
+// ── Approved quote set ────────────────────────────────────────────────────────
+const APPROVED_QUOTES = [
+  'Boo-yah!',
+  "It's awesome, baby!",
+  'As cool as the other side of the pillow',
+  'En fuego',
+  'A little dipsy-doo, dunk-a-roo!',
+  'Diaper Dandy',
+  "Clear eyes, full hearts, can't lose!",
+  'Juuuuuuuuust a bit outside.',
+  'Ducks fly together!',
+  'Show me the money!',
+  'Google me, Chuck!',
+  'Rings, Erneh!',
+  "That's turrible.",
+  'Are you too good for your home?! Answer me!',
+].join(' | ');
 
 function getPstDate() {
   return new Date().toLocaleString('en-US', {
@@ -27,173 +53,171 @@ function getPstDate() {
   });
 }
 
-async function fetchJsonSafe(url) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const r = await fetch(url, { signal: controller.signal });
-    clearTimeout(t);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
-  } catch (err) {
-    clearTimeout(t);
-    if (isDev) console.warn('[chat/homeSummary] fetchJsonSafe failed', url, err?.message);
-    return null;
-  }
+function impliedPct(american) {
+  if (american == null) return null;
+  const p = american < 0 ? (-american) / ((-american) + 100) : 100 / (american + 100);
+  return Math.round(p * 1000) / 10;
 }
 
-async function gatherHomeData(origin) {
-  const [fastResult, atsResult, oddsResult] = await Promise.allSettled([
-    fetchJsonSafe(`${origin}/api/home/fast`),
-    fetchJsonSafe(`${origin}/api/ats/leaders?window=last30`),
-    fetchJsonSafe(`${origin}/api/odds/championship`),
-  ]);
+function buildPayload(data) {
+  const {
+    yesterdayGames, todayGames, tomorrowGames,
+    rankings, headlines, atsLeaders, atsMeta, atsWindow, championshipOdds,
+  } = data;
 
-  const fast = fastResult.status === 'fulfilled' && fastResult.value ? fastResult.value : {};
-  const ats = atsResult.status === 'fulfilled' && atsResult.value ? atsResult.value : {};
-  const odds = oddsResult.status === 'fulfilled' && oddsResult.value ? oddsResult.value : {};
+  // Top 10 rankings
+  const rankingsTop10 = rankings.slice(0, 10).map((r) => ({
+    rank: r.rank ?? null,
+    team: r.teamName || r.name || '',
+  }));
 
-  const allGames = fast.scoresToday ?? [];
-  const recentGames = allGames.filter((g) => {
-    const s = (g.gameStatus || '').toLowerCase();
-    return s === 'final' || s.includes('final');
+  // Yesterday games: top 5 marquee (sorted by rank involvement)
+  const yesterdayTop5 = yesterdayGames.slice(0, 5).map((g) => {
+    const hs = parseInt(g.homeScore, 10);
+    const as = parseInt(g.awayScore, 10);
+    const homeWon = !isNaN(hs) && !isNaN(as) && hs > as;
+    return {
+      away: g.awayTeam || '',
+      home: g.homeTeam || '',
+      awayScore: isNaN(as) ? null : as,
+      homeScore: isNaN(hs) ? null : hs,
+      winner: homeWon ? (g.homeTeam || '') : (g.awayTeam || ''),
+      loser: homeWon ? (g.awayTeam || '') : (g.homeTeam || ''),
+    };
   });
-  const upcomingGames = allGames.filter((g) => {
-    const s = (g.gameStatus || '').toLowerCase();
-    return !(s === 'final' || s.includes('final'));
-  });
+
+  // Today games: top 3
+  const todayTop3 = todayGames.slice(0, 3).map((g) => ({
+    away: g.awayTeam || '',
+    home: g.homeTeam || '',
+    spread: g.spread ?? null,
+    status: g.gameStatus || 'Upcoming',
+  }));
+
+  // Tomorrow: top 3 (may be empty — ESPN doesn't always have it)
+  const tomorrowTop3 = (tomorrowGames || []).slice(0, 3).map((g) => ({
+    away: g.awayTeam || '',
+    home: g.homeTeam || '',
+    spread: g.spread ?? null,
+    status: g.gameStatus || 'Upcoming',
+  }));
+
+  // Championship odds: top 6 (best implied %)
+  const champEntries = Object.entries(championshipOdds)
+    .filter(([, v]) => v?.bestChanceAmerican != null || v?.american != null)
+    .map(([slug, v]) => {
+      const o = v.bestChanceAmerican ?? v.american;
+      return { team: slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' '), odds: o, impliedPct: impliedPct(o) };
+    })
+    .sort((a, b) => (b.impliedPct ?? 0) - (a.impliedPct ?? 0))
+    .slice(0, 6);
+
+  // ATS leaders: best 3 + worst 3
+  const hasAts = Array.isArray(atsLeaders?.best) && atsLeaders.best.length > 0;
+  const atsBest3 = hasAts ? atsLeaders.best.slice(0, 3).map((r) => {
+    const rec = r.rec || r[atsWindow] || r.season || r.last30;
+    return {
+      team: r.name || r.slug,
+      wl: rec ? `${rec.w ?? 0}-${rec.l ?? 0}` : null,
+      coverPct: rec?.coverPct ?? null,
+    };
+  }) : [];
+  const atsWorst3 = hasAts ? atsLeaders.worst.slice(0, 3).map((r) => {
+    const rec = r.rec || r[atsWindow] || r.season || r.last30;
+    return {
+      team: r.name || r.slug,
+      wl: rec ? `${rec.w ?? 0}-${rec.l ?? 0}` : null,
+      coverPct: rec?.coverPct ?? null,
+    };
+  }) : [];
+
+  // Headlines: top 5
+  const headlinesTop5 = headlines.slice(0, 5).map((h) => ({
+    title: h.title || '',
+    source: h.source || 'News',
+    publishedAt: h.pubDate || null,
+  }));
+
+  const atsConfidence = atsMeta?.confidence ?? 'low';
+  const atsStatus = atsMeta?.status ?? (hasAts ? 'FULL' : 'EMPTY');
+  const atsWindowPhrase = atsWindow === 'last7' ? 'last 7 days' : atsWindow === 'season' ? 'this season' : 'last 30 days';
 
   return {
-    recentGames,
-    upcomingGames,
-    rankings: fast.rankings?.rankings ?? fast.rankingsTop25 ?? [],
-    headlines: fast.headlines ?? [],
-    atsLeaders: ats.atsLeaders ?? { best: [], worst: [] },
-    atsMeta: ats.atsMeta ?? null,
-    atsWindow: ats.atsWindow ?? 'last30',
-    championshipOdds: odds.odds ?? {},
+    payload: {
+      dateNow: getPstDate(),
+      timezone: 'America/Los_Angeles',
+      rankings: rankingsTop10,
+      yesterdayGames: yesterdayTop5,
+      todayGames: todayTop3,
+      tomorrowGames: tomorrowTop3,
+      champOdds: champEntries,
+      atsLeaders: {
+        window: atsWindowPhrase,
+        confidence: atsConfidence,
+        status: atsStatus,
+        best3: atsBest3,
+        worst3: atsWorst3,
+      },
+      headlines: headlinesTop5,
+    },
+    meta: { hasAts, atsStatus, atsConfidence, atsWindowPhrase },
   };
 }
 
 function buildPrompt(data) {
-  const { recentGames, upcomingGames, rankings, headlines, atsLeaders, atsMeta, atsWindow, championshipOdds } = data;
-  const atsStatus = atsMeta?.status ?? (atsLeaders.best.length || atsLeaders.worst.length ? 'FULL' : null);
-  const atsConfidence = atsMeta?.confidence ?? 'low';
-  const hasAts = atsLeaders.best.length > 0 || atsLeaders.worst.length > 0;
+  const { payload, meta } = buildPayload(data);
+  const { hasAts, atsStatus, atsConfidence, atsWindowPhrase } = meta;
 
-  const recLines = recentGames.slice(0, 10).map((g) => {
-    const away = g.awayTeam || 'Away';
-    const home = g.homeTeam || 'Home';
-    const score = (g.awayScore != null && g.homeScore != null) ? `${g.awayScore}–${g.homeScore}` : 'score TBD';
-    return `${away} @ ${home}: ${score} (Final)`;
-  }).join('\n') || 'No completed games in data.';
-
-  const upLines = upcomingGames.slice(0, 8).map((g) => {
-    const spread = g.spread != null ? ` — spread: ${g.spread}` : '';
-    return `${g.awayTeam || ''} @ ${g.homeTeam || ''}${spread} (${g.gameStatus || 'Upcoming'})`;
-  }).join('\n') || 'None listed.';
-
-  const top25List = rankings.slice(0, 10).map((r, i) => `#${r.rank ?? i + 1} ${r.teamName || r.name || ''}`).join(', ') || 'Not available.';
-
-  const atsBestLines = atsLeaders.best.slice(0, 5).map((r, i) => {
-    const rec = r.rec || r[atsWindow] || r.season || r.last30;
-    const wl = rec ? `${rec.w ?? 0}-${rec.l ?? 0}` : '';
-    const pct = rec?.coverPct != null ? ` (${rec.coverPct}% cover)` : '';
-    return `${i + 1}. ${r.name || r.slug} ${wl}${pct}`;
-  }).join('\n') || 'Not available.';
-
-  const atsWorstLines = atsLeaders.worst.slice(0, 5).map((r, i) => {
-    const rec = r.rec || r[atsWindow] || r.season || r.last30;
-    const wl = rec ? `${rec.w ?? 0}-${rec.l ?? 0}` : '';
-    return `${i + 1}. ${r.name || r.slug} ${wl}`;
-  }).join('\n') || 'Not available.';
-
-  const oddsEntries = Object.entries(championshipOdds)
-    .filter(([, v]) => v?.bestChanceAmerican != null || v?.american != null)
-    .sort((a, b) => (a[1].bestChanceAmerican ?? a[1].american ?? 9999) - (b[1].bestChanceAmerican ?? b[1].american ?? 9999))
-    .slice(0, 6);
-  const oddsLines = oddsEntries.length
-    ? oddsEntries.map(([slug, v]) => {
-        const name = slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        const o = v.bestChanceAmerican ?? v.american;
-        return `${name}: ${o > 0 ? '+' : ''}${o}`;
-      }).join(', ')
-    : 'Not available.';
-
-  const headlineLines = headlines.slice(0, 6).map((h) => `- ${h.title || ''} (${h.source || 'News'})`).join('\n') || 'No headlines.';
-
-  const atsQualifier = !hasAts
-    ? 'No ATS data available — skip the ATS section or note it is still loading.'
+  const atsInstruction = !hasAts
+    ? 'ATS data is not yet available — briefly note it is loading; skip ATS details.'
     : atsStatus === 'FULL'
-      ? 'ATS leaderboard is full-league data (high confidence). Mention ATS leaders definitively.'
+      ? `ATS data is full-league (high confidence). Mention both best and worst ATS teams for "${atsWindowPhrase}" using bettor language.`
       : atsConfidence === 'medium'
-        ? 'ATS data is from a partial source (medium confidence). Be assertive but note partial data.'
-        : 'ATS data is an early signal (low confidence). Qualify as "early signal" when mentioning.';
+        ? `ATS data is partial (medium confidence). Mention leading covers for "${atsWindowPhrase}" with a note it's partial data.`
+        : `ATS data is an early signal (low confidence). Frame it as "early read" on the number for "${atsWindowPhrase}".`;
 
-  const atsWindowPhrase = atsWindow === 'last7' ? 'over the last 7 days' : atsWindow === 'season' ? 'this season' : 'over the last 30 days';
+  const systemPrompt = `You are a witty, energetic college basketball host for Maximus Sports — think SportsCenter energy meets sharp bettor intel.
 
-  const systemPrompt = `You are a witty, energetic college basketball host for Maximus Sports — think SportsCenter energy. Write a home-page daily briefing using ONLY the structured data provided. Do NOT invent scores, teams, odds, or facts. If a data section is empty or missing, briefly note it's unavailable and move on.
+Write a home-page daily briefing using ONLY the JSON data provided. DO NOT invent any scores, teams, odds, players, or facts not present in the data.
 
-FORMAT — 5 flowing paragraphs (no section headers, no bullet lists):
-1. Yesterday recap: 3–5 marquee completed games — winner, loser, final score. Be specific.
-2. Championship odds pulse: 2–3 teams from yesterday's games + their current title odds. ONE clean, brief quote only if it fits naturally (SportsCenter energy or light movie motivation — zero profanity).
-3. Today + tomorrow slate: 1–3 matchups per bucket; mention spread when available.
-4. News pulse: 2–3 headlines, light humor, let your personality show.
-5. What to watch next: 1–2 punchy closing lines.
+FORMAT — exactly 5 short paragraphs (no headers, no bullet lists, no numbered sections):
+
+¶1 YESTERDAY RECAP: Mention 3–5 completed games from yesterdayGames. State the winner, loser, and final score for each. Be specific and punchy.
+
+¶2 ODDS PULSE: Reference 2–3 teams from yesterday + their championship odds from champOdds (impliedPct shows probability). Include ONE quote from the approved list only if it fits naturally — no forced quotes.
+
+¶3 TODAY + TOMORROW: Cover 1–3 matchups each from todayGames and tomorrowGames. Mention spreads when present.
+
+¶4 ATS SPOTLIGHT: ${atsInstruction}. Use bettor language: "covering the number", "beating the spread", "market hasn't caught up", "sharp money". Include cover % when available.
+
+¶5 NEWS PULSE + CLOSER: 2–3 headlines from headlines[]. Light humor, personality. End with a punchy "what to watch" closer.
 
 STYLE RULES:
-- 180–320 words total.
-- Bold (using **text**) ONLY 1–2 team names or one key phrase per paragraph — not entire sentences.
-- Max 1 emoji per paragraph, drawn from: 🔥 😬 👀 🚨 🏆
-- Conversational, fun, no profanity.
-- ATS language: "covering the number", "beating the spread", "sharp money has noticed", "market hasn't caught up", "priced aggressively".
-- ATS qualifier: ${atsQualifier}
-- ATS window phrase to use: "${atsWindowPhrase}".`;
+- Target 200–300 words total (hard limit: 320 words).
+- Bold (**text**) ONLY 1–2 team names OR one key phrase per paragraph — never full sentences.
+- Max 1 emoji per paragraph from: 🔥 😬 👀 🚨 🏆
+- Zero profanity. Clean humor only.
+- APPROVED QUOTES (use at most ONE total, only if it fits): ${APPROVED_QUOTES}
+- NEVER use: "Stay humble. Stay hungry." or anything not in the approved list.
+- If a data section is empty, acknowledge it briefly and move on.`;
 
-  const userPrompt = `Today (PST): ${getPstDate()}
-
---- Top 10 rankings ---
-${top25List}
-
---- Recent completed games ---
-${recLines}
-
---- Upcoming games (today + tomorrow) ---
-${upLines}
-
---- Championship title odds ---
-${oddsLines}
-
---- ATS leaders (${atsWindow}) ---
-Best covers:
-${atsBestLines}
-
-Worst covers:
-${atsWorstLines}
-
---- Headlines ---
-${headlineLines}
-
-Write the briefing now. Follow the 5-paragraph format and style rules exactly.`;
+  const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 paragraphs, no headers.`;
 
   return { systemPrompt, userPrompt };
 }
 
 async function generateWithOpenAI(systemPrompt, userPrompt) {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
+  if (!apiKey?.trim()) {
     if (isDev) console.warn('[chat/homeSummary] OPENAI_API_KEY not set');
     return null;
   }
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+  const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
   try {
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: OPENAI_MODEL,
         messages: [
@@ -201,18 +225,18 @@ async function generateWithOpenAI(systemPrompt, userPrompt) {
           { role: 'user', content: userPrompt },
         ],
         max_tokens: MAX_TOKENS,
-        temperature: 0.5,
+        temperature: TEMPERATURE,
       }),
       signal: controller.signal,
     });
     clearTimeout(t);
     if (!r.ok) {
-      const errBody = await r.text().catch(() => '');
-      console.error('[chat/homeSummary] OpenAI error', r.status, errBody.slice(0, 200));
+      const body = await r.text().catch(() => '');
+      console.error('[chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
       return null;
     }
-    const data = await r.json();
-    return data?.choices?.[0]?.message?.content?.trim() || null;
+    const json = await r.json();
+    return json?.choices?.[0]?.message?.content?.trim() || null;
   } catch (err) {
     clearTimeout(t);
     console.error('[chat/homeSummary] OpenAI fetch error', err?.message);
@@ -220,11 +244,30 @@ async function generateWithOpenAI(systemPrompt, userPrompt) {
   }
 }
 
-function kickBackgroundGenerate(origin) {
-  if (!origin) return;
-  try {
-    fetch(`${origin}/api/chat/homeSummary?force=1&bg=1`).catch(() => {});
-  } catch (_) {}
+async function readCached() {
+  const fresh = await getJson(FRESH_KEY).catch(() => null);
+  if (fresh?.summary && fresh?.generatedAt) {
+    const ageMs = Date.now() - new Date(fresh.generatedAt).getTime();
+    if (ageMs < FRESH_TTL_SEC * 1000) return { summary: fresh.summary, status: 'fresh', generatedAt: fresh.generatedAt };
+  }
+  const lastKnown = await getJson(LASTKNOWN_KEY).catch(() => null);
+  if (lastKnown?.summary) return { summary: lastKnown.summary, status: 'stale', generatedAt: lastKnown.generatedAt };
+  return null;
+}
+
+async function generateAndCache() {
+  const data = await buildHomeSummaryData();
+  const { systemPrompt, userPrompt } = buildPrompt(data);
+  const summary = await generateWithOpenAI(systemPrompt, userPrompt);
+  if (summary) {
+    const payload = { summary, generatedAt: new Date().toISOString() };
+    await Promise.all([
+      setJson(FRESH_KEY, payload, { exSeconds: FRESH_TTL_SEC }),
+      setJson(LASTKNOWN_KEY, payload, { exSeconds: LASTKNOWN_TTL_SEC }),
+    ]).catch((e) => console.warn('[chat/homeSummary] KV write error', e?.message));
+    if (isDev) console.log('[chat/homeSummary] generated + wrote KV');
+  }
+  return summary;
 }
 
 export default async function handler(req, res) {
@@ -235,40 +278,40 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const force = getQueryParam(req, 'force') === '1';
-  const bg = getQueryParam(req, 'bg') === '1';
+  const bg    = getQueryParam(req, 'bg') === '1';
 
-  // ── Force-generate path (inline generation) ──────────────────────────────
+  // ── force=1: rate-limited inline generation ───────────────────────────────
   if (force) {
-    const origin = getOriginFromReq(req);
-    if (!origin) {
-      if (isDev) console.log('[chat/homeSummary] force=1 but origin unavailable');
-      return res.status(200).json({ summary: null, status: 'missing', reason: 'no_origin' });
+    // Rate limit force refresh: one per 45 s across all instances
+    const gotForceLock = await tryAcquireLock(FORCE_LOCK_KEY, FORCE_LOCK_TTL_SEC);
+    if (!gotForceLock) {
+      if (isDev) console.log('[chat/homeSummary] force rate-limited');
+      const cached = await readCached();
+      return res.status(200).json({
+        summary: cached?.summary ?? null,
+        status: cached?.status ?? 'missing',
+        generatedAt: cached?.generatedAt ?? null,
+        rateLimited: true,
+      });
     }
-    if (isDev) console.log('[chat/homeSummary] force=1, gathering data from', origin);
+    if (isDev) console.log('[chat/homeSummary] force=1, generating');
     let summary = null;
     try {
-      const pageData = await gatherHomeData(origin);
-      const { systemPrompt, userPrompt } = buildPrompt(pageData);
-      summary = await generateWithOpenAI(systemPrompt, userPrompt);
-      if (summary) {
-        const payload = { summary, generatedAt: new Date().toISOString() };
-        await Promise.all([
-          setJson(FRESH_KEY, payload, { exSeconds: FRESH_TTL_SEC }),
-          setJson(LASTKNOWN_KEY, payload, { exSeconds: LASTKNOWN_TTL_SEC }),
-        ]).catch((e) => console.warn('[chat/homeSummary] KV write error', e?.message));
-        if (isDev) console.log('[chat/homeSummary] generated + wrote KV');
-      }
+      summary = await generateAndCache();
     } catch (err) {
-      console.error('[chat/homeSummary] generate error', err?.message);
+      console.error('[chat/homeSummary] force generate error', err?.message);
     }
+    if (summary) return res.status(200).json({ summary, status: 'fresh', generatedAt: new Date().toISOString() });
+    // Generation failed — return whatever we have
+    const fallback = await readCached();
     return res.status(200).json({
-      summary: summary ?? null,
-      status: summary ? 'fresh' : 'missing',
-      generatedAt: summary ? new Date().toISOString() : null,
+      summary: fallback?.summary ?? null,
+      status: fallback?.status ?? 'missing',
+      generatedAt: fallback?.generatedAt ?? null,
     });
   }
 
-  // ── Read fresh KV ─────────────────────────────────────────────────────────
+  // ── Normal path: read KV tiers ────────────────────────────────────────────
   const fresh = await getJson(FRESH_KEY).catch(() => null);
   if (fresh?.summary && fresh?.generatedAt) {
     const ageMs = Date.now() - new Date(fresh.generatedAt).getTime();
@@ -278,18 +321,25 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── Read lastKnown KV ─────────────────────────────────────────────────────
   const lastKnown = await getJson(LASTKNOWN_KEY).catch(() => null);
-  const origin = getOriginFromReq(req);
 
-  // Kick background generation (only from non-bg requests to avoid loops)
-  if (!bg) kickBackgroundGenerate(origin);
+  // Kick background generation (guard with genLock to prevent stampede)
+  if (!bg) {
+    tryAcquireLock(GEN_LOCK_KEY, GEN_LOCK_TTL_SEC).then((acquired) => {
+      if (!acquired) {
+        if (isDev) console.log('[chat/homeSummary] bg already running (genLock held)');
+        return;
+      }
+      if (isDev) console.log('[chat/homeSummary] kicking bg generate');
+      generateAndCache().catch(() => {});
+    }).catch(() => {});
+  }
 
   if (lastKnown?.summary) {
-    if (isDev) console.log('[chat/homeSummary] lastKnown hit, kicked background generate');
+    if (isDev) console.log('[chat/homeSummary] lastKnown hit, kicked bg');
     return res.status(200).json({ summary: lastKnown.summary, status: 'stale', generatedAt: lastKnown.generatedAt });
   }
 
-  if (isDev) console.log('[chat/homeSummary] missing, kicked background generate');
+  if (isDev) console.log('[chat/homeSummary] missing, kicked bg');
   return res.status(200).json({ summary: null, status: 'missing' });
 }
