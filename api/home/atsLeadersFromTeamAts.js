@@ -109,12 +109,14 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
   // Leave at least 1800 ms for the team loop; enforce a 1500 ms floor so we always try.
   const oddsFetchTimeoutMs = Math.max(1500, effectiveDeadlineAt - Date.now() - 1800);
 
+  let oddsTimedOut = false;
   const [rankingsData, teamIdsData, oddsHistoryResult] = await Promise.all([
     fetchRankingsSource(),
     fetchTeamIdsSource(),
-    raceWithTimeout(fetchOddsHistorySource(fromStr, today), oddsFetchTimeoutMs).catch(() => {
-      if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] odds fetch timed out (budget)', { oddsFetchTimeoutMs });
-      return { games: [] };
+    raceWithTimeout(fetchOddsHistorySource(fromStr, today), oddsFetchTimeoutMs).catch((err) => {
+      oddsTimedOut = err?.message === 'timeout';
+      if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] odds fetch failed', { timedOut: oddsTimedOut, msg: err?.message });
+      return { games: [], meta: { errorCode: oddsTimedOut ? 'timeout' : 'fetch_error', gamesCount: 0 } };
     }),
   ]);
 
@@ -125,22 +127,29 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
   };
   const oddsHistoryGames = oddsHistoryResult?.games || [];
   const oddsGamesCount = oddsHistoryGames.length;
+  const oddsDebug = {
+    fromStr,
+    toStr: today,
+    gamesCount: oddsGamesCount,
+    timedOut: oddsTimedOut,
+    errorCode: oddsHistoryResult?.meta?.errorCode ?? oddsHistoryResult?.error ?? null,
+  };
   if (rankings.length === 0) {
     if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no rankings');
     return {
       best: [], worst: [], status: 'EMPTY', confidence: 'low',
       reason: 'no_rankings', sourceLabel: null,
       generatedAt: new Date().toISOString(),
-      oddsGamesCount, teamsWithAnyAtsCount: 0,
+      oddsGamesCount, teamsWithAnyAtsCount: 0, oddsDebug,
     };
   }
   if (oddsGamesCount === 0) {
-    if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no odds history');
+    if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no odds history', oddsDebug);
     return {
       best: [], worst: [], status: 'EMPTY', confidence: 'low',
       reason: 'no_odds_history', sourceLabel: null,
       generatedAt: new Date().toISOString(),
-      oddsGamesCount: 0, teamsWithAnyAtsCount: 0,
+      oddsGamesCount: 0, teamsWithAnyAtsCount: 0, oddsDebug,
     };
   }
 
@@ -151,7 +160,7 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
       best: [], worst: [], status: 'EMPTY', confidence: 'low',
       reason: 'no_teams', sourceLabel: null,
       generatedAt: new Date().toISOString(),
-      oddsGamesCount, teamsWithAnyAtsCount: 0,
+      oddsGamesCount, teamsWithAnyAtsCount: 0, oddsDebug,
     };
   }
 
@@ -255,5 +264,6 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     budgetExceeded,
     oddsGamesCount,
     teamsWithAnyAtsCount: teamsWithAnyAts,
+    oddsDebug,
   };
 }

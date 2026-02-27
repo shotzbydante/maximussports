@@ -18,8 +18,10 @@ import { getQueryParam } from '../../_requestUrl.js';
 
 const LOCK_KEY_PREFIX = 'ats:leaders:refresh_lock:';
 const LOCK_TTL_SEC = 30;
-const COMPUTE_TIMEOUT_MS = 9000; // hard outer race — should never fire if BUDGET_MS is respected
-const BUDGET_MS = 6500; // wall-clock budget passed into compute; last30 and season are the slow windows
+const COMPUTE_TIMEOUT_MS = 9500; // hard outer race — should never fire if per-window budget is respected
+
+// Per-window compute budgets; season needs more time for the 90-day odds window
+const WINDOW_BUDGET_MS = { last7: 5000, last30: 6500, season: 8500 };
 
 const inFlight = new Map();
 
@@ -92,12 +94,15 @@ export default async function handler(req, res) {
   inFlight.set(win, true);
 
   try {
-    const computeWindow = win === 'season' ? 'last30' : win;
+    // season stays as 'season' — computeAtsLeadersForRefresh handles the 90-day window
+    const computeWindow = win;
     dbg.computeWindow = computeWindow;
+    if (win !== computeWindow) dbg.windowMappingWarning = `win=${win} mapped to computeWindow=${computeWindow}`;
 
-    dbg.budgetMs = BUDGET_MS;
+    const budgetMs = WINDOW_BUDGET_MS[win] ?? 6500;
+    dbg.budgetMs = budgetMs;
     const result = await Promise.race([
-      computeAtsLeadersForRefresh({ atsWindow: computeWindow, budgetMs: BUDGET_MS }),
+      computeAtsLeadersForRefresh({ atsWindow: computeWindow, budgetMs }),
       timeoutMs(COMPUTE_TIMEOUT_MS),
     ]);
     const elapsedMs = Date.now() - start;
@@ -119,6 +124,8 @@ export default async function handler(req, res) {
     dbg.fallbackReason = result.fallbackReason ?? null;
     dbg.oddsGamesCount = result.oddsGamesCount ?? 0;
     dbg.teamsWithAnyAtsCount = result.teamsWithAnyAtsCount ?? 0;
+    // oddsDebug: non-sensitive metadata about the odds history fetch
+    if (result.oddsDebug) dbg.oddsDebug = result.oddsDebug;
 
     if (hasData) {
       const partial = budgetExceeded || result.status === 'PARTIAL';

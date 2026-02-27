@@ -302,14 +302,46 @@ export async function getAtsLeadersPipeline(options = {}) {
  */
 export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budgetMs } = {}) {
   const start = Date.now();
-  const windowDays = atsWindow === 'last7' ? 7 : 30;
-  const effectiveBudget = budgetMs ?? (atsWindow === 'last7' ? 5000 : 6500);
+  // season uses a 90-day window so leaders reflect a full season of form
+  const windowDays = atsWindow === 'last7' ? 7 : atsWindow === 'season' ? 90 : 30;
+  const effectiveBudget = budgetMs ?? (atsWindow === 'last7' ? 5000 : atsWindow === 'season' ? 8000 : 6500);
   const deadlineAt = start + effectiveBudget;
 
-  const teamAtsOut = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [], deadlineAt });
-  const teamAtsHasLeaders = (teamAtsOut.best?.length || 0) + (teamAtsOut.worst?.length || 0) > 0 && teamAtsOut.status !== 'EMPTY';
-  // Capture the reason from team-ATS compute before potentially overwriting with fallback
+  let teamAtsOut = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [], deadlineAt });
+  let teamAtsHasLeaders = (teamAtsOut.best?.length || 0) + (teamAtsOut.worst?.length || 0) > 0 && teamAtsOut.status !== 'EMPTY';
   const teamAtsFailReason = !teamAtsHasLeaders ? (teamAtsOut.reason ?? 'insufficient_sample') : null;
+
+  // Lined-games fallback: if the full window returned no odds (timeout or missing),
+  // retry with a shorter reliable window (14 d) which mirrors how last7 works.
+  // This yields real ATS instead of the pure-rankings proxy.
+  if (!teamAtsHasLeaders && teamAtsOut.oddsGamesCount === 0 && windowDays > 14) {
+    const linesDeadlineAt = Date.now() + 3500;
+    const linesOut = await computeAtsLeadersFromTeamAts({
+      windowDays: 14,
+      teamSlugs: [],
+      deadlineAt: linesDeadlineAt,
+    });
+    if ((linesOut.best?.length || 0) + (linesOut.worst?.length || 0) > 0) {
+      return {
+        best: linesOut.best || [],
+        worst: linesOut.worst || [],
+        status: 'FALLBACK',
+        confidence: linesOut.confidence ?? 'low',
+        reason: 'lined_games_fallback_14d',
+        sourceLabel: 'Real ATS (last 14d lined games)',
+        generatedAt: linesOut.generatedAt ?? new Date().toISOString(),
+        cacheNote: 'computed_recent_team_ats',
+        budgetExceeded: linesOut.budgetExceeded ?? false,
+        processedTeamsCount: linesOut.processedTeamsCount ?? 0,
+        computedVia: 'lined_games_fallback',
+        fallbackTriggered: false, // real ATS — eligible for lastKnown write
+        fallbackReason: null,
+        oddsGamesCount: linesOut.oddsGamesCount ?? 0,
+        teamsWithAnyAtsCount: linesOut.teamsWithAnyAtsCount ?? 0,
+        oddsDebug: linesOut.oddsDebug ?? null,
+      };
+    }
+  }
 
   let out = teamAtsOut;
   if (!teamAtsHasLeaders) {
@@ -333,11 +365,11 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
     cacheNote,
     budgetExceeded,
     processedTeamsCount: teamAtsOut.processedTeamsCount ?? 0,
-    // Diagnostic fields — always forwarded, even when fallback wins
     computedVia: isFallback ? 'rankings_fallback' : 'team_ats_recent',
     fallbackTriggered: isFallback,
     fallbackReason: isFallback ? teamAtsFailReason : null,
     oddsGamesCount: teamAtsOut.oddsGamesCount ?? 0,
     teamsWithAnyAtsCount: teamAtsOut.teamsWithAnyAtsCount ?? 0,
+    oddsDebug: teamAtsOut.oddsDebug ?? null,
   };
 }
