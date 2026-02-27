@@ -106,6 +106,7 @@ export default async function handler(req, res) {
     const worst = result.worst || [];
     const hasData = best.length > 0 || worst.length > 0;
     const budgetExceeded = result.budgetExceeded ?? false;
+    const fallbackTriggered = result.fallbackTriggered ?? false;
 
     dbg.bestCount = best.length;
     dbg.worstCount = worst.length;
@@ -113,6 +114,11 @@ export default async function handler(req, res) {
     dbg.elapsedMs = elapsedMs;
     dbg.budgetExceeded = budgetExceeded;
     dbg.processedTeamsCount = result.processedTeamsCount ?? 0;
+    dbg.computedVia = result.computedVia ?? 'unknown';
+    dbg.fallbackTriggered = fallbackTriggered;
+    dbg.fallbackReason = result.fallbackReason ?? null;
+    dbg.oddsGamesCount = result.oddsGamesCount ?? 0;
+    dbg.teamsWithAnyAtsCount = result.teamsWithAnyAtsCount ?? 0;
 
     if (hasData) {
       const partial = budgetExceeded || result.status === 'PARTIAL';
@@ -125,24 +131,34 @@ export default async function handler(req, res) {
           sourceLabel: result.sourceLabel ?? null,
           generatedAt: result.generatedAt ?? new Date().toISOString(),
           cacheNote: result.cacheNote ?? 'computed_recent_team_ats',
+          computedVia: result.computedVia ?? null,
+          // Numeric diagnostic fields safe to store in KV
           ...(partial ? { processedTeamsCount: result.processedTeamsCount ?? 0 } : {}),
+          ...(result.oddsGamesCount != null ? { oddsGamesCount: result.oddsGamesCount } : {}),
+          ...(result.teamsWithAnyAtsCount != null ? { teamsWithAnyAtsCount: result.teamsWithAnyAtsCount } : {}),
         },
       };
 
-      // Write fresh key
+      // Write fresh key — always written if we have any data
       const freshWriteOk = await setJson(freshKey, payload, { exSeconds: MAX_TTL_SECONDS })
         .then(() => true)
         .catch((e) => { console.warn('[ats/refresh] freshKey write failed:', e?.message); return false; });
 
-      // Write lastKnown key directly — belt-and-suspenders independent of writeAtsToKvIfValid guards
-      const lkWriteOk = await setJson(lkKey, payload, { exSeconds: LAST_KNOWN_TTL_SECONDS })
-        .then(() => true)
-        .catch((e) => { console.warn('[ats/refresh] lastKnown write failed:', e?.message); return false; });
+      // Write lastKnown ONLY for real ATS — never let rankings-fallback poison the long-lived key
+      let lkWriteOk = false;
+      if (!fallbackTriggered) {
+        lkWriteOk = await setJson(lkKey, payload, { exSeconds: LAST_KNOWN_TTL_SECONDS })
+          .then(() => true)
+          .catch((e) => { console.warn('[ats/refresh] lastKnown write failed:', e?.message); return false; });
+      } else {
+        console.log('[ats/refresh] skipping lastKnown write (fallback data)', { win, computedVia: result.computedVia, fallbackReason: result.fallbackReason });
+      }
 
       dbg.freshWriteOk = freshWriteOk;
       dbg.lkWriteOk = lkWriteOk;
+      dbg.lkWriteSkipped = fallbackTriggered;
 
-      console.log('[ats/refresh] success', { win, best: best.length, worst: worst.length, freshWriteOk, lkWriteOk, elapsedMs, budgetExceeded });
+      console.log('[ats/refresh] success', { win, best: best.length, worst: worst.length, freshWriteOk, lkWriteOk, elapsedMs, budgetExceeded, computedVia: result.computedVia });
       const responseStatus = budgetExceeded ? 'partial' : 'ok';
       return res.status(200).json({ status: responseStatus, win, elapsedMs, ...(debug ? dbg : {}) });
     }

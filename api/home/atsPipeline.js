@@ -306,8 +306,12 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
   const effectiveBudget = budgetMs ?? (atsWindow === 'last7' ? 5000 : 6500);
   const deadlineAt = start + effectiveBudget;
 
-  let out = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [], deadlineAt });
-  const teamAtsHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
+  const teamAtsOut = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [], deadlineAt });
+  const teamAtsHasLeaders = (teamAtsOut.best?.length || 0) + (teamAtsOut.worst?.length || 0) > 0 && teamAtsOut.status !== 'EMPTY';
+  // Capture the reason from team-ATS compute before potentially overwriting with fallback
+  const teamAtsFailReason = !teamAtsHasLeaders ? (teamAtsOut.reason ?? 'insufficient_sample') : null;
+
+  let out = teamAtsOut;
   if (!teamAtsHasLeaders) {
     out = await computeFastFallbackFromRankingsOnly();
   }
@@ -315,7 +319,7 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
   const worst = out.worst || [];
   const cacheNote = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
   const isFallback = !teamAtsHasLeaders;
-  const budgetExceeded = out.budgetExceeded ?? false;
+  const budgetExceeded = teamAtsOut.budgetExceeded ?? false;
   return {
     best,
     worst,
@@ -328,6 +332,12 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
     generatedAt: out.generatedAt ?? new Date().toISOString(),
     cacheNote,
     budgetExceeded,
-    processedTeamsCount: out.processedTeamsCount ?? 0,
+    processedTeamsCount: teamAtsOut.processedTeamsCount ?? 0,
+    // Diagnostic fields — always forwarded, even when fallback wins
+    computedVia: isFallback ? 'rankings_fallback' : 'team_ats_recent',
+    fallbackTriggered: isFallback,
+    fallbackReason: isFallback ? teamAtsFailReason : null,
+    oddsGamesCount: teamAtsOut.oddsGamesCount ?? 0,
+    teamsWithAnyAtsCount: teamAtsOut.teamsWithAnyAtsCount ?? 0,
   };
 }

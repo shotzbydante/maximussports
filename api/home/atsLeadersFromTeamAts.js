@@ -124,28 +124,23 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     ...buildSlugToIdFromRankings({ rankings }),
   };
   const oddsHistoryGames = oddsHistoryResult?.games || [];
+  const oddsGamesCount = oddsHistoryGames.length;
   if (rankings.length === 0) {
     if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no rankings');
     return {
-      best: [],
-      worst: [],
-      status: 'EMPTY',
-      confidence: 'low',
-      reason: 'no_rankings',
-      sourceLabel: null,
+      best: [], worst: [], status: 'EMPTY', confidence: 'low',
+      reason: 'no_rankings', sourceLabel: null,
       generatedAt: new Date().toISOString(),
+      oddsGamesCount, teamsWithAnyAtsCount: 0,
     };
   }
-  if (oddsHistoryGames.length === 0) {
+  if (oddsGamesCount === 0) {
     if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no odds history');
     return {
-      best: [],
-      worst: [],
-      status: 'EMPTY',
-      confidence: 'low',
-      reason: 'no_odds_history',
-      sourceLabel: null,
+      best: [], worst: [], status: 'EMPTY', confidence: 'low',
+      reason: 'no_odds_history', sourceLabel: null,
       generatedAt: new Date().toISOString(),
+      oddsGamesCount: 0, teamsWithAnyAtsCount: 0,
     };
   }
 
@@ -153,18 +148,16 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
   if (teamList.length === 0) {
     if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no teams resolved');
     return {
-      best: [],
-      worst: [],
-      status: 'EMPTY',
-      confidence: 'low',
-      reason: 'no_teams',
-      sourceLabel: null,
+      best: [], worst: [], status: 'EMPTY', confidence: 'low',
+      reason: 'no_teams', sourceLabel: null,
       generatedAt: new Date().toISOString(),
+      oddsGamesCount, teamsWithAnyAtsCount: 0,
     };
   }
 
   let processedTeams = 0;
   let budgetExceeded = false;
+  let teamsWithAnyAts = 0; // teams with total > 0 (before the min-games filter)
   const results = [];
   for (let i = 0; i < teamList.length; i += CONCURRENCY) {
     if (Date.now() > effectiveDeadlineAt) { budgetExceeded = true; break; }
@@ -175,6 +168,8 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
         try {
           const sched = await raceWithTimeout(fetchScheduleSource(t.teamId), PER_TEAM_TIMEOUT_MS);
           const rec = computeAtsForWindow(sched, oddsHistoryGames, t.name, windowStart);
+          // Track teams that have ANY ATS data (total > 0) before the minimum-games filter
+          if (rec && rec.total > 0) teamsWithAnyAts++;
           if (!rec || rec.total < 2) return null;
           return {
             slug: t.slug,
@@ -211,7 +206,15 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
   const durationMs = Date.now() - start;
   const teamsWithAts = rows.length;
   const hasAnyData = best.length > 0 || worst.length > 0;
-  const confidence = budgetExceeded ? 'low' : (teamsWithAts >= 20 ? 'high' : teamsWithAts > 0 ? 'medium' : 'low');
+  // Confidence based on average games-per-team: more games = more reliable ATS signal.
+  const avgGames = rows.length > 0
+    ? rows.reduce((s, r) => s + (r.games ?? 0), 0) / rows.length
+    : 0;
+  const confidence = budgetExceeded ? 'low'
+    : avgGames >= 6 ? 'high'
+    : avgGames >= 4 ? 'medium'
+    : rows.length > 0 ? 'low'
+    : 'low';
   // PARTIAL: budget cut us off but we still have usable leaders; FULL/FALLBACK/EMPTY otherwise.
   const status = budgetExceeded && hasAnyData
     ? 'PARTIAL'
@@ -227,11 +230,13 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
       teamsAttempted: teamList.length,
       processedTeams,
       teamsWithAts,
+      teamsWithAnyAts,
+      oddsGamesCount,
+      avgGames: Math.round(avgGames * 10) / 10,
       best: best.length,
       worst: worst.length,
       durationMs,
       budgetExceeded,
-      cacheNote: 'computed_recent_team_ats',
     });
   }
 
@@ -248,5 +253,7 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     durationMs,
     processedTeamsCount: processedTeams,
     budgetExceeded,
+    oddsGamesCount,
+    teamsWithAnyAtsCount: teamsWithAnyAts,
   };
 }
