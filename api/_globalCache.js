@@ -43,9 +43,9 @@ function getAtsLeadersLastKnownKeyForWindow(window) {
   return ATS_LEADERS_LASTKNOWN_LAST30_KEY;
 }
 
-let kv = null;
+let kv; // undefined = not yet attempted; null = attempted and unavailable
 async function getKv() {
-  if (kv !== undefined) return kv;
+  if (kv !== undefined) return kv; // return cached client (or null if previously failed)
   try {
     const mod = await import('@vercel/kv');
     kv = mod.kv ?? mod.default;
@@ -141,8 +141,20 @@ export async function getWithMeta(key) {
   return { value, ageSeconds, stale };
 }
 
-/** Returns true when the KV client is reachable. Use to distinguish "lock held" from "KV down". */
+/**
+ * Returns true when a KV client is reachable.
+ * Fast-fails (no module import) when none of the known env var sets are present.
+ * Checks all four known naming conventions used by Vercel / Upstash integrations.
+ */
 export async function isKvAvailable() {
+  const e = process.env ?? {};
+  const hasVars = Boolean(
+    (e.KV_REST_API_URL && e.KV_REST_API_TOKEN) ||
+    e.KV_URL ||
+    (e.UPSTASH_REDIS_REST_URL && e.UPSTASH_REDIS_REST_TOKEN) ||
+    e.REDIS_URL,
+  );
+  if (!hasVars) return false;
   return (await getKv()) != null;
 }
 

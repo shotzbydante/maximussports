@@ -39,7 +39,20 @@ export default async function handler(req, res) {
   const lockKey = `${LOCK_KEY_PREFIX}${win}`;
   const freshKey = getFreshKey(win);
   const lkKey = getLastKnownKey(win);
-  const dbg = { win, freshKey, lkKey };
+
+  // Boolean-only env flags — never expose raw values
+  const e = process.env ?? {};
+  const kvEnv = {
+    hasKvRestUrl: Boolean(e.KV_REST_API_URL),
+    hasKvRestToken: Boolean(e.KV_REST_API_TOKEN),
+    hasKvUrl: Boolean(e.KV_URL),
+    hasRedisUrl: Boolean(e.REDIS_URL),
+    hasUpstashRestUrl: Boolean(e.UPSTASH_REDIS_REST_URL),
+    hasUpstashRestToken: Boolean(e.UPSTASH_REDIS_REST_TOKEN),
+  };
+  const runtime = { node: process.version };
+
+  const dbg = { win, freshKey, lkKey, kvEnv, runtime };
 
   // ── in-flight dedup (per instance) ───────────────────────────────────────
   if (inFlight.has(win)) {
