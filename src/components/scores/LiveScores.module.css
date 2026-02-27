@@ -16,12 +16,43 @@
   border-bottom: 1px solid var(--color-border-light);
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .title {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-text-muted);
+}
+
+/* LIVE pill — appears when any game is in progress */
+.livePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-up);
+  background: rgba(45, 138, 110, 0.1);
+  border: 1px solid rgba(45, 138, 110, 0.2);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.livePillDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-up);
+  animation: livePulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 .sourceBadges {

@@ -19,6 +19,121 @@ import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './PinnedTeamsSection.module.css';
 
+// Popular teams to suggest to new users
+const POPULAR_PICKS = [
+  { slug: 'duke-blue-devils',     name: 'Duke' },
+  { slug: 'kansas-jayhawks',      name: 'Kansas' },
+  { slug: 'connecticut-huskies',  name: 'UConn' },
+  { slug: 'houston-cougars',      name: 'Houston' },
+  { slug: 'kentucky-wildcats',    name: 'Kentucky' },
+  { slug: 'gonzaga-bulldogs',     name: 'Gonzaga' },
+];
+
+// Static preview card data — no fetching, illustrative only
+const PREVIEW_CARD = {
+  team: { name: 'Duke Blue Devils', conference: 'ACC', oddsTier: 'Lock', slug: 'duke-blue-devils' },
+  rank: 2,
+  season: '22–5',
+  last10: '8–2',
+  ats: '14–10',
+  nextGame: 'vs North Carolina · Sat 6:00 PM PT',
+  summary: 'Led by 21 PPG from Cooper Flagg. Top seed projection, strong ATS cover rate in ACC play.',
+  headlines: [
+    'Flagg named ACC Player of the Week for third time this season',
+    'Duke locks in NCAA Tournament top seed with road win',
+  ],
+};
+
+/** Small quick-select chip */
+function QuickChip({ name, onClick }) {
+  return (
+    <button type="button" className={styles.quickChip} onClick={onClick}>
+      {name}
+    </button>
+  );
+}
+
+/** Premium empty-state onboarding card */
+function EmptyStateCard({ onOpenAdd, onQuickPin, pinned }) {
+  const availableChips = POPULAR_PICKS.filter((p) => !pinned.includes(p.slug));
+  return (
+    <div className={styles.onboardingCard}>
+      <p className={styles.onboardingHeading}>Track your teams, all in one place</p>
+      <ul className={styles.onboardingBullets}>
+        <li>Live ranking + bubble context</li>
+        <li>Next game · tipoff time · odds</li>
+        <li>ATS performance spotlight</li>
+        <li>Recent results (L10 record)</li>
+        <li>News velocity &amp; latest headlines</li>
+      </ul>
+      <button type="button" className={styles.ctaBtn} onClick={onOpenAdd}>
+        + Add team
+      </button>
+      <p className={styles.ctaHint}>Search any team by name. Try: Duke, Kansas, UConn…</p>
+      {availableChips.length > 0 && (
+        <div className={styles.popularRow}>
+          <span className={styles.popularLabel}>Popular picks</span>
+          <div className={styles.quickChips}>
+            {availableChips.map((p) => (
+              <QuickChip key={p.slug} name={p.name} onClick={() => onQuickPin(p.slug)} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Static preview card — shows what a pinned team card looks like */
+function PreviewCard() {
+  const { team, rank, season, last10, ats, nextGame, summary, headlines } = PREVIEW_CARD;
+  return (
+    <article className={`${styles.card} ${styles.previewCard}`} aria-label="Example pinned team card">
+      <div className={styles.exampleBadge}>Example</div>
+      <div className={styles.cardHeader}>
+        <div className={styles.cardLinkMock}>
+          <TeamLogo team={team} size={32} />
+          <div className={styles.cardMeta}>
+            <span className={styles.teamName}>{team.name}</span>
+            <span className={styles.conference}>{team.conference}</span>
+          </div>
+        </div>
+        <div className={styles.cardBadges}>
+          <span className={styles.rank}>#{rank}</span>
+          <span className={`${styles.tier} ${styles.tierLock}`}>{team.oddsTier}</span>
+        </div>
+      </div>
+      <div className={styles.nextGame}>
+        <span className={styles.nextLabel}>Next:</span>
+        <span>{nextGame}</span>
+      </div>
+      <div className={styles.recordsRow}>
+        <span className={styles.recordCell}>
+          <span className={styles.recordLabel}>Season</span>
+          <span className={styles.recordValue}>{season}</span>
+        </span>
+        <span className={styles.recordCell}>
+          <span className={styles.recordLabel}>L10</span>
+          <span className={styles.recordValue}>{last10}</span>
+        </span>
+        <span className={styles.recordCell}>
+          <span className={styles.recordLabel}>ATS</span>
+          <span className={styles.recordValue}>{ats}</span>
+        </span>
+      </div>
+      <div className={styles.teamSummary}>
+        <p className={styles.teamSummaryText}>{summary}</p>
+      </div>
+      <ul className={styles.headlines}>
+        {headlines.map((h) => (
+          <li key={h}><span className={styles.headlineMock}>{h}</span></li>
+        ))}
+      </ul>
+      <span className={styles.teamLinkMock}>View team →</span>
+    </article>
+  );
+}
+
 const TIER_CLASS = {
   Lock: styles.tierLock,
   'Should be in': styles.tierShould,
@@ -189,11 +304,24 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     return null;
   };
 
+  const handleQuickPin = useCallback((slug) => {
+    handleAdd(slug);
+  }, [handleAdd]);
+
   return (
     <section className={styles.section}>
       <div className={styles.header}>
         <h2 className={styles.title}>Pinned Teams</h2>
         <div className={styles.actions}>
+          {/* "Add more" prompt when exactly 1 team is tracked */}
+          {pinned.length === 1 && !showAdd && (
+            <div className={styles.addMoreHint}>
+              <span className={styles.addMoreText}>Pin a few more for faster tracking</span>
+              {POPULAR_PICKS.filter((p) => !pinned.includes(p.slug)).slice(0, 3).map((p) => (
+                <QuickChip key={p.slug} name={p.name} onClick={() => handleQuickPin(p.slug)} />
+              ))}
+            </div>
+          )}
           <button
             type="button"
             className={styles.addBtn}
@@ -202,7 +330,6 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
           >
             {showAdd ? 'Done' : '+ Add team'}
           </button>
-          <SourceBadge source="Google News" />
         </div>
       </div>
 
@@ -262,13 +389,22 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
         </div>
       )}
 
-      <div className={styles.cards}>
-        {pinned.length === 0 ? (
-          <p className={styles.emptyState}>
-            Pin teams to track rankings, next games, and news. Use &quot;+ Add team&quot; to get started.
-          </p>
-        ) : (
-          pinned.map((slug) => {
+      {/* Empty state: onboarding card + preview card */}
+      {pinned.length === 0 && (
+        <div className={styles.emptyLayout}>
+          <EmptyStateCard
+            onOpenAdd={() => setShowAdd(true)}
+            onQuickPin={handleQuickPin}
+            pinned={pinned}
+          />
+          <PreviewCard />
+        </div>
+      )}
+
+      {/* Pinned team cards grid */}
+      {pinned.length > 0 && (
+        <div className={styles.cards}>
+          {pinned.map((slug) => {
             const team = getTeamBySlug(slug);
             if (!team) return null;
             const rank = rankMap[slug];
@@ -379,9 +515,9 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                 </Link>
               </article>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </section>
   );
 }

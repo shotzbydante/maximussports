@@ -23,6 +23,22 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* "Pin a few more" inline prompt (shown when 1 team pinned) */
+.addMoreHint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.addMoreText {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .addBtn {
@@ -149,10 +165,181 @@
   margin: 0;
 }
 
+/* ─── Empty-state two-column layout ──────────────────────────────────────── */
+.emptyLayout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  margin-bottom: var(--space-md);
+  align-items: start;
+}
+
+@media (max-width: 840px) {
+  .emptyLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Onboarding card */
+.onboardingCard {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  padding: 20px var(--space-lg);
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+}
+
+.onboardingHeading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.onboardingBullets {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.onboardingBullets li {
+  font-size: 0.825rem;
+  color: var(--color-text-secondary);
+  padding-left: 14px;
+  position: relative;
+  line-height: 1.4;
+}
+
+.onboardingBullets li::before {
+  content: '·';
+  position: absolute;
+  left: 4px;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.ctaBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+  margin-bottom: 8px;
+}
+
+.ctaBtn:hover {
+  background: var(--color-primary-hover);
+}
+
+.ctaHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 14px;
+}
+
+.popularRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--color-border-light);
+  padding-top: 12px;
+}
+
+.popularLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.quickChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Quick-select chip (reused in empty state + 1-team hint) */
+.quickChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.2);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.quickChip:hover {
+  background: rgba(60, 121, 180, 0.15);
+  border-color: rgba(60, 121, 180, 0.35);
+}
+
+/* ─── Preview (example) card ─────────────────────────────────────────────── */
+.previewCard {
+  position: relative;
+  opacity: 0.82;
+  pointer-events: none; /* non-interactive */
+  user-select: none;
+}
+
+.exampleBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-beige-dune);
+  background: rgba(183, 152, 108, 0.15);
+  border: 1px solid rgba(183, 152, 108, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.cardLinkMock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.headlineMock {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.teamLinkMock {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  opacity: 0.6;
+}
+
+/* ─── Pinned cards grid ──────────────────────────────────────────────────── */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
 }
 
 @media (max-width: 600px) {
@@ -163,17 +350,6 @@
   .card {
     min-width: 0;
   }
-}
-
-.emptyState {
-  grid-column: 1 / -1;
-  padding: var(--space-xl);
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-  background: var(--color-bg-elevated);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
 }
 
 .card {

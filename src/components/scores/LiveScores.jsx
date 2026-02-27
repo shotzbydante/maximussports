@@ -63,6 +63,8 @@ function StatusBadge({ status }) {
 }
 
 export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {} }) {
+  const hasLiveGame = games.some((g) => isLive(g.gameStatus));
+
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
       {showTitle && (
@@ -88,7 +90,15 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
     <div className={styles.widget}>
       {showTitle && (
         <div className={styles.widgetHeader}>
-          <span className={styles.title}>Today&apos;s Scores</span>
+          <div className={styles.titleRow}>
+            <span className={styles.title}>Today&apos;s Scores</span>
+            {hasLiveGame && (
+              <span className={styles.livePill} aria-label="Games in progress">
+                <span className={styles.livePillDot} aria-hidden />
+                LIVE
+              </span>
+            )}
+          </div>
           <div className={styles.sourceBadges}>
             <SourceBadge source={source} />
             {showOdds && games.some(hasOdds) && <SourceBadge source="Odds API" />}

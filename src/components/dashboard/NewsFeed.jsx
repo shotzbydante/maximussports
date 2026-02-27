@@ -29,13 +29,21 @@ function VideoSlot() {
 export default function NewsFeed({ items = [], source = 'Mock', loading = false }) {
   const [activeTab, setActiveTab] = useState('headlines');
 
+  // Compute display labels dynamically
+  const resolvedTabs = TABS.map((tab) => {
+    if (tab.id === 'headlines' && items.length > 0) {
+      return { ...tab, label: `Headlines (${items.length})` };
+    }
+    return tab;
+  });
+
   return (
     <div className={styles.widget}>
       {/* Header: title + content-type tabs */}
       <div className={styles.widgetHeader}>
         <span className={styles.title}>Intel Feed</span>
         <div className={styles.tabs} role="tablist" aria-label="Intel feed content type">
-          {TABS.map((tab) => (
+          {resolvedTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
