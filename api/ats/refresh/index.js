@@ -12,7 +12,7 @@
  */
 
 import { getJson, setJson, tryAcquireLock, isKvAvailable, MAX_TTL_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
-import { normalizeWindow, getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
+import { normalizeWindow, getFreshKey, getLastKnownKey } from '../../_lib/atsKeys.js';
 import { computeAtsLeadersForRefresh } from '../../home/atsPipeline.js';
 import { getQueryParam } from '../../_requestUrl.js';
 

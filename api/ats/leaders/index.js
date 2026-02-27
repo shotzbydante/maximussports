@@ -7,7 +7,7 @@
  */
 
 import { getWithMeta } from '../../_globalCache.js';
-import { normalizeWindow, getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
+import { normalizeWindow, getFreshKey, getLastKnownKey } from '../../_lib/atsKeys.js';
 import { getQueryParam, getOriginFromReq } from '../../_requestUrl.js';
 
 const STALE_KICK_SEC = 30 * 60; // kick refresh after 30 min

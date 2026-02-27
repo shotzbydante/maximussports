@@ -6,7 +6,7 @@
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
 import { setJson, getJson, getWithMeta, MAX_TTL_SECONDS, FRESH_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
-import { normalizeWindow, getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
+import { normalizeWindow, getFreshKey, getLastKnownKey } from '../../_lib/atsKeys.js';
 import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 import { getQueryParam } from '../../_requestUrl.js';

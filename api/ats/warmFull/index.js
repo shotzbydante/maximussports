@@ -6,7 +6,7 @@ export const config = { maxDuration: 30 };
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
 import { getJson, setJson, MAX_TTL_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
-import { getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
+import { getFreshKey, getLastKnownKey } from '../../_lib/atsKeys.js';
 import { computeAtsLeadersFromSources } from '../../home/atsLeaders.js';
 
 const SEASON_KEY = getFreshKey('season');
