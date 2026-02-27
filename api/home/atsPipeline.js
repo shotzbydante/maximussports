@@ -97,7 +97,7 @@ function kvPayloadToResult(kvValue, cacheNote, ageSeconds = 0) {
 export async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) {
   const bestLen = best?.length ?? 0;
   const worstLen = worst?.length ?? 0;
-  const hasUsable = bestLen >= 5 || worstLen >= 5;
+  const hasUsable = bestLen >= 1 || worstLen >= 1;
   if (!hasUsable) return;
   const status = atsMeta?.status ?? (bestLen || worstLen ? 'FULL' : 'EMPTY');
   const existing = await getJson(key);

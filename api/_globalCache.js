@@ -141,6 +141,11 @@ export async function getWithMeta(key) {
   return { value, ageSeconds, stale };
 }
 
+/** Returns true when the KV client is reachable. Use to distinguish "lock held" from "KV down". */
+export async function isKvAvailable() {
+  return (await getKv()) != null;
+}
+
 export {
   ATS_LEADERS_KEY,
   ATS_LEADERS_LAST30_KEY,

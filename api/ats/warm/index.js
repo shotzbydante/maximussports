@@ -5,17 +5,18 @@
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { setJson, getJson, getWithMeta, getAtsLeadersKeyForWindow, getAtsLeadersLastKnownKeyForWindow, MAX_TTL_SECONDS, FRESH_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
+import { setJson, getJson, getWithMeta, MAX_TTL_SECONDS, FRESH_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
+import { normalizeWindow, getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
 import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 import { getQueryParam } from '../../_requestUrl.js';
 
 export default async function handler(req, res) {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
-  const windowParam = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
-  const window = (windowParam === 'last7') ? 'last7' : 'last30';
+  const windowRaw = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
+  const window = normalizeWindow(windowRaw === 'season' ? 'last30' : windowRaw);
   const windowDays = window === 'last7' ? 7 : 30;
-  const kvKey = getAtsLeadersKeyForWindow(window);
+  const kvKey = getFreshKey(window);
 
   if (isDev) {
     console.log('[api/ats/warm] request', req.method, req.url || req.originalUrl || '', { window });
@@ -87,7 +88,7 @@ export default async function handler(req, res) {
         kvWriteOk = true;
         // Also persist a long-lived last-known backup so GET /api/ats/leaders
         // can serve stale data after the 60-min fresh key expires.
-        const lastKnownKey = getAtsLeadersLastKnownKeyForWindow(window);
+        const lastKnownKey = getLastKnownKey(window);
         if (lastKnownKey) {
           await setJson(lastKnownKey, payload, { exSeconds: LAST_KNOWN_TTL_SECONDS }).catch((e) => {
             console.warn('[api/ats/warm] lastKnown write failed:', e?.message);

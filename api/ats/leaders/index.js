@@ -6,10 +6,10 @@
  * (3) else          => empty + atsStatus='missing' + kicks background refresh
  */
 
-import { getJson, getWithMeta, getAtsLeadersKeyForWindow, getAtsLeadersLastKnownKeyForWindow } from '../../_globalCache.js';
+import { getWithMeta } from '../../_globalCache.js';
+import { normalizeWindow, getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
 import { getQueryParam, getOriginFromReq } from '../../_requestUrl.js';
 
-const VALID_WINDOWS = ['last30', 'last7', 'season'];
 const STALE_KICK_SEC = 30 * 60; // kick refresh after 30 min
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
@@ -33,10 +33,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const windowParam = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
-  const win = VALID_WINDOWS.includes(windowParam) ? windowParam : 'last30';
-  const key = getAtsLeadersKeyForWindow(win);
-  const lastKnownKey = getAtsLeadersLastKnownKeyForWindow(win);
+  const win = normalizeWindow(getQueryParam(req, 'window', 'last30'));
+  const key = getFreshKey(win);
+  const lastKnownKey = getLastKnownKey(win);
   const origin = getOriginFromReq(req);
 
   // ── Tier 1: fresh KV ─────────────────────────────────────────────────────

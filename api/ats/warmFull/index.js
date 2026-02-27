@@ -5,10 +5,11 @@
 export const config = { maxDuration: 30 };
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { getJson, setJson, getAtsLeadersKeyForWindow, getAtsLeadersLastKnownKeyForWindow, MAX_TTL_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
+import { getJson, setJson, MAX_TTL_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
+import { getFreshKey, getLastKnownKey } from '../_lib/atsKeys.js';
 import { computeAtsLeadersFromSources } from '../../home/atsLeaders.js';
 
-const SEASON_KEY = getAtsLeadersKeyForWindow('season');
+const SEASON_KEY = getFreshKey('season');
 const FULL_DEADLINE_MS = 28000;
 
 export default async function handler(req, res) {
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
         };
         await setJson(SEASON_KEY, kvPayload, { exSeconds: MAX_TTL_SECONDS });
         // Also persist long-lived lastKnown so /api/ats/leaders can fall back after expiry.
-        const lastKnownKey = getAtsLeadersLastKnownKeyForWindow('season');
+        const lastKnownKey = getLastKnownKey('season');
         if (lastKnownKey) {
           await setJson(lastKnownKey, kvPayload, { exSeconds: LAST_KNOWN_TTL_SECONDS }).catch((e) => {
             console.warn('[api/ats/warmFull] lastKnown write failed:', e?.message);
