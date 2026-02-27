@@ -338,6 +338,76 @@
   margin-bottom: var(--space-xl);
 }
 
+/* ─── Dashboard Grid (below Bubble Watch) ─────────────────────────────────── */
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--space-lg);
+  align-items: start;
+  margin-bottom: var(--space-xl);
+}
+
+.dashboardLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dashboardRight {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Module wrappers (desktop: natural DOM order = Alerts → Snapshot → Scores) */
+.moduleAlerts  { order: 1; }
+.moduleSnapshot { order: 2; }
+.moduleScores  { order: 3; }
+
+/* Remove excess bottom margin from child sections since grid handles spacing */
+.moduleAlerts :global(.section),
+.moduleSnapshot :global(.section) {
+  margin-bottom: 0;
+}
+
+/* Pinned team news widget */
+.teamNewsWidget {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  padding: var(--space-md);
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+}
+
+.teamNewsWidgetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+/* Mobile: single column, reorder to: Snapshot → Scores → Alerts → News */
+@media (max-width: 960px) {
+  .dashboardGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .dashboardRight {
+    order: 4; /* News column comes last */
+  }
+
+  .moduleAlerts  { order: 3; }
+  .moduleSnapshot { order: 1; }
+  .moduleScores  { order: 2; }
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;
@@ -385,17 +455,10 @@
   }
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: var(--space-lg);
-}
-
-@media (max-width: 1200px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* Legacy grid selectors kept as no-ops to avoid breaking any stale refs */
+.grid { display: contents; }
+.mainCol { display: contents; }
+.sidebar { display: contents; }
 
 .sectionTitle {
   font-size: 0.7rem;
@@ -433,11 +496,11 @@
 }
 
 .widgetTitle {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
 }
 

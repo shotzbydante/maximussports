@@ -518,7 +518,8 @@ export default function Home() {
 
       <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
         <RankingsTable
-          title="Bubble Watch - Full Rankings"
+          title="Bubble Watch — Full Rankings"
+          collapsible
           rankings={top25}
           championshipOdds={championshipOdds}
           championshipOddsMeta={championshipOddsMeta}
@@ -526,33 +527,35 @@ export default function Home() {
         />
       </section>
 
-      <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
-
-      <DynamicStats stats={dynamicStats} />
-
-      <section className={styles.liveScoresSection}>
-        <LiveScores
-          games={scores.games}
-          loading={scores.loading}
-          error={scores.error}
-          oddsMessage={scores.oddsMessage}
-          compact
-          rankMap={rankMap}
-        />
-      </section>
-
-      <div className={styles.grid}>
-        <div className={styles.mainCol}>
-          {/* reserved for future content */}
+      {/* Dashboard grid: 2-col on desktop, single col on mobile */}
+      <div className={styles.dashboardGrid}>
+        <div className={styles.dashboardLeft}>
+          <div className={styles.moduleAlerts}>
+            <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+          </div>
+          <div className={styles.moduleSnapshot}>
+            <DynamicStats stats={dynamicStats} />
+          </div>
+          <div className={styles.moduleScores}>
+            <LiveScores
+              games={scores.games}
+              loading={scores.loading}
+              error={scores.error}
+              oddsMessage={scores.oddsMessage}
+              compact
+              rankMap={rankMap}
+            />
+          </div>
         </div>
-        <aside className={styles.sidebar}>
-          <div className={styles.widgetSection} id="news">
+
+        <aside className={styles.dashboardRight}>
+          <div id="news">
             <NewsFeed items={newsData.newsFeed} source={newsSource} loading={headlinesWarming && (newsData.newsFeed || []).length === 0} />
           </div>
           {newsData.teamNews.length > 0 && (
-            <div className={styles.widgetSection} id="news-teams">
-              <div className={styles.widgetHeader}>
-                <h3 className={styles.widgetTitle}>Pinned Team News</h3>
+            <div className={styles.teamNewsWidget} id="news-teams">
+              <div className={styles.teamNewsWidgetHeader}>
+                <span className={styles.widgetTitle}>Pinned Team News</span>
                 <SourceBadge source={newsSource} />
               </div>
               <div className={styles.teamNewsList}>

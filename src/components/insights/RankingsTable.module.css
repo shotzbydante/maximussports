@@ -5,12 +5,78 @@
   overflow: hidden;
 }
 
+/* ─── Collapsible toggle header ────────────────────────────────────────────── */
+.toggleHeader {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.toggleBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 14px var(--space-md) 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  border-radius: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.toggleBtn:hover {
+  background: rgba(60, 121, 180, 0.025);
+}
+
+.toggleBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.toggleMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.collapsedCount {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.chevronIcon {
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Collapsible body — uses HTML hidden attribute */
+.collapsibleBody[hidden] {
+  display: none;
+}
+
 .sectionTitle {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-text-muted);
+  margin: 0;
+  padding: 0;
+}
+
+/* Non-collapsible standalone title (no toggle button) */
+.table > h2.sectionTitle {
   margin: 0 0 var(--space-md);
   padding: var(--space-md) var(--space-md) 0;
 }
@@ -146,7 +212,7 @@
   color: var(--color-primary);
 }
 
-.chevron {
+.rowChevron {
   font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-left: auto;

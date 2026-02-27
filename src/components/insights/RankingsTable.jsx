@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useId, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS } from '../../data/teams';
 import { getTeamSlug } from '../../utils/teamSlug';
@@ -6,6 +6,14 @@ import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import TeamLogo from '../shared/TeamLogo';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
 import styles from './RankingsTable.module.css';
+
+function ChevronIcon({ className }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className={className}>
+      <path d="M3 5L7 9L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
 const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
@@ -35,10 +43,12 @@ function impliedProbFromAmerican(american) {
   return 100 / (american + 100);
 }
 
-export default function RankingsTable({ rankings: rankingsProp, title, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null }) {
+export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
   const [sortBy, setSortBy] = useState('default');
+  const [isExpanded, setIsExpanded] = useState(true);
+  const contentId = useId();
 
   const slugToRank = useMemo(() => buildSlugToRank(rankingsProp ?? []), [rankingsProp]);
   const hasTop25 = (rankingsProp?.length ?? 0) > 0;
@@ -96,91 +106,122 @@ export default function RankingsTable({ rankings: rankingsProp, title, champions
 
   return (
     <div className={styles.table}>
-      {title && <h2 className={styles.sectionTitle}>{title}</h2>}
-      <div className={styles.filters}>
-        <label className={styles.filterLabel}>
-          <span className={styles.labelText}>Conference</span>
-          <select
-            value={conference}
-            onChange={(e) => setConference(e.target.value)}
-            className={styles.select}
-          >
-            <option value="All">All</option>
-            {CONF_ORDER.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.filterLabel}>
-          <span className={styles.labelText}>Tier</span>
-          <select
-            value={tier}
-            onChange={(e) => setTier(e.target.value)}
-            className={styles.select}
-          >
-            <option value="All">All</option>
-            {TIER_ORDER.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.filterLabel}>
-          <span className={styles.labelText}>Sort</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className={styles.select}
-          >
-            <option value="default">Default</option>
-            {hasTop25 && <option value="top25">Top 25</option>}
-            <option value="championship">Championship Odds</option>
-          </select>
-        </label>
-        {sortBy === 'championship' && championshipOddsLoading && (
-          <span className={styles.sortHint}>Loading odds…</span>
-        )}
-      </div>
+      {/* Header — doubles as collapse toggle when collapsible=true */}
+      {title && (
+        collapsible ? (
+          <div className={styles.toggleHeader}>
+            <button
+              type="button"
+              className={styles.toggleBtn}
+              onClick={() => setIsExpanded((v) => !v)}
+              aria-expanded={isExpanded}
+              aria-controls={contentId}
+            >
+              <h2 className={styles.sectionTitle}>{title}</h2>
+              <div className={styles.toggleMeta}>
+                {!isExpanded && (
+                  <span className={styles.collapsedCount}>{filtered.length} teams</span>
+                )}
+                <ChevronIcon className={`${styles.chevronIcon} ${isExpanded ? styles.chevronOpen : ''}`} />
+              </div>
+            </button>
+          </div>
+        ) : (
+          <h2 className={styles.sectionTitle}>{title}</h2>
+        )
+      )}
 
-      <div className={styles.wrapper}>
-        <table className={styles.grid}>
-          <thead>
-            <tr>
-              <th className={styles.colTeam}>Team</th>
-              <th className={styles.colConf}>Conference</th>
-              <th className={styles.colTier}>Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((team) => {
-              const rank = slugToRank[team.slug];
-              return (
-                <tr key={team.slug}>
-                  <td className={styles.colTeam}>
-                    <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
-                      <TeamLogo team={team} size={22} />
-                      <span>{team.name}</span>
-                      {rank != null && (
-                        <span className={styles.top25Badge} title="AP Top 25">
-                          #{rank}
-                        </span>
-                      )}
-                      <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                      <span className={styles.chevron}>→</span>
-                    </Link>
-                  </td>
-                  <td className={styles.colConf}>{team.conference}</td>
-                  <td className={styles.colTier}>
-                    <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                      {team.oddsTier}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Collapsible body */}
+      <div
+        id={contentId}
+        className={styles.collapsibleBody}
+        hidden={collapsible && !isExpanded}
+      >
+        <div className={styles.filters}>
+          <label className={styles.filterLabel}>
+            <span className={styles.labelText}>Conference</span>
+            <select
+              value={conference}
+              onChange={(e) => setConference(e.target.value)}
+              className={styles.select}
+            >
+              <option value="All">All</option>
+              {CONF_ORDER.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.filterLabel}>
+            <span className={styles.labelText}>Tier</span>
+            <select
+              value={tier}
+              onChange={(e) => setTier(e.target.value)}
+              className={styles.select}
+            >
+              <option value="All">All</option>
+              {TIER_ORDER.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.filterLabel}>
+            <span className={styles.labelText}>Sort</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className={styles.select}
+            >
+              <option value="default">Default</option>
+              {hasTop25 && <option value="top25">Top 25</option>}
+              <option value="championship">Championship Odds</option>
+            </select>
+          </label>
+          {sortBy === 'championship' && championshipOddsLoading && (
+            <span className={styles.sortHint}>Loading odds…</span>
+          )}
+        </div>
+
+        <div className={styles.wrapper}>
+          <table className={styles.grid}>
+            <thead>
+              <tr>
+                <th className={styles.colTeam}>Team</th>
+                <th className={styles.colConf}>Conference</th>
+                <th className={styles.colTier}>Tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((team) => {
+                const rank = slugToRank[team.slug];
+                return (
+                  <tr key={team.slug}>
+                    <td className={styles.colTeam}>
+                      <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
+                        <TeamLogo team={team} size={22} />
+                        <span>{team.name}</span>
+                        {rank != null && (
+                          <span className={styles.top25Badge} title="AP Top 25">
+                            #{rank}
+                          </span>
+                        )}
+                        <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                        <span className={styles.rowChevron}>→</span>
+                      </Link>
+                    </td>
+                    <td className={styles.colConf}>{team.conference}</td>
+                    <td className={styles.colTier}>
+                      <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
+                        {team.oddsTier}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className={styles.count}>{filtered.length} teams</div>
       </div>
-      <div className={styles.count}>{filtered.length} teams</div>
     </div>
   );
 }
