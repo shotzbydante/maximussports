@@ -314,13 +314,23 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
   // Lined-games fallback: if the full window returned no odds (timeout or missing),
   // retry with a shorter reliable window (14 d) which mirrors how last7 works.
   // This yields real ATS instead of the pure-rankings proxy.
+  let linedFallbackAttempted = false;
+  let linedFallbackResult = null;
+
   if (!teamAtsHasLeaders && teamAtsOut.oddsGamesCount === 0 && windowDays > 14) {
+    linedFallbackAttempted = true;
     const linesDeadlineAt = Date.now() + 3500;
     const linesOut = await computeAtsLeadersFromTeamAts({
       windowDays: 14,
       teamSlugs: [],
       deadlineAt: linesDeadlineAt,
     });
+    linedFallbackResult = {
+      gamesCount: linesOut.oddsGamesCount ?? 0,
+      timedOut: linesOut.oddsDebug?.timedOut ?? false,
+      bestCount: linesOut.best?.length ?? 0,
+      worstCount: linesOut.worst?.length ?? 0,
+    };
     if ((linesOut.best?.length || 0) + (linesOut.worst?.length || 0) > 0) {
       return {
         best: linesOut.best || [],
@@ -336,6 +346,8 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
         computedVia: 'lined_games_fallback',
         fallbackTriggered: false, // real ATS — eligible for lastKnown write
         fallbackReason: null,
+        linedFallbackAttempted,
+        linedFallbackResult,
         oddsGamesCount: linesOut.oddsGamesCount ?? 0,
         teamsWithAnyAtsCount: linesOut.teamsWithAnyAtsCount ?? 0,
         oddsDebug: linesOut.oddsDebug ?? null,
@@ -368,6 +380,8 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budget
     computedVia: isFallback ? 'rankings_fallback' : 'team_ats_recent',
     fallbackTriggered: isFallback,
     fallbackReason: isFallback ? teamAtsFailReason : null,
+    linedFallbackAttempted,
+    linedFallbackResult,
     oddsGamesCount: teamAtsOut.oddsGamesCount ?? 0,
     teamsWithAnyAtsCount: teamAtsOut.teamsWithAnyAtsCount ?? 0,
     oddsDebug: teamAtsOut.oddsDebug ?? null,

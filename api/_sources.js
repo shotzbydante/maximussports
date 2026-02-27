@@ -4,6 +4,7 @@
  */
 
 import { createCache, coalesce } from './_cache.js';
+import { getJson, setJson } from './_globalCache.js';
 
 const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard';
 const ESPN_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/rankings';
@@ -258,69 +259,113 @@ function extractSpread(bookmakers) {
   return { spread: null, sportsbook: null };
 }
 
-// Concurrent requests per batch — 8 parallel calls replace 30 sequential ones,
-// cutting last30 fetch from ~9 s down to ~1-2 s.
-const ODDS_HISTORY_BATCH = 8;
+// ── Odds-history KV caching ───────────────────────────────────────────────────
+// Each calendar-day's odds are cached in Vercel KV so repeated refreshes skip
+// upstream API calls entirely.  Past-game spreads never change, so a long TTL
+// is safe.  Writes are fire-and-forget (.catch(()=>{})) so a KV outage never
+// blocks the compute path.
+const KV_ODDS_DAY_KEY = (day) => `odds:history:ncaab:${day}`;
+const KV_ODDS_DAY_TTL_SEC = 8 * 60 * 60; // 8 hours
+
+// Batch of parallel API requests for dates NOT in KV.
+// 4 is enough to cut 30-day fetch to ~3 batches; smaller batches are gentler
+// on the upstream rate limiter.
+const ODDS_HISTORY_BATCH = 4;
+const ODDS_HISTORY_BATCH_DELAY_MS = 100; // pause between API batches
+
+function delay(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function eventsToGames(events) {
+  const games = [];
+  for (const ev of (Array.isArray(events) ? events : events?.data ?? [])) {
+    const { spread, sportsbook } = extractSpread(ev.bookmakers);
+    if (spread == null) continue;
+    games.push({
+      gameId: ev.id,
+      homeTeam: ev.home_team,
+      awayTeam: ev.away_team,
+      commenceTime: ev.commence_time,
+      spread,
+      sportsbook: sportsbook || 'Odds API',
+    });
+  }
+  return games;
+}
 
 async function fetchOddsHistoryChunk(apiKey, fromStr, toStr) {
   const cacheKey = `odds-history:${fromStr}:${toStr}`;
-  const cached = oddsHistoryCache.get(cacheKey);
-  if (cached) return cached;
+  const memCached = oddsHistoryCache.get(cacheKey);
+  if (memCached) return memCached;
 
   const days = getDaysBetween(fromStr, toStr);
   const gameMap = new Map();
   let firstErrorStatus = null;
+  let cacheHits = 0;
+  let cacheMisses = 0;
 
-  for (let i = 0; i < days.length; i += ODDS_HISTORY_BATCH) {
-    const batch = days.slice(i, i + ODDS_HISTORY_BATCH);
+  // ── Step 1: parallel KV reads for all days ──────────────────────────────
+  const kvResults = await Promise.allSettled(
+    days.map((day) => getJson(KV_ODDS_DAY_KEY(day)).catch(() => null))
+  );
+
+  const missingDays = [];
+  for (let i = 0; i < days.length; i++) {
+    const kvVal = kvResults[i].status === 'fulfilled' ? kvResults[i].value : null;
+    if (kvVal?.games != null) {
+      cacheHits++;
+      for (const g of kvVal.games) {
+        const k = `${g.gameId || ''}-${g.commenceTime || ''}`.trim() || `${g.homeTeam}-${g.awayTeam}-${g.commenceTime}`;
+        if (!gameMap.has(k)) gameMap.set(k, g);
+      }
+    } else {
+      cacheMisses++;
+      missingDays.push(days[i]);
+    }
+  }
+
+  // ── Step 2: batch-fetch API only for KV misses ──────────────────────────
+  for (let i = 0; i < missingDays.length; i += ODDS_HISTORY_BATCH) {
+    if (i > 0) await delay(ODDS_HISTORY_BATCH_DELAY_MS);
+    const batch = missingDays.slice(i, i + ODDS_HISTORY_BATCH);
+
     const settled = await Promise.allSettled(
-      batch.map((day) => {
-        const dateParam = `${day}T23:59:59Z`;
+      batch.map(async (day) => {
         const params = new URLSearchParams({
           regions: 'us',
           markets: 'spreads',
           oddsFormat: 'american',
           dateFormat: 'iso',
-          date: dateParam,
+          date: `${day}T23:59:59Z`,
           apiKey,
         });
-        return fetch(`${ODDS_HISTORY_BASE}?${params.toString()}`).then(async (res) => {
-          if (!res.ok) {
-            const err = Object.assign(
-              new Error(res.status === 402 || res.status === 429
-                ? 'Odds API historical requires paid plan'
-                : `Odds history: ${res.status}`),
-              { httpStatus: res.status }
-            );
-            throw err;
-          }
-          const raw = await res.json();
-          return Array.isArray(raw) ? raw : raw?.data ?? [];
-        });
+        const res = await fetch(`${ODDS_HISTORY_BASE}?${params.toString()}`);
+        if (!res.ok) {
+          throw Object.assign(
+            new Error(res.status === 402 || res.status === 429
+              ? 'Odds API historical requires paid plan'
+              : `Odds history: ${res.status}`),
+            { httpStatus: res.status, day }
+          );
+        }
+        const raw = await res.json();
+        const games = eventsToGames(raw);
+        // Write to KV (fire-and-forget — safe if KV unavailable)
+        setJson(KV_ODDS_DAY_KEY(day), { games }, { exSeconds: KV_ODDS_DAY_TTL_SEC }).catch(() => {});
+        return games;
       })
     );
 
     for (const outcome of settled) {
       if (outcome.status === 'fulfilled') {
-        for (const ev of outcome.value) {
-          const { spread, sportsbook } = extractSpread(ev.bookmakers);
-          if (spread == null) continue;
-          const key = `${ev.id || ''}-${ev.commence_time || ''}`.trim() || `${ev.home_team}-${ev.away_team}-${ev.commence_time}`;
-          if (!gameMap.has(key)) {
-            gameMap.set(key, {
-              gameId: ev.id,
-              homeTeam: ev.home_team,
-              awayTeam: ev.away_team,
-              commenceTime: ev.commence_time,
-              spread,
-              sportsbook: sportsbook || 'Odds API',
-            });
-          }
+        for (const g of outcome.value) {
+          const k = `${g.gameId || ''}-${g.commenceTime || ''}`.trim() || `${g.homeTeam}-${g.awayTeam}-${g.commenceTime}`;
+          if (!gameMap.has(k)) gameMap.set(k, g);
         }
       } else {
         const err = outcome.reason;
         if (!firstErrorStatus) firstErrorStatus = err?.httpStatus ?? 'unknown';
-        // Auth/quota errors are fatal — no point continuing
         if (err?.message?.includes('paid plan')) {
           throw Object.assign(new Error(err.message), { httpStatus: err?.httpStatus ?? 402 });
         }
@@ -328,7 +373,12 @@ async function fetchOddsHistoryChunk(apiKey, fromStr, toStr) {
     }
   }
 
-  const result = { games: Array.from(gameMap.values()), _firstErrorStatus: firstErrorStatus };
+  const result = {
+    games: Array.from(gameMap.values()),
+    _firstErrorStatus: firstErrorStatus,
+    _cacheHits: cacheHits,
+    _cacheMisses: cacheMisses,
+  };
   oddsHistoryCache.set(cacheKey, result);
   return result;
 }
@@ -338,7 +388,7 @@ export async function fetchOddsHistorySource(fromStr, toStr) {
   if (!apiKey) {
     return {
       games: [], error: 'missing_key', hasOddsKey: false,
-      meta: { fromStr, toStr, gamesCount: 0, errorCode: 'missing_key' },
+      meta: { fromStr, toStr, gamesCount: 0, errorCode: 'missing_key', oddsCacheHits: 0, oddsCacheMisses: 0 },
     };
   }
 
@@ -350,6 +400,9 @@ export async function fetchOddsHistorySource(fromStr, toStr) {
     const chunks = chunkDateRange(fromStr, toStr, 31);
     const gameMap = new Map();
     let firstErrorStatus = null;
+    let totalHits = 0;
+    let totalMisses = 0;
+
     for (const chunk of chunks) {
       const chunkResult = await fetchOddsHistoryChunk(apiKey, chunk.from, chunk.to);
       for (const g of chunkResult.games || []) {
@@ -357,7 +410,10 @@ export async function fetchOddsHistorySource(fromStr, toStr) {
         if (!gameMap.has(key)) gameMap.set(key, g);
       }
       if (!firstErrorStatus && chunkResult._firstErrorStatus) firstErrorStatus = chunkResult._firstErrorStatus;
+      totalHits += chunkResult._cacheHits ?? 0;
+      totalMisses += chunkResult._cacheMisses ?? 0;
     }
+
     const games = Array.from(gameMap.values());
     const result = {
       games,
@@ -367,6 +423,8 @@ export async function fetchOddsHistorySource(fromStr, toStr) {
         toStr,
         gamesCount: games.length,
         errorCode: firstErrorStatus != null ? `partial_http_${firstErrorStatus}` : null,
+        oddsCacheHits: totalHits,
+        oddsCacheMisses: totalMisses,
       },
     };
     oddsHistoryCache.set(fullKey, result);
@@ -377,7 +435,11 @@ export async function fetchOddsHistorySource(fromStr, toStr) {
       games: [],
       error: err.message,
       hasOddsKey: true,
-      meta: { fromStr, toStr, gamesCount: 0, errorCode, httpStatus: err?.httpStatus ?? null },
+      meta: {
+        fromStr, toStr, gamesCount: 0,
+        errorCode, httpStatus: err?.httpStatus ?? null,
+        oddsCacheHits: 0, oddsCacheMisses: 0,
+      },
     };
   }
 }

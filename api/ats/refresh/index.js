@@ -124,6 +124,8 @@ export default async function handler(req, res) {
     dbg.fallbackReason = result.fallbackReason ?? null;
     dbg.oddsGamesCount = result.oddsGamesCount ?? 0;
     dbg.teamsWithAnyAtsCount = result.teamsWithAnyAtsCount ?? 0;
+    dbg.linedFallbackAttempted = result.linedFallbackAttempted ?? false;
+    if (result.linedFallbackResult) dbg.linedFallbackResult = result.linedFallbackResult;
     // oddsDebug: non-sensitive metadata about the odds history fetch
     if (result.oddsDebug) dbg.oddsDebug = result.oddsDebug;
 

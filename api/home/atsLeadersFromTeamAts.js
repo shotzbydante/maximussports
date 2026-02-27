@@ -105,9 +105,11 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
 
   if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] start', { windowDays, teamSlugs: teamSlugs?.length, fromStr, today, effectiveDeadlineMs: effectiveDeadlineAt - start });
 
-  // Bound the odds-history fetch so it doesn't consume the entire budget.
-  // Leave at least 1800 ms for the team loop; enforce a 1500 ms floor so we always try.
-  const oddsFetchTimeoutMs = Math.max(1500, effectiveDeadlineAt - Date.now() - 1800);
+  // For wide windows (>= 30 d) the odds fetch is the bottleneck — give it most of the
+  // budget and only reserve 600 ms for final processing/writes.
+  // For last7 and similar narrow windows, keep the original 1800 ms reserve.
+  const processingReserveMs = windowDays >= 30 ? 600 : 1800;
+  const oddsFetchTimeoutMs = Math.max(1500, effectiveDeadlineAt - Date.now() - processingReserveMs);
 
   let oddsTimedOut = false;
   const [rankingsData, teamIdsData, oddsHistoryResult] = await Promise.all([
@@ -133,6 +135,9 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     gamesCount: oddsGamesCount,
     timedOut: oddsTimedOut,
     errorCode: oddsHistoryResult?.meta?.errorCode ?? oddsHistoryResult?.error ?? null,
+    oddsCacheHits: oddsHistoryResult?.meta?.oddsCacheHits ?? 0,
+    oddsCacheMisses: oddsHistoryResult?.meta?.oddsCacheMisses ?? 0,
+    batchSize: 4, // ODDS_HISTORY_BATCH constant from _sources.js
   };
   if (rankings.length === 0) {
     if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] no rankings');
