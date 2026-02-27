@@ -1,7 +1,12 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PINNED TEAMS SECTION
+   ═══════════════════════════════════════════════════════════════════ */
+
 .section {
   margin-bottom: var(--space-xl);
 }
 
+/* ─── Header ─────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
@@ -56,116 +61,368 @@
   background: var(--color-bg-muted);
 }
 
-.addPanel {
+/* ═══════════════════════════════════════════════════════════════════
+   PREMIUM TEAM PICKER PANEL
+   ═══════════════════════════════════════════════════════════════════ */
+
+.pickerPanel {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
-  padding: var(--space-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.09);
   margin-bottom: var(--space-lg);
-}
-
-.searchInput {
-  width: 100%;
-  font-size: 0.9rem;
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-md);
-}
-
-.searchInput:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.searchResults {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.searchItem {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  text-align: left;
-  background: transparent;
+  flex-direction: column;
+  max-height: 540px;
+  overflow: hidden;
+}
+
+/* Panel header */
+.pickerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+}
+
+.pickerHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pickerTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.pickerSubtitle {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pickerDoneBtn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
   cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
 }
 
-.searchItem:hover:not(:disabled) {
-  background: var(--color-bg-muted);
+.pickerDoneBtn:hover {
+  background: var(--color-primary-hover, #2a65b8);
 }
 
-.searchItem:disabled {
-  opacity: 0.6;
-  cursor: default;
+.pickerDoneBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-.conf {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  margin-left: auto;
-}
-
-.check {
-  color: var(--color-up);
-  font-weight: 700;
-}
-
-.empty {
-  padding: var(--space-md);
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.multiSelect {
-  font-size: 0.85rem;
-}
-
-.multiLabel {
-  display: block;
-  margin-bottom: var(--space-sm);
-  color: var(--color-text-muted);
-}
-
-.tierGroup {
-  margin-bottom: var(--space-sm);
-}
-
-.confLabel {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  display: block;
-  margin-bottom: 2px;
-}
-
-.checkboxList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.checkbox {
+/* Search input */
+.pickerSearchWrap {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  font-size: 0.8rem;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+}
+
+.pickerSearchIcon {
+  position: absolute;
+  left: 26px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.pickerSearchInput {
+  width: 100%;
+  padding: 8px 10px 8px 32px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.pickerSearchInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.1);
+}
+
+.pickerSearchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Selected summary bar */
+.selectedBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(60, 121, 180, 0.04);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.selectedCount {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.selectedChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.selectedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.1);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  border-radius: 999px;
+  cursor: pointer;
+  max-width: 100px;
+  overflow: hidden;
+}
+
+.selectedChip:hover {
+  background: rgba(196, 92, 74, 0.1);
+  border-color: rgba(196, 92, 74, 0.25);
+  color: var(--color-down);
+}
+
+.selectedChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedChipX {
+  font-size: 0.85rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.selectedMore {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  padding: 2px 6px;
+}
+
+.clearBtn {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-down);
+  background: transparent;
+  border: none;
   cursor: pointer;
   padding: 2px 4px;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.checkbox input {
-  margin: 0;
+.clearBtn:hover {
+  text-decoration: underline;
 }
 
-/* ─── Empty-state two-column layout ──────────────────────────────────────── */
+/* Scrollable team list */
+.pickerList {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pickerGroup {
+  /* no gap needed — rows have their own borders */
+}
+
+.pickerGroupHeader {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: 8px 14px 4px;
+  background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.pickerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  transition: background 0.1s;
+}
+
+.pickerRow:last-child {
+  border-bottom: none;
+}
+
+.pickerRow:hover {
+  background: var(--color-bg-muted, rgba(0, 0, 0, 0.03));
+}
+
+.pickerRow:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.pickerRowActive {
+  background: rgba(60, 121, 180, 0.05);
+}
+
+.pickerRowActive:hover {
+  background: rgba(60, 121, 180, 0.09);
+}
+
+.pickerRowLogo {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.pickerRowName {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pickerRowConf {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.pickerRowCheck {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-up);
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.pickerRowAdd {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.pickerEmpty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+/* Footer */
+.pickerFooter {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-elevated);
+  flex-shrink: 0;
+}
+
+.pickerFooterDone {
+  flex: 1;
+  padding: 9px 0;
+  font-size: 0.825rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pickerFooterDone:hover {
+  background: var(--color-primary-hover, #2a65b8);
+}
+
+.pickerFooterDone:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.pickerFooterCancel {
+  padding: 9px 16px;
+  font-size: 0.825rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.pickerFooterCancel:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════════════════════════════ */
+
 .emptyLayout {
   display: grid;
   grid-template-columns: 1fr 300px;
@@ -174,8 +431,19 @@
   align-items: start;
 }
 
+.emptyLayoutSingle {
+  /* preview was dismissed — show onboarding card constrained width */
+  display: grid;
+  grid-template-columns: minmax(0, 560px);
+  gap: 16px;
+  margin-bottom: var(--space-md);
+}
+
 @media (max-width: 840px) {
   .emptyLayout {
+    grid-template-columns: 1fr;
+  }
+  .emptyLayoutSingle {
     grid-template-columns: 1fr;
   }
 }
@@ -239,7 +507,12 @@
 }
 
 .ctaBtn:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-hover, #2a65b8);
+}
+
+.ctaBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .ctaHint {
@@ -292,54 +565,90 @@
   border-color: rgba(60, 121, 180, 0.35);
 }
 
-/* ─── Preview (example) card ─────────────────────────────────────────────── */
+.quickChip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PREVIEW (EXAMPLE) CARD
+   Crisp and readable — interactions blocked via JS, not CSS opacity.
+   ═══════════════════════════════════════════════════════════════════ */
+
 .previewCard {
-  position: relative;
-  opacity: 0.82;
-  pointer-events: none; /* non-interactive */
-  user-select: none;
+  background: var(--color-bg-elevated);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  /* no padding here — top bar goes edge-to-edge */
 }
 
-.exampleBadge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 0.55rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-beige-dune);
-  background: rgba(183, 152, 108, 0.15);
-  border: 1px solid rgba(183, 152, 108, 0.3);
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.cardLinkMock {
+.previewTopBar {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  flex: 1;
-  min-width: 0;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(183, 152, 108, 0.06);
+  border-bottom: 1px dashed rgba(183, 152, 108, 0.25);
 }
 
-.headlineMock {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
+.exampleLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--color-beige-dune, #b7986c);
 }
 
-.teamLinkMock {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  opacity: 0.6;
+.dismissBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 0;
+  transition: background 0.1s, color 0.1s;
 }
 
-/* ─── Pinned cards grid ──────────────────────────────────────────────────── */
+.dismissBtn:hover {
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--color-text);
+}
+
+.dismissBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Body of preview card (mirrors real card padding) */
+.previewCardBody {
+  padding: var(--space-md);
+}
+
+/* Mock links/interactive elements in preview — rendered non-navigating */
+.previewCard .headlineLink,
+.previewCard .teamLink {
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PINNED CARDS GRID
+   ═══════════════════════════════════════════════════════════════════ */
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
+}
+
+/* Single card: let it fill full available width */
+.cardsSingle {
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 600px) {
@@ -358,6 +667,11 @@
   border-radius: var(--radius-md);
   padding: var(--space-md);
   box-shadow: var(--shadow-card);
+}
+
+/* Compact card — used when exactly 1 team is pinned */
+.cardCompact {
+  padding: 10px var(--space-md);
 }
 
 .cardHeader {
@@ -380,6 +694,14 @@
 
 .cardLink:hover {
   color: var(--color-primary);
+}
+
+.cardLinkMock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
 }
 
 .cardMeta {
@@ -482,6 +804,14 @@
   margin: 0;
 }
 
+/* Compact: clamp summary to 2 lines */
+.teamSummaryCompact {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .teamSummaryUnavailable {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -508,6 +838,12 @@
 .headlineLink:hover {
   color: var(--color-primary);
   text-decoration: underline;
+}
+
+.headlinesMore {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  padding-top: 2px;
 }
 
 .recordsRow {
@@ -553,4 +889,17 @@
 
 .teamLink:hover {
   text-decoration: underline;
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .quickChip,
+  .ctaBtn,
+  .addBtn,
+  .pickerDoneBtn,
+  .pickerFooterDone,
+  .selectedChip,
+  .dismissBtn {
+    transition: none;
+  }
 }

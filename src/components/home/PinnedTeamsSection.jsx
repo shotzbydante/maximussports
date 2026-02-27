@@ -21,12 +21,12 @@ import styles from './PinnedTeamsSection.module.css';
 
 // Popular teams to suggest to new users
 const POPULAR_PICKS = [
-  { slug: 'duke-blue-devils',     name: 'Duke' },
-  { slug: 'kansas-jayhawks',      name: 'Kansas' },
-  { slug: 'connecticut-huskies',  name: 'UConn' },
-  { slug: 'houston-cougars',      name: 'Houston' },
-  { slug: 'kentucky-wildcats',    name: 'Kentucky' },
-  { slug: 'gonzaga-bulldogs',     name: 'Gonzaga' },
+  { slug: 'duke-blue-devils',    name: 'Duke' },
+  { slug: 'kansas-jayhawks',     name: 'Kansas' },
+  { slug: 'connecticut-huskies', name: 'UConn' },
+  { slug: 'houston-cougars',     name: 'Houston' },
+  { slug: 'kentucky-wildcats',   name: 'Kentucky' },
+  { slug: 'gonzaga-bulldogs',    name: 'Gonzaga' },
 ];
 
 // Static preview card data — no fetching, illustrative only
@@ -44,7 +44,24 @@ const PREVIEW_CARD = {
   ],
 };
 
-/** Small quick-select chip */
+const PICKER_SEARCH_ICON = (
+  <svg
+    width="14" height="14" viewBox="0 0 14 14" fill="none"
+    aria-hidden className={styles.pickerSearchIcon}
+  >
+    <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.4" />
+    <line x1="8.8" y1="8.8" x2="12.5" y2="12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+const CLOSE_ICON = (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+    <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+/** Small quick-select chip — opens picker with team prefilled */
 function QuickChip({ name, onClick }) {
   return (
     <button type="button" className={styles.quickChip} onClick={onClick}>
@@ -67,7 +84,7 @@ function EmptyStateCard({ onOpenAdd, onQuickPin, pinned }) {
         <li>News velocity &amp; latest headlines</li>
       </ul>
       <button type="button" className={styles.ctaBtn} onClick={onOpenAdd}>
-        + Add team
+        Pin your first team
       </button>
       <p className={styles.ctaHint}>Search any team by name. Try: Duke, Kansas, UConn…</p>
       {availableChips.length > 0 && (
@@ -75,7 +92,11 @@ function EmptyStateCard({ onOpenAdd, onQuickPin, pinned }) {
           <span className={styles.popularLabel}>Popular picks</span>
           <div className={styles.quickChips}>
             {availableChips.map((p) => (
-              <QuickChip key={p.slug} name={p.name} onClick={() => onQuickPin(p.slug)} />
+              <QuickChip
+                key={p.slug}
+                name={p.name}
+                onClick={() => onQuickPin(p.slug, p.name)}
+              />
             ))}
           </div>
         </div>
@@ -84,52 +105,76 @@ function EmptyStateCard({ onOpenAdd, onQuickPin, pinned }) {
   );
 }
 
-/** Static preview card — shows what a pinned team card looks like */
-function PreviewCard() {
+/** Static preview card — dismissible, crisp, shows what a real card looks like */
+function PreviewCard({ onDismiss }) {
   const { team, rank, season, last10, ats, nextGame, summary, headlines } = PREVIEW_CARD;
+  // Intercept all clicks so demo links don't navigate
+  const blockNav = (e) => e.preventDefault();
   return (
-    <article className={`${styles.card} ${styles.previewCard}`} aria-label="Example pinned team card">
-      <div className={styles.exampleBadge}>Example</div>
-      <div className={styles.cardHeader}>
-        <div className={styles.cardLinkMock}>
-          <TeamLogo team={team} size={32} />
-          <div className={styles.cardMeta}>
-            <span className={styles.teamName}>{team.name}</span>
-            <span className={styles.conference}>{team.conference}</span>
+    <article className={styles.previewCard} aria-label="Example pinned team card">
+      {/* Top bar with label + dismiss */}
+      <div className={styles.previewTopBar}>
+        <span className={styles.exampleLabel}>Example card</span>
+        <button
+          type="button"
+          className={styles.dismissBtn}
+          onClick={onDismiss}
+          aria-label="Dismiss example card"
+        >
+          {CLOSE_ICON}
+        </button>
+      </div>
+
+      {/* Card body mirrors a real card */}
+      <div className={styles.previewCardBody}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardLinkMock}>
+            <TeamLogo team={team} size={32} />
+            <div className={styles.cardMeta}>
+              <span className={styles.teamName}>{team.name}</span>
+              <span className={styles.conference}>{team.conference}</span>
+            </div>
+          </div>
+          {/* No tier badge here — avoids visual clash with Example label */}
+          <div className={styles.cardBadges}>
+            <span className={styles.rank}>#{rank}</span>
           </div>
         </div>
-        <div className={styles.cardBadges}>
-          <span className={styles.rank}>#{rank}</span>
-          <span className={`${styles.tier} ${styles.tierLock}`}>{team.oddsTier}</span>
+
+        <div className={styles.nextGame}>
+          <span className={styles.nextLabel}>Next:</span>
+          <span>{nextGame}</span>
         </div>
+
+        <div className={styles.recordsRow}>
+          <span className={styles.recordCell}>
+            <span className={styles.recordLabel}>Season</span>
+            <span className={styles.recordValue}>{season}</span>
+          </span>
+          <span className={styles.recordCell}>
+            <span className={styles.recordLabel}>L10</span>
+            <span className={styles.recordValue}>{last10}</span>
+          </span>
+          <span className={styles.recordCell}>
+            <span className={styles.recordLabel}>ATS</span>
+            <span className={styles.recordValue}>{ats}</span>
+          </span>
+        </div>
+
+        <div className={styles.teamSummary}>
+          <p className={styles.teamSummaryText}>{summary}</p>
+        </div>
+
+        <ul className={styles.headlines}>
+          {headlines.map((h) => (
+            <li key={h}>
+              <a href="#" onClick={blockNav} className={styles.headlineLink}>{h}</a>
+            </li>
+          ))}
+        </ul>
+
+        <a href="#" onClick={blockNav} className={styles.teamLink}>View team →</a>
       </div>
-      <div className={styles.nextGame}>
-        <span className={styles.nextLabel}>Next:</span>
-        <span>{nextGame}</span>
-      </div>
-      <div className={styles.recordsRow}>
-        <span className={styles.recordCell}>
-          <span className={styles.recordLabel}>Season</span>
-          <span className={styles.recordValue}>{season}</span>
-        </span>
-        <span className={styles.recordCell}>
-          <span className={styles.recordLabel}>L10</span>
-          <span className={styles.recordValue}>{last10}</span>
-        </span>
-        <span className={styles.recordCell}>
-          <span className={styles.recordLabel}>ATS</span>
-          <span className={styles.recordValue}>{ats}</span>
-        </span>
-      </div>
-      <div className={styles.teamSummary}>
-        <p className={styles.teamSummaryText}>{summary}</p>
-      </div>
-      <ul className={styles.headlines}>
-        {headlines.map((h) => (
-          <li key={h}><span className={styles.headlineMock}>{h}</span></li>
-        ))}
-      </ul>
-      <span className={styles.teamLinkMock}>View team →</span>
     </article>
   );
 }
@@ -187,6 +232,9 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   const [teamSummaries, setTeamSummaries] = useState({});
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [showPreview, setShowPreview] = useState(() => {
+    try { return localStorage.getItem('pinnedTeamsHideExample') !== '1'; } catch { return true; }
+  });
 
   const grouped = getTeamsGroupedByConference();
 
@@ -211,6 +259,28 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     notify();
   }, [notify]);
 
+  const handleClearAll = useCallback(() => {
+    [...pinned].forEach((slug) => removePinnedTeam(slug));
+    setPinned([]);
+    notify();
+  }, [pinned, notify]);
+
+  const handlePickerDone = useCallback(() => {
+    setShowAdd(false);
+    setSearch('');
+  }, []);
+
+  const handleDismissPreview = useCallback(() => {
+    try { localStorage.setItem('pinnedTeamsHideExample', '1'); } catch {}
+    setShowPreview(false);
+  }, []);
+
+  // Opens picker and prefills search with the chip's short name
+  const handleQuickPin = useCallback((slug, name) => {
+    setSearch(name ?? '');
+    setShowAdd(true);
+  }, []);
+
   useEffect(() => {
     if (Object.keys(rankMapProp).length > 0) setRankMap(rankMapProp);
   }, [rankMapProp]);
@@ -229,7 +299,6 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     }
   }, [teamNewsBySlugProp]);
 
-  // Derive teamRecords and teamNews from batch data (from Home: /api/team/batch + staggered refresh)
   useEffect(() => {
     if (pinned.length === 0) {
       setTeamRecords({});
@@ -256,7 +325,6 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     }
   }, [pinned.join(','), pinnedTeamDataBySlug]);
 
-  // GPT summary per pinned team (from that card's headlines only); cache on server ~30 min
   useEffect(() => {
     if (pinned.length === 0) return;
     pinned.slice(0, 8).forEach((slug) => {
@@ -304,21 +372,20 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     return null;
   };
 
-  const handleQuickPin = useCallback((slug) => {
-    handleAdd(slug);
-  }, [handleAdd]);
+  const isCompact = pinned.length === 1;
+  const maxHeadlines = isCompact ? 2 : 3;
 
   return (
     <section className={styles.section}>
+      {/* ── Section header ───────────────────────────────────────────────── */}
       <div className={styles.header}>
         <h2 className={styles.title}>Pinned Teams</h2>
         <div className={styles.actions}>
-          {/* "Add more" prompt when exactly 1 team is tracked */}
           {pinned.length === 1 && !showAdd && (
             <div className={styles.addMoreHint}>
               <span className={styles.addMoreText}>Pin a few more for faster tracking</span>
               {POPULAR_PICKS.filter((p) => !pinned.includes(p.slug)).slice(0, 3).map((p) => (
-                <QuickChip key={p.slug} name={p.name} onClick={() => handleQuickPin(p.slug)} />
+                <QuickChip key={p.slug} name={p.name} onClick={() => handleQuickPin(p.slug, p.name)} />
               ))}
             </div>
           )}
@@ -327,83 +394,157 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             className={styles.addBtn}
             onClick={() => setShowAdd(!showAdd)}
             aria-expanded={showAdd}
+            aria-controls="team-picker-panel"
           >
-            {showAdd ? 'Done' : '+ Add team'}
+            {showAdd ? 'Close' : '+ Add team'}
           </button>
         </div>
       </div>
 
+      {/* ── Premium team picker panel ─────────────────────────────────────── */}
       {showAdd && (
-        <div className={styles.addPanel}>
-          <input
-            type="search"
-            placeholder="Search teams…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={styles.searchInput}
-            autoFocus
-          />
-          <div className={styles.searchResults}>
+        <div
+          id="team-picker-panel"
+          className={styles.pickerPanel}
+          role="dialog"
+          aria-label="Add teams to your watchlist"
+          aria-modal="true"
+        >
+          {/* Header */}
+          <div className={styles.pickerHeader}>
+            <div className={styles.pickerHeaderText}>
+              <p className={styles.pickerTitle}>Add teams to your watchlist</p>
+              <p className={styles.pickerSubtitle}>Pin teams to track rankings, ATS, odds, and news.</p>
+            </div>
+            <button type="button" className={styles.pickerDoneBtn} onClick={handlePickerDone}>
+              Done
+            </button>
+          </div>
+
+          {/* Search input */}
+          <div className={styles.pickerSearchWrap}>
+            {PICKER_SEARCH_ICON}
+            <input
+              type="search"
+              placeholder="Search teams (Duke, Kansas, UConn…)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={styles.pickerSearchInput}
+              autoFocus
+              aria-label="Search teams"
+            />
+          </div>
+
+          {/* Selected summary bar */}
+          {pinned.length > 0 && (
+            <div className={styles.selectedBar}>
+              <span className={styles.selectedCount}>Selected: {pinned.length}</span>
+              <div className={styles.selectedChips}>
+                {pinned.slice(0, 5).map((slug) => {
+                  const t = getTeamBySlug(slug);
+                  return t ? (
+                    <button
+                      key={slug}
+                      type="button"
+                      className={styles.selectedChip}
+                      onClick={() => handleToggle(slug)}
+                      aria-label={`Remove ${t.name}`}
+                    >
+                      <span className={styles.selectedChipName}>{t.name.split(' ')[0]}</span>
+                      <span className={styles.selectedChipX} aria-hidden>×</span>
+                    </button>
+                  ) : null;
+                })}
+                {pinned.length > 5 && (
+                  <span className={styles.selectedMore}>+{pinned.length - 5} more</span>
+                )}
+              </div>
+              <button type="button" className={styles.clearBtn} onClick={handleClearAll}>
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* Team list (scrollable) */}
+          <div className={styles.pickerList} role="listbox" aria-label="Teams">
             {search.trim() ? (
               filteredTeams.length > 0 ? (
                 filteredTeams.slice(0, 12).map((t) => (
                   <button
                     key={t.slug}
                     type="button"
-                    className={styles.searchItem}
-                    onClick={() => handleAdd(t.slug)}
-                    disabled={pinned.includes(t.slug)}
+                    role="option"
+                    aria-selected={pinned.includes(t.slug)}
+                    className={`${styles.pickerRow} ${pinned.includes(t.slug) ? styles.pickerRowActive : ''}`}
+                    onClick={() => handleToggle(t.slug)}
                   >
-                    <TeamLogo team={t} size={24} />
-                    <span>{t.name}</span>
-                    <span className={styles.conf}>{t.conference}</span>
-                    {pinned.includes(t.slug) && <span className={styles.check}>✓</span>}
+                    <span className={styles.pickerRowLogo}>
+                      <TeamLogo team={t} size={22} />
+                    </span>
+                    <span className={styles.pickerRowName}>{t.name}</span>
+                    <span className={styles.pickerRowConf}>{t.conference}</span>
+                    <span className={pinned.includes(t.slug) ? styles.pickerRowCheck : styles.pickerRowAdd} aria-hidden>
+                      {pinned.includes(t.slug) ? '✓' : '+'}
+                    </span>
                   </button>
                 ))
               ) : (
-                <div className={styles.empty}>No teams found</div>
+                <div className={styles.pickerEmpty}>No teams found for &ldquo;{search}&rdquo;</div>
               )
             ) : (
-              <div className={styles.multiSelect}>
-                <span className={styles.multiLabel}>Or select from list:</span>
-                {grouped.map(({ conference, tiers }) => (
-                  <div key={conference} className={styles.tierGroup}>
-                    <span className={styles.confLabel}>{conference}</span>
-                    <div className={styles.checkboxList}>
-                      {Object.values(tiers).flat().map((t) => (
-                        <label key={t.slug} className={styles.checkbox}>
-                          <input
-                            type="checkbox"
-                            checked={pinned.includes(t.slug)}
-                            onChange={() => handleToggle(t.slug)}
-                          />
-                          <span>{t.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              grouped.map(({ conference, tiers }) => (
+                <div key={conference} className={styles.pickerGroup}>
+                  <div className={styles.pickerGroupHeader}>{conference}</div>
+                  {Object.values(tiers).flat().map((t) => (
+                    <button
+                      key={t.slug}
+                      type="button"
+                      role="option"
+                      aria-selected={pinned.includes(t.slug)}
+                      className={`${styles.pickerRow} ${pinned.includes(t.slug) ? styles.pickerRowActive : ''}`}
+                      onClick={() => handleToggle(t.slug)}
+                    >
+                      <span className={styles.pickerRowLogo}>
+                        <TeamLogo team={t} size={22} />
+                      </span>
+                      <span className={styles.pickerRowName}>{t.name}</span>
+                      <span className={pinned.includes(t.slug) ? styles.pickerRowCheck : styles.pickerRowAdd} aria-hidden>
+                        {pinned.includes(t.slug) ? '✓' : '+'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ))
             )}
+          </div>
+
+          {/* Footer */}
+          <div className={styles.pickerFooter}>
+            <button type="button" className={styles.pickerFooterDone} onClick={handlePickerDone}>
+              Done
+            </button>
+            <button type="button" className={styles.pickerFooterCancel} onClick={handlePickerDone}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
-      {/* Empty state: onboarding card + preview card */}
+      {/* ── Empty state: onboarding + preview card ───────────────────────── */}
       {pinned.length === 0 && (
-        <div className={styles.emptyLayout}>
+        <div className={showPreview ? styles.emptyLayout : styles.emptyLayoutSingle}>
           <EmptyStateCard
             onOpenAdd={() => setShowAdd(true)}
             onQuickPin={handleQuickPin}
             pinned={pinned}
           />
-          <PreviewCard />
+          {showPreview && <PreviewCard onDismiss={handleDismissPreview} />}
         </div>
       )}
 
-      {/* Pinned team cards grid */}
+      {/* ── Pinned team cards grid ───────────────────────────────────────── */}
       {pinned.length > 0 && (
-        <div className={styles.cards}>
+        <div className={`${styles.cards} ${isCompact ? styles.cardsSingle : ''}`}>
           {pinned.map((slug) => {
             const team = getTeamBySlug(slug);
             if (!team) return null;
@@ -411,7 +552,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             const nextGame = getNextGame(slug);
             const headlines = teamNews[slug] || [];
             return (
-              <article key={slug} className={styles.card}>
+              <article key={slug} className={`${styles.card} ${isCompact ? styles.cardCompact : ''}`}>
                 <div className={styles.cardHeader}>
                   <Link to={`/teams/${slug}`} className={styles.cardLink}>
                     <TeamLogo team={team} size={32} />
@@ -486,7 +627,9 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                 <div className={styles.teamSummary}>
                   {headlines.length > 0 ? (
                     (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
-                      <p className={styles.teamSummaryText}>{teamSummaries[slug]}</p>
+                      <p className={`${styles.teamSummaryText} ${isCompact ? styles.teamSummaryCompact : ''}`}>
+                        {teamSummaries[slug]}
+                      </p>
                     ) : (
                       <p className={styles.teamSummaryUnavailable}>Summary unavailable</p>
                     )
@@ -496,7 +639,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                 </div>
                 {headlines.length > 0 && (
                   <ul className={styles.headlines}>
-                    {headlines.map((h) => (
+                    {headlines.slice(0, maxHeadlines).map((h) => (
                       <li key={h.id || h.title}>
                         <a
                           href={h.link}
@@ -508,6 +651,11 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                         </a>
                       </li>
                     ))}
+                    {isCompact && headlines.length > maxHeadlines && (
+                      <li className={styles.headlinesMore}>
+                        +{headlines.length - maxHeadlines} more
+                      </li>
+                    )}
                   </ul>
                 )}
                 <Link to={`/teams/${slug}`} className={styles.teamLink}>
