@@ -15,16 +15,10 @@ const QUOTES = {
   diaperDandy: ['Diaper Dandy'],
   motivation: [
     "Clear eyes, full hearts, can't lose!",
-    'Our deepest fear is not that we are inadequate...',
     'Juuuuuuuuust a bit outside.',
     'If you put your effort and concentration into playing to your potential...',
     "Ducks fly together!",
     "Show me the money!",
-  ],
-  legends: [
-    'Talent wins games, but teamwork and intelligence win championships.',
-    "I've failed over and over and over again in my life. And that is why I succeed.",
-    'Ask what you can do for your teammates.',
   ],
   humor: [
     'Google me, Chuck!',
@@ -270,9 +264,9 @@ function generateHomeSummary(data) {
       .slice(0, 3);
     if (entries.length > 0) {
       const names = entries.map(([slug]) => slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')).join(', ');
-      paragraphs.push('Championship odds favor **' + names + '** — bracket pressure is real. ');
-      const q = pickQuote('legends', usedQuotes);
-      if (q) paragraphs.push('*"' + q + '"*');
+      paragraphs.push('Championship odds favor **' + names + '** — bracket pressure is real. 🏆');
+      const q = pickQuote('humor', usedQuotes) || pickQuote('energy', usedQuotes) || pickQuote('motivation', usedQuotes);
+      if (q) paragraphs.push('*\"' + q + '\"*');
     }
   }
 

@@ -139,7 +139,9 @@ export default function ATSLeaderboard({
           {confidenceLabel && !showSeasonWarming && !showProgressUI && (
             <span className={styles.sourceLabel}>
               {confidenceLabel}
-              {atsMeta?.reason === 'client_last_known_fallback' ? ' · Stale data (from earlier in this session)' : (atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : '')}
+              {atsMeta?.reason === 'client_last_known_fallback' || atsMeta?.reason === 'last_known_fallback'
+                ? ' · Stale data'
+                : (atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : '')}
             </span>
           )}
           {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && !showProgressUI && (

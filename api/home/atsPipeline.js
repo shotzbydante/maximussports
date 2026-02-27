@@ -7,7 +7,20 @@
 
 import { coalesce } from '../_cache.js';
 import { getAtsLeaders, setAtsLeaders, getAtsLeadersMaybeStale } from './cache.js';
-import { getWithMeta, setJson, getJson, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS } from '../_globalCache.js';
+import {
+  getWithMeta,
+  setJson,
+  getJson,
+  getAtsLeadersKeyForWindow,
+  MAX_TTL_SECONDS,
+  ATS_LEADERS_LAST30_KEY,
+  ATS_LEADERS_LAST7_KEY,
+  ATS_LEADERS_SEASON_KEY,
+  ATS_LEADERS_LASTKNOWN_LAST30_KEY,
+  ATS_LEADERS_LASTKNOWN_LAST7_KEY,
+  ATS_LEADERS_LASTKNOWN_SEASON_KEY,
+  LAST_KNOWN_TTL_SECONDS,
+} from '../_globalCache.js';
 import { computeAtsLeadersFromTeamAts } from './atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from './atsFastFallback.js';
 
@@ -108,6 +121,16 @@ export async function writeAtsToKvIfValid(key, best, worst, atsMeta, cacheNote) 
     },
   };
   await setJson(key, payload, { exSeconds: MAX_TTL_SECONDS });
+
+  // Also persist a long-lived last-known copy so GET /api/ats/leaders can fall back
+  // to usable historical data when the fresh key is missing (e.g., after KV eviction).
+  let lastKnownKey = null;
+  if (key === ATS_LEADERS_LAST30_KEY) lastKnownKey = ATS_LEADERS_LASTKNOWN_LAST30_KEY;
+  else if (key === ATS_LEADERS_LAST7_KEY) lastKnownKey = ATS_LEADERS_LASTKNOWN_LAST7_KEY;
+  else if (key === ATS_LEADERS_SEASON_KEY) lastKnownKey = ATS_LEADERS_LASTKNOWN_SEASON_KEY;
+  if (lastKnownKey) {
+    await setJson(lastKnownKey, payload, { exSeconds: LAST_KNOWN_TTL_SECONDS });
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 /**
  * Vercel KV wrapper for shared ATS leaders cache.
  * Windowed keys: ats:leaders:last30:v1, ats:leaders:last7:v1, ats:leaders:season:v1
+ * Last-known keys (longer TTL): ats:leaders:lastKnown:last30:v1, ats:leaders:lastKnown:last7:v1, ats:leaders:lastKnown:season:v1
  * Payload: { atsLeaders: { best, worst }, atsMeta: { status, confidence, reason?, sourceLabel?, generatedAt, cacheNote? } }
  * TTL: fresh 5 min, max 60 min. Never overwrite existing value with EMPTY (enforced by callers).
  * When KV is not configured (e.g. local dev), getJson returns null and setJson no-ops.
@@ -10,11 +11,17 @@ const ATS_LEADERS_LAST30_KEY = 'ats:leaders:last30:v1';
 const ATS_LEADERS_LAST7_KEY = 'ats:leaders:last7:v1';
 const ATS_LEADERS_SEASON_KEY = 'ats:leaders:season:v1';
 
+// Long-lived last-known copies used when fresh KV is missing.
+const ATS_LEADERS_LASTKNOWN_LAST30_KEY = 'ats:leaders:lastKnown:last30:v1';
+const ATS_LEADERS_LASTKNOWN_LAST7_KEY = 'ats:leaders:lastKnown:last7:v1';
+const ATS_LEADERS_LASTKNOWN_SEASON_KEY = 'ats:leaders:lastKnown:season:v1';
+
 /** @deprecated Use getAtsLeadersKeyForWindow instead. Kept for backward compatibility during migration. */
 const ATS_LEADERS_KEY = ATS_LEADERS_LAST30_KEY;
 
 const FRESH_SECONDS = 5 * 60;   // 5 min
 const MAX_TTL_SECONDS = 60 * 60; // 60 min
+const LAST_KNOWN_TTL_SECONDS = 14 * 24 * 60 * 60; // 14 days
 
 /**
  * @param {'last30'|'last7'|'season'} window
@@ -24,6 +31,16 @@ function getAtsLeadersKeyForWindow(window) {
   if (window === 'last7') return ATS_LEADERS_LAST7_KEY;
   if (window === 'season') return ATS_LEADERS_SEASON_KEY;
   return ATS_LEADERS_LAST30_KEY;
+}
+
+/**
+ * @param {'last30'|'last7'|'season'} window
+ * @returns {string}
+ */
+function getAtsLeadersLastKnownKeyForWindow(window) {
+  if (window === 'last7') return ATS_LEADERS_LASTKNOWN_LAST7_KEY;
+  if (window === 'season') return ATS_LEADERS_LASTKNOWN_SEASON_KEY;
+  return ATS_LEADERS_LASTKNOWN_LAST30_KEY;
 }
 
 let kv = null;
@@ -132,4 +149,9 @@ export {
   getAtsLeadersKeyForWindow,
   FRESH_SECONDS,
   MAX_TTL_SECONDS,
+  ATS_LEADERS_LASTKNOWN_LAST30_KEY,
+  ATS_LEADERS_LASTKNOWN_LAST7_KEY,
+  ATS_LEADERS_LASTKNOWN_SEASON_KEY,
+  getAtsLeadersLastKnownKeyForWindow,
+  LAST_KNOWN_TTL_SECONDS,
 };

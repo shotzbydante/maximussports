@@ -4,7 +4,7 @@
  * When KV missing, return warming payload with nextAction and refreshEndpoint; fire-and-forget refresh via getOriginFromReq.
  */
 
-import { getJson, getWithMeta, getAtsLeadersKeyForWindow } from '../../_globalCache.js';
+import { getJson, getWithMeta, getAtsLeadersKeyForWindow, getAtsLeadersLastKnownKeyForWindow } from '../../_globalCache.js';
 import { getQueryParam, getOriginFromReq } from '../../_requestUrl.js';
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
@@ -31,6 +31,7 @@ export default async function handler(req, res) {
   const window = VALID_WINDOWS.includes(windowParam) ? windowParam : 'last30';
   if (isDev) console.log('[api/ats/leaders] parsed', { window });
   const key = getAtsLeadersKeyForWindow(window);
+  const lastKnownKey = getAtsLeadersLastKnownKeyForWindow(window);
 
   const meta = await getWithMeta(key);
   if (meta?.value) {
@@ -59,6 +60,7 @@ export default async function handler(req, res) {
       atsMeta: atsMetaOut,
       atsWindow: window,
       seasonWarming: meta.value.seasonWarming ?? false,
+      atsStatus: meta.stale ? 'stale' : 'fresh',
     });
   }
 
@@ -83,6 +85,36 @@ export default async function handler(req, res) {
       },
       atsWindow: window,
       seasonWarming: raw.seasonWarming ?? false,
+      atsStatus: isOld ? 'stale' : 'fresh',
+    });
+  }
+
+  // Fall back to long-lived last-known KV when the primary key is missing.
+  const lastKnownMeta = await getWithMeta(lastKnownKey);
+  if (lastKnownMeta?.value && (lastKnownMeta.value.atsLeaders?.best?.length || lastKnownMeta.value.atsLeaders?.worst?.length)) {
+    const ageSeconds = lastKnownMeta.ageSeconds;
+    const hasAge = ageSeconds != null;
+    const origin = getOriginFromReq(req);
+    const isOld = hasAge && ageSeconds > STALE_30M_SEC;
+    if (isDev) console.log('[ats] leaders lastKnown hit', { window, age: ageSeconds });
+    if (isOld && origin) {
+      if (isDev) console.log('[api/ats/leaders] refresh kick (lastKnown)', { origin, window });
+      kickRefresh(origin, window);
+    }
+    const atsMeta = {
+      ...(lastKnownMeta.value.atsMeta ?? {}),
+      source: 'kv_last_known',
+      stage: 'kv_last_known',
+      reason: 'last_known_fallback',
+      ...(hasAge && { cacheAgeSec: ageSeconds, staleAgeSec: ageSeconds }),
+      ...(!hasAge && { confidence: 'low' }),
+    };
+    return res.status(200).json({
+      atsLeaders: lastKnownMeta.value.atsLeaders ?? { best: [], worst: [] },
+      atsMeta,
+      atsWindow: window,
+      seasonWarming: lastKnownMeta.value.seasonWarming ?? false,
+      atsStatus: 'stale',
     });
   }
 
@@ -108,5 +140,6 @@ export default async function handler(req, res) {
     },
     atsWindow: window,
     seasonWarming: false,
+    atsStatus: 'missing',
   });
 }
