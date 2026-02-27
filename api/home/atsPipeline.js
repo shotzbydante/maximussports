@@ -296,12 +296,17 @@ export async function getAtsLeadersPipeline(options = {}) {
 
 /**
  * Compute-only ATS leaders for a window (no KV read). Used by POST /api/ats/refresh.
- * @param {{ atsWindow: 'last30'|'last7'|'season' }}
- * @returns {Promise<{ best: array, worst: array, status: string, confidence: string, reason?: string, sourceLabel?: string, generatedAt: string, cacheNote: string }>}
+ * @param {{ atsWindow: 'last30'|'last7'|'season', budgetMs?: number }} opts
+ *   budgetMs — total wall-clock budget for this compute in ms (default 6500 for last30/season, 5000 for last7).
+ * @returns {Promise<{ best: array, worst: array, status: string, confidence: string, reason?: string, sourceLabel?: string, generatedAt: string, cacheNote: string, budgetExceeded: boolean, processedTeamsCount: number }>}
  */
-export async function computeAtsLeadersForRefresh({ atsWindow = 'last30' } = {}) {
+export async function computeAtsLeadersForRefresh({ atsWindow = 'last30', budgetMs } = {}) {
+  const start = Date.now();
   const windowDays = atsWindow === 'last7' ? 7 : 30;
-  let out = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [] });
+  const effectiveBudget = budgetMs ?? (atsWindow === 'last7' ? 5000 : 6500);
+  const deadlineAt = start + effectiveBudget;
+
+  let out = await computeAtsLeadersFromTeamAts({ windowDays, teamSlugs: [], deadlineAt });
   const teamAtsHasLeaders = (out.best?.length || 0) + (out.worst?.length || 0) > 0 && out.status !== 'EMPTY';
   if (!teamAtsHasLeaders) {
     out = await computeFastFallbackFromRankingsOnly();
@@ -310,14 +315,19 @@ export async function computeAtsLeadersForRefresh({ atsWindow = 'last30' } = {})
   const worst = out.worst || [];
   const cacheNote = teamAtsHasLeaders ? 'computed_recent_team_ats' : 'computed_proxy';
   const isFallback = !teamAtsHasLeaders;
+  const budgetExceeded = out.budgetExceeded ?? false;
   return {
     best,
     worst,
-    status: out.status ?? (best.length || worst.length ? 'FULL' : 'EMPTY'),
-    confidence: isFallback ? 'low' : (out.confidence ?? 'low'),
-    reason: isFallback ? 'rankings_fallback' : (out.reason ?? null),
+    status: teamAtsHasLeaders
+      ? (budgetExceeded ? 'PARTIAL' : (out.status ?? 'FULL'))
+      : (isFallback ? 'FALLBACK' : (out.status ?? 'EMPTY')),
+    confidence: isFallback ? 'low' : (budgetExceeded ? 'low' : (out.confidence ?? 'low')),
+    reason: isFallback ? 'rankings_fallback' : (budgetExceeded ? 'budget_exceeded' : (out.reason ?? null)),
     sourceLabel: out.sourceLabel ?? null,
     generatedAt: out.generatedAt ?? new Date().toISOString(),
     cacheNote,
+    budgetExceeded,
+    processedTeamsCount: out.processedTeamsCount ?? 0,
   };
 }

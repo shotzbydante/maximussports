@@ -18,7 +18,8 @@ import { getQueryParam } from '../../_requestUrl.js';
 
 const LOCK_KEY_PREFIX = 'ats:leaders:refresh_lock:';
 const LOCK_TTL_SEC = 30;
-const COMPUTE_TIMEOUT_MS = 9000;
+const COMPUTE_TIMEOUT_MS = 9000; // hard outer race — should never fire if BUDGET_MS is respected
+const BUDGET_MS = 6500; // wall-clock budget passed into compute; last30 and season are the slow windows
 
 const inFlight = new Map();
 
@@ -94,8 +95,9 @@ export default async function handler(req, res) {
     const computeWindow = win === 'season' ? 'last30' : win;
     dbg.computeWindow = computeWindow;
 
+    dbg.budgetMs = BUDGET_MS;
     const result = await Promise.race([
-      computeAtsLeadersForRefresh({ atsWindow: computeWindow }),
+      computeAtsLeadersForRefresh({ atsWindow: computeWindow, budgetMs: BUDGET_MS }),
       timeoutMs(COMPUTE_TIMEOUT_MS),
     ]);
     const elapsedMs = Date.now() - start;
@@ -103,22 +105,27 @@ export default async function handler(req, res) {
     const best = result.best || [];
     const worst = result.worst || [];
     const hasData = best.length > 0 || worst.length > 0;
+    const budgetExceeded = result.budgetExceeded ?? false;
 
     dbg.bestCount = best.length;
     dbg.worstCount = worst.length;
     dbg.hasData = hasData;
     dbg.elapsedMs = elapsedMs;
+    dbg.budgetExceeded = budgetExceeded;
+    dbg.processedTeamsCount = result.processedTeamsCount ?? 0;
 
     if (hasData) {
+      const partial = budgetExceeded || result.status === 'PARTIAL';
       const payload = {
         atsLeaders: { best, worst },
         atsMeta: {
-          status: result.status ?? 'FALLBACK',
+          status: partial ? 'PARTIAL' : (result.status ?? 'FALLBACK'),
           confidence: result.confidence ?? 'low',
           reason: result.reason ?? null,
           sourceLabel: result.sourceLabel ?? null,
           generatedAt: result.generatedAt ?? new Date().toISOString(),
           cacheNote: result.cacheNote ?? 'computed_recent_team_ats',
+          ...(partial ? { processedTeamsCount: result.processedTeamsCount ?? 0 } : {}),
         },
       };
 
@@ -135,8 +142,9 @@ export default async function handler(req, res) {
       dbg.freshWriteOk = freshWriteOk;
       dbg.lkWriteOk = lkWriteOk;
 
-      console.log('[ats/refresh] success', { win, best: best.length, worst: worst.length, freshWriteOk, lkWriteOk, elapsedMs });
-      return res.status(200).json({ status: 'ok', win, elapsedMs, ...(debug ? dbg : {}) });
+      console.log('[ats/refresh] success', { win, best: best.length, worst: worst.length, freshWriteOk, lkWriteOk, elapsedMs, budgetExceeded });
+      const responseStatus = budgetExceeded ? 'partial' : 'ok';
+      return res.status(200).json({ status: responseStatus, win, elapsedMs, ...(debug ? dbg : {}) });
     }
 
     console.log('[ats/refresh] compute returned no data', { win, elapsedMs });

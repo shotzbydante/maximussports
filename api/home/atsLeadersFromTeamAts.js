@@ -17,8 +17,9 @@ const DEBUG_ATS = process.env.DEBUG_ATS === '1';
 const MAX_TEAMS = 60;
 const CONCURRENCY = 6;
 const PER_TEAM_TIMEOUT_MS = 700;
-const DEADLINE_LAST30_MS = 4200;
+const DEADLINE_LAST30_MS = 4200; // internal fallback when no external deadline
 const DEADLINE_LAST7_MS = 3200;
+const ABS_CAP_MS = 8000; // hard cap — never allow compute to run longer than this
 const MIN_GAMES_LAST30 = 8;
 const MIN_GAMES_LAST7 = 5;
 
@@ -85,25 +86,36 @@ function buildTeamList(pinnedSlugs = [], rankings = [], slugToId = {}) {
 
 /**
  * Compute ATS leaders from team ATS summaries (same source as pinned cards).
- * @param {{ windowDays: number, teamSlugs?: string[] }} options - teamSlugs = pinned; rankings add Top 25
- * @returns {Promise<{ best: array, worst: array, status: string, confidence: string, reason?: string, sourceLabel?: string, generatedAt: string, teamsAttempted?: number, teamsWithAts?: number, durationMs?: number }>}
+ * @param {{ windowDays: number, teamSlugs?: string[], deadlineAt?: number }} options
+ *   deadlineAt — external wall-clock deadline (ms). Overrides internal deadline when later, capped at ABS_CAP_MS.
+ * @returns {Promise<{ best: array, worst: array, status: string, confidence: string, reason?: string, sourceLabel?: string, generatedAt: string, teamsAttempted?: number, teamsWithAts?: number, durationMs?: number, processedTeamsCount?: number, budgetExceeded?: boolean }>}
  */
-export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs = [] } = {}) {
+export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs = [], deadlineAt: externalDeadlineAt = null } = {}) {
   const start = Date.now();
-  const deadlineMs = windowDays === 7 ? DEADLINE_LAST7_MS : DEADLINE_LAST30_MS;
-  const deadlineAt = start + deadlineMs;
+  const localDeadlineMs = windowDays === 7 ? DEADLINE_LAST7_MS : DEADLINE_LAST30_MS;
+  // If caller provides a later deadline (more generous budget), honour it — but never exceed ABS_CAP_MS.
+  const effectiveDeadlineAt = externalDeadlineAt != null
+    ? Math.min(externalDeadlineAt, start + ABS_CAP_MS)
+    : start + localDeadlineMs;
   const minGames = windowDays === 7 ? MIN_GAMES_LAST7 : MIN_GAMES_LAST30;
   const windowStart = new Date();
   windowStart.setDate(windowStart.getDate() - windowDays);
   const today = toDateStr(new Date());
   const fromStr = toDateStr(windowStart);
 
-  if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] start', { windowDays, teamSlugs: teamSlugs?.length, fromStr, today });
+  if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] start', { windowDays, teamSlugs: teamSlugs?.length, fromStr, today, effectiveDeadlineMs: effectiveDeadlineAt - start });
+
+  // Bound the odds-history fetch so it doesn't consume the entire budget.
+  // Leave at least 1800 ms for the team loop; enforce a 1500 ms floor so we always try.
+  const oddsFetchTimeoutMs = Math.max(1500, effectiveDeadlineAt - Date.now() - 1800);
 
   const [rankingsData, teamIdsData, oddsHistoryResult] = await Promise.all([
     fetchRankingsSource(),
     fetchTeamIdsSource(),
-    fetchOddsHistorySource(fromStr, today),
+    raceWithTimeout(fetchOddsHistorySource(fromStr, today), oddsFetchTimeoutMs).catch(() => {
+      if (DEBUG_ATS) console.log('[atsLeadersFromTeamAts] odds fetch timed out (budget)', { oddsFetchTimeoutMs });
+      return { games: [] };
+    }),
   ]);
 
   const rankings = rankingsData?.rankings || [];
@@ -151,10 +163,13 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     };
   }
 
+  let processedTeams = 0;
+  let budgetExceeded = false;
   const results = [];
   for (let i = 0; i < teamList.length; i += CONCURRENCY) {
-    if (Date.now() > deadlineAt) break;
+    if (Date.now() > effectiveDeadlineAt) { budgetExceeded = true; break; }
     const chunk = teamList.slice(i, i + CONCURRENCY);
+    processedTeams += chunk.length;
     const chunkResults = await Promise.all(
       chunk.map(async (t) => {
         try {
@@ -195,19 +210,27 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
   const worst = sorted.slice(-10).reverse();
   const durationMs = Date.now() - start;
   const teamsWithAts = rows.length;
-  const confidence = teamsWithAts >= 20 ? 'high' : teamsWithAts > 0 ? 'medium' : 'low';
-  const status = best.length > 0 || worst.length > 0 ? (confidence === 'high' ? 'FULL' : 'FALLBACK') : 'EMPTY';
+  const hasAnyData = best.length > 0 || worst.length > 0;
+  const confidence = budgetExceeded ? 'low' : (teamsWithAts >= 20 ? 'high' : teamsWithAts > 0 ? 'medium' : 'low');
+  // PARTIAL: budget cut us off but we still have usable leaders; FULL/FALLBACK/EMPTY otherwise.
+  const status = budgetExceeded && hasAnyData
+    ? 'PARTIAL'
+    : (hasAnyData ? (confidence === 'high' ? 'FULL' : 'FALLBACK') : 'EMPTY');
   const sourceLabel = 'Pinned + Top 25 (recent ATS)';
-  const reason = status !== 'EMPTY' ? 'team_ats_recent' : 'insufficient_sample';
+  const reason = budgetExceeded
+    ? 'budget_exceeded'
+    : (status !== 'EMPTY' ? 'team_ats_recent' : 'insufficient_sample');
 
   if (DEBUG_ATS) {
     console.log('[atsLeadersFromTeamAts] done', {
       windowDays,
       teamsAttempted: teamList.length,
+      processedTeams,
       teamsWithAts,
       best: best.length,
       worst: worst.length,
       durationMs,
+      budgetExceeded,
       cacheNote: 'computed_recent_team_ats',
     });
   }
@@ -223,5 +246,7 @@ export async function computeAtsLeadersFromTeamAts({ windowDays = 30, teamSlugs 
     teamsAttempted: teamList.length,
     teamsWithAts,
     durationMs,
+    processedTeamsCount: processedTeams,
+    budgetExceeded,
   };
 }
