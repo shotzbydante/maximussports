@@ -25,7 +25,7 @@ const QUOTES = {
     'Rings, Erneh!',
     "That's turrible.",
     "Are you too good for your home?! Answer me!",
-    "I eat pieces of shit like you for breakfast!",
+    "Stay humble. Stay hungry.",
   ],
 };
 

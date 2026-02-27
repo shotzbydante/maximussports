@@ -5,7 +5,7 @@
  */
 
 import { getAtsLeaders, setAtsLeaders } from '../../home/cache.js';
-import { setJson, getJson, getWithMeta, getAtsLeadersKeyForWindow, MAX_TTL_SECONDS, FRESH_SECONDS } from '../../_globalCache.js';
+import { setJson, getJson, getWithMeta, getAtsLeadersKeyForWindow, getAtsLeadersLastKnownKeyForWindow, MAX_TTL_SECONDS, FRESH_SECONDS, LAST_KNOWN_TTL_SECONDS } from '../../_globalCache.js';
 import { computeAtsLeadersFromTeamAts } from '../../home/atsLeadersFromTeamAts.js';
 import { computeFastFallbackFromRankingsOnly } from '../../home/atsFastFallback.js';
 import { getQueryParam } from '../../_requestUrl.js';
@@ -85,6 +85,14 @@ export default async function handler(req, res) {
         };
         await setJson(kvKey, payload, { exSeconds: MAX_TTL_SECONDS });
         kvWriteOk = true;
+        // Also persist a long-lived last-known backup so GET /api/ats/leaders
+        // can serve stale data after the 60-min fresh key expires.
+        const lastKnownKey = getAtsLeadersLastKnownKeyForWindow(window);
+        if (lastKnownKey) {
+          await setJson(lastKnownKey, payload, { exSeconds: LAST_KNOWN_TTL_SECONDS }).catch((e) => {
+            console.warn('[api/ats/warm] lastKnown write failed:', e?.message);
+          });
+        }
       } catch (kvErr) {
         console.warn('[api/ats/warm] KV write failed (in-memory updated):', kvErr?.message);
       }

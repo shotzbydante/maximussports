@@ -22,6 +22,7 @@ const ATS_LOADING_SLOW_MS = 20000;
 
 function statusMessageFromStage(stage, isProxy) {
   if (stage === 'kv_stale') return 'refreshing cache';
+  if (stage === 'kv_last_known') return 'refreshing cache';
   if (stage === 'cache_hit_real') return null;
   if (stage === 'done' && isProxy) return 'upgrading to full league';
   if (stage === 'done') return null;
@@ -56,7 +57,11 @@ export default function ATSLeaderboard({
   const isFallback = status === 'FALLBACK' || (atsLeadersSourceLabel && atsLeadersSourceLabel !== 'Full league');
   const isRealTeamAts = atsMeta?.cacheNote === 'computed_recent_team_ats' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.includes('recent ATS'));
   const isProxy = !isRealTeamAts && status === 'FALLBACK' && (atsMeta?.confidence === 'low' || (atsMeta?.sourceLabel && atsMeta.sourceLabel.toLowerCase().includes('fallback')));
-  const showProgressUI = showLoading || showProgressFromHelper || (hasData && isProxy);
+  // Don't show progress UI when serving from lastKnown — show data with a stale badge instead.
+  const isLastKnown = atsMeta?.source === 'kv_last_known' || atsMeta?.stage === 'kv_last_known';
+  const showProgressUI = !isLastKnown && (showLoading || showProgressFromHelper || (hasData && isProxy));
+  // Show a subtle stale badge when data came from lastKnown cache or a kv_stale hit with data.
+  const showStaleBadge = hasData && (isLastKnown || (atsMeta?.stage === 'kv_stale' && !showLoading));
   const showEmpty = shouldShowAtsEmptyState(atsLeaders, atsMeta);
   if (showProgressUI && loadStartRef.current == null) loadStartRef.current = Date.now();
   if (!showProgressUI) loadStartRef.current = null;
@@ -133,10 +138,13 @@ export default function ATSLeaderboard({
           {showProgressUI && loadingStatusMsg && (
             <span className={styles.loadingStatus}>Loading ATS Leaders… ({loadingStatusMsg})</span>
           )}
+          {showStaleBadge && !showProgressUI && (
+            <span className={styles.staleBadge}>Stale</span>
+          )}
           {showSeasonWarming && (
             <span className={styles.sourceLabel}>Season warming — showing Last 30</span>
           )}
-          {confidenceLabel && !showSeasonWarming && !showProgressUI && (
+          {confidenceLabel && !showSeasonWarming && !showProgressUI && !showStaleBadge && (
             <span className={styles.sourceLabel}>
               {confidenceLabel}
               {atsMeta?.reason === 'client_last_known_fallback' || atsMeta?.reason === 'last_known_fallback'
@@ -144,7 +152,7 @@ export default function ATSLeaderboard({
                 : (atsLeadersSourceLabel || atsMeta?.sourceLabel ? ` · ${atsLeadersSourceLabel || atsMeta.sourceLabel}` : '')}
             </span>
           )}
-          {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && !showProgressUI && (
+          {!confidenceLabel && (atsLeadersSourceLabel || atsMeta?.sourceLabel) && !showProgressUI && !showStaleBadge && (
             <span className={styles.sourceLabel}>
               {atsLeadersSourceLabel || atsMeta.sourceLabel}
             </span>
@@ -170,7 +178,7 @@ export default function ATSLeaderboard({
         </div>
       </div>
       <div className={styles.content}>
-        {showSlowMessage && (
+        {showSlowMessage && !hasData && (
           <div className={styles.slowMessage}>
             <p className={styles.slowMessageText}>Still working…</p>
             {typeof onRetry === 'function' && (

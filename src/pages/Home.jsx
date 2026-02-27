@@ -121,6 +121,8 @@ export default function Home() {
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const [summaryRefreshTick, setSummaryRefreshTick] = useState(0);
+  const [llmSummary, setLlmSummary] = useState(null);
+  const [llmSummaryRefreshing, setLlmSummaryRefreshing] = useState(false);
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const championshipScheduledRef = useRef(false);
@@ -277,6 +279,19 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
+  // Fetch LLM-enhanced summary in background; replace local summary once available.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/chat/homeSummary')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d?.summary) setLlmSummary(d.summary);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const STAGGER_MS = 2500;
   useEffect(() => {
     if (pinnedSlugs.length === 0) return;
@@ -361,6 +376,17 @@ export default function Home() {
 
   const handleRefreshSummary = () => {
     setSummaryRefreshTick((t) => t + 1);
+    // Also kick an LLM regeneration and update when it returns.
+    if (!llmSummaryRefreshing) {
+      setLlmSummaryRefreshing(true);
+      fetch('/api/chat/homeSummary?force=1')
+        .then((r) => r.json())
+        .then((d) => {
+          setLlmSummaryRefreshing(false);
+          if (d?.summary) setLlmSummary(d.summary);
+        })
+        .catch(() => { setLlmSummaryRefreshing(false); });
+    }
   };
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
@@ -409,8 +435,8 @@ export default function Home() {
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
-          {summaryText ? (
-            <FormattedSummary text={summaryText} className={styles.bannerText} />
+          {(llmSummary || summaryText) ? (
+            <FormattedSummary text={llmSummary || summaryText} className={styles.bannerText} />
           ) : (
             <p className={styles.bannerText}>Loading today&apos;s intel…</p>
           )}
@@ -419,9 +445,10 @@ export default function Home() {
               type="button"
               className={styles.summaryRefresh}
               onClick={handleRefreshSummary}
-              aria-label="Recompute summary from current data"
+              disabled={llmSummaryRefreshing}
+              aria-label="Refresh summary"
             >
-              Refresh
+              {llmSummaryRefreshing ? 'Refreshing…' : 'Refresh'}
             </button>
             <label className={styles.dataStatusToggle}>
               <input
