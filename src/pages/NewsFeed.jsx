@@ -1,103 +1,434 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { fetchHome } from '../api/home';
-import { getTeamsGroupedByConference } from '../data/teams';
-import SourceBadge from '../components/shared/SourceBadge';
+import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
 import styles from './NewsFeed.module.css';
 
-const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-function formatDate(pubDate) {
-  if (!pubDate) return '';
-  try {
-    return new Date(pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-  } catch {
-    return '';
+const CONF_ORDER = ['All', 'Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
+
+const CONF_COLORS = {
+  'Big Ten':  { bg: 'rgba(29, 78, 216, 0.1)',  text: '#1d4ed8' },
+  'SEC':      { bg: 'rgba(194, 65,  12, 0.1)',  text: '#c2410c' },
+  'ACC':      { bg: 'rgba(109, 40, 217, 0.1)',  text: '#6d28d9' },
+  'Big 12':   { bg: 'rgba(185, 28,  28, 0.1)',  text: '#b91c1c' },
+  'Big East': { bg: 'rgba(55,  48, 163, 0.1)',  text: '#3730a3' },
+  'Others':   { bg: 'rgba(21, 128,  61, 0.1)',  text: '#15803d' },
+};
+
+const CONF_GRADIENT = {
+  'Big Ten':  'linear-gradient(135deg, #1e3a5f 0%, #2d5a96 100%)',
+  'SEC':      'linear-gradient(135deg, #3d1a00 0%, #c85000 100%)',
+  'ACC':      'linear-gradient(135deg, #2d1b69 0%, #6d28d9 100%)',
+  'Big 12':   'linear-gradient(135deg, #4a0000 0%, #991b1b 100%)',
+  'Big East': 'linear-gradient(135deg, #1a1a3e 0%, #3730a3 100%)',
+  'Others':   'linear-gradient(135deg, #1a3a2a 0%, #166534 100%)',
+  default:    'linear-gradient(135deg, #1e2a3a 0%, #374151 100%)',
+};
+
+const CONF_INITIALS = {
+  'Big Ten':  'B10',
+  'SEC':      'SEC',
+  'ACC':      'ACC',
+  'Big 12':   'B12',
+  'Big East': 'BE',
+  'Others':   '—',
+};
+
+const SIGNAL_PATTERNS = [
+  { re: /\bupset\b/i,                                        tag: 'Upset',     cls: styles.signalUpset     },
+  { re: /\binjur(y|ies|ed|ing)\b/i,                          tag: 'Injury',    cls: styles.signalInjury    },
+  { re: /\brecruit(ing|ment|s|ed)?\b/i,                       tag: 'Recruiting',cls: styles.signalRecruiting },
+  { re: /\b(fired|hired|resign(s|ed)?|coaching staff)\b/i,   tag: 'Coaching',  cls: styles.signalCoaching  },
+  { re: /\b(ranked|ranking|rankings|top 25|ap poll)\b/i,     tag: 'Rankings',  cls: styles.signalRankings  },
+  { re: /\bbubble\b/i,                                        tag: 'Bubble',    cls: styles.signalBubble    },
+  { re: /\btransfer portal\b/i,                               tag: 'Transfer',  cls: styles.signalTransfer  },
+];
+
+// Build a fast lookup: [{ tokens, conference }]
+const TEAM_TOKENS = TEAMS.map((t) => ({
+  tokens: t.name.toLowerCase().split(/\s+/),
+  full: t.name.toLowerCase(),
+  conference: t.conference,
+}));
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function detectConference(title) {
+  if (!title) return null;
+  const lower = title.toLowerCase();
+
+  // Explicit conference mentions
+  if (/\bbig ten\b/i.test(lower)) return 'Big Ten';
+  if (/\b(sec)\b/i.test(lower)) return 'SEC';
+  if (/\b(acc)\b/i.test(lower)) return 'ACC';
+  if (/\bbig 12\b|\bbig twelve\b/i.test(lower)) return 'Big 12';
+  if (/\bbig east\b/i.test(lower)) return 'Big East';
+
+  // Team name match — full name first (more specific)
+  for (const { full, conference } of TEAM_TOKENS) {
+    if (lower.includes(full)) return conference;
   }
+  return null;
 }
 
+function detectSignal(title) {
+  if (!title) return null;
+  for (const { re, tag, cls } of SIGNAL_PATTERNS) {
+    if (re.test(title)) return { tag, cls };
+  }
+  return null;
+}
+
+function formatRelTime(pubDate) {
+  if (!pubDate) return '';
+  const d = new Date(pubDate);
+  if (isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
+  const mins  = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days  = Math.floor(diff / 86_400_000);
+  if (mins  <  1)  return 'just now';
+  if (mins  < 60)  return `${mins}m ago`;
+  if (hours < 24)  return `${hours}h ago`;
+  if (days  <  7)  return `${days}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function enrichItem(raw, i) {
+  return {
+    id:         raw.link || raw.id || `item-${i}`,
+    title:      raw.title || '',
+    source:     raw.source || 'News',
+    time:       formatRelTime(raw.pubDate),
+    link:       raw.link || null,
+    conference: raw.conference || detectConference(raw.title),
+    signal:     detectSignal(raw.title),
+    excerpt:    raw.excerpt || raw.description || '',
+  };
+}
+
+function getConfStyle(conf) {
+  return CONF_COLORS[conf] || { bg: 'rgba(100,100,100,0.08)', text: 'var(--color-text-muted)' };
+}
+
+function getGradient(conf) {
+  return CONF_GRADIENT[conf] || CONF_GRADIENT.default;
+}
+
+function getInitials(conf, source) {
+  if (conf && CONF_INITIALS[conf]) return CONF_INITIALS[conf];
+  if (source) return source.slice(0, 3).toUpperCase();
+  return '—';
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function ConfPill({ conference }) {
+  if (!conference) return null;
+  const { bg, text } = getConfStyle(conference);
+  return (
+    <span className={styles.confPill} style={{ background: bg, color: text }}>
+      <ConferenceLogo conference={conference} size={12} />
+      {conference}
+    </span>
+  );
+}
+
+function SourceBadge({ source }) {
+  return <span className={styles.sourceBadge}>{source}</span>;
+}
+
+function SignalTag({ signal }) {
+  if (!signal) return null;
+  return <span className={`${styles.signalTag} ${signal.cls}`}>{signal.tag}</span>;
+}
+
+function ImgPlaceholder({ conference, source, size = 'hero' }) {
+  const gradient = getGradient(conference);
+  const text = getInitials(conference, source);
+  return (
+    <div
+      className={`${styles.imgPlaceholder} ${size === 'stream' ? styles.imgPlaceholderStream : ''}`}
+      style={{ background: gradient }}
+      aria-hidden
+    >
+      <span className={size === 'stream' ? styles.imgInitialsStream : styles.imgInitials}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function VideoPlaceholderCard({ label }) {
+  return (
+    <div className={styles.videoCard}>
+      <div className={styles.videoThumb}>
+        <div className={styles.videoPlayRing} aria-hidden>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+            <path d="M7 5.5L15 10L7 14.5V5.5Z" fill="currentColor" />
+          </svg>
+        </div>
+        <span className={styles.videoComingSoon}>Coming soon</span>
+      </div>
+      <div className={styles.videoCardBody}>
+        <p className={styles.videoCardLabel}>{label}</p>
+        <p className={styles.videoCardSub}>Video highlights &amp; analysis</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  return (
+    <div className={styles.content}>
+      <div className={styles.skeletonHero} />
+      <div className={styles.skeletonGrid}>
+        {[1, 2, 3, 4].map((n) => <div key={n} className={styles.skeletonCard} />)}
+      </div>
+      <div className={styles.skeletonStream}>
+        {[1, 2, 3, 4, 5, 6].map((n) => <div key={n} className={styles.skeletonRow} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function NewsFeed() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [expanded, setExpanded] = useState(() => {
-    const o = {};
-    CONF_ORDER.forEach((c) => { o[c] = true; });
-    return o;
-  });
+  const [rawItems, setRawItems] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
+  const [activeConf, setActiveConf] = useState('All');
 
   useEffect(() => {
     setLoading(true);
     fetchHome()
-      .then((data) => setItems(data?.headlines || []))
-      .catch((err) => setError(err?.message || 'Failed to load news'))
-      .finally(() => setLoading(false));
+      .then((data) => setRawItems(data?.headlines || []))
+      .catch((err)  => setError(err?.message || 'Failed to load news'))
+      .finally(()   => setLoading(false));
   }, []);
 
-  const grouped = getTeamsGroupedByConference();
-  const sections = CONF_ORDER.map((conf) => ({
-    conference: conf,
-    teams: grouped.find((g) => g.conference === conf)?.tiers ? Object.values(grouped.find((g) => g.conference === conf).tiers).flat() : [],
-  }));
+  const enriched = useMemo(() => rawItems.map(enrichItem), [rawItems]);
+
+  // Derive which conferences actually appear in the data
+  const availableConfs = useMemo(() => {
+    const seen = new Set();
+    for (const item of enriched) {
+      if (item.conference) seen.add(item.conference);
+    }
+    return CONF_ORDER.filter((c) => c === 'All' || seen.has(c));
+  }, [enriched]);
+
+  const filtered = useMemo(() => {
+    if (activeConf === 'All') return enriched;
+    return enriched.filter((item) => item.conference === activeConf);
+  }, [enriched, activeConf]);
+
+  const hero       = filtered[0]     ?? null;
+  const topStories = filtered.slice(1, 5);
+  const stream     = filtered.slice(5);
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1>News Feed</h1>
-        <p className={styles.subtitle}>Men&apos;s college basketball — last 30 days by conference</p>
+      {/* ── Page header ── */}
+      <header className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>Newsfeed</h1>
+        <p className={styles.pageSubtitle}>
+          Men&apos;s college basketball · curated intelligence
+        </p>
       </header>
 
-      {loading && (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
-          <span>Loading news…</span>
-        </div>
+      {/* ── Sticky conference filter bar ── */}
+      <div className={styles.filterBar} role="navigation" aria-label="Filter by conference">
+        {availableConfs.map((conf) => (
+          <button
+            key={conf}
+            type="button"
+            className={`${styles.filterChip} ${activeConf === conf ? styles.filterChipActive : ''}`}
+            onClick={() => setActiveConf(conf)}
+            aria-pressed={activeConf === conf}
+          >
+            {conf !== 'All' && (
+              <span className={styles.filterChipLogo}>
+                <ConferenceLogo conference={conf} size={14} />
+              </span>
+            )}
+            {conf}
+          </button>
+        ))}
+      </div>
+
+      {/* ── States ── */}
+      {loading && <LoadingSkeleton />}
+      {error   && <p className={styles.error}>{error}</p>}
+
+      {!loading && !error && enriched.length === 0 && (
+        <p className={styles.empty}>No basketball news available. Check back soon.</p>
       )}
 
-      {error && <div className={styles.error}>{error}</div>}
+      {!loading && !error && enriched.length > 0 && (
+        <div className={styles.content}>
 
-      {!loading && !error && (
-        <div className={styles.sections}>
-          {sections.map(({ conference, teams }) => (
-            <section key={conference} className={styles.card}>
-              <button
-                type="button"
-                className={styles.sectionHeader}
-                onClick={() => setExpanded((e) => ({ ...e, [conference]: !e[conference] }))}
-                aria-expanded={expanded[conference]}
+          {/* ── A: Hero Story ── */}
+          {hero && (
+            <section className={styles.heroSection} aria-label="Lead story">
+              <a
+                href={hero.link || '#'}
+                target={hero.link ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                className={styles.heroCard}
+                aria-label={hero.title}
               >
-                <span className={styles.confLogoWrap}>
-                  <ConferenceLogo conference={conference} size={28} />
-                </span>
-                <span className={styles.sectionTitle}>{conference}</span>
-                {teams.length > 0 && (
-                  <span className={styles.teamCount}>{teams.length} teams</span>
-                )}
-                <span className={styles.chevron} aria-hidden>{expanded[conference] ? '▾' : '▸'}</span>
-              </button>
-              {expanded[conference] && (
-                <div className={styles.sectionBody}>
-                  {items.length === 0 ? (
-                    <p className={styles.empty}>No news in the last 30 days.</p>
-                  ) : (
-                    <ul className={styles.list}>
-                      {items.slice(0, 15).map((item, i) => (
-                        <li key={item.link || i} className={styles.row}>
-                          <a href={item.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
-                            <span className={styles.title}>{item.title}</span>
-                            <span className={styles.meta}>
-                              <SourceBadge source={item.source || 'News'} />
-                              <span className={styles.date}>{formatDate(item.pubDate)}</span>
-                            </span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                {/* Image area */}
+                <div className={styles.heroImageWrap}>
+                  <ImgPlaceholder conference={hero.conference} source={hero.source} size="hero" />
+                  <div className={styles.heroOverlay} aria-hidden />
+
+                  {/* Lead badge */}
+                  <div className={styles.heroBadgeWrap}>
+                    <span className={styles.heroBadgeLead}>Lead Story</span>
+                  </div>
+
+                  {/* Body overlaid on image */}
+                  <div className={styles.heroBody}>
+                    {hero.conference && (
+                      <div className={styles.heroConfRow}>
+                        <ConferenceLogo conference={hero.conference} size={14} />
+                        <span className={styles.heroConfLabel}>{hero.conference}</span>
+                      </div>
+                    )}
+                    <h2 className={styles.heroHeadline}>{hero.title}</h2>
+                    {hero.excerpt && (
+                      <p className={styles.heroExcerpt}>{hero.excerpt}</p>
+                    )}
+                    <div className={styles.heroMeta}>
+                      <SourceBadge source={hero.source} />
+                      {hero.signal && <SignalTag signal={hero.signal} />}
+                      <span className={styles.heroTime}>{hero.time}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
+              </a>
             </section>
-          ))}
+          )}
+
+          {/* Monetization slot A — hero follow-on */}
+          <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
+            Sponsored · Premium analysis
+          </div>
+
+          {/* ── B: Top Stories Grid ── */}
+          {topStories.length > 0 && (
+            <section className={styles.topStoriesSection} aria-label="Top stories">
+              <h2 className={styles.sectionHeading}>Top Stories</h2>
+              <div className={styles.topStoriesGrid}>
+                {topStories.map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.link || '#'}
+                    target={item.link ? '_blank' : undefined}
+                    rel="noopener noreferrer"
+                    className={styles.storyCard}
+                    aria-label={item.title}
+                  >
+                    {/* Thumbnail */}
+                    <div className={styles.storyThumb}>
+                      <ImgPlaceholder conference={item.conference} source={item.source} size="card" />
+                    </div>
+                    {/* Body */}
+                    <div className={styles.storyBody}>
+                      <div className={styles.storyMeta}>
+                        <SourceBadge source={item.source} />
+                        {item.conference && <ConfPill conference={item.conference} />}
+                        <span className={styles.time}>{item.time}</span>
+                      </div>
+                      <h3 className={styles.storyHeadline}>{item.title}</h3>
+                      {item.signal && (
+                        <div className={styles.storySignalRow}>
+                          <SignalTag signal={item.signal} />
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── E: Video Section Placeholder ── */}
+          <section className={styles.videoSection} aria-label="Video highlights — coming soon">
+            <h2 className={styles.sectionHeading}>Video Highlights &amp; Analysis</h2>
+            <div className={styles.videoGrid}>
+              <VideoPlaceholderCard label="Game Breakdown" />
+              <VideoPlaceholderCard label="Press Conference" />
+              <VideoPlaceholderCard label="Top Plays" />
+            </div>
+          </section>
+
+          {/* Monetization slot B — pre-stream */}
+          <div className={styles.adSlot} aria-hidden data-slot="premium-analysis">
+            Premium analysis · Betting insights
+          </div>
+
+          {/* ── D: Stream Section ── */}
+          {stream.length > 0 && (
+            <section className={styles.streamSection} aria-label="News stream">
+              <h2 className={styles.sectionHeading}>Latest News</h2>
+              <div className={styles.streamList} role="list">
+                {stream.map((item, idx) => (
+                  <Fragment key={item.id}>
+                    <a
+                      href={item.link || '#'}
+                      target={item.link ? '_blank' : undefined}
+                      rel="noopener noreferrer"
+                      className={styles.streamCard}
+                      aria-label={item.title}
+                      role="listitem"
+                    >
+                      {/* Thumbnail */}
+                      <div className={styles.streamThumb} aria-hidden>
+                        <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
+                      </div>
+
+                      {/* Body */}
+                      <div className={styles.streamBody}>
+                        <div className={styles.streamMeta}>
+                          <SourceBadge source={item.source} />
+                          {item.conference && <ConfPill conference={item.conference} />}
+                          {item.signal && <SignalTag signal={item.signal} />}
+                          <span className={styles.time}>{item.time}</span>
+                        </div>
+                        <p className={styles.streamHeadline}>{item.title}</p>
+                        {item.excerpt && (
+                          <p className={styles.streamExcerpt}>{item.excerpt}</p>
+                        )}
+                      </div>
+                    </a>
+
+                    {/* Monetization slot — every 8 stream items */}
+                    {(idx + 1) % 8 === 0 && (
+                      <div
+                        className={`${styles.adSlot} ${styles.adSlotInline}`}
+                        aria-hidden
+                        data-slot="mid-feed"
+                      >
+                        Subscription prompt · Betting insights
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {filtered.length === 0 && (
+            <p className={styles.empty}>No stories for this conference right now.</p>
+          )}
+
         </div>
       )}
     </div>
