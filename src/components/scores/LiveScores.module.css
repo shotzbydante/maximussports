@@ -263,6 +263,16 @@ a.teamName:hover {
   background: rgba(60, 121, 180, 0.04);
 }
 
+/* Fade-in for games newly revealed by expand */
+@keyframes gameCardFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.gameCardNew {
+  animation: gameCardFadeIn 0.18s ease;
+}
+
 /* Mobile cap: hide items beyond mobileCap index on narrow screens */
 .gameCardMobileHidden {
   /* always visible on desktop */
@@ -275,9 +285,8 @@ a.teamName:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .viewMore {
-    transition: none;
-  }
+  .viewMore { transition: none; }
+  .gameCardNew { animation: none; }
 }
 
 /* Tier badges */

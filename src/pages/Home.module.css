@@ -924,12 +924,28 @@
   border-radius: var(--radius-sm, 6px);
 }
 
+.oddsBriefingLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .oddsBriefingLabel {
   font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--color-text-muted);
+}
+
+/* "Updated Xm ago" microtext */
+.oddsBriefingTime {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+  font-family: var(--font-mono);
 }
 
 .oddsBriefingSummary {
@@ -970,6 +986,30 @@
   color: var(--color-text-muted);
   font-style: italic;
   margin: 0;
+}
+
+/* "More" / "Less" expand toggle inside the briefing block */
+.oddsBriefingToggle {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: color 0.12s;
+}
+
+.oddsBriefingToggle:hover {
+  color: var(--color-primary-hover, #2a65b8);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oddsBriefingToggle { transition: none; }
 }
 
 /* ── Category grid ───────────────────────────────────────────────── */

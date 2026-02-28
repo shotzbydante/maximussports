@@ -108,7 +108,7 @@ export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: odds
   });
 
   const visibleAlerts = showAll ? alerts : alerts.slice(0, ALERT_CAP);
-  const hiddenCount = showAll ? 0 : Math.max(0, alerts.length - ALERT_CAP);
+  const hiddenCount = !showAll ? Math.max(0, alerts.length - ALERT_CAP) : 0;
 
   const headerRight = (
     <div className={styles.sourceBadges}>
@@ -117,12 +117,12 @@ export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: odds
     </div>
   );
 
-  const footer = hiddenCount > 0 ? (
-    <button
-      type="button"
-      className={styles.viewMore}
-      onClick={() => setShowAll(true)}
-    >
+  const footer = showAll && alerts.length > ALERT_CAP ? (
+    <button type="button" className={styles.viewMore} onClick={() => setShowAll(false)}>
+      Show less
+    </button>
+  ) : hiddenCount > 0 ? (
+    <button type="button" className={styles.viewMore} onClick={() => setShowAll(true)}>
       +{hiddenCount} more upset{hiddenCount !== 1 ? 's' : ''}
     </button>
   ) : null;
@@ -137,8 +137,11 @@ export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: odds
     >
       {alerts.length > 0 && (
         <div className={styles.alerts}>
-          {visibleAlerts.map((a) => (
-            <div key={a.gameId} className={styles.alert}>
+          {visibleAlerts.map((a, i) => (
+            <div
+              key={a.gameId}
+              className={`${styles.alert} ${showAll && i >= ALERT_CAP ? styles.alertNew : ''}`}
+            >
               <div className={styles.alertScore}>{a.score}</div>
               <div className={styles.alertText}>
                 <strong>{a.loser}</strong> lost to <strong>{a.winner}</strong>

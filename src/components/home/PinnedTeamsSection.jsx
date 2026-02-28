@@ -96,7 +96,7 @@ function EmptyStateCard({ onOpenAdd, onQuickPin, pinned }) {
               <QuickChip
                 key={p.slug}
                 name={p.name}
-                onClick={() => onQuickPin(p.slug, p.name)}
+                onClick={() => onQuickPin(p.slug)}
               />
             ))}
           </div>
@@ -274,16 +274,20 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     setSearch('');
   }, []);
 
+  /**
+   * Directly pin a team (no modal open). Used by header quick-chips and
+   * EmptyStateCard popular picks — one tap pins immediately.
+   */
+  const handleDirectPin = useCallback((slug) => {
+    setPinned(addPinnedTeam(slug));
+    notify();
+  }, [notify]);
+
   const handleDismissPreview = useCallback(() => {
     try { localStorage.setItem('pinnedTeamsHideExample', '1'); } catch {}
     setShowPreview(false);
   }, []);
 
-  // Opens picker and prefills search with the chip's short name
-  const handleQuickPin = useCallback((slug, name) => {
-    setSearch(name ?? '');
-    setShowAdd(true);
-  }, []);
 
   useEffect(() => {
     if (Object.keys(rankMapProp).length > 0) setRankMap(rankMapProp);
@@ -421,7 +425,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             <div className={styles.addMoreHint}>
               <span className={styles.addMoreText}>Pin a few more for faster tracking</span>
               {POPULAR_PICKS.filter((p) => !pinned.includes(p.slug)).slice(0, 3).map((p) => (
-                <QuickChip key={p.slug} name={p.name} onClick={() => handleQuickPin(p.slug, p.name)} />
+                <QuickChip key={p.slug} name={p.name} onClick={() => handleDirectPin(p.slug)} />
               ))}
             </div>
           )}
@@ -452,8 +456,13 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
               <p className={styles.pickerTitle}>Add teams to your watchlist</p>
               <p className={styles.pickerSubtitle}>Pin teams to track rankings, ATS, odds, and news.</p>
             </div>
-            <button type="button" className={styles.pickerDoneBtn} onClick={handlePickerDone}>
-              Done
+            <button
+              type="button"
+              className={styles.pickerCloseBtn}
+              onClick={handlePickerDone}
+              aria-label="Close"
+            >
+              {CLOSE_ICON}
             </button>
           </div>
 
@@ -466,7 +475,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={styles.pickerSearchInput}
-              autoFocus
+              autoFocus={typeof window !== 'undefined' && window.innerWidth >= 768}
               aria-label="Search teams"
             />
           </div>
@@ -554,13 +563,13 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer — single primary action */}
           <div className={styles.pickerFooter}>
+            <span className={styles.pickerPinnedCount}>
+              Pinned: {pinned.length}
+            </span>
             <button type="button" className={styles.pickerFooterDone} onClick={handlePickerDone}>
               Done
-            </button>
-            <button type="button" className={styles.pickerFooterCancel} onClick={handlePickerDone}>
-              Cancel
             </button>
           </div>
         </div>
@@ -571,7 +580,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
         <div className={showPreview ? styles.emptyLayout : styles.emptyLayoutSingle}>
           <EmptyStateCard
             onOpenAdd={() => setShowAdd(true)}
-            onQuickPin={handleQuickPin}
+            onQuickPin={handleDirectPin}
             pinned={pinned}
           />
           {showPreview && <PreviewCard onDismiss={handleDismissPreview} />}

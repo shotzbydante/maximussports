@@ -121,28 +121,79 @@ function renderBriefingText(text) {
 
 const BRIEFING_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
 
+/** Format a past timestamp (ms) as a human-relative string. */
+function relativeTime(ts) {
+  if (!ts || ts > Date.now()) return '';
+  const diffMs = Date.now() - ts;
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/**
+ * Validate and parse the oddsBriefing:last localStorage entry.
+ * Returns null (and removes the entry) when shape is invalid or stale.
+ */
+function loadBriefingCache() {
+  try {
+    const raw = localStorage.getItem('oddsBriefing:last');
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      typeof data.summary !== 'string' ||
+      !Array.isArray(data.bullets) ||
+      !data.bullets.every((b) => typeof b === 'string') ||
+      typeof data.updatedAt !== 'number' ||
+      data.updatedAt > Date.now() ||
+      Date.now() - data.updatedAt > BRIEFING_TTL_MS
+    ) {
+      try { localStorage.removeItem('oddsBriefing:last'); } catch { /* ignore */ }
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Odds Insights teaser card.
  * Reads a compact Market Briefing excerpt from localStorage (written by Insights.jsx
  * whenever that page successfully loads) — zero new API calls.
  * Falls back to a premium placeholder when no cached data is present or it is stale.
+ * Shows "Updated Xm ago" microtext; updates the label every 60 s via setInterval.
  */
 function OddsInsightsTeaser() {
   const [briefingData, setBriefingData] = useState(null);
+  const [showExtra, setShowExtra] = useState(false);
+  const [relTimeStr, setRelTimeStr] = useState('');
 
-  // Read localStorage once on mount — no network request, pure cache read
+  // Read cache once on mount
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('oddsBriefing:last');
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (Date.now() - data.updatedAt <= BRIEFING_TTL_MS) {
-        setBriefingData(data);
-      }
-    } catch {
-      // localStorage unavailable or stale/corrupt entry — ignore
-    }
+    const data = loadBriefingCache();
+    setBriefingData(data);
+    if (data) setRelTimeStr(relativeTime(data.updatedAt));
   }, []);
+
+  // Refresh relative-time label every 60 s; clear on unmount
+  useEffect(() => {
+    if (!briefingData) return;
+    const id = setInterval(
+      () => setRelTimeStr(relativeTime(briefingData.updatedAt)),
+      60_000
+    );
+    return () => clearInterval(id);
+  }, [briefingData]);
+
+  const bullets = briefingData?.bullets ?? [];
+  // Default: 1 bullet visible; "More" reveals the 2nd (max 2 total)
+  const visibleBullets = showExtra ? bullets.slice(0, 2) : bullets.slice(0, 1);
+  const hasMoreBullets = bullets.length > 1;
 
   const categories = [
     { label: 'High-Interest Matchups', desc: 'Most active betting markets right now' },
@@ -157,22 +208,36 @@ function OddsInsightsTeaser() {
         <span className={styles.oddsTeaserTag}>Market Intelligence</span>
       </div>
 
-      {/* Market Briefing excerpt — live when cached, placeholder otherwise */}
+      {/* Market Briefing excerpt — live when cached, premium placeholder otherwise */}
       <div className={styles.oddsBriefingBlock}>
-        <span className={styles.oddsBriefingLabel}>Today's Market Briefing</span>
+        <div className={styles.oddsBriefingLabelRow}>
+          <span className={styles.oddsBriefingLabel}>Today's Market Briefing</span>
+          {relTimeStr && (
+            <span className={styles.oddsBriefingTime}>Updated {relTimeStr}</span>
+          )}
+        </div>
         {briefingData ? (
           <>
             <p className={styles.oddsBriefingSummary}>
               {renderBriefingText(briefingData.summary)}
             </p>
-            {briefingData.bullets.length > 0 && (
+            {visibleBullets.length > 0 && (
               <ul className={styles.oddsBriefingBullets}>
-                {briefingData.bullets.map((b, i) => (
+                {visibleBullets.map((b, i) => (
                   <li key={i} className={styles.oddsBriefingBullet}>
                     {renderBriefingText(b.replace(/^•\s*/, ''))}
                   </li>
                 ))}
               </ul>
+            )}
+            {hasMoreBullets && (
+              <button
+                type="button"
+                className={styles.oddsBriefingToggle}
+                onClick={() => setShowExtra((v) => !v)}
+              >
+                {showExtra ? 'Less' : 'More'}
+              </button>
             )}
           </>
         ) : (

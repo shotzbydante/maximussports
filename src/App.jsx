@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
 import Teams from './pages/Teams';
@@ -18,8 +18,8 @@ export default function App() {
           <Route path="teams/:slug" element={<TeamPage />} />
           <Route path="games" element={<Games />} />
           <Route path="insights" element={<Insights />} />
-          {/* Alias so /odds-insights also resolves — Home teaser and other links may use either path */}
-          <Route path="odds-insights" element={<Insights />} />
+          {/* Redirect legacy /odds-insights to canonical /insights */}
+          <Route path="odds-insights" element={<Navigate to="/insights" replace />} />
           <Route path="news" element={<NewsFeed />} />
           <Route path="alerts" element={<Alerts />} />
         </Route>

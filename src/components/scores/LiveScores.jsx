@@ -141,6 +141,8 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
           // Mobile cap: hide via CSS when mobileCap is set and not expanded
           const hiddenOnMobile = !expanded && mobileCap != null && i >= mobileCap;
+          // Fade-in animation for games that were previously hidden by the cap
+          const isNewlyVisible = expanded && cap != null && i >= cap;
 
           return (
             <div
@@ -149,6 +151,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                 styles.gameCard,
                 live ? styles.gameCardLive : '',
                 hiddenOnMobile ? styles.gameCardMobileHidden : '',
+                isNewlyVisible ? styles.gameCardNew : '',
               ].filter(Boolean).join(' ')}
             >
               {/* Away team row */}
@@ -217,8 +220,16 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
         })}
       </div>
 
-      {/* "View more games" — shown when cap is active */}
-      {hiddenCount > 0 && (
+      {/* Expand / collapse CTA */}
+      {expanded && cap != null ? (
+        <button
+          type="button"
+          className={styles.viewMore}
+          onClick={() => setExpanded(false)}
+        >
+          Show less
+        </button>
+      ) : hiddenCount > 0 ? (
         <button
           type="button"
           className={styles.viewMore}
@@ -226,7 +237,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
         >
           +{hiddenCount} more game{hiddenCount !== 1 ? 's' : ''}
         </button>
-      )}
+      ) : null}
 
       {oddsMessage && showOdds && (
         <p className={styles.oddsMessage}>{oddsMessage}</p>

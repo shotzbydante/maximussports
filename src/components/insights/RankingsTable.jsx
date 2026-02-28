@@ -210,10 +210,11 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               </tr>
             </thead>
             <tbody>
-              {visibleTeams.map((team) => {
+              {visibleTeams.map((team, idx) => {
                 const rank = slugToRank[team.slug];
+                const isNew = showingAll && capRows != null && idx >= capRows;
                 return (
-                  <tr key={team.slug}>
+                  <tr key={team.slug} className={isNew ? styles.trNew : ''}>
                     <td className={styles.colTeam}>
                       <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
                         <TeamLogo team={team} size={22} />
@@ -240,7 +241,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
           </table>
         </div>
 
-        {/* View more / count row */}
+        {/* View more / show less / count row */}
         {hiddenTeamCount > 0 ? (
           <div className={styles.viewMoreRow}>
             <button
@@ -249,6 +250,16 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               onClick={() => setShowingAll(true)}
             >
               View {hiddenTeamCount} more team{hiddenTeamCount !== 1 ? 's' : ''} →
+            </button>
+          </div>
+        ) : showingAll && capRows != null ? (
+          <div className={styles.viewMoreRow}>
+            <button
+              type="button"
+              className={styles.viewMoreBtn}
+              onClick={() => setShowingAll(false)}
+            >
+              Show less
             </button>
           </div>
         ) : (

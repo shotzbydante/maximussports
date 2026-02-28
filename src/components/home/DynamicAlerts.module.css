@@ -24,6 +24,17 @@
 
 @media (prefers-reduced-motion: reduce) {
   .viewMore { transition: none; }
+  .alertNew { animation: none; }
+}
+
+/* Fade-in + subtle slide for newly revealed alerts */
+@keyframes alertFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.alertNew {
+  animation: alertFadeIn 0.18s ease;
 }
 
 .alerts {
