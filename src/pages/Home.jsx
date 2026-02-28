@@ -450,6 +450,9 @@ export default function Home() {
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
+          {/* Mobile-only context sublabel — hidden on desktop via CSS */}
+          <p className={styles.insightSublabel} aria-hidden>Today&apos;s briefing</p>
+
           {/* Collapsible text area — max-height clamped only on mobile */}
           <div
             id="home-insight-body"
@@ -461,10 +464,11 @@ export default function Home() {
               <p className={styles.bannerText}>Loading today&apos;s intel…</p>
             )}
           </div>
-          {/* Read more / Show less toggle — rendered always, visible only on mobile via CSS */}
+
+          {/* Read more / Show less — visible only on mobile; footer-row style when collapsed */}
           <button
             type="button"
-            className={styles.insightToggle}
+            className={`${styles.insightToggle}${isBannerCollapsed ? ` ${styles.insightToggleFooter}` : ''}`}
             onClick={handleToggleBanner}
             aria-expanded={!isBannerCollapsed}
             aria-controls="home-insight-body"

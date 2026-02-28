@@ -34,42 +34,86 @@
 
 /* ── Collapsible insight body ─────────────────────────────────────── */
 
-/* Wrapper that clips to max-height when collapsed (mobile only) */
-.insightBody {
-  position: relative; /* needed for the ::after fade overlay */
+/* Mobile-only sublabel — hidden on desktop */
+.insightSublabel {
+  display: none;
 }
 
-/* Mobile: clamp to preview height + add fade-out gradient */
+/* Base: just needs position: relative for the ::after overlay anchor */
+.insightBody {
+  position: relative;
+}
+
+/* ── Mobile: max-height clipping + smooth transition ── */
 @media (max-width: 767px) {
-  .insightBodyCollapsed {
-    max-height: 210px;
-    overflow: hidden;
+  /* Show sublabel on mobile */
+  .insightSublabel {
+    display: block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: var(--color-text-muted);
+    opacity: 0.72;
+    margin: 0 0 6px;
+    line-height: 1;
   }
 
+  /* Insight body: animate between collapsed and expanded max-height */
+  .insightBody {
+    overflow: hidden;
+    max-height: 1400px; /* effectively unlimited when expanded */
+    transition: max-height 0.18s ease-out;
+  }
+
+  /* Collapsed: larger mobile (481–767px) */
+  .insightBodyCollapsed {
+    max-height: 210px;
+  }
+
+  /* Fade-out gradient — only shown when collapsed, anchors to bottom of clipped area */
   .insightBodyCollapsed::after {
     content: '';
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 72px;
-    background: linear-gradient(to bottom, transparent, var(--color-bg-elevated));
+    height: 68px;
+    /* Start transparent at the top edge of the gradient, solid at the bottom */
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0) 0%,
+      var(--color-bg-elevated) 88%
+    );
     pointer-events: none;
+    z-index: 1;
   }
 }
 
-/* Toggle button: hidden on desktop, shown on mobile */
+/* Smaller phones ≤480px: tighter preview height */
+@media (max-width: 480px) {
+  .insightBodyCollapsed {
+    max-height: 185px;
+  }
+}
+
+/* ── Toggle button ── */
+
+/* Hidden on desktop — only a UI affordance on mobile */
 .insightToggle {
   display: none;
 }
 
 @media (max-width: 767px) {
+  /* Base toggle styles (both "Read more" and "Show less" states) */
   .insightToggle {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    width: 100%;
+    min-height: 32px;
+    padding: 4px 0;
     margin-top: 2px;
-    padding: 3px 0;
     font-size: 0.78rem;
     font-weight: 600;
     font-family: inherit;
@@ -78,6 +122,16 @@
     border: none;
     cursor: pointer;
     line-height: 1;
+    /* Expanded "Show less": left-aligned, no separator */
+    justify-content: flex-start;
+  }
+
+  /* Collapsed "Read more": right-aligned footer row with subtle separator */
+  .insightToggleFooter {
+    justify-content: flex-end;
+    min-height: 36px;
+    padding: 7px 0 3px;
+    border-top: 1px solid var(--color-border-light);
   }
 
   .insightToggle:focus-visible {
@@ -87,19 +141,24 @@
   }
 }
 
+/* Chevron: rotates to indicate direction */
 .insightToggleChevron {
   font-size: 1rem;
   line-height: 1;
   display: inline-block;
-  transform: rotate(90deg); /* › pointing down = "more below" */
-  transition: transform 0.2s ease;
+  transform: rotate(90deg); /* › → points down = "more below" */
+  transition: transform 0.18s ease-out;
 }
 
 .insightToggleChevronOpen {
-  transform: rotate(-90deg); /* › pointing up = "collapse" */
+  transform: rotate(-90deg); /* › → points up = "collapse" */
 }
 
+/* Respect user motion preference */
 @media (prefers-reduced-motion: reduce) {
+  .insightBody {
+    transition: none;
+  }
   .insightToggleChevron {
     transition: none;
   }
@@ -330,20 +389,24 @@
 
 @media (max-width: 767px) {
   .bannerMascot {
-    height: 76px; /* slightly smaller on mobile to reduce card height */
-    align-self: flex-start; /* anchor to top instead of center in collapsed state */
+    height: 72px;
+    align-self: flex-start;
   }
   .banner {
     gap: var(--space-sm);
     padding: var(--space-sm) var(--space-md);
-    margin-bottom: var(--space-lg); /* tighter gap to pinned teams on mobile */
-    align-items: flex-start; /* mascot + content both top-aligned on mobile */
+    margin-bottom: var(--space-md); /* compact gap to pinned teams on mobile */
+    align-items: flex-start;
   }
 }
 
 @media (max-width: 480px) {
   .home {
     padding: 0 var(--space-md);
+  }
+  .banner {
+    gap: 8px;
+    padding: 10px var(--space-sm);
   }
 }
 

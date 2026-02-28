@@ -9,10 +9,11 @@
 /* ─── Header ─────────────────────────────────────────────────────── */
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  flex-wrap: wrap;
 }
 
 .title {
@@ -22,26 +23,30 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
+  flex-shrink: 0;
+  padding-top: 2px; /* optical alignment with action row */
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  flex: 1;
+  min-width: 0;
 }
 
 /* "Pin a few more" inline prompt (shown when 1 team pinned) */
 .addMoreHint {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
 .addMoreText {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -672,7 +677,13 @@
 
 /* Compact card — used when exactly 1 team is pinned */
 .cardCompact {
-  padding: 10px var(--space-md);
+  padding: 10px var(--space-md) 12px;
+}
+
+@media (max-width: 600px) {
+  .cardCompact {
+    padding: 10px var(--space-sm) 12px;
+  }
 }
 
 .cardHeader {
