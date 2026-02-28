@@ -9,7 +9,7 @@
  *   mobileCap  — additional CSS-level cap on mobile (default: same as cap)
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
@@ -59,6 +59,26 @@ function getStatusVariant(status) {
   return 'upcoming';
 }
 
+/** Sort games: live first, then upcoming (asc by start time), then completed. */
+function sortGames(games) {
+  const priority = (g) => {
+    if (isLive(g.gameStatus)) return 0;
+    if (isFinal(g.gameStatus)) return 2;
+    return 1;
+  };
+  return [...games].sort((a, b) => {
+    const pa = priority(a);
+    const pb = priority(b);
+    if (pa !== pb) return pa - pb;
+    if (pa === 1) {
+      const ta = a.startTime ? new Date(a.startTime).getTime() : Infinity;
+      const tb = b.startTime ? new Date(b.startTime).getTime() : Infinity;
+      return ta - tb;
+    }
+    return 0;
+  });
+}
+
 function StatusBadge({ status }) {
   const variant = getStatusVariant(status);
   return (
@@ -71,11 +91,15 @@ function StatusBadge({ status }) {
 
 export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {}, cap, mobileCap }) {
   const [expanded, setExpanded] = useState(false);
-  const hasLiveGame = games.some((g) => isLive(g.gameStatus));
+
+  // Sort: live first → upcoming (asc by time) → completed
+  const sortedGames = useMemo(() => sortGames(games), [games]);
+
+  const hasLiveGame = sortedGames.some((g) => isLive(g.gameStatus));
 
   // Apply desktop cap when set and not yet expanded
-  const visibleGames = cap != null && !expanded ? games.slice(0, cap) : games;
-  const hiddenCount = cap != null && !expanded ? Math.max(0, games.length - cap) : 0;
+  const visibleGames = cap != null && !expanded ? sortedGames.slice(0, cap) : sortedGames;
+  const hiddenCount = cap != null && !expanded ? Math.max(0, sortedGames.length - cap) : 0;
 
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
@@ -113,7 +137,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
           </div>
           <div className={styles.sourceBadges}>
             <SourceBadge source={source} />
-            {showOdds && games.some(hasOdds) && <SourceBadge source="Odds API" />}
+            {showOdds && sortedGames.some(hasOdds) && <SourceBadge source="Odds API" />}
           </div>
         </div>
       )}
@@ -150,6 +174,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
               className={[
                 styles.gameCard,
                 live ? styles.gameCardLive : '',
+                finished ? styles.gameCardFinal : '',
                 hiddenOnMobile ? styles.gameCardMobileHidden : '',
                 isNewlyVisible ? styles.gameCardNew : '',
               ].filter(Boolean).join(' ')}

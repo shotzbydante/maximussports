@@ -846,7 +846,8 @@ export default function Home() {
             title="Bubble Watch — Full Rankings"
             badge="Deep Dive"
             collapsible
-            capRows={10}
+            capRows={25}
+            defaultSortBy="top25"
             rankings={top25}
             championshipOdds={championshipOdds}
             championshipOddsMeta={championshipOddsMeta}

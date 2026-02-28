@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import SourceBadge from '../shared/SourceBadge';
+import TeamLogo from '../shared/TeamLogo';
 import styles from './MatchupRow.module.css';
 
 const TIER_CLASS = {
@@ -63,6 +64,9 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
 
   const TeamCell = ({ name, slug, tier, rank }) => (
     <span className={styles.teamCell}>
+      <span className={styles.teamLogoWrap}>
+        <TeamLogo team={{ slug, name }} size={18} />
+      </span>
       {rank != null && <span className={styles.rank}>#{rank}</span>}
       {slug ? (
         <Link to={`/teams/${slug}`} className={styles.link}>

@@ -1,6 +1,6 @@
 .row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 75px 95px 95px 70px auto auto;
+  grid-template-columns: minmax(160px, 1fr) 75px 95px 95px 70px auto auto;
   gap: var(--space-lg);
   font-size: 0.85rem;
   line-height: 1.5;
@@ -44,6 +44,15 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
+}
+
+.teamLogoWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 
 .rank {

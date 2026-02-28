@@ -1,4 +1,4 @@
-import { useState, useId, useMemo } from 'react';
+import { useState, useId, useMemo, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS } from '../../data/teams';
 import { getTeamSlug } from '../../utils/teamSlug';
@@ -47,10 +47,10 @@ function impliedProbFromAmerican(american) {
  * @param {string}  [props.badge]    - Optional tag shown next to the title (e.g. "Deep Dive").
  * @param {number}  [props.capRows]  - Max rows to show before "View more". No cap when omitted.
  */
-export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null, badge, capRows }) {
+export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null, badge, capRows, defaultSortBy = 'default' }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
-  const [sortBy, setSortBy] = useState('default');
+  const [sortBy, setSortBy] = useState(defaultSortBy);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showingAll, setShowingAll] = useState(false);
   const contentId = useId();
@@ -213,28 +213,41 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               {visibleTeams.map((team, idx) => {
                 const rank = slugToRank[team.slug];
                 const isNew = showingAll && capRows != null && idx >= capRows;
+                // Insert a divider row when we cross from ranked to unranked (visible in expanded view)
+                const prevTeam = idx > 0 ? visibleTeams[idx - 1] : null;
+                const prevRank = prevTeam ? slugToRank[prevTeam.slug] : null;
+                const showDivider = showingAll && prevRank != null && rank == null;
                 return (
-                  <tr key={team.slug} className={isNew ? styles.trNew : ''}>
-                    <td className={styles.colTeam}>
-                      <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
-                        <TeamLogo team={team} size={22} />
-                        <span>{team.name}</span>
-                        {rank != null && (
-                          <span className={styles.top25Badge} title="AP Top 25">
-                            #{rank}
-                          </span>
-                        )}
-                        <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                        <span className={styles.rowChevron}>→</span>
-                      </Link>
-                    </td>
-                    <td className={styles.colConf}>{team.conference}</td>
-                    <td className={styles.colTier}>
-                      <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                        {team.oddsTier}
-                      </span>
-                    </td>
-                  </tr>
+                  <Fragment key={team.slug}>
+                    {showDivider && (
+                      <tr className={styles.sectionDividerRow}>
+                        <td colSpan={3} className={styles.sectionDividerCell}>
+                          Remaining Teams
+                        </td>
+                      </tr>
+                    )}
+                    <tr className={[isNew ? styles.trNew : '', rank != null ? styles.trRanked : ''].filter(Boolean).join(' ') || undefined}>
+                      <td className={styles.colTeam}>
+                        <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
+                          <TeamLogo team={team} size={22} />
+                          <span>{team.name}</span>
+                          {rank != null && (
+                            <span className={styles.top25Badge} title="AP Top 25">
+                              #{rank}
+                            </span>
+                          )}
+                          <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                          <span className={styles.rowChevron}>→</span>
+                        </Link>
+                      </td>
+                      <td className={styles.colConf}>{team.conference}</td>
+                      <td className={styles.colTier}>
+                        <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
+                          {team.oddsTier}
+                        </span>
+                      </td>
+                    </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
