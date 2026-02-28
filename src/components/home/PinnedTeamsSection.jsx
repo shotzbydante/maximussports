@@ -235,6 +235,9 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   const [showPreview, setShowPreview] = useState(() => {
     try { return localStorage.getItem('pinnedTeamsHideExample') !== '1'; } catch { return true; }
   });
+  // Tracks which slugs have had any API response arrive (even if the data is sparse/empty).
+  // Lets us distinguish "still fetching" from "fetched but empty" for better UX.
+  const [loadedSlugs, setLoadedSlugs] = useState(new Set());
 
   const grouped = getTeamsGroupedByConference();
 
@@ -302,6 +305,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   useEffect(() => {
     if (pinned.length === 0) {
       setTeamRecords({});
+      setLoadedSlugs((prev) => (prev.size === 0 ? prev : new Set()));
       return;
     }
     const slugs = pinned.slice(0, 8);
@@ -309,7 +313,8 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     const news = {};
     slugs.forEach((slug) => {
       const slot = pinnedTeamDataBySlug[slug];
-      if (slot) {
+      // Use !== undefined so we detect "data arrived but empty" vs "not yet fetched"
+      if (slot !== undefined) {
         const rec = recordFromBatchData(slot);
         if (rec) {
           records[slug] = rec;
@@ -320,6 +325,12 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       }
     });
     setTeamRecords(records);
+    // Mark which slugs have received a response — update only if set content changed
+    const nowLoaded = slugs.filter((s) => pinnedTeamDataBySlug[s] !== undefined);
+    setLoadedSlugs((prev) => {
+      const changed = nowLoaded.length !== prev.size || nowLoaded.some((s) => !prev.has(s));
+      return changed ? new Set(nowLoaded) : prev;
+    });
     if (Object.keys(news).length > 0) {
       setTeamNews((prev) => ({ ...prev, ...news }));
     }
@@ -343,6 +354,29 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       });
     });
   }, [pinned.join(','), teamNews]);
+
+  // DEV diagnostics — append ?debugPinned=1 to any URL to log per-slug data health
+  useEffect(() => {
+    if (!import.meta.env?.DEV) return;
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('debugPinned') !== '1') return;
+    console.group('[PinnedTeams] diagnostic snapshot');
+    pinned.slice(0, 8).forEach((slug) => {
+      const slot = pinnedTeamDataBySlug[slug];
+      const teamInfo = getTeamBySlug(slug);
+      console.group(`  ${slug}`);
+      console.log('  in TEAMS:', teamInfo ? `✓ (${teamInfo.conference}, ${teamInfo.oddsTier})` : '✗ MISSING from teams data — slug mismatch?');
+      console.log('  slot defined:', slot !== undefined, '| slot:', slot);
+      console.log('  schedule.events count:', slot?.schedule?.events?.length ?? 'no schedule');
+      console.log('  teamNews count:', (slot?.teamNews ?? []).length);
+      console.log('  computed records:', teamRecords[slug] ?? 'null — check schedule.events or ATS data');
+      console.log('  headlines in state:', (teamNews[slug] ?? []).length);
+      console.log('  summary:', teamSummaries[slug] ?? 'null');
+      console.log('  loaded state:', loadedSlugs.has(slug) ? 'loaded' : 'PENDING fetch');
+      console.groupEnd();
+    });
+    console.groupEnd();
+  }, [pinnedTeamDataBySlug, teamRecords, teamNews, teamSummaries, loadedSlugs, pinned.join(',')]);
 
   const filteredTeams = search.trim()
     ? TEAMS.filter(
@@ -590,6 +624,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                   </div>
                 )}
                 {(() => {
+                  const isLoading = !loadedSlugs.has(slug);
                   const rec = teamRecords[slug];
                   const cached = getAtsCache(slug);
                   const season = rec?.season;
@@ -599,6 +634,30 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                   const l10Str = last10?.w != null && last10?.l != null ? `${last10.w}–${last10.l}` : '—';
                   const atsStr = ats?.total > 0 ? `${ats.w}–${ats.l}${ats.p > 0 ? `–${ats.p}` : ''}` : '—';
                   const hasData = seasonStr !== '—' || l10Str !== '—' || atsStr !== '—';
+                  const isWarming = !isLoading && !hasData;
+
+                  if (isLoading) {
+                    return (
+                      <div className={styles.recordsSkeletonRow} aria-label="Loading records">
+                        {['Season', 'L10', 'ATS'].map((lbl) => (
+                          <div key={lbl} className={styles.recordSkeleton}>
+                            <div className={styles.recordSkeletonLabel} />
+                            <div className={styles.recordSkeletonValue} />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+                  if (isWarming) {
+                    return (
+                      <div className={styles.warmingRow}>
+                        <span className={styles.warmingPill} role="status" aria-live="polite">
+                          <span className={styles.warmingSpinner} aria-hidden />
+                          Warming data
+                        </span>
+                      </div>
+                    );
+                  }
                   return (
                     <>
                       <div className={styles.recordsRow}>
@@ -625,17 +684,20 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                   );
                 })()}
                 <div className={styles.teamSummary}>
-                  {headlines.length > 0 ? (
+                  {!loadedSlugs.has(slug) ? (
+                    <div className={styles.summarySkeletonLines} aria-label="Loading summary">
+                      <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
+                      <div className={styles.summarySkeletonLine} style={{ width: '82%' }} />
+                    </div>
+                  ) : headlines.length > 0 ? (
                     (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
                       <p className={`${styles.teamSummaryText} ${isCompact ? styles.teamSummaryCompact : ''}`}>
                         {teamSummaries[slug]}
                       </p>
                     ) : (
-                      <p className={styles.teamSummaryUnavailable}>Summary unavailable</p>
+                      <p className={styles.teamSummaryGenerating}>Generating summary…</p>
                     )
-                  ) : (
-                    <p className={styles.teamSummaryUnavailable}>Summary unavailable</p>
-                  )}
+                  ) : null}
                 </div>
                 {headlines.length > 0 && (
                   <ul className={styles.headlines}>

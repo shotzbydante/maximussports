@@ -95,6 +95,35 @@ function maybeWarmAts() {
   warmAtsBothWindows();
 }
 
+/** Static teaser card linking to the Odds Insights page — no extra API calls needed. */
+function OddsInsightsTeaser() {
+  const items = [
+    { label: 'Market Briefing', desc: 'Spread & line movement on today\'s slate' },
+    { label: 'High-Interest Matchups', desc: 'Most active betting markets right now' },
+    { label: 'Underdog Watch', desc: 'Dogs covering +8 or more this week' },
+    { label: 'Totals Insights', desc: 'Over/under trends and sharp money signals' },
+  ];
+  return (
+    <div className={styles.oddsTeaser}>
+      <div className={styles.oddsTeaserHeader}>
+        <h3 className={styles.oddsTeaserTitle}>Odds Insights</h3>
+        <span className={styles.oddsTeaserTag}>Market Intelligence</span>
+      </div>
+      <div className={styles.oddsTeaserGrid}>
+        {items.map((item) => (
+          <div key={item.label} className={styles.oddsTeaserItem}>
+            <span className={styles.oddsTeaserItemLabel}>{item.label}</span>
+            <span className={styles.oddsTeaserItemDesc}>{item.desc}</span>
+          </div>
+        ))}
+      </div>
+      <Link to="/odds-insights" className={styles.oddsTeaserCta}>
+        Open Odds Insights →
+      </Link>
+    </div>
+  );
+}
+
 export default function Home() {
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed, pinnedTeamNewsMap: {} });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
@@ -606,6 +635,65 @@ export default function Home() {
         </button>
       </section>
 
+      {/* ── Dashboard Intelligence Grid ─────────────────────────────────
+           Left: snapshot stats + today's scores + upset alerts
+           Right: intel feed teaser (capped) + pinned team news
+           2-col on desktop, single col on mobile              */}
+      <div className={styles.dashboardGrid}>
+        <div className={styles.dashboardLeft}>
+          <div className={styles.moduleSnapshot}>
+            <DynamicStats stats={dynamicStats} />
+          </div>
+          <div className={styles.moduleScores}>
+            <LiveScores
+              games={scores.games}
+              loading={scores.loading}
+              error={scores.error}
+              oddsMessage={scores.oddsMessage}
+              compact
+              rankMap={rankMap}
+            />
+          </div>
+          <div className={styles.moduleAlerts}>
+            <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+          </div>
+        </div>
+
+        <aside className={styles.dashboardRight}>
+          <div id="news">
+            <NewsFeed
+              items={(newsData.newsFeed || []).slice(0, 8)}
+              source={newsSource}
+              loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
+            />
+            {(newsData.newsFeed || []).length > 0 && (
+              <Link to="/news" className={styles.intelFeedCtaLink}>
+                View full Intel Feed →
+              </Link>
+            )}
+          </div>
+          {newsData.teamNews.length > 0 && (
+            <div className={styles.teamNewsWidget} id="news-teams">
+              <div className={styles.teamNewsWidgetHeader}>
+                <span className={styles.widgetTitle}>Pinned Team News</span>
+                <SourceBadge source={newsSource} />
+              </div>
+              <div className={styles.teamNewsList}>
+                {newsData.teamNews.map((t) => (
+                  <Link key={t.slug} to={`/teams/${t.slug}`} className={styles.teamNewsItem}>
+                    {t.team} — {t.headlines} headlines
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {/* ── Odds Insights teaser — static, links to /odds-insights ─── */}
+      <OddsInsightsTeaser />
+
+      {/* ── Bubble Watch: Deep Dive — full rankings, collapsible ────── */}
       <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
         <div
           id="home-bubble-body"
@@ -634,49 +722,6 @@ export default function Home() {
           >›</span>
         </button>
       </section>
-
-      {/* Dashboard grid: 2-col on desktop, single col on mobile */}
-      <div className={styles.dashboardGrid}>
-        <div className={styles.dashboardLeft}>
-          <div className={styles.moduleAlerts}>
-            <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
-          </div>
-          <div className={styles.moduleSnapshot}>
-            <DynamicStats stats={dynamicStats} />
-          </div>
-          <div className={styles.moduleScores}>
-            <LiveScores
-              games={scores.games}
-              loading={scores.loading}
-              error={scores.error}
-              oddsMessage={scores.oddsMessage}
-              compact
-              rankMap={rankMap}
-            />
-          </div>
-        </div>
-
-        <aside className={styles.dashboardRight}>
-          <div id="news">
-            <NewsFeed items={newsData.newsFeed} source={newsSource} loading={headlinesWarming && (newsData.newsFeed || []).length === 0} />
-          </div>
-          {newsData.teamNews.length > 0 && (
-            <div className={styles.teamNewsWidget} id="news-teams">
-              <div className={styles.teamNewsWidgetHeader}>
-                <span className={styles.widgetTitle}>Pinned Team News</span>
-                <SourceBadge source={newsSource} />
-              </div>
-              <div className={styles.teamNewsList}>
-                {newsData.teamNews.map((t) => (
-                  <Link key={t.slug} to={`/teams/${t.slug}`} className={styles.teamNewsItem}>
-                    {t.team} — {t.headlines} headlines
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
-      </div>
     </div>
   );
 }

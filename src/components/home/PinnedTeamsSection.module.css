@@ -930,3 +930,133 @@
     transition: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOADING SKELETONS — records row
+   ═══════════════════════════════════════════════════════════════════ */
+
+.recordsSkeletonRow {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  margin-bottom: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.recordSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recordSkeletonLabel {
+  height: 8px;
+  width: 32px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-border-light) 0%,
+    var(--color-bg-muted) 50%,
+    var(--color-border-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerPinned 1.4s ease-in-out infinite;
+}
+
+.recordSkeletonValue {
+  height: 11px;
+  width: 42px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-border-light) 0%,
+    var(--color-bg-muted) 50%,
+    var(--color-border-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerPinned 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmerPinned {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Warming data pill ──────────────────────────────────────────── */
+
+.warmingRow {
+  padding: var(--space-xs) 0;
+  margin-bottom: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.warmingPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #8a6d3a;
+  background: rgba(183, 152, 108, 0.1);
+  border: 1px solid rgba(183, 152, 108, 0.25);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.warmingSpinner {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid rgba(183, 152, 108, 0.35);
+  border-top-color: #b7986c;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spinPinned 0.75s linear infinite;
+}
+
+@keyframes spinPinned {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Summary skeleton ───────────────────────────────────────────── */
+
+.summarySkeletonLines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: var(--space-sm);
+}
+
+.summarySkeletonLine {
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-border-light) 0%,
+    var(--color-bg-muted) 50%,
+    var(--color-border-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerPinned 1.4s ease-in-out infinite;
+}
+
+/* "Generating summary…" — shown after data loads but AI hasn't replied yet */
+.teamSummaryGenerating {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  font-style: italic;
+}
+
+/* Respect prefers-reduced-motion for all new animations */
+@media (prefers-reduced-motion: reduce) {
+  .recordSkeletonLabel,
+  .recordSkeletonValue,
+  .summarySkeletonLine {
+    animation: none;
+    opacity: 0.5;
+  }
+  .warmingSpinner {
+    animation: none;
+  }
+}
