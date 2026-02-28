@@ -646,9 +646,10 @@
   gap: 16px;
 }
 
-/* Single card: let it fill full available width */
+/* Single card: constrain width so it doesn't stretch full container on wide desktop */
 .cardsSingle {
   grid-template-columns: 1fr;
+  max-width: 640px;
 }
 
 @media (max-width: 600px) {
@@ -802,6 +803,7 @@
   line-height: 1.4;
   color: var(--color-text-secondary);
   margin: 0;
+  max-width: 60ch; /* keep prose readable even in wide cards */
 }
 
 /* Compact: clamp summary to 2 lines */

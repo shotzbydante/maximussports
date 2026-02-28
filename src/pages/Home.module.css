@@ -32,6 +32,79 @@
   gap: 6px;
 }
 
+/* ── Collapsible insight body ─────────────────────────────────────── */
+
+/* Wrapper that clips to max-height when collapsed (mobile only) */
+.insightBody {
+  position: relative; /* needed for the ::after fade overlay */
+}
+
+/* Mobile: clamp to preview height + add fade-out gradient */
+@media (max-width: 767px) {
+  .insightBodyCollapsed {
+    max-height: 210px;
+    overflow: hidden;
+  }
+
+  .insightBodyCollapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 72px;
+    background: linear-gradient(to bottom, transparent, var(--color-bg-elevated));
+    pointer-events: none;
+  }
+}
+
+/* Toggle button: hidden on desktop, shown on mobile */
+.insightToggle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .insightToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    padding: 3px 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--color-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .insightToggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.insightToggleChevron {
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-block;
+  transform: rotate(90deg); /* › pointing down = "more below" */
+  transition: transform 0.2s ease;
+}
+
+.insightToggleChevronOpen {
+  transform: rotate(-90deg); /* › pointing up = "collapse" */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insightToggleChevron {
+    transition: none;
+  }
+}
+
 .bannerStaticWelcome {
   font-size: var(--body-font-size);
   line-height: var(--body-line-height);
@@ -257,11 +330,20 @@
 
 @media (max-width: 767px) {
   .bannerMascot {
-    height: 96px;
+    height: 76px; /* slightly smaller on mobile to reduce card height */
+    align-self: flex-start; /* anchor to top instead of center in collapsed state */
   }
   .banner {
-    gap: var(--space-xs);
-    padding: var(--space-xs) var(--space-sm);
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-lg); /* tighter gap to pinned teams on mobile */
+    align-items: flex-start; /* mascot + content both top-aligned on mobile */
+  }
+}
+
+@media (max-width: 480px) {
+  .home {
+    padding: 0 var(--space-md);
   }
 }
 

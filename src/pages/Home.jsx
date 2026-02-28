@@ -123,6 +123,13 @@ export default function Home() {
   const [summaryRefreshTick, setSummaryRefreshTick] = useState(0);
   const [llmSummary, setLlmSummary] = useState(null);
   const [llmSummaryRefreshing, setLlmSummaryRefreshing] = useState(false);
+  // Insight card: collapsed by default on mobile; persisted in localStorage.
+  const [isBannerCollapsed, setIsBannerCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem('homeInsightCollapsed');
+      return v === null ? true : v === '1';
+    } catch { return true; }
+  });
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const championshipScheduledRef = useRef(false);
@@ -389,6 +396,14 @@ export default function Home() {
     }
   };
 
+  const handleToggleBanner = useCallback(() => {
+    setIsBannerCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('homeInsightCollapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
+
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
     const { scoresCount = 0, rankingsCount = 0 } = dataStatusForBadges;
@@ -435,11 +450,31 @@ export default function Home() {
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
-          {(llmSummary || summaryText) ? (
-            <FormattedSummary text={llmSummary || summaryText} className={styles.bannerText} />
-          ) : (
-            <p className={styles.bannerText}>Loading today&apos;s intel…</p>
-          )}
+          {/* Collapsible text area — max-height clamped only on mobile */}
+          <div
+            id="home-insight-body"
+            className={`${styles.insightBody} ${isBannerCollapsed ? styles.insightBodyCollapsed : ''}`}
+          >
+            {(llmSummary || summaryText) ? (
+              <FormattedSummary text={llmSummary || summaryText} className={styles.bannerText} />
+            ) : (
+              <p className={styles.bannerText}>Loading today&apos;s intel…</p>
+            )}
+          </div>
+          {/* Read more / Show less toggle — rendered always, visible only on mobile via CSS */}
+          <button
+            type="button"
+            className={styles.insightToggle}
+            onClick={handleToggleBanner}
+            aria-expanded={!isBannerCollapsed}
+            aria-controls="home-insight-body"
+          >
+            <span>{isBannerCollapsed ? 'Read more' : 'Show less'}</span>
+            <span
+              className={`${styles.insightToggleChevron} ${!isBannerCollapsed ? styles.insightToggleChevronOpen : ''}`}
+              aria-hidden
+            >›</span>
+          </button>
           <div className={styles.summaryActions}>
             <button
               type="button"
