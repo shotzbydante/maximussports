@@ -154,6 +154,11 @@
     cursor: pointer;
     line-height: 1;
     justify-content: flex-start; /* "Show less": left-aligned, no border */
+    transition: color 0.15s;
+  }
+
+  .insightToggle:hover {
+    color: var(--color-primary-hover);
   }
 
   /*
@@ -454,6 +459,130 @@
 .atsSection {
   margin-bottom: var(--space-xl);
   min-height: 200px; /* Reserve space so ATS doesn't cause layout jump when loading */
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE COLLAPSIBLE SECTION BODIES — ATS Leaders + Bubble Watch
+   Same technique as the Insight banner: max-height transition + fade.
+   Desktop: no clip, no toggle. Mobile: preview height + gradient.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Base wrapper — position:relative anchors the ::after fade */
+.sectionBody {
+  position: relative;
+}
+
+/* Section expand/collapse toggle — hidden on desktop */
+.sectionToggle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  /* On mobile, sectionBody becomes an animated clip container */
+  .sectionBody {
+    overflow: hidden;
+    max-height: 2400px; /* unlimited when not clamped — large enough for full table */
+    transition: max-height 0.18s ease-out;
+  }
+
+  /*
+   * ATS Leaders collapsed — card header + period pills + ~5 rows visible.
+   * Card padding (20px) + header block (~60px) + col label (~20px) + 5 rows (5×30px) = ~250px.
+   * 300px gives a comfortable, clearly-truncated summary view.
+   */
+  .sectionBodyAtsCollapsed {
+    max-height: 300px;
+  }
+
+  /*
+   * Bubble Watch collapsed — toggle header + filters + table header + ~4 rows.
+   * Toggle (~47px) + filters (~60px) + th (~27px) + 4 rows (4×27px) = ~242px.
+   * 280px ensures the preview feels complete, not broken.
+   */
+  .sectionBodyBubbleCollapsed {
+    max-height: 280px;
+  }
+
+  /*
+   * Gradient fade — same material approach as Insight banner.
+   * Transparent for 38% so visible rows read cleanly, then fades
+   * to the card surface (white) to signal more content below.
+   * Using `transparent` (not rgba) avoids muddy grey midpoint.
+   */
+  .sectionBodyAtsCollapsed::after,
+  .sectionBodyBubbleCollapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: linear-gradient(
+      to bottom,
+      transparent              0%,
+      transparent             38%,
+      var(--color-bg-elevated) 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Shared base — same visual language as insightToggle */
+  .sectionToggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    min-height: 36px;
+    padding: 4px 0;
+    margin-top: 2px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--color-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    justify-content: flex-start; /* "Collapse": left-aligned */
+    transition: color 0.15s;
+  }
+
+  .sectionToggle:hover {
+    color: var(--color-primary-hover);
+  }
+
+  /*
+   * "Show full …" footer row — anchored, right-aligned, visually separated.
+   * Matches insightToggleFooter rhythm exactly.
+   */
+  .sectionToggleFooter {
+    justify-content: flex-end;
+    min-height: 40px;
+    padding: 9px 0 5px;
+    border-top: 1px solid var(--color-border-light);
+    margin-top: 6px;
+  }
+
+  .sectionToggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* ≤360px: center the footer toggle on very narrow screens */
+@media (max-width: 360px) {
+  .sectionToggleFooter {
+    justify-content: center;
+  }
+}
+
+/* Respect prefers-reduced-motion — disable max-height transition */
+@media (prefers-reduced-motion: reduce) {
+  .sectionBody {
+    transition: none;
+  }
 }
 
 .mainCol {

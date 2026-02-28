@@ -130,6 +130,20 @@ export default function Home() {
       return v === null ? true : v === '1';
     } catch { return true; }
   });
+  // ATS Leaders: collapsed by default on mobile; persisted in localStorage.
+  const [isAtsCollapsed, setIsAtsCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem('homeAtsCollapsed');
+      return v === null ? true : v === '1';
+    } catch { return true; }
+  });
+  // Bubble Watch: collapsed by default on mobile; persisted in localStorage.
+  const [isBubbleCollapsed, setIsBubbleCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem('homeBubbleCollapsed');
+      return v === null ? true : v === '1';
+    } catch { return true; }
+  });
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const championshipScheduledRef = useRef(false);
@@ -404,6 +418,22 @@ export default function Home() {
     });
   }, []);
 
+  const handleToggleAts = useCallback(() => {
+    setIsAtsCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('homeAtsCollapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleToggleBubble = useCallback(() => {
+    setIsBubbleCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('homeBubbleCollapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
+
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
     const { scoresCount = 0, rankingsCount = 0 } = dataStatusForBadges;
@@ -547,26 +577,62 @@ export default function Home() {
       />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
-        <ATSLeaderboard
-          atsLeaders={atsLeaders}
-          atsMeta={atsMeta}
-          loading={atsLoading}
-          atsWindow={atsWindow}
-          seasonWarming={seasonWarming}
-          onPeriodChange={atsOnPeriodChange}
-          onRetry={atsOnRetry}
-        />
+        <div
+          id="home-ats-body"
+          className={`${styles.sectionBody} ${isAtsCollapsed ? styles.sectionBodyAtsCollapsed : ''}`}
+        >
+          <ATSLeaderboard
+            atsLeaders={atsLeaders}
+            atsMeta={atsMeta}
+            loading={atsLoading}
+            atsWindow={atsWindow}
+            seasonWarming={seasonWarming}
+            onPeriodChange={atsOnPeriodChange}
+            onRetry={atsOnRetry}
+          />
+        </div>
+        <button
+          type="button"
+          className={`${styles.sectionToggle}${isAtsCollapsed ? ` ${styles.sectionToggleFooter}` : ''}`}
+          onClick={handleToggleAts}
+          aria-expanded={!isAtsCollapsed}
+          aria-controls="home-ats-body"
+        >
+          <span>{isAtsCollapsed ? 'Show full standings' : 'Collapse'}</span>
+          <span
+            className={`${styles.insightToggleChevron} ${!isAtsCollapsed ? styles.insightToggleChevronOpen : ''}`}
+            aria-hidden
+          >›</span>
+        </button>
       </section>
 
       <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
-        <RankingsTable
-          title="Bubble Watch — Full Rankings"
-          collapsible
-          rankings={top25}
-          championshipOdds={championshipOdds}
-          championshipOddsMeta={championshipOddsMeta}
-          championshipOddsLoading={championshipOddsLoading}
-        />
+        <div
+          id="home-bubble-body"
+          className={`${styles.sectionBody} ${isBubbleCollapsed ? styles.sectionBodyBubbleCollapsed : ''}`}
+        >
+          <RankingsTable
+            title="Bubble Watch — Full Rankings"
+            collapsible
+            rankings={top25}
+            championshipOdds={championshipOdds}
+            championshipOddsMeta={championshipOddsMeta}
+            championshipOddsLoading={championshipOddsLoading}
+          />
+        </div>
+        <button
+          type="button"
+          className={`${styles.sectionToggle}${isBubbleCollapsed ? ` ${styles.sectionToggleFooter}` : ''}`}
+          onClick={handleToggleBubble}
+          aria-expanded={!isBubbleCollapsed}
+          aria-controls="home-bubble-body"
+        >
+          <span>{isBubbleCollapsed ? 'Show full rankings' : 'Collapse'}</span>
+          <span
+            className={`${styles.insightToggleChevron} ${!isBubbleCollapsed ? styles.insightToggleChevronOpen : ''}`}
+            aria-hidden
+          >›</span>
+        </button>
       </section>
 
       {/* Dashboard grid: 2-col on desktop, single col on mobile */}
