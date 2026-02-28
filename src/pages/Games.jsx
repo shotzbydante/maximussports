@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchHome } from '../api/home';
 import { mergeGamesWithOdds } from '../api/odds';
 import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
-import KeyDatesWidget from '../components/home/KeyDatesWidget';
-import DailySchedule from '../components/home/DailySchedule';
 import LiveScores from '../components/scores/LiveScores';
 import SourceBadge from '../components/shared/SourceBadge';
 import styles from './Games.module.css';
+
+const KeyDatesWidget = lazy(() => import('../components/home/KeyDatesWidget'));
+const DailySchedule = lazy(() => import('../components/home/DailySchedule'));
+
+function ModuleSkeleton({ height = 180 }) {
+  return <div className={styles.moduleSkeleton} style={{ height }} aria-busy="true" />;
+}
 
 const REFRESH_INTERVAL_MS = 60 * 1000;
 
@@ -67,7 +72,10 @@ export default function Games() {
     return () => clearInterval(id);
   }, [loadScores]);
 
-  const hasLiveOrInProgress = scores.games.some((g) => isLiveOrInProgress(g.gameStatus));
+  const hasLiveOrInProgress = useMemo(
+    () => scores.games.some((g) => isLiveOrInProgress(g.gameStatus)),
+    [scores.games],
+  );
   const showLiveScores = scores.games.length > 0 && hasLiveOrInProgress;
   const todaysScoresDateLabel = getTodaysScoresDateLabel();
 
@@ -79,7 +87,9 @@ export default function Games() {
       </header>
 
       <section className={styles.sectionCompact}>
-        <KeyDatesWidget />
+        <Suspense fallback={<ModuleSkeleton height={200} />}>
+          <KeyDatesWidget />
+        </Suspense>
       </section>
 
       {showLiveScores && (
@@ -106,7 +116,9 @@ export default function Games() {
       )}
 
       <section className={styles.section}>
-        <DailySchedule />
+        <Suspense fallback={<ModuleSkeleton height={320} />}>
+          <DailySchedule />
+        </Suspense>
       </section>
     </div>
   );

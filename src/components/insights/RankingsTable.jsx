@@ -222,7 +222,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
                     {showDivider && (
                       <tr className={styles.sectionDividerRow}>
                         <td colSpan={3} className={styles.sectionDividerCell}>
-                          Remaining Teams
+                          Outside Top 25
                         </td>
                       </tr>
                     )}

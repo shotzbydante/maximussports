@@ -8,6 +8,11 @@
   flex-direction: column;
   gap: var(--space-xl);
   box-shadow: var(--shadow-sm);
+  /* Sticky: stays visible while the main content scrolls */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .section {
@@ -64,8 +69,11 @@
 }
 
 .icon {
-  font-size: 1rem;
-  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: inherit;
+  opacity: 0.85;
 }
 
 .teamsBlock {

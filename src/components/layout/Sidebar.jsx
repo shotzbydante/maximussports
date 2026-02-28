@@ -3,6 +3,39 @@ import { NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
 import styles from './Sidebar.module.css';
 
+/* ─── Inline SVG icon set (16×16, 1.5px stroke, no fill) ─────────────────── */
+const HomeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <path d="M2 7L8 2l6 5v7h-4v-4H6v4H2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+  </svg>
+);
+const GamesIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M4.5 11c.6-1.2 1.8-2.5 3.5-2.5S11 9.8 11.5 11M4.5 5c.6 1.2 1.8 2.5 3.5 2.5S11 6.2 11.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+const TeamsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <circle cx="5.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+    <circle cx="10.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M1 14c0-2.5 2-4.5 4.5-4.5S10 11.5 10 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M11 9.8c1.8.3 3 1.7 3 4.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+const TrendIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <polyline points="2,11 5.5,7 8.5,9 14,4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points="10,4 14,4 14,8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const NewsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M5 7h6M5 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
 export default function Sidebar() {
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
@@ -22,14 +55,14 @@ export default function Sidebar() {
             end
             className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
           >
-            <span className={styles.icon}>🏠</span>
+            <span className={styles.icon}><HomeIcon /></span>
             <span>Home</span>
           </NavLink>
           <NavLink
             to="/games"
             className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
           >
-            <span className={styles.icon}>🏀</span>
+            <span className={styles.icon}><GamesIcon /></span>
             <span>Games</span>
           </NavLink>
           <div className={styles.teamsBlock}>
@@ -39,7 +72,7 @@ export default function Sidebar() {
                 end
                 className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
               >
-                <span className={styles.icon}>🏫</span>
+                <span className={styles.icon}><TeamsIcon /></span>
                 <span>Teams</span>
               </NavLink>
               <button
@@ -93,14 +126,14 @@ export default function Sidebar() {
             to="/insights"
             className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
           >
-            <span className={styles.icon}>📈</span>
+            <span className={styles.icon}><TrendIcon /></span>
             <span>Odds Insights</span>
           </NavLink>
           <NavLink
             to="/news"
             className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
           >
-            <span className={styles.icon}>📰</span>
+            <span className={styles.icon}><NewsIcon /></span>
             <span>News Feed</span>
           </NavLink>
         </nav>

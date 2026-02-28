@@ -91,10 +91,9 @@
   background: rgba(45, 138, 110, 0.08);
 }
 
-/* Completed games: settled, muted look */
+/* Completed games: settled, understated — no background fill, thin left rule */
 .gameCardFinal {
-  background: var(--color-bg-muted, rgba(0, 0, 0, 0.015));
-  border-left: 2px solid var(--color-border-light);
+  border-left: 2px solid rgba(130, 130, 130, 0.25);
 }
 
 .gameCardFinal .teamName {

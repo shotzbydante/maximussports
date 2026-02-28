@@ -36,6 +36,21 @@ const CONF_INITIALS = {
   'Others':   '—',
 };
 
+/* ─── Publisher branding for no-image fallback cards ──────────────────────── */
+const PUBLISHER_CONFIG = {
+  'yahoo sports':  { lines: ['YAHOO', 'SPORTS'],   bg: 'linear-gradient(135deg, #3d0070 0%, #7b1fa2 100%)' },
+  'cbs sports':    { lines: ['CBS', 'SPORTS'],     bg: 'linear-gradient(135deg, #12235a 0%, #1565c0 100%)' },
+  'espn':          { lines: ['ESPN'],              bg: 'linear-gradient(135deg, #6d0000 0%, #c62828 100%)' },
+  'fox sports':    { lines: ['FOX', 'SPORTS'],     bg: 'linear-gradient(135deg, #2a1200 0%, #d84315 100%)' },
+  'the athletic':  { lines: ['THE', 'ATHLETIC'],   bg: 'linear-gradient(135deg, #111 0%, #2d3748 100%)' },
+  '247sports':     { lines: ['247', 'SPORTS'],     bg: 'linear-gradient(135deg, #1a0000 0%, #991b1b 100%)' },
+  'bleacher report': { lines: ['B/R'],             bg: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)' },
+};
+
+function getPublisherConfig(source) {
+  return PUBLISHER_CONFIG[(source || '').toLowerCase()] ?? null;
+}
+
 const SIGNAL_PATTERNS = [
   { re: /\bupset\b/i,                                        tag: 'Upset',     cls: styles.signalUpset     },
   { re: /\binjur(y|ies|ed|ing)\b/i,                          tag: 'Injury',    cls: styles.signalInjury    },
@@ -146,17 +161,26 @@ function SignalTag({ signal }) {
 }
 
 function ImgPlaceholder({ conference, source, size = 'hero' }) {
-  const gradient = getGradient(conference);
-  const text = getInitials(conference, source);
+  const pub = getPublisherConfig(source);
+  const background = pub ? pub.bg : getGradient(conference);
+  const isStream = size === 'stream';
   return (
     <div
-      className={`${styles.imgPlaceholder} ${size === 'stream' ? styles.imgPlaceholderStream : ''}`}
-      style={{ background: gradient }}
+      className={`${styles.imgPlaceholder} ${isStream ? styles.imgPlaceholderStream : ''}`}
+      style={{ background }}
       aria-hidden
     >
-      <span className={size === 'stream' ? styles.imgInitialsStream : styles.imgInitials}>
-        {text}
-      </span>
+      {pub ? (
+        <span className={`${styles.publisherWrap} ${isStream ? styles.publisherWrapStream : ''}`}>
+          {pub.lines.map((line, i) => (
+            <span key={i} className={styles.publisherLine}>{line}</span>
+          ))}
+        </span>
+      ) : (
+        <span className={isStream ? styles.imgInitialsStream : styles.imgInitials}>
+          {getInitials(conference, source)}
+        </span>
+      )}
     </div>
   );
 }

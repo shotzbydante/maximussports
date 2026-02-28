@@ -13,6 +13,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
+import StatusChip from '../shared/StatusChip';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import styles from './LiveScores.module.css';
@@ -53,12 +54,6 @@ function hasOdds(g) {
   return g.spread != null || g.total != null;
 }
 
-function getStatusVariant(status) {
-  if (isFinal(status)) return 'final';
-  if (isLive(status)) return 'live';
-  return 'upcoming';
-}
-
 /** Sort games: live first, then upcoming (asc by start time), then completed. */
 function sortGames(games) {
   const priority = (g) => {
@@ -77,16 +72,6 @@ function sortGames(games) {
     }
     return 0;
   });
-}
-
-function StatusBadge({ status }) {
-  const variant = getStatusVariant(status);
-  return (
-    <span className={`${styles.statusBadge} ${styles[`status--${variant}`]}`}>
-      {variant === 'live' && <span className={styles.liveDot} />}
-      {status}
-    </span>
-  );
 }
 
 export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {}, cap, mobileCap }) {
@@ -227,7 +212,8 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
               {/* Game footer: status · time · odds · ESPN Gamecast */}
               <div className={styles.gameFooter}>
-                <StatusBadge status={g.gameStatus} />
+                {/* Non-final status sits on the left; Final chips move right (near score column) */}
+                {!finished && <StatusChip status={g.gameStatus} />}
                 {!compact && !finished && g.startTime && (
                   <span className={styles.gameTime}>{formatStartTime(g.startTime)}</span>
                 )}
@@ -237,6 +223,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                       {g.spread != null ? `${g.spread > 0 ? '+' : ''}${g.spread}` : ''}{g.spread != null && g.total != null ? ' · ' : ''}{g.total != null ? `O/U ${g.total}` : ''}
                     </span>
                   )}
+                  {finished && <StatusChip status={g.gameStatus} />}
                   <ESPNGamecastLink game={g} />
                 </span>
               </div>

@@ -7,6 +7,7 @@ import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
+import StatusChip from '../shared/StatusChip';
 import styles from './MatchupRow.module.css';
 
 const TIER_CLASS = {
@@ -41,6 +42,11 @@ function isLive(status) {
     s === 'halftime' ||
     (s.includes(':') && !s.toLowerCase().includes('am') && !s.toLowerCase().includes('pm'))
   );
+}
+
+function isFinal(status) {
+  const s = (status || '').toLowerCase();
+  return s === 'final' || s.includes('final');
 }
 
 function TierBadge({ tier }) {
@@ -87,15 +93,13 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
         <TeamCell name={homeTeam} slug={homeSlug} tier={homeTier} rank={homeRank} />
       </span>
       <span className={styles.score}>
-        {awayScore != null && homeScore != null ? (
-          `${awayScore} – ${homeScore}`
-        ) : (
-          '—'
+        <span>{awayScore != null && homeScore != null ? `${awayScore} – ${homeScore}` : '—'}</span>
+        {isFinal(gameStatus) && awayScore != null && (
+          <span className={styles.finalLabel}>Final</span>
         )}
       </span>
       <span className={styles.status}>
-        <span className={live ? styles.statusLive : ''}>{gameStatus}</span>
-        {live && <span className={styles.dot} />}
+        <StatusChip status={gameStatus} />
       </span>
       <span className={styles.time}>{formatTimePST(startTime)}</span>
       <span className={styles.network}>{network || '—'}</span>

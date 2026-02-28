@@ -23,6 +23,7 @@ import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import FormattedSummary from '../components/shared/FormattedSummary';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
+import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pinnedCache';
 import styles from './Home.module.css';
 
 const SCORES_REFRESH_MS = 60_000;
@@ -399,14 +400,30 @@ export default function Home() {
         setNewsSource('Multiple');
 
         if (pinnedSlugs.length > 0) {
-          const scheduleBatch = typeof requestIdleCallback !== 'undefined'
-            ? (cb) => requestIdleCallback(cb, { timeout: 500 })
-            : (cb) => setTimeout(cb, 100);
-          scheduleBatch(() => {
-            fetchTeamBatch(pinnedSlugs)
-              .then(({ teams }) => setPinnedTeamDataBySlug(teams || {}))
-              .catch(() => {});
+          // Immediately hydrate from module-level cache (survives SPA navigation)
+          const fromCache = {};
+          const uncachedSlugs = [];
+          pinnedSlugs.forEach((slug) => {
+            const hit = getPinnedCache(slug);
+            if (hit) { fromCache[slug] = hit; } else { uncachedSlugs.push(slug); }
           });
+          if (Object.keys(fromCache).length > 0) {
+            setPinnedTeamDataBySlug(fromCache);
+          }
+          if (uncachedSlugs.length > 0) {
+            const scheduleBatch = typeof requestIdleCallback !== 'undefined'
+              ? (cb) => requestIdleCallback(cb, { timeout: 500 })
+              : (cb) => setTimeout(cb, 100);
+            scheduleBatch(() => {
+              fetchTeamBatch(uncachedSlugs)
+                .then(({ teams }) => {
+                  const t = teams || {};
+                  Object.entries(t).forEach(([slug, data]) => setPinnedCache(slug, data));
+                  setPinnedTeamDataBySlug((prev) => ({ ...prev, ...t }));
+                })
+                .catch(() => {});
+            });
+          }
         }
 
         runChampionshipFetch();
@@ -485,31 +502,34 @@ export default function Home() {
   useEffect(() => {
     if (pinnedSlugs.length === 0) return;
     const timeouts = [];
-    pinnedSlugs.slice(0, 8).forEach((slug, i) => {
+    let delay = 0;
+    pinnedSlugs.slice(0, 8).forEach((slug) => {
+      // Skip enrichment fetch when a fresh cache entry already exists
+      if (hasFreshPinnedCache(slug)) return;
       const t = setTimeout(() => {
         fetchTeamPage(slug)
           .then((data) => {
             const ats = data.schedule && data.oddsHistory && data.team
               ? computeAtsFromScheduleAndHistory(data.schedule, data.oddsHistory, data.team.name)
               : { season: null, last30: null, last7: null };
-            setPinnedTeamDataBySlug((prev) => ({
-              ...prev,
-              [slug]: {
-                team: data.team,
-                schedule: data.schedule,
-                oddsHistory: data.oddsHistory,
-                teamNews: data.teamNews,
-                rank: data.rank,
-                ats,
-              },
-            }));
+            const enriched = {
+              team: data.team,
+              schedule: data.schedule,
+              oddsHistory: data.oddsHistory,
+              teamNews: data.teamNews,
+              rank: data.rank,
+              ats,
+            };
+            setPinnedCache(slug, enriched);
+            setPinnedTeamDataBySlug((prev) => ({ ...prev, [slug]: enriched }));
           })
           .catch(() => {});
-      }, i * STAGGER_MS);
+      }, delay);
+      delay += STAGGER_MS;
       timeouts.push(t);
     });
     return () => timeouts.forEach(clearTimeout);
-  }, [pinnedSlugs.join(',')]);
+  }, [pinnedSlugs.join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleDataStatus = () => {
     setShowDataStatus((prev) => !prev);

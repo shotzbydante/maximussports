@@ -1,0 +1,57 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+/* Live / in-progress */
+.live {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up, #2d8a6e);
+}
+
+/* Halftime — warm neutral, distinct from live */
+.halftime {
+  background: rgba(180, 140, 80, 0.13);
+  color: #8a6a30;
+}
+
+/* Final / completed */
+.final {
+  background: rgba(120, 120, 120, 0.1);
+  color: var(--color-text-muted);
+}
+
+/* Upcoming / scheduled */
+.upcoming {
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-primary, #3c79b4);
+}
+
+/* Pulsing dot for live games */
+.dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: dotPulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot { animation: none; }
+}
