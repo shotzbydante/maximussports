@@ -451,7 +451,10 @@ export default function Home() {
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
           {/* Mobile-only context sublabel — hidden on desktop via CSS */}
-          <p className={styles.insightSublabel} aria-hidden>Today&apos;s briefing</p>
+          <p className={styles.insightSublabel} aria-hidden>
+            Today&apos;s briefing
+            <span className={styles.insightSublabelMeta}>· Updated</span>
+          </p>
 
           {/* Collapsible text area — max-height clamped only on mobile */}
           <div
@@ -473,7 +476,7 @@ export default function Home() {
             aria-expanded={!isBannerCollapsed}
             aria-controls="home-insight-body"
           >
-            <span>{isBannerCollapsed ? 'Read more' : 'Show less'}</span>
+            <span>{isBannerCollapsed ? 'Expand briefing' : 'Show less'}</span>
             <span
               className={`${styles.insightToggleChevron} ${!isBannerCollapsed ? styles.insightToggleChevronOpen : ''}`}
               aria-hidden

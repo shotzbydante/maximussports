@@ -667,6 +667,8 @@
   max-width: 640px;
   margin-left: auto;
   margin-right: auto;
+  /* Subtle bottom margin keeps vertical rhythm consistent with multi-card grid */
+  margin-bottom: var(--space-xs);
 }
 
 @media (max-width: 600px) {

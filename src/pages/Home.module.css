@@ -6,22 +6,24 @@
 
 .banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-md);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: 10px;
   box-shadow: 0 1px 6px rgba(60, 121, 180, 0.06);
-  padding: 14px var(--space-lg);
+  padding: 16px var(--space-lg);
   margin-bottom: var(--space-xl);
 }
 
 .bannerMascot {
   flex-shrink: 0;
-  height: 100px;
+  height: 112px;
   width: auto;
   object-fit: contain;
   opacity: 0.92;
+  padding-top: 2px; /* optical alignment with first text baseline */
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .bannerContent {
@@ -29,7 +31,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -39,6 +41,11 @@
 
 /* Mobile-only sublabel — invisible on desktop */
 .insightSublabel {
+  display: none;
+}
+
+/* Subtle "Updated" meta companion — only rendered inside .insightSublabel */
+.insightSublabelMeta {
   display: none;
 }
 
@@ -55,15 +62,27 @@
 /* ── 481–767px phones: 9 full lines = 9 × 21px = 189px ── */
 @media (max-width: 767px) {
   .insightSublabel {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
     font-size: 0.58rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.11em;
+    letter-spacing: 0.14em;
     color: var(--color-text-muted);
-    opacity: 0.72;
-    margin: 0 0 6px;
+    opacity: 0.62;
+    margin: 0 0 4px;
     line-height: 1;
+  }
+
+  .insightSublabelMeta {
+    display: inline;
+    font-size: 0.58rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    opacity: 0.65;
+    color: var(--color-text-muted);
   }
 
   .insightBody {
@@ -89,11 +108,11 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px; /* ≈ 2.8 lines */
+    height: 64px; /* ≈ 3 lines — clean taper zone */
     background: linear-gradient(
       to bottom,
-      transparent           0%,
-      transparent          30%,
+      transparent              0%,
+      transparent             38%,
       var(--color-bg-elevated) 100%
     );
     pointer-events: none;
@@ -117,15 +136,15 @@
 }
 
 @media (max-width: 767px) {
-  /* Shared base for both "Read more" and "Show less" */
+  /* Shared base for both "Expand briefing" and "Show less" */
   .insightToggle {
     display: flex;
     align-items: center;
     gap: 5px;
     width: 100%;
-    min-height: 32px;
+    min-height: 36px;
     padding: 4px 0;
-    margin-top: 3px;
+    margin-top: 2px;
     font-size: 0.78rem;
     font-weight: 600;
     font-family: inherit;
@@ -138,15 +157,15 @@
   }
 
   /*
-   * "Read more" footer row — anchored, right-aligned, visually separated.
+   * "Expand briefing" footer row — anchored, right-aligned, visually separated.
    * The border-top provides a clean boundary between preview and action.
    */
   .insightToggleFooter {
     justify-content: flex-end;
-    min-height: 36px;
-    padding: 8px 0 4px;
+    min-height: 40px;
+    padding: 9px 0 5px;
     border-top: 1px solid var(--color-border-light);
-    margin-top: 4px;
+    margin-top: 6px;
   }
 
   .insightToggle:focus-visible {
@@ -196,7 +215,7 @@
 
 .bannerText {
   font-size: var(--body-font-size);
-  line-height: var(--body-line-height);
+  line-height: 1.62;
   color: var(--color-text-secondary);
   margin: 0;
   white-space: pre-line;
@@ -411,12 +430,12 @@
 
 @media (max-width: 767px) {
   .bannerMascot {
-    height: 72px;
+    height: 80px;
     align-self: flex-start;
   }
   .banner {
     gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
+    padding: 12px var(--space-md);
     margin-bottom: var(--space-md); /* compact gap to pinned teams on mobile */
     align-items: flex-start;
   }
@@ -581,6 +600,7 @@
   justify-content: space-between;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  flex-wrap: wrap;
 }
 
 .sectionHeader .sectionTitle {
@@ -628,13 +648,13 @@
 .sidebar { display: contents; }
 
 .sectionTitle {
-  font-size: 0.7rem;
+  font-size: var(--header-font-size);
   font-weight: 600;
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-xs);
   border-bottom: 1px solid var(--color-border-light);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--header-letter-spacing);
   color: var(--color-text-muted);
 }
 
@@ -663,11 +683,11 @@
 }
 
 .widgetTitle {
-  font-size: 0.7rem;
+  font-size: var(--header-font-size);
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--header-letter-spacing);
   color: var(--color-text-muted);
 }
 
