@@ -227,12 +227,74 @@ a.teamName:hover {
   color: var(--color-text-muted);
 }
 
+.gameFooterRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .oddsText {
   font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--color-text-muted);
-  margin-left: auto;
   white-space: nowrap;
+}
+
+/* Subtle ESPN Gamecast outbound link */
+.gamecastLink {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  opacity: 0.75;
+}
+
+.gamecastLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+  opacity: 1;
+}
+
+/* "View more games" button — sits below the game list */
+.viewMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 9px var(--space-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--color-border-light);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+
+.viewMore:hover {
+  background: rgba(60, 121, 180, 0.04);
+}
+
+/* Mobile cap: hide items beyond mobileCap index on narrow screens */
+.gameCardMobileHidden {
+  /* always visible on desktop */
+}
+
+@media (max-width: 600px) {
+  .gameCardMobileHidden {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewMore {
+    transition: none;
+  }
 }
 
 /* Tier badges */

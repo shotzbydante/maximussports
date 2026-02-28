@@ -43,15 +43,24 @@ function impliedProbFromAmerican(american) {
   return 100 / (american + 100);
 }
 
-export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null }) {
+/**
+ * @param {string}  [props.badge]    - Optional tag shown next to the title (e.g. "Deep Dive").
+ * @param {number}  [props.capRows]  - Max rows to show before "View more". No cap when omitted.
+ */
+export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null, badge, capRows }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
   const [sortBy, setSortBy] = useState('default');
   const [isExpanded, setIsExpanded] = useState(true);
+  const [showingAll, setShowingAll] = useState(false);
   const contentId = useId();
 
   const slugToRank = useMemo(() => buildSlugToRank(rankingsProp ?? []), [rankingsProp]);
   const hasTop25 = (rankingsProp?.length ?? 0) > 0;
+
+  // Reset showingAll when filters/sort change so cap always applies to fresh results
+  // (useMemo dep change re-derives filtered, we don't auto-reset — intentional:
+  //  user who expanded expects filter changes to show filtered results in full)
 
   const filtered = useMemo(() => {
     let list = [...TEAMS];
@@ -104,6 +113,10 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
     return list;
   }, [conference, tier, sortBy, hasTop25, slugToRank, championshipOdds]);
 
+  // Apply row cap when set and user hasn't expanded yet
+  const visibleTeams = capRows != null && !showingAll ? filtered.slice(0, capRows) : filtered;
+  const hiddenTeamCount = capRows != null && !showingAll ? Math.max(0, filtered.length - capRows) : 0;
+
   return (
     <div className={styles.table}>
       {/* Header — doubles as collapse toggle when collapsible=true */}
@@ -117,7 +130,10 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               aria-expanded={isExpanded}
               aria-controls={contentId}
             >
-              <h2 className={styles.sectionTitle}>{title}</h2>
+              <div className={styles.toggleTitleRow}>
+                <h2 className={styles.sectionTitle}>{title}</h2>
+                {badge && <span className={styles.moduleTag}>{badge}</span>}
+              </div>
               <div className={styles.toggleMeta}>
                 {!isExpanded && (
                   <span className={styles.collapsedCount}>{filtered.length} teams</span>
@@ -127,7 +143,10 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
             </button>
           </div>
         ) : (
-          <h2 className={styles.sectionTitle}>{title}</h2>
+          <div className={styles.staticTitleRow}>
+            <h2 className={styles.sectionTitle}>{title}</h2>
+            {badge && <span className={styles.moduleTag}>{badge}</span>}
+          </div>
         )
       )}
 
@@ -191,7 +210,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               </tr>
             </thead>
             <tbody>
-              {filtered.map((team) => {
+              {visibleTeams.map((team) => {
                 const rank = slugToRank[team.slug];
                 return (
                   <tr key={team.slug}>
@@ -220,7 +239,21 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
             </tbody>
           </table>
         </div>
-        <div className={styles.count}>{filtered.length} teams</div>
+
+        {/* View more / count row */}
+        {hiddenTeamCount > 0 ? (
+          <div className={styles.viewMoreRow}>
+            <button
+              type="button"
+              className={styles.viewMoreBtn}
+              onClick={() => setShowingAll(true)}
+            >
+              View {hiddenTeamCount} more team{hiddenTeamCount !== 1 ? 's' : ''} →
+            </button>
+          </div>
+        ) : (
+          <div className={styles.count}>{filtered.length} teams</div>
+        )}
       </div>
     </div>
   );

@@ -2,17 +2,19 @@
  * Dynamic Upsets & Alerts — ESPN scores + odds tiers.
  * Detects: Lock loses to Long shot; tier gap >= 2.
  * Shows closing spread per alert (Odds API history).
- * Updates every 60s.
+ * Wrapped in ModuleShell for consistent card elevation.
+ * Caps at ALERT_CAP with a "View more" footer when exceeded.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { matchOddsHistoryToGame } from '../../api/odds';
 import { getOddsTier } from '../../utils/teamSlug';
+import { ModuleShell } from '../shared/ModuleShell';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './DynamicAlerts.module.css';
 
-const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
+const ALERT_CAP = 3;
 
 function formatTime(iso) {
   if (!iso) return '—';
@@ -50,13 +52,12 @@ function isUpset(game) {
   const homeVal = getTierValue(homeTier);
   const awayVal = getTierValue(awayTier);
 
-  // Higher tier = better team (lower number). Upset = better tier loses.
   const homeWon = home > away;
   const awayWon = away > home;
   const tierGap = Math.abs(homeVal - awayVal);
 
-  if (homeWon && awayVal < homeVal && tierGap >= 2) return true; // away (better) lost
-  if (awayWon && homeVal < awayVal && tierGap >= 2) return true; // home (better) lost
+  if (homeWon && awayVal < homeVal && tierGap >= 2) return true;
+  if (awayWon && homeVal < awayVal && tierGap >= 2) return true;
 
   return false;
 }
@@ -69,20 +70,13 @@ function buildAlert(game) {
   const awayVal = getTierValue(awayTier);
 
   const homeWon = parseInt(homeScore, 10) > parseInt(awayScore, 10);
-  let favored = homeTier;
-  let underdog = awayTier;
   let favoredName = homeTeam;
   let underdogName = awayTeam;
   if (awayVal < homeVal) {
-    favored = awayTier;
-    underdog = homeTier;
     favoredName = awayTeam;
     underdogName = homeTeam;
   }
 
-  const upset = homeWon
-    ? awayVal < homeVal
-    : homeVal < awayVal;
   const winner = homeWon ? homeTeam : awayTeam;
   const loser = homeWon ? awayTeam : homeTeam;
   const score = `${homeScore}–${awayScore}`;
@@ -96,8 +90,6 @@ function buildAlert(game) {
     startTime,
     favoredName,
     underdogName,
-    favored,
-    underdog,
     spread: null,
   };
 }
@@ -105,8 +97,7 @@ function buildAlert(game) {
 export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: oddsHistoryProp = [] }) {
   const games = Array.isArray(gamesProp) ? gamesProp : [];
   const oddsHistory = Array.isArray(oddsHistoryProp) ? oddsHistoryProp : [];
-  const loading = false;
-  const error = null;
+  const [showAll, setShowAll] = useState(false);
 
   const upsetGames = games.filter(isUpset);
   const alerts = upsetGames.map((g) => {
@@ -116,31 +107,37 @@ export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: odds
     return a;
   });
 
+  const visibleAlerts = showAll ? alerts : alerts.slice(0, ALERT_CAP);
+  const hiddenCount = showAll ? 0 : Math.max(0, alerts.length - ALERT_CAP);
+
+  const headerRight = (
+    <div className={styles.sourceBadges}>
+      <SourceBadge source="ESPN" />
+      <SourceBadge source="Odds API" />
+    </div>
+  );
+
+  const footer = hiddenCount > 0 ? (
+    <button
+      type="button"
+      className={styles.viewMore}
+      onClick={() => setShowAll(true)}
+    >
+      +{hiddenCount} more upset{hiddenCount !== 1 ? 's' : ''}
+    </button>
+  ) : null;
+
   return (
-    <section className={styles.section}>
-      <div className={styles.header}>
-        <h2 className={styles.title}>Upsets & Alerts</h2>
-        <div className={styles.sourceBadges}>
-          <SourceBadge source="ESPN" />
-          <SourceBadge source="Odds API" />
-        </div>
-      </div>
-
-      {loading && !games.length && (
-        <div className={styles.loading}>Loading…</div>
-      )}
-
-      {error && !games.length && (
-        <div className={styles.error}>Scores temporarily unavailable</div>
-      )}
-
-      {!loading && !error && alerts.length === 0 && (
-        <div className={styles.empty}>No upset alerts today</div>
-      )}
-
+    <ModuleShell
+      title="Upsets & Alerts"
+      headerRight={headerRight}
+      isEmpty={alerts.length === 0}
+      emptyMessage="No upset alerts today"
+      footer={footer}
+    >
       {alerts.length > 0 && (
         <div className={styles.alerts}>
-          {alerts.map((a) => (
+          {visibleAlerts.map((a) => (
             <div key={a.gameId} className={styles.alert}>
               <div className={styles.alertScore}>{a.score}</div>
               <div className={styles.alertText}>
@@ -154,6 +151,6 @@ export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: odds
           ))}
         </div>
       )}
-    </section>
+    </ModuleShell>
   );
 }

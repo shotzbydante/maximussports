@@ -1,0 +1,166 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ModuleShell — shared card container for Home dashboard modules.
+   All Home modules can adopt this for consistent elevation, header
+   rhythm, footer CTA treatment, loading, and empty states.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Shell ──────────────────────────────────────────────────────── */
+
+.shell {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────── */
+
+.shellHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 12px var(--space-md) 10px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.shellTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.shellTitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.shellBadge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  border-radius: 999px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+
+.shellHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+/* ─── Body ───────────────────────────────────────────────────────── */
+
+.shellBody {
+  /* No padding by default — children own their own padding */
+}
+
+/* ─── Footer CTA ─────────────────────────────────────────────────── */
+
+.shellFooter {
+  padding: 9px var(--space-md);
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* ─── Skeleton ───────────────────────────────────────────────────── */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-md);
+}
+
+.skeletonRow {
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--color-border-light) 0%,
+    var(--color-bg-muted) 50%,
+    var(--color-border-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerShell 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmerShell {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Empty state ────────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md);
+}
+
+.emptyMessage {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* ─── Shared CTA helpers (importable via composes or direct use) ─── */
+
+/* ctaLink: use on <a> elements in shell footer */
+.ctaLink {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color 0.14s;
+}
+
+.ctaLink:hover {
+  color: var(--color-primary-hover, #2a65b8);
+  text-decoration: underline;
+}
+
+/* ctaButton: use on <button> elements in shell footer */
+.ctaButton {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: color 0.14s;
+}
+
+.ctaButton:hover {
+  color: var(--color-primary-hover, #2a65b8);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonRow {
+    animation: none;
+    opacity: 0.5;
+  }
+  .ctaLink,
+  .ctaButton {
+    transition: none;
+  }
+}

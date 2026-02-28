@@ -1,13 +1,20 @@
 /**
  * Live scores feed — modern card layout with team logos.
  * Each game is a self-contained card: logos, names, scores, status.
- * Team names link to /teams/<slug>.
+ * Team names link to /teams/<slug>. Each game footer has a subtle
+ * ESPN Gamecast outbound link when a gameId is available.
+ *
+ * Props:
+ *   cap        — max games shown on desktop before "View more" (default: no cap)
+ *   mobileCap  — additional CSS-level cap on mobile (default: same as cap)
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
+import { resolveGamecastUrl } from '../../utils/espnGamecast';
 import styles from './LiveScores.module.css';
 
 function formatStartTime(iso) {
@@ -62,8 +69,13 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {} }) {
+export default function LiveScores({ games = [], loading, error, oddsMessage, compact = false, showTitle = true, source = 'ESPN', showOdds = true, rankMap = {}, cap, mobileCap }) {
+  const [expanded, setExpanded] = useState(false);
   const hasLiveGame = games.some((g) => isLive(g.gameStatus));
+
+  // Apply desktop cap when set and not yet expanded
+  const visibleGames = cap != null && !expanded ? games.slice(0, cap) : games;
+  const hiddenCount = cap != null && !expanded ? Math.max(0, games.length - cap) : 0;
 
   const Fallback = ({ children }) => (
     <div className={styles.widget}>
@@ -107,7 +119,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
       )}
 
       <div className={styles.gameList}>
-        {games.map((g) => {
+        {visibleGames.map((g, i) => {
           const live = isLive(g.gameStatus);
           const finished = isFinal(g.gameStatus);
           const awaySlug = getTeamSlug(g.awayTeam);
@@ -127,8 +139,19 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
           const awayTier = getOddsTier(g.awayTeam);
           const homeTier = getOddsTier(g.homeTeam);
 
+          // Mobile cap: hide via CSS when mobileCap is set and not expanded
+          const hiddenOnMobile = !expanded && mobileCap != null && i >= mobileCap;
+          const gamecastUrl = resolveGamecastUrl(g);
+
           return (
-            <div key={g.gameId} className={`${styles.gameCard} ${live ? styles.gameCardLive : ''}`}>
+            <div
+              key={g.gameId}
+              className={[
+                styles.gameCard,
+                live ? styles.gameCardLive : '',
+                hiddenOnMobile ? styles.gameCardMobileHidden : '',
+              ].filter(Boolean).join(' ')}
+            >
               {/* Away team row */}
               <div className={`${styles.teamRow} ${awayWon ? styles.teamRowWinner : ''} ${finished && !awayWon ? styles.teamRowLoser : ''}`}>
                 <span className={styles.teamLogoWrap}>
@@ -175,22 +198,46 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                 </span>
               </div>
 
-              {/* Game footer: status + odds */}
+              {/* Game footer: status · time · odds · ESPN Gamecast */}
               <div className={styles.gameFooter}>
                 <StatusBadge status={g.gameStatus} />
                 {!compact && !finished && g.startTime && (
                   <span className={styles.gameTime}>{formatStartTime(g.startTime)}</span>
                 )}
-                {showOdds && hasOdds(g) && (
-                  <span className={styles.oddsText}>
-                    {g.spread != null ? `${g.spread > 0 ? '+' : ''}${g.spread}` : ''}{g.spread != null && g.total != null ? ' · ' : ''}{g.total != null ? `O/U ${g.total}` : ''}
-                  </span>
-                )}
+                <span className={styles.gameFooterRight}>
+                  {showOdds && hasOdds(g) && (
+                    <span className={styles.oddsText}>
+                      {g.spread != null ? `${g.spread > 0 ? '+' : ''}${g.spread}` : ''}{g.spread != null && g.total != null ? ' · ' : ''}{g.total != null ? `O/U ${g.total}` : ''}
+                    </span>
+                  )}
+                  {gamecastUrl && (
+                    <a
+                      href={gamecastUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.gamecastLink}
+                      aria-label={`ESPN Gamecast: ${g.awayTeam} vs ${g.homeTeam}`}
+                    >
+                      ESPN ↗
+                    </a>
+                  )}
+                </span>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* "View more games" — shown when cap is active */}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className={styles.viewMore}
+          onClick={() => setExpanded(true)}
+        >
+          +{hiddenCount} more game{hiddenCount !== 1 ? 's' : ''}
+        </button>
+      )}
 
       {oddsMessage && showOdds && (
         <p className={styles.oddsMessage}>{oddsMessage}</p>

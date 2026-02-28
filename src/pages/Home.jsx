@@ -605,6 +605,9 @@ export default function Home() {
         pinnedTeamDataBySlug={pinnedTeamDataBySlug}
       />
 
+      {/* ── Odds Insights teaser — immediately below Pinned Teams ─── */}
+      <OddsInsightsTeaser />
+
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div
           id="home-ats-body"
@@ -652,6 +655,8 @@ export default function Home() {
               oddsMessage={scores.oddsMessage}
               compact
               rankMap={rankMap}
+              cap={8}
+              mobileCap={4}
             />
           </div>
           <div className={styles.moduleAlerts}>
@@ -690,8 +695,7 @@ export default function Home() {
         </aside>
       </div>
 
-      {/* ── Odds Insights teaser — static, links to /odds-insights ─── */}
-      <OddsInsightsTeaser />
+      {/* OddsInsightsTeaser moved above ATS — see placement after PinnedTeamsSection */}
 
       {/* ── Bubble Watch: Deep Dive — full rankings, collapsible ────── */}
       <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
@@ -701,7 +705,9 @@ export default function Home() {
         >
           <RankingsTable
             title="Bubble Watch — Full Rankings"
+            badge="Deep Dive"
             collapsible
+            capRows={10}
             rankings={top25}
             championshipOdds={championshipOdds}
             championshipOddsMeta={championshipOddsMeta}
