@@ -32,21 +32,28 @@
   gap: 6px;
 }
 
-/* ── Collapsible insight body ─────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   COLLAPSIBLE INSIGHT BODY
+   Line height math: 14px × 1.5 = 21px / line
+   ══════════════════════════════════════════════════════════════════ */
 
-/* Mobile-only sublabel — hidden on desktop */
+/* Mobile-only sublabel — invisible on desktop */
 .insightSublabel {
   display: none;
 }
 
-/* Base: just needs position: relative for the ::after overlay anchor */
+/* Paragraph breathing room — between consecutive insight <p> elements */
+.bannerText + .bannerText {
+  margin-top: 0.45em; /* ≈ 6px at 14px font */
+}
+
+/* Base: position:relative anchors the ::after fade overlay */
 .insightBody {
   position: relative;
 }
 
-/* ── Mobile: max-height clipping + smooth transition ── */
+/* ── 481–767px phones: 9 full lines = 9 × 21px = 189px ── */
 @media (max-width: 767px) {
-  /* Show sublabel on mobile */
   .insightSublabel {
     display: block;
     font-size: 0.58rem;
@@ -59,53 +66,58 @@
     line-height: 1;
   }
 
-  /* Insight body: animate between collapsed and expanded max-height */
   .insightBody {
     overflow: hidden;
-    max-height: 1400px; /* effectively unlimited when expanded */
+    max-height: 1400px; /* unlimited when expanded */
     transition: max-height 0.18s ease-out;
   }
 
-  /* Collapsed: larger mobile (481–767px) */
   .insightBodyCollapsed {
-    max-height: 210px;
+    max-height: 189px; /* 9 lines — ends on a complete line */
   }
 
-  /* Fade-out gradient — only shown when collapsed, anchors to bottom of clipped area */
+  /*
+   * Fade overlay — anchored to bottom of the clipped area.
+   * Stays fully transparent for the first ~35% so lines 1–7 read cleanly.
+   * Only the last ~2 lines (lines 8–9) gradually fade into the surface.
+   * Uses `transparent` rather than rgba(0,0,0,0) so the browser interpolates
+   * through the correct colour space (avoids muddy grey midpoint).
+   */
   .insightBodyCollapsed::after {
     content: '';
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 68px;
-    /* Start transparent at the top edge of the gradient, solid at the bottom */
+    height: 60px; /* ≈ 2.8 lines */
     background: linear-gradient(
       to bottom,
-      rgba(255, 255, 255, 0) 0%,
-      var(--color-bg-elevated) 88%
+      transparent           0%,
+      transparent          30%,
+      var(--color-bg-elevated) 100%
     );
     pointer-events: none;
     z-index: 1;
   }
 }
 
-/* Smaller phones ≤480px: tighter preview height */
+/* ── ≤480px phones: 8 full lines = 8 × 21px = 168px ── */
 @media (max-width: 480px) {
   .insightBodyCollapsed {
-    max-height: 185px;
+    max-height: 168px; /* 8 lines */
   }
 }
 
-/* ── Toggle button ── */
+/* ══════════════════════════════════════════════════════════════════
+   TOGGLE BUTTON — hidden on desktop, footer-row on mobile
+   ══════════════════════════════════════════════════════════════════ */
 
-/* Hidden on desktop — only a UI affordance on mobile */
 .insightToggle {
-  display: none;
+  display: none; /* desktop: not rendered */
 }
 
 @media (max-width: 767px) {
-  /* Base toggle styles (both "Read more" and "Show less" states) */
+  /* Shared base for both "Read more" and "Show less" */
   .insightToggle {
     display: flex;
     align-items: center;
@@ -113,7 +125,7 @@
     width: 100%;
     min-height: 32px;
     padding: 4px 0;
-    margin-top: 2px;
+    margin-top: 3px;
     font-size: 0.78rem;
     font-weight: 600;
     font-family: inherit;
@@ -122,16 +134,19 @@
     border: none;
     cursor: pointer;
     line-height: 1;
-    /* Expanded "Show less": left-aligned, no separator */
-    justify-content: flex-start;
+    justify-content: flex-start; /* "Show less": left-aligned, no border */
   }
 
-  /* Collapsed "Read more": right-aligned footer row with subtle separator */
+  /*
+   * "Read more" footer row — anchored, right-aligned, visually separated.
+   * The border-top provides a clean boundary between preview and action.
+   */
   .insightToggleFooter {
     justify-content: flex-end;
     min-height: 36px;
-    padding: 7px 0 3px;
+    padding: 8px 0 4px;
     border-top: 1px solid var(--color-border-light);
+    margin-top: 4px;
   }
 
   .insightToggle:focus-visible {
@@ -141,20 +156,27 @@
   }
 }
 
-/* Chevron: rotates to indicate direction */
+/* ≤360px: center the "Read more" button if space is tight */
+@media (max-width: 360px) {
+  .insightToggleFooter {
+    justify-content: center;
+  }
+}
+
+/* Chevron rotates to signal direction */
 .insightToggleChevron {
   font-size: 1rem;
   line-height: 1;
   display: inline-block;
-  transform: rotate(90deg); /* › → points down = "more below" */
+  transform: rotate(90deg);  /* › → pointing down = "more below"  */
   transition: transform 0.18s ease-out;
 }
 
 .insightToggleChevronOpen {
-  transform: rotate(-90deg); /* › → points up = "collapse" */
+  transform: rotate(-90deg); /* › → pointing up  = "less above" */
 }
 
-/* Respect user motion preference */
+/* Respect prefers-reduced-motion for both height and chevron transitions */
 @media (prefers-reduced-motion: reduce) {
   .insightBody {
     transition: none;

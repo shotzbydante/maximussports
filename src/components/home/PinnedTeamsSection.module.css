@@ -51,6 +51,16 @@
   white-space: nowrap;
 }
 
+/* ≤360px: hide hint prose so chips + Add team remain primary */
+@media (max-width: 360px) {
+  .addMoreText {
+    display: none;
+  }
+  .addMoreHint {
+    gap: 4px;
+  }
+}
+
 .addBtn {
   font-size: 0.8rem;
   font-weight: 600;
@@ -651,10 +661,12 @@
   gap: 16px;
 }
 
-/* Single card: constrain width so it doesn't stretch full container on wide desktop */
+/* Single card: constrain + center so it doesn't stretch full container on wide desktop */
 .cardsSingle {
   grid-template-columns: 1fr;
   max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @media (max-width: 600px) {
@@ -811,7 +823,7 @@
 
 .teamSummaryText {
   font-size: 0.8rem;
-  line-height: 1.4;
+  line-height: 1.55; /* slightly more open than default — editorial comfort */
   color: var(--color-text-secondary);
   margin: 0;
   max-width: 60ch; /* keep prose readable even in wide cards */
