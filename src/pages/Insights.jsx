@@ -926,6 +926,24 @@ export default function Insights() {
     [model, refreshTick]
   );
 
+  // Persist a compact briefing snapshot to localStorage so the Home teaser
+  // can show a live excerpt without triggering any new API calls.
+  useEffect(() => {
+    if (!briefing || fastLoading || slowLoading) return;
+    const paras = briefing.split(/\n\n+/).filter(Boolean);
+    if (paras.length === 0) return;
+    const summary = paras[0];
+    const bullets = paras.slice(1).filter((p) => p.startsWith('•')).slice(0, 2);
+    try {
+      localStorage.setItem(
+        'oddsBriefing:last',
+        JSON.stringify({ updatedAt: Date.now(), summary, bullets })
+      );
+    } catch {
+      // localStorage may be unavailable in some environments
+    }
+  }, [briefing, fastLoading, slowLoading]);
+
   const isLoading = fastLoading && slowLoading;
 
   const getSlugFn = (name) =>

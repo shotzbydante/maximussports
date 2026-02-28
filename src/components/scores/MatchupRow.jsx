@@ -4,7 +4,7 @@
 
 import { Link } from 'react-router-dom';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
-import { resolveGamecastUrl } from '../../utils/espnGamecast';
+import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './MatchupRow.module.css';
 
@@ -53,7 +53,6 @@ function TierBadge({ tier }) {
 
 export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
   const { homeTeam, awayTeam, homeScore, awayScore, gameStatus, startTime, network } = game;
-  const gamecastUrl = resolveGamecastUrl(game);
   const homeSlug = getTeamSlug(homeTeam);
   const awaySlug = getTeamSlug(awayTeam);
   const homeTier = getOddsTier(homeTeam);
@@ -99,17 +98,7 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
       <span className={styles.badge}>
         <SourceBadge source={source} />
       </span>
-      {gamecastUrl && (
-        <a
-          href={gamecastUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.gamecastLink}
-          aria-label={`ESPN Gamecast: ${awayTeam} vs ${homeTeam}`}
-        >
-          ESPN ↗
-        </a>
-      )}
+      <ESPNGamecastLink game={game} />
     </div>
   );
 }

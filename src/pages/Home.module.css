@@ -911,9 +911,72 @@
   flex-shrink: 0;
 }
 
+/* ── Market Briefing excerpt block ───────────────────────────────── */
+
+.oddsBriefingBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px var(--space-md);
+  margin-bottom: var(--space-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.oddsBriefingLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--color-text-muted);
+}
+
+.oddsBriefingSummary {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.oddsBriefingSummary strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.oddsBriefingBullets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.oddsBriefingBullet {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.oddsBriefingBullet strong {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.oddsBriefingPlaceholder {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── Category grid ───────────────────────────────────────────────── */
+
 .oddsTeaserGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
 }

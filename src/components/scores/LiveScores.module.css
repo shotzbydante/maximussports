@@ -241,23 +241,6 @@ a.teamName:hover {
   white-space: nowrap;
 }
 
-/* Subtle ESPN Gamecast outbound link */
-.gamecastLink {
-  font-size: 0.62rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  white-space: nowrap;
-  letter-spacing: 0.01em;
-  opacity: 0.75;
-}
-
-.gamecastLink:hover {
-  color: var(--color-primary);
-  text-decoration: underline;
-  opacity: 1;
-}
-
 /* "View more games" button — sits below the game list */
 .viewMore {
   display: flex;

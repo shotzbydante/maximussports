@@ -18,6 +18,8 @@ export default function App() {
           <Route path="teams/:slug" element={<TeamPage />} />
           <Route path="games" element={<Games />} />
           <Route path="insights" element={<Insights />} />
+          {/* Alias so /odds-insights also resolves — Home teaser and other links may use either path */}
+          <Route path="odds-insights" element={<Insights />} />
           <Route path="news" element={<NewsFeed />} />
           <Route path="alerts" element={<Alerts />} />
         </Route>

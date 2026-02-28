@@ -1,0 +1,54 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ESPNGamecastLink — subtle but discoverable external action link.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--color-text-muted);
+  opacity: 0.82;
+  white-space: nowrap;
+  /* Ensure minimum tap target on touch devices */
+  min-height: 28px;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.link:hover {
+  opacity: 1;
+  background: rgba(204, 0, 0, 0.06);
+  color: var(--color-text);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.espnBadge {
+  flex-shrink: 0;
+  display: block;
+}
+
+.label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.arrow {
+  font-size: 0.6rem;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link {
+    transition: none;
+  }
+}

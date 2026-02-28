@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
-import { resolveGamecastUrl } from '../../utils/espnGamecast';
+import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import styles from './LiveScores.module.css';
 
 function formatStartTime(iso) {
@@ -141,7 +141,6 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
           // Mobile cap: hide via CSS when mobileCap is set and not expanded
           const hiddenOnMobile = !expanded && mobileCap != null && i >= mobileCap;
-          const gamecastUrl = resolveGamecastUrl(g);
 
           return (
             <div
@@ -210,17 +209,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                       {g.spread != null ? `${g.spread > 0 ? '+' : ''}${g.spread}` : ''}{g.spread != null && g.total != null ? ' · ' : ''}{g.total != null ? `O/U ${g.total}` : ''}
                     </span>
                   )}
-                  {gamecastUrl && (
-                    <a
-                      href={gamecastUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.gamecastLink}
-                      aria-label={`ESPN Gamecast: ${g.awayTeam} vs ${g.homeTeam}`}
-                    >
-                      ESPN ↗
-                    </a>
-                  )}
+                  <ESPNGamecastLink game={g} />
                 </span>
               </div>
             </div>

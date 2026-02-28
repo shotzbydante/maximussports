@@ -95,29 +95,103 @@ function maybeWarmAts() {
   warmAtsBothWindows();
 }
 
-/** Static teaser card linking to the Odds Insights page — no extra API calls needed. */
+/**
+ * Render **bold** markdown tokens inline without an external dep.
+ * Mirrors the renderFormatted() in Insights.jsx — kept here to avoid a shared import.
+ */
+function renderBriefingText(text) {
+  if (!text) return null;
+  const parts = [];
+  let rest = text;
+  let k = 0;
+  while (rest.length > 0) {
+    const bi = rest.indexOf('**');
+    if (bi >= 0) {
+      if (bi > 0) parts.push(<span key={k++}>{rest.slice(0, bi)}</span>);
+      const end = rest.indexOf('**', bi + 2);
+      if (end < 0) { parts.push(<span key={k++}>{rest.slice(bi)}</span>); break; }
+      parts.push(<strong key={k++}>{rest.slice(bi + 2, end)}</strong>);
+      rest = rest.slice(end + 2);
+    } else {
+      parts.push(<span key={k++}>{rest}</span>); break;
+    }
+  }
+  return parts;
+}
+
+const BRIEFING_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
+
+/**
+ * Odds Insights teaser card.
+ * Reads a compact Market Briefing excerpt from localStorage (written by Insights.jsx
+ * whenever that page successfully loads) — zero new API calls.
+ * Falls back to a premium placeholder when no cached data is present or it is stale.
+ */
 function OddsInsightsTeaser() {
-  const items = [
-    { label: 'Market Briefing', desc: 'Spread & line movement on today\'s slate' },
+  const [briefingData, setBriefingData] = useState(null);
+
+  // Read localStorage once on mount — no network request, pure cache read
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('oddsBriefing:last');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Date.now() - data.updatedAt <= BRIEFING_TTL_MS) {
+        setBriefingData(data);
+      }
+    } catch {
+      // localStorage unavailable or stale/corrupt entry — ignore
+    }
+  }, []);
+
+  const categories = [
     { label: 'High-Interest Matchups', desc: 'Most active betting markets right now' },
     { label: 'Underdog Watch', desc: 'Dogs covering +8 or more this week' },
     { label: 'Totals Insights', desc: 'Over/under trends and sharp money signals' },
   ];
+
   return (
     <div className={styles.oddsTeaser}>
       <div className={styles.oddsTeaserHeader}>
         <h3 className={styles.oddsTeaserTitle}>Odds Insights</h3>
         <span className={styles.oddsTeaserTag}>Market Intelligence</span>
       </div>
+
+      {/* Market Briefing excerpt — live when cached, placeholder otherwise */}
+      <div className={styles.oddsBriefingBlock}>
+        <span className={styles.oddsBriefingLabel}>Today's Market Briefing</span>
+        {briefingData ? (
+          <>
+            <p className={styles.oddsBriefingSummary}>
+              {renderBriefingText(briefingData.summary)}
+            </p>
+            {briefingData.bullets.length > 0 && (
+              <ul className={styles.oddsBriefingBullets}>
+                {briefingData.bullets.map((b, i) => (
+                  <li key={i} className={styles.oddsBriefingBullet}>
+                    {renderBriefingText(b.replace(/^•\s*/, ''))}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p className={styles.oddsBriefingPlaceholder}>
+            Open Odds Insights for today's market briefing, line movement, and upset alerts.
+          </p>
+        )}
+      </div>
+
       <div className={styles.oddsTeaserGrid}>
-        {items.map((item) => (
+        {categories.map((item) => (
           <div key={item.label} className={styles.oddsTeaserItem}>
             <span className={styles.oddsTeaserItemLabel}>{item.label}</span>
             <span className={styles.oddsTeaserItemDesc}>{item.desc}</span>
           </div>
         ))}
       </div>
-      <Link to="/odds-insights" className={styles.oddsTeaserCta}>
+
+      <Link to="/insights" className={styles.oddsTeaserCta}>
         Open Odds Insights →
       </Link>
     </div>

@@ -112,22 +112,6 @@
   justify-self: end;
 }
 
-/* Subtle ESPN Gamecast outbound link */
-.gamecastLink {
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  white-space: nowrap;
-  opacity: 0.75;
-  justify-self: end;
-}
-
-.gamecastLink:hover {
-  color: var(--color-primary);
-  text-decoration: underline;
-  opacity: 1;
-}
 
 .tierBadge {
   font-size: 0.55rem;

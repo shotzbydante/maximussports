@@ -14,7 +14,7 @@ import {
 } from '../../utils/pinnedTeams';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { getAtsCache, setAtsCache } from '../../utils/atsCache';
-import { resolveGamecastUrl } from '../../utils/espnGamecast';
+import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
@@ -623,17 +623,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       {nextGame.time && ` · ${nextGame.time} PST`}
                       {nextGame.network && ` · ${nextGame.network}`}
                     </span>
-                    {nextGame.gameId && (
-                      <a
-                        href={resolveGamecastUrl(nextGame)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.gamecastLink}
-                        aria-label={`ESPN Gamecast: ${nextGame.vs}`}
-                      >
-                        ESPN ↗
-                      </a>
-                    )}
+                    <ESPNGamecastLink game={nextGame} />
                   </div>
                 )}
                 {(() => {
