@@ -1,158 +1,1069 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Odds Insights — Premium Market Intelligence Dashboard
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Page shell ──────────────────────────────────────────────────────────── */
+
 .page {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
+  padding: 0 0 var(--space-2xl);
 }
+
+/* ─── Header ──────────────────────────────────────────────────────────────── */
 
 .header {
-  margin-bottom: var(--space-xl);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-xl) var(--space-lg) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.header h1 {
+.pageTitle {
   font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 var(--space-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
 }
 
-.subtitle {
-  font-size: 0.85rem;
+.pageSubtitle {
+  font-size: 0.68rem;
+  font-weight: 600;
   color: var(--color-text-muted);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
+
+/* ─── Section template ────────────────────────────────────────────────────── */
 
 .section {
-  margin-bottom: var(--space-xl);
-}
-
-.sectionTitle {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-md);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--color-primary);
-}
-
-.report {
-  background: linear-gradient(135deg, var(--color-metro-blue) 0%, var(--color-primary-hover) 100%);
-  color: white;
-  padding: var(--space-lg);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-}
-
-.reportDate {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.85;
-  display: block;
-  margin-bottom: var(--space-sm);
-}
-
-.reportHeadline {
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin: 0 0 var(--space-md);
-  line-height: 1.3;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.reportSummary {
-  font-size: 0.9rem;
-  line-height: 1.5;
-  opacity: 0.95;
-  margin: 0 0 var(--space-md);
-}
-
-.reportInsights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.insight {
-  font-size: 0.85rem;
-  background: rgba(255, 255, 255, 0.12);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
-}
-
-.insight strong {
-  color: var(--color-andrea);
-  margin-right: var(--space-xs);
-}
-
-.snapshot {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-lg);
-}
-
-@media (max-width: 768px) {
-  .snapshot {
-    grid-template-columns: 1fr;
-  }
+  padding: var(--space-xl) var(--space-lg) 0;
 }
 
 .atsSection {
-  margin-bottom: var(--space-xl);
+  padding: var(--space-xl) var(--space-lg) 0;
 }
 
-.snapshotNote {
-  font-size: 0.85rem;
+.rankingsSection {
+  padding: var(--space-xl) var(--space-lg) 0;
+}
+
+.sectionTitle {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   color: var(--color-text-muted);
-  margin: var(--space-sm) 0 0;
+  margin: 0 0 var(--space-md);
+  padding-bottom: var(--space-xs);
+  border-bottom: 2px solid var(--color-primary);
+  display: inline-block;
 }
 
-.snapshotCol {
+/* ─── Part 3: Market Briefing Card ────────────────────────────────────────── */
+
+.briefingCard {
+  margin: var(--space-xl) var(--space-lg) 0;
+  background: linear-gradient(135deg, var(--color-metro-blue) 0%, var(--color-primary-hover) 100%);
+  border-radius: var(--radius-card, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-card, 0 2px 10px rgba(60,121,180,0.08));
+}
+
+.briefingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 14px var(--space-lg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.briefingTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.briefingIcon {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.briefingActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.briefingRefresh,
+.briefingCollapse {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  transition: background 0.15s;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.briefingRefresh:hover,
+.briefingCollapse:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.briefingRefresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.briefingBody {
+  padding: var(--space-lg);
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+  max-height: 600px;
+}
+
+.briefingBodyCollapsed {
+  max-height: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.briefingContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.briefingLead {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.briefingLead strong {
+  font-weight: 800;
+  color: #fff;
+}
+
+.briefingBullet {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.briefingBullet strong {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.briefingLoading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+}
+
+.briefingEmpty {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.collapseChevron {
+  display: inline-block;
+  transition: transform 0.18s ease;
+}
+
+.collapseChevronOpen {
+  transform: rotate(90deg);
+}
+
+/* ─── Spinner ─────────────────────────────────────────────────────────────── */
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Part 4a: Market Movers Grid ──────────────────────────────────────────── */
+
+.moversGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .moversGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.moverCard {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
   padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.snapshotLabel {
+.moverCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(60,121,180,0.12);
+}
+
+.moverHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.moverIcon {
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  opacity: 0.7;
+}
+
+.moverLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+
+.moverValue {
+  font-size: 0.975rem;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.moverSub {
   font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* Movement chip */
+.movementChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  width: fit-content;
+}
+
+.chipUp { background: rgba(45, 138, 110, 0.12); color: var(--color-up); }
+.chipDown { background: rgba(196, 92, 74, 0.12); color: var(--color-down); }
+.chipNeutral { background: rgba(60, 121, 180, 0.1); color: var(--color-primary); }
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-border-light) 0%, var(--color-bg-muted) 50%, var(--color-border-light) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Part 4b: Matchup Cards ──────────────────────────────────────────────── */
+
+.matchupsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .matchupsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.matchupCard {
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.matchupCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(60,121,180,0.13);
+}
+
+.matchupBadges {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  min-height: 20px;
+}
+
+.matchupTeams {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.matchupTeamRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  gap: var(--space-sm);
+}
+
+.matchupTeamName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.matchupHomeLabel {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.matchupLineCol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.matchupML {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.matchupProb {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.matchupDivider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 2px 0;
+}
+
+.matchupLines {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.matchupLineItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lineKey {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+
+.lineVal {
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+/* Win probability bar */
+.probWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.probBar {
+  display: flex;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--color-border-light);
+}
+
+.probHome {
+  background: var(--color-metro-blue);
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.probAway {
+  background: var(--color-beige-dune);
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.probLabels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.probMid {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* ─── Signal badges ───────────────────────────────────────────────────────── */
+
+.signalBadge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.badgeUpset { background: rgba(245,158,11,0.14); color: #92400e; }
+.badgeRanked { background: rgba(29,78,216,0.12); color: #1d4ed8; }
+.badgePrimetime { background: rgba(109,40,217,0.1); color: #6d28d9; }
+.badgeDefault { background: rgba(60,121,180,0.1); color: var(--color-primary); }
+
+/* ─── Rank badge ──────────────────────────────────────────────────────────── */
+
+.rankBadge {
+  display: inline-block;
+  padding: 1px 5px;
+  background: rgba(60,121,180,0.1);
+  color: var(--color-primary);
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Team links ──────────────────────────────────────────────────────────── */
+
+.teamNameLink,
+.teamNamePlain {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.teamNameLink:hover {
+  color: var(--color-primary);
+}
+
+/* ─── Part 4d: Underdog Watch ─────────────────────────────────────────────── */
+
+.underdogsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+@media (min-width: 560px) {
+  .underdogsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.underdogCard {
+  border-radius: var(--radius-card, 12px);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.underdogHigh {
+  background: rgba(245,158,11,0.06);
+  border: 1px solid rgba(245,158,11,0.25);
+}
+
+.underdogMid {
+  background: rgba(60,121,180,0.04);
+  border: var(--card-border);
+}
+
+.underdogAlert {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.underdogAlertIcon {
+  font-size: 0.85rem;
+  color: #b45309;
+}
+
+.underdogAlertLabel {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #92400e;
+}
+
+.underdogMatchup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.underdogName {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.underdogVs {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.underdogTag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #92400e;
+  background: rgba(245,158,11,0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.favoriteTag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+  background: rgba(60,121,180,0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.underdogReason {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* ─── Part 4e: Totals Insights ────────────────────────────────────────────── */
+
+.totalsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.totalsStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+
+.totalsStat {
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.totalsStatLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+
+.totalsStatVal {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+.totalsStatSub {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* Totals range chart */
+.totalsRange {
+  padding: var(--space-md);
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+}
+
+.totalsTrack {
+  position: relative;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.totalsLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-border-light);
+  border-radius: 1px;
+}
+
+.totalsDot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-metro-blue);
+  opacity: 0.65;
+  transform: translateX(-50%);
+  transition: opacity 0.15s;
+  cursor: default;
+  top: 50%;
+  margin-top: -4px;
+}
+
+.totalsDot:hover { opacity: 1; }
+
+.totalsAvgMarker {
+  position: absolute;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--color-beige-dune);
+  transform: translateX(-50%);
+  top: 50%;
+  margin-top: -9px;
+}
+
+.totalsRangeLabels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.totalsAvgLabel {
+  font-size: 0.62rem;
+  color: #9a7d52;
+  font-weight: 600;
+}
+
+/* ─── Part 5: Spread Distribution ─────────────────────────────────────────── */
+
+.spreadSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.bucketChart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-md);
+  height: 100px;
+  padding: 0 var(--space-md);
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.bucketCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.bucketBarWrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bucketBar {
+  width: 60%;
+  min-width: 8px;
+  border-radius: 4px 4px 0 0;
+  background: var(--color-metro-blue);
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.bucketBar:hover { opacity: 1; }
+
+.bucketCount {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.bucketLabel {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.spreadNote {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Monetization placeholder slots ──────────────────────────────────────── */
+
+.adSlot {
+  margin: var(--space-xl) var(--space-lg) 0;
+  border: 1px dashed rgba(60,121,180,0.18);
+  border-radius: var(--radius-card, 12px);
+  padding: var(--space-md) var(--space-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  background: rgba(60,121,180,0.015);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ─── Part 6: Data Table ──────────────────────────────────────────────────── */
+
+.tableSection {
+  padding: var(--space-xl) var(--space-lg) 0;
+}
+
+.tableToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px var(--space-md);
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: background 0.15s;
+  gap: var(--space-sm);
+}
+
+.tableToggle:hover {
+  background: rgba(60,121,180,0.04);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-top: var(--space-sm);
+  border-radius: var(--radius-card, 12px);
+  border: var(--card-border);
+  background: var(--color-bg-elevated);
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.th {
+  padding: 10px var(--space-md);
+  text-align: left;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  background: rgba(60,121,180,0.04);
+  border-bottom: 1px solid var(--color-border-light);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.th:hover { background: rgba(60,121,180,0.08); }
+
+.thActive {
+  color: var(--color-primary);
+  background: rgba(60,121,180,0.08);
+}
+
+.tr {
+  transition: background 0.1s;
+}
+
+.tr:hover { background: rgba(60,121,180,0.025); }
+
+.tr:not(:last-child) td {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.td {
+  padding: 9px var(--space-md);
+  color: var(--color-text-secondary);
+  vertical-align: middle;
+}
+
+.tdMatchup {
+  padding: 8px var(--space-md);
+  min-width: 200px;
+}
+
+.tdTeam {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 0;
+}
+
+.tdMono {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--color-text);
+}
+
+.tdProb {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.tdStatus {
+  display: inline-block;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
+}
+
+/* ─── Rankings Snapshot ───────────────────────────────────────────────────── */
+
+.rankingsSnap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+@media (min-width: 560px) {
+  .rankingsSnap {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.rankSnapCol {
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+  padding: var(--space-md);
+}
+
+.snapLabel {
   display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
   margin-bottom: var(--space-sm);
 }
 
-.snapshotList {
+.snapList {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 0.9rem;
 }
 
-.snapshotList li {
-  padding: var(--space-xs) 0;
+.snapItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 6px 0;
   border-bottom: 1px solid var(--color-border-light);
+  font-size: 0.82rem;
 }
 
-.snapshotList li:last-child {
-  border-bottom: none;
+.snapItem:last-child { border-bottom: none; }
+
+.snapRank {
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  min-width: 18px;
 }
 
-.moveUp {
-  color: var(--color-up);
+.snapOdds {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
   font-weight: 600;
-  margin-left: var(--space-xs);
 }
 
-.moveDown {
-  color: var(--color-down);
-  font-weight: 600;
-  margin-left: var(--space-xs);
+.snapEmpty {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-sm) 0;
+}
+
+/* ─── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 479px) {
+  .pageTitle { font-size: 1.2rem; }
+  .moversGrid { grid-template-columns: repeat(2, 1fr); }
+  .totalsStats { grid-template-columns: repeat(3, 1fr); }
+  .totalsStatVal { font-size: 1rem; }
+  .briefingBody { max-height: 0; padding: 0; }
+  .briefingBodyCollapsed { max-height: 0 !important; }
+}
+
+/* ─── Interaction polish ──────────────────────────────────────────────────── */
+
+@media (hover: none) {
+  .moverCard:active,
+  .matchupCard:active {
+    transform: scale(0.98);
+    transition: transform 0.08s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moverCard,
+  .matchupCard,
+  .tableToggle,
+  .briefingRefresh,
+  .briefingCollapse,
+  .collapseChevron,
+  .probHome,
+  .probAway {
+    transition: none !important;
+  }
+  .moverCard:hover,
+  .matchupCard:hover {
+    transform: none !important;
+  }
+  .skeleton { animation: none; opacity: 0.5; }
+  .spinner { animation: none; border-top-color: rgba(255,255,255,0.6); }
 }
