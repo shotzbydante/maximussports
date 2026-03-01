@@ -130,12 +130,23 @@
 /* ─── Reduced motion ─────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .backdrop,
+  .backdrop {
+    animation: none;
+  }
+
   .panel {
     animation: none;
+    transform: none;
   }
 
   .closeBtn {
     transition: none;
   }
+}
+
+/* ─── Close button focus ring ────────────────────────────────────── */
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

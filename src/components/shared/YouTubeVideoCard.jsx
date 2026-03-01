@@ -18,8 +18,18 @@ function formatRelTime(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatDuration(seconds) {
+  if (seconds == null || seconds <= 0) return null;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const mm = String(m).padStart(h > 0 ? 2 : 1, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 export default function YouTubeVideoCard({ video, onSelect, compact = false }) {
-  const { title, channelTitle, publishedAt, thumbUrl } = video;
+  const { title, channelTitle, publishedAt, thumbUrl, durationSeconds } = video;
 
   function handleClick(e) {
     e.preventDefault();
@@ -63,6 +73,13 @@ export default function YouTubeVideoCard({ video, onSelect, compact = false }) {
             </svg>
           </div>
         </div>
+
+        {/* Duration pill */}
+        {formatDuration(durationSeconds) && (
+          <span className={styles.duration} aria-label={`Duration: ${formatDuration(durationSeconds)}`}>
+            {formatDuration(durationSeconds)}
+          </span>
+        )}
       </div>
 
       {/* Body */}

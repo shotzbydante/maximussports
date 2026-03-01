@@ -6,6 +6,44 @@ import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import styles from './NewsFeed.module.css';
 
+// ─── YouTube query helpers ────────────────────────────────────────────────────
+
+/** Publisher names to append for relevance bias (key: lowercased source name) */
+const PUBLISHER_BIAS = {
+  'espn':           'ESPN',
+  'cbs sports':     'CBS Sports',
+  'fox sports':     'FOX Sports',
+  'the athletic':   'The Athletic',
+  'bleacher report':'Bleacher Report',
+  'nbc sports':     'NBC Sports',
+};
+
+/**
+ * Sanitize a news headline for use as a YouTube search query.
+ * Removes excessive punctuation, collapses whitespace, caps to 80 chars,
+ * and optionally appends a trusted publisher name.
+ *
+ * @param {string} title
+ * @param {string} [source]
+ * @returns {string}
+ */
+function sanitizeHeroQuery(title, source) {
+  const q = (title ?? '')
+    .replace(/[^\w\s'''-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+
+  const pub = PUBLISHER_BIAS[(source || '').toLowerCase()];
+  if (pub && (q.length + 1 + pub.length) <= 120) {
+    return `${q} ${pub}`;
+  }
+  return q;
+}
+
+const ytDebug = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).has('debugYT');
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const CONF_ORDER = ['All', 'Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
@@ -244,21 +282,32 @@ export default function NewsFeed() {
 
   const enriched = useMemo(() => rawItems.map(enrichItem), [rawItems]);
 
-  // Fetch one video for the hero story whenever the hero title changes
-  const heroTitle = enriched[0]?.title ?? null;
+  // Fetch one video for the hero story whenever the hero title or source changes
+  const heroTitle  = enriched[0]?.title  ?? null;
+  const heroSource = enriched[0]?.source ?? null;
   useEffect(() => {
     if (!heroTitle) return;
     let cancelled = false;
-    fetch(`/api/youtube/search?q=${encodeURIComponent(heroTitle)}&maxResults=1`)
+    const q = sanitizeHeroQuery(heroTitle, heroSource);
+    const qs = new URLSearchParams({ q, maxResults: '1' });
+    if (ytDebug) qs.set('debugYT', '1');
+    const t0 = ytDebug ? Date.now() : 0;
+    if (ytDebug) console.log(`[YT Hero] query: "${q}"`);
+
+    fetch(`/api/youtube/search?${qs}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled) setHeroVideo(data.items?.[0] ?? null);
+        if (!cancelled) {
+          const video = data.items?.[0] ?? null;
+          if (ytDebug) console.log(`[YT Hero] ${video ? 'found' : 'no result'} in ${Date.now() - t0}ms`);
+          setHeroVideo(video);
+        }
       })
       .catch(() => {
         if (!cancelled) setHeroVideo(null);
       });
     return () => { cancelled = true; };
-  }, [heroTitle]);
+  }, [heroTitle, heroSource]);
 
   // Derive the display video — hide if there's no current hero story
   const displayHeroVideo = heroTitle ? heroVideo : null;

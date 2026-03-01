@@ -1,27 +1,25 @@
 /**
  * Team video feed endpoint.
- * GET /api/youtube/team?teamSlug=...&opponentSlug=...&mode=recent&maxResults=6
+ * GET /api/youtube/team?teamSlug=...&opponentSlug=...&mode=recent&maxResults=6&debugYT=1
  *
  * Query params:
  *   teamSlug     (required) — slug matching data/teams.js
  *   opponentSlug (optional) — slug of opponent team
  *   mode         (optional) — "today" | "recent" (default "recent")
  *   maxResults   (optional) — 1–10, default 6
+ *   debugYT      (optional) — "1" to enable server-side debug logging
  *
  * Response 200:
  *   { status:"ok", teamSlug, teamName, updatedAt, items:[...] }
  *
- * Response 400:
- *   { status:"error", message }
- *
- * Response 500:
+ * Response 400 / 500:
  *   { status:"error", message }
  *
  * Cached at CDN for 1 hour (stale-while-revalidate 24 h).
  */
 
 import { TEAMS } from '../../data/teams.js';
-import { ytSearch, scoreItem } from './_yt.js';
+import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted } from './_yt.js';
 
 const DEFAULT_MAX = 6;
 const MIN_MAX     = 1;
@@ -38,6 +36,20 @@ function dedupeById(items) {
     seen.add(item.videoId);
     return true;
   });
+}
+
+/**
+ * If any allowlisted item exists in the list, ensure index 0 is allowlisted
+ * by swapping the first allowlisted item into position 0.
+ * All other items retain their relative sort order.
+ */
+function promoteAllowlisted(items) {
+  const firstIdx = items.findIndex((item) => isItemAllowlisted(item));
+  if (firstIdx <= 0) return items; // already first, or none exist
+  const result = items.slice();
+  const [promoted] = result.splice(firstIdx, 1);
+  result.unshift(promoted);
+  return result;
 }
 
 export default async function handler(req, res) {
@@ -57,7 +69,11 @@ export default async function handler(req, res) {
     opponentSlug,
     mode = 'recent',
     maxResults: rawMax,
+    debugYT,
   } = req.query ?? {};
+
+  const debug = debugYT === '1';
+  const t0 = debug ? Date.now() : 0;
 
   if (!teamSlug || typeof teamSlug !== 'string') {
     return res.status(400).json({ status: 'error', message: 'Missing required param: teamSlug' });
@@ -76,12 +92,12 @@ export default async function handler(req, res) {
 
   // ── Build queries ─────────────────────────────────────────────────────────
   const q1 = `${team.name} basketball highlights`;
+  const q2 = (opponent && mode === 'today')
+    ? `${team.name} vs ${opponent.name} highlights`
+    : `${team.name} postgame interview OR press conference OR highlights`;
 
-  let q2;
-  if (opponent && mode === 'today') {
-    q2 = `${team.name} vs ${opponent.name} highlights`;
-  } else {
-    q2 = `${team.name} postgame interview OR press conference OR highlights`;
+  if (debug) {
+    console.log(`[api/youtube/team] teamSlug=${teamSlug} q1="${q1}" q2="${q2}"`);
   }
 
   // ── Fetch both queries in parallel ────────────────────────────────────────
@@ -90,11 +106,11 @@ export default async function handler(req, res) {
 
   try {
     [raw1, raw2] = await Promise.all([
-      ytSearch({ q: q1, maxResults: MAX_MAX }).catch((err) => {
+      ytSearch({ q: q1, maxResults: MAX_MAX, debug }).catch((err) => {
         console.error('[api/youtube/team] q1 failed:', err.message);
         return [];
       }),
-      ytSearch({ q: q2, maxResults: MAX_MAX }).catch((err) => {
+      ytSearch({ q: q2, maxResults: MAX_MAX, debug }).catch((err) => {
         console.error('[api/youtube/team] q2 failed:', err.message);
         return [];
       }),
@@ -104,19 +120,45 @@ export default async function handler(req, res) {
     return res.status(500).json({ status: 'error', message: 'Failed to fetch videos' });
   }
 
-  // ── Merge, deduplicate, score, sort, cap ──────────────────────────────────
+  // ── Merge, deduplicate, score, sort ───────────────────────────────────────
   const merged = dedupeById([...raw1, ...raw2]);
-  const scored = merged
-    .map((item) => ({ ...item, _score: scoreItem(item, team.name) }))
-    .sort((a, b) => b._score - a._score)
-    .slice(0, maxResults)
-    .map(({ _score: _s, ...item }) => item); // strip internal score
+  const withScores = merged.map((item) => ({
+    ...item,
+    _score: scoreItem(item, team.name),
+  }));
+  withScores.sort((a, b) => b._score - a._score);
+
+  if (debug) {
+    const allowlistHits = withScores.filter((i) => isItemAllowlisted(i)).length;
+    console.log(
+      `[api/youtube/team] merged=${merged.length} allowlistHits=${allowlistHits}`,
+      `topScores=${withScores.slice(0, 3).map((i) => `${i._score}:"${i.title.slice(0, 40)}"`).join(', ')}`,
+    );
+  }
+
+  // ── Cap, ensure allowlisted item leads ────────────────────────────────────
+  const capped = withScores.slice(0, maxResults);
+  const promoted = promoteAllowlisted(capped);
+  const scored = promoted.map(({ _score: _s, ...item }) => item);
+
+  // ── Enrich with durations (single videos.list call) ───────────────────────
+  const videoIds = scored.map((i) => i.videoId);
+  const details = await ytVideosDetails(videoIds, { debug });
+
+  const items = scored.map((item) => ({
+    ...item,
+    durationSeconds: details[item.videoId]?.durationSeconds ?? null,
+  }));
+
+  if (debug) {
+    console.log(`[api/youtube/team] completed in ${Date.now() - t0}ms, returning ${items.length} items`);
+  }
 
   return res.status(200).json({
     status:    'ok',
     teamSlug,
     teamName:  team.name,
     updatedAt: new Date().toISOString(),
-    items:     scored,
+    items,
   });
 }

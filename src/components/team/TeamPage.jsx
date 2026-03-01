@@ -13,7 +13,11 @@ import { fetchTeamNextLine } from '../../api/teamNextLine';
 import { ModuleShell } from '../shared/ModuleShell';
 import YouTubeVideoRail from '../shared/YouTubeVideoRail';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
+import { getCachedVideos, setCachedVideos } from '../../utils/ytClientCache';
 import styles from './TeamPage.module.css';
+
+const ytDebug = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).has('debugYT');
 
 const NEXT_LINE_SLOW_MS = 18000;
 
@@ -139,20 +143,37 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (!slug) return;
-    let cancelled = false;
-    setVideosLoading(true);
-    fetch(`/api/youtube/team?teamSlug=${encodeURIComponent(slug)}&maxResults=6`)
+
+    // Serve from in-memory cache if fresh (avoids flicker on back-navigation)
+    const cached = getCachedVideos(slug);
+    if (cached) {
+      if (ytDebug) console.log(`[YT Team] cache HIT for ${slug} (${cached.length} items)`);
+      setVideos(cached);
+      setVideosLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const qs = new URLSearchParams({ teamSlug: slug, maxResults: '6' });
+    if (ytDebug) qs.set('debugYT', '1');
+    const t0 = ytDebug ? Date.now() : 0;
+
+    fetch(`/api/youtube/team?${qs}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled) setVideos(data.items ?? []);
+        const items = data.items ?? [];
+        setCachedVideos(slug, items);
+        if (ytDebug) console.log(`[YT Team] cache MISS for ${slug}, fetched in ${Date.now() - t0}ms (${items.length} items)`);
+        setVideos(items);
       })
-      .catch(() => {
-        if (!cancelled) setVideos([]);
+      .catch((err) => {
+        if (err.name !== 'AbortError') setVideos([]);
       })
       .finally(() => {
-        if (!cancelled) setVideosLoading(false);
+        setVideosLoading(false);
       });
-    return () => { cancelled = true; };
+
+    return () => controller.abort();
   }, [slug]);
 
   const rank = batch?.rank ?? null;

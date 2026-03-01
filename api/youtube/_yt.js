@@ -2,25 +2,36 @@
  * Shared YouTube Data API v3 helpers for server-side use only.
  *
  * Exports:
- *   ytSearch({ q, maxResults }) → normalized item array
- *   scoreItem(item, teamName?)  → relevance score (higher = more relevant)
+ *   ytSearch({ q, maxResults, debug? })   → normalized item array
+ *   ytVideosDetails(videoIds[])           → map { videoId: { durationSeconds } }
+ *   scoreItem(item, teamName?)            → relevance score (higher = more relevant)
+ *   isItemAllowlisted(item)               → boolean
+ *   parseISO8601Duration(str)             → seconds | null
  */
 
 import { ALLOWLIST } from './_allowlist.js';
 
 const YT_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
+const YT_VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos';
 const MIN_MAX = 1;
 const MAX_MAX = 10;
+
+// ─── Allowlist helper ─────────────────────────────────────────────────────────
+
+export function isItemAllowlisted(item) {
+  const ch = (item.channelTitle ?? '').toLowerCase();
+  return ALLOWLIST.some((a) => ch.includes(a.toLowerCase()));
+}
 
 // ─── ytSearch ────────────────────────────────────────────────────────────────
 
 /**
  * Call YouTube Data API v3 search and return a normalized item array.
  *
- * @param {{ q: string, maxResults?: number }} params
+ * @param {{ q: string, maxResults?: number, debug?: boolean }} params
  * @returns {Promise<Array<{ videoId, title, channelTitle, publishedAt, thumbUrl }>>}
  */
-export async function ytSearch({ q, maxResults = 6 }) {
+export async function ytSearch({ q, maxResults = 6, debug = false }) {
   if (!q || typeof q !== 'string' || !q.trim()) {
     throw new Error('ytSearch: q is required');
   }
@@ -39,6 +50,7 @@ export async function ytSearch({ q, maxResults = 6 }) {
     key:        apiKey,
   });
 
+  const t0 = debug ? Date.now() : 0;
   const res = await fetch(`${YT_SEARCH_URL}?${params}`);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -46,6 +58,9 @@ export async function ytSearch({ q, maxResults = 6 }) {
   }
 
   const data = await res.json();
+  if (debug) {
+    console.log(`[ytSearch] q="${q}" returned ${data.items?.length ?? 0} results in ${Date.now() - t0}ms`);
+  }
 
   return (data.items ?? [])
     .filter((item) => item.id?.videoId)
@@ -60,7 +75,92 @@ export async function ytSearch({ q, maxResults = 6 }) {
     }));
 }
 
+// ─── ytVideosDetails ──────────────────────────────────────────────────────────
+
+/**
+ * Fetch contentDetails for a list of videoIds in a single API call.
+ * Returns a map: { [videoId]: { durationSeconds: number | null } }
+ *
+ * @param {string[]} videoIds
+ * @param {{ debug?: boolean }} [opts]
+ * @returns {Promise<Record<string, { durationSeconds: number | null }>>}
+ */
+export async function ytVideosDetails(videoIds, { debug = false } = {}) {
+  if (!videoIds?.length) return {};
+
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return {};
+
+  const params = new URLSearchParams({
+    part: 'contentDetails',
+    id:   videoIds.join(','),
+    key:  apiKey,
+  });
+
+  const t0 = debug ? Date.now() : 0;
+  let data;
+  try {
+    const res = await fetch(`${YT_VIDEOS_URL}?${params}`);
+    if (!res.ok) return {};
+    data = await res.json();
+  } catch {
+    return {};
+  }
+
+  if (debug) {
+    console.log(`[ytVideosDetails] fetched ${data.items?.length ?? 0} details in ${Date.now() - t0}ms`);
+  }
+
+  const map = {};
+  for (const item of data.items ?? []) {
+    map[item.id] = {
+      durationSeconds: parseISO8601Duration(item.contentDetails?.duration),
+    };
+  }
+  return map;
+}
+
+// ─── parseISO8601Duration ─────────────────────────────────────────────────────
+
+/**
+ * Parse a YouTube ISO 8601 duration string (e.g. "PT1H23M45S") to seconds.
+ * Returns null if unparseable.
+ *
+ * @param {string|undefined} str
+ * @returns {number|null}
+ */
+export function parseISO8601Duration(str) {
+  if (!str) return null;
+  const match = str.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return null;
+  const h = parseInt(match[1] || '0', 10);
+  const m = parseInt(match[2] || '0', 10);
+  const s = parseInt(match[3] || '0', 10);
+  const total = h * 3600 + m * 60 + s;
+  return total > 0 ? total : null;
+}
+
 // ─── scoreItem ───────────────────────────────────────────────────────────────
+
+/**
+ * Penalty patterns applied to non-allowlisted channels only.
+ * Title patterns checked regardless of channel.
+ */
+const TITLE_PENALTIES_ALL = [
+  { re: /\breaction\b/i,          points: 20 },
+  { re: /\bbetting\s*picks?\b/i,  points: 30 },
+];
+
+const TITLE_PENALTIES_NONALLOWED = [
+  { re: /\blive\s*stream\b/i,  points: 20 },
+  { re: /\bfull\s*game\b/i,    points: 15 },
+];
+
+const CHANNEL_PENALTIES_NONALLOWED = [
+  { re: /\bHD\b/,           points: 15 },
+  { re: /\bstreams?\b/i,    points: 20 },
+  { re: /\blive\b/i,        points: 15 },
+];
 
 /**
  * Compute a relevance score for a YouTube search result item.
@@ -72,17 +172,13 @@ export async function ytSearch({ q, maxResults = 6 }) {
  */
 export function scoreItem(item, teamName) {
   let score = 0;
+  const allowlisted = isItemAllowlisted(item);
 
   // +50 for trusted publisher
-  const ch = (item.channelTitle ?? '').toLowerCase();
-  if (ALLOWLIST.some((a) => ch.includes(a.toLowerCase()))) {
-    score += 50;
-  }
+  if (allowlisted) score += 50;
 
-  // +15 for "Highlights" in title
+  // Title bonuses
   if (/highlights/i.test(item.title)) score += 15;
-
-  // +10 if team name appears in title
   if (teamName && item.title.toLowerCase().includes(teamName.toLowerCase())) {
     score += 10;
   }
@@ -90,11 +186,27 @@ export function scoreItem(item, teamName) {
   // Recency bonus: up to +20 for videos published within the last 30 days
   if (item.publishedAt) {
     const ageDays = (Date.now() - new Date(item.publishedAt).getTime()) / 86_400_000;
-    if (ageDays <= 1)  score += 20;
+    if      (ageDays <= 1)  score += 20;
     else if (ageDays <= 3)  score += 15;
     else if (ageDays <= 7)  score += 10;
     else if (ageDays <= 14) score += 5;
     else if (ageDays <= 30) score += 2;
+  }
+
+  // Penalties applied regardless of channel
+  for (const { re, points } of TITLE_PENALTIES_ALL) {
+    if (re.test(item.title)) score -= points;
+  }
+
+  // Penalties applied to non-allowlisted channels only
+  if (!allowlisted) {
+    for (const { re, points } of TITLE_PENALTIES_NONALLOWED) {
+      if (re.test(item.title)) score -= points;
+    }
+    const ch = item.channelTitle ?? '';
+    for (const { re, points } of CHANNEL_PENALTIES_NONALLOWED) {
+      if (re.test(ch)) score -= points;
+    }
   }
 
   return score;

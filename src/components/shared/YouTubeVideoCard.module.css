@@ -88,6 +88,23 @@
   background: rgba(60, 121, 180, 0.85);
 }
 
+/* Duration pill — bottom-right corner of thumbnail */
+.duration {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.02em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
 /* ─── Body ───────────────────────────────────────────────────────── */
 
 .body {

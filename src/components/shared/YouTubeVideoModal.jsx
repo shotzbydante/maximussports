@@ -1,17 +1,67 @@
 /**
  * YouTubeVideoModal — full-screen overlay that embeds the video iframe.
  * Iframe is rendered ONLY when the modal is open.
- * Closes on X button, ESC key, or backdrop click.
+ *
+ * Accessibility:
+ *   - Focus is moved to the close button on open.
+ *   - Tab key is trapped within the modal while open.
+ *   - ESC key, backdrop click, or X button close the modal.
+ *   - Body scroll is locked while open and restored on close/unmount.
  */
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import styles from './YouTubeVideoModal.module.css';
+
+const FOCUSABLE_SELECTORS = [
+  'button',
+  '[href]',
+  'input',
+  'select',
+  'textarea',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
 
 export default function YouTubeVideoModal({ video, onClose }) {
   const open = !!video;
+  const panelRef   = useRef(null);
+  const closeBtnRef = useRef(null);
 
+  // ── Focus close button when modal opens ───────────────────────────────────
+  useEffect(() => {
+    if (open && closeBtnRef.current) {
+      closeBtnRef.current.focus();
+    }
+  }, [open]);
+
+  // ── Scroll lock + keyboard handling ──────────────────────────────────────
   const handleKeyDown = useCallback(
     (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape') {
+        onClose?.();
+        return;
+      }
+
+      // Focus trap on Tab / Shift+Tab
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusable = Array.from(
+          panelRef.current.querySelectorAll(FOCUSABLE_SELECTORS),
+        ).filter((el) => !el.disabled);
+        if (!focusable.length) return;
+
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
     },
     [onClose],
   );
@@ -40,11 +90,12 @@ export default function YouTubeVideoModal({ video, onClose }) {
         if (e.target === e.currentTarget) onClose?.();
       }}
     >
-      <div className={styles.panel}>
+      <div className={styles.panel} ref={panelRef}>
         {/* Header */}
         <div className={styles.header}>
           <p className={styles.title}>{video.title}</p>
           <button
+            ref={closeBtnRef}
             type="button"
             className={styles.closeBtn}
             aria-label="Close video"
