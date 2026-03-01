@@ -362,3 +362,29 @@
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+/* ─── Videos section ─────────────────────────────────────────────── */
+
+.videosSection {
+  margin-bottom: var(--space-lg, 24px);
+}
+
+.videosMoreLink {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color 0.14s;
+}
+
+.videosMoreLink:hover {
+  color: var(--color-primary-hover, #2d5d8a);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .videosMoreLink {
+    transition: none;
+  }
+}

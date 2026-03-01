@@ -1,0 +1,49 @@
+/* ═══════════════════════════════════════════════════════════════════
+   YouTubeVideoRail
+   Mobile: horizontal scroll row
+   Desktop: auto-fill grid (3–4 columns)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 12px var(--space-md, 16px);
+}
+
+.item {
+  min-width: 0;
+}
+
+/* ─── Mobile: horizontal scroll ──────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .rail {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+    padding: 12px 14px;
+    /* Hide scrollbar while keeping functionality */
+    scrollbar-width: none;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .item {
+    flex: 0 0 200px;
+    scroll-snap-align: start;
+  }
+}
+
+/* ─── Tablet: 2 columns ──────────────────────────────────────────── */
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .rail {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

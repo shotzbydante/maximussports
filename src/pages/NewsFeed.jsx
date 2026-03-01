@@ -2,6 +2,8 @@ import { Fragment, useState, useEffect, useMemo } from 'react';
 import { fetchHome } from '../api/home';
 import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
+import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
+import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import styles from './NewsFeed.module.css';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -228,6 +230,10 @@ export default function NewsFeed() {
   const [error,    setError]    = useState(null);
   const [activeConf, setActiveConf] = useState('All');
 
+  // Hero video
+  const [heroVideo, setHeroVideo] = useState(null);
+  const [activeVideo, setActiveVideo] = useState(null);
+
   useEffect(() => {
     setLoading(true);
     fetchHome()
@@ -237,6 +243,25 @@ export default function NewsFeed() {
   }, []);
 
   const enriched = useMemo(() => rawItems.map(enrichItem), [rawItems]);
+
+  // Fetch one video for the hero story whenever the hero title changes
+  const heroTitle = enriched[0]?.title ?? null;
+  useEffect(() => {
+    if (!heroTitle) return;
+    let cancelled = false;
+    fetch(`/api/youtube/search?q=${encodeURIComponent(heroTitle)}&maxResults=1`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setHeroVideo(data.items?.[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setHeroVideo(null);
+      });
+    return () => { cancelled = true; };
+  }, [heroTitle]);
+
+  // Derive the display video — hide if there's no current hero story
+  const displayHeroVideo = heroTitle ? heroVideo : null;
 
   // Derive which conferences actually appear in the data
   const availableConfs = useMemo(() => {
@@ -293,6 +318,8 @@ export default function NewsFeed() {
       {!loading && !error && enriched.length === 0 && (
         <p className={styles.empty}>No basketball news available. Check back soon.</p>
       )}
+
+      <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
 
       {!loading && !error && enriched.length > 0 && (
         <div className={styles.content}>
@@ -383,15 +410,17 @@ export default function NewsFeed() {
             </section>
           )}
 
-          {/* ── E: Video Section Placeholder ── */}
-          <section className={styles.videoSection} aria-label="Video highlights — coming soon">
-            <h2 className={styles.sectionHeading}>Video Highlights &amp; Analysis</h2>
-            <div className={styles.videoGrid}>
-              <VideoPlaceholderCard label="Game Breakdown" />
-              <VideoPlaceholderCard label="Press Conference" />
-              <VideoPlaceholderCard label="Top Plays" />
-            </div>
-          </section>
+          {/* ── E: Hero Related Video ── */}
+          {displayHeroVideo && (
+            <section className={styles.heroVideoSection} aria-label="Related video">
+              <h2 className={styles.sectionHeading}>Related Video</h2>
+              <YouTubeVideoCard
+                video={displayHeroVideo}
+                onSelect={setActiveVideo}
+                compact
+              />
+            </section>
+          )}
 
           {/* Monetization slot B — pre-stream */}
           <div className={styles.adSlot} aria-hidden data-slot="premium-analysis">

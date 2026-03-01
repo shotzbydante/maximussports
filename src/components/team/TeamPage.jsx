@@ -10,6 +10,9 @@ import SourceBadge from '../shared/SourceBadge';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
 import { fetchChampionshipOdds } from '../../api/championshipOdds';
 import { fetchTeamNextLine } from '../../api/teamNextLine';
+import { ModuleShell } from '../shared/ModuleShell';
+import YouTubeVideoRail from '../shared/YouTubeVideoRail';
+import YouTubeVideoModal from '../shared/YouTubeVideoModal';
 import styles from './TeamPage.module.css';
 
 const NEXT_LINE_SLOW_MS = 18000;
@@ -61,6 +64,11 @@ export default function TeamPage() {
   const [nextLine, setNextLine] = useState({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: {} });
   const [nextLineLoading, setNextLineLoading] = useState(true);
   const [nextLineLoadStarted, setNextLineLoadStarted] = useState(null);
+
+  // Videos
+  const [videos, setVideos] = useState([]);
+  const [videosLoading, setVideosLoading] = useState(true);
+  const [activeVideo, setActiveVideo] = useState(null);
 
   // Batch load: schedule + odds history + team news + rank (ATS/schedule first; defer news)
   useEffect(() => {
@@ -125,6 +133,24 @@ export default function TeamPage() {
           setNextLine({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: { stage: 'error' } });
           setNextLineLoading(false);
         }
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    setVideosLoading(true);
+    fetch(`/api/youtube/team?teamSlug=${encodeURIComponent(slug)}&maxResults=6`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setVideos(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setVideos([]);
+      })
+      .finally(() => {
+        if (!cancelled) setVideosLoading(false);
       });
     return () => { cancelled = true; };
   }, [slug]);
@@ -373,6 +399,33 @@ export default function TeamPage() {
           </>
         )}
       </section>
+
+      {/* ── Videos ── */}
+      <section className={styles.videosSection} aria-label="Video highlights">
+        <ModuleShell
+          title="Videos"
+          loading={videosLoading}
+          skeletonRows={2}
+          isEmpty={!videosLoading && videos.length === 0}
+          emptyMessage="No video highlights found right now."
+          footer={
+            team && (
+              <a
+                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.videosMoreLink}
+              >
+                More on YouTube →
+              </a>
+            )
+          }
+        >
+          <YouTubeVideoRail items={videos} onSelect={setActiveVideo} />
+        </ModuleShell>
+      </section>
+
+      <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
 
       <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
     </div>

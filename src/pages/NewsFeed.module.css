@@ -309,8 +309,14 @@
   margin-top: 6px;
 }
 
-/* ─── E: Video Section ────────────────────────────────────────────────────── */
+/* ─── E: Hero Related Video ───────────────────────────────────────────────── */
 
+.heroVideoSection {
+  margin-bottom: var(--space-xl);
+  max-width: 420px;
+}
+
+/* Legacy placeholder styles kept for reference but no longer rendered */
 .videoSection {
   margin-bottom: var(--space-xl);
 }
