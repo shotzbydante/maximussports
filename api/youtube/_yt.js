@@ -69,6 +69,7 @@ export async function ytSearch({ q, maxResults = 6, debug = false }) {
       channelId:    item.snippet?.channelId ?? null,
       title:        item.snippet?.title ?? '',
       channelTitle: item.snippet?.channelTitle ?? '',
+      description:  item.snippet?.description ?? '',
       publishedAt:  item.snippet?.publishedAt ?? null,
       thumbUrl:     item.snippet?.thumbnails?.medium?.url
                     ?? item.snippet?.thumbnails?.default?.url
@@ -174,7 +175,7 @@ const FOOTBALL_REJECT = [
 
 /**
  * Hard-reject patterns for women's basketball / WBB content.
- * Applied case-insensitively to title AND channelTitle.
+ * Applied case-insensitively to title, channelTitle, and description/snippet.
  */
 const WOMEN_REJECT = [
   /\bwomen\b/i,
@@ -182,6 +183,16 @@ const WOMEN_REJECT = [
   /\bwomens\b/i,
   /\blady\b/i,
   /\blady\s*huskers\b/i,
+  /\blady\s*vols\b/i,
+  /\blady\s*wildcats\b/i,
+  /\blady\s*bears\b/i,
+  /\blady\s*tigers\b/i,
+  /\blady\s*bulldogs\b/i,
+  /\blady\s*aggies\b/i,
+  /\blady\s*raiders\b/i,
+  /\blady\s*cardinals\b/i,
+  /\blady\s*hawkeyes\b/i,
+  /\blady\s*terrapins\b/i,
   /\bwbb\b/i,
   /\bncaaw\b/i,
   /\bwomen'?s?\s*basketball\b/i,
@@ -220,20 +231,39 @@ const BBALL_OR_HIGHLIGHTS = [
 ];
 
 /**
+ * Strong basketball signals required for non-allowlisted channels (no bare "highlights").
+ */
+const STRONG_BBALL_SIGNALS = [
+  /\bbasketball\b/i,
+  /\bhoops\b/i,
+  /\bmbb\b/i,
+  /\bncaam\b/i,
+  /\bncaab\b/i,
+  /\bcollege\s+basketball\b/i,
+  /\bmen'?s?\s+(?:college\s+)?basketball\b/i,
+  /\bbasketball\s+highlights\b/i,
+];
+
+/**
  * Classify a YouTube item for men's basketball filtering.
- * @param {{ title: string, channelTitle: string }} item
+ * Rejects when description/snippet contains women's/WBB signals even if title doesn't.
+ * For non-allowlisted channels, requires a strong basketball signal (not just "highlights").
+ *
+ * @param {{ title: string, channelTitle: string, description?: string }} item
  * @returns {'accept'|'football'|'women'|'no_bball'}
  */
 export function classifyBasketballItem(item) {
   const title = (item.title ?? '').trim();
   const channel = (item.channelTitle ?? '').trim();
+  const description = (item.description ?? '').trim();
   const combined = `${title} ${channel}`;
+  const withSnippet = `${title} ${channel} ${description}`;
 
   // Step 1 — hard reject: football in title OR channel
   if (FOOTBALL_REJECT.some((re) => re.test(title) || re.test(channel))) return 'football';
 
-  // Step 2 — hard reject: women's signals in title OR channel
-  if (WOMEN_REJECT.some((re) => re.test(title) || re.test(channel))) return 'women';
+  // Step 2 — hard reject: women's signals in title, channel, OR description/snippet
+  if (WOMEN_REJECT.some((re) => re.test(withSnippet))) return 'women';
 
   // Step 3 — conference network: allow if no football/women's (already checked)
   if (isConfNetworkChannel(item)) return 'accept';
@@ -244,8 +274,8 @@ export function classifyBasketballItem(item) {
     if (hasBballTerm) return 'accept';
   }
 
-  // Step 5 — unknown channels: require positive men's signal
-  if (MENS_SIGNALS.some((re) => re.test(combined))) return 'accept';
+  // Step 5 — non-allowlisted: require strong basketball signal (not just "highlights" alone)
+  if (STRONG_BBALL_SIGNALS.some((re) => re.test(combined))) return 'accept';
 
   return 'no_bball';
 }

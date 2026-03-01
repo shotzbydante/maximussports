@@ -52,8 +52,20 @@ const MBB_EXCLUDE = [
   "gymnastics",
 ];
 
+/** URL path segments that indicate women's basketball — reject when present in link/url */
+const WBB_URL_PATTERNS = ['/womens/', '/women/', '/wbb/', '/ncaaw/', '/lady-'];
+
 function norm(s) {
   return (s || '').toLowerCase();
+}
+
+/**
+ * Reject when URL path contains women's/WBB path segments.
+ */
+function hasWomensUrl(url) {
+  const u = norm(url || '');
+  if (!u) return false;
+  return WBB_URL_PATTERNS.some((seg) => u.includes(norm(seg)));
 }
 
 /**
@@ -70,11 +82,12 @@ function hasWomensSignal(title, source) {
   return false;
 }
 
-export function isMensBasketball(title, source) {
+export function isMensBasketball(title, source, url) {
   const t = norm(title);
   if (!t) return false;
 
   if (hasWomensSignal(title, source)) return false;
+  if (hasWomensUrl(url)) return false;
 
   for (const al of MBB_ALLOWLIST) {
     if (t.includes(norm(al))) return true;
@@ -87,11 +100,12 @@ export function isMensBasketball(title, source) {
  * Looser filter when primary MBB filter yields no items.
  * Still excludes women's/wbb/football/etc; allows college basketball, NCAA, etc.
  */
-export function isMensBasketballLoose(title, source) {
+export function isMensBasketballLoose(title, source, url) {
   const t = norm(title);
   if (!t) return false;
 
   if (hasWomensSignal(title, source)) return false;
+  if (hasWomensUrl(url)) return false;
 
   for (const al of MBB_LOOSE_ALLOWLIST) {
     if (t.includes(norm(al))) return true;

@@ -30,18 +30,17 @@ const POPULAR_PICKS = [
   { slug: 'gonzaga-bulldogs',    name: 'Gonzaga' },
 ];
 
-// Static preview card data — no fetching, illustrative only
+// Static preview card — evergreen, illustrative only (no real players or dated news)
 const PREVIEW_CARD = {
-  team: { name: 'Duke Blue Devils', conference: 'ACC', oddsTier: 'Lock', slug: 'duke-blue-devils' },
-  rank: 2,
-  season: '22–5',
-  last10: '8–2',
-  ats: '14–10',
-  nextGame: 'vs North Carolina · Sat 6:00 PM PT',
-  summary: 'Led by 21 PPG from Cooper Flagg. Top seed projection, strong ATS cover rate in ACC play.',
+  team: { name: 'Example Team', conference: 'Conference', oddsTier: 'Lock', slug: 'example' },
+  rank: 5,
+  season: '—',
+  last10: '—',
+  ats: '—',
+  nextGame: 'Next: vs Opponent · Date & time',
+  summary: 'Led by an efficient offense and strong perimeter defense. Trending up in conference play with a favorable path. Key storyline: late-game execution improving.',
   headlines: [
-    'Flagg named ACC Player of the Week for third time this season',
-    'Duke locks in NCAA Tournament top seed with road win',
+    'Latest headline: Team trending upward entering next matchup',
   ],
 };
 

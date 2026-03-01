@@ -74,6 +74,57 @@
   transition: background 0.1s;
 }
 
+/* ─── Desktop: tighter density (min-width 900px) — more games above fold ───── */
+@media (min-width: 900px) {
+  .widgetHeader {
+    padding: 10px var(--space-md) 8px;
+  }
+
+  .gameCard {
+    padding: 5px var(--space-md) 4px;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .teamRow {
+    grid-template-columns: 26px 1fr auto;
+    padding: 1px 0;
+    gap: 6px;
+  }
+
+  .finalDivider {
+    margin: 0;
+    padding: 0 var(--space-sm);
+  }
+
+  .gameFooter {
+    padding-top: 2px;
+    padding-left: 36px;
+  }
+
+  .teamLogoWrap {
+    width: 26px;
+    height: 26px;
+  }
+
+  .teamName {
+    font-size: 0.8125rem;
+  }
+
+  .teamScore {
+    font-size: 0.9375rem;
+    min-width: 28px;
+  }
+
+  .gameTime {
+    font-size: 0.6rem;
+  }
+
+  .viewMore {
+    padding: 6px var(--space-md);
+    font-size: 0.7rem;
+  }
+}
+
 .gameCard:last-child {
   border-bottom: none;
 }

@@ -398,7 +398,10 @@ export default function TeamPage() {
         {error && <div className={styles.error}>{error}</div>}
 
         {!loading && !error && headlines.length === 0 && (
-          <div className={styles.empty}>No men&apos;s basketball news available.</div>
+          <div className={styles.empty}>
+            <p>No men&apos;s basketball coverage found in the last 90 days. Check back soon.</p>
+            <a href="#schedule" className={styles.emptyCta}>View schedule</a>
+          </div>
         )}
 
         {!loading && !error && headlines.length > 0 && (
@@ -406,7 +409,10 @@ export default function TeamPage() {
             <div className={styles.newsSubsection}>
               <h4 className={styles.subsectionTitle}>Last 7 days</h4>
               {last7.length === 0 ? (
-                <div className={styles.empty}>No men&apos;s basketball news available.</div>
+                <div className={styles.empty}>
+                  <p>No men&apos;s basketball coverage found in the last 7 days. Check back soon.</p>
+                  <a href="#schedule" className={styles.emptyCta}>View schedule</a>
+                </div>
               ) : (
                 <ul className={styles.list}>
                   {last7.map((h) => (
@@ -465,17 +471,23 @@ export default function TeamPage() {
           loading={videosLoading}
           skeletonRows={2}
           isEmpty={!videosLoading && videos.length === 0}
-          emptyMessage="No video highlights found right now."
+          emptyMessage="No men's basketball coverage found. Check back soon."
           footer={
             team && (
-              <a
-                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.videosMoreLink}
-              >
-                More on YouTube →
-              </a>
+              !videosLoading && videos.length === 0 ? (
+                <a href="#schedule" className={styles.videosMoreLink}>
+                  View schedule
+                </a>
+              ) : (
+                <a
+                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.videosMoreLink}
+                >
+                  More on YouTube →
+                </a>
+              )
             )
           }
         >
@@ -485,7 +497,9 @@ export default function TeamPage() {
 
       <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
 
-      <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
+      <div id="schedule">
+        <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
+      </div>
     </div>
   );
 }

@@ -290,6 +290,25 @@
   color: var(--color-text-muted);
 }
 
+.empty p {
+  margin: 0 0 var(--space-sm);
+}
+
+.emptyCta {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  margin-top: var(--space-xs);
+  transition: color 0.12s;
+}
+
+.emptyCta:hover {
+  color: var(--color-primary-hover, #2d5d8a);
+  text-decoration: underline;
+}
+
 .loading {
   display: flex;
   align-items: center;
