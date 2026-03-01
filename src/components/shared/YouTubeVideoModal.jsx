@@ -9,6 +9,7 @@
  *   - Body scroll is locked while open and restored on close/unmount.
  */
 import { useEffect, useCallback, useRef } from 'react';
+import { track } from '../../analytics/index';
 import styles from './YouTubeVideoModal.module.css';
 
 const FOCUSABLE_SELECTORS = [
@@ -20,10 +21,26 @@ const FOCUSABLE_SELECTORS = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
-export default function YouTubeVideoModal({ video, onClose }) {
+export default function YouTubeVideoModal({ video, onClose, source = 'unknown' }) {
   const open = !!video;
   const panelRef   = useRef(null);
   const closeBtnRef = useRef(null);
+
+  // ── Analytics: open / close ───────────────────────────────────────────────
+  const prevOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      track('video_modal_open', {
+        video_id: video?.videoId,
+        title:    (video?.title ?? '').slice(0, 100),
+        source,
+      });
+    }
+    if (!open && prevOpenRef.current) {
+      track('video_modal_close', { source });
+    }
+    prevOpenRef.current = open;
+  }, [open, video, source]);
 
   // ── Focus close button when modal opens ───────────────────────────────────
   useEffect(() => {

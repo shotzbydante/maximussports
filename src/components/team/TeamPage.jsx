@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import { fetchTeamPage } from '../../api/team';
+import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
 import MaximusInsight, { computeAtsFromScheduleAndHistory } from './MaximusInsight';
@@ -84,6 +85,24 @@ export default function TeamPage() {
 
   // Debug timing — only populated when ?debugTeam=1
   const [debugInfo, setDebugInfo] = useState(null);
+
+  // Team view event — fires once per slug change
+  useEffect(() => {
+    if (!slug) return;
+    track('team_view', {
+      team_slug:  slug,
+      team_name:  team?.name,
+      conference: team?.conference,
+      tier:       team?.oddsTier,
+    });
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debug panel view event — fires when full data lands and debug mode is active
+  useEffect(() => {
+    if (debugTeam && batch) {
+      track('team_debug_panel_view', { team_slug: slug });
+    }
+  }, [batch, slug]);
 
   // Batch load: core first (schedule, odds, rank) for fast ATS/Insight, then full (with news).
   // With cache: paint immediately, then SWR if stale. Without cache: fetch core → paint → fetch full → merge news.

@@ -8,6 +8,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { formatTeamInsight } from '../../utils/teamInsightFormatter';
 import { getCached, setCached } from '../../utils/ytClientCache';
+import { track } from '../../analytics/index';
 import FormattedSummary from '../shared/FormattedSummary';
 import styles from './TeamSummaryBox.module.css';
 
@@ -72,6 +73,7 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
 
   const handleRefreshSummary = () => {
     setRefreshTick((t) => t + 1);
+    track('team_summary_refresh', { team_slug: slug });
     if (!slug || llmRefreshing) return;
     setLlmRefreshing(true);
     fetch(`/api/chat/teamSummary?teamSlug=${encodeURIComponent(slug)}&force=1`)

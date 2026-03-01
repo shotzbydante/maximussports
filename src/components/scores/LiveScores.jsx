@@ -16,6 +16,7 @@ import TeamLogo from '../shared/TeamLogo';
 import StatusChip from '../shared/StatusChip';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
+import { track } from '../../analytics/index';
 import styles from './LiveScores.module.css';
 
 function formatStartTime(iso) {
@@ -253,7 +254,10 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
         <button
           type="button"
           className={styles.viewMore}
-          onClick={() => setExpanded(true)}
+          onClick={() => {
+            setExpanded(true);
+            track('scores_view_more_click', { hidden_count: hiddenCount });
+          }}
         >
           +{hiddenCount} more game{hiddenCount !== 1 ? 's' : ''}
         </button>

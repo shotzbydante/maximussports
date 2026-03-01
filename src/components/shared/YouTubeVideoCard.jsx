@@ -2,6 +2,7 @@
  * YouTubeVideoCard — thumbnail card for a single YouTube video.
  * Clicking fires onSelect(video); no iframe is rendered here.
  */
+import { track } from '../../analytics/index';
 import styles from './YouTubeVideoCard.module.css';
 
 function formatRelTime(iso) {
@@ -33,12 +34,22 @@ export default function YouTubeVideoCard({ video, onSelect, compact = false }) {
 
   function handleClick(e) {
     e.preventDefault();
+    track('video_play_click', {
+      video_id: video.videoId,
+      title:    (video.title ?? '').slice(0, 100),
+      channel:  video.channelTitle,
+    });
     onSelect?.(video);
   }
 
   function handleKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      track('video_play_click', {
+        video_id: video.videoId,
+        title:    (video.title ?? '').slice(0, 100),
+        channel:  video.channelTitle,
+      });
       onSelect?.(video);
     }
   }

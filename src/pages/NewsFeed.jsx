@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { fetchHome } from '../api/home';
 import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
@@ -6,6 +6,8 @@ import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import YouTubeVideoRail from '../components/shared/YouTubeVideoRail';
 import { getCached, setCached } from '../utils/ytClientCache';
+import { track } from '../analytics/index';
+import { observeImpression } from '../analytics/impressions';
 import styles from './NewsFeed.module.css';
 
 const INTEL_FEED_KEY = 'yt:news:intelFeed';
@@ -257,25 +259,66 @@ function LoadingSkeleton() {
   );
 }
 
-// ─── Blended stream item ──────────────────────────────────────────────────────
+// ─── Blended stream item — with impression + click tracking ──────────────────
 
-function BlendedStreamItem({ item, onSelectVideo }) {
+function BlendedStreamItem({ item, onSelectVideo, position }) {
+  const ref = useRef(null);
+
+  // Impression — fires once per session when item is 50% visible
+  useEffect(() => {
+    const key = item.videoId || item.id || String(position);
+    const cleanup = observeImpression(ref.current, key, () => {
+      track('intel_item_impression', {
+        type:     item._type,
+        id:       (item.videoId || item.id || '').slice(0, 200),
+        position,
+        feed:     'all',
+      });
+    });
+    return cleanup;
+  }, [item, position]);
+
   if (item._type === 'video') {
     return (
-      <div className={styles.streamVideoItem}>
-        <YouTubeVideoCard video={item} onSelect={onSelectVideo} compact />
+      <div ref={ref} className={styles.streamVideoItem}>
+        <YouTubeVideoCard
+          video={item}
+          onSelect={(v) => {
+            track('intel_item_open', {
+              type:    'video',
+              id:      v.videoId,
+              title:   (v.title ?? '').slice(0, 100),
+              position,
+              feed:    'all',
+            });
+            onSelectVideo(v);
+          }}
+          compact
+        />
       </div>
     );
   }
   // Article
   return (
     <a
+      ref={ref}
       href={item.link || '#'}
       target={item.link ? '_blank' : undefined}
       rel="noopener noreferrer"
       className={styles.streamCard}
       aria-label={item.title}
       role="listitem"
+      onClick={() => {
+        const url = (item.link ?? '').split('?')[0].slice(0, 200);
+        track('intel_item_open', {
+          type:    'article',
+          id:      url,
+          title:   (item.title ?? '').slice(0, 100),
+          source:  item.source,
+          position,
+          feed:    'all',
+        });
+      }}
     >
       <div className={styles.streamThumb} aria-hidden>
         <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
@@ -307,6 +350,46 @@ export default function NewsFeed() {
   // Hero video (article-related) — desktop only
   const [heroVideo, setHeroVideo] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
+
+  // Track news_view once on mount
+  useEffect(() => {
+    track('news_view', { view: 'all', conference: null });
+  }, []);
+
+  // Tracked conf filter change handler
+  const handleConfChange = useCallback((conf) => {
+    setActiveConf(conf);
+    if (conf !== activeConf) {
+      track('news_filter_change', { filter: 'conference', value: conf });
+      if (conf !== 'All') {
+        track('news_view', { view: 'conference', conference: conf });
+      }
+    }
+  }, [activeConf]);
+
+  // Tracked video open
+  const handleVideoSelect = useCallback((video, source = 'news') => {
+    track('video_modal_open', {
+      video_id: video?.videoId,
+      title:    (video?.title ?? '').slice(0, 100),
+      source,
+      feed:     activeConf === 'All' ? 'intel' : 'conference',
+    });
+    setActiveVideo(video);
+  }, [activeConf]);
+
+  // Tracked article open
+  const handleArticleOpen = useCallback((item, position, feed = 'all') => {
+    const url = (item?.link ?? '').split('?')[0].slice(0, 200); // strip query params
+    track('intel_item_open', {
+      type:     'article',
+      id:       url,
+      title:    (item?.title ?? '').slice(0, 100),
+      source:   item?.source,
+      position,
+      feed,
+    });
+  }, []);
 
   // Intel Feed videos — blended NCAAM content, cache-first
   const [intelVideos, setIntelVideos] = useState(() => getCached(INTEL_FEED_KEY) ?? []);
@@ -409,7 +492,7 @@ export default function NewsFeed() {
             key={conf}
             type="button"
             className={`${styles.filterChip} ${activeConf === conf ? styles.filterChipActive : ''}`}
-            onClick={() => setActiveConf(conf)}
+            onClick={() => handleConfChange(conf)}
             aria-pressed={activeConf === conf}
           >
             {conf !== 'All' && (
@@ -430,7 +513,13 @@ export default function NewsFeed() {
         <p className={styles.empty}>No basketball news available. Check back soon.</p>
       )}
 
-      <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
+      <YouTubeVideoModal
+        video={activeVideo}
+        onClose={() => {
+          if (activeVideo) track('video_modal_close', { video_id: activeVideo.videoId });
+          setActiveVideo(null);
+        }}
+      />
 
       {!loading && !error && enriched.length > 0 && (
         <div className={styles.content}>
@@ -445,7 +534,7 @@ export default function NewsFeed() {
 
               {intelVideos.length > 0 && (
                 <section className={styles.mobileVideoHeroSection} aria-label="Video highlight">
-                  <YouTubeVideoCard video={intelVideos[0]} onSelect={setActiveVideo} />
+                  <YouTubeVideoCard video={intelVideos[0]} onSelect={(v) => handleVideoSelect(v, 'intelFeed')} />
                 </section>
               )}
 
@@ -453,7 +542,7 @@ export default function NewsFeed() {
                 <section className={styles.mobileVideoRailSection} aria-label="More video highlights">
                   <YouTubeVideoRail
                     items={intelVideos.slice(1, 6)}
-                    onSelect={setActiveVideo}
+                    onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
                   />
                 </section>
               )}
@@ -502,7 +591,10 @@ export default function NewsFeed() {
                       <div className={styles.heroBlendLabel}>
                         <span className={styles.heroBadgeLead}>Featured Video</span>
                       </div>
-                      <YouTubeVideoCard video={heroVideoForBlend} onSelect={setActiveVideo} />
+                      <YouTubeVideoCard
+                        video={heroVideoForBlend}
+                        onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
+                      />
                     </div>
                   )}
                   {heroArticleForBlend && (
@@ -558,7 +650,11 @@ export default function NewsFeed() {
                   <div className={styles.streamList} role="list">
                     {blendedStream.map((item, idx) => (
                       <Fragment key={item.videoId || item.id || idx}>
-                        <BlendedStreamItem item={item} onSelectVideo={setActiveVideo} />
+                        <BlendedStreamItem
+                          item={item}
+                          onSelectVideo={(v) => handleVideoSelect(v, 'intelFeed')}
+                          position={idx + 2}
+                        />
                         {(idx + 1) % 8 === 0 && (
                           <div
                             className={`${styles.adSlot} ${styles.adSlotInline}`}
@@ -719,6 +815,7 @@ export default function NewsFeed() {
                           className={styles.streamCard}
                           aria-label={item.title}
                           role="listitem"
+                          onClick={() => handleArticleOpen(item, idx + 5, activeConf)}
                         >
                           <div className={styles.streamThumb} aria-hidden>
                             <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />

@@ -18,6 +18,7 @@ import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import { fetchTeamPage } from '../../api/team';
 import { getCached, setCached } from '../../utils/ytClientCache';
+import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './PinnedTeamsSection.module.css';
@@ -256,7 +257,13 @@ function DukePreviewCard({ onDismiss, gamesForToday }) {
           )}
         </div>
 
-        <Link to={`/teams/${DUKE_SLUG}`} className={styles.teamLink}>View team →</Link>
+        <Link
+          to={`/teams/${DUKE_SLUG}`}
+          className={styles.teamLink}
+          onClick={() => track('preview_team_click', { team_slug: DUKE_SLUG })}
+        >
+          View team →
+        </Link>
       </div>
     </article>
   );
@@ -329,12 +336,18 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   }, [onPinnedChange]);
 
   const handleToggle = useCallback((slug) => {
+    const wasAdded = !pinned.includes(slug);
     setPinned(togglePinnedTeam(slug));
+    track(wasAdded ? 'pinned_team_add' : 'pinned_team_remove', {
+      team_slug: slug,
+      method: 'picker',
+    });
     notify();
-  }, [notify]);
+  }, [notify, pinned]);
 
   const handleAdd = useCallback((slug) => {
     setPinned(addPinnedTeam(slug));
+    track('pinned_team_add', { team_slug: slug });
     setSearch('');
     setShowAdd(false);
     notify();
@@ -342,6 +355,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
 
   const handleRemove = useCallback((slug) => {
     setPinned(removePinnedTeam(slug));
+    track('pinned_team_remove', { team_slug: slug });
     notify();
   }, [notify]);
 
@@ -362,6 +376,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
    */
   const handleDirectPin = useCallback((slug) => {
     setPinned(addPinnedTeam(slug));
+    track('pinned_team_add', { team_slug: slug, method: 'quick_chip' });
     notify();
   }, [notify]);
 
