@@ -19,7 +19,7 @@
  */
 
 import { TEAMS } from '../../data/teams.js';
-import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted } from './_yt.js';
+import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted, isBasketballItem } from './_yt.js';
 import { getConferenceNetwork } from './_conferenceNetworks.js';
 
 const DEFAULT_MAX = 6;
@@ -54,40 +54,95 @@ function promoteAllowlisted(items) {
 }
 
 /**
- * Diversity pass: prevent ESPN from occupying more than half the top results
- * when other quality content is available.
- * Swaps the lowest-ranked ESPN item in the top slice for the best non-ESPN
- * item from the remainder. Deterministic; no randomness.
+ * Filter an array of items to basketball-only content, returning the filtered list
+ * plus counts for debug output.
  *
- * @param {Array} sorted  Full sorted list (scored, descending)
- * @param {number} maxN   Number of items to return
- * @returns {Array}       Top-N items with diversity applied
+ * @param {Array} items
+ * @returns {{ items: Array, footballCount: number, noBballCount: number }}
  */
-function diversityPass(sorted, maxN) {
-  const top = sorted.slice(0, maxN);
+function filterBasketball(items) {
+  let footballCount = 0;
+  let noBballCount  = 0;
+  const filtered = items.filter((item) => {
+    if (isBasketballItem(item)) return true;
+    // Classify the rejection reason for debug counters
+    const title = item.title ?? '';
+    const FOOTBALL_RE = /\bfootball\b|\bncaaf\b|\bcfb\b|\bnfl\b|\btouchdown\b|\bquarterback\b/i;
+    if (FOOTBALL_RE.test(title)) {
+      footballCount++;
+    } else {
+      noBballCount++;
+    }
+    return false;
+  });
+  return { items: filtered, footballCount, noBballCount };
+}
+
+/**
+ * Diversity pass: prevent ESPN from dominating the top results when quality
+ * non-ESPN content is available.
+ *
+ * Quality guard: only swap if the best non-ESPN candidate has:
+ *   score >= MIN_CANDIDATE_SCORE (55)  AND
+ *   score >= lowestEspnScore - MAX_SCORE_DELTA (15)
+ *
+ * @param {Array}  sorted     Full scored+sorted list (descending)
+ * @param {number} maxN       How many items to return
+ * @param {Object} [dbg={}]   Mutable object for debug output
+ * @returns {Array}
+ */
+const DIVERSITY_MIN_SCORE   = 55;
+const DIVERSITY_MAX_DELTA   = 15;
+
+function diversityPass(sorted, maxN, dbg = {}) {
+  const top  = sorted.slice(0, maxN);
   const rest = sorted.slice(maxN);
-  if (rest.length === 0) return top;
+
+  dbg.swapOccurred = false;
+  dbg.swapReason   = 'no_action';
+
+  if (rest.length === 0) {
+    dbg.swapReason = 'rest_empty';
+    return top;
+  }
 
   const espnInTop = top.filter(
     (i) => (i.channelTitle ?? '').toLowerCase().includes('espn'),
   ).length;
 
   // Only intervene when ESPN fills strictly more than half of the top slots
-  if (espnInTop <= Math.ceil(maxN / 2)) return top;
+  if (espnInTop <= Math.ceil(maxN / 2)) {
+    dbg.swapReason = `espn_share_ok(${espnInTop}/${maxN})`;
+    return top;
+  }
+
+  const lowestEspnIdx = [...top.keys()].reverse().find(
+    (idx) => (top[idx].channelTitle ?? '').toLowerCase().includes('espn'),
+  );
+  const lowestEspnScore = top[lowestEspnIdx]?._score ?? 0;
 
   const bestNonEspn = rest.find(
     (i) => !(i.channelTitle ?? '').toLowerCase().includes('espn'),
   );
-  if (!bestNonEspn) return top;
 
-  // Swap the lowest-ranked ESPN item in the top slice
-  const lastEspnIdx = [...top.keys()].reverse().find(
-    (idx) => (top[idx].channelTitle ?? '').toLowerCase().includes('espn'),
-  );
-  if (lastEspnIdx == null) return top;
+  if (!bestNonEspn) {
+    dbg.swapReason = 'no_non_espn_candidate';
+    return top;
+  }
+
+  // Quality guard: do not swap in low-quality content just to reduce ESPN share
+  if (
+    bestNonEspn._score < DIVERSITY_MIN_SCORE
+    || bestNonEspn._score < lowestEspnScore - DIVERSITY_MAX_DELTA
+  ) {
+    dbg.swapReason = `quality_guard_blocked(nonEspn=${bestNonEspn._score},lowestEspn=${lowestEspnScore})`;
+    return top;
+  }
 
   const result = top.slice();
-  result[lastEspnIdx] = bestNonEspn;
+  result[lowestEspnIdx] = bestNonEspn;
+  dbg.swapOccurred = true;
+  dbg.swapReason = `swapped[${lowestEspnIdx}]:espn(${lowestEspnScore})→${bestNonEspn.channelTitle}(${bestNonEspn._score})`;
   return result;
 }
 
@@ -130,31 +185,34 @@ export default async function handler(req, res) {
     : Math.min(MAX_MAX, Math.max(MIN_MAX, parsedMax));
 
   // ── Build query plan ──────────────────────────────────────────────────────
-  // q1: primary highlights query (always)
+  // q1: primary highlights (always)
   const q1 = `${team.name} basketball highlights`;
 
-  // q2: conference network OR opponent match OR postgame fallback
-  // Conference network query surfaces SEC/ACC/BTN content before ESPN dominates
+  // q2: conference network if available → surfaces BTN/SEC/ACC before ESPN dominates
   const confNetwork = getConferenceNetwork(team.conference);
   let q2;
   if (opponent && mode === 'today') {
-    q2 = `${team.name} vs ${opponent.name} highlights`;
+    q2 = `${team.name} vs ${opponent.name} basketball highlights`;
   } else if (confNetwork) {
-    q2 = `${team.name} ${confNetwork} highlights`;
+    q2 = `${team.name} ${confNetwork} basketball`;
   } else {
-    q2 = `${team.name} postgame interview OR press conference OR highlights`;
+    q2 = `${team.name} basketball postgame press conference`;
   }
+
+  // q3: press conference / locker room content (small fetch to keep quota low)
+  const q3 = `${team.name} basketball press conference postgame`;
 
   if (debug) {
-    console.log(`[api/youtube/team] teamSlug=${teamSlug} conf=${team.conference ?? 'n/a'} q1="${q1}" q2="${q2}"`);
+    console.log(`[api/youtube/team] teamSlug=${teamSlug} conf=${team.conference ?? 'n/a'} q1="${q1}" q2="${q2}" q3="${q3}"`);
   }
 
-  // ── Fetch both queries in parallel ────────────────────────────────────────
+  // ── Fetch all queries in parallel ─────────────────────────────────────────
   let raw1 = [];
   let raw2 = [];
+  let raw3 = [];
 
   try {
-    [raw1, raw2] = await Promise.all([
+    [raw1, raw2, raw3] = await Promise.all([
       ytSearch({ q: q1, maxResults: MAX_MAX, debug }).catch((err) => {
         console.error('[api/youtube/team] q1 failed:', err.message);
         return [];
@@ -163,14 +221,29 @@ export default async function handler(req, res) {
         console.error('[api/youtube/team] q2 failed:', err.message);
         return [];
       }),
+      ytSearch({ q: q3, maxResults: 8, debug }).catch((err) => {
+        console.error('[api/youtube/team] q3 failed:', err.message);
+        return [];
+      }),
     ]);
   } catch (err) {
     console.error('[api/youtube/team] unexpected error:', err.message);
     return res.status(500).json({ status: 'error', message: 'Failed to fetch videos' });
   }
 
+  // ── Basketball-only filter ────────────────────────────────────────────────
+  const f1 = filterBasketball(raw1);
+  const f2 = filterBasketball(raw2);
+  const f3 = filterBasketball(raw3);
+  const totalFootballFiltered = f1.footballCount + f2.footballCount + f3.footballCount;
+  const totalNoBballFiltered  = f1.noBballCount  + f2.noBballCount  + f3.noBballCount;
+
+  if (debug) {
+    console.log(`[api/youtube/team] filtered: football=${totalFootballFiltered} noBball=${totalNoBballFiltered}`);
+  }
+
   // ── Merge, deduplicate, score, sort ───────────────────────────────────────
-  const merged = dedupeById([...raw1, ...raw2]);
+  const merged = dedupeById([...f1.items, ...f2.items, ...f3.items]);
   const withScores = merged.map((item) => ({
     ...item,
     _score: scoreItem(item, team.name),
@@ -186,9 +259,10 @@ export default async function handler(req, res) {
     );
   }
 
-  // ── Diversity pass → cap → ensure allowlisted item leads ─────────────────
-  const diverse = diversityPass(withScores, maxResults);
-  const promoted = promoteAllowlisted(diverse);
+  // ── Diversity pass → ensure allowlisted item leads ────────────────────────
+  const diversityDbg = {};
+  const diverse   = diversityPass(withScores, maxResults, diversityDbg);
+  const promoted  = promoteAllowlisted(diverse);
   const scored = promoted.map(({ _score: _s, ...item }) => item);
 
   // ── Enrich with durations (single videos.list call) ───────────────────────
@@ -206,11 +280,18 @@ export default async function handler(req, res) {
 
   const debugOutput = debug ? {
     queryPlan: [
-      { q: q1, weight: 100 },
-      { q: q2, weight: 90 },
+      { q: q1, maxResults: MAX_MAX },
+      { q: q2, maxResults: MAX_MAX },
+      { q: q3, maxResults: 8 },
     ],
-    counts: { q1: raw1.length, q2: raw2.length, merged: merged.length },
+    counts: {
+      q1: raw1.length, q2: raw2.length, q3: raw3.length,
+      merged: merged.length,
+      filteredOutFootball:    totalFootballFiltered,
+      filteredOutNoBballSignal: totalNoBballFiltered,
+    },
     allowlistHits,
+    diversity: diversityDbg,
     topScores: withScores.slice(0, 5).map((i) => ({
       title:        i.title.slice(0, 60),
       channelTitle: i.channelTitle,

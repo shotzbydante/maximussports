@@ -6,7 +6,6 @@
  */
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { generateChatSummary } from '../../utils/chatSummary';
 import { formatTeamInsight } from '../../utils/teamInsightFormatter';
 import { getCached, setCached } from '../../utils/ytClientCache';
 import FormattedSummary from '../shared/FormattedSummary';
@@ -31,11 +30,7 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
 
   const localSummary = useMemo(() => {
     if (!team || !dataReady) return '';
-    try {
-      return formatTeamInsight(summaryData);
-    } catch {
-      return generateChatSummary('team', summaryData);
-    }
+    return formatTeamInsight(summaryData);
   }, [team, dataReady, summaryData, refreshTick]);
 
   // Fetch LLM summary in background once data is ready; cache 5 min to avoid refetch on navigation.

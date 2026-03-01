@@ -66,6 +66,7 @@ export async function ytSearch({ q, maxResults = 6, debug = false }) {
     .filter((item) => item.id?.videoId)
     .map((item) => ({
       videoId:      item.id.videoId,
+      channelId:    item.snippet?.channelId ?? null,
       title:        item.snippet?.title ?? '',
       channelTitle: item.snippet?.channelTitle ?? '',
       publishedAt:  item.snippet?.publishedAt ?? null,
@@ -152,6 +153,67 @@ const CONF_NET_TERMS = [
 function isConfNetworkChannel(item) {
   const ch = (item.channelTitle ?? '').toLowerCase();
   return CONF_NET_TERMS.some((t) => ch.includes(t));
+}
+
+// ─── Basketball-only content filter ──────────────────────────────────────────
+
+/**
+ * Hard-reject patterns for non-basketball sport keywords in the video title.
+ * Checked against title only (not channel name).
+ */
+const FOOTBALL_REJECT = [
+  /\bfootball\b/i,
+  /\bncaaf\b/i,
+  /\bcfb\b/i,
+  /\bnfl\b/i,
+  /\bbowl\s*game\b/i,
+  /\btouchdown\b/i,
+  /\bquarterback\b/i,
+  /\b(?:big[\s-]?ten|sec|acc|big[\s-]?12|pac-?12)\s+football\b/i,
+];
+
+/**
+ * Positive basketball-content signals checked in title + channel name combined.
+ * Items from allowlisted/conference-network channels skip this check (step already trusted).
+ */
+const BBALL_SIGNALS = [
+  /\bbasketball\b/i,
+  /\bhoops\b/i,
+  /\bncaam\b/i,
+  /\bncaab\b/i,
+  /\bmbb\b/i,
+  /\bb1gmbb\b/i,
+  /\bsec\s*mbb\b/i,
+  /\bacc\s*mbb\b/i,
+  /\bmen'?s?\s+(?:college\s+)?basketball\b/i,
+  /\bcollege\s+basketball\b/i,
+  /\bnba\s+(?:highlights|recap|game)\b/i,
+];
+
+/**
+ * Determine whether a YouTube item is men's basketball content.
+ * Returns false for anything that looks like football; returns true for items
+ * from trusted channels (allowlisted, conference-network) once football is ruled out;
+ * otherwise requires a positive basketball signal in the title/channel name.
+ *
+ * @param {{ title: string, channelTitle: string, channelId?: string }} item
+ * @returns {boolean}
+ */
+export function isBasketballItem(item) {
+  const title = item.title ?? '';
+
+  // Step 1 — hard reject: football keyword in title, regardless of channel
+  if (FOOTBALL_REJECT.some((re) => re.test(title))) return false;
+
+  // Step 2 — conference network channels are basketball-safe (filtered football above)
+  if (isConfNetworkChannel(item)) return true;
+
+  // Step 3 — globally allowlisted channels are basketball-safe if no football title
+  if (isItemAllowlisted(item)) return true;
+
+  // Step 4 — unknown channels must have at least one basketball signal
+  const combined = `${title} ${item.channelTitle ?? ''}`;
+  return BBALL_SIGNALS.some((re) => re.test(combined));
 }
 
 // ─── Scoring constants ────────────────────────────────────────────────────────

@@ -13,14 +13,15 @@ import { fetchTeamNextLine } from '../../api/teamNextLine';
 import { ModuleShell } from '../shared/ModuleShell';
 import YouTubeVideoRail from '../shared/YouTubeVideoRail';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
-import { getCachedVideos, setCachedVideos, getCached, setCached } from '../../utils/ytClientCache';
+import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge } from '../../utils/ytClientCache';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugYT');
 
-const NEXT_LINE_SLOW_MS = 18000;
-const TEAM_PAGE_TTL_MS  = 5 * 60 * 1000; // 5-minute client cache for batch data
+const NEXT_LINE_SLOW_MS  = 18000;
+const TEAM_PAGE_TTL_MS   = 5 * 60 * 1000; // 5-minute client cache for batch data
+const TEAM_PAGE_STALE_MS = 60 * 1000;     // silent background revalidation after 60 s
 
 function formatDate(str) {
   if (!str) return '';
@@ -76,39 +77,62 @@ export default function TeamPage() {
   const [activeVideo, setActiveVideo] = useState(null);
 
   // Batch load: schedule + odds history + team news + rank.
-  // Cache-first: if a fresh entry exists (< 5 min old), paint instantly without a spinner.
+  // Strategy: render cache instantly, then do a silent background refresh if the
+  // entry is older than TEAM_PAGE_STALE_MS (60 s) — even if still within the 5 min TTL.
   useEffect(() => {
     if (!team || !slug) {
       setLoading(false);
       return;
     }
 
+    let cancelled = false;
+
+    function applyData(data) {
+      const news = (data.teamNews || []).map((item, i) => ({
+        id: item.link || item.id || `news-${i}`,
+        title: item.title,
+        link: item.link,
+        pubDate: item.pubDate,
+        source: item.source || 'News',
+      }));
+      const cacheKey = `teamPage:${slug}`;
+      setCached(cacheKey, { batch: data, headlines: news }, TEAM_PAGE_TTL_MS);
+      if (!cancelled) {
+        setBatch(data);
+        setHeadlines(news);
+      }
+    }
+
     const cacheKey = `teamPage:${slug}`;
-    const cached = getCached(cacheKey);
+    const cached   = getCached(cacheKey);
+    const age      = getCacheAge(cacheKey);
+
     if (cached) {
+      // Paint immediately from cache — no spinner
       setBatch(cached.batch);
       setHeadlines(cached.headlines);
       setLoading(false);
-      return;
+
+      // Silent background revalidation when data is stale
+      if (age > TEAM_PAGE_STALE_MS) {
+        fetchTeamPage(slug)
+          .then(applyData)
+          .catch(() => {}); // silent — we already have cached data shown
+      }
+      return () => { cancelled = true; };
     }
 
+    // No cache — full load with spinner
     setLoading(true);
     setError(null);
     fetchTeamPage(slug)
       .then((data) => {
-        const news = (data.teamNews || []).map((item, i) => ({
-          id: item.link || item.id || `news-${i}`,
-          title: item.title,
-          link: item.link,
-          pubDate: item.pubDate,
-          source: item.source || 'News',
-        }));
-        setCached(cacheKey, { batch: data, headlines: news }, TEAM_PAGE_TTL_MS);
-        setBatch(data);
-        setHeadlines(news);
+        applyData(data);
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [slug, team]);
 
   useEffect(() => {

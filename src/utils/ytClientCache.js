@@ -29,6 +29,22 @@ export function getCached(key) {
 }
 
 /**
+ * Return the age in milliseconds of a cache entry.
+ * Returns Infinity if the key is missing or expired.
+ * @param {string} key
+ * @returns {number}
+ */
+export function getCacheAge(key) {
+  const entry = cache.get(key);
+  if (!entry) return Infinity;
+  if (Date.now() - entry.ts > entry.ttl) {
+    cache.delete(key);
+    return Infinity;
+  }
+  return Date.now() - entry.ts;
+}
+
+/**
  * Store value under key with an optional TTL (defaults to 5 min).
  * @param {string} key
  * @param {any} data
