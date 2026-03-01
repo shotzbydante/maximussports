@@ -188,6 +188,13 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                 </span>
               </div>
 
+              {/* FINAL micro-label between the two scores for at-a-glance status */}
+              {finished && hasScore && (
+                <div className={styles.finalDivider} aria-hidden>
+                  <span className={styles.finalLabel}>FINAL</span>
+                </div>
+              )}
+
               {/* Home team row */}
               <div className={`${styles.teamRow} ${homeWon ? styles.teamRowWinner : ''} ${finished && !homeWon ? styles.teamRowLoser : ''}`}>
                 <span className={styles.teamLogoWrap}>

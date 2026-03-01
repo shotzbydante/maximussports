@@ -7,8 +7,12 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { generateChatSummary } from '../../utils/chatSummary';
+import { formatTeamInsight } from '../../utils/teamInsightFormatter';
+import { getCached, setCached } from '../../utils/ytClientCache';
 import FormattedSummary from '../shared/FormattedSummary';
 import styles from './TeamSummaryBox.module.css';
+
+const LLM_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank = null, nextLine = null, dataReady = true }) {
   const [refreshTick, setRefreshTick] = useState(0);
@@ -27,20 +31,36 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
 
   const localSummary = useMemo(() => {
     if (!team || !dataReady) return '';
-    return generateChatSummary('team', summaryData);
+    try {
+      return formatTeamInsight(summaryData);
+    } catch {
+      return generateChatSummary('team', summaryData);
+    }
   }, [team, dataReady, summaryData, refreshTick]);
 
-  // Fetch LLM summary in background once slug is available; replace local when ready.
+  // Fetch LLM summary in background once data is ready; cache 5 min to avoid refetch on navigation.
   useEffect(() => {
     if (!slug || !dataReady) return;
     if (fetchedSlugRef.current === slug) return;
     fetchedSlugRef.current = slug;
+
+    // Serve from client cache if fresh
+    const cacheKey = `teamInsight:${slug}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      setLlmSummary(cached);
+      return;
+    }
+
     let cancelled = false;
     fetch(`/api/chat/teamSummary?teamSlug=${encodeURIComponent(slug)}`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        if (d?.summary) setLlmSummary(d.summary);
+        if (d?.summary) {
+          setCached(cacheKey, d.summary, LLM_CACHE_TTL_MS);
+          setLlmSummary(d.summary);
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -54,7 +74,10 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
       .then((r) => r.json())
       .then((d) => {
         setLlmRefreshing(false);
-        if (d?.summary) setLlmSummary(d.summary);
+        if (d?.summary) {
+          setCached(`teamInsight:${slug}`, d.summary, LLM_CACHE_TTL_MS);
+          setLlmSummary(d.summary);
+        }
       })
       .catch(() => { setLlmRefreshing(false); });
   };

@@ -13,13 +13,14 @@ import { fetchTeamNextLine } from '../../api/teamNextLine';
 import { ModuleShell } from '../shared/ModuleShell';
 import YouTubeVideoRail from '../shared/YouTubeVideoRail';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
-import { getCachedVideos, setCachedVideos } from '../../utils/ytClientCache';
+import { getCachedVideos, setCachedVideos, getCached, setCached } from '../../utils/ytClientCache';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugYT');
 
 const NEXT_LINE_SLOW_MS = 18000;
+const TEAM_PAGE_TTL_MS  = 5 * 60 * 1000; // 5-minute client cache for batch data
 
 function formatDate(str) {
   if (!str) return '';
@@ -74,17 +75,27 @@ export default function TeamPage() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState(null);
 
-  // Batch load: schedule + odds history + team news + rank (ATS/schedule first; defer news)
+  // Batch load: schedule + odds history + team news + rank.
+  // Cache-first: if a fresh entry exists (< 5 min old), paint instantly without a spinner.
   useEffect(() => {
     if (!team || !slug) {
       setLoading(false);
       return;
     }
+
+    const cacheKey = `teamPage:${slug}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      setBatch(cached.batch);
+      setHeadlines(cached.headlines);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     fetchTeamPage(slug)
       .then((data) => {
-        setBatch(data);
         const news = (data.teamNews || []).map((item, i) => ({
           id: item.link || item.id || `news-${i}`,
           title: item.title,
@@ -92,6 +103,8 @@ export default function TeamPage() {
           pubDate: item.pubDate,
           source: item.source || 'News',
         }));
+        setCached(cacheKey, { batch: data, headlines: news }, TEAM_PAGE_TTL_MS);
+        setBatch(data);
         setHeadlines(news);
       })
       .catch((err) => setError(err.message))

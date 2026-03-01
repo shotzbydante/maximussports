@@ -20,6 +20,7 @@
 
 import { TEAMS } from '../../data/teams.js';
 import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted } from './_yt.js';
+import { getConferenceNetwork } from './_conferenceNetworks.js';
 
 const DEFAULT_MAX = 6;
 const MIN_MAX     = 1;
@@ -49,6 +50,44 @@ function promoteAllowlisted(items) {
   const result = items.slice();
   const [promoted] = result.splice(firstIdx, 1);
   result.unshift(promoted);
+  return result;
+}
+
+/**
+ * Diversity pass: prevent ESPN from occupying more than half the top results
+ * when other quality content is available.
+ * Swaps the lowest-ranked ESPN item in the top slice for the best non-ESPN
+ * item from the remainder. Deterministic; no randomness.
+ *
+ * @param {Array} sorted  Full sorted list (scored, descending)
+ * @param {number} maxN   Number of items to return
+ * @returns {Array}       Top-N items with diversity applied
+ */
+function diversityPass(sorted, maxN) {
+  const top = sorted.slice(0, maxN);
+  const rest = sorted.slice(maxN);
+  if (rest.length === 0) return top;
+
+  const espnInTop = top.filter(
+    (i) => (i.channelTitle ?? '').toLowerCase().includes('espn'),
+  ).length;
+
+  // Only intervene when ESPN fills strictly more than half of the top slots
+  if (espnInTop <= Math.ceil(maxN / 2)) return top;
+
+  const bestNonEspn = rest.find(
+    (i) => !(i.channelTitle ?? '').toLowerCase().includes('espn'),
+  );
+  if (!bestNonEspn) return top;
+
+  // Swap the lowest-ranked ESPN item in the top slice
+  const lastEspnIdx = [...top.keys()].reverse().find(
+    (idx) => (top[idx].channelTitle ?? '').toLowerCase().includes('espn'),
+  );
+  if (lastEspnIdx == null) return top;
+
+  const result = top.slice();
+  result[lastEspnIdx] = bestNonEspn;
   return result;
 }
 
@@ -90,14 +129,24 @@ export default async function handler(req, res) {
     ? DEFAULT_MAX
     : Math.min(MAX_MAX, Math.max(MIN_MAX, parsedMax));
 
-  // ── Build queries ─────────────────────────────────────────────────────────
+  // ── Build query plan ──────────────────────────────────────────────────────
+  // q1: primary highlights query (always)
   const q1 = `${team.name} basketball highlights`;
-  const q2 = (opponent && mode === 'today')
-    ? `${team.name} vs ${opponent.name} highlights`
-    : `${team.name} postgame interview OR press conference OR highlights`;
+
+  // q2: conference network OR opponent match OR postgame fallback
+  // Conference network query surfaces SEC/ACC/BTN content before ESPN dominates
+  const confNetwork = getConferenceNetwork(team.conference);
+  let q2;
+  if (opponent && mode === 'today') {
+    q2 = `${team.name} vs ${opponent.name} highlights`;
+  } else if (confNetwork) {
+    q2 = `${team.name} ${confNetwork} highlights`;
+  } else {
+    q2 = `${team.name} postgame interview OR press conference OR highlights`;
+  }
 
   if (debug) {
-    console.log(`[api/youtube/team] teamSlug=${teamSlug} q1="${q1}" q2="${q2}"`);
+    console.log(`[api/youtube/team] teamSlug=${teamSlug} conf=${team.conference ?? 'n/a'} q1="${q1}" q2="${q2}"`);
   }
 
   // ── Fetch both queries in parallel ────────────────────────────────────────
@@ -128,17 +177,18 @@ export default async function handler(req, res) {
   }));
   withScores.sort((a, b) => b._score - a._score);
 
+  const allowlistHits = debug ? withScores.filter((i) => isItemAllowlisted(i)).length : 0;
+
   if (debug) {
-    const allowlistHits = withScores.filter((i) => isItemAllowlisted(i)).length;
     console.log(
       `[api/youtube/team] merged=${merged.length} allowlistHits=${allowlistHits}`,
       `topScores=${withScores.slice(0, 3).map((i) => `${i._score}:"${i.title.slice(0, 40)}"`).join(', ')}`,
     );
   }
 
-  // ── Cap, ensure allowlisted item leads ────────────────────────────────────
-  const capped = withScores.slice(0, maxResults);
-  const promoted = promoteAllowlisted(capped);
+  // ── Diversity pass → cap → ensure allowlisted item leads ─────────────────
+  const diverse = diversityPass(withScores, maxResults);
+  const promoted = promoteAllowlisted(diverse);
   const scored = promoted.map(({ _score: _s, ...item }) => item);
 
   // ── Enrich with durations (single videos.list call) ───────────────────────
@@ -154,11 +204,27 @@ export default async function handler(req, res) {
     console.log(`[api/youtube/team] completed in ${Date.now() - t0}ms, returning ${items.length} items`);
   }
 
+  const debugOutput = debug ? {
+    queryPlan: [
+      { q: q1, weight: 100 },
+      { q: q2, weight: 90 },
+    ],
+    counts: { q1: raw1.length, q2: raw2.length, merged: merged.length },
+    allowlistHits,
+    topScores: withScores.slice(0, 5).map((i) => ({
+      title:        i.title.slice(0, 60),
+      channelTitle: i.channelTitle,
+      score:        i._score,
+    })),
+    elapsedMs: Date.now() - t0,
+  } : undefined;
+
   return res.status(200).json({
     status:    'ok',
     teamSlug,
     teamName:  team.name,
     updatedAt: new Date().toISOString(),
     items,
+    ...(debugOutput ? { _debug: debugOutput } : {}),
   });
 }

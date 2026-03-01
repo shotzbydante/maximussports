@@ -142,6 +142,20 @@ export function parseISO8601Duration(str) {
 
 // ─── scoreItem ───────────────────────────────────────────────────────────────
 
+// ─── Conference network helper ────────────────────────────────────────────────
+
+const CONF_NET_TERMS = [
+  'big ten network', 'btn', 'sec network', 'acc network',
+  'pac-12 networks', 'big 12 conference', 'big east conference',
+];
+
+function isConfNetworkChannel(item) {
+  const ch = (item.channelTitle ?? '').toLowerCase();
+  return CONF_NET_TERMS.some((t) => ch.includes(t));
+}
+
+// ─── Scoring constants ────────────────────────────────────────────────────────
+
 /**
  * Penalty patterns applied to non-allowlisted channels only.
  * Title patterns checked regardless of channel.
@@ -176,6 +190,10 @@ export function scoreItem(item, teamName) {
 
   // +50 for trusted publisher
   if (allowlisted) score += 50;
+
+  // +15 bonus for conference network channels (premium regional coverage)
+  // Applied on top of allowlist bonus since conference nets are also allowlisted
+  if (isConfNetworkChannel(item)) score += 15;
 
   // Title bonuses
   if (/highlights/i.test(item.title)) score += 15;

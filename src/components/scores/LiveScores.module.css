@@ -201,6 +201,25 @@ a.teamName:hover {
   color: var(--color-text);
 }
 
+/* FINAL micro-label between away and home score rows */
+.finalDivider {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--space-sm);
+  margin: 1px 0;
+}
+
+.finalLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  opacity: 0.65;
+  min-width: 32px;
+  text-align: right;
+}
+
 /* Footer: status badge + time + odds */
 .gameFooter {
   display: flex;
