@@ -517,9 +517,18 @@
   font-weight: 700;
 }
 
+.emptyCtaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
 .ctaBtn {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 8px 18px;
   font-size: 0.825rem;
   font-weight: 600;
@@ -530,7 +539,6 @@
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s;
-  margin-bottom: 8px;
 }
 
 .ctaBtn:hover {
@@ -538,6 +546,31 @@
 }
 
 .ctaBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.ctaBtnSecondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ctaBtnSecondary:hover {
+  background: var(--color-bg-muted);
+  border-color: var(--color-primary);
+}
+
+.ctaBtnSecondary:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
