@@ -83,22 +83,32 @@ function buildQuickPulse(teamName, schedule, rank) {
   }, `**Quick Pulse** — Data unavailable for ${teamName}.`);
 }
 
+/** Normalize ATS record from UI shape ({ w, l, p, total, coverPct }) to formatter shape (wins, losses, pushes, pct). */
+function normRec(rec) {
+  if (!rec) return null;
+  const w = rec.wins ?? rec.w ?? 0;
+  const l = rec.losses ?? rec.l ?? 0;
+  const p = rec.pushes ?? rec.p ?? 0;
+  const pct = rec.pct ?? (rec.coverPct != null ? rec.coverPct / 100 : null);
+  return { wins: w, losses: l, pushes: p, pct };
+}
+
 function buildAtsPulse(ats) {
   return safe(() => {
-    const season = ats?.season;
-    const last30 = ats?.last30;
-    const last7  = ats?.last7;
+    const season = normRec(ats?.season);
+    const last30 = normRec(ats?.last30);
+    const last7  = normRec(ats?.last7);
     const lines  = [];
 
-    if (last7?.wins != null || last7?.losses != null) {
+    if (last7 && (last7.wins != null || last7.losses != null)) {
       const pctStr = last7.pct != null ? ` (${fmtPct(last7.pct)})` : '';
       lines.push(`Last 7: **${fmtRecord(last7.wins, last7.losses, last7.pushes)}**${pctStr}`);
     }
-    if (last30?.wins != null || last30?.losses != null) {
+    if (last30 && (last30.wins != null || last30.losses != null)) {
       const pctStr = last30.pct != null ? ` (${fmtPct(last30.pct)})` : '';
       lines.push(`Last 30: **${fmtRecord(last30.wins, last30.losses, last30.pushes)}**${pctStr}`);
     }
-    if (season?.wins != null || season?.losses != null) {
+    if (season && (season.wins != null || season.losses != null)) {
       const pctStr = season.pct != null ? ` (${fmtPct(season.pct)})` : '';
       lines.push(`Season: **${fmtRecord(season.wins, season.losses, season.pushes)}**${pctStr}`);
     }
@@ -169,7 +179,7 @@ function buildNewsPulse(news) {
     });
 
     if (recent.length === 0) {
-      return "**News Pulse** — No recent headlines in the last 7 days. We'll keep monitoring.";
+      return "**News Pulse** — No men's basketball coverage found in last 7 days.";
     }
 
     const count   = recent.length;

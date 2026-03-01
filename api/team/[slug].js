@@ -32,16 +32,23 @@ export default async function handler(req, res) {
   const slug = getSlugFromReq(req);
   if (!slug) return res.status(400).json({ error: 'Missing slug' });
 
+  const urlObj = new URL(req.url || '/', 'http://localhost');
+  const coreOnly = urlObj.searchParams.get('core') === '1';
+
   const team = getTeamBySlug(slug);
   const tier = team?.oddsTier ?? null;
 
   try {
     const today = toDateStr(new Date());
-    const [teamIdsData, rankingsData, newsRes] = await Promise.all([
+    const fetches = [
       fetchTeamIdsSource(),
       fetchRankingsSource(),
-      fetchTeamNewsSource(slug),
-    ]);
+    ];
+    if (!coreOnly) fetches.push(fetchTeamNewsSource(slug));
+    const results = await Promise.all(fetches);
+    const teamIdsData = results[0];
+    const rankingsData = results[1];
+    const newsRes = coreOnly ? null : results[2];
 
     const slugToId = teamIdsData?.slugToId || {};
     const teamId = slugToId[slug] || null;
@@ -61,7 +68,7 @@ export default async function handler(req, res) {
     const rankings = rankingsData?.rankings || [];
     const rankMap = buildSlugToRankMap({ rankings }, TEAMS);
     const rank = rankMap[slug] ?? null;
-    const teamNews = newsRes?.headlines || [];
+    const teamNews = coreOnly ? [] : (newsRes?.headlines || []);
 
     res.status(200).json({
       team: team ? { name: team.name, conference: team.conference, oddsTier: team.oddsTier, slug: team.slug } : null,

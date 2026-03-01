@@ -52,20 +52,29 @@ const MBB_EXCLUDE = [
   "gymnastics",
 ];
 
-/** URL path segments that indicate women's basketball — reject when present in link/url */
-const WBB_URL_PATTERNS = ['/womens/', '/women/', '/wbb/', '/ncaaw/', '/lady-'];
+/** Hard-reject URL path segments (always WBB) */
+const WBB_URL_HARD = ['/womens-basketball/', '/wbb/', '/ncaaw/', '/lady-', '/womens/'];
+/** /women/ only reject when URL also has basketball context */
+const WOMEN_URL_SOFT = '/women/';
+const BBALL_CONTEXT = ['basketball', 'wbb', 'hoops', 'ncaaw'];
 
 function norm(s) {
   return (s || '').toLowerCase();
 }
 
 /**
- * Reject when URL path contains women's/WBB path segments.
+ * Reject when URL path indicates women's basketball.
+ * Hard: /womens-basketball/, /wbb/, /ncaaw/, /lady-/, /womens/.
+ * /women/: only reject when URL also contains basketball context.
  */
 function hasWomensUrl(url) {
   const u = norm(url || '');
   if (!u) return false;
-  return WBB_URL_PATTERNS.some((seg) => u.includes(norm(seg)));
+  if (WBB_URL_HARD.some((seg) => u.includes(norm(seg)))) return true;
+  if (u.includes(norm(WOMEN_URL_SOFT))) {
+    return BBALL_CONTEXT.some((ctx) => u.includes(norm(ctx)));
+  }
+  return false;
 }
 
 /**

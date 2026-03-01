@@ -173,14 +173,8 @@ const FOOTBALL_REJECT = [
   /\b(?:big[\s-]?ten|sec|acc|big[\s-]?12|pac-?12)\s+football\b/i,
 ];
 
-/**
- * Hard-reject patterns for women's basketball / WBB content.
- * Applied case-insensitively to title, channelTitle, and description/snippet.
- */
-const WOMEN_REJECT = [
-  /\bwomen\b/i,
-  /\bwomen's\b/i,
-  /\bwomens\b/i,
+/** Hard-reject: explicit WBB / Lady / NCAAW / WNBA — always reject. */
+const WOMEN_HARD = [
   /\blady\b/i,
   /\blady\s*huskers\b/i,
   /\blady\s*vols\b/i,
@@ -201,6 +195,9 @@ const WOMEN_REJECT = [
   /\bacc\s*women'?s?\b/i,
   /\bwnba\b/i,
 ];
+/** Soft: "women/women's/womens" alone — only reject when paired with basketball context */
+const WOMEN_SOFT = [/\bwomen\b/i, /\bwomen's\b/i, /\bwomens\b/i];
+const BBALL_CONTEXT_RE = /\b(?:basketball|hoops|wbb|ncaaw)\b/i;
 
 /**
  * Positive MEN'S basketball signals (title or channel).
@@ -262,8 +259,9 @@ export function classifyBasketballItem(item) {
   // Step 1 — hard reject: football in title OR channel
   if (FOOTBALL_REJECT.some((re) => re.test(title) || re.test(channel))) return 'football';
 
-  // Step 2 — hard reject: women's signals in title, channel, OR description/snippet
-  if (WOMEN_REJECT.some((re) => re.test(withSnippet))) return 'women';
+  // Step 2 — reject WBB: hard patterns always; women/women's/womens only when basketball context present
+  if (WOMEN_HARD.some((re) => re.test(withSnippet))) return 'women';
+  if (WOMEN_SOFT.some((re) => re.test(withSnippet)) && BBALL_CONTEXT_RE.test(withSnippet)) return 'women';
 
   // Step 3 — conference network: allow if no football/women's (already checked)
   if (isConfNetworkChannel(item)) return 'accept';

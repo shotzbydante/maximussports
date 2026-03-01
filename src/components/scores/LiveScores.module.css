@@ -74,8 +74,14 @@
   transition: background 0.1s;
 }
 
-/* ─── Desktop: tighter density (min-width 900px) — more games above fold ───── */
+/* ─── Desktop: tighter density + balanced width (min-width 900px) ──────────── */
 @media (min-width: 900px) {
+  .gameList {
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   .widgetHeader {
     padding: 10px var(--space-md) 8px;
   }

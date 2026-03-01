@@ -40,7 +40,7 @@ const PREVIEW_CARD = {
   nextGame: 'Next: vs Opponent · Date & time',
   summary: 'Led by an efficient offense and strong perimeter defense. Trending up in conference play with a favorable path. Key storyline: late-game execution improving.',
   headlines: [
-    'Latest headline: Team trending upward entering next matchup',
+    'Example headline: Team trending upward entering next matchup',
   ],
 };
 
@@ -114,7 +114,7 @@ function PreviewCard({ onDismiss }) {
     <article className={styles.previewCard} aria-label="Example pinned team card">
       {/* Top bar with label + dismiss */}
       <div className={styles.previewTopBar}>
-        <span className={styles.exampleLabel}>Example card</span>
+        <span className={styles.exampleLabel}>Preview</span>
         <button
           type="button"
           className={styles.dismissBtn}

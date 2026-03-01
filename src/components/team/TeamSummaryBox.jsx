@@ -23,7 +23,7 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     team: team || {},
     schedule: schedule ?? { upcoming: [], recent: [] },
     ats: ats ?? {},
-    news: Array.isArray(news) ? news.slice(0, 3) : [],
+    news: Array.isArray(news) ? news.slice(0, 10) : [],
     rank: rank ?? undefined,
     nextLine: nextLine ?? {},
   }), [team, schedule, ats, news, rank, nextLine]);
@@ -79,7 +79,12 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
 
   if (!slug || !team) return null;
 
-  const displayText = llmSummary || localSummary;
+  const hasCanonicalAtsData = ats && (
+    (ats.season?.total > 0 || ats.season?.w != null || ats.season?.wins != null) ||
+    (ats.last30?.total > 0 || ats.last30?.w != null) ||
+    (ats.last7?.total > 0 || ats.last7?.w != null)
+  );
+  const displayText = (hasCanonicalAtsData && localSummary) ? localSummary : (llmSummary || localSummary);
 
   return (
     <section className={styles.bubble} aria-labelledby="team-summary-title">

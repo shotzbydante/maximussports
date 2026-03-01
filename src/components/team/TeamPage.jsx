@@ -19,9 +19,15 @@ import styles from './TeamPage.module.css';
 const ytDebug = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugYT');
 
+const debugTeam = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).has('debugTeam');
+
 const NEXT_LINE_SLOW_MS  = 18000;
 const TEAM_PAGE_TTL_MS   = 5 * 60 * 1000; // 5-minute client cache for batch data
 const TEAM_PAGE_STALE_MS = 60 * 1000;     // silent background revalidation after 60 s
+
+// QA: ?debugTeam=1 logs cache path and core/full timings. Insight ATS/News must match ATS section and Last 7 days.
+// Core-first fetch: ATS + schedule render quickly; news merges when full response arrives.
 
 function formatDate(str) {
   if (!str) return '';
@@ -76,9 +82,8 @@ export default function TeamPage() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState(null);
 
-  // Batch load: schedule + odds history + team news + rank.
-  // Strategy: render cache instantly, then do a silent background refresh if the
-  // entry is older than TEAM_PAGE_STALE_MS (60 s) — even if still within the 5 min TTL.
+  // Batch load: core first (schedule, odds, rank) for fast ATS/Insight, then full (with news).
+  // With cache: paint immediately, then SWR if stale. Without cache: fetch core → paint → fetch full → merge news.
   useEffect(() => {
     if (!team || !slug) {
       setLoading(false);
@@ -86,6 +91,7 @@ export default function TeamPage() {
     }
 
     let cancelled = false;
+    const t0 = debugTeam ? Date.now() : 0;
 
     function applyData(data) {
       const news = (data.teamNews || []).map((item, i) => ({
@@ -103,34 +109,58 @@ export default function TeamPage() {
       }
     }
 
+    function applyCoreOnly(data) {
+      if (cancelled) return;
+      setBatch(data);
+      setHeadlines((data.teamNews || []).map((item, i) => ({
+        id: item.link || item.id || `news-${i}`,
+        title: item.title,
+        link: item.link,
+        pubDate: item.pubDate,
+        source: item.source || 'News',
+      })));
+    }
+
     const cacheKey = `teamPage:${slug}`;
     const cached   = getCached(cacheKey);
     const age      = getCacheAge(cacheKey);
 
     if (cached) {
-      // Paint immediately from cache — no spinner
+      if (debugTeam) console.log(`[TeamPage] ${slug} cache HIT, age=${Math.round(age / 1000)}s`);
       setBatch(cached.batch);
       setHeadlines(cached.headlines);
       setLoading(false);
 
-      // Silent background revalidation when data is stale
       if (age > TEAM_PAGE_STALE_MS) {
         fetchTeamPage(slug)
           .then(applyData)
-          .catch(() => {}); // silent — we already have cached data shown
+          .catch(() => {});
       }
       return () => { cancelled = true; };
     }
 
-    // No cache — full load with spinner
     setLoading(true);
     setError(null);
-    fetchTeamPage(slug)
-      .then((data) => {
-        applyData(data);
+
+    fetchTeamPage(slug, { coreOnly: true })
+      .then((coreData) => {
+        if (cancelled) return;
+        applyCoreOnly(coreData);
+        setLoading(false);
+        if (debugTeam) console.log(`[TeamPage] ${slug} core in ${Date.now() - t0}ms`);
+        return fetchTeamPage(slug);
       })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .then((fullData) => {
+        if (cancelled || !fullData) return;
+        applyData(fullData);
+        if (debugTeam) console.log(`[TeamPage] ${slug} full in ${Date.now() - t0}ms total`);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => { cancelled = true; };
   }, [slug, team]);
@@ -271,7 +301,7 @@ export default function TeamPage() {
           team={team}
           schedule={scheduleForSummary}
           ats={atsForSummary}
-          news={headlines}
+          news={last7}
           rank={rank}
           nextLine={nextLine}
           dataReady={!!batch}

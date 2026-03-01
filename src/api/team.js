@@ -111,21 +111,23 @@ export async function fetchTeamBatch(slugs, options = {}) {
   return { teams };
 }
 
-export async function fetchTeamPage(slug) {
+export async function fetchTeamPage(slug, opts = {}) {
+  const { coreOnly = false } = opts;
   if (!slug) return Promise.resolve({ schedule: { events: [] }, oddsHistory: { games: [] }, teamNews: [], rank: null, teamId: null });
-  const key = `team:${slug}`;
+  const key = coreOnly ? `team:core:${slug}` : `team:${slug}`;
   return coalesce(key, async () => {
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
-      console.time(`[client] fetchTeamPage ${slug}`);
+      console.time(`[client] fetchTeamPage ${slug}${coreOnly ? ' (core)' : ''}`);
     }
-    const res = await fetch(`/api/team/${encodeURIComponent(slug)}`);
+    const qs = coreOnly ? '?core=1' : '';
+    const res = await fetch(`/api/team/${encodeURIComponent(slug)}${qs}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     const data = await res.json();
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
-      console.timeEnd(`[client] fetchTeamPage ${slug}`);
+      console.timeEnd(`[client] fetchTeamPage ${slug}${coreOnly ? ' (core)' : ''}`);
     }
     return data;
   });
