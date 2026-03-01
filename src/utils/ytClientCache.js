@@ -1,13 +1,44 @@
 /**
- * Module-level in-memory cache for team video results.
+ * Module-level in-memory cache for YouTube video results.
  * Survives component unmount/remount during client-side navigation.
- * TTL: 5 minutes per team slug.
+ *
+ * All cache entries support per-entry TTL via setCached(key, data, ttlMs).
+ * Defaults to DEFAULT_TTL_MS (5 min).
  */
 
-const TTL_MS = 5 * 60 * 1000;
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
-/** @type {Map<string, { data: any[], ts: number }>} */
+/** @type {Map<string, { data: any, ts: number, ttl: number }>} */
 const cache = new Map();
+
+// ─── Generic API ─────────────────────────────────────────────────────────────
+
+/**
+ * Return cached value for key if still within TTL, otherwise null.
+ * @param {string} key
+ * @returns {any|null}
+ */
+export function getCached(key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > entry.ttl) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+/**
+ * Store value under key with an optional TTL (defaults to 5 min).
+ * @param {string} key
+ * @param {any} data
+ * @param {number} [ttlMs]
+ */
+export function setCached(key, data, ttlMs = DEFAULT_TTL_MS) {
+  cache.set(key, { data, ts: Date.now(), ttl: ttlMs });
+}
+
+// ─── Team-specific helpers (backward compatible) ─────────────────────────────
 
 /**
  * Return cached items for teamSlug if fresh, otherwise null.
@@ -15,20 +46,14 @@ const cache = new Map();
  * @returns {any[]|null}
  */
 export function getCachedVideos(teamSlug) {
-  const entry = cache.get(teamSlug);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > TTL_MS) {
-    cache.delete(teamSlug);
-    return null;
-  }
-  return entry.data;
+  return getCached(`team:${teamSlug}`);
 }
 
 /**
- * Store items for teamSlug with current timestamp.
+ * Store items for teamSlug (5-min TTL).
  * @param {string} teamSlug
  * @param {any[]} data
  */
 export function setCachedVideos(teamSlug, data) {
-  cache.set(teamSlug, { data, ts: Date.now() });
+  setCached(`team:${teamSlug}`, data, DEFAULT_TTL_MS);
 }

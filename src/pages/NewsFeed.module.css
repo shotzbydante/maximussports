@@ -148,7 +148,8 @@
 
 .heroImageWrap {
   position: relative;
-  height: 260px;
+  /* Use aspect-ratio on mobile; overridden to fixed heights on larger viewports */
+  aspect-ratio: 16 / 9;
   overflow: hidden;
 }
 
@@ -732,9 +733,7 @@
     font-size: 1.25rem;
   }
 
-  .heroImageWrap {
-    height: 220px;
-  }
+  /* heroImageWrap uses aspect-ratio: 16/9 from base styles — no height override needed */
 
   .heroHeadline {
     font-size: 1.1rem;
@@ -774,6 +773,7 @@
 
 @media (min-width: 768px) {
   .heroImageWrap {
+    aspect-ratio: unset;
     height: 360px;
   }
 
@@ -796,5 +796,81 @@
 
   .videoThumb {
     height: 130px;
+  }
+}
+
+/* ─── Mobile / Desktop Visibility Helpers ────────────────────────────────── */
+
+/**
+ * .desktopOnly — magazine layout sections; hidden on mobile.
+ * .mobileVideoHeroSection / .mobileVideoRailSection / .mobileArticleStream
+ *   — mobile-first video-lead layout; hidden on desktop.
+ */
+.mobileVideoHeroSection,
+.mobileVideoRailSection,
+.mobileArticleStream {
+  display: none;
+}
+
+.desktopOnly {
+  /* visible on desktop (default) */
+}
+
+@media (max-width: 767px) {
+  /* Show mobile sections */
+  .mobileVideoHeroSection {
+    display: block;
+    margin-bottom: 0;
+  }
+
+  .mobileVideoRailSection {
+    display: block;
+    margin-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .mobileArticleStream {
+    display: block;
+  }
+
+  /* Hide desktop magazine sections */
+  .desktopOnly {
+    display: none !important;
+  }
+
+  /* Compact content padding on mobile */
+  .content {
+    padding-top: var(--space-sm);
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Stream cards use full width with horizontal padding */
+  .mobileStreamCard {
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
+}
+
+/* ─── Filter bar: safe-area support + min tap target ─────────────────────── */
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  .filterBar {
+    /* Avoid filter bar hiding behind notch when sticky */
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+
+  @media (max-width: 767px) {
+    .filterBar {
+      padding-top: calc(6px + env(safe-area-inset-top, 0px));
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  /* Ensure filter chips have at least 40px tap target */
+  .filterChip {
+    min-height: 40px;
+    padding: 8px 14px;
   }
 }

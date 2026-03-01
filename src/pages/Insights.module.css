@@ -134,14 +134,15 @@
 .briefingBody {
   padding: var(--space-lg);
   overflow: hidden;
-  transition: max-height 0.25s ease;
-  max-height: 600px;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  /* Large enough to never clip content; CSS transition still works */
+  max-height: 2000px;
 }
 
 .briefingBodyCollapsed {
   max-height: 0 !important;
-  padding-top: 0;
-  padding-bottom: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .briefingContent {
@@ -1035,8 +1036,16 @@
   .moversGrid { grid-template-columns: repeat(2, 1fr); }
   .totalsStats { grid-template-columns: repeat(3, 1fr); }
   .totalsStatVal { font-size: 1rem; }
-  .briefingBody { max-height: 0; padding: 0; }
-  .briefingBodyCollapsed { max-height: 0 !important; }
+  /* Briefing is expanded by default on mobile; JS toggle still works */
+}
+
+/* Ensure collapse/expand buttons meet 40px tap-target on touch devices */
+@media (hover: none) {
+  .briefingRefresh,
+  .briefingCollapse {
+    min-height: 40px;
+    padding: 0 12px;
+  }
 }
 
 /* ─── Interaction polish ──────────────────────────────────────────────────── */

@@ -417,9 +417,8 @@ function SignalBadge({ label, variant = 'default' }) {
 
 /** Part 3 — Maximus Market Briefing */
 function MarketBriefing({ briefing, loading, onRefresh, refreshing }) {
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return window.innerWidth < 768; } catch { return false; }
-  });
+  // Always expanded by default — user can collapse via toggle.
+  const [collapsed, setCollapsed] = useState(false);
 
   const paras = briefing ? briefing.split(/\n\n+/).filter(Boolean) : [];
 

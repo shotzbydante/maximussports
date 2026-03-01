@@ -4,7 +4,12 @@ import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
 import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
+import YouTubeVideoRail from '../components/shared/YouTubeVideoRail';
+import { getCached, setCached } from '../utils/ytClientCache';
 import styles from './NewsFeed.module.css';
+
+const FEED_VIDEOS_KEY = 'yt:news:feedVideos';
+const FEED_VIDEOS_TTL = 10 * 60 * 1000;
 
 // ─── YouTube query helpers ────────────────────────────────────────────────────
 
@@ -268,9 +273,12 @@ export default function NewsFeed() {
   const [error,    setError]    = useState(null);
   const [activeConf, setActiveConf] = useState('All');
 
-  // Hero video
+  // Hero video (article-related)
   const [heroVideo, setHeroVideo] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
+
+  // Feed videos — stable CBB highlights for mobile video hero + rail
+  const [feedVideos, setFeedVideos] = useState(() => getCached(FEED_VIDEOS_KEY) ?? []);
 
   useEffect(() => {
     setLoading(true);
@@ -278,6 +286,23 @@ export default function NewsFeed() {
       .then((data) => setRawItems(data?.headlines || []))
       .catch((err)  => setError(err?.message || 'Failed to load news'))
       .finally(()   => setLoading(false));
+  }, []);
+
+  // Feed videos: fetch once on mount, cache for 10 min
+  useEffect(() => {
+    if (getCached(FEED_VIDEOS_KEY)) return; // already cached
+    const controller = new AbortController();
+    fetch('/api/youtube/search?q=college+basketball+highlights&maxResults=8', {
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const items = data.items ?? [];
+        setCached(FEED_VIDEOS_KEY, items, FEED_VIDEOS_TTL);
+        setFeedVideos(items);
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   const enriched = useMemo(() => rawItems.map(enrichItem), [rawItems]);
@@ -373,9 +398,62 @@ export default function NewsFeed() {
       {!loading && !error && enriched.length > 0 && (
         <div className={styles.content}>
 
+          {/* ══ MOBILE-ONLY: Video hero + rail + article stream ══════════════ */}
+
+          {/* Mobile video hero — first feedVideo as full-width card */}
+          {feedVideos.length > 0 && (
+            <section className={styles.mobileVideoHeroSection} aria-label="Video highlight">
+              <YouTubeVideoCard video={feedVideos[0]} onSelect={setActiveVideo} />
+            </section>
+          )}
+
+          {/* Mobile video rail — additional videos, horizontal scroll */}
+          {feedVideos.length > 1 && (
+            <section className={styles.mobileVideoRailSection} aria-label="More video highlights">
+              <YouTubeVideoRail
+                items={feedVideos.slice(1, 6)}
+                onSelect={setActiveVideo}
+              />
+            </section>
+          )}
+
+          {/* Mobile article stream — all conference-filtered articles */}
+          {filtered.length > 0 && (
+            <section className={styles.mobileArticleStream} aria-label="News stream">
+              <div className={styles.streamList} role="list">
+                {filtered.map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.link || '#'}
+                    target={item.link ? '_blank' : undefined}
+                    rel="noopener noreferrer"
+                    className={`${styles.streamCard} ${styles.mobileStreamCard}`}
+                    aria-label={item.title}
+                    role="listitem"
+                  >
+                    <div className={styles.streamThumb} aria-hidden>
+                      <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
+                    </div>
+                    <div className={styles.streamBody}>
+                      <div className={styles.streamMeta}>
+                        <SourceBadge source={item.source} />
+                        {item.conference && <ConfPill conference={item.conference} />}
+                        {item.signal && <SignalTag signal={item.signal} />}
+                        <span className={styles.time}>{item.time}</span>
+                      </div>
+                      <p className={styles.streamHeadline}>{item.title}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ══ DESKTOP-ONLY: magazine layout ════════════════════════════════ */}
+
           {/* ── A: Hero Story ── */}
           {hero && (
-            <section className={styles.heroSection} aria-label="Lead story">
+            <section className={`${styles.heroSection} ${styles.desktopOnly}`} aria-label="Lead story">
               <a
                 href={hero.link || '#'}
                 target={hero.link ? '_blank' : undefined}
@@ -417,13 +495,13 @@ export default function NewsFeed() {
           )}
 
           {/* Monetization slot A — hero follow-on */}
-          <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
+          <div className={`${styles.adSlot} ${styles.desktopOnly}`} aria-hidden data-slot="sponsored-hero">
             Sponsored · Premium analysis
           </div>
 
           {/* ── B: Top Stories Grid ── */}
           {topStories.length > 0 && (
-            <section className={styles.topStoriesSection} aria-label="Top stories">
+            <section className={`${styles.topStoriesSection} ${styles.desktopOnly}`} aria-label="Top stories">
               <h2 className={styles.sectionHeading}>Top Stories</h2>
               <div className={styles.topStoriesGrid}>
                 {topStories.map((item) => (
@@ -461,7 +539,7 @@ export default function NewsFeed() {
 
           {/* ── E: Hero Related Video ── */}
           {displayHeroVideo && (
-            <section className={styles.heroVideoSection} aria-label="Related video">
+            <section className={`${styles.heroVideoSection} ${styles.desktopOnly}`} aria-label="Related video">
               <h2 className={styles.sectionHeading}>Related Video</h2>
               <YouTubeVideoCard
                 video={displayHeroVideo}
@@ -472,13 +550,13 @@ export default function NewsFeed() {
           )}
 
           {/* Monetization slot B — pre-stream */}
-          <div className={styles.adSlot} aria-hidden data-slot="premium-analysis">
+          <div className={`${styles.adSlot} ${styles.desktopOnly}`} aria-hidden data-slot="premium-analysis">
             Premium analysis · Betting insights
           </div>
 
           {/* ── D: Stream Section ── */}
           {stream.length > 0 && (
-            <section className={styles.streamSection} aria-label="News stream">
+            <section className={`${styles.streamSection} ${styles.desktopOnly}`} aria-label="News stream">
               <h2 className={styles.sectionHeading}>Latest News</h2>
               <div className={styles.streamList} role="list">
                 {stream.map((item, idx) => (
