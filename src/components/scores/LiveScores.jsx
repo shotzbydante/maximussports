@@ -9,7 +9,7 @@
  *   mobileCap  — additional CSS-level cap on mobile (default: same as cap)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
@@ -80,6 +80,14 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
   // Sort: live first → upcoming (asc by time) → completed
   const sortedGames = useMemo(() => sortGames(games), [games]);
+
+  // Fire scores_render_ok once per game-data-arrival (not on every re-render)
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (firedRef.current || games.length === 0 || loading) return;
+    firedRef.current = true;
+    track('scores_render_ok', { games_count: games.length, source });
+  }, [games.length, loading, source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasLiveGame = sortedGames.some((g) => isLive(g.gameStatus));
 

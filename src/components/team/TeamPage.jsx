@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import { fetchTeamPage } from '../../api/team';
@@ -14,7 +14,8 @@ import { fetchTeamNextLine } from '../../api/teamNextLine';
 import { ModuleShell } from '../shared/ModuleShell';
 import YouTubeVideoRail from '../shared/YouTubeVideoRail';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
-import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge } from '../../utils/ytClientCache';
+import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge,
+  getStaleVideos, getStaleVideosAge, setStaleVideos } from '../../utils/ytClientCache';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
@@ -63,6 +64,34 @@ const TIER_CLASS = {
   'Long shot': styles.tierLong,
 };
 
+/**
+ * Subtle monetization CTA — sits below the video rail, above schedule.
+ * Routes to /insights (Odds Insights) pre-scoped to the team.
+ * Emits impression once on mount and click on interaction.
+ */
+function BettingCta({ slug, team }) {
+  const impressionFired = useRef(false);
+  useEffect(() => {
+    if (impressionFired.current || !slug) return;
+    impressionFired.current = true;
+    track('sportsbook_cta_impression', { placement: 'team_videos_footer', team_slug: slug });
+  }, [slug]);
+
+  if (!team) return null;
+  return (
+    <div className={styles.bettingCta}>
+      <Link
+        to={`/insights?team=${slug}`}
+        className={styles.bettingCtaLink}
+        onClick={() => track('sportsbook_cta_click', { placement: 'team_videos_footer', team_slug: slug })}
+      >
+        Want to bet this team&apos;s next game?{' '}
+        <span className={styles.bettingCtaAction}>See best line →</span>
+      </Link>
+    </div>
+  );
+}
+
 export default function TeamPage() {
   const { slug } = useParams();
   const team = getTeamBySlug(slug);
@@ -82,6 +111,8 @@ export default function TeamPage() {
   const [videos, setVideos] = useState([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const [videosError, setVideosError] = useState(false);
+  const [videosIsStale, setVideosIsStale] = useState(false);
+  const [videosStaleAgeMs, setVideosStaleAgeMs] = useState(0);
   const [activeVideo, setActiveVideo] = useState(null);
 
   // Debug timing — only populated when ?debugTeam=1
@@ -253,19 +284,32 @@ export default function TeamPage() {
   useEffect(() => {
     if (!slug) return;
 
-    // Serve from in-memory cache if fresh (avoids flicker on back-navigation)
+    // Serve from in-memory live cache if fresh (avoids flicker on back-navigation)
     const cached = getCachedVideos(slug);
     if (cached) {
       if (ytDebug) console.log(`[YT Team] cache HIT for ${slug} (${cached.length} items)`);
       setVideos(cached);
+      setVideosIsStale(false);
       setVideosLoading(false);
       return;
+    }
+
+    // Show stale last-known-good immediately while fetching fresh data
+    const stale = getStaleVideos(slug);
+    if (stale?.length > 0) {
+      if (ytDebug) console.log(`[YT Team] stale HIT for ${slug} (${stale.length} items, ${Math.round(getStaleVideosAge(slug) / 3600000)}h old)`);
+      setVideos(stale);
+      setVideosIsStale(true);
+      setVideosStaleAgeMs(getStaleVideosAge(slug));
+      setVideosLoading(false); // show stale immediately; fetch in background
     }
 
     const controller = new AbortController();
     const qs = new URLSearchParams({ teamSlug: slug, maxResults: '6' });
     if (ytDebug) qs.set('debugYT', '1');
     const t0 = ytDebug ? Date.now() : 0;
+
+    if (!stale?.length) setVideosLoading(true); // only show loading spinner when no stale available
 
     fetch(`/api/youtube/team?${qs}`, { signal: controller.signal })
       .then((r) => {
@@ -274,10 +318,22 @@ export default function TeamPage() {
       })
       .then((data) => {
         const items = data.items ?? [];
-        if (ytDebug) console.log(`[YT Team] cache MISS for ${slug}, fetched in ${Date.now() - t0}ms (${items.length} items)`, data.status ?? '');
-        // Only write to cache when we got real results; a quota/error payload shouldn't be cached
-        if (items.length > 0) setCachedVideos(slug, items);
-        setVideos(items);
+        if (ytDebug) console.log(`[YT Team] fetched in ${Date.now() - t0}ms — ${items.length} items (status: ${data.status ?? 'ok'})`);
+        track('videos_fetch_result', {
+          team_slug: slug,
+          items_count: items.length,
+          status: items.length > 0 ? 'ok' : (data.status ?? 'empty'),
+        });
+        if (items.length > 0) {
+          setCachedVideos(slug, items);
+          setStaleVideos(slug, items); // update last-known-good
+          setVideos(items);
+          setVideosIsStale(false);
+          setVideosError(false);
+        } else if (!stale?.length) {
+          setVideos([]);
+          setVideosIsStale(false);
+        }
         if (data.status && data.status !== 'ok') {
           console.warn(`[YT Team] API non-ok status for ${slug}:`, data.status);
         }
@@ -285,8 +341,11 @@ export default function TeamPage() {
       .catch((err) => {
         if (err.name !== 'AbortError') {
           console.warn(`[YT Team] fetch failed for ${slug}:`, err.message);
-          setVideosError(true);
-          setVideos([]);
+          track('videos_fetch_result', { team_slug: slug, items_count: 0, status: 'error' });
+          if (!stale?.length) {
+            setVideosError(true);
+            setVideos([]);
+          }
         }
       })
       .finally(() => {
@@ -569,7 +628,10 @@ export default function TeamPage() {
                       .then((r) => r.json())
                       .then((data) => {
                         const items = data.items ?? [];
-                        if (items.length > 0) setCachedVideos(slug, items);
+                        if (items.length > 0) {
+                          setCachedVideos(slug, items);
+                          setStaleVideos(slug, items);
+                        }
                         setVideos(items);
                       })
                       .catch(() => { setVideosError(true); setVideos([]); })
@@ -578,17 +640,24 @@ export default function TeamPage() {
                 >
                   Retry videos
                 </button>
-              ) : videos.length === 0 ? (
-                <a href="#schedule" className={styles.videosMoreLink}>View schedule</a>
+              ) : videos.length > 0 ? (
+                <span className={styles.videosFooterRow}>
+                  {videosIsStale && (
+                    <span className={styles.videosStaleLabel}>
+                      Updated {Math.round(videosStaleAgeMs / 3600000)}h ago
+                    </span>
+                  )}
+                  <a
+                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.videosMoreLink}
+                  >
+                    More on YouTube →
+                  </a>
+                </span>
               ) : (
-                <a
-                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.videosMoreLink}
-                >
-                  More on YouTube →
-                </a>
+                <a href="#schedule" className={styles.videosMoreLink}>View schedule</a>
               )
             )
           }
@@ -600,6 +669,9 @@ export default function TeamPage() {
           )}
         </ModuleShell>
       </section>
+
+      {/* ── Subtle betting CTA — fires impression + click events ── */}
+      <BettingCta slug={slug} team={team} />
 
       <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
 

@@ -82,6 +82,17 @@ function QuickChip({ name, onClick }) {
  * RIGHT: ExamplePinnedTeamCard (fully isolated, fetches its own data).
  */
 function EmptyPinnedState({ onOpenAdd, onPinDuke, onDismissPreview, onShowPreview, showPreview, gamesForToday }) {
+  // Fire once per mount — tells us how many users see the empty onboarding state
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (firedRef.current) return;
+    firedRef.current = true;
+    track('pinned_empty_state_shown', {
+      show_preview: showPreview,
+      hide_preview_flag: !showPreview,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className={showPreview ? styles.emptyLayout : styles.emptyLayoutSingle}>
       {/* ── LEFT: onboarding copy — always visible ────────────────────── */}

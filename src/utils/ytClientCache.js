@@ -66,10 +66,53 @@ export function getCachedVideos(teamSlug) {
 }
 
 /**
+ * Return the age (ms) of the live video cache for teamSlug.
+ * Returns Infinity when missing or expired.
+ * @param {string} teamSlug
+ * @returns {number}
+ */
+export function getCachedVideosAge(teamSlug) {
+  return getCacheAge(`team:${teamSlug}`);
+}
+
+/**
  * Store items for teamSlug (5-min TTL).
  * @param {string} teamSlug
  * @param {any[]} data
  */
 export function setCachedVideos(teamSlug, data) {
   setCached(`team:${teamSlug}`, data, DEFAULT_TTL_MS);
+}
+
+// ─── Stale-while-revalidate helpers (24 h TTL) ───────────────────────────────
+
+const STALE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Return the last-known-good video list for teamSlug (up to 24 h old).
+ * Used as a graceful fallback when a live fetch fails or returns empty.
+ * @param {string} teamSlug
+ * @returns {any[]|null}
+ */
+export function getStaleVideos(teamSlug) {
+  return getCached(`team:stale:${teamSlug}`);
+}
+
+/**
+ * Return the age (ms) of the stale video cache for teamSlug.
+ * @param {string} teamSlug
+ * @returns {number}
+ */
+export function getStaleVideosAge(teamSlug) {
+  return getCacheAge(`team:stale:${teamSlug}`);
+}
+
+/**
+ * Persist a last-known-good video list with a 24 h TTL.
+ * Call this alongside setCachedVideos whenever a successful non-empty fetch arrives.
+ * @param {string} teamSlug
+ * @param {any[]} data
+ */
+export function setStaleVideos(teamSlug, data) {
+  setCached(`team:stale:${teamSlug}`, data, STALE_TTL_MS);
 }

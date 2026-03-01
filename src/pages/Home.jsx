@@ -164,15 +164,61 @@ function loadBriefingCache() {
 }
 
 /**
- * Odds Insights teaser card.
- * Reads a compact Market Briefing excerpt from localStorage (written by Insights.jsx
- * whenever that page successfully loads) — zero new API calls.
- * Falls back to a premium placeholder when no cached data is present or it is stale.
- * Shows "Updated Xm ago" microtext; updates the label every 60 s via setInterval.
+ * Build a lightweight market snapshot from live game data already on-hand.
+ * Used as a fallback when the user hasn't visited the Insights page yet.
  */
-function OddsInsightsTeaser() {
+function generateLiveBriefing(games = [], rankMap = {}) {
+  if (!Array.isArray(games) || games.length === 0) return null;
+  const withSpread = games.filter((g) => g.spread != null);
+  const withTotal  = games.filter((g) => g.total  != null);
+  const rankedCount = games.filter((g) => {
+    const hs = getTeamSlug(g.homeTeam);
+    const as_ = getTeamSlug(g.awayTeam);
+    return rankMap[hs] || rankMap[as_];
+  }).length;
+
+  const lines = [];
+  lines.push(
+    `**${games.length} game${games.length !== 1 ? 's' : ''}** on today's slate` +
+    (withSpread.length > 0
+      ? `, **${withSpread.length}** with active lines posted` +
+        (rankedCount > 0 ? `, including **${rankedCount}** ranked team${rankedCount !== 1 ? 's' : ''} in action.` : '.')
+      : '. Lines not yet posted.')
+  );
+
+  const bigFav = [...withSpread].sort((a, b) => Math.abs(b.spread ?? 0) - Math.abs(a.spread ?? 0))[0];
+  if (bigFav && Math.abs(bigFav.spread ?? 0) >= 6) {
+    const favIsHome = bigFav.spread < 0;
+    const fav = favIsHome ? bigFav.homeTeam : bigFav.awayTeam;
+    const dog = favIsHome ? bigFav.awayTeam : bigFav.homeTeam;
+    const sp  = bigFav.spread;
+    lines.push(`• **Heavy favorite:** ${fav} (${sp > 0 ? '+' : ''}${sp}) over ${dog}`);
+  }
+
+  const topTotal = [...withTotal].sort((a, b) => (b.total ?? 0) - (a.total ?? 0))[0];
+  if (topTotal?.total) {
+    lines.push(`• **Highest O/U:** ${topTotal.homeTeam} vs ${topTotal.awayTeam} — O/U **${topTotal.total}**`);
+  }
+
+  const closestSpread = [...withSpread]
+    .filter((g) => g.spread != null && Math.abs(g.spread) <= 3)
+    .sort((a, b) => Math.abs(a.spread ?? 0) - Math.abs(b.spread ?? 0))[0];
+  if (closestSpread) {
+    lines.push(`• **Pick 'em watch:** ${closestSpread.homeTeam} vs ${closestSpread.awayTeam} (${closestSpread.spread > 0 ? '+' : ''}${closestSpread.spread})`);
+  }
+
+  return lines.join('\n\n');
+}
+
+/**
+ * Odds Insights teaser card.
+ * Priority: (1) localStorage briefing saved from Insights page visit,
+ *           (2) live fallback generated from already-fetched games data,
+ *           (3) static placeholder.
+ * Zero new API calls. Shows "Updated Xm ago" for cached data.
+ */
+function OddsInsightsTeaser({ games = [], rankMap = {} }) {
   const [briefingData, setBriefingData] = useState(null);
-  const [showExtra, setShowExtra] = useState(false);
   const [relTimeStr, setRelTimeStr] = useState('');
 
   // Read cache once on mount
@@ -182,7 +228,7 @@ function OddsInsightsTeaser() {
     if (data) setRelTimeStr(relativeTime(data.updatedAt));
   }, []);
 
-  // Refresh relative-time label every 60 s; clear on unmount
+  // Refresh relative-time label every 60 s
   useEffect(() => {
     if (!briefingData) return;
     const id = setInterval(
@@ -192,10 +238,11 @@ function OddsInsightsTeaser() {
     return () => clearInterval(id);
   }, [briefingData]);
 
+  // When no cached Insights data, generate a live snapshot from current game slate
+  const liveBriefing = !briefingData ? generateLiveBriefing(games, rankMap) : null;
+
+  // All bullets shown by default — no "More/Less" toggle needed
   const bullets = briefingData?.bullets ?? [];
-  // Default: 1 bullet visible; "More" reveals the 2nd (max 2 total)
-  const visibleBullets = showExtra ? bullets.slice(0, 2) : bullets.slice(0, 1);
-  const hasMoreBullets = bullets.length > 1;
 
   const categories = [
     { label: 'High-Interest Matchups', desc: 'Most active betting markets right now' },
@@ -210,7 +257,7 @@ function OddsInsightsTeaser() {
         <span className={styles.oddsTeaserTag}>Market Intelligence</span>
       </div>
 
-      {/* Market Briefing excerpt — live when cached, premium placeholder otherwise */}
+      {/* Market Briefing — live cached data → live game fallback → static placeholder */}
       <div className={styles.oddsBriefingBlock}>
         <div className={styles.oddsBriefingLabelRow}>
           <span className={styles.oddsBriefingLabel}>Today's Market Briefing</span>
@@ -219,32 +266,42 @@ function OddsInsightsTeaser() {
           )}
         </div>
         {briefingData ? (
+          /* Cached full briefing from last Insights visit */
           <>
             <p className={styles.oddsBriefingSummary}>
               {renderBriefingText(briefingData.summary)}
             </p>
-            {visibleBullets.length > 0 && (
+            {bullets.length > 0 && (
               <ul className={styles.oddsBriefingBullets}>
-                {visibleBullets.map((b, i) => (
+                {bullets.map((b, i) => (
                   <li key={i} className={styles.oddsBriefingBullet}>
                     {renderBriefingText(b.replace(/^•\s*/, ''))}
                   </li>
                 ))}
               </ul>
             )}
-            {hasMoreBullets && (
-              <button
-                type="button"
-                className={styles.oddsBriefingToggle}
-                onClick={() => setShowExtra((v) => !v)}
-              >
-                {showExtra ? 'Less' : 'More'}
-              </button>
+          </>
+        ) : liveBriefing ? (
+          /* Live snapshot generated from today's game slate — no API call needed */
+          <>
+            {liveBriefing.split('\n\n').map((line, i) =>
+              line.startsWith('• ') ? (
+                <ul key={i} className={styles.oddsBriefingBullets}>
+                  <li className={styles.oddsBriefingBullet}>
+                    {renderBriefingText(line.slice(2))}
+                  </li>
+                </ul>
+              ) : (
+                <p key={i} className={styles.oddsBriefingSummary}>
+                  {renderBriefingText(line)}
+                </p>
+              )
             )}
           </>
         ) : (
+          /* Static placeholder — no games loaded yet */
           <p className={styles.oddsBriefingPlaceholder}>
-            Open Odds Insights for today's market briefing, line movement, and upset alerts.
+            Visit <strong>Odds Insights</strong> for today's full market briefing, line movement, and upset alerts.
           </p>
         )}
       </div>
@@ -784,7 +841,7 @@ export default function Home() {
       </PinnedErrorBoundary>
 
       {/* ── Odds Insights teaser — immediately below Pinned Teams ─── */}
-      <OddsInsightsTeaser />
+      <OddsInsightsTeaser games={scores.games} rankMap={rankMap} />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div

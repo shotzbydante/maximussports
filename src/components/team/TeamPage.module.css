@@ -402,6 +402,59 @@
   margin: 0;
 }
 
+.videosFooterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md, 14px);
+  flex-wrap: wrap;
+}
+
+/* "Updated Xh ago" label — muted, non-intrusive */
+.videosStaleLabel {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── Subtle betting CTA — below video rail ─────────────────────── */
+
+.bettingCta {
+  margin-top: calc(var(--space-sm, 8px) * -1); /* pull tight against videos module */
+  margin-bottom: var(--space-lg, 20px);
+  padding: 8px var(--space-md, 14px);
+  border-top: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+}
+
+.bettingCtaLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.14s;
+}
+
+.bettingCtaLink:hover {
+  color: var(--color-text-secondary);
+}
+
+.bettingCtaLink:hover .bettingCtaAction {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.bettingCtaAction {
+  font-weight: 600;
+  color: var(--color-primary);
+  transition: color 0.14s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bettingCtaLink,
+  .bettingCtaAction { transition: none; }
+}
+
 .videosMoreLink {
   font-size: 0.75rem;
   font-weight: 600;
