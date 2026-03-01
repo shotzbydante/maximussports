@@ -592,7 +592,8 @@ export async function fetchTeamNewsSource(slug) {
     const parsed = parser.parse(xml);
     const items = parsed?.rss?.channel?.item;
     const raw = Array.isArray(items) ? items : items ? [items] : [];
-    const filtered = raw.filter((item) => isMensBasketball(item.title || ''));
+    const sourceStr = (item) => (item.source && (item.source['#text'] || item.source)) || '';
+    const filtered = raw.filter((item) => isMensBasketball(item.title || '', sourceStr(item)));
     filtered.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
     const headlines = filtered.slice(0, 10).map((item, i) => ({
       id: item.guid?.['#text'] || item.link || `news-${i}`,
@@ -643,8 +644,8 @@ export async function fetchNewsAggregateSource(options = {}) {
         })
       );
       const all = settled.flatMap((s) => (s.status === 'fulfilled' ? s.value : []));
-      let filtered = all.filter((item) => isMensBasketball(item.title));
-      if (filtered.length === 0 && all.length > 0) filtered = all.filter((item) => isMensBasketballLoose(item.title));
+      let filtered = all.filter((item) => isMensBasketball(item.title, item.source));
+      if (filtered.length === 0 && all.length > 0) filtered = all.filter((item) => isMensBasketballLoose(item.title, item.source));
       const seen = new Set();
       items = filtered.filter((item) => {
         const key = item.link || `${item.title}-${item.pubDate}`;

@@ -29,8 +29,20 @@ const MBB_LOOSE_ALLOWLIST = [
 
 const MBB_EXCLUDE = [
   "women",
+  "women's",
+  "womens",
   "wbb",
+  "ncaaw",
+  "lady",
   "women's basketball",
+  "lady vols",
+  "lady vol",
+  "lady huskers",
+  "lady wildcats",
+  "lady bears",
+  "lady tigers",
+  "lady bulldogs",
+  "lady aggies",
   "softball",
   "football",
   "baseball",
@@ -44,13 +56,25 @@ function norm(s) {
   return (s || '').toLowerCase();
 }
 
-export function isMensBasketball(title) {
+/**
+ * Check title (and optionally source) for women's basketball / WBB signals.
+ * Reject if title or source indicates women's basketball.
+ */
+function hasWomensSignal(title, source) {
+  const t = norm(title);
+  const s = norm(source || '');
+  const combined = `${t} ${s}`;
+  for (const ex of MBB_EXCLUDE) {
+    if (combined.includes(norm(ex))) return true;
+  }
+  return false;
+}
+
+export function isMensBasketball(title, source) {
   const t = norm(title);
   if (!t) return false;
 
-  for (const ex of MBB_EXCLUDE) {
-    if (t.includes(norm(ex))) return false;
-  }
+  if (hasWomensSignal(title, source)) return false;
 
   for (const al of MBB_ALLOWLIST) {
     if (t.includes(norm(al))) return true;
@@ -63,13 +87,11 @@ export function isMensBasketball(title) {
  * Looser filter when primary MBB filter yields no items.
  * Still excludes women's/wbb/football/etc; allows college basketball, NCAA, etc.
  */
-export function isMensBasketballLoose(title) {
+export function isMensBasketballLoose(title, source) {
   const t = norm(title);
   if (!t) return false;
 
-  for (const ex of MBB_EXCLUDE) {
-    if (t.includes(norm(ex))) return false;
-  }
+  if (hasWomensSignal(title, source)) return false;
 
   for (const al of MBB_LOOSE_ALLOWLIST) {
     if (t.includes(norm(al))) return true;

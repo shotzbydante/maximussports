@@ -151,65 +151,108 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* ─── True mobile cards (< 600px): rank cards, zero overflow at 320px ──────── */
 @media (max-width: 600px) {
   .wrapper {
     margin: 0;
-    overflow-x: hidden; /* prevent lateral scroll on most phones */
+    overflow-x: hidden;
   }
   .grid {
-    font-size: 0.8rem;
+    display: block;
+    font-size: 0.85rem;
   }
-  .grid th,
-  .grid td {
-    padding: var(--space-xs) var(--space-sm);
+  .grid thead {
+    display: none;
   }
-  .colTeam {
-    min-width: 140px;
-    width: auto;
+  .grid tbody {
+    display: block;
   }
-  .colConf {
-    min-width: 60px;
+  .grid tbody tr {
+    display: block;
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-xs);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-light);
+    background: var(--color-bg-elevated);
   }
-  .colTier {
-    min-width: 70px;
+  .grid tbody tr:hover {
+    background: var(--color-bg-elevated);
   }
-  .badge {
-    font-size: 0.55rem;
-    padding: 1px 4px;
-    letter-spacing: 0.02em;
+  .grid tbody .trRanked {
+    background: rgba(60, 121, 180, 0.04);
+  }
+  .grid tbody .trRanked:hover {
+    background: rgba(60, 121, 180, 0.07);
+  }
+  .grid .colTeam {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    min-width: 0;
+    width: 100%;
+    padding: 0 0 var(--space-xs);
+    border: none;
+  }
+  .grid .colConf,
+  .grid .colTier {
+    display: inline-block;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    vertical-align: middle;
+  }
+  .grid .colConf {
+    margin-right: var(--space-sm);
   }
   .teamLink {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
     gap: var(--space-xs);
   }
   .teamLink span:first-of-type {
     min-width: 0;
   }
+  .rowChevron {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .badge {
+    font-size: 0.55rem;
+    padding: 2px 5px;
+    letter-spacing: 0.02em;
+  }
+  .sectionDividerRow {
+    display: block;
+    margin: var(--space-sm) 0 var(--space-xs);
+  }
+  .sectionDividerCell {
+    display: block;
+    padding: 4px var(--space-md);
+    font-size: 0.6rem;
+  }
 }
 
-/* At 360px and below, hide the CONFERENCE column to guarantee no overflow at 320px */
+/* At 360px and below: hide conference column, guarantee no overflow at 320px */
 @media (max-width: 360px) {
   .wrapper {
     overflow-x: hidden;
   }
-  .colConf {
-    display: none;
-  }
+  .grid .colConf,
   .grid th.colConf,
   .grid td.colConf {
-    display: none;
+    display: none !important;
   }
-  .colTeam {
-    min-width: 0;
-    width: 65%;
+  .grid tbody tr {
+    padding: var(--space-xs) var(--space-sm);
   }
-  .colTier {
-    min-width: 55px;
-    width: auto;
-  }
-  .grid th,
-  .grid td {
-    padding: 5px var(--space-xs);
+  .grid .colTeam {
+    padding-bottom: 2px;
   }
 }
 

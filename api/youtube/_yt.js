@@ -158,8 +158,8 @@ function isConfNetworkChannel(item) {
 // ─── Basketball-only content filter ──────────────────────────────────────────
 
 /**
- * Hard-reject patterns for non-basketball sport keywords in the video title.
- * Checked against title only (not channel name).
+ * Hard-reject patterns for non-basketball sport keywords.
+ * Checked against BOTH title and channelTitle (men's-only policy).
  */
 const FOOTBALL_REJECT = [
   /\bfootball\b/i,
@@ -173,47 +173,90 @@ const FOOTBALL_REJECT = [
 ];
 
 /**
- * Positive basketball-content signals checked in title + channel name combined.
- * Items from allowlisted/conference-network channels skip this check (step already trusted).
+ * Hard-reject patterns for women's basketball / WBB content.
+ * Applied case-insensitively to title AND channelTitle.
  */
-const BBALL_SIGNALS = [
-  /\bbasketball\b/i,
-  /\bhoops\b/i,
-  /\bncaam\b/i,
-  /\bncaab\b/i,
-  /\bmbb\b/i,
-  /\bb1gmbb\b/i,
-  /\bsec\s*mbb\b/i,
-  /\bacc\s*mbb\b/i,
-  /\bmen'?s?\s+(?:college\s+)?basketball\b/i,
-  /\bcollege\s+basketball\b/i,
-  /\bnba\s+(?:highlights|recap|game)\b/i,
+const WOMEN_REJECT = [
+  /\bwomen\b/i,
+  /\bwomen's\b/i,
+  /\bwomens\b/i,
+  /\blady\b/i,
+  /\blady\s*huskers\b/i,
+  /\bwbb\b/i,
+  /\bncaaw\b/i,
+  /\bwomen'?s?\s*basketball\b/i,
+  /\bbig\s*ten\s*women'?s?\b/i,
+  /\bsec\s*women'?s?\b/i,
+  /\bacc\s*women'?s?\b/i,
+  /\bwnba\b/i,
 ];
 
 /**
+ * Positive MEN'S basketball signals (title or channel).
+ * Required for non-trusted channels; allowlist/conf-net can also pass via basketball terms.
+ */
+const MENS_SIGNALS = [
+  /\bmen\b/i,
+  /\bmen'?s\b/i,
+  /\bmens\b/i,
+  /\bmbb\b/i,
+  /\bncaam\b/i,
+  /\bncaab\b/i,
+  /\bb1gmbb\b/i,
+  /\bcollege\s+basketball\b/i,
+  /\bbasketball\s+highlights\b/i,
+  /\b(?:sec|acc|big\s*ten)\s*mbb\b/i,
+  /\bmen'?s?\s+(?:college\s+)?basketball\b/i,
+];
+
+/**
+ * Basketball terms that allow allowlisted/conf-net items without explicit "men's".
+ * Only used when no football/women's; title must have one of these or "highlights".
+ */
+const BBALL_OR_HIGHLIGHTS = [
+  /\bbasketball\b/i,
+  /\bhoops\b/i,
+  /\bhighlights\b/i,
+];
+
+/**
+ * Classify a YouTube item for men's basketball filtering.
+ * @param {{ title: string, channelTitle: string }} item
+ * @returns {'accept'|'football'|'women'|'no_bball'}
+ */
+export function classifyBasketballItem(item) {
+  const title = (item.title ?? '').trim();
+  const channel = (item.channelTitle ?? '').trim();
+  const combined = `${title} ${channel}`;
+
+  // Step 1 — hard reject: football in title OR channel
+  if (FOOTBALL_REJECT.some((re) => re.test(title) || re.test(channel))) return 'football';
+
+  // Step 2 — hard reject: women's signals in title OR channel
+  if (WOMEN_REJECT.some((re) => re.test(title) || re.test(channel))) return 'women';
+
+  // Step 3 — conference network: allow if no football/women's (already checked)
+  if (isConfNetworkChannel(item)) return 'accept';
+
+  // Step 4 — allowlisted channels: allow only if title has basketball/highlights (no explicit "men's" required)
+  if (isItemAllowlisted(item)) {
+    const hasBballTerm = BBALL_OR_HIGHLIGHTS.some((re) => re.test(title));
+    if (hasBballTerm) return 'accept';
+  }
+
+  // Step 5 — unknown channels: require positive men's signal
+  if (MENS_SIGNALS.some((re) => re.test(combined))) return 'accept';
+
+  return 'no_bball';
+}
+
+/**
  * Determine whether a YouTube item is men's basketball content.
- * Returns false for anything that looks like football; returns true for items
- * from trusted channels (allowlisted, conference-network) once football is ruled out;
- * otherwise requires a positive basketball signal in the title/channel name.
- *
  * @param {{ title: string, channelTitle: string, channelId?: string }} item
  * @returns {boolean}
  */
 export function isBasketballItem(item) {
-  const title = item.title ?? '';
-
-  // Step 1 — hard reject: football keyword in title, regardless of channel
-  if (FOOTBALL_REJECT.some((re) => re.test(title))) return false;
-
-  // Step 2 — conference network channels are basketball-safe (filtered football above)
-  if (isConfNetworkChannel(item)) return true;
-
-  // Step 3 — globally allowlisted channels are basketball-safe if no football title
-  if (isItemAllowlisted(item)) return true;
-
-  // Step 4 — unknown channels must have at least one basketball signal
-  const combined = `${title} ${item.channelTitle ?? ''}`;
-  return BBALL_SIGNALS.some((re) => re.test(combined));
+  return classifyBasketballItem(item) === 'accept';
 }
 
 // ─── Scoring constants ────────────────────────────────────────────────────────

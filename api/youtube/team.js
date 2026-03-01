@@ -19,7 +19,7 @@
  */
 
 import { TEAMS } from '../../data/teams.js';
-import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted, isBasketballItem } from './_yt.js';
+import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted, isBasketballItem, classifyBasketballItem } from './_yt.js';
 import { getConferenceNetwork } from './_conferenceNetworks.js';
 
 const DEFAULT_MAX = 6;
@@ -54,28 +54,25 @@ function promoteAllowlisted(items) {
 }
 
 /**
- * Filter an array of items to basketball-only content, returning the filtered list
+ * Filter an array of items to men's basketball-only content, returning the filtered list
  * plus counts for debug output.
  *
  * @param {Array} items
- * @returns {{ items: Array, footballCount: number, noBballCount: number }}
+ * @returns {{ items: Array, footballCount: number, womenCount: number, noBballCount: number }}
  */
 function filterBasketball(items) {
   let footballCount = 0;
-  let noBballCount  = 0;
+  let womenCount   = 0;
+  let noBballCount = 0;
   const filtered = items.filter((item) => {
-    if (isBasketballItem(item)) return true;
-    // Classify the rejection reason for debug counters
-    const title = item.title ?? '';
-    const FOOTBALL_RE = /\bfootball\b|\bncaaf\b|\bcfb\b|\bnfl\b|\btouchdown\b|\bquarterback\b/i;
-    if (FOOTBALL_RE.test(title)) {
-      footballCount++;
-    } else {
-      noBballCount++;
-    }
+    const reason = classifyBasketballItem(item);
+    if (reason === 'accept') return true;
+    if (reason === 'football') footballCount++;
+    else if (reason === 'women') womenCount++;
+    else noBballCount++;
     return false;
   });
-  return { items: filtered, footballCount, noBballCount };
+  return { items: filtered, footballCount, womenCount, noBballCount };
 }
 
 /**
@@ -231,15 +228,16 @@ export default async function handler(req, res) {
     return res.status(500).json({ status: 'error', message: 'Failed to fetch videos' });
   }
 
-  // ── Basketball-only filter ────────────────────────────────────────────────
+  // ── Men's basketball-only filter ───────────────────────────────────────────
   const f1 = filterBasketball(raw1);
   const f2 = filterBasketball(raw2);
   const f3 = filterBasketball(raw3);
   const totalFootballFiltered = f1.footballCount + f2.footballCount + f3.footballCount;
-  const totalNoBballFiltered  = f1.noBballCount  + f2.noBballCount  + f3.noBballCount;
+  const totalWomenFiltered   = f1.womenCount   + f2.womenCount   + f3.womenCount;
+  const totalNoBballFiltered = f1.noBballCount + f2.noBballCount + f3.noBballCount;
 
   if (debug) {
-    console.log(`[api/youtube/team] filtered: football=${totalFootballFiltered} noBball=${totalNoBballFiltered}`);
+    console.log(`[api/youtube/team] filtered: football=${totalFootballFiltered} women=${totalWomenFiltered} noBball=${totalNoBballFiltered}`);
   }
 
   // ── Merge, deduplicate, score, sort ───────────────────────────────────────
@@ -287,7 +285,8 @@ export default async function handler(req, res) {
     counts: {
       q1: raw1.length, q2: raw2.length, q3: raw3.length,
       merged: merged.length,
-      filteredOutFootball:    totalFootballFiltered,
+      filteredOutFootball:     totalFootballFiltered,
+      filteredOutWomen:       totalWomenFiltered,
       filteredOutNoBballSignal: totalNoBballFiltered,
     },
     allowlistHits,

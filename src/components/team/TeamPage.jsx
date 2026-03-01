@@ -398,7 +398,7 @@ export default function TeamPage() {
         {error && <div className={styles.error}>{error}</div>}
 
         {!loading && !error && headlines.length === 0 && (
-          <div className={styles.empty}>No men&apos;s basketball news available. Try again later.</div>
+          <div className={styles.empty}>No men&apos;s basketball news available.</div>
         )}
 
         {!loading && !error && headlines.length > 0 && (
@@ -406,7 +406,7 @@ export default function TeamPage() {
             <div className={styles.newsSubsection}>
               <h4 className={styles.subsectionTitle}>Last 7 days</h4>
               {last7.length === 0 ? (
-                <div className={styles.empty}>No men&apos;s basketball news available. Try again later.</div>
+                <div className={styles.empty}>No men&apos;s basketball news available.</div>
               ) : (
                 <ul className={styles.list}>
                   {last7.map((h) => (

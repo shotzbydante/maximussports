@@ -1,6 +1,14 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{"type": "host", "value": "www.maximussports.ai"}],
+      "destination": "https://maximussports.ai/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [{"source": "/((?!api/).*)", "destination": "/index.html"}],
   "crons": [
     {"path": "/api/home/slow", "schedule": "*/5 * * * *"},
