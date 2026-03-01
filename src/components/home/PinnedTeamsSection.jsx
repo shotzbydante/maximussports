@@ -65,10 +65,10 @@ function QuickChip({ name, onClick }) {
  * LEFT:  value props + "Pin Duke" + "Add team" buttons.
  * RIGHT: ExamplePinnedTeamCard (fully isolated, fetches its own data).
  */
-function EmptyPinnedState({ onOpenAdd, onPinDuke, onDismissPreview, showPreview, gamesForToday }) {
+function EmptyPinnedState({ onOpenAdd, onPinDuke, onDismissPreview, onShowPreview, showPreview, gamesForToday }) {
   return (
     <div className={showPreview ? styles.emptyLayout : styles.emptyLayoutSingle}>
-      {/* ── LEFT: onboarding copy ─────────────────────────────────────── */}
+      {/* ── LEFT: onboarding copy — always visible ────────────────────── */}
       <div className={styles.onboardingCard}>
         <p className={styles.onboardingHeading}>Pin teams to track them faster</p>
         <ul className={styles.onboardingBullets}>
@@ -95,9 +95,15 @@ function EmptyPinnedState({ onOpenAdd, onPinDuke, onDismissPreview, showPreview,
             ))}
           </div>
         </div>
+        {/* Re-enable preview if previously dismissed */}
+        {!showPreview && (
+          <button type="button" className={styles.showExampleBtn} onClick={onShowPreview}>
+            Show example →
+          </button>
+        )}
       </div>
 
-      {/* ── RIGHT: isolated Duke preview card ─────────────────────────── */}
+      {/* ── RIGHT: isolated Duke preview card — only when not dismissed ── */}
       {showPreview && (
         <ExamplePinnedTeamCard
           slug={DUKE_SLUG}
@@ -279,8 +285,13 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   }, [notify]);
 
   const handleDismissPreview = useCallback(() => {
-    try { localStorage.setItem('pinnedTeamsHideExample', '1'); } catch {}
+    try { localStorage.setItem('pinnedTeamsHideExample', '1'); } catch { /* ignore storage errors */ }
     setShowPreview(false);
+  }, []);
+
+  const handleShowPreview = useCallback(() => {
+    try { localStorage.removeItem('pinnedTeamsHideExample'); } catch { /* ignore storage errors */ }
+    setShowPreview(true);
   }, []);
 
 
@@ -592,6 +603,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
           onOpenAdd={() => setShowAdd(true)}
           onPinDuke={(slug) => handleDirectPin(slug ?? DUKE_SLUG)}
           onDismissPreview={handleDismissPreview}
+          onShowPreview={handleShowPreview}
           showPreview={showPreview}
           gamesForToday={scores.games}
         />
