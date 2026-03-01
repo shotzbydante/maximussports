@@ -17,6 +17,7 @@ import StatCard from '../components/shared/StatCard';
 import SourceBadge from '../components/shared/SourceBadge';
 import NewsFeed from '../components/dashboard/NewsFeed';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
+import PinnedErrorBoundary from '../components/home/PinnedErrorBoundary';
 import RankingsTable from '../components/insights/RankingsTable';
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
@@ -318,6 +319,10 @@ export default function Home() {
   const championshipScheduledRef = useRef(false);
   const homeFastRefetchInFlightRef = useRef(false);
   const atsLeadersRef = useRef(atsLeaders);
+  // Always holds the latest pinnedSlugs without being a useCallback dep — prevents
+  // loadHomeBatch from recreating (and thus re-firing) every time the user pins a team.
+  const pinnedSlugsRef = useRef(pinnedSlugs);
+  pinnedSlugsRef.current = pinnedSlugs;
   useEffect(() => {
     atsLeadersRef.current = atsLeaders;
   }, [atsLeaders]);
@@ -355,12 +360,16 @@ export default function Home() {
   }, []);
 
   // Fast path: scores, rankings, headlines only. ATS comes from /api/ats/leaders (separate fetch).
+  // IMPORTANT: Uses pinnedSlugsRef.current (not pinnedSlugs directly) so the callback is NOT
+  // recreated on every pin change — preventing a re-fetch storm on each pin action.
   const loadHomeBatch = useCallback(() => {
     if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast start', Date.now());
     if (!hasAtsData(atsLeadersRef.current)) maybeWarmAts();
     setScores((s) => ({ ...s, loading: true }));
     setSlowLoading(true);
-    fetchHomeFast({ pinnedSlugs, atsWindow })
+    // Snapshot the latest slugs at call time so stale closures cannot diverge.
+    const currentPinnedSlugs = pinnedSlugsRef.current;
+    fetchHomeFast({ pinnedSlugs: currentPinnedSlugs, atsWindow })
       .then((fastData) => {
         if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast end', Date.now());
         const scoresToday = fastData.scoresToday ?? [];
@@ -399,16 +408,20 @@ export default function Home() {
         setNewsData((prev) => ({ ...prev, newsFeed: newsFeedFromFast, teamNews, pinnedTeamNewsMap }));
         setNewsSource('Multiple');
 
-        if (pinnedSlugs.length > 0) {
-          // Immediately hydrate from module-level cache (survives SPA navigation)
+        if (currentPinnedSlugs.length > 0) {
+          // Immediately hydrate from module-level cache (survives SPA navigation).
+          // Always MERGE (functional update) so a stale response from a previous
+          // in-flight request cannot wipe data that arrived more recently.
           const fromCache = {};
           const uncachedSlugs = [];
-          pinnedSlugs.forEach((slug) => {
+          currentPinnedSlugs.forEach((slug) => {
             const hit = getPinnedCache(slug);
             if (hit) { fromCache[slug] = hit; } else { uncachedSlugs.push(slug); }
           });
           if (Object.keys(fromCache).length > 0) {
-            setPinnedTeamDataBySlug(fromCache);
+            // MERGE — not replace.  Prevents race condition when loadHomeBatch fires
+            // twice concurrently (e.g. on initial mount and on pin change).
+            setPinnedTeamDataBySlug((prev) => ({ ...prev, ...fromCache }));
           }
           if (uncachedSlugs.length > 0) {
             const scheduleBatch = typeof requestIdleCallback !== 'undefined'
@@ -428,7 +441,7 @@ export default function Home() {
 
         runChampionshipFetch();
 
-        fetchHomeSlow({ pinnedSlugs })
+        fetchHomeSlow({ pinnedSlugs: currentPinnedSlugs })
           .then((slowData) => {
             setSlowLoading(false);
             const merged = mergeHomeData(fastData, slowData);
@@ -479,7 +492,11 @@ export default function Home() {
         setNewsData((prev) => ({ ...prev, newsFeed: mockNewsFeed, teamNews: [], pinnedTeamNewsMap: {} }));
         setNewsSource('Mock');
       });
-  }, [pinnedSlugs.join(','), runChampionshipFetch]);
+  // Intentionally omit pinnedSlugs from deps — the ref keeps it fresh without
+  // causing the callback to recreate (and the effect to re-fire) on every pin action.
+  // Newly-pinned teams get their data via the staggered enrichment effect below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runChampionshipFetch]);
 
   useEffect(() => {
     loadHomeBatch();
@@ -756,13 +773,15 @@ export default function Home() {
         </div>
       </div>
 
-      <PinnedTeamsSection
-        onPinnedChange={setPinned}
-        rankMap={rankMap}
-        games={scores.games}
-        teamNewsBySlug={newsData.pinnedTeamNewsMap}
-        pinnedTeamDataBySlug={pinnedTeamDataBySlug}
-      />
+      <PinnedErrorBoundary>
+        <PinnedTeamsSection
+          onPinnedChange={setPinned}
+          rankMap={rankMap}
+          games={scores.games}
+          teamNewsBySlug={newsData.pinnedTeamNewsMap}
+          pinnedTeamDataBySlug={pinnedTeamDataBySlug}
+        />
+      </PinnedErrorBoundary>
 
       {/* ── Odds Insights teaser — immediately below Pinned Teams ─── */}
       <OddsInsightsTeaser />

@@ -2,7 +2,7 @@
  * Pinned Teams Dashboard — multi-select + search, cards with rank, next game, headlines, records.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS, getTeamBySlug } from '../../data/teams';
 import { getTeamsGroupedByConference } from '../../data/teams';
@@ -276,6 +276,11 @@ const TIER_CLASS = {
   'Long shot': styles.tierLong,
 };
 
+/** Returns true when ?debugPins=1 is in the URL. */
+const isDebugPins = () =>
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).has('debugPins');
+
 function formatTimePST(iso) {
   if (!iso) return null;
   try {
@@ -305,7 +310,25 @@ function recordFromBatchData(batchSlot) {
 }
 
 export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {}, pinnedTeamDataBySlug = {} }) {
-  const [pinned, setPinned] = useState(() => getPinnedTeams());
+  const [pinned, setPinned] = useState(() => {
+    const initial = getPinnedTeams();
+    if (isDebugPins()) {
+      try {
+        const raw = localStorage.getItem('maximus-pinned-teams');
+        console.group('[debugPins] PinnedTeamsSection init');
+        console.log('  localStorage raw:', raw);
+        console.log('  parsed:', initial);
+        console.log('  count:', initial.length);
+        console.groupEnd();
+      } catch (e) {
+        console.warn('[debugPins] Could not read localStorage:', e);
+      }
+    }
+    return initial;
+  });
+
+  // Ref used to detect when debugPins mode is active without triggering effects.
+  const debugPinsRef = useRef(isDebugPins());
   const [rankMap, setRankMap] = useState(rankMapProp);
   const [scores, setScores] = useState({ games: Array.isArray(gamesProp) ? gamesProp : [], loading: false });
   const [teamNews, setTeamNews] = useState(() => {
@@ -336,8 +359,17 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   }, [onPinnedChange]);
 
   const handleToggle = useCallback((slug) => {
+    const before = getPinnedTeams();
     const wasAdded = !pinned.includes(slug);
-    setPinned(togglePinnedTeam(slug));
+    const after = togglePinnedTeam(slug);   // writes to localStorage, returns new array
+    if (debugPinsRef.current) {
+      console.group(`[debugPins] handleToggle — ${wasAdded ? 'ADD' : 'REMOVE'} ${slug}`);
+      console.log('  before:', before);
+      console.log('  after:', after);
+      console.log('  localStorage now:', localStorage.getItem('maximus-pinned-teams'));
+      console.groupEnd();
+    }
+    setPinned(after);
     track(wasAdded ? 'pinned_team_add' : 'pinned_team_remove', {
       team_slug: slug,
       method: 'picker',
@@ -346,7 +378,15 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   }, [notify, pinned]);
 
   const handleAdd = useCallback((slug) => {
-    setPinned(addPinnedTeam(slug));
+    const before = getPinnedTeams();
+    const after = addPinnedTeam(slug);
+    if (debugPinsRef.current) {
+      console.group(`[debugPins] handleAdd — ADD ${slug}`);
+      console.log('  before:', before);
+      console.log('  after:', after);
+      console.groupEnd();
+    }
+    setPinned(after);
     track('pinned_team_add', { team_slug: slug });
     setSearch('');
     setShowAdd(false);
@@ -354,7 +394,15 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   }, [notify]);
 
   const handleRemove = useCallback((slug) => {
-    setPinned(removePinnedTeam(slug));
+    const before = getPinnedTeams();
+    const after = removePinnedTeam(slug);
+    if (debugPinsRef.current) {
+      console.group(`[debugPins] handleRemove — REMOVE ${slug}`);
+      console.log('  before:', before);
+      console.log('  after:', after);
+      console.groupEnd();
+    }
+    setPinned(after);
     track('pinned_team_remove', { team_slug: slug });
     notify();
   }, [notify]);
@@ -375,7 +423,16 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
    * EmptyStateCard popular picks — one tap pins immediately.
    */
   const handleDirectPin = useCallback((slug) => {
-    setPinned(addPinnedTeam(slug));
+    const before = getPinnedTeams();
+    const after = addPinnedTeam(slug);
+    if (debugPinsRef.current) {
+      console.group(`[debugPins] handleDirectPin — QUICK PIN ${slug}`);
+      console.log('  before:', before);
+      console.log('  after:', after);
+      console.log('  localStorage now:', localStorage.getItem('maximus-pinned-teams'));
+      console.groupEnd();
+    }
+    setPinned(after);
     track('pinned_team_add', { team_slug: slug, method: 'quick_chip' });
     notify();
   }, [notify]);
@@ -456,6 +513,22 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       });
     });
   }, [pinned.join(','), teamNews]);
+
+  // ?debugPins=1 — log every time React pinned state changes
+  useEffect(() => {
+    if (!debugPinsRef.current) return;
+    try {
+      const raw = localStorage.getItem('maximus-pinned-teams');
+      console.log(
+        `[debugPins] pinned state changed → length=${pinned.length}`,
+        pinned,
+        '| localStorage:',
+        raw,
+      );
+    } catch {
+      console.log('[debugPins] pinned state changed →', pinned);
+    }
+  }, [pinned]);
 
   // DEV diagnostics — append ?debugPinned=1 to any URL to log per-slug data health
   useEffect(() => {
@@ -687,6 +760,59 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             />
           )}
         </div>
+      )}
+
+      {/* ── ?debugPins=1 debug panel ─────────────────────────────────────── */}
+      {isDebugPins() && (
+        <aside
+          style={{
+            position: 'fixed', bottom: 60, left: 12, zIndex: 9998,
+            background: 'rgba(10,20,35,0.95)', color: '#86efac',
+            border: '1px solid rgba(134,239,172,0.3)', borderRadius: 8,
+            padding: '10px 14px', fontSize: '0.68rem', fontFamily: 'monospace',
+            lineHeight: 1.6, maxWidth: 340, backdropFilter: 'blur(6px)',
+            maxHeight: 260, overflowY: 'auto',
+          }}
+          aria-label="Pins debug panel"
+        >
+          <div style={{ fontWeight: 700, color: '#4ade80', marginBottom: 4 }}>
+            📌 debugPins — PinnedTeamsSection
+          </div>
+          <div>React pinned ({pinned.length}): [{pinned.join(', ') || 'empty'}]</div>
+          <div>
+            localStorage raw:{' '}
+            <span style={{ color: '#fcd34d' }}>
+              {(() => { try { return localStorage.getItem('maximus-pinned-teams') ?? 'null'; } catch { return 'ERR'; } })()}
+            </span>
+          </div>
+          <div>hidePreview flag: {(() => { try { return localStorage.getItem('pinnedTeamsHideExample') ?? 'null'; } catch { return 'ERR'; } })()}</div>
+          <div>showPreview state: {String(showPreview)}</div>
+          <div>loadedSlugs: [{[...loadedSlugs].join(', ') || 'none'}]</div>
+          <div>pinnedTeamDataBySlug keys: [{Object.keys(pinnedTeamDataBySlug).join(', ') || 'none'}]</div>
+          <div style={{ marginTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => {
+                try { localStorage.removeItem('maximus-pinned-teams'); window.location.reload(); } catch {}
+              }}
+              style={{ fontSize: '0.65rem', padding: '2px 8px', cursor: 'pointer', borderRadius: 4, background: '#ef4444', color: '#fff', border: 'none', marginRight: 6 }}
+            >
+              Clear + reload
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const v = JSON.stringify(getPinnedTeams());
+                  console.log('[debugPins] full snapshot', { pinned, localStorage: v, pinnedTeamDataBySlug, loadedSlugs: [...loadedSlugs] });
+                } catch {}
+              }}
+              style={{ fontSize: '0.65rem', padding: '2px 8px', cursor: 'pointer', borderRadius: 4, background: '#3b82f6', color: '#fff', border: 'none' }}
+            >
+              Log snapshot
+            </button>
+          </div>
+        </aside>
       )}
 
       {/* ── Pinned team cards grid ───────────────────────────────────────── */}
