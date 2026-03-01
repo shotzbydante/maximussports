@@ -76,6 +76,48 @@
   border-radius: 3px;
 }
 
+/* ─── Sections (Videos + Headlines stacked) ─────────────────────────────── */
+
+/* Adjacent sections separated by a subtle divider */
+.section + .section {
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* Section header label */
+.sectionLabel {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  padding: 10px var(--space-md) 6px;
+  margin: 0;
+}
+
+/* "Show more / Show less" expand button */
+.expandBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 9px var(--space-md);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--color-border-light);
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 40px;
+  transition: background 0.12s;
+}
+
+.expandBtn:hover {
+  background: rgba(60, 121, 180, 0.04);
+}
+
 /* ─── Video Tab ──────────────────────────────────────────────────────────── */
 
 .videoSectionLabel {

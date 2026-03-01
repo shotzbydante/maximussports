@@ -26,6 +26,8 @@
     -webkit-overflow-scrolling: touch;
     gap: 10px;
     padding: 12px 14px;
+    /* Ensure last card isn't clipped by the iOS home-indicator edge */
+    padding-right: max(14px, env(safe-area-inset-right, 14px));
     /* Hide scrollbar while keeping functionality */
     scrollbar-width: none;
   }
@@ -35,8 +37,16 @@
   }
 
   .item {
-    flex: 0 0 200px;
+    /* 180px works well at both 320px and 390px screens */
+    flex: 0 0 180px;
     scroll-snap-align: start;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .item {
+    flex: 0 0 160px;
   }
 }
 

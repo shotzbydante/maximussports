@@ -10,6 +10,9 @@
   border-radius: 4px;
   white-space: nowrap;
   line-height: 1.6;
+  /* Consistent height across all contexts */
+  min-height: 22px;
+  box-sizing: border-box;
 }
 
 /* Live / in-progress */

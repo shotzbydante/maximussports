@@ -91,9 +91,16 @@
   background: rgba(45, 138, 110, 0.08);
 }
 
-/* Completed games: settled, understated — no background fill, thin left rule */
+/* Scheduled / upcoming — reads "this game hasn't happened yet" */
+.gameCardUpcoming {
+  background: rgba(60, 121, 180, 0.018);
+  border-left: 2px solid rgba(60, 121, 180, 0.24);
+}
+
+/* Completed games — reads "settled, done" */
 .gameCardFinal {
-  border-left: 2px solid rgba(130, 130, 130, 0.25);
+  background: rgba(0, 0, 0, 0.018);
+  border-left: 2px solid rgba(120, 120, 120, 0.3);
 }
 
 .gameCardFinal .teamName {
@@ -372,6 +379,13 @@ a.teamName:hover {
 @media (max-width: 600px) {
   .gameCard {
     padding: 6px var(--space-sm);
+  }
+
+  /* Settled/upcoming cards are slightly more compact but keep ≥40px tap height */
+  .gameCardFinal,
+  .gameCardUpcoming {
+    padding-top: 5px;
+    padding-bottom: 5px;
   }
 
   .gameFooter {

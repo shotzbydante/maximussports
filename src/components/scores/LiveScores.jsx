@@ -158,8 +158,9 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
               key={g.gameId}
               className={[
                 styles.gameCard,
-                live ? styles.gameCardLive : '',
-                finished ? styles.gameCardFinal : '',
+                live         ? styles.gameCardLive     : '',
+                finished     ? styles.gameCardFinal    : '',
+                !live && !finished ? styles.gameCardUpcoming : '',
                 hiddenOnMobile ? styles.gameCardMobileHidden : '',
                 isNewlyVisible ? styles.gameCardNew : '',
               ].filter(Boolean).join(' ')}

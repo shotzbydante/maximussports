@@ -1,27 +1,24 @@
+/**
+ * Intel Feed — combined Videos + Headlines view.
+ * Videos are fetched on mount (with 10-min client cache).
+ * Each section is independently expandable.
+ */
+
 import { useState, useEffect, useRef } from 'react';
 import YouTubeVideoCard from '../shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
 import { getCached, setCached } from '../../utils/ytClientCache';
 import styles from './NewsFeed.module.css';
 
-const TABS = [
-  { id: 'headlines', label: 'Headlines' },
-  { id: 'video',     label: 'Video' },
-];
+const VIDEO_CACHE_KEY  = 'yt:home:topVideos';
+const VIDEO_CACHE_TTL  = 10 * 60 * 1000;
+const VIDEO_QUERY      = 'college basketball highlights';
+const VIDEO_MAX        = 8;
+const HERO_TILE_COUNT  = 2;
+const DEFAULT_COMPACT  = 2; // compact rows shown before "show more"
+const DEFAULT_HEADLINES = 5;
 
-const VIDEO_CACHE_KEY = 'yt:home:topVideos';
-const VIDEO_CACHE_TTL = 10 * 60 * 1000;
-const VIDEO_QUERY     = 'college basketball highlights';
-const VIDEO_MAX       = 8;
-const HERO_TILE_COUNT = 2; // number of larger "hero" tiles
-
-/** Section label row inside the Video tab */
-function VideoSectionLabel({ label }) {
-  return <p className={styles.videoSectionLabel}>{label}</p>;
-}
-
-/** Skeleton tiles for video loading state */
-function VideoSkeletons({ count = 4 }) {
+function VideoSkeletons() {
   return (
     <div className={styles.videoSkeletons}>
       <div className={styles.videoHeroGrid}>
@@ -29,45 +26,27 @@ function VideoSkeletons({ count = 4 }) {
           <div key={i} className={styles.videoSkeletonTile} />
         ))}
       </div>
-      <div className={styles.videoCompactList}>
-        {Array.from({ length: count - HERO_TILE_COUNT }).map((_, i) => (
-          <div key={i} className={styles.videoSkeletonRow} />
-        ))}
-      </div>
+      {Array.from({ length: DEFAULT_COMPACT }).map((_, i) => (
+        <div key={i} className={styles.videoSkeletonRow} />
+      ))}
     </div>
   );
 }
 
-/**
- * Intel Feed widget — Headlines + Video tabs.
- * Video tab fetches from /api/youtube/search, cached 10 min client-side.
- */
 export default function NewsFeed({ items = [], source = 'Mock', loading = false }) {
-  const [activeTab, setActiveTab] = useState('headlines');
   const [videoItems, setVideoItems] = useState(() => getCached(VIDEO_CACHE_KEY) ?? []);
   const [videosLoading, setVideosLoading] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
-  const hasFetchedRef = useRef(false);
+  const [videosExpanded, setVideosExpanded] = useState(false);
+  const [headlinesExpanded, setHeadlinesExpanded] = useState(false);
+  // Prevent duplicate fetches across re-renders
+  const fetchInitiatedRef = useRef(false);
 
-  // Compute display labels
-  const resolvedTabs = TABS.map((tab) => {
-    if (tab.id === 'headlines' && items.length > 0) {
-      return { ...tab, label: `Headlines (${items.length})` };
-    }
-    return tab;
-  });
-
-  // Fetch top CBB videos when the Video tab is first activated
+  // Fetch on mount; skip if cache is already fresh
   useEffect(() => {
-    if (activeTab !== 'video') return;
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-
-    const cached = getCached(VIDEO_CACHE_KEY);
-    if (cached) {
-      setVideoItems(cached);
-      return;
-    }
+    if (fetchInitiatedRef.current) return;
+    fetchInitiatedRef.current = true;
+    if (getCached(VIDEO_CACHE_KEY) != null) return;
 
     setVideosLoading(true);
     const controller = new AbortController();
@@ -85,117 +64,101 @@ export default function NewsFeed({ items = [], source = 'Mock', loading = false 
       .finally(() => setVideosLoading(false));
 
     return () => controller.abort();
-  }, [activeTab]);
+  }, []);
 
-  const heroVideos   = videoItems.slice(0, HERO_TILE_COUNT);
-  const extraVideos  = videoItems.slice(HERO_TILE_COUNT);
-  const cappedItems  = items.slice(0, 6);
+  // Derived video slices
+  const heroVideos    = videoItems.slice(0, HERO_TILE_COUNT);
+  const compactVideos = videoItems.slice(HERO_TILE_COUNT);
+  const visibleCompact = videosExpanded
+    ? compactVideos
+    : compactVideos.slice(0, DEFAULT_COMPACT);
+  const hiddenVideoCount = videosExpanded
+    ? 0
+    : Math.max(0, compactVideos.length - DEFAULT_COMPACT);
+
+  // Derived headline slices
+  const visibleItems = headlinesExpanded
+    ? items
+    : items.slice(0, DEFAULT_HEADLINES);
+  const hiddenHeadlineCount = headlinesExpanded
+    ? 0
+    : Math.max(0, items.length - DEFAULT_HEADLINES);
 
   return (
     <div className={styles.widget}>
-      {/* Header: title + content-type tabs */}
+      {/* Widget header */}
       <div className={styles.widgetHeader}>
         <span className={styles.title}>Intel Feed</span>
-        <div className={styles.tabs} role="tablist" aria-label="Intel feed content type">
-          {resolvedTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* ── VIDEO TAB ───────────────────────────────────────────────────── */}
-      {activeTab === 'video' && (
-        <>
-          {videosLoading ? (
-            <VideoSkeletons count={VIDEO_MAX} />
-          ) : videoItems.length === 0 ? (
-            <p className={styles.empty}>No video highlights available right now.</p>
-          ) : (
-            <>
-              {/* Hero tiles — 2 larger cards side-by-side */}
-              <div className={styles.videoHeroGrid}>
-                {heroVideos.map((video) => (
-                  <div key={video.videoId} className={styles.videoHeroTile}>
-                    <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact={false} />
-                  </div>
-                ))}
-              </div>
+      {/* ── Section: Top Videos ─────────────────────────────────────── */}
+      <div className={styles.section}>
+        <p className={styles.sectionLabel}>Top Videos</p>
 
-              {/* Extra videos — compact horizontal list */}
-              {extraVideos.length > 0 && (
-                <>
-                  <VideoSectionLabel label="More Highlights" />
-                  <div className={styles.videoCompactList}>
-                    {extraVideos.map((video) => (
-                      <div key={video.videoId} className={styles.videoCompactItem}>
-                        <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact />
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Headlines section below videos */}
-              {cappedItems.length > 0 && (
-                <>
-                  <VideoSectionLabel label="Headlines" />
-                  <ul className={styles.list}>
-                    {cappedItems.map((item) => {
-                      const src = item.source || source;
-                      return (
-                        <li key={item.id} className={styles.item}>
-                          <div className={styles.itemMeta}>
-                            <span className={styles.sourceBadge}>{src}</span>
-                            <span className={styles.time}>{item.time}</span>
-                          </div>
-                          <div className={styles.headline}>
-                            {item.link ? (
-                              <a href={item.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
-                                {item.title}
-                              </a>
-                            ) : (
-                              item.title
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </>
-              )}
-            </>
-          )}
-
-          <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
-        </>
-      )}
-
-      {/* ── HEADLINES TAB ───────────────────────────────────────────────── */}
-      {activeTab === 'headlines' && (
-        <>
-          {loading ? (
-            <div className={styles.loadingList}>
-              {[1, 2, 3].map((n) => (
-                <div key={n} className={styles.skeletonItem}>
-                  <div className={styles.skeletonBadge} />
-                  <div className={styles.skeletonLine} style={{ width: n === 1 ? '100%' : n === 2 ? '88%' : '75%' }} />
+        {videosLoading ? (
+          <VideoSkeletons />
+        ) : videoItems.length === 0 ? (
+          <p className={styles.empty}>No video highlights right now.</p>
+        ) : (
+          <>
+            {/* 2-column hero tiles */}
+            <div className={styles.videoHeroGrid}>
+              {heroVideos.map((video) => (
+                <div key={video.videoId} className={styles.videoHeroTile}>
+                  <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact={false} />
                 </div>
               ))}
             </div>
-          ) : items.length === 0 ? (
-            <p className={styles.empty}>No basketball news available. Check back soon.</p>
-          ) : (
+
+            {/* Compact additional videos */}
+            {visibleCompact.length > 0 && (
+              <div className={styles.videoCompactList}>
+                {visibleCompact.map((video) => (
+                  <div key={video.videoId} className={styles.videoCompactItem}>
+                    <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Expand / collapse */}
+            {(hiddenVideoCount > 0 || videosExpanded) && (
+              <button
+                type="button"
+                className={styles.expandBtn}
+                onClick={() => setVideosExpanded((v) => !v)}
+              >
+                {videosExpanded
+                  ? 'Show less'
+                  : `+${hiddenVideoCount} more video${hiddenVideoCount !== 1 ? 's' : ''}`}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Section: Headlines ──────────────────────────────────────── */}
+      <div className={styles.section}>
+        <p className={styles.sectionLabel}>Headlines</p>
+
+        {loading ? (
+          <div className={styles.loadingList}>
+            {[1, 2, 3].map((n) => (
+              <div key={n} className={styles.skeletonItem}>
+                <div className={styles.skeletonBadge} />
+                <div
+                  className={styles.skeletonLine}
+                  style={{ width: n === 1 ? '100%' : n === 2 ? '88%' : '75%' }}
+                />
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <p className={styles.empty}>No basketball news available. Check back soon.</p>
+        ) : (
+          <>
             <ul className={styles.list}>
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const src = item.source || source;
                 return (
                   <li key={item.id} className={styles.item}>
@@ -205,7 +168,12 @@ export default function NewsFeed({ items = [], source = 'Mock', loading = false 
                     </div>
                     <div className={styles.headline}>
                       {item.link ? (
-                        <a href={item.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.link}
+                        >
                           {item.title}
                         </a>
                       ) : (
@@ -217,9 +185,24 @@ export default function NewsFeed({ items = [], source = 'Mock', loading = false 
                 );
               })}
             </ul>
-          )}
-        </>
-      )}
+
+            {/* Expand / collapse */}
+            {(hiddenHeadlineCount > 0 || headlinesExpanded) && (
+              <button
+                type="button"
+                className={styles.expandBtn}
+                onClick={() => setHeadlinesExpanded((v) => !v)}
+              >
+                {headlinesExpanded
+                  ? 'Show less'
+                  : `+${hiddenHeadlineCount} more headline${hiddenHeadlineCount !== 1 ? 's' : ''}`}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
     </div>
   );
 }
