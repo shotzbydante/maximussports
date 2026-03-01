@@ -82,6 +82,9 @@ export default function TeamPage() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState(null);
 
+  // Debug timing — only populated when ?debugTeam=1
+  const [debugInfo, setDebugInfo] = useState(null);
+
   // Batch load: core first (schedule, odds, rank) for fast ATS/Insight, then full (with news).
   // With cache: paint immediately, then SWR if stale. Without cache: fetch core → paint → fetch full → merge news.
   useEffect(() => {
@@ -130,6 +133,15 @@ export default function TeamPage() {
       setBatch(cached.batch);
       setHeadlines(cached.headlines);
       setLoading(false);
+      if (debugTeam) {
+        setDebugInfo((prev) => ({
+          ...prev,
+          cacheAge: Math.round(age / 1000),
+          cacheHit: true,
+          coreMs: null,
+          fullMs: null,
+        }));
+      }
 
       if (age > TEAM_PAGE_STALE_MS) {
         fetchTeamPage(slug)
@@ -139,6 +151,8 @@ export default function TeamPage() {
       return () => { cancelled = true; };
     }
 
+    if (debugTeam) setDebugInfo({ cacheHit: false, cacheAge: null, coreMs: null, fullMs: null });
+
     setLoading(true);
     setError(null);
 
@@ -147,13 +161,21 @@ export default function TeamPage() {
         if (cancelled) return;
         applyCoreOnly(coreData);
         setLoading(false);
-        if (debugTeam) console.log(`[TeamPage] ${slug} core in ${Date.now() - t0}ms`);
+        const coreMs = debugTeam ? Date.now() - t0 : null;
+        if (debugTeam) {
+          console.log(`[TeamPage] ${slug} core in ${coreMs}ms`);
+          setDebugInfo((prev) => ({ ...prev, coreMs }));
+        }
         return fetchTeamPage(slug);
       })
       .then((fullData) => {
         if (cancelled || !fullData) return;
         applyData(fullData);
-        if (debugTeam) console.log(`[TeamPage] ${slug} full in ${Date.now() - t0}ms total`);
+        const fullMs = debugTeam ? Date.now() - t0 : null;
+        if (debugTeam) {
+          console.log(`[TeamPage] ${slug} full in ${fullMs}ms total`);
+          setDebugInfo((prev) => ({ ...prev, fullMs }));
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err?.message);
@@ -530,6 +552,33 @@ export default function TeamPage() {
       <div id="schedule">
         <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
       </div>
+
+      {/* ── Debug panel — only renders when ?debugTeam=1 ── */}
+      {debugTeam && (
+        <aside
+          style={{
+            position: 'fixed', bottom: 12, right: 12, zIndex: 9999,
+            background: 'rgba(10,20,35,0.93)', color: '#7dd3fc',
+            border: '1px solid rgba(125,211,252,0.25)', borderRadius: 8,
+            padding: '10px 14px', fontSize: '0.68rem', fontFamily: 'monospace',
+            lineHeight: 1.6, maxWidth: 320, backdropFilter: 'blur(6px)',
+          }}
+          aria-label="Debug panel"
+        >
+          <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>
+            🔍 debugTeam — {slug}
+          </div>
+          <div>Cache: {debugInfo?.cacheHit ? `HIT (${debugInfo.cacheAge}s old)` : (debugInfo?.cacheHit === false ? 'MISS' : '—')}</div>
+          <div>Core ms: {debugInfo?.coreMs != null ? `${debugInfo.coreMs}ms` : '—'}</div>
+          <div>Full ms: {debugInfo?.fullMs != null ? `${debugInfo.fullMs}ms` : '—'}</div>
+          <div>ATS present: {atsForSummary ? `✓ (s:${atsForSummary.season?.total ?? 0} l30:${atsForSummary.last30?.total ?? 0})` : '✗'}</div>
+          <div>last7 count: {last7.length}</div>
+          <div>Events total: {batch?.schedule?.events?.length ?? 0}</div>
+          <div>Finals: {batch?.schedule?.events?.filter((e) => e.isFinal).length ?? 0}</div>
+          <div>Upcoming: {batch?.schedule?.events?.filter((e) => !e.isFinal).length ?? 0}</div>
+          <div>OddsHistory: {batch?.oddsHistory?.games?.length ?? 0} games</div>
+        </aside>
+      )}
     </div>
   );
 }

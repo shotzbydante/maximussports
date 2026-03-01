@@ -46,7 +46,13 @@ function fmtDateTime(iso) {
 
 function buildQuickPulse(teamName, schedule, rank) {
   return safe(() => {
-    const recent  = (schedule?.recent ?? []).filter((e) => e?.isFinal);
+    // Support both shapes: { events: [...] } (canonical from API) and { recent: [...] } (pre-derived).
+    // Derive from events list first (more robust); fall back to pre-derived recent array.
+    const events = schedule?.events ?? [];
+    const recentFromEvents = events.length > 0
+      ? events.filter((e) => e?.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date))
+      : null;
+    const recent  = recentFromEvents ?? (schedule?.recent ?? []).filter((e) => e?.isFinal);
     const last10  = recent.slice(0, 10);
     const last5   = recent.slice(0, 5);
     const rankNote = rank != null ? ` (ranked **#${rank}**)` : '';

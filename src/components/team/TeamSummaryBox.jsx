@@ -19,6 +19,13 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
   const [llmRefreshing, setLlmRefreshing] = useState(false);
   const fetchedSlugRef = useRef(null);
 
+  // Stable content key for news array — recomputes only when actual content changes (not on
+  // every render caused by inline .filter() calls in the parent).
+  const newsKey = useMemo(
+    () => (Array.isArray(news) ? news.map((n) => n.id || n.title || '').join('|') : ''),
+    [news]
+  );
+
   const summaryData = useMemo(() => ({
     team: team || {},
     schedule: schedule ?? { upcoming: [], recent: [] },
@@ -26,7 +33,9 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     news: Array.isArray(news) ? news.slice(0, 10) : [],
     rank: rank ?? undefined,
     nextLine: nextLine ?? {},
-  }), [team, schedule, ats, news, rank, nextLine]);
+  // Explicit deps: recomputes when ATS, last7 headlines (via newsKey), nextLine, or schedule change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [team, schedule, ats, newsKey, rank, nextLine]);
 
   const localSummary = useMemo(() => {
     if (!team || !dataReady) return '';

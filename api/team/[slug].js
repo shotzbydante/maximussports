@@ -57,12 +57,29 @@ export default async function handler(req, res) {
     let oddsHistory = { games: [] };
 
     if (teamId) {
+      // Core-only: skip oddsHistory (slow); return minimal schedule for above-the-fold ATS/Insight.
       const [schedRes, historyRes] = await Promise.all([
         fetchScheduleSource(teamId),
-        fetchOddsHistorySource(SEASON_START, today),
+        coreOnly ? Promise.resolve(null) : fetchOddsHistorySource(SEASON_START, today),
       ]);
-      schedule = schedRes || { events: [] };
-      oddsHistory = historyRes?.games != null ? { games: historyRes.games } : { games: [] };
+
+      if (coreOnly) {
+        // Trim to last 10 finals + next 3 upcoming — enough for Quick Pulse and record display.
+        const allEvents = schedRes?.events ?? [];
+        const finals   = allEvents
+          .filter((e) => e.isFinal)
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 10);
+        const upcoming = allEvents
+          .filter((e) => !e.isFinal)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 3);
+        schedule    = { events: [...finals, ...upcoming] };
+        oddsHistory = { games: [] };
+      } else {
+        schedule    = schedRes || { events: [] };
+        oddsHistory = historyRes?.games != null ? { games: historyRes.games } : { games: [] };
+      }
     }
 
     const rankings = rankingsData?.rankings || [];

@@ -16,6 +16,8 @@ import { getTeamSlug } from '../../utils/teamSlug';
 import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
+import { fetchTeamPage } from '../../api/team';
+import { getCached, setCached } from '../../utils/ytClientCache';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
 import styles from './PinnedTeamsSection.module.css';
@@ -30,18 +32,18 @@ const POPULAR_PICKS = [
   { slug: 'gonzaga-bulldogs',    name: 'Gonzaga' },
 ];
 
-// Static preview card — evergreen, illustrative only (no real players or dated news)
-const PREVIEW_CARD = {
-  team: { name: 'Example Team', conference: 'Conference', oddsTier: 'Lock', slug: 'example' },
-  rank: 5,
+const DUKE_SLUG          = 'duke-blue-devils';
+const DUKE_PREVIEW_KEY   = 'previewCard:duke-blue-devils';
+const DUKE_PREVIEW_TTL   = 5 * 60 * 1000; // 5 min
+
+// Evergreen fallback — only shown if Duke data fails to load
+const PREVIEW_CARD_FALLBACK = {
+  rank: null,
   season: '—',
   last10: '—',
   ats: '—',
-  nextGame: 'Next: vs Opponent · Date & time',
-  summary: 'Led by an efficient offense and strong perimeter defense. Trending up in conference play with a favorable path. Key storyline: late-game execution improving.',
-  headlines: [
-    'Example headline: Team trending upward entering next matchup',
-  ],
+  nextGame: null,
+  summary: 'Lock-tier ACC program. Elite recruiting, strong perimeter defense, perennial March Madness contender. Check the team page for full live intel.',
 };
 
 const PICKER_SEARCH_ICON = (
@@ -105,75 +107,156 @@ function EmptyStateCard({ onOpenAdd, onQuickPin, pinned }) {
   );
 }
 
-/** Static preview card — dismissible, crisp, shows what a real card looks like */
-function PreviewCard({ onDismiss }) {
-  const { team, rank, season, last10, ats, nextGame, summary, headlines } = PREVIEW_CARD;
-  // Intercept all clicks so demo links don't navigate
-  const blockNav = (e) => e.preventDefault();
+/**
+ * Preview card showing real Duke data (or evergreen fallback on error).
+ * Fetches Duke's core data once on mount (cache-first, 5-min TTL).
+ */
+function DukePreviewCard({ onDismiss, gamesForToday }) {
+  const dukeTeam  = getTeamBySlug(DUKE_SLUG);
+  const [data,    setData]    = useState(() => getCached(DUKE_PREVIEW_KEY) ?? null);
+  const [loading, setLoading] = useState(!getCached(DUKE_PREVIEW_KEY));
+
+  useEffect(() => {
+    if (getCached(DUKE_PREVIEW_KEY)) return; // already cached
+    let cancelled = false;
+    fetchTeamPage(DUKE_SLUG, { coreOnly: true })
+      .then((res) => {
+        if (cancelled) return;
+        setCached(DUKE_PREVIEW_KEY, res, DUKE_PREVIEW_TTL);
+        setData(res);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Compute records from schedule events
+  const events  = data?.schedule?.events ?? [];
+  const finals  = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const l10     = finals.slice(0, 10);
+  const l10W    = l10.filter((e) => e.ourScore != null && Number(e.ourScore) > Number(e.oppScore)).length;
+  const l10L    = l10.filter((e) => e.ourScore != null && Number(e.ourScore) < Number(e.oppScore)).length;
+  const seasonW = finals.filter((e) => e.ourScore != null && Number(e.ourScore) > Number(e.oppScore)).length;
+  const seasonL = finals.filter((e) => e.ourScore != null && Number(e.ourScore) < Number(e.oppScore)).length;
+
+  const rank      = data?.rank ?? null;
+  const hasL10    = l10.length > 0;
+  const hasSeason = finals.length > 0;
+
+  const seasonStr = hasSeason ? `${seasonW}–${seasonL}` : '—';
+  const l10Str    = hasL10    ? `${l10W}–${l10L}`       : '—';
+
+  // Next game from today's schedule
+  const todayGame = (() => {
+    if (!Array.isArray(gamesForToday)) return null;
+    for (const g of gamesForToday) {
+      const homeSlug = getTeamSlug(g.homeTeam);
+      const awaySlug = getTeamSlug(g.awayTeam);
+      if (homeSlug === DUKE_SLUG || awaySlug === DUKE_SLUG) {
+        const vs = homeSlug === DUKE_SLUG ? g.awayTeam : g.homeTeam;
+        return { vs, status: g.gameStatus, network: g.network, gameId: g.gameId };
+      }
+    }
+    return null;
+  })();
+
+  // Upcoming from schedule events
+  const nextScheduled = (() => {
+    if (todayGame) return null;
+    const upcoming = events
+      .filter((e) => !e.isFinal)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    return upcoming[0] ?? null;
+  })();
+
+  const fallback = !data && !loading;
+
   return (
-    <article className={styles.previewCard} aria-label="Example pinned team card">
-      {/* Top bar with label + dismiss */}
+    <article className={styles.previewCard} aria-label="Duke Blue Devils preview card">
       <div className={styles.previewTopBar}>
         <span className={styles.exampleLabel}>Preview</span>
         <button
           type="button"
           className={styles.dismissBtn}
           onClick={onDismiss}
-          aria-label="Dismiss example card"
+          aria-label="Dismiss preview card"
         >
           {CLOSE_ICON}
         </button>
       </div>
 
-      {/* Card body mirrors a real card */}
       <div className={styles.previewCardBody}>
         <div className={styles.cardHeader}>
           <div className={styles.cardLinkMock}>
-            <TeamLogo team={team} size={32} />
+            <TeamLogo team={dukeTeam} size={32} />
             <div className={styles.cardMeta}>
-              <span className={styles.teamName}>{team.name}</span>
-              <span className={styles.conference}>{team.conference}</span>
+              <span className={styles.teamName}>{dukeTeam?.name ?? 'Duke Blue Devils'}</span>
+              <span className={styles.conference}>{dukeTeam?.conference ?? 'ACC'}</span>
             </div>
           </div>
-          {/* No tier badge here — avoids visual clash with Example label */}
           <div className={styles.cardBadges}>
-            <span className={styles.rank}>#{rank}</span>
+            {rank != null && <span className={styles.rank}>#{rank}</span>}
+            <span className={`${styles.tier} ${TIER_CLASS['Lock'] || ''}`}>Lock</span>
           </div>
         </div>
 
-        <div className={styles.nextGame}>
-          <span className={styles.nextLabel}>Next:</span>
-          <span>{nextGame}</span>
-        </div>
+        {/* Next game */}
+        {todayGame && (
+          <div className={styles.nextGame}>
+            <span className={styles.nextLabel}>Today:</span>
+            <span>vs {todayGame.vs} — {todayGame.status}
+              {todayGame.network && ` · ${todayGame.network}`}
+            </span>
+          </div>
+        )}
+        {!todayGame && nextScheduled && (
+          <div className={styles.nextGame}>
+            <span className={styles.nextLabel}>Next:</span>
+            <span>{nextScheduled.homeAway === 'home' ? 'vs' : '@'} {nextScheduled.opponent}</span>
+          </div>
+        )}
 
-        <div className={styles.recordsRow}>
-          <span className={styles.recordCell}>
-            <span className={styles.recordLabel}>Season</span>
-            <span className={styles.recordValue}>{season}</span>
-          </span>
-          <span className={styles.recordCell}>
-            <span className={styles.recordLabel}>L10</span>
-            <span className={styles.recordValue}>{last10}</span>
-          </span>
-          <span className={styles.recordCell}>
-            <span className={styles.recordLabel}>ATS</span>
-            <span className={styles.recordValue}>{ats}</span>
-          </span>
-        </div>
+        {/* Records skeleton or real data */}
+        {loading ? (
+          <div className={styles.recordsSkeletonRow} aria-label="Loading records">
+            {['Season', 'L10', 'ATS'].map((lbl) => (
+              <div key={lbl} className={styles.recordSkeleton}>
+                <div className={styles.recordSkeletonLabel} />
+                <div className={styles.recordSkeletonValue} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.recordsRow}>
+            <span className={styles.recordCell}>
+              <span className={styles.recordLabel}>Season</span>
+              <span className={styles.recordValue}>{fallback ? PREVIEW_CARD_FALLBACK.season : seasonStr}</span>
+            </span>
+            <span className={styles.recordCell}>
+              <span className={styles.recordLabel}>L10</span>
+              <span className={styles.recordValue}>{fallback ? PREVIEW_CARD_FALLBACK.last10 : l10Str}</span>
+            </span>
+            <span className={styles.recordCell}>
+              <span className={styles.recordLabel}>ATS</span>
+              <span className={styles.recordValue}>—</span>
+            </span>
+          </div>
+        )}
 
         <div className={styles.teamSummary}>
-          <p className={styles.teamSummaryText}>{summary}</p>
+          {loading ? (
+            <div className={styles.summarySkeletonLines} aria-label="Loading summary">
+              <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
+              <div className={styles.summarySkeletonLine} style={{ width: '75%' }} />
+            </div>
+          ) : (
+            <p className={styles.teamSummaryText}>{PREVIEW_CARD_FALLBACK.summary}</p>
+          )}
         </div>
 
-        <ul className={styles.headlines}>
-          {headlines.map((h) => (
-            <li key={h}>
-              <a href="#" onClick={blockNav} className={styles.headlineLink}>{h}</a>
-            </li>
-          ))}
-        </ul>
-
-        <a href="#" onClick={blockNav} className={styles.teamLink}>View team →</a>
+        <Link to={`/teams/${DUKE_SLUG}`} className={styles.teamLink}>View team →</Link>
       </div>
     </article>
   );
@@ -574,7 +657,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
         </div>
       )}
 
-      {/* ── Empty state: onboarding + preview card ───────────────────────── */}
+      {/* ── Empty state: onboarding + Duke live preview card ───────────── */}
       {pinned.length === 0 && (
         <div className={showPreview ? styles.emptyLayout : styles.emptyLayoutSingle}>
           <EmptyStateCard
@@ -582,7 +665,12 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             onQuickPin={handleDirectPin}
             pinned={pinned}
           />
-          {showPreview && <PreviewCard onDismiss={handleDismissPreview} />}
+          {showPreview && (
+            <DukePreviewCard
+              onDismiss={handleDismissPreview}
+              gamesForToday={scores.games}
+            />
+          )}
         </div>
       )}
 
