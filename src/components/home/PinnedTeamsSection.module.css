@@ -456,14 +456,17 @@
   gap: 16px;
   margin-bottom: var(--space-md);
   align-items: start;
+  overflow: visible; /* ensure content never gets accidentally clipped */
 }
 
 .emptyLayoutSingle {
-  /* preview was dismissed — show onboarding card constrained width */
+  /* preview dismissed — single column, constrained to 560px max */
   display: grid;
-  grid-template-columns: minmax(0, 560px);
+  grid-template-columns: 1fr;
+  max-width: 560px;
   gap: 16px;
   margin-bottom: var(--space-md);
+  overflow: visible;
 }
 
 @media (max-width: 840px) {
@@ -471,17 +474,19 @@
     grid-template-columns: 1fr;
   }
   .emptyLayoutSingle {
-    grid-template-columns: 1fr;
+    max-width: 100%;
   }
 }
 
-/* Onboarding card */
+/* Onboarding card — always visible when pinned.length === 0 */
 .onboardingCard {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
+  display: block; /* guard: prevent flex/grid parent from collapsing this */
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
   border-radius: 10px;
-  padding: 20px var(--space-lg);
+  padding: 20px var(--space-lg, 20px);
   box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+  min-height: 120px; /* guard: ensure grid row doesn't collapse to 0 */
 }
 
 .onboardingHeading {
@@ -887,7 +892,8 @@
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   padding: var(--space-xs) 0;
-  border-bottom: 1px solid var(--color-border-light);
+  /* No border-bottom here — the records/skeleton row below carries its own
+     border-top, so having both creates an ugly "double line" at small gaps. */
   margin-bottom: var(--space-sm);
 }
 

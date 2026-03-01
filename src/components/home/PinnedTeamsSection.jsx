@@ -2,7 +2,7 @@
  * Pinned Teams Dashboard — multi-select + search, cards with rank, next game, headlines, records.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Component } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS, getTeamBySlug } from '../../data/teams';
 import { getTeamsGroupedByConference } from '../../data/teams';
@@ -33,6 +33,22 @@ const POPULAR_PICKS = [
 ];
 
 const DUKE_SLUG = 'duke-blue-devils';
+
+/**
+ * Lightweight error boundary that silently swallows crashes in ExamplePinnedTeamCard.
+ * The LEFT onboarding column must always render; this protects it from right-column errors.
+ */
+class PreviewCardBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { crashed: false };
+  }
+  static getDerivedStateFromError() { return { crashed: true }; }
+  render() {
+    if (this.state.crashed) return null; // right column simply disappears — left is unaffected
+    return this.props.children;
+  }
+}
 
 const PICKER_SEARCH_ICON = (
   <svg
@@ -105,12 +121,14 @@ function EmptyPinnedState({ onOpenAdd, onPinDuke, onDismissPreview, onShowPrevie
 
       {/* ── RIGHT: isolated Duke preview card — only when not dismissed ── */}
       {showPreview && (
-        <ExamplePinnedTeamCard
-          slug={DUKE_SLUG}
-          gamesForToday={gamesForToday}
-          onDismiss={onDismissPreview}
-          onPinTeam={onPinDuke}
-        />
+        <PreviewCardBoundary>
+          <ExamplePinnedTeamCard
+            slug={DUKE_SLUG}
+            gamesForToday={gamesForToday}
+            onDismiss={onDismissPreview}
+            onPinTeam={onPinDuke}
+          />
+        </PreviewCardBoundary>
       )}
     </div>
   );

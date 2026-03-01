@@ -54,6 +54,10 @@ export async function ytSearch({ q, maxResults = 6, debug = false }) {
   const res = await fetch(`${YT_SEARCH_URL}?${params}`);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    // Log 403/429 quota errors explicitly so they're easy to find in Vercel logs
+    if (res.status === 403 || res.status === 429) {
+      console.error(`[ytSearch] quota/rate-limit (${res.status}) for q="${q}":`, text.slice(0, 200));
+    }
     throw new Error(`YouTube API ${res.status}: ${text.slice(0, 200)}`);
   }
 

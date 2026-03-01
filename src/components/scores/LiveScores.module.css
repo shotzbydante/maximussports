@@ -69,25 +69,22 @@
 
 /* Individual game card */
 .gameCard {
-  padding: 7px var(--space-md);
+  padding: 5px var(--space-md);
   border-bottom: 1px solid var(--color-border-light);
   transition: background 0.1s;
 }
 
-/* ─── Desktop: tighter density + balanced width (min-width 900px) ──────────── */
+/* ─── Desktop: tighter density (min-width 900px) ───────────────────────────── */
 @media (min-width: 900px) {
-  .gameList {
-    max-width: clamp(520px, 60vw, 740px);
-    margin-left: auto;
-    margin-right: auto;
-  }
+  /* No max-width constraint on .gameList — let it fill the widget naturally
+     so game rows stay aligned with the full-width widget header. */
 
   .widgetHeader {
     padding: 10px var(--space-md) 8px;
   }
 
   .gameCard {
-    padding: 5px var(--space-md) 4px;
+    padding: 4px var(--space-md) 3px;
     border-bottom: 1px solid var(--color-border-light);
   }
 
@@ -185,7 +182,7 @@
   grid-template-columns: 28px 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 2px 0;
+  padding: 1px 0;
 }
 
 .teamRowWinner .teamName {

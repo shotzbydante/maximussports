@@ -46,8 +46,10 @@ export default async function handler(req, res) {
       lockBonus: 20,
     }));
 
+    // Use current year so results skew toward recent 2026 season content
+    const currentYear = new Date().getFullYear();
     const queries = [
-      { q: "men's college basketball highlights 2025", maxResults: 8, lockBonus: 0 },
+      { q: `men's college basketball highlights ${currentYear}`, maxResults: 8, lockBonus: 0 },
       { q: 'NCAA men basketball top 25 highlights', maxResults: 6, lockBonus: 0 },
       ...lockSpotlight,
     ];
@@ -96,7 +98,17 @@ export default async function handler(req, res) {
       items:     scored.slice(0, 15),
     });
   } catch (err) {
-    console.error('[intelFeed] error:', err.message);
-    res.status(200).json({ status: 'ok', updatedAt: new Date().toISOString(), items: [] });
+    // Surface the error type so Vercel logs can distinguish quota vs missing key vs network
+    const isQuota = /quota/i.test(err.message) || /429/.test(err.message);
+    const isMissingKey = /YOUTUBE_API_KEY/.test(err.message);
+    console.error(
+      `[intelFeed] error (${isMissingKey ? 'missing_key' : isQuota ? 'quota_exceeded' : 'unknown'}):`,
+      err.message,
+    );
+    res.status(200).json({
+      status: isMissingKey ? 'error_no_key' : isQuota ? 'error_quota' : 'error',
+      updatedAt: new Date().toISOString(),
+      items: [],
+    });
   }
 }

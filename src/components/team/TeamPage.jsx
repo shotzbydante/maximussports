@@ -81,6 +81,7 @@ export default function TeamPage() {
   // Videos
   const [videos, setVideos] = useState([]);
   const [videosLoading, setVideosLoading] = useState(true);
+  const [videosError, setVideosError] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
 
   // Debug timing — only populated when ?debugTeam=1
@@ -267,15 +268,26 @@ export default function TeamPage() {
     const t0 = ytDebug ? Date.now() : 0;
 
     fetch(`/api/youtube/team?${qs}`, { signal: controller.signal })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         const items = data.items ?? [];
-        setCachedVideos(slug, items);
-        if (ytDebug) console.log(`[YT Team] cache MISS for ${slug}, fetched in ${Date.now() - t0}ms (${items.length} items)`);
+        if (ytDebug) console.log(`[YT Team] cache MISS for ${slug}, fetched in ${Date.now() - t0}ms (${items.length} items)`, data.status ?? '');
+        // Only write to cache when we got real results; a quota/error payload shouldn't be cached
+        if (items.length > 0) setCachedVideos(slug, items);
         setVideos(items);
+        if (data.status && data.status !== 'ok') {
+          console.warn(`[YT Team] API non-ok status for ${slug}:`, data.status);
+        }
       })
       .catch((err) => {
-        if (err.name !== 'AbortError') setVideos([]);
+        if (err.name !== 'AbortError') {
+          console.warn(`[YT Team] fetch failed for ${slug}:`, err.message);
+          setVideosError(true);
+          setVideos([]);
+        }
       })
       .finally(() => {
         setVideosLoading(false);
@@ -541,14 +553,33 @@ export default function TeamPage() {
           title="Videos"
           loading={videosLoading}
           skeletonRows={2}
-          isEmpty={!videosLoading && videos.length === 0}
-          emptyMessage="No men's basketball coverage found. Check back soon."
+          isEmpty={!videosLoading && videos.length === 0 && !videosError}
+          emptyMessage="No video highlights found for this team right now."
           footer={
-            team && (
-              !videosLoading && videos.length === 0 ? (
-                <a href="#schedule" className={styles.videosMoreLink}>
-                  View schedule
-                </a>
+            team && !videosLoading && (
+              videosError ? (
+                <button
+                  type="button"
+                  className={styles.videosMoreLink}
+                  onClick={() => {
+                    setVideosError(false);
+                    setVideosLoading(true);
+                    const qs = new URLSearchParams({ teamSlug: slug, maxResults: '6' });
+                    fetch(`/api/youtube/team?${qs}`)
+                      .then((r) => r.json())
+                      .then((data) => {
+                        const items = data.items ?? [];
+                        if (items.length > 0) setCachedVideos(slug, items);
+                        setVideos(items);
+                      })
+                      .catch(() => { setVideosError(true); setVideos([]); })
+                      .finally(() => setVideosLoading(false));
+                  }}
+                >
+                  Retry videos
+                </button>
+              ) : videos.length === 0 ? (
+                <a href="#schedule" className={styles.videosMoreLink}>View schedule</a>
               ) : (
                 <a
                   href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
@@ -562,7 +593,11 @@ export default function TeamPage() {
             )
           }
         >
-          <YouTubeVideoRail items={videos} onSelect={setActiveVideo} />
+          {videosError ? (
+            <p className={styles.videosEmptyMsg}>Videos unavailable. Check your connection and retry.</p>
+          ) : (
+            <YouTubeVideoRail items={videos} onSelect={setActiveVideo} />
+          )}
         </ModuleShell>
       </section>
 

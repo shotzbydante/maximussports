@@ -221,7 +221,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
               {/* Game footer: status · time · odds · ESPN Gamecast */}
               <div className={styles.gameFooter}>
-                {/* Non-final status sits on the left; Final chips move right (near score column) */}
+                {/* Non-final: status left + time. Final: FINAL already shown in finalDivider above. */}
                 {!finished && <StatusChip status={g.gameStatus} />}
                 {!compact && !finished && g.startTime && (
                   <span className={styles.gameTime}>{formatStartTime(g.startTime)}</span>
@@ -232,7 +232,6 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
                       {g.spread != null ? `${g.spread > 0 ? '+' : ''}${g.spread}` : ''}{g.spread != null && g.total != null ? ' · ' : ''}{g.total != null ? `O/U ${g.total}` : ''}
                     </span>
                   )}
-                  {finished && <StatusChip status={g.gameStatus} />}
                   <ESPNGamecastLink game={g} />
                 </span>
               </div>
