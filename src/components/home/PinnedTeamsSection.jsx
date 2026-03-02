@@ -741,6 +741,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                           destinationPath={`/teams/${slug}`}
                           placement="pinned_team_card"
                           iconOnly
+                          surface="light"
                           data-testid={`share-pinned-team-${slug}`}
                         />
                       );

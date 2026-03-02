@@ -877,7 +877,7 @@ export default function Home() {
            Left: snapshot stats + today's scores + upset alerts
            Right: intel feed teaser (capped) + pinned team news
            2-col on desktop, single col on mobile              */}
-      <div className={styles.dashboardGrid}>
+      <div className={`${styles.dashboardGrid} ${styles.dashboardGridSection}`}>
         <div className={styles.dashboardLeft}>
           <div className={styles.moduleSnapshot}>
             <DynamicStats stats={dynamicStats} />

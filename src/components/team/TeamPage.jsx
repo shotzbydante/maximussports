@@ -407,6 +407,7 @@ export default function TeamPage() {
           </div>
           <div className={styles.headerShare}>
             <ShareButton
+              variant="primary"
               shareType="team_intel"
               title={`${team.name} — Quick Pulse`}
               subtitle={(() => {

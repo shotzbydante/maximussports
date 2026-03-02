@@ -63,6 +63,10 @@ export default function ShareButton({
   className = '',
   label = 'Share',
   iconOnly = false,
+  /** 'primary' — solid filled button for prominent placements */
+  variant = 'default',
+  /** 'light' — icon/border colour suited to white/light card surfaces */
+  surface = 'dark',
   'data-testid': testId,
 }) {
   const [busy, setBusy] = useState(false);
@@ -169,7 +173,9 @@ export default function ShareButton({
 
   const btnClass = [
     styles.btn,
+    variant === 'primary' ? styles.btnPrimary : '',
     iconOnly ? styles.btnIconOnly : '',
+    surface === 'light' ? styles.btnSurfaceLight : '',
     className,
   ].filter(Boolean).join(' ');
 

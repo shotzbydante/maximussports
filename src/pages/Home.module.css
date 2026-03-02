@@ -458,7 +458,7 @@
 
 .atsSection {
   margin-bottom: var(--space-xl);
-  min-height: 200px; /* Reserve space so ATS doesn't cause layout jump when loading */
+  /* min-height removed: was creating a large blank zone when section is empty/collapsed */
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -651,22 +651,32 @@
 
 .bubbleWatchSection {
   margin-bottom: var(--space-xl);
+  /* Visual separator so Bubble Watch doesn't blur into the dashboard grid */
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border-light);
 }
 
-/* ─── Dashboard Grid (below Bubble Watch) ─────────────────────────────────── */
+/* ─── Dashboard Intelligence Grid (Alerts + Headlines) ─────────────────────── */
+
+/* Wrapper that provides consistent top/bottom spacing */
+.dashboardGridSection {
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
 
 .dashboardGrid {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: var(--space-lg);
+  /* Left col: fills remaining space. Right col: fixed sidebar width. */
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-xl);    /* 24px — same rhythm as inter-section gaps */
   align-items: start;
-  margin-bottom: var(--space-xl);
+  margin-bottom: 0;        /* Bubble Watch handles its own top separation */
 }
 
 .dashboardLeft {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;               /* tighter than 16px to avoid awkward blank zone */
   min-width: 0;
 }
 
@@ -684,7 +694,8 @@
 
 /* Remove excess bottom margin from child sections since grid handles spacing */
 .moduleAlerts :global(.section),
-.moduleSnapshot :global(.section) {
+.moduleSnapshot :global(.section),
+.moduleScores :global(.section) {
   margin-bottom: 0;
 }
 
@@ -711,7 +722,7 @@
 @media (max-width: 960px) {
   .dashboardGrid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 16px;
   }
 
   .dashboardRight {
@@ -721,6 +732,13 @@
   .moduleSnapshot { order: 1; }
   .moduleScores  { order: 2; }
   .moduleAlerts  { order: 3; }
+
+  /* Restore section margin on mobile since it's a single stack */
+  .moduleAlerts :global(.section),
+  .moduleSnapshot :global(.section),
+  .moduleScores :global(.section) {
+    margin-bottom: 0;
+  }
 }
 
 .sectionHeader {
