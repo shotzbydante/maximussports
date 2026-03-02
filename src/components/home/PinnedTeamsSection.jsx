@@ -20,6 +20,7 @@ import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
 import ExamplePinnedTeamCard from './ExamplePinnedTeamCard';
+import ShareButton from '../common/ShareButton';
 import styles from './PinnedTeamsSection.module.css';
 
 // Popular teams to suggest to new users
@@ -723,6 +724,27 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     <span className={`${styles.tier} ${TIER_CLASS[team.oddsTier] || ''}`}>
                       {team.oddsTier}
                     </span>
+                    {/* Compact icon-only share button */}
+                    {(() => {
+                      const cached = getAtsCache(slug);
+                      const ats = cached?.season?.total > 0 ? cached.season : null;
+                      const atsSubtitle = ats
+                        ? `ATS Season: ${ats.wins}–${ats.losses}${ats.total > 0 ? ` (${Math.round((ats.wins / ats.total) * 100)}%)` : ''}`
+                        : `${team.conference} · ${team.oddsTier}`;
+                      return (
+                        <ShareButton
+                          shareType="team_card"
+                          title={team.name}
+                          subtitle={atsSubtitle}
+                          meta="Pinned on Maximus Sports"
+                          teamSlug={slug}
+                          destinationPath={`/teams/${slug}`}
+                          placement="pinned_team_card"
+                          iconOnly
+                          data-testid={`share-pinned-team-${slug}`}
+                        />
+                      );
+                    })()}
                     <button
                       type="button"
                       className={styles.unpin}

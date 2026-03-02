@@ -1,6 +1,7 @@
 .page {
   max-width: 760px;
-  overflow-x: hidden;
+  /* overflow-x: hidden removed — it clips the header ShareButton on desktop.
+     Tables and wide content use their own overflow rules. */
 }
 
 .header {
@@ -24,16 +25,22 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-}
-
-/* Push ShareButton to far right of header row */
-.headerRow > :last-child {
-  margin-left: auto;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  /* Allow row to breathe on small screens */
+  min-width: 0;
 }
 
 .headerInfo {
   flex: 1;
+  min-width: 0; /* allow text to truncate rather than push siblings off-screen */
+}
+
+/* Share button slot — always on the right, never clipped */
+.headerShare {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
 }
 
 .headerInfo h1 {

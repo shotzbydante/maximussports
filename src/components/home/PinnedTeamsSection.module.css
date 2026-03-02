@@ -878,6 +878,13 @@
   color: var(--color-down);
 }
 
+/* Share icon button sits between tier badge and unpin in cardBadges */
+.cardBadges > button[data-testid^="share-pinned-team"] {
+  /* Let ShareButton.module.css .btnIconOnly handle sizing;
+     just ensure alignment matches the row */
+  vertical-align: middle;
+}
+
 .unpin {
   width: 20px;
   height: 20px;

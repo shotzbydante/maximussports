@@ -1,17 +1,8 @@
 /**
  * ShareButton — one-click share for insight cards.
  *
- * Behavior:
- *   1. Calls POST /api/share/create to get a short share URL (KV-backed)
- *   2. If navigator.share is available → opens native share sheet
- *   3. Else → copies link to clipboard + shows toast
- *   4. Falls back to copying destinationUrl directly if share API fails
- *
- * UTM params are appended to the destination URL (not the share URL itself,
- * since the share URL redirects via the API which adds context).
- *
  * Props:
- *   shareType       — 'upset_watch' | 'ats_intel' | 'odds_insight' | 'team_intel' | 'matchup'
+ *   shareType       — 'upset_watch' | 'ats_intel' | 'odds_insight' | 'team_intel' | 'matchup' | 'team_card'
  *   title           — insight headline (required)
  *   subtitle        — secondary line (optional)
  *   meta            — small detail, e.g. "ATS: 13–8 last 30" (optional)
@@ -20,6 +11,8 @@
  *   placement       — analytics placement string, e.g. "team_header" (optional)
  *   className       — extra CSS class on root button (optional)
  *   label           — button text (default: "Share")
+ *   iconOnly        — render icon only, no text label (default: false)
+ *   data-testid     — forwarded to root <button>
  */
 
 import { useState, useCallback } from 'react';
@@ -32,6 +25,7 @@ const TYPE_LABELS = {
   ats_intel:    'ATS Intel',
   odds_insight: 'Odds Insight',
   team_intel:   'Team Intel',
+  team_card:    'Team Intel',
   bracket_bust: 'Bracket Bust Alert',
   matchup:      'Matchup Intel',
 };
@@ -68,6 +62,8 @@ export default function ShareButton({
   placement = 'unknown',
   className = '',
   label = 'Share',
+  iconOnly = false,
+  'data-testid': testId,
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -104,16 +100,16 @@ export default function ShareButton({
       if (res.ok) {
         const data = await res.json();
         if (data.url) {
-          shareUrl  = data.url;
-          shareId   = data.id;
+          shareUrl     = data.url;
+          shareId      = data.id;
           usedFallback = !!data.fallback;
         }
         track('share_link_created', {
           type: shareType,
           placement,
           team_slug: teamSlug,
-          share_id: shareId,
-          fallback: usedFallback,
+          share_id:  shareId,
+          fallback:  usedFallback,
         });
       }
     } catch {
@@ -131,13 +127,10 @@ export default function ShareButton({
         await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
         success = true;
       } catch (err) {
-        // User dismissed native share — not a real error
-        if (err?.name !== 'AbortError') {
-          // Fall through to clipboard
-          hasNativeShare && (success = false);
-        } else {
-          success = true; // dismissed = user saw the sheet = technically success
+        if (err?.name === 'AbortError') {
+          success = true; // user saw the sheet and dismissed — not a failure
         }
+        // else fall through to clipboard
       }
     }
 
@@ -147,7 +140,6 @@ export default function ShareButton({
         showToast('Link copied to clipboard', { type: 'success' });
         success = true;
       } catch {
-        // Clipboard denied — try old execCommand
         try {
           const el = document.createElement('input');
           el.value = shareUrl;
@@ -164,31 +156,38 @@ export default function ShareButton({
     }
 
     track('share_click', {
-      type:           shareType,
+      type:             shareType,
       placement,
-      team_slug:      teamSlug,
+      team_slug:        teamSlug,
       has_native_share: hasNativeShare,
       success,
-      fallback:       usedFallback,
+      fallback:         usedFallback,
     });
 
     setBusy(false);
   }, [busy, shareType, title, subtitle, meta, teamSlug, destinationPath, placement]);
 
+  const btnClass = [
+    styles.btn,
+    iconOnly ? styles.btnIconOnly : '',
+    className,
+  ].filter(Boolean).join(' ');
+
   return (
     <button
       type="button"
-      className={`${styles.btn} ${className}`}
+      className={btnClass}
       onClick={handleShare}
       disabled={busy}
       aria-label={`Share: ${title || 'this insight'}`}
-      title="Share this insight"
+      title="Share"
+      data-testid={testId}
     >
       {busy
         ? <span className={styles.spinner} aria-hidden />
         : <ShareIcon />
       }
-      <span className={styles.label}>{label}</span>
+      {!iconOnly && <span className={styles.label}>{label}</span>}
     </button>
   );
 }
@@ -197,12 +196,12 @@ function ShareIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

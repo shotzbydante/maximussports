@@ -405,15 +405,36 @@ export default function TeamPage() {
               <ChampionshipBadge slug={slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
             </div>
           </div>
-          <ShareButton
-            shareType="team_intel"
-            title={`${team.name} — March Madness Intel`}
-            subtitle={rank != null ? `#${rank} ${team.conference} · ${team.oddsTier}` : `${team.conference} · ${team.oddsTier}`}
-            meta=""
-            teamSlug={slug}
-            destinationPath={`/teams/${slug}`}
-            placement="team_header"
-          />
+          <div className={styles.headerShare}>
+            <ShareButton
+              shareType="team_intel"
+              title={`${team.name} — Quick Pulse`}
+              subtitle={(() => {
+                const season = atsForSummary?.season;
+                const last30 = atsForSummary?.last30;
+                const parts = [];
+                if (season?.total > 0) {
+                  const pct = season.total > 0 ? Math.round((season.wins / season.total) * 100) : null;
+                  parts.push(`ATS Season: ${season.wins}–${season.losses}${pct != null ? ` (${pct}%)` : ''}`);
+                }
+                if (last30?.total > 0) {
+                  const pct30 = Math.round((last30.wins / last30.total) * 100);
+                  parts.push(`Last 30: ${last30.wins}–${last30.losses} (${pct30}%)`);
+                }
+                if (parts.length === 0 && rank != null) {
+                  parts.push(`#${rank} ${team.conference} · ${team.oddsTier}`);
+                } else if (parts.length === 0) {
+                  parts.push(`${team.conference} · ${team.oddsTier}`);
+                }
+                return parts.join(' | ');
+              })()}
+              meta={rank != null ? `${team.conference} | Rank #${rank}` : team.conference}
+              teamSlug={slug}
+              destinationPath={`/teams/${slug}`}
+              placement="team_header"
+              data-testid="share-team-header"
+            />
+          </div>
         </div>
       </header>
 
