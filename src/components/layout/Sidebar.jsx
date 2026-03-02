@@ -144,6 +144,7 @@ export default function Sidebar() {
           </NavLink>
           <NavLink
             to="/settings"
+            data-testid="nav-settings"
             className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
           >
             <span className={styles.icon}><SettingsIcon /></span>

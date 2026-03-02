@@ -277,8 +277,92 @@
   box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.12);
 }
 
+.inputError {
+  border-color: var(--color-down) !important;
+}
+
+.inputError:focus {
+  box-shadow: 0 0 0 3px rgba(196, 92, 74, 0.12) !important;
+}
+
+.inputOk {
+  border-color: var(--color-up) !important;
+}
+
+.inputOk:focus {
+  box-shadow: 0 0 0 3px rgba(45, 138, 110, 0.12) !important;
+}
+
 .inputNarrow {
   width: 100px;
+}
+
+/* Input with inline status icon */
+.inputWrap {
+  position: relative;
+}
+
+.inputWrap .input {
+  padding-right: 36px;
+}
+
+.inputSpinner,
+.inputCheck {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.inputCheck {
+  color: var(--color-up);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Field hint line below input */
+.fieldHint {
+  font-size: 0.77rem;
+  margin-top: 2px;
+}
+
+.hint_info { color: var(--color-text-muted); }
+.hint_ok   { color: var(--color-up); font-weight: 500; }
+.hint_err  { color: var(--color-down); font-weight: 500; }
+.hint_warn { color: var(--color-accent); }
+
+/* Username suggestions */
+.suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: 2px;
+}
+
+.suggestionLabel {
+  font-size: 0.77rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.suggestionChip {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.suggestionChip:hover {
+  background: rgba(60, 121, 180, 0.16);
 }
 
 .previewBadge {

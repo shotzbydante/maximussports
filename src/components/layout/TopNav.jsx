@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { to: '/teams', end: false, label: 'Teams' },
   { to: '/insights', end: false, label: 'Odds Insights' },
   { to: '/news', end: false, label: 'News Feed' },
+  { to: '/settings', end: false, label: 'Settings', testId: 'nav-settings' },
 ];
 
 export default function TopNav() {
@@ -35,7 +36,7 @@ export default function TopNav() {
           onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
         />
         </Link>
-        <span className={styles.brandTagline}>March Madness Intelligence</span>
+        <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
       </div>
       <button
         type="button"
@@ -49,14 +50,14 @@ export default function TopNav() {
         <span className={styles.hamburgerBar} />
       </button>
       <nav className={styles.nav} aria-hidden={menuOpen ? false : undefined}>
-        {NAV_LINKS.map(({ to, end, label }) => (
+        {NAV_LINKS.map(({ to, end, label, testId }) => (
           <span key={to} className={styles.navItem}>
             {end ? (
-              <NavLink to={to} end className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+              <NavLink to={to} end data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
                 {label}
               </NavLink>
             ) : (
-              <NavLink to={to} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+              <NavLink to={to} data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
                 {label}
               </NavLink>
             )}
@@ -66,14 +67,14 @@ export default function TopNav() {
       {menuOpen && (
         <div className={styles.navOverlay} aria-hidden>
           <nav className={styles.navDropdown} onClick={(e) => e.stopPropagation()}>
-            {NAV_LINKS.map(({ to, end, label }) => (
+            {NAV_LINKS.map(({ to, end, label, testId }) => (
               <span key={to} className={styles.navDropdownItem}>
                 {end ? (
-                  <NavLink to={to} end className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                  <NavLink to={to} end data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
                     {label}
                   </NavLink>
                 ) : (
-                  <NavLink to={to} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                  <NavLink to={to} data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
                     {label}
                   </NavLink>
                 )}

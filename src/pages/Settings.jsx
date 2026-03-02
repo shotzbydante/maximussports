@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
+import { addPinnedTeam } from '../utils/pinnedTeams';
+import { track, identify } from '../analytics/index';
 import styles from './Settings.module.css';
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -29,6 +31,7 @@ const SpinnerIcon = () => (
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 const TOTAL_STEPS = 3;
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const PREFERENCES = [
   { key: 'alerts_opt_in', label: 'Alerts for my teams', description: 'Get notified about game results and news' },
@@ -37,7 +40,11 @@ const PREFERENCES = [
   { key: 'merch_opt_in', label: 'Merch drops', description: 'New gear and limited releases' },
 ];
 
-/* ─── Sub-components ─────────────────────────────────────────────────────── */
+function randomJersey() {
+  return String(Math.floor(Math.random() * 100)).padStart(2, '0');
+}
+
+/* ─── Progress bar ────────────────────────────────────────────────────────── */
 function ProgressBar({ step }) {
   return (
     <div className={styles.progress}>
@@ -58,6 +65,10 @@ function StepTeams({ onNext, initialSelected = [] }) {
   const [selected, setSelected] = useState(initialSelected);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    track('onboarding_step_view', { step: 1 });
+  }, []);
+
   const filtered = TEAMS.filter((t) =>
     t.name.toLowerCase().includes(query.toLowerCase()) ||
     t.conference.toLowerCase().includes(query.toLowerCase())
@@ -75,6 +86,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
       setError('Select at least one team to continue.');
       return;
     }
+    track('onboarding_step_submit', { step: 1, success: true, primary_team: selected[0], team_count: selected.length });
     onNext(selected);
   };
 
@@ -117,7 +129,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
           );
         })}
         {filtered.length === 0 && (
-          <p className={styles.emptyState}>No teams match "{query}"</p>
+          <p className={styles.emptyState}>No teams match &ldquo;{query}&rdquo;</p>
         )}
       </div>
 
@@ -137,29 +149,66 @@ function StepTeams({ onNext, initialSelected = [] }) {
 }
 
 /* ─── Step 2: Username + Jersey ─────────────────────────────────────────── */
-function StepProfile({ onNext, defaultName = '' }) {
-  const [username, setUsername] = useState(defaultName);
-  const [number, setNumber] = useState('');
+function StepProfile({ onNext, defaultName = '', userId }) {
+  const [username, setUsername] = useState(() => {
+    const base = defaultName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    return base.slice(0, 20);
+  });
+  // D3: prefill jersey with random number
+  const [number, setNumber] = useState(randomJersey);
+  const [usernameStatus, setUsernameStatus] = useState('idle'); // idle|checking|available|taken
+  const [suggestions, setSuggestions] = useState([]);
   const [error, setError] = useState('');
+  const debounceRef = useRef(null);
 
-  const preview = username.trim()
-    ? `${username.trim().toUpperCase()}${number ? ` #${number}` : ''}`
-    : '';
+  useEffect(() => {
+    track('onboarding_step_view', { step: 2 });
+  }, []);
 
-  const handleNext = () => {
-    if (!username.trim()) {
-      setError('Username is required.');
+  // D2: real-time username validation + debounced uniqueness check
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!username || !USERNAME_RE.test(username)) {
+      setUsernameStatus('idle');
+      setSuggestions([]);
       return;
     }
-    if (username.trim().length < 2) {
-      setError('Username must be at least 2 characters.');
-      return;
-    }
-    if (number && (isNaN(Number(number)) || Number(number) < 0 || Number(number) > 99)) {
-      setError('Jersey number must be between 00 and 99.');
-      return;
-    }
-    onNext({ username: username.trim(), favoriteNumber: number ? parseInt(number, 10) : null });
+
+    setUsernameStatus('checking');
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle();
+
+        // Not taken if no row exists, or the row belongs to the current user
+        if (data && data.id !== userId) {
+          setUsernameStatus('taken');
+          setSuggestions([
+            `${username}1`,
+            `${username}23`,
+            `${username}_fan`,
+          ].slice(0, 3));
+        } else {
+          setUsernameStatus('available');
+          setSuggestions([]);
+        }
+      } catch {
+        setUsernameStatus('idle');
+      }
+    }, 400);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [username, userId]);
+
+  const handleUsernameChange = (e) => {
+    // strip disallowed chars in real time
+    const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+    setUsername(val);
+    setError('');
   };
 
   const handleNumberChange = (e) => {
@@ -168,33 +217,110 @@ function StepProfile({ onNext, defaultName = '' }) {
     setError('');
   };
 
+  // D3: Display preview badge using padded 2-digit format
+  const displayNumber = number ? String(parseInt(number, 10)).padStart(2, '0') : '';
+  const preview = username.trim()
+    ? `${username.trim().toUpperCase()}${displayNumber ? ` #${displayNumber}` : ''}`
+    : '';
+
+  const handleNext = () => {
+    if (!username.trim()) {
+      setError('Username is required.');
+      return;
+    }
+    if (!USERNAME_RE.test(username)) {
+      setError('3–20 characters: letters, numbers, underscore only.');
+      return;
+    }
+    if (usernameStatus === 'taken') {
+      setError('That username is taken. Choose another or pick a suggestion below.');
+      return;
+    }
+    if (usernameStatus === 'checking') {
+      setError('Still checking availability. Please wait a moment.');
+      return;
+    }
+    if (number && (isNaN(Number(number)) || Number(number) < 0 || Number(number) > 99)) {
+      setError('Jersey number must be 00–99.');
+      return;
+    }
+
+    track('onboarding_step_submit', { step: 2, success: true });
+    onNext({
+      username: username.trim(),
+      favoriteNumber: number !== '' ? parseInt(number, 10) : null,
+    });
+  };
+
+  const usernameHint = () => {
+    if (!username || !USERNAME_RE.test(username)) {
+      if (username && username.length < 3) return { type: 'warn', text: `${3 - username.length} more character${3 - username.length === 1 ? '' : 's'} needed` };
+      if (username && !/^[a-zA-Z0-9_]+$/.test(username)) return { type: 'warn', text: 'Only letters, numbers, underscore allowed' };
+      return null;
+    }
+    if (usernameStatus === 'checking') return { type: 'info', text: 'Checking availability…' };
+    if (usernameStatus === 'available') return { type: 'ok', text: '@' + username + ' is available' };
+    if (usernameStatus === 'taken') return { type: 'err', text: 'Username taken' };
+    return null;
+  };
+
+  const hint = usernameHint();
+
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Your identity</h2>
-      <p className={styles.stepSubtitle}>How should we know you? (Your favorite jersey number is optional.)</p>
+      <p className={styles.stepSubtitle}>How should we know you?</p>
 
       <div className={styles.fieldGroup}>
         <label className={styles.label} htmlFor="username">Username</label>
-        <input
-          id="username"
-          className={styles.input}
-          type="text"
-          placeholder="e.g. hoops_fan"
-          value={username}
-          maxLength={32}
-          onChange={(e) => { setUsername(e.target.value); setError(''); }}
-          autoFocus
-        />
+        <div className={styles.inputWrap}>
+          <input
+            id="username"
+            className={`${styles.input} ${usernameStatus === 'taken' ? styles.inputError : ''} ${usernameStatus === 'available' ? styles.inputOk : ''}`}
+            type="text"
+            placeholder="e.g. hoops_fan"
+            value={username}
+            onChange={handleUsernameChange}
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+          />
+          {usernameStatus === 'checking' && <span className={styles.inputSpinner}><SpinnerIcon /></span>}
+          {usernameStatus === 'available' && <span className={styles.inputCheck}>✓</span>}
+        </div>
+        {hint && (
+          <span className={`${styles.fieldHint} ${styles[`hint_${hint.type}`]}`}>
+            {hint.text}
+          </span>
+        )}
+        {usernameStatus === 'taken' && suggestions.length > 0 && (
+          <div className={styles.suggestions}>
+            <span className={styles.suggestionLabel}>Try one of these:</span>
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={styles.suggestionChip}
+                onClick={() => { setUsername(s); setError(''); }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={styles.fieldGroup}>
-        <label className={styles.label} htmlFor="jersey">Favorite Jersey Number <span className={styles.optional}>(optional)</span></label>
+        <label className={styles.label} htmlFor="jersey">
+          Favorite Jersey Number <span className={styles.optional}>(00–99)</span>
+        </label>
         <input
           id="jersey"
           className={`${styles.input} ${styles.inputNarrow}`}
           type="text"
           inputMode="numeric"
-          placeholder="00–99"
+          placeholder="23"
           value={number}
           onChange={handleNumberChange}
         />
@@ -208,7 +334,11 @@ function StepProfile({ onNext, defaultName = '' }) {
 
       {error && <p className={styles.errorMsg}>{error}</p>}
 
-      <button className={styles.btnPrimary} onClick={handleNext}>
+      <button
+        className={styles.btnPrimary}
+        onClick={handleNext}
+        disabled={usernameStatus === 'checking'}
+      >
         Continue
       </button>
     </div>
@@ -224,12 +354,16 @@ function StepPreferences({ onNext, loading }) {
     merch_opt_in: false,
   });
 
+  useEffect(() => {
+    track('onboarding_step_view', { step: 3 });
+  }, []);
+
   const toggle = (key) => setPrefs((p) => ({ ...p, [key]: !p[key] }));
 
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Personalize your feed</h2>
-      <p className={styles.stepSubtitle}>Choose what matters to you. You can change these anytime.</p>
+      <p className={styles.stepSubtitle}>Choose what matters to you. Change anytime.</p>
 
       <div className={styles.prefList}>
         {PREFERENCES.map(({ key, label, description }) => (
@@ -260,6 +394,11 @@ function StepPreferences({ onNext, loading }) {
 /* ─── Step 4: Done ───────────────────────────────────────────────────────── */
 function StepDone() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    track('onboarding_complete', {});
+  }, []);
+
   return (
     <div className={`${styles.step} ${styles.stepCenter}`}>
       <div className={styles.doneIcon}>🏆</div>
@@ -278,12 +417,16 @@ function OnboardingWizard({ user, onComplete }) {
   const [teamSlugs, setTeamSlugs] = useState([]);
   const [profileData, setProfileData] = useState({});
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [wizardError, setWizardError] = useState('');
 
   const defaultName = user?.user_metadata?.full_name?.split(' ')[0] || '';
 
+  // D4: auto-pin primary team to localStorage immediately after step 1
   const handleTeams = (slugs) => {
     setTeamSlugs(slugs);
+    if (slugs.length > 0) {
+      try { addPinnedTeam(slugs[0]); } catch { /* ignore storage errors */ }
+    }
     setStep(2);
   };
 
@@ -294,21 +437,30 @@ function OnboardingWizard({ user, onComplete }) {
 
   const handlePreferences = useCallback(async (prefs) => {
     setSaving(true);
-    setError('');
+    setWizardError('');
     try {
       const userId = user.id;
 
-      // Upsert profile
-      const { error: profileErr } = await supabase.from('profiles').upsert({
-        id: userId,
-        username: profileData.username,
-        display_name: profileData.username,
-        favorite_number: profileData.favoriteNumber,
-        created_at: new Date().toISOString(),
-      });
-      if (profileErr) throw profileErr;
+      // D2: upsert with onConflict so duplicate usernames give a clear error
+      const { error: profileErr } = await supabase.from('profiles').upsert(
+        {
+          id: userId,
+          username: profileData.username,
+          display_name: profileData.username,
+          favorite_number: profileData.favoriteNumber,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'username' }
+      );
+      if (profileErr) {
+        if (profileErr.code === '23505') {
+          track('onboarding_step_submit', { step: 3, success: false, error_code: 'username_conflict' });
+          throw new Error('That username was just taken. Go back and choose another.');
+        }
+        throw profileErr;
+      }
 
-      // Insert user_teams (delete existing first to be idempotent)
+      // Idempotently replace user_teams
       await supabase.from('user_teams').delete().eq('user_id', userId);
       const teamRows = teamSlugs.map((slug, i) => ({
         user_id: userId,
@@ -319,17 +471,18 @@ function OnboardingWizard({ user, onComplete }) {
       const { error: teamsErr } = await supabase.from('user_teams').insert(teamRows);
       if (teamsErr) throw teamsErr;
 
-      // Upsert user_preferences
-      const { error: prefsErr } = await supabase.from('user_preferences').upsert({
-        user_id: userId,
-        ...prefs,
-      });
+      const { error: prefsErr } = await supabase.from('user_preferences').upsert({ user_id: userId, ...prefs });
       if (prefsErr) throw prefsErr;
+
+      // Identify user in analytics (privacy-safe: no email/name)
+      identify(userId, { has_profile: true, team_count: teamSlugs.length });
+      track('onboarding_step_submit', { step: 3, success: true });
 
       setStep(4);
       if (onComplete) onComplete();
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setWizardError(err.message || 'Something went wrong. Please try again.');
+      track('onboarding_step_submit', { step: 3, success: false, error_code: 'save_failed' });
     } finally {
       setSaving(false);
     }
@@ -340,9 +493,15 @@ function OnboardingWizard({ user, onComplete }) {
   return (
     <div className={styles.wizardCard}>
       <ProgressBar step={step} />
-      {error && <div className={styles.wizardError}>{error}</div>}
+      {wizardError && <div className={styles.wizardError}>{wizardError}</div>}
       {step === 1 && <StepTeams onNext={handleTeams} />}
-      {step === 2 && <StepProfile onNext={handleProfile} defaultName={defaultName} />}
+      {step === 2 && (
+        <StepProfile
+          onNext={handleProfile}
+          defaultName={defaultName}
+          userId={user.id}
+        />
+      )}
       {step === 3 && <StepPreferences onNext={handlePreferences} loading={saving} />}
     </div>
   );
@@ -355,6 +514,21 @@ function AuthenticatedSettings({ user }) {
   const [profileLoading, setProfileLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const authSuccessFiredRef = useRef(false);
+
+  useEffect(() => {
+    // D5: auth_success fires once per session after OAuth redirect lands
+    if (!authSuccessFiredRef.current) {
+      authSuccessFiredRef.current = true;
+      try {
+        const key = 'mx_auth_success_fired';
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1');
+          track('auth_success', {});
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -379,6 +553,11 @@ function AuthenticatedSettings({ user }) {
     await signOut();
   };
 
+  const handleEditOpen = () => {
+    track('profile_edit_open', {});
+    setShowWizard(true);
+  };
+
   if (profileLoading) {
     return (
       <div className={styles.loadingWrap}>
@@ -389,8 +568,13 @@ function AuthenticatedSettings({ user }) {
   }
 
   if (showWizard) {
-    return <OnboardingWizard user={user} onComplete={() => setShowWizard(false)} />;
+    return <OnboardingWizard user={user} onComplete={() => { setShowWizard(false); }} />;
   }
+
+  // D3: Display jersey as 2 digits
+  const jerseyDisplay = profile?.favorite_number != null
+    ? String(profile.favorite_number).padStart(2, '0')
+    : null;
 
   return (
     <div className={styles.profileCard}>
@@ -404,8 +588,8 @@ function AuthenticatedSettings({ user }) {
         <div className={styles.profileInfo}>
           <span className={styles.profileName}>
             {profile?.username || user.user_metadata?.full_name || 'Maximus Fan'}
-            {profile?.favorite_number != null && (
-              <span className={styles.jerseyBadge}>#{profile.favorite_number}</span>
+            {jerseyDisplay != null && (
+              <span className={styles.jerseyBadge}>#{jerseyDisplay}</span>
             )}
           </span>
           <span className={styles.profileEmail}>{user.email}</span>
@@ -413,11 +597,7 @@ function AuthenticatedSettings({ user }) {
       </div>
 
       <div className={styles.profileActions}>
-        <button
-          type="button"
-          className={styles.btnOutline}
-          onClick={() => setShowWizard(true)}
-        >
+        <button type="button" className={styles.btnOutline} onClick={handleEditOpen}>
           Edit profile
         </button>
         <button
@@ -441,6 +621,8 @@ function UnauthenticatedPanel() {
   const handleGoogle = async () => {
     setLoading(true);
     setError('');
+    track('auth_start_google', {});
+    // D1: absolute redirectTo using window.location.origin — works on preview & prod
     const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/settings` },
@@ -467,7 +649,7 @@ function UnauthenticatedPanel() {
       <div className={styles.unauthBenefits}>
         <span>✦ Pin your favorite teams</span>
         <span>✦ Personalized ATS insights</span>
-        <span>✦ Game alerts & merch drops</span>
+        <span>✦ Game alerts &amp; merch drops</span>
       </div>
 
       {error && <div className={styles.errorMsg}>{error}</div>}
@@ -492,6 +674,11 @@ function UnauthenticatedPanel() {
 /* ─── Settings Page ──────────────────────────────────────────────────────── */
 export default function Settings() {
   const { user, loading } = useAuth();
+
+  // D5: settings_view on mount
+  useEffect(() => {
+    track('settings_view', {});
+  }, []);
 
   if (loading) {
     return (

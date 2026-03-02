@@ -229,13 +229,15 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
                     <tr className={[isNew ? styles.trNew : '', rank != null ? styles.trRanked : ''].filter(Boolean).join(' ') || undefined}>
                       <td className={styles.colTeam}>
                         <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
+                          <span className={styles.rankCell}>
+                            {rank != null && (
+                              <span className={styles.top25Badge} title="AP Top 25">
+                                #{rank}
+                              </span>
+                            )}
+                          </span>
                           <TeamLogo team={team} size={22} />
                           <span>{team.name}</span>
-                          {rank != null && (
-                            <span className={styles.top25Badge} title="AP Top 25">
-                              #{rank}
-                            </span>
-                          )}
                           <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
                           <span className={styles.rowChevron}>→</span>
                         </Link>
