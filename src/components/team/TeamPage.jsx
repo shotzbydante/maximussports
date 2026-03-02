@@ -16,6 +16,7 @@ import YouTubeVideoRail from '../shared/YouTubeVideoRail';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
 import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge,
   getStaleVideos, getStaleVideosAge, setStaleVideos } from '../../utils/ytClientCache';
+import ShareButton from '../common/ShareButton';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
@@ -404,6 +405,15 @@ export default function TeamPage() {
               <ChampionshipBadge slug={slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
             </div>
           </div>
+          <ShareButton
+            shareType="team_intel"
+            title={`${team.name} — March Madness Intel`}
+            subtitle={rank != null ? `#${rank} ${team.conference} · ${team.oddsTier}` : `${team.conference} · ${team.oddsTier}`}
+            meta=""
+            teamSlug={slug}
+            destinationPath={`/teams/${slug}`}
+            placement="team_header"
+          />
         </div>
       </header>
 

@@ -26,6 +26,12 @@
   gap: var(--space-md);
 }
 
+/* Push ShareButton to far right of header row */
+.headerRow > :last-child {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .headerInfo {
   flex: 1;
 }

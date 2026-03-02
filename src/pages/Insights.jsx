@@ -20,6 +20,7 @@ import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import RankingsTable from '../components/insights/RankingsTable';
+import ShareButton from '../components/common/ShareButton';
 import styles from './Insights.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -650,6 +651,19 @@ function MatchupCard({ game, rankLookup }) {
             <span className={styles.lineVal}>{timeStr}</span>
           </div>
         )}
+      </div>
+
+      {/* Share */}
+      <div className={styles.matchupFooter}>
+        <ShareButton
+          shareType={upsetScore >= 2 ? 'upset_watch' : 'matchup'}
+          title={`${homeTeam} vs ${awayTeam}`}
+          subtitle={[spread != null && `Spread: ${spread}`, total != null && `O/U: ${total}`].filter(Boolean).join(' · ')}
+          meta={timeStr || ''}
+          teamSlug={getTeamSlug(homeTeam) || ''}
+          destinationPath={gameLink || '/insights'}
+          placement="matchup_card"
+        />
       </div>
     </div>
   );

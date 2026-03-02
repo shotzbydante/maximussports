@@ -9,7 +9,15 @@
       "permanent": true
     }
   ],
-  "rewrites": [{"source": "/((?!api/).*)", "destination": "/index.html"}],
+  "rewrites": [
+    {"source": "/share/:id", "destination": "/api/share/render?id=:id"},
+    {"source": "/march-madness-odds", "destination": "/api/seo/march-madness-odds"},
+    {"source": "/upset-picks",        "destination": "/api/seo/upset-picks"},
+    {"source": "/best-bracket-picks", "destination": "/api/seo/best-bracket-picks"},
+    {"source": "/teams/:slug/odds",   "destination": "/api/seo/team-odds?slug=:slug"},
+    {"source": "/sitemap.xml",        "destination": "/api/seo/sitemap"},
+    {"source": "/((?!api/).*)",       "destination": "/index.html"}
+  ],
   "crons": [
     {"path": "/api/home/slow", "schedule": "*/5 * * * *"},
     {"path": "/api/ats/warm", "schedule": "*/7 * * * *"},

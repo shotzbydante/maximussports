@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Specific allows for SEO-critical API endpoints served as HTML
+Allow: /api/seo/
+
+Sitemap: https://maximussports.ai/sitemap.xml

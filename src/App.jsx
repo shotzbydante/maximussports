@@ -10,12 +10,15 @@ import Games from './pages/Games';
 import Insights from './pages/Insights';
 import NewsFeed from './pages/NewsFeed';
 import Alerts from './pages/Alerts';
+import SharePage from './pages/SharePage';
+import ToastContainer from './components/common/Toast';
 
 export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
       <AnalyticsRouteListener />
+      <ToastContainer />
       <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Layout />}>
@@ -29,6 +32,8 @@ export default function App() {
             <Route path="news" element={<NewsFeed />} />
             <Route path="alerts" element={<Alerts />} />
           </Route>
+          {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}
+          <Route path="share/:id" element={<SharePage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>

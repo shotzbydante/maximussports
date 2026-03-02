@@ -51,6 +51,14 @@
   border-radius: 8px;
   padding: 12px var(--space-md);
   box-shadow: 0 1px 3px rgba(60, 121, 180, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Align share button to right */
+.alert > button[type="button"] {
+  align-self: flex-end;
+  margin-top: 8px;
 }
 
 .alertScore {
@@ -75,6 +83,12 @@
   font-family: var(--font-mono);
   color: var(--color-text-muted);
   margin-top: var(--space-xs);
+}
+
+/* Align the ShareButton to the right of each alert row */
+.alert > :last-child[class] {
+  align-self: flex-end;
+  margin-top: 6px;
 }
 
 @media (max-width: 767px) {

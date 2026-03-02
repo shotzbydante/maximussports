@@ -11,6 +11,7 @@ import { matchOddsHistoryToGame } from '../../api/odds';
 import { getOddsTier } from '../../utils/teamSlug';
 import { ModuleShell } from '../shared/ModuleShell';
 import SourceBadge from '../shared/SourceBadge';
+import ShareButton from '../common/ShareButton';
 import styles from './DynamicAlerts.module.css';
 
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
@@ -150,6 +151,14 @@ export default function DynamicAlerts({ games: gamesProp = [], oddsHistory: odds
                 {formatTime(a.startTime)} · {a.gameStatus}
                 {a.spread != null ? ` · Spread: ${a.spread}` : ' · Spread: —'}
               </div>
+              <ShareButton
+                shareType="upset_watch"
+                title={`Upset Alert: ${a.winner} def. ${a.loser}`}
+                subtitle={`${a.score} · ${a.gameStatus}`}
+                meta={a.spread != null ? `Spread: ${a.spread}` : ''}
+                destinationPath="/insights"
+                placement="dynamic_alerts"
+              />
             </div>
           ))}
         </div>
