@@ -463,7 +463,14 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     return null;
   };
 
-  const isCompact = pinned.length === 1;
+  // Filter to slugs that resolve to a real team.  Stale / renamed / removed slugs
+  // would make pinned.length > 0 while every card maps to null — producing a blank
+  // section with neither the empty-state onboarding nor any visible cards.  Only the
+  // display conditions use validPinned; all data effects continue to use pinned so the
+  // fetch / enrichment flow is completely unchanged.
+  const validPinned = pinned.filter((s) => !!getTeamBySlug(s));
+
+  const isCompact = validPinned.length === 1;
   const maxHeadlines = isCompact ? 2 : 3;
 
   return (
@@ -472,7 +479,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       <div className={styles.header}>
         <h2 className={styles.title}>Pinned Teams</h2>
         <div className={styles.actions}>
-          {pinned.length === 1 && !showAdd && (
+          {validPinned.length === 1 && !showAdd && (
             <div className={styles.addMoreHint}>
               <span className={styles.addMoreText}>Pin a few more for faster tracking</span>
               {POPULAR_PICKS.filter((p) => !pinned.includes(p.slug)).slice(0, 3).map((p) => (
@@ -627,7 +634,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       )}
 
       {/* ── Empty state: value props + isolated Duke example card ──────── */}
-      {pinned.length === 0 && (
+      {validPinned.length === 0 && (
         <EmptyPinnedState
           onOpenAdd={() => setShowAdd(true)}
           onPinDuke={(slug) => handleDirectPin(slug ?? DUKE_SLUG)}
@@ -692,11 +699,10 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       )}
 
       {/* ── Pinned team cards grid ───────────────────────────────────────── */}
-      {pinned.length > 0 && (
+      {validPinned.length > 0 && (
         <div className={`${styles.cards} ${isCompact ? styles.cardsSingle : ''}`}>
-          {pinned.map((slug) => {
+          {validPinned.map((slug) => {
             const team = getTeamBySlug(slug);
-            if (!team) return null;
             const rank = rankMap[slug];
             const nextGame = getNextGame(slug);
             const headlines = teamNews[slug] || [];
