@@ -35,6 +35,12 @@ const NewsIcon = () => (
     <path d="M5 7h6M5 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
+const SettingsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
 
 export default function Sidebar() {
   const [teamsOpen, setTeamsOpen] = useState(false);
@@ -135,6 +141,13 @@ export default function Sidebar() {
           >
             <span className={styles.icon}><NewsIcon /></span>
             <span>News Feed</span>
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
+          >
+            <span className={styles.icon}><SettingsIcon /></span>
+            <span>Settings</span>
           </NavLink>
         </nav>
       </div>
