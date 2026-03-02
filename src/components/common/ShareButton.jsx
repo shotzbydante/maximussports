@@ -63,9 +63,9 @@ export default function ShareButton({
   className = '',
   label = 'Share',
   iconOnly = false,
-  /** 'primary' — solid filled button for prominent placements */
+  /** 'primary' | 'default' — solid blue (default); 'subtle' — ghost/outline */
   variant = 'default',
-  /** 'light' — icon/border colour suited to white/light card surfaces */
+  /** kept for backward compat; no longer changes default appearance */
   surface = 'dark',
   'data-testid': testId,
 }) {
@@ -109,11 +109,12 @@ export default function ShareButton({
           usedFallback = !!data.fallback;
         }
         track('share_link_created', {
-          type: shareType,
+          type:      shareType,
           placement,
           team_slug: teamSlug,
           share_id:  shareId,
           fallback:  usedFallback,
+          icon_only: iconOnly,
         });
       }
     } catch {
@@ -124,25 +125,30 @@ export default function ShareButton({
     const shareText  = [subtitle, meta].filter(Boolean).join(' · ').slice(0, 200)
       || 'March Madness intelligence from Maximus Sports.';
 
-    let success = false;
+    // result: 'success' | 'copy' | 'cancel' | 'error'
+    let result = 'error';
 
     if (hasNativeShare) {
       try {
         await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
-        success = true;
+        result = 'success';
       } catch (err) {
         if (err?.name === 'AbortError') {
-          success = true; // user saw the sheet and dismissed — not a failure
+          // User dismissed the native share sheet — not an error
+          result = 'cancel';
         }
         // else fall through to clipboard
       }
     }
 
-    if (!success) {
+    if (result !== 'success' && result !== 'cancel') {
+      const toastLabel = title
+        ? `Share link copied: ${title.slice(0, 60)}`
+        : 'Share link copied';
       try {
         await navigator.clipboard.writeText(shareUrl);
-        showToast('Link copied to clipboard', { type: 'success' });
-        success = true;
+        showToast(toastLabel, { type: 'success' });
+        result = 'copy';
       } catch {
         try {
           const el = document.createElement('input');
@@ -151,10 +157,11 @@ export default function ShareButton({
           el.select();
           document.execCommand('copy');
           document.body.removeChild(el);
-          showToast('Link copied', { type: 'success' });
-          success = true;
+          showToast(toastLabel, { type: 'success' });
+          result = 'copy';
         } catch {
           showToast('Copy failed — try long-pressing the link', { type: 'error' });
+          result = 'error';
         }
       }
     }
@@ -164,20 +171,25 @@ export default function ShareButton({
       placement,
       team_slug:        teamSlug,
       has_native_share: hasNativeShare,
-      success,
+      result,
+      icon_only:        iconOnly,
       fallback:         usedFallback,
     });
 
     setBusy(false);
-  }, [busy, shareType, title, subtitle, meta, teamSlug, destinationPath, placement]);
+  }, [busy, shareType, title, subtitle, meta, teamSlug, destinationPath, placement, iconOnly]);
 
   const btnClass = [
     styles.btn,
     variant === 'primary' ? styles.btnPrimary : '',
+    variant === 'subtle'  ? styles.btnSubtle  : '',
     iconOnly ? styles.btnIconOnly : '',
-    surface === 'light' ? styles.btnSurfaceLight : '',
     className,
   ].filter(Boolean).join(' ');
+
+  const ariaLabel = iconOnly
+    ? `Share: ${title || 'this insight'}`
+    : undefined;
 
   return (
     <button
@@ -185,25 +197,25 @@ export default function ShareButton({
       className={btnClass}
       onClick={handleShare}
       disabled={busy}
-      aria-label={`Share: ${title || 'this insight'}`}
-      title="Share"
+      aria-label={ariaLabel}
+      title={iconOnly ? 'Share' : undefined}
       data-testid={testId}
     >
       {busy
         ? <span className={styles.spinner} aria-hidden />
-        : <ShareIcon />
+        : <ShareIcon size={iconOnly ? 16 : 14} />
       }
       {!iconOnly && <span className={styles.label}>{label}</span>}
     </button>
   );
 }
 
-function ShareIcon() {
+function ShareIcon({ size = 14 }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

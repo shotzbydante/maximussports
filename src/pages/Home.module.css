@@ -457,7 +457,7 @@
 }
 
 .atsSection {
-  margin-bottom: var(--space-xl);
+  margin-bottom: 16px;
   /* min-height removed: was creating a large blank zone when section is empty/collapsed */
 }
 
@@ -652,7 +652,7 @@
 .bubbleWatchSection {
   margin-bottom: var(--space-xl);
   /* Visual separator so Bubble Watch doesn't blur into the dashboard grid */
-  padding-top: var(--space-lg);
+  padding-top: 12px;
   border-top: 1px solid var(--color-border-light);
 }
 
@@ -660,8 +660,8 @@
 
 /* Wrapper that provides consistent top/bottom spacing */
 .dashboardGridSection {
-  margin-top: var(--space-xl);
-  margin-bottom: var(--space-xl);
+  margin-top: 16px;
+  margin-bottom: 14px;
 }
 
 .dashboardGrid {

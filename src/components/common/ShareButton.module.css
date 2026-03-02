@@ -1,32 +1,34 @@
-/* ── Base ───────────────────────────────────────────────────────────── */
+/* ── Base (primary / default) — solid blue, white text ─────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 6px 12px;
   min-height: 32px;
-  border: 1px solid rgba(60, 121, 180, 0.35);
+  border: 1px solid #2d6192;
   border-radius: 6px;
-  background: rgba(60, 121, 180, 0.08);
-  color: var(--color-primary, #3c79b4);
+  background: #3c79b4;
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.28);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .btn:hover:not(:disabled) {
-  background: rgba(60, 121, 180, 0.14);
-  border-color: rgba(60, 121, 180, 0.55);
-  color: var(--color-primary-hover, #2d5d8a);
+  background: #2d6192;
+  border-color: #225080;
+  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.4);
 }
 
 .btn:active:not(:disabled) {
-  background: rgba(60, 121, 180, 0.2);
+  background: #225080;
+  box-shadow: none;
 }
 
 .btn:disabled {
@@ -34,12 +36,17 @@
   cursor: not-allowed;
 }
 
-/* ── Primary variant: solid fill for prominent placements (e.g. team header) */
+.btn:focus-visible {
+  outline: 2px solid #3c79b4;
+  outline-offset: 2px;
+}
+
+/* ── Primary variant: same as default (backward-compat alias) ────────── */
 .btnPrimary {
   background: #3c79b4;
   border-color: #2d6192;
   color: #fff;
-  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.3);
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.28);
 }
 
 .btnPrimary:hover:not(:disabled) {
@@ -54,38 +61,52 @@
   box-shadow: none;
 }
 
-/* ── Icon-only compact variant ──────────────────────────────────────── */
+/* ── Subtle variant: ghost/outline for low-prominence placements ─────── */
+.btnSubtle {
+  background: rgba(60, 121, 180, 0.07);
+  border-color: rgba(60, 121, 180, 0.32);
+  color: var(--color-primary, #3c79b4);
+  box-shadow: none;
+}
+
+.btnSubtle:hover:not(:disabled) {
+  background: rgba(60, 121, 180, 0.13);
+  border-color: rgba(60, 121, 180, 0.5);
+  box-shadow: none;
+}
+
+.btnSubtle:active:not(:disabled) {
+  background: rgba(60, 121, 180, 0.2);
+}
+
+/* ── Icon-only compact variant — 36×36 hit target, solid blue ────────── */
 .btnIconOnly {
   padding: 0;
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
-  border-radius: 5px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 7px;
   justify-content: center;
-  /* Dark surface defaults (app is light-themed: use primary color, not white) */
-  border-color: rgba(60, 121, 180, 0.3);
-  background: transparent;
-  color: var(--color-primary, #3c79b4);
+  background: #3c79b4;
+  border-color: #2d6192;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(60, 121, 180, 0.25);
 }
 
 .btnIconOnly:hover:not(:disabled) {
-  border-color: rgba(60, 121, 180, 0.55);
-  background: rgba(60, 121, 180, 0.08);
-  color: var(--color-primary-hover, #2d5d8a);
+  background: #2d6192;
+  border-color: #225080;
+  box-shadow: 0 2px 6px rgba(60, 121, 180, 0.38);
 }
 
-/* ── Surface-light modifier: card backgrounds (white/light) ─────────── */
-/* Apply via className or the surfaceLight modifier class */
+.btnIconOnly:active:not(:disabled) {
+  background: #225080;
+  box-shadow: none;
+}
+
+/* ── Surface-light modifier: kept for backward compat (no-op on primary) */
 .btnSurfaceLight {
-  border-color: rgba(60, 121, 180, 0.28);
-  color: var(--color-text-secondary, #3d5a73);
-  background: transparent;
-}
-
-.btnSurfaceLight:hover:not(:disabled) {
-  border-color: rgba(60, 121, 180, 0.5);
-  background: rgba(60, 121, 180, 0.06);
-  color: var(--color-primary, #3c79b4);
+  /* When combined with .btnSubtle, applies card-surface ghost look */
 }
 
 /* ── Label ──────────────────────────────────────────────────────────── */
@@ -100,8 +121,8 @@
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 1.5px solid rgba(60, 121, 180, 0.25);
-  border-top-color: #3c79b4;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.65s linear infinite;
 }
