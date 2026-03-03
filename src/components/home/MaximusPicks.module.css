@@ -1,0 +1,198 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MaximusPicks — compact analytics picks module
+   ═══════════════════════════════════════════════════════════════════ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ─── section ──────────────────────────────────────────────────────── */
+
+.section {
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.sectionTitle {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── pick rows ─────────────────────────────────────────────────────── */
+
+.pickList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pickRow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  transition: border-color 0.12s;
+}
+
+.pickRow:hover {
+  border-color: rgba(60, 121, 180, 0.28);
+}
+
+.pickMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pickMatchup {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.pickTime {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pickMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* pill showing the pick line (e.g. "Kansas -3.5") */
+.pickPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.09);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  border-radius: var(--pill-radius, 999px);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* ─── confidence chips ───────────────────────────────────────────────── */
+
+.confChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-radius: var(--pill-radius, 999px);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.confHigh {
+  background: rgba(45, 138, 110, 0.14);
+  color: #1a7a5a;
+  border: 1px solid rgba(45, 138, 110, 0.25);
+}
+
+.confMed {
+  background: rgba(183, 152, 108, 0.18);
+  color: #8a6d3a;
+  border: 1px solid rgba(183, 152, 108, 0.3);
+}
+
+.confLow {
+  background: rgba(130, 130, 150, 0.1);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(130, 130, 150, 0.2);
+}
+
+/* ─── rationale line ────────────────────────────────────────────────── */
+
+.pickRationale {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  margin: 0;
+  /* clamp to 1 line on desktop */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ─── empty state ────────────────────────────────────────────────────── */
+
+.emptyState {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 4px 0 0;
+}
+
+.emptyAll {
+  padding: 12px 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ─── disclaimer footer ─────────────────────────────────────────────── */
+
+.disclaimer {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  margin: 8px 0 0;
+  line-height: 1.4;
+  text-align: right;
+}
+
+/* ─── responsive ────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .pickRationale {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    /* allow 2 lines on mobile */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pickRow {
+    padding: 8px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pickRow {
+    transition: none;
+  }
+}

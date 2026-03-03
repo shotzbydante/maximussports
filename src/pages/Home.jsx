@@ -26,6 +26,7 @@ import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsi
 import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pinnedCache';
 import { perfLog } from '../utils/perfLog';
 import WelcomeModal from '../components/marketing/WelcomeModal';
+import MaximusPicks from '../components/home/MaximusPicks';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import styles from './Home.module.css';
@@ -218,13 +219,16 @@ function generateLiveBriefing(games = [], rankMap = {}) {
 }
 
 /**
- * Odds Insights teaser card.
- * Priority: (1) localStorage briefing saved from Insights page visit,
- *           (2) live fallback generated from already-fetched games data,
- *           (3) static placeholder.
- * Zero new API calls. Shows "Updated Xm ago" for cached data.
+ * Maximus's Picks teaser card.
+ * Renders deterministic data-driven picks (Spread / ML / Totals) at the top,
+ * then the existing Market Briefing content below — zero new API calls.
+ *
+ * Props:
+ *   games       — merged game objects already on Home state
+ *   rankMap     — slug→rank map already on Home state
+ *   atsLeaders  — ATS leaders already on Home state
  */
-function OddsInsightsTeaser({ games = [], rankMap = {} }) {
+function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] } }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
 
@@ -251,29 +255,34 @@ function OddsInsightsTeaser({ games = [], rankMap = {} }) {
   // All bullets shown by default — no "More/Less" toggle needed
   const bullets = briefingData?.bullets ?? [];
 
-  const categories = [
-    { label: 'High-Interest Matchups', desc: 'Most active betting markets right now' },
-    { label: 'Underdog Watch', desc: 'Dogs covering +8 or more this week' },
-    { label: 'Totals Insights', desc: 'Over/under trends and sharp money signals' },
-  ];
-
   return (
     <div className={styles.oddsTeaser}>
+      {/* ── Widget header ───────────────────────────────────────────── */}
       <div className={styles.oddsTeaserHeader}>
-        <h3 className={styles.oddsTeaserTitle}>Odds Insights</h3>
-        <span className={styles.oddsTeaserTag}>Market Intelligence</span>
+        <h3 className={styles.oddsTeaserTitle}>Maximus&apos;s Picks</h3>
+        <span className={styles.oddsTeaserTag}>Data-Driven Leans</span>
+      </div>
+      <p className={styles.oddsPicksSubheader}>
+        Data-driven leans based on market lines + ATS form. Not advice.
+      </p>
+
+      {/* ── Picks: Spread / ML / Totals ─────────────────────────────── */}
+      <MaximusPicks games={games} atsLeaders={atsLeaders} />
+
+      {/* ── Divider into Market Briefing subsection ─────────────────── */}
+      <div className={styles.oddsMarketBriefingDivider}>
+        <span className={styles.oddsMarketBriefingLabel}>Market Briefing</span>
+        {relTimeStr && (
+          <span className={styles.oddsBriefingTime}>Updated {relTimeStr}</span>
+        )}
       </div>
 
       {/* Market Briefing — live cached data → live game fallback → static placeholder */}
       <div className={styles.oddsBriefingBlock}>
         <div className={styles.oddsBriefingLabelRow}>
-          <span className={styles.oddsBriefingLabel}>Today's Market Briefing</span>
-          {relTimeStr && (
-            <span className={styles.oddsBriefingTime}>Updated {relTimeStr}</span>
-          )}
+          <span className={styles.oddsBriefingLabel}>Today&apos;s Market Briefing</span>
         </div>
         {briefingData ? (
-          /* Cached full briefing from last Insights visit */
           <>
             <p className={styles.oddsBriefingSummary}>
               {renderBriefingText(briefingData.summary)}
@@ -289,7 +298,6 @@ function OddsInsightsTeaser({ games = [], rankMap = {} }) {
             )}
           </>
         ) : liveBriefing ? (
-          /* Live snapshot generated from today's game slate — no API call needed */
           <>
             {liveBriefing.split('\n\n').map((line, i) =>
               line.startsWith('• ') ? (
@@ -306,24 +314,14 @@ function OddsInsightsTeaser({ games = [], rankMap = {} }) {
             )}
           </>
         ) : (
-          /* Static placeholder — no games loaded yet */
           <p className={styles.oddsBriefingPlaceholder}>
-            Visit <strong>Odds Insights</strong> for today's full market briefing, line movement, and upset alerts.
+            Visit <strong>Odds Insights</strong> for today&apos;s full market briefing, line movement, and upset alerts.
           </p>
         )}
       </div>
 
-      <div className={styles.oddsTeaserGrid}>
-        {categories.map((item) => (
-          <div key={item.label} className={styles.oddsTeaserItem}>
-            <span className={styles.oddsTeaserItemLabel}>{item.label}</span>
-            <span className={styles.oddsTeaserItemDesc}>{item.desc}</span>
-          </div>
-        ))}
-      </div>
-
       <Link to="/insights" className={styles.oddsTeaserCta}>
-        Open Odds Insights →
+        Open Full Odds Insights →
       </Link>
     </div>
   );
@@ -901,8 +899,8 @@ export default function Home() {
         />
       </PinnedErrorBoundary>
 
-      {/* ── Odds Insights teaser — immediately below Pinned Teams ─── */}
-      <OddsInsightsTeaser games={scores.games} rankMap={rankMap} />
+      {/* ── Maximus's Picks / Odds Insights teaser — immediately below Pinned Teams ─── */}
+      <OddsInsightsTeaser games={scores.games} rankMap={rankMap} atsLeaders={atsLeaders} />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div

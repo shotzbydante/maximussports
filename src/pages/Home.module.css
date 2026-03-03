@@ -1032,6 +1032,36 @@
   .oddsBriefingToggle { transition: none; }
 }
 
+/* ── Maximus's Picks subheader ───────────────────────────────────── */
+
+.oddsPicksSubheader {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-md);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+/* ── Market Briefing section divider ────────────────────────────── */
+
+.oddsMarketBriefingDivider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: var(--space-md) 0 var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.oddsMarketBriefingLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--color-text-muted);
+}
+
 /* ── Category grid ───────────────────────────────────────────────── */
 
 .oddsTeaserGrid {
