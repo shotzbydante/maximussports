@@ -100,7 +100,7 @@ export default function Footer() {
 
         {/* ── Attribution ── */}
         <p className={styles.attribution}>
-          Built by Maximus, the genius toddler AI sports guru with soul. Independent open source
+          Built by Maximus 🤖, the genius toddler AI sports guru with soul. Independent open source
           project by{' '}
           <a
             href={LINKEDIN_URL}

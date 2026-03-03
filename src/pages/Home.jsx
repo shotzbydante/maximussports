@@ -25,7 +25,12 @@ import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import FormattedSummary from '../components/shared/FormattedSummary';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pinnedCache';
+import { perfLog } from '../utils/perfLog';
 import styles from './Home.module.css';
+
+/* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
+const _llmSummaryCache = { data: null, ts: 0 };
+const LLM_SUMMARY_TTL_MS = 60_000;
 
 const SCORES_REFRESH_MS = 60_000;
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
@@ -420,15 +425,13 @@ export default function Home() {
   // IMPORTANT: Uses pinnedSlugsRef.current (not pinnedSlugs directly) so the callback is NOT
   // recreated on every pin change — preventing a re-fetch storm on each pin action.
   const loadHomeBatch = useCallback(() => {
-    if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast start', Date.now());
     if (!hasAtsData(atsLeadersRef.current)) maybeWarmAts();
     setScores((s) => ({ ...s, loading: true }));
     setSlowLoading(true);
     // Snapshot the latest slugs at call time so stale closures cannot diverge.
     const currentPinnedSlugs = pinnedSlugsRef.current;
-    fetchHomeFast({ pinnedSlugs: currentPinnedSlugs, atsWindow })
+    perfLog('fetchHomeFast', () => fetchHomeFast({ pinnedSlugs: currentPinnedSlugs, atsWindow }), 2000)
       .then((fastData) => {
-        if (import.meta.env?.DEV) console.log('[Home ATS] fetchHomeFast end', Date.now());
         const scoresToday = fastData.scoresToday ?? [];
         const rankings = fastData.rankings?.rankings ?? fastData.rankingsTop25 ?? [];
         setScores({
@@ -498,7 +501,7 @@ export default function Home() {
 
         runChampionshipFetch();
 
-        fetchHomeSlow({ pinnedSlugs: currentPinnedSlugs })
+        perfLog('fetchHomeSlow', () => fetchHomeSlow({ pinnedSlugs: currentPinnedSlugs }), 3000)
           .then((slowData) => {
             setSlowLoading(false);
             const merged = mergeHomeData(fastData, slowData);
@@ -560,16 +563,28 @@ export default function Home() {
   }, [loadHomeBatch]);
 
   // Fetch LLM-enhanced summary in background; replace local summary once available.
+  // Uses a module-level TTL cache so rapid SPA nav-back doesn't re-fetch within 60 s.
   useEffect(() => {
-    let cancelled = false;
-    fetch('/api/chat/homeSummary')
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        if (d?.summary) setLlmSummary(d.summary);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
+    const now = Date.now();
+    if (_llmSummaryCache.data && now - _llmSummaryCache.ts < LLM_SUMMARY_TTL_MS) {
+      setLlmSummary(_llmSummaryCache.data);
+      return;
+    }
+    const controller = new AbortController();
+    perfLog('homeSummary', () =>
+      fetch('/api/chat/homeSummary', { signal: controller.signal })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.summary) {
+            _llmSummaryCache.data = d.summary;
+            _llmSummaryCache.ts = Date.now();
+            setLlmSummary(d.summary);
+          }
+          return d;
+        }),
+      3000,
+    ).catch(() => {});
+    return () => { controller.abort(); };
   }, []);
 
   const STAGGER_MS = 2500;
@@ -605,9 +620,9 @@ export default function Home() {
     return () => timeouts.forEach(clearTimeout);
   }, [pinnedSlugs.join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleToggleDataStatus = () => {
+  const handleToggleDataStatus = useCallback(() => {
     setShowDataStatus((prev) => !prev);
-  };
+  }, []);
 
   const dataStatusForBadges = useMemo(() => {
     if (dataStatus) return dataStatus;
@@ -657,20 +672,28 @@ export default function Home() {
     return generateChatSummary('home', summaryData);
   }, [hasMinimalData, summaryData, summaryRefreshTick]);
 
-  const handleRefreshSummary = () => {
+  const handleRefreshSummary = useCallback(() => {
     setSummaryRefreshTick((t) => t + 1);
     // Also kick an LLM regeneration and update when it returns.
-    if (!llmSummaryRefreshing) {
-      setLlmSummaryRefreshing(true);
-      fetch('/api/chat/homeSummary?force=1')
-        .then((r) => r.json())
-        .then((d) => {
-          setLlmSummaryRefreshing(false);
-          if (d?.summary) setLlmSummary(d.summary);
-        })
-        .catch(() => { setLlmSummaryRefreshing(false); });
-    }
-  };
+    setLlmSummaryRefreshing((refreshing) => {
+      if (refreshing) return refreshing;
+      perfLog('homeSummary?force=1', () =>
+        fetch('/api/chat/homeSummary?force=1')
+          .then((r) => r.json())
+          .then((d) => {
+            setLlmSummaryRefreshing(false);
+            if (d?.summary) {
+              _llmSummaryCache.data = d.summary;
+              _llmSummaryCache.ts = Date.now();
+              setLlmSummary(d.summary);
+            }
+            return d;
+          }),
+        5000,
+      ).catch(() => { setLlmSummaryRefreshing(false); });
+      return true;
+    });
+  }, []);
 
   const handleToggleBanner = useCallback(() => {
     setIsBannerCollapsed((prev) => {
