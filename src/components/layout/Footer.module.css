@@ -162,10 +162,9 @@
 
 /* ── Legal links ── */
 .legalLinks {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .legalLink {
@@ -173,11 +172,22 @@
   font-weight: 500;
   color: var(--color-text-muted);
   text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
   transition: color 0.15s;
 }
 
 .legalLink:hover {
-  color: var(--color-primary);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legalLink:focus-visible {
+  outline: 2px solid rgba(60, 121, 180, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .legalDot {
@@ -186,13 +196,22 @@
   user-select: none;
 }
 
-/* ── Legal row: links + support email side-by-side ── */
+/* ── Legal row: links + divider + support email side-by-side ── */
 .legalRow {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 24px;
+  gap: 12px;
   flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+/* Vertical pipe between link cluster and support text — desktop only */
+.legalDivider {
+  width: 1px;
+  height: 12px;
+  background: var(--color-border);
+  flex-shrink: 0;
 }
 
 .support {
@@ -203,6 +222,7 @@
 .supportLink {
   color: var(--color-text-muted);
   text-decoration: none;
+  white-space: nowrap;
   transition: color 0.15s;
 }
 
@@ -214,6 +234,11 @@
   .legalRow {
     flex-direction: column;
     gap: 8px;
+    row-gap: 8px;
+  }
+
+  .legalDivider {
+    display: none;
   }
 
   .support {

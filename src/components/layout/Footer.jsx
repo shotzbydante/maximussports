@@ -124,6 +124,8 @@ export default function Footer() {
             <Link to="/contact" className={styles.legalLink}>Contact</Link>
           </nav>
 
+          <div className={styles.legalDivider} aria-hidden />
+
           <div className={styles.support}>
             Questions? Reach out to{' '}
             <a href="mailto:winning@maximussports.ai" className={styles.supportLink}>

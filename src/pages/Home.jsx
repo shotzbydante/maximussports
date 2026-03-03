@@ -14,7 +14,6 @@ import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import LiveScores from '../components/scores/LiveScores';
 import StatCard from '../components/shared/StatCard';
-import SourceBadge from '../components/shared/SourceBadge';
 import NewsFeed from '../components/dashboard/NewsFeed';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
 import PinnedErrorBoundary from '../components/home/PinnedErrorBoundary';
@@ -968,21 +967,6 @@ export default function Home() {
               </Link>
             )}
           </div>
-          {newsData.teamNews.length > 0 && (
-            <div className={styles.teamNewsWidget} id="news-teams">
-              <div className={styles.teamNewsWidgetHeader}>
-                <span className={styles.widgetTitle}>Pinned Team News</span>
-                <SourceBadge source={newsSource} />
-              </div>
-              <div className={styles.teamNewsList}>
-                {newsData.teamNews.map((t) => (
-                  <Link key={t.slug} to={`/teams/${t.slug}`} className={styles.teamNewsItem}>
-                    {t.team} — {t.headlines} headlines
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </aside>
       </div>
 
