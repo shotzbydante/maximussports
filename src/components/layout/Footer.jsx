@@ -114,14 +114,23 @@ export default function Footer() {
           .
         </p>
 
-        {/* ── Legal links ── */}
-        <nav className={styles.legalLinks} aria-label="Legal">
-          <Link to="/privacy" className={styles.legalLink}>Privacy</Link>
-          <span className={styles.legalDot} aria-hidden>•</span>
-          <Link to="/terms" className={styles.legalLink}>Terms</Link>
-          <span className={styles.legalDot} aria-hidden>•</span>
-          <Link to="/contact" className={styles.legalLink}>Contact</Link>
-        </nav>
+        {/* ── Legal links + support ── */}
+        <div className={styles.legalRow}>
+          <nav className={styles.legalLinks} aria-label="Legal">
+            <Link to="/privacy" className={styles.legalLink}>Privacy</Link>
+            <span className={styles.legalDot} aria-hidden>•</span>
+            <Link to="/terms" className={styles.legalLink}>Terms</Link>
+            <span className={styles.legalDot} aria-hidden>•</span>
+            <Link to="/contact" className={styles.legalLink}>Contact</Link>
+          </nav>
+
+          <div className={styles.support}>
+            Questions? Reach out to{' '}
+            <a href="mailto:winning@maximussports.ai" className={styles.supportLink}>
+              winning@maximussports.ai
+            </a>
+          </div>
+        </div>
 
       </div>
     </footer>

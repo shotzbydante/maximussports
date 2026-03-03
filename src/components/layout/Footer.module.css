@@ -186,6 +186,41 @@
   user-select: none;
 }
 
+/* ── Legal row: links + support email side-by-side ── */
+.legalRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.support {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.supportLink {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.supportLink:hover {
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .legalRow {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .support {
+    text-align: center;
+  }
+}
+
 @media (max-width: 768px) {
   .footer {
     padding: var(--space-lg) var(--space-md) var(--space-lg);
