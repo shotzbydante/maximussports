@@ -208,14 +208,38 @@ export function pageview(pathname) {
 }
 
 /**
- * Identify a user (for future auth). Currently keeps all users anonymous.
+ * Identify a user and set their person properties in PostHog.
+ * Safe to call multiple times — PostHog merges properties.
  * @param {string} userId
  * @param {Record<string, unknown>} [traits]
  */
 export function identify(userId, traits = {}) {
   if (!ENABLED || !userId) return;
   try {
-    if (_posthog) _posthog.identify(userId, sanitizeProps(traits));
+    const props = sanitizeProps(traits);
+    if (isDebug()) console.log(`[Analytics] identify ${userId}`, Object.keys(props));
+    if (_posthog) _posthog.identify(userId, props);
+  } catch { /* ignore */ }
+}
+
+/**
+ * Alias an anonymous distinct_id to a known stable user ID.
+ * Call before identify() on first signup/login so PostHog merges the
+ * anonymous session into the authenticated person record.
+ * @param {string} userId  — stable backend user ID (e.g. Supabase user.id)
+ */
+export function alias(userId) {
+  if (!ENABLED || !userId) return;
+  try {
+    if (_posthog) {
+      const currentId = _posthog.get_distinct_id?.();
+      // Only alias when the anonymous session ID differs from the target user ID.
+      // Skipping when they match prevents circular self-aliases.
+      if (currentId && currentId !== userId) {
+        _posthog.alias?.(userId);
+        if (isDebug()) console.log(`[Analytics] alias ${currentId} → ${userId}`);
+      }
+    }
   } catch { /* ignore */ }
 }
 

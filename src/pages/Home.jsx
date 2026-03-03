@@ -27,6 +27,7 @@ import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pi
 import { perfLog } from '../utils/perfLog';
 import WelcomeModal from '../components/marketing/WelcomeModal';
 import { getFlag, setFlag } from '../utils/localFlags';
+import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import styles from './Home.module.css';
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
@@ -641,6 +642,11 @@ export default function Home() {
     setFlag('mx_welcome_seen_v1');
   }, []);
 
+  const handleWelcomeSkipped = useCallback(() => {
+    trackAccountCreateSkipped({ reason: 'welcome_modal_skipped' });
+    handleWelcomeClose();
+  }, [handleWelcomeClose]);
+
   const handleWelcomePrimary = useCallback(() => {
     handleWelcomeClose();
     navigate('/settings');
@@ -788,7 +794,7 @@ export default function Home() {
         open={welcomeOpen}
         onClose={handleWelcomeClose}
         onPrimary={handleWelcomePrimary}
-        onSecondary={handleWelcomeClose}
+        onSecondary={handleWelcomeSkipped}
       />
 
       <p className={styles.welcomeHeadline}>

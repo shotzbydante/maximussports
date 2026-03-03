@@ -7,6 +7,12 @@ import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
+import {
+  identifyUser,
+  trackAccountCreated,
+  trackFavoriteTeamsUpdated,
+  trackSignupViewed,
+} from '../lib/analytics/posthog';
 import styles from './Settings.module.css';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
@@ -584,11 +590,11 @@ function OnboardingWizard({ user, onComplete }) {
       const { error: teamsErr } = await sb.from('user_teams').insert(teamRows);
       if (teamsErr) throw new Error(friendlyDbError(teamsErr));
 
-      identify(userId, { has_profile: true, team_count: teamSlugs.length });
+      identifyUser(user, { username: profileData.username }, teamSlugs);
       track('onboarding_step_submit', { step: 3, success: true });
 
       setStep(4);
-      if (onComplete) onComplete();
+      if (onComplete) onComplete({ teamSlugs });
     } catch (err) {
       setWizardError(err.message || 'Something went wrong. Please try again.');
       track('onboarding_step_submit', { step: 3, success: false, error_code: 'save_failed' });
@@ -868,26 +874,26 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     identifyTimerRef.current = setTimeout(() => {
       const primarySlug = userTeams.find(t => t.is_primary)?.team_slug || null;
       const teamSlugs   = userTeams.map(t => t.team_slug);
+      // identifyUser sets username, email, favorite_teams (CSV), plan
+      identifyUser(user, profile, teamSlugs);
+      // merge richer properties that supplement the core person schema
       identify(user.id, {
-        email:           user.email,
-        username:        profile?.username,
         display_name:    profile?.display_name,
         favorite_number: profile?.favorite_number != null ? String(profile.favorite_number) : null,
         primary_team:    primarySlug,
         team_count:      teamSlugs.length,
+        sub_briefing:    prefs.briefing   ?? DEFAULT_PREFS.briefing,
+        sub_teamAlerts:  prefs.teamAlerts  ?? DEFAULT_PREFS.teamAlerts,
+        sub_oddsIntel:   prefs.oddsIntel   ?? DEFAULT_PREFS.oddsIntel,
+        sub_newsDigest:  prefs.newsDigest  ?? DEFAULT_PREFS.newsDigest,
       });
       setUserProperties({
-        email:             user.email,
-        username:          profile?.username,
-        display_name:      profile?.display_name,
-        favorite_number:   profile?.favorite_number != null ? String(profile.favorite_number) : null,
         primary_team_slug: primarySlug,
-        team_slugs:        teamSlugs,
         sub_briefing:      prefs.briefing   ?? DEFAULT_PREFS.briefing,
         sub_teamAlerts:    prefs.teamAlerts  ?? DEFAULT_PREFS.teamAlerts,
         sub_oddsIntel:     prefs.oddsIntel   ?? DEFAULT_PREFS.oddsIntel,
         sub_newsDigest:    prefs.newsDigest  ?? DEFAULT_PREFS.newsDigest,
-        provider:          'google',
+        provider:          user.app_metadata?.provider || 'google',
       });
     }, 500);
     return () => { if (identifyTimerRef.current) clearTimeout(identifyTimerRef.current); };
@@ -995,6 +1001,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         setUserTeams(remaining);
       }
       track('team_unpinned', { team_slug: slug });
+      trackFavoriteTeamsUpdated(user.id, remaining.map(t => t.team_slug));
     } catch (err) {
       setTeamsError(friendlyDbError(err));
     }
@@ -1014,6 +1021,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     setShowTeamPicker(false);
     try { addPinnedTeam(slug); } catch { /* ignore */ }
     track('team_pinned', { team_slug: slug });
+    trackFavoriteTeamsUpdated(user.id, [...userTeams.map(t => t.team_slug), slug]);
   }
 
   /* ── Toggle preference (debounced, confirmed write) ── */
@@ -1356,7 +1364,7 @@ function AuthenticatedSettings({ user }) {
     await signOut();
   };
 
-  const handleWizardComplete = () => {
+  const handleWizardComplete = ({ teamSlugs = [] } = {}) => {
     const isNew = wasNewUserRef.current;
     wasNewUserRef.current = false;
     setShowWizard(false);
@@ -1366,7 +1374,11 @@ function AuthenticatedSettings({ user }) {
         .then(({ data }) => {
           if (data) {
             setProfile(data);
-            if (isNew) track('account_created', { provider: 'google' });
+            if (isNew) {
+              trackAccountCreated(user, data, teamSlugs, {
+                method: user.app_metadata?.provider || 'google',
+              });
+            }
           }
         })
         .catch(() => { /* silently ignore */ });
@@ -1403,6 +1415,8 @@ function UnauthenticatedPanel() {
   const [email, setEmail]                 = useState('');
   const [emailSent, setEmailSent]         = useState(false);
   const [error, setError]                 = useState('');
+
+  useEffect(() => { trackSignupViewed(); }, []);
 
   const handleGoogle = async () => {
     setGoogleLoading(true); setError('');
