@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamBatch, fetchTeamPage } from '../api/team';
@@ -26,6 +26,8 @@ import FormattedSummary from '../components/shared/FormattedSummary';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pinnedCache';
 import { perfLog } from '../utils/perfLog';
+import WelcomeModal from '../components/marketing/WelcomeModal';
+import { getFlag, setFlag } from '../utils/localFlags';
 import styles from './Home.module.css';
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
@@ -328,6 +330,17 @@ function OddsInsightsTeaser({ games = [], rankMap = {} }) {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
+
+  // ── Welcome modal: show on first visit or when ?welcome=1 is present ──
+  const [welcomeOpen, setWelcomeOpen] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('welcome') === '1') return true;
+      return !getFlag('mx_welcome_seen_v1');
+    } catch { return false; }
+  });
+
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed, pinnedTeamNewsMap: {} });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
   const [slowLoading, setSlowLoading] = useState(true);
@@ -624,6 +637,16 @@ export default function Home() {
     setShowDataStatus((prev) => !prev);
   }, []);
 
+  const handleWelcomeClose = useCallback(() => {
+    setWelcomeOpen(false);
+    setFlag('mx_welcome_seen_v1');
+  }, []);
+
+  const handleWelcomePrimary = useCallback(() => {
+    handleWelcomeClose();
+    navigate('/settings');
+  }, [handleWelcomeClose, navigate]);
+
   const dataStatusForBadges = useMemo(() => {
     if (dataStatus) return dataStatus;
     const recentGames = (scores.games || []).filter((g) => isFinal(g.gameStatus));
@@ -762,6 +785,13 @@ export default function Home() {
 
   return (
     <div className={styles.home}>
+      <WelcomeModal
+        open={welcomeOpen}
+        onClose={handleWelcomeClose}
+        onPrimary={handleWelcomePrimary}
+        onSecondary={handleWelcomeClose}
+      />
+
       <p className={styles.welcomeHeadline}>
         Welcome to Maximus Sports: actionable college hoops news, odds, betting intel, and AI-powered analysis.
       </p>
