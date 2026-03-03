@@ -321,6 +321,25 @@
   100% { background-position: -200% 0; }
 }
 
+/* ── CTA footer link — used in standalone videos/headlines cards ── */
+.cardCta {
+  display: block;
+  padding: 9px var(--space-md);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  text-align: right;
+  letter-spacing: 0.01em;
+  border-top: 1px solid var(--color-border-light);
+  transition: color 0.14s;
+}
+
+.cardCta:hover {
+  color: var(--color-primary-hover, #2a65b8);
+  text-decoration: underline;
+}
+
 /* Mobile */
 @media (max-width: 600px) {
   .item {

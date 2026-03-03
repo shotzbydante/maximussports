@@ -714,12 +714,12 @@
   min-width: 0;
 }
 
-/* rail cell: right column spanning both rows (Top Videos → Headlines) */
+/* rail cell: right column spanning both rows (Top Videos card → Headlines card) */
 .gridRail {
   grid-area: rail;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   min-width: 0;
 }
 

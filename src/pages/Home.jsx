@@ -955,18 +955,18 @@ export default function Home() {
           <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
         </div>
 
-        {/* ── rail cell: Top Videos → Headlines, spans both left rows ── */}
+        {/* ── rail cell: Top Videos card + Headlines card, spans both left rows ── */}
         <aside className={styles.gridRail} id="news">
+          {/* Card 1: Top Videos — owns YouTube fetch + 10-min cache */}
+          <NewsFeed mode="videos" limitVideos={4} />
+          {/* Card 2: Headlines — skips video fetch, shows capped news list */}
           <NewsFeed
+            mode="headlines"
             items={(newsData.newsFeed || []).slice(0, 8)}
             source={newsSource}
             loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
+            limitHeadlines={6}
           />
-          {(newsData.newsFeed || []).length > 0 && (
-            <Link to="/news" className={styles.intelFeedCtaLink}>
-              View full Intel Feed →
-            </Link>
-          )}
         </aside>
 
       </div>
