@@ -1,46 +1,56 @@
 .footer {
   background: var(--color-bg-elevated);
   border-top: 1px solid var(--color-border-light);
-  padding: var(--space-xl) var(--space-lg) 0;
+  padding: var(--space-xl) var(--space-lg) var(--space-xl);
   margin-top: auto;
 }
 
 .inner {
-  max-width: 960px;
+  max-width: 860px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-lg);
+  gap: 20px;
   text-align: center;
 }
 
-/* ── Brand row (text only — mascot moved to bottom) ── */
-.brand {
+/* ── Brand cluster: mascot + text as a centered unit ── */
+.brandCluster {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-md);
+  gap: 10px;
+}
+
+.mascot {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 4px rgba(60, 121, 180, 0.15));
 }
 
 .brandText {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 1px;
 }
 
 .brandName {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--color-text);
   letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .brandTagline {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--color-text-muted);
+  line-height: 1.3;
 }
 
 /* ── Divider ── */
@@ -48,7 +58,7 @@
   width: 100%;
   height: 1px;
   background: var(--color-border-light);
-  max-width: 480px;
+  max-width: 420px;
 }
 
 /* ── Stack section ── */
@@ -56,11 +66,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 10px;
 }
 
 .stackLabel {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -73,42 +83,52 @@
   align-items: flex-start;
   justify-content: center;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: 8px;
 }
 
-.stackBadge {
-  display: inline-flex;
+/* Wrapper for badge + optional repo sublabel */
+.stackItem {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 6px 10px 5px;
+}
+
+/* Fixed-size badge — all badges identical */
+.stackBadge {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100px;
+  height: 36px;
+  padding: 0 10px;
   border-radius: 6px;
   border: 1px solid var(--color-border-light);
   background: var(--color-bg);
   color: var(--color-text-secondary);
   text-decoration: none;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
-  min-width: 58px;
-}
-
-.stackBadgeInner {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  box-sizing: border-box;
 }
 
 .stackBadgeName {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Small secondary label below the badge name (e.g. "Link to repo") */
-.stackBadgeLabel {
-  font-size: 0.6rem;
+/* Repo sub-label rendered below GitHub badge only — outside badge box */
+.stackRepoLabel {
+  font-size: 0.58rem;
   font-weight: 400;
   color: var(--color-text-muted);
   letter-spacing: 0.01em;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .stackBadge:hover {
@@ -116,11 +136,6 @@
   color: var(--color-primary);
   background: rgba(60, 121, 180, 0.05);
   text-decoration: none;
-}
-
-.stackBadge:hover .stackBadgeLabel {
-  color: var(--color-primary);
-  opacity: 0.75;
 }
 
 /* ── Attribution ── */
@@ -145,39 +160,22 @@
   text-decoration: none;
 }
 
-/* ── Bottom mascot row ── */
-.mascotRow {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  padding-top: var(--space-md);
-  width: 100%;
-}
-
-.mascot {
-  width: 100px;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  filter: drop-shadow(0 2px 8px rgba(60, 121, 180, 0.15));
-}
-
 @media (max-width: 768px) {
   .footer {
-    padding: var(--space-lg) var(--space-md) 0;
+    padding: var(--space-lg) var(--space-md) var(--space-lg);
   }
 
   .mascot {
-    width: 80px;
+    height: 30px;
   }
 
   .stackBadge {
-    font-size: 0.72rem;
-    padding: 5px 8px 4px;
-    min-width: 50px;
+    width: 86px;
+    height: 32px;
+    padding: 0 8px;
   }
 
   .stackBadgeName {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
   }
 }

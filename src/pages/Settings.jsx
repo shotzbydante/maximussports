@@ -898,16 +898,16 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   // Listen for pinned-team changes from Home and optimistically sync userTeams state.
   useEffect(() => {
-    return onPinnedChanged(({ pinnedSlugs, source }) => {
+    return onPinnedChanged(({ slugs, source }) => {
       if (source !== 'home') return; // DB and settings events are handled separately
       setUserTeams((prev) => {
         const prevSlugs = prev.map((t) => t.team_slug);
-        // Skip update when slug list is identical (order-aware)
-        if (slugArraysEqual(prevSlugs, pinnedSlugs)) return prev;
+        // Skip update when slug set is identical (order-insensitive)
+        if (slugArraysEqual(prevSlugs, slugs)) return prev;
 
         const prevSlugSet = new Set(prevSlugs);
-        const nextSlugSet = new Set(pinnedSlugs);
-        const added = pinnedSlugs
+        const nextSlugSet = new Set(slugs);
+        const added = slugs
           .filter((s) => !prevSlugSet.has(s))
           .map((slug) => ({
             user_id: user.id,
@@ -1398,20 +1398,50 @@ function AuthenticatedSettings({ user }) {
 
 /* ─── Unauthenticated Onboarding Panel ───────────────────────────────────── */
 function UnauthenticatedPanel() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [emailLoading, setEmailLoading]   = useState(false);
+  const [email, setEmail]                 = useState('');
+  const [emailSent, setEmailSent]         = useState(false);
+  const [error, setError]                 = useState('');
 
   const handleGoogle = async () => {
-    setLoading(true); setError('');
+    setGoogleLoading(true); setError('');
     const sb = getSupabase();
-    if (!sb) { setError('Auth service is not configured. Please contact support.'); setLoading(false); return; }
+    if (!sb) { setError('Auth service is not configured. Please contact support.'); setGoogleLoading(false); return; }
     track('auth_start_google', {});
     const { error: oauthErr } = await sb.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/settings` },
     });
-    if (oauthErr) { setError(oauthErr.message); setLoading(false); }
+    if (oauthErr) { setError(oauthErr.message); setGoogleLoading(false); }
   };
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setEmailLoading(true); setError('');
+    const sb = getSupabase();
+    if (!sb) { setError('Auth service is not configured. Please contact support.'); setEmailLoading(false); return; }
+    track('auth_start_email', {});
+    try {
+      const { error: otpErr } = await sb.auth.signInWithOtp({
+        email: trimmed,
+        options: { emailRedirectTo: `${window.location.origin}/settings` },
+      });
+      if (otpErr) throw otpErr;
+      setEmailSent(true);
+    } catch (err) {
+      setError(err?.message || 'Could not send login email. Please try again.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const anyLoading = googleLoading || emailLoading;
 
   return (
     <div className={styles.unauthCard}>
@@ -1422,21 +1452,56 @@ function UnauthenticatedPanel() {
           <path d="M9 34c0-6.075 4.925-11 11-11s11 4.925 11 11" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>
-      <h2 className={styles.unauthTitle}>Create your Maximus profile</h2>
+      <h2 className={styles.unauthTitle}>Create your Maximus Sports profile</h2>
       <p className={styles.unauthSubtitle}>Sync teams, personalize insights, unlock alerts</p>
       <div className={styles.unauthBenefits}>
         <span>✦ Pin your favorite teams</span>
         <span>✦ Personalized ATS insights</span>
         <span>✦ Game alerts &amp; AI briefings</span>
       </div>
+
       {error && <div className={styles.errorMsg}>{error}</div>}
-      <button type="button" className={styles.btnGoogle} onClick={handleGoogle} disabled={loading}>
-        {loading ? <SpinnerIcon /> : <GoogleIcon />}
+
+      <button type="button" className={styles.btnGoogle} onClick={handleGoogle} disabled={anyLoading}>
+        {googleLoading ? <SpinnerIcon /> : <GoogleIcon />}
         Continue with Google
       </button>
-      <button type="button" className={styles.btnEmailLink} disabled>
-        Continue with email — coming soon
-      </button>
+
+      <div className={styles.authDivider}>
+        <span className={styles.authDividerLine} />
+        <span className={styles.authDividerText}>or</span>
+        <span className={styles.authDividerLine} />
+      </div>
+
+      {emailSent ? (
+        <div className={styles.emailSentMsg}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+            <circle cx="10" cy="10" r="9" stroke="var(--color-up)" strokeWidth="1.5"/>
+            <path d="M6 10l3 3 5-5" stroke="var(--color-up)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>Check your email for a login link.</span>
+        </div>
+      ) : (
+        <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
+          <input
+            type="email"
+            className={styles.emailInput}
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={anyLoading}
+            autoComplete="email"
+            aria-label="Email address"
+          />
+          <button
+            type="submit"
+            className={styles.btnEmailSubmit}
+            disabled={anyLoading || !email.trim()}
+          >
+            {emailLoading ? <SpinnerIcon /> : 'Continue with email'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

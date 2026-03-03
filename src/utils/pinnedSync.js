@@ -2,7 +2,7 @@
  * Pinned-teams cross-component event bus.
  *
  * Event name : "mx:pinned_teams_changed"
- * Event detail: { pinnedSlugs: string[], source: "home" | "settings" | "db" | "local" }
+ * Event detail: { slugs: string[], source: "home"|"settings"|"db"|"local", ts: number }
  *
  * Rules to prevent infinite loops:
  *   - Components that write to DB (usePinnedTeamsSync) only react to source "home" or "settings".
@@ -18,7 +18,7 @@ const EVENT = 'mx:pinned_teams_changed';
  * @param {unknown} raw
  * @returns {string[]}
  */
-function normaliseSlugs(raw) {
+export function normaliseSlugs(raw) {
   if (!Array.isArray(raw)) return [];
   const seen = new Set();
   const result = [];
@@ -33,17 +33,19 @@ function normaliseSlugs(raw) {
 }
 
 /**
- * Shallow-equality check for two string arrays.
- * Returns true when both arrays have the same slugs in the same order.
- * @param {string[]} a
- * @param {string[]} b
+ * Order-insensitive equality check for two slug arrays.
+ * Normalises both inputs, then compares as sets — order does not matter.
+ * Returns true when both contain the same set of unique slugs.
+ * @param {unknown} a
+ * @param {unknown} b
  */
 export function slugArraysEqual(a, b) {
-  if (a === b) return true;
-  if (!Array.isArray(a) || !Array.isArray(b)) return false;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
+  const na = normaliseSlugs(a);
+  const nb = normaliseSlugs(b);
+  if (na.length !== nb.length) return false;
+  const setB = new Set(nb);
+  for (const s of na) {
+    if (!setB.has(s)) return false;
   }
   return true;
 }
@@ -58,14 +60,14 @@ export function notifyPinnedChanged(pinnedSlugs, source) {
   if (typeof window === 'undefined') return;
   const slugs = normaliseSlugs(pinnedSlugs);
   window.dispatchEvent(
-    new CustomEvent(EVENT, { detail: { pinnedSlugs: slugs, source } })
+    new CustomEvent(EVENT, { detail: { slugs, source, ts: Date.now() } })
   );
 }
 
 /**
  * Subscribe to pinned-teams changes.
  * Returns an unsubscribe function.
- * @param {(detail: { pinnedSlugs: string[], source: string }) => void} handler
+ * @param {(detail: { slugs: string[], source: string, ts: number }) => void} handler
  * @returns {() => void}
  */
 export function onPinnedChanged(handler) {

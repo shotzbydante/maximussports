@@ -137,21 +137,21 @@ export function usePinnedTeamsSync(user) {
   useEffect(() => {
     if (!user?.id) return;
 
-    return onPinnedChanged(async ({ pinnedSlugs, source }) => {
+    return onPinnedChanged(async ({ slugs, source }) => {
       if (source !== 'home') return; // only react to Home actions; avoid loops
 
       const prev = prevSlugsRef.current;
-      // Skip write-through when the list hasn't changed
-      if (slugArraysEqual(prev, pinnedSlugs)) return;
-      prevSlugsRef.current = pinnedSlugs;
+      // Skip write-through when the set of slugs hasn't changed
+      if (slugArraysEqual(prev, slugs)) return;
+      prevSlugsRef.current = slugs;
 
       const sb = getSupabase();
       if (!sb) return;
 
       const prevSet = new Set(prev);
-      const nextSet = new Set(pinnedSlugs);
+      const nextSet = new Set(slugs);
 
-      const added   = pinnedSlugs.filter((s) => !prevSet.has(s));
+      const added   = slugs.filter((s) => !prevSet.has(s));
       const removed = prev.filter((s) => !nextSet.has(s));
 
       if (added.length === 0 && removed.length === 0) return;

@@ -789,6 +789,110 @@
   opacity: 0.5;
 }
 
+/* ── Email auth form ─────────────────────────────────────────────────────── */
+.authDivider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 340px;
+  gap: var(--space-sm);
+}
+
+.authDividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-light);
+}
+
+.authDividerText {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.emailForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 340px;
+}
+
+.emailInput {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--space-md);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.emailInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.emailInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.1);
+}
+
+.emailInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnEmailSubmit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  height: 44px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.btnEmailSubmit:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.04);
+}
+
+.btnEmailSubmit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emailSentMsg {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(45, 138, 110, 0.08);
+  border: 1px solid rgba(45, 138, 110, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-up);
+  width: 100%;
+  max-width: 340px;
+  box-sizing: border-box;
+}
+
 .btnOutline {
   display: flex;
   align-items: center;
@@ -860,12 +964,13 @@
 }
 
 .unauthTitle {
-  font-family: var(--font-display);
-  font-size: 24px;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 22px;
   font-weight: 700;
   color: var(--color-text);
   margin: 0;
   letter-spacing: -0.01em;
+  text-transform: none;
 }
 
 .unauthSubtitle {
@@ -889,8 +994,7 @@
   text-align: left;
 }
 
-.unauthCard .btnGoogle,
-.unauthCard .btnEmailLink {
+.unauthCard .btnGoogle {
   max-width: 340px;
   width: 100%;
 }

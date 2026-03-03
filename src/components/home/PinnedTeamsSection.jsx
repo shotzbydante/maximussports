@@ -335,14 +335,13 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   // Updates local state so the Home view stays in sync without a page refresh.
   // Does NOT call onPinnedChange (which would propagate back upward) to avoid loops.
   useEffect(() => {
-    return onPinnedChanged(({ pinnedSlugs, source }) => {
+    return onPinnedChanged(({ slugs, source }) => {
       if (source !== 'db' && source !== 'settings') return;
       setPinned((prev) => {
-        if (slugArraysEqual(prev, pinnedSlugs)) return prev; // no-op if unchanged
-        return pinnedSlugs;
+        if (slugArraysEqual(prev, slugs)) return prev; // no-op if unchanged
+        return slugs;
       });
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
