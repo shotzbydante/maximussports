@@ -229,7 +229,7 @@ function generateLiveBriefing(games = [], rankMap = {}) {
  *   rankMap     — slug→rank map already on Home state
  *   atsLeaders  — ATS leaders already on Home state
  */
-function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] } }) {
+function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
 
@@ -281,7 +281,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       </p>
 
       {/* ── Picks: Spread / ML / Totals ─────────────────────────────── */}
-      <MaximusPicks games={games} atsLeaders={atsLeaders} />
+      <MaximusPicks games={games} atsLeaders={atsLeaders} loading={loading} />
 
       {/* ── Divider into Market Briefing subsection ─────────────────── */}
       <div className={styles.oddsMarketBriefingDivider}>
@@ -914,7 +914,12 @@ export default function Home() {
       </PinnedErrorBoundary>
 
       {/* ── Maximus's Picks / Odds Insights teaser — immediately below Pinned Teams ─── */}
-      <OddsInsightsTeaser games={scores.games} rankMap={rankMap} atsLeaders={atsLeaders} />
+      <OddsInsightsTeaser
+        games={scores.games}
+        rankMap={rankMap}
+        atsLeaders={atsLeaders}
+        loading={scores.loading || atsLoading}
+      />
 
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div

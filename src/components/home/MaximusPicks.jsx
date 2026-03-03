@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildMaximusPicks, confidenceLabel } from '../../utils/maximusPicksModel';
 import TeamLogo from '../shared/TeamLogo';
 import styles from './MaximusPicks.module.css';
@@ -68,10 +68,48 @@ function ConfidenceChip({ level }) {
   return (
     <span
       className={`${styles.confChip} ${level >= 2 ? styles.confHigh : level >= 1 ? styles.confMed : styles.confLow}`}
+      title={`${label} confidence`}
       aria-label={`Confidence: ${label}`}
     >
       {label}
     </span>
+  );
+}
+
+// ─── skeleton cards ───────────────────────────────────────────────────────────
+
+function SkeletonPickCard() {
+  return (
+    <div className={`${styles.pickCard} ${styles.skeletonCard}`} aria-hidden="true">
+      <div className={styles.skeletonMatchup}>
+        <span className={`${styles.skeletonLine} ${styles.skLineM}`} />
+        <span className={`${styles.skeletonLine} ${styles.skLineM}`} />
+      </div>
+      <span className={`${styles.skeletonLine} ${styles.skPill}`} />
+      <span className={`${styles.skeletonLine} ${styles.skBlock}`} />
+    </div>
+  );
+}
+
+function SkeletonColumn({ section }) {
+  const { title, Icon, microcopy } = COLUMN_CONFIG[section];
+  return (
+    <div className={styles.column}>
+      <div className={styles.columnHeader}>
+        <div className={styles.columnHeaderTop}>
+          <div className={styles.columnTitleRow}>
+            <span className={styles.columnIcon}><Icon /></span>
+            <span className={styles.columnTitle}>{title}</span>
+          </div>
+          <span className={`${styles.columnPill} ${styles.columnPillWarming}`}>WARMING…</span>
+        </div>
+        <p className={styles.columnMicro}>{microcopy}</p>
+      </div>
+      <div className={styles.cardList} aria-busy="true">
+        <SkeletonPickCard />
+        <SkeletonPickCard />
+      </div>
+    </div>
   );
 }
 
@@ -86,12 +124,16 @@ function PickCard({ pick, isTotal }) {
       {/* Matchup line with logos */}
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
-          <TeamLogo team={awayTeamObj} size={18} />
+          <span className={styles.teamLogoWrap}>
+            <TeamLogo team={awayTeamObj} size={18} />
+          </span>
           <span className={styles.matchupName}>{pick.awayTeam}</span>
         </span>
         <span className={styles.matchupAt}>@</span>
         <span className={styles.matchupTeam}>
-          <TeamLogo team={homeTeamObj} size={18} />
+          <span className={styles.teamLogoWrap}>
+            <TeamLogo team={homeTeamObj} size={18} />
+          </span>
           <span className={styles.matchupName}>{pick.homeTeam}</span>
         </span>
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
@@ -124,6 +166,9 @@ function PickCard({ pick, isTotal }) {
               <span className={styles.edgeValue}>+{pick.edgePp}pp</span>
             </div>
           )}
+          {pick.marketImpliedPct != null && (
+            <p className={styles.edgeHelper}>Market implied is derived from the current line.</p>
+          )}
         </div>
       )}
 
@@ -148,35 +193,39 @@ function PickCard({ pick, isTotal }) {
 
 const COLUMN_CONFIG = {
   ats: {
-    title:      'Against the Spread',
-    Icon:       IconAts,
-    microcopy:  'Leans based on ATS cover rate differential.',
-    storageKey: 'homePicksAtsCollapsed',
-    emptyReason: 'Not enough ATS data yet.',
-    isTotal:    false,
+    title:       'Against the Spread',
+    Icon:        IconAts,
+    microcopy:   'Leans based on ATS cover rate differential.',
+    storageKey:  'homePicksAtsCollapsed',
+    emptyReason: 'No qualified ATS leans right now.',
+    emptyDetail: 'Waiting for lines or ATS signals to meet edge thresholds.',
+    isTotal:     false,
   },
   ml: {
-    title:      "Pick 'Ems (Moneyline)",
-    Icon:       IconMl,
-    microcopy:  'Value leans blending ATS form + implied odds.',
-    storageKey: 'homePicksMlCollapsed',
-    emptyReason: 'Not enough market data yet.',
-    isTotal:    false,
+    title:       "Pick 'Ems (Moneyline)",
+    Icon:        IconMl,
+    microcopy:   'Value leans blending ATS form + implied odds.',
+    storageKey:  'homePicksMlCollapsed',
+    emptyReason: 'No qualified moneyline leans right now.',
+    emptyDetail: 'Value gaps or implied odds gaps haven\'t met thresholds.',
+    isTotal:     false,
   },
   totals: {
-    title:      'Totals (O/U)',
-    Icon:       IconTotals,
-    microcopy:  'Best numbers available. Informational only.',
-    storageKey: 'homePicksTotalsCollapsed',
+    title:       'Totals (O/U)',
+    Icon:        IconTotals,
+    microcopy:   'Best numbers available. Informational only.',
+    storageKey:  'homePicksTotalsCollapsed',
     emptyReason: 'No totals posted yet.',
-    isTotal:    true,
+    emptyDetail: null,
+    isTotal:     true,
   },
 };
 
 // ─── pick column ─────────────────────────────────────────────────────────────
 
 function PickColumn({ section, picks }) {
-  const { title, Icon, microcopy, storageKey, emptyReason, isTotal } = COLUMN_CONFIG[section];
+  const { title, Icon, microcopy, storageKey, emptyReason, emptyDetail, isTotal } =
+    COLUMN_CONFIG[section];
 
   const [expanded, setExpanded] = useState(() => {
     try {
@@ -220,7 +269,10 @@ function PickColumn({ section, picks }) {
       </button>
 
       {picks.length === 0 ? (
-        <p className={styles.emptyState}>{emptyReason}</p>
+        <div className={styles.emptyState}>
+          <p className={styles.emptyReason}>{emptyReason}</p>
+          {emptyDetail && <p className={styles.emptyDetail}>{emptyDetail}</p>}
+        </div>
       ) : (
         <div className={`${styles.cardListWrapper} ${!expanded ? styles.cardListWrapperCollapsed : ''}`}>
           <div className={styles.cardList}>
@@ -240,10 +292,15 @@ function PickColumn({ section, picks }) {
  * MaximusPicks — deterministic picks derived from data already on the Home page.
  *
  * Props:
- *   games        {Array}  — merged game objects (from mergeGamesWithOdds)
- *   atsLeaders   {Object} — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
+ *   games        {Array}   — merged game objects (from mergeGamesWithOdds)
+ *   atsLeaders   {Object}  — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
+ *   loading      {boolean} — true while Home is still fetching scores or ATS data
  */
-export default function MaximusPicks({ games = [], atsLeaders = { best: [], worst: [] } }) {
+export default function MaximusPicks({
+  games = [],
+  atsLeaders = { best: [], worst: [] },
+  loading = false,
+}) {
   const { atsPicks, mlPicks, totalsPicks } = useMemo(
     () => buildMaximusPicks({ games, atsLeaders }),
     [games, atsLeaders],
@@ -251,11 +308,28 @@ export default function MaximusPicks({ games = [], atsLeaders = { best: [], wors
 
   const hasAny = atsPicks.length > 0 || mlPicks.length > 0 || totalsPicks.length > 0;
 
-  if (!hasAny && games.length === 0) {
+  // Grace period: show skeleton for the first 1200ms after mount to avoid flash-of-empty
+  // when data arrives slightly after the initial render.
+  const [graceExpired, setGraceExpired] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setGraceExpired(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const showSkeleton = loading || (!graceExpired && !hasAny);
+
+  if (showSkeleton) {
     return (
-      <div className={styles.emptyAll}>
-        <p>Not enough market data yet. Check back once lines are posted.</p>
-      </div>
+      <>
+        <div className={styles.root}>
+          <SkeletonColumn section="ats" />
+          <SkeletonColumn section="ml" />
+          <SkeletonColumn section="totals" />
+        </div>
+        <p className={styles.disclaimer}>
+          For entertainment only. Please bet responsibly. Leans are data-driven, not advice.
+        </p>
+      </>
     );
   }
 

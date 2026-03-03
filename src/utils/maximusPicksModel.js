@@ -4,12 +4,13 @@
  * Exported:
  *   buildMaximusPicks({ games, atsLeaders }) → { atsPicks, mlPicks, totalsPicks }
  *   buildPicksSummary({ atsPicks, mlPicks, totalsPicks }) → string | null
- *   confidenceLabel(level) → 'High' | 'Med' | 'Low'
+ *   confidenceLabel(level) → 'High' | 'Medium' | 'Low'
  *
  * Logic mirrors MaximusPicks.jsx thresholds exactly so both components stay in sync.
  */
 
 import { getTeamSlug } from './teamSlug';
+import { getAtsCache } from './atsCache';
 
 // ─── tuneable constants ────────────────────────────────────────────────────────
 const ATS_EDGE_MIN  = 0.12;
@@ -37,15 +38,34 @@ function parseNum(v) {
   return isNaN(n) ? null : n;
 }
 
+/**
+ * Resolve the best ATS record for a team slug.
+ * Primary:  atsLeaders.best/worst (top-10 / bottom-10 by coverPct)
+ * Fallback: per-team in-memory cache (populated for pinned teams by PinnedTeamsSection)
+ */
 function getBestAtsRecord(slug, atsLeaders) {
   if (!slug || !atsLeaders) return null;
+
   const all = [...(atsLeaders.best || []), ...(atsLeaders.worst || [])];
   const row = all.find((r) => r.slug === slug);
-  if (!row) return null;
-  for (const key of ['last30', 'season', 'last7']) {
-    const rec = row[key];
-    if (rec && rec.total > 0 && rec.coverPct != null) return { ...rec, window: key };
+  if (row) {
+    for (const key of ['last30', 'season', 'last7']) {
+      const rec = row[key];
+      if (rec && rec.total > 0 && rec.coverPct != null) return { ...rec, window: key };
+    }
   }
+
+  // Fallback: per-team cache populated when pinned team data loads
+  try {
+    const cached = getAtsCache(slug);
+    if (cached) {
+      for (const key of ['last30', 'season', 'last7']) {
+        const rec = cached[key];
+        if (rec && rec.total > 0 && rec.coverPct != null) return { ...rec, window: key };
+      }
+    }
+  } catch { /* ignore cache failures */ }
+
   return null;
 }
 
@@ -80,7 +100,14 @@ function windowLabel(w) {
   return 'season';
 }
 
-/** Convert edge magnitude to confidence level (0 = Low, 1 = Med, 2 = High). */
+/** Build a W–L[–P] record string from an ATS record object. */
+function fmtRecord(rec) {
+  if (rec == null || rec.w == null || rec.l == null) return null;
+  const push = rec.p > 0 ? `–${rec.p}` : '';
+  return `${rec.w}–${rec.l}${push} (${Math.round(rec.coverPct)}%)`;
+}
+
+/** Convert edge magnitude to confidence level (0 = Low, 1 = Medium, 2 = High). */
 function atsConfidenceLevel(edgeMag) {
   if (edgeMag >= ATS_EDGE_HIGH) return 2;
   if (edgeMag >= ATS_EDGE_MED)  return 1;
@@ -93,28 +120,30 @@ function mlConfidenceLevel(value) {
   return 0;
 }
 
-/** Human-readable explanation for why confidence is High / Med / Low. */
+/** Human-readable explanation referencing exact thresholds + actual edge. */
 function atsConfidenceRationale(edgeMag) {
+  const pp = Math.round(edgeMag * 100);
   if (edgeMag >= ATS_EDGE_HIGH)
-    return `Edge ≥${Math.round(ATS_EDGE_HIGH * 100)}pp vs opponent — High confidence.`;
+    return `${pp}pp ATS edge (threshold ≥${Math.round(ATS_EDGE_HIGH * 100)}pp) — High confidence.`;
   if (edgeMag >= ATS_EDGE_MED)
-    return `Edge ≥${Math.round(ATS_EDGE_MED * 100)}pp vs opponent — Medium confidence.`;
-  return `Edge ≥${Math.round(ATS_EDGE_MIN * 100)}pp vs opponent — Low confidence.`;
+    return `${pp}pp ATS edge (threshold ≥${Math.round(ATS_EDGE_MED * 100)}pp) — Medium confidence.`;
+  return `${pp}pp ATS edge (threshold ≥${Math.round(ATS_EDGE_MIN * 100)}pp) — Low confidence.`;
 }
 
 function mlConfidenceRationale(value) {
+  const pp = Math.round(value * 100);
   if (value >= ML_VALUE_HIGH)
-    return `Model edge ≥${Math.round(ML_VALUE_HIGH * 100)}pp vs implied odds — High confidence.`;
+    return `+${pp}pp vs implied odds (threshold ≥${Math.round(ML_VALUE_HIGH * 100)}pp) — High confidence.`;
   if (value >= ML_VALUE_MED)
-    return `Model edge ≥${Math.round(ML_VALUE_MED * 100)}pp vs implied odds — Medium confidence.`;
-  return `Model edge ≥${Math.round(ML_VALUE_MIN * 100)}pp vs implied odds — Low confidence.`;
+    return `+${pp}pp vs implied odds (threshold ≥${Math.round(ML_VALUE_MED * 100)}pp) — Medium confidence.`;
+  return `+${pp}pp vs implied odds (threshold ≥${Math.round(ML_VALUE_MIN * 100)}pp) — Low confidence.`;
 }
 
 // ─── public confidence label ───────────────────────────────────────────────────
 
 export function confidenceLabel(level) {
   if (level >= 2) return 'High';
-  if (level >= 1) return 'Med';
+  if (level >= 1) return 'Medium';
   return 'Low';
 }
 
@@ -133,6 +162,13 @@ function buildSpreadPicks(games, atsLeaders) {
 
     const homeAts = getBestAtsRecord(homeSlug, atsLeaders);
     const awayAts = getBestAtsRecord(awaySlug, atsLeaders);
+
+    if (import.meta.env?.DEV && (!homeAts || !awayAts)) {
+      console.debug('[Picks:ATS] no record —', game.awayTeam, '@', game.homeTeam,
+        '| home:', homeSlug, homeAts ? 'ok' : 'missing',
+        '| away:', awaySlug, awayAts ? 'ok' : 'missing');
+    }
+
     if (!homeAts || !awayAts) continue;
 
     const homePct = homeAts.coverPct / 100;
@@ -158,6 +194,10 @@ function buildSpreadPicks(games, atsLeaders) {
     const win = windowLabel(pickAts.window);
     const edgeMag = Math.abs(edge);
 
+    // Build rationale lines with W-L records when available
+    const pickRecord = fmtRecord(pickAts) ?? `${Math.round(pickAts.coverPct)}%`;
+    const oppRecord  = fmtRecord(oppAts)  ?? `${Math.round(oppAts.coverPct)}%`;
+
     picks.push({
       key:     game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup: `${game.awayTeam} @ ${game.homeTeam}`,
@@ -170,13 +210,13 @@ function buildSpreadPicks(games, atsLeaders) {
       pickLine:   `${pickTeam} ${spreadLabel > 0 ? '+' : ''}${spreadLabel}`,
       confidence: atsConfidenceLevel(edgeMag),
       edgeMag,
-      // Edge breakdown — ATS has no market-implied equivalent
+      // Edge breakdown — ATS has no single market-implied equivalent
       modelPct:         Math.round(pickAts.coverPct),
       marketImpliedPct: null,
       edgePp:           null,
       rationale: [
-        `ATS form (${win}): ${Math.round(pickAts.coverPct)}% cover`,
-        `Opponent ATS (${win}): ${Math.round(oppAts.coverPct)}% cover`,
+        `ATS form (${win}): ${pickRecord}`,
+        `Opponent ATS (${win}): ${oppRecord}`,
       ],
       confidenceRationale: atsConfidenceRationale(edgeMag),
     });
