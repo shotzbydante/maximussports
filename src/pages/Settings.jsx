@@ -5,19 +5,21 @@ import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
-import { track, identify } from '../analytics/index';
+import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import styles from './Settings.module.css';
 
-/* ─── localStorage keys cleared on "Sign out and clear device" ─────────────
+/* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
+ * localStorage keys written by this app (cleared on "Sign out and clear device"):
  *   maximus-pinned-teams       — src/utils/pinnedTeams.js: pinned slugs array
  *   pinnedTeamsHideExample     — src/components/home/PinnedTeamsSection.jsx
  *   homeInsightCollapsed       — src/pages/Home.jsx: section collapse state
  *   homeAtsCollapsed           — src/pages/Home.jsx: section collapse state
  *   homeBubbleCollapsed        — src/pages/Home.jsx: section collapse state
- *   oddsBriefing:last          — src/pages/Home.jsx: AI briefing timestamp
- * sessionStorage keys cleared:
- *   mx_auth_success_fired      — Settings.jsx: auth event dedup
- *   mx_session_id              — ShareButton.jsx: share session ID
+ *   oddsBriefing:last          — src/pages/Insights.jsx: cached AI briefing
+ * sessionStorage keys — cleared via sessionStorage.clear():
+ *   mx_auth_success_fired      — Settings.jsx: one-time auth event dedup
+ *   mx_session_id              — analytics/index.js + ShareButton.jsx: session ID
+ *   mx_session_start           — analytics/index.js: one-time session_start event
  * ─────────────────────────────────────────────────────────────────────────── */
 const LS_KEYS_TO_CLEAR = [
   'maximus-pinned-teams',
@@ -131,27 +133,27 @@ const CONFERENCES = [
   }),
 ];
 
-/* ─── Jersey badge visual ────────────────────────────────────────────────── */
+/* ─── Jersey badge ───────────────────────────────────────────────────────── */
+/**
+ * Pill badge showing the user's jersey number.
+ * Renders "#09", "#23", etc. when a number is set.
+ * Renders an empty outline badge "#—" when no number is set, prompting action.
+ */
 function JerseyBadge({ number }) {
+  const isEmpty = !number;
   return (
-    <span className={styles.jerseyVisual} aria-label={`Jersey #${number}`}>
-      <svg width="30" height="34" viewBox="0 0 30 34" fill="none" aria-hidden>
-        {/* Jersey silhouette: collar notch, sleeves, body */}
-        <path
-          d="M11.5 2 L2 7.5 L5.5 13.5 L8.5 11.5 L8.5 32 L21.5 32 L21.5 11.5 L24.5 13.5 L28 7.5 L18.5 2 C17.5 4.5 12.5 4.5 11.5 2 Z"
-          fill="rgba(60,121,180,0.1)"
-          stroke="rgba(60,121,180,0.3)"
-          strokeWidth="1.2"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <span className={styles.jerseyNum}>{number}</span>
+    <span
+      className={`${styles.jerseyBadge} ${isEmpty ? styles.jerseyBadgeEmpty : ''}`}
+      aria-label={isEmpty ? 'No jersey number — add one in Edit Profile' : `Jersey #${number}`}
+      title={isEmpty ? 'Add a jersey number in Edit Profile' : undefined}
+    >
+      {isEmpty ? '#—' : `#${number}`}
     </span>
   );
 }
 
 /* ─── Confirm modal ──────────────────────────────────────────────────────── */
-function ConfirmModal({ title, message, subtext, confirmLabel = 'Confirm', danger = false, onConfirm, onCancel, loading = false }) {
+function ConfirmModal({ title, message, bullets, subtext, confirmLabel = 'Confirm', danger = false, onConfirm, onCancel, loading = false }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape' && !loading) onCancel(); };
     document.addEventListener('keydown', onKey);
@@ -163,6 +165,11 @@ function ConfirmModal({ title, message, subtext, confirmLabel = 'Confirm', dange
       <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
         <h3 id="confirm-modal-title" className={styles.modalTitle}>{title}</h3>
         <p className={styles.modalMessage}>{message}</p>
+        {bullets && bullets.length > 0 && (
+          <ul className={styles.modalBullets}>
+            {bullets.map((b, i) => <li key={i}>{b}</li>)}
+          </ul>
+        )}
         {subtext && <p className={styles.modalSubtext}>{subtext}</p>}
         <div className={styles.modalActions}>
           <button type="button" className={styles.btnOutline} onClick={onCancel} disabled={loading}>
@@ -609,7 +616,13 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
       };
       const { error: dbErr } = await sb.from('profiles').update(updates).eq('id', user.id);
       if (dbErr) throw dbErr;
-      track('profile_edit_save', {});
+      // Determine which fields actually changed for the analytics event
+      const fieldsChanged = ['username', 'display_name', 'favorite_number'].filter(
+        f => updates[f] !== (f === 'favorite_number'
+          ? (profile?.favorite_number != null ? String(profile.favorite_number) : null)
+          : profile?.[f])
+      );
+      track('profile_updated', { fields_changed: fieldsChanged });
       onSave(updates);
     } catch (err) {
       setError(friendlyDbError(err));
@@ -798,6 +811,40 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [resetError, setResetError] = useState('');
 
+  // ── PostHog: debounced identify + people.set ──────────────────────────────
+  const identifyTimerRef = useRef(null);
+  useEffect(() => {
+    if (teamsLoading) return;  // wait until teams are loaded before identifying
+    if (identifyTimerRef.current) clearTimeout(identifyTimerRef.current);
+    identifyTimerRef.current = setTimeout(() => {
+      const primarySlug = userTeams.find(t => t.is_primary)?.team_slug || null;
+      const teamSlugs   = userTeams.map(t => t.team_slug);
+      identify(user.id, {
+        email:           user.email,
+        username:        profile?.username,
+        display_name:    profile?.display_name,
+        favorite_number: profile?.favorite_number != null ? String(profile.favorite_number) : null,
+        primary_team:    primarySlug,
+        team_count:      teamSlugs.length,
+      });
+      setUserProperties({
+        email:             user.email,
+        username:          profile?.username,
+        display_name:      profile?.display_name,
+        favorite_number:   profile?.favorite_number != null ? String(profile.favorite_number) : null,
+        primary_team_slug: primarySlug,
+        team_slugs:        teamSlugs,
+        sub_briefing:      prefs.briefing   ?? DEFAULT_PREFS.briefing,
+        sub_teamAlerts:    prefs.teamAlerts  ?? DEFAULT_PREFS.teamAlerts,
+        sub_oddsIntel:     prefs.oddsIntel   ?? DEFAULT_PREFS.oddsIntel,
+        sub_newsDigest:    prefs.newsDigest  ?? DEFAULT_PREFS.newsDigest,
+        provider:          'google',
+      });
+    }, 500);
+    return () => { if (identifyTimerRef.current) clearTimeout(identifyTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamsLoading, userTeams, prefs, profile, user.id, user.email]);
+
   useEffect(() => { loadUserTeams(); }, []);
 
   async function loadUserTeams() {
@@ -842,7 +889,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (e1) throw e1;
       const { error: e2 } = await sb.from('user_teams').update({ is_primary: true }).eq('user_id', user.id).eq('team_slug', slug);
       if (e2) throw e2;
-      track('teams_set_primary', { slug });
+      track('primary_team_set', { team_slug: slug });
     } catch (err) {
       setUserTeams(prevTeams);  // rollback
       setTeamsError(friendlyDbError(err));
@@ -868,7 +915,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       } else {
         setUserTeams(remaining);
       }
-      track('teams_remove', { slug });
+      track('team_unpinned', { team_slug: slug });
     } catch (err) {
       setTeamsError(friendlyDbError(err));
     }
@@ -887,7 +934,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     setUserTeams(prev => [...prev, { user_id: user.id, team_slug: slug, is_primary: isPrimary, created_at: new Date().toISOString() }]);
     setShowTeamPicker(false);
     try { addPinnedTeam(slug); } catch { /* ignore */ }
-    track('teams_add', { slug });
+    track('team_pinned', { team_slug: slug });
   }
 
   /* ── Toggle preference (debounced, confirmed write) ── */
@@ -903,7 +950,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         const { error } = await sb.from('profiles').update({ preferences: newPrefs, updated_at: new Date().toISOString() }).eq('id', user.id);
         if (error) throw error;
         setSaveStatus('saved');
-        track('pref_toggle', { key, value: newPrefs[key] });
+        track('subscription_updated', { key, value: newPrefs[key] });
         setTimeout(() => setSaveStatus('idle'), 2500);
       } catch {
         setSaveStatus('error');
@@ -919,6 +966,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     try {
       LS_KEYS_TO_CLEAR.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
       try { sessionStorage.clear(); } catch { /* ignore */ }
+      track('device_cleared', {});
+      analyticsReset();
       await signOut();
     } finally {
       setConfirmLoading(false);
@@ -947,8 +996,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       setUserTeams([]);
       setPrefs({ ...DEFAULT_PREFS });
       onProfileUpdate({ preferences: {} });
-      setShowTeamPicker(true);
-      track('account_reset_all', {});
+      setShowTeamPicker(false);   // user sees empty state with "Add your first team" CTA
+      track('preferences_reset', {});
       setConfirm(null);
     } catch (err) {
       setResetError(friendlyDbError(err));
@@ -982,15 +1031,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             <div className={styles.profileInfo}>
               <div className={styles.profileNameRow}>
                 <span className={styles.profileName}>{displayName}</span>
-                {jerseyDisplay != null && <JerseyBadge number={jerseyDisplay} />}
+                <JerseyBadge number={jerseyDisplay} />
               </div>
               <span className={styles.profileEmail}>{user.email}</span>
-              {primaryTeam && (
-                <div className={styles.primaryTeamChip}>
-                  <TeamLogo team={primaryTeam} size={13} />
-                  <span>{primaryTeam.name}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1142,8 +1185,13 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       {confirm?.type === 'clear-device' && (
         <ConfirmModal
           title="Sign out and clear this device?"
-          message="This will sign you out and remove all locally stored data on this device (pinned teams, UI preferences, cached briefings)."
-          subtext="Your account and profile are preserved — sign in again anytime to restore everything."
+          message="This signs you out and removes the following local data from this browser:"
+          bullets={[
+            'Pinned teams (device-only cache)',
+            'Section collapse states (UI preferences)',
+            'Cached AI briefings and session flags',
+          ]}
+          subtext="Your Maximus account is NOT deleted. All server-side data (profile, teams, preferences) is preserved — sign back in anytime."
           confirmLabel="Clear & sign out"
           danger
           loading={confirmLoading}
@@ -1155,8 +1203,13 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       {confirm?.type === 'reset-all' && (
         <ConfirmModal
           title="Reset teams and preferences?"
-          message="This will remove all your pinned teams and reset your subscription settings to defaults."
-          subtext="Your username, jersey number, and account are not affected. You can re-add teams right after."
+          message="This permanently removes the following from your account:"
+          bullets={[
+            'All pinned teams (removed from your profile in the database)',
+            'Subscription toggles (reset to defaults in the database)',
+            'Device-level pinned teams cache',
+          ]}
+          subtext="Your username, jersey number, email, and sign-in are not affected. You can re-add teams immediately after."
           confirmLabel="Reset"
           danger
           loading={confirmLoading}
@@ -1176,13 +1229,18 @@ function AuthenticatedSettings({ user }) {
   const [showWizard, setShowWizard]         = useState(false);
   const [signingOut, setSigningOut]         = useState(false);
   const authSuccessFiredRef                 = useRef(false);
+  // track whether this is a brand-new user completing onboarding for the first time
+  const wasNewUserRef                       = useRef(false);
 
   useEffect(() => {
     if (!authSuccessFiredRef.current) {
       authSuccessFiredRef.current = true;
       try {
         const key = 'mx_auth_success_fired';
-        if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, '1'); track('auth_success', {}); }
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1');
+          track('auth_sign_in_success', { provider: 'google' });
+        }
       } catch { /* ignore */ }
     }
   }, []);
@@ -1192,28 +1250,44 @@ function AuthenticatedSettings({ user }) {
     async function load() {
       const sb = getSupabase();
       if (!sb) {
-        if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); }
+        if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); wasNewUserRef.current = true; }
         return;
       }
       try {
         const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-        if (!cancelled) { setProfile(data); setProfileLoading(false); if (!data) setShowWizard(true); }
+        if (!cancelled) {
+          setProfile(data);
+          setProfileLoading(false);
+          if (!data) { setShowWizard(true); wasNewUserRef.current = true; }
+        }
       } catch {
-        if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); }
+        if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); wasNewUserRef.current = true; }
       }
     }
     load();
     return () => { cancelled = true; };
   }, [user.id]);
 
-  const handleSignOut = async () => { setSigningOut(true); await signOut(); };
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    track('auth_sign_out', {});
+    analyticsReset();
+    await signOut();
+  };
 
   const handleWizardComplete = () => {
+    const isNew = wasNewUserRef.current;
+    wasNewUserRef.current = false;
     setShowWizard(false);
     const sb = getSupabase();
     if (sb) {
       sb.from('profiles').select('*').eq('id', user.id).maybeSingle()
-        .then(({ data }) => { if (data) setProfile(data); })
+        .then(({ data }) => {
+          if (data) {
+            setProfile(data);
+            if (isNew) track('account_created', { provider: 'google' });
+          }
+        })
         .catch(() => { /* silently ignore */ });
     }
   };

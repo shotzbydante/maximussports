@@ -238,3 +238,14 @@ export function flush() {
     if (_posthog) _posthog.flush?.();
   } catch { /* ignore */ }
 }
+
+/**
+ * Reset PostHog identity — call on sign-out or device clear.
+ * Clears stored distinct ID and person properties so the next session is anonymous.
+ */
+export function analyticsReset() {
+  if (!ENABLED) return;
+  try {
+    if (_posthog) _posthog.reset?.();
+  } catch { /* ignore */ }
+}
