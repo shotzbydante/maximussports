@@ -1,7 +1,7 @@
 .footer {
   background: var(--color-bg-elevated);
   border-top: 1px solid var(--color-border-light);
-  padding: var(--space-xl) var(--space-lg);
+  padding: var(--space-xl) var(--space-lg) 0;
   margin-top: auto;
 }
 
@@ -15,25 +15,18 @@
   text-align: center;
 }
 
-/* ── Brand / mascot row ── */
+/* ── Brand row (text only — mascot moved to bottom) ── */
 .brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-md);
-}
-
-.mascot {
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 6px rgba(60, 121, 180, 0.18));
 }
 
 .brandText {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 2px;
 }
 
@@ -77,7 +70,7 @@
 
 .stackRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   flex-wrap: wrap;
   gap: var(--space-sm);
@@ -85,17 +78,37 @@
 
 .stackBadge {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+  gap: 3px;
+  padding: 6px 10px 5px;
   border-radius: 6px;
   border: 1px solid var(--color-border-light);
   background: var(--color-bg);
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
-  font-weight: 500;
   text-decoration: none;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-width: 58px;
+}
+
+.stackBadgeInner {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stackBadgeName {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+/* Small secondary label below the badge name (e.g. "Link to repo") */
+.stackBadgeLabel {
+  font-size: 0.6rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .stackBadge:hover {
@@ -103,6 +116,11 @@
   color: var(--color-primary);
   background: rgba(60, 121, 180, 0.05);
   text-decoration: none;
+}
+
+.stackBadge:hover .stackBadgeLabel {
+  color: var(--color-primary);
+  opacity: 0.75;
 }
 
 /* ── Attribution ── */
@@ -115,25 +133,51 @@
 
 .attributionLink {
   color: var(--color-primary);
+  font-weight: 600;
   text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s, color 0.15s;
 }
 
 .attributionLink:hover {
-  text-decoration: underline;
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary-hover);
+  text-decoration: none;
+}
+
+/* ── Bottom mascot row ── */
+.mascotRow {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-top: var(--space-md);
+  width: 100%;
+}
+
+.mascot {
+  width: 100px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 8px rgba(60, 121, 180, 0.15));
 }
 
 @media (max-width: 768px) {
   .footer {
-    padding: var(--space-lg) var(--space-md);
+    padding: var(--space-lg) var(--space-md) 0;
   }
 
   .mascot {
-    width: 44px;
-    height: 44px;
+    width: 80px;
   }
 
   .stackBadge {
     font-size: 0.72rem;
-    padding: 4px 8px;
+    padding: 5px 8px 4px;
+    min-width: 50px;
+  }
+
+  .stackBadgeName {
+    font-size: 0.72rem;
   }
 }

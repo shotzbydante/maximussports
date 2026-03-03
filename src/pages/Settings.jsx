@@ -5,7 +5,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
-import { notifyPinnedChanged, onPinnedChanged } from '../utils/pinnedSync';
+import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import styles from './Settings.module.css';
 
@@ -901,14 +901,21 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     return onPinnedChanged(({ pinnedSlugs, source }) => {
       if (source !== 'home') return; // DB and settings events are handled separately
       setUserTeams((prev) => {
-        const prevSlugs = new Set(prev.map((t) => t.team_slug));
-        const nextSlugs = new Set(pinnedSlugs);
-        // Add new entries (no is_primary, no teamData yet — just slug)
+        const prevSlugs = prev.map((t) => t.team_slug);
+        // Skip update when slug list is identical (order-aware)
+        if (slugArraysEqual(prevSlugs, pinnedSlugs)) return prev;
+
+        const prevSlugSet = new Set(prevSlugs);
+        const nextSlugSet = new Set(pinnedSlugs);
         const added = pinnedSlugs
-          .filter((s) => !prevSlugs.has(s))
-          .map((slug) => ({ user_id: user.id, team_slug: slug, is_primary: false, created_at: new Date().toISOString() }));
-        // Remove entries no longer pinned
-        const kept = prev.filter((t) => nextSlugs.has(t.team_slug));
+          .filter((s) => !prevSlugSet.has(s))
+          .map((slug) => ({
+            user_id: user.id,
+            team_slug: slug,
+            is_primary: false,
+            created_at: new Date().toISOString(),
+          }));
+        const kept = prev.filter((t) => nextSlugSet.has(t.team_slug));
         return [...kept, ...added];
       });
     });

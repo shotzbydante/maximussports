@@ -28,7 +28,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { getPinnedTeams, setPinnedTeams } from '../utils/pinnedTeams';
-import { onPinnedChanged } from '../utils/pinnedSync';
+import { onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track } from '../analytics/index';
 
 export function usePinnedTeamsSync(user) {
@@ -131,32 +131,36 @@ export function usePinnedTeamsSync(user) {
   // ── Write-through: Home pin/unpin → user_teams ───────────────────────────
   // When PinnedTeamsSection dispatches a 'home' event while signed in,
   // mirror the change to the user_teams table so Settings "My Teams" is canonical.
-  const prevSlugsRef = useRef(null);
+  // prevSlugsRef tracks the last known list so we only write deltas.
+  const prevSlugsRef = useRef([]);
 
   useEffect(() => {
     if (!user?.id) return;
 
     return onPinnedChanged(async ({ pinnedSlugs, source }) => {
-      if (source !== 'home') return;  // only react to Home actions; avoid loops
+      if (source !== 'home') return; // only react to Home actions; avoid loops
+
+      const prev = prevSlugsRef.current;
+      // Skip write-through when the list hasn't changed
+      if (slugArraysEqual(prev, pinnedSlugs)) return;
+      prevSlugsRef.current = pinnedSlugs;
+
       const sb = getSupabase();
       if (!sb) return;
-
-      const prev = prevSlugsRef.current ?? [];
-      prevSlugsRef.current = pinnedSlugs;
 
       const prevSet = new Set(prev);
       const nextSet = new Set(pinnedSlugs);
 
-      // Slugs newly added
-      const added = pinnedSlugs.filter((s) => !prevSet.has(s));
-      // Slugs removed
+      const added   = pinnedSlugs.filter((s) => !prevSet.has(s));
       const removed = prev.filter((s) => !nextSet.has(s));
+
+      if (added.length === 0 && removed.length === 0) return;
 
       try {
         if (added.length > 0) {
           const rows = added.map((slug) => ({
-            user_id: user.id,
-            team_slug: slug,
+            user_id:    user.id,
+            team_slug:  slug,
             is_primary: false,
             created_at: new Date().toISOString(),
           }));
@@ -171,7 +175,7 @@ export function usePinnedTeamsSync(user) {
             .eq('user_id', user.id)
             .eq('team_slug', slug);
         }
-      } catch { /* swallow — best effort */ }
+      } catch { /* swallow — local state already correct, DB is best-effort */ }
     });
   }, [user]);
 

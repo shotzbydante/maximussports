@@ -69,7 +69,7 @@
 
 /* Individual game card */
 .gameCard {
-  padding: 5px var(--space-md);
+  padding: 4px var(--space-md);
   border-bottom: 1px solid var(--color-border-light);
   transition: background 0.1s;
 }
@@ -80,18 +80,18 @@
      so game rows stay aligned with the full-width widget header. */
 
   .widgetHeader {
-    padding: 10px var(--space-md) 8px;
+    padding: 8px var(--space-md) 6px;
   }
 
   .gameCard {
-    padding: 4px var(--space-md) 3px;
+    padding: 3px var(--space-md) 2px;
     border-bottom: 1px solid var(--color-border-light);
   }
 
   .teamRow {
-    grid-template-columns: 26px 1fr auto;
+    grid-template-columns: 24px 1fr auto;
     padding: 1px 0;
-    gap: 6px;
+    gap: 5px;
   }
 
   .finalDivider {
@@ -100,22 +100,22 @@
   }
 
   .gameFooter {
-    padding-top: 2px;
-    padding-left: 36px;
+    padding-top: 1px;
+    padding-left: 30px;
   }
 
   .teamLogoWrap {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
   }
 
   .teamName {
-    font-size: 0.8125rem;
+    font-size: 0.8rem;
   }
 
   .teamScore {
-    font-size: 0.9375rem;
-    min-width: 28px;
+    font-size: 0.9rem;
+    min-width: 26px;
   }
 
   .gameTime {
@@ -123,7 +123,7 @@
   }
 
   .viewMore {
-    padding: 6px var(--space-md);
+    padding: 5px var(--space-md);
     font-size: 0.7rem;
   }
 }
@@ -179,9 +179,9 @@
 /* Team rows */
 .teamRow {
   display: grid;
-  grid-template-columns: 28px 1fr auto;
+  grid-template-columns: 26px 1fr auto;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   padding: 1px 0;
 }
 
@@ -204,8 +204,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
 }
 
 /* Team info */
@@ -278,9 +278,9 @@ a.teamName:hover {
 .gameFooter {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-top: 3px;
-  padding-left: 36px; /* indent to align under team names */
+  gap: 7px;
+  padding-top: 2px;
+  padding-left: 33px; /* indent to align under team names */
 }
 
 /* Status badge */

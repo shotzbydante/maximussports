@@ -17,10 +17,11 @@ const GamesIcon = () => (
 );
 const TeamsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
-    <circle cx="5.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-    <circle cx="10.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M1 14c0-2.5 2-4.5 4.5-4.5S10 11.5 10 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    <path d="M11 9.8c1.8.3 3 1.7 3 4.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    {/* Jersey body */}
+    <path d="M3.5 2.5L1 5l2 1v7h10V6l2-1-2.5-2.5c-.8.8-1.6 1.2-2.5 1.2S5.3 3.3 4.5 2.5z"
+      stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    {/* Collar V */}
+    <path d="M5.5 2.8L8 5l2.5-2.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 const TrendIcon = () => (

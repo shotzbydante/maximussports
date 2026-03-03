@@ -4,6 +4,23 @@
   padding: 0 var(--space-lg);
 }
 
+/* ── Welcome headline — one-line intro above the AI briefing banner ── */
+.welcomeHeadline {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-md);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 600px) {
+  .welcomeHeadline {
+    font-size: 0.8rem;
+    margin-bottom: var(--space-sm);
+  }
+}
+
 .banner {
   display: flex;
   align-items: flex-start;

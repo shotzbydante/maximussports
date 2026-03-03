@@ -739,6 +739,9 @@ export default function Home() {
 
   return (
     <div className={styles.home}>
+      <p className={styles.welcomeHeadline}>
+        Welcome to Maximus Sports: actionable college hoops news, odds, betting intel, and AI-powered analysis.
+      </p>
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>

@@ -1,5 +1,5 @@
-import mascotImg from '../../assets/mascot.png';
-import { REPO_URL, LINKEDIN_URL } from '../../config/links';
+import mascot2d from '../../assets/mascot-2d.png';
+import { REPO_URL, LINKEDIN_URL, GOOGLE_CLOUD_URL } from '../../config/links';
 import styles from './Footer.module.css';
 
 /* ─── Stack tech logos as inline SVG / wordmark badges ─────────────────── */
@@ -34,12 +34,19 @@ const CursorLogo = () => (
   </svg>
 );
 
+const GoogleCloudLogo = () => (
+  <svg width="20" height="16" viewBox="0 0 24 19" fill="currentColor" aria-hidden>
+    <path d="M14.8 4.6L13.5 3.3C12.3 2.1 10.7 1.4 9 1.4c-3.3 0-6 2.7-6 6 0 .2 0 .5.1.7C1.3 8.9 0 10.7 0 12.8c0 2.5 2 4.6 4.6 4.6h14.3c2.3 0 4.1-1.9 4.1-4.1 0-2-1.5-3.7-3.4-4l-.6-.1-.2-.6c-.6-2.2-2.5-3.9-4.8-4H14zm.1 1.5c1.7.1 3.1 1.2 3.7 2.7l.5 1.3 1.4.2c1.3.2 2.3 1.3 2.3 2.6 0 1.4-1.2 2.6-2.6 2.6H4.6C2.9 15.5 1.5 14.1 1.5 12.4c0-1.4 1-2.7 2.3-3l1.2-.3-.1-1.3c0-.2-.1-.4-.1-.7 0-2.5 2-4.5 4.5-4.5 1.3 0 2.5.5 3.4 1.4l1.5 1.5.7-.4z"/>
+  </svg>
+);
+
 const STACK = [
-  { name: 'OpenAI',     Icon: OpenAILogo,    href: 'https://openai.com' },
-  { name: 'Claude',     Icon: AnthropicLogo, href: 'https://anthropic.com' },
-  { name: 'Vercel',     Icon: VercelLogo,    href: 'https://vercel.com' },
-  { name: 'GitHub',     Icon: GitHubLogo,    href: REPO_URL },
-  { name: 'Cursor',     Icon: CursorLogo,    href: 'https://cursor.com' },
+  { name: 'OpenAI',        Icon: OpenAILogo,      href: 'https://openai.com',    label: null },
+  { name: 'Claude',        Icon: AnthropicLogo,   href: 'https://anthropic.com', label: null },
+  { name: 'Vercel',        Icon: VercelLogo,      href: 'https://vercel.com',    label: null },
+  { name: 'GitHub',        Icon: GitHubLogo,      href: REPO_URL,                label: 'Link to repo' },
+  { name: 'Cursor',        Icon: CursorLogo,      href: 'https://cursor.com',    label: null },
+  { name: 'Google Cloud',  Icon: GoogleCloudLogo, href: GOOGLE_CLOUD_URL,        label: null },
 ];
 
 export default function Footer() {
@@ -47,13 +54,8 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
 
-        {/* ── Mascot + tagline ── */}
+        {/* ── Brand + tagline ── */}
         <div className={styles.brand}>
-          <img
-            src={mascotImg}
-            alt="Maximus mascot"
-            className={styles.mascot}
-          />
           <div className={styles.brandText}>
             <span className={styles.brandName}>Maximus Sports</span>
             <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
@@ -75,11 +77,13 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.stackBadge}
-                  aria-label={item.name}
                   title={item.name}
                 >
                   <LogoIcon />
-                  <span>{item.name}</span>
+                  <span className={styles.stackBadgeName}>{item.name}</span>
+                  {item.label && (
+                    <span className={styles.stackBadgeLabel}>{item.label}</span>
+                  )}
                 </a>
               );
             })}
@@ -102,6 +106,15 @@ export default function Footer() {
           </a>
           .
         </p>
+
+        {/* ── Mascot — bottom centered ── */}
+        <div className={styles.mascotRow}>
+          <img
+            src={mascot2d}
+            alt="Maximus mascot"
+            className={styles.mascot}
+          />
+        </div>
       </div>
     </footer>
   );

@@ -14,7 +14,7 @@ import {
 } from '../../utils/pinnedTeams';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { getAtsCache, setAtsCache } from '../../utils/atsCache';
-import { notifyPinnedChanged, onPinnedChanged } from '../../utils/pinnedSync';
+import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../../utils/pinnedSync';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import { track } from '../../analytics/index';
@@ -333,14 +333,17 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
 
   // Listen for pinned-teams changes from Settings or DB reconcile.
   // Updates local state so the Home view stays in sync without a page refresh.
+  // Does NOT call onPinnedChange (which would propagate back upward) to avoid loops.
   useEffect(() => {
     return onPinnedChanged(({ pinnedSlugs, source }) => {
-      if (source === 'db' || source === 'settings') {
-        setPinned(pinnedSlugs);
-        onPinnedChange?.(pinnedSlugs);
-      }
+      if (source !== 'db' && source !== 'settings') return;
+      setPinned((prev) => {
+        if (slugArraysEqual(prev, pinnedSlugs)) return prev; // no-op if unchanged
+        return pinnedSlugs;
+      });
     });
-  }, [onPinnedChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (Object.keys(rankMapProp).length > 0) setRankMap(rankMapProp);
