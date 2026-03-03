@@ -160,6 +160,32 @@
   text-decoration: none;
 }
 
+/* ── Legal links ── */
+.legalLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.legalLink {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.legalLink:hover {
+  color: var(--color-primary);
+}
+
+.legalDot {
+  font-size: 0.65rem;
+  color: var(--color-border);
+  user-select: none;
+}
+
 @media (max-width: 768px) {
   .footer {
     padding: var(--space-lg) var(--space-md) var(--space-lg);

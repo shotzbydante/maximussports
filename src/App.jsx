@@ -12,6 +12,9 @@ import NewsFeed from './pages/NewsFeed';
 import Alerts from './pages/Alerts';
 import SharePage from './pages/SharePage';
 import Settings from './pages/Settings';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Contact from './pages/Contact';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 
@@ -35,6 +38,9 @@ export default function App() {
               <Route path="news" element={<NewsFeed />} />
               <Route path="alerts" element={<Alerts />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="privacy" element={<Privacy />} />
+              <Route path="terms" element={<Terms />} />
+              <Route path="contact" element={<Contact />} />
             </Route>
             {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}
             <Route path="share/:id" element={<SharePage />} />

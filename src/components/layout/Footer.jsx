@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import mascot2d from '../../assets/mascot-2d.png';
 import { REPO_URL, LINKEDIN_URL, GOOGLE_CLOUD_URL } from '../../config/links';
 import styles from './Footer.module.css';
@@ -112,6 +113,15 @@ export default function Footer() {
           </a>
           .
         </p>
+
+        {/* ── Legal links ── */}
+        <nav className={styles.legalLinks} aria-label="Legal">
+          <Link to="/privacy" className={styles.legalLink}>Privacy</Link>
+          <span className={styles.legalDot} aria-hidden>•</span>
+          <Link to="/terms" className={styles.legalLink}>Terms</Link>
+          <span className={styles.legalDot} aria-hidden>•</span>
+          <Link to="/contact" className={styles.legalLink}>Contact</Link>
+        </nav>
 
       </div>
     </footer>
