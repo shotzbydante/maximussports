@@ -29,7 +29,7 @@
   border: 1px solid var(--color-border-light);
   border-radius: 10px;
   box-shadow: 0 1px 6px rgba(60, 121, 180, 0.06);
-  padding: 16px var(--space-lg);
+  padding: 10px var(--space-md);
   margin-bottom: var(--space-xl);
 }
 
@@ -48,12 +48,12 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   COLLAPSIBLE INSIGHT BODY
-   Line height math: 14px × 1.5 = 21px / line
+   COLLAPSIBLE INSIGHT BODY — desktop + mobile
+   Desktop lh: 14px × 1.62 ≈ 23px / line  |  Mobile lh: 13px × 1.5 ≈ 20px / line
    ══════════════════════════════════════════════════════════════════ */
 
 /* Mobile-only sublabel — invisible on desktop */
@@ -68,15 +68,40 @@
 
 /* Paragraph breathing room — between consecutive insight <p> elements */
 .bannerText + .bannerText {
-  margin-top: 0.45em; /* ≈ 6px at 14px font */
+  margin-top: 0.45em;
 }
 
-/* Base: position:relative anchors the ::after fade overlay */
+/* Clip container + smooth height animation at ALL sizes */
 .insightBody {
   position: relative;
+  overflow: hidden;
+  max-height: 1600px;
+  transition: max-height 0.22s ease-out;
 }
 
-/* ── 481–767px phones: 9 full lines = 9 × 21px = 189px ── */
+/* Desktop collapsed: ~4 lines = 4 × 23px ≈ 90px */
+.insightBodyCollapsed {
+  max-height: 90px;
+}
+
+.insightBodyCollapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: linear-gradient(
+    to bottom,
+    transparent              0%,
+    transparent             25%,
+    var(--color-bg-elevated) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── 481–767px phones: 5 lines ≈ 100px ── */
 @media (max-width: 767px) {
   .insightSublabel {
     display: flex;
@@ -102,98 +127,64 @@
     color: var(--color-text-muted);
   }
 
-  .insightBody {
-    overflow: hidden;
-    max-height: 1400px; /* unlimited when expanded */
-    transition: max-height 0.18s ease-out;
-  }
-
   .insightBodyCollapsed {
-    max-height: 189px; /* 9 lines — ends on a complete line */
-  }
-
-  /*
-   * Fade overlay — anchored to bottom of the clipped area.
-   * Stays fully transparent for the first ~35% so lines 1–7 read cleanly.
-   * Only the last ~2 lines (lines 8–9) gradually fade into the surface.
-   * Uses `transparent` rather than rgba(0,0,0,0) so the browser interpolates
-   * through the correct colour space (avoids muddy grey midpoint).
-   */
-  .insightBodyCollapsed::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px; /* ≈ 3 lines — clean taper zone */
-    background: linear-gradient(
-      to bottom,
-      transparent              0%,
-      transparent             38%,
-      var(--color-bg-elevated) 100%
-    );
-    pointer-events: none;
-    z-index: 1;
+    max-height: 100px;
   }
 }
 
-/* ── ≤480px phones: 8 full lines = 8 × 21px = 168px ── */
+/* ── ≤480px phones: 4 lines ≈ 80px ── */
 @media (max-width: 480px) {
   .insightBodyCollapsed {
-    max-height: 168px; /* 8 lines */
+    max-height: 80px;
   }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   TOGGLE BUTTON — hidden on desktop, footer-row on mobile
+   TOGGLE BUTTON — visible on desktop + mobile
    ══════════════════════════════════════════════════════════════════ */
 
 .insightToggle {
-  display: none; /* desktop: not rendered */
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 0;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  justify-content: flex-start;
+  transition: color 0.15s;
+}
+
+.insightToggle:hover {
+  color: var(--color-primary-hover);
+}
+
+.insightToggleFooter {
+  justify-content: flex-end;
+  min-height: 36px;
+  padding: 7px 0 4px;
+  border-top: 1px solid var(--color-border-light);
+  margin-top: 4px;
+}
+
+.insightToggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 @media (max-width: 767px) {
-  /* Shared base for both "Expand briefing" and "Show less" */
-  .insightToggle {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: 100%;
-    min-height: 36px;
-    padding: 4px 0;
-    margin-top: 2px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    font-family: inherit;
-    color: var(--color-primary);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    line-height: 1;
-    justify-content: flex-start; /* "Show less": left-aligned, no border */
-    transition: color 0.15s;
-  }
-
-  .insightToggle:hover {
-    color: var(--color-primary-hover);
-  }
-
-  /*
-   * "Expand briefing" footer row — anchored, right-aligned, visually separated.
-   * The border-top provides a clean boundary between preview and action.
-   */
   .insightToggleFooter {
-    justify-content: flex-end;
     min-height: 40px;
     padding: 9px 0 5px;
-    border-top: 1px solid var(--color-border-light);
-    margin-top: 6px;
-  }
-
-  .insightToggle:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-radius: 2px;
   }
 }
 
@@ -219,9 +210,7 @@
 
 /* Respect prefers-reduced-motion for both height and chevron transitions */
 @media (prefers-reduced-motion: reduce) {
-  .insightBody {
-    transition: none;
-  }
+  .insightBody,
   .insightToggleChevron {
     transition: none;
   }
@@ -452,14 +441,18 @@
 
 @media (max-width: 767px) {
   .bannerMascot {
-    height: 80px;
+    height: 76px;
     align-self: flex-start;
   }
   .banner {
     gap: var(--space-sm);
-    padding: 12px var(--space-md);
-    margin-bottom: var(--space-md); /* compact gap to pinned teams on mobile */
+    padding: 8px var(--space-sm);
+    margin-bottom: var(--space-md);
     align-items: flex-start;
+  }
+  .bannerText {
+    font-size: 0.82rem;
+    line-height: 1.5;
   }
 }
 
@@ -469,7 +462,7 @@
   }
   .banner {
     gap: 8px;
-    padding: 10px var(--space-sm);
+    padding: 8px var(--space-sm);
   }
 }
 
@@ -1063,10 +1056,10 @@
 .oddsTeaserItem {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: var(--space-sm) var(--space-md);
+  gap: 4px;
+  padding: 10px var(--space-md);
   background: var(--color-bg);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid rgba(60, 121, 180, 0.08);
   border-radius: 8px;
 }
 
@@ -1086,9 +1079,10 @@
 .oddsTeaserCta {
   display: inline-flex;
   align-items: center;
-  padding: 8px var(--space-lg);
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 9px var(--space-lg);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: #fff;
   background: var(--color-primary);
   border-radius: var(--radius-sm);
