@@ -130,6 +130,67 @@
 }
 
 /* ─── Team picker ─────────────────────────────────────────────────────────── */
+.teamFilters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.confSelect {
+  height: 34px;
+  padding: 0 10px;
+  font-size: 0.825rem;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.confSelect:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.12);
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.filterChip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.filterChipActive {
+  border-color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .searchWrap {
   position: relative;
 }
@@ -153,73 +214,104 @@
   box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.12);
 }
 
-.teamGrid {
+/* ─── Team pick list (Step 1 + Add Team picker) ─────────────────────────── */
+.teamPickList {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  max-height: 300px;
+  flex-direction: column;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-height: 320px;
   overflow-y: auto;
-  padding: var(--space-xs) 0;
+  overscroll-behavior: contain;
 }
 
-.teamChip {
+.teamPickRow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg);
-  font-size: 0.8rem;
-  font-family: var(--font-sans);
-  color: var(--color-text-secondary);
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
   text-align: left;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  transition: background 0.1s;
 }
 
-.teamChip:hover {
-  border-color: var(--color-primary);
+.teamPickRow:last-child {
+  border-bottom: none;
+}
+
+.teamPickRow:hover {
+  background: var(--color-bg-muted, rgba(0, 0, 0, 0.03));
+}
+
+.teamPickRow:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.teamPickRowSelected {
   background: rgba(60, 121, 180, 0.05);
-  color: var(--color-primary);
 }
 
-.teamChipSelected {
-  border-color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.1);
-  color: var(--color-primary);
-  font-weight: 500;
+.teamPickRowSelected:hover {
+  background: rgba(60, 121, 180, 0.09);
 }
 
-.teamBadge {
+.teamPickLogo {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  font-size: 9px;
+}
+
+.teamPickName {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.teamPickConf {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
-.teamBadgePrimary {
-  background: var(--color-accent);
-}
-
-.teamChipName {
+.teamPickTierBadge {
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
-.teamChipConf {
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
+/* Tier badge colors (shared across picker and team list) */
+.tierLock   { background: rgba(45, 138, 110, 0.12); color: var(--color-up); }
+.tierShould { background: rgba(60, 121, 180, 0.12); color: var(--color-primary); }
+.tierWork   { background: rgba(183, 152, 108, 0.15); color: var(--color-beige-dune, #b7986c); }
+.tierLong   { background: rgba(196, 92, 74, 0.12); color: var(--color-down); }
 
-.teamChipSelected .teamChipConf {
-  color: rgba(60, 121, 180, 0.7);
+.teamPickCheck {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .selectionHint {
@@ -234,6 +326,101 @@
   font-size: 0.85rem;
   padding: var(--space-md);
   margin: 0;
+  text-align: center;
+}
+
+/* ─── Team picker panel (Add team modal) ─────────────────────────────────── */
+.pickerPanel {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+}
+
+.pickerPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px 10px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.pickerPanelTitle {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.pickerPanelClose {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pickerPanelClose:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text);
+}
+
+.pickerPanelSearch {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.pickerPanelList {
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pickerAddRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  transition: background 0.1s;
+}
+
+.pickerAddRow:last-child {
+  border-bottom: none;
+}
+
+.pickerAddRow:hover:not(:disabled) {
+  background: rgba(60, 121, 180, 0.04);
+}
+
+.pickerAddRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pickerAddIcon {
+  margin-left: auto;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
 }
 
 /* ─── Profile form ────────────────────────────────────────────────────────── */
@@ -671,17 +858,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-card);
 }
 
 .profileHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-md);
 }
 
 .avatar {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   overflow: hidden;
   background: rgba(60, 121, 180, 0.1);
@@ -708,8 +900,16 @@
 .profileInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
+  flex: 1;
+}
+
+.profileNameRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .profileName {
@@ -717,10 +917,6 @@
   font-size: 18px;
   font-weight: 700;
   color: var(--color-text);
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
 }
 
 .jerseyBadge {
@@ -738,12 +934,289 @@
   color: var(--color-text-muted);
 }
 
+.primaryTeamChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-muted, rgba(0,0,0,0.03));
+  border: 1px solid var(--color-border-light);
+  border-radius: 999px;
+  padding: 2px 8px 2px 5px;
+  width: fit-content;
+}
+
 .profileActions {
   display: flex;
   gap: var(--space-sm);
   flex-wrap: wrap;
   padding-top: var(--space-sm);
   border-top: 1px solid var(--color-border-light);
+}
+
+/* ─── Premium profile layout ──────────────────────────────────────────────── */
+.premiumProfile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.profileSection {
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-card);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.sectionError {
+  font-size: 0.8rem;
+  color: var(--color-down);
+  background: rgba(196, 92, 74, 0.06);
+  border: 1px solid rgba(196, 92, 74, 0.15);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: var(--space-sm) 0;
+}
+
+/* ─── My Teams list ───────────────────────────────────────────────────────── */
+.btnAddTeam {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btnAddTeam:hover {
+  border-color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.05);
+}
+
+.teamsList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.teamsRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background 0.1s;
+}
+
+.teamsRow:last-child {
+  border-bottom: none;
+}
+
+.teamsRow:hover {
+  background: var(--color-bg-muted, rgba(0, 0, 0, 0.02));
+}
+
+.teamsRowPrimary {
+  background: rgba(60, 121, 180, 0.04);
+}
+
+.teamsRowLogo {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.teamsRowInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.teamsRowName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.teamsRowConf {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.tierBadge {
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.primaryStar {
+  font-size: 0.9rem;
+  color: var(--color-accent, #d4a017);
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.btnSetPrimary {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: color 0.12s, background 0.12s;
+}
+
+.btnSetPrimary:hover {
+  color: var(--color-accent, #d4a017);
+  background: rgba(212, 160, 23, 0.1);
+}
+
+.btnRemoveTeam {
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: color 0.12s, background 0.12s;
+}
+
+.btnRemoveTeam:hover {
+  color: var(--color-down);
+  background: rgba(196, 92, 74, 0.1);
+}
+
+/* ─── Subscriptions save status ───────────────────────────────────────────── */
+.savedStatus {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-up);
+}
+
+.savingStatus {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.errorStatus {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-down);
+}
+
+/* ─── Account section ─────────────────────────────────────────────────────── */
+.accountInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.accountRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.accountRow:last-child {
+  border-bottom: none;
+}
+
+.accountLabel {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.providerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-muted, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--color-border-light);
+  border-radius: 999px;
+  padding: 3px 10px 3px 6px;
+}
+
+.comingSoon {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-bg-muted, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--color-border-light);
+  border-radius: 999px;
+  padding: 3px 10px;
 }
 
 /* ─── Responsive ──────────────────────────────────────────────────────────── */

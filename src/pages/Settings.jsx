@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
+import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam } from '../utils/pinnedTeams';
 import { track, identify } from '../analytics/index';
 import styles from './Settings.module.css';
@@ -29,20 +30,52 @@ const SpinnerIcon = () => (
   </svg>
 );
 
+const GoogleIconSmall = () => (
+  <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+    <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+    <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+  </svg>
+);
+
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 const TOTAL_STEPS = 3;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const PREFERENCES = [
-  { key: 'alerts_opt_in', label: 'Alerts for my teams', description: 'Get notified about game results and news' },
-  { key: 'betting_opt_in', label: 'Betting insights', description: 'Odds analysis and ATS trends' },
-  { key: 'tickets_opt_in', label: 'Ticket deals', description: 'Resale alerts and best prices' },
-  { key: 'merch_opt_in', label: 'Merch drops', description: 'New gear and limited releases' },
+  { key: 'briefing',    label: 'Daily AI Briefing',      description: 'Morning digest with Maximus AI analysis' },
+  { key: 'teamAlerts',  label: 'Pinned Teams Alerts',    description: 'Get notified about game results and news' },
+  { key: 'oddsIntel',   label: 'Odds & ATS Intel',       description: 'Odds analysis and ATS trends' },
+  { key: 'newsDigest',  label: 'Breaking News Digest',   description: 'Important news from your teams and league' },
 ];
 
-function randomJersey() {
-  return String(Math.floor(Math.random() * 100)).padStart(2, '0');
-}
+const DEFAULT_PREFS = {
+  briefing: true,
+  teamAlerts: true,
+  oddsIntel: false,
+  newsDigest: true,
+};
+
+const TIER_STYLE = {
+  'Lock':         styles.tierLock,
+  'Should be in': styles.tierShould,
+  'Work to do':   styles.tierWork,
+  'Long shot':    styles.tierLong,
+};
+
+const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East'];
+const CONFERENCES = [
+  'All',
+  ...[...new Set(TEAMS.map(t => t.conference))].sort((a, b) => {
+    const ai = CONF_ORDER.indexOf(a);
+    const bi = CONF_ORDER.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b);
+  }),
+];
 
 /* ─── Progress bar ────────────────────────────────────────────────────────── */
 function ProgressBar({ step }) {
@@ -61,18 +94,24 @@ function ProgressBar({ step }) {
 
 /* ─── Step 1: Favorite Teams ─────────────────────────────────────────────── */
 function StepTeams({ onNext, initialSelected = [] }) {
-  const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState(initialSelected);
-  const [error, setError] = useState('');
+  const [query, setQuery]           = useState('');
+  const [selected, setSelected]     = useState(initialSelected);
+  const [conference, setConference] = useState('All');
+  const [topTierOnly, setTopTierOnly] = useState(false);
+  const [error, setError]           = useState('');
 
   useEffect(() => {
     track('onboarding_step_view', { step: 1 });
   }, []);
 
-  const filtered = TEAMS.filter((t) =>
-    t.name.toLowerCase().includes(query.toLowerCase()) ||
-    t.conference.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = TEAMS.filter((t) => {
+    const matchesConf  = conference === 'All' || t.conference === conference;
+    const matchesTier  = !topTierOnly || t.oddsTier === 'Lock' || t.oddsTier === 'Should be in';
+    const matchesQuery = !query ||
+      t.name.toLowerCase().includes(query.toLowerCase()) ||
+      t.conference.toLowerCase().includes(query.toLowerCase());
+    return matchesConf && matchesTier && matchesQuery;
+  });
 
   const toggleTeam = (slug) => {
     setSelected((prev) =>
@@ -95,7 +134,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
       <h2 className={styles.stepTitle}>Pick your teams</h2>
       <p className={styles.stepSubtitle}>Select one or more teams. Your first pick becomes your primary.</p>
 
-      <div className={styles.searchWrap}>
+      <div className={styles.teamFilters}>
         <input
           className={styles.searchInput}
           type="search"
@@ -104,32 +143,51 @@ function StepTeams({ onNext, initialSelected = [] }) {
           onChange={(e) => setQuery(e.target.value)}
           autoFocus
         />
+        <div className={styles.filterRow}>
+          <select
+            className={styles.confSelect}
+            value={conference}
+            onChange={(e) => setConference(e.target.value)}
+            aria-label="Filter by conference"
+          >
+            {CONFERENCES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button
+            type="button"
+            className={`${styles.filterChip} ${topTierOnly ? styles.filterChipActive : ''}`}
+            onClick={() => setTopTierOnly(v => !v)}
+          >
+            Top tier only
+          </button>
+        </div>
       </div>
 
-      <div className={styles.teamGrid}>
+      <div className={styles.teamPickList}>
         {filtered.map((team) => {
-          const idx = selected.indexOf(team.slug);
+          const idx       = selected.indexOf(team.slug);
           const isSelected = idx !== -1;
-          const isPrimary = idx === 0;
+          const isPrimary  = idx === 0;
           return (
             <button
               key={team.slug}
               type="button"
-              className={`${styles.teamChip} ${isSelected ? styles.teamChipSelected : ''}`}
+              className={`${styles.teamPickRow} ${isSelected ? styles.teamPickRowSelected : ''}`}
               onClick={() => toggleTeam(team.slug)}
             >
-              {isSelected && (
-                <span className={`${styles.teamBadge} ${isPrimary ? styles.teamBadgePrimary : ''}`}>
-                  {isPrimary ? '★' : <CheckIcon />}
-                </span>
-              )}
-              <span className={styles.teamChipName}>{team.name}</span>
-              <span className={styles.teamChipConf}>{team.conference}</span>
+              <span className={styles.teamPickLogo}><TeamLogo team={team} size={24} /></span>
+              <span className={styles.teamPickName}>{team.name}</span>
+              <span className={styles.teamPickConf}>{team.conference}</span>
+              <span className={`${styles.teamPickTierBadge} ${TIER_STYLE[team.oddsTier] || ''}`}>
+                {team.oddsTier}
+              </span>
+              <span className={styles.teamPickCheck}>
+                {isSelected ? (isPrimary ? '★' : <CheckIcon />) : ''}
+              </span>
             </button>
           );
         })}
         {filtered.length === 0 && (
-          <p className={styles.emptyState}>No teams match &ldquo;{query}&rdquo;</p>
+          <p className={styles.emptyState}>No teams match your filters.</p>
         )}
       </div>
 
@@ -154,18 +212,16 @@ function StepProfile({ onNext, defaultName = '', userId }) {
     const base = defaultName.toLowerCase().replace(/[^a-z0-9_]/g, '');
     return base.slice(0, 20);
   });
-  // D3: prefill jersey with random number
-  const [number, setNumber] = useState(randomJersey);
-  const [usernameStatus, setUsernameStatus] = useState('idle'); // idle|checking|available|taken
-  const [suggestions, setSuggestions] = useState([]);
-  const [error, setError] = useState('');
-  const debounceRef = useRef(null);
+  const [number, setNumber]             = useState('');
+  const [usernameStatus, setUsernameStatus] = useState('idle');
+  const [suggestions, setSuggestions]   = useState([]);
+  const [error, setError]               = useState('');
+  const debounceRef                     = useRef(null);
 
   useEffect(() => {
     track('onboarding_step_view', { step: 2 });
   }, []);
 
-  // D2: real-time username validation + debounced uniqueness check
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -180,7 +236,6 @@ function StepProfile({ onNext, defaultName = '', userId }) {
       try {
         const sb = getSupabase();
         if (!sb) {
-          // Can't check uniqueness without Supabase — optimistically allow
           setUsernameStatus('available');
           return;
         }
@@ -190,14 +245,9 @@ function StepProfile({ onNext, defaultName = '', userId }) {
           .eq('username', username)
           .maybeSingle();
 
-        // Not taken if no row exists, or the row belongs to the current user
         if (data && data.id !== userId) {
           setUsernameStatus('taken');
-          setSuggestions([
-            `${username}1`,
-            `${username}23`,
-            `${username}_fan`,
-          ].slice(0, 3));
+          setSuggestions([`${username}1`, `${username}23`, `${username}_fan`].slice(0, 3));
         } else {
           setUsernameStatus('available');
           setSuggestions([]);
@@ -211,50 +261,35 @@ function StepProfile({ onNext, defaultName = '', userId }) {
   }, [username, userId]);
 
   const handleUsernameChange = (e) => {
-    // strip disallowed chars in real time
     const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
     setUsername(val);
     setError('');
   };
 
   const handleNumberChange = (e) => {
+    // Allow only digits, max 2, preserve exact input (leading zeros)
     const val = e.target.value.replace(/\D/g, '').slice(0, 2);
     setNumber(val);
     setError('');
   };
 
-  // D3: Display preview badge using padded 2-digit format
-  const displayNumber = number ? String(parseInt(number, 10)).padStart(2, '0') : '';
+  // Preview shows exact user input — no auto-padding
   const preview = username.trim()
-    ? `${username.trim().toUpperCase()}${displayNumber ? ` #${displayNumber}` : ''}`
+    ? `${username.trim().toUpperCase()}${number ? ` #${number}` : ''}`
     : '';
 
   const handleNext = () => {
-    if (!username.trim()) {
-      setError('Username is required.');
-      return;
-    }
-    if (!USERNAME_RE.test(username)) {
-      setError('3–20 characters: letters, numbers, underscore only.');
-      return;
-    }
-    if (usernameStatus === 'taken') {
-      setError('That username is taken. Choose another or pick a suggestion below.');
-      return;
-    }
-    if (usernameStatus === 'checking') {
-      setError('Still checking availability. Please wait a moment.');
-      return;
-    }
-    if (number && (isNaN(Number(number)) || Number(number) < 0 || Number(number) > 99)) {
-      setError('Jersey number must be 00–99.');
-      return;
-    }
+    if (!username.trim()) { setError('Username is required.'); return; }
+    if (!USERNAME_RE.test(username)) { setError('3–20 characters: letters, numbers, underscore only.'); return; }
+    if (usernameStatus === 'taken') { setError('That username is taken. Choose another or pick a suggestion below.'); return; }
+    if (usernameStatus === 'checking') { setError('Still checking availability. Please wait a moment.'); return; }
+    if (number && (Number(number) < 0 || Number(number) > 99)) { setError('Jersey number must be 0–99.'); return; }
 
     track('onboarding_step_submit', { step: 2, success: true });
     onNext({
       username: username.trim(),
-      favoriteNumber: number !== '' ? parseInt(number, 10) : null,
+      // Store as string — preserve exactly what user typed ("09" stays "09", "9" stays "9")
+      favoriteNumber: number !== '' ? number : null,
     });
   };
 
@@ -319,7 +354,7 @@ function StepProfile({ onNext, defaultName = '', userId }) {
 
       <div className={styles.fieldGroup}>
         <label className={styles.label} htmlFor="jersey">
-          Favorite Jersey Number <span className={styles.optional}>(00–99)</span>
+          Favorite Jersey Number <span className={styles.optional}>(0–99, optional)</span>
         </label>
         <input
           id="jersey"
@@ -351,14 +386,9 @@ function StepProfile({ onNext, defaultName = '', userId }) {
   );
 }
 
-/* ─── Step 3: Preferences ────────────────────────────────────────────────── */
+/* ─── Step 3: Subscriptions ──────────────────────────────────────────────── */
 function StepPreferences({ onNext, loading }) {
-  const [prefs, setPrefs] = useState({
-    alerts_opt_in: true,
-    betting_opt_in: false,
-    tickets_opt_in: false,
-    merch_opt_in: false,
-  });
+  const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS });
 
   useEffect(() => {
     track('onboarding_step_view', { step: 3 });
@@ -419,15 +449,14 @@ function StepDone() {
 
 /* ─── Onboarding Wizard ──────────────────────────────────────────────────── */
 function OnboardingWizard({ user, onComplete }) {
-  const [step, setStep] = useState(1);
-  const [teamSlugs, setTeamSlugs] = useState([]);
+  const [step, setStep]             = useState(1);
+  const [teamSlugs, setTeamSlugs]   = useState([]);
   const [profileData, setProfileData] = useState({});
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]         = useState(false);
   const [wizardError, setWizardError] = useState('');
 
   const defaultName = user?.user_metadata?.full_name?.split(' ')[0] || '';
 
-  // D4: auto-pin primary team to localStorage immediately after step 1
   const handleTeams = (slugs) => {
     setTeamSlugs(slugs);
     if (slugs.length > 0) {
@@ -446,29 +475,30 @@ function OnboardingWizard({ user, onComplete }) {
     setWizardError('');
     try {
       const sb = getSupabase();
-      if (!sb) {
-        throw new Error('Auth service is not configured. Cannot save profile.');
-      }
+      if (!sb) throw new Error('Auth service is not configured.');
 
       const userId = user.id;
 
-      // D2: upsert with onConflict so duplicate usernames give a clear error
+      // Upsert on primary key (id) to handle both new profile and edits
       const { error: profileErr } = await sb.from('profiles').upsert(
         {
           id: userId,
           username: profileData.username,
           display_name: profileData.username,
+          // Preserve exact string — no parseInt, supports "09" etc.
           favorite_number: profileData.favoriteNumber,
-          created_at: new Date().toISOString(),
+          // Save subscriptions to profiles.preferences JSONB
+          preferences: prefs,
+          updated_at: new Date().toISOString(),
         },
-        { onConflict: 'username' }
+        { onConflict: 'id' }
       );
       if (profileErr) {
         if (profileErr.code === '23505') {
           track('onboarding_step_submit', { step: 3, success: false, error_code: 'username_conflict' });
           throw new Error('That username was just taken. Go back and choose another.');
         }
-        throw profileErr;
+        throw new Error('Could not save your profile. Please try again.');
       }
 
       // Idempotently replace user_teams
@@ -480,12 +510,8 @@ function OnboardingWizard({ user, onComplete }) {
         created_at: new Date().toISOString(),
       }));
       const { error: teamsErr } = await sb.from('user_teams').insert(teamRows);
-      if (teamsErr) throw teamsErr;
+      if (teamsErr) throw new Error('Could not save your teams. Please try again.');
 
-      const { error: prefsErr } = await sb.from('user_preferences').upsert({ user_id: userId, ...prefs });
-      if (prefsErr) throw prefsErr;
-
-      // Identify user in analytics (privacy-safe: no email/name)
       identify(userId, { has_profile: true, team_count: teamSlugs.length });
       track('onboarding_step_submit', { step: 3, success: true });
 
@@ -518,17 +544,388 @@ function OnboardingWizard({ user, onComplete }) {
   );
 }
 
+/* ─── Team Picker Panel (Add Team in premium profile) ────────────────────── */
+function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
+  const [query, setQuery]   = useState('');
+  const [adding, setAdding] = useState(null);
+  const inputRef            = useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const existingSlugs = existingTeams.map(t => t.team_slug);
+  const filtered = TEAMS.filter(t =>
+    !existingSlugs.includes(t.slug) && (
+      !query ||
+      t.name.toLowerCase().includes(query.toLowerCase()) ||
+      t.conference.toLowerCase().includes(query.toLowerCase())
+    )
+  );
+
+  return (
+    <div className={styles.pickerPanel}>
+      <div className={styles.pickerPanelHeader}>
+        <span className={styles.pickerPanelTitle}>Add a team</span>
+        <button
+          type="button"
+          className={styles.pickerPanelClose}
+          onClick={onClose}
+          aria-label="Close team picker"
+        >
+          ×
+        </button>
+      </div>
+      <div className={styles.pickerPanelSearch}>
+        <input
+          ref={inputRef}
+          className={styles.searchInput}
+          type="search"
+          placeholder="Search teams…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      <div className={styles.pickerPanelList}>
+        {filtered.map(team => (
+          <button
+            key={team.slug}
+            type="button"
+            className={styles.pickerAddRow}
+            disabled={adding === team.slug}
+            onClick={async () => {
+              setAdding(team.slug);
+              try { await onAdd(team.slug); } catch { /* handled by parent */ }
+              setAdding(null);
+            }}
+          >
+            <span className={styles.teamPickLogo}><TeamLogo team={team} size={22} /></span>
+            <span className={styles.teamPickName}>{team.name}</span>
+            <span className={styles.teamPickConf}>{team.conference}</span>
+            <span className={styles.pickerAddIcon}>
+              {adding === team.slug ? <SpinnerIcon /> : '+'}
+            </span>
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <p className={styles.emptyState}>
+            {existingSlugs.length === TEAMS.length ? 'All teams already added.' : 'No teams match your search.'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Premium Profile Page ───────────────────────────────────────────────── */
+function PremiumProfile({ user, profile, onEditProfile, onSignOut, signingOut }) {
+  const [userTeams, setUserTeams]       = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamsError, setTeamsError]     = useState('');
+  const [showTeamPicker, setShowTeamPicker] = useState(false);
+
+  const [prefs, setPrefs] = useState(() => ({
+    ...DEFAULT_PREFS,
+    ...(profile?.preferences || {}),
+  }));
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle|saving|saved|error
+  const saveDebounce = useRef(null);
+
+  useEffect(() => {
+    loadUserTeams();
+  }, []);
+
+  async function loadUserTeams() {
+    setTeamsLoading(true);
+    setTeamsError('');
+    try {
+      const sb = getSupabase();
+      if (!sb) { setTeamsLoading(false); return; }
+      const { data, error } = await sb
+        .from('user_teams')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at');
+      if (error) throw error;
+      setUserTeams(data || []);
+    } catch {
+      setTeamsError('Could not load your teams.');
+    } finally {
+      setTeamsLoading(false);
+    }
+  }
+
+  const enrichedTeams = userTeams
+    .map(ut => ({ ...ut, teamData: TEAMS.find(t => t.slug === ut.team_slug) }))
+    .filter(ut => ut.teamData);
+
+  const primaryTeam = enrichedTeams.find(t => t.is_primary)?.teamData || enrichedTeams[0]?.teamData;
+
+  // Display jersey exactly as stored in DB
+  const jerseyDisplay = (profile?.favorite_number != null && profile.favorite_number !== '')
+    ? String(profile.favorite_number)
+    : null;
+
+  const displayName = profile?.display_name || profile?.username ||
+    user.user_metadata?.full_name || 'Maximus Fan';
+
+  async function handleSetPrimary(slug) {
+    const sb = getSupabase();
+    if (!sb) return;
+    setTeamsError('');
+    try {
+      await sb.from('user_teams').update({ is_primary: false }).eq('user_id', user.id);
+      await sb.from('user_teams').update({ is_primary: true }).eq('user_id', user.id).eq('team_slug', slug);
+      setUserTeams(prev => prev.map(t => ({ ...t, is_primary: t.team_slug === slug })));
+      track('teams_set_primary', { slug });
+    } catch {
+      setTeamsError('Could not update primary team. Please try again.');
+    }
+  }
+
+  async function handleRemoveTeam(slug) {
+    const sb = getSupabase();
+    if (!sb) return;
+    setTeamsError('');
+    try {
+      await sb.from('user_teams').delete().eq('user_id', user.id).eq('team_slug', slug);
+      const remaining = userTeams.filter(t => t.team_slug !== slug);
+      const removedWasPrimary = userTeams.find(t => t.team_slug === slug)?.is_primary;
+      if (removedWasPrimary && remaining.length > 0) {
+        const newPrimarySlug = remaining[0].team_slug;
+        const sbInner = getSupabase();
+        if (sbInner) {
+          await sbInner.from('user_teams')
+            .update({ is_primary: true })
+            .eq('user_id', user.id)
+            .eq('team_slug', newPrimarySlug);
+        }
+        setUserTeams(remaining.map((t, i) => ({ ...t, is_primary: i === 0 })));
+      } else {
+        setUserTeams(remaining);
+      }
+      track('teams_remove', { slug });
+    } catch {
+      setTeamsError('Could not remove team. Please try again.');
+    }
+  }
+
+  async function handleAddTeam(slug) {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Not connected');
+    if (userTeams.find(t => t.team_slug === slug)) return;
+    const isPrimary = userTeams.length === 0;
+    const { error } = await sb.from('user_teams').insert({
+      user_id:    user.id,
+      team_slug:  slug,
+      is_primary: isPrimary,
+      created_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    setUserTeams(prev => [...prev, { user_id: user.id, team_slug: slug, is_primary: isPrimary, created_at: new Date().toISOString() }]);
+    setShowTeamPicker(false);
+    try { addPinnedTeam(slug); } catch { /* ignore */ }
+    track('teams_add', { slug });
+  }
+
+  function handlePrefToggle(key) {
+    const newPrefs = { ...prefs, [key]: !prefs[key] };
+    setPrefs(newPrefs);
+    setSaveStatus('saving');
+    if (saveDebounce.current) clearTimeout(saveDebounce.current);
+    saveDebounce.current = setTimeout(async () => {
+      try {
+        const sb = getSupabase();
+        if (!sb) { setSaveStatus('idle'); return; }
+        const { error } = await sb
+          .from('profiles')
+          .update({ preferences: newPrefs, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
+        if (error) throw error;
+        setSaveStatus('saved');
+        track('pref_toggle', { key, value: newPrefs[key] });
+        setTimeout(() => setSaveStatus('idle'), 2500);
+      } catch {
+        setSaveStatus('error');
+      }
+    }, 600);
+  }
+
+  return (
+    <div className={styles.premiumProfile}>
+
+      {/* ── Profile Header ── */}
+      <div className={styles.profileCard}>
+        <div className={styles.profileHeader}>
+          <div className={styles.avatar}>
+            {user.user_metadata?.avatar_url
+              ? <img src={user.user_metadata.avatar_url} alt="avatar" className={styles.avatarImg} />
+              : <span className={styles.avatarInitial}>{displayName[0].toUpperCase()}</span>
+            }
+          </div>
+          <div className={styles.profileInfo}>
+            <div className={styles.profileNameRow}>
+              <span className={styles.profileName}>{displayName}</span>
+              {jerseyDisplay != null && (
+                <span className={styles.jerseyBadge}>#{jerseyDisplay}</span>
+              )}
+            </div>
+            <span className={styles.profileEmail}>{user.email}</span>
+            {primaryTeam && (
+              <div className={styles.primaryTeamChip}>
+                <TeamLogo team={primaryTeam} size={13} />
+                <span>{primaryTeam.name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.profileActions}>
+          <button type="button" className={styles.btnOutline} onClick={onEditProfile}>
+            Edit profile
+          </button>
+          <button
+            type="button"
+            className={styles.btnDanger}
+            onClick={onSignOut}
+            disabled={signingOut}
+          >
+            {signingOut ? <><SpinnerIcon /> Signing out…</> : 'Sign out'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── My Teams ── */}
+      <div className={styles.profileSection}>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>My Teams</h3>
+          <button
+            type="button"
+            className={styles.btnAddTeam}
+            onClick={() => setShowTeamPicker(v => !v)}
+          >
+            {showTeamPicker ? 'Cancel' : '+ Add team'}
+          </button>
+        </div>
+
+        {showTeamPicker && (
+          <TeamPickerPanel
+            existingTeams={userTeams}
+            onAdd={handleAddTeam}
+            onClose={() => setShowTeamPicker(false)}
+          />
+        )}
+
+        {teamsError && <p className={styles.sectionError}>{teamsError}</p>}
+
+        {teamsLoading ? (
+          <div className={styles.loadingRow}><SpinnerIcon /><span>Loading teams…</span></div>
+        ) : enrichedTeams.length === 0 ? (
+          <p className={styles.emptyState}>No teams added yet. Add your first team above.</p>
+        ) : (
+          <div className={styles.teamsList}>
+            {enrichedTeams.map(({ team_slug, is_primary, teamData }) => (
+              <div
+                key={team_slug}
+                className={`${styles.teamsRow} ${is_primary ? styles.teamsRowPrimary : ''}`}
+              >
+                <span className={styles.teamsRowLogo}>
+                  <TeamLogo team={teamData} size={26} />
+                </span>
+                <span className={styles.teamsRowInfo}>
+                  <span className={styles.teamsRowName}>{teamData.name}</span>
+                  <span className={styles.teamsRowConf}>{teamData.conference}</span>
+                </span>
+                <span className={`${styles.tierBadge} ${TIER_STYLE[teamData.oddsTier] || ''}`}>
+                  {teamData.oddsTier}
+                </span>
+                {is_primary ? (
+                  <span className={styles.primaryStar} title="Primary team" aria-label="Primary team">★</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.btnSetPrimary}
+                    onClick={() => handleSetPrimary(team_slug)}
+                    title="Set as primary team"
+                    aria-label={`Set ${teamData.name} as primary`}
+                  >
+                    ☆
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.btnRemoveTeam}
+                  onClick={() => handleRemoveTeam(team_slug)}
+                  aria-label={`Remove ${teamData.name}`}
+                  title={`Remove ${teamData.name}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Subscriptions ── */}
+      <div className={styles.profileSection}>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>Subscriptions</h3>
+          {saveStatus === 'saved' && <span className={styles.savedStatus}>Saved ✓</span>}
+          {saveStatus === 'saving' && <span className={styles.savingStatus}>Saving…</span>}
+          {saveStatus === 'error' && <span className={styles.errorStatus}>Save failed</span>}
+        </div>
+        <div className={styles.prefList}>
+          {PREFERENCES.map(({ key, label, description }) => (
+            <button
+              key={key}
+              type="button"
+              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+              onClick={() => handlePrefToggle(key)}
+            >
+              <div className={styles.prefText}>
+                <span className={styles.prefLabel}>{label}</span>
+                <span className={styles.prefDesc}>{description}</span>
+              </div>
+              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                <div className={styles.toggleThumb} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Account ── */}
+      <div className={styles.profileSection}>
+        <h3 className={styles.sectionTitle}>Account</h3>
+        <div className={styles.accountInfo}>
+          <div className={styles.accountRow}>
+            <span className={styles.accountLabel}>Sign-in provider</span>
+            <span className={styles.providerChip}>
+              <GoogleIconSmall /> Google
+            </span>
+          </div>
+          <div className={styles.accountRow}>
+            <span className={styles.accountLabel}>Delete account</span>
+            <span className={styles.comingSoon}>Coming soon</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 /* ─── Authenticated Settings Panel ──────────────────────────────────────── */
 function AuthenticatedSettings({ user }) {
   const { signOut } = useAuth();
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile]         = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [showWizard, setShowWizard] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const authSuccessFiredRef = useRef(false);
+  const [showWizard, setShowWizard]   = useState(false);
+  const [signingOut, setSigningOut]   = useState(false);
+  const authSuccessFiredRef           = useRef(false);
 
   useEffect(() => {
-    // D5: auth_success fires once per session after OAuth redirect lands
     if (!authSuccessFiredRef.current) {
       authSuccessFiredRef.current = true;
       try {
@@ -546,23 +943,22 @@ function AuthenticatedSettings({ user }) {
     async function load() {
       const sb = getSupabase();
       if (!sb) {
-        // Supabase not configured — skip profile fetch, go straight to wizard
-        if (!cancelled) {
-          setProfile(null);
-          setProfileLoading(false);
-          setShowWizard(true);
-        }
+        if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); }
         return;
       }
-      const { data } = await sb
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (!cancelled) {
-        setProfile(data);
-        setProfileLoading(false);
-        if (!data) setShowWizard(true);
+      try {
+        const { data } = await sb
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (!cancelled) {
+          setProfile(data);
+          setProfileLoading(false);
+          if (!data) setShowWizard(true);
+        }
+      } catch {
+        if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); }
       }
     }
     load();
@@ -574,9 +970,20 @@ function AuthenticatedSettings({ user }) {
     await signOut();
   };
 
-  const handleEditOpen = () => {
+  const handleEditProfile = () => {
     track('profile_edit_open', {});
     setShowWizard(true);
+  };
+
+  const handleWizardComplete = () => {
+    setShowWizard(false);
+    // Refresh profile data after wizard completes
+    const sb = getSupabase();
+    if (sb) {
+      sb.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        .then(({ data }) => { if (data) setProfile(data); })
+        .catch(() => { /* silently ignore */ });
+    }
   };
 
   if (profileLoading) {
@@ -589,55 +996,24 @@ function AuthenticatedSettings({ user }) {
   }
 
   if (showWizard) {
-    return <OnboardingWizard user={user} onComplete={() => { setShowWizard(false); }} />;
+    return <OnboardingWizard user={user} onComplete={handleWizardComplete} />;
   }
 
-  // D3: Display jersey as 2 digits
-  const jerseyDisplay = profile?.favorite_number != null
-    ? String(profile.favorite_number).padStart(2, '0')
-    : null;
-
   return (
-    <div className={styles.profileCard}>
-      <div className={styles.profileHeader}>
-        <div className={styles.avatar}>
-          {user.user_metadata?.avatar_url
-            ? <img src={user.user_metadata.avatar_url} alt="avatar" className={styles.avatarImg} />
-            : <span className={styles.avatarInitial}>{(profile?.username || user.email || 'U')[0].toUpperCase()}</span>
-          }
-        </div>
-        <div className={styles.profileInfo}>
-          <span className={styles.profileName}>
-            {profile?.username || user.user_metadata?.full_name || 'Maximus Fan'}
-            {jerseyDisplay != null && (
-              <span className={styles.jerseyBadge}>#{jerseyDisplay}</span>
-            )}
-          </span>
-          <span className={styles.profileEmail}>{user.email}</span>
-        </div>
-      </div>
-
-      <div className={styles.profileActions}>
-        <button type="button" className={styles.btnOutline} onClick={handleEditOpen}>
-          Edit profile
-        </button>
-        <button
-          type="button"
-          className={styles.btnDanger}
-          onClick={handleSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? <><SpinnerIcon /> Signing out…</> : 'Sign out'}
-        </button>
-      </div>
-    </div>
+    <PremiumProfile
+      user={user}
+      profile={profile}
+      onEditProfile={handleEditProfile}
+      onSignOut={handleSignOut}
+      signingOut={signingOut}
+    />
   );
 }
 
 /* ─── Unauthenticated Onboarding Panel ───────────────────────────────────── */
 function UnauthenticatedPanel() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
 
   const handleGoogle = async () => {
     setLoading(true);
@@ -649,7 +1025,6 @@ function UnauthenticatedPanel() {
       return;
     }
     track('auth_start_google', {});
-    // D1: absolute redirectTo using window.location.origin — works on preview & prod
     const { error: oauthErr } = await sb.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/settings` },
@@ -676,7 +1051,7 @@ function UnauthenticatedPanel() {
       <div className={styles.unauthBenefits}>
         <span>✦ Pin your favorite teams</span>
         <span>✦ Personalized ATS insights</span>
-        <span>✦ Game alerts &amp; merch drops</span>
+        <span>✦ Game alerts &amp; AI briefings</span>
       </div>
 
       {error && <div className={styles.errorMsg}>{error}</div>}
@@ -702,7 +1077,6 @@ function UnauthenticatedPanel() {
 export default function Settings() {
   const { user, loading } = useAuth();
 
-  // D5: settings_view on mount
   useEffect(() => {
     track('settings_view', {});
   }, []);

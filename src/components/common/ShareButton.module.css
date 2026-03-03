@@ -79,28 +79,29 @@
   background: rgba(60, 121, 180, 0.2);
 }
 
-/* ── Icon-only compact variant — 36×36 hit target, solid blue ────────── */
+/* ── Icon-only compact variant — badge-sized ghost button ────────────── */
 .btnIconOnly {
   padding: 0;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
-  border-radius: 7px;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  border-radius: 4px;
   justify-content: center;
-  background: #3c79b4;
-  border-color: #2d6192;
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(60, 121, 180, 0.25);
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-muted, #8a9ab5);
+  box-shadow: none;
 }
 
 .btnIconOnly:hover:not(:disabled) {
-  background: #2d6192;
-  border-color: #225080;
-  box-shadow: 0 2px 6px rgba(60, 121, 180, 0.38);
+  background: rgba(60, 121, 180, 0.1);
+  border-color: transparent;
+  color: var(--color-primary, #3c79b4);
+  box-shadow: none;
 }
 
 .btnIconOnly:active:not(:disabled) {
-  background: #225080;
+  background: rgba(60, 121, 180, 0.18);
   box-shadow: none;
 }
 

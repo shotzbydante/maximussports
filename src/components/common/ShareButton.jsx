@@ -187,9 +187,7 @@ export default function ShareButton({
     className,
   ].filter(Boolean).join(' ');
 
-  const ariaLabel = iconOnly
-    ? `Share: ${title || 'this insight'}`
-    : undefined;
+  const ariaLabel = iconOnly ? 'Share' : undefined;
 
   return (
     <button
@@ -203,7 +201,7 @@ export default function ShareButton({
     >
       {busy
         ? <span className={styles.spinner} aria-hidden />
-        : <ShareIcon size={iconOnly ? 16 : 14} />
+        : <ShareIcon size={iconOnly ? 11 : 14} />
       }
       {!iconOnly && <span className={styles.label}>{label}</span>}
     </button>
@@ -224,11 +222,8 @@ function ShareIcon({ size = 14 }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
