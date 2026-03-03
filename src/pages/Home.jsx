@@ -929,45 +929,46 @@ export default function Home() {
       </section>
 
       {/* ── Dashboard Intelligence Grid ─────────────────────────────────
-           Left: snapshot stats + today's scores + upset alerts
-           Right: intel feed teaser (capped) + pinned team news
-           2-col on desktop, single col on mobile              */}
+           gridScores (top-left):  snapshot stats + today's scores
+           gridUpsets (btm-left):  upsets & alerts
+           gridRail   (right col): top videos + headlines (spans both rows)
+           2-col on desktop (≥768px), single col on mobile              */}
       <div className={`${styles.dashboardGrid} ${styles.dashboardGridSection}`}>
-        <div className={styles.dashboardLeft}>
-          <div className={styles.moduleSnapshot}>
-            <DynamicStats stats={dynamicStats} />
-          </div>
-          <div className={styles.moduleScores}>
-            <LiveScores
-              games={scores.games}
-              loading={scores.loading}
-              error={scores.error}
-              oddsMessage={scores.oddsMessage}
-              compact
-              rankMap={rankMap}
-              cap={8}
-              mobileCap={4}
-            />
-          </div>
-          <div className={styles.moduleAlerts}>
-            <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
-          </div>
+
+        {/* ── scores cell ── */}
+        <div className={styles.gridScores}>
+          <DynamicStats stats={dynamicStats} />
+          <LiveScores
+            games={scores.games}
+            loading={scores.loading}
+            error={scores.error}
+            oddsMessage={scores.oddsMessage}
+            compact
+            rankMap={rankMap}
+            cap={8}
+            mobileCap={4}
+          />
         </div>
 
-        <aside className={styles.dashboardRight}>
-          <div id="news">
-            <NewsFeed
-              items={(newsData.newsFeed || []).slice(0, 8)}
-              source={newsSource}
-              loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
-            />
-            {(newsData.newsFeed || []).length > 0 && (
-              <Link to="/news" className={styles.intelFeedCtaLink}>
-                View full Intel Feed →
-              </Link>
-            )}
-          </div>
+        {/* ── upsets cell ── */}
+        <div className={styles.gridUpsets}>
+          <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+        </div>
+
+        {/* ── rail cell: Top Videos → Headlines, spans both left rows ── */}
+        <aside className={styles.gridRail} id="news">
+          <NewsFeed
+            items={(newsData.newsFeed || []).slice(0, 8)}
+            source={newsSource}
+            loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
+          />
+          {(newsData.newsFeed || []).length > 0 && (
+            <Link to="/news" className={styles.intelFeedCtaLink}>
+              View full Intel Feed →
+            </Link>
+          )}
         </aside>
+
       </div>
 
       {/* OddsInsightsTeaser moved above ATS — see placement after PinnedTeamsSection */}
