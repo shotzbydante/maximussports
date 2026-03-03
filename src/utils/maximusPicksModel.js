@@ -2,7 +2,7 @@
  * maximusPicksModel — pure pick derivation functions.
  *
  * Exported:
- *   buildMaximusPicks({ games, atsLeaders }) → { atsPicks, mlPicks, totalsPicks }
+ *   buildMaximusPicks({ games, atsLeaders, atsBySlug? }) → { atsPicks, mlPicks, totalsPicks }
  *   buildPicksSummary({ atsPicks, mlPicks, totalsPicks }) → string | null
  *   confidenceLabel(level) → 'High' | 'Medium' | 'Low'
  *
@@ -40,22 +40,35 @@ function parseNum(v) {
 
 /**
  * Resolve the best ATS record for a team slug.
- * Primary:  atsLeaders.best/worst (top-10 / bottom-10 by coverPct)
- * Fallback: per-team in-memory cache (populated for pinned teams by PinnedTeamsSection)
+ * Tier 1: explicit atsBySlug map (caller-supplied, most complete)
+ * Tier 2: atsLeaders.best/worst (top-10 / bottom-10 by coverPct)
+ * Tier 3: per-team in-memory cache (populated for pinned teams)
  */
-function getBestAtsRecord(slug, atsLeaders) {
-  if (!slug || !atsLeaders) return null;
+function getBestAtsRecord(slug, atsLeaders, atsBySlug) {
+  if (!slug) return null;
 
-  const all = [...(atsLeaders.best || []), ...(atsLeaders.worst || [])];
-  const row = all.find((r) => r.slug === slug);
-  if (row) {
+  // Tier 1: caller-supplied map (explicit, consistent)
+  if (atsBySlug && atsBySlug[slug]) {
+    const entry = atsBySlug[slug];
     for (const key of ['last30', 'season', 'last7']) {
-      const rec = row[key];
+      const rec = entry[key];
       if (rec && rec.total > 0 && rec.coverPct != null) return { ...rec, window: key };
     }
   }
 
-  // Fallback: per-team cache populated when pinned team data loads
+  // Tier 2: atsLeaders arrays
+  if (atsLeaders) {
+    const all = [...(atsLeaders.best || []), ...(atsLeaders.worst || [])];
+    const row = all.find((r) => r.slug === slug);
+    if (row) {
+      for (const key of ['last30', 'season', 'last7']) {
+        const rec = row[key];
+        if (rec && rec.total > 0 && rec.coverPct != null) return { ...rec, window: key };
+      }
+    }
+  }
+
+  // Tier 3: per-team cache (populated when pinned team data loads)
   try {
     const cached = getAtsCache(slug);
     if (cached) {
@@ -149,7 +162,7 @@ export function confidenceLabel(level) {
 
 // ─── spread picks ─────────────────────────────────────────────────────────────
 
-function buildSpreadPicks(games, atsLeaders) {
+function buildSpreadPicks(games, atsLeaders, atsBySlug) {
   const picks = [];
 
   for (const game of games) {
@@ -160,8 +173,8 @@ function buildSpreadPicks(games, atsLeaders) {
     const homeSlug = getTeamSlug(game.homeTeam);
     const awaySlug = getTeamSlug(game.awayTeam);
 
-    const homeAts = getBestAtsRecord(homeSlug, atsLeaders);
-    const awayAts = getBestAtsRecord(awaySlug, atsLeaders);
+    const homeAts = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
+    const awayAts = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
 
     if (import.meta.env?.DEV && (!homeAts || !awayAts)) {
       console.debug('[Picks:ATS] no record —', game.awayTeam, '@', game.homeTeam,
@@ -198,6 +211,17 @@ function buildSpreadPicks(games, atsLeaders) {
     const pickRecord = fmtRecord(pickAts) ?? `${Math.round(pickAts.coverPct)}%`;
     const oppRecord  = fmtRecord(oppAts)  ?? `${Math.round(oppAts.coverPct)}%`;
 
+    // Bet slip framing
+    const pickCoverPct = Math.round(pickAts.coverPct);
+    const oppCoverPct  = Math.round(oppAts.coverPct);
+    const edgePpVal    = Math.round(edgeMag * 100);
+    const whyValue = `${pickCoverPct}% ATS cover vs opponent's ${oppCoverPct}% — +${edgePpVal}pp edge.`;
+
+    const slipTips = [];
+    if (Math.abs(spreadNum) >= 10) {
+      slipTips.push('Heavy line — value may compress if the spread shifts further.');
+    }
+
     picks.push({
       key:     game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup: `${game.awayTeam} @ ${game.homeTeam}`,
@@ -219,6 +243,8 @@ function buildSpreadPicks(games, atsLeaders) {
         `Opponent ATS (${win}): ${oppRecord}`,
       ],
       confidenceRationale: atsConfidenceRationale(edgeMag),
+      whyValue,
+      slipTips,
     });
   }
 
@@ -227,7 +253,7 @@ function buildSpreadPicks(games, atsLeaders) {
 
 // ─── moneyline picks ──────────────────────────────────────────────────────────
 
-function buildMoneylinePicks(games, atsLeaders) {
+function buildMoneylinePicks(games, atsLeaders, atsBySlug) {
   const picks = [];
 
   for (const game of games) {
@@ -244,8 +270,8 @@ function buildMoneylinePicks(games, atsLeaders) {
     const homeSlug = getTeamSlug(game.homeTeam);
     const awaySlug = getTeamSlug(game.awayTeam);
 
-    const homeAts = getBestAtsRecord(homeSlug, atsLeaders);
-    const awayAts = getBestAtsRecord(awaySlug, atsLeaders);
+    const homeAts = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
+    const awayAts = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
 
     const homeCover = homeAts ? homeAts.coverPct / 100 : 0.5;
     const awayCover = awayAts ? awayAts.coverPct / 100 : 0.5;
@@ -280,6 +306,17 @@ function buildMoneylinePicks(games, atsLeaders) {
     const atsRec = homeAts || awayAts;
     const win = atsRec ? windowLabel(atsRec.window) : '';
 
+    // Bet slip framing
+    const modelPctRounded   = Math.round(pickProb * 100);
+    const marketPctRounded  = Math.round(impliedPct * 100);
+    const edgePpRounded     = Math.round(value * 100);
+    const whyValue = `We price this at ${modelPctRounded}%, market implies ${marketPctRounded}% — +${edgePpRounded}pp value gap.`;
+
+    const slipTips = [];
+    if (pickML >= 600) {
+      slipTips.push('Long odds — small stake recommended due to variance on underdogs.');
+    }
+
     picks.push({
       key:     game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup: `${game.awayTeam} @ ${game.homeTeam}`,
@@ -292,13 +329,15 @@ function buildMoneylinePicks(games, atsLeaders) {
       pickLine:   `${pickTeam} ${fmtPrice(pickML)}`,
       confidence: mlConfidenceLevel(value),
       value,
-      modelPct:         Math.round(pickProb * 100),
-      marketImpliedPct: Math.round(impliedPct * 100),
-      edgePp:           Math.round(value * 100),
+      modelPct:         modelPctRounded,
+      marketImpliedPct: marketPctRounded,
+      edgePp:           edgePpRounded,
       rationale: [
         `Based on market line + recent ATS form${win ? ` (${win})` : ''}.`,
       ],
       confidenceRationale: mlConfidenceRationale(value),
+      whyValue,
+      slipTips,
     });
   }
 
@@ -337,6 +376,8 @@ function buildTotalsPicks(games) {
       edgePp:           null,
       rationale: ['Totals are informational. No projection delta model yet.'],
       confidenceRationale: 'Totals are informational. No projection delta model yet.',
+      whyValue: null,
+      slipTips: [],
     });
   }
 
@@ -348,13 +389,46 @@ function buildTotalsPicks(games) {
 /**
  * Build all Maximus picks from Home state data. Pure — no side effects, no fetches.
  *
- * @param {{ games: object[], atsLeaders: { best: object[], worst: object[] } }} opts
+ * @param {{ games: object[], atsLeaders: { best: object[], worst: object[] }, atsBySlug?: Record<string,object>|null }} opts
  * @returns {{ atsPicks: object[], mlPicks: object[], totalsPicks: object[] }}
  */
-export function buildMaximusPicks({ games = [], atsLeaders = { best: [], worst: [] } } = {}) {
+export function buildMaximusPicks({
+  games = [],
+  atsLeaders = { best: [], worst: [] },
+  atsBySlug: providedAtsBySlug = null,
+} = {}) {
+  // Build a consistent atsBySlug map from atsLeaders when caller hasn't supplied one.
+  // This ensures predictable, timing-independent ATS lookup behavior.
+  const atsBySlug = providedAtsBySlug ?? (() => {
+    const all = [...(atsLeaders.best ?? []), ...(atsLeaders.worst ?? [])];
+    if (all.length === 0) return null;
+    const map = {};
+    for (const row of all) {
+      if (!row.slug) continue;
+      map[row.slug] = {
+        season: row.season ?? row.rec ?? null,
+        last30: row.last30 ?? row.rec ?? null,
+        last7:  row.last7  ?? row.rec ?? null,
+      };
+    }
+    return Object.keys(map).length > 0 ? map : null;
+  })();
+
+  if (import.meta.env?.DEV) {
+    const gamesWithSpread = games.filter((g) => g.spread != null).length;
+    const atsLeaderCount  = (atsLeaders.best?.length ?? 0) + (atsLeaders.worst?.length ?? 0);
+    const atsSlugCount    = atsBySlug ? Object.keys(atsBySlug).length : 0;
+    console.debug(
+      '[Picks] games:', games.length,
+      '| with spread:', gamesWithSpread,
+      '| ats leaders:', atsLeaderCount,
+      '| atsBySlug keys:', atsSlugCount,
+    );
+  }
+
   return {
-    atsPicks:    buildSpreadPicks(games, atsLeaders),
-    mlPicks:     buildMoneylinePicks(games, atsLeaders),
+    atsPicks:    buildSpreadPicks(games, atsLeaders, atsBySlug),
+    mlPicks:     buildMoneylinePicks(games, atsLeaders, atsBySlug),
     totalsPicks: buildTotalsPicks(games),
   };
 }

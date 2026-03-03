@@ -256,9 +256,26 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   // All bullets shown by default — no "More/Less" toggle needed
   const bullets = briefingData?.bullets ?? [];
 
+  // Build a consistent atsBySlug map from leaders — passed to MaximusPicks and summary
+  // so both use the same ATS source and produce identical picks.
+  const atsBySlug = (() => {
+    const all = [...(atsLeaders.best ?? []), ...(atsLeaders.worst ?? [])];
+    if (all.length === 0) return null;
+    const map = {};
+    for (const row of all) {
+      if (!row.slug) continue;
+      map[row.slug] = {
+        season: row.season ?? row.rec ?? null,
+        last30: row.last30 ?? row.rec ?? null,
+        last7:  row.last7  ?? row.rec ?? null,
+      };
+    }
+    return Object.keys(map).length > 0 ? map : null;
+  })();
+
   // Picks summary — derived from same data inline, no new fetch
   const picksSummary = games.length
-    ? buildPicksSummary(buildMaximusPicks({ games, atsLeaders }))
+    ? buildPicksSummary(buildMaximusPicks({ games, atsLeaders, atsBySlug }))
     : null;
 
   return (
@@ -281,7 +298,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       </p>
 
       {/* ── Picks: Spread / ML / Totals ─────────────────────────────── */}
-      <MaximusPicks games={games} atsLeaders={atsLeaders} loading={loading} />
+      <MaximusPicks games={games} atsLeaders={atsLeaders} atsBySlug={atsBySlug} loading={loading} />
 
       {/* ── Divider into Market Briefing subsection ─────────────────── */}
       <div className={styles.oddsMarketBriefingDivider}>

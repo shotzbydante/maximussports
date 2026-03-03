@@ -29,6 +29,12 @@ const HERO_TILE_COUNT   = 2;
 const DEFAULT_COMPACT   = 2;
 const DEFAULT_HEADLINES = 5;
 
+// Only treat non-empty cached arrays as valid — avoids serving a stale empty result.
+function getValidCache(key) {
+  const cached = getCached(key);
+  return Array.isArray(cached) && cached.length > 0 ? cached : null;
+}
+
 function VideoSkeletons() {
   return (
     <div className={styles.videoSkeletons}>
@@ -52,8 +58,10 @@ export default function NewsFeed({
   limitVideos = 4,
   limitHeadlines = 6,
 }) {
-  const [videoItems, setVideoItems] = useState(() => getCached(VIDEO_CACHE_KEY) ?? []);
+  const [videoItems, setVideoItems] = useState(() => getValidCache(VIDEO_CACHE_KEY) ?? []);
   const [videosLoading, setVideosLoading] = useState(false);
+  const [videosError, setVideosError] = useState(false);
+  const [videoApiStatus, setVideoApiStatus] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
   const [videosExpanded, setVideosExpanded] = useState(false);
   const [headlinesExpanded, setHeadlinesExpanded] = useState(false);
@@ -64,7 +72,8 @@ export default function NewsFeed({
     if (mode === 'headlines') return;
     if (fetchInitiatedRef.current) return;
     fetchInitiatedRef.current = true;
-    if (getCached(VIDEO_CACHE_KEY) != null) return;
+    // Only skip if we have a valid non-empty cache entry
+    if (getValidCache(VIDEO_CACHE_KEY) != null) return;
 
     setVideosLoading(true);
     const controller = new AbortController();
@@ -72,13 +81,30 @@ export default function NewsFeed({
       `/api/youtube/search?q=${encodeURIComponent(VIDEO_QUERY)}&maxResults=${VIDEO_MAX}`,
       { signal: controller.signal }
     )
-      .then((r) => r.json())
-      .then((data) => {
-        const fetched = data.items ?? [];
-        setCached(VIDEO_CACHE_KEY, fetched, VIDEO_CACHE_TTL);
-        setVideoItems(fetched);
+      .then((r) => {
+        if (!r.ok) {
+          setVideoApiStatus(`http_${r.status}`);
+          throw new Error(`HTTP ${r.status}`);
+        }
+        return r.json();
       })
-      .catch(() => {})
+      .then((data) => {
+        setVideoApiStatus(data.status ?? 'ok');
+        const fetched = data.items ?? [];
+        // Only cache non-empty successful results — prevents serving a stale empty state
+        if (fetched.length > 0) {
+          setCached(VIDEO_CACHE_KEY, fetched, VIDEO_CACHE_TTL);
+          setVideoItems(fetched);
+        } else {
+          setVideoItems([]);
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          setVideosError(true);
+          setVideoItems([]);
+        }
+      })
       .finally(() => setVideosLoading(false));
 
     return () => controller.abort();
@@ -100,7 +126,39 @@ export default function NewsFeed({
 
   // ── mode="videos" ── standalone Top Videos card ───────────────────────
   if (mode === 'videos') {
-    if (!videosLoading && cappedVideos.length === 0) return null;
+    const isKeyMissing = videoApiStatus === 'error_no_key' || videoApiStatus?.startsWith('http_5');
+    const isQuota = videoApiStatus === 'error_quota' || videoApiStatus === 'http_429';
+
+    if (!videosLoading && cappedVideos.length === 0) {
+      return (
+        <div className={styles.widget}>
+          <div className={styles.widgetHeader}>
+            <span className={styles.title}>Top Videos</span>
+          </div>
+          <div className={styles.section}>
+            <div className={styles.videosEmpty}>
+              <p className={styles.videosEmptyTitle}>Videos unavailable</p>
+              {(videosError || isKeyMissing || isQuota) && (
+                <p className={styles.videosEmptyReason}>
+                  {isKeyMissing
+                    ? 'YouTube key not configured.'
+                    : isQuota
+                    ? 'YouTube quota exceeded.'
+                    : 'Could not reach video service.'}
+                </p>
+              )}
+              {import.meta.env?.DEV && (videosError || !videoApiStatus) && (
+                <p className={styles.videosEmptyDev}>
+                  Dev: check /api/env-check for YOUTUBE_API_KEY
+                </p>
+              )}
+            </div>
+          </div>
+          <Link to="/news" className={styles.cardCta}>View Intel Feed →</Link>
+        </div>
+      );
+    }
+
     return (
       <div className={styles.widget}>
         <div className={styles.widgetHeader}>

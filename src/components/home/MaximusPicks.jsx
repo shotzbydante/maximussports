@@ -61,6 +61,41 @@ function ChevronIcon({ open }) {
   );
 }
 
+// ─── copy-to-clipboard button ─────────────────────────────────────────────────
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!navigator?.clipboard) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {});
+  };
+
+  return (
+    <button
+      type="button"
+      className={`${styles.copyBtn} ${copied ? styles.copyBtnCopied : ''}`}
+      onClick={handleCopy}
+      title="Copy line to clipboard"
+      aria-label="Copy line to clipboard"
+    >
+      {copied ? (
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+          <polyline points="2,6 4.5,8.5 9,3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+          <rect x="1" y="3.5" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+          <path d="M3.5 3.5V2a1 1 0 0 1 1-1h4.5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H8.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 // ─── confidence chip ──────────────────────────────────────────────────────────
 
 function ConfidenceChip({ level }) {
@@ -139,11 +174,23 @@ function PickCard({ pick, isTotal }) {
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
 
+      {/* Bet slip line — the exact line to place */}
+      <div className={styles.slipRow}>
+        <span className={styles.slipLabel}>Slip</span>
+        <span className={styles.slipLineText}>{pick.pickLine}</span>
+        <CopyButton text={pick.pickLine} />
+      </div>
+
       {/* Primary pick pill + confidence chip */}
       <div className={styles.cardMain}>
         <span className={styles.pickPill}>{pick.pickLine}</span>
         <ConfidenceChip level={pick.confidence} />
       </div>
+
+      {/* Why value — plain English explanation above the breakdown table */}
+      {pick.whyValue && (
+        <p className={styles.whyValue}>{pick.whyValue}</p>
+      )}
 
       {/* Edge breakdown — omit for totals */}
       {!isTotal && (
@@ -185,6 +232,15 @@ function PickCard({ pick, isTotal }) {
       {pick.confidenceRationale && (
         <p className={styles.confRationale}>{pick.confidenceRationale}</p>
       )}
+
+      {/* Slip tips — conditional actionable notes */}
+      {pick.slipTips?.length > 0 && (
+        <ul className={styles.slipTipsList}>
+          {pick.slipTips.map((tip, i) => (
+            <li key={i} className={styles.slipTip}>{tip}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -198,7 +254,7 @@ const COLUMN_CONFIG = {
     microcopy:   'Leans based on ATS cover rate differential.',
     storageKey:  'homePicksAtsCollapsed',
     emptyReason: 'No qualified ATS leans right now.',
-    emptyDetail: 'Waiting for lines or ATS signals to meet edge thresholds.',
+    emptyDetail: 'Waiting for spreads or for an edge ≥ 12pp.',
     isTotal:     false,
   },
   ml: {
@@ -207,7 +263,7 @@ const COLUMN_CONFIG = {
     microcopy:   'Value leans blending ATS form + implied odds.',
     storageKey:  'homePicksMlCollapsed',
     emptyReason: 'No qualified moneyline leans right now.',
-    emptyDetail: 'Value gaps or implied odds gaps haven\'t met thresholds.',
+    emptyDetail: "Value gaps haven't met the 4pp threshold.",
     isTotal:     false,
   },
   totals: {
@@ -294,16 +350,18 @@ function PickColumn({ section, picks }) {
  * Props:
  *   games        {Array}   — merged game objects (from mergeGamesWithOdds)
  *   atsLeaders   {Object}  — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
+ *   atsBySlug    {Object|null} — optional explicit ATS map keyed by team slug
  *   loading      {boolean} — true while Home is still fetching scores or ATS data
  */
 export default function MaximusPicks({
   games = [],
   atsLeaders = { best: [], worst: [] },
+  atsBySlug = null,
   loading = false,
 }) {
   const { atsPicks, mlPicks, totalsPicks } = useMemo(
-    () => buildMaximusPicks({ games, atsLeaders }),
-    [games, atsLeaders],
+    () => buildMaximusPicks({ games, atsLeaders, atsBySlug }),
+    [games, atsLeaders, atsBySlug],
   );
 
   const hasAny = atsPicks.length > 0 || mlPicks.length > 0 || totalsPicks.length > 0;
