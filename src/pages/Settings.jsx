@@ -5,6 +5,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
+import { notifyPinnedChanged, onPinnedChanged } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import styles from './Settings.module.css';
 
@@ -133,21 +134,69 @@ const CONFERENCES = [
   }),
 ];
 
-/* ─── Jersey badge ───────────────────────────────────────────────────────── */
+/* ─── Jersey graphic ─────────────────────────────────────────────────────── */
 /**
- * Pill badge showing the user's jersey number.
- * Renders "#09", "#23", etc. when a number is set.
- * Renders an empty outline badge "#—" when no number is set, prompting action.
+ * Small jersey SVG that shows the player name and number inside the jersey shape.
+ * Always renders — shows "—" when number is absent.
  */
-function JerseyBadge({ number }) {
-  const isEmpty = !number;
+function JerseyGraphic({ name, number }) {
+  const displayNum = number ?? '—';
+  // Truncate long names to fit inside the jersey
+  const displayName = name && name.length > 12 ? name.slice(0, 11) + '…' : (name ?? '');
+
   return (
     <span
-      className={`${styles.jerseyBadge} ${isEmpty ? styles.jerseyBadgeEmpty : ''}`}
-      aria-label={isEmpty ? 'No jersey number — add one in Edit Profile' : `Jersey #${number}`}
-      title={isEmpty ? 'Add a jersey number in Edit Profile' : undefined}
+      className={styles.jerseyGraphic}
+      aria-label={number ? `Jersey #${number} — ${name}` : 'No jersey number set'}
+      title={number ? undefined : 'Add a jersey number in Edit Profile'}
     >
-      {isEmpty ? '#—' : `#${number}`}
+      <svg
+        viewBox="0 0 80 64"
+        className={styles.jerseySvg}
+        aria-hidden
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* Jersey body shape */}
+        <path
+          d="M20 2 L5 18 L14 22 L14 62 L66 62 L66 22 L75 18 L60 2 L50 8 C48 12 32 12 30 8 Z"
+          fill="var(--color-primary)"
+          stroke="var(--color-primary-hover)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+        {/* Jersey number */}
+        <text
+          x="40"
+          y="44"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={displayNum.length > 2 ? '16' : '20'}
+          fontWeight="800"
+          fontFamily="var(--font-display), sans-serif"
+          fill="white"
+          letterSpacing="0"
+        >
+          {displayNum}
+        </text>
+        {/* Player name strip at top */}
+        {displayName && (
+          <text
+            x="40"
+            y="22"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="7"
+            fontWeight="600"
+            fontFamily="var(--font-display), sans-serif"
+            fill="rgba(255,255,255,0.85)"
+            letterSpacing="0.05em"
+            textTransform="uppercase"
+          >
+            {displayName.toUpperCase()}
+          </text>
+        )}
+      </svg>
     </span>
   );
 }
@@ -847,6 +896,24 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   useEffect(() => { loadUserTeams(); }, []);
 
+  // Listen for pinned-team changes from Home and optimistically sync userTeams state.
+  useEffect(() => {
+    return onPinnedChanged(({ pinnedSlugs, source }) => {
+      if (source !== 'home') return; // DB and settings events are handled separately
+      setUserTeams((prev) => {
+        const prevSlugs = new Set(prev.map((t) => t.team_slug));
+        const nextSlugs = new Set(pinnedSlugs);
+        // Add new entries (no is_primary, no teamData yet — just slug)
+        const added = pinnedSlugs
+          .filter((s) => !prevSlugs.has(s))
+          .map((slug) => ({ user_id: user.id, team_slug: slug, is_primary: false, created_at: new Date().toISOString() }));
+        // Remove entries no longer pinned
+        const kept = prev.filter((t) => nextSlugs.has(t.team_slug));
+        return [...kept, ...added];
+      });
+    });
+  }, [user.id]);
+
   async function loadUserTeams() {
     setTeamsLoading(true); setTeamsError('');
     try {
@@ -854,7 +921,12 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (!sb) { setTeamsLoading(false); return; }
       const { data, error } = await sb.from('user_teams').select('*').eq('user_id', user.id).order('created_at');
       if (error) throw error;
-      setUserTeams(data || []);
+      const teams = data || [];
+      setUserTeams(teams);
+      // Reconcile localStorage to match DB and notify Home
+      const dbSlugs = teams.map((t) => t.team_slug);
+      setPinnedTeams(dbSlugs);
+      notifyPinnedChanged(dbSlugs, 'db');
     } catch (err) {
       setTeamsError(isSchemaMissingError(err) ? 'Service temporarily unavailable.' : 'Could not load your teams.');
     } finally {
@@ -998,6 +1070,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       onProfileUpdate({ preferences: {} });
       setShowTeamPicker(false);   // user sees empty state with "Add your first team" CTA
       track('preferences_reset', {});
+      // Notify Home so its pinned list clears immediately
+      notifyPinnedChanged([], 'settings');
       setConfirm(null);
     } catch (err) {
       setResetError(friendlyDbError(err));
@@ -1031,7 +1105,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             <div className={styles.profileInfo}>
               <div className={styles.profileNameRow}>
                 <span className={styles.profileName}>{displayName}</span>
-                <JerseyBadge number={jerseyDisplay} />
+                <JerseyGraphic name={displayName} number={jerseyDisplay} />
               </div>
               <span className={styles.profileEmail}>{user.email}</span>
             </div>

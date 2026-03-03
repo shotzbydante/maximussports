@@ -28,6 +28,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { getPinnedTeams, setPinnedTeams } from '../utils/pinnedTeams';
+import { onPinnedChanged } from '../utils/pinnedSync';
 import { track } from '../analytics/index';
 
 export function usePinnedTeamsSync(user) {
@@ -125,6 +126,53 @@ export function usePinnedTeamsSync(user) {
         .eq('user_id', user.id)
         .eq('team_slug', slug);
     } catch { /* swallow */ }
+  }, [user]);
+
+  // ── Write-through: Home pin/unpin → user_teams ───────────────────────────
+  // When PinnedTeamsSection dispatches a 'home' event while signed in,
+  // mirror the change to the user_teams table so Settings "My Teams" is canonical.
+  const prevSlugsRef = useRef(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    return onPinnedChanged(async ({ pinnedSlugs, source }) => {
+      if (source !== 'home') return;  // only react to Home actions; avoid loops
+      const sb = getSupabase();
+      if (!sb) return;
+
+      const prev = prevSlugsRef.current ?? [];
+      prevSlugsRef.current = pinnedSlugs;
+
+      const prevSet = new Set(prev);
+      const nextSet = new Set(pinnedSlugs);
+
+      // Slugs newly added
+      const added = pinnedSlugs.filter((s) => !prevSet.has(s));
+      // Slugs removed
+      const removed = prev.filter((s) => !nextSet.has(s));
+
+      try {
+        if (added.length > 0) {
+          const rows = added.map((slug) => ({
+            user_id: user.id,
+            team_slug: slug,
+            is_primary: false,
+            created_at: new Date().toISOString(),
+          }));
+          await sb
+            .from('user_teams')
+            .upsert(rows, { onConflict: 'user_id,team_slug', ignoreDuplicates: true });
+        }
+        for (const slug of removed) {
+          await sb
+            .from('user_teams')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('team_slug', slug);
+        }
+      } catch { /* swallow — best effort */ }
+    });
   }, [user]);
 
   return { addServerPin, removeServerPin };

@@ -14,6 +14,7 @@ import {
 } from '../../utils/pinnedTeams';
 import { getTeamSlug } from '../../utils/teamSlug';
 import { getAtsCache, setAtsCache } from '../../utils/atsCache';
+import { notifyPinnedChanged, onPinnedChanged } from '../../utils/pinnedSync';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import { track } from '../../analytics/index';
@@ -251,6 +252,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       team_slug: slug,
       method: 'picker',
     });
+    notifyPinnedChanged(after, 'home');
     notify();
   }, [notify, pinned]);
 
@@ -267,6 +269,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     track('pinned_team_add', { team_slug: slug });
     setSearch('');
     setShowAdd(false);
+    notifyPinnedChanged(after, 'home');
     notify();
   }, [notify]);
 
@@ -281,12 +284,14 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     }
     setPinned(after);
     track('pinned_team_remove', { team_slug: slug });
+    notifyPinnedChanged(after, 'home');
     notify();
   }, [notify]);
 
   const handleClearAll = useCallback(() => {
     [...pinned].forEach((slug) => removePinnedTeam(slug));
     setPinned([]);
+    notifyPinnedChanged([], 'home');
     notify();
   }, [pinned, notify]);
 
@@ -311,6 +316,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     }
     setPinned(after);
     track('pinned_team_add', { team_slug: slug, method: 'quick_chip' });
+    notifyPinnedChanged(after, 'home');
     notify();
   }, [notify]);
 
@@ -324,6 +330,17 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     setShowPreview(true);
   }, []);
 
+
+  // Listen for pinned-teams changes from Settings or DB reconcile.
+  // Updates local state so the Home view stays in sync without a page refresh.
+  useEffect(() => {
+    return onPinnedChanged(({ pinnedSlugs, source }) => {
+      if (source === 'db' || source === 'settings') {
+        setPinned(pinnedSlugs);
+        onPinnedChange?.(pinnedSlugs);
+      }
+    });
+  }, [onPinnedChange]);
 
   useEffect(() => {
     if (Object.keys(rankMapProp).length > 0) setRankMap(rankMapProp);

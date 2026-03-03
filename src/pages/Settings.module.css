@@ -961,31 +961,20 @@
   color: var(--color-text);
 }
 
-/* ── Jersey number pill badge — always visible in profile header ── */
-.jerseyBadge {
+/* ── Jersey graphic — shows name + number inside an SVG jersey shape ── */
+.jerseyGraphic {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.1);
-  border: 1.5px solid rgba(60, 121, 180, 0.25);
-  border-radius: 5px;
-  padding: 2px 7px;
-  letter-spacing: 0;
-  line-height: 1.3;
   flex-shrink: 0;
-  vertical-align: middle;
   align-self: center;
+  cursor: default;
 }
 
-/* Empty state: muted outline, no fill — prompts user to add number */
-.jerseyBadgeEmpty {
-  color: var(--color-text-muted);
-  background: transparent;
-  border-color: var(--color-border);
-  font-weight: 500;
+.jerseySvg {
+  width: 44px;
+  height: 36px;
+  display: block;
+  filter: drop-shadow(0 1px 3px rgba(60, 121, 180, 0.25));
 }
 
 .profileEmail {
