@@ -1032,6 +1032,36 @@
   .oddsBriefingToggle { transition: none; }
 }
 
+/* ── Picks summary bar ───────────────────────────────────────────── */
+
+.picksSummaryBar {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-bottom: var(--space-sm, 8px);
+  background: rgba(60, 121, 180, 0.05);
+  border: 1px solid rgba(60, 121, 180, 0.14);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.picksSummaryLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.picksSummaryText {
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
 /* ── Maximus's Picks subheader ───────────────────────────────────── */
 
 .oddsPicksSubheader {

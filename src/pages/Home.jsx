@@ -27,6 +27,7 @@ import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pi
 import { perfLog } from '../utils/perfLog';
 import WelcomeModal from '../components/marketing/WelcomeModal';
 import MaximusPicks from '../components/home/MaximusPicks';
+import { buildMaximusPicks, buildPicksSummary } from '../utils/maximusPicksModel';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import styles from './Home.module.css';
@@ -255,6 +256,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   // All bullets shown by default — no "More/Less" toggle needed
   const bullets = briefingData?.bullets ?? [];
 
+  // Picks summary — derived from same data inline, no new fetch
+  const picksSummary = games.length
+    ? buildPicksSummary(buildMaximusPicks({ games, atsLeaders }))
+    : null;
+
   return (
     <div className={styles.oddsTeaser}>
       {/* ── Widget header ───────────────────────────────────────────── */}
@@ -262,6 +268,14 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         <h3 className={styles.oddsTeaserTitle}>Maximus&apos;s Picks</h3>
         <span className={styles.oddsTeaserTag}>Data-Driven Leans</span>
       </div>
+      {/* ── Picks summary line ──────────────────────────────────────── */}
+      {picksSummary && (
+        <div className={styles.picksSummaryBar}>
+          <span className={styles.picksSummaryLabel}>Today&apos;s Picks</span>
+          <span className={styles.picksSummaryText}>{picksSummary}</span>
+        </div>
+      )}
+
       <p className={styles.oddsPicksSubheader}>
         Data-driven leans based on market lines + ATS form. Not advice.
       </p>

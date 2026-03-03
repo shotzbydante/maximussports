@@ -1,115 +1,286 @@
 /* ═══════════════════════════════════════════════════════════════════
-   MaximusPicks — compact analytics picks module
+   MaximusPicks — premium 3-column picks module
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ─── grid ───────────────────────────────────────────────────────── */
+
 .root {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-md, 14px);
+  align-items: start;
+  margin-bottom: var(--space-sm, 8px);
+}
+
+/* 768–1023px: 2 cols, Totals (3rd column) full width on its own row */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .root {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .column:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .root {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm, 8px);
+  }
+}
+
+/* ─── column ─────────────────────────────────────────────────────── */
+
+.column {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card, 12px);
+  overflow: hidden;
 }
 
-/* ─── section ──────────────────────────────────────────────────────── */
+/* ─── column header (gradient bar) ──────────────────────────────── */
 
-.section {
-  padding: 10px 0 8px;
-  border-bottom: 1px solid var(--color-border-light);
+.columnHeader {
+  padding: 10px 12px 8px;
+  background: linear-gradient(135deg, rgba(60, 121, 180, 0.11) 0%, rgba(60, 121, 180, 0.04) 100%);
+  border-bottom: 1px solid rgba(60, 121, 180, 0.14);
 }
 
-.section:last-of-type {
-  border-bottom: none;
-}
-
-.sectionTitle {
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-  margin-bottom: 8px;
+.columnHeaderTop {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
+  margin-bottom: 3px;
 }
 
-/* ─── pick rows ─────────────────────────────────────────────────────── */
-
-.pickList {
+.columnTitleRow {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
 }
 
-.pickRow {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 7px 10px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-light);
-  border-radius: 6px;
-  transition: border-color 0.12s;
+.columnIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.pickRow:hover {
-  border-color: rgba(60, 121, 180, 0.28);
-}
-
-.pickMeta {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.pickMatchup {
-  font-size: 0.78rem;
-  font-weight: 600;
+.columnTitle {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
   color: var(--color-text);
-  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.pickTime {
-  font-size: 0.65rem;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
+.columnPill {
+  font-size: 0.46rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.1);
+  border: 1px solid rgba(60, 121, 180, 0.2);
+  border-radius: 999px;
+  padding: 2px 6px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.pickMain {
+.columnMicro {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ─── mobile accordion toggle ────────────────────────────────────── */
+
+.accordionToggle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .accordionToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-border-light);
+    cursor: pointer;
+    font-size: 0.64rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    font-family: inherit;
+    transition: background 0.12s;
+  }
+
+  .accordionToggle:hover {
+    background: rgba(60, 121, 180, 0.04);
+  }
+}
+
+.chevron {
+  transition: transform 0.2s ease-out;
+  transform: rotate(0deg);
+  flex-shrink: 0;
+}
+
+.chevronOpen {
+  transition: transform 0.2s ease-out;
+  transform: rotate(180deg);
+  flex-shrink: 0;
+}
+
+/* ─── card list wrapper (mobile accordion) ───────────────────────── */
+
+.cardListWrapper {
+  flex: 1;
+}
+
+@media (max-width: 767px) {
+  .cardListWrapper {
+    position: relative;
+    overflow: hidden;
+    max-height: 1600px;
+    transition: max-height 0.3s ease-out;
+  }
+
+  .cardListWrapperCollapsed {
+    max-height: 152px;
+  }
+
+  /* Bottom fade when collapsed */
+  .cardListWrapperCollapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: linear-gradient(to bottom, transparent, var(--color-bg-elevated, #fff));
+    pointer-events: none;
+  }
+}
+
+/* ─── card list ──────────────────────────────────────────────────── */
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+/* ─── pick card ──────────────────────────────────────────────────── */
+
+.pickCard {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px;
+  background: var(--color-bg, #f6f6f6);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+@media (hover: hover) {
+  .pickCard:hover {
+    border-color: rgba(60, 121, 180, 0.3);
+    box-shadow: 0 2px 8px rgba(60, 121, 180, 0.09);
+  }
+}
+
+/* ─── matchup line with logos ────────────────────────────────────── */
+
+.cardMatchup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.matchupTeam {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.matchupName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.matchupAt {
+  color: var(--color-text-muted);
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+.pickTime {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ─── pick pill + chip row ───────────────────────────────────────── */
+
+.cardMain {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-/* pill showing the pick line (e.g. "Kansas -3.5") */
 .pickPill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
-  font-size: 0.72rem;
+  padding: 3px 10px;
+  font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-primary);
   background: rgba(60, 121, 180, 0.09);
   border: 1px solid rgba(60, 121, 180, 0.22);
-  border-radius: var(--pill-radius, 999px);
+  border-radius: 999px;
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
-/* ─── confidence chips ───────────────────────────────────────────────── */
+/* ─── confidence chips ───────────────────────────────────────────── */
 
 .confChip {
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  border-radius: var(--pill-radius, 999px);
+  border-radius: 999px;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -132,26 +303,88 @@
   border: 1px solid rgba(130, 130, 150, 0.2);
 }
 
-/* ─── rationale line ────────────────────────────────────────────────── */
+/* ─── edge breakdown ─────────────────────────────────────────────── */
 
-.pickRationale {
-  font-size: 0.68rem;
-  line-height: 1.4;
-  color: var(--color-text-muted);
-  margin: 0;
-  /* clamp to 1 line on desktop */
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.edgeBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 8px;
+  background: rgba(60, 121, 180, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.1);
+  border-radius: 5px;
 }
 
-/* ─── empty state ────────────────────────────────────────────────────── */
+.edgeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
 
-.emptyState {
-  font-size: 0.75rem;
+.edgeLabel {
+  font-size: 0.59rem;
+  color: var(--color-text-muted);
+}
+
+.edgeValue {
+  font-size: 0.59rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.edgeHighlight .edgeLabel,
+.edgeHighlight .edgeValue {
+  color: #1a7a5a;
+  font-weight: 700;
+}
+
+/* ─── rationale bullets ──────────────────────────────────────────── */
+
+.rationaleList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rationaleItem {
+  font-size: 0.63rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  padding-left: 10px;
+  position: relative;
+}
+
+.rationaleItem::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* ─── confidence rationale ───────────────────────────────────────── */
+
+.confRationale {
+  font-size: 0.6rem;
   color: var(--color-text-muted);
   font-style: italic;
-  margin: 4px 0 0;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ─── empty states ───────────────────────────────────────────────── */
+
+.emptyState {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: 12px;
+  margin: 0;
 }
 
 .emptyAll {
@@ -161,38 +394,36 @@
   font-style: italic;
 }
 
-/* ─── disclaimer footer ─────────────────────────────────────────────── */
+/* ─── disclaimer footer ──────────────────────────────────────────── */
 
 .disclaimer {
   font-size: 0.6rem;
   color: var(--color-text-muted);
   opacity: 0.7;
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   line-height: 1.4;
   text-align: right;
 }
 
-/* ─── responsive ────────────────────────────────────────────────────── */
+/* ─── reduced motion ─────────────────────────────────────────────── */
 
-@media (max-width: 767px) {
-  .pickRationale {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-    /* allow 2 lines on mobile */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+  .pickCard {
+    transition: none;
   }
 
-  .pickRow {
-    padding: 8px 10px;
+  .chevron,
+  .chevronOpen {
+    transition: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pickRow {
+@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
+  .accordionToggle {
+    transition: none;
+  }
+
+  .cardListWrapper {
     transition: none;
   }
 }
