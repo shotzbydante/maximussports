@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { getSupabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
@@ -9,13 +9,21 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const sb = getSupabase();
+
+    if (!sb) {
+      // Supabase not configured — auth is disabled; finish loading immediately
+      setLoading(false);
+      return;
+    }
+
+    sb.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
     });
@@ -24,7 +32,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.auth.signOut();
   }
 
   return (

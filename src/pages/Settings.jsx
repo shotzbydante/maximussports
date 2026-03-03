@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabaseClient';
+import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
 import { addPinnedTeam } from '../utils/pinnedTeams';
 import { track, identify } from '../analytics/index';
@@ -178,7 +178,13 @@ function StepProfile({ onNext, defaultName = '', userId }) {
     setUsernameStatus('checking');
     debounceRef.current = setTimeout(async () => {
       try {
-        const { data } = await supabase
+        const sb = getSupabase();
+        if (!sb) {
+          // Can't check uniqueness without Supabase — optimistically allow
+          setUsernameStatus('available');
+          return;
+        }
+        const { data } = await sb
           .from('profiles')
           .select('id')
           .eq('username', username)
@@ -439,10 +445,15 @@ function OnboardingWizard({ user, onComplete }) {
     setSaving(true);
     setWizardError('');
     try {
+      const sb = getSupabase();
+      if (!sb) {
+        throw new Error('Auth service is not configured. Cannot save profile.');
+      }
+
       const userId = user.id;
 
       // D2: upsert with onConflict so duplicate usernames give a clear error
-      const { error: profileErr } = await supabase.from('profiles').upsert(
+      const { error: profileErr } = await sb.from('profiles').upsert(
         {
           id: userId,
           username: profileData.username,
@@ -461,17 +472,17 @@ function OnboardingWizard({ user, onComplete }) {
       }
 
       // Idempotently replace user_teams
-      await supabase.from('user_teams').delete().eq('user_id', userId);
+      await sb.from('user_teams').delete().eq('user_id', userId);
       const teamRows = teamSlugs.map((slug, i) => ({
         user_id: userId,
         team_slug: slug,
         is_primary: i === 0,
         created_at: new Date().toISOString(),
       }));
-      const { error: teamsErr } = await supabase.from('user_teams').insert(teamRows);
+      const { error: teamsErr } = await sb.from('user_teams').insert(teamRows);
       if (teamsErr) throw teamsErr;
 
-      const { error: prefsErr } = await supabase.from('user_preferences').upsert({ user_id: userId, ...prefs });
+      const { error: prefsErr } = await sb.from('user_preferences').upsert({ user_id: userId, ...prefs });
       if (prefsErr) throw prefsErr;
 
       // Identify user in analytics (privacy-safe: no email/name)
@@ -533,7 +544,17 @@ function AuthenticatedSettings({ user }) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const { data } = await supabase
+      const sb = getSupabase();
+      if (!sb) {
+        // Supabase not configured — skip profile fetch, go straight to wizard
+        if (!cancelled) {
+          setProfile(null);
+          setProfileLoading(false);
+          setShowWizard(true);
+        }
+        return;
+      }
+      const { data } = await sb
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -621,9 +642,15 @@ function UnauthenticatedPanel() {
   const handleGoogle = async () => {
     setLoading(true);
     setError('');
+    const sb = getSupabase();
+    if (!sb) {
+      setError('Auth service is not configured. Please contact support.');
+      setLoading(false);
+      return;
+    }
     track('auth_start_google', {});
     // D1: absolute redirectTo using window.location.origin — works on preview & prod
-    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+    const { error: oauthErr } = await sb.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/settings` },
     });

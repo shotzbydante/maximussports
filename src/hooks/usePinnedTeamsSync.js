@@ -17,6 +17,7 @@
  * blocking the UI or changing existing localStorage logic.
  *
  * All errors are swallowed — anonymous browsing is never affected.
+ * When Supabase is not configured, this hook is a safe no-op.
  *
  * PostHog events (via existing analytics util):
  *   pins_sync_start
@@ -25,7 +26,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { getSupabase } from '../lib/supabaseClient';
 import { getPinnedTeams, setPinnedTeams } from '../utils/pinnedTeams';
 import { track } from '../analytics/index';
 
@@ -41,10 +42,13 @@ export function usePinnedTeamsSync(user) {
     syncedUserIdRef.current = user.id;
 
     async function sync() {
+      const sb = getSupabase();
+      if (!sb) return; // Supabase not configured — skip sync silently
+
       track('pins_sync_start', {});
       try {
         // 1. Fetch server pins
-        const { data, error } = await supabase
+        const { data, error } = await sb
           .from('user_pins')
           .select('team_slug')
           .eq('user_id', user.id);
@@ -61,7 +65,7 @@ export function usePinnedTeamsSync(user) {
 
         // 3. Merge: local order first, then server-only additions
         const serverSet = new Set(serverSlugs);
-        const localSet = new Set(localSlugs);
+        const localSet  = new Set(localSlugs);
         const merged = [
           ...localSlugs,
           ...serverSlugs.filter((s) => !localSet.has(s)),
@@ -74,7 +78,7 @@ export function usePinnedTeamsSync(user) {
         const localOnly = localSlugs.filter((s) => !serverSet.has(s));
         if (localOnly.length > 0) {
           const rows = localOnly.map((slug) => ({ user_id: user.id, team_slug: slug }));
-          supabase
+          sb
             .from('user_pins')
             .upsert(rows, { onConflict: 'user_id,team_slug' })
             .then(({ error: upsertErr }) => {
@@ -85,9 +89,9 @@ export function usePinnedTeamsSync(user) {
         track('pins_sync_complete', {
           mergedCount: merged.length,
           serverCount: serverSlugs.length,
-          localCount: localSlugs.length,
+          localCount:  localSlugs.length,
         });
-      } catch (err) {
+      } catch {
         track('pins_sync_error', { code: 'exception' });
       }
     }
@@ -100,8 +104,10 @@ export function usePinnedTeamsSync(user) {
   /** Call after addPinnedTeam(slug) when user is authenticated. */
   const addServerPin = useCallback(async (slug) => {
     if (!user?.id || !slug) return;
+    const sb = getSupabase();
+    if (!sb) return;
     try {
-      await supabase
+      await sb
         .from('user_pins')
         .upsert({ user_id: user.id, team_slug: slug }, { onConflict: 'user_id,team_slug' });
     } catch { /* swallow */ }
@@ -110,8 +116,10 @@ export function usePinnedTeamsSync(user) {
   /** Call after removePinnedTeam(slug) when user is authenticated. */
   const removeServerPin = useCallback(async (slug) => {
     if (!user?.id || !slug) return;
+    const sb = getSupabase();
+    if (!sb) return;
     try {
-      await supabase
+      await sb
         .from('user_pins')
         .delete()
         .eq('user_id', user.id)
