@@ -214,7 +214,16 @@
   box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.12);
 }
 
-/* ─── Team pick list (Step 1 + Add Team picker) ─────────────────────────── */
+/* ─── Team pick list (Step 1 + Add Team picker) ──────────────────────────── */
+/* Stacked name+conference inside a pick row */
+.teamPickInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .teamPickList {
   display: flex;
   flex-direction: column;
@@ -271,18 +280,16 @@
 }
 
 .teamPickName {
-  flex: 1;
-  min-width: 0;
   font-weight: 500;
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .teamPickConf {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-text-muted);
-  flex-shrink: 0;
 }
 
 .teamPickTierBadge {
@@ -384,12 +391,13 @@
   overscroll-behavior: contain;
 }
 
+/* Row layout: [logo] [info stacked] [pin action] */
 .pickerAddRow {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 9px 12px;
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--color-border-light);
@@ -410,17 +418,51 @@
 }
 
 .pickerAddRow:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  cursor: default;
 }
 
-.pickerAddIcon {
-  margin-left: auto;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--color-primary);
+/* Already-pinned rows: visually subdued */
+.pickerAddRowPinned {
+  opacity: 0.55;
+}
+
+/* Stacked info inside picker row (reuses teamPickInfo pattern) */
+.pickerRowInfo {
+  flex: 1;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Pin action button on right side */
+.pinAction {
+  display: inline-flex;
   align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  border-radius: 5px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+  pointer-events: none; /* row button handles click */
+}
+
+.pickerAddRow:hover:not(:disabled) .pinAction {
+  background: rgba(60, 121, 180, 0.15);
+  border-color: rgba(60, 121, 180, 0.4);
+}
+
+/* Pinned state: muted green */
+.pinActionPinned {
+  color: var(--color-up);
+  background: rgba(45, 138, 110, 0.08);
+  border-color: rgba(45, 138, 110, 0.2);
 }
 
 /* ─── Profile form ────────────────────────────────────────────────────────── */
@@ -1219,17 +1261,261 @@
   padding: 3px 10px;
 }
 
+/* ─── Jersey badge visual ─────────────────────────────────────────────────── */
+.jerseyVisual {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 34px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.jerseyNum {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  letter-spacing: -0.02em;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ─── Confirm modal overlay ───────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--space-md);
+}
+
+.modalCard {
+  background: var(--color-bg-elevated, #fff);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: var(--space-xl);
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.modalTitle {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.modalMessage {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.modalSubtext {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+  background: var(--color-bg-muted, rgba(0,0,0,0.03));
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.modalActions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
+}
+
+/* ─── Edit Profile Form ───────────────────────────────────────────────────── */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.editFormHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editFormTitle {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.editFormClose {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.editFormClose:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text);
+}
+
+.editFormBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.editFormActions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* ─── Empty teams CTA ─────────────────────────────────────────────────────── */
+.emptyTeams {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 0 var(--space-sm);
+}
+
+.emptyTeams .btnAddTeam {
+  /* inherits .btnAddTeam but centered in empty state */
+}
+
+/* ─── Account section additions ───────────────────────────────────────────── */
+.accountLabelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.accountSubtext {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.accountRowError {
+  font-size: 0.8rem;
+  color: var(--color-down);
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.btnClearDevice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-down);
+  background: transparent;
+  border: 1px solid rgba(196, 92, 74, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btnClearDevice:hover {
+  border-color: var(--color-down);
+  background: rgba(196, 92, 74, 0.05);
+}
+
+.btnReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.btnReset:hover {
+  border-color: var(--color-down);
+  color: var(--color-down);
+  background: rgba(196, 92, 74, 0.04);
+}
+
+/* Set primary button inner (holds spinner or star) */
+.btnSetPrimaryInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
 /* ─── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .page {
     padding: var(--space-lg) var(--space-md);
   }
 
-  .teamGrid {
-    max-height: 220px;
-  }
-
   .unauthCard {
     padding: var(--space-xl) var(--space-md);
+  }
+
+  .modalCard {
+    max-width: 100%;
+  }
+
+  .editFormActions {
+    flex-direction: column;
+  }
+
+  .editFormActions .btnPrimary,
+  .editFormActions .btnOutline {
+    width: 100%;
+    justify-content: center;
   }
 }
