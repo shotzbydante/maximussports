@@ -4,7 +4,7 @@
  *
  * Body: { type: 'daily' | 'pinned' | 'odds' | 'news' }
  * Auth: Bearer JWT in Authorization header.
- * Restricted to: dantedicco@gmail.com
+ * Restricted to: dantedicicco@gmail.com
  */
 
 import { verifyUserToken } from '../_lib/supabaseAdmin.js';
@@ -16,7 +16,11 @@ import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderT
 import { getSubject as getOddsSubject, renderHTML as renderOddsHTML, renderText as renderOddsText } from '../../src/emails/templates/oddsIntel.js';
 import { getSubject as getNewsSubject, renderHTML as renderNewsHTML, renderText as renderNewsText } from '../../src/emails/templates/breakingNews.js';
 
-const ADMIN_EMAIL = 'dantedicco@gmail.com';
+const ADMIN_EMAIL = 'dantedicicco@gmail.com';
+
+function isAdminEmail(email) {
+  return (email || '').trim().toLowerCase() === ADMIN_EMAIL;
+}
 
 const VALID_TYPES = ['daily', 'pinned', 'odds', 'news'];
 
@@ -41,7 +45,7 @@ export default async function handler(req, res) {
   }
 
   if (!user) return res.status(401).json({ error: 'Invalid or expired token.' });
-  if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin access only.' });
+  if (!isAdminEmail(user.email)) return res.status(403).json({ error: 'Admin access only.' });
 
   // ── Body validation
   const { type } = req.body || {};
@@ -105,10 +109,11 @@ export default async function handler(req, res) {
 
     subject = `[TEST] ${subject}`;
 
-    await sendEmail({ to: ADMIN_EMAIL, subject, html, text });
+    const sendTo = user.email;
+    await sendEmail({ to: sendTo, subject, html, text });
 
-    console.log(`[send-test] Sent ${type} test email to ${ADMIN_EMAIL}`);
-    return res.status(200).json({ ok: true, type, to: ADMIN_EMAIL });
+    console.log(`[send-test] Sent ${type} test email to ${sendTo}`);
+    return res.status(200).json({ ok: true, type, to: sendTo });
 
   } catch (err) {
     console.error('[send-test] error:', err.message);

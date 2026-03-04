@@ -121,13 +121,18 @@ const DEFAULT_PREFS = {
   newsDigest: true,
 };
 
-const ADMIN_EMAIL = 'dantedicco@gmail.com';
+const ADMIN_EMAIL = 'dantedicicco@gmail.com';
+
+/** Case-insensitive, trimmed admin gate — single source of truth. */
+function isAdminUser(email) {
+  return Boolean(email) && email.trim().toLowerCase() === ADMIN_EMAIL;
+}
 
 const TEST_EMAIL_TYPES = [
-  { type: 'daily',  label: 'Daily AI Briefing' },
-  { type: 'pinned', label: 'Pinned Teams Alerts' },
-  { type: 'odds',   label: 'Odds & ATS Intel' },
-  { type: 'news',   label: 'Breaking News Digest' },
+  { type: 'daily',  label: 'Send Daily AI Briefing (TEST)' },
+  { type: 'pinned', label: 'Send Pinned Teams Alerts (TEST)' },
+  { type: 'odds',   label: 'Send Odds & ATS Intel (TEST)' },
+  { type: 'news',   label: 'Send Breaking News Digest (TEST)' },
 ];
 
 const TIER_STYLE = {
@@ -857,14 +862,19 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
 
 /* ─── Admin QA Email Panel ───────────────────────────────────────────────── */
 function AdminQAPanel({ session }) {
-  const [sending, setSending] = useState(null);
+  const [sending, setSending]   = useState(null);
+  // Per-button last result: { type, ok, message, ts }
+  const [results, setResults]   = useState({});
+
+  const adminEmail = session?.user?.email || '';
 
   async function handleSendTest(type) {
     if (sending) return;
     setSending(type);
+    setResults(prev => ({ ...prev, [type]: null }));
     try {
       const token = session?.access_token;
-      if (!token) { showToast('No auth session found.', { type: 'error' }); return; }
+      if (!token) throw new Error('No auth session — please sign out and back in.');
       const res = await fetch('/api/email/send-test', {
         method: 'POST',
         headers: {
@@ -874,10 +884,13 @@ function AdminQAPanel({ session }) {
         body: JSON.stringify({ type }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const label = TEST_EMAIL_TYPES.find(t => t.type === type)?.label || type;
-      showToast(`Sent — ${label}`, { type: 'success' });
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+      const ts = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+      setResults(prev => ({ ...prev, [type]: { ok: true, message: `Sent at ${ts}`, ts } }));
+      showToast(`Test sent — check ${adminEmail}`, { type: 'success' });
     } catch (err) {
+      const ts = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+      setResults(prev => ({ ...prev, [type]: { ok: false, message: err.message || 'Send failed.', ts } }));
       showToast(err.message || 'Send failed.', { type: 'error' });
     } finally {
       setSending(null);
@@ -885,27 +898,42 @@ function AdminQAPanel({ session }) {
   }
 
   return (
-    <div className={styles.profileSection}>
-      <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Admin QA Email Testing</h3>
+    <div className={styles.adminQaCard}>
+      <div className={styles.adminQaHeader}>
+        <div>
+          <h3 className={styles.adminQaTitle}>Admin QA</h3>
+          <p className={styles.adminQaSubtitle}>Send yourself test emails for each subscription.</p>
+        </div>
         <span className={styles.adminBadge}>Admin</span>
       </div>
-      <p className={styles.adminQaDesc}>
-        Send a test email to <strong>dantedicco@gmail.com</strong> for each subscription type.
-      </p>
+      <p className={styles.adminQaSendTo}>Sends to: <strong>{adminEmail}</strong></p>
       <div className={styles.adminQaGrid}>
-        {TEST_EMAIL_TYPES.map(({ type, label }) => (
-          <button
-            key={type}
-            type="button"
-            className={styles.btnAdminTest}
-            onClick={() => handleSendTest(type)}
-            disabled={!!sending}
-          >
-            {sending === type ? <SpinnerIcon /> : null}
-            <span>Send Test — {label}</span>
-          </button>
-        ))}
+        {TEST_EMAIL_TYPES.map(({ type, label }) => {
+          const result = results[type];
+          const isSending = sending === type;
+          return (
+            <div key={type} className={styles.adminQaRow}>
+              <button
+                type="button"
+                className={`${styles.btnAdminTest} ${result?.ok === true ? styles.btnAdminTestSent : ''} ${result?.ok === false ? styles.btnAdminTestError : ''}`}
+                onClick={() => handleSendTest(type)}
+                disabled={!!sending}
+              >
+                {isSending ? <SpinnerIcon /> : (
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden style={{flexShrink:0}}>
+                    <path d="M1 1l12 6-12 6V8.5l8-1.5-8-1.5V1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
+                  </svg>
+                )}
+                <span>{label}</span>
+              </button>
+              {result && (
+                <span className={result.ok ? styles.adminQaResultOk : styles.adminQaResultErr}>
+                  {result.ok ? '✓' : '✕'} {result.message}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -914,6 +942,11 @@ function AdminQAPanel({ session }) {
 /* ─── Premium Profile Page ───────────────────────────────────────────────── */
 function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut }) {
   const { signOut, session } = useAuth();
+
+  // Dev diagnostics — confirm admin gate values (no tokens logged)
+  if (import.meta.env.DEV) {
+    console.log('[Settings] user.email:', user?.email, '| isAdmin:', isAdminUser(user?.email));
+  }
 
   const [userTeams, setUserTeams]         = useState([]);
   const [teamsLoading, setTeamsLoading]   = useState(true);
@@ -1296,7 +1329,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       </div>
 
       {/* ── Admin QA ── */}
-      {user.email === ADMIN_EMAIL && (
+      {isAdminUser(user.email) && (
         <AdminQAPanel session={session} />
       )}
 
