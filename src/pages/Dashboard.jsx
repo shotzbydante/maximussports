@@ -7,16 +7,19 @@ import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
 import { buildCaption, formatCaptionFile } from '../components/dashboard/captions/buildCaption';
 import CarouselComposer from '../components/dashboard/CarouselComposer';
+import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
+import { waitForImages } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
+import { getTeamSlug } from '../utils/teamSlug';
 import styles from './Dashboard.module.css';
 
 const ADMIN_EMAIL = 'dantedicicco@gmail.com';
 
-const TEMPLATES = [
-  { id: 'daily',  label: 'Daily Briefing',  defaultSlides: 3 },
-  { id: 'team',   label: 'Team Intel',       defaultSlides: 3 },
-  { id: 'game',   label: 'Game Preview',     defaultSlides: 3 },
-  { id: 'odds',   label: 'Odds Insights',    defaultSlides: 3 },
+const SECTIONS = [
+  { id: 'daily', label: 'Daily Briefing', icon: '📅' },
+  { id: 'team',  label: 'Team Intel',     icon: '🏀' },
+  { id: 'game',  label: 'Game Insights',  icon: '📊' },
+  { id: 'odds',  label: 'Odds Insights',  icon: '📈' },
 ];
 
 function gameLabel(g) {
@@ -32,9 +35,22 @@ export default function Dashboard() {
   const isAuthorized = !authLoading && user?.email === ADMIN_EMAIL;
   const isUnauthorized = !authLoading && (!user || user.email !== ADMIN_EMAIL);
 
-  // ── template / picker state ──────────────────────────────
-  const [template, setTemplate] = useState('daily');
+  // ── section / template state ────────────────────────────
+  const [activeSection, setActiveSection] = useState('daily');
+
+  // ── section-specific options ─────────────────────────────
+  const [dailyStyleMode, setDailyStyleMode] = useState('generic');
+  const [includeHeadlines, setIncludeHeadlines] = useState(true);
+  const [gameAngle, setGameAngle] = useState('value');
+  const [picksMode, setPicksMode] = useState('top3');
+  const [riskMode, setRiskMode] = useState('standard');
+
+  // ── slide count (per section default) ────────────────────
+  const SECTION_SLIDE_DEFAULTS = { daily: 3, team: 3, game: 3, odds: 3 };
+  const SECTION_SLIDE_MAX = { daily: 3, team: 3, game: 3, odds: 4 };
   const [slideCount, setSlideCount] = useState(3);
+
+  // ── picker state ──────────────────────────────────────────
   const [teamSearch, setTeamSearch] = useState('');
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
@@ -88,7 +104,7 @@ export default function Dashboard() {
 
   // ── load team page when team selected ────────────────────
   useEffect(() => {
-    if (!selectedTeam?.slug || template !== 'team') {
+    if (!selectedTeam?.slug || activeSection !== 'team') {
       setTeamPageData(null);
       return;
     }
@@ -97,21 +113,21 @@ export default function Dashboard() {
       .then(d => setTeamPageData(d))
       .catch(() => setTeamPageData(null))
       .finally(() => setTeamPageLoading(false));
-  }, [selectedTeam, template]);
+  }, [selectedTeam, activeSection]);
 
-  // ── auto-select first game when template === game ─────────
+  // ── auto-select first game when section === game ──────────
   useEffect(() => {
-    if (template === 'game' && dashData?.odds?.games?.length && !selectedGame) {
+    if (activeSection === 'game' && dashData?.odds?.games?.length && !selectedGame) {
       const first = dashData.odds.games.find(g => g.spread != null || g.homeSpread != null || g.moneyline != null);
       setSelectedGame(first ?? dashData.odds.games[0] ?? null);
     }
-  }, [template, dashData, selectedGame]);
+  }, [activeSection, dashData, selectedGame]);
 
-  // ── sync slideCount when template changes ─────────────────
+  // ── sync slideCount when section changes ──────────────────
   useEffect(() => {
-    const tmpl = TEMPLATES.find(t => t.id === template);
-    if (tmpl) setSlideCount(tmpl.defaultSlides);
-  }, [template]);
+    setSlideCount(SECTION_SLIDE_DEFAULTS[activeSection] ?? 3);
+    setAssetsReady(false);
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
@@ -136,7 +152,7 @@ export default function Dashboard() {
     };
 
     return buildCaption({
-      template,
+      template: activeSection,
       team: teamPageData?.team ?? selectedTeam,
       game: selectedGame,
       picks,
@@ -144,8 +160,9 @@ export default function Dashboard() {
       atsLeaders: atsL,
       headlines: dashData?.headlines ?? [],
       asOf,
+      styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
     });
-  }, [template, dashData, teamPageData, selectedTeam, selectedGame]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode]);
 
   // ── regenerate ────────────────────────────────────────────
   const handleRegenerate = () => {
@@ -160,8 +177,9 @@ export default function Dashboard() {
     try {
       const { toPng } = await import('html-to-image');
       await document.fonts.ready;
+      await waitForImages(exportRef.current);
       const slides = exportRef.current.querySelectorAll('[data-slide]');
-      const prefix = `maximus_${template}`;
+      const prefix = `maximus_${activeSection}`;
       let idx = 1;
       for (const slide of slides) {
         const dataUrl = await toPng(slide, {
@@ -181,7 +199,7 @@ export default function Dashboard() {
     } finally {
       setExporting(false);
     }
-  }, [template]);
+  }, [activeSection]);
 
   // ── download ZIP ──────────────────────────────────────────
   const handleDownloadZip = useCallback(async () => {
@@ -193,9 +211,10 @@ export default function Dashboard() {
         import('jszip').then(m => m.default),
       ]);
       await document.fonts.ready;
+      await waitForImages(exportRef.current);
       const zip = new JSZip();
       const slides = exportRef.current.querySelectorAll('[data-slide]');
-      const prefix = `maximus_${template}`;
+      const prefix = `maximus_${activeSection}`;
       let idx = 1;
       for (const slide of slides) {
         const dataUrl = await toPng(slide, {
@@ -222,7 +241,7 @@ export default function Dashboard() {
     } finally {
       setZipping(false);
     }
-  }, [template, caption]);
+  }, [activeSection, caption]);
 
   // ── copy caption ──────────────────────────────────────────
   const handleCopyCaption = () => {
@@ -234,6 +253,15 @@ export default function Dashboard() {
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  // ── derive tag context from selected game ─────────────────
+  const gameTagContext = useMemo(() => {
+    if (!selectedGame) return {};
+    return {
+      awaySlug: getTeamSlug(selectedGame.awayTeam),
+      homeSlug: getTeamSlug(selectedGame.homeTeam),
+    };
+  }, [selectedGame]);
 
   // ── Gates ─────────────────────────────────────────────────
   if (authLoading) {
@@ -264,12 +292,18 @@ export default function Dashboard() {
     );
   }
 
-  const gamesForPicker = (dashData?.odds?.games ?? []).filter(g =>
-    g.awayTeam && g.homeTeam
-  );
-
+  const gamesForPicker = (dashData?.odds?.games ?? []).filter(g => g.awayTeam && g.homeTeam);
   const isWorking = dataLoading || teamPageLoading;
-  const canExport = !isWorking && !!dashData && (template !== 'team' || !!teamPageData);
+  const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!teamPageData);
+
+  const options = {
+    styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
+    riskMode,
+    picksMode,
+    gameAngle,
+    includeHeadlines,
+    slideCount,
+  };
 
   return (
     <div className={styles.root}>
@@ -288,127 +322,240 @@ export default function Dashboard() {
       {/* ── Studio layout: controls left, preview right ── */}
       <div className={styles.studio}>
 
-        {/* ─── Left: Controls + Caption ─────────────── */}
+        {/* ─── Left: Controls + Caption + Tags ─────────── */}
         <aside className={styles.controls}>
 
-          {/* Template selector */}
-          <div className={styles.controlGroup}>
-            <label className={styles.controlLabel}>Template</label>
-            <div className={styles.selectWrap}>
-              <select
-                className={styles.select}
-                value={template}
-                onChange={e => { setTemplate(e.target.value); setAssetsReady(false); }}
+          {/* Section tabs */}
+          <div className={styles.sectionTabs}>
+            {SECTIONS.map(sec => (
+              <button
+                key={sec.id}
+                className={`${styles.sectionTab} ${activeSection === sec.id ? styles.sectionTabActive : ''}`}
+                onClick={() => {
+                  setActiveSection(sec.id);
+                  setAssetsReady(false);
+                }}
               >
-                {TEMPLATES.map(t => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
-                ))}
-              </select>
-            </div>
+                <span className={styles.tabIcon}>{sec.icon}</span>
+                <span className={styles.tabLabel}>{sec.label}</span>
+              </button>
+            ))}
           </div>
 
-          {/* Slide count */}
-          <div className={styles.controlGroup}>
-            <label className={styles.controlLabel}>Slides</label>
-            <div className={styles.chipGroup}>
-              {[3, 4, 5].map(n => (
-                <button
-                  key={n}
-                  className={`${styles.chip} ${slideCount === n ? styles.chipActive : ''}`}
-                  onClick={() => { setSlideCount(n); setAssetsReady(false); }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Team picker */}
-          {template === 'team' && (
-            <div className={styles.controlGroup}>
-              <label className={styles.controlLabel}>Team</label>
-              <div className={styles.teamPickerWrap}>
-                <input
-                  type="text"
-                  className={styles.searchInput}
-                  placeholder="Search teams…"
-                  value={teamSearch}
-                  onChange={e => { setTeamSearch(e.target.value); setShowTeamDropdown(true); }}
-                  onFocus={() => setShowTeamDropdown(true)}
-                />
-                {showTeamDropdown && filteredTeams.length > 0 && (
-                  <div className={styles.teamDropdown}>
-                    {filteredTeams.map(t => (
-                      <button
-                        key={t.slug}
-                        className={`${styles.teamOption} ${selectedTeam?.slug === t.slug ? styles.teamOptionActive : ''}`}
-                        onClick={() => {
-                          setSelectedTeam(t);
-                          setTeamSearch(t.name);
-                          setShowTeamDropdown(false);
-                          setAssetsReady(false);
-                        }}
-                      >
-                        <img
-                          src={`/logos/${t.slug}.png`}
-                          alt=""
-                          className={styles.teamOptionLogo}
-                          onError={e => { e.currentTarget.style.display = 'none'; }}
-                        />
-                        <span>{t.name}</span>
-                        <span className={styles.teamConf}>{t.conference}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {selectedTeam && (
-                <div className={styles.selectedTeamPill}>
-                  <img
-                    src={`/logos/${selectedTeam.slug}.png`}
-                    alt=""
-                    className={styles.selectedTeamLogo}
-                    onError={e => { e.currentTarget.style.display = 'none'; }}
-                  />
-                  {selectedTeam.name}
+          {/* ─── Daily Briefing controls ──────────────── */}
+          {activeSection === 'daily' && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Style</label>
+                <div className={styles.toggleRow}>
+                  <span className={styles.toggleLabel}>Generic info</span>
                   <button
-                    className={styles.clearBtn}
-                    onClick={() => { setSelectedTeam(null); setTeamSearch(''); setAssetsReady(false); }}
-                  >×</button>
+                    className={`${styles.toggle} ${dailyStyleMode === 'robot' ? styles.toggleOn : ''}`}
+                    onClick={() => {
+                      setDailyStyleMode(m => m === 'robot' ? 'generic' : 'robot');
+                      setAssetsReady(false);
+                    }}
+                    role="switch"
+                    aria-checked={dailyStyleMode === 'robot'}
+                  >
+                    <span className={styles.toggleThumb} />
+                  </button>
+                  <span className={`${styles.toggleLabel} ${dailyStyleMode === 'robot' ? styles.toggleLabelActive : ''}`}>
+                    Robot voice
+                  </span>
                 </div>
-              )}
-              {teamPageLoading && <div className={styles.miniSpinner} />}
+              </div>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Slides</label>
+                <div className={styles.chipGroup}>
+                  {[3].map(n => (
+                    <button
+                      key={n}
+                      className={`${styles.chip} ${slideCount === n ? styles.chipActive : ''}`}
+                      onClick={() => { setSlideCount(n); setAssetsReady(false); }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Game picker */}
-          {template === 'game' && (
-            <div className={styles.controlGroup}>
-              <label className={styles.controlLabel}>Game</label>
-              {gamesForPicker.length === 0 ? (
-                <div className={styles.emptyPicker}>No games with lines available</div>
-              ) : (
-                <div className={styles.selectWrap}>
-                  <select
-                    className={styles.select}
-                    value={selectedGame ? JSON.stringify({ away: selectedGame.awayTeam, home: selectedGame.homeTeam }) : ''}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (!val) return;
-                      const { away, home } = JSON.parse(val);
-                      const g = gamesForPicker.find(x => x.awayTeam === away && x.homeTeam === home);
-                      setSelectedGame(g ?? null);
-                      setAssetsReady(false);
-                    }}
-                  >
-                    {gamesForPicker.map((g, i) => (
-                      <option key={i} value={JSON.stringify({ away: g.awayTeam, home: g.homeTeam })}>
-                        {gameLabel(g)}
-                      </option>
-                    ))}
-                  </select>
+          {/* ─── Team Intel controls ───────────────────── */}
+          {activeSection === 'team' && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Team</label>
+                <div className={styles.teamPickerWrap}>
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder="Search teams…"
+                    value={teamSearch}
+                    onChange={e => { setTeamSearch(e.target.value); setShowTeamDropdown(true); }}
+                    onFocus={() => setShowTeamDropdown(true)}
+                  />
+                  {showTeamDropdown && filteredTeams.length > 0 && (
+                    <div className={styles.teamDropdown}>
+                      {filteredTeams.map(t => (
+                        <button
+                          key={t.slug}
+                          className={`${styles.teamOption} ${selectedTeam?.slug === t.slug ? styles.teamOptionActive : ''}`}
+                          onClick={() => {
+                            setSelectedTeam(t);
+                            setTeamSearch(t.name);
+                            setShowTeamDropdown(false);
+                            setAssetsReady(false);
+                          }}
+                        >
+                          <img
+                            src={`/logos/${t.slug}.png`}
+                            alt=""
+                            className={styles.teamOptionLogo}
+                            onError={e => { e.currentTarget.style.display = 'none'; }}
+                          />
+                          <span>{t.name}</span>
+                          <span className={styles.teamConf}>{t.conference}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+                {selectedTeam && (
+                  <div className={styles.selectedTeamPill}>
+                    <img
+                      src={`/logos/${selectedTeam.slug}.png`}
+                      alt=""
+                      className={styles.selectedTeamLogo}
+                      onError={e => { e.currentTarget.style.display = 'none'; }}
+                    />
+                    {selectedTeam.name}
+                    <button
+                      className={styles.clearBtn}
+                      onClick={() => { setSelectedTeam(null); setTeamSearch(''); setAssetsReady(false); }}
+                    >×</button>
+                  </div>
+                )}
+                {teamPageLoading && <div className={styles.miniSpinner} />}
+              </div>
+              <div className={styles.controlGroup}>
+                <div className={styles.toggleRow}>
+                  <span className={styles.toggleLabel}>Recent headlines</span>
+                  <button
+                    className={`${styles.toggle} ${includeHeadlines ? styles.toggleOn : ''}`}
+                    onClick={() => { setIncludeHeadlines(v => !v); setAssetsReady(false); }}
+                    role="switch"
+                    aria-checked={includeHeadlines}
+                  >
+                    <span className={styles.toggleThumb} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Game Insights controls ────────────────── */}
+          {activeSection === 'game' && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Game</label>
+                {gamesForPicker.length === 0 ? (
+                  <div className={styles.emptyPicker}>No games with lines available</div>
+                ) : (
+                  <div className={styles.selectWrap}>
+                    <select
+                      className={styles.select}
+                      value={selectedGame ? JSON.stringify({ away: selectedGame.awayTeam, home: selectedGame.homeTeam }) : ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        const { away, home } = JSON.parse(val);
+                        const g = gamesForPicker.find(x => x.awayTeam === away && x.homeTeam === home);
+                        setSelectedGame(g ?? null);
+                        setAssetsReady(false);
+                      }}
+                    >
+                      {gamesForPicker.map((g, i) => (
+                        <option key={i} value={JSON.stringify({ away: g.awayTeam, home: g.homeTeam })}>
+                          {gameLabel(g)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Angle</label>
+                <div className={styles.chipGroup}>
+                  {[
+                    { id: 'value', label: 'Value' },
+                    { id: 'story', label: 'Story' },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      className={`${styles.chip} ${gameAngle === opt.id ? styles.chipActive : ''}`}
+                      onClick={() => { setGameAngle(opt.id); setAssetsReady(false); }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Odds Insights controls ────────────────── */}
+          {activeSection === 'odds' && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Picks focus</label>
+                <div className={styles.chipGroup}>
+                  {[
+                    { id: 'top3', label: 'Top 3' },
+                    { id: 'full', label: 'Full card' },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      className={`${styles.chip} ${picksMode === opt.id ? styles.chipActive : ''}`}
+                      onClick={() => { setPicksMode(opt.id); setAssetsReady(false); }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Risk mode</label>
+                <div className={styles.chipGroup}>
+                  {[
+                    { id: 'standard', label: 'Standard' },
+                    { id: 'conservative', label: 'Conservative' },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      className={`${styles.chip} ${riskMode === opt.id ? styles.chipActive : ''}`}
+                      onClick={() => { setRiskMode(opt.id); setAssetsReady(false); }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Slides</label>
+                <div className={styles.chipGroup}>
+                  {[3, 4].map(n => (
+                    <button
+                      key={n}
+                      className={`${styles.chip} ${slideCount === n ? styles.chipActive : ''}`}
+                      onClick={() => { setSlideCount(n); setAssetsReady(false); }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -466,6 +613,16 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* Tag Suggestions panel */}
+          <TagSuggestionsPanel
+            template={activeSection}
+            teamSlug={selectedTeam?.slug}
+            conference={selectedTeam?.conference}
+            awaySlug={gameTagContext.awaySlug}
+            homeSlug={gameTagContext.homeSlug}
+          />
+
         </aside>
 
         {/* ─── Right: Slide previews ─────────────────── */}
@@ -478,13 +635,14 @@ export default function Dashboard() {
             </div>
           ) : (
             <CarouselComposer
-              template={template}
+              template={activeSection}
               slideCount={slideCount}
               data={dashData}
               teamData={teamPageData}
               selectedGame={selectedGame}
               exportRef={exportRef}
               onAssetsReady={() => setAssetsReady(true)}
+              options={options}
             />
           )}
         </section>

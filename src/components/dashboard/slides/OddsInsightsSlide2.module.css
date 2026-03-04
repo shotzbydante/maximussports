@@ -1,106 +1,149 @@
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #B7986C;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 90px;
+  font-size: 88px;
   font-weight: 700;
-  line-height: 1.0;
+  line-height: 1.02;
   color: #ffffff;
   margin: 0 0 28px;
   letter-spacing: -0.01em;
 }
 
 .divider {
-  width: 72px;
+  width: 80px;
   height: 4px;
   background: linear-gradient(90deg, #B7986C, #3C79B4);
   border-radius: 4px;
-  margin-bottom: 40px;
+  margin-bottom: 44px;
 }
 
-.empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  color: rgba(240, 244, 248, 0.4);
-}
-
-.matchupList {
+/* Picks list (single column) */
+.picksList {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
+  flex: 1;
 }
 
-.matchupRow {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.13);
-  border-radius: 16px;
-  padding: 22px 28px;
+/* Combined grid (2 col) */
+.combinedGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  flex: 1;
+}
+
+.colSection {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.teamNames {
+.colLabel {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #B7986C;
+  border-bottom: 1px solid rgba(183, 152, 108, 0.2);
+  padding-bottom: 10px;
+}
+
+/* Pick row */
+.pickRow {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  border-radius: 16px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pickTop {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.awayTeam,
-.homeTeam {
+.pickType {
   font-family: 'Oswald', sans-serif;
-  font-size: 28px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 6px;
+  padding: 4px 12px;
+}
+
+.pickTypeML {
+  color: #B7986C;
+  background: rgba(183, 152, 108, 0.12);
+  border-color: rgba(183, 152, 108, 0.25);
+}
+
+.mlPrice {
+  font-family: 'Oswald', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.confBadge {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  padding: 4px 12px;
+}
+
+.pickLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 32px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
 }
 
-.atSymbol {
-  font-size: 22px;
-  color: rgba(240, 244, 248, 0.3);
-  font-weight: 400;
+.whyValue {
+  font-size: 19px;
+  color: rgba(240, 244, 248, 0.5);
+  font-weight: 500;
+  line-height: 1.4;
 }
 
-.lineChips {
-  display: flex;
-  gap: 10px;
-  flex-shrink: 0;
+.slipTip {
+  font-size: 17px;
+  color: rgba(183, 152, 108, 0.65);
+  font-style: italic;
 }
 
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(60, 121, 180, 0.1);
-  border: 1px solid rgba(60, 121, 180, 0.2);
-  border-radius: 8px;
-  padding: 6px 14px;
-}
-
-.chipKey {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: rgba(240, 244, 248, 0.4);
-}
-
-.chipVal {
-  font-family: 'Oswald', sans-serif;
+.empty {
   font-size: 26px;
-  font-weight: 700;
-  color: #ffffff;
+  color: rgba(240, 244, 248, 0.4);
+  text-align: center;
+  padding: 60px 0;
+  font-style: italic;
+}
+
+.disclaimer {
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.28);
+  font-style: italic;
+  text-align: center;
 }

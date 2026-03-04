@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 48px 68px 28px;
+  padding: 56px 80px 28px;
   border-bottom: 1px solid rgba(60, 121, 180, 0.18);
 }
 
@@ -100,20 +100,33 @@
   position: relative;
   z-index: 2;
   flex: 1;
-  padding: 52px 68px 36px;
+  padding: 52px 80px 36px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* ── Footer ─────────────────────────────────────────────── */
+/* ── Robot mode tag ──────────────────────────────────────── */
+.robotTag {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--slide-accent, #3C79B4);
+  background: rgba(60, 121, 180, 0.1);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Footer — raised for IG safe zone ───────────────────── */
 .footer {
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 68px 40px;
+  padding: 24px 80px 72px;
   border-top: 1px solid rgba(60, 121, 180, 0.12);
   gap: 20px;
 }

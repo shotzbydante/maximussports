@@ -1,48 +1,162 @@
 .datePill {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(60, 121, 180, 0.15);
-  border: 1px solid rgba(60, 121, 180, 0.28);
-  border-radius: 999px;
-  padding: 8px 24px;
+  display: inline-block;
   font-size: 20px;
   font-weight: 600;
-  color: #C9ECF5;
-  letter-spacing: 0.02em;
+  color: rgba(240, 244, 248, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 6px 20px;
   margin-bottom: 28px;
-  align-self: flex-start;
+  letter-spacing: 0.03em;
 }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #3C79B4;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 96px;
+  font-size: 88px;
   font-weight: 700;
-  line-height: 1.0;
+  line-height: 1.02;
   color: #ffffff;
   margin: 0 0 32px;
   letter-spacing: -0.01em;
 }
 
 .divider {
-  width: 72px;
+  width: 80px;
   height: 4px;
   background: linear-gradient(90deg, #3C79B4, #B7986C);
   border-radius: 4px;
+  margin-bottom: 48px;
+}
+
+/* Count grid */
+.countGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 44px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+.countCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  border-radius: 16px;
+  padding: 24px 12px;
+}
+
+.countValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 56px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.countLabel {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.45);
+}
+
+/* Featured pick */
+.featuredPick {
+  background: rgba(60, 121, 180, 0.07);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 20px;
+  padding: 40px 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.featuredLabel {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #3C79B4;
+}
+
+.featuredLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 44px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.featuredWhy {
+  font-size: 22px;
+  color: rgba(240, 244, 248, 0.55);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.featuredConf {
+  margin-top: 4px;
+}
+
+.confBadge {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  padding: 6px 16px;
+  display: inline-block;
+}
+
+/* Empty state */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: center;
+  padding: 40px;
+}
+
+.emptyIcon { font-size: 72px; line-height: 1; }
+
+.emptyTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 38px;
+  color: rgba(240, 244, 248, 0.7);
+  margin: 0;
+  font-weight: 600;
+}
+
+.emptyText {
+  font-size: 22px;
+  color: rgba(240, 244, 248, 0.4);
+  margin: 0;
+  line-height: 1.4;
+  max-width: 560px;
+}
+
+.disclaimer {
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.28);
+  font-style: italic;
+  text-align: center;
 }

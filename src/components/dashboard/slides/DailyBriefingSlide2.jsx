@@ -2,7 +2,10 @@ import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksM
 import styles from './DailyBriefingSlide2.module.css';
 import SlideShell from './SlideShell';
 
-export default function DailyBriefingSlide2({ data, asOf, ...rest }) {
+export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest }) {
+  const { styleMode = 'generic' } = options;
+  const isRobot = styleMode === 'robot';
+
   const games = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
@@ -24,10 +27,18 @@ export default function DailyBriefingSlide2({ data, asOf, ...rest }) {
   };
 
   return (
-    <SlideShell asOf={asOf} accentColor="#B7986C" rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
+      {isRobot && (
+        <div className={styles.speechBubble}>
+          Maximus says:
+        </div>
+      )}
+
       <div className={styles.titleBlock}>
         <div className={styles.titleSup}>MAXIMUS PICKS</div>
-        <h2 className={styles.title}>Today&rsquo;s<br />Strongest Leans</h2>
+        <h2 className={styles.title}>
+          {isRobot ? <>My top leans<br />for today</> : <>Today&rsquo;s<br />Strongest Leans</>}
+        </h2>
       </div>
 
       <div className={styles.divider} />
@@ -37,7 +48,9 @@ export default function DailyBriefingSlide2({ data, asOf, ...rest }) {
           <div className={styles.emptyIcon}>📊</div>
           <p className={styles.emptyTitle}>No qualified leans right now</p>
           <p className={styles.emptyText}>
-            Check back closer to tip-off when lines sharpen.
+            {isRobot
+              ? 'Nothing cleared my threshold. Check back closer to tip-off.'
+              : 'Check back closer to tip-off when lines sharpen.'}
           </p>
         </div>
       ) : (
@@ -45,7 +58,7 @@ export default function DailyBriefingSlide2({ data, asOf, ...rest }) {
           {allPicks.map((pick, i) => {
             const conf = (pick.confidence === 2 ? 'high' : pick.confidence === 1 ? 'medium' : 'low');
             const c = CONF_COLOR[conf] || CONF_COLOR.low;
-            const isAts = pick.type === 'ats' || pick.atsEdge != null;
+            const isAts = pick.pickType === 'ats' || pick.type === 'ats';
             return (
               <div key={i} className={styles.pickCard}>
                 <div className={styles.pickTop}>
@@ -58,12 +71,8 @@ export default function DailyBriefingSlide2({ data, asOf, ...rest }) {
                   </span>
                 </div>
                 <div className={styles.pickLine}>{pick.pickLine || '—'}</div>
-                {(pick.atsEdge != null || pick.valueGap != null) && (
-                  <div className={styles.pickEdge}>
-                    Edge: {pick.atsEdge != null
-                      ? `${(pick.atsEdge * 100).toFixed(0)}%`
-                      : `+${(pick.valueGap * 100).toFixed(0)}%`}
-                  </div>
+                {pick.whyValue && (
+                  <div className={styles.pickEdge}>{pick.whyValue}</div>
                 )}
               </div>
             );
@@ -72,7 +81,9 @@ export default function DailyBriefingSlide2({ data, asOf, ...rest }) {
       )}
 
       <div className={styles.disclaimer}>
-        All leans are algorithmic. Not financial advice.
+        {isRobot
+          ? 'Algorithmic leans only. Not financial advice.'
+          : 'All leans are algorithmic. Not financial advice.'}
       </div>
     </SlideShell>
   );

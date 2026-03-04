@@ -7,6 +7,7 @@ import styles from './SlideShell.module.css';
  *   asOf          – "10:30 AM PT" string
  *   accentColor   – CSS override for gradient glow (default: brand blue)
  *   brandMode     – "standard" (logo + robot) | "light" (logo only)
+ *   styleMode     – "generic" (default) | "robot" (more prominent mascot + robot indicator)
  *   slideNumber   – optional 1-based index
  *   slideTotal    – optional total slides count
  *   rest          – spread onto root div (needed for data-slide attr used by exporter)
@@ -16,10 +17,13 @@ export default function SlideShell({
   asOf,
   accentColor = '#3C79B4',
   brandMode = 'standard',
+  styleMode = 'generic',
   slideNumber,
   slideTotal,
   rest = {},
 }) {
+  const isRobot = styleMode === 'robot';
+
   return (
     <div
       className={styles.artboard}
@@ -29,9 +33,12 @@ export default function SlideShell({
       {/* Background gradient */}
       <div className={styles.bgLayer} />
 
-      {/* Robot mascot corner accent (standard mode only) */}
+      {/* Robot mascot corner accent */}
       {brandMode !== 'light' && (
-        <div className={styles.mascotWrap}>
+        <div
+          className={styles.mascotWrap}
+          style={{ opacity: isRobot ? 0.28 : 0.18 }}
+        >
           <img
             src="/mascot.png"
             alt=""
@@ -41,7 +48,7 @@ export default function SlideShell({
         </div>
       )}
 
-      {/* Header: text logo left, timestamp right */}
+      {/* Header: text logo left, mode indicator + timestamp right */}
       <header className={styles.header}>
         <div className={styles.logoRow}>
           <img
@@ -53,6 +60,7 @@ export default function SlideShell({
           <span className={styles.logoText}>MAXIMUS SPORTS</span>
         </div>
         <div className={styles.headerRight}>
+          {isRobot && <div className={styles.robotTag}>ROBOT MODE</div>}
           {asOf && <div className={styles.asOf}>As of {asOf}</div>}
           {slideNumber != null && slideTotal != null && (
             <div className={styles.slideNum}>{slideNumber}&thinsp;/&thinsp;{slideTotal}</div>
@@ -65,7 +73,7 @@ export default function SlideShell({
         {children}
       </main>
 
-      {/* Footer */}
+      {/* Footer — raised to avoid IG overlay zone */}
       <footer className={styles.footer}>
         <span className={styles.footerUrl}>maximussports.ai</span>
         <span className={styles.footerDisclaimer}>

@@ -19,37 +19,50 @@ import GamePreviewSlide3 from './slides/GamePreviewSlide3';
 import OddsInsightsSlide1 from './slides/OddsInsightsSlide1';
 import OddsInsightsSlide2 from './slides/OddsInsightsSlide2';
 import OddsInsightsSlide3 from './slides/OddsInsightsSlide3';
+import OddsInsightsSlide4 from './slides/OddsInsightsSlide4';
 
 import styles from './CarouselComposer.module.css';
 
 /**
  * Template → ordered slide component list.
- * Each entry is a component that accepts { data, teamData, game, asOf, slideNumber, slideTotal }.
+ * Each entry is a component that accepts { data, teamData, game, asOf, slideNumber, slideTotal, options }.
  */
 function getSlides(template, slideCount) {
-  const clamp = n => Math.max(1, Math.min(slideCount, n));
   switch (template) {
     case 'team':
-      return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, clamp(3));
+      return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 3));
     case 'game':
-      return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, clamp(3));
+      return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, Math.min(slideCount, 3));
     case 'odds':
-      return [OddsInsightsSlide1, OddsInsightsSlide2, OddsInsightsSlide3].slice(0, clamp(3));
+      if (slideCount >= 4) {
+        return [OddsInsightsSlide1, OddsInsightsSlide2, OddsInsightsSlide3, OddsInsightsSlide4].slice(0, Math.min(slideCount, 4));
+      }
+      return [OddsInsightsSlide1, OddsInsightsSlide2, OddsInsightsSlide3].slice(0, Math.min(slideCount, 3));
     case 'daily':
     default:
-      return [DailyBriefingSlide1, DailyBriefingSlide2, DailyBriefingSlide3].slice(0, clamp(3));
+      return [DailyBriefingSlide1, DailyBriefingSlide2, DailyBriefingSlide3].slice(0, Math.min(slideCount, 3));
   }
 }
 
 const TEMPLATE_LABELS = {
   daily: 'Daily Briefing',
   team:  'Team Intel',
-  game:  'Game Preview',
+  game:  'Game Insights',
   odds:  'Odds Insights',
 };
 
 /**
  * Renders a scaled preview row + hidden full-res export artboards.
+ *
+ * Props:
+ *   template     – 'daily'|'team'|'game'|'odds'
+ *   slideCount   – number of slides
+ *   data         – home/odds data
+ *   teamData     – team page data
+ *   selectedGame – selected game object
+ *   exportRef    – ref forwarded to the export layer
+ *   onAssetsReady – callback when slides are ready
+ *   options      – { styleMode, riskMode, picksMode, gameAngle, includeHeadlines }
  */
 export default function CarouselComposer({
   template = 'daily',
@@ -59,6 +72,7 @@ export default function CarouselComposer({
   selectedGame,
   exportRef,
   onAssetsReady,
+  options = {},
 }) {
   const asOf = new Date().toLocaleTimeString('en-US', {
     hour: 'numeric', minute: '2-digit',
@@ -68,12 +82,12 @@ export default function CarouselComposer({
   const slides = getSlides(template, slideCount);
   const total = slides.length;
 
-  const slideProps = { data, teamData, game: selectedGame, asOf, slideTotal: total };
+  const slideProps = { data, teamData, game: selectedGame, asOf, slideTotal: total, options };
 
   useEffect(() => {
     const t = setTimeout(() => onAssetsReady?.(), 700);
     return () => clearTimeout(t);
-  }, [data, teamData, selectedGame, template, onAssetsReady]);
+  }, [data, teamData, selectedGame, template, options, onAssetsReady]);
 
   return (
     <div className={styles.root}>

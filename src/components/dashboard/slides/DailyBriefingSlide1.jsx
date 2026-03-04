@@ -1,7 +1,10 @@
 import styles from './DailyBriefingSlide1.module.css';
 import SlideShell from './SlideShell';
 
-export default function DailyBriefingSlide1({ data, asOf, ...rest }) {
+export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest }) {
+  const { styleMode = 'generic' } = options;
+  const isRobot = styleMode === 'robot';
+
   const games = data?.odds?.games ?? [];
   const ranked = data?.rankingsTop25 ?? [];
   const headlines = data?.headlines ?? [];
@@ -26,21 +29,22 @@ export default function DailyBriefingSlide1({ data, asOf, ...rest }) {
   ];
 
   const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'America/Los_Angeles',
+    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
   });
 
   return (
-    <SlideShell asOf={asOf} accentColor="#3C79B4" rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
       {/* Date pill */}
       <div className={styles.datePill}>{today}</div>
 
       {/* Title */}
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>DAILY BRIEFING</div>
-        <h2 className={styles.title}>Today in<br />College Basketball</h2>
+        <div className={styles.titleSup}>
+          {isRobot ? 'MAXIMUS SAYS' : 'DAILY BRIEFING'}
+        </div>
+        <h2 className={styles.title}>
+          {isRobot ? <>Here&rsquo;s today&rsquo;s<br />intel.</> : <>Today in<br />College Basketball</>}
+        </h2>
       </div>
 
       {/* Divider */}
@@ -59,7 +63,9 @@ export default function DailyBriefingSlide1({ data, asOf, ...rest }) {
       {/* Headlines */}
       {topHeadlines.length > 0 && (
         <div className={styles.headlinesBlock}>
-          <div className={styles.sectionLabel}>HEADLINES</div>
+          <div className={styles.sectionLabel}>
+            {isRobot ? "I'M TRACKING" : 'HEADLINES'}
+          </div>
           {topHeadlines.map((h, i) => (
             <div key={i} className={styles.headlineRow}>
               <span className={styles.headlineBullet}>→</span>

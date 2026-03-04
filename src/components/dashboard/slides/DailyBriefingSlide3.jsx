@@ -15,11 +15,13 @@ function formatML(ml) {
   return n > 0 ? `+${n}` : String(n);
 }
 
-export default function DailyBriefingSlide3({ data, asOf, ...rest }) {
+export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest }) {
+  const { styleMode = 'generic' } = options;
+  const isRobot = styleMode === 'robot';
+
   const games = data?.odds?.games ?? [];
   const headlines = data?.headlines ?? [];
 
-  // Top matchup: prefer the game with the smallest absolute spread (most competitive)
   const gamesWithOdds = games.filter(g => g.spread != null || g.homeSpread != null);
   const sortedBySpread = [...gamesWithOdds].sort((a, b) => {
     const sa = Math.abs(parseFloat(a.spread ?? a.homeSpread ?? 99));
@@ -27,14 +29,9 @@ export default function DailyBriefingSlide3({ data, asOf, ...rest }) {
     return sa - sb;
   });
   const topGame = sortedBySpread[0] ?? null;
-
-  // Next best game
   const watchGames = sortedBySpread.slice(1, 3);
 
-  // Headlines (skip ones used in slide 1 repeat)
-  const notableHeadlines = headlines
-    .filter(h => h.title || h.headline)
-    .slice(0, 3);
+  const notableHeadlines = headlines.filter(h => h.title || h.headline).slice(0, 3);
 
   const bullets = [
     topGame && {
@@ -51,20 +48,24 @@ export default function DailyBriefingSlide3({ data, asOf, ...rest }) {
       text: g.awayTeam && g.homeTeam
         ? `${g.awayTeam} @ ${g.homeTeam}${g.moneyline ? ` (ML: ${formatML(g.moneyline)})` : ''}`
         : null,
-      tag: 'WATCH',
+      tag: isRobot ? 'WATCHING' : 'WATCH',
     })),
     ...notableHeadlines.slice(0, 2).map(h => ({
       icon: '📰',
       text: (h.title || h.headline || '').slice(0, 80),
-      tag: 'NEWS',
+      tag: isRobot ? 'TRACKING' : 'NEWS',
     })),
   ].filter(b => b && b.text).slice(0, 4);
 
   return (
-    <SlideShell asOf={asOf} accentColor="#3C79B4" rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>GAME PREVIEW</div>
-        <h2 className={styles.title}>What to<br />Watch Today</h2>
+        <div className={styles.titleSup}>
+          {isRobot ? 'MAXIMUS SAYS' : 'GAME PREVIEW'}
+        </div>
+        <h2 className={styles.title}>
+          {isRobot ? <>Watch these<br />games today</> : <>What to<br />Watch Today</>}
+        </h2>
       </div>
 
       <div className={styles.divider} />
@@ -88,7 +89,9 @@ export default function DailyBriefingSlide3({ data, asOf, ...rest }) {
       )}
 
       <div className={styles.ctaBlock}>
-        <div className={styles.ctaLine}>Full analysis at maximussports.ai</div>
+        <div className={styles.ctaLine}>
+          {isRobot ? 'More intel at maximussports.ai 🤖' : 'Full analysis at maximussports.ai'}
+        </div>
       </div>
     </SlideShell>
   );
