@@ -1,0 +1,132 @@
+.logoHero {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 32px;
+  height: 200px;
+}
+
+.teamLogo {
+  max-height: 200px;
+  max-width: 200px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px rgba(60, 121, 180, 0.4));
+}
+
+.logoPlaceholder {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(60, 121, 180, 0.12);
+  border: 2px dashed rgba(60, 121, 180, 0.25);
+}
+
+.nameBlock {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.nameMeta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.rankPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  background: rgba(183, 152, 108, 0.18);
+  border: 1px solid rgba(183, 152, 108, 0.35);
+  color: #B7986C;
+  border-radius: 8px;
+  padding: 5px 14px;
+  letter-spacing: 0.04em;
+}
+
+.confPill {
+  font-size: 18px;
+  font-weight: 600;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  color: #C9ECF5;
+  border-radius: 8px;
+  padding: 5px 14px;
+  letter-spacing: 0.03em;
+}
+
+.teamName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: #ffffff;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.record {
+  font-size: 26px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.divider {
+  width: 72px;
+  height: 4px;
+  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  border-radius: 4px;
+  margin: 0 auto 32px;
+}
+
+.nextGame {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 28px;
+}
+
+.nextLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.35);
+  margin-bottom: 10px;
+}
+
+.nextRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.nextOpp {
+  font-family: 'Oswald', sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.linePill {
+  font-size: 22px;
+  font-weight: 700;
+  background: rgba(60, 121, 180, 0.14);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  color: #C9ECF5;
+  border-radius: 8px;
+  padding: 5px 14px;
+}
+
+.nextTime {
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.45);
+  font-weight: 400;
+}

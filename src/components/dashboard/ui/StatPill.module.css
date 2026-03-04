@@ -1,0 +1,32 @@
+.root {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  border-radius: 18px;
+  padding: 30px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.accent {
+  border-color: rgba(183, 152, 108, 0.3);
+  background: rgba(183, 152, 108, 0.06);
+}
+
+.value {
+  font-family: 'Oswald', sans-serif;
+  font-size: 68px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.label {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+}

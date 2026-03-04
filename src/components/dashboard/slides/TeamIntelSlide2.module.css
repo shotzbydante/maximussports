@@ -1,0 +1,122 @@
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1.0;
+  color: #ffffff;
+  margin: 0 0 32px;
+  letter-spacing: -0.01em;
+}
+
+.divider {
+  width: 72px;
+  height: 4px;
+  background: linear-gradient(90deg, #B7986C, #3C79B4);
+  border-radius: 4px;
+  margin-bottom: 52px;
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.4);
+}
+
+.windowList {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin-bottom: 40px;
+}
+
+.windowRow {
+  display: grid;
+  grid-template-columns: 120px 140px 1fr;
+  align-items: center;
+  gap: 24px;
+}
+
+.windowLabel {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.45);
+}
+
+.windowRec {
+  font-family: 'Oswald', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.barTrack {
+  position: relative;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.barFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  border-radius: 10px;
+  transition: width 0.4s ease;
+}
+
+.barLabel {
+  position: absolute;
+  right: -48px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.55);
+  white-space: nowrap;
+}
+
+.barTrackEmpty {
+  height: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+}
+
+.signalBlock {
+  background: rgba(183, 152, 108, 0.08);
+  border: 1px solid rgba(183, 152, 108, 0.2);
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin-top: auto;
+}
+
+.signalLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 10px;
+}
+
+.signalText {
+  font-size: 28px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.85);
+  line-height: 1.4;
+}

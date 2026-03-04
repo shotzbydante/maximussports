@@ -14,90 +14,120 @@
   color: #f0f4f8;
 }
 
-/* Radial accent glow */
+/* Radial accent glow from top */
 .bgLayer {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 900px 600px at 50% -80px, rgba(60, 121, 180, 0.28) 0%, transparent 70%),
-    linear-gradient(180deg, #0e1e2f 0%, #081422 100%);
+    radial-gradient(ellipse 960px 560px at 50% -60px, color-mix(in srgb, var(--slide-accent, #3C79B4) 32%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, #0e1e2f 0%, #071422 100%);
   pointer-events: none;
   z-index: 0;
+}
+
+/* ── Robot mascot corner ─────────────────────────────── */
+.mascotWrap {
+  position: absolute;
+  bottom: 108px;
+  right: 52px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.18;
+  filter: drop-shadow(0 0 32px rgba(60, 121, 180, 0.6));
+}
+
+.mascot {
+  width: 160px;
+  height: auto;
+  display: block;
 }
 
 /* ── Header ─────────────────────────────────────────────── */
 .header {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 52px 72px 32px;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.2);
+  padding: 48px 68px 28px;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.18);
 }
 
 .logoRow {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
 .logo {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .logoText {
   font-family: 'Oswald', sans-serif;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: #ffffff;
 }
 
+.headerRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .asOf {
-  font-size: 22px;
-  color: rgba(240, 244, 248, 0.45);
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.4);
   font-weight: 400;
   letter-spacing: 0.02em;
 }
 
-/* ── Content ─────────────────────────────────────────────── */
+.slideNum {
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.28);
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Content area ─────────────────────────────────────── */
 .content {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   flex: 1;
-  padding: 60px 72px 40px;
+  padding: 52px 68px 36px;
   display: flex;
   flex-direction: column;
-  gap: 0;
   overflow: hidden;
 }
 
 /* ── Footer ─────────────────────────────────────────────── */
 .footer {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 72px 44px;
-  border-top: 1px solid rgba(60, 121, 180, 0.15);
+  padding: 24px 68px 40px;
+  border-top: 1px solid rgba(60, 121, 180, 0.12);
   gap: 20px;
 }
 
 .footerUrl {
   font-family: 'Oswald', sans-serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--slide-accent, #3C79B4);
 }
 
 .footerDisclaimer {
-  font-size: 18px;
-  color: rgba(240, 244, 248, 0.35);
+  font-size: 16px;
+  color: rgba(240, 244, 248, 0.28);
   font-style: italic;
 }

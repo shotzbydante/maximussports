@@ -1,0 +1,129 @@
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #3C79B4;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 86px;
+  font-weight: 700;
+  line-height: 1.02;
+  color: #ffffff;
+  margin: 0 0 28px;
+  letter-spacing: -0.01em;
+}
+
+.divider {
+  width: 72px;
+  height: 4px;
+  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  border-radius: 4px;
+  margin-bottom: 40px;
+}
+
+.slipSection {
+  margin-bottom: 36px;
+}
+
+.slipLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 16px;
+}
+
+.slipCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.2);
+  border-radius: 18px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slipType {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  border-radius: 6px;
+  padding: 4px 14px;
+  align-self: flex-start;
+}
+
+.slipLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.slipWhy {
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.55);
+  line-height: 1.4;
+}
+
+.slipConf {
+  align-self: flex-start;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  padding: 5px 14px;
+}
+
+.noSlip {
+  font-size: 24px;
+  color: rgba(240, 244, 248, 0.35);
+  font-style: italic;
+  padding: 16px 0;
+}
+
+.watchSection {
+  border-top: 1px solid rgba(60, 121, 180, 0.12);
+  padding-top: 28px;
+}
+
+.watchLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.35);
+  margin-bottom: 18px;
+}
+
+.watchRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.watchBullet {
+  font-size: 22px;
+  color: #3C79B4;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.watchText {
+  font-size: 22px;
+  color: rgba(240, 244, 248, 0.72);
+  line-height: 1.4;
+  font-weight: 500;
+}

@@ -1,53 +1,111 @@
 import { useEffect } from 'react';
+
+// Daily Briefing slides
 import DailyBriefingSlide1 from './slides/DailyBriefingSlide1';
 import DailyBriefingSlide2 from './slides/DailyBriefingSlide2';
 import DailyBriefingSlide3 from './slides/DailyBriefingSlide3';
+
+// Team Intel slides
+import TeamIntelSlide1 from './slides/TeamIntelSlide1';
+import TeamIntelSlide2 from './slides/TeamIntelSlide2';
+import TeamIntelSlide3 from './slides/TeamIntelSlide3';
+
+// Game Preview slides
+import GamePreviewSlide1 from './slides/GamePreviewSlide1';
+import GamePreviewSlide2 from './slides/GamePreviewSlide2';
+import GamePreviewSlide3 from './slides/GamePreviewSlide3';
+
+// Odds Insights slides
+import OddsInsightsSlide1 from './slides/OddsInsightsSlide1';
+import OddsInsightsSlide2 from './slides/OddsInsightsSlide2';
+import OddsInsightsSlide3 from './slides/OddsInsightsSlide3';
+
 import styles from './CarouselComposer.module.css';
 
 /**
- * Renders the 3-slide Daily Briefing carousel in preview mode.
- * The `exportRef` wraps the full-res slide artboards (hidden from view but
- * readable by html-to-image at 1080×1350).
+ * Template → ordered slide component list.
+ * Each entry is a component that accepts { data, teamData, game, asOf, slideNumber, slideTotal }.
  */
-export default function CarouselComposer({ data, exportRef, onAssetsReady }) {
+function getSlides(template, slideCount) {
+  const clamp = n => Math.max(1, Math.min(slideCount, n));
+  switch (template) {
+    case 'team':
+      return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, clamp(3));
+    case 'game':
+      return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, clamp(3));
+    case 'odds':
+      return [OddsInsightsSlide1, OddsInsightsSlide2, OddsInsightsSlide3].slice(0, clamp(3));
+    case 'daily':
+    default:
+      return [DailyBriefingSlide1, DailyBriefingSlide2, DailyBriefingSlide3].slice(0, clamp(3));
+  }
+}
+
+const TEMPLATE_LABELS = {
+  daily: 'Daily Briefing',
+  team:  'Team Intel',
+  game:  'Game Preview',
+  odds:  'Odds Insights',
+};
+
+/**
+ * Renders a scaled preview row + hidden full-res export artboards.
+ */
+export default function CarouselComposer({
+  template = 'daily',
+  slideCount = 3,
+  data,
+  teamData,
+  selectedGame,
+  exportRef,
+  onAssetsReady,
+}) {
   const asOf = new Date().toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'America/Los_Angeles',
-    timeZoneName: 'short',
+    hour: 'numeric', minute: '2-digit',
+    timeZone: 'America/Los_Angeles', timeZoneName: 'short',
   });
 
-  useEffect(() => {
-    // Signal ready after a short paint delay so images can finish loading
-    const t = setTimeout(() => onAssetsReady?.(), 600);
-    return () => clearTimeout(t);
-  }, [data, onAssetsReady]);
+  const slides = getSlides(template, slideCount);
+  const total = slides.length;
 
-  const slideProps = { data, asOf };
+  const slideProps = { data, teamData, game: selectedGame, asOf, slideTotal: total };
+
+  useEffect(() => {
+    const t = setTimeout(() => onAssetsReady?.(), 700);
+    return () => clearTimeout(t);
+  }, [data, teamData, selectedGame, template, onAssetsReady]);
 
   return (
     <div className={styles.root}>
-      {/* ── Scaled preview row ─────────────────────────── */}
-      <div className={styles.previewRow}>
-        {[DailyBriefingSlide1, DailyBriefingSlide2, DailyBriefingSlide3].map(
-          (SlideComp, i) => (
-            <div key={i} className={styles.previewWrapper}>
-              <div className={styles.slideLabel}>Slide {i + 1}</div>
-              <div className={styles.previewScaler}>
-                <div className={styles.previewClip}>
-                  <SlideComp {...slideProps} />
-                </div>
-              </div>
-            </div>
-          )
-        )}
+      {/* Template label */}
+      <div className={styles.templateLabel}>
+        {TEMPLATE_LABELS[template] || 'Carousel'} &mdash; {total} slide{total !== 1 ? 's' : ''}
       </div>
 
-      {/* ── Full-res artboards (used for export, visually hidden) ── */}
+      {/* ── Scaled preview row ─────────────────────────── */}
+      <div className={styles.previewRow}>
+        {slides.map((SlideComp, i) => (
+          <div key={i} className={styles.previewWrapper}>
+            <div className={styles.slideLabel}>Slide {i + 1}</div>
+            <div className={styles.previewScaler}>
+              <div className={styles.previewClip}>
+                <SlideComp {...slideProps} slideNumber={i + 1} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Full-res export artboards (visually hidden) ── */}
       <div className={styles.exportLayer} ref={exportRef} aria-hidden="true">
-        <DailyBriefingSlide1 {...slideProps} data-slide="1" />
-        <DailyBriefingSlide2 {...slideProps} data-slide="2" />
-        <DailyBriefingSlide3 {...slideProps} data-slide="3" />
+        {slides.map((SlideComp, i) => (
+          <SlideComp
+            key={i}
+            {...slideProps}
+            slideNumber={i + 1}
+            data-slide={String(i + 1)}
+          />
+        ))}
       </div>
     </div>
   );

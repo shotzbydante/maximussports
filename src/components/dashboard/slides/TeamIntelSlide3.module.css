@@ -1,0 +1,122 @@
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #3C79B4;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1.0;
+  color: #ffffff;
+  margin: 0 0 32px;
+  letter-spacing: -0.01em;
+}
+
+.divider {
+  width: 72px;
+  height: 4px;
+  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  border-radius: 4px;
+  margin-bottom: 36px;
+}
+
+.matchupLabel {
+  font-size: 22px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.5);
+  margin-bottom: 16px;
+  letter-spacing: 0.03em;
+}
+
+.noLine {
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.4);
+  margin-bottom: 32px;
+  font-style: italic;
+}
+
+.pickSection {
+  margin-top: 32px;
+  margin-bottom: 28px;
+}
+
+.pickLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 14px;
+}
+
+.pickCard {
+  background: rgba(60, 121, 180, 0.1);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 14px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pickLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 38px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.pickConf {
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.5);
+  font-weight: 500;
+}
+
+.noPickCard {
+  font-size: 24px;
+  color: rgba(240, 244, 248, 0.35);
+  font-style: italic;
+  padding: 20px 0;
+}
+
+.headlinesSection {
+  border-top: 1px solid rgba(60, 121, 180, 0.12);
+  padding-top: 24px;
+  margin-top: auto;
+}
+
+.hlLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.35);
+  margin-bottom: 14px;
+}
+
+.hlRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.hlBullet {
+  font-size: 20px;
+  color: #3C79B4;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.hlText {
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.65);
+  line-height: 1.4;
+}

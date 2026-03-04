@@ -16,6 +16,7 @@
     "@vercel/og": "^0.9.0",
     "fast-xml-parser": "^4.5.0",
     "html-to-image": "^1.11.13",
+    "jszip": "^3.10.1",
     "posthog-js": "^1.356.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
