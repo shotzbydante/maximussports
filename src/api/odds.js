@@ -155,6 +155,8 @@ export function mergeGamesWithOdds(scoreGames, oddsGames, getSlug) {
     return {
       ...g,
       spread: odds.spread,
+      homeSpread: odds.homeSpread ?? null,
+      awaySpread: odds.awaySpread ?? null,
       total: odds.total,
       moneyline: odds.moneyline,
       oddsSource: odds.sportsbook || 'Odds API',

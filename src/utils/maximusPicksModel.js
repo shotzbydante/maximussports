@@ -90,6 +90,41 @@ function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
 
+/**
+ * Return the team-specific spread (as a signed number) for a given game.
+ * Prefers the explicit homeSpread/awaySpread fields added by the fixed extractOdds.
+ * Falls back to the legacy `game.spread` string (home-team-perspective by convention).
+ *
+ * @param {object} game - merged game object
+ * @param {boolean} isHome - true for the home team, false for the away team
+ * @returns {{ spread: number|null, source: string|null }}
+ */
+function getTeamSpread(game, isHome) {
+  if (isHome) {
+    if (game.homeSpread != null) return { spread: game.homeSpread, source: 'homeSpread' };
+    if (game.awaySpread != null) return { spread: -game.awaySpread, source: 'derived_from_awaySpread' };
+  } else {
+    if (game.awaySpread != null) return { spread: game.awaySpread, source: 'awaySpread' };
+    if (game.homeSpread != null) return { spread: -game.homeSpread, source: 'derived_from_homeSpread' };
+  }
+  // Legacy fallback: `game.spread` is treated as home team's spread
+  const n = parseNum(game.spread);
+  if (n == null) return { spread: null, source: null };
+  return { spread: isHome ? n : -n, source: 'legacy_spread' };
+}
+
+/**
+ * Format a spread number with mandatory sign.
+ * Always returns a string: "+6.5", "-3", "+0" (for true pick-ems).
+ * Returns null for null input.
+ */
+function fmtSpread(n) {
+  if (n == null) return null;
+  if (n > 0) return `+${n}`;
+  if (n === 0) return '+0';
+  return String(n); // negative numbers already have '-'
+}
+
 function fmtTime(iso) {
   if (!iso) return '';
   try {
@@ -167,19 +202,33 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
   const picks = [];
 
   for (const game of games) {
-    if (!game.spread && game.spread !== 0) continue;
-    const spreadNum = parseNum(game.spread);
-    if (spreadNum == null) continue;
+    // Require at least one spread field to be present (any numeric form)
+    const hasAnySpread =
+      game.homeSpread != null ||
+      game.awaySpread != null ||
+      (game.spread != null && game.spread !== '');
+    if (!hasAnySpread) continue;
+
+    // Resolve the canonical home-team spread (number or null)
+    const { spread: homeSpreadNum, source: homeSpreadSource } = getTeamSpread(game, true);
+    // We still need a numeric spread for the big-fav filter; allow null (shows as unavailable)
+    const spreadMagnitude = homeSpreadNum != null ? Math.abs(homeSpreadNum) : null;
 
     const homeSlug = getTeamSlug(game.homeTeam);
     const awaySlug = getTeamSlug(game.awayTeam);
     const homeAts  = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
     const awayAts  = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
 
-    if (import.meta.env?.DEV && (!homeAts || !awayAts)) {
-      console.debug('[Picks:ATS] partial record —', game.awayTeam, '@', game.homeTeam,
-        '| home:', homeSlug, homeAts ? 'ok' : 'missing',
-        '| away:', awaySlug, awayAts ? 'ok' : 'missing');
+    if (import.meta.env?.DEV) {
+      if (!homeAts || !awayAts) {
+        console.debug('[Picks:ATS] partial record —', game.awayTeam, '@', game.homeTeam,
+          '| home:', homeSlug, homeAts ? 'ok' : 'missing',
+          '| away:', awaySlug, awayAts ? 'ok' : 'missing');
+      }
+      console.debug('[Picks:ATS] spread —', game.awayTeam, '@', game.homeTeam,
+        '| homeSpread:', homeSpreadNum, '| source:', homeSpreadSource,
+        '| raw game.spread:', game.spread,
+        '| game.homeSpread:', game.homeSpread, '| game.awaySpread:', game.awaySpread);
     }
 
     const sharedBase = {
@@ -207,13 +256,14 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
       const pickAts  = pickHome ? homeAts : awayAts;
       const oppAts   = pickHome ? awayAts : homeAts;
 
-      const homeIsFav = spreadNum < 0;
-      const isBigFav  = Math.abs(spreadNum) >= 10;
+      // Big-fav filter: skip if spread magnitude is known and is heavy
+      const homeIsFav = homeSpreadNum != null ? homeSpreadNum < 0 : false;
+      const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
       if (isBigFav && homeIsFav && pickHome && Math.abs(edge) < ATS_EDGE_HIGH) continue;
 
-      const spreadLabel = pickHome
-        ? (spreadNum < 0 ? spreadNum : `+${spreadNum}`)
-        : (spreadNum > 0 ? `-${spreadNum}` : `+${Math.abs(spreadNum)}`);
+      // Resolve team-specific spread (number or null)
+      const { spread: teamSpreadNum } = getTeamSpread(game, pickHome);
+      const spreadDisplay = fmtSpread(teamSpreadNum); // "+6.5", "-3", "+0", or null
 
       const win          = windowLabel(pickAts.window);
       const edgeMag      = Math.abs(edge);
@@ -224,14 +274,18 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
       const edgePpVal    = Math.round(edgeMag * 100);
 
       const slipTips = [];
-      if (Math.abs(spreadNum) >= 10) {
+      if (spreadMagnitude != null && spreadMagnitude >= 10) {
         slipTips.push('Heavy line — value may compress if the spread shifts further.');
       }
 
+      const hasLine = spreadDisplay != null;
       picks.push({
         ...sharedBase,
         pickTeam,
-        pickLine: `${pickTeam} ${spreadLabel > 0 ? '+' : ''}${spreadLabel}`,
+        spread:   teamSpreadNum,  // number|null — used by UI for "unavailable" state
+        pickLine: hasLine
+          ? `${pickTeam} ${spreadDisplay}`
+          : `${pickTeam} ATS —`,
         confidence:  atsConfidenceLevel(edgeMag),
         edgeMag,
         modelPct:    Math.round(pickAts.coverPct),
@@ -240,7 +294,9 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
           `Opponent ATS (${win}): ${oppRecord}`,
         ],
         confidenceRationale: atsConfidenceRationale(edgeMag),
-        whyValue: `${pickCoverPct}% ATS cover vs opponent's ${oppCoverPct}% — +${edgePpVal}pp edge.`,
+        whyValue: hasLine
+          ? `${pickCoverPct}% ATS cover vs opponent's ${oppCoverPct}% — +${edgePpVal}pp edge.`
+          : `${pickCoverPct}% ATS cover vs opponent's ${oppCoverPct}% — +${edgePpVal}pp edge. Spread line unavailable.`,
         slipTips,
         partial: false,
       });
@@ -256,25 +312,30 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
     if (singleAts.coverPct < ATS_PARTIAL_COVER_MIN * 100) continue;
     if (sampleSize < ATS_PARTIAL_SAMPLE_MIN) continue;
 
-    const pickTeamP    = pickIsHome ? game.homeTeam : game.awayTeam;
-    const spreadLabelP = pickIsHome
-      ? (spreadNum < 0 ? spreadNum : `+${spreadNum}`)
-      : (spreadNum > 0 ? `-${spreadNum}` : `+${Math.abs(spreadNum)}`);
+    const pickTeamP = pickIsHome ? game.homeTeam : game.awayTeam;
 
-    const win       = windowLabel(singleAts.window);
+    // Resolve team-specific spread (number or null)
+    const { spread: teamSpreadNumP } = getTeamSpread(game, pickIsHome);
+    const spreadDisplayP = fmtSpread(teamSpreadNumP);
+
+    const win        = windowLabel(singleAts.window);
     const pickRecord = fmtRecord(singleAts) ?? `${Math.round(singleAts.coverPct)}%`;
     // Cap confidence: 70%+ → Medium (1), below → Low (0)
     const rawConf   = singleAts.coverPct >= 70 ? 1 : 0;
 
     const slipTips = [];
-    if (Math.abs(spreadNum) >= 10) {
+    if (spreadMagnitude != null && spreadMagnitude >= 10) {
       slipTips.push('Heavy line — value may compress if the spread shifts further.');
     }
 
+    const hasLineP = spreadDisplayP != null;
     picks.push({
       ...sharedBase,
       pickTeam: pickTeamP,
-      pickLine: `${pickTeamP} ${spreadLabelP > 0 ? '+' : ''}${spreadLabelP}`,
+      spread:   teamSpreadNumP,  // number|null
+      pickLine: hasLineP
+        ? `${pickTeamP} ${spreadDisplayP}`
+        : `${pickTeamP} ATS —`,
       confidence: rawConf,
       edgeMag: 0, // no differential available
       modelPct: Math.round(singleAts.coverPct),
@@ -283,7 +344,9 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
         'Opponent ATS data unavailable.',
       ],
       confidenceRationale: `Partial ATS signal (team-only). Confidence capped at ${confidenceLabel(rawConf)}.`,
-      whyValue: `Team covers ${Math.round(singleAts.coverPct)}% ATS (${win}, n=${sampleSize}). Opponent ATS unavailable.`,
+      whyValue: hasLineP
+        ? `Team covers ${Math.round(singleAts.coverPct)}% ATS (${win}, n=${sampleSize}). Opponent ATS unavailable.`
+        : `Team covers ${Math.round(singleAts.coverPct)}% ATS (${win}, n=${sampleSize}). Opponent ATS unavailable. Spread line unavailable.`,
       slipTips,
       partial: true,
     });
@@ -468,10 +531,10 @@ export function buildMaximusPicks({
   })();
 
   if (import.meta.env?.DEV) {
-    const gamesWithSpread  = games.filter((g) => g.spread != null).length;
-    const gamesWithML      = games.filter((g) => g.moneyline != null).length;
-    const atsLeaderCount   = (atsLeaders.best?.length ?? 0) + (atsLeaders.worst?.length ?? 0);
-    const atsSlugCount     = atsBySlug ? Object.keys(atsBySlug).length : 0;
+    const gamesWithSpread    = games.filter((g) => g.spread != null || g.homeSpread != null).length;
+    const gamesWithML        = games.filter((g) => g.moneyline != null).length;
+    const atsLeaderCount     = (atsLeaders.best?.length ?? 0) + (atsLeaders.worst?.length ?? 0);
+    const atsSlugCount       = atsBySlug ? Object.keys(atsBySlug).length : 0;
     console.debug(
       '[Picks] games:', games.length,
       '| with spread:', gamesWithSpread,
@@ -479,6 +542,16 @@ export function buildMaximusPicks({
       '| ats leaders:', atsLeaderCount,
       '| atsBySlug keys:', atsSlugCount,
     );
+    // First-game detailed spread diagnostic
+    if (games.length > 0) {
+      const g = games[0];
+      console.debug(
+        '[Picks:SpreadCheck] first game:', g.awayTeam, '@', g.homeTeam,
+        '| game.spread:', g.spread,
+        '| game.homeSpread:', g.homeSpread,
+        '| game.awaySpread:', g.awaySpread,
+      );
+    }
   }
 
   return {

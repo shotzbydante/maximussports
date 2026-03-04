@@ -154,6 +154,15 @@ function PickCard({ pick, isTotal }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
   const isMl = pick.pickType === 'ml';
+  const isAts = pick.pickType === 'ats';
+
+  // ATS picks with no resolved spread line get a degraded display
+  const spreadUnavailable = isAts && pick.spread == null;
+
+  // Confidence may be capped one tier down when the spread line is missing
+  const displayConfidence = spreadUnavailable
+    ? Math.max(0, pick.confidence - 1)
+    : pick.confidence;
 
   return (
     <div className={styles.pickCard}>
@@ -178,14 +187,28 @@ function PickCard({ pick, isTotal }) {
       {/* Bet slip row — exact line to place */}
       <div className={styles.slipRow}>
         <span className={styles.slipLabel}>Slip</span>
-        <span className={styles.slipLineText}>{pick.pickLine}</span>
-        <CopyButton text={pick.pickLine} />
+        {spreadUnavailable ? (
+          <span className={`${styles.slipLineText} ${styles.slipLineUnavailable}`}>
+            Line unavailable
+          </span>
+        ) : (
+          <>
+            <span className={styles.slipLineText}>{pick.pickLine}</span>
+            <CopyButton text={pick.pickLine} />
+          </>
+        )}
       </div>
+
+      {spreadUnavailable && (
+        <p className={styles.unavailableNote}>
+          Spread line unavailable. Pick shown for ATS tracking only.
+        </p>
+      )}
 
       {/* Primary pick pill + confidence chip + partial badge */}
       <div className={styles.cardMain}>
         <span className={styles.pickPill}>{pick.pickLine}</span>
-        <ConfidenceChip level={pick.confidence} />
+        <ConfidenceChip level={displayConfidence} />
         {pick.partial && (
           <span className={styles.partialBadge} title="One-team ATS signal — opponent data unavailable">
             PARTIAL SIGNAL

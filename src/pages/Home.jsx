@@ -274,9 +274,28 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   })();
 
   // Picks summary — derived from same data inline, no new fetch
-  const picksSummary = games.length
-    ? buildPicksSummary(buildMaximusPicks({ games, atsLeaders, atsBySlug }))
-    : null;
+  const picksResult = games.length
+    ? buildMaximusPicks({ games, atsLeaders, atsBySlug })
+    : { atsPicks: [], mlPicks: [], totalsPicks: [] };
+  const picksSummary = games.length ? buildPicksSummary(picksResult) : null;
+
+  if (import.meta.env?.DEV && games.length > 0) {
+    const gamesWithSpread = games.filter((g) => g.spread != null || g.homeSpread != null).length;
+    const topAts = picksResult.atsPicks[0];
+    console.debug(
+      '[Home:OddsTeaser] total games:', games.length,
+      '| games with spread:', gamesWithSpread,
+    );
+    if (topAts) {
+      console.debug(
+        '[Home:OddsTeaser] first ATS pick —',
+        topAts.awayTeam, '@', topAts.homeTeam,
+        '| pick team:', topAts.pickTeam,
+        '| team spread (number):', topAts.spread,
+        '| pickLine:', topAts.pickLine,
+      );
+    }
+  }
 
   return (
     <div className={styles.oddsTeaser}>

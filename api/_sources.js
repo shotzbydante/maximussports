@@ -122,20 +122,55 @@ export async function fetchRankingsSource() {
 }
 
 // --- Odds ---
-function extractOdds(bookmakers) {
-  let spread = null;
+
+/**
+ * Loose name match for outcome.name vs team name from Odds API.
+ * Handles cases where outcome names are substrings or superstrings of event team names.
+ */
+function outcomeTeamMatch(outcomeName, teamName) {
+  if (!outcomeName || !teamName) return false;
+  const a = outcomeName.toLowerCase().trim();
+  const b = teamName.toLowerCase().trim();
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+/**
+ * Extract odds from bookmakers array.
+ * @param {Array} bookmakers
+ * @param {string} [homeTeamName] – event home_team for correct spread attribution
+ * @param {string} [awayTeamName] – event away_team for correct spread attribution
+ * Returns:
+ *   homeSpread {number|null} – home team's spread (negative = home favored)
+ *   awaySpread {number|null} – away team's spread (positive = away is underdog)
+ *   spread     {string|null} – legacy: homeSpread as a formatted string ("-3" / "+3")
+ */
+function extractOdds(bookmakers, homeTeamName, awayTeamName) {
+  let homeSpread = null;
+  let awaySpread = null;
   let total = null;
   let moneyline = null;
   let sportsbook = null;
   for (const bm of bookmakers || []) {
     for (const mkt of bm.markets || []) {
       if (mkt.key === 'spreads' && mkt.outcomes?.length >= 2) {
-        const awayOutcome = mkt.outcomes.find((o) => o.point != null);
-        if (awayOutcome) {
-          const pt = awayOutcome.point;
-          spread = pt > 0 ? `+${pt}` : String(pt);
-          sportsbook = sportsbook || bm.title;
+        // Match each outcome to home or away team by name
+        for (const oc of mkt.outcomes) {
+          if (oc.point == null) continue;
+          if (homeTeamName && outcomeTeamMatch(oc.name, homeTeamName)) {
+            homeSpread = oc.point;
+          } else if (awayTeamName && outcomeTeamMatch(oc.name, awayTeamName)) {
+            awaySpread = oc.point;
+          }
         }
+        // Fallback: if name matching failed, use first outcome as home team's spread
+        if (homeSpread === null && awaySpread === null) {
+          const first = mkt.outcomes.find((o) => o.point != null);
+          if (first) homeSpread = first.point;
+        }
+        // Derive the missing side by sign inversion (spreads always sum to ~0)
+        if (homeSpread !== null && awaySpread === null) awaySpread = -homeSpread;
+        if (awaySpread !== null && homeSpread === null) homeSpread = -awaySpread;
+        sportsbook = sportsbook || bm.title;
       }
       if (mkt.key === 'totals' && mkt.outcomes?.length >= 2) {
         const over = mkt.outcomes.find((o) => o.name === 'Over');
@@ -153,9 +188,13 @@ function extractOdds(bookmakers) {
         }
       }
     }
-    if (spread != null && total != null) break;
+    if (homeSpread != null && total != null) break;
   }
-  return { spread, total, moneyline, sportsbook };
+  // Legacy `spread` field: home team's spread as a formatted string (backward compat)
+  const spread = homeSpread != null
+    ? (homeSpread > 0 ? `+${homeSpread}` : String(homeSpread))
+    : null;
+  return { spread, homeSpread, awaySpread, total, moneyline, sportsbook };
 }
 
 export async function fetchOddsSource(params = {}) {
@@ -194,13 +233,16 @@ export async function fetchOddsSource(params = {}) {
       if (raw.length > 0) break;
     }
     const games = raw.map((ev) => {
-      const { spread, total, moneyline, sportsbook } = extractOdds(ev.bookmakers);
+      const { spread, homeSpread, awaySpread, total, moneyline, sportsbook } =
+        extractOdds(ev.bookmakers, ev.home_team, ev.away_team);
       return {
         gameId: ev.id,
         homeTeam: ev.home_team,
         awayTeam: ev.away_team,
         commenceTime: ev.commence_time,
         spread,
+        homeSpread: homeSpread ?? null,
+        awaySpread: awaySpread ?? null,
         total: total != null ? String(total) : null,
         moneyline,
         sportsbook: sportsbook || 'Odds API',
