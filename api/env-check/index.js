@@ -11,7 +11,8 @@ export default function handler(req, res) {
 
   const key = process.env.ODDS_API_KEY || '';
   res.status(200).json({
-    hasOddsKey: !!process.env.ODDS_API_KEY,
-    keyLength: key.length,
+    hasOddsKey:     !!process.env.ODDS_API_KEY,
+    keyLength:      key.length,
+    hasYoutubeKey:  !!process.env.YOUTUBE_API_KEY,
   });
 }

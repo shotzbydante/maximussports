@@ -153,6 +153,7 @@ function SkeletonColumn({ section }) {
 function PickCard({ pick, isTotal }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
+  const isMl = pick.pickType === 'ml';
 
   return (
     <div className={styles.pickCard}>
@@ -174,20 +175,25 @@ function PickCard({ pick, isTotal }) {
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
 
-      {/* Bet slip line — the exact line to place */}
+      {/* Bet slip row — exact line to place */}
       <div className={styles.slipRow}>
         <span className={styles.slipLabel}>Slip</span>
         <span className={styles.slipLineText}>{pick.pickLine}</span>
         <CopyButton text={pick.pickLine} />
       </div>
 
-      {/* Primary pick pill + confidence chip */}
+      {/* Primary pick pill + confidence chip + partial badge */}
       <div className={styles.cardMain}>
         <span className={styles.pickPill}>{pick.pickLine}</span>
         <ConfidenceChip level={pick.confidence} />
+        {pick.partial && (
+          <span className={styles.partialBadge} title="One-team ATS signal — opponent data unavailable">
+            PARTIAL SIGNAL
+          </span>
+        )}
       </div>
 
-      {/* Why value — plain English explanation above the breakdown table */}
+      {/* Why value */}
       {pick.whyValue && (
         <p className={styles.whyValue}>{pick.whyValue}</p>
       )}
@@ -209,7 +215,7 @@ function PickCard({ pick, isTotal }) {
           </div>
           {pick.edgePp != null && (
             <div className={`${styles.edgeRow} ${styles.edgeHighlight}`}>
-              <span className={styles.edgeLabel}>Edge</span>
+              <span className={styles.edgeLabel}>{isMl ? 'Value gap' : 'Edge'}</span>
               <span className={styles.edgeValue}>+{pick.edgePp}pp</span>
             </div>
           )}
@@ -217,6 +223,13 @@ function PickCard({ pick, isTotal }) {
             <p className={styles.edgeHelper}>Market implied is derived from the current line.</p>
           )}
         </div>
+      )}
+
+      {/* ML explainer */}
+      {isMl && (
+        <p className={styles.mlExplainer}>
+          Moneyline price is the payout odds for a straight-up win.
+        </p>
       )}
 
       {/* Rationale bullets */}
@@ -233,7 +246,7 @@ function PickCard({ pick, isTotal }) {
         <p className={styles.confRationale}>{pick.confidenceRationale}</p>
       )}
 
-      {/* Slip tips — conditional actionable notes */}
+      {/* Slip tips */}
       {pick.slipTips?.length > 0 && (
         <ul className={styles.slipTipsList}>
           {pick.slipTips.map((tip, i) => (
@@ -249,39 +262,32 @@ function PickCard({ pick, isTotal }) {
 
 const COLUMN_CONFIG = {
   ats: {
-    title:       'Against the Spread',
-    Icon:        IconAts,
-    microcopy:   'Leans based on ATS cover rate differential.',
-    storageKey:  'homePicksAtsCollapsed',
-    emptyReason: 'No qualified ATS leans right now.',
-    emptyDetail: 'Waiting for spreads or for an edge ≥ 12pp.',
-    isTotal:     false,
+    title:      'Against the Spread',
+    Icon:       IconAts,
+    microcopy:  'Leans based on spreads + recent ATS form. Some use partial ATS data when opponent record is unavailable.',
+    storageKey: 'homePicksAtsCollapsed',
+    isTotal:    false,
   },
   ml: {
-    title:       "Pick 'Ems (Moneyline)",
-    Icon:        IconMl,
-    microcopy:   'Value leans blending ATS form + implied odds.',
-    storageKey:  'homePicksMlCollapsed',
-    emptyReason: 'No qualified moneyline leans right now.',
-    emptyDetail: "Value gaps haven't met the 4pp threshold.",
-    isTotal:     false,
+    title:      "Pick 'Ems (Moneyline)",
+    Icon:       IconMl,
+    microcopy:  'Value leans blending ATS form + implied odds.',
+    storageKey: 'homePicksMlCollapsed',
+    isTotal:    false,
   },
   totals: {
-    title:       'Totals (O/U)',
-    Icon:        IconTotals,
-    microcopy:   'Best numbers available. Informational only.',
-    storageKey:  'homePicksTotalsCollapsed',
-    emptyReason: 'No totals posted yet.',
-    emptyDetail: null,
-    isTotal:     true,
+    title:      'Totals (O/U)',
+    Icon:       IconTotals,
+    microcopy:  'Best numbers available. Informational only.',
+    storageKey: 'homePicksTotalsCollapsed',
+    isTotal:    true,
   },
 };
 
 // ─── pick column ─────────────────────────────────────────────────────────────
 
-function PickColumn({ section, picks }) {
-  const { title, Icon, microcopy, storageKey, emptyReason, emptyDetail, isTotal } =
-    COLUMN_CONFIG[section];
+function PickColumn({ section, picks, emptyContext }) {
+  const { title, Icon, microcopy, storageKey, isTotal } = COLUMN_CONFIG[section];
 
   const [expanded, setExpanded] = useState(() => {
     try {
@@ -298,6 +304,26 @@ function PickColumn({ section, picks }) {
       localStorage.setItem(storageKey, next ? '0' : '1');
     } catch { /* ignore */ }
   };
+
+  // Context-aware ATS empty state
+  let emptyReason = 'No qualified leans right now.';
+  let emptyDetail = null;
+  if (section === 'ats') {
+    const { spreadsCount = 0, atsSlugCount = 0 } = emptyContext ?? {};
+    emptyReason = 'No ATS leans met today\'s thresholds.';
+    if (spreadsCount === 0) {
+      emptyDetail = 'Waiting for spread lines to post.';
+    } else if (atsSlugCount < 5) {
+      emptyDetail = 'ATS form available for limited teams right now.';
+    } else {
+      emptyDetail = 'No edges above thresholds today.';
+    }
+  } else if (section === 'ml') {
+    emptyReason = 'No qualified moneyline leans right now.';
+    emptyDetail = 'Value gaps haven\'t met the 4pp threshold.';
+  } else {
+    emptyReason = 'No totals posted yet.';
+  }
 
   return (
     <div className={styles.column}>
@@ -348,10 +374,10 @@ function PickColumn({ section, picks }) {
  * MaximusPicks — deterministic picks derived from data already on the Home page.
  *
  * Props:
- *   games        {Array}   — merged game objects (from mergeGamesWithOdds)
- *   atsLeaders   {Object}  — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
- *   atsBySlug    {Object|null} — optional explicit ATS map keyed by team slug
- *   loading      {boolean} — true while Home is still fetching scores or ATS data
+ *   games      {Array}        — merged game objects (with odds)
+ *   atsLeaders {Object}       — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
+ *   atsBySlug  {Object|null}  — optional explicit ATS map keyed by team slug
+ *   loading    {boolean}      — true while Home is still fetching
  */
 export default function MaximusPicks({
   games = [],
@@ -366,8 +392,14 @@ export default function MaximusPicks({
 
   const hasAny = atsPicks.length > 0 || mlPicks.length > 0 || totalsPicks.length > 0;
 
-  // Grace period: show skeleton for the first 1200ms after mount to avoid flash-of-empty
-  // when data arrives slightly after the initial render.
+  // Context for ATS empty state (avoids guessing — uses real data counts)
+  const spreadsCount = useMemo(() => games.filter((g) => g.spread != null).length, [games]);
+  const atsSlugCount = useMemo(
+    () => (atsBySlug ? Object.keys(atsBySlug).length : 0),
+    [atsBySlug],
+  );
+  const emptyContext = { spreadsCount, atsSlugCount };
+
   const [graceExpired, setGraceExpired] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setGraceExpired(true), 1200);
@@ -394,9 +426,9 @@ export default function MaximusPicks({
   return (
     <>
       <div className={styles.root}>
-        <PickColumn section="ats"    picks={atsPicks} />
-        <PickColumn section="ml"     picks={mlPicks} />
-        <PickColumn section="totals" picks={totalsPicks} />
+        <PickColumn section="ats"    picks={atsPicks}    emptyContext={emptyContext} />
+        <PickColumn section="ml"     picks={mlPicks}     emptyContext={emptyContext} />
+        <PickColumn section="totals" picks={totalsPicks} emptyContext={emptyContext} />
       </div>
       <p className={styles.disclaimer}>
         For entertainment only. Please bet responsibly. Leans are data-driven, not advice.

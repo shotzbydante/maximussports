@@ -126,10 +126,23 @@ export default function NewsFeed({
 
   // ── mode="videos" ── standalone Top Videos card ───────────────────────
   if (mode === 'videos') {
-    const isKeyMissing = videoApiStatus === 'error_no_key' || videoApiStatus?.startsWith('http_5');
-    const isQuota = videoApiStatus === 'error_quota' || videoApiStatus === 'http_429';
+    const isNoKey       = videoApiStatus === 'error_no_key';
+    const isQuota       = videoApiStatus === 'error_quota' || videoApiStatus === 'http_429';
+    const isServiceErr  = videosError || videoApiStatus?.startsWith('http_');
+    const isEmptyOk     = !videosError && (videoApiStatus === 'ok' || videoApiStatus == null);
 
     if (!videosLoading && cappedVideos.length === 0) {
+      const title = isNoKey || isQuota || isServiceErr ? 'Videos unavailable' : 'No videos right now';
+      const reason = isNoKey
+        ? 'YouTube is not configured for this environment.'
+        : isQuota
+        ? 'YouTube quota exceeded. Check back later.'
+        : isServiceErr
+        ? 'Could not reach video service.'
+        : isEmptyOk
+        ? 'No highlights found. Check back soon.'
+        : null;
+
       return (
         <div className={styles.widget}>
           <div className={styles.widgetHeader}>
@@ -137,17 +150,9 @@ export default function NewsFeed({
           </div>
           <div className={styles.section}>
             <div className={styles.videosEmpty}>
-              <p className={styles.videosEmptyTitle}>Videos unavailable</p>
-              {(videosError || isKeyMissing || isQuota) && (
-                <p className={styles.videosEmptyReason}>
-                  {isKeyMissing
-                    ? 'YouTube key not configured.'
-                    : isQuota
-                    ? 'YouTube quota exceeded.'
-                    : 'Could not reach video service.'}
-                </p>
-              )}
-              {import.meta.env?.DEV && (videosError || !videoApiStatus) && (
+              <p className={styles.videosEmptyTitle}>{title}</p>
+              {reason && <p className={styles.videosEmptyReason}>{reason}</p>}
+              {import.meta.env?.DEV && (isNoKey || (!videoApiStatus && videosError)) && (
                 <p className={styles.videosEmptyDev}>
                   Dev: check /api/env-check for YOUTUBE_API_KEY
                 </p>

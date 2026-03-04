@@ -570,6 +570,32 @@
   background: rgba(34, 197, 94, 0.08);
 }
 
+/* Partial-signal ATS badge */
+.partialBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: rgba(220, 150, 20, 0.1);
+  border: 1px solid rgba(220, 150, 20, 0.25);
+  border-radius: 3px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+/* ML explainer line */
+.mlExplainer {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
 .whyValue {
   font-size: 0.72rem;
   color: var(--color-text-secondary);

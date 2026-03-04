@@ -57,7 +57,8 @@ export default async function handler(req, res) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     console.error('[api/youtube/search] YOUTUBE_API_KEY is not set');
-    return res.status(500).json({ status: 'error', message: 'YouTube API key not configured' });
+    // Return HTTP 200 so the client can read the status field and show the right message.
+    return res.status(200).json({ status: 'error_no_key', items: [], message: 'YouTube API key not configured' });
   }
 
   // ── Upstream fetch ───────────────────────────────────────────────────────────
@@ -76,10 +77,12 @@ export default async function handler(req, res) {
     if (!upstream.ok) {
       const text = await upstream.text().catch(() => '');
       console.error(`[api/youtube/search] YouTube API ${upstream.status}:`, text.slice(0, 300));
-      return res.status(500).json({
-        status:  'error',
+      const isQuota = upstream.status === 403 || upstream.status === 429;
+      // Return HTTP 200 with a typed status so the client can display the correct reason.
+      return res.status(200).json({
+        status:  isQuota ? 'error_quota' : 'error',
+        items:   [],
         message: `YouTube API returned ${upstream.status}`,
-        details: upstream.status === 403 ? 'Quota exceeded or invalid key' : undefined,
       });
     }
     ytData = await upstream.json();

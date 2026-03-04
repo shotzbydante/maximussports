@@ -747,15 +747,16 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     {(() => {
                       const cached = getAtsCache(slug);
                       const ats = cached?.season?.total > 0 ? cached.season : null;
-                      const atsSubtitle = ats
-                        ? `ATS Season: ${ats.wins}–${ats.losses}${ats.total > 0 ? ` (${Math.round((ats.wins / ats.total) * 100)}%)` : ''}`
+                      // Use ats.w / ats.l / ats.coverPct (correct cache field names)
+                      const atsSubtitle = ats && ats.w != null && ats.l != null
+                        ? `ATS ${ats.w}–${ats.l}${ats.coverPct != null ? ` (${Math.round(ats.coverPct)}%)` : ''}`
                         : `${team.conference} · ${team.oddsTier}`;
                       return (
                         <ShareButton
                           shareType="team_card"
                           title={team.name}
                           subtitle={atsSubtitle}
-                          meta="Pinned on Maximus Sports"
+                          meta="Get your daily leans at maximussports.ai"
                           teamSlug={slug}
                           destinationPath={`/teams/${slug}`}
                           placement="pinned_team_card"
