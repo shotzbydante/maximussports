@@ -1,0 +1,110 @@
+.titleBlock {
+  margin-bottom: 44px;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3C79B4;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 100px;
+  font-weight: 700;
+  line-height: 1.02;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.divider {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  border-radius: 4px;
+  margin-bottom: 52px;
+}
+
+/* Empty state */
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyState p {
+  font-size: 28px;
+  color: rgba(240, 244, 248, 0.4);
+}
+
+/* Bullets */
+.bulletsList {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex: 1;
+}
+
+.bulletRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+  padding: 32px 36px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.14);
+  border-radius: 18px;
+}
+
+.bulletLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  width: 72px;
+}
+
+.bulletIcon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.bulletTag {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #B7986C;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.bulletText {
+  font-size: 28px;
+  color: rgba(240, 244, 248, 0.85);
+  line-height: 1.4;
+  font-weight: 500;
+  flex: 1;
+}
+
+/* CTA */
+.ctaBlock {
+  margin-top: auto;
+  padding-top: 32px;
+  border-top: 1px solid rgba(60, 121, 180, 0.12);
+  text-align: center;
+}
+
+.ctaLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #3C79B4;
+}

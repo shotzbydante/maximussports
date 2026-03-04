@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Contact from './pages/Contact';
+import Dashboard from './pages/Dashboard';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="privacy" element={<Privacy />} />
               <Route path="terms" element={<Terms />} />
               <Route path="contact" element={<Contact />} />
+              <Route path="dashboard" element={<Dashboard />} />
             </Route>
             {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}
             <Route path="share/:id" element={<SharePage />} />

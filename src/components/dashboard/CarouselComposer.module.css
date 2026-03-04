@@ -1,0 +1,58 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Preview row ───────────────────────────────────── */
+.previewRow {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+.previewWrapper {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slideLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Scale 1080×1350 → 270×337 (25%) */
+.previewScaler {
+  width: 270px;
+  height: 337px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  background: #0e1e2e;
+}
+
+.previewClip {
+  width: 1080px;
+  height: 1350px;
+  transform: scale(0.25);
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+/* ── Export layer (visually hidden but reachable by html-to-image) ── */
+.exportLayer {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  display: flex;
+  gap: 0;
+  pointer-events: none;
+  visibility: hidden;
+}

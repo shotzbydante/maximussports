@@ -1,0 +1,132 @@
+.titleBlock {
+  margin-bottom: 44px;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 100px;
+  font-weight: 700;
+  line-height: 1.02;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.divider {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #B7986C, #3C79B4);
+  border-radius: 4px;
+  margin-bottom: 52px;
+}
+
+/* Empty state */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: center;
+  padding: 40px;
+}
+
+.emptyIcon {
+  font-size: 72px;
+  line-height: 1;
+}
+
+.emptyTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 42px;
+  color: rgba(240, 244, 248, 0.7);
+  margin: 0;
+  font-weight: 600;
+}
+
+.emptyText {
+  font-size: 24px;
+  color: rgba(240, 244, 248, 0.4);
+  margin: 0;
+  line-height: 1.4;
+  max-width: 540px;
+}
+
+/* Picks list */
+.picksList {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  flex: 1;
+}
+
+.pickCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  border-radius: 20px;
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pickTop {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pickType {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 8px;
+  padding: 6px 16px;
+}
+
+.confBadge {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  padding: 6px 16px;
+}
+
+.pickLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 38px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.pickEdge {
+  font-size: 22px;
+  color: rgba(240, 244, 248, 0.5);
+  font-weight: 500;
+}
+
+.disclaimer {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.3);
+  font-style: italic;
+  text-align: center;
+}

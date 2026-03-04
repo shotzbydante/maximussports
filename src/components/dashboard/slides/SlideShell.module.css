@@ -1,0 +1,103 @@
+/* ─────────────────────────────────────────────────────────
+   SlideShell — 1080 × 1350 IG 4:5 artboard
+   ───────────────────────────────────────────────────────── */
+
+.artboard {
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  background: #0d1e2f;
+  display: flex;
+  flex-direction: column;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #f0f4f8;
+}
+
+/* Radial accent glow */
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 900px 600px at 50% -80px, rgba(60, 121, 180, 0.28) 0%, transparent 70%),
+    linear-gradient(180deg, #0e1e2f 0%, #081422 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 52px 72px 32px;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.2);
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.logoText {
+  font-family: 'Oswald', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+}
+
+.asOf {
+  font-size: 22px;
+  color: rgba(240, 244, 248, 0.45);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ── Content ─────────────────────────────────────────────── */
+.content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 60px 72px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 72px 44px;
+  border-top: 1px solid rgba(60, 121, 180, 0.15);
+  gap: 20px;
+}
+
+.footerUrl {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--slide-accent, #3C79B4);
+}
+
+.footerDisclaimer {
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.35);
+  font-style: italic;
+}
