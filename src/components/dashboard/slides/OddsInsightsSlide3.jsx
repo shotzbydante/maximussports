@@ -128,7 +128,7 @@ export default function OddsInsightsSlide3({ data, asOf, slideNumber, slideTotal
         </div>
       )}
 
-      {hasAts && (
+      {hasAts ? (
         <div className={styles.atsSection}>
           <div className={styles.atsColumns}>
             <div className={styles.col}>
@@ -153,10 +153,11 @@ export default function OddsInsightsSlide3({ data, asOf, slideNumber, slideTotal
             </div>
           </div>
         </div>
-      )}
-
-      {!hasAts && totalsPicks.length === 0 && (
-        <div className={styles.empty}>No market data available yet.</div>
+      ) : (
+        <div className={styles.atsWarming}>
+          <div className={styles.atsWarmingTitle}>ATS leaders warming</div>
+          <div className={styles.atsWarmingText}>Coverage data populates throughout the day. Regenerate to check for updates.</div>
+        </div>
       )}
     </SlideShell>
   );

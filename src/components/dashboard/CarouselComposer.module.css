@@ -27,21 +27,20 @@
   color: var(--color-text-muted);
 }
 
-/* Scale 1080×1350 → 270×337 (25%) */
+/* previewScaler width/height set dynamically via inline style */
 .previewScaler {
-  width: 270px;
-  height: 337px;
   overflow: hidden;
   border-radius: 10px;
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
   background: #0e1e2e;
+  flex-shrink: 0;
 }
 
 .previewClip {
   width: 1080px;
   height: 1350px;
-  transform: scale(0.25);
+  /* transform scale set dynamically via inline style */
   transform-origin: top left;
   pointer-events: none;
 }

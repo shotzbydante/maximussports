@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamPage } from '../api/team';
+import { fetchAtsLeaders, fetchAtsRefresh } from '../api/atsLeaders';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
 import { buildCaption, formatCaptionFile } from '../components/dashboard/captions/buildCaption';
@@ -12,6 +13,10 @@ import { waitForImages } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
 import { getTeamSlug } from '../utils/teamSlug';
 import styles from './Dashboard.module.css';
+
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+
+const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 
 const ADMIN_EMAIL = 'dantedicicco@gmail.com';
 
@@ -69,6 +74,11 @@ export default function Dashboard() {
   const [exporting, setExporting] = useState(false);
   const [zipping, setZipping] = useState(false);
 
+  // ── preview size ──────────────────────────────────────────
+  const [previewSize, setPreviewSize] = useState(() => {
+    try { return localStorage.getItem('maximus_preview_size') || 'medium'; } catch { return 'medium'; }
+  });
+
   // ── caption state ────────────────────────────────────────
   const [captionTab, setCaptionTab] = useState('short');
   const [copied, setCopied] = useState(false);
@@ -83,24 +93,76 @@ export default function Dashboard() {
     return TEAMS.filter(t => t.name.toLowerCase().includes(q)).slice(0, 12);
   }, [teamSearch]);
 
-  // ── load home data ───────────────────────────────────────
+  // ── load home data + ATS leaders in parallel ─────────────
   const loadData = useCallback(async () => {
     setDataLoading(true);
     setDataError(null);
     try {
-      const [fast, slow] = await Promise.all([fetchHomeFast(), fetchHomeSlow()]);
+      const [fast, slow, atsResult] = await Promise.all([
+        fetchHomeFast(),
+        fetchHomeSlow(),
+        fetchAtsLeaders('last30').catch(() => null),
+      ]);
       const merged = mergeHomeData(fast, slow);
-      setDashData({ ...merged, atsLeaders: atsLeaders?.best?.length ? atsLeaders : merged.atsLeaders });
+
+      // Prefer direct ATS fetch → merged home ATS (empty fallback)
+      const atsFromDirect  = atsResult?.atsLeaders ?? { best: [], worst: [] };
+      const hasDirectAts   = (atsFromDirect.best?.length || 0) + (atsFromDirect.worst?.length || 0) > 0;
+      const hasMergedAts   = (merged.atsLeaders?.best?.length || 0) + (merged.atsLeaders?.worst?.length || 0) > 0;
+      const finalAts       = hasDirectAts ? atsFromDirect : (hasMergedAts ? merged.atsLeaders : { best: [], worst: [] });
+      const isWarming      = !hasDirectAts && !hasMergedAts;
+
+      if (isDev) {
+        console.debug('[Dashboard] ATS leaders load', {
+          directBest: atsFromDirect.best?.length ?? 0,
+          directWorst: atsFromDirect.worst?.length ?? 0,
+          mergedBest: merged.atsLeaders?.best?.length ?? 0,
+          source: hasDirectAts ? 'direct' : hasMergedAts ? 'merged' : 'EMPTY',
+          warming: isWarming,
+        });
+      }
+
+      // If still warming, fire a refresh in background and schedule a follow-up fetch
+      if (isWarming) {
+        fetchAtsRefresh('last30').catch(() => {});
+        setTimeout(() => {
+          fetchAtsLeaders('last30').then(r => {
+            const incoming = r?.atsLeaders ?? { best: [], worst: [] };
+            const hasIncoming = (incoming.best?.length || 0) + (incoming.worst?.length || 0) > 0;
+            if (isDev) console.debug('[Dashboard] ATS leaders follow-up', { best: incoming.best?.length, worst: incoming.worst?.length });
+            if (hasIncoming) {
+              setDashData(prev => prev ? { ...prev, atsLeaders: incoming } : prev);
+            }
+          }).catch(() => {});
+        }, 3000);
+      }
+
+      setDashData({ ...merged, atsLeaders: finalAts });
     } catch (err) {
       setDataError(err.message || 'Failed to load data');
     } finally {
       setDataLoading(false);
     }
-  }, [atsLeaders]);
+  }, []); // no atsLeaders dependency — we fetch directly
 
   useEffect(() => {
     if (isAuthorized) loadData();
   }, [isAuthorized, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── patch dashData.atsLeaders when hook resolves late ─────
+  useEffect(() => {
+    const hasHookData = (atsLeaders?.best?.length || 0) + (atsLeaders?.worst?.length || 0) > 0;
+    if (!hasHookData) return;
+    setDashData(prev => {
+      if (!prev) return prev;
+      const prevCount = (prev.atsLeaders?.best?.length || 0) + (prev.atsLeaders?.worst?.length || 0);
+      const hookCount = (atsLeaders.best?.length || 0) + (atsLeaders.worst?.length || 0);
+      // Only upgrade if hook has more data than what's already loaded
+      if (prevCount >= hookCount) return prev;
+      if (isDev) console.debug('[Dashboard] ATS leaders patched from hook', { best: atsLeaders.best?.length, worst: atsLeaders.worst?.length });
+      return { ...prev, atsLeaders };
+    });
+  }, [atsLeaders]);
 
   // ── load team page when team selected ────────────────────
   useEffect(() => {
@@ -295,6 +357,7 @@ export default function Dashboard() {
   const gamesForPicker = (dashData?.odds?.games ?? []).filter(g => g.awayTeam && g.homeTeam);
   const isWorking = dataLoading || teamPageLoading;
   const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!teamPageData);
+  const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
   const options = {
     styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
@@ -570,8 +633,25 @@ export default function Dashboard() {
           {assetsReady && <div className={styles.readyBadge}>✓ Ready to export</div>}
           {isWorking && <div className={styles.loadingBadge}>⏳ Loading data…</div>}
 
-          {/* Action buttons */}
+          {/* Preview size + action buttons */}
           <div className={styles.actionGroup}>
+            <div className={styles.previewSizeRow}>
+              <span className={styles.previewSizeLabel}>Preview</span>
+              <div className={styles.chipGroup}>
+                {['small', 'medium', 'large'].map(size => (
+                  <button
+                    key={size}
+                    className={`${styles.chip} ${previewSize === size ? styles.chipActive : ''}`}
+                    onClick={() => {
+                      setPreviewSize(size);
+                      try { localStorage.setItem('maximus_preview_size', size); } catch {}
+                    }}
+                  >
+                    {size === 'small' ? 'S' : size === 'medium' ? 'M' : 'L'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button className={styles.btnSecondary} onClick={handleRegenerate} disabled={isWorking || exporting || zipping}>
               {dataLoading ? 'Loading…' : 'Regenerate'}
             </button>
@@ -630,7 +710,14 @@ export default function Dashboard() {
           {isWorking || !dashData ? (
             <div className={styles.skeletonRow}>
               {Array.from({ length: slideCount }).map((_, i) => (
-                <div key={i} className={styles.skeletonSlide} />
+                <div
+                  key={i}
+                  className={styles.skeletonSlide}
+                  style={{
+                    width: `${Math.round(1080 * previewScale)}px`,
+                    height: `${Math.round(1350 * previewScale)}px`,
+                  }}
+                />
               ))}
             </div>
           ) : (
@@ -643,6 +730,7 @@ export default function Dashboard() {
               exportRef={exportRef}
               onAssetsReady={() => setAssetsReady(true)}
               options={options}
+              previewScale={previewScale}
             />
           )}
         </section>

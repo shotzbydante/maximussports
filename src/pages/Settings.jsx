@@ -14,6 +14,7 @@ import {
   trackSignupViewed,
 } from '../lib/analytics/posthog';
 import styles from './Settings.module.css';
+import { showToast } from '../components/common/Toast';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -119,6 +120,15 @@ const DEFAULT_PREFS = {
   oddsIntel: false,
   newsDigest: true,
 };
+
+const ADMIN_EMAIL = 'dantedicco@gmail.com';
+
+const TEST_EMAIL_TYPES = [
+  { type: 'daily',  label: 'Daily AI Briefing' },
+  { type: 'pinned', label: 'Pinned Teams Alerts' },
+  { type: 'odds',   label: 'Odds & ATS Intel' },
+  { type: 'news',   label: 'Breaking News Digest' },
+];
 
 const TIER_STYLE = {
   'Lock':         styles.tierLock,
@@ -845,9 +855,65 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
   );
 }
 
+/* ─── Admin QA Email Panel ───────────────────────────────────────────────── */
+function AdminQAPanel({ session }) {
+  const [sending, setSending] = useState(null);
+
+  async function handleSendTest(type) {
+    if (sending) return;
+    setSending(type);
+    try {
+      const token = session?.access_token;
+      if (!token) { showToast('No auth session found.', { type: 'error' }); return; }
+      const res = await fetch('/api/email/send-test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const label = TEST_EMAIL_TYPES.find(t => t.type === type)?.label || type;
+      showToast(`Sent — ${label}`, { type: 'success' });
+    } catch (err) {
+      showToast(err.message || 'Send failed.', { type: 'error' });
+    } finally {
+      setSending(null);
+    }
+  }
+
+  return (
+    <div className={styles.profileSection}>
+      <div className={styles.sectionHeader}>
+        <h3 className={styles.sectionTitle}>Admin QA Email Testing</h3>
+        <span className={styles.adminBadge}>Admin</span>
+      </div>
+      <p className={styles.adminQaDesc}>
+        Send a test email to <strong>dantedicco@gmail.com</strong> for each subscription type.
+      </p>
+      <div className={styles.adminQaGrid}>
+        {TEST_EMAIL_TYPES.map(({ type, label }) => (
+          <button
+            key={type}
+            type="button"
+            className={styles.btnAdminTest}
+            onClick={() => handleSendTest(type)}
+            disabled={!!sending}
+          >
+            {sending === type ? <SpinnerIcon /> : null}
+            <span>Send Test — {label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Premium Profile Page ───────────────────────────────────────────────── */
 function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut }) {
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
 
   const [userTeams, setUserTeams]         = useState([]);
   const [teamsLoading, setTeamsLoading]   = useState(true);
@@ -1228,6 +1294,11 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           ))}
         </div>
       </div>
+
+      {/* ── Admin QA ── */}
+      {user.email === ADMIN_EMAIL && (
+        <AdminQAPanel session={session} />
+      )}
 
       {/* ── Account ── */}
       <div className={styles.profileSection}>

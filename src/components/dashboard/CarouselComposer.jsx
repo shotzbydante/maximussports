@@ -73,6 +73,7 @@ export default function CarouselComposer({
   exportRef,
   onAssetsReady,
   options = {},
+  previewScale = 0.35,
 }) {
   const asOf = new Date().toLocaleTimeString('en-US', {
     hour: 'numeric', minute: '2-digit',
@@ -89,6 +90,9 @@ export default function CarouselComposer({
     return () => clearTimeout(t);
   }, [data, teamData, selectedGame, template, options, onAssetsReady]);
 
+  const scaledW = Math.round(1080 * previewScale);
+  const scaledH = Math.round(1350 * previewScale);
+
   return (
     <div className={styles.root}>
       {/* Template label */}
@@ -101,8 +105,14 @@ export default function CarouselComposer({
         {slides.map((SlideComp, i) => (
           <div key={i} className={styles.previewWrapper}>
             <div className={styles.slideLabel}>Slide {i + 1}</div>
-            <div className={styles.previewScaler}>
-              <div className={styles.previewClip}>
+            <div
+              className={styles.previewScaler}
+              style={{ width: `${scaledW}px`, height: `${scaledH}px` }}
+            >
+              <div
+                className={styles.previewClip}
+                style={{ transform: `scale(${previewScale})` }}
+              >
                 <SlideComp {...slideProps} slideNumber={i + 1} />
               </div>
             </div>

@@ -154,3 +154,32 @@
   padding: 60px 0;
   font-style: italic;
 }
+
+.atsWarming {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 40px;
+  background: rgba(60, 121, 180, 0.04);
+  border: 1px dashed rgba(60, 121, 180, 0.2);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.atsWarmingTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 30px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.45);
+  letter-spacing: 0.06em;
+}
+
+.atsWarmingText {
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.28);
+  line-height: 1.5;
+  max-width: 600px;
+  font-style: italic;
+}

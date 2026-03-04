@@ -3,17 +3,12 @@
  * Pure function — no side effects, no fetches.
  * Never uses: lock / guarantee / free money / sure thing.
  *
- * Viral-optimized: strong first-line hook, clear value lines, CTA.
- * Max 2 emojis per caption. Compliant language throughout.
+ * Viral-optimized: strong first-line hooks, scannable bullets, 1 emoji per template.
+ * Compliant language: "leans", "value edge", "data-driven", "not advice".
  */
 
 const CTA = 'Full analysis at maximussports.ai';
 const DISCLAIMER = 'For entertainment only. Please bet responsibly. 21+';
-
-const BASE_TAGS = [
-  '#CollegeBasketball', '#NCAABB', '#CollegeHoops',
-  '#MaximusSports', '#BettingAnalysis', '#SportsBetting',
-];
 
 function fmtDate() {
   return new Date().toLocaleDateString('en-US', {
@@ -28,56 +23,50 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode }) {
   const picksCount = picks?.length ?? 0;
   const isRobot = styleMode === 'robot';
 
-  // Hook: strong first line, different tone for robot mode
   const hook = isRobot
-    ? `The model ran overnight. Here's what it found for ${fmtDate()}.`
-    : (gamesCount != null
-        ? `${gamesCount} games tracked. ${picksCount > 0 ? `${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced.` : 'No leans today.'} Daily briefing is live.`
-        : 'Daily CBB briefing is live. Model ran overnight.');
-
-  const pickLine = isRobot
-    ? (picksCount > 0
-        ? `Top lean I'm flagging: ${picks[0]?.pickLine}. Swipe for the reasoning.`
-        : `Nothing cleared my threshold today. Patience is part of the edge.`)
+    ? `🏀 The model ran overnight. Here's what it found.`
     : (picksCount > 0
-        ? `Top lean: ${picks[0]?.pickLine}. Swipe for the full card.`
-        : 'No leans posted today — the threshold exists for a reason.');
+        ? `🏀 ${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced today. Daily briefing is live.`
+        : `🏀 Daily CBB briefing is up. ${gamesCount != null ? `${gamesCount} games tracked.` : ''} No leans today.`);
 
-  const ctaLine = isRobot
-    ? `Swipe through for the full read → maximussports.ai`
-    : `Swipe through. ${CTA}`;
+  const pickLineShort = picksCount > 0
+    ? (isRobot
+        ? `Top lean: ${picks[0]?.pickLine}. Swipe for my reasoning.`
+        : `Top lean: ${picks[0]?.pickLine}. Swipe for the full card.`)
+    : (isRobot
+        ? `Nothing cleared my threshold — patience is the edge.`
+        : `No leans posted. Threshold exists for a reason.`);
 
-  const short = [hook, pickLine, ctaLine].join('\n\n');
+  const short = [hook, pickLineShort, CTA].join('\n\n');
+
+  const headlineSnip = headlines?.[0]
+    ? `Top story: ${(headlines[0].title || headlines[0].headline || '').slice(0, 75)}`
+    : null;
 
   const long = [
-    `📅 ${fmtDate()} — Daily Briefing`,
+    `🏀 ${fmtDate()} — Daily Briefing`,
     '',
     isRobot
-      ? `Maximus processed ${gamesCount ?? 'today\'s'} games. Cross-referenced ATS history, line movement, and implied probability. Here's the signal:`
+      ? `Maximus processed ${gamesCount ?? 'today\'s'} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
       : (gamesCount != null
-          ? `Tracking ${gamesCount} games with active lines. The model cross-references ATS records, line movement, and implied probability to find edges.`
-          : 'Lines are active for today\'s slate.'),
+          ? `Tracking ${gamesCount} games with active lines. The model cross-references ATS records, line movement, and implied probability.`
+          : `Lines active for today's slate. Model scanned for edges.`),
     '',
     picksCount > 0
-      ? (isRobot
-          ? `I flagged ${picksCount} qualified lean${picksCount > 1 ? 's' : ''}. Each one cleared ATS differential and implied probability thresholds — not noise, actual signal.`
-          : `${picksCount} lean${picksCount > 1 ? 's' : ''} qualified today. Each uses ATS cover %, implied probability differentials, and home-court adjustments.`)
-      : (isRobot
-          ? `Nothing cleared my threshold today. No forced picks — that's how the model stays accurate over a full season.`
-          : 'No leans qualify today. Forcing picks degrades accuracy long-term.'),
+      ? `${isRobot ? 'I flagged' : 'Model found'} ${picksCount} qualified lean${picksCount > 1 ? 's' : ''} — ATS differential and implied probability thresholds cleared.`
+      : `${isRobot ? 'Nothing cleared my threshold' : 'No leans qualify today'}. Forcing picks degrades accuracy over a full season.`,
     '',
-    headlines?.length
-      ? `Top storyline: ${(headlines[0]?.title || headlines[0]?.headline || '').slice(0, 80)}`
-      : null,
+    headlineSnip,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
     DISCLAIMER,
-  ].filter(l => l !== null).join('\n');
+  ].filter(l => l !== null && l !== '').join('\n');
 
   const hashtags = [
-    ...BASE_TAGS,
-    '#DailyBriefing', '#CollegeHoopsToday', '#NCAAB', '#MarchMadness',
+    '#CollegeBasketball', '#NCAABB', '#CollegeHoops',
+    '#MaximusSports', '#DailyBriefing', '#SportsBetting',
+    '#BettingAnalysis', '#NCAAB', '#MarchMadness',
   ];
 
   return { shortCaption: short, longCaption: long, hashtags };
@@ -85,44 +74,49 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode }) {
 
 // ─── Team Intel ──────────────────────────────────────────────────────────────
 
-function buildTeamCaption({ team, rank, record, picks, atsRecord, asOf }) {
+function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, asOf }) {
   const teamName = team?.displayName || team?.name || 'This team';
-  const rankStr = rank != null ? ` (#${rank})` : '';
+  const rankStr = rank != null ? ` #${rank}` : '';
   const recStr = record ? ` · ${record}` : '';
 
-  const hook = `${teamName}${rankStr} intel pack — ATS trends, today's line, and the model lean.`;
+  const hook = `🔥 ${teamName}${rankStr} intel — ATS trends, today's line, and the model lean.`;
 
-  const short = [
-    hook,
-    picks?.length
-      ? `Model leans ${picks[0]?.pickLine}. Swipe for the data behind it.`
-      : 'No qualified lean today.',
-    CTA,
-  ].join('\n\n');
+  const pickBlock = picks?.length
+    ? `Model leans ${picks[0]?.pickLine}. Swipe for context.`
+    : `No qualified lean for this team today.`;
+
+  const short = [hook, pickBlock, CTA].join('\n\n');
+
+  const confNote = conference ? `${conference} · ` : '';
 
   const long = [
-    `🏀 Team Intel: ${teamName}`,
+    `🔥 Team Intel: ${teamName}`,
     '',
-    `${teamName}${rankStr}${recStr} — here's what the data shows.`,
+    `${confNote}${teamName}${rankStr}${recStr}`,
     '',
     atsRecord
       ? `ATS signal: ${atsRecord}. Cover percentage is one of the most persistent edges in college basketball.`
-      : 'ATS data loading for this squad.',
+      : `ATS data loading for this squad.`,
     '',
     picks?.length
-      ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential and implied probability — not a guarantee.`
-      : 'No qualified lean for this team today. Threshold not met.',
+      ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential + implied probability — not a guarantee.`
+      : `No qualified lean today. Value threshold not met.`,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
     DISCLAIMER,
   ].filter(Boolean).join('\n');
 
+  const confTag = conference
+    ? [`#${conference.replace(/[\s-]/g, '')}`]
+    : [];
+
   const hashtags = [
-    ...BASE_TAGS,
-    '#TeamAnalysis',
+    '#CollegeBasketball', '#CollegeHoops', '#NCAABB',
+    '#MaximusSports', '#TeamAnalysis', '#SportsBetting',
     ...teamName.split(' ').map(w => `#${w}`).slice(0, 2),
-  ].filter(Boolean).slice(0, 14);
+    ...confTag,
+  ].filter(Boolean).slice(0, 12);
 
   return { shortCaption: short, longCaption: long, hashtags };
 }
@@ -139,47 +133,48 @@ function buildGameCaption({ game, picks, asOf }) {
     : null;
 
   const hook = spreadStr
-    ? `${away} @ ${home} · Spread: ${spreadStr}. Game preview and model read.`
-    : `${away} @ ${home} — game preview is live.`;
+    ? `👀 ${away} @ ${home} — spread: ${spreadStr}. Here's the model read.`
+    : `👀 ${away} @ ${home} — game preview is live.`;
 
-  const short = [
-    hook,
-    picks?.length
-      ? `Model leans ${picks[0]?.pickLine}. Swipe for the full breakdown.`
-      : 'No lean posted for this matchup.',
-    CTA,
-  ].join('\n\n');
+  const pickLine = picks?.length
+    ? `Model leans ${picks[0]?.pickLine}. Swipe for the full breakdown.`
+    : `No lean posted for this matchup.`;
+
+  const short = [hook, pickLine, CTA].join('\n\n');
 
   const spreadContext = spreadNum != null
     ? (Math.abs(spreadNum) <= 3.5
-        ? 'Tight spread — competitive cover battle.'
+        ? `Pick-em range — competitive cover battle.`
         : Math.abs(spreadNum) >= 12
-          ? 'Heavy line. The model checks if this number is justified by ATS data.'
-          : 'Mid-range spread — both sides have cover paths.')
-    : 'Line data pending.';
+          ? `Heavy line. Model checks if the number is justified by ATS data.`
+          : `Mid-range spread — both sides have cover paths.`)
+    : null;
 
   const long = [
-    `🏀 Game Preview: ${away} @ ${home}`,
+    `👀 Game Preview: ${away} @ ${home}`,
     '',
     spreadStr
-      ? `${home} is ${spreadNum < 0 ? `favored at ${spreadStr}` : `an underdog at ${spreadStr}`}. ${spreadContext}`
-      : 'Line data pending.',
+      ? `${home} is ${spreadNum < 0 ? `favored at ${spreadStr}` : `an underdog at ${spreadStr}`}. ${spreadContext || ''}`
+      : `Line data pending.`,
     '',
     picks?.length
-      ? `Model value edge: ${picks[0]?.pickLine} (${picks[0]?.type === 'ats' ? 'ATS' : 'ML'}). Based on ATS differential and implied probability — not a guarantee.`
-      : 'No qualified lean for this matchup. Value threshold not met.',
+      ? `Value edge: ${picks[0]?.pickLine} (${picks[0]?.pickType === 'ats' ? 'ATS' : 'ML'}). ATS differential + implied probability analysis.`
+      : `No qualified lean. Value threshold not met.`,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
     DISCLAIMER,
   ].filter(Boolean).join('\n');
 
+  const awayTag = away.split(' ').slice(-1)[0] ? `#${away.split(' ').slice(-1)[0]}` : null;
+  const homeTag = home.split(' ').slice(-1)[0] ? `#${home.split(' ').slice(-1)[0]}` : null;
+
   const hashtags = [
-    ...BASE_TAGS,
-    '#GamePreview',
-    away.split(' ').slice(-1)[0] ? `#${away.split(' ').slice(-1)[0]}` : null,
-    home.split(' ').slice(-1)[0] ? `#${home.split(' ').slice(-1)[0]}` : null,
-  ].filter(Boolean).slice(0, 14);
+    '#CollegeBasketball', '#NCAABB', '#CollegeHoops',
+    '#MaximusSports', '#GamePreview', '#SportsBetting',
+    '#BettingAnalysis', '#LineMovement',
+    awayTag, homeTag,
+  ].filter(Boolean).slice(0, 12);
 
   return { shortCaption: short, longCaption: long, hashtags };
 }
@@ -192,29 +187,29 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
   const picksCount = picks?.length ?? 0;
 
   const hook = picksCount > 0
-    ? `The model surfaced ${picksCount} value lean${picksCount > 1 ? 's' : ''} today. Picks card is live.`
-    : `Today's odds snapshot.${gamesCount != null ? ` ${gamesCount} games tracked.` : ''} ATS leaders and market data below.`;
+    ? `📈 Picks card is live. ${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced today.`
+    : `📈 Today's odds snapshot — ${gamesCount != null ? `${gamesCount} games tracked. ` : ''}ATS leaders and market edges below.`;
 
-  const short = [
-    hook,
-    picks?.length ? `Top lean: ${picks[0]?.pickLine}. Data-driven, risk-labeled.` : null,
-    CTA,
-  ].filter(Boolean).join('\n\n');
+  const topPickLine = picks?.length
+    ? `Top lean: ${picks[0]?.pickLine}. Data-driven, risk-labeled.`
+    : null;
+
+  const short = [hook, topPickLine, CTA].filter(Boolean).join('\n\n');
 
   const long = [
     `📈 Odds Insights`,
     '',
     gamesCount != null
       ? `Scanning ${gamesCount} games for market edges. Model weighs ATS history, spread, and implied probability.`
-      : 'Live odds tracked across today\'s slate.',
+      : `Live odds tracked across today's slate.`,
     '',
     topTeam
-      ? `ATS leader: ${topTeam.team || topTeam.name} — running hot. Factors into lean calculations.`
+      ? `ATS leader: ${topTeam.team || topTeam.name} — running hot against the spread.`
       : null,
     '',
     picksCount > 0
-      ? `${picksCount} lean${picksCount > 1 ? 's' : ''} cleared the model threshold. Each is labeled by confidence — no noise picks.`
-      : 'No leans cleared the threshold today. Discipline beats volume.',
+      ? `${picksCount} lean${picksCount > 1 ? 's' : ''} cleared the model threshold. Each is confidence-labeled — no noise picks.`
+      : `No leans cleared the threshold today. Discipline beats volume.`,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
@@ -222,9 +217,11 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
   ].filter(Boolean).join('\n');
 
   const hashtags = [
-    ...BASE_TAGS,
-    '#OddsInsights', '#ATSRecord', '#ValueBet', '#LineMovement', '#MarchMadness',
-  ].slice(0, 14);
+    '#CollegeBasketball', '#NCAABB', '#OddsInsights',
+    '#MaximusSports', '#ATSRecord', '#ValueBet',
+    '#SportsBetting', '#LineMovement', '#MarchMadness',
+    '#BettingAnalysis',
+  ].slice(0, 12);
 
   return { shortCaption: short, longCaption: long, hashtags };
 }
@@ -236,10 +233,21 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
  * @param {{ template, team?, game?, picks?, stats?, atsLeaders?, headlines?, asOf?, styleMode? }} opts
  * @returns {{ shortCaption: string, longCaption: string, hashtags: string[] }}
  */
-export function buildCaption({ template, team, game, picks, stats, atsLeaders, headlines, asOf, styleMode } = {}) {
+export function buildCaption({
+  template, team, game, picks, stats, atsLeaders,
+  headlines, asOf, styleMode,
+} = {}) {
   switch (template) {
     case 'team':
-      return buildTeamCaption({ team, rank: stats?.rank, record: stats?.record, picks, atsRecord: stats?.atsRecord, asOf });
+      return buildTeamCaption({
+        team,
+        rank: stats?.rank,
+        record: stats?.record,
+        picks,
+        atsRecord: stats?.atsRecord,
+        conference: team?.conference ?? null,
+        asOf,
+      });
     case 'game':
       return buildGameCaption({ game, picks, asOf });
     case 'odds':
@@ -252,7 +260,7 @@ export function buildCaption({ template, team, game, picks, stats, atsLeaders, h
 
 /**
  * Format caption + hashtags into a plain-text file for download.
- * Includes posting meta notes (not shown in UI, only in ZIP).
+ * Posting notes are included in the ZIP only (not shown in the UI).
  */
 export function formatCaptionFile({ shortCaption, longCaption, hashtags }) {
   const postingMeta = [
@@ -262,7 +270,7 @@ export function formatCaptionFile({ shortCaption, longCaption, hashtags }) {
     '=== POSTING NOTES ===',
     'Post as 4:5 carousel. Pin this post.',
     'Link in bio: maximussports.ai',
-    'Suggested: First slide hooks. Last slide CTA. Post time: 11 AM – 1 PM or 7–9 PM ET.',
+    'Best times: 11 AM – 1 PM or 7–9 PM ET.',
   ].join('\n');
 
   return [

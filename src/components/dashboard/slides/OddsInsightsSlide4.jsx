@@ -70,7 +70,7 @@ export default function OddsInsightsSlide4({ data, asOf, slideNumber, slideTotal
       )}
 
       {/* ATS leaders */}
-      {hasAts && (
+      {hasAts ? (
         <div className={styles.atsSection}>
           <div className={styles.sectionLabel}>ATS LEADERS (L30)</div>
           <div className={styles.atsColumns}>
@@ -94,11 +94,12 @@ export default function OddsInsightsSlide4({ data, asOf, slideNumber, slideTotal
             </div>
           </div>
         </div>
-      )}
-
-      {!hasAts && totalsPicks.length === 0 && (
-        <div className={styles.empty}>Market data loading. Check back closer to tip-off.</div>
-      )}
+      ) : totalsPicks.length === 0 ? (
+        <div className={styles.atsWarming}>
+          <div className={styles.atsWarmingTitle}>ATS leaders warming</div>
+          <div className={styles.atsWarmingText}>Coverage builds throughout the day. Regenerate shortly to populate.</div>
+        </div>
+      ) : null}
     </SlideShell>
   );
 }
