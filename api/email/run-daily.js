@@ -29,6 +29,7 @@ import { getSubject as getOddsSubject, renderHTML as renderOddsHTML, renderText 
 import { getSubject as getNewsSubject, renderHTML as renderNewsHTML, renderText as renderNewsText } from '../../src/emails/templates/breakingNews.js';
 import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderText as renderDigestText } from '../../src/emails/templates/teamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
+import { getProfileEntitlements } from '../_lib/entitlements.js';
 
 const TYPE_TO_PREF_KEY = {
   daily:      'briefing',
@@ -46,11 +47,11 @@ function makeDateKey(type) {
   return `${today}_${type}`;
 }
 
-/** Fetch all profiles (up to 5000) with their preferences */
+/** Fetch all profiles (up to 5000) with their preferences and subscription state */
 async function fetchAllProfiles(sb) {
   const { data: profiles, error } = await sb
     .from('profiles')
-    .select('id, full_name, display_name, username, preferences')
+    .select('id, full_name, display_name, username, preferences, plan_tier, subscription_status')
     .limit(5000);
   if (error) throw new Error(`[run-daily] profiles fetch error: ${error.message}`);
   return profiles || [];
@@ -349,12 +350,17 @@ export default async function handler(req, res) {
             break;
           case 'teamDigest': {
             const prefs = profile?.preferences || {};
-            const digestSlugs = Array.isArray(prefs.teamDigestTeams) ? prefs.teamDigestTeams : [];
-            if (!getTeamBySlugFn || digestSlugs.length === 0) {
-              // Skip users with no digest teams configured
+            const allDigestSlugs = Array.isArray(prefs.teamDigestTeams) ? prefs.teamDigestTeams : [];
+            if (!getTeamBySlugFn || allDigestSlugs.length === 0) {
               console.log(`[run-daily] teamDigest: skipping ${email} — no digest teams configured`);
               continue;
             }
+            // Enforce plan-based team limit server-side
+            const planEntitlements = getProfileEntitlements(profile);
+            const maxEmailTeams = isFinite(planEntitlements.maxEmailTeams)
+              ? planEntitlements.maxEmailTeams
+              : TEAM_DIGEST_MAX_TEAMS;
+            const digestSlugs = allDigestSlugs.slice(0, Math.min(maxEmailTeams, TEAM_DIGEST_MAX_TEAMS));
             const sharedDigestData = {
               scoresToday,
               rankingsTop25,
@@ -362,7 +368,7 @@ export default async function handler(req, res) {
               headlines,
             };
             const teamDigests = assembleTeamDigestPayload(
-              digestSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
+              digestSlugs,
               sharedDigestData,
               getTeamBySlugFn
             );
