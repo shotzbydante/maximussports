@@ -309,8 +309,10 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     fetch(`/api/home?dates=${tomorrowApi}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        const tomorrowGames = data?.scoresByDate?.[tomorrowApi] ?? [];
-        setNextSlateGames(tomorrowGames.length > 0 ? tomorrowGames : []);
+        const rawGames  = data?.scoresByDate?.[tomorrowApi] ?? [];
+        const oddsGames = data?.odds?.games ?? [];
+        const merged    = mergeGamesWithOdds(rawGames, oddsGames, getTeamSlug);
+        setNextSlateGames(merged.length > 0 ? merged : []);
         setNextSlateLoading(false);
       })
       .catch(() => {
@@ -334,8 +336,10 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     fetch(`/api/home?dates=${tomorrowApi}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        const tomorrowGames = data?.scoresByDate?.[tomorrowApi] ?? [];
-        setThinSlateGames(tomorrowGames.length > 0 ? tomorrowGames : []);
+        const rawGames  = data?.scoresByDate?.[tomorrowApi] ?? [];
+        const oddsGames = data?.odds?.games ?? [];
+        const merged    = mergeGamesWithOdds(rawGames, oddsGames, getTeamSlug);
+        setThinSlateGames(merged.length > 0 ? merged : []);
         setThinSlateLoading(false);
       })
       .catch(() => {
@@ -401,22 +405,26 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     : { atsPicks: [], mlPicks: [], totalsPicks: [] };
   const picksSummary = activeGames.length ? buildPicksSummary(picksResult) : null;
 
-  if (import.meta.env?.DEV && activeGames.length > 0) {
-    const gamesWithSpread = activeGames.filter((g) => g.spread != null || g.homeSpread != null).length;
-    const topAts = picksResult.atsPicks[0];
-    console.debug(
-      '[Home:OddsTeaser] total games:', games.length,
-      '| games with spread:', gamesWithSpread,
-    );
-    if (topAts) {
-      console.debug(
-        '[Home:OddsTeaser] first ATS pick —',
-        topAts.awayTeam, '@', topAts.homeTeam,
-        '| pick team:', topAts.pickTeam,
-        '| team spread (number):', topAts.spread,
-        '| pickLine:', topAts.pickLine,
-      );
-    }
+  // Debug slate — activate with ?debugPicks in URL (dev or prod)
+  const debugPicks = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('debugPicks');
+
+  if ((import.meta.env?.DEV || debugPicks) && activeGames.length > 0) {
+    console.log('[Picks:slate] activeGames:', activeGames.length,
+      '| todayComplete:', todayComplete, '| isThinSlate:', isThinSlate);
+    console.table(activeGames.map((g) => ({
+      matchup:       `${g.awayTeam} @ ${g.homeTeam}`,
+      startTime:     g.startTime ?? '',
+      hasSpread:     g.spread != null || g.homeSpread != null || g.awaySpread != null,
+      spread:        g.spread ?? g.homeSpread ?? null,
+      hasTotal:      g.total != null,
+      total:         g.total ?? null,
+      hasML:         g.moneyline != null,
+      moneyline:     g.moneyline ?? null,
+    })));
+    console.log('[Picks:result] atsPicks:', picksResult.atsPicks.length,
+      '| mlPicks:', picksResult.mlPicks.length,
+      '| totalsPicks:', picksResult.totalsPicks.length);
   }
 
   const slateSummaryLabel = slateComplete

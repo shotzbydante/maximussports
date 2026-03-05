@@ -19,6 +19,17 @@
  * @param {string} [opts.ctaUrl]       — CTA button URL (defaults to maximussports.ai)
  * @param {string} [opts.ctaLabel]     — CTA button label (defaults to "Open Maximus Sports →")
  */
+// ─── Navy palette constants — used consistently across all sections ───────────
+// These ensure the solid-color fallback (when Gmail iOS drops gradients)
+// is always the correct, intentional shade — never a mismatched dark.
+const NAVY_OUTER   = '#090d18'; // outermost page background
+const NAVY_CNTNR   = '#0d1220'; // 600px container
+const NAVY_HEADER  = '#0f1828'; // header bar
+const NAVY_HERO    = '#101c2c'; // hero / briefing area
+const NAVY_CARD    = '#0f1825'; // section cards
+const NAVY_FOOTER  = '#07090f'; // footer
+const ACCENT_BLUE  = '#2d6ca8'; // brand blue — accent strip + CTA
+
 export function EmailShell({ content, previewText = '', userId = '', ctaUrl = '', ctaLabel = '' }) {
   const manageUrl = `https://maximussports.ai/settings${userId ? `?uid=${userId}` : ''}`;
   const year = new Date().getFullYear();
@@ -134,32 +145,31 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
     }
   </style>
 </head>
-<body bgcolor="#090d18" style="margin:0;padding:0;background-color:#090d18;font-family:'DM Sans',Arial,Helvetica,sans-serif;width:100%;min-width:100%;" class="email-outer-bg">
+<body bgcolor="${NAVY_OUTER}" style="margin:0;padding:0;background-color:${NAVY_OUTER};font-family:'DM Sans',Arial,Helvetica,sans-serif;width:100%;min-width:100%;" class="email-outer-bg">
 
 ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -->
 <div style="display:none;font-size:1px;color:#090d18;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;" aria-hidden="true">${previewText}&nbsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;</div>` : ''}
 
 <!-- ═══ OUTER WRAPPER ═══ -->
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#090d18"
-       style="background-color:#090d18;width:100%;margin:0;padding:0;border-collapse:collapse;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="${NAVY_OUTER}"
+       style="background-color:${NAVY_OUTER};width:100%;margin:0;padding:0;border-collapse:collapse;">
   <tr>
-    <!-- Outer td: background-color set both as attribute and inline to survive Gmail iOS stripping -->
-    <td align="center" valign="top" bgcolor="#090d18" style="padding:16px 8px 24px;background-color:#090d18;" class="email-outer-td">
+    <!-- Outer td: bgcolor + inline background-color on BOTH table and td for Gmail iOS robustness -->
+    <td align="center" valign="top" bgcolor="${NAVY_OUTER}" style="padding:16px 8px 24px;background-color:${NAVY_OUTER};" class="email-outer-td">
 
       <!-- ═══ CONTAINER (600px desktop / 100% mobile) ═══ -->
-      <!-- background-color set inline; dark-mode class adds !important override on supporting clients -->
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" bgcolor="#0d1220"
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" bgcolor="${NAVY_CNTNR}"
              class="email-container"
-             style="max-width:600px;width:100%;background-color:#0d1220;border-radius:10px;border:1px solid rgba(255,255,255,0.08);border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
+             style="max-width:600px;width:100%;background-color:${NAVY_CNTNR};border-radius:10px;border:1px solid rgba(255,255,255,0.08);border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
 
         <!-- ── HEADER ── -->
         <tr>
-          <td bgcolor="#0f1828" style="background-color:#0f1828;background-image:linear-gradient(160deg,#0f1828 0%,#0d1220 100%);border-bottom:1px solid rgba(255,255,255,0.07);padding:18px 24px 14px;border-radius:10px 10px 0 0;" class="header-td">
-            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+          <td bgcolor="${NAVY_HEADER}" style="background-color:${NAVY_HEADER};background-image:linear-gradient(160deg,${NAVY_HEADER} 0%,${NAVY_CNTNR} 100%);border-bottom:1px solid rgba(255,255,255,0.07);padding:18px 24px 14px;border-radius:10px 10px 0 0;" class="header-td">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="${NAVY_HEADER}" style="border-collapse:collapse;background-color:${NAVY_HEADER};">
               <tr>
                 <td valign="middle">
                   <!-- Intelligence badge -->
-                  <div style="display:inline-block;background-color:#2d6ca8;background-image:linear-gradient(135deg,#2d6ca8,#5a9fd4);padding:2px 8px 3px;border-radius:3px;margin-bottom:6px;line-height:1;">
+                  <div style="display:inline-block;background-color:${ACCENT_BLUE};background-image:linear-gradient(135deg,${ACCENT_BLUE},#5a9fd4);padding:2px 8px 3px;border-radius:3px;margin-bottom:6px;line-height:1;">
                     <span style="font-size:9px;font-weight:700;letter-spacing:0.14em;color:#ffffff;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Intelligence</span>
                   </div>
                   <div style="line-height:1.2;">
@@ -199,8 +209,8 @@ ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">
               <tr>
                 <td align="center"
-                    bgcolor="#2d6ca8"
-                    style="border-radius:7px;background-color:#2d6ca8;background-image:linear-gradient(135deg,#3C79B4 0%,#2660a0 100%);mso-padding-alt:0;">
+                    bgcolor="${ACCENT_BLUE}"
+                    style="border-radius:7px;background-color:${ACCENT_BLUE};background-image:linear-gradient(135deg,#3C79B4 0%,#2660a0 100%);mso-padding-alt:0;">
                   <a href="${finalCtaUrl}"
                      class="cta-link"
                      style="display:block;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:13px 24px;text-align:center;letter-spacing:0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;border-radius:7px;-webkit-text-size-adjust:none;line-height:1.3;">
@@ -215,7 +225,7 @@ ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -
 
         <!-- ── FOOTER ── -->
         <tr>
-          <td bgcolor="#07090f" style="background-color:#07090f;border-top:1px solid rgba(255,255,255,0.06);padding:13px 24px 18px;border-radius:0 0 10px 10px;" class="footer-td">
+          <td bgcolor="${NAVY_FOOTER}" style="background-color:${NAVY_FOOTER};border-top:1px solid rgba(255,255,255,0.06);padding:13px 24px 18px;border-radius:0 0 10px 10px;" class="footer-td">
             <p class="footer-text" style="margin:0 0 5px;font-size:11px;color:#374555;line-height:1.55;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
               Not betting advice. Maximus Sports provides sports intelligence for informational purposes only.
             </p>
@@ -268,11 +278,11 @@ export function sectionCard({ pillLabel, pillType, headline, body }) {
   return `
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
-           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="${NAVY_CARD}"
+           style="background-color:${NAVY_CARD};border:1px solid rgba(255,255,255,0.09);border-top:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;"
            class="email-card-dark">
       <tr>
-        <td bgcolor="#0f1825" style="padding:15px 17px 13px;background-color:#0f1825;" class="card-td">
+        <td bgcolor="${NAVY_CARD}" style="padding:15px 17px 13px;background-color:${NAVY_CARD};border-bottom:1px solid rgba(0,0,0,0.2);" class="card-td">
           <div style="margin-bottom:9px;">${pill(pillLabel, pillType)}</div>
           ${headline ? `<p class="card-headline" style="margin:0 0 7px;font-size:14px;font-weight:700;color:#e8edf5;line-height:1.35;font-family:'DM Sans',Arial,Helvetica,sans-serif;letter-spacing:-0.01em;">${headline}</p>` : ''}
           <p class="card-body" style="margin:0;font-size:13px;color:#7d8fa0;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${body}</p>
@@ -291,8 +301,12 @@ export function sectionCard({ pillLabel, pillType, headline, body }) {
  */
 export function heroBlock({ line, sublabel }) {
   return `
+<!-- ── 4px brand-blue accent strip: visible even when gradients drop on Gmail iOS ── -->
 <tr>
-  <td bgcolor="#101c2c" style="padding:22px 24px 16px;background-color:#101c2c;background-image:linear-gradient(180deg,#101c2c 0%,#0d1422 100%);" class="hero-td">
+  <td bgcolor="${ACCENT_BLUE}" style="height:4px;font-size:0;line-height:0;background-color:${ACCENT_BLUE};" aria-hidden="true">&nbsp;</td>
+</tr>
+<tr>
+  <td bgcolor="${NAVY_HERO}" style="padding:22px 24px 16px;background-color:${NAVY_HERO};background-image:linear-gradient(180deg,${NAVY_HERO} 0%,#0d1422 100%);border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(0,0,0,0.25);" class="hero-td">
     <p class="hero-eyebrow" style="margin:0 0 7px;font-size:10px;font-weight:600;color:#3d7aaa;letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">${sublabel || 'Maximus Intelligence'}</p>
     <h1 class="hero-h1" style="margin:0;font-size:23px;font-weight:800;color:#edf2f8;line-height:1.22;letter-spacing:-0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${line}</h1>
   </td>

@@ -242,11 +242,19 @@ function LoadingSkeleton() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// Content-mode options
+const CONTENT_MODES = [
+  { id: 'all',    label: 'All'     },
+  { id: 'videos', label: 'Videos'  },
+  { id: 'stories',label: 'Stories' },
+];
+
 export default function NewsFeed() {
   const [rawItems, setRawItems] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [activeConf, setActiveConf] = useState('All');
+  const [contentMode, setContentMode] = useState('all'); // 'all' | 'videos' | 'stories'
 
   // Hero video (article-related) — desktop only
   const [heroVideo, setHeroVideo] = useState(null);
@@ -255,6 +263,12 @@ export default function NewsFeed() {
   // Track news_view once on mount
   useEffect(() => {
     track('news_view', { view: 'all', conference: null });
+  }, []);
+
+  // Content-mode change handler
+  const handleModeChange = useCallback((mode) => {
+    setContentMode(mode);
+    track('news_filter_change', { filter: 'content_mode', value: mode });
   }, []);
 
   // Tracked conf filter change handler
@@ -366,33 +380,63 @@ export default function NewsFeed() {
 
   return (
     <div className={styles.page}>
-      {/* ── Page header ── */}
+      {/* ── Premium page header ── */}
       <header className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Intel Feed</h1>
-        <p className={styles.pageSubtitle}>
-          Men&apos;s college basketball · curated intelligence
-        </p>
-      </header>
+        <div className={styles.pageHeaderTop}>
+          <div>
+            <h1 className={styles.pageTitle}>News Feed</h1>
+            <p className={styles.pageSubtitle}>Curated videos and headlines</p>
+          </div>
+          {activeConf !== 'All' && (
+            <button
+              type="button"
+              className={styles.confActivePill}
+              onClick={() => handleConfChange('All')}
+              aria-label={`Clear ${activeConf} filter`}
+            >
+              <ConferenceLogo conference={activeConf} size={12} />
+              <span>{activeConf}</span>
+              <span className={styles.confActivePillX} aria-hidden>×</span>
+            </button>
+          )}
+        </div>
 
-      {/* ── Sticky conference filter bar ── */}
-      <div className={styles.filterBar} role="navigation" aria-label="Filter by conference">
-        {availableConfs.map((conf) => (
-          <button
-            key={conf}
-            type="button"
-            className={`${styles.filterChip} ${activeConf === conf ? styles.filterChipActive : ''}`}
-            onClick={() => handleConfChange(conf)}
-            aria-pressed={activeConf === conf}
-          >
-            {conf !== 'All' && (
-              <span className={styles.filterChipLogo}>
-                <ConferenceLogo conference={conf} size={14} />
-              </span>
-            )}
-            {conf}
-          </button>
-        ))}
-      </div>
+        {/* Content-mode pills — primary controls */}
+        <div className={styles.contentModeBar} role="tablist" aria-label="Content type">
+          {CONTENT_MODES.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={contentMode === id}
+              className={`${styles.modeChip} ${contentMode === id ? styles.modeChipActive : ''}`}
+              onClick={() => handleModeChange(id)}
+            >
+              {label}
+            </button>
+          ))}
+
+          {/* Conference pills inline on the right — only when viewing all content */}
+          {contentMode !== 'videos' && availableConfs.length > 1 && (
+            <div className={styles.confPills} role="group" aria-label="Filter by conference">
+              {availableConfs.filter((c) => c !== 'All').map((conf) => (
+                <button
+                  key={conf}
+                  type="button"
+                  className={`${styles.filterChip} ${styles.filterChipConf} ${activeConf === conf ? styles.filterChipActive : ''}`}
+                  onClick={() => handleConfChange(activeConf === conf ? 'All' : conf)}
+                  aria-pressed={activeConf === conf}
+                >
+                  <span className={styles.filterChipLogo}>
+                    <ConferenceLogo conference={conf} size={12} />
+                  </span>
+                  {conf}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
 
       {/* ── States ── */}
       {loading && <LoadingSkeleton />}
@@ -420,11 +464,11 @@ export default function NewsFeed() {
 
             <>
               {/* Section 1: Top Videos — 2-col mobile / 3-col desktop */}
-              {intelVideos.length > 0 && (
+              {intelVideos.length > 0 && contentMode !== 'stories' && (
                 <section className={styles.topVideosSection} aria-label="Top videos">
                   <h2 className={styles.sectionHeading}>Top Videos</h2>
                   <div className={styles.topVideosGrid}>
-                    {intelVideos.slice(0, 6).map((v, idx) => (
+                    {intelVideos.slice(0, contentMode === 'videos' ? 12 : 6).map((v, idx) => (
                       <div key={v.videoId || idx} className={styles.topVideoItem}>
                         <YouTubeVideoCard
                           video={v}
@@ -437,7 +481,7 @@ export default function NewsFeed() {
               )}
 
               {/* Section 2: Top Stories headline list */}
-              {enriched.length > 0 && (
+              {enriched.length > 0 && contentMode !== 'videos' && (
                 <section
                   className={styles.topStoriesDesktopSection}
                   aria-label="Top stories"
@@ -474,13 +518,15 @@ export default function NewsFeed() {
                 </section>
               )}
 
-              {/* Ad slot */}
-              <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
-                Sponsored · Premium analysis
-              </div>
+              {/* Ad slot — hidden in videos-only mode */}
+              {contentMode !== 'videos' && (
+                <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
+                  Sponsored · Premium analysis
+                </div>
+              )}
 
               {/* Section 3: More News */}
-              {enriched.length > 6 && (
+              {enriched.length > 6 && contentMode !== 'videos' && (
                 <section
                   className={styles.streamSection}
                   aria-label="More news"

@@ -205,12 +205,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
   const picks = [];
 
   for (const game of games) {
-    // Require at least one spread field to be present (any numeric form)
-    const hasAnySpread =
-      game.homeSpread != null ||
-      game.awaySpread != null ||
-      (game.spread != null && game.spread !== '');
-    if (!hasAnySpread) continue;
+    if (!hasSpreadLine(game)) continue;
 
     // Resolve the canonical home-team spread (number or null)
     const { spread: homeSpreadNum, source: homeSpreadSource } = getTeamSpread(game, true);
@@ -508,11 +503,61 @@ function buildTotalsPicks(games) {
 // ─── watch item helpers ───────────────────────────────────────────────────────
 
 /**
- * Canonical de-dupe key. Uses homeTeam+awayTeam because lean pick objects
- * don't preserve the raw gameId, whereas game objects always have both teams.
+ * Canonical de-dupe key. Uses team slugs (normalised, mascot-agnostic) so that
+ * "Michigan Wolverines" and "Michigan" don't generate different keys.
+ * Avoids including date because lean pick objects don't store startTime.
  */
 function baseGameKey(obj) {
-  return `${obj.homeTeam}-${obj.awayTeam}`;
+  const home = getTeamSlug(obj.homeTeam) || (obj.homeTeam || '').toLowerCase().trim();
+  const away = getTeamSlug(obj.awayTeam) || (obj.awayTeam || '').toLowerCase().trim();
+  return `${home}|${away}`;
+}
+
+/**
+ * True if the game has any spread data across known field shapes.
+ * mergeGamesWithOdds standardises to spread/homeSpread/awaySpread,
+ * but this catches alternate API shapes as a safety net.
+ */
+function hasSpreadLine(game) {
+  return (
+    game.homeSpread != null ||
+    game.awaySpread != null ||
+    (game.spread != null && game.spread !== '') ||
+    game.spreads?.home != null ||
+    game.lines?.spread != null ||
+    game.odds?.spread != null
+  );
+}
+
+/** True if the game has a moneyline across known field shapes. */
+function hasMoneylineLine(game) {
+  return (
+    game.moneyline != null ||
+    game.ml != null ||
+    game.lines?.moneyline != null ||
+    game.odds?.moneyline != null
+  );
+}
+
+/** Resolve the best moneyline string across field shapes. */
+function resolveMoneyline(game) {
+  return game.moneyline ?? game.ml ?? game.lines?.moneyline ?? game.odds?.moneyline ?? null;
+}
+
+/** True if the game has a total (O/U) line across known field shapes. */
+function hasTotalLine(game) {
+  return (
+    game.total != null ||
+    game.totals?.points != null ||
+    game.lines?.total != null ||
+    game.odds?.total != null
+  );
+}
+
+/** Resolve the best total value across field shapes. */
+function resolveTotal(game) {
+  const raw = game.total ?? game.totals?.points ?? game.lines?.total ?? game.odds?.total ?? null;
+  return parseNum(raw);
 }
 
 /**
@@ -552,10 +597,7 @@ function buildSpreadWatches(games, leanKeys, needed) {
   for (const game of games) {
     if (watches.length >= needed) break;
     if (leanKeys.has(baseGameKey(game))) continue;
-    const hasAnySpread =
-      game.homeSpread != null || game.awaySpread != null ||
-      (game.spread != null && game.spread !== '');
-    if (!hasAnySpread) continue;
+    if (!hasSpreadLine(game)) continue;
 
     const { spread: homeSpreadNum } = getTeamSpread(game, true);
     const { spread: awaySpreadNum } = getTeamSpread(game, false);
@@ -582,8 +624,10 @@ function buildMoneylineWatches(games, leanKeys, needed) {
   for (const game of games) {
     if (watches.length >= needed) break;
     if (leanKeys.has(baseGameKey(game))) continue;
-    if (!game.moneyline) continue;
-    const [rawHome, rawAway] = String(game.moneyline).split('/');
+    if (!hasMoneylineLine(game)) continue;
+    const ml = resolveMoneyline(game);
+    if (!ml) continue;
+    const [rawHome, rawAway] = String(ml).split('/');
     const homeML = parseNum(rawHome);
     const awayML = parseNum(rawAway);
     if (homeML == null || awayML == null) continue;
@@ -605,8 +649,8 @@ function buildTotalsWatches(games, leanKeys, needed) {
   for (const game of games) {
     if (watches.length >= needed) break;
     if (leanKeys.has(baseGameKey(game))) continue;
-    if (!game.total) continue;
-    const marketTotal = parseNum(game.total);
+    if (!hasTotalLine(game)) continue;
+    const marketTotal = resolveTotal(game);
     if (marketTotal == null) continue;
     watches.push({
       ...buildWatchBase(game, 'total'),
@@ -670,9 +714,17 @@ export function buildMaximusPicks({
     }
   }
 
-  const rawAts    = buildSpreadPicks(games, atsLeaders, atsBySlug);
-  const rawMl     = buildMoneylinePicks(games, atsLeaders, atsBySlug);
-  const rawTotals = buildTotalsPicks(games);
+  // Sort games: earliest valid start time first, games without times at the end.
+  // This ensures watch candidates are ordered by tip time (most relevant first).
+  const sortedGames = [...games].sort((a, b) => {
+    const ta = a.startTime ? new Date(a.startTime).getTime() : Infinity;
+    const tb = b.startTime ? new Date(b.startTime).getTime() : Infinity;
+    return ta - tb;
+  });
+
+  const rawAts    = buildSpreadPicks(sortedGames, atsLeaders, atsBySlug);
+  const rawMl     = buildMoneylinePicks(sortedGames, atsLeaders, atsBySlug);
+  const rawTotals = buildTotalsPicks(sortedGames);
 
   // Tag existing leans with itemType: 'lean'
   const atsPicks    = rawAts.map((p)    => ({ ...p, itemType: 'lean' }));
@@ -685,9 +737,9 @@ export function buildMaximusPicks({
   const totalsLeanKeys = new Set(totalsPicks.map((p) => baseGameKey(p)));
 
   // Fill each column up to TARGET_SHOW with watch items
-  const atsWatches    = buildSpreadWatches(games, atsLeanKeys, Math.max(0, TARGET_SHOW - atsPicks.length));
-  const mlWatches     = buildMoneylineWatches(games, mlLeanKeys, Math.max(0, TARGET_SHOW - mlPicks.length));
-  const totalsWatches = buildTotalsWatches(games, totalsLeanKeys, Math.max(0, TARGET_SHOW - totalsPicks.length));
+  const atsWatches    = buildSpreadWatches(sortedGames, atsLeanKeys, Math.max(0, TARGET_SHOW - atsPicks.length));
+  const mlWatches     = buildMoneylineWatches(sortedGames, mlLeanKeys, Math.max(0, TARGET_SHOW - mlPicks.length));
+  const totalsWatches = buildTotalsWatches(sortedGames, totalsLeanKeys, Math.max(0, TARGET_SHOW - totalsPicks.length));
 
   return {
     atsPicks:    [...atsPicks,    ...atsWatches],
