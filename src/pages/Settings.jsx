@@ -15,6 +15,7 @@ import {
 } from '../lib/analytics/posthog';
 import styles from './Settings.module.css';
 import { showToast } from '../components/common/Toast';
+import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -120,13 +121,6 @@ const DEFAULT_PREFS = {
   oddsIntel: false,
   newsDigest: true,
 };
-
-const ADMIN_EMAIL = 'dantedicicco@gmail.com';
-
-/** Case-insensitive, trimmed admin gate — single source of truth. */
-function isAdminUser(email) {
-  return Boolean(email) && email.trim().toLowerCase() === ADMIN_EMAIL;
-}
 
 const TEST_EMAIL_TYPES = [
   { type: 'daily',  label: 'Send Daily AI Briefing (TEST)' },
@@ -861,20 +855,25 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
 }
 
 /* ─── Admin QA Email Panel ───────────────────────────────────────────────── */
-function AdminQAPanel({ session }) {
-  const [sending, setSending]   = useState(null);
-  // Per-button last result: { type, ok, message, ts }
-  const [results, setResults]   = useState({});
+function AdminQAPanel() {
+  const { user } = useAuth();
+  const [sending, setSending] = useState(null);
+  const [results, setResults] = useState({});
 
-  const adminEmail = session?.user?.email || '';
+  const adminEmail = user?.email || '';
 
   async function handleSendTest(type) {
     if (sending) return;
     setSending(type);
     setResults(prev => ({ ...prev, [type]: null }));
     try {
-      const token = session?.access_token;
-      if (!token) throw new Error('No auth session — please sign out and back in.');
+      // Always fetch a fresh session token at click time — never rely on stale props.
+      const sb = getSupabase();
+      if (!sb) throw new Error('Not signed in.');
+      const { data: { session: freshSession } } = await sb.auth.getSession();
+      const token = freshSession?.access_token;
+      if (!token) throw new Error('Not signed in — please sign out and back in.');
+
       const res = await fetch('/api/email/send-test', {
         method: 'POST',
         headers: {
@@ -885,12 +884,13 @@ function AdminQAPanel({ session }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+
       const ts = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-      setResults(prev => ({ ...prev, [type]: { ok: true, message: `Sent at ${ts}`, ts } }));
+      setResults(prev => ({ ...prev, [type]: { ok: true, message: `Sent at ${ts}` } }));
       showToast(`Test sent — check ${adminEmail}`, { type: 'success' });
     } catch (err) {
       const ts = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-      setResults(prev => ({ ...prev, [type]: { ok: false, message: err.message || 'Send failed.', ts } }));
+      setResults(prev => ({ ...prev, [type]: { ok: false, message: err.message || 'Send failed.' } }));
       showToast(err.message || 'Send failed.', { type: 'error' });
     } finally {
       setSending(null);
@@ -941,12 +941,7 @@ function AdminQAPanel({ session }) {
 
 /* ─── Premium Profile Page ───────────────────────────────────────────────── */
 function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut }) {
-  const { signOut, session } = useAuth();
-
-  // Dev diagnostics — confirm admin gate values (no tokens logged)
-  if (import.meta.env.DEV) {
-    console.log('[Settings] user.email:', user?.email, '| isAdmin:', isAdminUser(user?.email));
-  }
+  const { signOut } = useAuth();
 
   const [userTeams, setUserTeams]         = useState([]);
   const [teamsLoading, setTeamsLoading]   = useState(true);
@@ -1329,9 +1324,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       </div>
 
       {/* ── Admin QA ── */}
-      {isAdminUser(user.email) && (
-        <AdminQAPanel session={session} />
-      )}
+      {isAdminUser(user.email) && <AdminQAPanel />}
 
       {/* ── Account ── */}
       <div className={styles.profileSection}>
