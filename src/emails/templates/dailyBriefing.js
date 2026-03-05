@@ -3,22 +3,22 @@
  * Sent once per day at 8:00 AM PST to subscribers with preferences.briefing = true.
  *
  * @param {object} data
- * @param {string} [data.displayName]    — user's resolved display name
+ * @param {string} [data.displayName]     — user's resolved display name
  * @param {Array}  [data.scoresToday]
  * @param {Array}  [data.rankingsTop25]
- * @param {object} [data.atsLeaders]     — { best: [...], worst: [...] }
- * @param {Array}  [data.headlines]
- * @param {Array}  [data.pinnedTeams]    — [{ name, slug, logo? }]
- * @param {Array}  [data.botIntelBullets] — 2–4 string bullets from home bot intel (optional)
+ * @param {object} [data.atsLeaders]      — { best: [...], worst: [...] }
+ * @param {Array}  [data.headlines]       — news headlines (pre-deduped, entities decoded)
+ * @param {Array}  [data.pinnedTeams]     — [{ name, slug }]
+ * @param {Array}  [data.botIntelBullets] — 2–4 bullets from home bot intel (optional)
  */
 
 import { EmailShell, heroBlock, sectionCard, pill, teamLogoImg } from '../EmailShell.js';
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
 
 export function getSubject(data = {}) {
-  const name = data.displayName ? `, ${data.displayName.split(' ')[0]}` : '';
+  const name = data.displayName ? data.displayName.split(' ')[0] : null;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  return `Maximus Sports Briefing${name}: Your edge for ${today}`;
+  return `Maximus Sports: Daily Briefing${name ? `, ${name}` : ''} \u2014 ${today}`;
 }
 
 export function renderHTML(data = {}) {
@@ -36,7 +36,7 @@ export function renderHTML(data = {}) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const greetingName = firstName ? `, ${firstName}` : '';
 
-  // ── Pinned teams section: show game status with logos
+  // ── Pinned teams with logos + game status
   let pinnedSection = '';
   if (pinnedTeams.length > 0) {
     const pinnedRows = pinnedTeams.slice(0, 3).map(team => {
@@ -44,10 +44,9 @@ export function renderHTML(data = {}) {
       const teamUrl = teamSlug ? `https://maximussports.ai/teams/${teamSlug}` : 'https://maximussports.ai';
       const { gameInfo } = getTeamTodaySummary(team, scoresToday);
       const logoHtml = teamLogoImg(team, 20);
-
       return `<tr>
   <td style="padding:8px 18px;border-bottom:1px solid rgba(255,255,255,0.04);">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
         <td valign="middle" style="width:24px;padding-right:7px;">${logoHtml}</td>
         <td valign="middle">
@@ -62,11 +61,11 @@ export function renderHTML(data = {}) {
 
     pinnedSection = `
 <tr>
-  <td style="padding:0 28px 14px;" class="section-pad">
+  <td style="padding:0 28px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;">
+           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
-        <td style="padding:12px 18px 4px;" class="card-inner">
+        <td style="padding:12px 18px 4px;" class="card-td">
           <div style="margin-bottom:4px;">${pill('YOUR TEAMS', 'watch')}</div>
         </td>
       </tr>
@@ -81,7 +80,7 @@ export function renderHTML(data = {}) {
 </tr>`;
   }
 
-  // ── Games today section
+  // ── Games today
   const gameCount = scoresToday.length;
   let gamesBody = '';
   if (gameCount > 0) {
@@ -90,23 +89,23 @@ export function renderHTML(data = {}) {
       const status = g.gameStatus || g.status || 'Scheduled';
       return `<span style="display:block;color:#8892a4;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);">${teams} &mdash; <span style="color:#5a9fd4;">${status}</span></span>`;
     }).join('');
-    gamesBody = `${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate today. Here&rsquo;s what Maximus is tracking.<br/><br/><div style="margin-top:4px;">${sample}</div>`;
+    gamesBody = `${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate today. Here&rsquo;s what Maximus Sports is tracking.<br/><br/><div style="margin-top:4px;">${sample}</div>`;
   } else {
-    gamesBody = 'The schedule is light today. Maximus is staying disciplined &mdash; no forced action.';
+    gamesBody = 'The schedule is light today. Maximus Sports is staying disciplined &mdash; no forced action.';
   }
 
-  // ── ATS Edge section
+  // ── ATS Edge
   const bestAts = atsLeaders.best || [];
   let atsBody = '';
   if (bestAts.length > 0) {
     const top = bestAts[0];
     const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : '';
-    atsBody = `<strong style="color:#f0f4f8;">${top.name || top.team || 'A team'}</strong> ${pct ? `is covering at ${pct} ATS` : 'is your top ATS performer today'}. ${bestAts.length > 1 ? `${bestAts[1].name || bestAts[1].team} is also worth a look.` : ''}`;
+    atsBody = `<strong style="color:#f0f4f8;">${top.name || top.team || 'A team'}</strong> ${pct ? `is covering at ${pct} ATS` : 'is the top ATS performer right now'}. ${bestAts.length > 1 ? `${bestAts[1].name || bestAts[1].team} is also worth a look.` : ''}`;
   } else {
-    atsBody = 'No major ATS edges detected today. Maximus is staying disciplined &mdash; patience is a strategy too.';
+    atsBody = 'No major ATS edges detected today. Staying disciplined &mdash; patience is a strategy too.';
   }
 
-  // ── Top 25 movement
+  // ── Rankings
   let rankBody = '';
   if (rankingsTop25.length > 0) {
     const top3 = rankingsTop25.slice(0, 3).map((r, i) => `#${i + 1} ${r.teamName || r.name || r.team || 'Unknown'}`).join(', ');
@@ -115,14 +114,14 @@ export function renderHTML(data = {}) {
     rankBody = 'Rankings data is refreshing. Check the app for the latest AP Top 25 movements.';
   }
 
-  // ── Headlines
+  // ── Headlines (entities already decoded by dedupeNewsItems)
   let headlineItems = '';
   if (headlines.length > 0) {
     headlineItems = headlines.slice(0, 3).map(h => {
       const title = h.title || 'Breaking';
       const source = h.source || '';
       const link = h.link || 'https://maximussports.ai';
-      return `<a href="${link}" style="display:block;color:#8892a4;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);text-decoration:none;line-height:1.45;" target="_blank">
+      return `<a href="${link}" style="display:block;color:#8892a4;font-size:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);text-decoration:none;line-height:1.45;" target="_blank">
         <span style="color:#c0cad8;">${title}</span>${source ? `<span style="color:#4a5568;font-size:11px;"> &mdash; ${source}</span>` : ''}
       </a>`;
     }).join('');
@@ -134,18 +133,20 @@ export function renderHTML(data = {}) {
   let botIntelSection = '';
   if (botIntelBullets.length > 0) {
     const bulletHtml = botIntelBullets.slice(0, 4).map(b =>
-      `<div style="display:flex;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-        <span style="color:#3d9c74;font-size:12px;margin-right:8px;margin-top:1px;flex-shrink:0;">&bull;</span>
-        <span style="font-size:12px;color:#8892a4;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${b}</span>
-      </div>`
+      `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 4px;border-collapse:collapse;">
+        <tr>
+          <td valign="top" style="width:12px;color:#3d9c74;font-size:12px;padding-top:2px;font-family:'DM Sans',Arial,sans-serif;">&bull;</td>
+          <td valign="top" style="font-size:12px;color:#8892a4;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.04);">${b}</td>
+        </tr>
+      </table>`
     ).join('');
     botIntelSection = `
 <tr>
-  <td style="padding:0 28px 14px;" class="section-pad">
+  <td style="padding:0 28px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;">
+           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
-        <td style="padding:16px 18px 14px;" class="card-inner">
+        <td style="padding:16px 18px 14px;" class="card-td">
           <div style="margin-bottom:10px;">${pill('MAXIMUS SAYS', 'intel')}</div>
           ${bulletHtml}
         </td>
@@ -157,14 +158,14 @@ export function renderHTML(data = {}) {
 
   const content = `
 ${heroBlock({
-    line: `Maximus Sports Briefing${greetingName}: Here&rsquo;s your edge today.`,
+    line: `Maximus Sports Briefing${greetingName}: Here\u2019s your edge today.`,
     sublabel: today,
   })}
 
 <tr>
-  <td style="padding:0 28px 8px;" class="section-pad">
+  <td style="padding:0 28px 8px;" class="section-td">
     <p style="margin:0;font-size:13px;color:#6b7f99;line-height:1.6;font-family:'DM Sans',Arial,sans-serif;">
-      Good morning. Maximus has processed today&rsquo;s slate, lines, and trends. Here&rsquo;s what matters.
+      Good morning. Maximus Sports has processed today&rsquo;s slate, lines, and trends. Here&rsquo;s what matters.
     </p>
   </td>
 </tr>
@@ -174,7 +175,7 @@ ${botIntelSection}
 ${sectionCard({
     pillLabel: 'WHAT TO WATCH',
     pillType: 'watch',
-    headline: `${gameCount > 0 ? `${gameCount} Games Today` : 'Light Slate'}`,
+    headline: gameCount > 0 ? `${gameCount} Games Today` : 'Light Slate',
     body: gamesBody,
   })}
 
@@ -195,11 +196,11 @@ ${sectionCard({
 ${pinnedSection}
 
 <tr>
-  <td style="padding:0 28px 14px;" class="section-pad">
+  <td style="padding:0 28px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;">
+           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
-        <td style="padding:16px 18px 14px;" class="card-inner">
+        <td style="padding:16px 18px 14px;" class="card-td">
           <div style="margin-bottom:10px;">${pill('HEADLINES', 'headlines')}</div>
           ${headlineItems}
         </td>
@@ -210,7 +211,7 @@ ${pinnedSection}
 
   return EmailShell({
     content,
-    previewText: `Your Maximus Sports edge for ${today}. ATS leaders, games, and intelligence — all in one read.`,
+    previewText: `Your Maximus Sports edge for ${today} \u2014 ATS leaders, games, and intel in one read.`,
   });
 }
 
@@ -219,40 +220,38 @@ export function renderText(data = {}) {
   const name = displayName ? displayName.split(' ')[0] : 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const lines = [
-    `MAXIMUS SPORTS — Daily AI Briefing`,
+    'MAXIMUS SPORTS — Daily AI Briefing',
     today,
-    ``,
+    '',
     `Good morning, ${name}. Here's your edge today.`,
-    ``,
+    '',
     ...(botIntelBullets.length > 0 ? [
-      `MAXIMUS SAYS`,
-      ...botIntelBullets.slice(0, 4).map(b => `• ${b}`),
-      ``,
+      'MAXIMUS SAYS',
+      ...botIntelBullets.slice(0, 4).map(b => `- ${b}`),
+      '',
     ] : []),
-    `WHAT TO WATCH`,
-    scoresToday.length > 0
-      ? `${scoresToday.length} games on the slate today.`
-      : 'Light slate today. Stay disciplined.',
-    ``,
-    `ATS EDGE`,
+    'WHAT TO WATCH',
+    scoresToday.length > 0 ? `${scoresToday.length} games on the slate today.` : 'Light slate today. Stay disciplined.',
+    '',
+    'ATS EDGE',
     atsLeaders.best?.length > 0
       ? `Top ATS performer: ${atsLeaders.best[0].name || atsLeaders.best[0].team}`
       : 'No major ATS edges detected today.',
-    ``,
+    '',
     ...(pinnedTeams.length > 0 ? [
-      `YOUR TEAMS`,
+      'YOUR TEAMS',
       ...pinnedTeams.slice(0, 3).map(t => {
         const { gameInfoText } = getTeamTodaySummary(t, scoresToday);
         return `${t.name}: ${gameInfoText}`;
       }),
-      ``,
+      '',
     ] : []),
-    `HEADLINES`,
+    'HEADLINES',
     ...headlines.slice(0, 3).map(h => `- ${h.title || 'No title'}`),
-    ``,
-    `Open Maximus → https://maximussports.ai`,
-    ``,
-    `Not betting advice. Manage preferences: https://maximussports.ai/settings`,
+    '',
+    'Open Maximus Sports -> https://maximussports.ai',
+    '',
+    'Not betting advice. Manage preferences: https://maximussports.ai/settings',
   ];
   return lines.join('\n');
 }

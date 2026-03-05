@@ -19,6 +19,7 @@
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
+import { dedupeNewsItems } from '../_lib/newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
@@ -256,7 +257,8 @@ export default async function handler(req, res) {
     const atsLeaders = atsResult.status === 'fulfilled'
       ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
       : { best: [], worst: [] };
-    const headlines = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+    const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+    const headlines = dedupeNewsItems(headlinesRaw);
 
     // ── 7. Fetch bot intel bullets (shared for all users in this run)
     let botIntelBullets = [];

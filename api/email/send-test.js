@@ -17,6 +17,7 @@ import { verifyUserToken, getEnvStatus } from '../_lib/supabaseAdmin.js';
 import { ADMIN_EMAIL, isAdminEmail } from '../_lib/admin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
+import { dedupeNewsItems } from '../_lib/newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
@@ -139,7 +140,8 @@ export default async function handler(req, res) {
     const atsLeaders    = atsResult.status     === 'fulfilled'
       ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
       : { best: [], worst: [] };
-    const headlines     = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
+    const headlinesRaw  = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
+    const headlines     = dedupeNewsItems(headlinesRaw);
 
     // Resolve display name from the authenticated admin user
     const displayName = getUserDisplayName({ user });
