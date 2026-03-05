@@ -17,6 +17,7 @@ import styles from './Settings.module.css';
 import { showToast } from '../components/common/Toast';
 import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
+import { invalidatePlanCache } from '../hooks/usePlan';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -1317,6 +1318,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         .then(({ data }) => {
           if (data && (data.plan_tier === 'pro' || data.subscription_status === 'active' || data.subscription_status === 'trialing')) {
             onProfileUpdate(data);   // push updated plan up to AuthenticatedSettings
+            // Invalidate usePlan module cache so TopNav badge re-fetches immediately.
+            invalidatePlanCache(user.id);
+            showToast('Welcome to Maximus Sports Pro! 🎉', { type: 'success', duration: 5000 });
             setPlanRefreshing(false);
             return;
           }
@@ -1353,6 +1357,11 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   // ── Upgrade to Pro (Stripe Checkout) ─────────────────────────────────────
   async function handleUpgrade() {
+    // UI guard: Pro users must never trigger checkout again.
+    if (planTier === 'pro') {
+      showToast('You\'re already on Maximus Sports Pro!', { type: 'info' });
+      return;
+    }
     setUpgradeLoading(true);
     try {
       const sb = getSupabase();
@@ -2060,6 +2069,8 @@ function AuthenticatedSettings({ user }) {
     setSigningOut(true);
     track('auth_sign_out', {});
     analyticsReset();
+    // Clear plan cache so it never leaks to the next user on this device.
+    if (user?.id) invalidatePlanCache(user.id);
     await signOut();
   };
 

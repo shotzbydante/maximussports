@@ -46,8 +46,10 @@ export default function TopNav() {
           onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
         />
         </Link>
-        <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
-        <PlanBadge tier={planTier} />
+        <div className={styles.brandTaglineCluster}>
+          <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
+          <PlanBadge tier={planTier} />
+        </div>
       </div>
       <button
         type="button"

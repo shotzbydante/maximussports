@@ -629,6 +629,34 @@
   opacity: 0.65;
 }
 
+/* ─── view-more link (bottom of each column) ────────────────────── */
+
+.viewMoreLink {
+  display: block;
+  padding: 7px 12px 9px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  text-align: right;
+  letter-spacing: 0.01em;
+  border-top: 1px solid rgba(60, 121, 180, 0.1);
+  transition: background 0.12s, color 0.12s;
+  opacity: 0.85;
+}
+
+.viewMoreLink:hover {
+  background: rgba(60, 121, 180, 0.04);
+  opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .viewMoreLink {
+    padding: 6px 12px 8px;
+    font-size: 0.6rem;
+  }
+}
+
 /* ─── spread unavailable state ───────────────────────────────────── */
 
 .slipLineUnavailable {

@@ -38,46 +38,57 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
 }
 
-.brandTagline {
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
+/* Tagline + plan badge cluster — baseline-aligned so badge sits on the text baseline */
+.brandTaglineCluster {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
   margin-left: var(--space-sm);
   padding-left: var(--space-md);
   border-left: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
+.brandTagline {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 /* ─── Plan badges in the top nav ─────────────────────────────── */
 .badgeFree {
   display: inline-flex;
   align-items: center;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 1px 7px 2px;
   border-radius: 999px;
   border: 1px solid rgba(140, 158, 178, 0.28);
   color: #7a94ab;
   background: rgba(120, 145, 170, 0.09);
   flex-shrink: 0;
-  line-height: 1;
+  line-height: 1.2;
+  vertical-align: baseline;
 }
 
 .badgePro {
   display: inline-flex;
   align-items: center;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 1px 7px 2px;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--color-primary, #3c79b4) 0%, #1a6fcc 100%);
   color: #fff;
-  box-shadow: 0 1px 6px rgba(60, 121, 180, 0.35);
+  box-shadow: 0 1px 5px rgba(60, 121, 180, 0.32);
   flex-shrink: 0;
-  line-height: 1;
+  line-height: 1.2;
+  vertical-align: baseline;
 }
 
 .hamburger {
@@ -165,10 +176,15 @@
   .brandTagline {
     display: none;
   }
+  /* On mobile the tagline is hidden so the cluster just shows the badge */
+  .brandTaglineCluster {
+    gap: 0;
+    padding-left: var(--space-sm);
+  }
   .badgeFree,
   .badgePro {
-    font-size: 0.58rem;
-    padding: 2px 6px;
+    font-size: 0.56rem;
+    padding: 1px 6px 2px;
   }
   .hamburger {
     display: flex;

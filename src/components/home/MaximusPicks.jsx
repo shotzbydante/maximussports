@@ -406,6 +406,11 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateComplete }) 
           </div>
         </div>
       )}
+
+      {/* Always show the Odds Insights link so users can reach the full board */}
+      <a href="/insights" className={styles.viewMoreLink} aria-label={`View full ${title} board on Odds Insights`}>
+        {picks.length > 0 ? 'Full intel on Odds Insights →' : 'View Odds Insights →'}
+      </a>
     </div>
   );
 }
