@@ -27,6 +27,9 @@ const HOME_BUMP          = 0.02;
 const ATS_ML_WEIGHT      = 0.35;
 const PICKS_PER_SECTION  = 5;
 
+// "Always-rich" slate: fill columns to TARGET_SHOW with watch items when leans are sparse
+const TARGET_SHOW = 4;
+
 // Tier 2 (partial-signal) ATS thresholds
 const ATS_PARTIAL_COVER_MIN  = 0.60; // team must cover ≥ 60%
 const ATS_PARTIAL_SAMPLE_MIN = 8;    // need ≥ 8 recorded games for the window
@@ -502,6 +505,119 @@ function buildTotalsPicks(games) {
   return picks.sort((a, b) => b.lineValue - a.lineValue).slice(0, PICKS_PER_SECTION);
 }
 
+// ─── watch item helpers ───────────────────────────────────────────────────────
+
+/**
+ * Canonical de-dupe key. Uses homeTeam+awayTeam because lean pick objects
+ * don't preserve the raw gameId, whereas game objects always have both teams.
+ */
+function baseGameKey(obj) {
+  return `${obj.homeTeam}-${obj.awayTeam}`;
+}
+
+/**
+ * Shared base object for a "watch" (no-edge) item — game has lines but no qualified lean.
+ */
+function buildWatchBase(game, pickType) {
+  return {
+    key:                `${baseGameKey(game)}-watch`,
+    matchup:            `${game.awayTeam} @ ${game.homeTeam}`,
+    homeTeam:           game.homeTeam,
+    awayTeam:           game.awayTeam,
+    homeSlug:           getTeamSlug(game.homeTeam),
+    awaySlug:           getTeamSlug(game.awayTeam),
+    time:               fmtTime(game.startTime || game.commence_time),
+    pickType,
+    itemType:           'watch',   // distinguishes from 'lean'
+    pickTeam:           null,
+    confidence:         -1,        // sentinel — no edge derived
+    edgeMag:            0,
+    modelPct:           null,
+    marketImpliedPct:   null,
+    edgePp:             null,
+    rationale:          [],
+    confidenceRationale: null,
+    whyValue:           null,
+    slipTips:           [],
+    partial:            false,
+  };
+}
+
+/**
+ * Build ATS watch items from games that have a spread but no qualified lean.
+ * Shows the favorite's spread as the displayable line.
+ */
+function buildSpreadWatches(games, leanKeys, needed) {
+  const watches = [];
+  for (const game of games) {
+    if (watches.length >= needed) break;
+    if (leanKeys.has(baseGameKey(game))) continue;
+    const hasAnySpread =
+      game.homeSpread != null || game.awaySpread != null ||
+      (game.spread != null && game.spread !== '');
+    if (!hasAnySpread) continue;
+
+    const { spread: homeSpreadNum } = getTeamSpread(game, true);
+    const { spread: awaySpreadNum } = getTeamSpread(game, false);
+    const favIsHome = homeSpreadNum != null && homeSpreadNum < 0;
+    const favTeam   = favIsHome ? game.homeTeam : game.awayTeam;
+    const favSpread = favIsHome ? fmtSpread(homeSpreadNum) : fmtSpread(awaySpreadNum ?? null);
+    const pickLine  = favSpread ? `${favTeam} ${favSpread}` : `${game.awayTeam} @ ${game.homeTeam}`;
+
+    watches.push({
+      ...buildWatchBase(game, 'ats'),
+      spread:      homeSpreadNum,
+      pickLine,
+      watchReason: 'Lines posted. Monitoring for ATS edge.',
+    });
+  }
+  return watches;
+}
+
+/**
+ * Build Moneyline watch items from games that have a ML but no qualified lean.
+ */
+function buildMoneylineWatches(games, leanKeys, needed) {
+  const watches = [];
+  for (const game of games) {
+    if (watches.length >= needed) break;
+    if (leanKeys.has(baseGameKey(game))) continue;
+    if (!game.moneyline) continue;
+    const [rawHome, rawAway] = String(game.moneyline).split('/');
+    const homeML = parseNum(rawHome);
+    const awayML = parseNum(rawAway);
+    if (homeML == null || awayML == null) continue;
+
+    watches.push({
+      ...buildWatchBase(game, 'ml'),
+      pickLine:    `${game.awayTeam} ML ${fmtPrice(awayML)} / ${game.homeTeam} ML ${fmtPrice(homeML)}`,
+      watchReason: 'Lines posted. Monitoring for value edge.',
+    });
+  }
+  return watches;
+}
+
+/**
+ * Build Totals watch items from games that have a total but no qualified lean.
+ */
+function buildTotalsWatches(games, leanKeys, needed) {
+  const watches = [];
+  for (const game of games) {
+    if (watches.length >= needed) break;
+    if (leanKeys.has(baseGameKey(game))) continue;
+    if (!game.total) continue;
+    const marketTotal = parseNum(game.total);
+    if (marketTotal == null) continue;
+    watches.push({
+      ...buildWatchBase(game, 'total'),
+      pickLine:  `O/U ${marketTotal}`,
+      lineValue: marketTotal,
+      watchReason: 'Line posted. Informational.',
+    });
+  }
+  return watches;
+}
+
 // ─── public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -554,10 +670,29 @@ export function buildMaximusPicks({
     }
   }
 
+  const rawAts    = buildSpreadPicks(games, atsLeaders, atsBySlug);
+  const rawMl     = buildMoneylinePicks(games, atsLeaders, atsBySlug);
+  const rawTotals = buildTotalsPicks(games);
+
+  // Tag existing leans with itemType: 'lean'
+  const atsPicks    = rawAts.map((p)    => ({ ...p, itemType: 'lean' }));
+  const mlPicks     = rawMl.map((p)     => ({ ...p, itemType: 'lean' }));
+  const totalsPicks = rawTotals.map((p) => ({ ...p, itemType: 'lean' }));
+
+  // Collect game keys already covered by leans so watches don't duplicate
+  const atsLeanKeys    = new Set(atsPicks.map((p)    => baseGameKey(p)));
+  const mlLeanKeys     = new Set(mlPicks.map((p)     => baseGameKey(p)));
+  const totalsLeanKeys = new Set(totalsPicks.map((p) => baseGameKey(p)));
+
+  // Fill each column up to TARGET_SHOW with watch items
+  const atsWatches    = buildSpreadWatches(games, atsLeanKeys, Math.max(0, TARGET_SHOW - atsPicks.length));
+  const mlWatches     = buildMoneylineWatches(games, mlLeanKeys, Math.max(0, TARGET_SHOW - mlPicks.length));
+  const totalsWatches = buildTotalsWatches(games, totalsLeanKeys, Math.max(0, TARGET_SHOW - totalsPicks.length));
+
   return {
-    atsPicks:    buildSpreadPicks(games, atsLeaders, atsBySlug),
-    mlPicks:     buildMoneylinePicks(games, atsLeaders, atsBySlug),
-    totalsPicks: buildTotalsPicks(games),
+    atsPicks:    [...atsPicks,    ...atsWatches],
+    mlPicks:     [...mlPicks,     ...mlWatches],
+    totalsPicks: [...totalsPicks, ...totalsWatches],
   };
 }
 

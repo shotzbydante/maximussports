@@ -117,7 +117,7 @@ ${heroBlock({ line: heroLine, sublabel: today })}
 <tr>
   <td style="padding:0 28px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:12px 18px 4px;" class="card-td">
           <div style="margin-bottom:10px;">${pill('YOUR TEAMS', 'watch')}</div>
@@ -138,7 +138,7 @@ ${maximusNoteSection}
 <tr>
   <td style="padding:0 28px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:16px 18px 14px;" class="card-td">
           <div style="margin-bottom:10px;">${pill('TEAM NEWS', 'headlines')}</div>

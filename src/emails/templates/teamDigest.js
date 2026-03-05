@@ -59,17 +59,17 @@ function renderTeamSection(digest, isFirst = false) {
 
   // ── Hero row: big logo + team name + rank/tier pill
   const rankChip = rank
-    ? `<span style="display:inline-block;background:rgba(50,100,160,0.2);border:1px solid rgba(80,140,200,0.3);color:#5a9fd4;font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;vertical-align:middle;margin-left:6px;">#${rank} AP</span>`
+    ? `<span style="display:inline-block;background-color:rgba(50,100,160,0.2);border:1px solid rgba(80,140,200,0.3);color:#5a9fd4;font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;vertical-align:middle;margin-left:6px;">#${rank} AP</span>`
     : '';
   const tierChip = team.tier
-    ? `<span style="display:inline-block;background:rgba(60,121,180,0.12);border:1px solid rgba(60,121,180,0.25);color:#4a8fc0;font-size:9px;font-weight:600;letter-spacing:0.08em;padding:2px 7px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;vertical-align:middle;margin-left:6px;">${team.tier}</span>`
+    ? `<span style="display:inline-block;background-color:rgba(60,121,180,0.12);border:1px solid rgba(60,121,180,0.25);color:#4a8fc0;font-size:9px;font-weight:600;letter-spacing:0.08em;padding:2px 7px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;vertical-align:middle;margin-left:6px;">${team.tier}</span>`
     : '';
 
   const teamHero = `
 <tr>
   <td style="padding:${isFirst ? '0' : '12px'} 24px 0;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:linear-gradient(135deg,#101e30 0%,#0d1422 100%);border:1px solid rgba(60,121,180,0.15);border-radius:8px;border-collapse:collapse;">
+           bgcolor="#101e30" style="background-color:#101e30;background-image:linear-gradient(135deg,#101e30 0%,#0d1422 100%);border:1px solid rgba(60,121,180,0.15);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:16px 18px 14px;" class="card-td">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
@@ -97,7 +97,7 @@ function renderTeamSection(digest, isFirst = false) {
 <tr>
   <td style="padding:0 24px 8px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:14px 16px 13px;" class="card-td">
           <div style="margin-bottom:8px;">${pill('MAXIMUS SAYS', 'intel')}</div>
@@ -124,7 +124,7 @@ function renderTeamSection(digest, isFirst = false) {
 <tr>
   <td style="padding:0 24px 8px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:12px 16px;" class="card-td">
           <span style="font-size:11px;color:#3d5060;font-family:'DM Sans',Arial,Helvetica,sans-serif;">No game today \u2014 <a href="${teamUrl}" style="color:#3C79B4;text-decoration:none;font-weight:600;">view full schedule &rarr;</a></span>
@@ -146,7 +146,7 @@ function renderTeamSection(digest, isFirst = false) {
 <tr>
   <td style="padding:0 24px 8px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:12px 16px 11px;" class="card-td">
           <div style="margin-bottom:6px;">${pill('ATS EDGE', 'ats')}</div>
@@ -184,7 +184,7 @@ function renderTeamSection(digest, isFirst = false) {
 <tr>
   <td style="padding:0 24px 8px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:14px 16px 10px;" class="card-td">
           <div style="margin-bottom:10px;">${pill('TEAM NEWS', 'news')}</div>
@@ -222,7 +222,7 @@ ${videoRows}`;
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">
       <tr>
         <td align="center" bgcolor="#1a3a5c"
-            style="border-radius:6px;background:rgba(60,121,180,0.18);border:1px solid rgba(60,121,180,0.25);mso-padding-alt:0;">
+            style="border-radius:6px;background-color:rgba(60,121,180,0.18);border:1px solid rgba(60,121,180,0.25);mso-padding-alt:0;">
           <a href="${teamUrl}"
              style="display:block;color:#5a9fd4;font-size:13px;font-weight:700;text-decoration:none;padding:11px 20px;text-align:center;letter-spacing:0.01em;font-family:'DM Sans',Arial,Helvetica,sans-serif;border-radius:6px;-webkit-text-size-adjust:none;">
             Open ${teamName} team page &rarr;
@@ -264,7 +264,7 @@ ${heroBlock({ line: `Team Digest${greetingStr} \u2014 Select Teams to Follow`, s
 <tr>
   <td style="padding:0 24px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
       <tr>
         <td style="padding:16px 18px 14px;" class="card-td">
           <div style="margin-bottom:8px;">${pill('INTEL', 'intel')}</div>

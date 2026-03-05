@@ -4,7 +4,6 @@ import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
 import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
-import YouTubeVideoRail from '../components/shared/YouTubeVideoRail';
 import { getCached, setCached } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
 import styles from './NewsFeed.module.css';
@@ -415,67 +414,14 @@ export default function NewsFeed() {
         <div className={styles.content}>
 
           {/* ══════════════════════════════════════════════════════════════
-              ALL VIEW — PREMIUM 50/50 BLENDED INTEL FEED
+              ALL VIEW — UNIFIED RESPONSIVE LAYOUT (mobile + desktop)
               ══════════════════════════════════════════════════════════════ */}
           {activeConf === 'All' && (
 
             <>
-              {/* ── MOBILE: video hero + rail + article stream ── */}
-
+              {/* Section 1: Top Videos — 2-col mobile / 3-col desktop */}
               {intelVideos.length > 0 && (
-                <section className={styles.mobileVideoHeroSection} aria-label="Video highlight">
-                  <YouTubeVideoCard video={intelVideos[0]} onSelect={(v) => handleVideoSelect(v, 'intelFeed')} />
-                </section>
-              )}
-
-              {intelVideos.length > 1 && (
-                <section className={styles.mobileVideoRailSection} aria-label="More video highlights">
-                  <YouTubeVideoRail
-                    items={intelVideos.slice(1, 6)}
-                    onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
-                  />
-                </section>
-              )}
-
-              {filtered.length > 0 && (
-                <section className={styles.mobileArticleStream} aria-label="News stream">
-                  <div className={styles.streamList} role="list">
-                    {filtered.map((item) => (
-                      <a
-                        key={item.id}
-                        href={item.link || '#'}
-                        target={item.link ? '_blank' : undefined}
-                        rel="noopener noreferrer"
-                        className={`${styles.streamCard} ${styles.mobileStreamCard}`}
-                        aria-label={item.title}
-                        role="listitem"
-                      >
-                        <div className={styles.streamThumb} aria-hidden>
-                          <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
-                        </div>
-                        <div className={styles.streamBody}>
-                          <div className={styles.streamMeta}>
-                            <SourceBadge source={item.source} />
-                            {item.conference && <ConfPill conference={item.conference} />}
-                            {item.signal && <SignalTag signal={item.signal} />}
-                            <span className={styles.time}>{item.time}</span>
-                          </div>
-                          <p className={styles.streamHeadline}>{item.title}</p>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* ── DESKTOP: Structured premium layout ── */}
-
-              {/* Section 1: Top Videos grid */}
-              {intelVideos.length > 0 && (
-                <section
-                  className={`${styles.topVideosSection} ${styles.desktopOnly}`}
-                  aria-label="Top videos"
-                >
+                <section className={styles.topVideosSection} aria-label="Top videos">
                   <h2 className={styles.sectionHeading}>Top Videos</h2>
                   <div className={styles.topVideosGrid}>
                     {intelVideos.slice(0, 6).map((v, idx) => (
@@ -493,7 +439,7 @@ export default function NewsFeed() {
               {/* Section 2: Top Stories headline list */}
               {enriched.length > 0 && (
                 <section
-                  className={`${styles.topStoriesDesktopSection} ${styles.desktopOnly}`}
+                  className={styles.topStoriesDesktopSection}
                   aria-label="Top stories"
                 >
                   <h2 className={styles.sectionHeading}>Top Stories</h2>
@@ -529,14 +475,14 @@ export default function NewsFeed() {
               )}
 
               {/* Ad slot */}
-              <div className={`${styles.adSlot} ${styles.desktopOnly}`} aria-hidden data-slot="sponsored-hero">
+              <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
                 Sponsored · Premium analysis
               </div>
 
               {/* Section 3: More News */}
               {enriched.length > 6 && (
                 <section
-                  className={`${styles.streamSection} ${styles.desktopOnly}`}
+                  className={styles.streamSection}
                   aria-label="More news"
                 >
                   <h2 className={styles.sectionHeading}>More News</h2>

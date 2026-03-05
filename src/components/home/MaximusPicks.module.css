@@ -203,6 +203,45 @@
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 
+/* Watch (monitoring) card — subdued variant */
+.watchCard {
+  opacity: 0.74;
+  background: var(--color-bg, #f6f6f6);
+  border-style: dashed;
+}
+
+.watchCard:hover {
+  opacity: 1;
+}
+
+.monitoringChip {
+  display: inline-block;
+  padding: 2px 7px;
+  background: rgba(110, 110, 110, 0.08);
+  border: 1px solid rgba(110, 110, 110, 0.22);
+  color: var(--color-text-muted);
+  font-size: 0.54rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.watchReason {
+  margin: 0;
+  font-size: 0.67rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.columnPillWatch {
+  background: rgba(110, 110, 110, 0.09);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(110, 110, 110, 0.2);
+}
+
 @media (hover: hover) {
   .pickCard:hover {
     border-color: rgba(60, 121, 180, 0.3);

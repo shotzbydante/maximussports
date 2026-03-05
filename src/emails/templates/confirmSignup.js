@@ -26,7 +26,7 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
     <!-- ═══ ROBOT HERO ═══ -->
     <tr>
       <td bgcolor="#0f1c30"
-          style="background:linear-gradient(180deg,#101e30 0%,#0d1422 100%);padding:32px 24px 26px;text-align:center;"
+          style="background-color:#101e30;background-image:linear-gradient(180deg,#101e30 0%,#0d1422 100%);padding:32px 24px 26px;text-align:center;"
           class="hero-td">
 
         <!-- Robot image — public asset, absolute URL, PNG for Gmail iOS -->
@@ -58,10 +58,10 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
     <tr>
       <td style="padding:0 24px 4px;" class="section-td">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
-               style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+               style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
                class="email-card-dark">
           <tr>
-            <td bgcolor="#0f1825" style="padding:16px 18px 14px;background:#0f1825;" class="card-td">
+            <td bgcolor="#0f1825" style="padding:16px 18px 14px;background-color:#0f1825;" class="card-td">
 
               <div style="margin-bottom:12px;">${pill('What you get', 'intel')}</div>
 
@@ -129,10 +129,10 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
 
             <!-- Free column -->
             <td width="48%" valign="top" bgcolor="#0f1825"
-                style="background:#0f1825;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 15px 14px;"
+                style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 15px 14px;"
                 class="email-card-dark">
               <div style="margin-bottom:9px;">
-                <span style="display:inline-block;background:#1a2233;border:1px solid rgba(255,255,255,0.1);color:#8090a8;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;">Free</span>
+                <span style="display:inline-block;background-color:#1a2233;border:1px solid rgba(255,255,255,0.1);color:#8090a8;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;">Free</span>
               </div>
               <p style="margin:0 0 7px;font-size:12px;font-weight:700;color:#c0cad8;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.3;">Start for free</p>
               <p style="margin:0;font-size:11px;color:#566070;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.65;">
@@ -147,10 +147,10 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
 
             <!-- Pro column — subtle blue tint -->
             <td width="48%" valign="top" bgcolor="#0d1d30"
-                style="background:#0d1d30;border:1px solid rgba(60,121,180,0.3);border-radius:8px;padding:14px 15px 14px;"
+                style="background-color:#0d1d30;border:1px solid rgba(60,121,180,0.3);border-radius:8px;padding:14px 15px 14px;"
                 class="email-card-dark">
               <div style="margin-bottom:9px;">
-                <span style="display:inline-block;background:linear-gradient(135deg,#1a3a5c,#2d6ca8);border:1px solid rgba(90,159,212,0.5);color:#7ab4e0;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;">Pro</span>
+                <span style="display:inline-block;background-color:#1a3a5c;background-image:linear-gradient(135deg,#1a3a5c,#2d6ca8);border:1px solid rgba(90,159,212,0.5);color:#7ab4e0;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;">Pro</span>
               </div>
               <p style="margin:0 0 7px;font-size:12px;font-weight:700;color:#c0cad8;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.3;">Unlock full depth</p>
               <p style="margin:0 0 10px;font-size:11px;color:#566070;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.65;">

@@ -64,16 +64,16 @@ export function renderHTML(data = {}) {
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
            class="email-card-dark">
       <tr>
-        <td bgcolor="#0f1825" style="padding:12px 17px 4px;background:#0f1825;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:12px 17px 4px;background-color:#0f1825;" class="card-td">
           <div style="margin-bottom:4px;">${pill('YOUR TEAMS', 'watch')}</div>
         </td>
       </tr>
       ${pinnedRows}
       <tr>
-        <td bgcolor="#0f1825" style="padding:9px 17px 11px;background:#0f1825;border-top:1px solid rgba(255,255,255,0.05);">
+        <td bgcolor="#0f1825" style="padding:9px 17px 11px;background-color:#0f1825;border-top:1px solid rgba(255,255,255,0.05);">
           <a href="https://maximussports.ai/teams" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">Full team intel &rarr;</a>
         </td>
       </tr>
@@ -139,10 +139,10 @@ export function renderHTML(data = {}) {
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
            class="email-card-dark">
       <tr>
-        <td bgcolor="#0f1825" style="padding:16px 17px 14px;background:#0f1825;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:16px 17px 14px;background-color:#0f1825;" class="card-td">
           <div style="margin-bottom:10px;">${pill('MAXIMUS SAYS', 'intel')}</div>
           ${bulletHtml}
         </td>
@@ -196,10 +196,10 @@ ${pinnedSection}
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           style="background-color:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
            class="email-card-dark">
       <tr>
-        <td bgcolor="#0f1825" style="padding:16px 17px 14px;background:#0f1825;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:16px 17px 14px;background-color:#0f1825;" class="card-td">
           <div style="margin-bottom:10px;">${pill('HEADLINES', 'headlines')}</div>
           ${headlineItems}
         </td>

@@ -159,7 +159,7 @@ ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -
               <tr>
                 <td valign="middle">
                   <!-- Intelligence badge -->
-                  <div style="display:inline-block;background:linear-gradient(135deg,#2d6ca8,#5a9fd4);padding:2px 8px 3px;border-radius:3px;margin-bottom:6px;line-height:1;">
+                  <div style="display:inline-block;background-color:#2d6ca8;background-image:linear-gradient(135deg,#2d6ca8,#5a9fd4);padding:2px 8px 3px;border-radius:3px;margin-bottom:6px;line-height:1;">
                     <span style="font-size:9px;font-weight:700;letter-spacing:0.14em;color:#ffffff;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Intelligence</span>
                   </div>
                   <div style="line-height:1.2;">
@@ -188,7 +188,7 @@ ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -
         <!-- ── DIVIDER ── -->
         <tr>
           <td style="padding:0 24px;" class="divider-td">
-            <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);font-size:0;line-height:0;">&nbsp;</div>
+            <div style="height:1px;background-color:transparent;background-image:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);font-size:0;line-height:0;">&nbsp;</div>
           </td>
         </tr>
 
@@ -257,7 +257,7 @@ export function pill(label, type = 'intel') {
     video:     { bg: '#1a0e20', border: '#7840a0', text: '#a060d0' },
   };
   const c = colors[type] || colors.intel;
-  return `<span style="display:inline-block;background:${c.bg};border:1px solid ${c.border};color:${c.text};font-size:9px;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;padding:3px 8px 3px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;vertical-align:middle;">${label}</span>`;
+  return `<span style="display:inline-block;background-color:${c.bg};border:1px solid ${c.border};color:${c.text};font-size:9px;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;padding:3px 8px 3px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;vertical-align:middle;">${label}</span>`;
 }
 
 /**
@@ -314,7 +314,7 @@ export function heroBlock({ line, sublabel }) {
  */
 export function teamLogoImg(team, size = 22, baseUrl = 'https://maximussports.ai') {
   const slug = team?.slug;
-  if (!slug) return `<span style="display:inline-block;width:${size}px;height:${size}px;background:rgba(255,255,255,0.06);border-radius:3px;vertical-align:middle;"></span>`;
+  if (!slug) return `<span style="display:inline-block;width:${size}px;height:${size}px;background-color:rgba(255,255,255,0.06);border-radius:3px;vertical-align:middle;"></span>`;
   const src = `${baseUrl}/logos/${slug}.png`;
   const alt = team?.name || slug;
   return `<img src="${src}" alt="${alt}" width="${size}" height="${size}"
@@ -336,7 +336,7 @@ export function dividerRow() {
   return `
 <tr>
   <td style="padding:2px 24px 2px;" class="divider-td">
-    <div style="height:1px;background:rgba(255,255,255,0.06);font-size:0;line-height:0;">&nbsp;</div>
+    <div style="height:1px;background-color:rgba(255,255,255,0.06);font-size:0;line-height:0;">&nbsp;</div>
   </td>
 </tr>`;
 }

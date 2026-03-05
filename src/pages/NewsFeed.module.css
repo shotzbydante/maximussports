@@ -806,49 +806,12 @@
  * .mobileVideoHeroSection / .mobileVideoRailSection / .mobileArticleStream
  *   — mobile-first video-lead layout; hidden on desktop.
  */
-.mobileVideoHeroSection,
-.mobileVideoRailSection,
-.mobileArticleStream {
-  display: none;
-}
-
-.desktopOnly {
-  /* visible on desktop (default) */
-}
-
+/* Mobile compact content padding */
 @media (max-width: 767px) {
-  /* Show mobile sections */
-  .mobileVideoHeroSection {
-    display: block;
-    margin-bottom: 0;
-  }
-
-  .mobileVideoRailSection {
-    display: block;
-    margin-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--color-border-light);
-  }
-
-  .mobileArticleStream {
-    display: block;
-  }
-
-  /* Hide desktop magazine sections */
-  .desktopOnly {
-    display: none !important;
-  }
-
-  /* Compact content padding on mobile */
   .content {
     padding-top: var(--space-sm);
     padding-left: 0;
     padding-right: 0;
-  }
-
-  /* Stream cards use full width with horizontal padding */
-  .mobileStreamCard {
-    padding-left: var(--space-lg);
-    padding-right: var(--space-lg);
   }
 }
 
@@ -885,10 +848,16 @@
 .topVideosGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 580px) {
+  .topVideosGrid {
+    gap: var(--space-md);
+  }
+}
+
+@media (min-width: 700px) {
   .topVideosGrid {
     grid-template-columns: repeat(3, 1fr);
   }

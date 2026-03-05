@@ -148,6 +148,49 @@ function SkeletonColumn({ section }) {
   );
 }
 
+// ─── watch card (no-edge game — monitoring only) ─────────────────────────────
+
+function WatchCard({ pick }) {
+  const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
+  const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
+
+  return (
+    <div className={`${styles.pickCard} ${styles.watchCard}`}>
+      {/* Matchup */}
+      <div className={styles.cardMatchup}>
+        <span className={styles.matchupTeam}>
+          <span className={styles.teamLogoWrap}>
+            <TeamLogo team={awayTeamObj} size={18} />
+          </span>
+          <span className={styles.matchupName}>{pick.awayTeam}</span>
+        </span>
+        <span className={styles.matchupAt}>@</span>
+        <span className={styles.matchupTeam}>
+          <span className={styles.teamLogoWrap}>
+            <TeamLogo team={homeTeamObj} size={18} />
+          </span>
+          <span className={styles.matchupName}>{pick.homeTeam}</span>
+        </span>
+        {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
+      </div>
+
+      {/* Line */}
+      <div className={styles.slipRow}>
+        <span className={styles.slipLabel}>Line</span>
+        <span className={styles.slipLineText}>{pick.pickLine}</span>
+      </div>
+
+      {/* Monitoring pill + reason */}
+      <div className={styles.cardMain}>
+        <span className={styles.monitoringChip}>MONITORING</span>
+      </div>
+      {pick.watchReason && (
+        <p className={styles.watchReason}>{pick.watchReason}</p>
+      )}
+    </div>
+  );
+}
+
 // ─── pick card ────────────────────────────────────────────────────────────────
 
 function PickCard({ pick, isTotal }) {
@@ -380,7 +423,15 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
             <span className={styles.columnIcon}><Icon /></span>
             <span className={styles.columnTitle}>{title}</span>
           </div>
-          <span className={styles.columnPill}>DATA-DRIVEN LEANS</span>
+          {(() => {
+        const leanCount = picks.filter((p) => p.itemType === 'lean').length;
+        const watchCount = picks.filter((p) => p.itemType === 'watch').length;
+        return leanCount > 0
+          ? <span className={styles.columnPill}>DATA-DRIVEN LEANS</span>
+          : watchCount > 0
+            ? <span className={`${styles.columnPill} ${styles.columnPillWatch}`}>MONITORING</span>
+            : null;
+      })()}
         </div>
         <p className={styles.columnMicro}>{microcopy}</p>
       </div>
@@ -404,9 +455,11 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
       ) : (
         <div className={`${styles.cardListWrapper} ${!expanded ? styles.cardListWrapperCollapsed : ''}`}>
           <div className={styles.cardList}>
-            {picks.map((p) => (
-              <PickCard key={p.key} pick={p} isTotal={isTotal} />
-            ))}
+            {picks.map((p) =>
+              p.itemType === 'watch'
+                ? <WatchCard key={p.key} pick={p} />
+                : <PickCard key={p.key} pick={p} isTotal={isTotal} />,
+            )}
           </div>
         </div>
       )}
