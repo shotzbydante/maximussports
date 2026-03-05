@@ -18,7 +18,7 @@ import { ADMIN_EMAIL, isAdminEmail } from '../_lib/admin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
-import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
+import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
 import { getSubject as getDailySubject,  renderHTML as renderDailyHTML,  renderText as renderDailyText  } from '../../src/emails/templates/dailyBriefing.js';
@@ -133,11 +133,12 @@ export default async function handler(req, res) {
 
   // ── Gather data and render ─────────────────────────────────────────────────
   try {
-    const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
+    const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
       fetchScoresSource(),
       fetchRankingsSource(),
       getAtsLeadersPipeline(),
       fetchNewsAggregateSource({ includeNational: true }),
+      type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
     ]);
 
     const scoresToday   = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
@@ -147,6 +148,9 @@ export default async function handler(req, res) {
       : { best: [], worst: [] };
     const headlinesRaw  = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
     const headlines     = dedupeNewsItems(headlinesRaw);
+    const oddsGames     = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
+      ? oddsRaw.value.games.map(g => ({ ...g, gameStatus: 'Scheduled', startTime: g.commenceTime || null }))
+      : [];
 
     // Resolve display name from the authenticated admin user
     const displayName = getUserDisplayName({ user });
@@ -172,6 +176,7 @@ export default async function handler(req, res) {
       pinnedTeams: TEST_PINNED_TEAMS,
       botIntelBullets,
       maximusNote,
+      oddsGames,
     };
 
     let subject, html, text;

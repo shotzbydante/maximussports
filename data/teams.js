@@ -77,6 +77,8 @@ const TEAM_LIST = [
   { slug: 'liberty-flames', name: 'Liberty Flames', conference: 'Others', oddsTier: 'Long shot', keywords: 'Liberty Flames basketball' },
   { slug: 'dayton-flyers', name: 'Dayton Flyers', conference: 'Others', oddsTier: 'Long shot', keywords: 'Dayton Flyers basketball' },
   { slug: 'mcneese-cowboys', name: 'McNeese Cowboys', conference: 'Others', oddsTier: 'Long shot', keywords: 'McNeese Cowboys basketball' },
+  { slug: 'marquette-golden-eagles', name: 'Marquette Golden Eagles', conference: 'Big East', oddsTier: 'Lock', keywords: 'Marquette Golden Eagles basketball' },
+  { slug: 'loyola-chicago-ramblers', name: 'Loyola Chicago Ramblers', conference: 'Others', oddsTier: 'Long shot', keywords: 'Loyola Chicago Ramblers basketball' },
 ];
 
 export const TEAMS = TEAM_LIST.map((t) => ({ ...t, logo: `/logos/${t.slug}.svg` }));

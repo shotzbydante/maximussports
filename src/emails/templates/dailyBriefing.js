@@ -62,18 +62,19 @@ export function renderHTML(data = {}) {
 
     pinnedSection = `
 <tr>
-  <td style="padding:0 28px 12px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+  <td style="padding:0 24px 10px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
+           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           class="email-card-dark">
       <tr>
-        <td style="padding:12px 18px 4px;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:12px 17px 4px;background:#0f1825;" class="card-td">
           <div style="margin-bottom:4px;">${pill('YOUR TEAMS', 'watch')}</div>
         </td>
       </tr>
       ${pinnedRows}
       <tr>
-        <td style="padding:9px 18px 11px;">
-          <a href="https://maximussports.ai/teams" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;">Full team intel &rarr;</a>
+        <td bgcolor="#0f1825" style="padding:9px 17px 11px;background:#0f1825;border-top:1px solid rgba(255,255,255,0.05);">
+          <a href="https://maximussports.ai/teams" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">Full team intel &rarr;</a>
         </td>
       </tr>
     </table>
@@ -136,11 +137,12 @@ export function renderHTML(data = {}) {
     ).join('');
     botIntelSection = `
 <tr>
-  <td style="padding:0 28px 12px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+  <td style="padding:0 24px 10px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
+           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           class="email-card-dark">
       <tr>
-        <td style="padding:16px 18px 14px;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:16px 17px 14px;background:#0f1825;" class="card-td">
           <div style="margin-bottom:10px;">${pill('MAXIMUS SAYS', 'intel')}</div>
           ${bulletHtml}
         </td>
@@ -157,8 +159,8 @@ ${heroBlock({
   })}
 
 <tr>
-  <td style="padding:0 24px 8px;" class="section-td">
-    <p style="margin:0;font-size:13px;color:#526070;line-height:1.55;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+  <td style="padding:6px 24px 10px;" class="section-td">
+    <p style="margin:0;font-size:13px;color:#526070;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
       Good morning. Maximus Sports has processed today&rsquo;s slate, lines, and trends. Here&rsquo;s what matters.
     </p>
   </td>
@@ -192,11 +194,12 @@ ${sectionCard({
 ${pinnedSection}
 
 <tr>
-  <td style="padding:0 28px 12px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
+  <td style="padding:0 24px 10px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
+           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           class="email-card-dark">
       <tr>
-        <td style="padding:16px 18px 14px;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:16px 17px 14px;background:#0f1825;" class="card-td">
           <div style="margin-bottom:10px;">${pill('HEADLINES', 'headlines')}</div>
           ${headlineItems}
         </td>

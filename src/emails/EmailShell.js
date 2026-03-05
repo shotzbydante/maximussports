@@ -32,6 +32,8 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
   <title>Maximus Sports</title>
   <!--[if mso]>
   <noscript>
@@ -49,9 +51,15 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
     img { -ms-interpolation-mode: bicubic; border: 0; line-height: 100%; outline: none; text-decoration: none; display: block; }
-    body { margin: 0 !important; padding: 0 !important; background-color: #090d18; width: 100% !important; min-width: 100% !important; }
+    body { margin: 0 !important; padding: 0 !important; background-color: #090d18 !important; width: 100% !important; min-width: 100% !important; }
     a { color: #5a9fd4; }
     * { box-sizing: border-box; }
+
+    /* ── Prevent iOS Mail / Apple Mail from auto-inverting dark-mode emails ── */
+    :root { color-scheme: dark; }
+    [data-ogsc] body, [data-ogsb] body { background-color: #090d18 !important; }
+    u + .email-outer-bg { background-color: #090d18 !important; }
+    #MessageViewBody a { color: #5a9fd4; }
 
     /* ── Mobile ≤480px — supplemental overrides (inline styles hold desktop baseline) ──
        Gmail iOS may strip these; all critical values are also set inline.
@@ -86,31 +94,33 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
       .email-container { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
     }
 
-    /* ── Dark mode tint (Outlook/Apple Mail) ── */
+    /* ── Dark mode: preserve dark surfaces across all clients ── */
     @media (prefers-color-scheme: dark) {
-      .email-outer-bg { background-color: #090d18 !important; }
+      .email-outer-bg  { background-color: #090d18 !important; }
+      .email-container { background-color: #0d1220 !important; }
+      .email-card-dark { background-color: #0f1825 !important; }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#090d18;font-family:'DM Sans',Arial,Helvetica,sans-serif;width:100%;min-width:100%;" class="email-outer-bg">
+<body bgcolor="#090d18" style="margin:0;padding:0;background-color:#090d18;font-family:'DM Sans',Arial,Helvetica,sans-serif;width:100%;min-width:100%;" class="email-outer-bg">
 
 ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -->
 <div style="display:none;font-size:1px;color:#090d18;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;" aria-hidden="true">${previewText}&nbsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;</div>` : ''}
 
 <!-- ═══ OUTER WRAPPER ═══ -->
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#090d18"
        style="background-color:#090d18;width:100%;margin:0;padding:0;border-collapse:collapse;">
   <tr>
-    <td align="center" valign="top" style="padding:16px 8px 24px;" class="email-outer-td">
+    <td align="center" valign="top" bgcolor="#090d18" style="padding:16px 8px 24px;background-color:#090d18;" class="email-outer-td">
 
       <!-- ═══ CONTAINER (600px desktop / 100% mobile) ═══ -->
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" bgcolor="#0d1220"
              class="email-container"
              style="max-width:600px;width:100%;background-color:#0d1220;border-radius:10px;border:1px solid rgba(255,255,255,0.08);border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
 
         <!-- ── HEADER ── -->
         <tr>
-          <td style="background:linear-gradient(160deg,#0f1828 0%,#0d1220 100%);border-bottom:1px solid rgba(255,255,255,0.07);padding:18px 24px 14px;border-radius:10px 10px 0 0;" class="header-td">
+          <td bgcolor="#0f1828" style="background:linear-gradient(160deg,#0f1828 0%,#0d1220 100%);border-bottom:1px solid rgba(255,255,255,0.07);padding:18px 24px 14px;border-radius:10px 10px 0 0;" class="header-td">
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
               <tr>
                 <td valign="middle">
@@ -171,7 +181,7 @@ ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -
 
         <!-- ── FOOTER ── -->
         <tr>
-          <td style="background:#07090f;border-top:1px solid rgba(255,255,255,0.06);padding:13px 24px 18px;border-radius:0 0 10px 10px;" class="footer-td">
+          <td bgcolor="#07090f" style="background:#07090f;border-top:1px solid rgba(255,255,255,0.06);padding:13px 24px 18px;border-radius:0 0 10px 10px;" class="footer-td">
             <p class="footer-text" style="margin:0 0 5px;font-size:11px;color:#374555;line-height:1.55;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
               Not betting advice. Maximus Sports provides sports intelligence for informational purposes only.
             </p>
@@ -224,10 +234,11 @@ export function sectionCard({ pillLabel, pillType, headline, body }) {
   return `
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#0f1825;border:1px solid rgba(255,255,255,0.08);border-radius:8px;border-collapse:collapse;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#0f1825"
+           style="background:#0f1825;border:1px solid rgba(255,255,255,0.09);border-radius:8px;border-collapse:collapse;"
+           class="email-card-dark">
       <tr>
-        <td style="padding:15px 17px 13px;" class="card-td">
+        <td bgcolor="#0f1825" style="padding:15px 17px 13px;background:#0f1825;" class="card-td">
           <div style="margin-bottom:9px;">${pill(pillLabel, pillType)}</div>
           ${headline ? `<p class="card-headline" style="margin:0 0 7px;font-size:14px;font-weight:700;color:#e8edf5;line-height:1.35;font-family:'DM Sans',Arial,Helvetica,sans-serif;letter-spacing:-0.01em;">${headline}</p>` : ''}
           <p class="card-body" style="margin:0;font-size:13px;color:#7d8fa0;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${body}</p>
@@ -247,7 +258,7 @@ export function sectionCard({ pillLabel, pillType, headline, body }) {
 export function heroBlock({ line, sublabel }) {
   return `
 <tr>
-  <td style="padding:22px 24px 16px;background:linear-gradient(180deg,#101c2c 0%,#0d1422 100%);" class="hero-td">
+  <td bgcolor="#101c2c" style="padding:22px 24px 16px;background:linear-gradient(180deg,#101c2c 0%,#0d1422 100%);" class="hero-td">
     <p class="hero-eyebrow" style="margin:0 0 7px;font-size:10px;font-weight:600;color:#3d7aaa;letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">${sublabel || 'Maximus Intelligence'}</p>
     <h1 class="hero-h1" style="margin:0;font-size:23px;font-weight:800;color:#edf2f8;line-height:1.22;letter-spacing:-0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${line}</h1>
   </td>

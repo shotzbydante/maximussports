@@ -1774,92 +1774,105 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             {saveStatus === 'error'  && <span className={styles.errorStatus}>Save failed</span>}
           </div>
           <div className={styles.prefList}>
-            {PREFERENCES.map(({ key, label, description }) => (
-              <div key={key}>
+            {PREFERENCES.map(({ key, label, description }) => {
+              const isOn = !!prefs[key];
+              const isTeamDigest = key === 'teamDigest';
+
+              const toggleRow = (
                 <button
                   type="button"
-                  className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+                  className={`${styles.prefRow} ${isOn ? styles.prefRowOn : ''}`}
                   onClick={() => handlePrefToggle(key)}
                 >
                   <div className={styles.prefText}>
                     <span className={styles.prefLabel}>{label}</span>
                     <span className={styles.prefDesc}>{description}</span>
                   </div>
-                  <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                  <div className={`${styles.toggle} ${isOn ? styles.toggleOn : ''}`}>
                     <div className={styles.toggleThumb} />
                   </div>
                 </button>
+              );
 
-                {/* Team Digest team selector */}
-                {key === 'teamDigest' && prefs.teamDigest && (
-                  <div className={styles.digestTeamSelector}>
-                    <div className={styles.digestTeamSelectorHeader}>
-                      <span className={styles.digestTeamSelectorLabel}>
-                        Digest teams
-                        {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0
-                          ? ` (${prefs.teamDigestTeams.length}${planTier === 'free' ? `/${entitlements.maxEmailTeams}` : ''} selected)`
-                          : ' — select at least one'}
-                      </span>
-                      <button
-                        type="button"
-                        className={styles.btnAddTeam}
-                        onClick={() => setDigestPickerOpen(v => !v)}
-                      >
-                        {digestPickerOpen ? 'Done' : '+ Add teams'}
-                      </button>
-                    </div>
+              if (!isTeamDigest) {
+                return <div key={key}>{toggleRow}</div>;
+              }
 
-                    {/* Selected teams chips */}
-                    {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0 && (
-                      <div className={styles.digestTeamChips}>
-                        {prefs.teamDigestTeams.map(slug => {
-                          const teamData = TEAMS.find(t => t.slug === slug);
-                          if (!teamData) return null;
-                          return (
-                            <span key={slug} className={styles.digestTeamChip}>
-                              <TeamLogo team={teamData} size={14} />
-                              <span className={styles.digestTeamChipName}>{teamData.name}</span>
-                              <button
-                                type="button"
-                                className={styles.digestTeamChipRemove}
-                                onClick={() => handleDigestTeamToggle(slug)}
-                                aria-label={`Remove ${teamData.name} from Team Digest`}
-                              >×</button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
+              // Team Digest: wrap toggle + sub-panel in a unified card
+              return (
+                <div key={key} className={`${styles.teamDigestCard} ${isOn ? styles.teamDigestCardOn : ''}`}>
+                  {toggleRow}
 
-                    {/* Team picker */}
-                    {digestPickerOpen && (
-                      <div className={styles.digestPickerWrap}>
-                        <TeamPickerPanel
-                          existingTeams={(prefs.teamDigestTeams || []).map(slug => ({ team_slug: slug }))}
-                          onAdd={(slug) => { handleDigestTeamToggle(slug); }}
-                          onClose={() => setDigestPickerOpen(false)}
-                          multiSelect
-                          selectedSlugs={prefs.teamDigestTeams || []}
-                          onToggle={handleDigestTeamToggle}
-                        />
-                      </div>
-                    )}
-
-                    {/* Free-tier limit nudge */}
-                    {planTier === 'free' &&
-                      Array.isArray(prefs.teamDigestTeams) &&
-                      prefs.teamDigestTeams.length >= entitlements.maxEmailTeams && (
-                      <div className={styles.limitNudge}>
-                        <span>Free plan: {entitlements.maxEmailTeams} digest teams max.</span>
-                        <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
-                          Upgrade to Pro for unlimited →
+                  {isOn && (
+                    <div className={styles.digestTeamSelector}>
+                      <div className={styles.digestTeamSelectorHeader}>
+                        <span className={styles.digestTeamSelectorLabel}>
+                          Digest teams
+                          {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0
+                            ? ` (${prefs.teamDigestTeams.length}${planTier === 'free' ? `/${entitlements.maxEmailTeams}` : ''} selected)`
+                            : ' — select at least one'}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.btnAddTeam}
+                          onClick={() => setDigestPickerOpen(v => !v)}
+                        >
+                          {digestPickerOpen ? 'Done' : '+ Add teams'}
                         </button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+
+                      {/* Selected teams chips */}
+                      {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0 && (
+                        <div className={styles.digestTeamChips}>
+                          {prefs.teamDigestTeams.map(slug => {
+                            const teamData = TEAMS.find(t => t.slug === slug);
+                            if (!teamData) return null;
+                            return (
+                              <span key={slug} className={styles.digestTeamChip}>
+                                <TeamLogo team={teamData} size={14} />
+                                <span className={styles.digestTeamChipName}>{teamData.name}</span>
+                                <button
+                                  type="button"
+                                  className={styles.digestTeamChipRemove}
+                                  onClick={() => handleDigestTeamToggle(slug)}
+                                  aria-label={`Remove ${teamData.name} from Team Digest`}
+                                >×</button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Team picker */}
+                      {digestPickerOpen && (
+                        <div className={styles.digestPickerWrap}>
+                          <TeamPickerPanel
+                            existingTeams={(prefs.teamDigestTeams || []).map(slug => ({ team_slug: slug }))}
+                            onAdd={(slug) => { handleDigestTeamToggle(slug); }}
+                            onClose={() => setDigestPickerOpen(false)}
+                            multiSelect
+                            selectedSlugs={prefs.teamDigestTeams || []}
+                            onToggle={handleDigestTeamToggle}
+                          />
+                        </div>
+                      )}
+
+                      {/* Free-tier limit nudge */}
+                      {planTier === 'free' &&
+                        Array.isArray(prefs.teamDigestTeams) &&
+                        prefs.teamDigestTeams.length >= entitlements.maxEmailTeams && (
+                        <div className={styles.limitNudge}>
+                          <span>Free plan: {entitlements.maxEmailTeams} digest teams max.</span>
+                          <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
+                            Upgrade to Pro for unlimited →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

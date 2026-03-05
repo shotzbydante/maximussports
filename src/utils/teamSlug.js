@@ -148,6 +148,11 @@ const ALIASES = {
   "michigan st": "Michigan State Spartans",
   "arizona st": "Arizona State Sun Devils",
   "oklahoma st": "Oklahoma State Cowboys",
+  // Mid-major / MVC teams that appear in ESPN scores
+  "loyola chicago": "Loyola Chicago Ramblers",
+  "loyola chicago ramblers": "Loyola Chicago Ramblers",
+  "loyola-chicago": "Loyola Chicago Ramblers",
+  "marquette golden eagles": "Marquette Golden Eagles",
 };
 
 /**

@@ -30,8 +30,12 @@
  */
 
 import { resolveGamecastUrl } from '../../src/utils/espnGamecast.js';
+import { TEAMS as KNOWN_TEAMS } from '../../data/teams.js';
 
 const BASE_URL = 'https://maximussports.ai';
+
+/** Set of slugs with confirmed PNG logo files in /public/logos/ */
+const LOGO_SLUGS = new Set(KNOWN_TEAMS.map(t => t.slug));
 
 /**
  * Derive a best-effort team slug from a display name.
@@ -48,16 +52,36 @@ function slugFromName(name) {
 }
 
 /**
+ * Generate styled initials from a team name for logo fallback.
+ * e.g. "Loyola Chicago Ramblers" → "LC"
+ */
+function getInitials(name) {
+  const cleaned = (name || '')
+    .replace(/\b(university|state|college|of|the|at|and)\b/gi, '')
+    .trim();
+  const words = cleaned.split(/\s+/).filter(w => w.length > 0);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+/**
  * Inline PNG logo img tag, email-safe.
- * Falls back to a muted placeholder span when slug is unavailable.
+ * Only renders an <img> when the slug is a confirmed known logo.
+ * Falls back to a styled initials chip for unknown or missing logos.
  */
 function logoImg(slug, name, size = 28) {
-  if (!slug) {
-    return `<span style="display:inline-block;width:${size}px;height:${size}px;background:rgba(255,255,255,0.07);border-radius:3px;vertical-align:middle;"></span>`;
+  const confirmed = slug && LOGO_SLUGS.has(slug);
+  if (confirmed) {
+    const src = `${BASE_URL}/logos/${slug}.png`;
+    return `<img src="${src}" alt="${name || slug}" width="${size}" height="${size}"
+      style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:3px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;-ms-interpolation-mode:bicubic;" />`;
   }
-  const src = `${BASE_URL}/logos/${slug}.png`;
-  return `<img src="${src}" alt="${name || slug}" width="${size}" height="${size}"
-    style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:3px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;-ms-interpolation-mode:bicubic;" />`;
+  // Initials fallback — looks premium, no broken-image risk
+  const initials = getInitials(name);
+  const fontSize = size <= 20 ? 7 : size <= 28 ? 9 : 11;
+  const lh = size - 2;
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;background:rgba(50,90,140,0.20);border:1px solid rgba(90,140,200,0.28);border-radius:3px;vertical-align:middle;text-align:center;line-height:${lh}px;font-size:${fontSize}px;font-weight:700;color:#5a9fd4;font-family:'DM Sans',Arial,Helvetica,sans-serif;letter-spacing:-0.01em;">${initials}</span>`;
 }
 
 /**
@@ -213,11 +237,11 @@ export function renderEmailGameCard(game, opts = {}) {
       </tr>`
     : '';
 
-  // ── Gamecast link
+  // ── Gamecast link with ESPN brand badge
   const gamcastRow = card.gamcastUrl
     ? `<tr>
         <td colspan="2" style="padding:0 ${compact ? 14 : 16}px ${compact ? 9 : 11}px;">
-          <a href="${card.gamcastUrl}" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,Helvetica,sans-serif;" target="_blank">View Gamecast &rarr;</a>
+          <a href="${card.gamcastUrl}" style="display:inline-flex;align-items:center;font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;" target="_blank"><span style="display:inline-block;background:#CC0000;color:#ffffff;font-size:8px;font-weight:900;padding:1px 4px 2px;border-radius:2px;letter-spacing:0.02em;vertical-align:middle;margin-right:5px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">ESPN</span>View Gamecast &rarr;</a>
         </td>
       </tr>`
     : '';

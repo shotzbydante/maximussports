@@ -20,7 +20,7 @@ import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
-import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
+import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
 import { getSubject as getDailySubject, renderHTML as renderDailyHTML, renderText as renderDailyText } from '../../src/emails/templates/dailyBriefing.js';
@@ -248,11 +248,13 @@ export default async function handler(req, res) {
     }
 
     // ── 6. Fetch shared data for this email type
-    const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
+    const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
       fetchScoresSource(),
       fetchRankingsSource(),
       getAtsLeadersPipeline(),
       fetchNewsAggregateSource({ includeNational: true }),
+      // Fetch odds data for odds/ATS email only — provides spread data for game cards
+      type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
     ]);
 
     const scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
@@ -263,6 +265,15 @@ export default async function handler(req, res) {
       : { best: [], worst: [] };
     const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
     const headlines = dedupeNewsItems(headlinesRaw);
+
+    // Odds games with spread/total data — used by ATS email game cards
+    const oddsGames = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
+      ? oddsRaw.value.games.map(g => ({
+          ...g,
+          gameStatus: 'Scheduled',
+          startTime: g.commenceTime || null,
+        }))
+      : [];
 
     // ── 7. Fetch bot intel bullets (shared for all users in this run)
     let botIntelBullets = [];
@@ -323,6 +334,8 @@ export default async function handler(req, res) {
         pinnedTeams,
         botIntelBullets,
         maximusNote,
+        // Odds games with spread/total data (populated for odds email type only)
+        oddsGames,
       };
 
       let subject, html, text;

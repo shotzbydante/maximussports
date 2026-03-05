@@ -612,44 +612,51 @@
 .prefList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 8px;
 }
 
+/* ── Standard subscription row ── */
 .prefRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md);
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 16px;
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--color-bg);
   cursor: pointer;
   text-align: left;
   font-family: var(--font-sans);
   transition: border-color 0.15s, background 0.15s;
-  gap: var(--space-md);
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .prefRow:hover {
-  border-color: var(--color-primary);
+  border-color: rgba(60, 121, 180, 0.35);
   background: rgba(60, 121, 180, 0.03);
 }
 
 .prefRowOn {
-  border-color: rgba(60, 121, 180, 0.3);
+  border-color: rgba(60, 121, 180, 0.35);
   background: rgba(60, 121, 180, 0.05);
 }
 
 .prefText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 
 .prefLabel {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text);
+  line-height: 1.3;
 }
 
 .prefDesc {
@@ -660,8 +667,8 @@
 
 /* Toggle */
 .toggle {
-  width: 36px;
-  height: 20px;
+  width: 38px;
+  height: 22px;
   border-radius: 999px;
   background: var(--color-border);
   position: relative;
@@ -675,18 +682,45 @@
 
 .toggleThumb {
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 4px;
+  left: 4px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background: white;
   transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 .toggleOn .toggleThumb {
   transform: translateX(16px);
+}
+
+/* ── Team Digest card: wraps the toggle row + sub-panel as one unit ── */
+.teamDigestCard {
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.teamDigestCardOn {
+  border-color: rgba(60, 121, 180, 0.35);
+}
+
+.teamDigestCard .prefRow {
+  border: none;
+  border-radius: 0;
+  min-height: 64px;
+}
+
+.teamDigestCard .prefRow:hover {
+  border-radius: 0;
+}
+
+.teamDigestCardOn .prefRow {
+  background: rgba(60, 121, 180, 0.05);
+  border-bottom: 1px solid rgba(60, 121, 180, 0.15);
 }
 
 /* ─── Done step ───────────────────────────────────────────────────────────── */
@@ -1764,13 +1798,14 @@
   }
 }
 
-/* ─── Team Digest selector (below subscription toggle) ───────────────────── */
+/* ─── Team Digest sub-panel (nested inside teamDigestCard) ───────────────── */
 .digestTeamSelector {
-  background: rgba(60, 121, 180, 0.06);
-  border: 1px solid rgba(60, 121, 180, 0.15);
-  border-radius: 0 0 8px 8px;
-  margin-top: -1px; /* visually attach below the toggle row */
-  padding: 12px 14px 14px;
+  background: rgba(60, 121, 180, 0.04);
+  border: none;
+  border-radius: 0;
+  margin-top: 0;
+  padding: 14px 16px 16px 20px;  /* extra left indent signals nesting */
+  border-left: 3px solid rgba(60, 121, 180, 0.25);
 }
 
 .digestTeamSelectorHeader {
@@ -1782,9 +1817,11 @@
 }
 
 .digestTeamSelectorLabel {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .digestTeamChips {
@@ -1798,17 +1835,23 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(60, 121, 180, 0.12);
-  border: 1px solid rgba(60, 121, 180, 0.25);
+  background: rgba(60, 121, 180, 0.10);
+  border: 1px solid rgba(60, 121, 180, 0.22);
   border-radius: 20px;
-  padding: 3px 8px 3px 5px;
+  padding: 3px 8px 3px 6px;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.digestTeamChip:hover {
+  background: rgba(60, 121, 180, 0.14);
+  border-color: rgba(60, 121, 180, 0.35);
 }
 
 .digestTeamChipName {
   font-weight: 500;
-  max-width: 140px;
+  max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1819,12 +1862,12 @@
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   padding: 0;
-  margin-left: 2px;
-  opacity: 0.7;
-  transition: opacity 0.15s;
+  margin-left: 1px;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
 }
 
 .digestTeamChipRemove:hover {
@@ -1833,9 +1876,10 @@
 }
 
 .digestPickerWrap {
-  margin-top: 10px;
-  border-radius: 8px;
+  margin-top: 12px;
+  border-radius: 6px;
   overflow: hidden;
+  border: 1px solid var(--color-border-light);
 }
 
 /* ═══════════════════════════════════════════════════════════════
