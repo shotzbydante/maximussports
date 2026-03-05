@@ -1153,6 +1153,53 @@
   font-style: italic;
 }
 
+/* ── Free-plan limit banner (inside picker) ──────────────────────────── */
+.freeLimitBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 14px 2px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.8rem;
+}
+
+.freeLimitIcon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.freeLimitText {
+  color: var(--color-text-secondary, #94a3b8);
+  flex: 1;
+  font-size: 0.8rem;
+}
+
+.freeLimitLink {
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.freeLimitLink:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* Plan hint in picker footer (replaces plain "Pinned: N" count) */
+.pickerPlanHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #64748b);
+  font-style: italic;
+  flex: 1;
+}
+
 /* Respect prefers-reduced-motion for all new animations */
 @media (prefers-reduced-motion: reduce) {
   .recordSkeletonLabel,

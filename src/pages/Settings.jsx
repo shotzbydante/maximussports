@@ -1267,13 +1267,15 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     return null;
   });
 
-  // Default to billing tab if returning from Stripe
+  // Default to billing tab if returning from Stripe or linked directly to billing
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const upgrade = params.get('upgrade');
     const billing = params.get('billing');
+    const openBilling = params.get('openBilling');
     return (upgrade === 'success' || upgrade === 'portal_return' ||
-            billing === 'success' || billing === 'portal_return')
+            billing === 'success' || billing === 'portal_return' ||
+            openBilling === '1')
       ? 'billing' : 'profile';
   });
 
@@ -1281,9 +1283,11 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   useEffect(() => {
     const hasUpgrade = searchParams.get('upgrade');
     const hasBilling = searchParams.get('billing');
-    if (hasUpgrade || hasBilling) {
+    const hasOpenBilling = searchParams.get('openBilling');
+    if (hasUpgrade || hasBilling || hasOpenBilling) {
       searchParams.delete('upgrade');
       searchParams.delete('billing');
+      searchParams.delete('openBilling');
       searchParams.delete('session_id');
       setSearchParams(searchParams, { replace: true });
     }

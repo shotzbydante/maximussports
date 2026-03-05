@@ -6,6 +6,9 @@ import { useState, useEffect, useCallback, useRef, Component } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS, getTeamBySlug } from '../../data/teams';
 import { getTeamsGroupedByConference } from '../../data/teams';
+import { useAuth } from '../../context/AuthContext';
+import { getSupabase } from '../../lib/supabaseClient';
+import { effectivePlanTier, PLAN_LIMITS } from '../../lib/entitlements';
 import {
   getPinnedTeams,
   togglePinnedTeam,
@@ -35,6 +38,7 @@ const POPULAR_PICKS = [
 ];
 
 const DUKE_SLUG = 'duke-blue-devils';
+const FREE_PIN_LIMIT = PLAN_LIMITS.free.maxPinnedTeams; // 3
 
 /**
  * Lightweight error boundary that silently swallows crashes in ExamplePinnedTeamCard.
@@ -188,6 +192,31 @@ function recordFromBatchData(batchSlot) {
 }
 
 export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {}, pinnedTeamDataBySlug = {} }) {
+  const { user } = useAuth();
+
+  // Plan state — fetched once on mount (optimistic free until confirmed)
+  const [planTier, setPlanTier] = useState('free');
+  const [showLimitPrompt, setShowLimitPrompt] = useState(false);
+  const isPro = planTier === 'pro';
+
+  useEffect(() => {
+    if (!user) return;
+    const sb = getSupabase();
+    if (!sb) return;
+    let cancelled = false;
+    sb.from('profiles')
+      .select('plan_tier, subscription_status')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data) {
+          setPlanTier(effectivePlanTier(data));
+        }
+      })
+      .catch(() => {}); // non-fatal; stays 'free'
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const [pinned, setPinned] = useState(() => {
     const initial = getPinnedTeams();
     if (isDebugPins()) {
@@ -239,6 +268,12 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   const handleToggle = useCallback((slug) => {
     const before = getPinnedTeams();
     const wasAdded = !pinned.includes(slug);
+    // Free-plan cap: block adding beyond limit (removing is always allowed)
+    if (wasAdded && !isPro && pinned.length >= FREE_PIN_LIMIT) {
+      setShowLimitPrompt(true);
+      return;
+    }
+    setShowLimitPrompt(false);
     const after = togglePinnedTeam(slug);   // writes to localStorage, returns new array
     if (debugPinsRef.current) {
       console.group(`[debugPins] handleToggle — ${wasAdded ? 'ADD' : 'REMOVE'} ${slug}`);
@@ -254,9 +289,13 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     });
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify, pinned]);
+  }, [notify, pinned, isPro]);
 
   const handleAdd = useCallback((slug) => {
+    if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
+      setShowLimitPrompt(true);
+      return;
+    }
     const before = getPinnedTeams();
     const after = addPinnedTeam(slug);
     if (debugPinsRef.current) {
@@ -271,7 +310,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     setShowAdd(false);
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify]);
+  }, [notify, isPro, pinned.length]);
 
   const handleRemove = useCallback((slug) => {
     const before = getPinnedTeams();
@@ -305,6 +344,11 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
    * EmptyStateCard popular picks — one tap pins immediately.
    */
   const handleDirectPin = useCallback((slug) => {
+    if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
+      setShowLimitPrompt(true);
+      setShowAdd(true); // open picker so user sees the inline prompt
+      return;
+    }
     const before = getPinnedTeams();
     const after = addPinnedTeam(slug);
     if (debugPinsRef.current) {
@@ -318,7 +362,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     track('pinned_team_add', { team_slug: slug, method: 'quick_chip' });
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify]);
+  }, [notify, isPro, pinned.length]);
 
   const handleDismissPreview = useCallback(() => {
     try { localStorage.setItem('pinnedTeamsHideExample', '1'); } catch { /* ignore storage errors */ }
@@ -561,7 +605,11 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
           {/* Selected summary bar */}
           {pinned.length > 0 && (
             <div className={styles.selectedBar}>
-              <span className={styles.selectedCount}>Selected: {pinned.length}</span>
+              <span className={styles.selectedCount}>
+                {isPro
+                  ? `Selected: ${pinned.length}`
+                  : `Selected: ${pinned.length} / ${FREE_PIN_LIMIT}`}
+              </span>
               <div className={styles.selectedChips}>
                 {pinned.slice(0, 5).map((slug) => {
                   const t = getTeamBySlug(slug);
@@ -585,6 +633,23 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
               <button type="button" className={styles.clearBtn} onClick={handleClearAll}>
                 Clear
               </button>
+            </div>
+          )}
+
+          {/* Free-plan limit banner — shown when user tries to add a 4th team */}
+          {showLimitPrompt && !isPro && (
+            <div className={styles.freeLimitBanner} role="alert">
+              <span className={styles.freeLimitIcon} aria-hidden>🔒</span>
+              <span className={styles.freeLimitText}>
+                Free plan: up to {FREE_PIN_LIMIT} pinned teams.
+              </span>
+              <Link
+                to="/settings?openBilling=1"
+                className={styles.freeLimitLink}
+                onClick={() => setShowAdd(false)}
+              >
+                Upgrade to Pro →
+              </Link>
             </div>
           )}
 
@@ -641,10 +706,12 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             )}
           </div>
 
-          {/* Footer — single primary action */}
+          {/* Footer — plan hint + done */}
           <div className={styles.pickerFooter}>
-            <span className={styles.pickerPinnedCount}>
-              Pinned: {pinned.length}
+            <span className={styles.pickerPlanHint}>
+              {isPro
+                ? 'Pro: unlimited pinned teams.'
+                : `Free plan: up to ${FREE_PIN_LIMIT} pinned teams. Pro is unlimited.`}
             </span>
             <button type="button" className={styles.pickerFooterDone} onClick={handlePickerDone}>
               Done
