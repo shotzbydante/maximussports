@@ -261,6 +261,10 @@ function allGamesComplete(games) {
  *   rankMap     — slug→rank map already on Home state
  *   atsLeaders  — ATS leaders already on Home state
  */
+
+/** Minimum number of today's games before we supplement with tomorrow's. */
+const MIN_GAMES_FOR_PICKS = 6;
+
 function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
@@ -269,6 +273,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   const [nextSlateGames, setNextSlateGames] = useState(null);   // null = not fetched yet
   const [nextSlateLoading, setNextSlateLoading] = useState(false);
   const nextSlateFetchedRef = useRef(false);
+
+  // ── Thin-slate state: fetch tomorrow to supplement when today has < MIN games ──
+  const [thinSlateGames, setThinSlateGames] = useState(null);   // null = not fetched yet
+  const [thinSlateLoading, setThinSlateLoading] = useState(false);
+  const thinSlateFetchedRef = useRef(false);
 
   // Read cache once on mount
   useEffect(() => {
@@ -310,12 +319,57 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       });
   }, [loading, games]);
 
+  // Thin slate: when today has games but fewer than MIN_GAMES_FOR_PICKS,
+  // and today is NOT yet complete, fetch tomorrow's games to supplement.
+  useEffect(() => {
+    if (loading) return;
+    if (games.length === 0) return;
+    if (allGamesComplete(games)) return; // handled by nextSlate effect above
+    if (games.length >= MIN_GAMES_FOR_PICKS) return; // slate is rich enough
+    if (thinSlateFetchedRef.current) return;
+    thinSlateFetchedRef.current = true;
+    const tomorrowIso = offsetDateStr(1);
+    const tomorrowApi = toApiDateStr(tomorrowIso);
+    setThinSlateLoading(true);
+    fetch(`/api/home?dates=${tomorrowApi}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const tomorrowGames = data?.scoresByDate?.[tomorrowApi] ?? [];
+        setThinSlateGames(tomorrowGames.length > 0 ? tomorrowGames : []);
+        setThinSlateLoading(false);
+      })
+      .catch(() => {
+        setThinSlateGames([]);
+        setThinSlateLoading(false);
+      });
+  }, [loading, games]);
+
   // Determine the active picks slate
   const todayComplete = allGamesComplete(games) && !loading;
-  const activeGames = todayComplete && nextSlateGames !== null ? nextSlateGames : games;
+
+  // Thin slate: today has games but fewer than MIN_GAMES_FOR_PICKS and is not complete
+  const isThinSlate =
+    !loading &&
+    !todayComplete &&
+    games.length > 0 &&
+    games.length < MIN_GAMES_FOR_PICKS &&
+    thinSlateGames !== null &&
+    thinSlateGames.length > 0;
+
+  // activeGames priority: today-complete → next slate | thin slate → today + tomorrow | default → today
+  const activeGames = todayComplete && nextSlateGames !== null
+    ? nextSlateGames
+    : isThinSlate
+      ? [...games, ...thinSlateGames]
+      : games;
+
   const slateDate = todayComplete
     ? offsetDateStr(1)
     : (games.length > 0 ? todayDateStr() : null);
+
+  // When thin slate is active, pass tomorrow's date so MaximusPicks can show combined label
+  const slateDateSecondary = isThinSlate ? offsetDateStr(1) : null;
+
   const slateComplete = todayComplete;
 
   // When no cached Insights data, generate a live snapshot from current game slate
@@ -365,7 +419,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     }
   }
 
-  const slateSummaryLabel = slateComplete ? 'Next Slate Picks' : 'Today\'s Picks';
+  const slateSummaryLabel = slateComplete
+    ? 'Next Slate Picks'
+    : isThinSlate
+      ? 'Today + Tomorrow'
+      : 'Today\'s Picks';
 
   return (
     <div className={styles.oddsTeaser}>
@@ -391,8 +449,9 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         games={activeGames}
         atsLeaders={atsLeaders}
         atsBySlug={atsBySlug}
-        loading={loading || nextSlateLoading}
+        loading={loading || nextSlateLoading || thinSlateLoading}
         slateDate={slateDate}
+        slateDateSecondary={slateDateSecondary}
         slateComplete={slateComplete}
       />
 
@@ -408,7 +467,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       <div className={styles.oddsBriefingBlock}>
         <div className={styles.oddsBriefingLabelRow}>
           <span className={styles.oddsBriefingLabel}>
-            {slateComplete ? 'Market Briefing (Today)' : 'Today\'s Market Briefing'}
+            {slateComplete
+              ? 'Market Briefing (Today)'
+              : isThinSlate
+                ? 'Today + Tomorrow\'s Briefing'
+                : 'Today\'s Market Briefing'}
           </span>
         </div>
         {briefingData ? (

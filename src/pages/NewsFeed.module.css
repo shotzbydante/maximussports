@@ -875,9 +875,36 @@
   }
 }
 
-/* ─── Premium 50/50 Blended Intel Feed ───────────────────────────────────── */
+/* ─── Premium Categorized Intel Feed (All view desktop) ──────────────────── */
 
-/* Hero blend: 50/50 video + article side-by-side on desktop */
+/* Top Videos: responsive grid */
+.topVideosSection {
+  margin-bottom: var(--space-xl);
+}
+
+.topVideosGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .topVideosGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.topVideoItem {
+  min-width: 0;
+}
+
+/* Top Stories list — All view desktop (reuses streamCard atoms) */
+.topStoriesDesktopSection {
+  margin-bottom: var(--space-xl);
+}
+
+/* ─── Legacy Blended Hero (kept, no longer used in All view) ─────────────── */
+
 .heroBlendSection {
   display: none; /* hidden on mobile — see desktopOnly */
   grid-template-columns: 1fr 1fr;

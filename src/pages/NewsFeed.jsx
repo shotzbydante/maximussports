@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchHome } from '../api/home';
 import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
@@ -7,7 +7,6 @@ import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import YouTubeVideoRail from '../components/shared/YouTubeVideoRail';
 import { getCached, setCached } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
-import { observeImpression } from '../analytics/impressions';
 import styles from './NewsFeed.module.css';
 
 const INTEL_FEED_KEY = 'yt:news:intelFeed';
@@ -179,23 +178,6 @@ function getInitials(conf, source) {
   return '—';
 }
 
-/**
- * Deterministically interleave videos and articles so the first 20 items
- * are at least 10 videos and 10 articles (when enough candidates exist).
- * Pattern: V/A/V/A... Then backfill with whichever side has more.
- */
-function buildBlendedFeed(videos, articles) {
-  const vids = videos.slice(0, 20).map((v) => ({ ...v, _type: 'video' }));
-  const arts = articles.slice(0, 20).map((a) => ({ ...a, _type: 'article' }));
-  const result = [];
-  const maxLen = Math.max(vids.length, arts.length);
-  for (let i = 0; i < maxLen; i++) {
-    if (i < vids.length) result.push(vids[i]);
-    if (i < arts.length) result.push(arts[i]);
-  }
-  return result;
-}
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ConfPill({ conference }) {
@@ -256,86 +238,6 @@ function LoadingSkeleton() {
         {[1, 2, 3, 4, 5, 6].map((n) => <div key={n} className={styles.skeletonRow} />)}
       </div>
     </div>
-  );
-}
-
-// ─── Blended stream item — with impression + click tracking ──────────────────
-
-function BlendedStreamItem({ item, onSelectVideo, position }) {
-  const ref = useRef(null);
-
-  // Impression — fires once per session when item is 50% visible
-  useEffect(() => {
-    const key = item.videoId || item.id || String(position);
-    const cleanup = observeImpression(ref.current, key, () => {
-      track('intel_item_impression', {
-        type:     item._type,
-        id:       (item.videoId || item.id || '').slice(0, 200),
-        position,
-        feed:     'all',
-      });
-    });
-    return cleanup;
-  }, [item, position]);
-
-  if (item._type === 'video') {
-    return (
-      <div ref={ref} className={styles.streamVideoItem}>
-        <YouTubeVideoCard
-          video={item}
-          onSelect={(v) => {
-            track('intel_item_open', {
-              type:    'video',
-              id:      v.videoId,
-              title:   (v.title ?? '').slice(0, 100),
-              position,
-              feed:    'all',
-            });
-            onSelectVideo(v);
-          }}
-          compact
-        />
-      </div>
-    );
-  }
-  // Article
-  return (
-    <a
-      ref={ref}
-      href={item.link || '#'}
-      target={item.link ? '_blank' : undefined}
-      rel="noopener noreferrer"
-      className={styles.streamCard}
-      aria-label={item.title}
-      role="listitem"
-      onClick={() => {
-        const url = (item.link ?? '').split('?')[0].slice(0, 200);
-        track('intel_item_open', {
-          type:    'article',
-          id:      url,
-          title:   (item.title ?? '').slice(0, 100),
-          source:  item.source,
-          position,
-          feed:    'all',
-        });
-      }}
-    >
-      <div className={styles.streamThumb} aria-hidden>
-        <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
-      </div>
-      <div className={styles.streamBody}>
-        <div className={styles.streamMeta}>
-          <SourceBadge source={item.source} />
-          {item.conference && <ConfPill conference={item.conference} />}
-          {item.signal && <SignalTag signal={item.signal} />}
-          <span className={styles.time}>{item.time}</span>
-        </div>
-        <p className={styles.streamHeadline}>{item.title}</p>
-        {item.excerpt && (
-          <p className={styles.streamExcerpt}>{item.excerpt}</p>
-        )}
-      </div>
-    </a>
   );
 }
 
@@ -458,22 +360,10 @@ export default function NewsFeed() {
     return enriched.filter((item) => item.conference === activeConf);
   }, [enriched, activeConf]);
 
-  // Blended feed for ALL view — deterministic V/A/V/A interleave
-  const blendedFeed = useMemo(() => {
-    if (activeConf !== 'All') return null;
-    return buildBlendedFeed(intelVideos, enriched);
-  }, [activeConf, intelVideos, enriched]);
-
   // Non-ALL conference view uses the existing magazine sections
   const hero       = filtered[0]     ?? null;
   const topStories = filtered.slice(1, 5);
   const stream     = filtered.slice(5);
-
-  // For the blended hero row: first video + first article
-  const heroVideoForBlend   = intelVideos[0]  ?? null;
-  const heroArticleForBlend = enriched[0]     ?? null;
-  // Blended stream starts after the hero items
-  const blendedStream = blendedFeed ? blendedFeed.slice(2) : [];
 
   return (
     <div className={styles.page}>
@@ -578,60 +468,63 @@ export default function NewsFeed() {
                 </section>
               )}
 
-              {/* ── DESKTOP: premium 50/50 blended layout ── */}
+              {/* ── DESKTOP: Structured premium layout ── */}
 
-              {/* Hero row: featured video (left) + featured article (right) */}
-              {(heroVideoForBlend || heroArticleForBlend) && (
+              {/* Section 1: Top Videos grid */}
+              {intelVideos.length > 0 && (
                 <section
-                  className={`${styles.heroBlendSection} ${styles.desktopOnly}`}
-                  aria-label="Featured intel"
+                  className={`${styles.topVideosSection} ${styles.desktopOnly}`}
+                  aria-label="Top videos"
                 >
-                  {heroVideoForBlend && (
-                    <div className={styles.heroBlendVideo}>
-                      <div className={styles.heroBlendLabel}>
-                        <span className={styles.heroBadgeLead}>Featured Video</span>
-                      </div>
-                      <YouTubeVideoCard
-                        video={heroVideoForBlend}
-                        onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
-                      />
-                    </div>
-                  )}
-                  {heroArticleForBlend && (
-                    <a
-                      href={heroArticleForBlend.link || '#'}
-                      target={heroArticleForBlend.link ? '_blank' : undefined}
-                      rel="noopener noreferrer"
-                      className={styles.heroBlendArticle}
-                      aria-label={heroArticleForBlend.title}
-                    >
-                      <div className={styles.heroBlendThumb}>
-                        <ImgPlaceholder
-                          conference={heroArticleForBlend.conference}
-                          source={heroArticleForBlend.source}
-                          size="hero"
+                  <h2 className={styles.sectionHeading}>Top Videos</h2>
+                  <div className={styles.topVideosGrid}>
+                    {intelVideos.slice(0, 6).map((v, idx) => (
+                      <div key={v.videoId || idx} className={styles.topVideoItem}>
+                        <YouTubeVideoCard
+                          video={v}
+                          onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
                         />
-                        <div className={styles.heroOverlay} aria-hidden />
-                        <div className={styles.heroBadgeWrap}>
-                          <span className={styles.heroBadgeLead}>Lead Story</span>
-                        </div>
-                        <div className={styles.heroBody}>
-                          {heroArticleForBlend.conference && (
-                            <div className={styles.heroConfRow}>
-                              <ConferenceLogo conference={heroArticleForBlend.conference} size={14} />
-                              <span className={styles.heroConfLabel}>{heroArticleForBlend.conference}</span>
-                            </div>
-                          )}
-                          <h2 className={styles.heroHeadline}>{heroArticleForBlend.title}</h2>
-                          <div className={styles.heroMeta}>
-                            <SourceBadge source={heroArticleForBlend.source} />
-                            {heroArticleForBlend.signal && <SignalTag signal={heroArticleForBlend.signal} />}
-                            <span className={styles.heroTime}>{heroArticleForBlend.time}</span>
-                          </div>
-                        </div>
                       </div>
-                    </a>
-                  )}
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Section 2: Top Stories headline list */}
+              {enriched.length > 0 && (
+                <section
+                  className={`${styles.topStoriesDesktopSection} ${styles.desktopOnly}`}
+                  aria-label="Top stories"
+                >
+                  <h2 className={styles.sectionHeading}>Top Stories</h2>
+                  <div className={styles.streamList} role="list">
+                    {enriched.slice(0, 6).map((item, idx) => (
+                      <a
+                        key={item.id}
+                        href={item.link || '#'}
+                        target={item.link ? '_blank' : undefined}
+                        rel="noopener noreferrer"
+                        className={styles.streamCard}
+                        aria-label={item.title}
+                        role="listitem"
+                        onClick={() => handleArticleOpen(item, idx, 'top-stories')}
+                      >
+                        <div className={styles.streamThumb} aria-hidden>
+                          <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
+                        </div>
+                        <div className={styles.streamBody}>
+                          <div className={styles.streamMeta}>
+                            <SourceBadge source={item.source} />
+                            {item.conference && <ConfPill conference={item.conference} />}
+                            {item.signal && <SignalTag signal={item.signal} />}
+                            <span className={styles.time}>{item.time}</span>
+                          </div>
+                          <p className={styles.streamHeadline}>{item.title}</p>
+                          {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </section>
               )}
 
@@ -640,21 +533,39 @@ export default function NewsFeed() {
                 Sponsored · Premium analysis
               </div>
 
-              {/* Blended stream — deterministic V/A/V/A interleave */}
-              {blendedStream.length > 0 && (
+              {/* Section 3: More News */}
+              {enriched.length > 6 && (
                 <section
                   className={`${styles.streamSection} ${styles.desktopOnly}`}
-                  aria-label="Intel feed"
+                  aria-label="More news"
                 >
-                  <h2 className={styles.sectionHeading}>Intel Feed</h2>
+                  <h2 className={styles.sectionHeading}>More News</h2>
                   <div className={styles.streamList} role="list">
-                    {blendedStream.map((item, idx) => (
-                      <Fragment key={item.videoId || item.id || idx}>
-                        <BlendedStreamItem
-                          item={item}
-                          onSelectVideo={(v) => handleVideoSelect(v, 'intelFeed')}
-                          position={idx + 2}
-                        />
+                    {enriched.slice(6).map((item, idx) => (
+                      <Fragment key={item.id}>
+                        <a
+                          href={item.link || '#'}
+                          target={item.link ? '_blank' : undefined}
+                          rel="noopener noreferrer"
+                          className={styles.streamCard}
+                          aria-label={item.title}
+                          role="listitem"
+                          onClick={() => handleArticleOpen(item, idx + 6, 'all')}
+                        >
+                          <div className={styles.streamThumb} aria-hidden>
+                            <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
+                          </div>
+                          <div className={styles.streamBody}>
+                            <div className={styles.streamMeta}>
+                              <SourceBadge source={item.source} />
+                              {item.conference && <ConfPill conference={item.conference} />}
+                              {item.signal && <SignalTag signal={item.signal} />}
+                              <span className={styles.time}>{item.time}</span>
+                            </div>
+                            <p className={styles.streamHeadline}>{item.title}</p>
+                            {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
+                          </div>
+                        </a>
                         {(idx + 1) % 8 === 0 && (
                           <div
                             className={`${styles.adSlot} ${styles.adSlotInline}`}
