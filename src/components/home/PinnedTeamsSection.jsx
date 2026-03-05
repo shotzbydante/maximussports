@@ -271,6 +271,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     // Free-plan cap: block adding beyond limit (removing is always allowed)
     if (wasAdded && !isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
+      track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
       return;
     }
     setShowLimitPrompt(false);
@@ -294,6 +295,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   const handleAdd = useCallback((slug) => {
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
+      track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
       return;
     }
     const before = getPinnedTeams();
@@ -347,6 +349,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
       setShowAdd(true); // open picker so user sees the inline prompt
+      track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
       return;
     }
     const before = getPinnedTeams();
@@ -605,7 +608,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
           {/* Selected summary bar */}
           {pinned.length > 0 && (
             <div className={styles.selectedBar}>
-              <span className={styles.selectedCount}>
+              <span className={`${styles.selectedCount}${!isPro && pinned.length >= FREE_PIN_LIMIT ? ` ${styles.selectedCountAtCap}` : ''}`}>
                 {isPro
                   ? `Selected: ${pinned.length}`
                   : `Selected: ${pinned.length} / ${FREE_PIN_LIMIT}`}

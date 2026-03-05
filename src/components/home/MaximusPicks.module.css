@@ -648,3 +648,36 @@
   border: 1px solid rgba(220, 150, 20, 0.18);
   border-radius: 4px;
 }
+
+/* ─── slate date bar ─────────────────────────────────────────── */
+
+.slateDateBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 8px;
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+}
+
+.slateDateLabel {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.slateDateValue {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-primary, #3c79b4);
+  letter-spacing: -0.01em;
+}
+
+.slateCompleteNote {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-left: auto;
+}

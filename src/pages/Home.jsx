@@ -219,6 +219,38 @@ function generateLiveBriefing(games = [], rankMap = {}) {
   return lines.join('\n\n');
 }
 
+// ─── slate-date helpers ────────────────────────────────────────────────────────
+
+/** Returns YYYY-MM-DD for today (local date). */
+function todayDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Returns YYYY-MM-DD for the day N days from now (local date). */
+function offsetDateStr(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Returns YYYYMMDD (no dashes) from YYYY-MM-DD. */
+function toApiDateStr(iso) {
+  return iso.replace(/-/g, '');
+}
+
+/**
+ * True if all provided games are in a final/complete state, i.e., no picks are actionable.
+ * Returns false if games array is empty (still loading).
+ */
+function allGamesComplete(games) {
+  if (!Array.isArray(games) || games.length === 0) return false;
+  return games.every((g) => {
+    const s = (g.gameStatus || '').toLowerCase();
+    return s === 'final' || s.includes('final') || s === 'f/ot' || s === 'ft';
+  });
+}
+
 /**
  * Maximus's Picks teaser card.
  * Renders deterministic data-driven picks (Spread / ML / Totals) at the top,
@@ -232,6 +264,11 @@ function generateLiveBriefing(games = [], rankMap = {}) {
 function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
+
+  // ── Next-slate state: fetch tomorrow's schedule when today is done ──
+  const [nextSlateGames, setNextSlateGames] = useState(null);   // null = not fetched yet
+  const [nextSlateLoading, setNextSlateLoading] = useState(false);
+  const nextSlateFetchedRef = useRef(false);
 
   // Read cache once on mount
   useEffect(() => {
@@ -250,8 +287,39 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     return () => clearInterval(id);
   }, [briefingData]);
 
+  // When today's games are all final and we haven't fetched the next slate yet,
+  // request tomorrow's schedule via the existing /api/home?dates= param.
+  useEffect(() => {
+    if (loading) return;
+    if (!allGamesComplete(games)) return;
+    if (nextSlateFetchedRef.current) return;
+    nextSlateFetchedRef.current = true;
+    const tomorrowIso = offsetDateStr(1);
+    const tomorrowApi = toApiDateStr(tomorrowIso);
+    setNextSlateLoading(true);
+    fetch(`/api/home?dates=${tomorrowApi}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const tomorrowGames = data?.scoresByDate?.[tomorrowApi] ?? [];
+        setNextSlateGames(tomorrowGames.length > 0 ? tomorrowGames : []);
+        setNextSlateLoading(false);
+      })
+      .catch(() => {
+        setNextSlateGames([]);
+        setNextSlateLoading(false);
+      });
+  }, [loading, games]);
+
+  // Determine the active picks slate
+  const todayComplete = allGamesComplete(games) && !loading;
+  const activeGames = todayComplete && nextSlateGames !== null ? nextSlateGames : games;
+  const slateDate = todayComplete
+    ? offsetDateStr(1)
+    : (games.length > 0 ? todayDateStr() : null);
+  const slateComplete = todayComplete;
+
   // When no cached Insights data, generate a live snapshot from current game slate
-  const liveBriefing = !briefingData ? generateLiveBriefing(games, rankMap) : null;
+  const liveBriefing = !briefingData ? generateLiveBriefing(activeGames, rankMap) : null;
 
   // All bullets shown by default — no "More/Less" toggle needed
   const bullets = briefingData?.bullets ?? [];
@@ -274,13 +342,13 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   })();
 
   // Picks summary — derived from same data inline, no new fetch
-  const picksResult = games.length
-    ? buildMaximusPicks({ games, atsLeaders, atsBySlug })
+  const picksResult = activeGames.length
+    ? buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug })
     : { atsPicks: [], mlPicks: [], totalsPicks: [] };
-  const picksSummary = games.length ? buildPicksSummary(picksResult) : null;
+  const picksSummary = activeGames.length ? buildPicksSummary(picksResult) : null;
 
-  if (import.meta.env?.DEV && games.length > 0) {
-    const gamesWithSpread = games.filter((g) => g.spread != null || g.homeSpread != null).length;
+  if (import.meta.env?.DEV && activeGames.length > 0) {
+    const gamesWithSpread = activeGames.filter((g) => g.spread != null || g.homeSpread != null).length;
     const topAts = picksResult.atsPicks[0];
     console.debug(
       '[Home:OddsTeaser] total games:', games.length,
@@ -297,6 +365,8 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     }
   }
 
+  const slateSummaryLabel = slateComplete ? 'Next Slate Picks' : 'Today\'s Picks';
+
   return (
     <div className={styles.oddsTeaser}>
       {/* ── Widget header ───────────────────────────────────────────── */}
@@ -307,7 +377,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       {/* ── Picks summary line ──────────────────────────────────────── */}
       {picksSummary && (
         <div className={styles.picksSummaryBar}>
-          <span className={styles.picksSummaryLabel}>Today&apos;s Picks</span>
+          <span className={styles.picksSummaryLabel}>{slateSummaryLabel}</span>
           <span className={styles.picksSummaryText}>{picksSummary}</span>
         </div>
       )}
@@ -317,7 +387,14 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       </p>
 
       {/* ── Picks: Spread / ML / Totals ─────────────────────────────── */}
-      <MaximusPicks games={games} atsLeaders={atsLeaders} atsBySlug={atsBySlug} loading={loading} />
+      <MaximusPicks
+        games={activeGames}
+        atsLeaders={atsLeaders}
+        atsBySlug={atsBySlug}
+        loading={loading || nextSlateLoading}
+        slateDate={slateDate}
+        slateComplete={slateComplete}
+      />
 
       {/* ── Divider into Market Briefing subsection ─────────────────── */}
       <div className={styles.oddsMarketBriefingDivider}>
@@ -330,7 +407,9 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       {/* Market Briefing — live cached data → live game fallback → static placeholder */}
       <div className={styles.oddsBriefingBlock}>
         <div className={styles.oddsBriefingLabelRow}>
-          <span className={styles.oddsBriefingLabel}>Today&apos;s Market Briefing</span>
+          <span className={styles.oddsBriefingLabel}>
+            {slateComplete ? 'Market Briefing (Today)' : 'Today\'s Market Briefing'}
+          </span>
         </div>
         {briefingData ? (
           <>

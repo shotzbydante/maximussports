@@ -63,30 +63,39 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
 
     /* ── Mobile ≤480px — supplemental overrides (inline styles hold desktop baseline) ──
        Gmail iOS may strip these; all critical values are also set inline.
-       These are additive polish only. */
+       These are additive polish only. Hierarchy mirrors desktop but compact. */
     @media only screen and (max-width: 480px) {
       .email-outer-td   { padding: 0 !important; }
       .email-container  { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; }
-      .header-td        { padding: 14px 16px 12px !important; }
-      .header-wordmark  { font-size: 18px !important; }
-      .header-tagline   { display: none !important; }
-      .hero-td          { padding: 18px 16px 14px !important; }
-      .hero-eyebrow     { font-size: 10px !important; letter-spacing: 0.08em !important; margin-bottom: 5px !important; }
-      .hero-h1          { font-size: 21px !important; line-height: 1.25 !important; letter-spacing: -0.01em !important; }
-      .section-td       { padding: 0 10px 10px !important; }
-      .card-td          { padding: 13px 14px 12px !important; }
-      .card-headline    { font-size: 13px !important; }
+      /* Header: keep same hierarchy (logo → wordmark → tagline), just tighter */
+      .header-td        { padding: 12px 16px 10px !important; }
+      .header-wordmark  { font-size: 17px !important; letter-spacing: -0.02em !important; }
+      /* Show tagline on mobile at smaller size — preserve desktop hierarchy */
+      .header-tagline   { display: block !important; margin-top: 2px !important; }
+      .header-tagline span { font-size: 10px !important; color: #475e72 !important; }
+      /* Hero */
+      .hero-td          { padding: 16px 16px 12px !important; }
+      .hero-eyebrow     { font-size: 10px !important; letter-spacing: 0.08em !important; margin-bottom: 4px !important; }
+      .hero-h1          { font-size: 19px !important; line-height: 1.25 !important; letter-spacing: -0.015em !important; }
+      /* Cards */
+      .section-td       { padding: 0 12px 10px !important; }
+      .card-td          { padding: 12px 14px 11px !important; }
+      .card-headline    { font-size: 13px !important; line-height: 1.35 !important; }
       .card-body        { font-size: 12px !important; line-height: 1.55 !important; }
-      .divider-td       { padding: 0 10px !important; }
-      .cta-td           { padding: 14px 10px 18px !important; }
-      .cta-link         { font-size: 14px !important; padding: 13px 20px !important; }
+      /* Layout helpers */
+      .divider-td       { padding: 0 12px !important; }
+      .cta-td           { padding: 12px 12px 18px !important; }
+      .cta-link         { font-size: 14px !important; padding: 13px 16px !important; display: block !important; width: 100% !important; box-sizing: border-box !important; }
+      /* Footer */
       .footer-td        { padding: 12px 16px 16px !important; }
-      .footer-text      { font-size: 11px !important; }
-      .row-pad          { padding: 8px 14px !important; }
-      .game-card-td     { padding: 10px 14px !important; }
-      .team-logo-cell   { width: 26px !important; padding-right: 7px !important; }
+      .footer-text      { font-size: 11px !important; line-height: 1.5 !important; }
+      /* Game cards & team logos */
+      .row-pad          { padding: 7px 14px !important; }
+      .game-card-td     { padding: 9px 14px !important; }
+      .team-logo-cell   { width: 24px !important; padding-right: 7px !important; }
+      /* News & video */
       .news-item        { font-size: 12px !important; padding: 6px 0 !important; }
-      .video-card-td    { padding: 10px 14px !important; }
+      .video-card-td    { padding: 9px 14px !important; }
     }
 
     /* ── Tablet 481–620px ── */

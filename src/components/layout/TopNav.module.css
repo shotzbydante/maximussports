@@ -47,6 +47,39 @@
   flex-shrink: 0;
 }
 
+/* ─── Plan badges in the top nav ─────────────────────────────── */
+.badgeFree {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 158, 178, 0.28);
+  color: #7a94ab;
+  background: rgba(120, 145, 170, 0.09);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.badgePro {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-primary, #3c79b4) 0%, #1a6fcc 100%);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(60, 121, 180, 0.35);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 .hamburger {
   display: none;
   flex-direction: column;
@@ -131,6 +164,11 @@
   }
   .brandTagline {
     display: none;
+  }
+  .badgeFree,
+  .badgePro {
+    font-size: 0.58rem;
+    padding: 2px 6px;
   }
   .hamburger {
     display: flex;

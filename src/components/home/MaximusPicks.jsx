@@ -281,6 +281,18 @@ function PickCard({ pick, isTotal }) {
   );
 }
 
+// ─── slate date helper ────────────────────────────────────────────────────────
+
+function formatSlateDate(dateStr) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 // ─── column configuration ─────────────────────────────────────────────────────
 
 const COLUMN_CONFIG = {
@@ -309,7 +321,7 @@ const COLUMN_CONFIG = {
 
 // ─── pick column ─────────────────────────────────────────────────────────────
 
-function PickColumn({ section, picks, emptyContext }) {
+function PickColumn({ section, picks, emptyContext, slateDate, slateComplete }) {
   const { title, Icon, microcopy, storageKey, isTotal } = COLUMN_CONFIG[section];
 
   const [expanded, setExpanded] = useState(() => {
@@ -328,12 +340,19 @@ function PickColumn({ section, picks, emptyContext }) {
     } catch { /* ignore */ }
   };
 
-  // Context-aware ATS empty state
+  const slateDateLabel = formatSlateDate(slateDate);
+
+  // Context-aware empty state — reference the slate date when available
   let emptyReason = 'No qualified leans right now.';
   let emptyDetail = null;
-  if (section === 'ats') {
+  if (slateComplete && picks.length === 0) {
+    emptyReason = 'Today\'s slate is complete.';
+    emptyDetail = slateDateLabel
+      ? `Picks for ${slateDateLabel} will appear when lines post.`
+      : 'Check back when tomorrow\'s lines post.';
+  } else if (section === 'ats') {
     const { spreadsCount = 0, atsSlugCount = 0 } = emptyContext ?? {};
-    emptyReason = 'No ATS leans met today\'s thresholds.';
+    emptyReason = `No ATS leans met${slateDateLabel ? ` ${slateDateLabel}'s` : ' today\'s'} thresholds.`;
     if (spreadsCount === 0) {
       emptyDetail = 'Waiting for spread lines to post.';
     } else if (atsSlugCount < 5) {
@@ -343,9 +362,9 @@ function PickColumn({ section, picks, emptyContext }) {
     }
   } else if (section === 'ml') {
     emptyReason = 'No qualified moneyline leans right now.';
-    emptyDetail = 'Value gaps haven\'t met the 4pp threshold.';
+    emptyDetail = `Value gaps haven't met the 4pp threshold${slateDateLabel ? ` for ${slateDateLabel}` : ''}.`;
   } else {
-    emptyReason = 'No totals posted yet.';
+    emptyReason = `No totals posted${slateDateLabel ? ` for ${slateDateLabel}` : ''} yet.`;
   }
 
   return (
@@ -397,16 +416,20 @@ function PickColumn({ section, picks, emptyContext }) {
  * MaximusPicks — deterministic picks derived from data already on the Home page.
  *
  * Props:
- *   games      {Array}        — merged game objects (with odds)
- *   atsLeaders {Object}       — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
- *   atsBySlug  {Object|null}  — optional explicit ATS map keyed by team slug
- *   loading    {boolean}      — true while Home is still fetching
+ *   games         {Array}        — merged game objects (with odds)
+ *   atsLeaders    {Object}       — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
+ *   atsBySlug     {Object|null}  — optional explicit ATS map keyed by team slug
+ *   loading       {boolean}      — true while Home is still fetching
+ *   slateDate     {string|null}  — ISO date string (YYYY-MM-DD) for the active slate
+ *   slateComplete {boolean}      — true when today's games are all final (showing next slate)
  */
 export default function MaximusPicks({
   games = [],
   atsLeaders = { best: [], worst: [] },
   atsBySlug = null,
   loading = false,
+  slateDate = null,
+  slateComplete = false,
 }) {
   const { atsPicks, mlPicks, totalsPicks } = useMemo(
     () => buildMaximusPicks({ games, atsLeaders, atsBySlug }),
@@ -446,12 +469,25 @@ export default function MaximusPicks({
     );
   }
 
+  const slateDateLabel = formatSlateDate(slateDate);
+
   return (
     <>
+      {slateDateLabel && (
+        <div className={styles.slateDateBar}>
+          <span className={styles.slateDateLabel}>
+            {slateComplete ? 'Next Slate' : 'Slate'}
+          </span>
+          <span className={styles.slateDateValue}>{slateDateLabel}</span>
+          {slateComplete && (
+            <span className={styles.slateCompleteNote}>Today complete · next lines pending</span>
+          )}
+        </div>
+      )}
       <div className={styles.root}>
-        <PickColumn section="ats"    picks={atsPicks}    emptyContext={emptyContext} />
-        <PickColumn section="ml"     picks={mlPicks}     emptyContext={emptyContext} />
-        <PickColumn section="totals" picks={totalsPicks} emptyContext={emptyContext} />
+        <PickColumn section="ats"    picks={atsPicks}    emptyContext={emptyContext} slateDate={slateDate} slateComplete={slateComplete} />
+        <PickColumn section="ml"     picks={mlPicks}     emptyContext={emptyContext} slateDate={slateDate} slateComplete={slateComplete} />
+        <PickColumn section="totals" picks={totalsPicks} emptyContext={emptyContext} slateDate={slateDate} slateComplete={slateComplete} />
       </div>
       <p className={styles.disclaimer}>
         For entertainment only. Please bet responsibly. Leans are data-driven, not advice.

@@ -215,6 +215,11 @@
   white-space: nowrap;
 }
 
+.selectedCountAtCap {
+  color: var(--color-primary, #3c79b4);
+  font-weight: 700;
+}
+
 .selectedChips {
   display: flex;
   flex-wrap: wrap;

@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import { usePlan } from '../../hooks/usePlan';
 import styles from './TopNav.module.css';
+
+function PlanBadge({ tier }) {
+  return (
+    <span className={tier === 'pro' ? styles.badgePro : styles.badgeFree} aria-label={`Plan: ${tier.toUpperCase()}`}>
+      {tier === 'pro' ? 'PRO' : 'FREE'}
+    </span>
+  );
+}
 
 const NAV_LINKS = [
   { to: '/', end: true, label: 'Home' },
@@ -13,6 +22,7 @@ const NAV_LINKS = [
 
 export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { planTier } = usePlan();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -37,6 +47,7 @@ export default function TopNav() {
         />
         </Link>
         <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
+        <PlanBadge tier={planTier} />
       </div>
       <button
         type="button"
