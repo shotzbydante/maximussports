@@ -1040,7 +1040,10 @@ function PlanComparisonTable({ currentTier }) {
 }
 
 /* ─── Billing section ────────────────────────────────────────────────────── */
-function BillingSection({ profile, planTier, onUpgrade, onManageBilling, upgradeLoading, portalLoading, billingNotice }) {
+function BillingSection({
+  profile, planTier, onUpgrade, onManageBilling,
+  upgradeLoading, portalLoading, billingNotice, planRefreshing,
+}) {
   const isProPlan = planTier === 'pro';
   const isPastDue = profile?.subscription_status === 'past_due';
 
@@ -1054,7 +1057,7 @@ function BillingSection({ profile, planTier, onUpgrade, onManageBilling, upgrade
   return (
     <div className={styles.profileSection}>
 
-      {/* ── Billing notice (success / portal_return / cancel) ── */}
+      {/* ── Success / portal-return banner ── */}
       {billingNotice && (
         <div className={billingNotice.type === 'success' ? styles.billingBannerSuccess : styles.billingBannerInfo}>
           {billingNotice.type === 'success' && (
@@ -1072,16 +1075,23 @@ function BillingSection({ profile, planTier, onUpgrade, onManageBilling, upgrade
         <div className={styles.billingPlanRow}>
           <div className={styles.billingPlanLeft}>
             <span className={styles.billingPlanLabel}>Current plan</span>
-            <PlanBadge tier={planTier} />
+            {planRefreshing ? (
+              <span className={styles.billingVerifyingBadge}>
+                <SpinnerIcon /> Verifying…
+              </span>
+            ) : (
+              <PlanBadge tier={planTier} />
+            )}
           </div>
-          {isProPlan && (
+          {/* Only show Manage billing for confirmed Pro users */}
+          {isProPlan && !planRefreshing && (
             <button type="button" className={styles.btnOutline} onClick={onManageBilling} disabled={portalLoading}>
               {portalLoading ? <><SpinnerIcon /> Opening…</> : 'Manage billing'}
             </button>
           )}
         </div>
 
-        {isProPlan && profile?.current_period_end && (
+        {isProPlan && !planRefreshing && profile?.current_period_end && (
           <div className={styles.billingMeta}>
             {profile?.cancel_at_period_end ? (
               <span className={styles.billingCancelNote}>
@@ -1095,7 +1105,7 @@ function BillingSection({ profile, planTier, onUpgrade, onManageBilling, upgrade
           </div>
         )}
 
-        {isProPlan && (profile?.payment_method_brand || profile?.payment_method_last4) && (
+        {isProPlan && !planRefreshing && (profile?.payment_method_brand || profile?.payment_method_last4) && (
           <div className={styles.billingCardRow}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
               <rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
@@ -1126,10 +1136,28 @@ function BillingSection({ profile, planTier, onUpgrade, onManageBilling, upgrade
       <div className={styles.billingSectionHead}>
         <h4 className={styles.billingSectionTitle}>Free vs Pro</h4>
       </div>
-      <PlanComparisonTable currentTier={planTier} />
+      <PlanComparisonTable currentTier={planRefreshing ? 'free' : planTier} />
 
-      {/* ── Upgrade CTA (free users only) ── */}
-      {!isProPlan && (
+      {/* ── CTA: verifying / upgrade / pro-active ── */}
+      {planRefreshing ? (
+        <div className={styles.billingVerifyingCta}>
+          <SpinnerIcon />
+          <span>Activating your Pro plan…</span>
+        </div>
+      ) : isProPlan ? (
+        <div className={styles.billingProActiveCta}>
+          <div className={styles.billingProActiveLeft}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <circle cx="8" cy="8" r="7" stroke="var(--color-primary)" strokeWidth="1.4"/>
+              <path d="M5 8l2 2 4-4" stroke="var(--color-primary)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className={styles.billingProActiveLabel}>Maximus Sports Pro is active</span>
+          </div>
+          <button type="button" className={styles.btnOutline} onClick={onManageBilling} disabled={portalLoading}>
+            {portalLoading ? <><SpinnerIcon /> Opening…</> : 'Manage billing'}
+          </button>
+        </div>
+      ) : (
         <div className={styles.billingUpgradeCta}>
           <div className={styles.billingUpgradeText}>
             <span className={styles.billingUpgradeTitle}>Unlock the full Maximus experience</span>
@@ -1259,6 +1287,63 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       searchParams.delete('session_id');
       setSearchParams(searchParams, { replace: true });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Plan-refresh polling (after Stripe checkout success) ──────────────────
+  // The webhook updates Supabase asynchronously; we poll until plan_tier = 'pro'
+  // or we time out gracefully (~12 seconds, 8 attempts × 1.5 s).
+  const [planRefreshing, setPlanRefreshing] = useState(false);
+  const pollTimerRef = useRef(null);
+
+  function pollForProUpgrade() {
+    const sb = getSupabase();
+    if (!sb) return;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 8;
+    const INTERVAL_MS  = 1500;
+
+    setPlanRefreshing(true);
+
+    function attempt() {
+      sb.from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && (data.plan_tier === 'pro' || data.subscription_status === 'active' || data.subscription_status === 'trialing')) {
+            onProfileUpdate(data);   // push updated plan up to AuthenticatedSettings
+            setPlanRefreshing(false);
+            return;
+          }
+          attempts++;
+          if (attempts < MAX_ATTEMPTS) {
+            pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
+          } else {
+            setPlanRefreshing(false); // webhook still in flight — stop spinner gracefully
+          }
+        })
+        .catch(() => {
+          attempts++;
+          if (attempts < MAX_ATTEMPTS) {
+            pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
+          } else {
+            setPlanRefreshing(false);
+          }
+        });
+    }
+
+    // Give the webhook a head start before the first poll
+    pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
+  }
+
+  // Kick off polling immediately when landing on /settings?upgrade=success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgrade') === 'success' || params.get('billing') === 'success') {
+      pollForProUpgrade();
+    }
+    return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1573,11 +1658,10 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     }
   }
 
+  // Only two top-level tabs: Profile (teams + emails + account) and Billing
   const TABS = [
-    { id: 'profile',  label: 'Profile' },
-    { id: 'teams',    label: 'My Teams' },
-    { id: 'emails',   label: 'Subscriptions' },
-    { id: 'billing',  label: planTier === 'pro' ? 'Billing ✦' : 'Billing' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'billing', label: planTier === 'pro' || planRefreshing ? 'Billing ✦' : 'Billing' },
   ];
 
   return (
@@ -1609,7 +1693,10 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
               </div>
               <div className={styles.profileEmailRow}>
                 <span className={styles.profileEmail}>{user.email}</span>
-                <PlanBadge tier={planTier} />
+                {planRefreshing
+                  ? <span className={styles.billingVerifyingBadge}><SpinnerIcon /></span>
+                  : <PlanBadge tier={planTier} />
+                }
               </div>
             </div>
           </div>
@@ -1641,10 +1728,184 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         ))}
       </div>
 
-      {/* ══════════ PROFILE TAB ══════════ */}
+      {/* ══════════ PROFILE TAB — My Teams + Email Subscriptions + Account ══════════ */}
       {activeTab === 'profile' && (
         <>
-          {/* ── Account section ── */}
+          {/* ── My Teams ── */}
+          <div className={styles.profileSection}>
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>My Teams</h3>
+              <div className={styles.sectionHeaderRight}>
+                {planTier === 'free' && (
+                  <span className={styles.limitChip}>
+                    {userTeams.length}/{entitlements.maxPinnedTeams} free
+                  </span>
+                )}
+                <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(v => !v)}>
+                  {showTeamPicker ? 'Cancel' : '+ Add team'}
+                </button>
+              </div>
+            </div>
+
+            {showTeamPicker && (
+              <TeamPickerPanel existingTeams={userTeams} onAdd={handleAddTeam} onClose={() => setShowTeamPicker(false)} />
+            )}
+
+            {teamsError && <p className={styles.sectionError}>{teamsError}</p>}
+
+            {teamsLoading ? (
+              <div className={styles.loadingRow}><SpinnerIcon /><span>Loading teams…</span></div>
+            ) : enrichedTeams.length === 0 ? (
+              <div className={styles.emptyTeams}>
+                <p className={styles.emptyState}>No teams added yet.</p>
+                {!showTeamPicker && (
+                  <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(true)}>
+                    + Add your first team
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className={styles.teamsList}>
+                {enrichedTeams.map(({ team_slug, is_primary, teamData }) => (
+                  <div key={team_slug} className={`${styles.teamsRow} ${is_primary ? styles.teamsRowPrimary : ''}`}>
+                    <span className={styles.teamsRowLogo}><TeamLogo team={teamData} size={26} /></span>
+                    <span className={styles.teamsRowInfo}>
+                      <span className={styles.teamsRowName}>{teamData.name}</span>
+                      <span className={styles.teamsRowConf}>{teamData.conference}</span>
+                    </span>
+                    <span className={`${styles.tierBadge} ${TIER_STYLE[teamData.oddsTier] || ''}`}>{teamData.oddsTier}</span>
+                    {is_primary ? (
+                      <span className={styles.primaryStar} title="Primary team" aria-label="Primary team">★</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.btnSetPrimary}
+                        onClick={() => handleSetPrimary(team_slug)}
+                        title="Make primary team"
+                        aria-label={`Make ${teamData.name} your primary team`}
+                        disabled={!!primaryPending}
+                      >
+                        <span className={styles.btnSetPrimaryInner}>
+                          {primaryPending === team_slug ? <SpinnerIcon /> : '☆'}
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.btnRemoveTeam}
+                      onClick={() => handleRemoveTeam(team_slug)}
+                      aria-label={`Remove ${teamData.name}`}
+                      title={`Remove ${teamData.name}`}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {planTier === 'free' && userTeams.length >= entitlements.maxPinnedTeams && (
+              <div className={styles.limitNudge}>
+                <span>Free plan: {entitlements.maxPinnedTeams} pinned teams max.</span>
+                <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
+                  Upgrade to Pro for unlimited →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Email Subscriptions ── */}
+          <div className={styles.profileSection}>
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>Email Subscriptions</h3>
+              {saveStatus === 'saved'  && <span className={styles.savedStatus}>Saved ✓</span>}
+              {saveStatus === 'saving' && <span className={styles.savingStatus}>Saving…</span>}
+              {saveStatus === 'error'  && <span className={styles.errorStatus}>Save failed</span>}
+            </div>
+            <div className={styles.prefList}>
+              {PREFERENCES.map(({ key, label, description }) => {
+                const isOn = !!prefs[key];
+                const isTeamDigest = key === 'teamDigest';
+
+                const toggleRow = (
+                  <button
+                    type="button"
+                    className={`${styles.prefRow} ${isOn ? styles.prefRowOn : ''}`}
+                    onClick={() => handlePrefToggle(key)}
+                  >
+                    <div className={styles.prefText}>
+                      <span className={styles.prefLabel}>{label}</span>
+                      <span className={styles.prefDesc}>{description}</span>
+                    </div>
+                    <div className={`${styles.toggle} ${isOn ? styles.toggleOn : ''}`}>
+                      <div className={styles.toggleThumb} />
+                    </div>
+                  </button>
+                );
+
+                if (!isTeamDigest) return <div key={key}>{toggleRow}</div>;
+
+                return (
+                  <div key={key} className={`${styles.teamDigestCard} ${isOn ? styles.teamDigestCardOn : ''}`}>
+                    {toggleRow}
+                    {isOn && (
+                      <div className={styles.digestTeamSelector}>
+                        <div className={styles.digestTeamSelectorHeader}>
+                          <span className={styles.digestTeamSelectorLabel}>
+                            Digest teams
+                            {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0
+                              ? ` (${prefs.teamDigestTeams.length}${planTier === 'free' ? `/${entitlements.maxEmailTeams}` : ''} selected)`
+                              : ' — select at least one'}
+                          </span>
+                          <button type="button" className={styles.btnAddTeam} onClick={() => setDigestPickerOpen(v => !v)}>
+                            {digestPickerOpen ? 'Done' : '+ Add teams'}
+                          </button>
+                        </div>
+
+                        {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0 && (
+                          <div className={styles.digestTeamChips}>
+                            {prefs.teamDigestTeams.map(slug => {
+                              const teamData = TEAMS.find(t => t.slug === slug);
+                              if (!teamData) return null;
+                              return (
+                                <span key={slug} className={styles.digestTeamChip}>
+                                  <TeamLogo team={teamData} size={14} />
+                                  <span className={styles.digestTeamChipName}>{teamData.name}</span>
+                                  <button type="button" className={styles.digestTeamChipRemove} onClick={() => handleDigestTeamToggle(slug)} aria-label={`Remove ${teamData.name} from Team Digest`}>×</button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {digestPickerOpen && (
+                          <div className={styles.digestPickerWrap}>
+                            <TeamPickerPanel
+                              existingTeams={(prefs.teamDigestTeams || []).map(slug => ({ team_slug: slug }))}
+                              onAdd={(slug) => { handleDigestTeamToggle(slug); }}
+                              onClose={() => setDigestPickerOpen(false)}
+                              multiSelect
+                              selectedSlugs={prefs.teamDigestTeams || []}
+                              onToggle={handleDigestTeamToggle}
+                            />
+                          </div>
+                        )}
+
+                        {planTier === 'free' && Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length >= entitlements.maxEmailTeams && (
+                          <div className={styles.limitNudge}>
+                            <span>Free plan: {entitlements.maxEmailTeams} digest teams max.</span>
+                            <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
+                              Upgrade to Pro for unlimited →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Account ── */}
           <div className={styles.profileSection}>
             <h3 className={styles.sectionTitle}>Account</h3>
             <div className={styles.accountInfo}>
@@ -1658,11 +1919,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                   <span className={styles.accountLabel}>Sign out and clear device</span>
                   <span className={styles.accountSubtext}>Removes local data on this device only</span>
                 </div>
-                <button
-                  type="button"
-                  className={styles.btnClearDevice}
-                  onClick={() => setConfirm({ type: 'clear-device' })}
-                >
+                <button type="button" className={styles.btnClearDevice} onClick={() => setConfirm({ type: 'clear-device' })}>
                   Clear &amp; sign out
                 </button>
               </div>
@@ -1672,11 +1929,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                   <span className={styles.accountLabel}>Reset teams &amp; preferences</span>
                   <span className={styles.accountSubtext}>Clears pinned teams and email settings</span>
                 </div>
-                <button
-                  type="button"
-                  className={styles.btnReset}
-                  onClick={() => { setResetError(''); setConfirm({ type: 'reset-all' }); }}
-                >
+                <button type="button" className={styles.btnReset} onClick={() => { setResetError(''); setConfirm({ type: 'reset-all' }); }}>
                   Reset
                 </button>
               </div>
@@ -1685,206 +1938,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             </div>
           </div>
 
-          {/* ── Admin QA (profile tab only, admin users) ── */}
           {isAdminUser(user.email) && <AdminQAPanel />}
         </>
-      )}
-
-      {/* ══════════ TEAMS TAB ══════════ */}
-      {activeTab === 'teams' && (
-        <div className={styles.profileSection}>
-          <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>My Teams</h3>
-            <div className={styles.sectionHeaderRight}>
-              {planTier === 'free' && (
-                <span className={styles.limitChip}>
-                  {userTeams.length}/{entitlements.maxPinnedTeams} free
-                </span>
-              )}
-              <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(v => !v)}>
-                {showTeamPicker ? 'Cancel' : '+ Add team'}
-              </button>
-            </div>
-          </div>
-
-          {showTeamPicker && (
-            <TeamPickerPanel existingTeams={userTeams} onAdd={handleAddTeam} onClose={() => setShowTeamPicker(false)} />
-          )}
-
-          {teamsError && <p className={styles.sectionError}>{teamsError}</p>}
-
-          {teamsLoading ? (
-            <div className={styles.loadingRow}><SpinnerIcon /><span>Loading teams…</span></div>
-          ) : enrichedTeams.length === 0 ? (
-            <div className={styles.emptyTeams}>
-              <p className={styles.emptyState}>No teams added yet.</p>
-              {!showTeamPicker && (
-                <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(true)}>
-                  + Add your first team
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className={styles.teamsList}>
-              {enrichedTeams.map(({ team_slug, is_primary, teamData }) => (
-                <div key={team_slug} className={`${styles.teamsRow} ${is_primary ? styles.teamsRowPrimary : ''}`}>
-                  <span className={styles.teamsRowLogo}><TeamLogo team={teamData} size={26} /></span>
-                  <span className={styles.teamsRowInfo}>
-                    <span className={styles.teamsRowName}>{teamData.name}</span>
-                    <span className={styles.teamsRowConf}>{teamData.conference}</span>
-                  </span>
-                  <span className={`${styles.tierBadge} ${TIER_STYLE[teamData.oddsTier] || ''}`}>{teamData.oddsTier}</span>
-                  {is_primary ? (
-                    <span className={styles.primaryStar} title="Primary team" aria-label="Primary team">★</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.btnSetPrimary}
-                      onClick={() => handleSetPrimary(team_slug)}
-                      title="Make primary team"
-                      aria-label={`Make ${teamData.name} your primary team`}
-                      disabled={!!primaryPending}
-                    >
-                      <span className={styles.btnSetPrimaryInner}>
-                        {primaryPending === team_slug ? <SpinnerIcon /> : '☆'}
-                      </span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className={styles.btnRemoveTeam}
-                    onClick={() => handleRemoveTeam(team_slug)}
-                    aria-label={`Remove ${teamData.name}`}
-                    title={`Remove ${teamData.name}`}
-                  >×</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Free-tier upgrade nudge when at limit */}
-          {planTier === 'free' && userTeams.length >= entitlements.maxPinnedTeams && (
-            <div className={styles.limitNudge}>
-              <span>Free plan: {entitlements.maxPinnedTeams} pinned teams max.</span>
-              <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
-                Upgrade to Pro for unlimited →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ══════════ EMAILS TAB ══════════ */}
-      {activeTab === 'emails' && (
-        <div className={styles.profileSection}>
-          <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>Email Subscriptions</h3>
-            {saveStatus === 'saved'  && <span className={styles.savedStatus}>Saved ✓</span>}
-            {saveStatus === 'saving' && <span className={styles.savingStatus}>Saving…</span>}
-            {saveStatus === 'error'  && <span className={styles.errorStatus}>Save failed</span>}
-          </div>
-          <div className={styles.prefList}>
-            {PREFERENCES.map(({ key, label, description }) => {
-              const isOn = !!prefs[key];
-              const isTeamDigest = key === 'teamDigest';
-
-              const toggleRow = (
-                <button
-                  type="button"
-                  className={`${styles.prefRow} ${isOn ? styles.prefRowOn : ''}`}
-                  onClick={() => handlePrefToggle(key)}
-                >
-                  <div className={styles.prefText}>
-                    <span className={styles.prefLabel}>{label}</span>
-                    <span className={styles.prefDesc}>{description}</span>
-                  </div>
-                  <div className={`${styles.toggle} ${isOn ? styles.toggleOn : ''}`}>
-                    <div className={styles.toggleThumb} />
-                  </div>
-                </button>
-              );
-
-              if (!isTeamDigest) {
-                return <div key={key}>{toggleRow}</div>;
-              }
-
-              // Team Digest: wrap toggle + sub-panel in a unified card
-              return (
-                <div key={key} className={`${styles.teamDigestCard} ${isOn ? styles.teamDigestCardOn : ''}`}>
-                  {toggleRow}
-
-                  {isOn && (
-                    <div className={styles.digestTeamSelector}>
-                      <div className={styles.digestTeamSelectorHeader}>
-                        <span className={styles.digestTeamSelectorLabel}>
-                          Digest teams
-                          {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0
-                            ? ` (${prefs.teamDigestTeams.length}${planTier === 'free' ? `/${entitlements.maxEmailTeams}` : ''} selected)`
-                            : ' — select at least one'}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.btnAddTeam}
-                          onClick={() => setDigestPickerOpen(v => !v)}
-                        >
-                          {digestPickerOpen ? 'Done' : '+ Add teams'}
-                        </button>
-                      </div>
-
-                      {/* Selected teams chips */}
-                      {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0 && (
-                        <div className={styles.digestTeamChips}>
-                          {prefs.teamDigestTeams.map(slug => {
-                            const teamData = TEAMS.find(t => t.slug === slug);
-                            if (!teamData) return null;
-                            return (
-                              <span key={slug} className={styles.digestTeamChip}>
-                                <TeamLogo team={teamData} size={14} />
-                                <span className={styles.digestTeamChipName}>{teamData.name}</span>
-                                <button
-                                  type="button"
-                                  className={styles.digestTeamChipRemove}
-                                  onClick={() => handleDigestTeamToggle(slug)}
-                                  aria-label={`Remove ${teamData.name} from Team Digest`}
-                                >×</button>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Team picker */}
-                      {digestPickerOpen && (
-                        <div className={styles.digestPickerWrap}>
-                          <TeamPickerPanel
-                            existingTeams={(prefs.teamDigestTeams || []).map(slug => ({ team_slug: slug }))}
-                            onAdd={(slug) => { handleDigestTeamToggle(slug); }}
-                            onClose={() => setDigestPickerOpen(false)}
-                            multiSelect
-                            selectedSlugs={prefs.teamDigestTeams || []}
-                            onToggle={handleDigestTeamToggle}
-                          />
-                        </div>
-                      )}
-
-                      {/* Free-tier limit nudge */}
-                      {planTier === 'free' &&
-                        Array.isArray(prefs.teamDigestTeams) &&
-                        prefs.teamDigestTeams.length >= entitlements.maxEmailTeams && (
-                        <div className={styles.limitNudge}>
-                          <span>Free plan: {entitlements.maxEmailTeams} digest teams max.</span>
-                          <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
-                            Upgrade to Pro for unlimited →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
       )}
 
       {/* ══════════ BILLING TAB ══════════ */}
@@ -1897,10 +1952,11 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           upgradeLoading={upgradeLoading}
           portalLoading={portalLoading}
           billingNotice={billingNotice}
+          planRefreshing={planRefreshing}
         />
       )}
 
-      {/* ── Global modals (outside tab scope) ── */}
+      {/* ── Global modals ── */}
       {upgradePrompt && (
         <UpgradePrompt
           message={upgradePrompt.message}
