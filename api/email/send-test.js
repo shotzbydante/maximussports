@@ -16,14 +16,62 @@
 import { verifyUserToken, getEnvStatus } from '../_lib/supabaseAdmin.js';
 import { ADMIN_EMAIL, isAdminEmail } from '../_lib/admin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
+import { getUserDisplayName } from '../_lib/personalization.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
+import { getJson } from '../_globalCache.js';
 import { getSubject as getDailySubject,  renderHTML as renderDailyHTML,  renderText as renderDailyText  } from '../../src/emails/templates/dailyBriefing.js';
 import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderText as renderPinnedText } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { getSubject as getOddsSubject,   renderHTML as renderOddsHTML,   renderText as renderOddsText   } from '../../src/emails/templates/oddsIntel.js';
 import { getSubject as getNewsSubject,   renderHTML as renderNewsHTML,   renderText as renderNewsText   } from '../../src/emails/templates/breakingNews.js';
 
 const VALID_TYPES = ['daily', 'pinned', 'odds', 'news'];
+
+// Test pinned teams using correct full slugs from data/teams.js
+const TEST_PINNED_TEAMS = [
+  { name: 'Duke Blue Devils',  slug: 'duke-blue-devils',  logo: '/logos/duke-blue-devils.svg' },
+  { name: 'Kansas Jayhawks',   slug: 'kansas-jayhawks',   logo: '/logos/kansas-jayhawks.svg'  },
+];
+
+/**
+ * Try to extract concise bullets from cached LLM home summary,
+ * falling back to data-derived bullets if unavailable.
+ */
+async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
+  try {
+    const kvSummary = await getJson('chat:home:summary:v1');
+    if (kvSummary?.text || kvSummary?.summary) {
+      const text = kvSummary.text || kvSummary.summary || '';
+      const rawLines = text
+        .split(/[-\n•*]+/)
+        .map(l => l.replace(/^\d+\.\s*/, '').trim())
+        .filter(l => l.length > 20 && l.length < 200);
+      if (rawLines.length >= 2) return rawLines.slice(0, 4);
+    }
+  } catch {
+    // KV unavailable
+  }
+
+  const bullets = [];
+  const best = atsLeaders?.best || [];
+  if (best.length > 0) {
+    const top = best[0];
+    const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
+    bullets.push(`${top.name || top.team} leans as the top ATS cover trend right now${pct ? ` (${pct} cover rate)` : ''} — worth monitoring before tip.`);
+  }
+  if (best.length > 1) {
+    bullets.push(`Watch ${best[1].name || best[1].team} as a secondary value edge — strong recent ATS form.`);
+  }
+  if (scoresToday.length > 0) {
+    bullets.push(`${scoresToday.length} game${scoresToday.length !== 1 ? 's' : ''} on the board today. Monitor line movement in the hour before tip for sharp action.`);
+  }
+  if (rankingsTop25.length >= 3) {
+    const t = rankingsTop25[0];
+    const name = t.teamName || t.name || t.team || '';
+    if (name) bullets.push(`${name} holds the top spot in the AP poll. Ranked teams trend value late in the season.`);
+  }
+  return bullets.slice(0, 4);
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -86,18 +134,37 @@ export default async function handler(req, res) {
       fetchNewsAggregateSource({ includeNational: true }),
     ]);
 
+    const scoresToday   = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+    const rankingsTop25 = rankingsData.status  === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+    const atsLeaders    = atsResult.status     === 'fulfilled'
+      ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
+      : { best: [], worst: [] };
+    const headlines     = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
+
+    // Resolve display name from the authenticated admin user
+    const displayName = getUserDisplayName({ user });
+
+    // Bot intel bullets for daily/pinned types
+    let botIntelBullets = [];
+    if (type === 'daily' || type === 'pinned') {
+      try {
+        botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday);
+      } catch {
+        botIntelBullets = [];
+      }
+    }
+
+    const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
+
     const emailData = {
-      displayName: 'Maximus Admin',
-      scoresToday:   scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [],
-      rankingsTop25: rankingsData.status  === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [],
-      atsLeaders:    atsResult.status     === 'fulfilled'
-        ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
-        : { best: [], worst: [] },
-      headlines:     newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [],
-      pinnedTeams: [
-        { name: 'Duke Blue Devils', slug: 'duke' },
-        { name: 'Kansas Jayhawks', slug: 'kansas' },
-      ],
+      displayName,
+      scoresToday,
+      rankingsTop25,
+      atsLeaders,
+      headlines,
+      pinnedTeams: TEST_PINNED_TEAMS,
+      botIntelBullets,
+      maximusNote,
     };
 
     let subject, html, text;
@@ -113,8 +180,8 @@ export default async function handler(req, res) {
 
     await sendEmail({ to: sendTo, subject, html, text });
 
-    console.log(`[send-test] ok type=${type} to=${sendTo}`);
-    return res.status(200).json({ ok: true, type, to: sendTo });
+    console.log(`[send-test] ok type=${type} to=${sendTo} displayName=${displayName}`);
+    return res.status(200).json({ ok: true, type, to: sendTo, displayName });
 
   } catch (err) {
     console.error(`[send-test] render/send failed type=${type}:`, err.message);

@@ -1,3 +1,4 @@
+/* global process */
 /**
  * GET /api/email/run-daily?type=daily|pinned|odds|news
  *
@@ -17,8 +18,10 @@
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
+import { getUserDisplayName } from '../_lib/personalization.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
+import { getJson } from '../_globalCache.js';
 import { getSubject as getDailySubject, renderHTML as renderDailyHTML, renderText as renderDailyText } from '../../src/emails/templates/dailyBriefing.js';
 import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderText as renderPinnedText } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { getSubject as getOddsSubject, renderHTML as renderOddsHTML, renderText as renderOddsText } from '../../src/emails/templates/oddsIntel.js';
@@ -39,11 +42,11 @@ function makeDateKey(type) {
   return `${today}_${type}`;
 }
 
-/** Fetch all profiles (up to 5000) with their preferences and user_teams */
+/** Fetch all profiles (up to 5000) with their preferences */
 async function fetchAllProfiles(sb) {
   const { data: profiles, error } = await sb
     .from('profiles')
-    .select('id, display_name, username, preferences')
+    .select('id, full_name, display_name, username, preferences')
     .limit(5000);
   if (error) throw new Error(`[run-daily] profiles fetch error: ${error.message}`);
   return profiles || [];
@@ -68,7 +71,7 @@ async function fetchUserTeams(sb, userIds) {
   return map;
 }
 
-/** Get set of (userId, dateKey) pairs that have already been sent today */
+/** Get set of user IDs that already received this type today */
 async function fetchAlreadySent(sb, dateKey) {
   const { data, error } = await sb
     .from('email_send_log')
@@ -102,9 +105,64 @@ async function resolvePinnedTeams(teamRows) {
   return teamRows
     .map(row => {
       const team = getTeamBySlug(row.team_slug);
-      return team ? { name: team.name, slug: team.slug, tier: team.oddsTier || null } : null;
+      return team
+        ? { name: team.name, slug: team.slug, tier: team.oddsTier || null, logo: `/logos/${team.slug}.svg` }
+        : null;
     })
     .filter(Boolean);
+}
+
+/**
+ * Try to extract 2–4 concise intel bullets from the cached LLM home summary.
+ * Falls back to data-derived bullets if the cache is empty or unparseable.
+ *
+ * @param {object} atsLeaders
+ * @param {Array}  rankingsTop25
+ * @param {Array}  scoresToday
+ * @returns {Promise<string[]>}
+ */
+async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
+  // Try to read from the KV-cached LLM home summary first
+  try {
+    const kvSummary = await getJson('chat:home:summary:v1');
+    if (kvSummary?.text || kvSummary?.summary) {
+      const text = kvSummary.text || kvSummary.summary || '';
+      // Split into sentences / bullet-like lines; pick 2–4 concise ones
+      const rawLines = text
+        .split(/[-\n•*]+/)
+        .map(l => l.replace(/^\d+\.\s*/, '').trim())
+        .filter(l => l.length > 20 && l.length < 200);
+      if (rawLines.length >= 2) {
+        return rawLines.slice(0, 4);
+      }
+    }
+  } catch {
+    // KV unavailable — fall through to data-derived bullets
+  }
+
+  // Data-derived fallback bullets
+  const bullets = [];
+  const best = atsLeaders?.best || [];
+  if (best.length > 0) {
+    const top = best[0];
+    const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
+    bullets.push(
+      `${top.name || top.team} leans as the top ATS cover trend right now${pct ? ` (${pct} cover rate)` : ''} — worth monitoring before tip.`
+    );
+  }
+  if (best.length > 1) {
+    bullets.push(`Watch ${best[1].name || best[1].team} as a secondary value edge — strong recent ATS form with line movement potential.`);
+  }
+  if (scoresToday.length > 0) {
+    bullets.push(`${scoresToday.length} game${scoresToday.length !== 1 ? 's' : ''} on the board today. Monitor line movement in the hour before tip for sharp action.`);
+  }
+  if (rankingsTop25.length >= 3) {
+    const t = rankingsTop25[0];
+    const name = t.teamName || t.name || t.team || '';
+    if (name) bullets.push(`${name} holds the top spot in the AP poll. Ranked teams cover at a higher rate this late in the season.`);
+  }
+
+  return bullets.slice(0, 4);
 }
 
 export default async function handler(req, res) {
@@ -200,11 +258,21 @@ export default async function handler(req, res) {
       : { best: [], worst: [] };
     const headlines = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
 
-    // ── 7. Load user_teams for pinned-type (and always for personalization)
+    // ── 7. Fetch bot intel bullets (shared for all users in this run)
+    let botIntelBullets = [];
+    if (type === 'daily' || type === 'pinned') {
+      try {
+        botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday);
+      } catch {
+        botIntelBullets = [];
+      }
+    }
+
+    // ── 8. Load user_teams for pinned-type (and always for personalization)
     const userIds = toSend.map(u => u.id);
     const userTeamsMap = await fetchUserTeams(sb, userIds);
 
-    // ── 8. Send emails
+    // ── 9. Send emails
     let sent = 0;
     let failed = 0;
     const errors = [];
@@ -213,7 +281,9 @@ export default async function handler(req, res) {
       const userId = authUser.id;
       const email = authUser.email;
       const profile = profileMap[userId];
-      const displayName = profile?.display_name || profile?.username || authUser.user_metadata?.full_name || null;
+
+      // Resolve display name using the shared helper
+      const displayName = getUserDisplayName({ user: authUser, profile });
 
       // Resolve pinned teams for this user
       const teamRows = userTeamsMap[userId] || [];
@@ -224,6 +294,9 @@ export default async function handler(req, res) {
         pinnedTeams = [];
       }
 
+      // Build a short "MAXIMUS SAYS" note for pinned alerts (use first bullet)
+      const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
+
       const emailData = {
         displayName,
         scoresToday,
@@ -231,6 +304,8 @@ export default async function handler(req, res) {
         atsLeaders,
         headlines,
         pinnedTeams,
+        botIntelBullets,
+        maximusNote,
       };
 
       let subject, html, text;
