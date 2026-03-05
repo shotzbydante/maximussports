@@ -75,7 +75,7 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
     /* ── Mobile ≤480px — supplemental overrides (inline styles hold desktop baseline) ──
        Gmail iOS may strip these; all critical values are also set inline.
        These are additive polish only. Hierarchy mirrors desktop but compact.
-       Goal: same visual hierarchy as desktop — just responsive stacking + smaller type. */
+       Goal: same visual hierarchy as desktop — just responsive stacking + bigger body type. */
     @media only screen and (max-width: 480px) {
       .email-outer-td   { padding: 0 !important; }
       .email-container  { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; }
@@ -98,17 +98,18 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
       .hero-eyebrow     { font-size: 10px !important; letter-spacing: 0.09em !important; margin-bottom: 5px !important; }
       .hero-h1          { font-size: 20px !important; line-height: 1.24 !important; letter-spacing: -0.018em !important; }
 
-      /* ── Section cards: slightly tighter but same card style ── */
-      .section-td       { padding: 0 14px 10px !important; }
-      .card-td          { padding: 13px 14px 12px !important; }
-      .card-headline    { font-size: 13px !important; line-height: 1.35 !important; }
-      .card-body        { font-size: 12px !important; line-height: 1.58 !important; }
+      /* ── Section cards: tighter horizontal padding but richer body type on mobile ── */
+      .section-td       { padding: 0 12px 10px !important; }
+      .card-td          { padding: 14px 14px 13px !important; }
+      .card-headline    { font-size: 14px !important; line-height: 1.35 !important; }
+      /* Slightly larger body text on mobile — matches desktop reading rhythm */
+      .card-body        { font-size: 13px !important; line-height: 1.65 !important; }
 
       /* ── Layout helpers ── */
-      .divider-td       { padding: 0 14px !important; }
+      .divider-td       { padding: 0 12px !important; }
 
       /* ── CTA button: full-width tap target ── */
-      .cta-td           { padding: 14px 14px 20px !important; }
+      .cta-td           { padding: 14px 12px 20px !important; }
       .cta-link         {
         font-size: 15px !important;
         padding: 14px 20px !important;
@@ -127,9 +128,12 @@ export function EmailShell({ content, previewText = '', userId = '', ctaUrl = ''
       .game-card-td     { padding: 10px 14px !important; }
       .team-logo-cell   { width: 24px !important; padding-right: 7px !important; }
 
-      /* ── News & video ── */
-      .news-item        { font-size: 12px !important; padding: 7px 0 !important; }
+      /* ── News & video: slightly richer text on mobile ── */
+      .news-item        { font-size: 13px !important; padding: 8px 0 !important; line-height: 1.5 !important; }
       .video-card-td    { padding: 10px 14px !important; }
+
+      /* ── Mobile inner hairline: depth strip below header card bottom ── */
+      .mobile-hairline  { display: block !important; }
     }
 
     /* ── Tablet 481–620px ── */
@@ -185,6 +189,11 @@ ${previewText ? `<!-- Preview text (hidden in inbox, visible in notifications) -
               </tr>
             </table>
           </td>
+        </tr>
+        <!-- ── Hairline depth strip (fallback for clients that drop gradients) ── -->
+        <!-- Uses bgcolor + background-color on both table and td for Gmail iOS robustness -->
+        <tr aria-hidden="true">
+          <td bgcolor="${NAVY_CNTNR}" style="height:1px;font-size:0;line-height:0;background-color:${NAVY_CNTNR};border-bottom:1px solid rgba(255,255,255,0.04);" class="mobile-hairline">&nbsp;</td>
         </tr>
 
         <!-- ── CONTENT ── -->
@@ -279,13 +288,13 @@ export function sectionCard({ pillLabel, pillType, headline, body }) {
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="${NAVY_CARD}"
-           style="background-color:${NAVY_CARD};border:1px solid rgba(255,255,255,0.09);border-top:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;"
+           style="background-color:${NAVY_CARD};border:1px solid rgba(255,255,255,0.09);border-top:2px solid rgba(255,255,255,0.08);border-radius:8px;border-collapse:collapse;"
            class="email-card-dark">
       <tr>
-        <td bgcolor="${NAVY_CARD}" style="padding:15px 17px 13px;background-color:${NAVY_CARD};border-bottom:1px solid rgba(0,0,0,0.2);" class="card-td">
+        <td bgcolor="${NAVY_CARD}" style="padding:15px 17px 13px;background-color:${NAVY_CARD};border-bottom:1px solid rgba(255,255,255,0.05);" class="card-td">
           <div style="margin-bottom:9px;">${pill(pillLabel, pillType)}</div>
           ${headline ? `<p class="card-headline" style="margin:0 0 7px;font-size:14px;font-weight:700;color:#e8edf5;line-height:1.35;font-family:'DM Sans',Arial,Helvetica,sans-serif;letter-spacing:-0.01em;">${headline}</p>` : ''}
-          <p class="card-body" style="margin:0;font-size:13px;color:#7d8fa0;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${body}</p>
+          <p class="card-body" style="margin:0;font-size:13px;color:#8a9db0;line-height:1.62;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${body}</p>
         </td>
       </tr>
     </table>
@@ -306,10 +315,14 @@ export function heroBlock({ line, sublabel }) {
   <td bgcolor="${ACCENT_BLUE}" style="height:4px;font-size:0;line-height:0;background-color:${ACCENT_BLUE};" aria-hidden="true">&nbsp;</td>
 </tr>
 <tr>
-  <td bgcolor="${NAVY_HERO}" style="padding:22px 24px 16px;background-color:${NAVY_HERO};background-image:linear-gradient(180deg,${NAVY_HERO} 0%,#0d1422 100%);border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(0,0,0,0.25);" class="hero-td">
+  <td bgcolor="${NAVY_HERO}" style="padding:22px 24px 16px;background-color:${NAVY_HERO};background-image:linear-gradient(180deg,${NAVY_HERO} 0%,#0d1422 100%);border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.04);" class="hero-td">
     <p class="hero-eyebrow" style="margin:0 0 7px;font-size:10px;font-weight:600;color:#3d7aaa;letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">${sublabel || 'Maximus Intelligence'}</p>
     <h1 class="hero-h1" style="margin:0;font-size:23px;font-weight:800;color:#edf2f8;line-height:1.22;letter-spacing:-0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${line}</h1>
   </td>
+</tr>
+<!-- ── Subtle vignette separator below hero ── -->
+<tr aria-hidden="true">
+  <td bgcolor="${NAVY_CNTNR}" style="height:1px;font-size:0;line-height:0;background-color:${NAVY_CNTNR};border-bottom:1px solid rgba(255,255,255,0.05);">&nbsp;</td>
 </tr>`;
 }
 

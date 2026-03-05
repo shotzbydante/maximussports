@@ -1,12 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { usePlan } from '../../hooks/usePlan';
 import styles from './TopNav.module.css';
 
-function PlanBadge({ tier }) {
+/**
+ * PlanBadge — shows PRO / FREE / SYNCING depending on plan state.
+ *
+ * Loading/syncing shows a neutral "···" pill for up to 10s, then falls
+ * back to FREE if the plan is still unresolved. This prevents Pro users
+ * from seeing a false FREE flash during initial fetch or webhook lag.
+ */
+function PlanBadge({ tier, isLoading, isSyncing }) {
+  // Countdown: show neutral pill for up to 10s before falling back to FREE.
+  const [fallbackActive, setFallbackActive] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (isLoading || isSyncing) {
+      setFallbackActive(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setFallbackActive(true), 10_000);
+    } else {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setFallbackActive(false);
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [isLoading, isSyncing]);
+
+  const showNeutral = (isLoading || isSyncing) && !fallbackActive;
+
+  if (showNeutral) {
+    return (
+      <span className={styles.badgeSyncing} aria-label="Verifying subscription">
+        ···
+      </span>
+    );
+  }
+
+  const resolved = tier ?? 'free';
   return (
-    <span className={tier === 'pro' ? styles.badgePro : styles.badgeFree} aria-label={`Plan: ${tier.toUpperCase()}`}>
-      {tier === 'pro' ? 'PRO' : 'FREE'}
+    <span
+      className={resolved === 'pro' ? styles.badgePro : styles.badgeFree}
+      aria-label={`Plan: ${resolved.toUpperCase()}`}
+    >
+      {resolved === 'pro' ? 'PRO' : 'FREE'}
     </span>
   );
 }
@@ -22,7 +59,7 @@ const NAV_LINKS = [
 
 export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { planTier } = usePlan();
+  const { planTier, isLoading, isSyncing } = usePlan();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -40,15 +77,15 @@ export default function TopNav() {
       <div className={styles.brand}>
         <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
           <img
-          src="/maximus-logo.png"
-          alt="Maximus Sports"
-          className={styles.brandLogo}
-          onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
-        />
+            src="/maximus-logo.png"
+            alt="Maximus Sports"
+            className={styles.brandLogo}
+            onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
+          />
         </Link>
         <div className={styles.brandTaglineCluster}>
           <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
-          <PlanBadge tier={planTier} />
+          <PlanBadge tier={planTier} isLoading={isLoading} isSyncing={isSyncing} />
         </div>
       </div>
       <button

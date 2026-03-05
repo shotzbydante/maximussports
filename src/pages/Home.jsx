@@ -449,7 +449,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       )}
 
       <p className={styles.oddsPicksSubheader}>
-        Data-driven leans based on market lines + ATS form. Not advice.
+        Leans are threshold-qualified. Monitoring tracks games with lines posted.
       </p>
 
       {/* ── Picks: Spread / ML / Totals ─────────────────────────────── */}

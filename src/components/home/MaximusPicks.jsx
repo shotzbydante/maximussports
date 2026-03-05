@@ -148,14 +148,44 @@ function SkeletonColumn({ section }) {
   );
 }
 
+// ─── day chip helper ──────────────────────────────────────────────────────────
+
+function DayChip({ slateDate }) {
+  if (!slateDate) return null;
+  try {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    let label;
+    if (slateDate === todayStr) {
+      label = 'Today';
+    } else if (slateDate === tomorrowStr) {
+      label = 'Tomorrow';
+    } else {
+      const d = new Date(slateDate + 'T12:00:00');
+      label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    return <span className={styles.dayChip}>{label}</span>;
+  } catch {
+    return null;
+  }
+}
+
 // ─── watch card (no-edge game — monitoring only) ─────────────────────────────
 
-function WatchCard({ pick }) {
+function WatchCard({ pick, slateDate }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
 
   return (
     <div className={`${styles.pickCard} ${styles.watchCard}`}>
+      {/* Day chip + time */}
+      <div className={styles.cardMetaRow}>
+        <DayChip slateDate={slateDate} />
+        {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
+      </div>
       {/* Matchup */}
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
@@ -171,7 +201,6 @@ function WatchCard({ pick }) {
           </span>
           <span className={styles.matchupName}>{pick.homeTeam}</span>
         </span>
-        {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
 
       {/* Line */}
@@ -193,7 +222,7 @@ function WatchCard({ pick }) {
 
 // ─── pick card ────────────────────────────────────────────────────────────────
 
-function PickCard({ pick, isTotal }) {
+function PickCard({ pick, isTotal, slateDate }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
   const isMl = pick.pickType === 'ml';
@@ -209,6 +238,11 @@ function PickCard({ pick, isTotal }) {
 
   return (
     <div className={styles.pickCard}>
+      {/* Day chip + time */}
+      <div className={styles.cardMetaRow}>
+        <DayChip slateDate={slateDate} />
+        {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
+      </div>
       {/* Matchup line with logos */}
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
@@ -224,7 +258,6 @@ function PickCard({ pick, isTotal }) {
           </span>
           <span className={styles.matchupName}>{pick.homeTeam}</span>
         </span>
-        {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
 
       {/* Bet slip row — exact line to place */}
@@ -457,8 +490,8 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
           <div className={styles.cardList}>
             {picks.map((p) =>
               p.itemType === 'watch'
-                ? <WatchCard key={p.key} pick={p} />
-                : <PickCard key={p.key} pick={p} isTotal={isTotal} />,
+                ? <WatchCard key={p.key} pick={p} slateDate={slateDate} />
+                : <PickCard key={p.key} pick={p} isTotal={isTotal} slateDate={slateDate} />,
             )}
           </div>
         </div>

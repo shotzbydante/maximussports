@@ -17,7 +17,7 @@ import styles from './Settings.module.css';
 import { showToast } from '../components/common/Toast';
 import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
-import { invalidatePlanCache } from '../hooks/usePlan';
+import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -1255,6 +1255,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [portalLoading,  setPortalLoading]  = useState(false);
   const [upgradePrompt,  setUpgradePrompt]  = useState(null); // null | { message }
+  // Guard: only attempt auto-sync once per billing-tab visit (avoids repeated requests).
+  const autoSyncAttemptedRef = useRef(false);
 
   // Detect billing return from Stripe
   const [billingNotice, setBillingNotice] = useState(() => {
@@ -1297,9 +1299,39 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   // ── Plan-refresh polling (after Stripe checkout success) ──────────────────
   // The webhook updates Supabase asynchronously; we poll until plan_tier = 'pro'
-  // or we time out gracefully (~12 seconds, 8 attempts × 1.5 s).
+  // or we time out (~12 s). If webhook still hasn't fired, we call /api/billing/sync
+  // as a one-shot fallback to fix the profiles row directly from Stripe.
   const [planRefreshing, setPlanRefreshing] = useState(false);
   const pollTimerRef = useRef(null);
+
+  async function trySyncFallback() {
+    try {
+      const sb = getSupabase();
+      if (!sb) return false;
+      const { data: { session: sess } } = await sb.auth.getSession();
+      const token = sess?.access_token;
+      if (!token) return false;
+      const res = await fetch('/api/billing/sync', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) return false;
+      const json = await res.json();
+      if (json.plan_tier === 'pro') {
+        // Reload profile from DB so local state is accurate.
+        const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (data) {
+          onProfileUpdate(data);
+          invalidatePlanCache(user.id);
+          showToast('Welcome to Maximus Sports Pro! 🎉', { type: 'success', duration: 5000 });
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
 
   function pollForProUpgrade() {
     const sb = getSupabase();
@@ -1315,10 +1347,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         .select('*')
         .eq('id', user.id)
         .maybeSingle()
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (data && (data.plan_tier === 'pro' || data.subscription_status === 'active' || data.subscription_status === 'trialing')) {
-            onProfileUpdate(data);   // push updated plan up to AuthenticatedSettings
-            // Invalidate usePlan module cache so TopNav badge re-fetches immediately.
+            onProfileUpdate(data);
             invalidatePlanCache(user.id);
             showToast('Welcome to Maximus Sports Pro! 🎉', { type: 'success', duration: 5000 });
             setPlanRefreshing(false);
@@ -1328,7 +1359,16 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           if (attempts < MAX_ATTEMPTS) {
             pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
           } else {
-            setPlanRefreshing(false); // webhook still in flight — stop spinner gracefully
+            // Polling exhausted — try the server-side sync fallback once.
+            const synced = await trySyncFallback();
+            setPlanRefreshing(false);
+            if (!synced) {
+              // Webhook still in flight — show a softer "check back" message.
+              setBillingNotice({
+                type: 'info',
+                message: 'Subscription is being verified. If your plan doesn\'t update within a minute, refresh the page.',
+              });
+            }
           }
         })
         .catch(() => {
@@ -1341,7 +1381,6 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         });
     }
 
-    // Give the webhook a head start before the first poll
     pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
   }
 
@@ -1355,10 +1394,32 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-sync: when billing tab is open and plan shows FREE but Stripe customer
+  // exists, attempt one silent sync to recover from a missed/delayed webhook.
+  useEffect(() => {
+    if (
+      activeTab === 'billing' &&
+      planTier === 'free' &&
+      profile?.stripe_customer_id &&
+      !planRefreshing &&
+      !autoSyncAttemptedRef.current
+    ) {
+      autoSyncAttemptedRef.current = true;
+      setPlanRefreshing(true);
+      trySyncFallback().then((synced) => {
+        setPlanRefreshing(false);
+        if (!synced) {
+          // Subscription truly isn't active yet — leave UI as-is.
+        }
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, planTier, profile?.stripe_customer_id]);
+
   // ── Upgrade to Pro (Stripe Checkout) ─────────────────────────────────────
   async function handleUpgrade() {
     // UI guard: Pro users must never trigger checkout again.
-    if (planTier === 'pro') {
+    if (planTier === 'pro' || planRefreshing) {
       showToast('You\'re already on Maximus Sports Pro!', { type: 'info' });
       return;
     }
@@ -1375,6 +1436,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Could not start checkout.');
+      // Mark as syncing so badge shows ··· while webhook is in flight.
+      markSyncing(user.id);
       window.location.href = json.url;
     } catch (err) {
       setUpgradeLoading(false);

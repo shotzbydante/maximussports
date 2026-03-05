@@ -14,13 +14,14 @@
 
 .pageHeader {
   padding: var(--space-lg) var(--space-lg) 0;
-  border-bottom: 1px solid var(--divider-color);
+  border-bottom: 1px solid var(--color-border, rgba(60, 121, 180, 0.12));
+  box-shadow: 0 1px 0 rgba(60, 121, 180, 0.06);
   position: sticky;
-  top: 0;
+  top: var(--topnav-height, 64px);
   z-index: 20;
   background: var(--color-bg, #fff);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
 .pageHeaderTop {
@@ -100,27 +101,28 @@
 .modeChip {
   display: inline-flex;
   align-items: center;
-  padding: 5px 14px;
+  padding: 5px 16px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border: 1px solid var(--color-border, rgba(60, 121, 180, 0.16));
   background: transparent;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--color-text-secondary, #555);
   cursor: pointer;
   white-space: nowrap;
   font-family: inherit;
   flex-shrink: 0;
-  min-height: 32px;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  min-height: 30px;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
 
 .modeChipActive {
   background: var(--color-primary, #3c79b4);
   color: #fff;
   border-color: var(--color-primary, #3c79b4);
+  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.22);
 }
 
 .modeChipActive:hover {
@@ -128,8 +130,9 @@
 }
 
 .modeChip:hover:not(.modeChipActive) {
-  background: var(--color-bg-elevated);
-  border-color: var(--color-border);
+  background: rgba(60, 121, 180, 0.06);
+  border-color: rgba(60, 121, 180, 0.28);
+  color: var(--color-primary);
 }
 
 /* Conference pills as secondary filters */
@@ -213,6 +216,8 @@
 
 .content {
   padding: var(--space-lg) var(--space-lg) 0;
+  /* Ensure content starts cleanly below the sticky header */
+  scroll-margin-top: var(--topnav-height, 64px);
 }
 
 /* ─── Section Heading ─────────────────────────────────────────────────────── */
@@ -445,7 +450,7 @@
 }
 
 .videoThumb {
-  height: 110px;
+  aspect-ratio: 16 / 9;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   display: flex;
   flex-direction: column;
@@ -902,9 +907,7 @@
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .videoThumb {
-    height: 130px;
-  }
+  /* videoThumb uses aspect-ratio: 16/9 — no fixed height override needed */
 }
 
 /* ─── Mobile / Desktop Visibility Helpers ────────────────────────────────── */

@@ -57,6 +57,22 @@
 }
 
 /* ─── Plan badges in the top nav ─────────────────────────────── */
+.badgeSyncing {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 8px 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 158, 178, 0.2);
+  color: rgba(140, 158, 178, 0.55);
+  background: rgba(120, 145, 170, 0.06);
+  flex-shrink: 0;
+  line-height: 1.2;
+  vertical-align: baseline;
+}
+
 .badgeFree {
   display: inline-flex;
   align-items: center;
