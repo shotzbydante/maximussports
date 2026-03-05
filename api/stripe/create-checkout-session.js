@@ -80,8 +80,8 @@ export default async function handler(req, res) {
     const origin = req.headers.origin ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://maximussports.ai');
 
-    const successUrl = `${origin}/settings?billing=success&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl  = `${origin}/settings?billing=cancel`;
+    const successUrl = `${origin}/settings?upgrade=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl  = `${origin}/settings?upgrade=cancel`;
 
     // ── Create checkout session ───────────────────────────────────────────
     const session = await stripe.checkout.sessions.create({

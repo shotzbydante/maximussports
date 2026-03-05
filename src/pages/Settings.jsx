@@ -1229,22 +1229,32 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   // Detect billing return from Stripe
   const [billingNotice, setBillingNotice] = useState(() => {
-    const b = new URLSearchParams(window.location.search).get('billing');
-    if (b === 'success')       return { type: 'success', message: "You're now on Maximus Pro! Welcome to the full experience." };
-    if (b === 'portal_return') return { type: 'info',    message: 'Billing settings updated.' };
-    if (b === 'cancel')        return null;
+    const params = new URLSearchParams(window.location.search);
+    const upgrade = params.get('upgrade');
+    const billing = params.get('billing'); // legacy compat
+    if (upgrade === 'success' || billing === 'success')
+      return { type: 'success', message: 'Welcome to Maximus Sports Pro!' };
+    if (upgrade === 'portal_return' || billing === 'portal_return')
+      return { type: 'info', message: 'Billing settings updated.' };
     return null;
   });
 
   // Default to billing tab if returning from Stripe
   const [activeTab, setActiveTab] = useState(() => {
-    const b = new URLSearchParams(window.location.search).get('billing');
-    return (b === 'success' || b === 'portal_return') ? 'billing' : 'profile';
+    const params = new URLSearchParams(window.location.search);
+    const upgrade = params.get('upgrade');
+    const billing = params.get('billing');
+    return (upgrade === 'success' || upgrade === 'portal_return' ||
+            billing === 'success' || billing === 'portal_return')
+      ? 'billing' : 'profile';
   });
 
-  // Clean up billing query params from the URL after reading them
+  // Clean up query params from the URL after reading them
   useEffect(() => {
-    if (searchParams.get('billing')) {
+    const hasUpgrade = searchParams.get('upgrade');
+    const hasBilling = searchParams.get('billing');
+    if (hasUpgrade || hasBilling) {
+      searchParams.delete('upgrade');
       searchParams.delete('billing');
       searchParams.delete('session_id');
       setSearchParams(searchParams, { replace: true });
@@ -1565,8 +1575,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   const TABS = [
     { id: 'profile',  label: 'Profile' },
-    { id: 'teams',    label: 'Teams' },
-    { id: 'emails',   label: 'Emails' },
+    { id: 'teams',    label: 'My Teams' },
+    { id: 'emails',   label: 'Subscriptions' },
     { id: 'billing',  label: planTier === 'pro' ? 'Billing ✦' : 'Billing' },
   ];
 

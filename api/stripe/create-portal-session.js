@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     const origin = req.headers.origin ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://maximussports.ai');
 
-    const returnUrl = `${origin}/settings?billing=portal_return`;
+    const returnUrl = `${origin}/settings?upgrade=portal_return`;
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer:   profile.stripe_customer_id,
