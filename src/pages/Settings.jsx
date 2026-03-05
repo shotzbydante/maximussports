@@ -2125,8 +2125,24 @@ function UnauthenticatedPanel() {
   const [email, setEmail]                 = useState('');
   const [emailSent, setEmailSent]         = useState(false);
   const [error, setError]                 = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const resendTimerRef                      = useRef(null);
 
   useEffect(() => { trackSignupViewed(); }, []);
+
+  // Clean up countdown on unmount
+  useEffect(() => () => { if (resendTimerRef.current) clearInterval(resendTimerRef.current); }, []);
+
+  function startResendCooldown(seconds) {
+    setResendCooldown(seconds);
+    if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+    resendTimerRef.current = setInterval(() => {
+      setResendCooldown(prev => {
+        if (prev <= 1) { clearInterval(resendTimerRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  }
 
   const handleGoogle = async () => {
     setGoogleLoading(true); setError('');
@@ -2140,6 +2156,26 @@ function UnauthenticatedPanel() {
     if (oauthErr) { setError(oauthErr.message); setGoogleLoading(false); }
   };
 
+  const sendConfirmEmail = async (emailAddress) => {
+    setEmailLoading(true); setError('');
+    track('auth_start_email', {});
+    try {
+      const res = await fetch('/api/auth/send-confirm-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAddress }),
+      });
+      // Endpoint always returns { ok: true } — no enumeration possible
+      await res.json().catch(() => ({}));
+      setEmailSent(true);
+      startResendCooldown(30);
+    } catch {
+      setError('Could not send confirmation email. Please try again.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
@@ -2147,26 +2183,81 @@ function UnauthenticatedPanel() {
       setError('Please enter a valid email address.');
       return;
     }
-    setEmailLoading(true); setError('');
-    const sb = getSupabase();
-    if (!sb) { setError('Auth service is not configured. Please contact support.'); setEmailLoading(false); return; }
-    track('auth_start_email', {});
-    try {
-      const { error: otpErr } = await sb.auth.signInWithOtp({
-        email: trimmed,
-        options: { emailRedirectTo: `${window.location.origin}/settings` },
-      });
-      if (otpErr) throw otpErr;
-      setEmailSent(true);
-    } catch (err) {
-      setError(err?.message || 'Could not send login email. Please try again.');
-    } finally {
-      setEmailLoading(false);
-    }
+    await sendConfirmEmail(trimmed);
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || emailLoading) return;
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) return;
+    await sendConfirmEmail(trimmed);
   };
 
   const anyLoading = googleLoading || emailLoading;
 
+  // ── "Check your email" premium state ──────────────────────────────────────
+  if (emailSent) {
+    return (
+      <div className={styles.unauthCard}>
+        <div className={styles.emailSentPanel}>
+
+          {/* Envelope icon */}
+          <div className={styles.emailSentIconWrap} aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="6" width="24" height="17" rx="2.5" stroke="var(--color-primary)" strokeWidth="1.5"/>
+              <path d="M2 9l12 8 12-8" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinejoin="round"/>
+            </svg>
+          </div>
+
+          <h2 className={styles.emailSentTitle}>Check your inbox</h2>
+
+          <p className={styles.emailSentDesc}>
+            We sent a confirmation link to{' '}
+            <strong className={styles.emailSentEmailStr}>{email}</strong>.
+            Tap the button in the email to confirm your account and get started.
+          </p>
+
+          <p className={styles.emailSentHint}>
+            Not seeing it? Check your <strong>Promotions</strong> or <strong>Spam</strong> folder.
+          </p>
+
+          {/* What you'll get — compact 3-feature row */}
+          <div className={styles.emailSentFeatures}>
+            <div className={styles.emailSentFeatureRow}>
+              <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+              <span>Personalized team briefings</span>
+            </div>
+            <div className={styles.emailSentFeatureRow}>
+              <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+              <span>ATS and line movement insights</span>
+            </div>
+            <div className={styles.emailSentFeatureRow}>
+              <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+              <span>News and video highlights</span>
+            </div>
+          </div>
+
+          {/* Resend link with cooldown */}
+          <button
+            type="button"
+            className={styles.btnResend}
+            onClick={handleResend}
+            disabled={resendCooldown > 0 || emailLoading}
+          >
+            {emailLoading
+              ? <><SpinnerIcon /> Sending…</>
+              : resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : 'Resend email'
+            }
+          </button>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal sign-in state ───────────────────────────────────────────────────
   return (
     <div className={styles.unauthCard}>
       <div className={styles.unauthIcon}>
@@ -2197,35 +2288,25 @@ function UnauthenticatedPanel() {
         <span className={styles.authDividerLine} />
       </div>
 
-      {emailSent ? (
-        <div className={styles.emailSentMsg}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-            <circle cx="10" cy="10" r="9" stroke="var(--color-up)" strokeWidth="1.5"/>
-            <path d="M6 10l3 3 5-5" stroke="var(--color-up)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span>Check your email for a login link.</span>
-        </div>
-      ) : (
-        <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
-          <input
-            type="email"
-            className={styles.emailInput}
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={anyLoading}
-            autoComplete="email"
-            aria-label="Email address"
-          />
-          <button
-            type="submit"
-            className={styles.btnEmailSubmit}
-            disabled={anyLoading || !email.trim()}
-          >
-            {emailLoading ? <SpinnerIcon /> : 'Continue with email'}
-          </button>
-        </form>
-      )}
+      <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
+        <input
+          type="email"
+          className={styles.emailInput}
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={anyLoading}
+          autoComplete="email"
+          aria-label="Email address"
+        />
+        <button
+          type="submit"
+          className={styles.btnEmailSubmit}
+          disabled={anyLoading || !email.trim()}
+        >
+          {emailLoading ? <SpinnerIcon /> : 'Continue with email'}
+        </button>
+      </form>
     </div>
   );
 }

@@ -2367,3 +2367,114 @@
     align-items: flex-start;
   }
 }
+
+/* ─── Email confirmation sent — premium "Check your inbox" state ────────── */
+.emailSentPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+.emailSentIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+}
+
+.emailSentTitle {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.emailSentDesc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+.emailSentEmailStr {
+  color: var(--color-text);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.emailSentHint {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.emailSentFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 300px;
+  text-align: left;
+}
+
+.emailSentFeatureRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.emailSentFeatureIcon {
+  color: var(--color-primary);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.btnResend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: none;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: color 0.15s, background 0.15s;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: transparent;
+}
+
+.btnResend:hover:not(:disabled) {
+  background: rgba(60, 121, 180, 0.06);
+  text-decoration-color: var(--color-primary);
+}
+
+.btnResend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
