@@ -14,6 +14,7 @@
 
 import { EmailShell, heroBlock, sectionCard, pill, teamLogoImg } from '../EmailShell.js';
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
+import { renderEmailGameList } from '../../../api/_lib/emailGameCards.js';
 
 export function getSubject(data = {}) {
   const name = data.displayName ? data.displayName.split(' ')[0] : null;
@@ -82,17 +83,10 @@ export function renderHTML(data = {}) {
 
   // ── Games today
   const gameCount = scoresToday.length;
-  let gamesBody = '';
-  if (gameCount > 0) {
-    const sample = scoresToday.slice(0, 3).map(g => {
-      const teams = g.awayTeam && g.homeTeam ? `${g.awayTeam} @ ${g.homeTeam}` : 'Game TBD';
-      const status = g.gameStatus || g.status || 'Scheduled';
-      return `<span style="display:block;color:#8892a4;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);">${teams} &mdash; <span style="color:#5a9fd4;">${status}</span></span>`;
-    }).join('');
-    gamesBody = `${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate today. Here&rsquo;s what Maximus Sports is tracking.<br/><br/><div style="margin-top:4px;">${sample}</div>`;
-  } else {
-    gamesBody = 'The schedule is light today. Maximus Sports is staying disciplined &mdash; no forced action.';
-  }
+  const gameCardsHtml = gameCount > 0 ? renderEmailGameList(scoresToday, { max: 3, compact: true }) : '';
+  const gamesIntroBody = gameCount > 0
+    ? `${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate today. Here&rsquo;s what Maximus Sports is tracking.`
+    : 'The schedule is light today. Maximus Sports is staying disciplined &mdash; no forced action.';
 
   // ── ATS Edge
   const bestAts = atsLeaders.best || [];
@@ -163,8 +157,8 @@ ${heroBlock({
   })}
 
 <tr>
-  <td style="padding:0 28px 8px;" class="section-td">
-    <p style="margin:0;font-size:13px;color:#6b7f99;line-height:1.6;font-family:'DM Sans',Arial,sans-serif;">
+  <td style="padding:0 24px 8px;" class="section-td">
+    <p style="margin:0;font-size:13px;color:#526070;line-height:1.55;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
       Good morning. Maximus Sports has processed today&rsquo;s slate, lines, and trends. Here&rsquo;s what matters.
     </p>
   </td>
@@ -176,8 +170,10 @@ ${sectionCard({
     pillLabel: 'WHAT TO WATCH',
     pillType: 'watch',
     headline: gameCount > 0 ? `${gameCount} Games Today` : 'Light Slate',
-    body: gamesBody,
+    body: gamesIntroBody,
   })}
+
+${gameCardsHtml}
 
 ${sectionCard({
     pillLabel: 'ATS EDGE',

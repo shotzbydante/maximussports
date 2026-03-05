@@ -11,6 +11,7 @@
  */
 
 import { EmailShell, heroBlock, sectionCard, pill, teamLogoImg } from '../EmailShell.js';
+import { renderEmailGameList } from '../../../api/_lib/emailGameCards.js';
 
 export function getSubject(data = {}) {
   const { atsLeaders = {} } = data;
@@ -76,23 +77,11 @@ export function renderHTML(data = {}) {
     upsetBody = 'No standout underperformers today. The market looks efficient \u2014 Maximus Sports is watching for movement.';
   }
 
-  // ── Games with odds
+  // ── Games with odds — use premium game cards with logos + spread + Gamecast
   const gamesWithOdds = scoresToday.filter(g => g.spread || g.overUnder || g.total || g.moneylineHome).slice(0, 3);
-  let oddsRows = '';
-  if (gamesWithOdds.length > 0) {
-    oddsRows = gamesWithOdds.map(g => {
-      const matchup = `${g.awayTeam || 'Away'} @ ${g.homeTeam || 'Home'}`;
-      const spread = g.spread ? `Spread: ${g.spread}` : '';
-      const ou = (g.overUnder || g.total) ? `O/U: ${g.overUnder || g.total}` : '';
-      const details = [spread, ou].filter(Boolean).join(' &nbsp;&middot;&nbsp; ');
-      return `<tr>
-  <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
-    <span style="font-size:12px;color:#c0cad8;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">${matchup}</span>
-    ${details ? `<div style="margin-top:3px;font-size:11px;color:#5a9fd4;font-family:'DM Sans',Arial,sans-serif;">${details}</div>` : ''}
-  </td>
-</tr>`;
-    }).join('');
-  }
+  const oddsGameCardsHtml = gamesWithOdds.length > 0
+    ? renderEmailGameList(gamesWithOdds, { max: 3, compact: false })
+    : '';
 
   // ── Pinned teams ATS spotlight
   let pinnedAtsBody = '';
@@ -144,24 +133,16 @@ ${sectionCard({
     body: upsetBody,
   })}
 
-${oddsRows ? `
+${oddsGameCardsHtml ? `
 <tr>
-  <td style="padding:0 28px 12px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:8px;border-collapse:collapse;">
-      <tr>
-        <td style="padding:16px 18px 8px;" class="card-td">
-          <div style="margin-bottom:8px;">${pill('LINES', 'intel')}</div>
-          <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#f0f4f8;font-family:'DM Sans',Arial,sans-serif;">Today\u2019s Odds</p>
-        </td>
-      </tr>
-      ${oddsRows}
-      <tr>
-        <td style="padding:10px 12px 12px;">
-          <a href="https://maximussports.ai" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;">Full odds board &rarr;</a>
-        </td>
-      </tr>
-    </table>
+  <td style="padding:0 24px 4px;" class="section-td">
+    <div style="margin-bottom:8px;">${pill('LINES', 'intel')}&nbsp;&nbsp;<span style="font-size:13px;font-weight:700;color:#edf2f8;font-family:'DM Sans',Arial,Helvetica,sans-serif;vertical-align:middle;">Today\u2019s Odds</span></div>
+  </td>
+</tr>
+${oddsGameCardsHtml}
+<tr>
+  <td style="padding:0 24px 10px;">
+    <a href="https://maximussports.ai" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Full odds board &rarr;</a>
   </td>
 </tr>` : ''}
 

@@ -25,14 +25,18 @@ import { renderHTML as renderDailyHTML }  from '../../src/emails/templates/daily
 import { renderHTML as renderPinnedHTML } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { renderHTML as renderOddsHTML }   from '../../src/emails/templates/oddsIntel.js';
 import { renderHTML as renderNewsHTML }   from '../../src/emails/templates/breakingNews.js';
+import { renderHTML as renderDigestHTML } from '../../src/emails/templates/teamDigest.js';
+import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 
-const VALID_TYPES = ['daily', 'pinned', 'odds', 'news'];
+const VALID_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
 
 const PREVIEW_PINNED_TEAMS = [
   { name: 'Duke Blue Devils', slug: 'duke-blue-devils', logo: '/logos/duke-blue-devils.svg' },
   { name: 'Kansas Jayhawks',  slug: 'kansas-jayhawks',  logo: '/logos/kansas-jayhawks.svg'  },
   { name: 'UConn Huskies',    slug: 'uconn-huskies',    logo: '/logos/uconn-huskies.svg'    },
 ];
+
+const PREVIEW_DIGEST_TEAM_SLUGS = ['duke-blue-devils', 'kansas-jayhawks', 'uconn-huskies'];
 
 async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
   try {
@@ -148,6 +152,18 @@ export default async function handler(req, res) {
       case 'pinned': html = renderPinnedHTML(emailData); break;
       case 'odds':   html = renderOddsHTML(emailData);   break;
       case 'news':   html = renderNewsHTML(emailData);   break;
+      case 'teamDigest': {
+        const { getTeamBySlug } = await import('../../src/data/teams.js');
+        const sharedDigestData = { scoresToday, rankingsTop25, atsLeaders, headlines };
+        const teamDigests = assembleTeamDigestPayload(
+          PREVIEW_DIGEST_TEAM_SLUGS.slice(0, TEAM_DIGEST_MAX_TEAMS),
+          sharedDigestData,
+          getTeamBySlug
+        );
+        const digestData = { ...emailData, teamDigests, totalTeamCount: PREVIEW_DIGEST_TEAM_SLUGS.length };
+        html = renderDigestHTML(digestData);
+        break;
+      }
     }
 
     // Inject a small debug banner at the top so it's obvious this is a preview

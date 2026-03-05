@@ -1763,3 +1763,77 @@
     justify-content: center;
   }
 }
+
+/* ─── Team Digest selector (below subscription toggle) ───────────────────── */
+.digestTeamSelector {
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  border-radius: 0 0 8px 8px;
+  margin-top: -1px; /* visually attach below the toggle row */
+  padding: 12px 14px 14px;
+}
+
+.digestTeamSelectorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.digestTeamSelectorLabel {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.digestTeamChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.digestTeamChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 20px;
+  padding: 3px 8px 3px 5px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.digestTeamChipName {
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.digestTeamChipRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.digestTeamChipRemove:hover {
+  opacity: 1;
+  color: var(--color-text);
+}
+
+.digestPickerWrap {
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+}

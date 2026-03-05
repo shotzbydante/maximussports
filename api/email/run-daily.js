@@ -27,12 +27,15 @@ import { getSubject as getDailySubject, renderHTML as renderDailyHTML, renderTex
 import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderText as renderPinnedText } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { getSubject as getOddsSubject, renderHTML as renderOddsHTML, renderText as renderOddsText } from '../../src/emails/templates/oddsIntel.js';
 import { getSubject as getNewsSubject, renderHTML as renderNewsHTML, renderText as renderNewsText } from '../../src/emails/templates/breakingNews.js';
+import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderText as renderDigestText } from '../../src/emails/templates/teamDigest.js';
+import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 
 const TYPE_TO_PREF_KEY = {
-  daily:  'briefing',
-  pinned: 'teamAlerts',
-  odds:   'oddsIntel',
-  news:   'newsDigest',
+  daily:      'briefing',
+  pinned:     'teamAlerts',
+  odds:       'oddsIntel',
+  news:       'newsDigest',
+  teamDigest: 'teamDigest',
 };
 
 const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
@@ -270,6 +273,17 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── 7b. Pre-load team data for Team Digest (one-time lookup)
+    let getTeamBySlugFn = null;
+    if (type === 'teamDigest') {
+      try {
+        const teamsModule = await import('../../src/data/teams.js');
+        getTeamBySlugFn = teamsModule.getTeamBySlug;
+      } catch (err) {
+        console.warn('[run-daily] failed to load teams data for digest:', err.message);
+      }
+    }
+
     // ── 8. Load user_teams for pinned-type (and always for personalization)
     const userIds = toSend.map(u => u.id);
     const userTeamsMap = await fetchUserTeams(sb, userIds);
@@ -333,6 +347,31 @@ export default async function handler(req, res) {
             html    = renderNewsHTML(emailData);
             text    = renderNewsText(emailData);
             break;
+          case 'teamDigest': {
+            const prefs = profile?.preferences || {};
+            const digestSlugs = Array.isArray(prefs.teamDigestTeams) ? prefs.teamDigestTeams : [];
+            if (!getTeamBySlugFn || digestSlugs.length === 0) {
+              // Skip users with no digest teams configured
+              console.log(`[run-daily] teamDigest: skipping ${email} — no digest teams configured`);
+              continue;
+            }
+            const sharedDigestData = {
+              scoresToday,
+              rankingsTop25,
+              atsLeaders,
+              headlines,
+            };
+            const teamDigests = assembleTeamDigestPayload(
+              digestSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
+              sharedDigestData,
+              getTeamBySlugFn
+            );
+            const digestEmailData = { ...emailData, teamDigests, totalTeamCount: digestSlugs.length };
+            subject = getDigestSubject(digestEmailData);
+            html    = renderDigestHTML(digestEmailData);
+            text    = renderDigestText(digestEmailData);
+            break;
+          }
         }
 
         await sendEmail({ to: email, subject, html, text });

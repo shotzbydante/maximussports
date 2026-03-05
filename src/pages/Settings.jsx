@@ -109,24 +109,28 @@ const TOTAL_STEPS = 3;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const PREFERENCES = [
-  { key: 'briefing',   label: 'Daily AI Briefing',     description: 'Morning digest with Maximus AI analysis' },
-  { key: 'teamAlerts', label: 'Pinned Teams Alerts',   description: 'Get notified about game results and news' },
-  { key: 'oddsIntel',  label: 'Odds & ATS Intel',      description: 'Odds analysis and ATS trends' },
-  { key: 'newsDigest', label: 'Breaking News Digest',  description: 'Important news from your teams and league' },
+  { key: 'briefing',    label: 'Daily AI Briefing',     description: 'Morning digest with Maximus AI analysis' },
+  { key: 'teamAlerts',  label: 'Pinned Teams Alerts',   description: 'Get notified about game results and news' },
+  { key: 'oddsIntel',   label: 'Odds & ATS Intel',      description: 'Odds analysis and ATS trends' },
+  { key: 'newsDigest',  label: 'Breaking News Digest',  description: 'Important news from your teams and league' },
+  { key: 'teamDigest',  label: 'Team Digest',           description: 'Full editorial digest for selected teams — schedule, ATS, news, videos' },
 ];
 
 const DEFAULT_PREFS = {
-  briefing: true,
-  teamAlerts: true,
-  oddsIntel: false,
-  newsDigest: true,
+  briefing:        true,
+  teamAlerts:      true,
+  oddsIntel:       false,
+  newsDigest:      true,
+  teamDigest:      false,
+  teamDigestTeams: [],
 };
 
 const TEST_EMAIL_TYPES = [
-  { type: 'daily',  label: 'Send Daily AI Briefing (TEST)' },
-  { type: 'pinned', label: 'Send Pinned Teams Alerts (TEST)' },
-  { type: 'odds',   label: 'Send Odds & ATS Intel (TEST)' },
-  { type: 'news',   label: 'Send Breaking News Digest (TEST)' },
+  { type: 'daily',      label: 'Send Daily AI Briefing (TEST)' },
+  { type: 'pinned',     label: 'Send Pinned Teams Alerts (TEST)' },
+  { type: 'odds',       label: 'Send Odds & ATS Intel (TEST)' },
+  { type: 'news',       label: 'Send Breaking News Digest (TEST)' },
+  { type: 'teamDigest', label: 'Send Team Digest (TEST)' },
 ];
 
 const TIER_STYLE = {
@@ -777,7 +781,16 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
 }
 
 /* ─── Team Picker Panel (Add Team in premium profile) ────────────────────── */
-function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
+/**
+ * @param {object} props
+ * @param {Array}    props.existingTeams  — current user_teams rows [{team_slug}]
+ * @param {Function} props.onAdd          — async (slug) => void  (single-select / pin mode)
+ * @param {Function} props.onClose        — () => void
+ * @param {boolean}  [props.multiSelect]  — if true, renders as a multi-select toggle list
+ * @param {string[]} [props.selectedSlugs]— currently selected slugs (multi-select mode)
+ * @param {Function} [props.onToggle]     — (slug) => void  (multi-select toggle)
+ */
+function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, selectedSlugs = [], onToggle }) {
   const [query, setQuery]   = useState('');
   const [adding, setAdding] = useState(null);
   const inputRef            = useRef(null);
@@ -786,7 +799,6 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
 
   const existingSlugs = existingTeams.map(t => t.team_slug);
 
-  // Show all teams; pinned ones appear last and show disabled "Pinned" state
   const allTeams = TEAMS
     .filter(t =>
       !query ||
@@ -794,15 +806,23 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
       t.conference.toLowerCase().includes(query.toLowerCase())
     )
     .sort((a, b) => {
+      // In multi-select mode, selected teams float to top
+      if (multiSelect) {
+        const as = selectedSlugs.includes(a.slug) ? -1 : 0;
+        const bs = selectedSlugs.includes(b.slug) ? -1 : 0;
+        return as - bs;
+      }
       const ap = existingSlugs.includes(a.slug) ? 1 : 0;
       const bp = existingSlugs.includes(b.slug) ? 1 : 0;
       return ap - bp;
     });
 
+  const panelTitle = multiSelect ? 'Select digest teams' : 'Pin a team';
+
   return (
     <div className={styles.pickerPanel}>
       <div className={styles.pickerPanelHeader}>
-        <span className={styles.pickerPanelTitle}>Pin a team</span>
+        <span className={styles.pickerPanelTitle}>{panelTitle}</span>
         <button type="button" className={styles.pickerPanelClose} onClick={onClose} aria-label="Close team picker">×</button>
       </div>
       <div className={styles.pickerPanelSearch}>
@@ -815,6 +835,33 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose }) {
       </div>
       <div className={styles.pickerPanelList}>
         {allTeams.map(team => {
+          if (multiSelect) {
+            // Multi-select: toggle checkbox style
+            const isSelected = selectedSlugs.includes(team.slug);
+            return (
+              <button
+                key={team.slug}
+                type="button"
+                className={`${styles.pickerAddRow} ${isSelected ? styles.pickerAddRowPinned : ''}`}
+                onClick={() => onToggle && onToggle(team.slug)}
+              >
+                <span className={styles.teamPickLogo}><TeamLogo team={team} size={24} /></span>
+                <span className={styles.pickerRowInfo}>
+                  <span className={styles.teamPickName}>{team.name}</span>
+                  <span className={styles.teamPickConf}>{team.conference}</span>
+                </span>
+                <span className={`${styles.pinAction} ${isSelected ? styles.pinActionPinned : ''}`}>
+                  {isSelected ? (
+                    <><CheckIcon /><span>Selected</span></>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Add</span>
+                  )}
+                </span>
+              </button>
+            );
+          }
+
+          // Single-select / pin mode (original behavior)
           const isAlreadyPinned = existingSlugs.includes(team.slug);
           return (
             <button
@@ -952,6 +999,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   const [prefs, setPrefs]           = useState(() => ({ ...DEFAULT_PREFS, ...(profile?.preferences || {}) }));
   const [saveStatus, setSaveStatus] = useState('idle');
   const saveDebounce                = useRef(null);
+  const [digestPickerOpen, setDigestPickerOpen] = useState(false);
 
   const [showEditForm, setShowEditForm] = useState(false);
 
@@ -1118,10 +1166,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     trackFavoriteTeamsUpdated(user.id, [...userTeams.map(t => t.team_slug), slug]);
   }
 
-  /* ── Toggle preference (debounced, confirmed write) ── */
-  function handlePrefToggle(key) {
-    const newPrefs = { ...prefs, [key]: !prefs[key] };
-    setPrefs(newPrefs);
+  /* ── Shared debounced Supabase preference writer ── */
+  function debouncedPrefSave(newPrefs, key, revertFn) {
     setSaveStatus('saving');
     if (saveDebounce.current) clearTimeout(saveDebounce.current);
     saveDebounce.current = setTimeout(async () => {
@@ -1131,14 +1177,37 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         const { error } = await sb.from('profiles').update({ preferences: newPrefs, updated_at: new Date().toISOString() }).eq('id', user.id);
         if (error) throw error;
         setSaveStatus('saved');
-        track('subscription_updated', { key, value: newPrefs[key] });
+        if (key) track('subscription_updated', { key, value: newPrefs[key] });
         setTimeout(() => setSaveStatus('idle'), 2500);
       } catch {
         setSaveStatus('error');
-        // Revert UI on failure so display matches actual DB state
-        setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
+        // Revert UI to match actual DB state on failure
+        if (revertFn) revertFn();
       }
     }, 600);
+  }
+
+  /* ── Toggle preference (debounced, with revert on failure) ── */
+  function handlePrefToggle(key) {
+    const prevValue = prefs[key];
+    const newPrefs = { ...prefs, [key]: !prevValue };
+    setPrefs(newPrefs);
+    // When enabling Team Digest, auto-open the picker if no teams selected yet
+    if (key === 'teamDigest' && !prevValue && (!newPrefs.teamDigestTeams || newPrefs.teamDigestTeams.length === 0)) {
+      setDigestPickerOpen(true);
+    }
+    debouncedPrefSave(newPrefs, key, () => setPrefs(prev => ({ ...prev, [key]: prevValue })));
+  }
+
+  /* ── Toggle a team in/out of Team Digest selection ── */
+  function handleDigestTeamToggle(slug) {
+    const prevTeams = Array.isArray(prefs.teamDigestTeams) ? prefs.teamDigestTeams : [];
+    const newTeams = prevTeams.includes(slug)
+      ? prevTeams.filter(s => s !== slug)
+      : [...prevTeams, slug];
+    const newPrefs = { ...prefs, teamDigestTeams: newTeams };
+    setPrefs(newPrefs);
+    debouncedPrefSave(newPrefs, 'teamDigestTeams', () => setPrefs(prev => ({ ...prev, teamDigestTeams: prevTeams })));
   }
 
   /* ── Sign out and clear device ── */
@@ -1306,19 +1375,78 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         </div>
         <div className={styles.prefList}>
           {PREFERENCES.map(({ key, label, description }) => (
-            <button
-              key={key} type="button"
-              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
-              onClick={() => handlePrefToggle(key)}
-            >
-              <div className={styles.prefText}>
-                <span className={styles.prefLabel}>{label}</span>
-                <span className={styles.prefDesc}>{description}</span>
-              </div>
-              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
-                <div className={styles.toggleThumb} />
-              </div>
-            </button>
+            <div key={key}>
+              <button
+                type="button"
+                className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+                onClick={() => handlePrefToggle(key)}
+              >
+                <div className={styles.prefText}>
+                  <span className={styles.prefLabel}>{label}</span>
+                  <span className={styles.prefDesc}>{description}</span>
+                </div>
+                <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                  <div className={styles.toggleThumb} />
+                </div>
+              </button>
+
+              {/* Team Digest team selector — shown when teamDigest is enabled */}
+              {key === 'teamDigest' && prefs.teamDigest && (
+                <div className={styles.digestTeamSelector}>
+                  <div className={styles.digestTeamSelectorHeader}>
+                    <span className={styles.digestTeamSelectorLabel}>
+                      Digest teams
+                      {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0
+                        ? ` (${prefs.teamDigestTeams.length} selected)`
+                        : ' — select at least one'}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.btnAddTeam}
+                      onClick={() => setDigestPickerOpen(v => !v)}
+                    >
+                      {digestPickerOpen ? 'Done' : '+ Add teams'}
+                    </button>
+                  </div>
+
+                  {/* Selected teams chips */}
+                  {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0 && (
+                    <div className={styles.digestTeamChips}>
+                      {prefs.teamDigestTeams.map(slug => {
+                        const teamData = TEAMS.find(t => t.slug === slug);
+                        if (!teamData) return null;
+                        return (
+                          <span key={slug} className={styles.digestTeamChip}>
+                            <TeamLogo team={teamData} size={14} />
+                            <span className={styles.digestTeamChipName}>{teamData.name}</span>
+                            <button
+                              type="button"
+                              className={styles.digestTeamChipRemove}
+                              onClick={() => handleDigestTeamToggle(slug)}
+                              aria-label={`Remove ${teamData.name} from Team Digest`}
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Team picker (same component used by My Teams) */}
+                  {digestPickerOpen && (
+                    <div className={styles.digestPickerWrap}>
+                      <TeamPickerPanel
+                        existingTeams={(prefs.teamDigestTeams || []).map(slug => ({ team_slug: slug }))}
+                        onAdd={(slug) => { handleDigestTeamToggle(slug); }}
+                        onClose={() => setDigestPickerOpen(false)}
+                        multiSelect
+                        selectedSlugs={prefs.teamDigestTeams || []}
+                        onToggle={handleDigestTeamToggle}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </div>

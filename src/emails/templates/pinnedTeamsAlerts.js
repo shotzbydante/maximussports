@@ -12,6 +12,7 @@
 
 import { EmailShell, heroBlock, sectionCard, pill, teamLogoImg } from '../EmailShell.js';
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
+import { renderEmailGameCard } from '../../../api/_lib/emailGameCards.js';
 
 export function getSubject(data = {}) {
   const { pinnedTeams = [] } = data;
@@ -45,25 +46,30 @@ ${sectionCard({
     return EmailShell({ content, previewText: 'Pin teams on Maximus Sports to get personalized daily alerts.' });
   }
 
-  // ── Team rows
+  // ── Team rows — game card when a game exists, compact summary otherwise
   const teamRows = pinnedTeams.slice(0, 5).map(team => {
     const teamSlug = team.slug || '';
     const teamName = team.name || teamSlug || 'Your Team';
     const teamUrl = teamSlug ? `https://maximussports.ai/teams/${teamSlug}` : 'https://maximussports.ai';
-    const { gameInfo } = getTeamTodaySummary(team, scoresToday);
+    const { hasGame, game, gameInfo } = getTeamTodaySummary(team, scoresToday);
     const logoHtml = teamLogoImg(team, 22);
 
+    // When the team has a game, show a compact game card with spread + Gamecast link
+    const gameContent = hasGame && game
+      ? renderEmailGameCard(game, { compact: true })
+      : `<div style="margin-top:3px;">${gameInfo}</div>`;
+
     return `<tr>
-  <td style="padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.05);">
+  <td style="padding:10px 17px 10px;border-bottom:1px solid rgba(255,255,255,0.05);" class="row-pad">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
         <td valign="middle" style="width:28px;padding-right:8px;">${logoHtml}</td>
         <td valign="middle">
-          <a href="${teamUrl}" style="font-size:13px;font-weight:700;color:#f0f4f8;text-decoration:none;font-family:'DM Sans',Arial,sans-serif;line-height:1.4;">${teamName}</a>
-          <div style="margin-top:3px;">${gameInfo}</div>
+          <a href="${teamUrl}" style="font-size:13px;font-weight:700;color:#edf2f8;text-decoration:none;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.35;">${teamName}</a>
+          <div style="margin-top:5px;">${gameContent}</div>
         </td>
-        <td align="right" valign="middle" style="padding-left:8px;white-space:nowrap;">
-          <a href="${teamUrl}" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;padding:5px 0;display:inline-block;">View &rarr;</a>
+        <td align="right" valign="top" style="padding-left:8px;white-space:nowrap;padding-top:2px;">
+          <a href="${teamUrl}" style="font-size:11px;color:#3C79B4;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,Helvetica,sans-serif;">View &rarr;</a>
         </td>
       </tr>
     </table>

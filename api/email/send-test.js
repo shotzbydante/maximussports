@@ -25,14 +25,19 @@ import { getSubject as getDailySubject,  renderHTML as renderDailyHTML,  renderT
 import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderText as renderPinnedText } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { getSubject as getOddsSubject,   renderHTML as renderOddsHTML,   renderText as renderOddsText   } from '../../src/emails/templates/oddsIntel.js';
 import { getSubject as getNewsSubject,   renderHTML as renderNewsHTML,   renderText as renderNewsText   } from '../../src/emails/templates/breakingNews.js';
+import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderText as renderDigestText } from '../../src/emails/templates/teamDigest.js';
+import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 
-const VALID_TYPES = ['daily', 'pinned', 'odds', 'news'];
+const VALID_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
 
 // Test pinned teams using correct full slugs from data/teams.js
 const TEST_PINNED_TEAMS = [
   { name: 'Duke Blue Devils',  slug: 'duke-blue-devils',  logo: '/logos/duke-blue-devils.svg' },
   { name: 'Kansas Jayhawks',   slug: 'kansas-jayhawks',   logo: '/logos/kansas-jayhawks.svg'  },
 ];
+
+// Test teams for Team Digest
+const TEST_DIGEST_TEAM_SLUGS = ['duke-blue-devils', 'kansas-jayhawks', 'uconn-huskies'];
 
 /**
  * Try to extract concise bullets from cached LLM home summary,
@@ -175,6 +180,20 @@ export default async function handler(req, res) {
       case 'pinned': subject = getPinnedSubject(emailData); html = renderPinnedHTML(emailData); text = renderPinnedText(emailData); break;
       case 'odds':   subject = getOddsSubject(emailData);   html = renderOddsHTML(emailData);   text = renderOddsText(emailData);   break;
       case 'news':   subject = getNewsSubject(emailData);   html = renderNewsHTML(emailData);   text = renderNewsText(emailData);   break;
+      case 'teamDigest': {
+        const { getTeamBySlug } = await import('../../src/data/teams.js');
+        const sharedDigestData = { scoresToday, rankingsTop25, atsLeaders, headlines };
+        const teamDigests = assembleTeamDigestPayload(
+          TEST_DIGEST_TEAM_SLUGS.slice(0, TEAM_DIGEST_MAX_TEAMS),
+          sharedDigestData,
+          getTeamBySlug
+        );
+        const digestData = { ...emailData, teamDigests, totalTeamCount: TEST_DIGEST_TEAM_SLUGS.length };
+        subject = getDigestSubject(digestData);
+        html    = renderDigestHTML(digestData);
+        text    = renderDigestText(digestData);
+        break;
+      }
     }
 
     subject = `[TEST] ${subject}`;
