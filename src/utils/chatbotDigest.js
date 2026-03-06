@@ -19,6 +19,20 @@
  *   extractBoldPhrases(text)            → string[]
  */
 
+// ─── Section-label stripper ───────────────────────────────────────────────────
+
+/**
+ * GPT sometimes outputs section labels ("YESTERDAY RECAP:", "ODDS PULSE:", etc.)
+ * at the start of paragraphs despite instructions to omit them.
+ * Strip these so downstream parsers work on clean prose.
+ */
+const SECTION_LABEL_RE = /^(?:YESTERDAY\s+RECAP|ODDS?\s+PULSE|TODAY(?:'S)?\s+GAMES?|ATS\s+SPOTLIGHT|NEWS\s+PULSE(?:\s*\+\s*CLOSER)?|SCORES?|TITLE\s+MARKET|BRIEFING)\s*[:\-–]\s*/i;
+
+function stripSectionLabel(text) {
+  if (!text) return '';
+  return text.replace(SECTION_LABEL_RE, '').trim();
+}
+
 // ─── Markdown helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -113,11 +127,11 @@ export function parseChatbotSummary(text) {
 
   return {
     paragraphs,
-    recap:         paragraphs[0] ?? '',
-    oddsPulse:     paragraphs[1] ?? '',
-    todayTomorrow: paragraphs[2] ?? '',
-    atsSpotlight:  paragraphs[3] ?? '',
-    newsPulse:     paragraphs[4] ?? '',
+    recap:         stripSectionLabel(paragraphs[0] ?? ''),
+    oddsPulse:     stripSectionLabel(paragraphs[1] ?? ''),
+    todayTomorrow: stripSectionLabel(paragraphs[2] ?? ''),
+    atsSpotlight:  stripSectionLabel(paragraphs[3] ?? ''),
+    newsPulse:     stripSectionLabel(paragraphs[4] ?? ''),
   };
 }
 
@@ -408,13 +422,23 @@ function parseTitleRace(oddsPulseText) {
   const titleRace = [];
   const used = new Set();
 
-  // Two common formats: "Duke (-200)" and "Duke at +350"
+  // IMPORTANT: Do NOT use the 'i' flag here.
+  // With 'gi', [A-Z] becomes case-insensitive and sentence fragments like
+  // "sitting pretty at +300" get captured as team names. Case-sensitive only.
   const patterns = [
+    // "Duke (-200)" or "Duke Blue Devils (+350)" — parenthetical odds
     /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,3})\s*\(([-+]\d{3,4})\)/g,
-    /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,3})\s+(?:at|sits?\s+at|has|holds?)\s+([-+]\d{3,4})/gi,
+    // "Duke at +350" or "Duke Blue Devils sits at +350" — inline odds
+    /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,3})\s+(?:at|sits?\s+at|has|is\s+at)\s+([-+]\d{3,4})/g,
   ];
 
-  const SKIP_WORDS = new Set(['The', 'This', 'That', 'Their', 'These', 'Those', 'With', 'From', 'When', 'Then', 'They']);
+  // Words that can't be team names even if capitalized at sentence start
+  const SKIP_WORDS = new Set([
+    'The', 'This', 'That', 'Their', 'These', 'Those', 'With', 'From', 'When', 'Then', 'They',
+    'Looking', 'Based', 'Currently', 'Given', 'Being', 'Having', 'Sitting', 'Taking',
+    'Perhaps', 'Meanwhile', 'However', 'Despite', 'Early', 'Still', 'Also', 'Even',
+    'Over', 'Under', 'Into', 'Onto', 'Upon', 'About', 'Among', 'Between',
+  ]);
 
   for (const re of patterns) {
     re.lastIndex = 0;
@@ -424,6 +448,15 @@ function parseTitleRace(oddsPulseText) {
       const oddsRaw = parseInt(match[2], 10);
       if (!team || team.length < 3 || SKIP_WORDS.has(team)) continue;
       if (used.has(team.toLowerCase())) continue;
+
+      // Guard: the first word MUST start with actual uppercase in the source text
+      if (!/^[A-Z]/.test(team)) continue;
+
+      // Guard: every word in the captured team name must start uppercase (proper noun chain)
+      // This filters out fragments like "sitting pretty with championship" (mixed case)
+      const teamWords = team.split(/\s+/);
+      const allCapitalized = teamWords.every(w => /^[A-Z]/.test(w));
+      if (!allCapitalized) continue;
 
       const impliedProbability = oddsRaw < 0
         ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
@@ -606,9 +639,28 @@ function parseNewsIntel(newsPulseText, headlines) {
 
   if (newsPulseText) {
     const clean = stripMarkdown(newsPulseText);
-    for (const sentence of toSentences(clean)) {
+    const rawSentences = toSentences(clean);
+
+    // Re-merge fragments caused by abbreviation splits (Jr., Dr., No., etc.)
+    // If a sentence ends with a common abbreviation, merge it with the next sentence.
+    const ABBREV_END = /\b(?:Jr|Sr|Dr|Mr|Mrs|Ms|Prof|St|No|vs|etc)\.$/ ;
+    const mergedSentences = [];
+    let carry = '';
+    for (const s of rawSentences) {
+      if (carry) {
+        if (ABBREV_END.test(carry)) {
+          carry = `${carry} ${s}`;
+          continue;
+        }
+        mergedSentences.push(carry);
+      }
+      carry = s;
+    }
+    if (carry) mergedSentences.push(carry);
+
+    for (const sentence of mergedSentences) {
       if (intel.length >= 3) break;
-      const headline = truncateAtWord(sentence, 88);
+      const headline = truncateAtWord(sentence, 100);
       if (headline.length < 20 || used.has(headline)) continue;
       intel.push({ headline, editorialContext: null, tag: classifyNewsTag(headline) });
       used.add(headline);
@@ -683,20 +735,61 @@ function parseNewsIntel(newsPulseText, headlines) {
  * @returns {DailyBriefingDigest}
  */
 export function buildDailyBriefingDigest({
-  chatSummary = null,
-  chatStatus  = null,
-  games       = [],
-  headlines   = [],
-  picks       = [],
-  atsLeaders  = null,
+  chatSummary    = null,
+  chatStatus     = null,
+  games          = [],        // odds.games (upcoming with spreads)
+  headlines      = [],
+  picks          = [],
+  atsLeaders     = null,
+  scoresYesterday = [],       // yesterday's completed games (for Slide 1 fallback)
+  scores         = [],        // today's all-games from ESPN (for Slide 3 expanded pool)
+  rankingsTop25  = [],        // AP Top 25 (for Slide 2 primary entity source)
 } = {}) {
   const parsed = parseChatbotSummary(chatSummary);
   const hasChatContent = !!chatSummary && parsed.paragraphs.length >= 3;
 
+  // ── Structured recap fallback helper ────────────────────────────────────
+  // Build recap highlights from ESPN completed-game data when chatbot parse fails.
+  function buildHighlightsFromScores(completedGames) {
+    return completedGames
+      .filter(g => {
+        const s = (g.gameStatus || '').toLowerCase();
+        return s.includes('final');
+      })
+      .slice(0, 3)
+      .map(g => {
+        const hs = parseInt(g.homeScore, 10);
+        const as = parseInt(g.awayScore, 10);
+        if (isNaN(hs) || isNaN(as)) return null;
+        const homeWon = hs > as;
+        const winner   = homeWon ? (g.homeTeam || '') : (g.awayTeam || '');
+        const loser    = homeWon ? (g.awayTeam || '') : (g.homeTeam || '');
+        const winScore = homeWon ? hs : as;
+        const lossScore = homeWon ? as : hs;
+        if (!winner || !loser) return null;
+        return {
+          teamA:       winner,
+          teamB:       loser,
+          score:       `${winScore}-${lossScore}`,
+          summaryLine: null,
+        };
+      })
+      .filter(Boolean);
+  }
+
   // ── Slide 1: LAST NIGHT'S SHOCKWAVES ────────────────────────────────────
-  const lastNightHighlights = hasChatContent
+  let lastNightHighlights = hasChatContent
     ? parseLastNightHighlights(parsed.recap)
     : [];
+
+  // Fallback to structured scoresYesterday when chatbot parse returns empty
+  if (!lastNightHighlights.length && scoresYesterday.length > 0) {
+    lastNightHighlights = buildHighlightsFromScores(scoresYesterday);
+  }
+  // Final fallback: today's completed games
+  if (!lastNightHighlights.length && scores.length > 0) {
+    lastNightHighlights = buildHighlightsFromScores(scores);
+  }
 
   const leadNarrative = hasChatContent
     ? truncateAtWord(stripMarkdown(parsed.recap), 200)
@@ -725,9 +818,24 @@ export function buildDailyBriefingDigest({
     : '';
 
   // ── Slide 3: TODAY'S GAMES TO WATCH ─────────────────────────────────────
+  // Expand game pool: odds games first, then all ESPN schedule games (deduplicated)
+  // This lets chatbot-mentioned marquee teams be found even without spread data.
+  const upcomingScores = scores.filter(g => {
+    const s = (g.gameStatus || '').toLowerCase();
+    return !s.includes('final');
+  });
+  const seenGameKeys = new Set(
+    games.map(g => `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`)
+  );
+  const extraGames = upcomingScores.filter(g => {
+    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    return !seenGameKeys.has(key);
+  });
+  const expandedGamePool = [...games, ...extraGames];
+
   const gamesToWatch = hasChatContent
-    ? parseGamesToWatch(parsed.todayTomorrow, parsed.newsPulse, games)
-    : games.slice(0, 4).map(g => ({
+    ? parseGamesToWatch(parsed.todayTomorrow, parsed.newsPulse, expandedGamePool)
+    : expandedGamePool.slice(0, 4).map(g => ({
         matchup:   `${g.awayTeam || ''} @ ${g.homeTeam || ''}`,
         away:      g.awayTeam || '',
         home:      g.homeTeam || '',
@@ -743,8 +851,8 @@ export function buildDailyBriefingDigest({
     : '';
 
   const watchGameFramings = hasChatContent
-    ? buildWatchFramings(parsed.todayTomorrow, parsed.newsPulse, games)
-    : games.slice(0, 3).map(g => ({
+    ? buildWatchFramings(parsed.todayTomorrow, parsed.newsPulse, expandedGamePool)
+    : expandedGamePool.slice(0, 3).map(g => ({
         away:    g.awayTeam || '',
         home:    g.homeTeam || '',
         spread:  g.spread ?? g.homeSpread ?? null,
@@ -759,9 +867,25 @@ export function buildDailyBriefingDigest({
     atsLeaders,
   );
 
-  const atsContextText = hasChatContent && parsed.atsSpotlight
-    ? truncateAtWord(stripMarkdown(parsed.atsSpotlight), 190)
-    : '';
+  // Prefer structured ATS data for the context sentence so the framing matches the cards.
+  // If structured leaders are available, build from them directly; otherwise fall back to chatbot ¶4.
+  function buildAtsContextFromEdges(edges) {
+    if (!edges.length) return '';
+    const leader = edges[0];
+    const pct    = leader.atsRate != null ? Math.round(leader.atsRate) : null;
+    const tf     = leader.timeframe || 'last 30';
+    const wl     = leader.wl ? ` (${leader.wl})` : '';
+    if (pct != null) {
+      return `ATS SPOTLIGHT: ${leader.team} is covering ${pct}%${wl} ${tf} — one of the strongest persistent edges in CBB right now.`;
+    }
+    return `ATS SPOTLIGHT: ${leader.team} leads the conference in ATS performance ${tf}.`;
+  }
+
+  const atsContextText = atsEdges.length > 0
+    ? buildAtsContextFromEdges(atsEdges)
+    : (hasChatContent && parsed.atsSpotlight
+      ? truncateAtWord(stripMarkdown(parsed.atsSpotlight), 190)
+      : '');
 
   const bettingAngle = hasChatContent
     ? extractBettingAngle(parsed.atsSpotlight)
@@ -818,6 +942,8 @@ export function buildDailyBriefingDigest({
     // Caption
     voiceLine,
     captionNarrative,
+    // Structured reference data (passed through for slide use)
+    rankingsTop25,  // AP Top 25 array — used by Slide 2 as canonical entity source
     // Raw paragraphs (debug only)
     _parsed: hasChatContent ? parsed : null,
   };

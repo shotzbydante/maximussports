@@ -13,89 +13,103 @@ function makeTeam(name) {
   return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
 
+/**
+ * Build the ranked entry list for Slide 2.
+ *
+ * Source-of-truth rules:
+ *   1. AP rankings (canonical ESPN team names — always reliable)
+ *   2. Overlay chatbot-parsed odds onto matching ranked teams (by slug)
+ *   3. Never display chatbot-parsed team names directly as entities
+ *
+ * The chatbot ¶2 text only provides the framing sentence (titleMarketLead),
+ * NOT the team entity list.
+ */
+function buildRaceEntries(rankingsTop25, titleRace) {
+  // Build canonical entries from AP rankings
+  const rankEntries = (rankingsTop25 ?? []).slice(0, 8).map((r, idx) => {
+    const teamName = r.teamName || r.name || r.team || '';
+    if (!teamName) return null;
+    const teamObj = makeTeam(teamName);
+    return {
+      team:               teamObj?.name || teamName,
+      slug:               teamObj?.slug || null,
+      rank:               r.rank ?? (idx + 1),
+      americanOdds:       null,
+      impliedProbability: null,
+      commentary:         '',
+    };
+  }).filter(Boolean);
+
+  if (!rankEntries.length) return { entries: [], hasOdds: false };
+
+  // Build a slug → odds lookup from chatbot-parsed titleRace
+  // Only use entries whose team name slug-resolves (prevents fragments from entering)
+  const oddsMap = {};
+  for (const tr of (titleRace ?? [])) {
+    const slug = getTeamSlug(tr.team);
+    if (slug && tr.americanOdds && tr.impliedProbability != null && tr.impliedProbability > 0) {
+      oddsMap[slug] = {
+        americanOdds:       tr.americanOdds,
+        impliedProbability: tr.impliedProbability,
+        commentary:         tr.commentary || '',
+      };
+    }
+  }
+
+  // Overlay chatbot odds onto matching ranked teams
+  let hasOdds = false;
+  const enriched = rankEntries.map(e => {
+    if (e.slug && oddsMap[e.slug]) {
+      hasOdds = true;
+      return { ...e, ...oddsMap[e.slug] };
+    }
+    return e;
+  });
+
+  return { entries: enriched, hasOdds };
+}
+
 export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
   const isRobot = styleMode === 'robot';
 
-  const digest    = data?.chatDigest ?? null;
+  const digest = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  // ¶2 → title race entries from chatbot parsing (tier 1)
-  let raceEntries = hasDigest ? (digest.titleRace ?? []) : [];
-  let dataMode = 'odds'; // 'odds' | 'rankings'
+  // Primary entity source: AP rankings (from digest passthrough or direct dashData)
+  const rankingsTop25 = digest?.rankingsTop25?.length
+    ? digest.rankingsTop25
+    : (data?.rankingsTop25 ?? []);
 
-  // Tier 2: raw championship odds map
-  if (!raceEntries.length) {
-    const raw = data?.champOdds ?? data?.championshipOdds ?? null;
-    if (raw) {
-      const entries = Array.isArray(raw)
-        ? raw
-        : Object.entries(raw).map(([team, odds]) => ({ team, odds }));
+  // Chatbot titleRace provides optional odds overlay (post-fix, slug-validated only)
+  const titleRace = hasDigest ? (digest.titleRace ?? []) : [];
 
-      const built = entries.slice(0, 8).reduce((acc, e) => {
-        const team = e.team || e.name || '';
-        if (!team) return acc;
-        const oddsRaw = parseInt(e.americanOdds ?? e.odds ?? '0', 10);
-        if (!oddsRaw) return acc;
-        const impl = oddsRaw < 0
-          ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
-          : Math.round((100 / (oddsRaw + 100)) * 100);
-        acc.push({
-          team,
-          americanOdds: oddsRaw > 0 ? `+${oddsRaw}` : String(oddsRaw),
-          impliedProbability: impl,
-          commentary: '',
-          rank: null,
-        });
-        return acc;
-      }, []).sort((a, b) => b.impliedProbability - a.impliedProbability);
+  const { entries: raceEntries, hasOdds } = buildRaceEntries(rankingsTop25, titleRace);
 
-      if (built.length > 0) raceEntries = built;
-    }
-  }
-
-  // Tier 3 (guaranteed fallback): AP rankings — this slide can NEVER be blank
-  if (!raceEntries.length) {
-    const rankings = data?.rankings ?? [];
-    if (rankings.length > 0) {
-      dataMode = 'rankings';
-      raceEntries = rankings.slice(0, 8).map((r, idx) => {
-        const team = r.teamName || r.name || r.team || '';
-        if (!team) return null;
-        return {
-          team,
-          rank: r.rank ?? (idx + 1),
-          americanOdds: null,
-          impliedProbability: null,
-          commentary: '',
-        };
-      }).filter(Boolean);
-    }
-  }
-
-  // ¶2 → first punchy market framing sentence
+  // ¶2 → first punchy market framing sentence (chatbot provides copy, not entities)
   const marketLead = hasDigest
-    ? (digest.titleMarketLead || digest.atsContextText || '')
+    ? (digest.titleMarketLead || '')
     : '';
 
-  const maxBar = raceEntries.length > 0 && raceEntries[0]?.impliedProbability != null
-    ? Math.max(...raceEntries.map(e => e.impliedProbability ?? 0))
+  const maxBar = hasOdds
+    ? Math.max(...raceEntries.map(e => e.impliedProbability ?? 0), 1)
     : 100;
 
-  const isRankingsFallback = dataMode === 'rankings';
+  // Determine display mode
+  const showOddsBars = hasOdds;
+  const showRankings = !showOddsBars;
 
   return (
     <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
         <div className={styles.titleSup}>
-          {isRankingsFallback ? 'TOP CONTENDERS' : 'CHAMPIONSHIP ODDS'}
+          {showRankings ? 'TOP CONTENDERS' : 'CHAMPIONSHIP ODDS'}
         </div>
         <h2 className={styles.title}>
-          {isRankingsFallback ? 'TITLE\nRACE' : 'TITLE\nMARKET'}
+          {showRankings ? 'TITLE\nRACE' : 'TITLE\nMARKET'}
         </h2>
       </div>
 
-      {/* ¶2 market framing sentence */}
       {marketLead && (
         <div className={styles.marketLead}>{marketLead}</div>
       )}
@@ -104,43 +118,13 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
 
       {raceEntries.length === 0 ? (
         <div className={styles.emptyState}>
-          <p className={styles.emptyText}>Market data unavailable.</p>
+          <p className={styles.emptyText}>Rankings data unavailable.</p>
         </div>
-      ) : isRankingsFallback ? (
-        /* Rankings fallback: show rank-based contenders list */
-        <div className={styles.leaderboard}>
-          {raceEntries.slice(0, 8).map((entry, i) => {
-            const teamObj = makeTeam(entry.team);
-            const isFavorite = i === 0;
-            return (
-              <div
-                key={i}
-                className={`${styles.leaderRow} ${styles.leaderRowRank} ${isFavorite ? styles.leaderRowTop : ''}`}
-              >
-                <span className={`${styles.leaderRank} ${i < 3 ? styles.leaderRankHighlight : ''}`}>
-                  #{entry.rank ?? (i + 1)}
-                </span>
-
-                <div className={styles.leaderLogoWrap}>
-                  <TeamLogo team={teamObj} size={40} />
-                </div>
-
-                <div className={styles.leaderInfo}>
-                  <div className={styles.leaderTeam}>{teamObj?.name || entry.team}</div>
-                </div>
-
-                {i < 3 && (
-                  <span className={styles.trophyIcon}>🏆</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* Normal mode: championship odds with probability bars */
+      ) : showOddsBars ? (
+        /* Odds mode: probability bars + odds pill */
         <div className={styles.leaderboard}>
           {raceEntries.slice(0, 6).map((entry, i) => {
-            const barWidth = maxBar > 0 && entry.impliedProbability != null
+            const barWidth = entry.impliedProbability != null && maxBar > 0
               ? Math.round((entry.impliedProbability / maxBar) * 100)
               : 0;
             const isFavorite = i === 0;
@@ -184,14 +168,44 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
             );
           })}
         </div>
+      ) : (
+        /* Rankings mode: AP rank + team + trophy for top 3 */
+        <div className={styles.leaderboard}>
+          {raceEntries.slice(0, 8).map((entry, i) => {
+            const isFavorite = i === 0;
+            const teamObj = makeTeam(entry.team);
+            return (
+              <div
+                key={i}
+                className={`${styles.leaderRow} ${styles.leaderRowRank} ${isFavorite ? styles.leaderRowTop : ''}`}
+              >
+                <span className={`${styles.leaderRank} ${i < 3 ? styles.leaderRankHighlight : ''}`}>
+                  #{entry.rank ?? (i + 1)}
+                </span>
+
+                <div className={styles.leaderLogoWrap}>
+                  <TeamLogo team={teamObj} size={40} />
+                </div>
+
+                <div className={styles.leaderInfo}>
+                  <div className={styles.leaderTeam}>{teamObj?.name || entry.team}</div>
+                </div>
+
+                {i < 3 && (
+                  <span className={styles.trophyIcon}>🏆</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <div className={styles.footNote}>
-        {isRankingsFallback
-          ? 'Based on AP Top 25 rankings. Futures market data pending.'
-          : isRobot
-          ? 'Title odds from market data. Not financial advice.'
-          : 'Implied probability from championship futures market.'}
+        {showOddsBars
+          ? (isRobot
+            ? 'Title odds from market data. Not financial advice.'
+            : 'Implied probability from championship futures market.')
+          : 'AP Top 25 rankings. Futures odds updating.'}
       </div>
     </SlideShell>
   );

@@ -11,6 +11,14 @@ const TAG_COLORS = {
   COACHING: { color: '#cc5de8', bg: 'rgba(204,93,232,0.10)',  border: 'rgba(204,93,232,0.25)'  },
 };
 
+/** Strip chatbot section label prefixes that sometimes leak into bullet text */
+const SECTION_LABEL_RE = /^(?:YESTERDAY\s+RECAP|ODDS?\s+PULSE|TODAY(?:'S)?\s+GAMES?|ATS\s+SPOTLIGHT|NEWS\s+PULSE(?:\s*\+\s*CLOSER)?|SCORES?)\s*[:\-–]\s*/i;
+
+function cleanBulletText(text) {
+  if (!text) return '';
+  return text.replace(SECTION_LABEL_RE, '').trim();
+}
+
 export default function DailyBriefingSlide5({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
   const isRobot = styleMode === 'robot';
@@ -18,11 +26,18 @@ export default function DailyBriefingSlide5({ data, asOf, options = {}, ...rest 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  // ¶5 → opening march/chaos framing sentence
-  const newsLead = hasDigest ? (digest.newsLead || '') : '';
+  // ¶5 → opening march/chaos framing sentence (strip any label prefix)
+  const newsLead = hasDigest
+    ? cleanBulletText(digest.newsLead || '')
+    : '';
 
-  // ¶5 → editorial intel bullets (always aim for 3)
-  let intelItems = hasDigest ? (digest.newsIntel ?? []) : [];
+  // ¶5 → editorial intel bullets (always aim for 3), cleaned of label prefixes
+  let intelItems = hasDigest
+    ? (digest.newsIntel ?? []).map(item => ({
+        ...item,
+        headline: cleanBulletText(item.headline),
+      })).filter(item => item.headline.length > 15)
+    : [];
 
   // Fallback: raw headlines (always fill to 3)
   if (intelItems.length < 3) {

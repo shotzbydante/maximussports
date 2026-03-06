@@ -27,7 +27,22 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  const games = data?.odds?.games ?? [];
+  const spreadGames = data?.odds?.games ?? [];
+
+  // Build expanded game pool: odds games first, then all ESPN schedule games (deduped)
+  // This ensures chatbot-mentioned marquee matchups can be found even without spreads.
+  const allScores = (data?.scores ?? []).filter(g => {
+    const s = (g.gameStatus || '').toLowerCase();
+    return !s.includes('final');
+  });
+  const seenKeys = new Set(
+    spreadGames.map(g => `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`)
+  );
+  const extraGames = allScores.filter(g => {
+    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    return !seenKeys.has(key);
+  });
+  const games = [...spreadGames, ...extraGames];
 
   // ¶3 → games to watch, max 3 (quality over quantity)
   let gameEntries = [];

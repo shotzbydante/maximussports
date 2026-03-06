@@ -62,6 +62,12 @@ export default async function handler(req, res) {
   );
 
   if (error) {
+    // PostgreSQL unique_violation (23505) means the row already exists — that is success.
+    // ignoreDuplicates may not fully suppress the Supabase error in all versions.
+    const isDuplicate = error.code === '23505' || /duplicate key/i.test(error.message ?? '');
+    if (isDuplicate) {
+      return res.status(200).json({ ok: true, existed: true });
+    }
     console.error('[profile/ensure] upsert error:', error.message);
     return res.status(500).json({ ok: false, error: 'Could not ensure profile row' });
   }
