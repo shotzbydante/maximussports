@@ -6,6 +6,7 @@ import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import { getCached, setCached } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
+import { getPublicationLogoUrl } from '../utils/publicationLogos';
 import styles from './NewsFeed.module.css';
 
 const INTEL_FEED_KEY = 'yt:news:intelFeed';
@@ -200,16 +201,25 @@ function SignalTag({ signal }) {
 }
 
 function ImgPlaceholder({ conference, source, size = 'hero' }) {
+  const isStream = size === 'stream';
+  const logoUrl = isStream ? getPublicationLogoUrl(source) : null;
   const pub = getPublisherConfig(source);
   const background = pub ? pub.bg : getGradient(conference);
-  const isStream = size === 'stream';
   return (
     <div
       className={`${styles.imgPlaceholder} ${isStream ? styles.imgPlaceholderStream : ''}`}
       style={{ background }}
       aria-hidden
     >
-      {pub ? (
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt=""
+          className={styles.pubLogoImg}
+          loading="lazy"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      ) : pub ? (
         <span className={`${styles.publisherWrap} ${isStream ? styles.publisherWrapStream : ''}`}>
           {pub.lines.map((line, i) => (
             <span key={i} className={styles.publisherLine}>{line}</span>
@@ -305,6 +315,16 @@ export default function NewsFeed() {
       feed,
     });
   }, []);
+
+  const handleSeeMoreVideos = useCallback(() => {
+    handleModeChange('videos');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [handleModeChange]);
+
+  const handleSeeMoreStories = useCallback(() => {
+    handleModeChange('stories');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [handleModeChange]);
 
   // Intel Feed videos — blended NCAAM content, cache-first
   const [intelVideos, setIntelVideos] = useState(() => getCached(INTEL_FEED_KEY) ?? []);
@@ -458,15 +478,25 @@ export default function NewsFeed() {
         <div className={styles.content}>
 
           {/* ══════════════════════════════════════════════════════════════
-              ALL VIEW — UNIFIED RESPONSIVE LAYOUT (mobile + desktop)
+              ALL VIEW — clean two-section layout (mobile + desktop)
               ══════════════════════════════════════════════════════════════ */}
           {activeConf === 'All' && (
-
             <>
               {/* Section 1: Top Videos — 2-col mobile / 3-col desktop */}
               {intelVideos.length > 0 && contentMode !== 'stories' && (
                 <section className={styles.topVideosSection} aria-label="Top videos">
-                  <h2 className={styles.sectionHeading}>Top Videos</h2>
+                  <div className={styles.sectionHeadingRow}>
+                    <h2 className={styles.sectionHeading}>Top Videos</h2>
+                    {contentMode === 'all' && (
+                      <button
+                        type="button"
+                        className={styles.sectionCta}
+                        onClick={handleSeeMoreVideos}
+                      >
+                        See more videos →
+                      </button>
+                    )}
+                  </div>
                   <div className={styles.topVideosGrid}>
                     {intelVideos.slice(0, contentMode === 'videos' ? 12 : 6).map((v, idx) => (
                       <div key={v.videoId || idx} className={styles.topVideoItem}>
@@ -480,60 +510,28 @@ export default function NewsFeed() {
                 </section>
               )}
 
-              {/* Section 2: Top Stories headline list */}
+              {/* Section 2: Stories — 10 in "all" mode, all items in "stories" mode */}
               {enriched.length > 0 && contentMode !== 'videos' && (
                 <section
                   className={styles.topStoriesDesktopSection}
-                  aria-label="Top stories"
+                  aria-label={contentMode === 'stories' ? 'All stories' : 'Top stories'}
                 >
-                  <h2 className={styles.sectionHeading}>Top Stories</h2>
-                  <div className={styles.streamList} role="list">
-                    {enriched.slice(0, 6).map((item, idx) => (
-                      <a
-                        key={item.id}
-                        href={item.link || '#'}
-                        target={item.link ? '_blank' : undefined}
-                        rel="noopener noreferrer"
-                        className={styles.streamCard}
-                        aria-label={item.title}
-                        role="listitem"
-                        onClick={() => handleArticleOpen(item, idx, 'top-stories')}
+                  <div className={styles.sectionHeadingRow}>
+                    <h2 className={styles.sectionHeading}>
+                      {contentMode === 'stories' ? 'All Stories' : 'Top Stories'}
+                    </h2>
+                    {contentMode === 'all' && (
+                      <button
+                        type="button"
+                        className={styles.sectionCta}
+                        onClick={handleSeeMoreStories}
                       >
-                        <div className={styles.streamThumb} aria-hidden>
-                          <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
-                        </div>
-                        <div className={styles.streamBody}>
-                          <div className={styles.streamMeta}>
-                            <SourceBadge source={item.source} />
-                            {item.conference && <ConfPill conference={item.conference} />}
-                            {item.signal && <SignalTag signal={item.signal} />}
-                            <span className={styles.time}>{item.time}</span>
-                          </div>
-                          <p className={styles.streamHeadline}>{item.title}</p>
-                          {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
-                        </div>
-                      </a>
-                    ))}
+                        See more stories →
+                      </button>
+                    )}
                   </div>
-                </section>
-              )}
-
-              {/* Ad slot — hidden in videos-only mode */}
-              {contentMode !== 'videos' && (
-                <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
-                  Sponsored · Premium analysis
-                </div>
-              )}
-
-              {/* Section 3: More News */}
-              {enriched.length > 6 && contentMode !== 'videos' && (
-                <section
-                  className={styles.streamSection}
-                  aria-label="More news"
-                >
-                  <h2 className={styles.sectionHeading}>More News</h2>
                   <div className={styles.streamList} role="list">
-                    {enriched.slice(6).map((item, idx) => (
+                    {(contentMode === 'all' ? enriched.slice(0, 10) : enriched).map((item, idx) => (
                       <Fragment key={item.id}>
                         <a
                           href={item.link || '#'}
@@ -542,7 +540,7 @@ export default function NewsFeed() {
                           className={styles.streamCard}
                           aria-label={item.title}
                           role="listitem"
-                          onClick={() => handleArticleOpen(item, idx + 6, 'all')}
+                          onClick={() => handleArticleOpen(item, idx, 'top-stories')}
                         >
                           <div className={styles.streamThumb} aria-hidden>
                             <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
@@ -558,7 +556,7 @@ export default function NewsFeed() {
                             {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
                           </div>
                         </a>
-                        {(idx + 1) % 8 === 0 && (
+                        {contentMode === 'stories' && (idx + 1) % 8 === 0 && (
                           <div
                             className={`${styles.adSlot} ${styles.adSlotInline}`}
                             aria-hidden
@@ -571,6 +569,13 @@ export default function NewsFeed() {
                     ))}
                   </div>
                 </section>
+              )}
+
+              {/* Ad slot — hidden in videos-only mode */}
+              {contentMode !== 'videos' && (
+                <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
+                  Sponsored · Premium analysis
+                </div>
               )}
             </>
           )}

@@ -991,6 +991,57 @@
   margin-bottom: var(--space-xl);
 }
 
+/* ─── Section heading row: label + right-aligned CTA ─────────────────────── */
+
+.sectionHeadingRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+/* Override the heading's own bottom margin since the row handles it */
+.sectionHeadingRow .sectionHeading {
+  margin-bottom: 0;
+}
+
+.sectionCta {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.8;
+  white-space: nowrap;
+  transition: opacity 0.12s;
+  text-decoration: none;
+}
+
+.sectionCta:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ─── Publication logo image inside stream thumbnail ─────────────────────── */
+
+.pubLogoImg {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+  display: block;
+  /* crisp rendering for small icons */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
 /* ─── Legacy Blended Hero (kept, no longer used in All view) ─────────────── */
 
 .heroBlendSection {
