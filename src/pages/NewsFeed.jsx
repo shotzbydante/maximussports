@@ -10,41 +10,13 @@ import { getPublicationLogoUrl } from '../utils/publicationLogos';
 import styles from './NewsFeed.module.css';
 
 const INTEL_FEED_KEY = 'yt:news:intelFeed';
-const INTEL_FEED_TTL = 15 * 60 * 1000; // 15 min client-side cache
+const INTEL_FEED_TTL = 15 * 60 * 1000;
 
-// ─── YouTube query helpers ────────────────────────────────────────────────────
+const ytDebug =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).has('debugYT');
 
-/** Publisher names to append for relevance bias (key: lowercased source name) */
-const PUBLISHER_BIAS = {
-  'espn':           'ESPN',
-  'cbs sports':     'CBS Sports',
-  'fox sports':     'FOX Sports',
-  'the athletic':   'The Athletic',
-  'bleacher report':'Bleacher Report',
-  'nbc sports':     'NBC Sports',
-};
-
-/**
- * Sanitize a news headline for use as a YouTube search query.
- */
-function sanitizeHeroQuery(title, source) {
-  const q = (title ?? '')
-    .replace(/[^\w\s'''-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80);
-
-  const pub = PUBLISHER_BIAS[(source || '').toLowerCase()];
-  if (pub && (q.length + 1 + pub.length) <= 120) {
-    return `${q} ${pub}`;
-  }
-  return q;
-}
-
-const ytDebug = typeof window !== 'undefined'
-  && new URLSearchParams(window.location.search).has('debugYT');
-
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const CONF_ORDER = ['All', 'Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
 
@@ -67,59 +39,50 @@ const CONF_GRADIENT = {
   default:    'linear-gradient(135deg, #1e2a3a 0%, #374151 100%)',
 };
 
-const CONF_INITIALS = {
-  'Big Ten':  'B10',
-  'SEC':      'SEC',
-  'ACC':      'ACC',
-  'Big 12':   'B12',
-  'Big East': 'BE',
-  'Others':   '—',
-};
-
-/* ─── Publisher branding for no-image fallback cards ──────────────────────── */
 const PUBLISHER_CONFIG = {
-  'yahoo sports':  { lines: ['YAHOO', 'SPORTS'],   bg: 'linear-gradient(135deg, #3d0070 0%, #7b1fa2 100%)' },
-  'cbs sports':    { lines: ['CBS', 'SPORTS'],     bg: 'linear-gradient(135deg, #12235a 0%, #1565c0 100%)' },
-  'espn':          { lines: ['ESPN'],              bg: 'linear-gradient(135deg, #6d0000 0%, #c62828 100%)' },
-  'fox sports':    { lines: ['FOX', 'SPORTS'],     bg: 'linear-gradient(135deg, #2a1200 0%, #d84315 100%)' },
-  'the athletic':  { lines: ['THE', 'ATHLETIC'],   bg: 'linear-gradient(135deg, #111 0%, #2d3748 100%)' },
-  '247sports':     { lines: ['247', 'SPORTS'],     bg: 'linear-gradient(135deg, #1a0000 0%, #991b1b 100%)' },
-  'bleacher report': { lines: ['B/R'],             bg: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)' },
+  'yahoo sports':    { lines: ['YAHOO', 'SPORTS'],   bg: 'linear-gradient(135deg, #3d0070 0%, #7b1fa2 100%)' },
+  'cbs sports':      { lines: ['CBS', 'SPORTS'],     bg: 'linear-gradient(135deg, #12235a 0%, #1565c0 100%)' },
+  'espn':            { lines: ['ESPN'],              bg: 'linear-gradient(135deg, #6d0000 0%, #c62828 100%)' },
+  'fox sports':      { lines: ['FOX', 'SPORTS'],     bg: 'linear-gradient(135deg, #2a1200 0%, #d84315 100%)' },
+  'the athletic':    { lines: ['THE', 'ATHLETIC'],   bg: 'linear-gradient(135deg, #111 0%, #2d3748 100%)' },
+  '247sports':       { lines: ['247', 'SPORTS'],     bg: 'linear-gradient(135deg, #1a0000 0%, #991b1b 100%)' },
+  'bleacher report': { lines: ['B/R'],               bg: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)' },
 };
 
 function getPublisherConfig(source) {
   return PUBLISHER_CONFIG[(source || '').toLowerCase()] ?? null;
 }
 
+function getGradient(conf) {
+  return CONF_GRADIENT[conf] || CONF_GRADIENT.default;
+}
+
 const SIGNAL_PATTERNS = [
-  { re: /\bupset\b/i,                                        tag: 'Upset',     cls: styles.signalUpset     },
-  { re: /\binjur(y|ies|ed|ing)\b/i,                          tag: 'Injury',    cls: styles.signalInjury    },
-  { re: /\brecruit(ing|ment|s|ed)?\b/i,                       tag: 'Recruiting',cls: styles.signalRecruiting },
-  { re: /\b(fired|hired|resign(s|ed)?|coaching staff)\b/i,   tag: 'Coaching',  cls: styles.signalCoaching  },
-  { re: /\b(ranked|ranking|rankings|top 25|ap poll)\b/i,     tag: 'Rankings',  cls: styles.signalRankings  },
-  { re: /\bbubble\b/i,                                        tag: 'Bubble',    cls: styles.signalBubble    },
-  { re: /\btransfer portal\b/i,                               tag: 'Transfer',  cls: styles.signalTransfer  },
+  { re: /\bupset\b/i,                                        tag: 'Upset',      cls: styles.signalUpset      },
+  { re: /\binjur(y|ies|ed|ing)\b/i,                          tag: 'Injury',     cls: styles.signalInjury     },
+  { re: /\brecruit(ing|ment|s|ed)?\b/i,                       tag: 'Recruiting', cls: styles.signalRecruiting },
+  { re: /\b(fired|hired|resign(s|ed)?|coaching staff)\b/i,   tag: 'Coaching',   cls: styles.signalCoaching   },
+  { re: /\b(ranked|ranking|rankings|top 25|ap poll)\b/i,     tag: 'Rankings',   cls: styles.signalRankings   },
+  { re: /\bbubble\b/i,                                        tag: 'Bubble',     cls: styles.signalBubble     },
+  { re: /\btransfer portal\b/i,                               tag: 'Transfer',   cls: styles.signalTransfer   },
 ];
 
-// Build a fast lookup: [{ tokens, conference }]
 const TEAM_TOKENS = TEAMS.map((t) => ({
   tokens: t.name.toLowerCase().split(/\s+/),
-  full: t.name.toLowerCase(),
+  full:   t.name.toLowerCase(),
   conference: t.conference,
 }));
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function detectConference(title) {
   if (!title) return null;
   const lower = title.toLowerCase();
-
-  if (/\bbig ten\b/i.test(lower)) return 'Big Ten';
-  if (/\b(sec)\b/i.test(lower)) return 'SEC';
-  if (/\b(acc)\b/i.test(lower)) return 'ACC';
+  if (/\bbig ten\b/i.test(lower))             return 'Big Ten';
+  if (/\b(sec)\b/i.test(lower))               return 'SEC';
+  if (/\b(acc)\b/i.test(lower))               return 'ACC';
   if (/\bbig 12\b|\bbig twelve\b/i.test(lower)) return 'Big 12';
-  if (/\bbig east\b/i.test(lower)) return 'Big East';
-
+  if (/\bbig east\b/i.test(lower))            return 'Big East';
   for (const { full, conference } of TEAM_TOKENS) {
     if (lower.includes(full)) return conference;
   }
@@ -138,44 +101,36 @@ function formatRelTime(pubDate) {
   if (!pubDate) return '';
   const d = new Date(pubDate);
   if (isNaN(d.getTime())) return '';
-  const diff = Date.now() - d.getTime();
+  const diff  = Date.now() - d.getTime();
   const mins  = Math.floor(diff / 60_000);
   const hours = Math.floor(diff / 3_600_000);
   const days  = Math.floor(diff / 86_400_000);
-  if (mins  <  1)  return 'just now';
-  if (mins  < 60)  return `${mins}m ago`;
-  if (hours < 24)  return `${hours}h ago`;
-  if (days  <  7)  return `${days}d ago`;
+  if (mins  <  1) return 'just now';
+  if (mins  < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days  <  7) return `${days}d ago`;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function enrichItem(raw, i) {
   return {
-    id:         raw.link || raw.id || `item-${i}`,
-    title:      raw.title || '',
-    source:     raw.source || 'News',
-    time:       formatRelTime(raw.pubDate),
-    pubDate:    raw.pubDate || null,
-    link:       raw.link || null,
+    id:        raw.link || raw.id || `item-${i}`,
+    title:     raw.title || '',
+    source:    raw.source || 'News',
+    time:      formatRelTime(raw.pubDate),
+    pubDate:   raw.pubDate || null,
+    link:      raw.link || null,
+    thumbnail: raw.image || raw.imageUrl || raw.thumbnail
+               || raw.media?.[0]?.url || raw.enclosure?.url || null,
     conference: raw.conference || detectConference(raw.title),
-    signal:     detectSignal(raw.title),
-    excerpt:    raw.excerpt || raw.description || '',
-    _type:      'article',
+    signal:    detectSignal(raw.title),
+    excerpt:   raw.excerpt || raw.description || '',
+    _type:     'article',
   };
 }
 
 function getConfStyle(conf) {
   return CONF_COLORS[conf] || { bg: 'rgba(100,100,100,0.08)', text: 'var(--color-text-muted)' };
-}
-
-function getGradient(conf) {
-  return CONF_GRADIENT[conf] || CONF_GRADIENT.default;
-}
-
-function getInitials(conf, source) {
-  if (conf && CONF_INITIALS[conf]) return CONF_INITIALS[conf];
-  if (source) return source.slice(0, 3).toUpperCase();
-  return '—';
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -200,38 +155,57 @@ function SignalTag({ signal }) {
   return <span className={`${styles.signalTag} ${signal.cls}`}>{signal.tag}</span>;
 }
 
-function ImgPlaceholder({ conference, source, size = 'hero' }) {
-  const isStream = size === 'stream';
-  const logoUrl = isStream ? getPublicationLogoUrl(source) : null;
+/**
+ * Logo chip: shows the publication favicon in a clean 36×36 container.
+ * Falls back to a branded gradient with initials if the favicon fails to load.
+ */
+function LogoChip({ source, conference }) {
+  const [failed, setFailed] = useState(false);
+  const logoUrl = !failed ? getPublicationLogoUrl(source) : null;
   const pub = getPublisherConfig(source);
-  const background = pub ? pub.bg : getGradient(conference);
-  return (
-    <div
-      className={`${styles.imgPlaceholder} ${isStream ? styles.imgPlaceholderStream : ''}`}
-      style={{ background }}
-      aria-hidden
-    >
-      {logoUrl ? (
+  const fallbackBg = pub ? pub.bg : getGradient(conference);
+  const initials = source
+    ? source.replace(/^(?:the|a)\s+/i, '').slice(0, 2).toUpperCase()
+    : '—';
+
+  if (logoUrl) {
+    return (
+      <div className={styles.logoChip}>
         <img
           src={logoUrl}
           alt=""
-          className={styles.pubLogoImg}
+          className={styles.logoChipImg}
           loading="lazy"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          onError={() => setFailed(true)}
         />
-      ) : pub ? (
-        <span className={`${styles.publisherWrap} ${isStream ? styles.publisherWrapStream : ''}`}>
-          {pub.lines.map((line, i) => (
-            <span key={i} className={styles.publisherLine}>{line}</span>
-          ))}
-        </span>
-      ) : (
-        <span className={isStream ? styles.imgInitialsStream : styles.imgInitials}>
-          {getInitials(conference, source)}
-        </span>
-      )}
+      </div>
+    );
+  }
+  return (
+    <div className={styles.logoChip} style={{ background: fallbackBg }}>
+      <span className={styles.logoChipInitials}>{initials}</span>
     </div>
   );
+}
+
+/**
+ * Renders article thumbnail if available; otherwise falls back to LogoChip.
+ */
+function StreamThumbCell({ item }) {
+  const [thumbFailed, setThumbFailed] = useState(false);
+
+  if (item.thumbnail && !thumbFailed) {
+    return (
+      <img
+        src={item.thumbnail}
+        alt=""
+        className={styles.streamThumbImage}
+        loading="lazy"
+        onError={() => setThumbFailed(true)}
+      />
+    );
+  }
+  return <LogoChip source={item.source} conference={item.conference} />;
 }
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
@@ -252,36 +226,33 @@ function LoadingSkeleton() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-// Content-mode options
 const CONTENT_MODES = [
-  { id: 'all',    label: 'All'     },
-  { id: 'videos', label: 'Videos'  },
-  { id: 'stories',label: 'Stories' },
+  { id: 'all',     label: 'All'     },
+  { id: 'videos',  label: 'Videos'  },
+  { id: 'stories', label: 'Stories' },
 ];
 
 export default function NewsFeed() {
-  const [rawItems, setRawItems] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [activeConf, setActiveConf] = useState('All');
-  const [contentMode, setContentMode] = useState('all'); // 'all' | 'videos' | 'stories'
-
-  // Hero video (article-related) — desktop only
-  const [heroVideo, setHeroVideo] = useState(null);
+  const [rawItems,    setRawItems]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
+  const [activeConf,  setActiveConf]  = useState('All');
+  const [contentMode, setContentMode] = useState('all');
   const [activeVideo, setActiveVideo] = useState(null);
+
+  const [intelVideos, setIntelVideos] = useState(() => getCached(INTEL_FEED_KEY) ?? []);
 
   // Track news_view once on mount
   useEffect(() => {
     track('news_view', { view: 'all', conference: null });
   }, []);
 
-  // Content-mode change handler
+  // Handlers
   const handleModeChange = useCallback((mode) => {
     setContentMode(mode);
     track('news_filter_change', { filter: 'content_mode', value: mode });
   }, []);
 
-  // Tracked conf filter change handler
   const handleConfChange = useCallback((conf) => {
     setActiveConf(conf);
     if (conf !== activeConf) {
@@ -292,7 +263,6 @@ export default function NewsFeed() {
     }
   }, [activeConf]);
 
-  // Tracked video open
   const handleVideoSelect = useCallback((video, source = 'news') => {
     track('video_modal_open', {
       video_id: video?.videoId,
@@ -303,9 +273,8 @@ export default function NewsFeed() {
     setActiveVideo(video);
   }, [activeConf]);
 
-  // Tracked article open
   const handleArticleOpen = useCallback((item, position, feed = 'all') => {
-    const url = (item?.link ?? '').split('?')[0].slice(0, 200); // strip query params
+    const url = (item?.link ?? '').split('?')[0].slice(0, 200);
     track('intel_item_open', {
       type:     'article',
       id:       url,
@@ -326,9 +295,7 @@ export default function NewsFeed() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [handleModeChange]);
 
-  // Intel Feed videos — blended NCAAM content, cache-first
-  const [intelVideos, setIntelVideos] = useState(() => getCached(INTEL_FEED_KEY) ?? []);
-
+  // Fetch news headlines
   useEffect(() => {
     setLoading(true);
     fetchHome()
@@ -337,9 +304,9 @@ export default function NewsFeed() {
       .finally(()   => setLoading(false));
   }, []);
 
-  // Intel Feed: fetch once on mount, cache 15 min — single call replaces multiple per-team calls
+  // Intel Feed videos: fetch once, cache 15 min
   useEffect(() => {
-    if (getCached(INTEL_FEED_KEY)) return; // already cached
+    if (getCached(INTEL_FEED_KEY)) return;
     const controller = new AbortController();
     const qs = new URLSearchParams();
     if (ytDebug) qs.set('debugYT', '1');
@@ -355,31 +322,18 @@ export default function NewsFeed() {
     return () => controller.abort();
   }, []);
 
-  const enriched = useMemo(() => rawItems.map(enrichItem), [rawItems]);
+  // Enrich and sort by freshness (desc); items with no timestamp go last
+  const enriched = useMemo(() => {
+    const items = rawItems.map(enrichItem);
+    return items.sort((a, b) => {
+      if (!a.pubDate && !b.pubDate) return 0;
+      if (!a.pubDate) return 1;
+      if (!b.pubDate) return -1;
+      return new Date(b.pubDate) - new Date(a.pubDate);
+    });
+  }, [rawItems]);
 
-  // Fetch one video for the hero story whenever the hero title or source changes (desktop)
-  const heroTitle  = enriched[0]?.title  ?? null;
-  const heroSource = enriched[0]?.source ?? null;
-  useEffect(() => {
-    if (!heroTitle) return;
-    let cancelled = false;
-    const q = sanitizeHeroQuery(heroTitle, heroSource);
-    const qs = new URLSearchParams({ q, maxResults: '1' });
-    if (ytDebug) qs.set('debugYT', '1');
-    fetch(`/api/youtube/search?${qs}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) setHeroVideo(data.items?.[0] ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setHeroVideo(null);
-      });
-    return () => { cancelled = true; };
-  }, [heroTitle, heroSource]);
-
-  const displayHeroVideo = heroTitle ? heroVideo : null;
-
-  // Derive which conferences actually appear in the data
+  // Conference filter — applied on stories only, not videos
   const availableConfs = useMemo(() => {
     const seen = new Set();
     for (const item of enriched) {
@@ -393,13 +347,11 @@ export default function NewsFeed() {
     return enriched.filter((item) => item.conference === activeConf);
   }, [enriched, activeConf]);
 
-  // Non-ALL conference view uses the existing magazine sections
-  const hero       = filtered[0]     ?? null;
-  const topStories = filtered.slice(1, 5);
-  const stream     = filtered.slice(5);
+  const hasContent = enriched.length > 0 || intelVideos.length > 0;
 
   return (
     <div className={styles.page}>
+
       {/* ── Premium page header ── */}
       <header className={styles.pageHeader}>
         <div className={styles.pageHeaderTop}>
@@ -436,7 +388,7 @@ export default function NewsFeed() {
             </button>
           ))}
 
-          {/* Conference pills inline on the right — only when viewing all content */}
+          {/* Conference pills — secondary story filter, hidden in videos-only mode */}
           {contentMode !== 'videos' && availableConfs.length > 1 && (
             <div className={styles.confPills} role="group" aria-label="Filter by conference">
               {availableConfs.filter((c) => c !== 'All').map((conf) => (
@@ -462,10 +414,6 @@ export default function NewsFeed() {
       {loading && <LoadingSkeleton />}
       {error   && <p className={styles.error}>{error}</p>}
 
-      {!loading && !error && enriched.length === 0 && (
-        <p className={styles.empty}>No basketball news available. Check back soon.</p>
-      )}
-
       <YouTubeVideoModal
         video={activeVideo}
         onClose={() => {
@@ -474,292 +422,145 @@ export default function NewsFeed() {
         }}
       />
 
-      {!loading && !error && enriched.length > 0 && (
+      {!loading && !error && hasContent && (
         <div className={styles.content}>
 
           {/* ══════════════════════════════════════════════════════════════
-              ALL VIEW — clean two-section layout (mobile + desktop)
+              VIDEOS SECTION
+              Visible in 'all' mode (capped to 6) and 'videos' mode (full).
+              Always uses the global intel feed — not conference-filtered.
               ══════════════════════════════════════════════════════════════ */}
-          {activeConf === 'All' && (
-            <>
-              {/* Section 1: Top Videos — 2-col mobile / 3-col desktop */}
-              {intelVideos.length > 0 && contentMode !== 'stories' && (
-                <section className={styles.topVideosSection} aria-label="Top videos">
-                  <div className={styles.sectionHeadingRow}>
-                    <h2 className={styles.sectionHeading}>Top Videos</h2>
-                    {contentMode === 'all' && (
-                      <button
-                        type="button"
-                        className={styles.sectionCta}
-                        onClick={handleSeeMoreVideos}
-                      >
-                        See more videos →
-                      </button>
-                    )}
+          {(contentMode === 'all' || contentMode === 'videos') && intelVideos.length > 0 && (
+            <section className={styles.topVideosSection} aria-label="Top videos">
+              <div className={styles.sectionHeadingRow}>
+                <h2 className={styles.sectionHeading}>Top Videos</h2>
+                {contentMode === 'all' && (
+                  <button
+                    type="button"
+                    className={styles.sectionCta}
+                    onClick={handleSeeMoreVideos}
+                  >
+                    {intelVideos.length > 6
+                      ? `See more videos (${intelVideos.length}) →`
+                      : 'See more videos →'}
+                  </button>
+                )}
+              </div>
+              <div className={styles.topVideosGrid}>
+                {(contentMode === 'videos' ? intelVideos : intelVideos.slice(0, 6)).map((v, idx) => (
+                  <div key={v.videoId || idx} className={styles.topVideoItem}>
+                    <YouTubeVideoCard
+                      video={v}
+                      onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
+                    />
                   </div>
-                  <div className={styles.topVideosGrid}>
-                    {intelVideos.slice(0, contentMode === 'videos' ? 12 : 6).map((v, idx) => (
-                      <div key={v.videoId || idx} className={styles.topVideoItem}>
-                        <YouTubeVideoCard
-                          video={v}
-                          onSelect={(v) => handleVideoSelect(v, 'intelFeed')}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                ))}
+              </div>
+            </section>
+          )}
 
-              {/* Section 2: Stories — 10 in "all" mode, all items in "stories" mode */}
-              {enriched.length > 0 && contentMode !== 'videos' && (
-                <section
-                  className={styles.topStoriesDesktopSection}
-                  aria-label={contentMode === 'stories' ? 'All stories' : 'Top stories'}
-                >
-                  <div className={styles.sectionHeadingRow}>
-                    <h2 className={styles.sectionHeading}>
-                      {contentMode === 'stories' ? 'All Stories' : 'Top Stories'}
-                    </h2>
-                    {contentMode === 'all' && (
-                      <button
-                        type="button"
-                        className={styles.sectionCta}
-                        onClick={handleSeeMoreStories}
-                      >
-                        See more stories →
-                      </button>
-                    )}
-                  </div>
-                  <div className={styles.streamList} role="list">
-                    {(contentMode === 'all' ? enriched.slice(0, 10) : enriched).map((item, idx) => (
-                      <Fragment key={item.id}>
-                        <a
-                          href={item.link || '#'}
-                          target={item.link ? '_blank' : undefined}
-                          rel="noopener noreferrer"
-                          className={styles.streamCard}
-                          aria-label={item.title}
-                          role="listitem"
-                          onClick={() => handleArticleOpen(item, idx, 'top-stories')}
-                        >
-                          <div className={styles.streamThumb} aria-hidden>
-                            <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
-                          </div>
-                          <div className={styles.streamBody}>
-                            <div className={styles.streamMeta}>
-                              <SourceBadge source={item.source} />
-                              {item.conference && <ConfPill conference={item.conference} />}
-                              {item.signal && <SignalTag signal={item.signal} />}
-                              <span className={styles.time}>{item.time}</span>
-                            </div>
-                            <p className={styles.streamHeadline}>{item.title}</p>
-                            {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
-                          </div>
-                        </a>
-                        {contentMode === 'stories' && (idx + 1) % 8 === 0 && (
-                          <div
-                            className={`${styles.adSlot} ${styles.adSlotInline}`}
-                            aria-hidden
-                            data-slot="mid-feed"
-                          >
-                            Subscription prompt · Betting insights
-                          </div>
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Ad slot — hidden in videos-only mode */}
-              {contentMode !== 'videos' && (
-                <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
-                  Sponsored · Premium analysis
-                </div>
-              )}
-            </>
+          {contentMode === 'videos' && intelVideos.length === 0 && (
+            <p className={styles.empty}>No videos available right now. Check back soon.</p>
           )}
 
           {/* ══════════════════════════════════════════════════════════════
-              CONFERENCE-FILTERED VIEW — articles only (existing layout)
+              STORIES SECTION
+              Visible in 'all' mode (capped to 10) and 'stories' mode (full).
+              Respects the active conference filter.
               ══════════════════════════════════════════════════════════════ */}
-          {activeConf !== 'All' && (
-            <>
-              {/* ── MOBILE: article stream ── */}
-              {filtered.length > 0 && (
-                <section className={styles.mobileArticleStream} aria-label="News stream">
-                  <div className={styles.streamList} role="list">
-                    {filtered.map((item) => (
-                      <a
-                        key={item.id}
-                        href={item.link || '#'}
-                        target={item.link ? '_blank' : undefined}
-                        rel="noopener noreferrer"
-                        className={`${styles.streamCard} ${styles.mobileStreamCard}`}
-                        aria-label={item.title}
-                        role="listitem"
-                      >
-                        <div className={styles.streamThumb} aria-hidden>
-                          <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
-                        </div>
-                        <div className={styles.streamBody}>
-                          <div className={styles.streamMeta}>
-                            <SourceBadge source={item.source} />
-                            {item.conference && <ConfPill conference={item.conference} />}
-                            {item.signal && <SignalTag signal={item.signal} />}
-                            <span className={styles.time}>{item.time}</span>
-                          </div>
-                          <p className={styles.streamHeadline}>{item.title}</p>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* ── DESKTOP: magazine layout ── */}
-
-              {hero && (
-                <section className={`${styles.heroSection} ${styles.desktopOnly}`} aria-label="Lead story">
-                  <a
-                    href={hero.link || '#'}
-                    target={hero.link ? '_blank' : undefined}
-                    rel="noopener noreferrer"
-                    className={styles.heroCard}
-                    aria-label={hero.title}
+          {(contentMode === 'all' || contentMode === 'stories') && filtered.length > 0 && (
+            <section
+              className={styles.topStoriesDesktopSection}
+              aria-label={contentMode === 'stories' ? 'All stories' : 'Top stories'}
+            >
+              <div className={styles.sectionHeadingRow}>
+                <h2 className={styles.sectionHeading}>
+                  {contentMode === 'stories' ? 'All Stories' : 'Top Stories'}
+                </h2>
+                {contentMode === 'all' && (
+                  <button
+                    type="button"
+                    className={styles.sectionCta}
+                    onClick={handleSeeMoreStories}
                   >
-                    <div className={styles.heroImageWrap}>
-                      <ImgPlaceholder conference={hero.conference} source={hero.source} size="hero" />
-                      <div className={styles.heroOverlay} aria-hidden />
-                      <div className={styles.heroBadgeWrap}>
-                        <span className={styles.heroBadgeLead}>Lead Story</span>
-                      </div>
-                      <div className={styles.heroBody}>
-                        {hero.conference && (
-                          <div className={styles.heroConfRow}>
-                            <ConferenceLogo conference={hero.conference} size={14} />
-                            <span className={styles.heroConfLabel}>{hero.conference}</span>
-                          </div>
-                        )}
-                        <h2 className={styles.heroHeadline}>{hero.title}</h2>
-                        {hero.excerpt && (
-                          <p className={styles.heroExcerpt}>{hero.excerpt}</p>
-                        )}
-                        <div className={styles.heroMeta}>
-                          <SourceBadge source={hero.source} />
-                          {hero.signal && <SignalTag signal={hero.signal} />}
-                          <span className={styles.heroTime}>{hero.time}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </a>
-                </section>
-              )}
-
-              <div className={`${styles.adSlot} ${styles.desktopOnly}`} aria-hidden data-slot="sponsored-hero">
-                Sponsored · Premium analysis
+                    {filtered.length > 10
+                      ? `See more stories (${filtered.length}) →`
+                      : 'See more stories →'}
+                  </button>
+                )}
               </div>
-
-              {topStories.length > 0 && (
-                <section className={`${styles.topStoriesSection} ${styles.desktopOnly}`} aria-label="Top stories">
-                  <h2 className={styles.sectionHeading}>Top Stories</h2>
-                  <div className={styles.topStoriesGrid}>
-                    {topStories.map((item) => (
-                      <a
-                        key={item.id}
-                        href={item.link || '#'}
-                        target={item.link ? '_blank' : undefined}
-                        rel="noopener noreferrer"
-                        className={styles.storyCard}
-                        aria-label={item.title}
+              <div className={styles.streamList} role="list">
+                {(contentMode === 'all' ? filtered.slice(0, 10) : filtered).map((item, idx) => (
+                  <Fragment key={item.id}>
+                    <a
+                      href={item.link || '#'}
+                      target={item.link ? '_blank' : undefined}
+                      rel="noopener noreferrer"
+                      className={styles.streamCard}
+                      aria-label={item.title}
+                      role="listitem"
+                      onClick={() =>
+                        handleArticleOpen(
+                          item,
+                          idx,
+                          contentMode === 'stories' ? 'stories' : 'top-stories',
+                        )
+                      }
+                    >
+                      <div className={styles.streamThumb} aria-hidden>
+                        <StreamThumbCell item={item} />
+                      </div>
+                      <div className={styles.streamBody}>
+                        <div className={styles.streamMeta}>
+                          <SourceBadge source={item.source} />
+                          {item.conference && <ConfPill conference={item.conference} />}
+                          {item.signal && <SignalTag signal={item.signal} />}
+                          <span className={styles.time}>{item.time}</span>
+                        </div>
+                        <p className={styles.streamHeadline}>{item.title}</p>
+                        {item.excerpt && (
+                          <p className={styles.streamExcerpt}>{item.excerpt}</p>
+                        )}
+                      </div>
+                    </a>
+                    {contentMode === 'stories' && (idx + 1) % 8 === 0 && (
+                      <div
+                        className={`${styles.adSlot} ${styles.adSlotInline}`}
+                        aria-hidden
+                        data-slot="mid-feed"
                       >
-                        <div className={styles.storyThumb}>
-                          <ImgPlaceholder conference={item.conference} source={item.source} size="card" />
-                        </div>
-                        <div className={styles.storyBody}>
-                          <div className={styles.storyMeta}>
-                            <SourceBadge source={item.source} />
-                            {item.conference && <ConfPill conference={item.conference} />}
-                            <span className={styles.time}>{item.time}</span>
-                          </div>
-                          <h3 className={styles.storyHeadline}>{item.title}</h3>
-                          {item.signal && (
-                            <div className={styles.storySignalRow}>
-                              <SignalTag signal={item.signal} />
-                            </div>
-                          )}
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {displayHeroVideo && (
-                <section className={`${styles.heroVideoSection} ${styles.desktopOnly}`} aria-label="Related video">
-                  <h2 className={styles.sectionHeading}>Related Video</h2>
-                  <YouTubeVideoCard
-                    video={displayHeroVideo}
-                    onSelect={setActiveVideo}
-                    compact
-                  />
-                </section>
-              )}
-
-              <div className={`${styles.adSlot} ${styles.desktopOnly}`} aria-hidden data-slot="premium-analysis">
-                Premium analysis · Betting insights
+                        Subscription prompt · Betting insights
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
               </div>
-
-              {stream.length > 0 && (
-                <section className={`${styles.streamSection} ${styles.desktopOnly}`} aria-label="News stream">
-                  <h2 className={styles.sectionHeading}>Latest News</h2>
-                  <div className={styles.streamList} role="list">
-                    {stream.map((item, idx) => (
-                      <Fragment key={item.id}>
-                        <a
-                          href={item.link || '#'}
-                          target={item.link ? '_blank' : undefined}
-                          rel="noopener noreferrer"
-                          className={styles.streamCard}
-                          aria-label={item.title}
-                          role="listitem"
-                          onClick={() => handleArticleOpen(item, idx + 5, activeConf)}
-                        >
-                          <div className={styles.streamThumb} aria-hidden>
-                            <ImgPlaceholder conference={item.conference} source={item.source} size="stream" />
-                          </div>
-                          <div className={styles.streamBody}>
-                            <div className={styles.streamMeta}>
-                              <SourceBadge source={item.source} />
-                              {item.conference && <ConfPill conference={item.conference} />}
-                              {item.signal && <SignalTag signal={item.signal} />}
-                              <span className={styles.time}>{item.time}</span>
-                            </div>
-                            <p className={styles.streamHeadline}>{item.title}</p>
-                            {item.excerpt && (
-                              <p className={styles.streamExcerpt}>{item.excerpt}</p>
-                            )}
-                          </div>
-                        </a>
-                        {(idx + 1) % 8 === 0 && (
-                          <div
-                            className={`${styles.adSlot} ${styles.adSlotInline}`}
-                            aria-hidden
-                            data-slot="mid-feed"
-                          >
-                            Subscription prompt · Betting insights
-                          </div>
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </>
+            </section>
           )}
 
-          {filtered.length === 0 && activeConf !== 'All' && (
-            <p className={styles.empty}>No stories for this conference right now.</p>
+          {/* Empty state when conference filter yields no stories */}
+          {contentMode !== 'videos' && filtered.length === 0 && enriched.length > 0 && (
+            <p className={styles.empty}>
+              No stories for this conference right now.{' '}
+              <button
+                type="button"
+                className={styles.emptyAction}
+                onClick={() => handleConfChange('All')}
+              >
+                Clear filter
+              </button>
+            </p>
+          )}
+
+          {contentMode !== 'videos' && enriched.length === 0 && (
+            <p className={styles.empty}>No basketball news available. Check back soon.</p>
+          )}
+
+          {/* Ad / subscription slot */}
+          {contentMode !== 'videos' && (
+            <div className={styles.adSlot} aria-hidden data-slot="sponsored-hero">
+              Subscription prompt · Betting insights
+            </div>
           )}
 
         </div>
