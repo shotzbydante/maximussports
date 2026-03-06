@@ -47,6 +47,18 @@
   letter-spacing: 0.04em;
 }
 
+.titleOddsPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  background: rgba(107, 214, 158, 0.14);
+  border: 1px solid rgba(107, 214, 158, 0.32);
+  color: #6BD69E;
+  border-radius: 8px;
+  padding: 5px 14px;
+  letter-spacing: 0.03em;
+}
+
 .confPill {
   font-size: 18px;
   font-weight: 600;
@@ -101,6 +113,15 @@
   color: rgba(240, 244, 248, 0.35);
   margin-top: 4px;
   font-style: italic;
+}
+
+.personalityLine {
+  font-size: 18px;
+  font-style: italic;
+  color: #B7986C;
+  margin-top: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .divider {

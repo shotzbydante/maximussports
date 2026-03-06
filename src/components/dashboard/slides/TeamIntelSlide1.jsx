@@ -7,11 +7,33 @@ function truncate(str, max) {
   return str.length > max ? str.slice(0, max) + '…' : str;
 }
 
+function fmtOdds(american) {
+  if (american == null || typeof american !== 'number') return null;
+  return american > 0 ? `+${american}` : String(american);
+}
+
+/** Derive a short personality line from last-10 form. */
+function buildPersonalityLine(last10) {
+  if (!last10 || last10.length < 3) return null;
+  const scored = last10.filter(e => e.ourScore != null && e.oppScore != null);
+  if (scored.length === 0) return null;
+  const wins = scored.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
+  const pct  = wins / scored.length;
+  if (pct >= 0.70) return 'Quiet heater lately.';
+  if (pct <= 0.30) return 'Slumping — but a bounce-back spot?';
+  if (pct >= 0.55) return 'Trending up — riding solid form.';
+  return 'Steady. Looking for an edge.';
+}
+
 export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, slideTotal, ...rest }) {
   const team = teamData?.team ?? {};
   const name = team.displayName || team.name || data?.selectedTeamName || '—';
   const slug = team.slug || data?.selectedTeamSlug || null;
   const rank = teamData?.rank ?? null;
+
+  // Championship (title) odds threaded from Dashboard enhancedTeamData
+  const titleOdds = teamData?.titleOdds ?? null;
+  const titleOddsLabel = fmtOdds(titleOdds);
 
   // Record: prefer team page data
   const record = team.record?.items?.[0]?.summary
@@ -26,13 +48,16 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   const last10 = recentFinished.slice(0, 10);
   const last5  = recentFinished.slice(0, 5);
-  const w10 = last10.filter(e => e.ourScore > e.oppScore).length;
+  const w10 = last10.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
   const l10 = last10.length - w10;
-  const w5  = last5.filter(e => e.ourScore > e.oppScore).length;
+  const w5  = last5.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
   const l5  = last5.length - w5;
   const quickPulse = last10.length > 0
     ? { recent: `${w10}-${l10}`, total: last10.length, trend: last5.length === 5 ? `${w5}-${l5} L5` : null }
     : null;
+
+  // Personality line derived from form
+  const personalityLine = buildPersonalityLine(last10);
 
   // Next game: prefer teamData.nextLine (same source as Team Page) → fall back to schedule
   const nextLine = teamData?.nextLine ?? null;
@@ -67,8 +92,10 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
   // Spread / ML from nextLine consensus (same source as Team Page Next Game Line section)
   const spread = nextLine?.consensus?.spread ?? null;
   const ml = nextLine?.consensus?.moneyline ?? null;
+  const linePosted = spread != null || ml != null;
 
   // Headlines: use last-7 news if available (same split as Team Page), else all team news
+  // News is already quality-ranked by the server (watch-spam capped, analysis boosted)
   const teamNews = teamData?.last7News?.length > 0
     ? teamData.last7News
     : (teamData?.teamNews ?? []);
@@ -104,6 +131,9 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
       <div className={styles.nameBlock}>
         <div className={styles.nameMeta}>
           {rank != null && <span className={styles.rankPill}>#{rank} AP</span>}
+          {titleOddsLabel != null && (
+            <span className={styles.titleOddsPill}>🏆 {titleOddsLabel}</span>
+          )}
           {conf && <span className={styles.confPill}>{conf}</span>}
         </div>
         <h2 className={styles.teamName}>{name}</h2>
@@ -139,8 +169,12 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
             )}
           </div>
           {nextTime && <div className={styles.nextTime}>{nextTime} PT</div>}
-          {spread == null && ml == null && nextOpp && (
-            <div className={styles.nextLineNote}>Line not yet posted</div>
+          {!linePosted && nextOpp && (
+            <div className={styles.nextLineNote}>Line not posted yet — watch for movement closer to tip.</div>
+          )}
+          {/* Maximus personality line */}
+          {personalityLine && (
+            <div className={styles.personalityLine}>Maximus says: {personalityLine}</div>
           )}
         </div>
       )}

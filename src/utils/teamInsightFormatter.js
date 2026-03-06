@@ -176,6 +176,16 @@ function buildNextGame(nextLine, schedule) {
   }, '**Next Game** — Upcoming game data unavailable.');
 }
 
+// Watch-spam detector (mirrors server-side scoring in api/_sources.js)
+function isWatchSpam(title) {
+  const t = (title || '').toLowerCase();
+  return [
+    'how to watch', 'where to watch', 'tv channel', 'live stream',
+    'streaming options', 'watch online', 'stream live', 'broadcast guide',
+    'ways to watch', 'free stream',
+  ].some((p) => t.includes(p));
+}
+
 function buildNewsPulse(news) {
   return safe(() => {
     const items  = Array.isArray(news) ? news : [];
@@ -188,10 +198,13 @@ function buildNewsPulse(news) {
       return "**News Pulse** — No men's basketball coverage found in last 7 days.";
     }
 
-    const count   = recent.length;
-    const top     = recent[0];
-    const topNote = top?.title
-      ? ` Most recent: *"${top.title.slice(0, 90)}${top.title.length > 90 ? '…' : ''}"*`
+    const count = recent.length;
+
+    // Prefer non-spam headline for the "top storyline" display.
+    // News is already quality-ranked by the server, so first non-spam is the best real story.
+    const topStory = recent.find((n) => !isWatchSpam(n.title || '')) ?? recent[0];
+    const topNote = topStory?.title
+      ? ` Top storyline: *"${topStory.title.slice(0, 90)}${topStory.title.length > 90 ? '…' : ''}"*`
       : '';
 
     return `**News Pulse** — **${count}** headline${count !== 1 ? 's' : ''} in the last 7 days.${topNote}`;

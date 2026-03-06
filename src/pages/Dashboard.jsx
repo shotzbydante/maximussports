@@ -6,6 +6,7 @@ import { fetchTeamPage } from '../api/team';
 import { fetchTeamNextLine } from '../api/teamNextLine';
 import { fetchAtsLeaders, fetchAtsRefresh } from '../api/atsLeaders';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
+import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
 import { buildCaption, formatCaptionFile } from '../components/dashboard/captions/buildCaption';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
@@ -70,6 +71,7 @@ export default function Dashboard() {
   const [teamPageData, setTeamPageData] = useState(null);
   const [teamPageLoading, setTeamPageLoading] = useState(false);
   const [teamNextLineData, setTeamNextLineData] = useState(null);
+  const [teamChampOdds, setTeamChampOdds] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── export state ─────────────────────────────────────────
@@ -167,16 +169,23 @@ export default function Dashboard() {
     });
   }, [atsLeaders]);
 
-  // ── load team page when team selected ────────────────────
+  // ── load team page + championship odds when team selected ─
   useEffect(() => {
     if (!selectedTeam?.slug || activeSection !== 'team') {
       setTeamPageData(null);
       setTeamNextLineData(null);
+      setTeamChampOdds(null);
       return;
     }
     setTeamPageLoading(true);
-    fetchTeamPage(selectedTeam.slug)
-      .then(d => setTeamPageData(d))
+    Promise.all([
+      fetchTeamPage(selectedTeam.slug),
+      fetchChampionshipOdds().catch(() => ({ odds: {}, oddsMeta: null })),
+    ])
+      .then(([teamData, champData]) => {
+        setTeamPageData(teamData);
+        setTeamChampOdds(champData ?? null);
+      })
       .catch(() => setTeamPageData(null))
       .finally(() => setTeamPageLoading(false));
   }, [selectedTeam, activeSection]);
@@ -223,13 +232,23 @@ export default function Dashboard() {
       n => new Date(n.pubDate || 0).getTime() >= sevenDaysAgo,
     );
 
+    // Championship (title) odds: look up by team slug or team name
+    const oddsMap = teamChampOdds?.odds ?? {};
+    const slug = selectedTeam?.slug ?? teamObj?.slug;
+    const titleEntry = (slug && oddsMap[slug])
+      ? oddsMap[slug]
+      : (teamName && oddsMap[teamName] ? oddsMap[teamName] : null);
+    // Prefer best-chance odds (lowest payout = most likely), then payout for display
+    const titleOdds = titleEntry?.bestChanceAmerican ?? titleEntry?.american ?? null;
+
     return {
       ...teamPageData,
       ats,
       nextLine: teamNextLineData ?? null,
       last7News,
+      titleOdds,
     };
-  }, [teamPageData, teamNextLineData, selectedTeam]);
+  }, [teamPageData, teamNextLineData, selectedTeam, teamChampOdds]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {

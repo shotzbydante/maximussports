@@ -608,7 +608,79 @@ export async function fetchScheduleSource(teamId) {
   return result;
 }
 
-// --- News (team) ---
+// --- News (team) — quality-ranked ---
+
+/**
+ * Watch-spam detector: "how to watch", "where to watch", TV channel, live stream, etc.
+ * Returns true if the headline is watch/broadcast spam.
+ */
+function isWatchSpam(title) {
+  const t = (title || '').toLowerCase();
+  return [
+    'how to watch', 'where to watch', 'tv channel', 'live stream', 'streaming options',
+    'streaming guide', 'watch online', 'stream live', 'broadcast guide', 'how to stream',
+    'ways to watch', 'free stream', 'watch free', 'cord-cutting',
+  ].some((p) => t.includes(p));
+}
+
+/**
+ * Analysis-intent boost: recaps, previews, analysis, injuries, roster moves, outlook.
+ * Returns a positive score if the headline signals real news.
+ */
+function analysisBoost(title) {
+  const t = (title || '').toLowerCase();
+  const patterns = [
+    'preview', 'recap', 'takeaways', 'analysis', 'grade', 'report card',
+    'injury', 'injured', 'out for', 'questionable', 'doubtful', 'suspended',
+    'outlook', 'bracketology', 'tournament', 'march madness', 'bubble',
+    'transfer', 'portal', 'signing', 'commit', 'coaching', 'fired', 'hired',
+    'post-game', 'postgame', 'halftime', 'overtime', 'upset', 'ranked',
+    'milestone', 'record', 'streak', 'losing streak', 'winning streak',
+    'key matchup', 'big ten', 'acc ', 'sec ', 'big east', 'big 12',
+  ];
+  return patterns.some((p) => t.includes(p)) ? 30 : 0;
+}
+
+/**
+ * Source reputation boost — familiar credible sources get a score lift.
+ */
+function sourceRepBoost(source) {
+  const s = (source || '').toLowerCase();
+  const tier1 = ['espn', 'cbs sports', 'the athletic', 'associated press', 'ap news'];
+  const tier2 = ['yahoo sports', 'usa today', 'sports illustrated', 'si.com', 'bleacher report',
+                  'fox sports', 'nbcsports', 'athletic'];
+  if (tier1.some((t) => s.includes(t))) return 20;
+  if (tier2.some((t) => s.includes(t))) return 10;
+  return 0;
+}
+
+/**
+ * Recency bonus: recent articles are slightly preferred when quality is equal.
+ */
+function recencyBonus(pubDate) {
+  if (!pubDate) return 0;
+  const ageDays = (Date.now() - new Date(pubDate).getTime()) / 86_400_000;
+  if (ageDays <= 1) return 8;
+  if (ageDays <= 3) return 5;
+  if (ageDays <= 7) return 2;
+  return 0;
+}
+
+/**
+ * Compute a quality score for a news headline.
+ * Higher = better. Watch-spam gets a heavy penalty but is not hard-excluded.
+ */
+function scoreNewsItem(item) {
+  const title = item.title || '';
+  const source = (item.source && (item.source['#text'] || item.source)) || '';
+  let score = 50; // base
+  if (isWatchSpam(title)) score -= 60;
+  score += analysisBoost(title);
+  score += sourceRepBoost(source);
+  score += recencyBonus(item.pubDate);
+  return score;
+}
+
 export async function fetchTeamNewsSource(slug, { debug = false } = {}) {
   const cacheKey = `news-team:${slug}`;
   const cached = newsTeamCache.get(cacheKey);
@@ -628,7 +700,6 @@ export async function fetchTeamNewsSource(slug, { debug = false } = {}) {
   const result = await coalesce(cacheKey, async () => {
     const name = team.name;
     // Include "basketball" in the query so Google News returns basketball-contextual articles.
-    // This significantly improves the signal-to-noise ratio before client-side filtering.
     const query = encodeURIComponent(`"${name}" basketball when:90d`);
     const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
     if (debug) console.log(`[teamNews:${slug}] query="${decodeURIComponent(query)}" url=${rssUrl}`);
@@ -654,24 +725,50 @@ export async function fetchTeamNewsSource(slug, { debug = false } = {}) {
     const sourceStr = (item) => (item.source && (item.source['#text'] || item.source)) || '';
     const linkStr = (item) => item.link || '';
 
-    // Primary filter: strict MBB (requires basketball/MBB/hoops keyword in title)
+    // MBB filter: strict first, loose fallback
     let filtered = raw.filter((item) => isMensBasketball(item.title || '', sourceStr(item), linkStr(item)));
-
-    // Fallback: if the strict filter removes everything, try the loose filter.
-    // Since we already searched with "basketball" in the query, the loose filter is safe.
     if (filtered.length === 0 && raw.length > 0) {
       filtered = raw.filter((item) => isMensBasketballLoose(item.title || '', sourceStr(item), linkStr(item)));
       if (debug) console.log(`[teamNews:${slug}] strict filter empty → loose filter → ${filtered.length} items`);
     }
+    if (debug) console.log(`[teamNews:${slug}] after MBB filter=${filtered.length}`);
 
-    if (debug) console.log(`[teamNews:${slug}] after filter=${filtered.length}`);
-    filtered.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
-    const headlines = filtered.slice(0, 10).map((item, i) => ({
+    // Dedupe by canonical link
+    const seenLinks = new Set();
+    const deduped = filtered.filter((item) => {
+      const key = item.link || (item.title || '').slice(0, 60);
+      if (seenLinks.has(key)) return false;
+      seenLinks.add(key);
+      return true;
+    });
+
+    // Quality-rank: score each item, sort descending
+    const scored = deduped.map((item) => ({ item, score: scoreNewsItem(item) }));
+    scored.sort((a, b) => b.score - a.score);
+
+    // Enforce watch-spam cap: at most 1 watch-spam item, and only if nothing better exists
+    let watchSpamCount = 0;
+    const ranked = scored.filter(({ item, score }) => {
+      if (isWatchSpam(item.title || '')) {
+        if (watchSpamCount >= 1) return false; // max 1 watch-spam item
+        watchSpamCount++;
+      }
+      return true;
+    });
+
+    if (debug) {
+      console.log(`[teamNews:${slug}] ranked items (top 5):`);
+      ranked.slice(0, 5).forEach(({ item, score }) => {
+        console.log(`  score=${score} spam=${isWatchSpam(item.title||'')} "${(item.title||'').slice(0,70)}"`);
+      });
+    }
+
+    const headlines = ranked.slice(0, 10).map(({ item }, i) => ({
       id: item.guid?.['#text'] || item.link || `news-${i}`,
       title: item.title || 'No title',
       link: item.link || '',
       pubDate: item.pubDate || '',
-      source: (item.source && (item.source['#text'] || item.source)) || 'News',
+      source: sourceStr(item) || 'News',
     }));
     return { headlines };
   });
