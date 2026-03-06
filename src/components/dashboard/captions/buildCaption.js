@@ -42,31 +42,41 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
   let editorialLines = [];
 
   if (hasChatContent) {
-    // Line 1: top last-night highlight
+    // Line 1: top last-night highlight — punchy, strong lead verb
     const highlight = chatDigest.lastNightHighlights?.[0];
     if (highlight?.teamA && highlight?.score) {
+      const scores = highlight.score.split('-').map(Number);
+      const margin = scores.length === 2 ? Math.abs(scores[0] - scores[1]) : null;
+      const verb = margin != null
+        ? (margin >= 25 ? 'demolished' : margin >= 15 ? 'rolled' : margin >= 8 ? 'handled' : 'edged out')
+        : 'beat';
       editorialLines.push(
-        `${highlight.teamA} ${highlight.score} over ${highlight.teamB || '—'}. ${highlight.summaryLine || ''}`.trim(),
+        `${highlight.teamA} ${verb} ${highlight.teamB || 'the opposition'} ${highlight.score}.`
       );
+    } else if (chatDigest.recapLeadLine) {
+      editorialLines.push(chatDigest.recapLeadLine.slice(0, 120));
     } else if (chatDigest.leadNarrative) {
-      // Trim lead narrative to a punchy first sentence
       const firstSentence = chatDigest.leadNarrative.split(/(?<=[.!?])\s+/)[0] || '';
-      if (firstSentence.length >= 20) editorialLines.push(firstSentence.slice(0, 110));
+      if (firstSentence.length >= 20) editorialLines.push(firstSentence.slice(0, 120));
     }
 
-    // Line 2: title race or ATS edge — one insight line
+    // Line 2: title market or ATS edge — one sharp insight
     const topTitleEntry = chatDigest.titleRace?.[0];
     const topAtsEdge    = chatDigest.atsEdges?.[0];
-    if (topTitleEntry?.team) {
+    if (topTitleEntry?.team && topTitleEntry?.americanOdds) {
+      const implStr = topTitleEntry.impliedProbability
+        ? ` — ${topTitleEntry.impliedProbability}% implied`
+        : '';
       editorialLines.push(
-        `${topTitleEntry.team} leads the title market at ${topTitleEntry.americanOdds} (${topTitleEntry.impliedProbability}% impl.).`,
+        `${topTitleEntry.team} has separated in the title market at ${topTitleEntry.americanOdds}${implStr}.`
+      );
+    } else if (topAtsEdge?.team) {
+      const wlStr = topAtsEdge.wl ? ` (${topAtsEdge.wl})` : '';
+      editorialLines.push(
+        `${topAtsEdge.team} keeps cashing tickets at ${topAtsEdge.atsRate}%${wlStr}. The market still hasn't caught up.`
       );
     } else if (chatDigest.bettingAngle) {
-      editorialLines.push(chatDigest.bettingAngle.slice(0, 110));
-    } else if (topAtsEdge?.team) {
-      editorialLines.push(
-        `${topAtsEdge.team} covering at ${topAtsEdge.atsRate}% — the market hasn't caught up.`,
-      );
+      editorialLines.push(chatDigest.bettingAngle.slice(0, 120));
     }
 
     // Line 3: voice closer
@@ -76,10 +86,10 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
     const picksCount = picks?.length ?? 0;
     editorialLines.push(
       isRobot
-        ? `The model ran overnight. Here's what it found.`
+        ? `The model scanned the slate. Here's what it found.`
         : (picksCount > 0
-            ? `${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced today. Daily briefing is live.`
-            : `Daily CBB briefing is up.${gamesCount != null ? ` ${gamesCount} games tracked.` : ''}`),
+            ? `${picksCount} value edge${picksCount > 1 ? 's' : ''} surfaced today. The briefing is live.`
+            : `Daily CBB briefing is up.${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`),
     );
   }
 
@@ -92,27 +102,32 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
   ].filter(Boolean).join('\n\n');
 
   // ── Long caption ─────────────────────────────────────────────────────────
-  // Prefer full chatbot caption narrative; augment with structured intel
   const narrativeBody = hasChatContent && chatDigest.captionNarrative
     ? chatDigest.captionNarrative
     : (isRobot
-        ? `Maximus processed ${gamesCount ?? "today's"} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
+        ? `Maximus scanned ${gamesCount ?? "today's"} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
         : (gamesCount != null
-            ? `Tracking ${gamesCount} games with active lines. The model cross-references ATS records, line movement, and implied probability.`
-            : `Lines active for today's slate. Model scanned for edges.`));
+            ? `Tracking ${gamesCount} games for today. The model flags ATS edges, spread value, and title market movement.`
+            : `Lines are active. Model running the numbers now.`));
 
-  // Inject top ATS edge as a concrete bullet when available
-  const atsEdgeNote = hasChatContent && chatDigest.atsEdges?.[0]
-    ? `ATS edge: ${chatDigest.atsEdges[0].team} covering at ${chatDigest.atsEdges[0].atsRate}% this ${chatDigest.atsEdges[0].timeframe}.`
+  // Sharp ATS edge line
+  const topEdge = hasChatContent && chatDigest.atsEdges?.[0];
+  const atsEdgeNote = topEdge
+    ? (() => {
+        const wlStr = topEdge.wl ? ` (${topEdge.wl})` : '';
+        return `📊 ATS edge: ${topEdge.team} covering at ${topEdge.atsRate}%${wlStr} — ${topEdge.timeframe}.`;
+      })()
     : null;
 
-  // Inject top game to watch
-  const gameNote = hasChatContent && chatDigest.gamesToWatch?.[0]
-    ? `Top game: ${chatDigest.gamesToWatch[0].matchup}${chatDigest.gamesToWatch[0].spread ? ` (${chatDigest.gamesToWatch[0].spread})` : ''}.`
+  // Top game to watch
+  const topGame = hasChatContent && chatDigest.gamesToWatch?.[0];
+  const gameNote = topGame
+    ? `👀 Top game: ${topGame.matchup}${topGame.spread ? ` · Spread: ${topGame.spread}` : ''}${topGame.network ? ` · ${topGame.network}` : ''}.`
     : null;
 
+  // Top headline when no chat
   const headlineSnip = !hasChatContent && headlines?.[0]
-    ? `Top story: ${(headlines[0].title || headlines[0].headline || '').slice(0, 75)}`
+    ? `📰 ${(headlines[0].title || headlines[0].headline || '').slice(0, 85)}`
     : null;
 
   const long = [
@@ -125,7 +140,7 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
     '',
     headlineSnip,
     '',
-    voiceLine || null,
+    voiceLine ? `"${voiceLine}"` : null,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,

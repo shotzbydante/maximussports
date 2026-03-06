@@ -12,21 +12,53 @@ function makeTeam(name) {
   const cleaned = name
     .replace(/^(?:The |the )/, '')
     .replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '')
+    .replace(/\s*\((?:FL|OH|PA|CA|NY|TX|WA|OR|CO|AZ|NM|NV|UT|ID|MT|WY|ND|SD|NE|KS|MN|IA|MO|WI|IL|IN|MI|KY|TN|GA|AL|MS|AR|LA|OK)\)$/i, '')
     .trim();
   return { name: cleaned, slug: getTeamSlug(cleaned) };
+}
+
+/**
+ * Look up compact ATS context for a team from atsLeaders data.
+ * Only returns a tag when the team is above 55% (hot ATS signal).
+ */
+function getAtsTag(teamName, atsLeaders) {
+  if (!teamName || !atsLeaders?.best?.length) return null;
+  const key = teamName.toLowerCase().trim();
+  const leader = atsLeaders.best.find(l => {
+    const lName = (l.name || l.team || l.slug || '').toLowerCase();
+    if (!lName) return false;
+    // Match: exact, or last word of either contains the other
+    if (lName === key) return true;
+    const keyLast = key.split(/\s+/).pop() ?? '';
+    const lLast   = lName.split(/\s+/).pop() ?? '';
+    return keyLast.length > 3 && lLast.length > 3 && (lName.includes(keyLast) || key.includes(lLast));
+  });
+  if (!leader) return null;
+  const raw = leader.coverPct ?? leader.atsPercent ?? null;
+  if (raw == null) return null;
+  const rate = raw > 1 ? Math.round(raw) : Math.round(raw * 100);
+  if (rate < 55) return null;
+  // Extract W-L if available
+  const rec = leader.rec || leader.last30 || leader.season || null;
+  if (rec && rec.w != null) {
+    return `ATS: ${rec.w}-${rec.l ?? 0}`;
+  }
+  const tf = leader.games ? `L${leader.games}` : 'L30';
+  return `ATS: ${rate}% ${tf}`;
 }
 
 export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
 
-  const digest    = data?.chatDigest ?? null;
-  const hasDigest = digest?.hasChatContent === true;
+  const digest      = data?.chatDigest ?? null;
+  const hasDigest   = digest?.hasChatContent === true;
+  const atsLeaders  = data?.atsLeaders ?? null;
 
-  // ¶1 → last-night highlights (max 3 for whitespace)
+  // ¶1 → last-night highlights (max 3)
   const highlights = hasDigest ? (digest.lastNightHighlights ?? []).slice(0, 3) : [];
 
   // ¶1 → energetic first-sentence hook
-  const leadLine   = hasDigest ? (digest.recapLeadLine || '') : '';
+  const leadLine = hasDigest ? (digest.recapLeadLine || '') : '';
 
   // ¶1 → fallback bullets when no scores parse
   const storyBullets = hasDigest
@@ -58,32 +90,48 @@ export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest 
 
       {highlights.length > 0 ? (
         <div className={styles.scoreList}>
-          {highlights.map((h, i) => (
-            <div key={i} className={`${styles.scoreRow} ${i === 0 ? styles.scoreRowTop : ''}`}>
-              {/* Team A */}
-              <div className={styles.scoreTeamA}>
-                <TeamLogo team={makeTeam(h.teamA)} size={50} />
-                <span className={styles.scoreTeamName}>{makeTeam(h.teamA)?.name || h.teamA}</span>
-              </div>
+          {highlights.map((h, i) => {
+            const teamAObj  = makeTeam(h.teamA);
+            const teamBObj  = makeTeam(h.teamB);
+            const atsTag    = i === 0 ? getAtsTag(teamAObj?.name || h.teamA, atsLeaders) : null;
+            const isTopGame = i === 0;
+            return (
+              <div key={i} className={`${styles.scoreRow} ${isTopGame ? styles.scoreRowTop : ''}`}>
 
-              {/* Score */}
-              <div className={styles.scoreResult}>
-                <span className={styles.scoreNum}>{h.score}</span>
-                <span className={styles.scoreFinal}>FINAL</span>
-              </div>
+                {/* Team A (winner) */}
+                <div className={styles.scoreTeamA}>
+                  <TeamLogo team={teamAObj} size={isTopGame ? 54 : 44} />
+                  <div className={styles.teamAMeta}>
+                    <span className={`${styles.scoreTeamName} ${isTopGame ? styles.scoreTeamNameTop : ''}`}>
+                      {teamAObj?.name || h.teamA}
+                    </span>
+                    {atsTag && (
+                      <span className={styles.atsTag}>{atsTag}</span>
+                    )}
+                  </div>
+                </div>
 
-              {/* Team B */}
-              <div className={styles.scoreTeamB}>
-                <span className={styles.scoreTeamName}>{makeTeam(h.teamB)?.name || h.teamB || '—'}</span>
-                <TeamLogo team={makeTeam(h.teamB)} size={50} />
-              </div>
+                {/* Score */}
+                <div className={styles.scoreResult}>
+                  <span className={`${styles.scoreNum} ${isTopGame ? styles.scoreNumTop : ''}`}>{h.score}</span>
+                  <span className={styles.scoreFinal}>FINAL</span>
+                </div>
 
-              {/* ¶1 editorial context line */}
-              {h.summaryLine && (
-                <div className={styles.scoreSummary}>{h.summaryLine}</div>
-              )}
-            </div>
-          ))}
+                {/* Team B (loser) */}
+                <div className={styles.scoreTeamB}>
+                  <span className={`${styles.scoreTeamName} ${styles.scoreTeamNameLoser}`}>
+                    {teamBObj?.name || h.teamB || '—'}
+                  </span>
+                  <TeamLogo team={teamBObj} size={isTopGame ? 54 : 44} />
+                </div>
+
+                {/* ¶1 editorial context line — top game only */}
+                {h.summaryLine && isTopGame && (
+                  <div className={styles.scoreSummary}>{h.summaryLine}</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         /* Fallback: lead narrative from ¶1 + storyline bullets */

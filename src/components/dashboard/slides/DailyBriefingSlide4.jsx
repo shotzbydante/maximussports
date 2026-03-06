@@ -8,6 +8,7 @@ function makeTeam(name) {
   const cleaned = name
     .replace(/^(?:The |the )/, '')
     .replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '')
+    .replace(/\s*\((?:FL|OH|PA|CA|NY|TX|WA|OR|CO|AZ|NM|NV|UT|ID|MT|WY|ND|SD|NE|KS|MN|IA|MO|WI|IL|IN|MI|KY|TN|GA|AL|MS|AR|LA|OK)\)$/i, '')
     .trim();
   return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
@@ -32,10 +33,15 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
       if (raw == null) return acc;
       const rate = raw > 1 ? Math.round(raw) : Math.round(raw * 100);
       if (rate < 30 || rate > 99) return acc;
+      // Extract W-L record from sub-window objects
+      const rec = l.rec || l.last30 || l.season || null;
+      const wl  = rec && rec.w != null ? `${rec.w}-${rec.l ?? 0}` : null;
+      const gameCount = rec ? ((rec.w ?? 0) + (rec.l ?? 0)) : (l.games || 0);
       acc.push({
         team:      name,
         atsRate:   rate,
-        timeframe: l.games ? `last ${l.games}` : 'season',
+        timeframe: gameCount ? `last ${gameCount}` : 'season',
+        wl,
         insight:   '',
       });
       return acc;
@@ -94,9 +100,8 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                 <div className={styles.edgeInfo}>
                   <div className={styles.edgeHeader}>
                     <span className={styles.edgeTeam}>{teamObj?.name || edge.team}</span>
-                    <span className={styles.edgeTimeframe}>{edge.timeframe}</span>
                     {isLeader && (
-                      <span className={styles.leaderBadge}>LEADER</span>
+                      <span className={styles.edgeLeaderBadge}>LEADER</span>
                     )}
                   </div>
 
@@ -111,6 +116,14 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                     <span className={`${styles.barPct} ${aboveAvg ? styles.barPctHot : ''}`}>
                       {edge.atsRate}%
                     </span>
+                  </div>
+
+                  {/* W-L record + timeframe context */}
+                  <div className={styles.edgeMeta}>
+                    {edge.wl && (
+                      <span className={styles.edgeWL}>{edge.wl}</span>
+                    )}
+                    <span className={styles.edgeTimeframe}>{edge.timeframe}</span>
                   </div>
 
                   {/* ¶4 insight sentence when available */}

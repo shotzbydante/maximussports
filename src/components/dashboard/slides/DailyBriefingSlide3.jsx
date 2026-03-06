@@ -8,6 +8,7 @@ function makeTeam(name) {
   const cleaned = name
     .replace(/^(?:The |the )/, '')
     .replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '')
+    .replace(/\s*\((?:FL|OH|PA|CA|NY|TX|WA|OR|CO|AZ|NM|NV|UT|ID|MT|WY|ND|SD|NE|KS|MN|IA|MO|WI|IL|IN|MI|OH|KY|TN|GA|AL|MS|AR|LA|OK|KS)\)$/i, '')
     .trim();
   return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
@@ -42,6 +43,7 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
         ? (parseFloat(f.spread) > 0 ? `+${parseFloat(f.spread)}` : String(parseFloat(f.spread)))
         : null,
       time:      f.time,
+      network:   f.network || null,
       storyline: f.why,
     })).slice(0, 3);
   } else {
@@ -51,7 +53,9 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
       const sb = Math.abs(parseFloat(b.spread ?? b.homeSpread ?? 99));
       return sa - sb;
     });
-    gameEntries = sorted.slice(0, 3).map(g => {
+    // Fall back to all upcoming games if no spreads yet
+    const pool = sorted.length > 0 ? sorted : games.filter(g => !g.isFinal);
+    gameEntries = pool.slice(0, 3).map(g => {
       const sp = g.homeSpread ?? g.spread ?? null;
       const spNum = sp != null ? parseFloat(sp) : null;
       return {
@@ -60,6 +64,7 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
         home:      g.homeTeam || '',
         spread:    spNum != null ? (spNum > 0 ? `+${spNum}` : String(spNum)) : null,
         time:      g.time || null,
+        network:   g.network || g.broadcast || null,
         storyline: null,
       };
     });
@@ -99,24 +104,30 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
                 {/* Matchup: away @ home */}
                 <div className={styles.matchupRow}>
                   <div className={styles.teamCol}>
-                    <TeamLogo team={awayTeam} size={44} />
+                    <TeamLogo team={awayTeam} size={i === 0 ? 46 : 40} />
                     <span className={styles.teamName}>{awayTeam?.name || g.away || '—'}</span>
                   </div>
 
                   <div className={styles.vsBlock}>
                     <span className={styles.vsAt}>@</span>
-                    {g.spread && <SpreadPill spread={g.spread} />}
+                    {g.spread
+                      ? <SpreadPill spread={g.spread} />
+                      : <span className={styles.lineTba}>TBA</span>
+                    }
                   </div>
 
                   <div className={`${styles.teamCol} ${styles.teamColRight}`}>
                     <span className={styles.teamName}>{homeTeam?.name || g.home || '—'}</span>
-                    <TeamLogo team={homeTeam} size={44} />
+                    <TeamLogo team={homeTeam} size={i === 0 ? 46 : 40} />
                   </div>
                 </div>
 
-                {/* Time */}
-                {g.time && (
-                  <div className={styles.gameTime}>{g.time}</div>
+                {/* Time + Network meta row */}
+                {(g.time || g.network) && (
+                  <div className={styles.metaRow}>
+                    {g.time && <span className={styles.gameTime}>{g.time}</span>}
+                    {g.network && <span className={styles.networkPill}>{g.network}</span>}
+                  </div>
                 )}
 
                 {/* ¶3 editorial "why it matters" */}
@@ -125,7 +136,7 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
                     <span className={styles.storylineLabel}>WHY IT MATTERS</span>
                     <span className={styles.storyline}>{g.storyline}</span>
                   </div>
-                ) : (!spreadAvailable && i === 0) ? (
+                ) : (!g.spread && i === 0) ? (
                   <div className={styles.storylineBlock}>
                     <span className={styles.storylineLabel}>LINE TBA</span>
                     <span className={styles.storyline}>Spread pending — check back closer to tip.</span>

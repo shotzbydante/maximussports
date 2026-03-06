@@ -294,6 +294,7 @@ export default function Dashboard() {
       games,
       headlines: dashData?.headlines ?? [],
       picks,
+      atsLeaders: atsL,
     });
   }, [dashData, chatSummary, chatStatus]);
 

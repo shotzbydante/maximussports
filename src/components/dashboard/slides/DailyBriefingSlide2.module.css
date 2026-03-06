@@ -70,12 +70,29 @@
 
 .leaderRank {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: rgba(183, 152, 108, 0.40);
-  width: 28px;
+  width: 36px;
   flex-shrink: 0;
   text-align: center;
+}
+
+/* Rankings fallback: highlighted rank for top 3 */
+.leaderRankHighlight {
+  color: #B7986C;
+  font-size: 20px;
+}
+
+/* Rankings fallback row: more compact, no bar */
+.leaderRowRank {
+  padding: 14px 18px;
+}
+
+/* Trophy emoji for top 3 in rankings mode */
+.trophyIcon {
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
 .leaderLogoWrap {

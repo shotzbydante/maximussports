@@ -230,8 +230,9 @@ function buildWatchFramings(todayText, newsPulseText, games) {
     framings.push({
       away,
       home,
-      spread: g.spread ?? g.homeSpread ?? null,
-      time:   g.time || null,
+      spread:  g.spread ?? g.homeSpread ?? null,
+      time:    g.time || null,
+      network: g.network || g.broadcast || null,
       why,
     });
     if (framings.length >= 3) break;
@@ -309,12 +310,21 @@ function buildMaximusSays(parsed, { gamesToWatch, titleRace, bettingAngle, voice
 function buildCaptionNarrative(parsed, picks) {
   const parts = [];
 
-  // ATS spotlight drives the primary value proposition
+  // ATS spotlight — lead with the edge
   if (parsed.atsSpotlight) {
-    parts.push(truncateAtWord(stripMarkdown(parsed.atsSpotlight), 220));
+    const atsClean = truncateAtWord(stripMarkdown(parsed.atsSpotlight), 220);
+    parts.push(atsClean);
   }
 
-  // News pulse closing sentence — editorial voice
+  // ¶2 odds pulse — title market framing
+  if (parsed.oddsPulse && parts.length < 2) {
+    const oddsFirstSentence = toSentences(stripMarkdown(parsed.oddsPulse))[0] || '';
+    if (oddsFirstSentence.length > 25) {
+      parts.push(truncateAtWord(oddsFirstSentence, 110));
+    }
+  }
+
+  // News pulse closing sentence — punchy editorial voice
   const closer = closingSentence(parsed.newsPulse);
   if (closer && closer.length > 20) {
     parts.push(closer);
@@ -475,11 +485,12 @@ function parseGamesToWatch(todayText, newsPulseText, games) {
       : null;
 
     result.push({
-      matchup:  `${away} @ ${home}`,
+      matchup:   `${away} @ ${home}`,
       away,
       home,
-      spread:   spreadStr,
-      time:     g.time || null,
+      spread:    spreadStr,
+      time:      g.time || null,
+      network:   g.network || g.broadcast || null,
       storyline: matchSentence ? truncateAtWord(stripMarkdown(matchSentence), 92) : null,
     });
   }
@@ -525,6 +536,7 @@ function parseAtsEdges(atsText, atsLeaders) {
           team,
           atsRate:   rate,
           timeframe: 'season',
+          wl:        null,
           insight:   insight ? truncateAtWord(insight, 88) : '',
         });
         used.add(team.toLowerCase());
@@ -545,10 +557,16 @@ function parseAtsEdges(atsText, atsLeaders) {
       const rate = raw > 1 ? Math.round(raw) : Math.round(raw * 100);
       if (rate < 30 || rate > 99) continue;
 
+      // Extract W-L record from sub-window objects (last30 / season / rec)
+      const rec = leader.rec || leader.last30 || leader.season || null;
+      const wl = rec && (rec.w != null) ? `${rec.w}-${rec.l ?? 0}` : null;
+      const gameCount = rec ? ((rec.w ?? 0) + (rec.l ?? 0)) : (leader.games || 0);
+
       edges.push({
         team:      name,
         atsRate:   rate,
-        timeframe: leader.games ? `last ${leader.games}` : 'season',
+        timeframe: gameCount ? `last ${gameCount}` : 'season',
+        wl,
         insight:   '',
       });
       used.add(name.toLowerCase());
@@ -559,11 +577,28 @@ function parseAtsEdges(atsText, atsLeaders) {
 }
 
 /**
+ * Classify a news headline into a short category tag.
+ * @param {string} text
+ * @returns {string|null}
+ */
+function classifyNewsTag(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (/upsets?|shocked?|stunning/.test(t)) return 'UPSET';
+  if (/injur|out for|day-to-day|doubtful|questionable/.test(t)) return 'INJURY';
+  if (/transfer|portal|decommit/.test(t)) return 'TRANSFER';
+  if (/tournament|bracket|ncaa|march madness|selection/.test(t)) return 'TOURNEY';
+  if (/ranked|top 25|poll|ap /.test(t)) return 'RANKINGS';
+  if (/coach|fired|hired|resign/.test(t)) return 'COACHING';
+  return null;
+}
+
+/**
  * Build news intel bullets from the news-pulse paragraph (¶5) and raw headlines.
  *
  * @param {string} newsPulseText
  * @param {Array}  headlines
- * @returns {Array<{ headline: string, editorialContext: string|null }>}
+ * @returns {Array<{ headline: string, editorialContext: string|null, tag: string|null }>}
  */
 function parseNewsIntel(newsPulseText, headlines) {
   const intel = [];
@@ -573,9 +608,9 @@ function parseNewsIntel(newsPulseText, headlines) {
     const clean = stripMarkdown(newsPulseText);
     for (const sentence of toSentences(clean)) {
       if (intel.length >= 3) break;
-      const headline = truncateAtWord(sentence, 84);
+      const headline = truncateAtWord(sentence, 88);
       if (headline.length < 20 || used.has(headline)) continue;
-      intel.push({ headline, editorialContext: null });
+      intel.push({ headline, editorialContext: null, tag: classifyNewsTag(headline) });
       used.add(headline);
     }
   }
@@ -584,7 +619,7 @@ function parseNewsIntel(newsPulseText, headlines) {
     if (intel.length >= 5) break;
     const title = truncateAtWord((h.title || h.headline || '').trim(), 82);
     if (title.length < 15 || used.has(title)) continue;
-    intel.push({ headline: title, editorialContext: h.source || null });
+    intel.push({ headline: title, editorialContext: h.source || null, tag: classifyNewsTag(title) });
     used.add(title);
   }
 
@@ -610,18 +645,18 @@ function parseNewsIntel(newsPulseText, headlines) {
  * @property {Array<{team:string,americanOdds:string,impliedProbability:number,commentary:string}>} titleRace
  *
  * — Slide 3: WHAT TO WATCH TODAY (¶3) —
- * @property {Array<{matchup:string,away:string,home:string,spread:string|null,time:string|null,storyline:string|null}>} gamesToWatch
+ * @property {Array<{matchup:string,away:string,home:string,spread:string|null,time:string|null,network:string|null,storyline:string|null}>} gamesToWatch
  * @property {string}      watchNarrative
  * @property {Array<{away:string,home:string,spread:number|null,time:string|null,why:string|null}>} watchGameFramings
  *
  * — Slide 4: ATS SPOTLIGHT (¶4) —
- * @property {Array<{team:string,atsRate:number,timeframe:string,insight:string}>} atsEdges
+ * @property {Array<{team:string,atsRate:number,timeframe:string,wl:string|null,insight:string}>} atsEdges
  * @property {string}      atsContextText
  * @property {string}      bettingAngle
  *
  * — Slide 5: IN THE NEWS / MARCH CHAOS (¶5) —
  * @property {string}      newsLead              - First sentence of ¶5 (March framing hook)
- * @property {Array<{headline:string,editorialContext:string|null}>} newsIntel
+ * @property {Array<{headline:string,editorialContext:string|null,tag:string|null}>} newsIntel
  *
  * — Caption —
  * @property {string}      voiceLine             - Punchy editorial closer (last sentence of ¶5)
@@ -698,6 +733,7 @@ export function buildDailyBriefingDigest({
         home:      g.homeTeam || '',
         spread:    null,
         time:      g.time || null,
+        network:   g.network || g.broadcast || null,
         storyline: null,
       }));
 
@@ -709,11 +745,12 @@ export function buildDailyBriefingDigest({
   const watchGameFramings = hasChatContent
     ? buildWatchFramings(parsed.todayTomorrow, parsed.newsPulse, games)
     : games.slice(0, 3).map(g => ({
-        away:   g.awayTeam || '',
-        home:   g.homeTeam || '',
-        spread: g.spread ?? g.homeSpread ?? null,
-        time:   g.time || null,
-        why:    null,
+        away:    g.awayTeam || '',
+        home:    g.homeTeam || '',
+        spread:  g.spread ?? g.homeSpread ?? null,
+        time:    g.time || null,
+        network: g.network || g.broadcast || null,
+        why:     null,
       }));
 
   // ── Slide 4: MARKET EDGE — ATS TRENDS ───────────────────────────────────

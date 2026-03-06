@@ -133,12 +133,45 @@
   white-space: nowrap;
 }
 
+/* Meta row: time + network on same line */
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* Game time */
 .gameTime {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   color: rgba(240, 244, 248, 0.38);
   letter-spacing: 0.04em;
+}
+
+/* Network badge */
+.networkPill {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(240, 244, 248, 0.60);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+/* "TBA" spread pill in vsBlock */
+.lineTba {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.30);
+  letter-spacing: 0.08em;
 }
 
 /* "Why it matters" section */

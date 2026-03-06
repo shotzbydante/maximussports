@@ -1,6 +1,16 @@
 import styles from './DailyBriefingSlide5.module.css';
 import SlideShell from './SlideShell';
 
+/** Category tag colors (inline style accent) */
+const TAG_COLORS = {
+  UPSET:    { color: '#ff6b6b', bg: 'rgba(255,107,107,0.12)', border: 'rgba(255,107,107,0.28)' },
+  INJURY:   { color: '#ffa94d', bg: 'rgba(255,169,77,0.12)',  border: 'rgba(255,169,77,0.28)'  },
+  TRANSFER: { color: '#74c0fc', bg: 'rgba(116,192,252,0.10)', border: 'rgba(116,192,252,0.25)' },
+  TOURNEY:  { color: '#B7986C', bg: 'rgba(183,152,108,0.12)', border: 'rgba(183,152,108,0.28)' },
+  RANKINGS: { color: '#a9e34b', bg: 'rgba(169,227,75,0.10)',  border: 'rgba(169,227,75,0.25)'  },
+  COACHING: { color: '#cc5de8', bg: 'rgba(204,93,232,0.10)',  border: 'rgba(204,93,232,0.25)'  },
+};
+
 export default function DailyBriefingSlide5({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
   const isRobot = styleMode === 'robot';
@@ -11,22 +21,28 @@ export default function DailyBriefingSlide5({ data, asOf, options = {}, ...rest 
   // ¶5 → opening march/chaos framing sentence
   const newsLead = hasDigest ? (digest.newsLead || '') : '';
 
-  // ¶5 → editorial intel bullets (2-3 max)
+  // ¶5 → editorial intel bullets (always aim for 3)
   let intelItems = hasDigest ? (digest.newsIntel ?? []) : [];
 
-  // Fallback: raw headlines
-  if (!intelItems.length) {
-    intelItems = (data?.headlines ?? []).slice(0, 3).map(h => ({
+  // Fallback: raw headlines (always fill to 3)
+  if (intelItems.length < 3) {
+    const rawHeadlines = (data?.headlines ?? []).map(h => ({
       headline:         (h.title || h.headline || '').slice(0, 88),
       editorialContext: h.source || null,
-    })).filter(item => item.headline.length > 10);
+      tag:              null,
+    })).filter(item => item.headline.length > 15);
+    const existing = new Set(intelItems.map(i => i.headline));
+    for (const item of rawHeadlines) {
+      if (intelItems.length >= 3) break;
+      if (!existing.has(item.headline)) {
+        intelItems.push(item);
+        existing.add(item.headline);
+      }
+    }
   }
 
   // ¶5 → closing voice line (last punchy sentence — March energy)
   const voiceLine = hasDigest ? (digest.voiceLine || '') : '';
-
-  // How many intel bullets to show (fewer if we have both lead + closer)
-  const bulletLimit = (newsLead && voiceLine) ? 2 : 3;
 
   return (
     <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
@@ -48,21 +64,32 @@ export default function DailyBriefingSlide5({ data, asOf, options = {}, ...rest 
 
       {intelItems.length === 0 ? (
         <div className={styles.emptyState}>
-          <p className={styles.emptyText}>Intel loading&hellip;</p>
+          <p className={styles.emptyText}>No intel available yet.</p>
         </div>
       ) : (
         <div className={styles.intelList}>
-          {intelItems.slice(0, bulletLimit).map((item, i) => (
-            <div key={i} className={`${styles.intelRow} ${i === 0 ? styles.intelRowLead : ''}`}>
-              <span className={styles.intelArrow}>→</span>
-              <div className={styles.intelBody}>
-                <div className={styles.intelHeadline}>{item.headline}</div>
-                {item.editorialContext && (
-                  <span className={styles.intelSource}>{item.editorialContext}</span>
-                )}
+          {intelItems.slice(0, 3).map((item, i) => {
+            const tagStyle = item.tag ? TAG_COLORS[item.tag] : null;
+            return (
+              <div key={i} className={`${styles.intelRow} ${i === 0 ? styles.intelRowLead : ''}`}>
+                <span className={styles.intelArrow}>{i === 0 ? '→' : '→'}</span>
+                <div className={styles.intelBody}>
+                  {item.tag && tagStyle && (
+                    <span
+                      className={styles.intelTag}
+                      style={{ color: tagStyle.color, background: tagStyle.bg, borderColor: tagStyle.border }}
+                    >
+                      {item.tag}
+                    </span>
+                  )}
+                  <div className={styles.intelHeadline}>{item.headline}</div>
+                  {item.editorialContext && (
+                    <span className={styles.intelSource}>{item.editorialContext}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
