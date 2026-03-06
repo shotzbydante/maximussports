@@ -22,6 +22,10 @@ import styles from './TeamPage.module.css';
 const ytDebug = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugYT');
 
+// ?debugVideos=1 mirrors the News Feed debug flag — logs team video fetch path
+const debugVideos = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).has('debugVideos');
+
 const debugTeam = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugTeam');
 
@@ -291,7 +295,7 @@ export default function TeamPage() {
     // Serve from in-memory live cache if fresh (avoids flicker on back-navigation)
     const cached = getCachedVideos(slug);
     if (cached) {
-      if (ytDebug) console.log(`[YT Team] cache HIT for ${slug} (${cached.length} items)`);
+      if (ytDebug || debugVideos) console.log(`[TeamPage debugVideos] cache HIT for ${slug}`, { count: cached.length, component: 'src/components/team/TeamPage.jsx' });
       setVideos(cached);
       setVideosIsStale(false);
       setVideosLoading(false);
@@ -301,7 +305,7 @@ export default function TeamPage() {
     // Show stale last-known-good immediately while fetching fresh data
     const stale = getStaleVideos(slug);
     if (stale?.length > 0) {
-      if (ytDebug) console.log(`[YT Team] stale HIT for ${slug} (${stale.length} items, ${Math.round(getStaleVideosAge(slug) / 3600000)}h old)`);
+      if (ytDebug || debugVideos) console.log(`[TeamPage debugVideos] stale HIT for ${slug}`, { staleCount: stale.length, staleAgeHours: Math.round(getStaleVideosAge(slug) / 3_600_000), component: 'src/components/team/TeamPage.jsx' });
       setVideos(stale);
       setVideosIsStale(true);
       setVideosStaleAgeMs(getStaleVideosAge(slug));
@@ -322,7 +326,17 @@ export default function TeamPage() {
       })
       .then((data) => {
         const items = data.items ?? [];
-        if (ytDebug) console.log(`[YT Team] fetched in ${Date.now() - t0}ms — ${items.length} items (status: ${data.status ?? 'ok'})`);
+        if (ytDebug || debugVideos) {
+          console.log(`[TeamPage debugVideos] fetch complete for ${slug}`, {
+            rawFetchedCount: items.length,
+            status: data.status ?? 'ok',
+            staleCount: stale?.length ?? 0,
+            willRender: items.length > 0 ? items.length : (stale?.length ?? 0),
+            emptyStateShown: items.length === 0 && !stale?.length,
+            elapsedMs: ytDebug ? Date.now() - t0 : null,
+            component: 'src/components/team/TeamPage.jsx',
+          });
+        }
         track('videos_fetch_result', {
           team_slug: slug,
           items_count: items.length,
@@ -345,6 +359,7 @@ export default function TeamPage() {
       .catch((err) => {
         if (err.name !== 'AbortError') {
           console.warn(`[YT Team] fetch failed for ${slug}:`, err.message);
+          if (debugVideos) console.log(`[TeamPage debugVideos] fetch error for ${slug}`, { error: err.message, staleCount: stale?.length ?? 0, component: 'src/components/team/TeamPage.jsx' });
           track('videos_fetch_result', { team_slug: slug, items_count: 0, status: 'error' });
           if (!stale?.length) {
             setVideosError(true);

@@ -18,6 +18,12 @@ export default function ConferenceLogo({ conference, size = 28 }) {
 
   if (!conference) return null;
 
+  // Inline styles enforce the size prop regardless of parent container,
+  // preventing the `width: 100%; height: 100%` CSS from resolving to the
+  // image's natural dimensions (e.g. acc.png is 1024×300) in unconstrained
+  // flex/inline-flex ancestors.
+  const sizeStyle = { width: size, height: size, minWidth: size, minHeight: size };
+
   if (logo?.src) {
     return (
       <img
@@ -25,13 +31,14 @@ export default function ConferenceLogo({ conference, size = 28 }) {
         alt={logo.alt}
         width={size}
         height={size}
+        style={sizeStyle}
         className={styles.img}
       />
     );
   }
 
   return (
-    <span className={styles.fallback} style={{ width: size, height: size }} aria-hidden>
+    <span className={styles.fallback} style={sizeStyle} aria-hidden>
       {initials}
     </span>
   );

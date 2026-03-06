@@ -84,6 +84,29 @@ export function setCachedVideos(teamSlug, data) {
   setCached(`team:${teamSlug}`, data, DEFAULT_TTL_MS);
 }
 
+// ─── Intel feed stale helpers (6 h TTL) ──────────────────────────────────────
+
+const INTEL_STALE_TTL_MS = 6 * 60 * 60 * 1000;
+const INTEL_STALE_KEY    = 'yt:news:intelFeed:stale';
+
+/**
+ * Return the last-known-good intel feed list (up to 6 h old).
+ * Used as a graceful fallback when a live fetch fails or returns empty.
+ */
+export function getStaleIntelFeed() {
+  return getCached(INTEL_STALE_KEY);
+}
+
+/** Persist the intel feed as a last-known-good snapshot. */
+export function setStaleIntelFeed(items) {
+  setCached(INTEL_STALE_KEY, items, INTEL_STALE_TTL_MS);
+}
+
+/** Age in ms of the stale intel feed snapshot. Returns Infinity when missing. */
+export function getStaleIntelFeedAge() {
+  return getCacheAge(INTEL_STALE_KEY);
+}
+
 // ─── Stale-while-revalidate helpers (24 h TTL) ───────────────────────────────
 
 const STALE_TTL_MS = 24 * 60 * 60 * 1000;

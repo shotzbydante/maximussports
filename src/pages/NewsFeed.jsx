@@ -4,7 +4,7 @@ import { TEAMS } from '../data/teams';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
 import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
-import { getCached, setCached } from '../utils/ytClientCache';
+import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed, getStaleIntelFeedAge } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
 import { getPublicationLogoUrl } from '../utils/publicationLogos';
 import styles from './NewsFeed.module.css';
@@ -244,13 +244,26 @@ export default function NewsFeed() {
   const [contentMode, setContentMode] = useState('all');
   const [activeVideo, setActiveVideo] = useState(null);
 
-  // Only hydrate from cache when it contains a non-empty array.
+  // Hydrate from live cache (non-empty), or fall back to stale last-known-good.
   // An empty cache entry (e.g. from a prior API error) must not be treated as valid.
   const [intelVideos, setIntelVideos] = useState(() => {
     const cached = getCached(INTEL_FEED_KEY);
-    return Array.isArray(cached) && cached.length > 0 ? cached : [];
+    if (Array.isArray(cached) && cached.length > 0) return cached;
+    const stale = getStaleIntelFeed();
+    return Array.isArray(stale) && stale.length > 0 ? stale : [];
   });
   const [intelFeedStatus, setIntelFeedStatus] = useState(null);
+  const [intelVideosIsStale, setIntelVideosIsStale] = useState(() => {
+    const cached = getCached(INTEL_FEED_KEY);
+    if (Array.isArray(cached) && cached.length > 0) return false;
+    const stale = getStaleIntelFeed();
+    return Array.isArray(stale) && stale.length > 0;
+  });
+  const [intelVideosStaleAgeMs, setIntelVideosStaleAgeMs] = useState(() => {
+    const cached = getCached(INTEL_FEED_KEY);
+    if (Array.isArray(cached) && cached.length > 0) return 0;
+    return getStaleIntelFeedAge();
+  });
 
   // Track news_view once on mount
   useEffect(() => {
@@ -314,22 +327,39 @@ export default function NewsFeed() {
       .finally(()   => setLoading(false));
   }, []);
 
-  // Intel Feed videos: fetch once, cache 15 min.
-  // Guard: only skip fetch when cache contains a NON-EMPTY array.
-  // An empty array is truthy in JS, so the naive `if (getCached(key)) return` would
-  // incorrectly short-circuit here and prevent recovery from a prior API error.
+  // Intel Feed videos: fetch once per 15-min live cache window.
+  // Guard: only skip fetch when live cache has non-empty results.
+  // If live cache is empty/expired, show stale results immediately while refetching.
   useEffect(() => {
     const cached = getCached(INTEL_FEED_KEY);
     if (Array.isArray(cached) && cached.length > 0) {
       if (debugVideos) {
         console.log('[NewsFeed debugVideos] cache hit', {
           cachedCount: cached.length,
-          mode: 'cache',
+          mode: 'live-cache',
           component: 'src/pages/NewsFeed.jsx',
         });
       }
+      setIntelVideosIsStale(false);
       return;
     }
+
+    // Show stale last-known-good immediately while fetching fresh data
+    const stale = getStaleIntelFeed();
+    if (stale?.length > 0) {
+      if (debugVideos) {
+        console.log('[NewsFeed debugVideos] stale hit', {
+          staleCount: stale.length,
+          staleAgeMs: getStaleIntelFeedAge(),
+          mode: 'stale',
+          component: 'src/pages/NewsFeed.jsx',
+        });
+      }
+      setIntelVideos(stale);
+      setIntelVideosIsStale(true);
+      setIntelVideosStaleAgeMs(getStaleIntelFeedAge());
+    }
+
     const controller = new AbortController();
     const qs = new URLSearchParams();
     if (ytDebug) qs.set('debugYT', '1');
@@ -338,15 +368,24 @@ export default function NewsFeed() {
       .then((data) => {
         const items = data.items ?? [];
         setIntelFeedStatus(data.status ?? 'ok');
-        // Only cache non-empty results — prevents serving a stale empty state
         if (items.length > 0) {
+          // Cache fresh results and update stale last-known-good
           setCached(INTEL_FEED_KEY, items, INTEL_FEED_TTL);
+          setStaleIntelFeed(items);
+          setIntelVideos(items);
+          setIntelVideosIsStale(false);
+        } else if (!stale?.length) {
+          // Only clear if we have no stale fallback to show
+          setIntelVideos([]);
+          setIntelVideosIsStale(false);
         }
-        setIntelVideos(items);
+        // If items empty but stale exists, leave stale visible (don't replace with empty)
         if (debugVideos || ytDebug) {
           console.log('[NewsFeed debugVideos] fetch complete', {
             rawFetchedCount: items.length,
             status: data.status ?? 'ok',
+            staleCount: stale?.length ?? 0,
+            keptStale: items.length === 0 && (stale?.length ?? 0) > 0,
             note: 'Filtering is server-side; client receives final scored list.',
             component: 'src/pages/NewsFeed.jsx',
           });
@@ -355,7 +394,7 @@ export default function NewsFeed() {
       .catch((err) => {
         if (err.name !== 'AbortError') {
           setIntelFeedStatus('error');
-          if (debugVideos) console.log('[NewsFeed debugVideos] fetch error', { error: err.message });
+          if (debugVideos) console.log('[NewsFeed debugVideos] fetch error', { error: err.message, staleCount: stale?.length ?? 0 });
         }
       });
     return () => controller.abort();
@@ -392,14 +431,16 @@ export default function NewsFeed() {
   useEffect(() => {
     if (!debugVideos) return;
     console.log('[NewsFeed debugVideos] render state', {
-      rawVideoCount:     intelVideos.length,
-      filteredStories:   filtered.length,
-      mode:              contentMode,
+      rawVideoCount:        intelVideos.length,
+      videosIsStale:        intelVideosIsStale,
+      videosStaleAgeHours:  intelVideosStaleAgeMs > 0 ? (intelVideosStaleAgeMs / 3_600_000).toFixed(1) : null,
+      filteredStories:      filtered.length,
+      mode:                 contentMode,
       activeConf,
       intelFeedStatus,
-      component:         'src/pages/NewsFeed.jsx',
+      component:            'src/pages/NewsFeed.jsx',
     });
-  }, [intelVideos.length, filtered.length, contentMode, activeConf, intelFeedStatus]);
+  }, [intelVideos.length, intelVideosIsStale, intelVideosStaleAgeMs, filtered.length, contentMode, activeConf, intelFeedStatus]);
 
   return (
     <div className={styles.page}>
@@ -486,17 +527,24 @@ export default function NewsFeed() {
             <section className={styles.topVideosSection} aria-label="Top videos">
               <div className={styles.sectionHeadingRow}>
                 <h2 className={styles.sectionHeading}>Top Videos</h2>
-                {contentMode === 'all' && (
-                  <button
-                    type="button"
-                    className={styles.sectionCta}
-                    onClick={handleSeeMoreVideos}
-                  >
-                    {intelVideos.length > 6
-                      ? `See more videos (${intelVideos.length}) →`
-                      : 'See more videos →'}
-                  </button>
-                )}
+                <div className={styles.sectionHeadingRight}>
+                  {intelVideosIsStale && intelVideosStaleAgeMs > 0 && (
+                    <span className={styles.videosStaleLabel}>
+                      Updated {Math.round(intelVideosStaleAgeMs / 3_600_000)}h ago
+                    </span>
+                  )}
+                  {contentMode === 'all' && (
+                    <button
+                      type="button"
+                      className={styles.sectionCta}
+                      onClick={handleSeeMoreVideos}
+                    >
+                      {intelVideos.length > 6
+                        ? `See more videos (${intelVideos.length}) →`
+                        : 'See more videos →'}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className={styles.topVideosGrid}>
                 {(contentMode === 'videos' ? intelVideos : intelVideos.slice(0, 6)).map((v, idx) => (
@@ -517,15 +565,15 @@ export default function NewsFeed() {
               <p className={styles.videosEmptyTitle}>
                 {intelFeedStatus === 'error_no_key'
                   ? 'Video service not configured'
-                  : intelFeedStatus === 'error_quota'
+                  : intelFeedStatus === 'error_quota' || intelFeedStatus === 'error'
                   ? 'Videos temporarily unavailable'
                   : 'No fresh clips right now'}
               </p>
               <p className={styles.videosEmptyReason}>
                 {intelFeedStatus === 'error_no_key'
                   ? 'YouTube is not configured for this environment.'
-                  : intelFeedStatus === 'error_quota'
-                  ? 'YouTube quota exceeded. Check back later.'
+                  : intelFeedStatus === 'error_quota' || intelFeedStatus === 'error'
+                  ? 'Video service is temporarily unavailable. Check back soon.'
                   : 'No highlight clips found. Check back soon.'}
               </p>
             </div>

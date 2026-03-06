@@ -209,6 +209,11 @@
 .filterChipLogo {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  overflow: hidden;
   opacity: 0.8;
 }
 
@@ -506,33 +511,33 @@
 .streamList {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .streamCard {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-md);
-  padding: 12px var(--space-sm);
+  padding: 10px var(--space-sm);
   background: var(--color-bg-elevated);
   border-radius: 8px;
   border: 1px solid transparent;
   text-decoration: none;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 72px;
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
 .streamCard:hover {
   background: rgba(60, 121, 180, 0.035);
   border-color: rgba(60, 121, 180, 0.1);
-  transform: translateX(3px);
+  transform: translateX(2px);
 }
 
 .streamThumb {
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
+  width: 68px;
+  height: 68px;
   border-radius: 8px;
   overflow: hidden;
   position: relative;
@@ -609,12 +614,13 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
-  line-height: 1.35;
+  line-height: 1.4;
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  letter-spacing: -0.01em;
 }
 
 .streamExcerpt {
@@ -1125,6 +1131,22 @@
 /* Override the heading's own bottom margin since the row handles it */
 .sectionHeadingRow .sectionHeading {
   margin-bottom: 0;
+}
+
+.sectionHeadingRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.videosStaleLabel {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+  opacity: 0.7;
+  white-space: nowrap;
 }
 
 .sectionCta {
