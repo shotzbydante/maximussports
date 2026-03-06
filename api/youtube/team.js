@@ -206,34 +206,51 @@ export default async function handler(req, res) {
     return res.status(400).json({ status: 'error', message: 'Missing required param: teamSlug' });
   }
 
-  const team = resolveTeam(teamSlug.trim());
+  // Normalize slug once — trim + lowercase — used consistently for all cache keys and payloads.
+  // This prevents key fragmentation from leading/trailing whitespace or mixed case in query params.
+  const slug = teamSlug.trim().toLowerCase();
+
+  const team = resolveTeam(slug);
   if (!team) {
-    return res.status(400).json({ status: 'error', message: `Unknown teamSlug: ${teamSlug}` });
+    return res.status(400).json({ status: 'error', message: `Unknown teamSlug: ${slug}` });
   }
 
-  const opponent   = opponentSlug ? resolveTeam(opponentSlug.trim()) : null;
+  const opponent   = opponentSlug ? resolveTeam(opponentSlug.trim().toLowerCase()) : null;
   const parsedMax  = parseInt(rawMax, 10);
   const maxResults = isNaN(parsedMax)
     ? DEFAULT_MAX
     : Math.min(MAX_MAX, Math.max(MIN_MAX, parsedMax));
 
-  const freshKey     = kvFreshKey(teamSlug);
-  const lastKnownKey = kvLastKnownKey(teamSlug);
+  // Single normalized key source — both read and write use exactly these values.
+  // Using the normalized slug (not the raw query param) eliminates any key mismatch.
+  const freshKey     = kvFreshKey(slug);
+  const lastKnownKey = kvLastKnownKey(slug);
+
+  // Debug tracking — populated throughout handler, emitted in _debug only when debug=true
+  const cacheDebug = debug ? {
+    freshKey,
+    staleKey:       lastKnownKey,
+    freshHit:       false,
+    freshWriteOk:   null,  // null = not attempted yet
+    staleWriteOk:   null,
+    cacheable:      false,
+  } : null;
 
   // ── Layer 1: KV fresh cache ─────────────────────────────────────────────
   try {
     const cached = await getJson(freshKey);
     if (cached?.items?.length > 0) {
-      if (debug) console.log(`[api/youtube/team] KV fresh HIT for ${teamSlug} — ${cached.items.length} items, elapsed=${Date.now()-t0}ms`);
+      if (debug) console.log(`[api/youtube/team] KV fresh HIT for ${slug} — ${cached.items.length} items, elapsed=${Date.now()-t0}ms`);
+      if (cacheDebug) cacheDebug.freshHit = true;
       return res.status(200).json({
         ...cached,
         _path:  debug ? 'kv_fresh' : undefined,
-        _debug: debug ? { elapsedMs: Date.now() - t0 } : undefined,
+        _debug: debug ? { elapsedMs: Date.now() - t0, ...cacheDebug } : undefined,
       });
     }
-    if (debug) console.log(`[api/youtube/team] KV fresh MISS for ${teamSlug}`);
+    if (debug) console.log(`[api/youtube/team] KV fresh MISS for ${slug} (key="${freshKey}")`);
   } catch (kvErr) {
-    if (debug) console.log(`[api/youtube/team] KV read error: ${kvErr.message}`);
+    if (debug) console.log(`[api/youtube/team] KV read error for ${slug}: ${kvErr.message}`);
   }
 
   // ── Check circuit breaker ───────────────────────────────────────────────
@@ -246,15 +263,15 @@ export default async function handler(req, res) {
     try {
       const lastKnown = await getJson(lastKnownKey);
       if (lastKnown?.items?.length > 0) {
-        if (debug) console.log(`[api/youtube/team] breaker active → stale HIT for ${teamSlug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
+        if (debug) console.log(`[api/youtube/team] breaker active → stale HIT for ${slug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
         return res.status(200).json({
           ...lastKnown,
           status: 'ok_stale',
           _path:  debug ? 'kv_stale_breaker' : undefined,
-          _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive: true } : undefined,
+          _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive: true, ...cacheDebug } : undefined,
         });
       }
-      if (debug) console.log(`[api/youtube/team] breaker active → stale MISS for ${teamSlug}`);
+      if (debug) console.log(`[api/youtube/team] breaker active → stale MISS for ${slug}`);
     } catch (kvErr) {
       if (debug) console.log(`[api/youtube/team] stale read error (breaker path): ${kvErr.message}`);
     }
@@ -302,21 +319,36 @@ export default async function handler(req, res) {
   }
 
   // ── Write cache on success ──────────────────────────────────────────────
+  // Both writes are awaited (not fire-and-forget) to guarantee they complete before the
+  // function returns. Fire-and-forget writes can be silently dropped by the Vercel runtime
+  // after the response is sent, causing persistent cache misses on every request.
   if (items && items.length > 0) {
     const payload = {
       status:    'ok',
-      teamSlug,
+      teamSlug:  slug,   // normalized slug stored in payload matches the cache key
       teamName:  team.name,
       updatedAt: new Date().toISOString(),
       items,
     };
-    setJson(freshKey, payload, { exSeconds: KV_FRESH_TTL_SEC }).catch(() => {});
-    setJson(lastKnownKey, payload, { exSeconds: KV_LASTKNOWN_TTL_SEC }).catch(() => {});
+    if (cacheDebug) cacheDebug.cacheable = true;
+
+    const [freshResult, staleResult] = await Promise.allSettled([
+      setJson(freshKey,     payload, { exSeconds: KV_FRESH_TTL_SEC     }),
+      setJson(lastKnownKey, payload, { exSeconds: KV_LASTKNOWN_TTL_SEC }),
+    ]);
+
+    if (cacheDebug) {
+      cacheDebug.freshWriteOk = freshResult.status === 'fulfilled';
+      cacheDebug.staleWriteOk = staleResult.status === 'fulfilled';
+      if (!cacheDebug.freshWriteOk) {
+        console.warn(`[api/youtube/team] fresh cache write FAILED for ${slug}:`, freshResult.reason?.message);
+      }
+    }
 
     return res.status(200).json({
       ...payload,
       _path:  debug ? apiPath : undefined,
-      _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive } : undefined,
+      _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive, ...cacheDebug } : undefined,
     });
   }
 
@@ -325,12 +357,12 @@ export default async function handler(req, res) {
   try {
     const lastKnown = await getJson(lastKnownKey);
     if (lastKnown?.items?.length > 0) {
-      if (debug) console.log(`[api/youtube/team] rescue stale HIT for ${teamSlug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
+      if (debug) console.log(`[api/youtube/team] rescue stale HIT for ${slug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
       return res.status(200).json({
         ...lastKnown,
         status: 'ok_stale',
         _path:  debug ? 'kv_stale_rescue' : undefined,
-        _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive } : undefined,
+        _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive, ...cacheDebug } : undefined,
       });
     }
   } catch (kvErr) {
@@ -338,14 +370,14 @@ export default async function handler(req, res) {
   }
 
   // ── Complete failure ────────────────────────────────────────────────────
-  if (debug) console.log(`[api/youtube/team] all layers exhausted for ${teamSlug} in ${Date.now()-t0}ms`);
+  if (debug) console.log(`[api/youtube/team] all layers exhausted for ${slug} in ${Date.now()-t0}ms`);
   return res.status(200).json({
     status:    'error',
-    teamSlug,
+    teamSlug:  slug,
     teamName:  team.name,
     updatedAt: new Date().toISOString(),
     items:     [],
     _path:     debug ? 'exhausted' : undefined,
-    _debug:    debug ? { elapsedMs: Date.now() - t0, quotaActive } : undefined,
+    _debug:    debug ? { elapsedMs: Date.now() - t0, quotaActive, ...cacheDebug } : undefined,
   });
 }
