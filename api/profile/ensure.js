@@ -2,18 +2,19 @@
  * POST /api/profile/ensure
  *
  * Ensures a minimal profiles row exists for the authenticated user.
- * Uses the Supabase service role key (bypasses RLS), so this is the reliable
- * fallback when the client-side upsert fails due to RLS policy restrictions.
+ * Uses the Supabase service role key (bypasses RLS).
+ *
+ * Writes ONLY columns that are guaranteed to exist in all deployments:
+ *   id, plan_tier, subscription_status, updated_at
+ *
+ * NEVER writes: email (not a column in profiles — email is in auth.users),
+ *               stripe_customer_id, cancel_at_period_end, etc.
+ *
+ * Uses ignoreDuplicates so existing Pro state is never overwritten.
  *
  * Security:
- *   - Requires a valid Supabase JWT (Bearer token).
- *   - Only writes the caller's own row (user ID taken from JWT, never request body).
- *   - Only writes minimal safe defaults — never overwrites existing plan/stripe data.
- *
- * Required env vars (same as other serverless routes):
- *   SUPABASE_URL / VITE_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
- *   SUPABASE_ANON_KEY / VITE_SUPABASE_ANON_KEY
+ *   - Requires valid Supabase JWT (Bearer token).
+ *   - Only writes the caller's own row (user ID from JWT, never request body).
  */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
@@ -48,11 +49,11 @@ export default async function handler(req, res) {
     return res.status(503).json({ ok: false, error: 'Database service unavailable' });
   }
 
-  // Use ignoreDuplicates so we never overwrite existing plan_tier / stripe fields.
+  // ignoreDuplicates: true — never overwrites existing plan_tier / stripe fields.
+  // Only writes confirmed-safe columns: id, plan_tier, subscription_status, updated_at.
   const { error } = await sb.from('profiles').insert(
     {
       id:                  caller.id,
-      email:               caller.email ?? null,
       plan_tier:           'free',
       subscription_status: 'inactive',
       updated_at:          new Date().toISOString(),

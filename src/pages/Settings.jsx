@@ -1282,6 +1282,13 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   // Guard: only attempt auto-sync once per billing-tab visit (avoids repeated requests).
   const autoSyncAttemptedRef = useRef(false);
 
+  // Capture session_id from URL BEFORE the cleanup effect removes it.
+  // Stripe populates {CHECKOUT_SESSION_ID} in the success_url so we can use it
+  // as the most reliable sync path (path 0 in billing/sync).
+  const sessionIdRef = useRef(
+    new URLSearchParams(window.location.search).get('session_id') ?? null
+  );
+
   // Detect billing return from Stripe
   const [billingNotice, setBillingNotice] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1334,11 +1341,14 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     new URLSearchParams(window.location.search).has('debugPlan');
   const syncAttemptsRef = useRef(0);
 
-  async function trySyncFallback() {
+  async function trySyncFallback(sessionId = null) {
     syncAttemptsRef.current += 1;
     const attempt = syncAttemptsRef.current;
     if (_debugPlan) {
-      console.log(`[Settings/trySyncFallback] attempt #${attempt} for user`, user?.id, 'email:', user?.email);
+      console.log(
+        `[Settings/trySyncFallback] attempt #${attempt}`,
+        { userId: user?.id?.slice(0, 8), sessionId: sessionId ? 'present' : 'none' }
+      );
     }
     try {
       const sb = getSupabase();
@@ -1346,9 +1356,14 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       const { data: { session: sess } } = await sb.auth.getSession();
       const token = sess?.access_token;
       if (!token) return false;
+
+      // Include session_id in the body so the server can use path 0 (most reliable).
+      const body = JSON.stringify(sessionId ? { session_id: sessionId } : {});
+
       const res = await fetch('/api/billing/sync', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body,
       });
       const json = await res.json().catch(() => ({}));
       if (_debugPlan) {
@@ -1400,23 +1415,30 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     }
   }
 
+  /**
+   * Poll Supabase directly for up to 20 s after a checkout, as a fallback if
+   * billing/sync hasn't flipped the profile row yet (webhook still in flight).
+   * Does NOT call trySyncFallback at the end — that was already tried before
+   * this function runs (see startUpgradeFlow).
+   */
   function pollForProUpgrade() {
     const sb = getSupabase();
     if (!sb) return;
     let attempts = 0;
-    const MAX_ATTEMPTS = 8;
+    const MAX_ATTEMPTS = 13; // ~20 s at 1.5 s intervals
     const INTERVAL_MS  = 1500;
-
-    setPlanRefreshing(true);
 
     function attempt() {
       sb.from('profiles')
-        .select('*')
+        .select('plan_tier, subscription_status')
         .eq('id', user.id)
         .maybeSingle()
-        .then(async ({ data }) => {
+        .then(({ data }) => {
           if (data && (data.plan_tier === 'pro' || data.subscription_status === 'active' || data.subscription_status === 'trialing')) {
-            onProfileUpdate(data);
+            // Reload full profile for UI
+            sb.from('profiles').select('*').eq('id', user.id).maybeSingle().then(({ data: full }) => {
+              if (full) onProfileUpdate(full);
+            });
             invalidatePlanCache(user.id);
             showToast('Welcome to Maximus Sports Pro! 🎉', { type: 'success', duration: 5000 });
             setPlanRefreshing(false);
@@ -1426,16 +1448,12 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           if (attempts < MAX_ATTEMPTS) {
             pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
           } else {
-            // Polling exhausted — try the server-side sync fallback once.
-            const synced = await trySyncFallback();
             setPlanRefreshing(false);
-            if (!synced) {
-              // Webhook still in flight — show a softer "check back" message.
-              setBillingNotice({
-                type: 'info',
-                message: 'Subscription is being verified. If your plan doesn\'t update within a minute, refresh the page.',
-              });
-            }
+            // Webhook still in flight — friendly waiting message.
+            setBillingNotice({
+              type:    'info',
+              message: "We're still confirming your subscription. Try clicking \"Already paid? Sync subscription\" below, or refresh in a moment.",
+            });
           }
         })
         .catch(() => {
@@ -1451,11 +1469,32 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     pollTimerRef.current = setTimeout(attempt, INTERVAL_MS);
   }
 
-  // Kick off polling immediately when landing on /settings?upgrade=success
+  /**
+   * Primary upgrade-return flow:
+   *   1. Call billing/sync immediately with the session_id (fastest, most reliable).
+   *   2. If sync confirms Pro → done.
+   *   3. If sync says "not pro yet" → webhook might still be in flight → poll Supabase.
+   */
+  async function startUpgradeFlow() {
+    setPlanRefreshing(true);
+    const sid = sessionIdRef.current; // captured before URL cleanup
+    if (_debugPlan) console.log('[Settings/startUpgradeFlow] session_id:', sid ? 'present' : 'none');
+
+    const synced = await trySyncFallback(sid);
+    if (synced) {
+      setPlanRefreshing(false);
+      return;
+    }
+
+    // Sync returned "not pro" — webhook may still be in flight. Poll briefly.
+    pollForProUpgrade();
+  }
+
+  // Kick off the upgrade flow immediately when landing on /settings?upgrade=success.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') === 'success' || params.get('billing') === 'success') {
-      pollForProUpgrade();
+      startUpgradeFlow();
     }
     return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1473,7 +1512,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     ) {
       autoSyncAttemptedRef.current = true;
       setPlanRefreshing(true);
-      trySyncFallback().then((synced) => {
+      trySyncFallback(sessionIdRef.current).then((synced) => {
         setPlanRefreshing(false);
         if (!synced) {
           // Subscription truly isn't active yet — leave UI as-is.

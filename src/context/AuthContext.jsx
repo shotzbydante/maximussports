@@ -15,13 +15,16 @@ function dbg(...args) {
 /**
  * Attempt client-side profile shell upsert.
  * Returns true on success, false on failure (RLS block or network error).
+ *
+ * IMPORTANT: only writes columns confirmed to exist in profiles:
+ *   id, plan_tier, subscription_status, updated_at
+ * Do NOT include 'email' — that column does not exist in the profiles table.
  */
 async function upsertProfileClient(sb, user) {
   try {
     const { error } = await sb.from('profiles').insert(
       {
         id:                  user.id,
-        email:               user.email ?? null,
         plan_tier:           'free',
         subscription_status: 'inactive',
         updated_at:          new Date().toISOString(),
