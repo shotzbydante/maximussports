@@ -602,6 +602,7 @@
   gap: 5px;
   margin-bottom: 5px;
   flex-wrap: wrap;
+  row-gap: 3px;
 }
 
 .streamHeadline {
@@ -625,6 +626,25 @@
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Meta line dot separator ( Source · time ) */
+.metaDot {
+  color: var(--color-text-muted);
+  font-size: 0.55rem;
+  opacity: 0.45;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Inline timestamp in stream meta — no auto-margin so it stays next to the dot */
+.streamTime {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ─── Shared Atoms ────────────────────────────────────────────────────────── */
@@ -809,6 +829,42 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   padding: 0;
+}
+
+/* ─── Polished video empty state ─────────────────────────────────────────── */
+
+.videosEmptyBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  border: 1px dashed var(--color-border-light, rgba(60, 121, 180, 0.16));
+  border-radius: var(--radius-card);
+  background: rgba(60, 121, 180, 0.02);
+  margin-bottom: var(--space-xl);
+}
+
+.videosEmptyIcon {
+  font-size: 2.2rem;
+  opacity: 0.15;
+  line-height: 1;
+  color: var(--color-primary);
+}
+
+.videosEmptyTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.videosEmptyReason {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 280px;
 }
 
 /* ─── Loading Skeletons ───────────────────────────────────────────────────── */

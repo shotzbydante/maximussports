@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamPage } from '../api/team';
+import { fetchTeamNextLine } from '../api/teamNextLine';
 import { fetchAtsLeaders, fetchAtsRefresh } from '../api/atsLeaders';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
 import { buildCaption, formatCaptionFile } from '../components/dashboard/captions/buildCaption';
+import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import CarouselComposer from '../components/dashboard/CarouselComposer';
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import { waitForImages } from '../components/dashboard/utils/exportReady';
@@ -67,6 +69,7 @@ export default function Dashboard() {
   const [dataError, setDataError] = useState(null);
   const [teamPageData, setTeamPageData] = useState(null);
   const [teamPageLoading, setTeamPageLoading] = useState(false);
+  const [teamNextLineData, setTeamNextLineData] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── export state ─────────────────────────────────────────
@@ -168,6 +171,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!selectedTeam?.slug || activeSection !== 'team') {
       setTeamPageData(null);
+      setTeamNextLineData(null);
       return;
     }
     setTeamPageLoading(true);
@@ -175,6 +179,17 @@ export default function Dashboard() {
       .then(d => setTeamPageData(d))
       .catch(() => setTeamPageData(null))
       .finally(() => setTeamPageLoading(false));
+  }, [selectedTeam, activeSection]);
+
+  // ── load team next line (same source as Team Page) ───────
+  useEffect(() => {
+    if (!selectedTeam?.slug || activeSection !== 'team') {
+      setTeamNextLineData(null);
+      return;
+    }
+    fetchTeamNextLine(selectedTeam.slug)
+      .then(d => setTeamNextLineData(d))
+      .catch(() => setTeamNextLineData(null));
   }, [selectedTeam, activeSection]);
 
   // ── auto-select first game when section === game ──────────
@@ -191,6 +206,31 @@ export default function Dashboard() {
     setAssetsReady(false);
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── enhanced team data: same computed values as Team Page ─
+  const enhancedTeamData = useMemo(() => {
+    if (!teamPageData) return null;
+    const teamObj = teamPageData.team ?? selectedTeam;
+    const teamName = teamObj?.name ?? selectedTeam?.name ?? null;
+
+    // Compute ATS from schedule + odds history (identical to MaximusInsight on Team Page)
+    const ats = (teamPageData.schedule && teamPageData.oddsHistory && teamName)
+      ? computeAtsFromScheduleAndHistory(teamPageData.schedule, teamPageData.oddsHistory, teamName)
+      : null;
+
+    // Split news into last-7 / prev-90 (identical to TeamPage split)
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const last7News = (teamPageData.teamNews ?? []).filter(
+      n => new Date(n.pubDate || 0).getTime() >= sevenDaysAgo,
+    );
+
+    return {
+      ...teamPageData,
+      ats,
+      nextLine: teamNextLineData ?? null,
+      last7News,
+    };
+  }, [teamPageData, teamNextLineData, selectedTeam]);
+
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
     if (!dashData) return null;
@@ -206,16 +246,21 @@ export default function Dashboard() {
       hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short',
     });
 
+    const ats = enhancedTeamData?.ats;
+    const atsRecord = ats?.season
+      ? `${ats.season.w}-${ats.season.l}${ats.season.coverPct != null ? ` (${ats.season.coverPct}%)` : ''}`
+      : null;
+
     const stats = {
       gamesWithOdds: (games.filter(g => g.spread != null || g.homeSpread != null)).length,
-      rank: teamPageData?.rank ?? null,
-      record: (teamPageData?.team?.record?.items?.[0]?.summary) ?? null,
-      atsRecord: null,
+      rank: enhancedTeamData?.rank ?? null,
+      record: (enhancedTeamData?.team?.record?.items?.[0]?.summary) ?? null,
+      atsRecord,
     };
 
     return buildCaption({
       template: activeSection,
-      team: teamPageData?.team ?? selectedTeam,
+      team: enhancedTeamData?.team ?? selectedTeam,
       game: selectedGame,
       picks,
       stats,
@@ -356,7 +401,7 @@ export default function Dashboard() {
 
   const gamesForPicker = (dashData?.odds?.games ?? []).filter(g => g.awayTeam && g.homeTeam);
   const isWorking = dataLoading || teamPageLoading;
-  const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!teamPageData);
+  const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData);
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
   const options = {
@@ -725,7 +770,7 @@ export default function Dashboard() {
               template={activeSection}
               slideCount={slideCount}
               data={dashData}
-              teamData={teamPageData}
+              teamData={enhancedTeamData}
               selectedGame={selectedGame}
               exportRef={exportRef}
               onAssetsReady={() => setAssetsReady(true)}

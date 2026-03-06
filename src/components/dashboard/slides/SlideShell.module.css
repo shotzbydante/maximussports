@@ -32,14 +32,17 @@
   right: 52px;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.18;
-  filter: drop-shadow(0 0 32px rgba(60, 121, 180, 0.6));
+  /* opacity is set via inline style in SlideShell.jsx (0.62 standard / 0.80 robot) */
 }
 
 .mascot {
   width: 160px;
   height: auto;
   display: block;
+  /* Crisp premium glow: depth shadow + subtle brand-blue aura */
+  filter:
+    drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 14px rgba(45, 108, 168, 0.30));
 }
 
 /* ── Header ─────────────────────────────────────────────── */

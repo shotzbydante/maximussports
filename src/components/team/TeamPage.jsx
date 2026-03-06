@@ -25,6 +25,9 @@ const ytDebug = typeof window !== 'undefined'
 const debugTeam = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugTeam');
 
+const debugTeamNews = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).has('debugTeamNews');
+
 const NEXT_LINE_SLOW_MS  = 18000;
 const TEAM_PAGE_TTL_MS   = 5 * 60 * 1000; // 5-minute client cache for batch data
 const TEAM_PAGE_STALE_MS = 60 * 1000;     // silent background revalidation after 60 s
@@ -218,7 +221,7 @@ export default function TeamPage() {
           console.log(`[TeamPage] ${slug} core in ${coreMs}ms`);
           setDebugInfo((prev) => ({ ...prev, coreMs }));
         }
-        return fetchTeamPage(slug);
+        return fetchTeamPage(slug, { debugNews: debugTeamNews });
       })
       .then((fullData) => {
         if (cancelled || !fullData) return;

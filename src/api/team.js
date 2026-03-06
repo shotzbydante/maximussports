@@ -112,14 +112,17 @@ export async function fetchTeamBatch(slugs, options = {}) {
 }
 
 export async function fetchTeamPage(slug, opts = {}) {
-  const { coreOnly = false } = opts;
+  const { coreOnly = false, debugNews = false } = opts;
   if (!slug) return Promise.resolve({ schedule: { events: [] }, oddsHistory: { games: [] }, teamNews: [], rank: null, teamId: null });
   const key = coreOnly ? `team:core:${slug}` : `team:${slug}`;
   return coalesce(key, async () => {
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
       console.time(`[client] fetchTeamPage ${slug}${coreOnly ? ' (core)' : ''}`);
     }
-    const qs = coreOnly ? '?core=1' : '';
+    const params = new URLSearchParams();
+    if (coreOnly) params.set('core', '1');
+    if (debugNews) params.set('debugTeamNews', '1');
+    const qs = params.toString() ? `?${params}` : '';
     const res = await fetch(`/api/team/${encodeURIComponent(slug)}${qs}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));

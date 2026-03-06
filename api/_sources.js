@@ -609,24 +609,39 @@ export async function fetchScheduleSource(teamId) {
 }
 
 // --- News (team) ---
-export async function fetchTeamNewsSource(slug) {
+export async function fetchTeamNewsSource(slug, { debug = false } = {}) {
   const cacheKey = `news-team:${slug}`;
   const cached = newsTeamCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    if (debug) console.log(`[teamNews:${slug}] cache HIT — ${cached.headlines?.length ?? 0} items`);
+    return cached;
+  }
 
   const { getTeamBySlug } = await import('../src/data/teams.js');
-  const { isMensBasketball } = await import('./news/filters.js');
+  const { isMensBasketball, isMensBasketballLoose } = await import('./news/filters.js');
   const team = getTeamBySlug(slug);
-  if (!team) return { headlines: [] };
+  if (!team) {
+    if (debug) console.log(`[teamNews:${slug}] team not found`);
+    return { headlines: [] };
+  }
 
   const result = await coalesce(cacheKey, async () => {
     const name = team.name;
-    const keywords = team.keywords || team.name;
-    const query = encodeURIComponent(`"${name}" OR "${keywords}" when:90d`);
+    // Include "basketball" in the query so Google News returns basketball-contextual articles.
+    // This significantly improves the signal-to-noise ratio before client-side filtering.
+    const query = encodeURIComponent(`"${name}" basketball when:90d`);
     const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
-    const res = await fetch(rssUrl, {
-      headers: { 'User-Agent': 'MaximusSports/1.0 (+https://maximussports.vercel.app)' },
-    });
+    if (debug) console.log(`[teamNews:${slug}] query="${decodeURIComponent(query)}" url=${rssUrl}`);
+    let res;
+    try {
+      res = await fetch(rssUrl, {
+        headers: { 'User-Agent': 'MaximusSports/1.0 (+https://maximussports.vercel.app)' },
+      });
+    } catch (fetchErr) {
+      if (debug) console.log(`[teamNews:${slug}] fetch error:`, fetchErr.message);
+      return { headlines: [] };
+    }
+    if (debug) console.log(`[teamNews:${slug}] HTTP status=${res.status}`);
     if (!res.ok) return { headlines: [] };
     const xml = await res.text();
     const { XMLParser } = await import('fast-xml-parser');
@@ -634,9 +649,22 @@ export async function fetchTeamNewsSource(slug) {
     const parsed = parser.parse(xml);
     const items = parsed?.rss?.channel?.item;
     const raw = Array.isArray(items) ? items : items ? [items] : [];
+    if (debug) console.log(`[teamNews:${slug}] raw items=${raw.length}`);
+
     const sourceStr = (item) => (item.source && (item.source['#text'] || item.source)) || '';
     const linkStr = (item) => item.link || '';
-    const filtered = raw.filter((item) => isMensBasketball(item.title || '', sourceStr(item), linkStr(item)));
+
+    // Primary filter: strict MBB (requires basketball/MBB/hoops keyword in title)
+    let filtered = raw.filter((item) => isMensBasketball(item.title || '', sourceStr(item), linkStr(item)));
+
+    // Fallback: if the strict filter removes everything, try the loose filter.
+    // Since we already searched with "basketball" in the query, the loose filter is safe.
+    if (filtered.length === 0 && raw.length > 0) {
+      filtered = raw.filter((item) => isMensBasketballLoose(item.title || '', sourceStr(item), linkStr(item)));
+      if (debug) console.log(`[teamNews:${slug}] strict filter empty → loose filter → ${filtered.length} items`);
+    }
+
+    if (debug) console.log(`[teamNews:${slug}] after filter=${filtered.length}`);
     filtered.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
     const headlines = filtered.slice(0, 10).map((item, i) => ({
       id: item.guid?.['#text'] || item.link || `news-${i}`,

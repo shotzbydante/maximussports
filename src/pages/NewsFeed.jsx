@@ -16,6 +16,10 @@ const ytDebug =
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).has('debugYT');
 
+const debugVideos =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).has('debugVideos');
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CONF_ORDER = ['All', 'Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
@@ -240,7 +244,13 @@ export default function NewsFeed() {
   const [contentMode, setContentMode] = useState('all');
   const [activeVideo, setActiveVideo] = useState(null);
 
-  const [intelVideos, setIntelVideos] = useState(() => getCached(INTEL_FEED_KEY) ?? []);
+  // Only hydrate from cache when it contains a non-empty array.
+  // An empty cache entry (e.g. from a prior API error) must not be treated as valid.
+  const [intelVideos, setIntelVideos] = useState(() => {
+    const cached = getCached(INTEL_FEED_KEY);
+    return Array.isArray(cached) && cached.length > 0 ? cached : [];
+  });
+  const [intelFeedStatus, setIntelFeedStatus] = useState(null);
 
   // Track news_view once on mount
   useEffect(() => {
@@ -304,9 +314,22 @@ export default function NewsFeed() {
       .finally(()   => setLoading(false));
   }, []);
 
-  // Intel Feed videos: fetch once, cache 15 min
+  // Intel Feed videos: fetch once, cache 15 min.
+  // Guard: only skip fetch when cache contains a NON-EMPTY array.
+  // An empty array is truthy in JS, so the naive `if (getCached(key)) return` would
+  // incorrectly short-circuit here and prevent recovery from a prior API error.
   useEffect(() => {
-    if (getCached(INTEL_FEED_KEY)) return;
+    const cached = getCached(INTEL_FEED_KEY);
+    if (Array.isArray(cached) && cached.length > 0) {
+      if (debugVideos) {
+        console.log('[NewsFeed debugVideos] cache hit', {
+          cachedCount: cached.length,
+          mode: 'cache',
+          component: 'src/pages/NewsFeed.jsx',
+        });
+      }
+      return;
+    }
     const controller = new AbortController();
     const qs = new URLSearchParams();
     if (ytDebug) qs.set('debugYT', '1');
@@ -314,11 +337,27 @@ export default function NewsFeed() {
       .then((r) => r.json())
       .then((data) => {
         const items = data.items ?? [];
-        setCached(INTEL_FEED_KEY, items, INTEL_FEED_TTL);
+        setIntelFeedStatus(data.status ?? 'ok');
+        // Only cache non-empty results — prevents serving a stale empty state
+        if (items.length > 0) {
+          setCached(INTEL_FEED_KEY, items, INTEL_FEED_TTL);
+        }
         setIntelVideos(items);
-        if (ytDebug) console.log(`[IntelFeed] ${items.length} videos loaded`);
+        if (debugVideos || ytDebug) {
+          console.log('[NewsFeed debugVideos] fetch complete', {
+            rawFetchedCount: items.length,
+            status: data.status ?? 'ok',
+            note: 'Filtering is server-side; client receives final scored list.',
+            component: 'src/pages/NewsFeed.jsx',
+          });
+        }
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          setIntelFeedStatus('error');
+          if (debugVideos) console.log('[NewsFeed debugVideos] fetch error', { error: err.message });
+        }
+      });
     return () => controller.abort();
   }, []);
 
@@ -348,6 +387,19 @@ export default function NewsFeed() {
   }, [enriched, activeConf]);
 
   const hasContent = enriched.length > 0 || intelVideos.length > 0;
+
+  // Debug diagnostics — only active when ?debugVideos=1 is in the URL
+  useEffect(() => {
+    if (!debugVideos) return;
+    console.log('[NewsFeed debugVideos] render state', {
+      rawVideoCount:     intelVideos.length,
+      filteredStories:   filtered.length,
+      mode:              contentMode,
+      activeConf,
+      intelFeedStatus,
+      component:         'src/pages/NewsFeed.jsx',
+    });
+  }, [intelVideos.length, filtered.length, contentMode, activeConf, intelFeedStatus]);
 
   return (
     <div className={styles.page}>
@@ -460,7 +512,23 @@ export default function NewsFeed() {
           )}
 
           {contentMode === 'videos' && intelVideos.length === 0 && (
-            <p className={styles.empty}>No videos available right now. Check back soon.</p>
+            <div className={styles.videosEmptyBlock}>
+              <div className={styles.videosEmptyIcon} aria-hidden>▶</div>
+              <p className={styles.videosEmptyTitle}>
+                {intelFeedStatus === 'error_no_key'
+                  ? 'Video service not configured'
+                  : intelFeedStatus === 'error_quota'
+                  ? 'Videos temporarily unavailable'
+                  : 'No fresh clips right now'}
+              </p>
+              <p className={styles.videosEmptyReason}>
+                {intelFeedStatus === 'error_no_key'
+                  ? 'YouTube is not configured for this environment.'
+                  : intelFeedStatus === 'error_quota'
+                  ? 'YouTube quota exceeded. Check back later.'
+                  : 'No highlight clips found. Check back soon.'}
+              </p>
+            </div>
           )}
 
           {/* ══════════════════════════════════════════════════════════════
@@ -475,7 +543,7 @@ export default function NewsFeed() {
             >
               <div className={styles.sectionHeadingRow}>
                 <h2 className={styles.sectionHeading}>
-                  {contentMode === 'stories' ? 'All Stories' : 'Top Stories'}
+                  {contentMode === 'stories' ? 'All Stories' : 'Latest Headlines'}
                 </h2>
                 {contentMode === 'all' && (
                   <button
@@ -513,9 +581,10 @@ export default function NewsFeed() {
                       <div className={styles.streamBody}>
                         <div className={styles.streamMeta}>
                           <SourceBadge source={item.source} />
+                          {item.time && <span className={styles.metaDot} aria-hidden>·</span>}
+                          {item.time && <span className={styles.streamTime}>{item.time}</span>}
                           {item.conference && <ConfPill conference={item.conference} />}
                           {item.signal && <SignalTag signal={item.signal} />}
-                          <span className={styles.time}>{item.time}</span>
                         </div>
                         <p className={styles.streamHeadline}>{item.title}</p>
                         {item.excerpt && (

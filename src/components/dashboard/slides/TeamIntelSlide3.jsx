@@ -5,25 +5,41 @@ import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksM
 
 export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, slideTotal, ...rest }) {
   const name = teamData?.team?.displayName || teamData?.team?.name || data?.selectedTeamName || null;
-  const games = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
-  // Find today's game for this team
-  const teamGame = games.find(g => {
-    if (!name) return false;
+  // Use teamData.nextLine (same source as Team Page Next Game Line section)
+  const nextLine = teamData?.nextLine ?? null;
+  const nextEvent = nextLine?.nextEvent ?? null;
+  const consensus = nextLine?.consensus ?? {};
+
+  // Lines from nextLine consensus (preferred) — fall back to scanning home games
+  let spread = consensus.spread ?? null;
+  let ml = consensus.moneyline ?? null;
+  let total = consensus.total ?? null;
+  let matchupLabel = nextEvent
+    ? `${name || '?'} vs ${nextEvent.opponent || 'TBD'}`
+    : null;
+
+  // Fallback: search home-data games if nextLine has no consensus yet
+  if (spread == null && ml == null && total == null && name) {
+    const games = data?.odds?.games ?? [];
     const nm = name.toLowerCase().split(' ').pop() || '';
-    return nm && (
+    const teamGame = nm ? games.find(g =>
       (g.homeTeam || '').toLowerCase().includes(nm) ||
       (g.awayTeam || '').toLowerCase().includes(nm)
-    );
-  }) ?? null;
+    ) : null;
+    if (teamGame) {
+      spread = teamGame.homeSpread ?? teamGame.spread ?? null;
+      ml = teamGame.moneyline ?? null;
+      total = teamGame.total ?? null;
+      matchupLabel = `${teamGame.awayTeam} @ ${teamGame.homeTeam}`;
+    }
+  }
 
-  // Lines
-  const spread = teamGame?.homeSpread ?? teamGame?.spread ?? null;
-  const ml = teamGame?.moneyline ?? null;
-  const total = teamGame?.total ?? null;
+  const hasLine = spread != null || ml != null || total != null;
 
   // Team pick from picks model
+  const games = data?.odds?.games ?? [];
   let teamPick = null;
   try {
     const picks = buildMaximusPicks({ games, atsLeaders });
@@ -35,7 +51,9 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
     }) ?? null;
   } catch { /* ignore */ }
 
-  const headlines = teamData?.teamNews ?? [];
+  const headlines = teamData?.last7News?.length > 0
+    ? teamData.last7News
+    : (teamData?.teamNews ?? []);
   const topHeadlines = headlines.slice(0, 3);
 
   return (
@@ -51,20 +69,24 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
       <h2 className={styles.title}>Line &amp;<br />Value</h2>
       <div className={styles.divider} />
 
-      {teamGame ? (
+      {hasLine || nextEvent ? (
         <>
-          <div className={styles.matchupLabel}>
-            {teamGame.awayTeam} @ {teamGame.homeTeam}
-          </div>
-          <LineBlock
-            spread={spread}
-            ml={ml}
-            total={total}
-            label="TODAY'S LINE"
-          />
+          {matchupLabel && (
+            <div className={styles.matchupLabel}>{matchupLabel}</div>
+          )}
+          {hasLine ? (
+            <LineBlock
+              spread={spread}
+              ml={ml}
+              total={total}
+              label="NEXT GAME LINE"
+            />
+          ) : (
+            <div className={styles.noLine}>Line not yet posted.</div>
+          )}
         </>
       ) : (
-        <div className={styles.noLine}>No line posted for today&apos;s game.</div>
+        <div className={styles.noLine}>No upcoming game line available.</div>
       )}
 
       {/* Pick lean */}

@@ -34,6 +34,7 @@ export default async function handler(req, res) {
 
   const urlObj = new URL(req.url || '/', 'http://localhost');
   const coreOnly = urlObj.searchParams.get('core') === '1';
+  const debugNews = urlObj.searchParams.get('debugTeamNews') === '1';
 
   const team = getTeamBySlug(slug);
   const tier = team?.oddsTier ?? null;
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
       fetchTeamIdsSource(),
       fetchRankingsSource(),
     ];
-    if (!coreOnly) fetches.push(fetchTeamNewsSource(slug));
+    if (!coreOnly) fetches.push(fetchTeamNewsSource(slug, { debug: debugNews }));
     const results = await Promise.all(fetches);
     const teamIdsData = results[0];
     const rankingsData = results[1];
