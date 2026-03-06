@@ -4,6 +4,12 @@
   margin: 0 auto;
 }
 
+@media (max-width: 900px) {
+  .root {
+    padding: 12px 14px 32px;
+  }
+}
+
 /* ── Auth gates ─────────────────────────────────────────── */
 .gateWrap {
   min-height: 60vh;
@@ -129,7 +135,10 @@
 }
 
 @media (max-width: 900px) {
-  .studio { grid-template-columns: 1fr; }
+  .studio {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 @media (min-width: 1400px) {
@@ -151,6 +160,16 @@
   overflow-y: auto;
 }
 
+@media (max-width: 900px) {
+  .controls {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    padding: 12px;
+    gap: 10px;
+  }
+}
+
 /* ── Section tabs ───────────────────────────────────────── */
 .sectionTabs {
   display: flex;
@@ -160,6 +179,20 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   padding: 4px;
+}
+
+@media (max-width: 900px) {
+  .sectionTabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .sectionTab {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    justify-content: center;
+    padding: 8px 8px;
+    font-size: 12px;
+  }
 }
 
 .sectionTab {
@@ -481,6 +514,23 @@
   gap: 7px;
 }
 
+@media (max-width: 900px) {
+  .actionGroup {
+    /* On mobile, stack export buttons side-by-side */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .previewSizeRow {
+    grid-column: 1 / -1;
+  }
+  .btnPrimary,
+  .btnSecondary {
+    font-size: 12px;
+    padding: 10px 10px;
+  }
+}
+
 .previewSizeRow {
   display: flex;
   align-items: center;
@@ -633,6 +683,17 @@
   overflow-y: visible;
   padding-bottom: 16px;
   min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .previewArea {
+    /* On mobile: full-bleed scrollable strip */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 12px;
+    padding-left: 4px;
+  }
 }
 
 /* Skeleton */

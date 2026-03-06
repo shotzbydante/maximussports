@@ -56,9 +56,9 @@ export default function Dashboard() {
   const [riskMode, setRiskMode] = useState('standard');
 
   // ── slide count (per section default) ────────────────────
-  const SECTION_SLIDE_DEFAULTS = { daily: 3, team: 3, game: 3, odds: 3 };
-  const SECTION_SLIDE_MAX = { daily: 3, team: 3, game: 3, odds: 4 };
-  const [slideCount, setSlideCount] = useState(3);
+  const SECTION_SLIDE_DEFAULTS = { daily: 5, team: 3, game: 3, odds: 3 };
+  const SECTION_SLIDE_MAX = { daily: 5, team: 3, game: 3, odds: 4 };
+  const [slideCount, setSlideCount] = useState(SECTION_SLIDE_DEFAULTS.daily);
 
   // ── picker state ──────────────────────────────────────────
   const [teamSearch, setTeamSearch] = useState('');
@@ -544,15 +544,12 @@ export default function Dashboard() {
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Slides</label>
                 <div className={styles.chipGroup}>
-                  {[3].map(n => (
-                    <button
-                      key={n}
-                      className={`${styles.chip} ${slideCount === n ? styles.chipActive : ''}`}
-                      onClick={() => { setSlideCount(n); setAssetsReady(false); }}
-                    >
-                      {n}
-                    </button>
-                  ))}
+                  <button
+                    className={`${styles.chip} ${styles.chipActive}`}
+                    disabled
+                  >
+                    5
+                  </button>
                 </div>
               </div>
             </div>

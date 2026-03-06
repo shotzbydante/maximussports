@@ -18,20 +18,17 @@ function SpreadPill({ spread }) {
 
 export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
-  const isRobot = styleMode === 'robot';
 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  const games     = data?.odds?.games ?? [];
+  const games = data?.odds?.games ?? [];
 
-  // Primary: new gamesToWatch from digest (richer, with storyline)
-  // Secondary: legacy watchGameFramings
-  // Fallback: structural sort by tightest spread
+  // Curate to max 3 games — quality over quantity
   let gameEntries = [];
 
   if (hasDigest && digest.gamesToWatch?.length > 0) {
-    gameEntries = digest.gamesToWatch.slice(0, 4);
+    gameEntries = digest.gamesToWatch.slice(0, 3);
   } else if (hasDigest && digest.watchGameFramings?.length > 0) {
     gameEntries = digest.watchGameFramings.map(f => ({
       matchup:   `${f.away} @ ${f.home}`,
@@ -42,7 +39,7 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
         : null,
       time:      f.time,
       storyline: f.why,
-    })).slice(0, 4);
+    })).slice(0, 3);
   } else {
     const withOdds = games.filter(g => g.spread != null || g.homeSpread != null);
     const sorted   = [...withOdds].sort((a, b) => {
@@ -50,7 +47,7 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
       const sb = Math.abs(parseFloat(b.spread ?? b.homeSpread ?? 99));
       return sa - sb;
     });
-    gameEntries = sorted.slice(0, 4).map(g => {
+    gameEntries = sorted.slice(0, 3).map(g => {
       const sp = g.homeSpread ?? g.spread ?? null;
       const spNum = sp != null ? parseFloat(sp) : null;
       return {
@@ -64,15 +61,13 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
     });
   }
 
+  const gameCount = gameEntries.length;
+
   return (
     <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>
-          {isRobot ? 'ON THE SLATE' : 'ON THE SLATE'}
-        </div>
-        <h2 className={styles.title}>
-          GAMES<br />TO WATCH
-        </h2>
+        <div className={styles.titleSup}>ON THE SLATE</div>
+        <h2 className={styles.title}>WHAT TO<br />WATCH TODAY</h2>
       </div>
 
       <div className={styles.divider} />
@@ -82,16 +77,21 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
           <p>No games on the slate yet.</p>
         </div>
       ) : (
-        <div className={styles.gamesList}>
+        <div className={`${styles.gamesList} ${gameCount === 2 ? styles.gamesListTwo : ''}`}>
           {gameEntries.map((g, i) => (
             <div
               key={i}
               className={`${styles.gameRow} ${i === 0 ? styles.gameRowTop : ''}`}
             >
+              {/* Top badge */}
+              {i === 0 && (
+                <div className={styles.topBadge}>TOP MATCHUP</div>
+              )}
+
               {/* Matchup header */}
               <div className={styles.matchupRow}>
                 <div className={styles.teamCol}>
-                  <TeamLogo team={makeTeam(g.away)} size={40} />
+                  <TeamLogo team={makeTeam(g.away)} size={44} />
                   <span className={styles.teamName}>{g.away || '—'}</span>
                 </div>
 
@@ -102,33 +102,26 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
 
                 <div className={`${styles.teamCol} ${styles.teamColRight}`}>
                   <span className={styles.teamName}>{g.home || '—'}</span>
-                  <TeamLogo team={makeTeam(g.home)} size={40} />
+                  <TeamLogo team={makeTeam(g.home)} size={44} />
                 </div>
               </div>
 
-              {/* Time + storyline */}
-              <div className={styles.gameMetaRow}>
-                {g.time && <span className={styles.gameTime}>{g.time}</span>}
-                {i === 0 && (
-                  <span className={styles.gameBadge}>
-                    {isRobot ? 'TOP GAME' : 'TOP MATCHUP'}
-                  </span>
-                )}
-              </div>
+              {/* Time */}
+              {g.time && (
+                <div className={styles.gameTime}>{g.time}</div>
+              )}
 
+              {/* Why it matters */}
               {g.storyline && (
-                <div className={styles.storyline}>{g.storyline}</div>
+                <div className={styles.storylineBlock}>
+                  <span className={styles.storylineLabel}>WHY IT MATTERS</span>
+                  <span className={styles.storyline}>{g.storyline}</span>
+                </div>
               )}
             </div>
           ))}
         </div>
       )}
-
-      <div className={styles.ctaBlock}>
-        <div className={styles.ctaLine}>
-          {isRobot ? 'More intel at maximussports.ai 🤖' : 'Full analysis at maximussports.ai'}
-        </div>
-      </div>
     </SlideShell>
   );
 }

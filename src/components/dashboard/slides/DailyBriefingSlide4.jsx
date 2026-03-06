@@ -15,7 +15,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  // Primary: chatbot-parsed ATS edges
+  // Primary: chatbot-parsed ATS edges — limit to 3 max
   let edgeEntries = hasDigest ? (digest.atsEdges ?? []) : [];
 
   // Secondary: raw atsLeaders structural data
@@ -38,7 +38,10 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
     }, []).sort((a, b) => b.atsRate - a.atsRate);
   }
 
-  // Editorial framing text from ¶4
+  // Curate to top 3 — quality over quantity
+  edgeEntries = edgeEntries.slice(0, 3);
+
+  // Editorial framing from ¶4 — leads the card
   const atsNarrative = hasDigest
     ? (digest.bettingAngle || digest.atsContextText || '')
     : '';
@@ -51,9 +54,9 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
   return (
     <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>ATS INTELLIGENCE</div>
+        <div className={styles.titleSup}>SMART BETTOR INTEL</div>
         <h2 className={styles.title}>
-          MARKET<br />EDGE
+          ATS<br />EDGE
         </h2>
       </div>
 
@@ -65,11 +68,11 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
 
       {edgeEntries.length === 0 ? (
         <div className={styles.emptyState}>
-          <p className={styles.emptyText}>ATS data loading…</p>
+          <p className={styles.emptyText}>ATS data loading&hellip;</p>
         </div>
       ) : (
         <div className={styles.edgeList}>
-          {edgeEntries.slice(0, 4).map((edge, i) => {
+          {edgeEntries.map((edge, i) => {
             const barPct = maxRate > 0
               ? Math.min(100, Math.round((edge.atsRate / maxRate) * 100))
               : edge.atsRate;
@@ -82,13 +85,14 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                 className={`${styles.edgeRow} ${isLeader ? styles.edgeRowTop : ''}`}
               >
                 <div className={styles.edgeLogoWrap}>
-                  <TeamLogo team={makeTeam(edge.team)} size={44} />
+                  <TeamLogo team={makeTeam(edge.team)} size={50} />
                 </div>
 
                 <div className={styles.edgeInfo}>
                   <div className={styles.edgeHeader}>
                     <span className={styles.edgeTeam}>{edge.team}</span>
                     <span className={styles.edgeTimeframe}>{edge.timeframe}</span>
+                    {isLeader && <span className={styles.edgeLeaderBadge}>LEADER</span>}
                   </div>
 
                   <div className={styles.barRow}>
@@ -97,7 +101,6 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                         className={`${styles.barFill} ${aboveAvg ? styles.barFillHot : ''}`}
                         style={{ width: `${barPct}%` }}
                       />
-                      {/* 50% midline */}
                       <div className={styles.barMidline} />
                     </div>
                     <span className={`${styles.barPct} ${aboveAvg ? styles.barPctHot : ''}`}>
@@ -118,7 +121,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
       <div className={styles.footNote}>
         {isRobot
           ? 'Cover % signals. Not financial advice.'
-          : 'ATS cover percentage — one of the most persistent edges in CBB.'}
+          : 'ATS cover % over last 30 days — one of the most persistent edges in CBB.'}
       </div>
     </SlideShell>
   );

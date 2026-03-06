@@ -1,3 +1,4 @@
+/* ── Date pill ──────────────────────────────────────────── */
 .datePill {
   display: inline-flex;
   align-items: center;
@@ -9,165 +10,106 @@
   font-weight: 600;
   color: #C9ECF5;
   letter-spacing: 0.04em;
-  margin-bottom: 28px;
+  margin-bottom: 36px;
   align-self: flex-start;
 }
 
+/* ── Title block ─────────────────────────────────────────── */
 .titleBlock {
-  margin-bottom: 32px;
+  margin-bottom: 36px;
 }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: #3C79B4;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 104px;
+  font-size: 96px;
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 0.93;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
+/* ── Gradient rule ───────────────────────────────────────── */
 .divider {
   width: 80px;
   height: 4px;
   background: linear-gradient(90deg, #3C79B4, #B7986C);
   border-radius: 4px;
-  margin-bottom: 32px;
+  margin-bottom: 44px;
 }
 
-/* ── Score list ─────────────────────────────────────────── */
-.scoreList {
+/* ── Bullet list ─────────────────────────────────────────── */
+.bulletList {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
   flex: 1;
 }
 
-.scoreRow {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: 20px;
-  row-gap: 0;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.16);
-  border-radius: 18px;
-  padding: 22px 28px;
-  position: relative;
-}
-
-/* subtle left accent bar on first row */
-.scoreRow:first-child {
-  border-left: 3px solid #3C79B4;
-}
-
-.scoreTeamA {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.scoreTeamB {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  justify-content: flex-end;
-}
-
-.scoreTeamName {
-  font-family: 'Oswald', sans-serif;
-  font-size: 26px;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.1;
-}
-
-.scoreResult {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.scoreNum {
-  font-family: 'Oswald', sans-serif;
-  font-size: 32px;
-  font-weight: 700;
-  color: #B7986C;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.scoreFinal {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: rgba(240, 244, 248, 0.32);
-  text-transform: uppercase;
-}
-
-/* Summary line spans all three columns */
-.scoreSummary {
-  grid-column: 1 / -1;
-  font-size: 17px;
-  color: rgba(240, 244, 248, 0.48);
-  font-style: italic;
-  line-height: 1.4;
-  padding-top: 10px;
-  margin-top: 8px;
-  border-top: 1px solid rgba(60, 121, 180, 0.1);
-}
-
-/* ── Fallback: lead narrative + bullets ─────────────────── */
-.fallbackBlock {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.leadNarrative {
-  font-size: 20px;
-  line-height: 1.5;
-  color: rgba(240, 244, 248, 0.72);
-  border-left: 3px solid #3C79B4;
-  padding: 14px 20px;
-  margin-bottom: 28px;
-  background: rgba(60, 121, 180, 0.07);
-  border-radius: 0 8px 8px 0;
-  font-style: italic;
-}
-
-.headlineRow {
+.bullet {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.1);
+  gap: 22px;
+  padding: 22px 0;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.12);
 }
 
-.headlineBullet {
-  font-size: 22px;
+.bullet:last-child {
+  border-bottom: none;
+}
+
+.bulletLead {
+  padding-top: 0;
+}
+
+.bulletArrow {
+  font-size: 26px;
   color: #3C79B4;
   flex-shrink: 0;
   margin-top: 2px;
+  line-height: 1.3;
 }
 
-.headlineText {
-  font-size: 22px;
-  color: rgba(240, 244, 248, 0.75);
-  line-height: 1.4;
+.bulletText {
+  font-size: 24px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.85);
+  line-height: 1.42;
+}
+
+/* First bullet is lead — slightly larger */
+.bulletLead .bulletText {
+  font-size: 26px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.95);
+}
+
+.bulletLead .bulletArrow {
+  color: #B7986C;
+  font-size: 28px;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyText {
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.3);
+  margin: 0;
 }

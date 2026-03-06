@@ -240,6 +240,69 @@ function buildWatchFramings(todayText, newsPulseText, games) {
 }
 
 /**
+ * Build 3–4 "Maximus Says" editorial bullets for Slide 1.
+ * Pulls the highest-signal sentence from each section so Slide 1 reads
+ * like a cross-section morning briefing — not just a recap.
+ *
+ * Priority order:
+ *   1. Betting/ATS angle (¶4) — most actionable
+ *   2. Top game to watch framing (¶3 → gamesToWatch[0])
+ *   3. Title race leader sentence (¶2)
+ *   4. Editorial closer (¶5 / voiceLine)
+ *   5. Fill from ¶1 recap sentences if still under 3 bullets
+ */
+function buildMaximusSays(parsed, { gamesToWatch, titleRace, bettingAngle, voiceLine }) {
+  const bullets = [];
+  const used = new Set();
+
+  function addBullet(text) {
+    if (!text || text.length < 20) return false;
+    const clean = truncateAtWord(text, 102);
+    if (used.has(clean)) return false;
+    bullets.push(clean);
+    used.add(clean);
+    return true;
+  }
+
+  // 1. ATS angle — most actionable edge
+  if (bettingAngle) addBullet(bettingAngle);
+
+  // 2. Top game storyline
+  const topGameStory = gamesToWatch?.[0]?.storyline;
+  if (topGameStory) addBullet(topGameStory);
+
+  // 3. Title race leader
+  if (titleRace?.length > 0 && bullets.length < 3) {
+    const leader = titleRace[0];
+    const sentence = `${leader.team} leads the title race at ${leader.americanOdds}.`;
+    addBullet(sentence);
+  }
+
+  // 4. Voice closer from ¶5
+  if (voiceLine && bullets.length < 4) addBullet(voiceLine);
+
+  // 5. Fill from ¶3 today/tomorrow narrative
+  if (parsed.todayTomorrow && bullets.length < 3) {
+    const sentences = toSentences(stripMarkdown(parsed.todayTomorrow));
+    for (const s of sentences) {
+      if (bullets.length >= 4) break;
+      addBullet(s);
+    }
+  }
+
+  // 6. Fill from ¶1 recap if still light
+  if (parsed.recap && bullets.length < 3) {
+    const sentences = toSentences(stripMarkdown(parsed.recap));
+    for (const s of sentences) {
+      if (bullets.length >= 4) break;
+      addBullet(s);
+    }
+  }
+
+  return bullets.slice(0, 4);
+}
+
+/**
  * Build a social-ready caption narrative string from parsed chatbot sections + picks.
  * Anchors on ¶4 (ATS spotlight — most actionable) and ¶5 closer (editorial hook).
  */
@@ -535,25 +598,26 @@ function parseNewsIntel(newsPulseText, headlines) {
  * @property {boolean}     hasChatContent        - Whether AI narrative was available
  * @property {string|null} chatStatus            - 'fresh'|'stale'|'missing'|null
  *
- * — Slide 1: LAST NIGHT'S SHOCKWAVES —
+ * — Slide 1: HERE'S YOUR EDGE TODAY (Maximus Says) —
+ * @property {string[]}    maximusSays           - 3–4 cross-section editorial bullets
+ *
+ * — Slide 2: LAST NIGHT'S SHOCKWAVES —
  * @property {Array<{teamA:string,teamB:string,score:string,summaryLine:string}>} lastNightHighlights
  * @property {string}      leadNarrative         - Full recap paragraph fallback
  * @property {Array<{text:string,source:string|null}>} topStorylines
  *
- * — Slide 2: TITLE RACE —
- * @property {Array<{team:string,americanOdds:string,impliedProbability:number,commentary:string}>} titleRace
- *
- * — Slide 3: GAMES TO WATCH —
+ * — Slide 3: WHAT TO WATCH TODAY —
  * @property {Array<{matchup:string,away:string,home:string,spread:string|null,time:string|null,storyline:string|null}>} gamesToWatch
  * @property {string}      watchNarrative
  * @property {Array<{away:string,home:string,spread:number|null,time:string|null,why:string|null}>} watchGameFramings
  *
- * — Slide 4: MARKET EDGE —
+ * — Slide 4: ATS EDGE —
  * @property {Array<{team:string,atsRate:number,timeframe:string,insight:string}>} atsEdges
  * @property {string}      atsContextText
  * @property {string}      bettingAngle
  *
- * — Slide 5: INTEL & CHAOS —
+ * — Slide 5: RANKINGS + INTEL —
+ * @property {Array<{team:string,americanOdds:string,impliedProbability:number,commentary:string}>} titleRace
  * @property {Array<{headline:string,editorialContext:string|null}>} newsIntel
  *
  * — Caption —
@@ -653,7 +717,7 @@ export function buildDailyBriefingDigest({
     ? extractBettingAngle(parsed.atsSpotlight)
     : '';
 
-  // ── Slide 5: INTEL & CHAOS ───────────────────────────────────────────────
+  // ── Slide 5: RANKINGS + INTEL ─────────────────────────────────────────────
   const newsIntel = parseNewsIntel(
     hasChatContent ? parsed.newsPulse : '',
     headlines,
@@ -668,24 +732,30 @@ export function buildDailyBriefingDigest({
     ? buildCaptionNarrative(parsed, picks)
     : '';
 
+  // ── Slide 1 — HERE'S YOUR EDGE TODAY (Maximus Says) ─────────────────────
+  const maximusSays = hasChatContent
+    ? buildMaximusSays(parsed, { gamesToWatch, titleRace, bettingAngle, voiceLine })
+    : [];
+
   return {
     hasChatContent,
     chatStatus,
-    // Slide 1 — LAST NIGHT'S SHOCKWAVES
+    // Slide 1 — HERE'S YOUR EDGE TODAY (Maximus Says)
+    maximusSays,
+    // Slide 2 — LAST NIGHT'S SHOCKWAVES
     lastNightHighlights,
     leadNarrative,
     topStorylines,
-    // Slide 2 — TITLE RACE
-    titleRace,
-    // Slide 3 — GAMES TO WATCH
+    // Slide 3 — WHAT TO WATCH TODAY
     gamesToWatch,
     watchNarrative,
     watchGameFramings,
-    // Slide 4 — MARKET EDGE
+    // Slide 4 — ATS EDGE
     atsEdges,
     atsContextText,
     bettingAngle,
-    // Slide 5 — INTEL & CHAOS
+    // Slide 5 — RANKINGS + INTEL
+    titleRace,
     newsIntel,
     // Caption
     voiceLine,

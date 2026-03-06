@@ -1,5 +1,6 @@
+/* ── Title block ─────────────────────────────────────────── */
 .titleBlock {
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
 .titleSup {
@@ -14,9 +15,9 @@
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 96px;
+  font-size: 84px;
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 0.93;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
@@ -28,31 +29,49 @@
   height: 4px;
   background: linear-gradient(90deg, #3C79B4, #B7986C);
   border-radius: 4px;
-  margin-bottom: 32px;
+  margin-bottom: 36px;
 }
 
 /* ── Games list ─────────────────────────────────────────── */
 .gamesList {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   flex: 1;
+}
+
+.gamesListTwo {
+  gap: 28px;
 }
 
 .gameRow {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(60, 121, 180, 0.14);
-  border-radius: 18px;
-  padding: 22px 28px;
+  border-radius: 20px;
+  padding: 24px 30px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .gameRowTop {
   border-left: 3px solid #3C79B4;
-  background: rgba(60, 121, 180, 0.06);
-  border-color: rgba(60, 121, 180, 0.28);
+  background: rgba(60, 121, 180, 0.07);
+  border-color: rgba(60, 121, 180, 0.3);
+}
+
+/* Top matchup badge */
+.topBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 6px;
+  padding: 3px 10px;
+  align-self: flex-start;
 }
 
 /* Matchup header: away @ home */
@@ -76,7 +95,7 @@
 
 .teamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   color: #ffffff;
   overflow: hidden;
@@ -97,7 +116,6 @@
   font-size: 20px;
   font-weight: 700;
   color: rgba(240, 244, 248, 0.35);
-  letter-spacing: 0.04em;
 }
 
 /* Spread pill */
@@ -115,41 +133,37 @@
   white-space: nowrap;
 }
 
-/* Time + badge row */
-.gameMetaRow {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
+/* Game time */
 .gameTime {
   font-size: 17px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.4);
-  letter-spacing: 0.03em;
+  color: rgba(240, 244, 248, 0.38);
+  letter-spacing: 0.04em;
 }
 
-.gameBadge {
-  font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+/* "Why it matters" section */
+.storylineBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(60, 121, 180, 0.1);
+}
+
+.storylineLabel {
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #3C79B4;
-  background: rgba(60, 121, 180, 0.12);
-  border: 1px solid rgba(60, 121, 180, 0.25);
-  border-radius: 6px;
-  padding: 3px 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(60, 121, 180, 0.65);
 }
 
-/* "Why this game matters" context line */
 .storyline {
-  font-size: 17px;
-  color: rgba(240, 244, 248, 0.48);
+  font-size: 18px;
+  font-weight: 400;
+  color: rgba(240, 244, 248, 0.62);
   line-height: 1.45;
   font-style: italic;
-  padding-top: 6px;
-  border-top: 1px solid rgba(60, 121, 180, 0.1);
-  margin-top: 4px;
 }
 
 /* ── Empty state ─────────────────────────────────────────── */
@@ -163,20 +177,4 @@
 .emptyState p {
   font-size: 28px;
   color: rgba(240, 244, 248, 0.35);
-}
-
-/* ── CTA ─────────────────────────────────────────────────── */
-.ctaBlock {
-  margin-top: auto;
-  padding-top: 28px;
-  border-top: 1px solid rgba(60, 121, 180, 0.12);
-  text-align: center;
-}
-
-.ctaLine {
-  font-family: 'Oswald', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #3C79B4;
 }

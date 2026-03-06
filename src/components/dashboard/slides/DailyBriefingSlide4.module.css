@@ -1,5 +1,6 @@
+/* ── Title block ─────────────────────────────────────────── */
 .titleBlock {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .titleSup {
@@ -33,62 +34,63 @@
 
 /* ATS narrative framing line */
 .atsNarrative {
-  font-size: 19px;
+  font-size: 20px;
   line-height: 1.5;
-  color: rgba(240, 244, 248, 0.62);
+  color: rgba(240, 244, 248, 0.7);
   border-left: 3px solid #B7986C;
-  padding: 12px 18px;
-  margin-bottom: 28px;
-  background: rgba(183, 152, 108, 0.06);
-  border-radius: 0 8px 8px 0;
+  padding: 14px 20px;
+  margin-bottom: 30px;
+  background: rgba(183, 152, 108, 0.07);
+  border-radius: 0 10px 10px 0;
   font-style: italic;
 }
 
-/* ── Edge rows ───────────────────────────────────────────── */
+/* ── Edge rows — max 3 ───────────────────────────────────── */
 .edgeList {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   flex: 1;
 }
 
 .edgeRow {
   display: flex;
   align-items: flex-start;
-  gap: 18px;
+  gap: 20px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(183, 152, 108, 0.14);
-  border-radius: 16px;
-  padding: 20px 24px;
+  border-radius: 18px;
+  padding: 24px 28px;
 }
 
 .edgeRowTop {
   border-left: 3px solid #B7986C;
-  background: rgba(183, 152, 108, 0.07);
-  border-color: rgba(183, 152, 108, 0.3);
+  background: rgba(183, 152, 108, 0.08);
+  border-color: rgba(183, 152, 108, 0.32);
 }
 
 .edgeLogoWrap {
   flex-shrink: 0;
-  padding-top: 2px;
+  padding-top: 3px;
 }
 
 .edgeInfo {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .edgeHeader {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .edgeTeam {
   font-family: 'Oswald', sans-serif;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   color: #ffffff;
 }
@@ -101,16 +103,28 @@
   color: rgba(240, 244, 248, 0.35);
 }
 
+.edgeLeaderBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #B7986C;
+  background: rgba(183, 152, 108, 0.14);
+  border: 1px solid rgba(183, 152, 108, 0.3);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
 /* ATS bar */
 .barRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .barTrack {
   flex: 1;
-  height: 8px;
+  height: 10px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   overflow: hidden;
@@ -135,18 +149,18 @@
   bottom: 0;
   left: 50%;
   width: 1px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
   pointer-events: none;
 }
 
 .barPct {
   font-family: 'Oswald', sans-serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: rgba(240, 244, 248, 0.5);
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 56px;
+  min-width: 60px;
   text-align: right;
 }
 
@@ -155,8 +169,8 @@
 }
 
 .edgeInsight {
-  font-size: 16px;
-  color: rgba(240, 244, 248, 0.42);
+  font-size: 17px;
+  color: rgba(240, 244, 248, 0.48);
   font-style: italic;
   line-height: 1.4;
 }

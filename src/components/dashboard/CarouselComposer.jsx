@@ -64,8 +64,8 @@ const TEMPLATE_LABELS = {
  *
  * Props:
  *   template     – 'daily'|'team'|'game'|'odds'
- *   slideCount   – number of slides
- *   data         – home/odds data
+ *   slideCount   – number of slides (Daily Briefing is always 5; others default to 3)
+ *   data         – home/odds data (daily includes data.chatDigest)
  *   teamData     – team page data
  *   selectedGame – selected game object
  *   exportRef    – ref forwarded to the export layer

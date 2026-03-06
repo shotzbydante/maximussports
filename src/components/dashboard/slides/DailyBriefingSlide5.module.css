@@ -1,5 +1,6 @@
+/* ── Title block ─────────────────────────────────────────── */
 .titleBlock {
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
 .titleSup {
@@ -8,15 +9,15 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #3C79B4;
+  color: #B7986C;
   margin-bottom: 10px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 104px;
+  font-size: 96px;
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 0.93;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
@@ -26,62 +27,191 @@
 .divider {
   width: 80px;
   height: 4px;
-  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  background: linear-gradient(90deg, #B7986C, #3C79B4);
   border-radius: 4px;
-  margin-bottom: 36px;
+  margin-bottom: 32px;
 }
 
-/* ── Intel list ─────────────────────────────────────────── */
+/* ── Section label ───────────────────────────────────────── */
+.sectionLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(183, 152, 108, 0.7);
+  margin-bottom: 14px;
+}
+
+/* ── Title race ──────────────────────────────────────────── */
+.raceSection {
+  margin-bottom: 28px;
+}
+
+.raceList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.raceRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(183, 152, 108, 0.12);
+  border-radius: 14px;
+}
+
+.raceRowTop {
+  background: rgba(183, 152, 108, 0.08);
+  border-color: rgba(183, 152, 108, 0.3);
+  border-left: 3px solid #B7986C;
+}
+
+.raceRank {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.4);
+  width: 24px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.raceLogoWrap {
+  flex-shrink: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.raceInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.raceTeam {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.probBarRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.probBar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.probFill {
+  height: 100%;
+  background: linear-gradient(90deg, #B7986C, #d4a96a);
+  border-radius: 999px;
+}
+
+.probPct {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.oddsPill {
+  display: inline-block;
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.7);
+  background: rgba(183, 152, 108, 0.1);
+  border: 1px solid rgba(183, 152, 108, 0.2);
+  border-radius: 8px;
+  padding: 4px 14px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.oddsPillFav {
+  color: #B7986C;
+  background: rgba(183, 152, 108, 0.16);
+  border-color: rgba(183, 152, 108, 0.38);
+}
+
+/* ── Intel section ───────────────────────────────────────── */
+.intelSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.intelSectionWithRace {
+  border-top: 1px solid rgba(60, 121, 180, 0.14);
+  padding-top: 24px;
+}
+
 .intelList {
   display: flex;
   flex-direction: column;
   gap: 0;
-  flex: 1;
 }
 
 .intelRow {
   display: flex;
   align-items: flex-start;
-  gap: 20px;
-  padding: 18px 0;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.12);
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.1);
 }
 
 .intelRow:last-child {
   border-bottom: none;
 }
 
-.intelIdx {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 17px;
-  font-weight: 700;
-  color: rgba(60, 121, 180, 0.55);
+.intelArrow {
+  font-size: 20px;
+  color: #3C79B4;
   flex-shrink: 0;
-  padding-top: 3px;
-  letter-spacing: 0.02em;
-  min-width: 32px;
+  margin-top: 2px;
 }
 
 .intelBody {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .intelHeadline {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.82);
+  color: rgba(240, 244, 248, 0.80);
   line-height: 1.4;
 }
 
 .intelSource {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.3);
+  color: rgba(240, 244, 248, 0.28);
 }
 
 /* ── Voice / closer line ─────────────────────────────────── */
@@ -90,27 +220,27 @@
   align-items: flex-start;
   gap: 12px;
   margin-top: auto;
-  padding-top: 28px;
-  border-top: 1px solid rgba(60, 121, 180, 0.14);
+  padding-top: 22px;
+  border-top: 1px solid rgba(60, 121, 180, 0.12);
 }
 
 .voiceMark {
   font-family: 'Oswald', sans-serif;
-  font-size: 56px;
+  font-size: 50px;
   font-weight: 700;
   color: #B7986C;
   line-height: 1;
   flex-shrink: 0;
-  margin-top: -6px;
+  margin-top: -4px;
 }
 
 .voiceLine {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.45;
-  color: rgba(240, 244, 248, 0.65);
+  color: rgba(240, 244, 248, 0.62);
   font-style: italic;
   flex: 1;
-  padding-top: 8px;
+  padding-top: 6px;
 }
 
 /* ── Empty state ─────────────────────────────────────────── */
@@ -125,4 +255,14 @@
   font-size: 26px;
   color: rgba(240, 244, 248, 0.3);
   margin: 0;
+}
+
+/* ── Footer note ─────────────────────────────────────────── */
+.footNote {
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 16px;
+  color: rgba(240, 244, 248, 0.26);
+  font-style: italic;
+  text-align: center;
 }
