@@ -598,30 +598,33 @@ function parseNewsIntel(newsPulseText, headlines) {
  * @property {boolean}     hasChatContent        - Whether AI narrative was available
  * @property {string|null} chatStatus            - 'fresh'|'stale'|'missing'|null
  *
- * — Slide 1: HERE'S YOUR EDGE TODAY (Maximus Says) —
- * @property {string[]}    maximusSays           - 3–4 cross-section editorial bullets
- *
- * — Slide 2: LAST NIGHT'S SHOCKWAVES —
+ * — Slide 1: LAST NIGHT'S SHOCKWAVES (¶1) —
+ * @property {string}      recapLeadLine         - First energetic sentence of ¶1
  * @property {Array<{teamA:string,teamB:string,score:string,summaryLine:string}>} lastNightHighlights
  * @property {string}      leadNarrative         - Full recap paragraph fallback
  * @property {Array<{text:string,source:string|null}>} topStorylines
+ * @property {string[]}    maximusSays           - Cross-section editorial bullets (for caption/alt use)
  *
- * — Slide 3: WHAT TO WATCH TODAY —
+ * — Slide 2: TITLE MARKET (¶2) —
+ * @property {string}      titleMarketLead       - First punchy sentence of ¶2
+ * @property {Array<{team:string,americanOdds:string,impliedProbability:number,commentary:string}>} titleRace
+ *
+ * — Slide 3: WHAT TO WATCH TODAY (¶3) —
  * @property {Array<{matchup:string,away:string,home:string,spread:string|null,time:string|null,storyline:string|null}>} gamesToWatch
  * @property {string}      watchNarrative
  * @property {Array<{away:string,home:string,spread:number|null,time:string|null,why:string|null}>} watchGameFramings
  *
- * — Slide 4: ATS EDGE —
+ * — Slide 4: ATS SPOTLIGHT (¶4) —
  * @property {Array<{team:string,atsRate:number,timeframe:string,insight:string}>} atsEdges
  * @property {string}      atsContextText
  * @property {string}      bettingAngle
  *
- * — Slide 5: RANKINGS + INTEL —
- * @property {Array<{team:string,americanOdds:string,impliedProbability:number,commentary:string}>} titleRace
+ * — Slide 5: IN THE NEWS / MARCH CHAOS (¶5) —
+ * @property {string}      newsLead              - First sentence of ¶5 (March framing hook)
  * @property {Array<{headline:string,editorialContext:string|null}>} newsIntel
  *
  * — Caption —
- * @property {string}      voiceLine             - Punchy editorial closer
+ * @property {string}      voiceLine             - Punchy editorial closer (last sentence of ¶5)
  * @property {string}      captionNarrative
  *
  * @property {object|null} _parsed               - Raw parsed paragraphs (debug only)
@@ -664,6 +667,11 @@ export function buildDailyBriefingDigest({
     ? truncateAtWord(stripMarkdown(parsed.recap), 200)
     : '';
 
+  // First energetic sentence of ¶1 for the card hook ("What a night in…")
+  const recapLeadLine = hasChatContent && parsed.recap
+    ? truncateAtWord(toSentences(stripMarkdown(parsed.recap))[0] || '', 130)
+    : '';
+
   const topStorylines = hasChatContent
     ? buildStorylines(parsed.recap, parsed.newsPulse, headlines)
     : headlines.slice(0, 5).map(h => ({
@@ -671,10 +679,15 @@ export function buildDailyBriefingDigest({
         source: h.source || null,
       })).filter(b => b.text.length > 10);
 
-  // ── Slide 2: TITLE RACE — MARKET WATCH ──────────────────────────────────
+  // ── Slide 2: TITLE MARKET ────────────────────────────────────────────────
   const titleRace = hasChatContent
     ? parseTitleRace(parsed.oddsPulse)
     : [];
+
+  // First punchy sentence of ¶2 for the card framing ("Duke sits comfortably…")
+  const titleMarketLead = hasChatContent && parsed.oddsPulse
+    ? truncateAtWord(toSentences(stripMarkdown(parsed.oddsPulse))[0] || '', 140)
+    : '';
 
   // ── Slide 3: TODAY'S GAMES TO WATCH ─────────────────────────────────────
   const gamesToWatch = hasChatContent
@@ -717,11 +730,16 @@ export function buildDailyBriefingDigest({
     ? extractBettingAngle(parsed.atsSpotlight)
     : '';
 
-  // ── Slide 5: RANKINGS + INTEL ─────────────────────────────────────────────
+  // ── Slide 5: IN THE NEWS / MARCH CHAOS ───────────────────────────────────
   const newsIntel = parseNewsIntel(
     hasChatContent ? parsed.newsPulse : '',
     headlines,
   );
+
+  // Opening framing sentence from ¶5 ("This is where March Madness begins…")
+  const newsLead = hasChatContent && parsed.newsPulse
+    ? truncateAtWord(toSentences(stripMarkdown(parsed.newsPulse))[0] || '', 130)
+    : '';
 
   // ── Caption voice line — prefers short punchy sentence ──────────────────
   const voiceLine = hasChatContent
@@ -740,22 +758,25 @@ export function buildDailyBriefingDigest({
   return {
     hasChatContent,
     chatStatus,
-    // Slide 1 — HERE'S YOUR EDGE TODAY (Maximus Says)
-    maximusSays,
-    // Slide 2 — LAST NIGHT'S SHOCKWAVES
+    // Slide 1 — LAST NIGHT'S SHOCKWAVES (¶1)
+    recapLeadLine,
     lastNightHighlights,
     leadNarrative,
     topStorylines,
-    // Slide 3 — WHAT TO WATCH TODAY
+    maximusSays,
+    // Slide 2 — TITLE MARKET (¶2)
+    titleMarketLead,
+    titleRace,
+    // Slide 3 — WHAT TO WATCH TODAY (¶3)
     gamesToWatch,
     watchNarrative,
     watchGameFramings,
-    // Slide 4 — ATS EDGE
+    // Slide 4 — ATS SPOTLIGHT (¶4)
     atsEdges,
     atsContextText,
     bettingAngle,
-    // Slide 5 — RANKINGS + INTEL
-    titleRace,
+    // Slide 5 — IN THE NEWS / MARCH CHAOS (¶5)
+    newsLead,
     newsIntel,
     // Caption
     voiceLine,

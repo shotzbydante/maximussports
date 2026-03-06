@@ -5,7 +5,11 @@ import SlideShell from './SlideShell';
 
 function makeTeam(name) {
   if (!name) return null;
-  return { name, slug: getTeamSlug(name) };
+  const cleaned = name
+    .replace(/^(?:The |the )/, '')
+    .replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '')
+    .trim();
+  return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
 
 export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest }) {
@@ -15,7 +19,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  // Primary: chatbot-parsed ATS edges — limit to 3 max
+  // ¶4 → ATS edges, top 3 only
   let edgeEntries = hasDigest ? (digest.atsEdges ?? []) : [];
 
   // Secondary: raw atsLeaders structural data
@@ -38,15 +42,14 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
     }, []).sort((a, b) => b.atsRate - a.atsRate);
   }
 
-  // Curate to top 3 — quality over quantity
+  // Curate to top 3
   edgeEntries = edgeEntries.slice(0, 3);
 
-  // Editorial framing from ¶4 — leads the card
+  // ¶4 → direct chatbot ATS narrative sentence
   const atsNarrative = hasDigest
     ? (digest.bettingAngle || digest.atsContextText || '')
     : '';
 
-  // Max rate drives bar scale
   const maxRate = edgeEntries.length > 0
     ? Math.max(...edgeEntries.map(e => e.atsRate))
     : 70;
@@ -54,17 +57,16 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
   return (
     <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>SMART BETTOR INTEL</div>
-        <h2 className={styles.title}>
-          ATS<br />EDGE
-        </h2>
+        <div className={styles.titleSup}>ATS SPOTLIGHT</div>
+        <h2 className={styles.title}>COVER<br />THE SPREAD</h2>
       </div>
 
-      <div className={styles.divider} />
-
+      {/* ¶4 narrative lead — chatbot's direct voice */}
       {atsNarrative && (
         <div className={styles.atsNarrative}>{atsNarrative}</div>
       )}
+
+      <div className={styles.divider} />
 
       {edgeEntries.length === 0 ? (
         <div className={styles.emptyState}>
@@ -78,6 +80,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
               : edge.atsRate;
             const isLeader = i === 0;
             const aboveAvg = edge.atsRate >= 55;
+            const teamObj  = makeTeam(edge.team);
 
             return (
               <div
@@ -85,14 +88,16 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                 className={`${styles.edgeRow} ${isLeader ? styles.edgeRowTop : ''}`}
               >
                 <div className={styles.edgeLogoWrap}>
-                  <TeamLogo team={makeTeam(edge.team)} size={50} />
+                  <TeamLogo team={teamObj} size={52} />
                 </div>
 
                 <div className={styles.edgeInfo}>
                   <div className={styles.edgeHeader}>
-                    <span className={styles.edgeTeam}>{edge.team}</span>
+                    <span className={styles.edgeTeam}>{teamObj?.name || edge.team}</span>
                     <span className={styles.edgeTimeframe}>{edge.timeframe}</span>
-                    {isLeader && <span className={styles.edgeLeaderBadge}>LEADER</span>}
+                    {isLeader && (
+                      <span className={styles.leaderBadge}>LEADER</span>
+                    )}
                   </div>
 
                   <div className={styles.barRow}>
@@ -108,6 +113,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                     </span>
                   </div>
 
+                  {/* ¶4 insight sentence when available */}
                   {edge.insight && (
                     <div className={styles.edgeInsight}>{edge.insight}</div>
                   )}
@@ -121,7 +127,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
       <div className={styles.footNote}>
         {isRobot
           ? 'Cover % signals. Not financial advice.'
-          : 'ATS cover % over last 30 days — one of the most persistent edges in CBB.'}
+          : 'ATS cover % over last 30 days — one of the strongest persistent edges in CBB.'}
       </div>
     </SlideShell>
   );

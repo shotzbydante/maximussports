@@ -5,7 +5,11 @@ import SlideShell from './SlideShell';
 
 function makeTeam(name) {
   if (!name) return null;
-  return { name, slug: getTeamSlug(name) };
+  const cleaned = name
+    .replace(/^(?:The |the )/, '')
+    .replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '')
+    .trim();
+  return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
 
 function SpreadPill({ spread }) {
@@ -24,7 +28,7 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
 
   const games = data?.odds?.games ?? [];
 
-  // Curate to max 3 games — quality over quantity
+  // ¶3 → games to watch, max 3 (quality over quantity)
   let gameEntries = [];
 
   if (hasDigest && digest.gamesToWatch?.length > 0) {
@@ -61,13 +65,14 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
     });
   }
 
-  const gameCount = gameEntries.length;
+  // If no spread available, note it gracefully rather than forcing betting copy
+  const spreadAvailable = gameEntries.some(g => g.spread);
 
   return (
     <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>ON THE SLATE</div>
-        <h2 className={styles.title}>WHAT TO<br />WATCH TODAY</h2>
+        <div className={styles.titleSup}>ON THE SLATE TODAY</div>
+        <h2 className={styles.title}>WHAT TO<br />WATCH</h2>
       </div>
 
       <div className={styles.divider} />
@@ -77,49 +82,58 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
           <p>No games on the slate yet.</p>
         </div>
       ) : (
-        <div className={`${styles.gamesList} ${gameCount === 2 ? styles.gamesListTwo : ''}`}>
-          {gameEntries.map((g, i) => (
-            <div
-              key={i}
-              className={`${styles.gameRow} ${i === 0 ? styles.gameRowTop : ''}`}
-            >
-              {/* Top badge */}
-              {i === 0 && (
-                <div className={styles.topBadge}>TOP MATCHUP</div>
-              )}
+        <div className={styles.gamesList}>
+          {gameEntries.map((g, i) => {
+            const awayTeam = makeTeam(g.away);
+            const homeTeam = makeTeam(g.home);
+            return (
+              <div
+                key={i}
+                className={`${styles.gameRow} ${i === 0 ? styles.gameRowTop : ''}`}
+              >
+                {/* Top matchup badge */}
+                {i === 0 && (
+                  <div className={styles.topBadge}>TOP MATCHUP</div>
+                )}
 
-              {/* Matchup header */}
-              <div className={styles.matchupRow}>
-                <div className={styles.teamCol}>
-                  <TeamLogo team={makeTeam(g.away)} size={44} />
-                  <span className={styles.teamName}>{g.away || '—'}</span>
+                {/* Matchup: away @ home */}
+                <div className={styles.matchupRow}>
+                  <div className={styles.teamCol}>
+                    <TeamLogo team={awayTeam} size={44} />
+                    <span className={styles.teamName}>{awayTeam?.name || g.away || '—'}</span>
+                  </div>
+
+                  <div className={styles.vsBlock}>
+                    <span className={styles.vsAt}>@</span>
+                    {g.spread && <SpreadPill spread={g.spread} />}
+                  </div>
+
+                  <div className={`${styles.teamCol} ${styles.teamColRight}`}>
+                    <span className={styles.teamName}>{homeTeam?.name || g.home || '—'}</span>
+                    <TeamLogo team={homeTeam} size={44} />
+                  </div>
                 </div>
 
-                <div className={styles.vsBlock}>
-                  <span className={styles.vsAt}>@</span>
-                  {g.spread && <SpreadPill spread={g.spread} />}
-                </div>
+                {/* Time */}
+                {g.time && (
+                  <div className={styles.gameTime}>{g.time}</div>
+                )}
 
-                <div className={`${styles.teamCol} ${styles.teamColRight}`}>
-                  <span className={styles.teamName}>{g.home || '—'}</span>
-                  <TeamLogo team={makeTeam(g.home)} size={44} />
-                </div>
+                {/* ¶3 editorial "why it matters" */}
+                {g.storyline ? (
+                  <div className={styles.storylineBlock}>
+                    <span className={styles.storylineLabel}>WHY IT MATTERS</span>
+                    <span className={styles.storyline}>{g.storyline}</span>
+                  </div>
+                ) : (!spreadAvailable && i === 0) ? (
+                  <div className={styles.storylineBlock}>
+                    <span className={styles.storylineLabel}>LINE TBA</span>
+                    <span className={styles.storyline}>Spread pending — check back closer to tip.</span>
+                  </div>
+                ) : null}
               </div>
-
-              {/* Time */}
-              {g.time && (
-                <div className={styles.gameTime}>{g.time}</div>
-              )}
-
-              {/* Why it matters */}
-              {g.storyline && (
-                <div className={styles.storylineBlock}>
-                  <span className={styles.storylineLabel}>WHY IT MATTERS</span>
-                  <span className={styles.storyline}>{g.storyline}</span>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </SlideShell>

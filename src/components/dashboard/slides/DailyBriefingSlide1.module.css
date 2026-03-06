@@ -10,34 +10,46 @@
   font-weight: 600;
   color: #C9ECF5;
   letter-spacing: 0.04em;
-  margin-bottom: 36px;
+  margin-bottom: 24px;
   align-self: flex-start;
 }
 
 /* ── Title block ─────────────────────────────────────────── */
 .titleBlock {
-  margin-bottom: 36px;
+  margin-bottom: 12px;
 }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.20em;
   text-transform: uppercase;
   color: #3C79B4;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 96px;
+  font-size: 104px;
   font-weight: 700;
-  line-height: 0.93;
+  line-height: 0.92;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
   text-transform: uppercase;
+}
+
+/* ¶1 first-sentence hook line */
+.leadLine {
+  font-size: 20px;
+  font-weight: 400;
+  color: rgba(240, 244, 248, 0.58);
+  font-style: italic;
+  line-height: 1.4;
+  margin-bottom: 18px;
+  margin-top: 8px;
+  max-width: 820px;
 }
 
 /* ── Gradient rule ───────────────────────────────────────── */
@@ -46,70 +58,142 @@
   height: 4px;
   background: linear-gradient(90deg, #3C79B4, #B7986C);
   border-radius: 4px;
-  margin-bottom: 44px;
+  margin-bottom: 28px;
 }
 
-/* ── Bullet list ─────────────────────────────────────────── */
+/* ── Score list ─────────────────────────────────────────── */
+.scoreList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.scoreRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 22px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.16);
+  border-radius: 20px;
+  padding: 26px 30px;
+}
+
+.scoreRowTop {
+  border-left: 3px solid #3C79B4;
+  background: rgba(60, 121, 180, 0.07);
+  border-color: rgba(60, 121, 180, 0.30);
+}
+
+.scoreTeamA {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.scoreTeamB {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-end;
+}
+
+.scoreTeamName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scoreResult {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.scoreNum {
+  font-family: 'Oswald', sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  color: #B7986C;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.scoreFinal {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(240, 244, 248, 0.30);
+  text-transform: uppercase;
+}
+
+/* ¶1 editorial summary spans all columns */
+.scoreSummary {
+  grid-column: 1 / -1;
+  font-size: 17px;
+  color: rgba(240, 244, 248, 0.54);
+  font-style: italic;
+  line-height: 1.45;
+  padding-top: 12px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(60, 121, 180, 0.12);
+}
+
+/* ── Fallback block ──────────────────────────────────────── */
+.fallbackBlock {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.leadNarrative {
+  font-size: 21px;
+  line-height: 1.52;
+  color: rgba(240, 244, 248, 0.70);
+  border-left: 3px solid #3C79B4;
+  padding: 16px 22px;
+  margin-bottom: 28px;
+  background: rgba(60, 121, 180, 0.07);
+  border-radius: 0 10px 10px 0;
+  font-style: italic;
+}
+
 .bulletList {
   display: flex;
   flex-direction: column;
   gap: 0;
-  flex: 1;
 }
 
-.bullet {
+.bulletRow {
   display: flex;
   align-items: flex-start;
-  gap: 22px;
-  padding: 22px 0;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.12);
+  gap: 18px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.10);
 }
 
-.bullet:last-child {
-  border-bottom: none;
-}
-
-.bulletLead {
-  padding-top: 0;
-}
+.bulletRow:last-child { border-bottom: none; }
 
 .bulletArrow {
-  font-size: 26px;
+  font-size: 24px;
   color: #3C79B4;
   flex-shrink: 0;
-  margin-top: 2px;
-  line-height: 1.3;
+  margin-top: 1px;
 }
 
 .bulletText {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.85);
+  color: rgba(240, 244, 248, 0.80);
   line-height: 1.42;
-}
-
-/* First bullet is lead — slightly larger */
-.bulletLead .bulletText {
-  font-size: 26px;
-  font-weight: 600;
-  color: rgba(240, 244, 248, 0.95);
-}
-
-.bulletLead .bulletArrow {
-  color: #B7986C;
-  font-size: 28px;
-}
-
-/* ── Empty state ─────────────────────────────────────────── */
-.emptyState {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.emptyText {
-  font-size: 26px;
-  color: rgba(240, 244, 248, 0.3);
-  margin: 0;
 }

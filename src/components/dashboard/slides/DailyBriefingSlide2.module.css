@@ -1,22 +1,6 @@
-/* ── Date pill ──────────────────────────────────────────── */
-.datePill {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(60, 121, 180, 0.14);
-  border: 1px solid rgba(60, 121, 180, 0.28);
-  border-radius: 999px;
-  padding: 8px 24px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #C9ECF5;
-  letter-spacing: 0.04em;
-  margin-bottom: 28px;
-  align-self: flex-start;
-}
-
 /* ── Title block ─────────────────────────────────────────── */
 .titleBlock {
-  margin-bottom: 28px;
+  margin-bottom: 12px;
 }
 
 .titleSup {
@@ -25,162 +9,183 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #3C79B4;
-  margin-bottom: 10px;
+  color: #B7986C;
+  margin-bottom: 8px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
   font-size: 104px;
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 0.92;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
+/* ¶2 market framing sentence */
+.marketLead {
+  font-size: 20px;
+  font-weight: 400;
+  color: rgba(240, 244, 248, 0.58);
+  font-style: italic;
+  line-height: 1.42;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  max-width: 820px;
+}
+
 .divider {
   width: 80px;
   height: 4px;
-  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  background: linear-gradient(90deg, #B7986C, #3C79B4);
   border-radius: 4px;
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
-/* ── Score list ─────────────────────────────────────────── */
-.scoreList {
+/* ── Leaderboard ─────────────────────────────────────────── */
+.leaderboard {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 14px;
   flex: 1;
 }
 
-.scoreRow {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  grid-template-rows: auto auto;
+.leaderRow {
+  display: flex;
   align-items: center;
-  column-gap: 24px;
-  row-gap: 0;
+  gap: 16px;
+  padding: 18px 22px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.16);
-  border-radius: 20px;
-  padding: 28px 32px;
+  border: 1px solid rgba(183, 152, 108, 0.13);
+  border-radius: 16px;
 }
 
-.scoreRowTop {
-  border-left: 3px solid #3C79B4;
-  background: rgba(60, 121, 180, 0.07);
-  border-color: rgba(60, 121, 180, 0.3);
+.leaderRowTop {
+  background: rgba(183, 152, 108, 0.08);
+  border-color: rgba(183, 152, 108, 0.32);
+  border-left: 3px solid #B7986C;
 }
 
-.scoreTeamA {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.scoreTeamB {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  justify-content: flex-end;
-}
-
-.scoreTeamName {
+.leaderRank {
   font-family: 'Oswald', sans-serif;
-  font-size: 28px;
+  font-size: 24px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.40);
+  width: 28px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.leaderLogoWrap {
+  flex-shrink: 0;
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaderInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.leaderTeam {
+  font-family: 'Oswald', sans-serif;
+  font-size: 26px;
   font-weight: 700;
   color: #ffffff;
-  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.scoreResult {
+/* Probability bar */
+.probBarRow {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
+}
+
+.probBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.probFill {
+  height: 100%;
+  background: linear-gradient(90deg, #B7986C, #d4a96a);
+  border-radius: 999px;
+}
+
+.probPct {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.45);
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.scoreNum {
-  font-family: 'Oswald', sans-serif;
-  font-size: 36px;
-  font-weight: 700;
-  color: #B7986C;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.scoreFinal {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: rgba(240, 244, 248, 0.32);
-  text-transform: uppercase;
-}
-
-/* Summary line spans all three columns */
-.scoreSummary {
-  grid-column: 1 / -1;
-  font-size: 18px;
-  color: rgba(240, 244, 248, 0.55);
+/* ¶2 context commentary for top team */
+.leaderComment {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.38);
   font-style: italic;
-  line-height: 1.45;
-  padding-top: 14px;
-  margin-top: 10px;
-  border-top: 1px solid rgba(60, 121, 180, 0.12);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* ── Fallback: lead narrative + bullets ─────────────────── */
-.fallbackBlock {
+/* Odds pill */
+.oddsPill {
+  display: inline-block;
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.70);
+  background: rgba(183, 152, 108, 0.10);
+  border: 1px solid rgba(183, 152, 108, 0.20);
+  border-radius: 10px;
+  padding: 5px 16px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.oddsPillFav {
+  color: #B7986C;
+  background: rgba(183, 152, 108, 0.18);
+  border-color: rgba(183, 152, 108, 0.42);
+}
+
+/* ── Empty / loading state ───────────────────────────────── */
+.emptyState {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
-.leadNarrative {
-  font-size: 22px;
-  line-height: 1.5;
-  color: rgba(240, 244, 248, 0.72);
-  border-left: 3px solid #3C79B4;
-  padding: 16px 22px;
-  margin-bottom: 32px;
-  background: rgba(60, 121, 180, 0.07);
-  border-radius: 0 10px 10px 0;
+.emptyText {
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.30);
+  margin: 0;
+}
+
+/* ── Footer note ─────────────────────────────────────────── */
+.footNote {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 17px;
+  color: rgba(240, 244, 248, 0.26);
   font-style: italic;
-}
-
-.bulletList {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.headlineRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  padding: 18px 0;
-  border-bottom: 1px solid rgba(60, 121, 180, 0.1);
-}
-
-.headlineRow:last-child {
-  border-bottom: none;
-}
-
-.headlineBullet {
-  font-size: 24px;
-  color: #3C79B4;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.headlineText {
-  font-size: 22px;
-  font-weight: 500;
-  color: rgba(240, 244, 248, 0.78);
-  line-height: 1.42;
+  text-align: center;
 }

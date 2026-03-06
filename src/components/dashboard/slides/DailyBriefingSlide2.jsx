@@ -5,95 +5,128 @@ import SlideShell from './SlideShell';
 
 function makeTeam(name) {
   if (!name) return null;
-  return { name, slug: getTeamSlug(name) };
+  const cleaned = name
+    .replace(/^(?:The |the )/, '')
+    .replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '')
+    .trim();
+  return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
 
 export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
+  const isRobot = styleMode === 'robot';
 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  const highlights  = hasDigest ? (digest.lastNightHighlights ?? []) : [];
-  const leadText    = hasDigest ? (digest.leadNarrative || '') : '';
-  const storyLines  = hasDigest ? (digest.topStorylines ?? []) : [];
-  const rawHeadlines = data?.headlines ?? [];
+  // ¶2 → title race entries (top 5)
+  let raceEntries = hasDigest ? (digest.titleRace ?? []) : [];
 
-  // Limit to 3 best results — quality over quantity
-  const topHighlights = highlights.slice(0, 3);
+  // Fallback: raw championship odds map
+  if (!raceEntries.length) {
+    const raw = data?.champOdds ?? data?.championshipOdds ?? null;
+    if (raw) {
+      const entries = Array.isArray(raw)
+        ? raw
+        : Object.entries(raw).map(([team, odds]) => ({ team, odds }));
 
-  // Fallback bullets when no score highlights available
-  const fallbackBullets = storyLines.length > 0
-    ? storyLines.slice(0, 3)
-    : rawHeadlines.slice(0, 3).map(h => ({
-        text:   (h.title || h.headline || '').slice(0, 80),
-        source: h.source || null,
-      })).filter(b => b.text);
+      raceEntries = entries.slice(0, 6).reduce((acc, e) => {
+        const team = e.team || e.name || '';
+        if (!team) return acc;
+        const oddsRaw = parseInt(e.americanOdds ?? e.odds ?? '0', 10);
+        if (!oddsRaw) return acc;
+        const impl = oddsRaw < 0
+          ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
+          : Math.round((100 / (oddsRaw + 100)) * 100);
+        acc.push({
+          team,
+          americanOdds: oddsRaw > 0 ? `+${oddsRaw}` : String(oddsRaw),
+          impliedProbability: impl,
+          commentary: '',
+        });
+        return acc;
+      }, []).sort((a, b) => b.impliedProbability - a.impliedProbability);
+    }
+  }
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
-  });
+  // ¶2 → first punchy market framing sentence
+  const marketLead = hasDigest
+    ? (digest.titleMarketLead || digest.atsContextText || '')
+    : '';
+
+  const maxBar = raceEntries.length > 0
+    ? Math.max(...raceEntries.map(e => e.impliedProbability))
+    : 100;
 
   return (
-    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
-      <div className={styles.datePill}>{today}</div>
-
+    <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>LAST NIGHT</div>
-        <h2 className={styles.title}>SHOCK&shy;WAVES</h2>
+        <div className={styles.titleSup}>CHAMPIONSHIP ODDS</div>
+        <h2 className={styles.title}>TITLE<br />MARKET</h2>
       </div>
+
+      {/* ¶2 market framing sentence */}
+      {marketLead && (
+        <div className={styles.marketLead}>{marketLead}</div>
+      )}
 
       <div className={styles.divider} />
 
-      {topHighlights.length > 0 ? (
-        <div className={styles.scoreList}>
-          {topHighlights.map((h, i) => (
-            <div key={i} className={`${styles.scoreRow} ${i === 0 ? styles.scoreRowTop : ''}`}>
-              {/* Team A */}
-              <div className={styles.scoreTeamA}>
-                <TeamLogo team={makeTeam(h.teamA)} size={52} />
-                <span className={styles.scoreTeamName}>{h.teamA}</span>
-              </div>
-
-              {/* Final score */}
-              <div className={styles.scoreResult}>
-                <span className={styles.scoreNum}>{h.score}</span>
-                <span className={styles.scoreFinal}>FINAL</span>
-              </div>
-
-              {/* Team B */}
-              <div className={styles.scoreTeamB}>
-                <span className={styles.scoreTeamName}>{h.teamB || '—'}</span>
-                <TeamLogo team={makeTeam(h.teamB)} size={52} />
-              </div>
-
-              {/* Editorial summary line */}
-              {h.summaryLine && (
-                <div className={styles.scoreSummary}>{h.summaryLine}</div>
-              )}
-            </div>
-          ))}
+      {raceEntries.length === 0 ? (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyText}>Title market loading&hellip;</p>
         </div>
       ) : (
-        /* Fallback: lead narrative + storyline bullets */
-        <div className={styles.fallbackBlock}>
-          {leadText && (
-            <div className={styles.leadNarrative}>{leadText}</div>
-          )}
-          <div className={styles.bulletList}>
-            {fallbackBullets.map((b, i) => (
-              <div key={i} className={styles.headlineRow}>
-                <span className={styles.headlineBullet}>→</span>
-                <span className={styles.headlineText}>
-                  {(b.text || '').length > 88
-                    ? (b.text || '').slice(0, 88) + '…'
-                    : (b.text || '')}
+        <div className={styles.leaderboard}>
+          {raceEntries.slice(0, 5).map((entry, i) => {
+            const barWidth = maxBar > 0
+              ? Math.round((entry.impliedProbability / maxBar) * 100)
+              : entry.impliedProbability;
+            const isFavorite = i === 0;
+            const teamObj = makeTeam(entry.team);
+
+            return (
+              <div
+                key={i}
+                className={`${styles.leaderRow} ${isFavorite ? styles.leaderRowTop : ''}`}
+              >
+                <span className={styles.leaderRank}>{i + 1}</span>
+
+                <div className={styles.leaderLogoWrap}>
+                  <TeamLogo team={teamObj} size={44} />
+                </div>
+
+                <div className={styles.leaderInfo}>
+                  <div className={styles.leaderTeam}>{teamObj?.name || entry.team}</div>
+                  <div className={styles.probBarRow}>
+                    <div className={styles.probBar}>
+                      <div
+                        className={styles.probFill}
+                        style={{ width: `${Math.min(barWidth, 100)}%` }}
+                      />
+                    </div>
+                    <span className={styles.probPct}>{entry.impliedProbability}%</span>
+                  </div>
+                  {/* ¶2 commentary when available */}
+                  {entry.commentary && isFavorite && (
+                    <div className={styles.leaderComment}>{entry.commentary}</div>
+                  )}
+                </div>
+
+                <span className={`${styles.oddsPill} ${isFavorite ? styles.oddsPillFav : ''}`}>
+                  {entry.americanOdds}
                 </span>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
+
+      <div className={styles.footNote}>
+        {isRobot
+          ? 'Title odds from market data. Not financial advice.'
+          : 'Implied probability from championship futures market.'}
+      </div>
     </SlideShell>
   );
 }
