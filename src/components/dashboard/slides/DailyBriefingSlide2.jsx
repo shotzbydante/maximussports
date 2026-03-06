@@ -42,11 +42,12 @@ function buildRaceEntries(rankingsTop25, titleRace) {
 
   if (!rankEntries.length) return { entries: [], hasOdds: false };
 
-  // Build a slug → odds lookup from chatbot-parsed titleRace
-  // Only use entries whose team name slug-resolves (prevents fragments from entering)
+  // Build a slug → odds lookup from titleRace entries.
+  // Entries may include a pre-resolved `slug` field (from structured championship odds)
+  // or a `team` name that needs slug-resolution (from chatbot parsing).
   const oddsMap = {};
   for (const tr of (titleRace ?? [])) {
-    const slug = getTeamSlug(tr.team);
+    const slug = tr.slug || getTeamSlug(tr.team);
     if (slug && tr.americanOdds && tr.impliedProbability != null && tr.impliedProbability > 0) {
       oddsMap[slug] = {
         americanOdds:       tr.americanOdds,
@@ -121,7 +122,7 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
           <p className={styles.emptyText}>Rankings data unavailable.</p>
         </div>
       ) : showOddsBars ? (
-        /* Odds mode: probability bars + odds pill */
+        /* Odds mode: probability bars + odds pill + trophy for top 3 */
         <div className={styles.leaderboard}>
           {raceEntries.slice(0, 6).map((entry, i) => {
             const barWidth = entry.impliedProbability != null && maxBar > 0
@@ -135,7 +136,7 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
                 key={i}
                 className={`${styles.leaderRow} ${isFavorite ? styles.leaderRowTop : ''}`}
               >
-                <span className={styles.leaderRank}>{i + 1}</span>
+                <span className={`${styles.leaderRank} ${i < 3 ? styles.leaderRankHighlight : ''}`}>{i + 1}</span>
 
                 <div className={styles.leaderLogoWrap}>
                   <TeamLogo team={teamObj} size={44} />
@@ -159,11 +160,14 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
                   )}
                 </div>
 
-                {entry.americanOdds && (
-                  <span className={`${styles.oddsPill} ${isFavorite ? styles.oddsPillFav : ''}`}>
-                    {entry.americanOdds}
-                  </span>
-                )}
+                <div className={styles.leaderRight}>
+                  {entry.americanOdds && (
+                    <span className={`${styles.oddsPill} ${isFavorite ? styles.oddsPillFav : ''}`}>
+                      {entry.americanOdds}
+                    </span>
+                  )}
+                  {i < 3 && <span className={styles.trophyIcon}>🏆</span>}
+                </div>
               </div>
             );
           })}
@@ -205,7 +209,7 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
           ? (isRobot
             ? 'Title odds from market data. Not financial advice.'
             : 'Implied probability from championship futures market.')
-          : 'AP Top 25 rankings. Futures odds updating.'}
+          : 'AP Top 25 rankings. Championship futures updating.'}
       </div>
     </SlideShell>
   );

@@ -19,6 +19,8 @@
  *   extractBoldPhrases(text)            → string[]
  */
 
+import { getTeamSlug } from './teamSlug';
+
 // ─── Section-label stripper ───────────────────────────────────────────────────
 
 /**
@@ -706,6 +708,51 @@ function parseNewsIntel(newsPulseText, headlines) {
   return intel.slice(0, 5);
 }
 
+// ─── Championship odds fallback for Slide 2 ──────────────────────────────────
+
+/**
+ * Build a titleRace array from the structured championship odds map (slug-keyed).
+ * Used when chatbot ¶2 parsing returns fewer than 3 entries.
+ *
+ * @param {Record<string, { bestChanceAmerican?: number }>} oddsMap  - from /api/odds/championship
+ * @param {Array}  rankingsTop25 - AP Top 25 (provides display names for slugs)
+ * @returns {Array<{ team: string, slug: string, americanOdds: string, impliedProbability: number, commentary: string }>}
+ */
+function buildTitleRaceFromOdds(oddsMap, rankingsTop25) {
+  if (!oddsMap || !Object.keys(oddsMap).length) return [];
+
+  // Build a slug → display name map from AP rankings (most trusted source for display names)
+  const nameBySlug = {};
+  for (const r of (rankingsTop25 || [])) {
+    const rawName = r.teamName || r.name || r.team || '';
+    if (!rawName) continue;
+    const slug = getTeamSlug(rawName);
+    if (slug) nameBySlug[slug] = rawName.replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '').trim();
+  }
+
+  return Object.entries(oddsMap)
+    .filter(([, entry]) => entry?.bestChanceAmerican != null)
+    .map(([slug, entry]) => {
+      const american = entry.bestChanceAmerican;
+      const impliedProbability = american < 0
+        ? Math.round((-american / (-american + 100)) * 100)
+        : Math.round((100 / (american + 100)) * 100);
+      // Use AP rankings name if available, otherwise clean up the slug
+      const team = nameBySlug[slug]
+        || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return {
+        team,
+        slug,
+        americanOdds: american > 0 ? `+${american}` : String(american),
+        impliedProbability,
+        commentary: '',
+      };
+    })
+    .filter(e => e.impliedProbability > 0)
+    .sort((a, b) => b.impliedProbability - a.impliedProbability)
+    .slice(0, 8);
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -773,6 +820,7 @@ export function buildDailyBriefingDigest({
   scores         = [],        // today's all-games from ESPN (for Slide 3 expanded pool)
   rankingsTop25  = [],        // AP Top 25 (for Slide 2 primary entity source)
   upcomingGamesWithSpreads = [], // tomorrow's ESPN games merged with odds (has startTime + network)
+  championshipOdds = {},     // slug-keyed odds map — used as Slide 2 fallback when chatbot parse is sparse
 } = {}) {
   const parsed = parseChatbotSummary(chatSummary);
   const hasChatContent = !!chatSummary && parsed.paragraphs.length >= 3;
@@ -837,9 +885,26 @@ export function buildDailyBriefingDigest({
       })).filter(b => b.text.length > 10);
 
   // ── Slide 2: TITLE MARKET ────────────────────────────────────────────────
-  const titleRace = hasChatContent
-    ? parseTitleRace(parsed.oddsPulse)
-    : [];
+  // Source-of-truth hierarchy:
+  //   1. Chatbot ¶2 parsing (when available and produces ≥ 3 entries)
+  //   2. Structured championship odds map (from /api/odds/championship — most reliable)
+  //   3. Empty (Slide 2 falls back to AP rankings-only mode)
+  const chatbotTitleRace = hasChatContent ? parseTitleRace(parsed.oddsPulse) : [];
+  const structuredTitleRace = buildTitleRaceFromOdds(championshipOdds, rankingsTop25);
+
+  // Merge: use chatbot entries, supplement gaps with structured odds
+  let titleRace = chatbotTitleRace;
+  if (structuredTitleRace.length > 0) {
+    if (chatbotTitleRace.length < 3) {
+      // Not enough chatbot entries — prefer structured source
+      titleRace = structuredTitleRace;
+    } else {
+      // Chatbot has entries — supplement any teams that are missing odds
+      const existingTeams = new Set(chatbotTitleRace.map(e => getTeamSlug(e.team) || e.team.toLowerCase()));
+      const extra = structuredTitleRace.filter(e => e.slug && !existingTeams.has(e.slug));
+      titleRace = [...chatbotTitleRace, ...extra].slice(0, 8);
+    }
+  }
 
   // First punchy sentence of ¶2 for the card framing ("Duke sits comfortably…")
   const titleMarketLead = hasChatContent && parsed.oddsPulse
@@ -847,17 +912,21 @@ export function buildDailyBriefingDigest({
     : '';
 
   // ── Slide 3: TODAY'S GAMES TO WATCH ─────────────────────────────────────
-  // Expand game pool: odds games first, then all ESPN schedule games (deduplicated)
-  // This lets chatbot-mentioned marquee teams be found even without spread data.
+  // Expand game pool: odds games first, then all ESPN schedule games (deduplicated).
+  // Use slug-based keys for reliable de-duplication across different team name formats.
+  function makeGameKey(g) {
+    const a = getTeamSlug(g.awayTeam || '') || (g.awayTeam || '').toLowerCase().trim().slice(0, 8);
+    const h = getTeamSlug(g.homeTeam || '') || (g.homeTeam || '').toLowerCase().trim().slice(0, 8);
+    return `${a}|${h}`;
+  }
+
   const upcomingScores = scores.filter(g => {
     const s = (g.gameStatus || '').toLowerCase();
     return !s.includes('final');
   });
-  const seenGameKeys = new Set(
-    games.map(g => `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`)
-  );
+  const seenGameKeys = new Set(games.map(makeGameKey));
   const extraGames = [...upcomingScores, ...upcomingGamesWithSpreads].filter(g => {
-    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    const key = makeGameKey(g);
     if (seenGameKeys.has(key)) return false;
     seenGameKeys.add(key);
     return true;

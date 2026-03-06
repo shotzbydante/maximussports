@@ -161,6 +161,110 @@ const SLUG_EMOJI = {
 
   // Sharks
   'nova-southeastern': '🦈',
+
+  // Volunteers
+  'tennessee':         '🍊',
+
+  // Ramblers / Flames
+  'illinois-chicago':  '🔥',
+
+  // Gamecocks
+  'south-carolina':    '🐓',
+
+  // Blue Hens
+  'delaware':          '🐔',
+
+  // Friars
+  'providence':        '✝️',
+
+  // Flyers
+  'dayton':            '✈️',
+
+  // Panthers
+  'pitt':              '🐾',
+  'northern-iowa':     '🐾',
+  'eastern-washington':'🐾',
+  'milwaukee':         '🐾',
+
+  // Mustangs
+  'smu':               '🐎',
+
+  // Wichita State Shockers
+  'wichita-state':     '⚡',
+
+  // Xavier Musketeers
+  'xavier':            '⚔️',
+
+  // Gonzaga Bulldogs
+  'gonzaga':           '🐶',
+
+  // Saint John's Red Storm
+  'st-johns':          '🌩️',
+
+  // Marquette Golden Eagles
+  'marquette':         '🦅',
+
+  // Creighton Bluejays
+  'creighton':         '🐦',
+
+  // DePaul Blue Demons
+  'depaul':            '😈',
+
+  // Butler Bulldogs
+  'butler':            '🐶',
+
+  // Georgetown Hoyas
+  'georgetown':        '🐾',
+
+  // Notre Dame Fighting Irish
+  'notre-dame':        '☘️',
+
+  // Syracuse Orange
+  'syracuse':          '🍊',
+
+  // Cincinnati Bearcats
+  'cincinnati':        '🐻',
+
+  // UCF Knights
+  'ucf':               '⚔️',
+
+  // Utah Utes
+  'utah':              '🔴',
+
+  // Colorado Buffaloes
+  'colorado':          '🦬',
+
+  // Nevada Wolf Pack
+  'nevada':            '🐺',
+
+  // UNLV Rebels
+  'unlv':              '🏴‍☠️',
+
+  // San Diego State Aztecs
+  'san-diego-state':   '🌵',
+
+  // New Mexico Lobos
+  'new-mexico':        '🐺',
+
+  // Fresno State Bulldogs
+  'fresno-state':      '🐶',
+
+  // Boise State Broncos
+  'boise-state':       '🐎',
+
+  // Army / Navy / Air Force
+  'army':              '🪖',
+  'navy':              '⚓',
+  'air-force':         '✈️',
+
+  // VCU Rams
+  'vcu':               '🐏',
+
+  // Richmond Spiders
+  'richmond':          '🕷️',
+
+  // UAB Blazers
+  'uab':               '🔥',
 };
 
 /**
@@ -203,6 +307,24 @@ export function getTeamEmoji(slug, name = '') {
   if (/longhorn/.test(n))   return '🤘';
   if (/boilermaker/.test(n)) return '🔩';
   if (/jayhawk/.test(n))    return '🦅';
+  if (/bronco/.test(n))     return '🐎';
+  if (/mustang/.test(n))    return '🐎';
+  if (/ram|sheep/.test(n))  return '🐏';
+  if (/irish/.test(n))      return '☘️';
+  if (/orange/.test(n))     return '🍊';
+  if (/volunteer/.test(n))  return '🍊';
+  if (/panther/.test(n))    return '🐾';
+  if (/bulldog/.test(n))    return '🐶';
+  if (/penguin/.test(n))    return '🐧';
+  if (/spider/.test(n))     return '🕷️';
+  if (/blazer/.test(n))     return '🔥';
+  if (/shocker/.test(n))    return '⚡';
+  if (/flyer/.test(n))      return '✈️';
+  if (/friar/.test(n))      return '✝️';
+  if (/knight/.test(n))     return '⚔️';
+  if (/musketeer/.test(n))  return '⚔️';
+  if (/gamecock/.test(n))   return '🐓';
+  if (/buffalo|bison|bull/.test(n)) return '🦬';
 
   return '';
 }

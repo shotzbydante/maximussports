@@ -3,6 +3,13 @@ import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './DailyBriefingSlide3.module.css';
 import SlideShell from './SlideShell';
 
+/** Build a canonical dedup key from two team names using normalized slugs. */
+function gameKey(away, home) {
+  const a = getTeamSlug(away || '') || (away || '').toLowerCase().trim().slice(0, 8);
+  const h = getTeamSlug(home || '') || (home || '').toLowerCase().trim().slice(0, 8);
+  return `${a}|${h}`;
+}
+
 function makeTeam(name) {
   if (!name) return null;
   const cleaned = name
@@ -40,23 +47,25 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
   const spreadGames = data?.odds?.games ?? [];
   const upcomingWithSpreads = data?.upcomingGamesWithSpreads ?? [];
 
-  // Build a network + time lookup from ESPN scores (which have startTime + network)
-  // Keyed by first 6 chars of awayTeam + homeTeam
+  // Build a network + time lookup from ESPN scores (which have startTime + network).
+  // Keyed by slug-pair for reliable matching across mismatched team name formats.
   const espnMetaMap = {};
   for (const g of [...(data?.scores ?? []), ...upcomingWithSpreads]) {
-    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
-    if (!espnMetaMap[key]) {
+    const key = gameKey(g.awayTeam, g.homeTeam);
+    if (key !== '|' && !espnMetaMap[key]) {
       espnMetaMap[key] = {
         time:    g.time || formatTimePST(g.startTime) || formatTimePST(g.commenceTime) || null,
         network: g.network || g.broadcastName || g.broadcast || null,
         spread:  g.spread ?? g.homeSpread ?? null,
+        awayTeam: g.awayTeam || null,
+        homeTeam: g.homeTeam || null,
       };
     }
   }
 
   // Build expanded game pool: odds games (enriched with ESPN meta) first, then all ESPN games
   const enrichedSpreadGames = spreadGames.map(g => {
-    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    const key = gameKey(g.awayTeam, g.homeTeam);
     const meta = espnMetaMap[key] ?? {};
     return {
       ...g,
@@ -65,22 +74,20 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
     };
   });
 
-  const seenKeys = new Set(
-    spreadGames.map(g => `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`)
-  );
+  const seenKeys = new Set(spreadGames.map(g => gameKey(g.awayTeam, g.homeTeam)));
   const allScores = [...(data?.scores ?? []), ...upcomingWithSpreads].filter(g => {
     const s = (g.gameStatus || '').toLowerCase();
     return !s.includes('final');
   });
   const extraGames = allScores.filter(g => {
-    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    const key = gameKey(g.awayTeam, g.homeTeam);
     if (seenKeys.has(key)) return false;
     seenKeys.add(key);
     return true;
   }).map(g => ({
     ...g,
     time:    g.time || formatTimePST(g.startTime) || formatTimePST(g.commenceTime) || null,
-    network: g.network || g.broadcastName || null,
+    network: g.network || g.broadcastName || g.broadcast || null,
   }));
 
   const games = [...enrichedSpreadGames, ...extraGames];

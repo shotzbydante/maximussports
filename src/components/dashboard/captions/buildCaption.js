@@ -7,6 +7,9 @@
  * Compliant language: "leans", "value edge", "data-driven", "not advice".
  */
 
+import { getTeamEmoji } from '../../../utils/getTeamEmoji';
+import { confidenceLabel } from '../../../utils/maximusPicksModel';
+
 const CTA = 'Full analysis at maximussports.ai';
 const DISCLAIMER = 'For entertainment only. Please bet responsibly. 21+';
 
@@ -165,78 +168,96 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
 function buildAtsSignalCopy(atsRecord) {
   if (!atsRecord) return null;
   const m = atsRecord.match(/(\d+)-(\d+)/);
-  if (!m) return `ATS signal: ${atsRecord}. Cover percentage is one of the most persistent edges in college basketball.`;
+  if (!m) return `ATS record: ${atsRecord}. Cover rate is one of the most persistent edges in college basketball.`;
   const w = parseInt(m[1], 10);
   const l = parseInt(m[2], 10);
   const pct = w / (w + l);
   const pctStr = Math.round(pct * 100);
+  const rec = `${w}-${l} (${pctStr}%)`;
 
-  if (pct >= 0.65) return `Against the Spread (ATS) signal: ${atsRecord} (${pctStr}%). Cover percentage is one of the most persistent edges in college basketball.`;
-  if (pct >= 0.57) return `ATS signal: ${atsRecord} (${pctStr}%). Holding firm against the number — this is a team the market hasn't fully priced in.`;
-  if (pct >= 0.50) return `ATS signal: ${atsRecord} (${pctStr}%). Steady but not screaming value. Worth monitoring before committing.`;
-  if (pct >= 0.42) return `ATS signal: ${atsRecord} (${pctStr}%). Right around break-even — no clear edge either way right now.`;
-  return `ATS signal: ${atsRecord} (${pctStr}%). Struggling against the spread lately. Value may sit on the other side.`;
+  if (pct >= 0.68) return `ATS signal: ${rec}. Market still hasn't fully caught up to this one.`;
+  if (pct >= 0.60) return `ATS signal: ${rec}. Holding firm against the number — quiet consistent value.`;
+  if (pct >= 0.54) return `ATS signal: ${rec}. Not a flashing edge, but the profile has been steady.`;
+  if (pct >= 0.47) return `ATS signal: ${rec}. Pretty close to fairly priced right now — not much edge either way.`;
+  if (pct >= 0.38) return `ATS signal: ${rec}. Cooling off against the number lately.`;
+  return `ATS signal: ${rec}. Struggling ATS. The value may be on the other side.`;
 }
 
-function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, asOf, slug }) {
+function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, asOf, slug, nextGame }) {
   const teamName = team?.displayName || team?.name || 'This team';
   const teamSlug = slug || team?.slug || null;
   const rankStr  = rank != null ? ` · #${rank} AP` : '';
   const confStr  = conference ? ` · ${conference}` : '';
 
-  // Import emoji helper lazily (pure function, no side effects)
+  // Resolve mascot emoji using the canonical getTeamEmoji helper
   let mascotEmoji = '';
   try {
-    // Dynamic-safe inline import avoided here — use a small inline map for key teams
-    // Full mapping is in getTeamEmoji.js; used for Team Intel caption generation
-    const QUICK_EMOJI = {
-      villanova: '🐾', kentucky: '🐾', arizona: '🐾', duke: '😈', lsu: '🐯',
-      clemson: '🐯', baylor: '🐻', ucla: '🐻', uconn: '🐶', florida: '🐊',
-      texas: '🤘', michigan: '🦡', 'michigan-state': '⚔️', purdue: '🔩',
-      alabama: '🌊', 'ohio-state': '🌰', stanford: '🌲', miami: '🌀',
-      arkansas: '🐗', wisconsin: '🦡', iowa: '👁️', kansas: '🦅',
-      'iowa-state': '🌪️', houston: '🐆', 'north-carolina': '💙',
-      'nc-state': '🐺', oregon: '🦆', 'arizona-state': '😈',
-    };
-    mascotEmoji = (teamSlug && QUICK_EMOJI[teamSlug]) || '';
-    if (!mascotEmoji) {
-      const n = teamName.toLowerCase();
-      if (/wildcat/.test(n)) mascotEmoji = '🐾';
-      else if (/tiger/.test(n)) mascotEmoji = '🐯';
-      else if (/gator/.test(n)) mascotEmoji = '🐊';
-      else if (/huskie|husky/.test(n)) mascotEmoji = '🐶';
-      else if (/wolverine/.test(n)) mascotEmoji = '🦡';
-      else if (/eagle|hawk/.test(n)) mascotEmoji = '🦅';
-      else if (/hurricane/.test(n)) mascotEmoji = '🌀';
-      else if (/cyclone/.test(n)) mascotEmoji = '🌪️';
-      else if (/devil/.test(n)) mascotEmoji = '😈';
-    }
+    mascotEmoji = getTeamEmoji(teamSlug, teamName);
   } catch { /* ignore */ }
-
   const sportEmoji = mascotEmoji || '🏀';
+
+  // Filter picks to those that match this team's actual next game matchup.
+  // Avoids showing a lean from a completely unrelated game on today's slate.
+  const nextOpp     = nextGame?.opponent || '';
+  const teamFrag    = teamName.toLowerCase().split(' ').pop() || '';
+  const oppFrag     = nextOpp.toLowerCase().split(' ').pop() || '';
+
+  // Most precise: game involves both team and upcoming opponent
+  let teamPick = (teamFrag && oppFrag)
+    ? (picks?.find(p => {
+        const ht = (p.homeTeam || '').toLowerCase();
+        const at = (p.awayTeam || '').toLowerCase();
+        return (ht.includes(teamFrag) || at.includes(teamFrag)) &&
+               (ht.includes(oppFrag)  || at.includes(oppFrag));
+      }) ?? null)
+    : null;
+
+  // Broader fallback: any pick where this team appears
+  if (!teamPick && teamFrag) {
+    teamPick = picks?.find(p => {
+      const ht = (p.homeTeam || '').toLowerCase();
+      const at = (p.awayTeam || '').toLowerCase();
+      return ht.includes(teamFrag) || at.includes(teamFrag);
+    }) ?? null;
+  }
+
+  // Build model lean copy — natural, contextual, explains what it means
+  function buildModelLeanCopy(pick) {
+    if (!pick) {
+      if (nextOpp) return `No qualified edge yet for the ${nextOpp} game. Value threshold not met.`;
+      return `No qualified lean right now — value threshold not met.`;
+    }
+    const conf = confidenceLabel(pick.confidence);
+    const confPhrase =
+      conf === 'High'   ? 'The model has a real lean here.' :
+      conf === 'Medium' ? 'Slight edge — worth watching.' :
+                          'Early signal, low conviction.';
+    const typeNote = pick.pickType === 'ats' ? 'ATS differential + implied probability' : 'Market value vs. model probability';
+    return `Model lean: ${pick.pickLine}. ${confPhrase} Based on ${typeNote}.`;
+  }
 
   // Short caption: hook + ATS signal + model lean
   const confConfText = conference ? ` out of the ${conference}` : '';
-  const hook = `🔥 Time for some Team Intel: ${teamName}${confConfText} ${sportEmoji}`;
+  const hook = `🔥 Team Intel: ${teamName}${confConfText} ${sportEmoji}`;
 
-  const atsCopy   = buildAtsSignalCopy(atsRecord);
-  const picksCopy = picks?.length
-    ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential + implied probability.`
-    : `No qualified lean today — value threshold not met.`;
+  const atsCopy    = buildAtsSignalCopy(atsRecord);
+  const picksCopy  = buildModelLeanCopy(teamPick);
 
   const short = [hook, atsCopy, picksCopy, CTA].filter(Boolean).join('\n\n');
 
   // Long caption: editorial rundown
   const long = [
-    `🔥 Team Intel: ${teamName}`,
+    `🔥 Team Intel: ${teamName} ${sportEmoji}`,
     '',
     `${teamName}${rankStr}${confStr}${record ? ` · ${record}` : ''}`,
     '',
     atsCopy || null,
     '',
-    picks?.length
-      ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential + implied probability — not financial advice.`
-      : `No qualified lean today. Discipline beats volume.`,
+    teamPick
+      ? `${buildModelLeanCopy(teamPick)} Not financial advice.`
+      : (nextOpp
+          ? `No qualified lean for the ${nextOpp} game. Discipline beats volume.`
+          : `No qualified lean today. Discipline beats volume.`),
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
@@ -371,7 +392,7 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
  */
 export function buildCaption({
   template, team, game, picks, stats, atsLeaders,
-  headlines, asOf, styleMode, chatDigest,
+  headlines, asOf, styleMode, chatDigest, nextGame,
 } = {}) {
   switch (template) {
     case 'team':
@@ -384,6 +405,7 @@ export function buildCaption({
         conference: team?.conference ?? null,
         slug:       team?.slug ?? null,
         asOf,
+        nextGame:   nextGame ?? null,
       });
     case 'game':
       return buildGameCaption({ game, picks, asOf });

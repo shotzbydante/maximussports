@@ -76,6 +76,8 @@ export default function Dashboard() {
   const [teamPageLoading, setTeamPageLoading] = useState(false);
   const [teamNextLineData, setTeamNextLineData] = useState(null);
   const [teamChampOdds, setTeamChampOdds] = useState(null);
+  // Championship odds map for Daily Briefing Slide 2 (fetched once at load)
+  const [dailyChampOdds, setDailyChampOdds] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── export state ─────────────────────────────────────────
@@ -117,6 +119,11 @@ export default function Dashboard() {
         }
       })
       .catch(() => { /* non-fatal */ });
+
+    // Fetch championship odds for Slide 2 — non-fatal, runs in parallel
+    fetchChampionshipOdds()
+      .then(d => { if (d?.odds) setDailyChampOdds(d.odds); })
+      .catch(() => {});
 
     try {
       const [fast, slow, atsResult] = await Promise.all([
@@ -299,8 +306,10 @@ export default function Dashboard() {
       scores:                 dashData?.scores ?? [],
       rankingsTop25:          dashData?.rankingsTop25 ?? [],
       upcomingGamesWithSpreads: dashData?.upcomingGamesWithSpreads ?? [],
+      // Championship odds map powers Slide 2 as structured fallback when chatbot odds parse is sparse
+      championshipOdds:       dailyChampOdds ?? {},
     });
-  }, [dashData, chatSummary, chatStatus]);
+  }, [dashData, chatSummary, chatStatus, dailyChampOdds]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
@@ -341,6 +350,8 @@ export default function Dashboard() {
       styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
       // Pass digest for richer daily caption
       chatDigest: activeSection === 'daily' ? dailyDigest : null,
+      // Pass next game so Team Intel caption scopes model lean to the correct matchup
+      nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
     });
   }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest]);
 

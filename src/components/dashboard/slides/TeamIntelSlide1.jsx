@@ -1,6 +1,7 @@
 import SlideShell from './SlideShell';
 import InsightBullets from '../ui/InsightBullets';
 import styles from './TeamIntelSlide1.module.css';
+import { getTeamEmoji } from '../../../utils/getTeamEmoji';
 
 function truncate(str, max) {
   if (!str) return '—';
@@ -12,7 +13,7 @@ function fmtOdds(american) {
   return american > 0 ? `+${american}` : String(american);
 }
 
-/** Derive a short personality line from last-10 form. */
+/** Derive a short editorial personality line from last-10 form. */
 function buildPersonalityLine(last10) {
   if (!last10 || last10.length < 3) return null;
   const scored = last10.filter(e => e.ourScore != null && e.oppScore != null);
@@ -23,18 +24,28 @@ function buildPersonalityLine(last10) {
   const w5    = last5.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
   const trend = last5.length >= 5 ? w5 / 5 : null;
 
-  if (pct >= 0.80) return 'Quiet heater lately.';
+  if (pct >= 0.80) {
+    return trend != null && trend >= 0.80
+      ? 'Playing their best basketball of the season right now.'
+      : 'Rolling. This team has been tough to beat lately.';
+  }
   if (pct >= 0.70) {
-    return trend != null && trend >= 0.80 ? 'On a serious run right now.' : 'Strong form — riding momentum.';
+    return trend != null && trend >= 0.80
+      ? 'Last 5 is the real story — this team is peaking.'
+      : 'Strong form. Momentum is real heading into this one.';
   }
   if (pct >= 0.55) {
-    return trend != null && trend >= 0.70 ? 'Heating up — last 5 is the story.' : 'Trending up. Solid form lately.';
+    return trend != null && trend >= 0.70
+      ? 'Heating up at the right time of year.'
+      : 'Solid stretch. Not flashy, but getting the job done.';
   }
   if (pct >= 0.45) {
-    return trend != null && trend <= 0.30 ? 'Cooling off after a strong stretch.' : 'Steady. Looking for an edge.';
+    return trend != null && trend <= 0.30
+      ? 'Cooled off some after a stronger stretch.'
+      : 'Playing around .500 ball right now — looking for a spark.';
   }
-  if (pct <= 0.30) return 'Slumping — but a bounce-back spot?';
-  return 'Going through the motions. Something needs to click.';
+  if (pct <= 0.30) return 'Rough patch. A bounce-back spot could be in the cards.';
+  return 'Inconsistent lately. Something needs to click.';
 }
 
 export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, slideTotal, ...rest }) {
@@ -114,6 +125,7 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
   const bullets = teamNews.slice(0, 3).map(n => truncate(n.headline || n.title, 72));
 
   const conf = team.conference || data?.selectedTeamConf || null;
+  const mascotEmoji = getTeamEmoji(slug, name);
 
   return (
     <SlideShell
@@ -148,7 +160,9 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
           )}
           {conf && <span className={styles.confPill}>{conf}</span>}
         </div>
-        <h2 className={styles.teamName}>{name}</h2>
+        <h2 className={styles.teamName}>
+          {name}{mascotEmoji ? <span className={styles.teamEmoji}>{mascotEmoji}</span> : null}
+        </h2>
         {record && <div className={styles.record}>{record}</div>}
         {quickPulse && (
           <div className={styles.quickPulse}>
@@ -186,7 +200,7 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
           )}
           {/* Maximus personality line */}
           {personalityLine && (
-            <div className={styles.personalityLine}>Maximus says: {personalityLine}</div>
+            <div className={styles.personalityLine}>{personalityLine}</div>
           )}
         </div>
       )}

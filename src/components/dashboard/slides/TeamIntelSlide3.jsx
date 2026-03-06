@@ -38,17 +38,40 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
 
   const hasLine = spread != null || ml != null || total != null;
 
-  // Team pick from picks model
+  // Team pick from picks model — scoped to the team's actual next matchup.
+  // Matches picks where EITHER the team OR their upcoming opponent is one of the game participants.
+  // Never surfaces a pick from a completely unrelated game.
   const games = data?.odds?.games ?? [];
   let teamPick = null;
   try {
     const picks = buildMaximusPicks({ games, atsLeaders });
     const allPicks = [...(picks.atsPicks ?? []), ...(picks.mlPicks ?? [])];
-    teamPick = allPicks.find(p => {
-      if (!name) return false;
-      const nm = name.toLowerCase().split(' ').pop() || '';
-      return nm && (p.pickLine || '').toLowerCase().includes(nm);
-    }) ?? null;
+
+    // Build match fragments: team name + next opponent (use last word of each)
+    const teamFrag = name ? name.toLowerCase().split(' ').pop() : '';
+    const oppFrag  = nextEvent?.opponent
+      ? nextEvent.opponent.toLowerCase().split(' ').pop()
+      : '';
+
+    // Most precise: find a pick from the exact upcoming matchup (game has both team + opponent)
+    if (teamFrag && oppFrag) {
+      teamPick = allPicks.find(p => {
+        const ht = (p.homeTeam || '').toLowerCase();
+        const at = (p.awayTeam || '').toLowerCase();
+        const teamInGame = ht.includes(teamFrag) || at.includes(teamFrag);
+        const oppInGame  = ht.includes(oppFrag)  || at.includes(oppFrag);
+        return teamInGame && oppInGame;
+      }) ?? null;
+    }
+
+    // Broader fallback: any pick where this team appears in the matchup
+    if (!teamPick && teamFrag) {
+      teamPick = allPicks.find(p => {
+        const ht = (p.homeTeam || '').toLowerCase();
+        const at = (p.awayTeam || '').toLowerCase();
+        return ht.includes(teamFrag) || at.includes(teamFrag);
+      }) ?? null;
+    }
   } catch { /* ignore */ }
 
   const headlines = teamData?.last7News?.length > 0
@@ -92,17 +115,24 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
       {/* Pick lean */}
       <div className={styles.pickSection}>
         <div className={styles.pickLabel}>MAXIMUS LEAN</div>
+        <div className={styles.pickSub}>
+          The side the model slightly prefers based on ATS form + implied probability.
+        </div>
         {teamPick ? (
           <div className={styles.pickCard}>
             <div className={styles.pickLine}>{teamPick.pickLine}</div>
             <div className={styles.pickConf}>
-              {teamPick.type === 'ats' ? 'ATS' : 'ML'} ·{' '}
+              {teamPick.pickType === 'ats' ? 'ATS' : 'ML'} ·{' '}
               {confidenceLabel(teamPick.confidence)} confidence
               {teamPick.partial ? ' · partial signal' : ''}
             </div>
           </div>
         ) : (
-          <div className={styles.noPickCard}>No qualified lean for this team today</div>
+          <div className={styles.noPickCard}>
+            {nextEvent?.opponent
+              ? `No qualified edge yet for the ${nextEvent.opponent} game.`
+              : 'No qualified lean right now — value threshold not met.'}
+          </div>
         )}
       </div>
 

@@ -69,29 +69,35 @@ export default function TeamIntelSlide2({ data, teamData, asOf, slideNumber, sli
     const w = pParsed.w;
     const l = pParsed.l;
     const total = w + l;
+    const pct = Math.round(p * 100);
     // Trend: is last7 better or worse than last30?
     const trending = l7 && l30 ? (l7.pct > l30.pct + 0.08 ? 'up' : l7.pct < l30.pct - 0.08 ? 'down' : 'flat') : 'flat';
 
     if (p >= 0.70) {
-      if (trending === 'up') return `Cover trend is real lately. Market hasn't caught up.`;
-      return `Covering at a ${Math.round(p * 100)}% clip over the last ${total}. Quiet heater against the number.`;
+      if (trending === 'up') return `Cover trend is accelerating. Market still hasn't caught up.`;
+      if (trending === 'down') return `Still a strong ${pct}% ATS cover rate, but the recent pace is cooling.`;
+      return `Covering at ${pct}% over the last ${total}. Quiet heater against the number.`;
     }
     if (p >= 0.60) {
-      if (trending === 'up') return `Heating up ATS — cover rate climbing toward 60%.`;
-      return `Holding firm against the spread at ${Math.round(p * 100)}%. Consistent value here.`;
+      if (trending === 'up') return `ATS cover rate climbing — approaching that 60% threshold. Watch this.`;
+      if (trending === 'down') return `Still a solid ${pct}%, but the recent trend has softened. Keep an eye on it.`;
+      return `Holding firm at ${pct}% ATS. Consistent value — market hasn't fully priced this in.`;
     }
     if (p >= 0.52) {
-      if (trending === 'up') return `ATS profile is improving. Not screaming value yet, but worth watching.`;
-      return `ATS profile is steady, but not screaming value right now.`;
+      if (trending === 'up') return `Cover rate is quietly improving. Not screaming edge yet, but worth watching.`;
+      if (trending === 'down') return `ATS profile is fading. ${pct}% and trending the wrong way.`;
+      return `Pretty close to fairly priced right now. Steady, not spectacular.`;
     }
     if (p >= 0.45) {
-      if (trending === 'down') return `Cooling off after a strong stretch — cover rate dipping to ${Math.round(p * 100)}%.`;
-      return `Right around the break-even line at ${Math.round(p * 100)}%. No clear edge either way.`;
+      if (trending === 'down') return `Cooling off ATS after a stronger stretch. ${pct}% and sliding.`;
+      if (trending === 'up') return `Bouncing back ATS — ${pct}% with the trend moving higher. Monitor this.`;
+      return `Not much edge at the moment. ${pct}% ATS is right around break-even.`;
     }
     if (p >= 0.35) {
-      return `Not much edge right now. ${Math.round(p * 100)}% ATS — value may be fading.`;
+      if (trending === 'up') return `Starting to recover ATS, but ${pct}% is still well below value territory.`;
+      return `ATS profile is weak at ${pct}%. Value may sit on the other side of this one.`;
     }
-    return `Struggling against the spread at ${Math.round(p * 100)}%. Contrarian opportunity, or just a rough patch?`;
+    return `Struggling against the spread. ${pct}% cover rate over ${total} — rough patch or structural?`;
   }
 
   const signalText = buildSignalText(primaryParsed, last7Parsed, last30Parsed, seasonParsed);
