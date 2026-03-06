@@ -2,7 +2,7 @@
  * chatbotDigest.js
  *
  * Parses and structures the AI-generated home chatbot summary (from /api/chat/homeSummary)
- * into a canonical Daily Briefing Digest consumed by all three Daily Briefing slides,
+ * into a canonical Daily Briefing Digest consumed by all five Daily Briefing slides,
  * the caption builder, and any future content surface.
  *
  * The AI summary follows a 5-paragraph format:
@@ -265,32 +265,310 @@ function buildCaptionNarrative(parsed, picks) {
   return parts.filter(Boolean).join(' ');
 }
 
+// ─── Editorial section parsers ────────────────────────────────────────────────
+
+/**
+ * Parse last-night score highlights from the recap paragraph (¶1).
+ * Looks for basketball score patterns (NN-NN) with surrounding team names.
+ *
+ * @param {string} recapText
+ * @returns {Array<{ teamA: string, teamB: string, score: string, summaryLine: string }>}
+ */
+function parseLastNightHighlights(recapText) {
+  if (!recapText) return [];
+  const clean = stripMarkdown(recapText);
+  const sentences = toSentences(clean);
+  const highlights = [];
+
+  for (const sentence of sentences) {
+    const scoreMatch = sentence.match(/\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b/);
+    if (!scoreMatch) continue;
+    const s1 = parseInt(scoreMatch[1], 10);
+    const s2 = parseInt(scoreMatch[2], 10);
+    // Basketball scores sit in this range
+    if (s1 < 40 || s1 > 165 || s2 < 40 || s2 > 165) continue;
+
+    let teamA = '';
+    let teamB = '';
+    const before = sentence.slice(0, scoreMatch.index).trim();
+
+    // "TeamA verb TeamB"
+    const verbMatch = before.match(
+      /^(.+?)\s+(?:defeated|beat|edged|topped|downed|outlasted|handled|rolled\s+past|routed|crushed|bested|upended|upset|knocked\s+off|blew\s+out|escaped|survived|overcame|held\s+off)\s+(.+?)[\s,]*$/i,
+    );
+    if (verbMatch) {
+      teamA = verbMatch[1].replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '').trim();
+      teamB = verbMatch[2].replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '').trim();
+    } else {
+      const overMatch = before.match(/^(.+?)\s+over\s+(.+?)[\s,]*$/i);
+      if (overMatch) {
+        teamA = overMatch[1].replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '').trim();
+        teamB = overMatch[2].replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '').trim();
+      } else if (before.length > 3) {
+        teamA = before.replace(/^(?:No\.\s*\d+\s+|#\d+\s+)/, '').trim();
+      }
+    }
+
+    if (!teamA) continue;
+
+    highlights.push({
+      teamA,
+      teamB,
+      score: `${scoreMatch[1]}-${scoreMatch[2]}`,
+      summaryLine: truncateAtWord(sentence, 98),
+    });
+    if (highlights.length >= 4) break;
+  }
+  return highlights;
+}
+
+/**
+ * Parse championship title race from the odds-pulse paragraph (¶2).
+ * Looks for American odds patterns (+XXX / -XXX) near team names.
+ *
+ * @param {string} oddsPulseText
+ * @returns {Array<{ team: string, americanOdds: string, impliedProbability: number, commentary: string }>}
+ */
+function parseTitleRace(oddsPulseText) {
+  if (!oddsPulseText) return [];
+  const clean = stripMarkdown(oddsPulseText);
+  const titleRace = [];
+  const used = new Set();
+
+  // Two common formats: "Duke (-200)" and "Duke at +350"
+  const patterns = [
+    /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,3})\s*\(([-+]\d{3,4})\)/g,
+    /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,3})\s+(?:at|sits?\s+at|has|holds?)\s+([-+]\d{3,4})/gi,
+  ];
+
+  const SKIP_WORDS = new Set(['The', 'This', 'That', 'Their', 'These', 'Those', 'With', 'From', 'When', 'Then', 'They']);
+
+  for (const re of patterns) {
+    re.lastIndex = 0;
+    let match;
+    while ((match = re.exec(clean)) !== null) {
+      const team = match[1].trim();
+      const oddsRaw = parseInt(match[2], 10);
+      if (!team || team.length < 3 || SKIP_WORDS.has(team)) continue;
+      if (used.has(team.toLowerCase())) continue;
+
+      const impliedProbability = oddsRaw < 0
+        ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
+        : Math.round((100 / (oddsRaw + 100)) * 100);
+
+      // Pull surrounding context for a brief commentary
+      const start = Math.max(0, match.index - 20);
+      const end   = Math.min(clean.length, match.index + match[0].length + 110);
+      const commentary = truncateAtWord(clean.slice(start, end).trim(), 82);
+
+      titleRace.push({
+        team,
+        americanOdds: oddsRaw > 0 ? `+${oddsRaw}` : String(oddsRaw),
+        impliedProbability,
+        commentary,
+      });
+      used.add(team.toLowerCase());
+      if (titleRace.length >= 6) break;
+    }
+    if (titleRace.length >= 6) break;
+  }
+
+  return titleRace
+    .sort((a, b) => b.impliedProbability - a.impliedProbability)
+    .slice(0, 5);
+}
+
+/**
+ * Build enriched games-to-watch entries from chatbot today/tomorrow paragraph (¶3) + games data.
+ *
+ * @param {string} todayText
+ * @param {string} newsPulseText
+ * @param {Array}  games
+ * @returns {Array<{ matchup: string, away: string, home: string, spread: string|null, time: string|null, storyline: string|null }>}
+ */
+function parseGamesToWatch(todayText, newsPulseText, games) {
+  const allText = `${todayText || ''} ${newsPulseText || ''}`;
+  const sentences = toSentences(allText);
+  const result = [];
+
+  for (const g of games) {
+    if (result.length >= 4) break;
+    const away = g.awayTeam || '';
+    const home = g.homeTeam || '';
+    if (!away && !home) continue;
+
+    const awayFrag = away.toLowerCase().split(/\s+/).pop() ?? '';
+    const homeFrag = home.toLowerCase().split(/\s+/).pop() ?? '';
+
+    const matchSentence = sentences.find(s => {
+      const sl = s.toLowerCase();
+      return (awayFrag && sl.includes(awayFrag)) || (homeFrag && sl.includes(homeFrag));
+    });
+
+    const spread = g.spread ?? g.homeSpread ?? null;
+    const spreadNum = spread != null ? parseFloat(spread) : null;
+    const spreadStr = spreadNum != null
+      ? (spreadNum > 0 ? `+${spreadNum}` : String(spreadNum))
+      : null;
+
+    result.push({
+      matchup:  `${away} @ ${home}`,
+      away,
+      home,
+      spread:   spreadStr,
+      time:     g.time || null,
+      storyline: matchSentence ? truncateAtWord(stripMarkdown(matchSentence), 92) : null,
+    });
+  }
+  return result;
+}
+
+/**
+ * Extract ATS edges from the ATS spotlight paragraph (¶4) and structured atsLeaders data.
+ *
+ * @param {string} atsText
+ * @param {object|null} atsLeaders
+ * @returns {Array<{ team: string, atsRate: number, timeframe: string, insight: string }>}
+ */
+function parseAtsEdges(atsText, atsLeaders) {
+  const edges = [];
+  const used = new Set();
+
+  if (atsText) {
+    const clean = stripMarkdown(atsText);
+    const sentences = toSentences(clean);
+
+    const coverPatterns = [
+      /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,2})\s+(?:is\s+)?covering\s+at\s+(\d+)%/gi,
+      /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,2})\s+(?:has\s+)?covers?\s+(\d+)%/gi,
+      /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,2})\s+at\s+(\d+)%\s+ATS/gi,
+      /([A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,2})\s+(\d+)%\s+(?:ATS|cover)/gi,
+    ];
+
+    for (const re of coverPatterns) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(clean)) !== null) {
+        const team = m[1].trim();
+        const rate = parseInt(m[2], 10);
+        if (used.has(team.toLowerCase())) continue;
+        if (rate < 30 || rate > 95) continue;
+
+        const insight = sentences.find(s =>
+          s.toLowerCase().includes(team.toLowerCase())
+        );
+
+        edges.push({
+          team,
+          atsRate:   rate,
+          timeframe: 'season',
+          insight:   insight ? truncateAtWord(insight, 88) : '',
+        });
+        used.add(team.toLowerCase());
+        if (edges.length >= 4) break;
+      }
+      if (edges.length >= 4) break;
+    }
+  }
+
+  // Fill remaining slots from structured atsLeaders data
+  if (atsLeaders?.best) {
+    for (const leader of atsLeaders.best) {
+      if (edges.length >= 4) break;
+      const name = leader.team || leader.name || '';
+      if (!name || used.has(name.toLowerCase())) continue;
+      const raw = leader.coverPct ?? leader.atsPercent ?? null;
+      if (raw == null) continue;
+      const rate = raw > 1 ? Math.round(raw) : Math.round(raw * 100);
+      if (rate < 30 || rate > 99) continue;
+
+      edges.push({
+        team:      name,
+        atsRate:   rate,
+        timeframe: leader.games ? `last ${leader.games}` : 'season',
+        insight:   '',
+      });
+      used.add(name.toLowerCase());
+    }
+  }
+
+  return edges.sort((a, b) => b.atsRate - a.atsRate).slice(0, 4);
+}
+
+/**
+ * Build news intel bullets from the news-pulse paragraph (¶5) and raw headlines.
+ *
+ * @param {string} newsPulseText
+ * @param {Array}  headlines
+ * @returns {Array<{ headline: string, editorialContext: string|null }>}
+ */
+function parseNewsIntel(newsPulseText, headlines) {
+  const intel = [];
+  const used = new Set();
+
+  if (newsPulseText) {
+    const clean = stripMarkdown(newsPulseText);
+    for (const sentence of toSentences(clean)) {
+      if (intel.length >= 3) break;
+      const headline = truncateAtWord(sentence, 84);
+      if (headline.length < 20 || used.has(headline)) continue;
+      intel.push({ headline, editorialContext: null });
+      used.add(headline);
+    }
+  }
+
+  for (const h of (headlines || [])) {
+    if (intel.length >= 5) break;
+    const title = truncateAtWord((h.title || h.headline || '').trim(), 82);
+    if (title.length < 15 || used.has(title)) continue;
+    intel.push({ headline: title, editorialContext: h.source || null });
+    used.add(title);
+  }
+
+  return intel.slice(0, 5);
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * @typedef {Object} DailyBriefingDigest
- * @property {boolean}  hasChatContent        - Whether AI narrative was available
- * @property {string|null} chatStatus         - 'fresh'|'stale'|'missing'|null
- * @property {string}   leadNarrative         - Short editorial lead from chatbot recap (Slide 1)
- * @property {Array<{text:string,source:string|null}>} topStorylines - Slide 1 bullet lines
- * @property {string}   atsContextText        - Chatbot ATS paragraph for Slide 2 framing
- * @property {string}   bettingAngle          - Single sharpest ATS/cover sentence for Slide 2
- * @property {string}   watchNarrative        - Chatbot "today's matchups" framing for Slide 3
+ * @property {boolean}     hasChatContent        - Whether AI narrative was available
+ * @property {string|null} chatStatus            - 'fresh'|'stale'|'missing'|null
+ *
+ * — Slide 1: LAST NIGHT'S SHOCKWAVES —
+ * @property {Array<{teamA:string,teamB:string,score:string,summaryLine:string}>} lastNightHighlights
+ * @property {string}      leadNarrative         - Full recap paragraph fallback
+ * @property {Array<{text:string,source:string|null}>} topStorylines
+ *
+ * — Slide 2: TITLE RACE —
+ * @property {Array<{team:string,americanOdds:string,impliedProbability:number,commentary:string}>} titleRace
+ *
+ * — Slide 3: GAMES TO WATCH —
+ * @property {Array<{matchup:string,away:string,home:string,spread:string|null,time:string|null,storyline:string|null}>} gamesToWatch
+ * @property {string}      watchNarrative
  * @property {Array<{away:string,home:string,spread:number|null,time:string|null,why:string|null}>} watchGameFramings
- * @property {string}   voiceLine             - Punchy closer for caption / tag line
- * @property {string}   captionNarrative      - Full social-ready narrative for caption builder
- * @property {object|null} _parsed            - Raw parsed paragraphs (debug only)
+ *
+ * — Slide 4: MARKET EDGE —
+ * @property {Array<{team:string,atsRate:number,timeframe:string,insight:string}>} atsEdges
+ * @property {string}      atsContextText
+ * @property {string}      bettingAngle
+ *
+ * — Slide 5: INTEL & CHAOS —
+ * @property {Array<{headline:string,editorialContext:string|null}>} newsIntel
+ *
+ * — Caption —
+ * @property {string}      voiceLine             - Punchy editorial closer
+ * @property {string}      captionNarrative
+ *
+ * @property {object|null} _parsed               - Raw parsed paragraphs (debug only)
  */
 
 /**
  * Build a structured Daily Briefing Digest from the AI chatbot home summary
  * and structured fallback data.
  *
- * This is the single canonical content source for:
- *   - Daily Briefing Slide 1 (lead editorial / top storylines)
- *   - Daily Briefing Slide 2 (ATS context framing + picks)
- *   - Daily Briefing Slide 3 (what to watch + game framings)
- *   - Caption builder (narrative + voice line)
+ * This is the single canonical content source for all five Daily Briefing slides
+ * and the caption builder.
  *
  * @param {{
  *   chatSummary?:  string|null,   // Full AI narrative text from /api/chat/homeSummary
@@ -298,6 +576,7 @@ function buildCaptionNarrative(parsed, picks) {
  *   games?:        Array,         // odds.games (structural fallback for watch framings)
  *   headlines?:    Array,         // raw headline objects { title, source, ... }
  *   picks?:        Array,         // Maximus algorithmic picks
+ *   atsLeaders?:   object|null,   // { best: [], worst: [] } from ATS data
  * }} opts
  * @returns {DailyBriefingDigest}
  */
@@ -305,15 +584,18 @@ export function buildDailyBriefingDigest({
   chatSummary = null,
   chatStatus  = null,
   games       = [],
-  // atsLeaders and rankingsTop25 reserved for future structural fallback
   headlines   = [],
   picks       = [],
+  atsLeaders  = null,
 } = {}) {
   const parsed = parseChatbotSummary(chatSummary);
   const hasChatContent = !!chatSummary && parsed.paragraphs.length >= 3;
 
-  // ── Slide 1: Lead editorial / top storylines ──────────────────────────────
-  // Prefers chatbot ¶1 (recap) as the editorial lead.
+  // ── Slide 1: LAST NIGHT'S SHOCKWAVES ────────────────────────────────────
+  const lastNightHighlights = hasChatContent
+    ? parseLastNightHighlights(parsed.recap)
+    : [];
+
   const leadNarrative = hasChatContent
     ? truncateAtWord(stripMarkdown(parsed.recap), 200)
     : '';
@@ -325,16 +607,24 @@ export function buildDailyBriefingDigest({
         source: h.source || null,
       })).filter(b => b.text.length > 10);
 
-  // ── Slide 2: ATS/betting context ─────────────────────────────────────────
-  const atsContextText = hasChatContent && parsed.atsSpotlight
-    ? truncateAtWord(stripMarkdown(parsed.atsSpotlight), 190)
-    : '';
+  // ── Slide 2: TITLE RACE — MARKET WATCH ──────────────────────────────────
+  const titleRace = hasChatContent
+    ? parseTitleRace(parsed.oddsPulse)
+    : [];
 
-  const bettingAngle = hasChatContent
-    ? extractBettingAngle(parsed.atsSpotlight)
-    : '';
+  // ── Slide 3: TODAY'S GAMES TO WATCH ─────────────────────────────────────
+  const gamesToWatch = hasChatContent
+    ? parseGamesToWatch(parsed.todayTomorrow, parsed.newsPulse, games)
+    : games.slice(0, 4).map(g => ({
+        matchup:   `${g.awayTeam || ''} @ ${g.homeTeam || ''}`,
+        away:      g.awayTeam || '',
+        home:      g.homeTeam || '',
+        spread:    null,
+        time:      g.time || null,
+        storyline: null,
+      }));
 
-  // ── Slide 3: What to watch ────────────────────────────────────────────────
+  // Preserved for backward-compat (Slide 3 legacy path)
   const watchNarrative = hasChatContent && parsed.todayTomorrow
     ? truncateAtWord(stripMarkdown(parsed.todayTomorrow), 170)
     : '';
@@ -349,12 +639,31 @@ export function buildDailyBriefingDigest({
         why:    null,
       }));
 
-  // ── Caption voice line (punchy closer) ───────────────────────────────────
-  const voiceLine = hasChatContent
-    ? closingSentence(parsed.newsPulse || parsed.atsSpotlight)
+  // ── Slide 4: MARKET EDGE — ATS TRENDS ───────────────────────────────────
+  const atsEdges = parseAtsEdges(
+    hasChatContent ? parsed.atsSpotlight : '',
+    atsLeaders,
+  );
+
+  const atsContextText = hasChatContent && parsed.atsSpotlight
+    ? truncateAtWord(stripMarkdown(parsed.atsSpotlight), 190)
     : '';
 
-  // ── Caption narrative ─────────────────────────────────────────────────────
+  const bettingAngle = hasChatContent
+    ? extractBettingAngle(parsed.atsSpotlight)
+    : '';
+
+  // ── Slide 5: INTEL & CHAOS ───────────────────────────────────────────────
+  const newsIntel = parseNewsIntel(
+    hasChatContent ? parsed.newsPulse : '',
+    headlines,
+  );
+
+  // ── Caption voice line — prefers short punchy sentence ──────────────────
+  const voiceLine = hasChatContent
+    ? (closingSentence(parsed.newsPulse) || closingSentence(parsed.atsSpotlight))
+    : '';
+
   const captionNarrative = hasChatContent
     ? buildCaptionNarrative(parsed, picks)
     : '';
@@ -362,19 +671,26 @@ export function buildDailyBriefingDigest({
   return {
     hasChatContent,
     chatStatus,
-    // Slide 1
+    // Slide 1 — LAST NIGHT'S SHOCKWAVES
+    lastNightHighlights,
     leadNarrative,
     topStorylines,
-    // Slide 2
-    atsContextText,
-    bettingAngle,
-    // Slide 3
+    // Slide 2 — TITLE RACE
+    titleRace,
+    // Slide 3 — GAMES TO WATCH
+    gamesToWatch,
     watchNarrative,
     watchGameFramings,
+    // Slide 4 — MARKET EDGE
+    atsEdges,
+    atsContextText,
+    bettingAngle,
+    // Slide 5 — INTEL & CHAOS
+    newsIntel,
     // Caption
     voiceLine,
     captionNarrative,
-    // Raw data (available for debug tools; not surfaced in default UI)
+    // Raw paragraphs (debug only)
     _parsed: hasChatContent ? parsed : null,
   };
 }

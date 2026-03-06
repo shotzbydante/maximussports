@@ -18,51 +18,98 @@ function fmtDate() {
 
 // ─── Daily Briefing ──────────────────────────────────────────────────────────
 
+/**
+ * Build an editorial-voice daily caption from the new digest structure.
+ *
+ * Short caption style (3 tight lines):
+ *   Line 1 — top last-night highlight or lead narrative hook
+ *   Line 2 — title race / market context or ATS edge
+ *   Line 3 — voice line closer
+ *
+ * Example:
+ *   "Florida sends a message with a 108-74 blowout.
+ *    Michigan and Duke continue separating in the title market.
+ *    And Alabama remains the quiet ATS monster of March."
+ */
 function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDigest }) {
   const gamesCount = stats?.gamesWithOdds ?? null;
-  const picksCount = picks?.length ?? 0;
   const isRobot    = styleMode === 'robot';
 
-  // Use chatbot-derived content when available — richer narrative, stronger voice
-  const hasChatContent  = chatDigest?.hasChatContent === true;
-  const chatNarrative   = hasChatContent ? (chatDigest.captionNarrative || '') : '';
-  const chatVoiceLine   = hasChatContent ? (chatDigest.voiceLine        || '') : '';
+  const hasChatContent = chatDigest?.hasChatContent === true;
+  const voiceLine      = hasChatContent ? (chatDigest.voiceLine || '') : '';
 
-  // ── Short caption ──────────────────────────────────────────────────────────
-  const hook = isRobot
-    ? `🏀 The model ran overnight. Here's what it found.`
-    : (picksCount > 0
-        ? `🏀 ${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced today. Daily briefing is live.`
-        : `🏀 Daily CBB briefing is up. ${gamesCount != null ? `${gamesCount} games tracked.` : ''} No leans today.`);
+  // ── Build editorial short caption ─────────────────────────────────────────
+  let editorialLines = [];
 
-  const pickLineShort = picksCount > 0
-    ? (isRobot
-        ? `Top lean: ${picks[0]?.pickLine}. Swipe for my reasoning.`
-        : `Top lean: ${picks[0]?.pickLine}. Swipe for the full card.`)
+  if (hasChatContent) {
+    // Line 1: top last-night highlight
+    const highlight = chatDigest.lastNightHighlights?.[0];
+    if (highlight?.teamA && highlight?.score) {
+      editorialLines.push(
+        `${highlight.teamA} ${highlight.score} over ${highlight.teamB || '—'}. ${highlight.summaryLine || ''}`.trim(),
+      );
+    } else if (chatDigest.leadNarrative) {
+      // Trim lead narrative to a punchy first sentence
+      const firstSentence = chatDigest.leadNarrative.split(/(?<=[.!?])\s+/)[0] || '';
+      if (firstSentence.length >= 20) editorialLines.push(firstSentence.slice(0, 110));
+    }
+
+    // Line 2: title race or ATS edge — one insight line
+    const topTitleEntry = chatDigest.titleRace?.[0];
+    const topAtsEdge    = chatDigest.atsEdges?.[0];
+    if (topTitleEntry?.team) {
+      editorialLines.push(
+        `${topTitleEntry.team} leads the title market at ${topTitleEntry.americanOdds} (${topTitleEntry.impliedProbability}% impl.).`,
+      );
+    } else if (chatDigest.bettingAngle) {
+      editorialLines.push(chatDigest.bettingAngle.slice(0, 110));
+    } else if (topAtsEdge?.team) {
+      editorialLines.push(
+        `${topAtsEdge.team} covering at ${topAtsEdge.atsRate}% — the market hasn't caught up.`,
+      );
+    }
+
+    // Line 3: voice closer
+    if (voiceLine) editorialLines.push(voiceLine);
+  } else {
+    // Non-chat fallback hook
+    const picksCount = picks?.length ?? 0;
+    editorialLines.push(
+      isRobot
+        ? `The model ran overnight. Here's what it found.`
+        : (picksCount > 0
+            ? `${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced today. Daily briefing is live.`
+            : `Daily CBB briefing is up.${gamesCount != null ? ` ${gamesCount} games tracked.` : ''}`),
+    );
+  }
+
+  const robotPrefix = isRobot ? '🤖 ' : '🏀 ';
+  const shortLines  = editorialLines.filter(Boolean).slice(0, 3);
+  const short = [
+    robotPrefix + shortLines[0],
+    ...shortLines.slice(1),
+    CTA,
+  ].filter(Boolean).join('\n\n');
+
+  // ── Long caption ─────────────────────────────────────────────────────────
+  // Prefer full chatbot caption narrative; augment with structured intel
+  const narrativeBody = hasChatContent && chatDigest.captionNarrative
+    ? chatDigest.captionNarrative
     : (isRobot
-        ? `Nothing cleared my threshold — patience is the edge.`
-        : `No leans posted. Threshold exists for a reason.`);
-
-  // Add chatbot voice line to short caption when available
-  const shortParts = hasChatContent && chatVoiceLine
-    ? [hook, chatVoiceLine, pickLineShort, CTA]
-    : [hook, pickLineShort, CTA];
-
-  const short = shortParts.filter(Boolean).join('\n\n');
-
-  // ── Long caption ───────────────────────────────────────────────────────────
-  // Prefer chatbot narrative for the body; fall back to structured template
-  const narrativeBody = hasChatContent && chatNarrative
-    ? chatNarrative
-    : (isRobot
-        ? `Maximus processed ${gamesCount ?? 'today\'s'} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
+        ? `Maximus processed ${gamesCount ?? "today's"} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
         : (gamesCount != null
             ? `Tracking ${gamesCount} games with active lines. The model cross-references ATS records, line movement, and implied probability.`
             : `Lines active for today's slate. Model scanned for edges.`));
 
-  const picksBlock = picksCount > 0
-    ? `${isRobot ? 'I flagged' : 'Model found'} ${picksCount} qualified lean${picksCount > 1 ? 's' : ''} — ATS differential and implied probability thresholds cleared.`
-    : `${isRobot ? 'Nothing cleared my threshold' : 'No leans qualify today'}. Forcing picks degrades accuracy over a full season.`;
+  // Inject top ATS edge as a concrete bullet when available
+  const atsEdgeNote = hasChatContent && chatDigest.atsEdges?.[0]
+    ? `ATS edge: ${chatDigest.atsEdges[0].team} covering at ${chatDigest.atsEdges[0].atsRate}% this ${chatDigest.atsEdges[0].timeframe}.`
+    : null;
+
+  // Inject top game to watch
+  const gameNote = hasChatContent && chatDigest.gamesToWatch?.[0]
+    ? `Top game: ${chatDigest.gamesToWatch[0].matchup}${chatDigest.gamesToWatch[0].spread ? ` (${chatDigest.gamesToWatch[0].spread})` : ''}.`
+    : null;
 
   const headlineSnip = !hasChatContent && headlines?.[0]
     ? `Top story: ${(headlines[0].title || headlines[0].headline || '').slice(0, 75)}`
@@ -73,9 +120,12 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
     '',
     narrativeBody,
     '',
-    picksBlock,
+    atsEdgeNote,
+    gameNote,
     '',
     headlineSnip,
+    '',
+    voiceLine || null,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,

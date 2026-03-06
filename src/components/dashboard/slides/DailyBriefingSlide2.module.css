@@ -1,53 +1,26 @@
-/* Speech bubble for robot mode */
-.speechBubble {
-  display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #B7986C;
-  background: rgba(183, 152, 108, 0.1);
-  border: 1px solid rgba(183, 152, 108, 0.3);
-  border-radius: 8px;
-  padding: 6px 16px;
-  margin-bottom: 20px;
-}
-
-/* ATS context from chatbot — framing sentence before algorithmic picks */
-.atsContext {
-  font-size: 19px;
-  line-height: 1.5;
-  color: rgba(240, 244, 248, 0.68);
-  border-left: 3px solid #B7986C;
-  padding: 12px 18px;
-  margin-bottom: 28px;
-  background: rgba(183, 152, 108, 0.07);
-  border-radius: 0 8px 8px 0;
-  font-style: italic;
-}
-
 .titleBlock {
-  margin-bottom: 44px;
+  margin-bottom: 36px;
 }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #B7986C;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 100px;
+  font-size: 104px;
   font-weight: 700;
-  line-height: 1.02;
+  line-height: 0.94;
   color: #ffffff;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
 }
 
 .divider {
@@ -55,106 +28,165 @@
   height: 4px;
   background: linear-gradient(90deg, #B7986C, #3C79B4);
   border-radius: 4px;
-  margin-bottom: 52px;
+  margin-bottom: 36px;
 }
 
-/* Empty state */
+/* ── Leaderboard ─────────────────────────────────────────── */
+.leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.leaderRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(183, 152, 108, 0.14);
+  border-radius: 16px;
+  transition: background 0.15s;
+}
+
+.leaderRowTop {
+  background: rgba(183, 152, 108, 0.08);
+  border-color: rgba(183, 152, 108, 0.32);
+  border-left: 3px solid #B7986C;
+}
+
+.leaderRank {
+  font-family: 'Oswald', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.45);
+  width: 30px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.leaderLogoWrap {
+  flex-shrink: 0;
+  width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaderInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.leaderTeam {
+  font-family: 'Oswald', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Probability bar */
+.probBarRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.probBar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.probFill {
+  height: 100%;
+  background: linear-gradient(90deg, #B7986C, #d4a96a);
+  border-radius: 999px;
+}
+
+.probPct {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.45);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.leaderComment {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.38);
+  font-style: italic;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Odds pill */
+.oddsPillWrap {
+  flex-shrink: 0;
+}
+
+.oddsPill {
+  display: inline-block;
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.75);
+  background: rgba(183, 152, 108, 0.1);
+  border: 1px solid rgba(183, 152, 108, 0.22);
+  border-radius: 10px;
+  padding: 6px 18px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.oddsPillFav {
+  color: #B7986C;
+  background: rgba(183, 152, 108, 0.18);
+  border-color: rgba(183, 152, 108, 0.42);
+}
+
+/* ── Empty / narrative state ─────────────────────────────── */
 .emptyState {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  text-align: center;
-  padding: 40px;
+  padding: 20px;
 }
 
-.emptyIcon {
-  font-size: 72px;
-  line-height: 1;
-}
-
-.emptyTitle {
-  font-family: 'Oswald', sans-serif;
-  font-size: 42px;
-  color: rgba(240, 244, 248, 0.7);
-  margin: 0;
-  font-weight: 600;
+.oddsNarrative {
+  font-size: 22px;
+  line-height: 1.55;
+  color: rgba(240, 244, 248, 0.65);
+  border-left: 3px solid #B7986C;
+  padding: 18px 22px;
+  background: rgba(183, 152, 108, 0.06);
+  border-radius: 0 10px 10px 0;
+  font-style: italic;
 }
 
 .emptyText {
-  font-size: 24px;
-  color: rgba(240, 244, 248, 0.4);
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.35);
   margin: 0;
-  line-height: 1.4;
-  max-width: 540px;
 }
 
-/* Picks list */
-.picksList {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  flex: 1;
-}
-
-.pickCard {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.18);
-  border-radius: 20px;
-  padding: 36px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.pickTop {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.pickType {
-  font-family: 'Oswald', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #3C79B4;
-  background: rgba(60, 121, 180, 0.12);
-  border: 1px solid rgba(60, 121, 180, 0.25);
-  border-radius: 8px;
-  padding: 6px 16px;
-}
-
-.confBadge {
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-radius: 8px;
-  padding: 6px 16px;
-}
-
-.pickLine {
-  font-family: 'Oswald', sans-serif;
-  font-size: 38px;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.2;
-}
-
-.pickEdge {
-  font-size: 22px;
-  color: rgba(240, 244, 248, 0.5);
-  font-weight: 500;
-}
-
-.disclaimer {
+/* ── Footer note ─────────────────────────────────────────── */
+.footNote {
   margin-top: auto;
-  padding-top: 24px;
-  font-size: 20px;
-  color: rgba(240, 244, 248, 0.3);
+  padding-top: 20px;
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.28);
   font-style: italic;
   text-align: center;
 }

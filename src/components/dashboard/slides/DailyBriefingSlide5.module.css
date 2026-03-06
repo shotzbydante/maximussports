@@ -1,0 +1,128 @@
+.titleBlock {
+  margin-bottom: 36px;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #3C79B4;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 104px;
+  font-weight: 700;
+  line-height: 0.94;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.divider {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #3C79B4, #B7986C);
+  border-radius: 4px;
+  margin-bottom: 36px;
+}
+
+/* ── Intel list ─────────────────────────────────────────── */
+.intelList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.intelRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.12);
+}
+
+.intelRow:last-child {
+  border-bottom: none;
+}
+
+.intelIdx {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px;
+  font-weight: 700;
+  color: rgba(60, 121, 180, 0.55);
+  flex-shrink: 0;
+  padding-top: 3px;
+  letter-spacing: 0.02em;
+  min-width: 32px;
+}
+
+.intelBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intelHeadline {
+  font-size: 22px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.82);
+  line-height: 1.4;
+}
+
+.intelSource {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.3);
+}
+
+/* ── Voice / closer line ─────────────────────────────────── */
+.voiceBlock {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 28px;
+  border-top: 1px solid rgba(60, 121, 180, 0.14);
+}
+
+.voiceMark {
+  font-family: 'Oswald', sans-serif;
+  font-size: 56px;
+  font-weight: 700;
+  color: #B7986C;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: -6px;
+}
+
+.voiceLine {
+  font-size: 22px;
+  line-height: 1.45;
+  color: rgba(240, 244, 248, 0.65);
+  font-style: italic;
+  flex: 1;
+  padding-top: 8px;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyText {
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.3);
+  margin: 0;
+}

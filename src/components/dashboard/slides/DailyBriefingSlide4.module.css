@@ -1,0 +1,186 @@
+.titleBlock {
+  margin-bottom: 32px;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 104px;
+  font-weight: 700;
+  line-height: 0.94;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.divider {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #B7986C, #3C79B4);
+  border-radius: 4px;
+  margin-bottom: 28px;
+}
+
+/* ATS narrative framing line */
+.atsNarrative {
+  font-size: 19px;
+  line-height: 1.5;
+  color: rgba(240, 244, 248, 0.62);
+  border-left: 3px solid #B7986C;
+  padding: 12px 18px;
+  margin-bottom: 28px;
+  background: rgba(183, 152, 108, 0.06);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+}
+
+/* ── Edge rows ───────────────────────────────────────────── */
+.edgeList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.edgeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(183, 152, 108, 0.14);
+  border-radius: 16px;
+  padding: 20px 24px;
+}
+
+.edgeRowTop {
+  border-left: 3px solid #B7986C;
+  background: rgba(183, 152, 108, 0.07);
+  border-color: rgba(183, 152, 108, 0.3);
+}
+
+.edgeLogoWrap {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.edgeInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edgeHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.edgeTeam {
+  font-family: 'Oswald', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.edgeTimeframe {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.35);
+}
+
+/* ATS bar */
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.barTrack {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.barFill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a7fa8, #6ea8d4);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.barFillHot {
+  background: linear-gradient(90deg, #B7986C, #d4a96a);
+}
+
+/* 50% marker line */
+.barMidline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+.barPct {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.5);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 56px;
+  text-align: right;
+}
+
+.barPctHot {
+  color: #B7986C;
+}
+
+.edgeInsight {
+  font-size: 16px;
+  color: rgba(240, 244, 248, 0.42);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyText {
+  font-size: 26px;
+  color: rgba(240, 244, 248, 0.3);
+  margin: 0;
+}
+
+/* ── Footer note ─────────────────────────────────────────── */
+.footNote {
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.28);
+  font-style: italic;
+  text-align: center;
+}

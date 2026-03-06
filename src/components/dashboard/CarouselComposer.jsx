@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import DailyBriefingSlide1 from './slides/DailyBriefingSlide1';
 import DailyBriefingSlide2 from './slides/DailyBriefingSlide2';
 import DailyBriefingSlide3 from './slides/DailyBriefingSlide3';
+import DailyBriefingSlide4 from './slides/DailyBriefingSlide4';
+import DailyBriefingSlide5 from './slides/DailyBriefingSlide5';
 
 // Team Intel slides
 import TeamIntelSlide1 from './slides/TeamIntelSlide1';
@@ -40,7 +42,13 @@ function getSlides(template, slideCount) {
       return [OddsInsightsSlide1, OddsInsightsSlide2, OddsInsightsSlide3].slice(0, Math.min(slideCount, 3));
     case 'daily':
     default:
-      return [DailyBriefingSlide1, DailyBriefingSlide2, DailyBriefingSlide3].slice(0, Math.min(slideCount, 3));
+      return [
+        DailyBriefingSlide1,
+        DailyBriefingSlide2,
+        DailyBriefingSlide3,
+        DailyBriefingSlide4,
+        DailyBriefingSlide5,
+      ].slice(0, Math.min(slideCount, 5));
   }
 }
 

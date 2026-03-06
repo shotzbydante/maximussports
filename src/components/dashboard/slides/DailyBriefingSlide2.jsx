@@ -1,6 +1,12 @@
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import TeamLogo from '../../shared/TeamLogo';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './DailyBriefingSlide2.module.css';
 import SlideShell from './SlideShell';
+
+function makeTeam(name) {
+  if (!name) return null;
+  return { name, slug: getTeamSlug(name) };
+}
 
 export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest }) {
   const { styleMode = 'generic' } = options;
@@ -9,98 +15,114 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  const games     = data?.odds?.games ?? [];
-  const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+  // Primary: chatbot-parsed title race from ¶2
+  let raceEntries = hasDigest ? (digest.titleRace ?? []) : [];
 
-  let picks = { atsPicks: [], mlPicks: [], totalsPicks: [] };
-  try {
-    picks = buildMaximusPicks({ games, atsLeaders });
-  } catch {
-    // silently ignore — show empty state
+  // Fallback: raw championship odds map if available in data
+  if (!raceEntries.length) {
+    const raw = data?.champOdds ?? data?.championshipOdds ?? null;
+    if (raw) {
+      const entries = Array.isArray(raw)
+        ? raw
+        : Object.entries(raw).map(([team, odds]) => ({ team, odds }));
+
+      raceEntries = entries.slice(0, 6).reduce((acc, e) => {
+        const team = e.team || e.name || '';
+        if (!team) return acc;
+        const oddsRaw = parseInt(e.americanOdds ?? e.odds ?? '0', 10);
+        if (!oddsRaw) return acc;
+        const impl = oddsRaw < 0
+          ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
+          : Math.round((100 / (oddsRaw + 100)) * 100);
+        acc.push({
+          team,
+          americanOdds: oddsRaw > 0 ? `+${oddsRaw}` : String(oddsRaw),
+          impliedProbability: impl,
+          commentary: '',
+        });
+        return acc;
+      }, []).sort((a, b) => b.impliedProbability - a.impliedProbability);
+    }
   }
 
-  const topAts = (picks.atsPicks || []).slice(0, 2);
-  const topMl  = (picks.mlPicks || []).slice(0, 1);
-  const allPicks = [...topAts, ...topMl].slice(0, 3);
+  // Narrative fallback for when chatbot mentions odds but parsing misses explicit format
+  const oddsNarrative = hasDigest && !raceEntries.length
+    ? (digest.atsContextText || digest.leadNarrative || '')
+    : '';
 
-  // Chatbot-derived ATS context text — surfaces the sharpest insight from ¶4
-  const atsContextText = hasDigest ? (digest.atsContextText || '') : '';
-  const bettingAngle   = hasDigest ? (digest.bettingAngle   || '') : '';
-
-  // Show context text if it adds value beyond what the picks already say
-  const showContext = atsContextText.length > 30;
-
-  const CONF_COLOR = {
-    high:   { bg: 'rgba(45,138,110,0.18)', text: '#2d8a6e', border: 'rgba(45,138,110,0.35)' },
-    medium: { bg: 'rgba(183,152,108,0.18)', text: '#8a6e35', border: 'rgba(183,152,108,0.35)' },
-    low:    { bg: 'rgba(60,121,180,0.12)', text: '#3C79B4', border: 'rgba(60,121,180,0.25)' },
-  };
+  const maxBar = raceEntries.length > 0
+    ? Math.max(...raceEntries.map(e => e.impliedProbability))
+    : 100;
 
   return (
     <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
-      {isRobot && (
-        <div className={styles.speechBubble}>
-          Maximus says:
-        </div>
-      )}
-
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>MAXIMUS PICKS</div>
+        <div className={styles.titleSup}>CHAMPIONSHIP ODDS</div>
         <h2 className={styles.title}>
-          {isRobot ? <>My top leans<br />for today</> : <>Today&rsquo;s<br />Strongest Leans</>}
+          {isRobot ? <>TITLE<br />RACE</> : <>TITLE<br />RACE</>}
         </h2>
       </div>
 
       <div className={styles.divider} />
 
-      {/* ATS context from chatbot — framing sentence before the picks */}
-      {showContext && (
-        <div className={styles.atsContext}>
-          {bettingAngle || atsContextText}
-        </div>
-      )}
-
-      {allPicks.length === 0 ? (
+      {raceEntries.length === 0 ? (
         <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>📊</div>
-          <p className={styles.emptyTitle}>No qualified leans right now</p>
-          <p className={styles.emptyText}>
-            {isRobot
-              ? 'Nothing cleared my threshold. Check back closer to tip-off.'
-              : 'Check back closer to tip-off when lines sharpen.'}
-          </p>
+          {oddsNarrative ? (
+            <div className={styles.oddsNarrative}>{oddsNarrative}</div>
+          ) : (
+            <p className={styles.emptyText}>Championship odds loading…</p>
+          )}
         </div>
       ) : (
-        <div className={styles.picksList}>
-          {allPicks.map((pick, i) => {
-            const conf = (pick.confidence === 2 ? 'high' : pick.confidence === 1 ? 'medium' : 'low');
-            const c = CONF_COLOR[conf] || CONF_COLOR.low;
-            const isAts = pick.pickType === 'ats' || pick.type === 'ats';
+        <div className={styles.leaderboard}>
+          {raceEntries.slice(0, 5).map((entry, i) => {
+            const barWidth = maxBar > 0
+              ? Math.round((entry.impliedProbability / maxBar) * 100)
+              : entry.impliedProbability;
+            const isFavorite = i === 0;
+
             return (
-              <div key={i} className={styles.pickCard}>
-                <div className={styles.pickTop}>
-                  <span className={styles.pickType}>{isAts ? 'ATS' : 'ML'}</span>
-                  <span
-                    className={styles.confBadge}
-                    style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}
-                  >
-                    {confidenceLabel(pick.confidence)}
+              <div
+                key={i}
+                className={`${styles.leaderRow} ${isFavorite ? styles.leaderRowTop : ''}`}
+              >
+                <span className={styles.leaderRank}>{i + 1}</span>
+
+                <div className={styles.leaderLogoWrap}>
+                  <TeamLogo team={makeTeam(entry.team)} size={42} />
+                </div>
+
+                <div className={styles.leaderInfo}>
+                  <div className={styles.leaderTeam}>{entry.team}</div>
+                  <div className={styles.probBarRow}>
+                    <div className={styles.probBar}>
+                      <div
+                        className={styles.probFill}
+                        style={{ width: `${Math.min(barWidth, 100)}%` }}
+                      />
+                    </div>
+                    <span className={styles.probPct}>{entry.impliedProbability}%</span>
+                  </div>
+                  {entry.commentary && (
+                    <div className={styles.leaderComment}>{entry.commentary}</div>
+                  )}
+                </div>
+
+                <div className={styles.oddsPillWrap}>
+                  <span className={`${styles.oddsPill} ${isFavorite ? styles.oddsPillFav : ''}`}>
+                    {entry.americanOdds}
                   </span>
                 </div>
-                <div className={styles.pickLine}>{pick.pickLine || '—'}</div>
-                {pick.whyValue && (
-                  <div className={styles.pickEdge}>{pick.whyValue}</div>
-                )}
               </div>
             );
           })}
         </div>
       )}
 
-      <div className={styles.disclaimer}>
+      <div className={styles.footNote}>
         {isRobot
-          ? 'Algorithmic leans only. Not financial advice.'
-          : 'All leans are algorithmic. Not financial advice.'}
+          ? 'Title odds derived from market data. Not financial advice.'
+          : 'Implied probability from current championship futures market.'}
       </div>
     </SlideShell>
   );
