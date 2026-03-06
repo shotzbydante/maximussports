@@ -3,19 +3,22 @@ import { getSupabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
+/** Debug flag — mirrors usePlan's ?debugPlan=1 check. */
+const _debug =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).has('debugPlan');
+
+function dbg(...args) {
+  if (_debug) console.log('[AuthContext]', ...args);
+}
+
 /**
- * Upsert a minimal profiles shell so that a row always exists for signed-in users.
- * This is safe to call on every sign-in — the upsert is a no-op when the row exists.
- * We only set defaults on INSERT; existing fields (plan_tier, stripe fields, etc.) are
- * left untouched via onConflict:'id' with ignoreDuplicates:false but only inserting
- * bare minimum columns that won't overwrite subscription data.
+ * Attempt client-side profile shell upsert.
+ * Returns true on success, false on failure (RLS block or network error).
  */
-async function ensureProfileShell(sb, user) {
-  if (!user?.id) return;
+async function upsertProfileClient(sb, user) {
   try {
-    // Use insert with onConflict:'id' + ignoreDuplicates:true so we never
-    // overwrite an existing profile row — only create one if missing.
-    await sb.from('profiles').insert(
+    const { error } = await sb.from('profiles').insert(
       {
         id:                  user.id,
         email:               user.email ?? null,
@@ -25,8 +28,61 @@ async function ensureProfileShell(sb, user) {
       },
       { onConflict: 'id', ignoreDuplicates: true }
     );
-  } catch {
-    // Non-fatal: if RLS prevents insert or row already exists, silently ignore.
+    if (error) {
+      dbg('client upsert error:', error.message, '(code:', error.code + ')');
+      return false;
+    }
+    dbg('client upsert ok for', user.id);
+    return true;
+  } catch (err) {
+    dbg('client upsert exception:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * Server-side fallback: call /api/profile/ensure with the user's access token.
+ * This uses the service role key and bypasses RLS completely.
+ */
+async function upsertProfileServer(sb, user) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      dbg('server fallback: no access token available');
+      return false;
+    }
+    const res = await fetch('/api/profile/ensure', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json().catch(() => ({}));
+    dbg('server fallback result:', res.status, json);
+    return res.ok && json.ok;
+  } catch (err) {
+    dbg('server fallback exception:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * Ensure a minimal profiles row exists for the signed-in user.
+ * Tries the client-side upsert first (fast, no round-trip).
+ * Falls back to the service-role server endpoint if RLS blocks it.
+ * Safe to call on every sign-in — no-op when row already exists.
+ */
+async function ensureProfileShell(sb, user) {
+  if (!user?.id) return;
+  dbg('ensureProfileShell for', user.id, 'email:', user.email);
+
+  const clientOk = await upsertProfileClient(sb, user);
+  if (!clientOk) {
+    dbg('client upsert failed — trying server fallback');
+    const serverOk = await upsertProfileServer(sb, user);
+    if (!serverOk) {
+      dbg('ensureProfileShell: both client and server paths failed for', user.id);
+      // Non-fatal — billing/sync can still recover plan state.
+    }
   }
 }
 
@@ -47,14 +103,12 @@ export function AuthProvider({ children }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       setLoading(false);
-      // Ensure profile exists for users already signed in on page load.
       if (sess?.user) ensureProfileShell(sb, sess.user);
     });
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      // On fresh sign-in, guarantee the profile row exists immediately.
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && sess?.user) {
         ensureProfileShell(sb, sess.user);
       }

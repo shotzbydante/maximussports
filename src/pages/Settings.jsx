@@ -1044,6 +1044,7 @@ function PlanComparisonTable({ currentTier }) {
 function BillingSection({
   profile, planTier, onUpgrade, onManageBilling,
   upgradeLoading, portalLoading, billingNotice, planRefreshing,
+  syncNowVisible, syncNowLoading, onSyncNow,
 }) {
   const isProPlan = planTier === 'pro';
   const isPastDue = profile?.subscription_status === 'past_due';
@@ -1144,6 +1145,16 @@ function BillingSection({
         <div className={styles.billingVerifyingCta}>
           <SpinnerIcon />
           <span>Activating your Pro plan…</span>
+          {syncNowVisible && (
+            <button
+              type="button"
+              className={styles.btnSyncNow}
+              onClick={onSyncNow}
+              disabled={syncNowLoading}
+            >
+              {syncNowLoading ? <><SpinnerIcon /> Syncing…</> : 'Sync subscription'}
+            </button>
+          )}
         </div>
       ) : isProPlan ? (
         <div className={styles.billingProActiveCta}>
@@ -1159,20 +1170,33 @@ function BillingSection({
           </button>
         </div>
       ) : (
-        <div className={styles.billingUpgradeCta}>
-          <div className={styles.billingUpgradeText}>
-            <span className={styles.billingUpgradeTitle}>Unlock the full Maximus experience</span>
-            <span className={styles.billingUpgradePrice}>{PRO_PRICE_LABEL}</span>
+        <>
+          <div className={styles.billingUpgradeCta}>
+            <div className={styles.billingUpgradeText}>
+              <span className={styles.billingUpgradeTitle}>Unlock the full Maximus experience</span>
+              <span className={styles.billingUpgradePrice}>{PRO_PRICE_LABEL}</span>
+            </div>
+            <button
+              type="button"
+              className={styles.btnUpgrade}
+              onClick={onUpgrade}
+              disabled={upgradeLoading}
+            >
+              {upgradeLoading ? <><SpinnerIcon /> Redirecting…</> : 'Upgrade to Pro →'}
+            </button>
           </div>
-          <button
-            type="button"
-            className={styles.btnUpgrade}
-            onClick={onUpgrade}
-            disabled={upgradeLoading}
-          >
-            {upgradeLoading ? <><SpinnerIcon /> Redirecting…</> : 'Upgrade to Pro →'}
-          </button>
-        </div>
+          {/* Recovery path for Pro users with missed webhooks and no stripe data in profile */}
+          <div className={styles.billingSyncNowRow}>
+            <button
+              type="button"
+              className={styles.btnSyncNow}
+              onClick={onSyncNow}
+              disabled={syncNowLoading}
+            >
+              {syncNowLoading ? <><SpinnerIcon /> Syncing…</> : 'Already paid? Sync subscription'}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1304,7 +1328,18 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   const [planRefreshing, setPlanRefreshing] = useState(false);
   const pollTimerRef = useRef(null);
 
+  // Debug flag — mirrors usePlan ?debugPlan=1.
+  const _debugPlan =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debugPlan');
+  const syncAttemptsRef = useRef(0);
+
   async function trySyncFallback() {
+    syncAttemptsRef.current += 1;
+    const attempt = syncAttemptsRef.current;
+    if (_debugPlan) {
+      console.log(`[Settings/trySyncFallback] attempt #${attempt} for user`, user?.id, 'email:', user?.email);
+    }
     try {
       const sb = getSupabase();
       if (!sb) return false;
@@ -1313,11 +1348,14 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (!token) return false;
       const res = await fetch('/api/billing/sync', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+      const json = await res.json().catch(() => ({}));
+      if (_debugPlan) {
+        console.log(`[Settings/trySyncFallback] attempt #${attempt} result:`, json);
+      }
       if (!res.ok) return false;
-      const json = await res.json();
-      if (json.plan_tier === 'pro') {
+      if (json.isPro || json.plan_tier === 'pro') {
         // Reload profile from DB so local state is accurate.
         const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
         if (data) {
@@ -1328,8 +1366,37 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         }
       }
       return false;
-    } catch {
+    } catch (err) {
+      if (_debugPlan) console.log('[Settings/trySyncFallback] exception:', err?.message);
       return false;
+    }
+  }
+
+  // ── "Sync Now" visibility — shown when planRefreshing for > 5 s ──────────
+  const [syncNowVisible, setSyncNowVisible] = useState(false);
+  const [syncNowLoading, setSyncNowLoading] = useState(false);
+  const syncNowTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (planRefreshing) {
+      setSyncNowVisible(false);
+      syncNowTimerRef.current = setTimeout(() => setSyncNowVisible(true), 5_000);
+    } else {
+      if (syncNowTimerRef.current) clearTimeout(syncNowTimerRef.current);
+      setSyncNowVisible(false);
+    }
+    return () => { if (syncNowTimerRef.current) clearTimeout(syncNowTimerRef.current); };
+  }, [planRefreshing]);
+
+  async function handleSyncNow() {
+    if (syncNowLoading) return;
+    setSyncNowLoading(true);
+    setPlanRefreshing(true);
+    const synced = await trySyncFallback();
+    setSyncNowLoading(false);
+    setPlanRefreshing(false);
+    if (!synced) {
+      setBillingNotice({ type: 'info', message: "Couldn't sync. Try refreshing the page or contact support." });
     }
   }
 
@@ -2029,6 +2096,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           portalLoading={portalLoading}
           billingNotice={billingNotice}
           planRefreshing={planRefreshing}
+          syncNowVisible={syncNowVisible}
+          syncNowLoading={syncNowLoading}
+          onSyncNow={handleSyncNow}
         />
       )}
 

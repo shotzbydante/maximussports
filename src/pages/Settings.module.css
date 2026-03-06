@@ -2328,12 +2328,44 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: var(--space-lg);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-card);
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+/* ─── Sync Now button (inline during verifying CTA + below upgrade CTA) ──── */
+.btnSyncNow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btnSyncNow:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.btnSyncNow:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ─── Row below upgrade CTA for manual sync recovery ────────────────────── */
+.billingSyncNowRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-sm);
 }
 
 /* ─── Pro-active CTA bar ─────────────────────────────────────────────────── */

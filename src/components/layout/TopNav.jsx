@@ -4,32 +4,33 @@ import { usePlan } from '../../hooks/usePlan';
 import styles from './TopNav.module.css';
 
 /**
- * PlanBadge — shows PRO / FREE / SYNCING depending on plan state.
+ * PlanBadge — shows PRO / FREE / ··· depending on plan state.
  *
- * Loading/syncing shows a neutral "···" pill for up to 10s, then falls
- * back to FREE if the plan is still unresolved. This prevents Pro users
- * from seeing a false FREE flash during initial fetch or webhook lag.
+ * Rules:
+ *  • isSyncing=true  → always shows ··· (no timeout — we have evidence of Pro)
+ *  • isLoading=true  → shows ··· for up to 8s, then shows resolved tier
+ *  • both false      → shows PRO or FREE based on tier
+ *
+ * FREE is never shown while syncing — only when confirmed free.
  */
 function PlanBadge({ tier, isLoading, isSyncing }) {
-  // Countdown: show neutral pill for up to 10s before falling back to FREE.
-  const [fallbackActive, setFallbackActive] = useState(false);
+  // Only apply a timeout for pure loading state (no syncing evidence).
+  const [loadingExpired, setLoadingExpired] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
-    if (isLoading || isSyncing) {
-      setFallbackActive(false);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setFallbackActive(true), 10_000);
+    if (isLoading && !isSyncing) {
+      setLoadingExpired(false);
+      timerRef.current = setTimeout(() => setLoadingExpired(true), 8_000);
     } else {
       if (timerRef.current) clearTimeout(timerRef.current);
-      setFallbackActive(false);
+      setLoadingExpired(false);
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [isLoading, isSyncing]);
 
-  const showNeutral = (isLoading || isSyncing) && !fallbackActive;
-
-  if (showNeutral) {
+  // Always syncing pill when evidence exists — no timeout fallback to FREE.
+  if (isSyncing) {
     return (
       <span className={styles.badgeSyncing} aria-label="Verifying subscription">
         ···
@@ -37,6 +38,16 @@ function PlanBadge({ tier, isLoading, isSyncing }) {
     );
   }
 
+  // Show syncing pill during initial load unless timeout expired.
+  if (isLoading && !loadingExpired) {
+    return (
+      <span className={styles.badgeSyncing} aria-label="Loading plan">
+        ···
+      </span>
+    );
+  }
+
+  // Confirmed state — show PRO or FREE.
   const resolved = tier ?? 'free';
   return (
     <span
