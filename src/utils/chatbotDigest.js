@@ -245,8 +245,8 @@ function buildWatchFramings(todayText, newsPulseText, games) {
       away,
       home,
       spread:  g.spread ?? g.homeSpread ?? null,
-      time:    g.time || null,
-      network: g.network || g.broadcast || null,
+      time:    g.time || formatTimePST(g.commenceTime) || formatTimePST(g.startTime) || null,
+      network: g.network || g.broadcastName || g.broadcast || null,
       why,
     });
     if (framings.length >= 3) break;
@@ -440,48 +440,67 @@ function parseTitleRace(oddsPulseText) {
     'Over', 'Under', 'Into', 'Onto', 'Upon', 'About', 'Among', 'Between',
   ]);
 
+  function pushEntry(team, oddsRaw, matchIndex, matchLen) {
+    if (!team || team.length < 3 || SKIP_WORDS.has(team)) return false;
+    if (used.has(team.toLowerCase())) return false;
+    if (!/^[A-Z]/.test(team)) return false;
+    const teamWords = team.split(/\s+/);
+    if (!teamWords.every(w => /^[A-Z]/.test(w))) return false;
+
+    const impliedProbability = oddsRaw < 0
+      ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
+      : Math.round((100 / (oddsRaw + 100)) * 100);
+
+    const start = Math.max(0, matchIndex - 20);
+    const end   = Math.min(clean.length, matchIndex + matchLen + 110);
+    const commentary = truncateAtWord(clean.slice(start, end).trim(), 82);
+
+    titleRace.push({
+      team,
+      americanOdds: oddsRaw > 0 ? `+${oddsRaw}` : String(oddsRaw),
+      impliedProbability,
+      commentary,
+    });
+    used.add(team.toLowerCase());
+    return true;
+  }
+
+  // Pass 1: strict patterns (team immediately followed by odds verb)
   for (const re of patterns) {
     re.lastIndex = 0;
     let match;
     while ((match = re.exec(clean)) !== null) {
-      const team = match[1].trim();
-      const oddsRaw = parseInt(match[2], 10);
-      if (!team || team.length < 3 || SKIP_WORDS.has(team)) continue;
-      if (used.has(team.toLowerCase())) continue;
-
-      // Guard: the first word MUST start with actual uppercase in the source text
-      if (!/^[A-Z]/.test(team)) continue;
-
-      // Guard: every word in the captured team name must start uppercase (proper noun chain)
-      // This filters out fragments like "sitting pretty with championship" (mixed case)
-      const teamWords = team.split(/\s+/);
-      const allCapitalized = teamWords.every(w => /^[A-Z]/.test(w));
-      if (!allCapitalized) continue;
-
-      const impliedProbability = oddsRaw < 0
-        ? Math.round((-oddsRaw / (-oddsRaw + 100)) * 100)
-        : Math.round((100 / (oddsRaw + 100)) * 100);
-
-      // Pull surrounding context for a brief commentary
-      const start = Math.max(0, match.index - 20);
-      const end   = Math.min(clean.length, match.index + match[0].length + 110);
-      const commentary = truncateAtWord(clean.slice(start, end).trim(), 82);
-
-      titleRace.push({
-        team,
-        americanOdds: oddsRaw > 0 ? `+${oddsRaw}` : String(oddsRaw),
-        impliedProbability,
-        commentary,
-      });
-      used.add(team.toLowerCase());
+      pushEntry(match[1].trim(), parseInt(match[2], 10), match.index, match[0].length);
       if (titleRace.length >= 6) break;
     }
     if (titleRace.length >= 6) break;
   }
 
+  // Pass 2: loose pattern — handles "Michigan Wolverines are sitting pretty ... at +300"
+  // Only runs when strict patterns found too few entries.
+  // Requires ≥2 all-cap-first words (multi-word proper noun), bounded prose gap.
+  if (titleRace.length < 3) {
+    const looseRe = /([A-Z][A-Za-z'&.]+\s+[A-Z][A-Za-z'&.]+(?:\s+[A-Z][A-Za-z'&.]+){0,2})\b[^.!?\n]{1,90}?([-+]\d{3,4})\b/g;
+    looseRe.lastIndex = 0;
+    let m;
+    while ((m = looseRe.exec(clean)) !== null && titleRace.length < 6) {
+      pushEntry(m[1].trim(), parseInt(m[2], 10), m.index, m[0].length);
+    }
+  }
+
   return titleRace
     .sort((a, b) => b.impliedProbability - a.impliedProbability)
     .slice(0, 5);
+}
+
+/** Format an ISO timestamp to "7:30 PM PT" style, or return null. */
+function formatTimePST(iso) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
+    }) + ' PT';
+  } catch { return null; }
 }
 
 /**
@@ -490,7 +509,7 @@ function parseTitleRace(oddsPulseText) {
  * @param {string} todayText
  * @param {string} newsPulseText
  * @param {Array}  games
- * @returns {Array<{ matchup: string, away: string, home: string, spread: string|null, time: string|null, storyline: string|null }>}
+ * @returns {Array<{ matchup: string, away: string, home: string, spread: string|null, time: string|null, network: string|null, storyline: string|null }>}
  */
 function parseGamesToWatch(todayText, newsPulseText, games) {
   const allText = `${todayText || ''} ${newsPulseText || ''}`;
@@ -517,13 +536,22 @@ function parseGamesToWatch(todayText, newsPulseText, games) {
       ? (spreadNum > 0 ? `+${spreadNum}` : String(spreadNum))
       : null;
 
+    // Resolve game time: prefer pre-formatted, then parse ISO timestamps
+    const gameTime = g.time
+      || formatTimePST(g.commenceTime)
+      || formatTimePST(g.startTime)
+      || null;
+
+    // Resolve network: odds API games don't have it; ESPN games may have 'network' or 'broadcastName'
+    const gameNetwork = g.network || g.broadcastName || g.broadcast || null;
+
     result.push({
       matchup:   `${away} @ ${home}`,
       away,
       home,
       spread:    spreadStr,
-      time:      g.time || null,
-      network:   g.network || g.broadcast || null,
+      time:      gameTime,
+      network:   gameNetwork,
       storyline: matchSentence ? truncateAtWord(stripMarkdown(matchSentence), 92) : null,
     });
   }
@@ -744,6 +772,7 @@ export function buildDailyBriefingDigest({
   scoresYesterday = [],       // yesterday's completed games (for Slide 1 fallback)
   scores         = [],        // today's all-games from ESPN (for Slide 3 expanded pool)
   rankingsTop25  = [],        // AP Top 25 (for Slide 2 primary entity source)
+  upcomingGamesWithSpreads = [], // tomorrow's ESPN games merged with odds (has startTime + network)
 } = {}) {
   const parsed = parseChatbotSummary(chatSummary);
   const hasChatContent = !!chatSummary && parsed.paragraphs.length >= 3;
@@ -827,9 +856,11 @@ export function buildDailyBriefingDigest({
   const seenGameKeys = new Set(
     games.map(g => `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`)
   );
-  const extraGames = upcomingScores.filter(g => {
+  const extraGames = [...upcomingScores, ...upcomingGamesWithSpreads].filter(g => {
     const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
-    return !seenGameKeys.has(key);
+    if (seenGameKeys.has(key)) return false;
+    seenGameKeys.add(key);
+    return true;
   });
   const expandedGamePool = [...games, ...extraGames];
 

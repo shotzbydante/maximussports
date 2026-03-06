@@ -58,7 +58,13 @@ export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest 
   const highlights = hasDigest ? (digest.lastNightHighlights ?? []).slice(0, 3) : [];
 
   // ¶1 → energetic first-sentence hook
-  const leadLine = hasDigest ? (digest.recapLeadLine || '') : '';
+  // Suppress if it contradicts existing highlights (chatbot may say "no games" while
+  // structured scoresYesterday produced valid highlights)
+  const rawLeadLine = hasDigest ? (digest.recapLeadLine || '') : '';
+  const staleLeadPattern = /no games|quiet|scoreboard was|nothing (on|to report)|no (major )?results/i;
+  const leadLine = (highlights.length > 0 && staleLeadPattern.test(rawLeadLine))
+    ? ''
+    : rawLeadLine;
 
   // ¶1 → fallback bullets when no scores parse
   const storyBullets = hasDigest

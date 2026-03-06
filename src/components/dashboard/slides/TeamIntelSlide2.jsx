@@ -55,14 +55,46 @@ export default function TeamIntelSlide2({ data, teamData, asOf, slideNumber, sli
 
   const hasAnyData = windows.some(w => w.rec != null);
 
-  // Signal label
-  const best = windows.find(w => w.rec != null && parseRecord(w.rec) != null);
-  const bestParsed = best ? parseRecord(best.rec) : null;
-  const signalText = bestParsed == null ? null
-    : bestParsed.pct >= 0.65 ? 'Strong ATS lean — model tracks edge'
-    : bestParsed.pct >= 0.55 ? 'Mild ATS lean — moderate signal'
-    : bestParsed.pct <= 0.40 ? 'Unfavorable ATS trend'
-    : 'Neutral ATS record — no clear edge';
+  // Dynamic, context-driven ATS signal text.
+  // Uses the most recent window (last7 → last30 → season) for the primary read,
+  // and compares it to the other windows for trend direction.
+  const last7Parsed   = parseRecord(windows[0].rec);
+  const last30Parsed  = parseRecord(windows[1].rec);
+  const seasonParsed  = parseRecord(windows[2].rec);
+  const primaryParsed = last7Parsed ?? last30Parsed ?? seasonParsed;
+
+  function buildSignalText(pParsed, l7, l30, season) {
+    if (!pParsed) return null;
+    const p = pParsed.pct;
+    const w = pParsed.w;
+    const l = pParsed.l;
+    const total = w + l;
+    // Trend: is last7 better or worse than last30?
+    const trending = l7 && l30 ? (l7.pct > l30.pct + 0.08 ? 'up' : l7.pct < l30.pct - 0.08 ? 'down' : 'flat') : 'flat';
+
+    if (p >= 0.70) {
+      if (trending === 'up') return `Cover trend is real lately. Market hasn't caught up.`;
+      return `Covering at a ${Math.round(p * 100)}% clip over the last ${total}. Quiet heater against the number.`;
+    }
+    if (p >= 0.60) {
+      if (trending === 'up') return `Heating up ATS — cover rate climbing toward 60%.`;
+      return `Holding firm against the spread at ${Math.round(p * 100)}%. Consistent value here.`;
+    }
+    if (p >= 0.52) {
+      if (trending === 'up') return `ATS profile is improving. Not screaming value yet, but worth watching.`;
+      return `ATS profile is steady, but not screaming value right now.`;
+    }
+    if (p >= 0.45) {
+      if (trending === 'down') return `Cooling off after a strong stretch — cover rate dipping to ${Math.round(p * 100)}%.`;
+      return `Right around the break-even line at ${Math.round(p * 100)}%. No clear edge either way.`;
+    }
+    if (p >= 0.35) {
+      return `Not much edge right now. ${Math.round(p * 100)}% ATS — value may be fading.`;
+    }
+    return `Struggling against the spread at ${Math.round(p * 100)}%. Contrarian opportunity, or just a rough patch?`;
+  }
+
+  const signalText = buildSignalText(primaryParsed, last7Parsed, last30Parsed, seasonParsed);
 
   return (
     <SlideShell

@@ -292,12 +292,13 @@ export default function Dashboard() {
       chatSummary,
       chatStatus,
       games,
-      headlines:       dashData?.headlines ?? [],
+      headlines:              dashData?.headlines ?? [],
       picks,
-      atsLeaders:      atsL,
-      scoresYesterday: dashData?.scoresYesterday ?? [],
-      scores:          dashData?.scores ?? [],
-      rankingsTop25:   dashData?.rankingsTop25 ?? [],
+      atsLeaders:             atsL,
+      scoresYesterday:        dashData?.scoresYesterday ?? [],
+      scores:                 dashData?.scores ?? [],
+      rankingsTop25:          dashData?.rankingsTop25 ?? [],
+      upcomingGamesWithSpreads: dashData?.upcomingGamesWithSpreads ?? [],
     });
   }, [dashData, chatSummary, chatStatus]);
 

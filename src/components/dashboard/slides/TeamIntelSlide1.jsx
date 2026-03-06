@@ -19,10 +19,22 @@ function buildPersonalityLine(last10) {
   if (scored.length === 0) return null;
   const wins = scored.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
   const pct  = wins / scored.length;
-  if (pct >= 0.70) return 'Quiet heater lately.';
+  const last5 = scored.slice(0, 5);
+  const w5    = last5.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
+  const trend = last5.length >= 5 ? w5 / 5 : null;
+
+  if (pct >= 0.80) return 'Quiet heater lately.';
+  if (pct >= 0.70) {
+    return trend != null && trend >= 0.80 ? 'On a serious run right now.' : 'Strong form — riding momentum.';
+  }
+  if (pct >= 0.55) {
+    return trend != null && trend >= 0.70 ? 'Heating up — last 5 is the story.' : 'Trending up. Solid form lately.';
+  }
+  if (pct >= 0.45) {
+    return trend != null && trend <= 0.30 ? 'Cooling off after a strong stretch.' : 'Steady. Looking for an edge.';
+  }
   if (pct <= 0.30) return 'Slumping — but a bounce-back spot?';
-  if (pct >= 0.55) return 'Trending up — riding solid form.';
-  return 'Steady. Looking for an edge.';
+  return 'Going through the motions. Something needs to click.';
 }
 
 export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, slideTotal, ...rest }) {

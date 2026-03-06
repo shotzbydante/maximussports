@@ -27,22 +27,63 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
   const digest    = data?.chatDigest ?? null;
   const hasDigest = digest?.hasChatContent === true;
 
-  const spreadGames = data?.odds?.games ?? [];
+  /** Format ISO timestamp → "7:30 PM PT" */
+  function formatTimePST(iso) {
+    if (!iso) return null;
+    try {
+      return new Date(iso).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
+      }) + ' PT';
+    } catch { return null; }
+  }
 
-  // Build expanded game pool: odds games first, then all ESPN schedule games (deduped)
-  // This ensures chatbot-mentioned marquee matchups can be found even without spreads.
-  const allScores = (data?.scores ?? []).filter(g => {
-    const s = (g.gameStatus || '').toLowerCase();
-    return !s.includes('final');
+  const spreadGames = data?.odds?.games ?? [];
+  const upcomingWithSpreads = data?.upcomingGamesWithSpreads ?? [];
+
+  // Build a network + time lookup from ESPN scores (which have startTime + network)
+  // Keyed by first 6 chars of awayTeam + homeTeam
+  const espnMetaMap = {};
+  for (const g of [...(data?.scores ?? []), ...upcomingWithSpreads]) {
+    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    if (!espnMetaMap[key]) {
+      espnMetaMap[key] = {
+        time:    g.time || formatTimePST(g.startTime) || formatTimePST(g.commenceTime) || null,
+        network: g.network || g.broadcastName || g.broadcast || null,
+        spread:  g.spread ?? g.homeSpread ?? null,
+      };
+    }
+  }
+
+  // Build expanded game pool: odds games (enriched with ESPN meta) first, then all ESPN games
+  const enrichedSpreadGames = spreadGames.map(g => {
+    const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
+    const meta = espnMetaMap[key] ?? {};
+    return {
+      ...g,
+      time:    g.time    || meta.time    || formatTimePST(g.commenceTime) || null,
+      network: g.network || meta.network || null,
+    };
   });
+
   const seenKeys = new Set(
     spreadGames.map(g => `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`)
   );
+  const allScores = [...(data?.scores ?? []), ...upcomingWithSpreads].filter(g => {
+    const s = (g.gameStatus || '').toLowerCase();
+    return !s.includes('final');
+  });
   const extraGames = allScores.filter(g => {
     const key = `${(g.awayTeam || '').toLowerCase().slice(0, 6)}-${(g.homeTeam || '').toLowerCase().slice(0, 6)}`;
-    return !seenKeys.has(key);
-  });
-  const games = [...spreadGames, ...extraGames];
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    return true;
+  }).map(g => ({
+    ...g,
+    time:    g.time || formatTimePST(g.startTime) || formatTimePST(g.commenceTime) || null,
+    network: g.network || g.broadcastName || null,
+  }));
+
+  const games = [...enrichedSpreadGames, ...extraGames];
 
   // ¶3 → games to watch, max 3 (quality over quantity)
   let gameEntries = [];

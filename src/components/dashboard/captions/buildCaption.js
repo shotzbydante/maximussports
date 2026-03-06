@@ -158,33 +158,85 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
 
 // ─── Team Intel ──────────────────────────────────────────────────────────────
 
-function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, asOf }) {
+/**
+ * Build nuanced ATS signal copy from a record string like "17-13 (57%)".
+ * Matches the contextual voice used in TeamIntelSlide2.
+ */
+function buildAtsSignalCopy(atsRecord) {
+  if (!atsRecord) return null;
+  const m = atsRecord.match(/(\d+)-(\d+)/);
+  if (!m) return `ATS signal: ${atsRecord}. Cover percentage is one of the most persistent edges in college basketball.`;
+  const w = parseInt(m[1], 10);
+  const l = parseInt(m[2], 10);
+  const pct = w / (w + l);
+  const pctStr = Math.round(pct * 100);
+
+  if (pct >= 0.65) return `Against the Spread (ATS) signal: ${atsRecord} (${pctStr}%). Cover percentage is one of the most persistent edges in college basketball.`;
+  if (pct >= 0.57) return `ATS signal: ${atsRecord} (${pctStr}%). Holding firm against the number — this is a team the market hasn't fully priced in.`;
+  if (pct >= 0.50) return `ATS signal: ${atsRecord} (${pctStr}%). Steady but not screaming value. Worth monitoring before committing.`;
+  if (pct >= 0.42) return `ATS signal: ${atsRecord} (${pctStr}%). Right around break-even — no clear edge either way right now.`;
+  return `ATS signal: ${atsRecord} (${pctStr}%). Struggling against the spread lately. Value may sit on the other side.`;
+}
+
+function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, asOf, slug }) {
   const teamName = team?.displayName || team?.name || 'This team';
-  const rankStr = rank != null ? ` #${rank}` : '';
-  const recStr = record ? ` · ${record}` : '';
+  const teamSlug = slug || team?.slug || null;
+  const rankStr  = rank != null ? ` · #${rank} AP` : '';
+  const confStr  = conference ? ` · ${conference}` : '';
 
-  const hook = `🔥 ${teamName}${rankStr} intel — ATS trends, today's line, and the model lean.`;
+  // Import emoji helper lazily (pure function, no side effects)
+  let mascotEmoji = '';
+  try {
+    // Dynamic-safe inline import avoided here — use a small inline map for key teams
+    // Full mapping is in getTeamEmoji.js; used for Team Intel caption generation
+    const QUICK_EMOJI = {
+      villanova: '🐾', kentucky: '🐾', arizona: '🐾', duke: '😈', lsu: '🐯',
+      clemson: '🐯', baylor: '🐻', ucla: '🐻', uconn: '🐶', florida: '🐊',
+      texas: '🤘', michigan: '🦡', 'michigan-state': '⚔️', purdue: '🔩',
+      alabama: '🌊', 'ohio-state': '🌰', stanford: '🌲', miami: '🌀',
+      arkansas: '🐗', wisconsin: '🦡', iowa: '👁️', kansas: '🦅',
+      'iowa-state': '🌪️', houston: '🐆', 'north-carolina': '💙',
+      'nc-state': '🐺', oregon: '🦆', 'arizona-state': '😈',
+    };
+    mascotEmoji = (teamSlug && QUICK_EMOJI[teamSlug]) || '';
+    if (!mascotEmoji) {
+      const n = teamName.toLowerCase();
+      if (/wildcat/.test(n)) mascotEmoji = '🐾';
+      else if (/tiger/.test(n)) mascotEmoji = '🐯';
+      else if (/gator/.test(n)) mascotEmoji = '🐊';
+      else if (/huskie|husky/.test(n)) mascotEmoji = '🐶';
+      else if (/wolverine/.test(n)) mascotEmoji = '🦡';
+      else if (/eagle|hawk/.test(n)) mascotEmoji = '🦅';
+      else if (/hurricane/.test(n)) mascotEmoji = '🌀';
+      else if (/cyclone/.test(n)) mascotEmoji = '🌪️';
+      else if (/devil/.test(n)) mascotEmoji = '😈';
+    }
+  } catch { /* ignore */ }
 
-  const pickBlock = picks?.length
-    ? `Model leans ${picks[0]?.pickLine}. Swipe for context.`
-    : `No qualified lean for this team today.`;
+  const sportEmoji = mascotEmoji || '🏀';
 
-  const short = [hook, pickBlock, CTA].join('\n\n');
+  // Short caption: hook + ATS signal + model lean
+  const confConfText = conference ? ` out of the ${conference}` : '';
+  const hook = `🔥 Time for some Team Intel: ${teamName}${confConfText} ${sportEmoji}`;
 
-  const confNote = conference ? `${conference} · ` : '';
+  const atsCopy   = buildAtsSignalCopy(atsRecord);
+  const picksCopy = picks?.length
+    ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential + implied probability.`
+    : `No qualified lean today — value threshold not met.`;
 
+  const short = [hook, atsCopy, picksCopy, CTA].filter(Boolean).join('\n\n');
+
+  // Long caption: editorial rundown
   const long = [
     `🔥 Team Intel: ${teamName}`,
     '',
-    `${confNote}${teamName}${rankStr}${recStr}`,
+    `${teamName}${rankStr}${confStr}${record ? ` · ${record}` : ''}`,
     '',
-    atsRecord
-      ? `ATS signal: ${atsRecord}. Cover percentage is one of the most persistent edges in college basketball.`
-      : `ATS data loading for this squad.`,
+    atsCopy || null,
     '',
     picks?.length
-      ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential + implied probability — not a guarantee.`
-      : `No qualified lean today. Value threshold not met.`,
+      ? `Model lean: ${picks[0]?.pickLine}. Based on ATS differential + implied probability — not financial advice.`
+      : `No qualified lean today. Discipline beats volume.`,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
@@ -197,8 +249,8 @@ function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, as
 
   const hashtags = [
     '#CollegeBasketball', '#CollegeHoops', '#NCAABB',
-    '#MaximusSports', '#TeamAnalysis', '#SportsBetting',
-    ...teamName.split(' ').map(w => `#${w}`).slice(0, 2),
+    '#MaximusSports', '#TeamIntel', '#SportsBetting',
+    ...teamName.split(' ').filter(w => w.length > 3).map(w => `#${w}`).slice(0, 2),
     ...confTag,
   ].filter(Boolean).slice(0, 12);
 
@@ -325,11 +377,12 @@ export function buildCaption({
     case 'team':
       return buildTeamCaption({
         team,
-        rank: stats?.rank,
-        record: stats?.record,
+        rank:       stats?.rank,
+        record:     stats?.record,
         picks,
-        atsRecord: stats?.atsRecord,
+        atsRecord:  stats?.atsRecord,
         conference: team?.conference ?? null,
+        slug:       team?.slug ?? null,
         asOf,
       });
     case 'game':
