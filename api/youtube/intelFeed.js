@@ -2,20 +2,22 @@
  * Intel Feed endpoint — curated NCAAM men's basketball videos for /news page.
  * GET /api/youtube/intelFeed
  *
- * 3-layer reliability strategy:
- *   1. KV fresh cache (1-hour TTL) → return immediately, zero quota
- *   2. YouTube Data API (2 queries max, reduced from 4)
- *   3. RSS fallback (zero quota) → used when quota is exhausted or API fails
- *   4. KV stale last-known-good (7-day TTL) → absolute fallback
+ * Reliability strategy (executed in order):
+ *   1. KV fresh cache (1 h)                  → return immediately, zero quota
+ *   2. KV stale last-known-good (7 d)         → prioritised when circuit breaker active
+ *   3. RSS fallback (zero quota)              → always available
+ *   4. YouTube Data API (2 queries max)       → skipped when circuit breaker active
+ *   5. KV stale last-known-good (absolute)    → rescue when all live paths fail
  *
- * ?debugVideos=1  logs which path was used (data-api / cached / rss / last-known-good)
+ * Circuit breaker: skips Data API for the rest of the UTC day after any 403 quota error.
+ * ?debugVideos=1  logs which path was used.
  *
  * Response: { status, updatedAt, items: [{videoId, title, channelTitle, publishedAt, thumbUrl, score}] }
  */
 
 import { TEAMS } from '../../data/teams.js';
-import { ytSearch, scoreItem, classifyBasketballItem } from './_yt.js';
-import { ytRssSearch } from './_ytRss.js';
+import { ytSearch, scoreItem, classifyBasketballItem, isQuotaExhausted } from './_yt.js';
+import { ytRssSearch, safeRssQuery } from './_ytRss.js';
 import { getJson, setJson } from '../_globalCache.js';
 
 const LOCK_TEAMS = TEAMS.filter((t) => t.oddsTier === 'Lock');
@@ -95,8 +97,8 @@ async function fetchFromDataApi(debug) {
 }
 
 async function fetchFromRss(debug) {
-  // Single RSS query covering general NCAAM highlights — zero quota
-  const q = "college basketball highlights NCAA men";
+  // Use a safe, short query that won't cause HTTP 400 — retry simplification is built into ytRssSearch
+  const q = safeRssQuery('college basketball highlights');
   if (debug) console.log(`[intelFeed] trying RSS fallback q="${q}"`);
 
   const items = await ytRssSearch({ q, debug });
@@ -113,7 +115,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  // CDN-level caching preserved; KV handles server-side cost reduction
   res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -127,52 +128,84 @@ export default async function handler(req, res) {
   try {
     const cached = await getJson(KV_FRESH_KEY);
     if (cached?.items?.length > 0) {
-      if (debug) console.log(`[intelFeed] KV fresh cache HIT — ${cached.items.length} items, age=${Math.round((Date.now() - new Date(cached.updatedAt).getTime()) / 60000)}m`);
+      if (debug) console.log(`[intelFeed] KV fresh HIT — ${cached.items.length} items, age=${Math.round((Date.now() - new Date(cached.updatedAt).getTime()) / 60000)}m`);
       return res.status(200).json({
         ...cached,
         _path: debug ? 'kv_fresh' : undefined,
       });
     }
-    if (debug) console.log(`[intelFeed] KV fresh cache MISS`);
+    if (debug) console.log('[intelFeed] KV fresh MISS');
   } catch (kvErr) {
     if (debug) console.log(`[intelFeed] KV read error: ${kvErr.message}`);
   }
 
-  // ── Layer 2: YouTube Data API ────────────────────────────────────────────
-  let items = null;
-  let apiPath = 'unknown';
+  // ── Check circuit breaker ────────────────────────────────────────────────
+  const quotaActive = await isQuotaExhausted();
+  if (debug && quotaActive) console.log('[intelFeed] quota circuit breaker ACTIVE — skipping Data API');
 
-  try {
-    items = await fetchFromDataApi(debug);
-    apiPath = 'data-api';
-    if (debug) console.log(`[intelFeed] data-api SUCCESS — ${items.length} items`);
-  } catch (apiErr) {
-    const isQuota = /quota/i.test(apiErr.message) || /429/.test(apiErr.message) || /403/.test(apiErr.message);
-    const isMissingKey = /YOUTUBE_API_KEY/.test(apiErr.message);
-    if (debug) console.log(`[intelFeed] data-api FAILED (${isMissingKey ? 'missing_key' : isQuota ? 'quota' : 'error'}): ${apiErr.message}`);
-    console.error(`[intelFeed] data-api error (${isMissingKey ? 'missing_key' : isQuota ? 'quota_exceeded' : 'unknown'}):`, apiErr.message);
-
-    // ── Layer 3: RSS fallback ────────────────────────────────────────────
+  // ── Layer 2: KV stale (prioritised when circuit breaker is active) ───────
+  if (quotaActive) {
     try {
-      items = await fetchFromRss(debug);
-      apiPath = 'rss_fallback';
-      if (debug) console.log(`[intelFeed] RSS fallback SUCCESS — ${items.length} items`);
-    } catch (rssErr) {
-      if (debug) console.log(`[intelFeed] RSS fallback FAILED: ${rssErr.message}`);
-      console.error(`[intelFeed] RSS fallback error:`, rssErr.message);
+      const lastKnown = await getJson(KV_LASTKNOWN_KEY);
+      if (lastKnown?.items?.length > 0) {
+        if (debug) console.log(`[intelFeed] breaker active → stale HIT — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
+        return res.status(200).json({
+          ...lastKnown,
+          status: 'ok_stale',
+          _path:  debug ? 'kv_stale_breaker' : undefined,
+        });
+      }
+      if (debug) console.log('[intelFeed] breaker active → stale MISS');
+    } catch (kvErr) {
+      if (debug) console.log(`[intelFeed] stale read error (breaker): ${kvErr.message}`);
     }
   }
 
-  // ── Write cache on success (before returning last-known-good) ────────────
+  // ── Layer 3: RSS fallback — zero quota ──────────────────────────────────
+  // Attempt RSS before Data API when breaker is active; fallback otherwise.
+  let items = null;
+  let apiPath = 'unknown';
+
+  if (quotaActive) {
+    try {
+      items   = await fetchFromRss(debug);
+      apiPath = 'rss_fallback_breaker';
+      if (debug) console.log(`[intelFeed] RSS fallback SUCCESS (breaker) — ${items.length} items`);
+    } catch (rssErr) {
+      if (debug) console.log(`[intelFeed] RSS fallback FAILED (breaker): ${rssErr.message}`);
+      console.error('[intelFeed] RSS fallback error (breaker):', rssErr.message);
+    }
+  } else {
+    // ── Layer 4 (normal path): YouTube Data API ──────────────────────────
+    try {
+      items   = await fetchFromDataApi(debug);
+      apiPath = 'data-api';
+      if (debug) console.log(`[intelFeed] data-api SUCCESS — ${items.length} items`);
+    } catch (apiErr) {
+      const isMissingKey = /YOUTUBE_API_KEY/.test(apiErr.message);
+      if (debug) console.log(`[intelFeed] data-api FAILED (${isMissingKey ? 'missing_key' : 'error'}): ${apiErr.message}`);
+      console.error(`[intelFeed] data-api error (${isMissingKey ? 'missing_key' : 'unknown'}):`, apiErr.message);
+
+      // ── Layer 5 (Data API failed): RSS fallback ──────────────────────
+      try {
+        items   = await fetchFromRss(debug);
+        apiPath = 'rss_fallback';
+        if (debug) console.log(`[intelFeed] RSS fallback SUCCESS — ${items.length} items`);
+      } catch (rssErr) {
+        if (debug) console.log(`[intelFeed] RSS fallback FAILED: ${rssErr.message}`);
+        console.error('[intelFeed] RSS fallback error:', rssErr.message);
+      }
+    }
+  }
+
+  // ── Write cache on success ────────────────────────────────────────────────
   if (items && items.length > 0) {
     const payload = {
       status:    'ok',
       updatedAt: new Date().toISOString(),
       items,
     };
-    // Write fresh (fire-and-forget)
-    setJson(KV_FRESH_KEY, payload, { exSeconds: KV_FRESH_TTL_SEC }).catch(() => {});
-    // Write last-known-good (fire-and-forget)
+    setJson(KV_FRESH_KEY,     payload, { exSeconds: KV_FRESH_TTL_SEC     }).catch(() => {});
     setJson(KV_LASTKNOWN_KEY, payload, { exSeconds: KV_LASTKNOWN_TTL_SEC }).catch(() => {});
 
     return res.status(200).json({
@@ -181,27 +214,30 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── Layer 4: KV stale last-known-good ────────────────────────────────────
-  try {
-    const lastKnown = await getJson(KV_LASTKNOWN_KEY);
-    if (lastKnown?.items?.length > 0) {
-      if (debug) console.log(`[intelFeed] last-known-good HIT — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
-      return res.status(200).json({
-        ...lastKnown,
-        status: 'ok_stale',
-        _path: debug ? 'last_known_good' : undefined,
-      });
+  // ── Absolute rescue: KV stale (when breaker was NOT active but all paths failed) ──
+  if (!quotaActive) {
+    try {
+      const lastKnown = await getJson(KV_LASTKNOWN_KEY);
+      if (lastKnown?.items?.length > 0) {
+        if (debug) console.log(`[intelFeed] rescue stale HIT — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
+        return res.status(200).json({
+          ...lastKnown,
+          status: 'ok_stale',
+          _path:  debug ? 'kv_stale_rescue' : undefined,
+        });
+      }
+    } catch (kvErr) {
+      if (debug) console.log(`[intelFeed] rescue stale read error: ${kvErr.message}`);
     }
-  } catch (kvErr) {
-    if (debug) console.log(`[intelFeed] last-known-good read error: ${kvErr.message}`);
   }
 
-  // ── Complete failure — return empty with error status ────────────────────
-  if (debug) console.log(`[intelFeed] all layers exhausted — returning empty`);
+  // ── Complete failure ─────────────────────────────────────────────────────
+  if (debug) console.log('[intelFeed] all layers exhausted — returning empty');
   return res.status(200).json({
     status:    'error',
     updatedAt: new Date().toISOString(),
     items:     [],
     _path:     debug ? 'exhausted' : undefined,
+    _debug:    debug ? { quotaActive } : undefined,
   });
 }

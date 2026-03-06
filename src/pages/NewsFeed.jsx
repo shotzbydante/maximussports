@@ -565,16 +565,12 @@ export default function NewsFeed() {
               <p className={styles.videosEmptyTitle}>
                 {intelFeedStatus === 'error_no_key'
                   ? 'Video service not configured'
-                  : intelFeedStatus === 'error_quota' || intelFeedStatus === 'error'
-                  ? 'Videos temporarily unavailable'
-                  : 'No fresh clips right now'}
+                  : 'No videos right now'}
               </p>
               <p className={styles.videosEmptyReason}>
                 {intelFeedStatus === 'error_no_key'
                   ? 'YouTube is not configured for this environment.'
-                  : intelFeedStatus === 'error_quota' || intelFeedStatus === 'error'
-                  ? 'Video service is temporarily unavailable. Check back soon.'
-                  : 'No highlight clips found. Check back soon.'}
+                  : 'Videos are temporarily unavailable. Please check back soon.'}
               </p>
             </div>
           )}

@@ -26,7 +26,6 @@ import styles from './NewsFeed.module.css';
 
 const VIDEO_CACHE_KEY   = 'yt:home:topVideos';
 const VIDEO_CACHE_TTL   = 10 * 60 * 1000;
-const VIDEO_QUERY       = 'college basketball highlights';
 const VIDEO_MAX         = 8;
 const HERO_TILE_COUNT   = 2;
 const DEFAULT_COMPACT   = 2;
@@ -85,10 +84,8 @@ export default function NewsFeed({
 
     setVideosLoading(true);
     const controller = new AbortController();
-    fetch(
-      `/api/youtube/search?q=${encodeURIComponent(VIDEO_QUERY)}&maxResults=${VIDEO_MAX}`,
-      { signal: controller.signal }
-    )
+    // Use intelFeed (circuit breaker + KV + RSS) instead of raw search proxy
+    fetch(`/api/youtube/intelFeed`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) {
           setVideoApiStatus(`http_${r.status}`);
@@ -140,20 +137,13 @@ export default function NewsFeed({
 
   // ── mode="videos" ── standalone Top Videos card ───────────────────────
   if (mode === 'videos') {
-    const isNoKey       = videoApiStatus === 'error_no_key';
-    const isQuota       = videoApiStatus === 'error_quota' || videoApiStatus === 'http_429';
-    const isServiceErr  = videosError || videoApiStatus?.startsWith('http_');
-    const isEmptyOk     = !videosError && (videoApiStatus === 'ok' || videoApiStatus == null);
+    const hasError = videosError || (videoApiStatus && videoApiStatus !== 'ok' && videoApiStatus !== 'ok_stale');
 
     if (!videosLoading && cappedVideos.length === 0) {
-      const title = isNoKey ? 'Videos unavailable' : 'No videos right now';
-      const reason = isNoKey
-        ? 'YouTube is not configured for this environment.'
-        : isQuota || isServiceErr
+      const title  = 'No videos right now';
+      const reason = hasError
         ? 'Videos are temporarily unavailable. Please check back soon.'
-        : isEmptyOk
-        ? 'No highlights found. Check back soon.'
-        : null;
+        : 'No highlights found. Check back soon.';
 
       return (
         <div className={styles.widget}>
@@ -164,11 +154,6 @@ export default function NewsFeed({
             <div className={styles.videosEmpty}>
               <p className={styles.videosEmptyTitle}>{title}</p>
               {reason && <p className={styles.videosEmptyReason}>{reason}</p>}
-              {import.meta.env?.DEV && (isNoKey || (!videoApiStatus && videosError)) && (
-                <p className={styles.videosEmptyDev}>
-                  Dev: check /api/env-check for YOUTUBE_API_KEY
-                </p>
-              )}
             </div>
           </div>
           <Link to="/news" className={styles.cardCta}>View Intel Feed →</Link>

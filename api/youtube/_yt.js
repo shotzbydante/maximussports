@@ -10,11 +10,62 @@
  */
 
 import { ALLOWLIST } from './_allowlist.js';
+import { getJson, setJson } from '../_globalCache.js';
 
 const YT_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
 const YT_VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos';
 const MIN_MAX = 1;
 const MAX_MAX = 10;
+
+// ─── Quota circuit breaker ────────────────────────────────────────────────────
+//
+// When YouTube Data API returns 403 (quota exhausted), we write a KV flag keyed
+// by UTC date: yt:quota_exhausted:YYYY-MM-DD
+// For the rest of that UTC day all Data API calls are skipped automatically.
+// The flag TTL is set to seconds-until-midnight so it self-expires at reset time.
+
+function quotaBreakerKey() {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `yt:quota_exhausted:${y}-${m}-${day}`;
+}
+
+function secondsUntilMidnightUtc() {
+  const now = new Date();
+  const midnight = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1,
+  ));
+  return Math.max(60, Math.ceil((midnight - now) / 1000));
+}
+
+/**
+ * Returns true when the daily YouTube quota circuit breaker is active (403 was
+ * already received today). Always resolves; never throws.
+ */
+export async function isQuotaExhausted() {
+  try {
+    const val = await getJson(quotaBreakerKey());
+    return val === true || val === '1' || val === 1;
+  } catch {
+    return false; // fail open — don't block calls if KV is unavailable
+  }
+}
+
+/**
+ * Mark YouTube Data API quota as exhausted for the rest of today (UTC).
+ * TTL auto-expires at midnight so the breaker resets with YouTube's daily quota.
+ * Fire-and-forget; never throws.
+ */
+async function markQuotaExhausted() {
+  try {
+    await setJson(quotaBreakerKey(), true, { exSeconds: secondsUntilMidnightUtc() });
+    console.warn('[ytSearch] quota exhausted — circuit breaker set until midnight UTC');
+  } catch {
+    // Non-fatal: log already written, proceed
+  }
+}
 
 // ─── Allowlist helper ─────────────────────────────────────────────────────────
 
@@ -54,9 +105,10 @@ export async function ytSearch({ q, maxResults = 6, debug = false }) {
   const res = await fetch(`${YT_SEARCH_URL}?${params}`);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    // Log 403/429 quota errors explicitly so they're easy to find in Vercel logs
     if (res.status === 403 || res.status === 429) {
       console.error(`[ytSearch] quota/rate-limit (${res.status}) for q="${q}":`, text.slice(0, 200));
+      // Activate circuit breaker so further Data API calls are skipped for the rest of the UTC day
+      markQuotaExhausted().catch(() => {});
     }
     throw new Error(`YouTube API ${res.status}: ${text.slice(0, 200)}`);
   }

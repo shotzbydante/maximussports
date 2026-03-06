@@ -2,20 +2,27 @@
  * Team video feed endpoint.
  * GET /api/youtube/team?teamSlug=...&opponentSlug=...&mode=recent&maxResults=6&debugYT=1&debugVideos=1
  *
- * 3-layer reliability strategy:
- *   1. KV fresh cache (1h per team) → return immediately, zero quota
- *   2. YouTube Data API (2 queries max, reduced from 3)
- *   3. RSS fallback (zero quota) → used when quota is exhausted
- *   4. KV stale last-known-good (7d per team) → absolute fallback
+ * Reliability strategy (executed in order):
+ *   1. KV fresh cache (1 h per team)              → return immediately, zero quota
+ *   2. KV stale last-known-good (7 d per team)    → return when breaker is active
+ *   3. RSS fallback (zero quota)                  → always available
+ *   4. YouTube Data API (1–2 queries)             → skipped when circuit breaker active
+ *   5. KV stale last-known-good (absolute rescue) → if all live paths fail
+ *
+ * Circuit breaker: if a 403 quota error was logged today, the Data API is
+ * skipped for the remainder of the UTC day (yt:quota_exhausted:YYYY-MM-DD KV flag).
  *
  * Response 200:
- *   { status:"ok", teamSlug, teamName, updatedAt, items:[...] }
+ *   { status:"ok"|"ok_stale", teamSlug, teamName, updatedAt, items:[...] }
  */
 
 import { TEAMS } from '../../data/teams.js';
-import { ytSearch, ytVideosDetails, scoreItem, isItemAllowlisted, classifyBasketballItem } from './_yt.js';
-import { ytRssSearch } from './_ytRss.js';
-import { getConferenceNetwork } from './_conferenceNetworks.js';
+import {
+  ytSearch, ytVideosDetails, scoreItem,
+  isItemAllowlisted, classifyBasketballItem,
+  isQuotaExhausted,
+} from './_yt.js';
+import { ytRssSearch, safeRssQuery } from './_ytRss.js';
 import { getJson, setJson } from '../_globalCache.js';
 
 const DEFAULT_MAX = 6;
@@ -99,7 +106,8 @@ async function processAndEnrich(rawItems, team, maxResults, debug) {
   const diversityDbg = {};
   const diverse  = diversityPass(withScores, maxResults, diversityDbg);
   const promoted = promoteAllowlisted(diverse);
-  const scored   = promoted.map(({ _score: _s, ...item }) => item);
+  // eslint-disable-next-line no-unused-vars
+  const scored   = promoted.map(({ _score: _omit, ...item }) => item);
 
   // Enrich with durations (single videos.list call)
   const videoIds = scored.map((i) => i.videoId);
@@ -117,39 +125,54 @@ async function processAndEnrich(rawItems, team, maxResults, debug) {
   return items;
 }
 
+/**
+ * Fetch from YouTube Data API using a single primary query.
+ * A second query is added only for matchup-mode (today vs opponent).
+ * Consolidated from the previous 2-query fanout to reduce quota burn.
+ */
 async function fetchFromDataApi(team, opponent, mode, maxResults, debug) {
-  // Reduced to 2 queries (down from 3) to cut quota burn by ~33%
-  const q1 = `${team.name} basketball highlights`;
-  const confNetwork = getConferenceNetwork(team.conference);
-  let q2;
-  if (opponent && mode === 'today') {
-    q2 = `${team.name} vs ${opponent.name} basketball highlights`;
-  } else if (confNetwork) {
-    q2 = `${team.name} ${confNetwork} basketball`;
-  } else {
-    q2 = `${team.name} basketball analysis preview`;
+  // Single primary query — highlights are the most reliable search term
+  const primaryQ = `${team.name} basketball highlights`;
+
+  // Second query only when previewing a specific matchup
+  const matchupQ = (opponent && mode === 'today')
+    ? `${team.name} vs ${opponent.name} basketball`
+    : null;
+
+  if (debug) {
+    console.log(`[api/youtube/team] data-api primary="${primaryQ}"${matchupQ ? ` matchup="${matchupQ}"` : ''}`);
   }
 
-  if (debug) console.log(`[api/youtube/team] data-api q1="${q1}" q2="${q2}"`);
+  const queries = matchupQ
+    ? [
+        ytSearch({ q: primaryQ, maxResults: MAX_MAX, debug }).catch((err) => {
+          console.error('[api/youtube/team] primary query failed:', err.message);
+          return [];
+        }),
+        ytSearch({ q: matchupQ, maxResults: 5, debug }).catch((err) => {
+          console.error('[api/youtube/team] matchup query failed:', err.message);
+          return [];
+        }),
+      ]
+    : [
+        ytSearch({ q: primaryQ, maxResults: MAX_MAX, debug }).catch((err) => {
+          console.error('[api/youtube/team] primary query failed:', err.message);
+          return [];
+        }),
+      ];
 
-  const [raw1, raw2] = await Promise.all([
-    ytSearch({ q: q1, maxResults: MAX_MAX, debug }).catch((err) => {
-      console.error('[api/youtube/team] q1 failed:', err.message);
-      return [];
-    }),
-    ytSearch({ q: q2, maxResults: MAX_MAX, debug }).catch((err) => {
-      console.error('[api/youtube/team] q2 failed:', err.message);
-      return [];
-    }),
-  ]);
-
-  const allRaw = [...raw1, ...raw2];
+  const results = await Promise.all(queries);
+  const allRaw  = results.flat();
   if (allRaw.length === 0) throw new Error('data-api returned empty results');
   return allRaw;
 }
 
+/**
+ * Fetch from YouTube RSS — zero quota, uses progressive query simplification.
+ */
 async function fetchFromRss(team, debug) {
-  const q = `${team.name} basketball highlights`;
+  // Use a safe sanitized query to prevent HTTP 400
+  const q = safeRssQuery(`${team.name} basketball highlights`);
   if (debug) console.log(`[api/youtube/team] RSS fallback q="${q}"`);
   const items = await ytRssSearch({ q, debug });
   if (items.length === 0) throw new Error('RSS returned empty results');
@@ -197,14 +220,14 @@ export default async function handler(req, res) {
   const freshKey     = kvFreshKey(teamSlug);
   const lastKnownKey = kvLastKnownKey(teamSlug);
 
-  // ── Layer 1: KV fresh cache ──────────────────────────────────────────────
+  // ── Layer 1: KV fresh cache ─────────────────────────────────────────────
   try {
     const cached = await getJson(freshKey);
     if (cached?.items?.length > 0) {
       if (debug) console.log(`[api/youtube/team] KV fresh HIT for ${teamSlug} — ${cached.items.length} items, elapsed=${Date.now()-t0}ms`);
       return res.status(200).json({
         ...cached,
-        _path: debug ? 'kv_fresh' : undefined,
+        _path:  debug ? 'kv_fresh' : undefined,
         _debug: debug ? { elapsedMs: Date.now() - t0 } : undefined,
       });
     }
@@ -213,33 +236,72 @@ export default async function handler(req, res) {
     if (debug) console.log(`[api/youtube/team] KV read error: ${kvErr.message}`);
   }
 
-  // ── Layer 2: YouTube Data API ────────────────────────────────────────────
-  let items = null;
-  let apiPath = 'unknown';
+  // ── Check circuit breaker ───────────────────────────────────────────────
+  const quotaActive = await isQuotaExhausted();
+  if (debug && quotaActive) console.log(`[api/youtube/team] quota circuit breaker ACTIVE — skipping Data API`);
 
-  try {
-    const rawItems = await fetchFromDataApi(team, opponent, mode, maxResults, debug);
-    items    = await processAndEnrich(rawItems, team, maxResults, debug);
-    apiPath  = 'data-api';
-    if (debug) console.log(`[api/youtube/team] data-api SUCCESS — ${items.length} items`);
-  } catch (apiErr) {
-    const isQuota = /quota/i.test(apiErr.message) || /429/.test(apiErr.message) || /403/.test(apiErr.message);
-    if (debug) console.log(`[api/youtube/team] data-api FAILED (${isQuota ? 'quota' : 'error'}): ${apiErr.message}`);
-    console.error('[api/youtube/team] data-api error:', apiErr.message);
-
-    // ── Layer 3: RSS fallback ──────────────────────────────────────────────
+  // ── Layer 2: KV stale last-known-good (prioritised when breaker active) ─
+  // Serving stale cached content is safer than risky live fetches when quota is gone.
+  if (quotaActive) {
     try {
-      const rssItems = await fetchFromRss(team, debug);
-      items   = await processAndEnrich(rssItems, team, maxResults, debug);
-      apiPath = 'rss_fallback';
-      if (debug) console.log(`[api/youtube/team] RSS fallback SUCCESS — ${items.length} items`);
-    } catch (rssErr) {
-      if (debug) console.log(`[api/youtube/team] RSS fallback FAILED: ${rssErr.message}`);
-      console.error('[api/youtube/team] RSS fallback error:', rssErr.message);
+      const lastKnown = await getJson(lastKnownKey);
+      if (lastKnown?.items?.length > 0) {
+        if (debug) console.log(`[api/youtube/team] breaker active → stale HIT for ${teamSlug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
+        return res.status(200).json({
+          ...lastKnown,
+          status: 'ok_stale',
+          _path:  debug ? 'kv_stale_breaker' : undefined,
+          _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive: true } : undefined,
+        });
+      }
+      if (debug) console.log(`[api/youtube/team] breaker active → stale MISS for ${teamSlug}`);
+    } catch (kvErr) {
+      if (debug) console.log(`[api/youtube/team] stale read error (breaker path): ${kvErr.message}`);
     }
   }
 
-  // ── Write cache on success ───────────────────────────────────────────────
+  // ── Layer 3: RSS fallback — zero quota ──────────────────────────────────
+  // Attempt RSS before Data API when breaker is active; fall through to Data API otherwise.
+  let items = null;
+  let apiPath = 'unknown';
+
+  if (quotaActive) {
+    // Breaker active: try RSS only
+    try {
+      const rssItems = await fetchFromRss(team, debug);
+      items   = await processAndEnrich(rssItems, team, maxResults, debug);
+      apiPath = 'rss_fallback_breaker';
+      if (debug) console.log(`[api/youtube/team] RSS fallback SUCCESS (breaker active) — ${items.length} items`);
+    } catch (rssErr) {
+      if (debug) console.log(`[api/youtube/team] RSS fallback FAILED (breaker active): ${rssErr.message}`);
+      console.error('[api/youtube/team] RSS fallback error (breaker active):', rssErr.message);
+    }
+  } else {
+    // ── Layer 4 (normal path): YouTube Data API ──────────────────────────
+    try {
+      const rawItems = await fetchFromDataApi(team, opponent, mode, maxResults, debug);
+      items   = await processAndEnrich(rawItems, team, maxResults, debug);
+      apiPath = 'data-api';
+      if (debug) console.log(`[api/youtube/team] data-api SUCCESS — ${items.length} items`);
+    } catch (apiErr) {
+      const isQuota = /quota/i.test(apiErr.message) || /429/.test(apiErr.message) || /403/.test(apiErr.message);
+      if (debug) console.log(`[api/youtube/team] data-api FAILED (${isQuota ? 'quota' : 'error'}): ${apiErr.message}`);
+      console.error('[api/youtube/team] data-api error:', apiErr.message);
+
+      // ── Layer 5 (Data API failed): RSS fallback ──────────────────────
+      try {
+        const rssItems = await fetchFromRss(team, debug);
+        items   = await processAndEnrich(rssItems, team, maxResults, debug);
+        apiPath = 'rss_fallback';
+        if (debug) console.log(`[api/youtube/team] RSS fallback SUCCESS — ${items.length} items`);
+      } catch (rssErr) {
+        if (debug) console.log(`[api/youtube/team] RSS fallback FAILED: ${rssErr.message}`);
+        console.error('[api/youtube/team] RSS fallback error:', rssErr.message);
+      }
+    }
+  }
+
+  // ── Write cache on success ──────────────────────────────────────────────
   if (items && items.length > 0) {
     const payload = {
       status:    'ok',
@@ -253,28 +315,29 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ...payload,
-      _path: debug ? apiPath : undefined,
-      _debug: debug ? { elapsedMs: Date.now() - t0 } : undefined,
+      _path:  debug ? apiPath : undefined,
+      _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive } : undefined,
     });
   }
 
-  // ── Layer 4: KV stale last-known-good ────────────────────────────────────
+  // ── Absolute rescue: KV stale last-known-good ───────────────────────────
+  // (when breaker was NOT active but all live paths still failed)
   try {
     const lastKnown = await getJson(lastKnownKey);
     if (lastKnown?.items?.length > 0) {
-      if (debug) console.log(`[api/youtube/team] last-known-good HIT for ${teamSlug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
+      if (debug) console.log(`[api/youtube/team] rescue stale HIT for ${teamSlug} — ${lastKnown.items.length} items from ${lastKnown.updatedAt}`);
       return res.status(200).json({
         ...lastKnown,
         status: 'ok_stale',
-        _path: debug ? 'last_known_good' : undefined,
-        _debug: debug ? { elapsedMs: Date.now() - t0 } : undefined,
+        _path:  debug ? 'kv_stale_rescue' : undefined,
+        _debug: debug ? { elapsedMs: Date.now() - t0, quotaActive } : undefined,
       });
     }
   } catch (kvErr) {
-    if (debug) console.log(`[api/youtube/team] last-known-good read error: ${kvErr.message}`);
+    if (debug) console.log(`[api/youtube/team] rescue stale read error: ${kvErr.message}`);
   }
 
-  // ── Complete failure ─────────────────────────────────────────────────────
+  // ── Complete failure ────────────────────────────────────────────────────
   if (debug) console.log(`[api/youtube/team] all layers exhausted for ${teamSlug} in ${Date.now()-t0}ms`);
   return res.status(200).json({
     status:    'error',
@@ -283,5 +346,6 @@ export default async function handler(req, res) {
     updatedAt: new Date().toISOString(),
     items:     [],
     _path:     debug ? 'exhausted' : undefined,
+    _debug:    debug ? { elapsedMs: Date.now() - t0, quotaActive } : undefined,
   });
 }
