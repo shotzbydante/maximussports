@@ -6,7 +6,10 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
   const { styleMode = 'generic' } = options;
   const isRobot = styleMode === 'robot';
 
-  const games = data?.odds?.games ?? [];
+  const digest    = data?.chatDigest ?? null;
+  const hasDigest = digest?.hasChatContent === true;
+
+  const games     = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
   let picks = { atsPicks: [], mlPicks: [], totalsPicks: [] };
@@ -19,6 +22,13 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
   const topAts = (picks.atsPicks || []).slice(0, 2);
   const topMl  = (picks.mlPicks || []).slice(0, 1);
   const allPicks = [...topAts, ...topMl].slice(0, 3);
+
+  // Chatbot-derived ATS context text — surfaces the sharpest insight from ¶4
+  const atsContextText = hasDigest ? (digest.atsContextText || '') : '';
+  const bettingAngle   = hasDigest ? (digest.bettingAngle   || '') : '';
+
+  // Show context text if it adds value beyond what the picks already say
+  const showContext = atsContextText.length > 30;
 
   const CONF_COLOR = {
     high:   { bg: 'rgba(45,138,110,0.18)', text: '#2d8a6e', border: 'rgba(45,138,110,0.35)' },
@@ -42,6 +52,13 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
       </div>
 
       <div className={styles.divider} />
+
+      {/* ATS context from chatbot — framing sentence before the picks */}
+      {showContext && (
+        <div className={styles.atsContext}>
+          {bettingAngle || atsContextText}
+        </div>
+      )}
 
       {allPicks.length === 0 ? (
         <div className={styles.emptyState}>

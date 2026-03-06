@@ -79,6 +79,19 @@
   letter-spacing: 0.04em;
 }
 
+/* Lead narrative — chatbot editorial voice, shown above storyline bullets */
+.leadNarrative {
+  font-size: 20px;
+  line-height: 1.5;
+  color: rgba(240, 244, 248, 0.72);
+  border-left: 3px solid #3C79B4;
+  padding: 14px 20px;
+  margin-bottom: 32px;
+  background: rgba(60, 121, 180, 0.07);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+}
+
 .headlinesBlock {
   border-top: 1px solid rgba(60, 121, 180, 0.15);
   padding-top: 32px;

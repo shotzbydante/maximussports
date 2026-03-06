@@ -18,11 +18,17 @@ function fmtDate() {
 
 // ─── Daily Briefing ──────────────────────────────────────────────────────────
 
-function buildDailyCaption({ stats, picks, headlines, asOf, styleMode }) {
+function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDigest }) {
   const gamesCount = stats?.gamesWithOdds ?? null;
   const picksCount = picks?.length ?? 0;
-  const isRobot = styleMode === 'robot';
+  const isRobot    = styleMode === 'robot';
 
+  // Use chatbot-derived content when available — richer narrative, stronger voice
+  const hasChatContent  = chatDigest?.hasChatContent === true;
+  const chatNarrative   = hasChatContent ? (chatDigest.captionNarrative || '') : '';
+  const chatVoiceLine   = hasChatContent ? (chatDigest.voiceLine        || '') : '';
+
+  // ── Short caption ──────────────────────────────────────────────────────────
   const hook = isRobot
     ? `🏀 The model ran overnight. Here's what it found.`
     : (picksCount > 0
@@ -37,24 +43,37 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode }) {
         ? `Nothing cleared my threshold — patience is the edge.`
         : `No leans posted. Threshold exists for a reason.`);
 
-  const short = [hook, pickLineShort, CTA].join('\n\n');
+  // Add chatbot voice line to short caption when available
+  const shortParts = hasChatContent && chatVoiceLine
+    ? [hook, chatVoiceLine, pickLineShort, CTA]
+    : [hook, pickLineShort, CTA];
 
-  const headlineSnip = headlines?.[0]
+  const short = shortParts.filter(Boolean).join('\n\n');
+
+  // ── Long caption ───────────────────────────────────────────────────────────
+  // Prefer chatbot narrative for the body; fall back to structured template
+  const narrativeBody = hasChatContent && chatNarrative
+    ? chatNarrative
+    : (isRobot
+        ? `Maximus processed ${gamesCount ?? 'today\'s'} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
+        : (gamesCount != null
+            ? `Tracking ${gamesCount} games with active lines. The model cross-references ATS records, line movement, and implied probability.`
+            : `Lines active for today's slate. Model scanned for edges.`));
+
+  const picksBlock = picksCount > 0
+    ? `${isRobot ? 'I flagged' : 'Model found'} ${picksCount} qualified lean${picksCount > 1 ? 's' : ''} — ATS differential and implied probability thresholds cleared.`
+    : `${isRobot ? 'Nothing cleared my threshold' : 'No leans qualify today'}. Forcing picks degrades accuracy over a full season.`;
+
+  const headlineSnip = !hasChatContent && headlines?.[0]
     ? `Top story: ${(headlines[0].title || headlines[0].headline || '').slice(0, 75)}`
     : null;
 
   const long = [
     `🏀 ${fmtDate()} — Daily Briefing`,
     '',
-    isRobot
-      ? `Maximus processed ${gamesCount ?? 'today\'s'} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
-      : (gamesCount != null
-          ? `Tracking ${gamesCount} games with active lines. The model cross-references ATS records, line movement, and implied probability.`
-          : `Lines active for today's slate. Model scanned for edges.`),
+    narrativeBody,
     '',
-    picksCount > 0
-      ? `${isRobot ? 'I flagged' : 'Model found'} ${picksCount} qualified lean${picksCount > 1 ? 's' : ''} — ATS differential and implied probability thresholds cleared.`
-      : `${isRobot ? 'Nothing cleared my threshold' : 'No leans qualify today'}. Forcing picks degrades accuracy over a full season.`,
+    picksBlock,
     '',
     headlineSnip,
     '',
@@ -235,7 +254,7 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
  */
 export function buildCaption({
   template, team, game, picks, stats, atsLeaders,
-  headlines, asOf, styleMode,
+  headlines, asOf, styleMode, chatDigest,
 } = {}) {
   switch (template) {
     case 'team':
@@ -254,7 +273,7 @@ export function buildCaption({
       return buildOddsCaption({ stats, atsLeaders, picks, asOf });
     case 'daily':
     default:
-      return buildDailyCaption({ stats, picks, headlines, asOf, styleMode });
+      return buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDigest });
   }
 }
 

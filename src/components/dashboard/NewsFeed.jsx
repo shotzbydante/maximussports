@@ -18,7 +18,10 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import YouTubeVideoCard from '../shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../shared/YouTubeVideoModal';
-import { getCached, setCached } from '../../utils/ytClientCache';
+import {
+  getCached, setCached,
+  getStaleHomeFeedVideos, setStaleHomeFeedVideos,
+} from '../../utils/ytClientCache';
 import styles from './NewsFeed.module.css';
 
 const VIDEO_CACHE_KEY   = 'yt:home:topVideos';
@@ -58,7 +61,12 @@ export default function NewsFeed({
   limitVideos = 4,
   limitHeadlines = 6,
 }) {
-  const [videoItems, setVideoItems] = useState(() => getValidCache(VIDEO_CACHE_KEY) ?? []);
+  const [videoItems, setVideoItems] = useState(() => {
+    const live = getValidCache(VIDEO_CACHE_KEY);
+    if (live) return live;
+    const stale = getStaleHomeFeedVideos();
+    return Array.isArray(stale) && stale.length > 0 ? stale : [];
+  });
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState(false);
   const [videoApiStatus, setVideoApiStatus] = useState(null);
@@ -94,15 +102,21 @@ export default function NewsFeed({
         // Only cache non-empty successful results — prevents serving a stale empty state
         if (fetched.length > 0) {
           setCached(VIDEO_CACHE_KEY, fetched, VIDEO_CACHE_TTL);
+          setStaleHomeFeedVideos(fetched);
           setVideoItems(fetched);
         } else {
-          setVideoItems([]);
+          // If live fetch returned empty, keep any stale results visible
+          const stale = getStaleHomeFeedVideos();
+          if (!stale?.length) setVideoItems([]);
+          // else leave stale items in state — don't replace with empty
         }
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
           setVideosError(true);
-          setVideoItems([]);
+          // Keep any stale results visible — don't wipe on error
+          const stale = getStaleHomeFeedVideos();
+          if (!stale?.length) setVideoItems([]);
         }
       })
       .finally(() => setVideosLoading(false));
@@ -132,13 +146,11 @@ export default function NewsFeed({
     const isEmptyOk     = !videosError && (videoApiStatus === 'ok' || videoApiStatus == null);
 
     if (!videosLoading && cappedVideos.length === 0) {
-      const title = isNoKey || isQuota || isServiceErr ? 'Videos unavailable' : 'No videos right now';
+      const title = isNoKey ? 'Videos unavailable' : 'No videos right now';
       const reason = isNoKey
         ? 'YouTube is not configured for this environment.'
-        : isQuota
-        ? 'YouTube quota exceeded. Check back later.'
-        : isServiceErr
-        ? 'Could not reach video service.'
+        : isQuota || isServiceErr
+        ? 'Videos are temporarily unavailable. Please check back soon.'
         : isEmptyOk
         ? 'No highlights found. Check back soon.'
         : null;

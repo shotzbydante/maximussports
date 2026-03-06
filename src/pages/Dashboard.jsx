@@ -9,7 +9,9 @@ import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
 import { buildCaption, formatCaptionFile } from '../components/dashboard/captions/buildCaption';
+import { buildDailyBriefingDigest } from '../utils/chatbotDigest';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
+import { buildTeamSnapshot } from '../utils/teamSnapshot';
 import CarouselComposer from '../components/dashboard/CarouselComposer';
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import { waitForImages } from '../components/dashboard/utils/exportReady';
@@ -68,6 +70,8 @@ export default function Dashboard() {
   const [dashData, setDashData] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState(null);
+  const [chatSummary, setChatSummary] = useState(null);
+  const [chatStatus, setChatStatus] = useState(null);
   const [teamPageData, setTeamPageData] = useState(null);
   const [teamPageLoading, setTeamPageLoading] = useState(false);
   const [teamNextLineData, setTeamNextLineData] = useState(null);
@@ -98,10 +102,22 @@ export default function Dashboard() {
     return TEAMS.filter(t => t.name.toLowerCase().includes(q)).slice(0, 12);
   }, [teamSearch]);
 
-  // ── load home data + ATS leaders in parallel ─────────────
+  // ── load home data + ATS leaders + chatbot summary in parallel ──────────
   const loadData = useCallback(async () => {
     setDataLoading(true);
     setDataError(null);
+
+    // Fetch chatbot summary in parallel — failure is non-fatal
+    fetch('/api/chat/homeSummary')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.summary) {
+          setChatSummary(d.summary);
+          setChatStatus(d.status ?? 'fresh');
+        }
+      })
+      .catch(() => { /* non-fatal */ });
+
     try {
       const [fast, slow, atsResult] = await Promise.all([
         fetchHomeFast(),
@@ -241,14 +257,45 @@ export default function Dashboard() {
     // Prefer best-chance odds (lowest payout = most likely), then payout for display
     const titleOdds = titleEntry?.bestChanceAmerican ?? titleEntry?.american ?? null;
 
+    // Build canonical snapshot (adds personality, ranked headlines, deduped news)
+    const champOddsMap = teamChampOdds?.odds ?? {};
+    const snapshot = buildTeamSnapshot({
+      slug:             selectedTeam?.slug ?? teamObj?.slug ?? '',
+      teamPageData,
+      teamNextLineData,
+      champOddsMap,
+    });
+
     return {
       ...teamPageData,
       ats,
-      nextLine: teamNextLineData ?? null,
+      nextLine:    teamNextLineData ?? null,
       last7News,
       titleOdds,
+      // Expose snapshot for slides / caption that want normalized team intel
+      snapshot,
     };
   }, [teamPageData, teamNextLineData, selectedTeam, teamChampOdds]);
+
+  // ── build daily briefing digest from chatbot + structured data ───────────
+  // Single canonical content source powering all three Daily Briefing slides + caption.
+  const dailyDigest = useMemo(() => {
+    if (!dashData) return null;
+    const games = dashData?.odds?.games ?? [];
+    const atsL  = dashData?.atsLeaders ?? { best: [], worst: [] };
+    let picks = [];
+    try {
+      const p = buildMaximusPicks({ games, atsLeaders: atsL });
+      picks = [...(p.atsPicks ?? []), ...(p.mlPicks ?? [])].slice(0, 3);
+    } catch { /* ignore */ }
+    return buildDailyBriefingDigest({
+      chatSummary,
+      chatStatus,
+      games,
+      headlines: dashData?.headlines ?? [],
+      picks,
+    });
+  }, [dashData, chatSummary, chatStatus]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
@@ -287,8 +334,10 @@ export default function Dashboard() {
       headlines: dashData?.headlines ?? [],
       asOf,
       styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
+      // Pass digest for richer daily caption
+      chatDigest: activeSection === 'daily' ? dailyDigest : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest]);
 
   // ── regenerate ────────────────────────────────────────────
   const handleRegenerate = () => {
@@ -788,7 +837,7 @@ export default function Dashboard() {
             <CarouselComposer
               template={activeSection}
               slideCount={slideCount}
-              data={dashData}
+              data={activeSection === 'daily' && dailyDigest ? { ...dashData, chatDigest: dailyDigest } : dashData}
               teamData={enhancedTeamData}
               selectedGame={selectedGame}
               exportRef={exportRef}

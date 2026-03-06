@@ -13,6 +13,19 @@
   margin-bottom: 20px;
 }
 
+/* ATS context from chatbot — framing sentence before algorithmic picks */
+.atsContext {
+  font-size: 19px;
+  line-height: 1.5;
+  color: rgba(240, 244, 248, 0.68);
+  border-left: 3px solid #B7986C;
+  padding: 12px 18px;
+  margin-bottom: 28px;
+  background: rgba(183, 152, 108, 0.07);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+}
+
 .titleBlock {
   margin-bottom: 44px;
 }

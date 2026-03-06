@@ -107,6 +107,27 @@ export function getStaleIntelFeedAge() {
   return getCacheAge(INTEL_STALE_KEY);
 }
 
+// ─── Home feed stale helpers (6 h TTL) ───────────────────────────────────────
+// Mirrors the intel-feed stale pattern; used by the dashboard "Top Videos" widget.
+
+const HOME_FEED_STALE_TTL_MS = 6 * 60 * 60 * 1000;
+const HOME_FEED_STALE_KEY    = 'yt:home:topVideos:stale';
+
+/** Return the last-known-good home feed video list (up to 6 h old). */
+export function getStaleHomeFeedVideos() {
+  return getCached(HOME_FEED_STALE_KEY);
+}
+
+/** Persist the home feed video list as a last-known-good snapshot. */
+export function setStaleHomeFeedVideos(items) {
+  setCached(HOME_FEED_STALE_KEY, items, HOME_FEED_STALE_TTL_MS);
+}
+
+/** Age in ms of the stale home feed snapshot. Returns Infinity when missing. */
+export function getStaleHomeFeedVideosAge() {
+  return getCacheAge(HOME_FEED_STALE_KEY);
+}
+
 // ─── Stale-while-revalidate helpers (24 h TTL) ───────────────────────────────
 
 const STALE_TTL_MS = 24 * 60 * 60 * 1000;

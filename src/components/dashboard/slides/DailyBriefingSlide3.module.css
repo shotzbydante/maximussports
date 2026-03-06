@@ -85,12 +85,26 @@
   line-height: 1.2;
 }
 
+.bulletBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .bulletText {
   font-size: 28px;
   color: rgba(240, 244, 248, 0.85);
   line-height: 1.4;
   font-weight: 500;
-  flex: 1;
+}
+
+/* "Why this game matters" context line — from chatbot narrative */
+.bulletWhy {
+  font-size: 20px;
+  color: rgba(240, 244, 248, 0.5);
+  line-height: 1.4;
+  font-style: italic;
 }
 
 /* CTA */
