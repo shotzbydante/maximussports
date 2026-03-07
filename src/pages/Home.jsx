@@ -986,6 +986,8 @@ export default function Home() {
     { label: 'News Velocity', value: newsVelocity, trend: newsVelocity > 0 ? 'up' : 'neutral', subtext: 'Headlines (pinned teams)', source: newsSource },
   ];
 
+  const todayDisplay = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
   return (
     <div className={styles.home}>
       <WelcomeModal
@@ -995,17 +997,21 @@ export default function Home() {
         onSecondary={handleWelcomeSkipped}
       />
 
-      <p className={styles.welcomeHeadline}>
-        Welcome to Maximus Sports: actionable college hoops news, odds, betting intel, and AI-powered analysis.
-      </p>
+      {/* Page intro — date + context bar */}
+      <div className={styles.pageIntro}>
+        <span className={styles.pageIntroDate}>{todayDisplay}</span>
+        <span className={styles.pageIntroDivider}>·</span>
+        <span className={styles.pageIntroSub}>College Basketball Intelligence</span>
+      </div>
+
+      {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>
         <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
         <div className={styles.bannerContent}>
-          {/* Mobile-only context sublabel — hidden on desktop via CSS */}
-          <p className={styles.insightSublabel} aria-hidden>
-            Today&apos;s briefing
-            <span className={styles.insightSublabelMeta}>· Updated</span>
-          </p>
+          {/* Editorial briefing header — always visible */}
+          <div className={styles.heroBriefingHeader}>
+            <span className={styles.heroBriefingEyebrow}>Today&apos;s Intelligence Briefing</span>
+          </div>
 
           {/* Collapsible text area — max-height clamped only on mobile */}
           <div
@@ -1089,25 +1095,39 @@ export default function Home() {
         </div>
       </div>
 
-      <PinnedErrorBoundary>
-        <PinnedTeamsSection
-          onPinnedChange={setPinned}
-          rankMap={rankMap}
-          games={scores.games}
-          teamNewsBySlug={newsData.pinnedTeamNewsMap}
-          pinnedTeamDataBySlug={pinnedTeamDataBySlug}
-        />
-      </PinnedErrorBoundary>
+      {/* ── Teams You Follow ──────────────────────────────────────────── */}
+      <div className={styles.pinnedSection}>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Following</span>
+          <h2 className={styles.sectionHeadTitle}>Teams You Follow</h2>
+        </div>
+        <PinnedErrorBoundary>
+          <PinnedTeamsSection
+            onPinnedChange={setPinned}
+            rankMap={rankMap}
+            games={scores.games}
+            teamNewsBySlug={newsData.pinnedTeamNewsMap}
+            pinnedTeamDataBySlug={pinnedTeamDataBySlug}
+          />
+        </PinnedErrorBoundary>
+      </div>
 
-      {/* ── Maximus's Picks / Odds Insights teaser — immediately below Pinned Teams ─── */}
+      {/* ── Maximus's Picks / Odds Insights teaser ────────────────────── */}
+      <div className={styles.picksSection}>
       <OddsInsightsTeaser
         games={scores.games}
         rankMap={rankMap}
         atsLeaders={atsLeaders}
         loading={scores.loading || atsLoading}
       />
+      </div>
 
+      {/* ── ATS Performance Leaders ───────────────────────────────────── */}
       <section className={styles.atsSection} aria-busy={scores.loading}>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Market Signals</span>
+          <h2 className={styles.sectionHeadTitle}>ATS Performance Leaders</h2>
+        </div>
         <div
           id="home-ats-body"
           className={`${styles.sectionBody} ${isAtsCollapsed ? styles.sectionBodyAtsCollapsed : ''}`}
@@ -1137,12 +1157,13 @@ export default function Home() {
         </button>
       </section>
 
-      {/* ── Dashboard Intelligence Grid ─────────────────────────────────
-           gridScores (top-left):  snapshot stats + today's scores
-           gridUpsets (btm-left):  upsets & alerts
-           gridRail   (right col): top videos + headlines (spans both rows)
-           2-col on desktop (≥768px), single col on mobile              */}
-      <div className={`${styles.dashboardGrid} ${styles.dashboardGridSection}`}>
+      {/* ── Live Intelligence Grid ─────────────────────────────────────── */}
+      <div className={styles.dashboardGridSection}>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Live Data</span>
+          <h2 className={styles.sectionHeadTitle}>Today&apos;s Feed</h2>
+        </div>
+      <div className={styles.dashboardGrid}>
 
         {/* ── scores cell ── */}
         <div className={styles.gridScores}>
@@ -1178,12 +1199,15 @@ export default function Home() {
           />
         </aside>
 
-      </div>
-
-      {/* OddsInsightsTeaser moved above ATS — see placement after PinnedTeamsSection */}
+      </div>{/* end dashboardGrid */}
+      </div>{/* end dashboardGridSection */}
 
       {/* ── Bubble Watch: Deep Dive — full rankings, collapsible ────── */}
       <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
+          <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
+        </div>
         <div
           id="home-bubble-body"
           className={`${styles.sectionBody} ${isBubbleCollapsed ? styles.sectionBodyBubbleCollapsed : ''}`}

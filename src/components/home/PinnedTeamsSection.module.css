@@ -6,9 +6,7 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: var(--space-xl);
-  border-top: 1px solid var(--color-border-light);
-  padding-top: var(--space-md);
+  margin-bottom: 0;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────── */
@@ -780,10 +778,23 @@
 
 .card {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
+  border: 1px solid rgba(60, 121, 180, 0.10);
+  border-radius: var(--radius-card, 12px);
   padding: var(--space-md);
   box-shadow: var(--shadow-card);
+  transition:
+    box-shadow var(--transition-base, 0.20s ease),
+    transform var(--transition-base, 0.20s ease);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+  .card:hover { transform: none; }
 }
 
 /* Compact card — used when exactly 1 team is pinned */

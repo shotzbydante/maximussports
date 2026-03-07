@@ -1,12 +1,17 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DynamicAlerts — upset alerts & market signals
+   ═══════════════════════════════════════════════════════════════════ */
+
 .sourceBadges {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-xs, 4px);
 }
 
-/* "View more upsets" CTA in ModuleShell footer */
+/* ── "View more" CTA ─────────────────────────────────────────────── */
+
 .viewMore {
-  font-size: 0.75rem;
+  font-size: 0.73rem;
   font-weight: 600;
   color: var(--color-primary);
   background: transparent;
@@ -14,7 +19,8 @@
   padding: 0;
   cursor: pointer;
   font-family: inherit;
-  transition: color 0.14s;
+  transition: color var(--transition-fast, 0.12s);
+  letter-spacing: 0.01em;
 }
 
 .viewMore:hover {
@@ -27,15 +33,18 @@
   .alertNew { animation: none; }
 }
 
-/* Fade-in + subtle slide for newly revealed alerts */
+/* ── Fade-in animation for new alerts ────────────────────────────── */
+
 @keyframes alertFadeIn {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 .alertNew {
-  animation: alertFadeIn 0.18s ease;
+  animation: alertFadeIn 0.20s ease;
 }
+
+/* ── Alerts container ────────────────────────────────────────────── */
 
 .alerts {
   padding: var(--space-sm);
@@ -44,15 +53,30 @@
   gap: var(--space-sm);
 }
 
+/* ── Individual alert card ───────────────────────────────────────── */
+
 .alert {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-left: 2px solid var(--color-down);
+  border: 1px solid rgba(60, 121, 180, 0.10);
+  border-left: 3px solid var(--color-down);
   border-radius: 8px;
   padding: 12px var(--space-md);
-  box-shadow: 0 1px 3px rgba(60, 121, 180, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
+  transition:
+    box-shadow var(--transition-base, 0.20s ease),
+    transform var(--transition-base, 0.20s ease);
+}
+
+.alert:hover {
+  box-shadow: 0 4px 12px rgba(60, 121, 180, 0.08);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert { transition: none; }
+  .alert:hover { transform: none; }
 }
 
 /* Align share button to right */
@@ -65,31 +89,34 @@
   font-family: var(--font-mono);
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-xs, 4px);
   color: var(--color-text);
 }
 
 .alertText {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 
 .alertText strong {
   color: var(--color-text);
+  font-weight: 600;
 }
 
 .alertMeta {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-family: var(--font-mono);
   color: var(--color-text-muted);
-  margin-top: var(--space-xs);
+  margin-top: var(--space-xs, 4px);
 }
 
-/* Align the ShareButton to the right of each alert row */
 .alert > :last-child[class] {
   align-self: flex-end;
   margin-top: 6px;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
 
 @media (max-width: 767px) {
   .section {
@@ -105,7 +132,6 @@
   }
 
   .alertText {
-    font-size: 0.85rem;
-    line-height: 1.5;
+    font-size: 0.84rem;
   }
 }

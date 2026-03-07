@@ -1,45 +1,104 @@
+/* ═══════════════════════════════════════════════════════════════════
+   HOME PAGE — Premium Intelligence Terminal
+   Bloomberg Terminal × Apple News × The Athletic
+   ═══════════════════════════════════════════════════════════════════ */
+
 .home {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
+  animation: homeFadeIn 0.4s ease-out both;
 }
 
-/* ── Welcome headline — one-line intro above the AI briefing banner ── */
-.welcomeHeadline {
-  font-size: 0.875rem;
+@keyframes homeFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .home {
+    padding: 0 var(--space-md);
+  }
+}
+
+/* ── Reduced-motion: disable page fade ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .home { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PAGE INTRO BAR — date + context line
+   ═══════════════════════════════════════════════════════════════════ */
+
+.pageIntro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-top: 4px;
+}
+
+.pageIntroDate {
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.pageIntroDivider {
+  color: var(--color-border);
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.pageIntroSub {
+  font-size: 0.68rem;
   font-weight: 500;
-  color: var(--color-text-secondary);
-  margin: 0 0 var(--space-md);
-  line-height: 1.5;
-  letter-spacing: 0.01em;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
 }
 
 @media (max-width: 600px) {
-  .welcomeHeadline {
-    font-size: 0.8rem;
-    margin-bottom: var(--space-sm);
+  .pageIntro {
+    margin-bottom: 12px;
+  }
+  .pageIntroDate,
+  .pageIntroSub {
+    font-size: 0.62rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   HERO BRIEFING CARD — AI Intelligence Summary
+   ═══════════════════════════════════════════════════════════════════ */
 
 .banner {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-md);
+  gap: var(--space-lg);
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: 10px;
-  box-shadow: 0 1px 6px rgba(60, 121, 180, 0.06);
-  padding: 10px var(--space-md);
-  margin-bottom: var(--space-xl);
+  border: 1px solid rgba(60, 121, 180, 0.14);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hero);
+  padding: var(--space-lg) var(--space-xl);
+  margin-bottom: var(--section-gap);
+  transition: box-shadow var(--transition-base);
+}
+
+.banner:hover {
+  box-shadow: var(--shadow-card-hover);
 }
 
 .bannerMascot {
   flex-shrink: 0;
-  height: 112px;
+  height: 100px;
   width: auto;
   object-fit: contain;
-  opacity: 0.92;
-  padding-top: 2px; /* optical alignment with first text baseline */
+  opacity: 0.88;
+  padding-top: 4px;
   image-rendering: -webkit-optimize-contrast;
 }
 
@@ -48,30 +107,68 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   COLLAPSIBLE INSIGHT BODY — desktop + mobile
-   Desktop lh: 14px × 1.62 ≈ 23px / line  |  Mobile lh: 13px × 1.5 ≈ 20px / line
-   ══════════════════════════════════════════════════════════════════ */
+/* ── Hero Briefing Header — label + date row ─────────────────────── */
 
-/* Mobile-only sublabel — invisible on desktop */
+.heroBriefingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.heroBriefingEyebrow {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+}
+
+/* Mobile: show hero header on all sizes */
+@media (max-width: 767px) {
+  .banner {
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-md);
+    margin-bottom: var(--space-2xl);
+  }
+
+  .bannerMascot {
+    height: 72px;
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .banner {
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-sm);
+  }
+}
+
+/* ── Mobile-only sublabel — keep for backward compat, hidden by default ── */
 .insightSublabel {
   display: none;
 }
 
-/* Subtle "Updated" meta companion — only rendered inside .insightSublabel */
 .insightSublabelMeta {
   display: none;
 }
 
-/* Paragraph breathing room — between consecutive insight <p> elements */
+/* ═══════════════════════════════════════════════════════════════════
+   COLLAPSIBLE INSIGHT BODY
+   ═══════════════════════════════════════════════════════════════════ */
+
 .bannerText + .bannerText {
-  margin-top: 0.45em;
+  margin-top: 0.4em;
 }
 
-/* Clip container + smooth height animation at ALL sizes */
 .insightBody {
   position: relative;
   overflow: hidden;
@@ -79,7 +176,6 @@
   transition: max-height 0.22s ease-out;
 }
 
-/* Desktop collapsed: ~4 lines = 4 × 23px ≈ 90px */
 .insightBodyCollapsed {
   max-height: 90px;
 }
@@ -93,55 +189,29 @@
   height: 36px;
   background: linear-gradient(
     to bottom,
-    transparent              0%,
-    transparent             25%,
+    transparent 0%,
+    transparent 25%,
     var(--color-bg-elevated) 100%
   );
   pointer-events: none;
   z-index: 1;
 }
 
-/* ── 481–767px phones: 5 lines ≈ 100px ── */
 @media (max-width: 767px) {
-  .insightSublabel {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    font-size: 0.58rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--color-text-muted);
-    opacity: 0.62;
-    margin: 0 0 4px;
-    line-height: 1;
-  }
-
-  .insightSublabelMeta {
-    display: inline;
-    font-size: 0.58rem;
-    font-weight: 400;
-    letter-spacing: 0.04em;
-    text-transform: none;
-    opacity: 0.65;
-    color: var(--color-text-muted);
-  }
-
   .insightBodyCollapsed {
     max-height: 100px;
   }
 }
 
-/* ── ≤480px phones: 4 lines ≈ 80px ── */
 @media (max-width: 480px) {
   .insightBodyCollapsed {
     max-height: 80px;
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   TOGGLE BUTTON — visible on desktop + mobile
-   ══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   TOGGLE BUTTON — expand / collapse briefing
+   ═══════════════════════════════════════════════════════════════════ */
 
 .insightToggle {
   display: flex;
@@ -151,7 +221,7 @@
   min-height: 32px;
   padding: 4px 0;
   margin-top: 2px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   font-family: inherit;
   color: var(--color-primary);
@@ -160,7 +230,8 @@
   cursor: pointer;
   line-height: 1;
   justify-content: flex-start;
-  transition: color 0.15s;
+  transition: color var(--transition-fast);
+  letter-spacing: 0.01em;
 }
 
 .insightToggle:hover {
@@ -188,33 +259,32 @@
   }
 }
 
-/* ≤360px: center the "Read more" button if space is tight */
 @media (max-width: 360px) {
   .insightToggleFooter {
     justify-content: center;
   }
 }
 
-/* Chevron rotates to signal direction */
 .insightToggleChevron {
   font-size: 1rem;
   line-height: 1;
   display: inline-block;
-  transform: rotate(90deg);  /* › → pointing down = "more below"  */
+  transform: rotate(90deg);
   transition: transform 0.18s ease-out;
 }
 
 .insightToggleChevronOpen {
-  transform: rotate(-90deg); /* › → pointing up  = "less above" */
+  transform: rotate(-90deg);
 }
 
-/* Respect prefers-reduced-motion for both height and chevron transitions */
 @media (prefers-reduced-motion: reduce) {
   .insightBody,
   .insightToggleChevron {
     transition: none;
   }
 }
+
+/* ── Banner text ─────────────────────────────────────────────────── */
 
 .bannerStaticWelcome {
   font-size: var(--body-font-size);
@@ -225,12 +295,21 @@
 }
 
 .bannerText {
-  font-size: var(--body-font-size);
-  line-height: 1.62;
+  font-size: 0.875rem;
+  line-height: 1.65;
   color: var(--color-text-secondary);
   margin: 0;
   white-space: pre-line;
 }
+
+@media (max-width: 767px) {
+  .bannerText {
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+}
+
+/* ── Cursor / shimmer animations ─────────────────────────────────── */
 
 .cursor {
   display: inline-block;
@@ -243,13 +322,13 @@
 }
 
 .summaryUpdated {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--color-text-muted);
   margin: 0;
 }
 
 .rateLimitMessage {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--color-accent);
   margin: 0;
 }
@@ -257,7 +336,7 @@
 .summaryLoading {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-xs, 4px);
 }
 
 .summaryShimmer {
@@ -289,8 +368,8 @@
 .summarySkeleton {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  margin-top: var(--space-xs);
+  gap: var(--space-xs, 4px);
+  margin-top: var(--space-xs, 4px);
 }
 
 .summarySkeletonLine {
@@ -328,34 +407,36 @@
   animation: skeletonShimmer 1.2s ease-in-out infinite;
 }
 
+/* ── Summary actions row ─────────────────────────────────────────── */
+
 .summaryRefresh {
   align-self: flex-start;
-  padding: var(--space-xs) var(--space-md);
-  font-size: 0.75rem;
+  padding: 4px var(--space-md);
+  font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--color-primary);
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .summaryRefresh:hover:not(:disabled) {
-  background: rgba(60, 121, 180, 0.08);
+  background: rgba(60, 121, 180, 0.07);
   border-color: var(--color-primary);
 }
 
 .summaryRefresh:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .summaryUpdatingBadge {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-primary);
   opacity: 0.9;
 }
@@ -367,19 +448,21 @@
   flex-wrap: wrap;
 }
 
+/* ── Data status ─────────────────────────────────────────────────── */
+
 .dataStatusToggle {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  font-size: 0.75rem;
+  gap: var(--space-xs, 4px);
+  font-size: 0.72rem;
   color: var(--color-text-muted);
   cursor: pointer;
   user-select: none;
 }
 
 .dataStatusToggle input {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   accent-color: var(--color-primary);
 }
 
@@ -387,22 +470,22 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  margin-top: var(--space-xs, 4px);
 }
 
 .dataStatusAtsMeta {
   width: 100%;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-text-muted);
-  margin-top: var(--space-xs);
+  margin-top: var(--space-xs, 4px);
   word-break: break-word;
 }
 
 .dataStatusChampionshipDetails {
   width: 100%;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-text-muted);
-  margin-top: var(--space-xs);
+  margin-top: var(--space-xs, 4px);
 }
 
 .dataStatusChampionshipDetails summary {
@@ -411,8 +494,8 @@
 
 .dataStatusBadges span {
   display: inline-block;
-  padding: 2px 8px;
-  font-size: 0.7rem;
+  padding: 2px 7px;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -420,105 +503,125 @@
 }
 
 .badgeOk {
-  background: rgba(45, 138, 110, 0.18);
+  background: rgba(45, 138, 110, 0.14);
   color: #1d6b52;
 }
 
 .badgePartial {
-  background: rgba(183, 152, 108, 0.25);
+  background: rgba(183, 152, 108, 0.2);
   color: #8a6d3a;
 }
 
 .badgeMissing {
-  background: rgba(196, 92, 74, 0.2);
+  background: rgba(196, 92, 74, 0.15);
   color: #a63d2e;
 }
 
 .badgeWarming {
-  background: rgba(183, 152, 108, 0.25);
+  background: rgba(183, 152, 108, 0.2);
   color: #8a6d3a;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION HEADER PATTERN — editorial eyebrow + title
+   Used before all major page sections for consistent visual hierarchy
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 18px;
+}
+
+.sectionEyebrow {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  opacity: 0.8;
+}
+
+.sectionHeadTitle {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.2;
+}
+
 @media (max-width: 767px) {
-  .bannerMascot {
-    height: 76px;
-    align-self: flex-start;
+  .sectionHead {
+    margin-bottom: 12px;
   }
-  .banner {
-    gap: var(--space-sm);
-    padding: 8px var(--space-sm);
-    margin-bottom: var(--space-md);
-    align-items: flex-start;
-  }
-  .bannerText {
-    font-size: 0.82rem;
-    line-height: 1.5;
+
+  .sectionHeadTitle {
+    font-size: 1.0rem;
   }
 }
 
-@media (max-width: 480px) {
-  .home {
-    padding: 0 var(--space-md);
-  }
-  .banner {
-    gap: 8px;
-    padding: 8px var(--space-sm);
-  }
+/* ═══════════════════════════════════════════════════════════════════
+   PAGE SECTION WRAPPERS — consistent spacing separators
+   ═══════════════════════════════════════════════════════════════════ */
+
+.pinnedSection {
+  margin-bottom: var(--section-gap);
+}
+
+.picksSection {
+  margin-bottom: var(--section-gap);
 }
 
 .atsSection {
-  margin-bottom: 16px;
-  /* min-height removed: was creating a large blank zone when section is empty/collapsed */
+  margin-bottom: var(--section-gap);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--color-border-light);
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   MOBILE COLLAPSIBLE SECTION BODIES — ATS Leaders + Bubble Watch
-   Same technique as the Insight banner: max-height transition + fade.
-   Desktop: no clip, no toggle. Mobile: preview height + gradient.
-   ══════════════════════════════════════════════════════════════════ */
+.marketSignalsSection {
+  margin-bottom: var(--section-gap);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--color-border-light);
+}
 
-/* Base wrapper — position:relative anchors the ::after fade */
+.bubbleWatchSection {
+  margin-bottom: var(--space-xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE COLLAPSIBLE SECTION BODIES
+   ═══════════════════════════════════════════════════════════════════ */
+
 .sectionBody {
   position: relative;
 }
 
-/* Section expand/collapse toggle — hidden on desktop */
 .sectionToggle {
   display: none;
 }
 
 @media (max-width: 767px) {
-  /* On mobile, sectionBody becomes an animated clip container */
   .sectionBody {
     overflow: hidden;
-    max-height: 2400px; /* unlimited when not clamped — large enough for full table */
+    max-height: 2400px;
     transition: max-height 0.18s ease-out;
   }
 
-  /*
-   * ATS Leaders collapsed — card header + period pills + ~5 rows visible.
-   * Card padding (20px) + header block (~60px) + col label (~20px) + 5 rows (5×30px) = ~250px.
-   * 300px gives a comfortable, clearly-truncated summary view.
-   */
   .sectionBodyAtsCollapsed {
     max-height: 300px;
   }
 
-  /*
-   * Bubble Watch collapsed — toggle header + filters + table header + ~4 rows.
-   * Toggle (~47px) + filters (~60px) + th (~27px) + 4 rows (4×27px) = ~242px.
-   * 280px ensures the preview feels complete, not broken.
-   */
   .sectionBodyBubbleCollapsed {
     max-height: 280px;
   }
 
-  /*
-   * Gradient fade — same material approach as Insight banner.
-   * Transparent for 38% so visible rows read cleanly, then fades
-   * to the card surface (white) to signal more content below.
-   * Using `transparent` (not rgba) avoids muddy grey midpoint.
-   */
   .sectionBodyAtsCollapsed::after,
   .sectionBodyBubbleCollapsed::after {
     content: '';
@@ -537,7 +640,6 @@
     z-index: 1;
   }
 
-  /* Shared base — same visual language as insightToggle */
   .sectionToggle {
     display: flex;
     align-items: center;
@@ -554,18 +656,14 @@
     border: none;
     cursor: pointer;
     line-height: 1;
-    justify-content: flex-start; /* "Collapse": left-aligned */
-    transition: color 0.15s;
+    justify-content: flex-start;
+    transition: color var(--transition-fast);
   }
 
   .sectionToggle:hover {
     color: var(--color-primary-hover);
   }
 
-  /*
-   * "Show full …" footer row — anchored, right-aligned, visually separated.
-   * Matches insightToggleFooter rhythm exactly.
-   */
   .sectionToggleFooter {
     justify-content: flex-end;
     min-height: 40px;
@@ -581,105 +679,28 @@
   }
 }
 
-/* ≤360px: center the footer toggle on very narrow screens */
 @media (max-width: 360px) {
   .sectionToggleFooter {
     justify-content: center;
   }
 }
 
-/* Respect prefers-reduced-motion — disable max-height transition */
 @media (prefers-reduced-motion: reduce) {
   .sectionBody {
     transition: none;
   }
 }
 
-.mainCol {
-  min-width: 0;
-}
+/* ═══════════════════════════════════════════════════════════════════
+   DASHBOARD INTELLIGENCE GRID
+   ═══════════════════════════════════════════════════════════════════ */
 
-.hero {
-  position: relative;
-  background: linear-gradient(135deg, var(--color-metro-blue) 0%, var(--color-primary-hover) 100%);
-  color: white;
-  padding: var(--space-lg);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.heroBadge {
-  position: absolute;
-  top: var(--space-md);
-  right: var(--space-md);
-}
-
-.heroDate {
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.8;
-  display: block;
-  margin-bottom: var(--space-sm);
-}
-
-.heroHeadline {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 0 0 var(--space-md);
-  line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.heroSummary {
-  font-size: 0.9rem;
-  line-height: 1.5;
-  opacity: 0.9;
-  margin: 0 0 var(--space-lg);
-}
-
-.heroInsights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-}
-
-.keyDatesSection {
-  margin-bottom: var(--space-xl);
-}
-
-.dailyScheduleSection {
-  margin-bottom: var(--space-xl);
-}
-
-.liveScoresSection {
-  margin-bottom: var(--space-xl);
-}
-
-.bubbleWatchSection {
-  margin-bottom: var(--space-xl);
-  /* Visual separator so Bubble Watch doesn't blur into the dashboard grid */
-  padding-top: 12px;
-  border-top: 1px solid var(--color-border-light);
-}
-
-/* ─── Dashboard Intelligence Grid ──────────────────────────────────────────── */
-
-/* Wrapper spacing */
 .dashboardGridSection {
-  margin-top: 10px;
-  margin-bottom: 10px;
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--color-border-light);
+  margin-bottom: var(--section-gap);
 }
 
-/*
- * Named-area grid:
- *   scores  |  rail
- *   upsets  |  rail
- * rail spans both left rows so videos + headlines stay locked to the right.
- */
 .dashboardGrid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -687,27 +708,23 @@
   grid-template-areas:
     "scores rail"
     "upsets rail";
-  gap: var(--space-lg);
+  gap: var(--space-xl);
   align-items: start;
-  margin-bottom: 0;
 }
 
-/* scores cell: snapshot stats + live scores */
 .gridScores {
   grid-area: scores;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-md);
   min-width: 0;
 }
 
-/* upsets cell: alerts directly beneath scores */
 .gridUpsets {
   grid-area: upsets;
   min-width: 0;
 }
 
-/* rail cell: right column spanning both rows (Top Videos card → Headlines card) */
 .gridRail {
   grid-area: rail;
   display: flex;
@@ -716,15 +733,13 @@
   min-width: 0;
 }
 
-/* Tablet 768–1099px: narrow left column slightly */
 @media (max-width: 1099px) {
   .dashboardGrid {
     grid-template-columns: 1.4fr 1fr;
-    gap: var(--space-md);
+    gap: var(--space-lg);
   }
 }
 
-/* Mobile ≤767px: single column, scores → upsets → rail */
 @media (max-width: 767px) {
   .dashboardGrid {
     grid-template-columns: 1fr;
@@ -732,170 +747,45 @@
       "scores"
       "upsets"
       "rail";
-    gap: 14px;
+    gap: var(--space-md);
+  }
+
+  .dashboardGridSection {
+    margin-bottom: var(--space-2xl);
   }
 }
 
-/* Legacy class stubs — no longer rendered, kept to avoid stale-ref warnings */
+/* Legacy stubs */
 .dashboardLeft  { display: contents; }
 .dashboardRight { display: contents; }
 .moduleSnapshot { display: contents; }
 .moduleScores   { display: contents; }
 .moduleAlerts   { display: contents; }
-
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-  flex-wrap: wrap;
-}
-
-.sectionHeader .sectionTitle {
-  margin-bottom: 0;
-}
-
-.statsSection {
-  margin-bottom: var(--space-xl);
-}
-
-.insight {
-  font-size: 0.9rem;
-  background: rgba(255, 255, 255, 0.1);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
-}
-
-.insight strong {
-  color: var(--color-andrea);
-  margin-right: var(--space-xs);
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
-
-@media (max-width: 1024px) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .stats {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Legacy grid selectors kept as no-ops to avoid breaking any stale refs */
-.grid { display: contents; }
-.mainCol { display: contents; }
-.sidebar { display: contents; }
-
-.sectionTitle {
-  font-size: var(--header-font-size);
-  font-weight: 600;
-  margin-bottom: var(--space-md);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--color-border-light);
-  text-transform: uppercase;
-  letter-spacing: var(--header-letter-spacing);
-  color: var(--color-text-muted);
-}
-
-.matchupList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.widgetSection {
-  width: 100%;
-}
-
-.widgetHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-}
-
-.widgetTitle {
-  font-size: var(--header-font-size);
-  font-weight: 600;
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: var(--header-letter-spacing);
-  color: var(--color-text-muted);
-}
-
-.teamNewsList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.teamNewsItem {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-}
-
-.teamNewsItem:hover {
-  color: var(--color-primary);
-}
+.mainCol        { display: contents; }
+.grid           { display: contents; }
+.sidebar        { display: contents; }
 
 /* ═══════════════════════════════════════════════════════════════════
-   INTEL FEED — "View full Intel Feed →" CTA below the capped feed
-   ═══════════════════════════════════════════════════════════════════ */
-
-.intelFeedCtaLink {
-  display: block;
-  padding: 7px var(--space-sm);
-  margin-top: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-decoration: none;
-  text-align: right;
-  letter-spacing: 0.01em;
-  transition: color 0.14s;
-}
-
-.intelFeedCtaLink:hover {
-  color: var(--color-primary-hover, #2a65b8);
-  text-decoration: underline;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .intelFeedCtaLink {
-    transition: none;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   ODDS INSIGHTS TEASER CARD
-   Static premium teaser — no new API calls, links to /odds-insights
+   ODDS INSIGHTS TEASER CARD (MaximusPicks section)
    ═══════════════════════════════════════════════════════════════════ */
 
 .oddsTeaser {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid rgba(60, 121, 180, 0.12);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   padding: var(--card-padding);
-  margin-bottom: var(--space-xl);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.oddsTeaser:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oddsTeaser { transition: none; }
+  .oddsTeaser:hover { transform: none; }
 }
 
 .oddsTeaserHeader {
@@ -910,36 +800,66 @@
 }
 
 .oddsTeaserTitle {
-  font-size: var(--header-font-size);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: var(--header-letter-spacing);
-  color: var(--color-text-muted);
+  letter-spacing: 0.07em;
+  color: var(--color-text);
 }
 
 .oddsTeaserTag {
-  font-size: 0.62rem;
-  font-weight: 600;
+  font-size: 0.58rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: var(--color-primary);
   background: rgba(60, 121, 180, 0.08);
   border: 1px solid rgba(60, 121, 180, 0.18);
   border-radius: var(--pill-radius);
-  padding: 2px 8px;
+  padding: 3px 9px;
   flex-shrink: 0;
 }
 
-/* ── Market Briefing excerpt block ───────────────────────────────── */
+/* ── Market Briefing divider ─────────────────────────────────────── */
+
+.oddsMarketBriefingDivider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: var(--space-md) 0 var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.oddsMarketBriefingLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.oddsBriefingTime {
+  font-size: 0.58rem;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+/* ── Market briefing block ───────────────────────────────────────── */
 
 .oddsBriefingBlock {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px var(--space-md);
+  padding: 12px var(--space-md);
   margin-bottom: var(--space-md);
-  background: var(--color-bg);
+  background: rgba(60, 121, 180, 0.025);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-sm, 6px);
 }
@@ -952,25 +872,17 @@
 }
 
 .oddsBriefingLabel {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.12em;
   color: var(--color-text-muted);
-}
-
-/* "Updated Xm ago" microtext */
-.oddsBriefingTime {
-  font-size: 0.6rem;
-  color: var(--color-text-muted);
-  opacity: 0.75;
-  white-space: nowrap;
   font-family: var(--font-mono);
 }
 
 .oddsBriefingSummary {
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: 0.84rem;
+  line-height: 1.6;
   color: var(--color-text-secondary);
   margin: 0;
 }
@@ -986,12 +898,12 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .oddsBriefingBullet {
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: 0.8rem;
+  line-height: 1.5;
   color: var(--color-text-muted);
 }
 
@@ -1001,14 +913,13 @@
 }
 
 .oddsBriefingPlaceholder {
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: 0.8rem;
+  line-height: 1.5;
   color: var(--color-text-muted);
   font-style: italic;
   margin: 0;
 }
 
-/* "More" / "Less" expand toggle inside the briefing block */
 .oddsBriefingToggle {
   align-self: flex-start;
   font-size: 0.68rem;
@@ -1020,7 +931,7 @@
   cursor: pointer;
   font-family: inherit;
   letter-spacing: 0.01em;
-  transition: color 0.12s;
+  transition: color var(--transition-fast);
 }
 
 .oddsBriefingToggle:hover {
@@ -1038,61 +949,69 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 7px 10px;
-  margin-bottom: var(--space-sm, 8px);
-  background: rgba(60, 121, 180, 0.05);
-  border: 1px solid rgba(60, 121, 180, 0.14);
-  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: var(--space-sm);
+  background: rgba(60, 121, 180, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.12);
+  border-radius: 8px;
   flex-wrap: wrap;
 }
 
 .picksSummaryLabel {
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--color-primary);
   white-space: nowrap;
   flex-shrink: 0;
+  font-family: var(--font-mono);
 }
 
 .picksSummaryText {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
   line-height: 1.45;
 }
 
-/* ── Maximus's Picks subheader ───────────────────────────────────── */
+/* ── Picks subheader ─────────────────────────────────────────────── */
 
 .oddsPicksSubheader {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--color-text-muted);
   margin: 0 0 var(--space-md);
-  line-height: 1.4;
+  line-height: 1.45;
   font-style: italic;
 }
 
-/* ── Market Briefing section divider ────────────────────────────── */
+/* ── Odds teaser CTA ─────────────────────────────────────────────── */
 
-.oddsMarketBriefingDivider {
-  display: flex;
+.oddsTeaserCta {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: var(--space-md) 0 var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--color-border-light);
-}
-
-.oddsMarketBriefingLabel {
-  font-size: 0.62rem;
+  padding: 10px var(--space-xl);
+  font-size: 0.84rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-family: inherit;
+  transition: background var(--transition-fast), transform var(--transition-fast);
 }
 
-/* ── Category grid ───────────────────────────────────────────────── */
+.oddsTeaserCta:hover {
+  background: var(--color-primary-hover, #2a65b8);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oddsTeaserCta { transition: none; }
+  .oddsTeaserCta:hover { transform: none; }
+}
+
+/* ── Teaser grid / items (legacy, kept for compat) ───────────────── */
 
 .oddsTeaserGrid {
   display: grid;
@@ -1136,27 +1055,177 @@
   line-height: 1.4;
 }
 
-.oddsTeaserCta {
-  display: inline-flex;
-  align-items: center;
-  padding: 9px var(--space-lg);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: #fff;
-  background: var(--color-primary);
-  border-radius: var(--radius-sm);
+/* ═══════════════════════════════════════════════════════════════════
+   INTEL FEED CTA
+   ═══════════════════════════════════════════════════════════════════ */
+
+.intelFeedCtaLink {
+  display: block;
+  padding: 7px var(--space-sm);
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary);
   text-decoration: none;
-  font-family: inherit;
-  transition: background 0.15s;
+  text-align: right;
+  letter-spacing: 0.01em;
+  transition: color var(--transition-fast);
 }
 
-.oddsTeaserCta:hover {
-  background: var(--color-primary-hover, #2a65b8);
+.intelFeedCtaLink:hover {
+  color: var(--color-primary-hover, #2a65b8);
+  text-decoration: underline;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oddsTeaserCta {
-    transition: none;
+  .intelFeedCtaLink { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MISC / LEGACY — kept for compat
+   ═══════════════════════════════════════════════════════════════════ */
+
+.hero {
+  position: relative;
+  background: linear-gradient(135deg, var(--color-metro-blue) 0%, var(--color-primary-hover) 100%);
+  color: white;
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.heroBadge {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+}
+
+.heroDate {
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.heroHeadline {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 var(--space-md);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.heroSummary {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  opacity: 0.9;
+  margin: 0 0 var(--space-lg);
+}
+
+.heroInsights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.keyDatesSection { margin-bottom: var(--space-xl); }
+.dailyScheduleSection { margin-bottom: var(--space-xl); }
+.liveScoresSection { margin-bottom: var(--space-xl); }
+.statsSection { margin-bottom: var(--space-xl); }
+.widgetSection { width: 100%; }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* Legacy .sectionTitle (small caps label used in various places) */
+.sectionTitle {
+  font-size: var(--header-font-size);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-xs, 4px);
+  border-bottom: 1px solid var(--color-border-light);
+  text-transform: uppercase;
+  letter-spacing: var(--header-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+.matchupList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.widgetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.widgetTitle {
+  font-size: var(--header-font-size);
+  font-weight: 600;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: var(--header-letter-spacing);
+  color: var(--color-text-muted);
+}
+
+.teamNewsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 4px);
+}
+
+.teamNewsItem {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.teamNewsItem:hover {
+  color: var(--color-primary);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
   }
+}
+
+@media (max-width: 600px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.insight {
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+}
+
+.insight strong {
+  color: var(--color-andrea);
+  margin-right: var(--space-xs, 4px);
 }

@@ -1,17 +1,34 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ModuleShell — shared card container for Home dashboard modules.
-   All Home modules can adopt this for consistent elevation, header
-   rhythm, footer CTA treatment, loading, and empty states.
+   ModuleShell — unified premium card container.
+   Consistent elevation, editorial header, hover interactions.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── Shell ──────────────────────────────────────────────────────── */
 
 .shell {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid rgba(60, 121, 180, 0.10);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  transition:
+    box-shadow var(--transition-base, 0.20s ease),
+    transform var(--transition-base, 0.20s ease);
+}
+
+.shell:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
+
+  .shell:hover {
+    transform: none;
+  }
 }
 
 /* ─── Header ─────────────────────────────────────────────────────── */
@@ -21,8 +38,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 12px var(--space-md) 10px;
-  border-bottom: 1px solid var(--color-border-light);
+  padding: 11px var(--space-md) 9px;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.08);
+  background: rgba(60, 121, 180, 0.015);
 }
 
 .shellTitleRow {
@@ -33,16 +51,17 @@
 }
 
 .shellTitle {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.65rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--color-text-muted);
   white-space: nowrap;
+  font-family: var(--font-mono);
 }
 
 .shellBadge {
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -57,7 +76,7 @@
 .shellHeaderRight {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-xs, 4px);
   flex-shrink: 0;
 }
 
@@ -71,10 +90,11 @@
 
 .shellFooter {
   padding: 9px var(--space-md);
-  border-top: 1px solid var(--color-border-light);
+  border-top: 1px solid rgba(60, 121, 180, 0.08);
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  background: rgba(60, 121, 180, 0.012);
 }
 
 /* ─── Skeleton ───────────────────────────────────────────────────── */
@@ -87,8 +107,8 @@
 }
 
 .skeletonRow {
-  height: 14px;
-  border-radius: 3px;
+  height: 13px;
+  border-radius: 4px;
   background: linear-gradient(
     90deg,
     var(--color-border-light) 0%,
@@ -113,21 +133,20 @@
 }
 
 .emptyMessage {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   color: var(--color-text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
-/* ─── Shared CTA helpers (importable via composes or direct use) ─── */
+/* ─── CTA helpers ────────────────────────────────────────────────── */
 
-/* ctaLink: use on <a> elements in shell footer */
 .ctaLink {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--color-primary);
   text-decoration: none;
   letter-spacing: 0.01em;
-  transition: color 0.14s;
+  transition: color var(--transition-fast, 0.12s ease);
 }
 
 .ctaLink:hover {
@@ -135,9 +154,8 @@
   text-decoration: underline;
 }
 
-/* ctaButton: use on <button> elements in shell footer */
 .ctaButton {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--color-primary);
   background: transparent;
@@ -146,7 +164,7 @@
   cursor: pointer;
   font-family: inherit;
   letter-spacing: 0.01em;
-  transition: color 0.14s;
+  transition: color var(--transition-fast, 0.12s ease);
 }
 
 .ctaButton:hover {
@@ -159,6 +177,7 @@
     animation: none;
     opacity: 0.5;
   }
+
   .ctaLink,
   .ctaButton {
     transition: none;

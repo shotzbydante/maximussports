@@ -55,10 +55,11 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--body-font-size, 14px);
-  line-height: var(--body-line-height, 1.5);
+  line-height: var(--body-line-height, 1.6);
   color: var(--color-text);
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
 
@@ -82,9 +83,9 @@ h1, h2, h3, h4 {
   margin: 0 0 var(--space-sm);
 }
 
-h1 { font-size: clamp(1.25rem, 2vw, 1.5rem); text-transform: uppercase; }
-h2 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em; }
-h3 { font-size: 1rem; }
+h1 { font-size: clamp(1.3rem, 2.5vw, 1.75rem); text-transform: uppercase; letter-spacing: 0.05em; }
+h2 { font-size: clamp(1.0rem, 1.8vw, 1.15rem); text-transform: uppercase; letter-spacing: 0.05em; }
+h3 { font-size: 0.95rem; letter-spacing: 0.03em; }
 
 /* Section headers — Coinbase-style */
 .section-label {
