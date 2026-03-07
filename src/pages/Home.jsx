@@ -306,9 +306,12 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     const tomorrowIso = offsetDateStr(1);
     const tomorrowApi = toApiDateStr(tomorrowIso);
     setNextSlateLoading(true);
-    fetch(`/api/home?dates=${tomorrowApi}`)
+    const nextSlateAbort = new AbortController();
+    const nextSlateTimeout = setTimeout(() => nextSlateAbort.abort(), 8000);
+    fetch(`/api/home?dates=${tomorrowApi}`, { signal: nextSlateAbort.signal })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
+        clearTimeout(nextSlateTimeout);
         const rawGames  = data?.scoresByDate?.[tomorrowApi] ?? [];
         const oddsGames = data?.odds?.games ?? [];
         const merged    = mergeGamesWithOdds(rawGames, oddsGames, getTeamSlug);
@@ -316,9 +319,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         setNextSlateLoading(false);
       })
       .catch(() => {
+        clearTimeout(nextSlateTimeout);
         setNextSlateGames([]);
         setNextSlateLoading(false);
       });
+    return () => { nextSlateAbort.abort(); clearTimeout(nextSlateTimeout); };
   }, [loading, games]);
 
   // Thin slate: when today has games but fewer than MIN_GAMES_FOR_PICKS,
@@ -457,7 +462,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         games={activeGames}
         atsLeaders={atsLeaders}
         atsBySlug={atsBySlug}
-        loading={loading || nextSlateLoading || thinSlateLoading}
+        loading={loading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
         slateDate={slateDate}
         slateDateSecondary={slateDateSecondary}
         slateComplete={slateComplete}
