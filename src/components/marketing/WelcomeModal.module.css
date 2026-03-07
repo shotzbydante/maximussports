@@ -57,8 +57,13 @@
 }
 
 @keyframes slideUp {
-  from { transform: translateY(22px) scale(0.982); opacity: 0; }
-  to   { transform: translateY(0)    scale(1);     opacity: 1; }
+  /*
+    Animate only position/scale — never start at opacity:0.
+    The panel must be immediately visible; a subtle lift-in is enough polish.
+    No fill-mode needed because the to-state matches the element's base CSS.
+  */
+  from { transform: translateY(18px) scale(0.984); }
+  to   { transform: translateY(0)    scale(1);     }
 }
 
 /* ─── Inner scroll container ─────────────────────────────────────── */

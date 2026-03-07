@@ -5,6 +5,14 @@
  * is present in the URL. Closing by any means sets the flag so it won't
  * re-appear on future visits.
  *
+ * Architecture note:
+ *   Rendered via ReactDOM.createPortal into document.body so it is immune to
+ *   any ancestor stacking context issues (transform, opacity, overflow, etc.).
+ *   Home.jsx's .home container uses `animation: homeFadeIn ... both` which
+ *   permanently applies `transform: translateY(0)` via forwards-fill, making
+ *   it a containing block that traps position:fixed descendants. The portal
+ *   bypasses this entirely.
+ *
  * Accessibility:
  *   - role="dialog" aria-modal="true"
  *   - Focus is moved to close button on open; restored on close.
@@ -13,6 +21,7 @@
  *   - Body scroll is locked while open.
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './WelcomeModal.module.css';
 
 const BULLETS = [
@@ -39,7 +48,7 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
     }
   }, [open]);
 
-  // Scroll lock + Escape — iOS-safe: position:fixed preserves scroll position
+  // Scroll lock + Escape — iOS-safe: position:fixed prevents page scroll
   const handleKeyDown = useCallback(
     (e) => { if (e.key === 'Escape') onClose?.(); },
     [onClose],
@@ -73,7 +82,9 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
 
   if (!open) return null;
 
-  return (
+  // Portal: renders directly into document.body, bypassing all ancestor
+  // stacking contexts (transform, opacity, overflow, z-index) completely.
+  return createPortal(
     <div
       className={styles.backdrop}
       role="dialog"
@@ -84,9 +95,8 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
       <div className={styles.panel}>
 
         {/*
-          Close button is absolutely positioned on the panel (which is
-          overflow: hidden). This is rock-solid — no sticky / zero-height
-          tricks that can break in Safari.
+          Close button is absolutely positioned on the panel (overflow:hidden).
+          Rock-solid — no sticky / zero-height tricks that break in Safari.
         */}
         <button
           ref={closeBtnRef}
@@ -101,8 +111,8 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
         </button>
 
         {/*
-          Separate scroll container so the close button above stays fixed
-          inside the panel regardless of scroll position.
+          Separate scroll container — keeps the absolute close button above it
+          regardless of scroll position inside the panel.
         */}
         <div className={styles.scroller}>
 
@@ -154,6 +164,7 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
