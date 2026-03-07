@@ -583,6 +583,13 @@
 .btnSecondary:hover:not(:disabled) { border-color: var(--color-primary); }
 .btnSecondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Separator between export actions and Instagram publish button */
+.publishDivider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 2px 0;
+}
+
 /* Caption panel */
 .captionPanel {
   background: var(--color-bg);

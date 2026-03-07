@@ -1,0 +1,127 @@
+/* ── InstagramPublishButton ──────────────────────────────────────────────── */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Base button */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  position: relative;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Idle — Instagram gradient style ────────────────────────────────── */
+.btn_idle {
+  background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 4px rgba(220, 39, 67, 0.25);
+}
+
+.btn_idle:not(:disabled):hover {
+  filter: brightness(1.08);
+  box-shadow: 0 2px 8px rgba(220, 39, 67, 0.35);
+}
+
+/* ── Working states ─────────────────────────────────────────────────── */
+.btn_rendering,
+.btn_uploading,
+.btn_publishing {
+  background: var(--color-primary, #3C79B4);
+  color: #fff;
+  border-color: transparent;
+  cursor: not-allowed;
+}
+
+/* ── Success ────────────────────────────────────────────────────────── */
+.btn_success {
+  background: var(--color-up, #2d8a6e);
+  color: #fff;
+  border-color: transparent;
+  cursor: default;
+}
+
+/* ── Error / retry ──────────────────────────────────────────────────── */
+.btn_error {
+  background: transparent;
+  color: var(--color-down, #c45c4a);
+  border-color: var(--color-down, #c45c4a);
+  cursor: pointer;
+}
+
+.btn_error:hover {
+  background: rgba(196, 92, 74, 0.06);
+}
+
+/* ── Icon ───────────────────────────────────────────────────────────── */
+.icon {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.label {
+  flex: 1;
+  text-align: center;
+}
+
+/* ── Spinner ────────────────────────────────────────────────────────── */
+.spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ig-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ig-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Notes ──────────────────────────────────────────────────────────── */
+.hint {
+  font-size: 11px;
+  color: var(--color-text-muted, #5c7a91);
+  margin: 0;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.successNote {
+  font-size: 11px;
+  color: var(--color-up, #2d8a6e);
+  margin: 0;
+  text-align: center;
+  font-weight: 500;
+}
+
+.errorNote {
+  font-size: 11px;
+  color: var(--color-down, #c45c4a);
+  margin: 0;
+  text-align: center;
+  line-height: 1.4;
+  word-break: break-word;
+}

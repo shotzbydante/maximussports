@@ -14,6 +14,8 @@ import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsi
 import { buildTeamSnapshot } from '../utils/teamSnapshot';
 import CarouselComposer from '../components/dashboard/CarouselComposer';
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
+import InstagramPublishButton from '../components/dashboard/InstagramPublishButton';
+import PostHistory from '../components/dashboard/PostHistory';
 import { waitForImages } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
 import { getTeamSlug } from '../utils/teamSlug';
@@ -85,6 +87,9 @@ export default function Dashboard() {
   const [assetsReady, setAssetsReady] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [zipping, setZipping] = useState(false);
+
+  // ── post history refresh key ──────────────────────────────
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   // ── preview size ──────────────────────────────────────────
   const [previewSize, setPreviewSize] = useState(() => {
@@ -455,6 +460,23 @@ export default function Dashboard() {
     };
   }, [selectedGame]);
 
+  // ── Instagram publish metadata ────────────────────────────
+  const publishMetadata = useMemo(() => {
+    const section = SECTIONS.find(s => s.id === activeSection);
+    return {
+      title:                 section?.label ?? activeSection,
+      templateType:          activeSection,
+      contentType:           'social_carousel_slide',
+      contentStudioSection:  activeSection,
+      teamSlug:              selectedTeam?.slug  ?? null,
+      teamName:              selectedTeam?.name  ?? null,
+    };
+  }, [activeSection, selectedTeam]);
+
+  const handlePublishSuccess = useCallback(() => {
+    setHistoryRefreshKey(k => k + 1);
+  }, []);
+
   // ── Gates ─────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -810,6 +832,14 @@ export default function Dashboard() {
             <button className={styles.btnSecondary} onClick={handleDownloadZip} disabled={!canExport || exporting || zipping}>
               {zipping ? 'Zipping…' : 'Download ZIP'}
             </button>
+            <div className={styles.publishDivider} />
+            <InstagramPublishButton
+              exportRef={exportRef}
+              caption={caption}
+              canPublish={canExport && !exporting && !zipping}
+              metadata={publishMetadata}
+              onSuccess={handlePublishSuccess}
+            />
           </div>
 
           {/* Caption panel */}
@@ -884,6 +914,9 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+
+      {/* ── Post History ──────────────────────────────── */}
+      <PostHistory refreshKey={historyRefreshKey} />
     </div>
   );
 }
