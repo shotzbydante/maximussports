@@ -12,7 +12,7 @@
  *   - Backdrop click closes the modal.
  *   - Body scroll is locked while open.
  */
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import styles from './WelcomeModal.module.css';
 
 const BULLETS = [
@@ -25,19 +25,21 @@ const BULLETS = [
 export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) {
   const closeBtnRef  = useRef(null);
   const prevFocusRef = useRef(null);
+  const [videoReady, setVideoReady] = useState(false);
 
-  // Focus management: move focus in on open, restore on close
+  // Focus management: rAF ensures DOM is painted before we grab focus
   useEffect(() => {
     if (open) {
       prevFocusRef.current = document.activeElement;
-      closeBtnRef.current?.focus();
+      const id = requestAnimationFrame(() => closeBtnRef.current?.focus());
+      return () => cancelAnimationFrame(id);
     } else if (prevFocusRef.current) {
       prevFocusRef.current.focus();
       prevFocusRef.current = null;
     }
   }, [open]);
 
-  // Scroll lock + Escape handler
+  // Scroll lock + Escape — iOS-safe: position:fixed preserves scroll position
   const handleKeyDown = useCallback(
     (e) => { if (e.key === 'Escape') onClose?.(); },
     [onClose],
@@ -46,14 +48,29 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
   useEffect(() => {
     if (!open) return;
     document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
+
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.style.overflow  = 'hidden';
+    body.style.position  = 'fixed';
+    body.style.top       = `-${scrollY}px`;
+    body.style.width     = '100%';
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      body.style.overflow  = '';
+      body.style.position  = '';
+      body.style.top       = '';
+      body.style.width     = '';
+      window.scrollTo(0, scrollY);
     };
   }, [open, handleKeyDown]);
 
-  // Lazy-mount: don't render video (or anything) until modal is open
+  // Reset video-ready flag each time modal opens so fade plays fresh
+  useEffect(() => {
+    if (open) setVideoReady(false);
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -65,64 +82,76 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div className={styles.panel}>
+
         {/*
-          Sticky close bar — zero-height, sticks to the top of the panel's
-          scroll viewport so the close button is always accessible even when
-          the panel scrolls on very small viewports.
+          Close button is absolutely positioned on the panel (which is
+          overflow: hidden). This is rock-solid — no sticky / zero-height
+          tricks that can break in Safari.
         */}
-        <div className={styles.closeBar}>
-          <button
-            ref={closeBtnRef}
-            type="button"
-            className={styles.closeBtn}
-            aria-label="Close welcome modal"
-            onClick={onClose}
-          >
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+        <button
+          ref={closeBtnRef}
+          type="button"
+          className={styles.closeBtn}
+          aria-label="Close welcome modal"
+          onClick={onClose}
+        >
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden>
+            <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          </svg>
+        </button>
 
-        {/* Dunk video — rendered only when modal is open */}
-        <div className={styles.videoWrap}>
-          <video
-            className={styles.video}
-            src="/videos/maximus-dunk.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-          />
-        </div>
+        {/*
+          Separate scroll container so the close button above stays fixed
+          inside the panel regardless of scroll position.
+        */}
+        <div className={styles.scroller}>
 
-        {/* Copy + CTAs */}
-        <div className={styles.body}>
-          <h2 className={styles.title}>Welcome to Maximus Sports</h2>
-          <p className={styles.subtitle}>
-            Your one-stop shop for actionable college hoops news, odds, betting intel, and AI-powered analysis.
-          </p>
-
-          <ul className={styles.bullets} aria-label="Key features">
-            {BULLETS.map((b) => (
-              <li key={b} className={styles.bullet}>
-                <span className={styles.bulletCheck} aria-hidden>✓</span>
-                {b}
-              </li>
-            ))}
-          </ul>
-
-          <p className={styles.footerNote}>Customize your experience in under 30 seconds.</p>
-
-          <div className={styles.ctaGroup}>
-            <button type="button" className={styles.ctaPrimary} onClick={onPrimary}>
-              Create account and pin your first team
-            </button>
-            <button type="button" className={styles.ctaSecondary} onClick={onSecondary}>
-              Continue without signing in
-            </button>
+          {/* Dunk video — fades in once first frame is ready */}
+          <div className={`${styles.videoWrap}${videoReady ? ` ${styles.videoLoaded}` : ''}`}>
+            <video
+              className={styles.video}
+              src="/videos/maximus-dunk.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              onCanPlay={() => setVideoReady(true)}
+            />
           </div>
+
+          {/* Copy + CTAs */}
+          <div className={styles.body}>
+            <div>
+              <p className={styles.eyebrow}>Welcome to</p>
+              <h2 className={styles.title}>Maximus Sports</h2>
+            </div>
+
+            <p className={styles.subtitle}>
+              Your one-stop shop for actionable college hoops news, odds, betting intel, and AI-powered analysis.
+            </p>
+
+            <ul className={styles.bullets} aria-label="Key features">
+              {BULLETS.map((b) => (
+                <li key={b} className={styles.bullet}>
+                  <span className={styles.bulletCheck} aria-hidden>✓</span>
+                  {b}
+                </li>
+              ))}
+            </ul>
+
+            <div className={styles.ctaGroup}>
+              <button type="button" className={styles.ctaPrimary} onClick={onPrimary}>
+                Create account and pin your first team
+              </button>
+              <button type="button" className={styles.ctaSecondary} onClick={onSecondary}>
+                Continue without signing in
+              </button>
+            </div>
+
+            <p className={styles.footerNote}>Customize your experience in under 30 seconds.</p>
+          </div>
+
         </div>
       </div>
     </div>
