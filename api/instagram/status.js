@@ -14,6 +14,20 @@
  * This route does NOT post content — it is read-only and production-safe.
  */
 
+/**
+ * Strips leading/trailing whitespace and wrapping quotes from an env value.
+ * Returns an empty string for null/undefined so callers can safely use .length.
+ */
+function sanitizeEnv(value) {
+  if (value == null) return '';
+  let s = String(value).trim();
+  // Remove a single layer of matching wrapping quotes (single or double)
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
@@ -24,11 +38,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  // --- Stage 1: env validation ---
+  // --- Stage 1: env validation (raw presence check before sanitization) ---
   const envCheck = {
-    META_APP_ID:           !!process.env.META_APP_ID,
-    META_APP_SECRET:       !!process.env.META_APP_SECRET,
-    INSTAGRAM_ACCOUNT_ID:  !!process.env.INSTAGRAM_ACCOUNT_ID,
+    META_APP_ID:            !!process.env.META_APP_ID,
+    META_APP_SECRET:        !!process.env.META_APP_SECRET,
+    INSTAGRAM_ACCOUNT_ID:   !!process.env.INSTAGRAM_ACCOUNT_ID,
     INSTAGRAM_ACCESS_TOKEN: !!process.env.INSTAGRAM_ACCESS_TOKEN,
   };
 
@@ -43,9 +57,26 @@ export default async function handler(req, res) {
     });
   }
 
+  // --- Sanitize all env values before use ---
+  const accountId   = sanitizeEnv(process.env.INSTAGRAM_ACCOUNT_ID);
+  const accessToken = sanitizeEnv(process.env.INSTAGRAM_ACCESS_TOKEN);
+  // sanitized but not used in the request; kept for future auth header use
+  sanitizeEnv(process.env.META_APP_ID);
+  sanitizeEnv(process.env.META_APP_SECRET);
+
+  // --- Build safe debug metadata (never exposes full token or secret) ---
+  const debug = {
+    tokenLength:              accessToken.length,
+    tokenPrefix:              accessToken.slice(0, 8),
+    tokenHasWhitespace:       /\s/.test(accessToken),
+    tokenHasNewline:          /[\r\n]/.test(accessToken),
+    instagramAccountIdLength: accountId.length,
+    endpointUsed:             `https://graph.facebook.com/v23.0/{INSTAGRAM_ACCOUNT_ID}`,
+    deploymentEnv:            process.env.VERCEL_ENV ?? null,
+    vercelUrl:                process.env.VERCEL_URL ?? null,
+  };
+
   // --- Stage 2: Meta Graph API verification (professional account) ---
-  const accountId   = process.env.INSTAGRAM_ACCOUNT_ID;
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
   const endpoint = `https://graph.facebook.com/v23.0/${accountId}?fields=id,username,account_type&access_token=${accessToken}`;
 
   let data;
@@ -54,24 +85,31 @@ export default async function handler(req, res) {
     data = await response.json();
 
     if (!response.ok || data.error) {
-      // Return Meta's error payload but strip any token echo that may appear
-      const { access_token: _stripped, ...safeError } = data.error ?? data;
+      const metaError = data.error ?? data;
+      const { access_token: _stripped, ...safeError } = metaError;
+
+      // Hint for code 190 (invalid/unparseable token)
+      const likelyFormatIssue =
+        safeError.code === 190 &&
+        (debug.tokenHasWhitespace || debug.tokenHasNewline || debug.tokenLength < 20);
+
       return res.status(502).json({
         ok: false,
         stage: 'instagram_api',
-        endpointUsed: `https://graph.facebook.com/v23.0/{INSTAGRAM_ACCOUNT_ID}`,
-        instagramAccountIdPresent: !!accountId,
         envCheck,
+        debug,
         error: safeError,
+        ...(likelyFormatIssue && {
+          hint: 'Token may contain hidden whitespace, quotes, or stale deployment value',
+        }),
       });
     }
   } catch (err) {
     return res.status(500).json({
       ok: false,
       stage: 'fetch',
-      endpointUsed: `https://graph.facebook.com/v23.0/{INSTAGRAM_ACCOUNT_ID}`,
-      instagramAccountIdPresent: !!accountId,
       envCheck,
+      debug,
       error: err.message ?? 'Network error contacting Meta API',
     });
   }
@@ -79,6 +117,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true,
     envCheck,
+    debug,
     instagram: data,
   });
 }
