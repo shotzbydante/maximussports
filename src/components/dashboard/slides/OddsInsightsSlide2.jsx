@@ -1,4 +1,6 @@
 import SlideShell from './SlideShell';
+import TeamLogo from '../../shared/TeamLogo';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './OddsInsightsSlide2.module.css';
 import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
 
@@ -12,12 +14,28 @@ function confStyle(level) {
   return CONF_COLOR[level === 2 ? 'high' : level === 1 ? 'medium' : 'low'] || CONF_COLOR.low;
 }
 
+function makeTeamObj(name) {
+  if (!name) return null;
+  const cleaned = name.replace(/^(?:The |the )/, '').trim();
+  return { name: cleaned, slug: getTeamSlug(cleaned) };
+}
+
+function buildAtsRationale(pick) {
+  if (pick.whyValue) return pick.whyValue;
+  const conf = confidenceLabel(pick.confidence);
+  if (conf === 'High') return 'Strong cover profile gives this side a clear edge. Market still looks light.';
+  if (conf === 'Medium') return 'Recent cover trend is solid and the number looks a bit off.';
+  return 'Slight lean based on ATS form. Watch for line movement closer to tip.';
+}
+
 function PickRow({ pick }) {
   const cs = confStyle(pick.confidence);
+  const teamObj = makeTeamObj(pick.pickTeam);
+  const rationale = buildAtsRationale(pick);
   return (
     <div className={styles.pickRow}>
       <div className={styles.pickTop}>
-        <span className={styles.pickType}>ATS</span>
+        <span className={styles.pickType}>SPREAD</span>
         <span
           className={styles.confBadge}
           style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}
@@ -25,10 +43,11 @@ function PickRow({ pick }) {
           {confidenceLabel(pick.confidence)}
         </span>
       </div>
-      <div className={styles.pickLine}>{pick.pickLine || '—'}</div>
-      {pick.whyValue && (
-        <div className={styles.whyValue}>{pick.whyValue}</div>
-      )}
+      <div className={styles.pickTeamRow}>
+        {teamObj && <TeamLogo team={teamObj} size={30} />}
+        <div className={styles.pickLine}>{pick.pickLine || '—'}</div>
+      </div>
+      <div className={styles.whyValue}>{rationale}</div>
       {pick.slipTips?.length > 0 && (
         <div className={styles.slipTip}>{pick.slipTips[0]}</div>
       )}
@@ -36,8 +55,18 @@ function PickRow({ pick }) {
   );
 }
 
+function buildMlRationale(pick) {
+  if (pick.whyValue) return pick.whyValue;
+  const conf = confidenceLabel(pick.confidence);
+  if (conf === 'High') return 'Implied probability gap is real. The market hasn\'t fully caught up on this one.';
+  if (conf === 'Medium') return 'Model sees a slight pricing edge vs the implied number. Worth a look.';
+  return 'Thin value edge on the moneyline. Lean, not a hammer.';
+}
+
 function MlPickRow({ pick }) {
   const cs = confStyle(pick.confidence);
+  const teamObj = makeTeamObj(pick.pickTeam);
+  const rationale = buildMlRationale(pick);
   return (
     <div className={styles.pickRow}>
       <div className={styles.pickTop}>
@@ -50,10 +79,11 @@ function MlPickRow({ pick }) {
           {confidenceLabel(pick.confidence)}
         </span>
       </div>
-      <div className={styles.pickLine}>{pick.pickTeam || '—'}</div>
-      {pick.whyValue && (
-        <div className={styles.whyValue}>{pick.whyValue}</div>
-      )}
+      <div className={styles.pickTeamRow}>
+        {teamObj && <TeamLogo team={teamObj} size={30} />}
+        <div className={styles.pickLine}>{pick.pickTeam || '—'}</div>
+      </div>
+      <div className={styles.whyValue}>{rationale}</div>
     </div>
   );
 }
@@ -101,12 +131,13 @@ export default function OddsInsightsSlide2({ data, asOf, slideNumber, slideTotal
         asOf={asOf}
         accentColor="#B7986C"
         brandMode="standard"
+        category="odds"
         slideNumber={slideNumber}
         slideTotal={slideTotal}
         rest={rest}
       >
         <div className={styles.titleSup}>ODDS INSIGHTS · SLIDE {slideNumber ?? 2}</div>
-        <h2 className={styles.title}>ATS + ML<br />Leans</h2>
+        <h2 className={styles.title}>Spread + ML<br />Leans</h2>
         <div className={styles.divider} />
 
         {!hasPicks ? (
@@ -115,7 +146,7 @@ export default function OddsInsightsSlide2({ data, asOf, slideNumber, slideTotal
           <div className={styles.combinedGrid}>
             {atsShow.length > 0 && (
               <div className={styles.colSection}>
-                <div className={styles.colLabel}>ATS LEANS</div>
+                <div className={styles.colLabel}>AGAINST THE SPREAD</div>
                 <div className={styles.picksList}>
                   {atsShow.map((p, i) => <PickRow key={i} pick={p} />)}
                 </div>
@@ -143,12 +174,13 @@ export default function OddsInsightsSlide2({ data, asOf, slideNumber, slideTotal
       asOf={asOf}
       accentColor="#B7986C"
       brandMode="standard"
+      category="odds"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
     >
       <div className={styles.titleSup}>ODDS INSIGHTS · SLIDE {slideNumber ?? 2}</div>
-      <h2 className={styles.title}>ATS<br />Leans</h2>
+      <h2 className={styles.title}>Against the<br />Spread Leans</h2>
       <div className={styles.divider} />
 
       {atsPicks.length === 0 ? (

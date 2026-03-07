@@ -54,8 +54,8 @@ export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest 
   const hasDigest   = digest?.hasChatContent === true;
   const atsLeaders  = data?.atsLeaders ?? null;
 
-  // ¶1 → last-night highlights (max 3)
-  const highlights = hasDigest ? (digest.lastNightHighlights ?? []).slice(0, 3) : [];
+  // ¶1 → last-night highlights (max 5 for fuller recap)
+  const highlights = hasDigest ? (digest.lastNightHighlights ?? []).slice(0, 5) : [];
 
   // ¶1 → energetic first-sentence hook
   // Suppress if it contradicts existing highlights (chatbot may say "no games" while
@@ -79,12 +79,12 @@ export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest 
   });
 
   return (
-    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} category="daily" rest={rest}>
       <div className={styles.datePill}>{today}</div>
 
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>LAST NIGHT</div>
-        <h2 className={styles.title}>SHOCK&shy;WAVES</h2>
+        <div className={styles.titleSup}>DAILY BRIEFING</div>
+        <h2 className={styles.title}>LAST NIGHT&apos;S<br />RESULTS</h2>
       </div>
 
       {/* ¶1 first-sentence hook */}
@@ -95,20 +95,21 @@ export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest 
       <div className={styles.divider} />
 
       {highlights.length > 0 ? (
-        <div className={styles.scoreList}>
+        <div className={`${styles.scoreList} ${highlights.length >= 4 ? styles.scoreListCompact : ''}`}>
           {highlights.map((h, i) => {
             const teamAObj  = makeTeam(h.teamA);
             const teamBObj  = makeTeam(h.teamB);
             const atsTag    = i === 0 ? getAtsTag(teamAObj?.name || h.teamA, atsLeaders) : null;
             const isTopGame = i === 0;
+            const isCompact = highlights.length >= 4;
             return (
-              <div key={i} className={`${styles.scoreRow} ${isTopGame ? styles.scoreRowTop : ''}`}>
+              <div key={i} className={`${styles.scoreRow} ${isTopGame ? styles.scoreRowTop : ''} ${isCompact && !isTopGame ? styles.scoreRowCompact : ''}`}>
 
                 {/* Team A (winner) */}
                 <div className={styles.scoreTeamA}>
-                  <TeamLogo team={teamAObj} size={isTopGame ? 54 : 44} />
+                  <TeamLogo team={teamAObj} size={isTopGame ? 48 : isCompact ? 36 : 44} />
                   <div className={styles.teamAMeta}>
-                    <span className={`${styles.scoreTeamName} ${isTopGame ? styles.scoreTeamNameTop : ''}`}>
+                    <span className={`${styles.scoreTeamName} ${isTopGame ? styles.scoreTeamNameTop : ''} ${isCompact && !isTopGame ? styles.scoreTeamNameSm : ''}`}>
                       {teamAObj?.name || h.teamA}
                     </span>
                     {atsTag && (
@@ -119,20 +120,20 @@ export default function DailyBriefingSlide1({ data, asOf, options = {}, ...rest 
 
                 {/* Score */}
                 <div className={styles.scoreResult}>
-                  <span className={`${styles.scoreNum} ${isTopGame ? styles.scoreNumTop : ''}`}>{h.score}</span>
+                  <span className={`${styles.scoreNum} ${isTopGame ? styles.scoreNumTop : ''} ${isCompact && !isTopGame ? styles.scoreNumSm : ''}`}>{h.score}</span>
                   <span className={styles.scoreFinal}>FINAL</span>
                 </div>
 
                 {/* Team B (loser) */}
                 <div className={styles.scoreTeamB}>
-                  <span className={`${styles.scoreTeamName} ${styles.scoreTeamNameLoser}`}>
+                  <span className={`${styles.scoreTeamName} ${styles.scoreTeamNameLoser} ${isCompact && !isTopGame ? styles.scoreTeamNameSm : ''}`}>
                     {teamBObj?.name || h.teamB || '—'}
                   </span>
-                  <TeamLogo team={teamBObj} size={isTopGame ? 54 : 44} />
+                  <TeamLogo team={teamBObj} size={isTopGame ? 48 : isCompact ? 36 : 44} />
                 </div>
 
-                {/* ¶1 editorial context line — top game only */}
-                {h.summaryLine && isTopGame && (
+                {/* Editorial context line — top game always, others when not too compact */}
+                {h.summaryLine && (isTopGame || !isCompact || highlights.length <= 4) && (
                   <div className={styles.scoreSummary}>{h.summaryLine}</div>
                 )}
               </div>

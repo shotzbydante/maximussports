@@ -93,14 +93,41 @@
   justify-content: flex-end;
 }
 
+.teamNameWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.teamNameWrapRight {
+  justify-content: flex-end;
+}
+
 .teamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: #ffffff;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Rankings badge next to team name */
+.rankBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.14);
+  border: 1px solid rgba(60, 121, 180, 0.28);
+  border-radius: 5px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .vsBlock {

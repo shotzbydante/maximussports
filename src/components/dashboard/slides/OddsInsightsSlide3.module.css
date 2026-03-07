@@ -180,7 +180,15 @@
 .atsRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+}
+
+.atsLogoWrap {
+  flex-shrink: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .atsRank {

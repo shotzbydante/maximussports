@@ -44,6 +44,7 @@ export default function GamePreviewSlide2({ game, data, asOf, slideNumber, slide
       asOf={asOf}
       accentColor="#B7986C"
       brandMode="standard"
+      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}

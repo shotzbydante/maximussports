@@ -60,7 +60,7 @@ export default function DailyBriefingSlide5({ data, asOf, options = {}, ...rest 
   const voiceLine = hasDigest ? (digest.voiceLine || '') : '';
 
   return (
-    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} category="daily" rest={rest}>
       <div className={styles.titleBlock}>
         <div className={styles.titleSup}>
           {isRobot ? 'TRACKING NOW' : 'NEWS & CHAOS'}

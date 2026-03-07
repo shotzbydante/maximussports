@@ -84,6 +84,7 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
       asOf={asOf}
       accentColor="#3C79B4"
       brandMode="light"
+      category="team"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}

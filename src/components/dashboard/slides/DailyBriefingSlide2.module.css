@@ -15,13 +15,14 @@
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 104px;
+  font-size: 78px;
   font-weight: 700;
-  line-height: 0.92;
+  line-height: 0.94;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
   text-transform: uppercase;
+  white-space: pre-line;
 }
 
 /* ¶2 market framing sentence */
@@ -89,9 +90,19 @@
   padding: 14px 18px;
 }
 
-/* Trophy emoji for top 3 in rankings mode */
+/* Trophy / medal icons */
 .trophyIcon {
-  font-size: 22px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.trophyIconSilver {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.trophyIconBronze {
+  font-size: 18px;
   flex-shrink: 0;
 }
 
@@ -111,14 +122,34 @@
   gap: 5px;
 }
 
+.leaderTeamRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .leaderTeam {
   font-family: 'Oswald', sans-serif;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* AP rankings badge next to team name */
+.rankBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.14);
+  border: 1px solid rgba(60, 121, 180, 0.28);
+  border-radius: 6px;
+  padding: 2px 7px;
+  flex-shrink: 0;
 }
 
 /* Probability bar */
@@ -138,8 +169,12 @@
 
 .probFill {
   height: 100%;
-  background: linear-gradient(90deg, #B7986C, #d4a96a);
+  background: linear-gradient(90deg, rgba(183,152,108,0.6), rgba(212,169,106,0.6));
   border-radius: 999px;
+}
+
+.probFillTop {
+  background: linear-gradient(90deg, #B7986C, #d4a96a);
 }
 
 .probPct {

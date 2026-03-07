@@ -101,13 +101,11 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
   const showRankings = !showOddsBars;
 
   return (
-    <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} category="daily" rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>
-          {showRankings ? 'TOP CONTENDERS' : 'CHAMPIONSHIP ODDS'}
-        </div>
+        <div className={styles.titleSup}>DAILY BRIEFING</div>
         <h2 className={styles.title}>
-          {showRankings ? 'TITLE\nRACE' : 'TITLE\nMARKET'}
+          {showRankings ? 'TITLE\nRACE' : 'LATEST\nCHAMPIONSHIP\nODDS'}
         </h2>
       </div>
 
@@ -124,11 +122,12 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
       ) : showOddsBars ? (
         /* Odds mode: probability bars + odds pill + trophy for top 3 */
         <div className={styles.leaderboard}>
-          {raceEntries.slice(0, 6).map((entry, i) => {
+          {raceEntries.slice(0, 7).map((entry, i) => {
             const barWidth = entry.impliedProbability != null && maxBar > 0
               ? Math.round((entry.impliedProbability / maxBar) * 100)
               : 0;
             const isFavorite = i === 0;
+            const isTop3 = i < 3;
             const teamObj = makeTeam(entry.team);
 
             return (
@@ -136,19 +135,24 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
                 key={i}
                 className={`${styles.leaderRow} ${isFavorite ? styles.leaderRowTop : ''}`}
               >
-                <span className={`${styles.leaderRank} ${i < 3 ? styles.leaderRankHighlight : ''}`}>{i + 1}</span>
+                <span className={`${styles.leaderRank} ${isTop3 ? styles.leaderRankHighlight : ''}`}>{i + 1}</span>
 
                 <div className={styles.leaderLogoWrap}>
-                  <TeamLogo team={teamObj} size={44} />
+                  <TeamLogo team={teamObj} size={isFavorite ? 46 : 38} />
                 </div>
 
                 <div className={styles.leaderInfo}>
-                  <div className={styles.leaderTeam}>{teamObj?.name || entry.team}</div>
+                  <div className={styles.leaderTeamRow}>
+                    <span className={styles.leaderTeam}>{teamObj?.name || entry.team}</span>
+                    {entry.rank != null && (
+                      <span className={styles.rankBadge}>#{entry.rank}</span>
+                    )}
+                  </div>
                   {entry.impliedProbability != null && (
                     <div className={styles.probBarRow}>
                       <div className={styles.probBar}>
                         <div
-                          className={styles.probFill}
+                          className={`${styles.probFill} ${isTop3 ? styles.probFillTop : ''}`}
                           style={{ width: `${Math.min(barWidth, 100)}%` }}
                         />
                       </div>
@@ -166,7 +170,9 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
                       {entry.americanOdds}
                     </span>
                   )}
-                  {i < 3 && <span className={styles.trophyIcon}>🏆</span>}
+                  {i === 0 && <span className={styles.trophyIcon}>🏆</span>}
+                  {i === 1 && <span className={styles.trophyIconSilver}>🥈</span>}
+                  {i === 2 && <span className={styles.trophyIconBronze}>🥉</span>}
                 </div>
               </div>
             );
@@ -188,16 +194,18 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
                 </span>
 
                 <div className={styles.leaderLogoWrap}>
-                  <TeamLogo team={teamObj} size={40} />
+                  <TeamLogo team={teamObj} size={isFavorite ? 44 : 38} />
                 </div>
 
                 <div className={styles.leaderInfo}>
                   <div className={styles.leaderTeam}>{teamObj?.name || entry.team}</div>
                 </div>
 
-                {i < 3 && (
-                  <span className={styles.trophyIcon}>🏆</span>
-                )}
+                <div className={styles.leaderRight}>
+                  {i === 0 && <span className={styles.trophyIcon}>🏆</span>}
+                  {i === 1 && <span className={styles.trophyIconSilver}>🥈</span>}
+                  {i === 2 && <span className={styles.trophyIconBronze}>🥉</span>}
+                </div>
               </div>
             );
           })}

@@ -1,4 +1,6 @@
 import SlideShell from './SlideShell';
+import TeamLogo from '../../shared/TeamLogo';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
 import styles from './OddsInsightsSlide1.module.css';
 
@@ -35,11 +37,43 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
     : 'low';
   const confStyle = CONF_COLOR[confKey];
 
+  // Build featured picks list: top 3 picks by confidence
+  const featuredPicks = allPicks
+    .slice()
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+    .slice(0, 3);
+
+  function makeTeamObj(name) {
+    if (!name) return null;
+    const cleaned = name.replace(/^(?:The |the )/, '').trim();
+    return { name: cleaned, slug: getTeamSlug(cleaned) };
+  }
+
+  function buildRationale(pick) {
+    if (pick.whyValue) return pick.whyValue;
+    const conf = confidenceLabel(pick.confidence);
+    const pickType = pick.type === 'ats' || pick.pickType === 'ats' ? 'spread' : 'moneyline';
+    if (conf === 'High') {
+      return pickType === 'spread'
+        ? 'Strong cover profile edge. Market still hasn\'t fully caught up on this side.'
+        : 'Implied probability gap is significant. This price looks wrong.';
+    }
+    if (conf === 'Medium') {
+      return pickType === 'spread'
+        ? 'Recent cover trend is solid and the number looks a bit light.'
+        : 'Model sees a slight value edge versus the implied odds. Worth a lean.';
+    }
+    return pickType === 'spread'
+      ? 'Slight ATS edge based on recent cover profile.'
+      : 'Thin moneyline value edge. Low confidence, not a lock.';
+  }
+
   return (
     <SlideShell
       asOf={asOf}
       accentColor="#3C79B4"
       brandMode="standard"
+      category="odds"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
@@ -64,7 +98,7 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
             </div>
             <div className={styles.countCell}>
               <span className={styles.countValue}>{atsPicks.length}</span>
-              <span className={styles.countLabel}>ATS</span>
+              <span className={styles.countLabel}>Spread</span>
             </div>
             <div className={styles.countCell}>
               <span className={styles.countValue}>{mlPicks.length}</span>
@@ -76,23 +110,35 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
             </div>
           </div>
 
-          {strongestPick && (
-            <div className={styles.featuredPick}>
-              <div className={styles.featuredLabel}>STRONGEST LEAN</div>
-              <div className={styles.featuredLine}>{strongestPick.pickLine}</div>
-              {strongestPick.whyValue && (
-                <div className={styles.featuredWhy}>{strongestPick.whyValue}</div>
-              )}
-              <div className={styles.featuredConf}>
-                <span
-                  className={styles.confBadge}
-                  style={{ background: confStyle.bg, color: confStyle.text, border: `1px solid ${confStyle.border}` }}
-                >
-                  {confidenceLabel(strongestPick.confidence)} Confidence
-                </span>
-              </div>
-            </div>
-          )}
+          <div className={styles.picksList}>
+            {featuredPicks.map((pick, i) => {
+              const isStrongest = i === 0;
+              const ck = pick.confidence === 2 ? 'high' : pick.confidence === 1 ? 'medium' : 'low';
+              const cs = CONF_COLOR[ck];
+              const teamObj = makeTeamObj(pick.pickTeam);
+              const rationale = buildRationale(pick);
+              const pickTypeLabel = (pick.type === 'ats' || pick.pickType === 'ats') ? 'SPREAD' : 'ML';
+              return (
+                <div key={i} className={`${styles.pickCard} ${isStrongest ? styles.pickCardTop : ''}`}>
+                  <div className={styles.pickCardHeader}>
+                    <span className={styles.pickTypeBadge}>{pickTypeLabel}</span>
+                    {isStrongest && <span className={styles.strongestBadge}>STRONGEST</span>}
+                    <span
+                      className={styles.confBadge}
+                      style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}
+                    >
+                      {confidenceLabel(pick.confidence)}
+                    </span>
+                  </div>
+                  <div className={styles.pickCardTeamRow}>
+                    {teamObj && <TeamLogo team={teamObj} size={isStrongest ? 36 : 28} />}
+                    <div className={styles.pickCardLine}>{pick.pickLine || '—'}</div>
+                  </div>
+                  <div className={styles.pickCardRationale}>{rationale}</div>
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
 

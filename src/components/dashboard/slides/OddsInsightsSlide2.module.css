@@ -110,9 +110,15 @@
   padding: 4px 12px;
 }
 
+.pickTeamRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .pickLine {
   font-family: 'Oswald', sans-serif;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;

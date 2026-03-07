@@ -110,10 +110,29 @@
   gap: 10px;
 }
 
+.colLabel {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #B7986C;
+  border-bottom: 1px solid rgba(183, 152, 108, 0.18);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+
 .atsRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+}
+
+.atsLogoWrap {
+  flex-shrink: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .atsRank {

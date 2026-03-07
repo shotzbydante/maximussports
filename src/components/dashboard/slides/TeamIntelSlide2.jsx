@@ -107,12 +107,13 @@ export default function TeamIntelSlide2({ data, teamData, asOf, slideNumber, sli
       asOf={asOf}
       accentColor="#B7986C"
       brandMode="standard"
+      category="team"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
     >
       <div className={styles.titleSup}>TEAM INTEL · SLIDE {slideNumber ?? 2}</div>
-      <h2 className={styles.title}>ATS<br />Performance</h2>
+      <h2 className={styles.title}>Against<br />the Spread</h2>
       <div className={styles.divider} />
 
       {!hasAnyData ? (
@@ -139,7 +140,7 @@ export default function TeamIntelSlide2({ data, teamData, asOf, slideNumber, sli
 
       {signalText && (
         <div className={styles.signalBlock}>
-          <div className={styles.signalLabel}>ATS SIGNAL</div>
+          <div className={styles.signalLabel}>SPREAD SIGNAL</div>
           <div className={styles.signalText}>{signalText}</div>
         </div>
       )}

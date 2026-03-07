@@ -1,14 +1,33 @@
 import SlideShell from './SlideShell';
+import TeamLogo from '../../shared/TeamLogo';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './OddsInsightsSlide4.module.css';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 
+/**
+ * Safely convert an ATS record object/string to a display string.
+ * Never returns [object Object].
+ */
 function recStr(row) {
   if (!row) return '—';
   const r = row.last30 || row.rec || row.season || null;
   if (!r) return '—';
   if (typeof r === 'string') return r;
-  if (r.wins != null && r.losses != null) return `${r.wins}–${r.losses}`;
-  return String(r);
+  if (typeof r !== 'object') return String(r);
+  const w = r.w ?? r.wins ?? null;
+  const l = r.l ?? r.losses ?? null;
+  if (w != null && l != null) {
+    const pct = r.coverPct != null ? ` (${Math.round(r.coverPct)}%)` : '';
+    return `${w}–${l}${pct}`;
+  }
+  if (r.coverPct != null) return `${Math.round(r.coverPct)}%`;
+  return '—';
+}
+
+function makeTeamObj(name) {
+  if (!name) return null;
+  const cleaned = name.replace(/^(?:The |the )/, '').trim();
+  return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
 
 /**
@@ -40,6 +59,7 @@ export default function OddsInsightsSlide4({ data, asOf, slideNumber, slideTotal
       asOf={asOf}
       accentColor="#3C79B4"
       brandMode="light"
+      category="odds"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
@@ -72,25 +92,39 @@ export default function OddsInsightsSlide4({ data, asOf, slideNumber, slideTotal
       {/* ATS leaders */}
       {hasAts ? (
         <div className={styles.atsSection}>
-          <div className={styles.sectionLabel}>ATS LEADERS (L30)</div>
+          <div className={styles.sectionLabel}>AGAINST THE SPREAD LEADERS (L30)</div>
           <div className={styles.atsColumns}>
             <div className={styles.col}>
-              {best.map((r, i) => (
-                <div key={i} className={styles.atsRow}>
-                  <span className={styles.atsRank}>{i + 1}</span>
-                  <span className={styles.atsName}>{r.team || r.name || '—'}</span>
-                  <span className={styles.atsRec}>{recStr(r)}</span>
-                </div>
-              ))}
+              <div className={styles.colLabel}>HOT</div>
+              {best.map((r, i) => {
+                const tObj = makeTeamObj(r.team || r.name || '');
+                return (
+                  <div key={i} className={styles.atsRow}>
+                    <span className={styles.atsRank}>{i + 1}</span>
+                    <div className={styles.atsLogoWrap}>
+                      <TeamLogo team={tObj} size={26} />
+                    </div>
+                    <span className={styles.atsName}>{tObj?.name || '—'}</span>
+                    <span className={styles.atsRec}>{recStr(r)}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className={styles.col}>
-              {worst.map((r, i) => (
-                <div key={i} className={styles.atsRow}>
-                  <span className={styles.atsRank}>{i + 1}</span>
-                  <span className={styles.atsName}>{r.team || r.name || '—'}</span>
-                  <span className={`${styles.atsRec} ${styles.atsRecDown}`}>{recStr(r)}</span>
-                </div>
-              ))}
+              <div className={styles.colLabel}>COLD</div>
+              {worst.map((r, i) => {
+                const tObj = makeTeamObj(r.team || r.name || '');
+                return (
+                  <div key={i} className={styles.atsRow}>
+                    <span className={styles.atsRank}>{i + 1}</span>
+                    <div className={styles.atsLogoWrap}>
+                      <TeamLogo team={tObj} size={26} />
+                    </div>
+                    <span className={styles.atsName}>{tObj?.name || '—'}</span>
+                    <span className={`${styles.atsRec} ${styles.atsRecDown}`}>{recStr(r)}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -11,7 +11,7 @@ function fmtSpread(v) {
 export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal, ...rest }) {
   if (!game) {
     return (
-      <SlideShell asOf={asOf} brandMode="standard" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <SlideShell asOf={asOf} brandMode="standard" category="game" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
         <div className={styles.noGame}>Select a game to preview.</div>
       </SlideShell>
     );
@@ -37,6 +37,7 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
       asOf={asOf}
       accentColor="#3C79B4"
       brandMode="standard"
+      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}

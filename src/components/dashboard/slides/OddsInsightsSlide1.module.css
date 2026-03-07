@@ -43,82 +43,121 @@
 .countGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 44px;
+  gap: 12px;
+  margin-bottom: 28px;
 }
 
 .countCell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(60, 121, 180, 0.15);
-  border-radius: 16px;
-  padding: 24px 12px;
+  border-radius: 14px;
+  padding: 18px 10px;
 }
 
 .countValue {
   font-family: 'Oswald', sans-serif;
-  font-size: 56px;
+  font-size: 44px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1;
 }
 
 .countLabel {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.45);
+  color: rgba(240, 244, 248, 0.40);
 }
 
-/* Featured pick */
-.featuredPick {
-  background: rgba(60, 121, 180, 0.07);
-  border: 1px solid rgba(60, 121, 180, 0.25);
-  border-radius: 20px;
-  padding: 40px 44px;
+/* Picks list — replaces single featured pick */
+.picksList {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.pickCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  border-radius: 16px;
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pickCardTop {
+  background: rgba(60, 121, 180, 0.08);
+  border-color: rgba(60, 121, 180, 0.32);
+  border-left: 3px solid #3C79B4;
+}
+
+.pickCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pickTypeBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.25);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+.strongestBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #B7986C;
+  background: rgba(183, 152, 108, 0.12);
+  border: 1px solid rgba(183, 152, 108, 0.28);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+.pickCardTeamRow {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
-.featuredLabel {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #3C79B4;
-}
-
-.featuredLine {
+.pickCardLine {
   font-family: 'Oswald', sans-serif;
-  font-size: 44px;
+  font-size: 30px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
 }
 
-.featuredWhy {
-  font-size: 22px;
-  color: rgba(240, 244, 248, 0.55);
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.featuredConf {
-  margin-top: 4px;
+.pickCardRationale {
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.52);
+  font-weight: 400;
+  line-height: 1.45;
+  font-style: italic;
 }
 
 .confBadge {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 8px;
-  padding: 6px 16px;
+  border-radius: 6px;
+  padding: 3px 10px;
   display: inline-block;
 }
 

@@ -60,11 +60,39 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
     ? Math.max(...edgeEntries.map(e => e.atsRate))
     : 70;
 
+  /**
+   * Generate a concise, human-readable rationale for a team's ATS profile.
+   * Uses the same data available in the edge entry.
+   */
+  function buildRationale(edge) {
+    const rate = edge.atsRate;
+    const wl   = edge.wl;
+    const tf   = edge.timeframe || 'recently';
+    if (rate >= 70) {
+      return wl
+        ? `${wl} ${tf} — quiet heater against the number. Market still hasn't caught up.`
+        : `Covering at ${rate}% ${tf}. Strong cover profile and the market is behind.`;
+    }
+    if (rate >= 60) {
+      return wl
+        ? `${wl} ${tf} — holding firm at ${rate}%. Consistent edge the books haven't fully priced.`
+        : `Covering at ${rate}% ${tf}. Reliable against the spread with a solid recent lean.`;
+    }
+    if (rate >= 55) {
+      return wl
+        ? `${wl} ${tf} — steady ${rate}% cover rate. A slight but persistent edge.`
+        : `${rate}% cover rate ${tf}. Not screaming value, but a consistent trend.`;
+    }
+    return wl
+      ? `${wl} ${tf} — ${rate}% cover rate over this stretch.`
+      : `${rate}% ATS ${tf}.`;
+  }
+
   return (
-    <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#B7986C" styleMode={styleMode} category="daily" rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>ATS SPOTLIGHT</div>
-        <h2 className={styles.title}>COVER<br />THE SPREAD</h2>
+        <div className={styles.titleSup}>DAILY BRIEFING</div>
+        <h2 className={styles.title}>AGAINST<br />THE SPREAD</h2>
       </div>
 
       {/* ¶4 narrative lead — chatbot's direct voice */}
@@ -126,10 +154,10 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
                     <span className={styles.edgeTimeframe}>{edge.timeframe}</span>
                   </div>
 
-                  {/* ¶4 insight sentence when available */}
-                  {edge.insight && (
-                    <div className={styles.edgeInsight}>{edge.insight}</div>
-                  )}
+                  {/* Rationale — use chatbot insight if available, otherwise auto-generate */}
+                  <div className={styles.edgeInsight}>
+                    {edge.insight || buildRationale(edge)}
+                  </div>
                 </div>
               </div>
             );
@@ -140,7 +168,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
       <div className={styles.footNote}>
         {isRobot
           ? 'Cover % signals. Not financial advice.'
-          : 'ATS cover % over last 30 days — one of the strongest persistent edges in CBB.'}
+          : 'Against the spread cover % over last 30 days — one of the strongest persistent edges in CBB.'}
       </div>
     </SlideShell>
   );

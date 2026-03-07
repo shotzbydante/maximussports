@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [dailyStyleMode, setDailyStyleMode] = useState('generic');
   const [includeHeadlines, setIncludeHeadlines] = useState(true);
   const [gameAngle, setGameAngle] = useState('value');
+  const [gameMode, setGameMode] = useState('standard'); // 'standard' | '5games'
   const [picksMode, setPicksMode] = useState('top3');
   const [riskMode, setRiskMode] = useState('standard');
 
@@ -493,6 +494,7 @@ export default function Dashboard() {
     riskMode,
     picksMode,
     gameAngle,
+    gameMode,
     includeHeadlines,
     slideCount,
   };
@@ -648,49 +650,70 @@ export default function Dashboard() {
           {activeSection === 'game' && (
             <div className={styles.sectionControls}>
               <div className={styles.controlGroup}>
-                <label className={styles.controlLabel}>Game</label>
-                {gamesForPicker.length === 0 ? (
-                  <div className={styles.emptyPicker}>No games with lines available</div>
-                ) : (
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.select}
-                      value={selectedGame ? JSON.stringify({ away: selectedGame.awayTeam, home: selectedGame.homeTeam }) : ''}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (!val) return;
-                        const { away, home } = JSON.parse(val);
-                        const g = gamesForPicker.find(x => x.awayTeam === away && x.homeTeam === home);
-                        setSelectedGame(g ?? null);
-                        setAssetsReady(false);
-                      }}
-                    >
-                      {gamesForPicker.map((g, i) => (
-                        <option key={i} value={JSON.stringify({ away: g.awayTeam, home: g.homeTeam })}>
-                          {gameLabel(g)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-              <div className={styles.controlGroup}>
-                <label className={styles.controlLabel}>Angle</label>
+                <label className={styles.controlLabel}>Mode</label>
                 <div className={styles.chipGroup}>
                   {[
-                    { id: 'value', label: 'Value' },
-                    { id: 'story', label: 'Story' },
+                    { id: 'standard', label: 'Single Game' },
+                    { id: '5games',   label: '5 Key Games' },
                   ].map(opt => (
                     <button
                       key={opt.id}
-                      className={`${styles.chip} ${gameAngle === opt.id ? styles.chipActive : ''}`}
-                      onClick={() => { setGameAngle(opt.id); setAssetsReady(false); }}
+                      className={`${styles.chip} ${gameMode === opt.id ? styles.chipActive : ''}`}
+                      onClick={() => { setGameMode(opt.id); setAssetsReady(false); }}
                     >
                       {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
+              {gameMode === 'standard' && (
+                <>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Game</label>
+                    {gamesForPicker.length === 0 ? (
+                      <div className={styles.emptyPicker}>No games with lines available</div>
+                    ) : (
+                      <div className={styles.selectWrap}>
+                        <select
+                          className={styles.select}
+                          value={selectedGame ? JSON.stringify({ away: selectedGame.awayTeam, home: selectedGame.homeTeam }) : ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const { away, home } = JSON.parse(val);
+                            const g = gamesForPicker.find(x => x.awayTeam === away && x.homeTeam === home);
+                            setSelectedGame(g ?? null);
+                            setAssetsReady(false);
+                          }}
+                        >
+                          {gamesForPicker.map((g, i) => (
+                            <option key={i} value={JSON.stringify({ away: g.awayTeam, home: g.homeTeam })}>
+                              {gameLabel(g)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Angle</label>
+                    <div className={styles.chipGroup}>
+                      {[
+                        { id: 'value', label: 'Value' },
+                        { id: 'story', label: 'Story' },
+                      ].map(opt => (
+                        <button
+                          key={opt.id}
+                          className={`${styles.chip} ${gameAngle === opt.id ? styles.chipActive : ''}`}
+                          onClick={() => { setGameAngle(opt.id); setAssetsReady(false); }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

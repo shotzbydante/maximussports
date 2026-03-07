@@ -16,6 +16,7 @@ import TeamIntelSlide3 from './slides/TeamIntelSlide3';
 import GamePreviewSlide1 from './slides/GamePreviewSlide1';
 import GamePreviewSlide2 from './slides/GamePreviewSlide2';
 import GamePreviewSlide3 from './slides/GamePreviewSlide3';
+import GameInsights5GamesSlide from './slides/GameInsights5GamesSlide';
 
 // Odds Insights slides
 import OddsInsightsSlide1 from './slides/OddsInsightsSlide1';
@@ -29,11 +30,13 @@ import styles from './CarouselComposer.module.css';
  * Template → ordered slide component list.
  * Each entry is a component that accepts { data, teamData, game, asOf, slideNumber, slideTotal, options }.
  */
-function getSlides(template, slideCount) {
+function getSlides(template, slideCount, options = {}) {
   switch (template) {
     case 'team':
       return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 3));
     case 'game':
+      // '5games' mode: single slide showing 5 key upcoming games
+      if (options?.gameMode === '5games') return [GameInsights5GamesSlide];
       return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, Math.min(slideCount, 3));
     case 'odds':
       if (slideCount >= 4) {
@@ -88,7 +91,7 @@ export default function CarouselComposer({
     timeZone: 'America/Los_Angeles', timeZoneName: 'short',
   });
 
-  const slides = getSlides(template, slideCount);
+  const slides = getSlides(template, slideCount, options);
   const total = slides.length;
 
   const slideProps = { data, teamData, game: selectedGame, asOf, slideTotal: total, options };

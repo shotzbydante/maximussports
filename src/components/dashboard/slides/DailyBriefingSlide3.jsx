@@ -136,10 +136,22 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
   // If no spread available, note it gracefully rather than forcing betting copy
   const spreadAvailable = gameEntries.some(g => g.spread);
 
+  // Rankings lookup for team badges
+  const rankingsTop25 = data?.rankingsTop25 ?? [];
+  function getRank(teamName) {
+    if (!teamName || !rankingsTop25.length) return null;
+    const key = teamName.toLowerCase().trim();
+    const entry = rankingsTop25.find(r => {
+      const rName = (r.teamName || r.name || r.team || '').toLowerCase().trim();
+      return rName === key || rName.includes(key.split(' ').pop() ?? '') || key.includes(rName.split(' ').pop() ?? '');
+    });
+    return entry?.rank ?? null;
+  }
+
   return (
-    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} rest={rest}>
+    <SlideShell asOf={asOf} accentColor="#3C79B4" styleMode={styleMode} category="daily" rest={rest}>
       <div className={styles.titleBlock}>
-        <div className={styles.titleSup}>ON THE SLATE TODAY</div>
+        <div className={styles.titleSup}>DAILY BRIEFING</div>
         <h2 className={styles.title}>WHAT TO<br />WATCH</h2>
       </div>
 
@@ -154,6 +166,9 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
           {gameEntries.map((g, i) => {
             const awayTeam = makeTeam(g.away);
             const homeTeam = makeTeam(g.home);
+            const awayRank = getRank(awayTeam?.name || g.away);
+            const homeRank = getRank(homeTeam?.name || g.home);
+            const logoSize = i === 0 ? 44 : 36;
             return (
               <div
                 key={i}
@@ -167,8 +182,11 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
                 {/* Matchup: away @ home */}
                 <div className={styles.matchupRow}>
                   <div className={styles.teamCol}>
-                    <TeamLogo team={awayTeam} size={i === 0 ? 46 : 40} />
-                    <span className={styles.teamName}>{awayTeam?.name || g.away || '—'}</span>
+                    <TeamLogo team={awayTeam} size={logoSize} />
+                    <div className={styles.teamNameWrap}>
+                      {awayRank != null && <span className={styles.rankBadge}>#{awayRank}</span>}
+                      <span className={styles.teamName}>{awayTeam?.name || g.away || '—'}</span>
+                    </div>
                   </div>
 
                   <div className={styles.vsBlock}>
@@ -180,8 +198,11 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
                   </div>
 
                   <div className={`${styles.teamCol} ${styles.teamColRight}`}>
-                    <span className={styles.teamName}>{homeTeam?.name || g.home || '—'}</span>
-                    <TeamLogo team={homeTeam} size={i === 0 ? 46 : 40} />
+                    <div className={`${styles.teamNameWrap} ${styles.teamNameWrapRight}`}>
+                      {homeRank != null && <span className={styles.rankBadge}>#{homeRank}</span>}
+                      <span className={styles.teamName}>{homeTeam?.name || g.home || '—'}</span>
+                    </div>
+                    <TeamLogo team={homeTeam} size={logoSize} />
                   </div>
                 </div>
 

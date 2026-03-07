@@ -61,6 +61,7 @@ export default function GamePreviewSlide3({ game, data, asOf, slideNumber, slide
       asOf={asOf}
       accentColor="#3C79B4"
       brandMode="light"
+      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
