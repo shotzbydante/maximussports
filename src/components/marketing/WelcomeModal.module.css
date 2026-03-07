@@ -28,12 +28,17 @@
 .panel {
   position: relative;
   width: 100%;
-  max-width: 640px;
-  max-height: calc(100vh - 32px);
+  max-width: 600px;
+  /*
+    Height is bounded by viewport minus safe padding.
+    overflow-y: auto handles the rare case where content still overflows
+    (very small viewports), but the video cap below prevents it on ≥680px.
+  */
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
   background: var(--color-bg-elevated);
   border-radius: 16px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5), 0 2px 12px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.14);
   display: flex;
   flex-direction: column;
   animation: slideUp 0.22s ease;
@@ -45,21 +50,32 @@
 }
 
 @keyframes slideUp {
-  from { transform: translateY(16px); opacity: 0.55; }
-  to   { transform: translateY(0);    opacity: 1;    }
+  from { transform: translateY(14px); opacity: 0.6; }
+  to   { transform: translateY(0);    opacity: 1;   }
 }
 
-/* ─── Floating close button (overlays video top-right) ───────────── */
+/* ─── Sticky close bar — zero-height, always at the top of the visible
+       scroll viewport. The close button overlaps the video below it.   */
+
+.closeBar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 0;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 10px;
+}
 
 .closeBtn {
-  position: absolute;
+  pointer-events: all;
+  position: relative;
   top: 10px;
-  right: 10px;
-  z-index: 2;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(10, 18, 28, 0.52);
+  background: rgba(10, 18, 28, 0.56);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #fff;
   cursor: pointer;
@@ -67,10 +83,11 @@
   align-items: center;
   justify-content: center;
   transition: background 0.13s;
+  flex-shrink: 0;
 }
 
 .closeBtn:hover {
-  background: rgba(10, 18, 28, 0.75);
+  background: rgba(10, 18, 28, 0.8);
 }
 
 .closeBtn:focus-visible {
@@ -82,10 +99,18 @@
 
 .videoWrap {
   width: 100%;
+  /*
+    Cap the video height so the body copy and CTAs are always visible
+    on typical laptop/desktop viewports (≥680px).
+    aspect-ratio provides intrinsic sizing; max-height overrides when
+    the viewport is short, producing a letterboxed/cropped crop via
+    object-fit: cover — which looks intentional and premium.
+  */
   aspect-ratio: 16 / 9;
+  max-height: min(250px, 36vh);
   background: #000;
   overflow: hidden;
-  flex-shrink: 0;
+  /* No flex-shrink: 0 — allow compression on very small viewports */
 }
 
 .video {
@@ -237,16 +262,25 @@
 
   .panel {
     border-radius: 16px 16px 0 0;
-    max-height: 92vh;
+    max-height: 94vh;
+  }
+
+  .videoWrap {
+    /* On mobile the panel is narrower; 34vh cap keeps things tight */
+    max-height: min(210px, 34vh);
   }
 
   .body {
-    padding: 20px 20px 36px;
-    gap: 14px;
+    padding: 18px 20px 36px;
+    gap: 12px;
   }
 
   .title {
-    font-size: 1.35rem;
+    font-size: 1.3rem;
+  }
+
+  .subtitle {
+    font-size: 0.84rem;
   }
 }
 

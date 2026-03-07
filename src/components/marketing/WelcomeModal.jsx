@@ -65,18 +65,24 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div className={styles.panel}>
-        {/* Floating close button overlays the video */}
-        <button
-          ref={closeBtnRef}
-          type="button"
-          className={styles.closeBtn}
-          aria-label="Close welcome modal"
-          onClick={onClose}
-        >
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden>
-            <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-        </button>
+        {/*
+          Sticky close bar — zero-height, sticks to the top of the panel's
+          scroll viewport so the close button is always accessible even when
+          the panel scrolls on very small viewports.
+        */}
+        <div className={styles.closeBar}>
+          <button
+            ref={closeBtnRef}
+            type="button"
+            className={styles.closeBtn}
+            aria-label="Close welcome modal"
+            onClick={onClose}
+          >
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
 
         {/* Dunk video — rendered only when modal is open */}
         <div className={styles.videoWrap}>

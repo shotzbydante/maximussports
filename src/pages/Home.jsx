@@ -221,6 +221,17 @@ function generateLiveBriefing(games = [], rankMap = {}) {
 
 // ─── slate-date helpers ────────────────────────────────────────────────────────
 
+/**
+ * Sports-day rollover hour (local time).
+ *
+ * College basketball games never tip off before 4 AM. The overnight window
+ * (midnight–3:59 AM local) is treated as part of the *previous* calendar day's
+ * sports slate so the UI doesn't prematurely skip to the next day's games.
+ *
+ * Example: 12:30 AM Saturday March 7  →  sports day = Friday March 6.
+ */
+const SPORTS_DAY_ROLLOVER_HOUR = 4;
+
 /** Returns YYYY-MM-DD for today (local date). */
 function todayDateStr() {
   const d = new Date();
@@ -231,6 +242,43 @@ function todayDateStr() {
 function offsetDateStr(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Returns YYYY-MM-DD for the current *sports day* (local date with rollover).
+ *
+ * Before SPORTS_DAY_ROLLOVER_HOUR the previous calendar day is returned so
+ * that just-after-midnight visits still show the correct active slate.
+ *
+ * Examples (SPORTS_DAY_ROLLOVER_HOUR = 4):
+ *   12:30 AM Sat Mar 7  →  "2026-03-06" (Fri Mar 6 — the active sports day)
+ *    5:00 AM Sat Mar 7  →  "2026-03-07" (Sat Mar 7)
+ */
+function sportsDateStr() {
+  const d = new Date();
+  if (d.getHours() < SPORTS_DAY_ROLLOVER_HOUR) {
+    d.setDate(d.getDate() - 1);
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Returns YYYY-MM-DD for the *next* sports day after the current one.
+ *
+ * Before SPORTS_DAY_ROLLOVER_HOUR, the current calendar day is "next" because
+ * the prior calendar day is still the active sports day.
+ *
+ * Examples (SPORTS_DAY_ROLLOVER_HOUR = 4):
+ *   12:30 AM Sat Mar 7  →  "2026-03-07" (Sat Mar 7 — the actual next slate)
+ *    5:00 AM Sat Mar 7  →  "2026-03-08" (Sun Mar 8 — tomorrow)
+ */
+function nextSportsDayStr() {
+  const d = new Date();
+  if (d.getHours() >= SPORTS_DAY_ROLLOVER_HOUR) {
+    d.setDate(d.getDate() + 1);
+  }
+  // Before rollover hour: return today's calendar date (no adjustment needed)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
@@ -297,22 +345,24 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   }, [briefingData]);
 
   // When today's games are all final and we haven't fetched the next slate yet,
-  // request tomorrow's schedule via the existing /api/home?dates= param.
+  // request the next sports day's schedule via the existing /api/home?dates= param.
+  // Uses nextSportsDayStr() rather than a hard +1-day offset so that just-after-
+  // midnight visits correctly fetch today's calendar date instead of skipping ahead.
   useEffect(() => {
     if (loading) return;
     if (!allGamesComplete(games)) return;
     if (nextSlateFetchedRef.current) return;
     nextSlateFetchedRef.current = true;
-    const tomorrowIso = offsetDateStr(1);
-    const tomorrowApi = toApiDateStr(tomorrowIso);
+    const nextSlateIso = nextSportsDayStr();
+    const nextSlateApi = toApiDateStr(nextSlateIso);
     setNextSlateLoading(true);
     const nextSlateAbort = new AbortController();
     const nextSlateTimeout = setTimeout(() => nextSlateAbort.abort(), 8000);
-    fetch(`/api/home?dates=${tomorrowApi}`, { signal: nextSlateAbort.signal })
+    fetch(`/api/home?dates=${nextSlateApi}`, { signal: nextSlateAbort.signal })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         clearTimeout(nextSlateTimeout);
-        const rawGames  = data?.scoresByDate?.[tomorrowApi] ?? [];
+        const rawGames  = data?.scoresByDate?.[nextSlateApi] ?? [];
         const oddsGames = data?.odds?.games ?? [];
         const merged    = mergeGamesWithOdds(rawGames, oddsGames, getTeamSlug);
         setNextSlateGames(merged.length > 0 ? merged : []);
@@ -327,7 +377,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   }, [loading, games]);
 
   // Thin slate: when today has games but fewer than MIN_GAMES_FOR_PICKS,
-  // and today is NOT yet complete, fetch tomorrow's games to supplement.
+  // and today is NOT yet complete, fetch the next sports day to supplement.
   useEffect(() => {
     if (loading) return;
     if (games.length === 0) return;
@@ -335,13 +385,13 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     if (games.length >= MIN_GAMES_FOR_PICKS) return; // slate is rich enough
     if (thinSlateFetchedRef.current) return;
     thinSlateFetchedRef.current = true;
-    const tomorrowIso = offsetDateStr(1);
-    const tomorrowApi = toApiDateStr(tomorrowIso);
+    const nextSlateIso = nextSportsDayStr();
+    const nextSlateApi = toApiDateStr(nextSlateIso);
     setThinSlateLoading(true);
-    fetch(`/api/home?dates=${tomorrowApi}`)
+    fetch(`/api/home?dates=${nextSlateApi}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        const rawGames  = data?.scoresByDate?.[tomorrowApi] ?? [];
+        const rawGames  = data?.scoresByDate?.[nextSlateApi] ?? [];
         const oddsGames = data?.odds?.games ?? [];
         const merged    = mergeGamesWithOdds(rawGames, oddsGames, getTeamSlug);
         setThinSlateGames(merged.length > 0 ? merged : []);
@@ -373,11 +423,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       : games;
 
   const slateDate = todayComplete
-    ? offsetDateStr(1)
-    : (games.length > 0 ? todayDateStr() : null);
+    ? nextSportsDayStr()   // sports-aware: returns today's calendar date before 4 AM
+    : (games.length > 0 ? sportsDateStr() : null);
 
-  // When thin slate is active, pass tomorrow's date so MaximusPicks can show combined label
-  const slateDateSecondary = isThinSlate ? offsetDateStr(1) : null;
+  // When thin slate is active, pass the next sports day so MaximusPicks can show combined label
+  const slateDateSecondary = isThinSlate ? nextSportsDayStr() : null;
 
   const slateComplete = todayComplete;
 
