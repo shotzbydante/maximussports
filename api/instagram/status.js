@@ -7,6 +7,10 @@
  *   2. The configured Instagram account ID is reachable via the Graph API
  *   3. The access token is valid and authorised for the account
  *
+ * Uses the Meta Graph API (graph.facebook.com) — NOT the Basic Display API
+ * (graph.instagram.com). Professional/business Instagram accounts must be
+ * verified via the Facebook Graph API using a system user or page access token.
+ *
  * This route does NOT post content — it is read-only and production-safe.
  */
 
@@ -39,14 +43,14 @@ export default async function handler(req, res) {
     });
   }
 
-  // --- Stage 2: Instagram Graph API verification ---
+  // --- Stage 2: Meta Graph API verification (professional account) ---
   const accountId   = process.env.INSTAGRAM_ACCOUNT_ID;
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
-  const url = `https://graph.instagram.com/${accountId}?fields=id,username,account_type&access_token=${accessToken}`;
+  const endpoint = `https://graph.facebook.com/v23.0/${accountId}?fields=id,username,account_type&access_token=${accessToken}`;
 
   let data;
   try {
-    const response = await fetch(url);
+    const response = await fetch(endpoint);
     data = await response.json();
 
     if (!response.ok || data.error) {
@@ -55,6 +59,8 @@ export default async function handler(req, res) {
       return res.status(502).json({
         ok: false,
         stage: 'instagram_api',
+        endpointUsed: `https://graph.facebook.com/v23.0/{INSTAGRAM_ACCOUNT_ID}`,
+        instagramAccountIdPresent: !!accountId,
         envCheck,
         error: safeError,
       });
@@ -63,6 +69,8 @@ export default async function handler(req, res) {
     return res.status(500).json({
       ok: false,
       stage: 'fetch',
+      endpointUsed: `https://graph.facebook.com/v23.0/{INSTAGRAM_ACCOUNT_ID}`,
+      instagramAccountIdPresent: !!accountId,
       envCheck,
       error: err.message ?? 'Network error contacting Meta API',
     });
