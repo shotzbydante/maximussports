@@ -1,0 +1,51 @@
+/* ═══════════════════════════════════════════════════════════════════
+   FORMATTED SUMMARY — Inline section label chips
+   Premium editorial treatment for AI briefing text
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sectionChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.585rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+  margin-right: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+/* ── Blue — default / analysis ─────────────────────────────────── */
+.chipBlue {
+  background: rgba(60, 121, 180, 0.09);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  color: var(--color-primary);
+}
+
+/* ── Green — ATS / market signals ─────────────────────────────── */
+.chipGreen {
+  background: rgba(45, 138, 110, 0.09);
+  border: 1px solid rgba(45, 138, 110, 0.22);
+  color: #1a6b50;
+}
+
+/* ── Gold — news / closer ──────────────────────────────────────── */
+.chipGold {
+  background: rgba(183, 152, 108, 0.11);
+  border: 1px solid rgba(183, 152, 108, 0.28);
+  color: #7a5a2a;
+}
+
+/* ── Slate — recap / history ───────────────────────────────────── */
+.chipSlate {
+  background: rgba(90, 122, 145, 0.09);
+  border: 1px solid rgba(90, 122, 145, 0.22);
+  color: #47697e;
+}

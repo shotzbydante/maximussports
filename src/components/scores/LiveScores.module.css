@@ -1,10 +1,21 @@
 /* Modern live scores feed */
 .widget {
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid rgba(60, 121, 180, 0.11);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.06);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.widget:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .widget { transition: none; }
+  .widget:hover { transform: none; }
 }
 
 .widgetHeader {
@@ -69,9 +80,9 @@
 
 /* Individual game card */
 .gameCard {
-  padding: 4px var(--space-md);
+  padding: 6px var(--space-md) 5px;
   border-bottom: 1px solid var(--color-border-light);
-  transition: background 0.1s;
+  transition: background 0.12s, filter 0.12s;
 }
 
 /* ─── Desktop: tighter density (min-width 900px) ───────────────────────────── */
@@ -80,11 +91,11 @@
      so game rows stay aligned with the full-width widget header. */
 
   .widgetHeader {
-    padding: 8px var(--space-md) 6px;
+    padding: 9px var(--space-md) 7px;
   }
 
   .gameCard {
-    padding: 3px var(--space-md) 2px;
+    padding: 4px var(--space-md) 3px;
     border-bottom: 1px solid var(--color-border-light);
   }
 
@@ -133,7 +144,8 @@
 }
 
 .gameCard:hover {
-  background: rgba(60, 121, 180, 0.025);
+  background: rgba(60, 121, 180, 0.032);
+  filter: brightness(1.006);
 }
 
 .gameCardLive {
@@ -243,7 +255,7 @@ a.teamName:hover {
 /* Score */
 .teamScore {
   font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--color-text-secondary);
   text-align: right;
@@ -251,7 +263,8 @@ a.teamName:hover {
 }
 
 .scoreWinner {
-  font-size: 1.05rem;
+  font-size: 1.12rem;
+  font-weight: 700;
   color: var(--color-text);
 }
 
@@ -343,6 +356,11 @@ a.teamName:hover {
   font-size: 0.65rem;
   color: var(--color-text-muted);
   white-space: nowrap;
+  background: rgba(60, 121, 180, 0.055);
+  border: 1px solid rgba(60, 121, 180, 0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  letter-spacing: 0.02em;
 }
 
 /* "View more games" button — sits below the game list */
