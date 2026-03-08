@@ -12,6 +12,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchHomeFast, fetchHomeSlow } from '../api/home';
+import { sportsDateStr } from '../utils/slateDate';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { mergeGamesWithOdds } from '../api/odds';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
@@ -1030,11 +1031,10 @@ export default function Insights() {
     return Object.keys(map).length > 0 ? map : null;
   }, [atsLeaders]);
 
-  // Today's ISO date string for MaximusPicks slate label
-  const slateDate = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }, []);
+  // Sports-day aware date for MaximusPicks slate label.
+  // Uses the same 4 AM local-time rollover as Home so the label is consistent
+  // across pages (e.g. 12:30 AM still shows the previous calendar day's slate).
+  const slateDate = useMemo(() => sportsDateStr(), []);
 
   // Persist a compact briefing snapshot to localStorage so the Home teaser
   // can show a live excerpt without triggering any new API calls.
@@ -1085,7 +1085,7 @@ export default function Insights() {
           games={allGames}
           atsLeaders={atsLeaders}
           atsBySlug={atsBySlug}
-          loading={isLoading || atsLoading}
+          loading={fastLoading || slowLoading || atsLoading}
           slateDate={slateDate}
           hideViewMore
         />

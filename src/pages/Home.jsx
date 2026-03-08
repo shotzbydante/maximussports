@@ -30,6 +30,7 @@ import MaximusPicks from '../components/home/MaximusPicks';
 import { buildMaximusPicks, buildPicksSummary } from '../utils/maximusPicksModel';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
+import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import styles from './Home.module.css';
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
@@ -217,74 +218,6 @@ function generateLiveBriefing(games = [], rankMap = {}) {
   }
 
   return lines.join('\n\n');
-}
-
-// ─── slate-date helpers ────────────────────────────────────────────────────────
-
-/**
- * Sports-day rollover hour (local time).
- *
- * College basketball games never tip off before 4 AM. The overnight window
- * (midnight–3:59 AM local) is treated as part of the *previous* calendar day's
- * sports slate so the UI doesn't prematurely skip to the next day's games.
- *
- * Example: 12:30 AM Saturday March 7  →  sports day = Friday March 6.
- */
-const SPORTS_DAY_ROLLOVER_HOUR = 4;
-
-/** Returns YYYY-MM-DD for today (local date). */
-function todayDateStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** Returns YYYY-MM-DD for the day N days from now (local date). */
-function offsetDateStr(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/**
- * Returns YYYY-MM-DD for the current *sports day* (local date with rollover).
- *
- * Before SPORTS_DAY_ROLLOVER_HOUR the previous calendar day is returned so
- * that just-after-midnight visits still show the correct active slate.
- *
- * Examples (SPORTS_DAY_ROLLOVER_HOUR = 4):
- *   12:30 AM Sat Mar 7  →  "2026-03-06" (Fri Mar 6 — the active sports day)
- *    5:00 AM Sat Mar 7  →  "2026-03-07" (Sat Mar 7)
- */
-function sportsDateStr() {
-  const d = new Date();
-  if (d.getHours() < SPORTS_DAY_ROLLOVER_HOUR) {
-    d.setDate(d.getDate() - 1);
-  }
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/**
- * Returns YYYY-MM-DD for the *next* sports day after the current one.
- *
- * Before SPORTS_DAY_ROLLOVER_HOUR, the current calendar day is "next" because
- * the prior calendar day is still the active sports day.
- *
- * Examples (SPORTS_DAY_ROLLOVER_HOUR = 4):
- *   12:30 AM Sat Mar 7  →  "2026-03-07" (Sat Mar 7 — the actual next slate)
- *    5:00 AM Sat Mar 7  →  "2026-03-08" (Sun Mar 8 — tomorrow)
- */
-function nextSportsDayStr() {
-  const d = new Date();
-  if (d.getHours() >= SPORTS_DAY_ROLLOVER_HOUR) {
-    d.setDate(d.getDate() + 1);
-  }
-  // Before rollover hour: return today's calendar date (no adjustment needed)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** Returns YYYYMMDD (no dashes) from YYYY-MM-DD. */
-function toApiDateStr(iso) {
-  return iso.replace(/-/g, '');
 }
 
 /**

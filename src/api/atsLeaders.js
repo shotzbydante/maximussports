@@ -47,10 +47,25 @@ function clientLastKnownMeta(prevMeta) {
 export async function fetchAtsLeaders(window = 'last30', opts = {}) {
   const w = VALID_WINDOWS.includes(window) ? window : 'last30';
   const inFlightKey = `ats:leaders:${w}`;
+
+  // Return the existing in-flight promise if there is one.
+  //
+  // IMPORTANT: we do NOT forward opts.signal into the shared fetch. The
+  // in-flight Promise may be awaited by multiple callers (e.g. Home and
+  // Insights both coalescing onto the same request). If we passed the first
+  // caller's AbortSignal and that caller unmounts (Home navigating away), the
+  // signal fires and aborts the network request for ALL waiters — causing
+  // Insights to receive empty atsLeaders from the catch block.
+  //
+  // Callers that need per-component cancellation should handle it themselves
+  // (e.g. the `cancelled` flag in useAtsLeaders prevents stale state updates
+  // after unmount, which is sufficient and safer).
   if (inFlightByWindow[inFlightKey]) return inFlightByWindow[inFlightKey];
+
   inFlightByWindow[inFlightKey] = (async () => {
     try {
-      const res = await fetch(`/api/ats/leaders?window=${w}`, { signal: opts?.signal });
+      // No signal passed — see note above about shared in-flight promises.
+      const res = await fetch(`/api/ats/leaders?window=${w}`);
       if (!res.ok) {
         const last = lastSuccessByWindow[w];
         if (last && Date.now() - last.ts < LAST_KNOWN_TTL_MS) {
@@ -82,14 +97,6 @@ export async function fetchAtsLeaders(window = 'last30', opts = {}) {
       const last = lastSuccessByWindow[w];
       if (last && Date.now() - last.ts < LAST_KNOWN_TTL_MS) {
         return { ...last.data, atsMeta: clientLastKnownMeta(last.data.atsMeta) };
-      }
-      if (opts?.signal?.aborted) {
-        return {
-          atsLeaders: { best: [], worst: [] },
-          atsMeta: { status: 'EMPTY', reason: 'aborted', sourceLabel: null, confidence: 'low', generatedAt: new Date().toISOString() },
-          atsWindow: w,
-          seasonWarming: false,
-        };
       }
       return {
         atsLeaders: { best: [], worst: [] },
