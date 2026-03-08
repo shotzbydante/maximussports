@@ -1,0 +1,502 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   TeamIntelSlide4 — Instagram Hero Summary
+   1080 × 1350 · IG 4:5 · Premium cinematic editorial card
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Keyframes ─────────────────────────────────────────────────────────── */
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes logoGlowPulse {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 40px color-mix(in srgb, var(--team-primary) 55%, transparent))
+      drop-shadow(0 4px 24px rgba(0,0,0,0.55));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 80px color-mix(in srgb, var(--team-primary) 80%, transparent))
+      drop-shadow(0 4px 24px rgba(0,0,0,0.55));
+  }
+}
+
+@keyframes bgGlowBreath {
+  0%, 100% { opacity: 0.75; }
+  50%       { opacity: 1.0; }
+}
+
+@keyframes shimmerSweep {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes glowRingPulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.7;
+  }
+}
+
+@keyframes scanFade {
+  0%, 100% { opacity: 0.04; }
+  50%       { opacity: 0.07; }
+}
+
+/* ── Root artboard ─────────────────────────────────────────────────────── */
+
+.artboard {
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #f0f4f8;
+  /* CSS custom props fed by the component */
+  --team-primary:   #4A90D9;
+  --team-secondary: #071422;
+}
+
+/* ── Background layers (z 0–3, all pointer-events: none) ─────────────── */
+
+/* Layer 0: base dark tinted by team secondary */
+.bgBase {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--team-secondary) 80%, #000) 0%,
+    color-mix(in srgb, var(--team-secondary) 40%, #000) 45%,
+    #02060c 100%
+  );
+  pointer-events: none;
+}
+
+/* Layer 1: radial team-color glow from upper-center — the atmospheric hero */
+.bgGlow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(
+      ellipse 860px 620px at 50% 22%,
+      color-mix(in srgb, var(--team-primary) 42%, transparent) 0%,
+      color-mix(in srgb, var(--team-primary) 12%, transparent) 45%,
+      transparent 72%
+    );
+  animation: bgGlowBreath 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Layer 2: directional energy ray — vertical light from top */
+.bgRay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--team-primary) 8%, transparent) 0%,
+    transparent 55%
+  );
+  pointer-events: none;
+}
+
+/* Layer 3: noise/grain overlay — cinematic texture */
+.bgNoise {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.045;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  animation: scanFade 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+.header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 52px 80px 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--team-primary) 18%, transparent);
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brandLogo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.logoMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brandName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: #ffffff;
+}
+
+.intelChip {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--team-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--team-primary) 12%, transparent);
+  color: color-mix(in srgb, var(--team-primary) 90%, #fff);
+  display: inline-block;
+}
+
+.headerRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.asOf {
+  font-size: 18px;
+  color: rgba(240, 244, 248, 0.35);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.maxIntel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--team-primary) 65%, rgba(240,244,248,0.5));
+}
+
+/* ── Team logo zone ─────────────────────────────────────────────────────── */
+
+.logoZone {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 310px;
+  margin-top: 8px;
+}
+
+/* Pulsing glow ring behind the logo */
+.logoGlowRing {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--team-primary) 35%, transparent) 0%,
+    transparent 70%
+  );
+  animation: glowRingPulse 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.teamLogo {
+  position: relative;
+  max-width: 280px;
+  max-height: 280px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  z-index: 2;
+  animation: logoFloat 5s ease-in-out infinite, logoGlowPulse 3.5s ease-in-out infinite;
+}
+
+.logoFallback {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--team-primary) 15%, transparent);
+  border: 2px dashed color-mix(in srgb, var(--team-primary) 30%, transparent);
+}
+
+/* ── Team identity ──────────────────────────────────────────────────────── */
+
+.identity {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 0 60px;
+  margin-top: 6px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.rankPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--team-primary) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--team-primary) 40%, transparent);
+  color: color-mix(in srgb, var(--team-primary) 90%, #fff);
+  border-radius: 8px;
+  padding: 4px 13px;
+  letter-spacing: 0.04em;
+}
+
+.confPill {
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(240, 244, 248, 0.72);
+  border-radius: 8px;
+  padding: 4px 12px;
+  letter-spacing: 0.04em;
+}
+
+.recordPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.85);
+  letter-spacing: 0.04em;
+}
+
+.teamName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 60px;
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  /* Subtle team-color text glow */
+  text-shadow:
+    0 0 60px color-mix(in srgb, var(--team-primary) 50%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.mascotEmoji {
+  margin-left: 10px;
+  font-size: 44px;
+  vertical-align: middle;
+  line-height: 1;
+  display: inline-block;
+}
+
+.formLine {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.45);
+  letter-spacing: 0.06em;
+}
+
+/* ── Editorial headline zone ─────────────────────────────────────────────── */
+
+.headlineZone {
+  position: relative;
+  z-index: 10;
+  padding: 24px 64px 16px;
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* Top divider — team-colored horizontal line */
+.headlineDivider {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--team-primary) 60%, transparent) 20%,
+    var(--team-primary) 50%,
+    color-mix(in srgb, var(--team-primary) 60%, transparent) 80%,
+    transparent 100%
+  );
+  margin-bottom: 24px;
+  border-radius: 2px;
+}
+
+.headline {
+  font-family: 'Oswald', sans-serif;
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* Shimmer animation on the headline — the hero "cinemagraph" touch */
+  background: linear-gradient(
+    105deg,
+    rgba(255,255,255,0) 40%,
+    color-mix(in srgb, var(--team-primary) 35%, rgba(255,255,255,0.25)) 50%,
+    rgba(255,255,255,0) 60%
+  );
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent; /* fallback overridden by gradient clip */
+  /* Ensure white for environments that don't support bg-clip text */
+  animation: shimmerSweep 5s ease-in-out infinite;
+  /* Force white on text-fill for unsupported; revert to white */
+  text-shadow: none;
+}
+
+.headlineLine {
+  display: block;
+  color: inherit;
+}
+
+.headlineDividerBottom {
+  width: 80%;
+  margin: 20px auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--team-primary) 30%, transparent) 30%,
+    color-mix(in srgb, var(--team-primary) 50%, transparent) 50%,
+    color-mix(in srgb, var(--team-primary) 30%, transparent) 70%,
+    transparent 100%
+  );
+}
+
+/* ── Data chip grid ─────────────────────────────────────────────────────── */
+
+.dataGrid {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+  margin: 18px 60px 0;
+  border: 1px solid color-mix(in srgb, var(--team-primary) 22%, transparent);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(4px);
+}
+
+.dataChip {
+  flex: 1;
+  text-align: center;
+  padding: 20px 16px 18px;
+  border-right: 1px solid color-mix(in srgb, var(--team-primary) 18%, transparent);
+}
+
+.dataChip:last-child {
+  border-right: none;
+}
+
+.chipLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.38);
+  margin-bottom: 8px;
+}
+
+.chipValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--team-primary) 90%, #fff);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Market signal line ─────────────────────────────────────────────────── */
+
+.signalLine {
+  position: relative;
+  z-index: 10;
+  margin: 20px 64px 0;
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--team-primary) 85%, #fff);
+  text-align: center;
+  letter-spacing: 0.01em;
+  opacity: 0.9;
+  text-shadow: 0 0 20px color-mix(in srgb, var(--team-primary) 40%, transparent);
+}
+
+.signalArrow {
+  font-style: normal;
+  font-weight: 700;
+  margin-right: 4px;
+  color: color-mix(in srgb, var(--team-primary) 100%, #fff);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+.footer {
+  position: relative;
+  z-index: 10;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 80px 68px;
+  border-top: 1px solid color-mix(in srgb, var(--team-primary) 12%, transparent);
+  gap: 16px;
+}
+
+.footerUrl {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--team-primary) 85%, #fff);
+}
+
+.footerDisclaimer {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.25);
+  font-style: italic;
+}

@@ -59,7 +59,7 @@ export default function Dashboard() {
   const [riskMode, setRiskMode] = useState('standard');
 
   // ── slide count (per section default) ────────────────────
-  const SECTION_SLIDE_DEFAULTS = { daily: 5, team: 3, game: 3, odds: 3 };
+  const SECTION_SLIDE_DEFAULTS = { daily: 5, team: 4, game: 3, odds: 3 };
   const SECTION_SLIDE_MAX = { daily: 5, team: 3, game: 3, odds: 4 };
   const [slideCount, setSlideCount] = useState(SECTION_SLIDE_DEFAULTS.daily);
 
@@ -99,6 +99,7 @@ export default function Dashboard() {
   // ── caption state ────────────────────────────────────────
   const [captionTab, setCaptionTab] = useState('short');
   const [copied, setCopied] = useState(false);
+  const [summaryCopied, setSummaryCopied] = useState(false);
 
   const exportRef = useRef(null);
   const { atsLeaders } = useAtsLeaders({ initialWindow: 'last30' });
@@ -361,6 +362,50 @@ export default function Dashboard() {
     });
   }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest]);
 
+  // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
+  // Separate from the generic team caption — this is the viral-optimized caption
+  // tied specifically to the Instagram Hero Summary slide.
+  const summaryCaptionData = useMemo(() => {
+    if (activeSection !== 'team' || !enhancedTeamData || !dashData) return null;
+    const games = dashData?.odds?.games ?? [];
+    const atsL  = dashData?.atsLeaders ?? { best: [], worst: [] };
+    let picks = [];
+    try {
+      const p = buildMaximusPicks({ games, atsLeaders: atsL });
+      picks = [...(p.atsPicks ?? []), ...(p.mlPicks ?? [])].slice(0, 3);
+    } catch { /* ignore */ }
+
+    const asOf = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short',
+    });
+
+    const ats = enhancedTeamData?.ats ?? {};
+
+    // Compute last5Wins for storyline detection
+    const schedEvents = enhancedTeamData?.schedule?.events ?? [];
+    const recentFin = schedEvents
+      .filter(e => e.isFinal && e.ourScore != null && e.oppScore != null)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const last5 = recentFin.slice(0, 5);
+    const last5Wins = last5.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
+
+    return buildCaption({
+      template:    'team-summary',
+      team:        enhancedTeamData?.team ?? selectedTeam,
+      picks,
+      ats,
+      stats: {
+        rank:       enhancedTeamData?.rank ?? null,
+        record:     enhancedTeamData?.team?.record?.items?.[0]?.summary ?? null,
+        last5Wins,
+        totalGames: last5.length,
+      },
+      asOf,
+      nextGame: enhancedTeamData?.nextLine?.nextEvent ?? null,
+      teamNews: enhancedTeamData?.last7News ?? enhancedTeamData?.teamNews ?? [],
+    });
+  }, [activeSection, dashData, enhancedTeamData, selectedTeam]);
+
   // ── regenerate ────────────────────────────────────────────
   const handleRegenerate = () => {
     setAssetsReady(false);
@@ -424,6 +469,25 @@ export default function Dashboard() {
       if (caption) {
         zip.file('caption.txt', formatCaptionFile(caption));
       }
+      // Bundle the viral Instagram Hero Summary caption with Team Intel ZIPs
+      if (activeSection === 'team' && summaryCaptionData) {
+        const summaryText = [
+          '=== INSTAGRAM HERO CAPTION (Slide 4 — Post this one) ===',
+          '',
+          summaryCaptionData.longCaption,
+          '',
+          (summaryCaptionData.hashtags || []).join(' '),
+          '',
+          '─'.repeat(40),
+          '',
+          '=== POSTING NOTES ===',
+          'Post Slide 4 as a single image to Instagram feed.',
+          'This caption is written for the summary hero post.',
+          'Link in bio: maximussports.ai',
+          'Best times: 11 AM – 1 PM or 7–9 PM ET.',
+        ].join('\n');
+        zip.file('instagram_caption_slide4.txt', summaryText);
+      }
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -438,7 +502,7 @@ export default function Dashboard() {
     } finally {
       setZipping(false);
     }
-  }, [activeSection, caption]);
+  }, [activeSection, caption, summaryCaptionData]);
 
   // ── copy caption ──────────────────────────────────────────
   const handleCopyCaption = () => {
@@ -448,6 +512,16 @@ export default function Dashboard() {
     navigator.clipboard.writeText(`${text}\n\n${hashStr}`).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // ── copy summary caption (Slide 4 Instagram Hero) ─────────
+  const handleCopySummaryCaption = () => {
+    if (!summaryCaptionData) return;
+    const hashStr = (summaryCaptionData.hashtags || []).join(' ');
+    navigator.clipboard.writeText(`${summaryCaptionData.longCaption}\n\n${hashStr}`).then(() => {
+      setSummaryCopied(true);
+      setTimeout(() => setSummaryCopied(false), 2000);
     });
   };
 
@@ -842,8 +916,33 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Caption panel */}
-          {caption && (
+          {/* Instagram Hero Summary Caption (Team Intel — Slide 4) */}
+          {activeSection === 'team' && summaryCaptionData && (
+            <div className={styles.captionPanel}>
+              <div className={styles.captionHeader}>
+                <span className={styles.captionTitle}>
+                  📸 Instagram Caption
+                  <span style={{ fontSize: '11px', fontWeight: 400, opacity: 0.55, marginLeft: 6 }}>
+                    Slide 4 · Hero Summary
+                  </span>
+                </span>
+                <button className={styles.copyBtn} onClick={handleCopySummaryCaption}>
+                  {summaryCopied ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
+              <div className={styles.captionBody}>
+                <pre className={styles.captionText}>
+                  {summaryCaptionData.longCaption}
+                </pre>
+                <div className={styles.captionHashtags}>
+                  {(summaryCaptionData.hashtags || []).join(' ')}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Caption panel (standard — non-Team Intel or fallback) */}
+          {caption && activeSection !== 'team' && (
             <div className={styles.captionPanel}>
               <div className={styles.captionHeader}>
                 <span className={styles.captionTitle}>Caption</span>

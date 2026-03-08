@@ -11,6 +11,7 @@ import DailyBriefingSlide5 from './slides/DailyBriefingSlide5';
 import TeamIntelSlide1 from './slides/TeamIntelSlide1';
 import TeamIntelSlide2 from './slides/TeamIntelSlide2';
 import TeamIntelSlide3 from './slides/TeamIntelSlide3';
+import TeamIntelSlide4 from './slides/TeamIntelSlide4';
 
 // Game Preview slides
 import GamePreviewSlide1 from './slides/GamePreviewSlide1';
@@ -33,7 +34,7 @@ import styles from './CarouselComposer.module.css';
 function getSlides(template, slideCount, options = {}) {
   switch (template) {
     case 'team':
-      return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 3));
+      return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3, TeamIntelSlide4].slice(0, Math.min(slideCount, 4));
     case 'game':
       // '5games' mode: single slide showing 5 key upcoming games
       if (options?.gameMode === '5games') return [GameInsights5GamesSlide];

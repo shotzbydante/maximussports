@@ -383,6 +383,375 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
   return { shortCaption: short, longCaption: long, hashtags };
 }
 
+// ─── Team Intel Summary Caption (Slide 4 — Instagram Hero) ───────────────────
+
+/**
+ * Detect the primary storyline from team data — powers the hook and narrative.
+ */
+function detectStoryline({ ats, record, last5Wins, rank, nextOpp, spread }) {
+  function parseRec(r) {
+    if (!r) return null;
+    if (typeof r === 'string') {
+      const m = r.match(/(\d+)-(\d+)/); if (!m) return null;
+      const w = parseInt(m[1], 10), l = parseInt(m[2], 10);
+      return w + l === 0 ? null : { w, l, pct: w / (w + l) };
+    }
+    if (typeof r === 'object') {
+      const w = parseInt(r.wins ?? r.w ?? 0, 10), l = parseInt(r.losses ?? r.l ?? 0, 10);
+      return w + l === 0 ? null : { w, l, pct: w / (w + l) };
+    }
+    return null;
+  }
+
+  const l7P  = parseRec(ats?.last7);
+  const l30P = parseRec(ats?.last30);
+  const ssnP = parseRec(ats?.season);
+
+  // Win/loss from record string
+  const recM = (record || '').match(/(\d+)-(\d+)/);
+  const totalW = recM ? parseInt(recM[1], 10) : null;
+  const totalL = recM ? parseInt(recM[2], 10) : null;
+  const isUndefeated = totalW != null && totalL === 0 && totalW >= 10;
+
+  const trending = l7P && l30P
+    ? (l7P.pct > l30P.pct + 0.08 ? 'up' : l7P.pct < l30P.pct - 0.08 ? 'down' : 'flat')
+    : 'flat';
+
+  const atsOnFire   = (l7P && l7P.pct >= 0.70) && (l30P && l30P.pct >= 0.62);
+  const atsHeater   = (l7P && l7P.pct >= 0.64) || (l30P && l30P.pct >= 0.63);
+  const marketBehind= (ssnP && ssnP.pct >= 0.60) || (l30P && l30P.pct >= 0.60);
+  const isSurging   = (last5Wins ?? 0) >= 4;
+  const isElite     = rank != null && rank <= 10;
+  const isRanked    = rank != null && rank <= 25;
+  const spreadNum   = spread != null ? parseFloat(spread) : null;
+  const isUnderdog  = spreadNum != null && spreadNum > 3;
+
+  if (isUndefeated) return { type: 'undefeated', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (atsOnFire && trending === 'up') return { type: 'ats_accelerating', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (isElite && atsHeater) return { type: 'elite_underpriced', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (atsOnFire) return { type: 'ats_heater', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (isSurging && marketBehind) return { type: 'surging', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (isUnderdog && atsHeater) return { type: 'underdog_value', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (atsHeater) return { type: 'ats_value', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (isSurging) return { type: 'hot_streak', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  if (isElite) return { type: 'elite_watch', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+  return { type: 'standard', trending, atsOnFire, atsHeater, l7P, l30P, ssnP, isUnderdog, isElite, isSurging };
+}
+
+/**
+ * Build smart hashtags for a team — max 5, no #MaximusSports, team-aware.
+ */
+function buildTeamHashtags({ teamName, conference, slug }) {
+  const tags = [];
+
+  // Conference tag
+  const confMap = {
+    'Big Ten': '#BigTen',
+    'SEC':     '#SEC',
+    'ACC':     '#ACC',
+    'Big 12':  '#Big12',
+    'Big East':'#BigEast',
+    'Others':  null,
+  };
+  const confTag = confMap[conference] ?? null;
+
+  // Team-specific tags derived from name words
+  const nameWords = (teamName || '').split(' ').filter(w => w.length > 2);
+  const school = nameWords[0] || '';
+  const mascotWord = nameWords.slice(-1)[0] || '';
+
+  // Known nickname/hashtag overrides
+  const nickMap = {
+    'michigan-wolverines': ['#Michigan', '#GoBlue'],
+    'duke-blue-devils': ['#Duke', '#GoDuke'],
+    'kentucky-wildcats': ['#Kentucky', '#BBN'],
+    'north-carolina-tar-heels': ['#UNC', '#TarHeels'],
+    'kansas-jayhawks': ['#KU', '#RockChalk'],
+    'gonzaga-bulldogs': ['#Gonzaga', '#GoZags'],
+    'uconn-huskies': ['#UConn', '#Huskies'],
+    'houston-cougars': ['#Houston', '#HTownTakeover'],
+    'auburn-tigers': ['#Auburn', '#WarEagle'],
+    'tennessee-volunteers': ['#Tennessee', '#Vols'],
+    'florida-gators': ['#Florida', '#Gators'],
+    'alabama-crimson-tide': ['#Alabama', '#RollTide'],
+    'michigan-state-spartans': ['#MichiganState', '#Spartans'],
+    'ohio-state-buckeyes': ['#OhioState', '#Buckeyes'],
+    'villanova-wildcats': ['#Villanova', '#NovaNation'],
+    'purdue-boilermakers': ['#Purdue', '#BoilerUp'],
+    'iowa-hawkeyes': ['#Iowa', '#Hawkeyes'],
+    'illinois-fighting-illini': ['#Illinois', '#Illini'],
+    'miami-ohio-redhawks': ['#MiamiOH', '#RedHawks'],
+    'lsu-tigers': ['#LSU', '#GeauxTigers'],
+    'arkansas-razorbacks': ['#Arkansas', '#WPS'],
+    'indiana-hoosiers': ['#Indiana', '#IU'],
+    'iowa-state-cyclones': ['#IowaState', '#Cyclones'],
+    'arizona-wildcats': ['#Arizona', '#BearDown'],
+    'baylor-bears': ['#Baylor', '#SicEm'],
+    'texas-longhorns': ['#Texas', '#HookEm'],
+    'kansas-state-wildcats': ['#KState', '#Wildcats'],
+    'tcu-horned-frogs': ['#TCU', '#GoFrogs'],
+  };
+
+  const teamTags = nickMap[slug] ?? [`#${school}`, `#${mascotWord}`].filter(t => t.length > 2);
+
+  // Assemble: up to 2 team tags + conference + category
+  const result = [
+    ...teamTags.slice(0, 2),
+    confTag,
+    '#CollegeBasketball',
+    '#SportsBetting',
+  ].filter(Boolean);
+
+  return [...new Set(result)].slice(0, 5);
+}
+
+/**
+ * Core viral Instagram caption for the Team Intel Summary (Slide 4).
+ *
+ * Structure: Hook → Narrative → Data bullets → Market read →
+ *            Next game → News signals → Engagement Q → CTA → Hashtags
+ */
+function buildTeamSummaryCaption({
+  team, rank, record, ats, picks, conference, asOf, slug,
+  nextGame, teamNews, last5Wins, totalGames,
+}) {
+  const teamName = team?.displayName || team?.name || 'This team';
+  const teamSlug = slug || team?.slug || null;
+  const shortName = teamName.split(' ').slice(0, -1).join(' ') || teamName;
+
+  let mascotEmoji = '';
+  try { mascotEmoji = getTeamEmoji(teamSlug, teamName); } catch { /* ignore */ }
+  const sportEmoji = mascotEmoji || '🏀';
+
+  const story = detectStoryline({ ats, record, last5Wins, rank, nextOpp: nextGame?.opponent, spread: nextGame?.spread });
+
+  // ── Parse ATS records ──────────────────────────────────────────────────────
+  function fmtRec(r) {
+    if (!r) return null;
+    if (typeof r === 'string') {
+      const m = r.match(/(\d+)-(\d+)/); if (!m) return null;
+      return `${m[1]}–${m[2]}`;
+    }
+    if (typeof r === 'object') {
+      const w = r.wins ?? r.w, l = r.losses ?? r.l;
+      return (w != null && l != null) ? `${w}–${l}` : null;
+    }
+    return null;
+  }
+
+  const atsL7  = fmtRec(ats?.last7);
+  const atsL30 = fmtRec(ats?.last30);
+  const atsSsn = fmtRec(ats?.season);
+
+  const atsLine = atsL30
+    ? `• ${atsL30} ATS last 30`
+    : (atsSsn ? `• ${atsSsn} ATS this season` : null);
+
+  const atsL7Line  = atsL7  ? `• ${atsL7} ATS last 7` : null;
+  const atsSsnLine = atsL30 && atsSsn && atsSsn !== atsL30 ? `• ${atsSsn} ATS season` : null;
+
+  // ── Hook — first line must grab instantly ─────────────────────────────────
+  const hooks = {
+    undefeated:        `Holy undefeated ${sportEmoji}🔥`,
+    ats_accelerating:  `The market still hasn't caught up to ${shortName}.`,
+    elite_underpriced: `Quietly one of the hottest ATS teams in the country… ${sportEmoji}`,
+    ats_heater:        `Bettors riding ${shortName} have been printing. 📊`,
+    surging:           `${shortName} is rolling right now. ${sportEmoji}🔥`,
+    underdog_value:    `Underdog. Covering. Market still behind. 📈`,
+    ats_value:         `The cover rate is real on ${shortName}. 📊`,
+    hot_streak:        `${shortName} is playing their best basketball of the year. ${sportEmoji}`,
+    elite_watch:       `${rank != null ? `#${rank} in the country` : 'Elite team'}. And the intel is worth reading. ${sportEmoji}`,
+    standard:          `${shortName} Team Intel is live. Full breakdown below. 🏀`,
+  };
+
+  const hook = hooks[story.type] || hooks.standard;
+
+  // ── Headline narrative (2–4 lines) ────────────────────────────────────────
+  const rankStr  = rank != null ? ` (#${rank} AP)` : '';
+  const confStr  = conference ? ` · ${conference}` : '';
+  const recordStr= record ? ` · ${record}` : '';
+
+  const narratives = {
+    undefeated: [
+      `${teamName.toUpperCase()} IS STILL PERFECT${recordStr}.`,
+      ``,
+      `And bettors who've been riding them have been printing.`,
+    ],
+    ats_accelerating: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `The cover rate is accelerating. That usually means the books haven't caught up yet — and that window closes fast.`,
+    ],
+    elite_underpriced: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `Elite teams covering at this rate are usually underpriced. The signal is real.`,
+    ],
+    ats_heater: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `One of the stronger ATS profiles in college basketball right now. The market keeps adjusting — and they keep covering.`,
+    ],
+    surging: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `${shortName} is on a run. ${last5Wins != null ? `Last 5 games: ${last5Wins}–${5 - last5Wins} SU.` : ''} The momentum is real.`,
+    ],
+    underdog_value: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `Getting points and covering. That's a dangerous combination in this market.`,
+    ],
+    ats_value: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `Steady ATS profile. Not flashy, but the cover rate has been consistent enough to notice.`,
+    ],
+    hot_streak: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `This team is playing with confidence right now. Form matters in college basketball.`,
+    ],
+    elite_watch: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `Ranked team with a number worth watching. Maximus has the full read.`,
+    ],
+    standard: [
+      `${teamName}${rankStr}${confStr}${recordStr}`,
+      ``,
+      `Full team intel package is live. Here's what the data says.`,
+    ],
+  };
+
+  const narrative = narratives[story.type] || narratives.standard;
+
+  // ── Data section ──────────────────────────────────────────────────────────
+  const dataLines = [`📊 ${shortName} vs the number:`];
+  if (atsLine)    dataLines.push(atsLine);
+  if (atsL7Line)  dataLines.push(atsL7Line);
+  if (atsSsnLine) dataLines.push(atsSsnLine);
+  if (record)     dataLines.push(`• ${record} overall`);
+  if (rank != null) dataLines.push(`• #${rank} AP ranking`);
+
+  // Trending signal
+  const trendNote = {
+    up:   `• Market still adjusting — cover rate climbing`,
+    down: `• Cooling off ATS — watch the line movement`,
+    flat: null,
+  }[story.trending] ?? null;
+  if (trendNote) dataLines.push(trendNote);
+
+  // ── Market interpretation ─────────────────────────────────────────────────
+  const marketReads = {
+    undefeated:        `That kind of run forces the books to make aggressive adjustments.\n\nThe question isn't whether it continues — it's when they close the gap.`,
+    ats_accelerating:  `Cover trend accelerating usually means the line hasn't fully adjusted yet.\n\nThese windows close fast.`,
+    elite_underpriced: `Translation for bettors:\nElite teams + strong ATS = the market is still behind. Until it isn't.`,
+    ats_heater:        `Translation for bettors:\nThe edge is real${story.trending === 'down' ? '\u2026 but it\u2019s been cooling slightly. Monitor the line.' : '. The market is slowly catching up.'}`,
+    surging:           `Momentum teams in college basketball can be some of the sharpest bets on the board.\n\nThe question is whether this number reflects it yet.`,
+    underdog_value:    `Translation for bettors:\nGetting points and covering at this rate is the definition of a live dog. Watch this line.`,
+    ats_value:         `Not a screaming edge — but consistent cover rate at this level is meaningful over time.`,
+    hot_streak:        `Good form at the right time of year matters. This team is playing with something right now.`,
+    elite_watch:       `Ranked teams this deep in the season with strong recent form are worth tracking closely.`,
+    standard:          `Data is live. Model is running. Check the full intel for the complete read.`,
+  };
+
+  const marketRead = marketReads[story.type] || marketReads.standard;
+
+  // ── Next game context ─────────────────────────────────────────────────────
+  let nextGameSection = null;
+  if (nextGame?.opponent) {
+    const spreadStr = nextGame.spread != null
+      ? ` · Spread: ${parseFloat(nextGame.spread) > 0 ? '+' : ''}${nextGame.spread}`
+      : ' · Line not yet posted';
+    nextGameSection = `👀 Next game: vs ${nextGame.opponent}${spreadStr}`;
+  }
+
+  // ── Team picks lean ───────────────────────────────────────────────────────
+  let pickSection = null;
+  if (picks?.length > 0) {
+    const p = picks[0];
+    const conf = confidenceLabel(p.confidence);
+    const typeNote = p.pickType === 'ats' ? 'ATS' : 'ML';
+    pickSection = `🎯 Maximus lean: ${p.pickLine}\n${typeNote} · ${conf} confidence · not advice`;
+  }
+
+  // ── News signals ──────────────────────────────────────────────────────────
+  let newsSection = null;
+  const newsItems = (teamNews || []).slice(0, 2);
+  if (newsItems.length > 0) {
+    const newsLines = newsItems
+      .map(n => `• ${(n.headline || n.title || '').slice(0, 80)}`)
+      .filter(l => l.length > 3);
+    if (newsLines.length > 0) {
+      newsSection = `Latest buzz:\n${newsLines.join('\n')}`;
+    }
+  }
+
+  // ── Engagement question ───────────────────────────────────────────────────
+  const engagementQs = {
+    undefeated:        `Are you still riding them ATS?`,
+    ats_accelerating:  `Is the market still behind on ${shortName}?`,
+    elite_underpriced: `Would you take ${shortName} at this number?`,
+    ats_heater:        `Are you still on this team ATS?`,
+    surging:           `Are you fading or riding ${shortName} right now?`,
+    underdog_value:    `Are bettors late to this team?`,
+    ats_value:         `Is the value still there on ${shortName}?`,
+    hot_streak:        `Are you fading or riding the hot hand?`,
+    elite_watch:       `Is this the team to beat heading into the stretch?`,
+    standard:          `What's your read on ${shortName} right now?`,
+  };
+
+  const engagementQ = engagementQs[story.type] || engagementQs.standard;
+
+  // ── Assemble full caption ─────────────────────────────────────────────────
+  const blocks = [
+    hook,
+    '',
+    ...narrative,
+    '',
+    dataLines.join('\n'),
+    '',
+    marketRead,
+    '',
+    nextGameSection,
+    '',
+    pickSection,
+    '',
+    newsSection,
+    '',
+    engagementQ,
+    '',
+    `Full intel + signals: maximussports.ai`,
+    '',
+    DISCLAIMER,
+  ].filter(l => l !== null && l !== undefined);
+
+  // Clean up consecutive blank lines
+  const longCaption = blocks
+    .reduce((acc, line) => {
+      if (line === '' && acc[acc.length - 1] === '') return acc;
+      return [...acc, line];
+    }, [])
+    .join('\n')
+    .trim();
+
+  // Short caption: just the hook + ATS line + CTA
+  const shortLines = [
+    hook,
+    atsLine ? `\n${atsLine.replace('• ', '')}` : '',
+    nextGameSection ? `\n${nextGameSection}` : '',
+    `\n\n${CTA}`,
+  ].filter(Boolean);
+
+  const shortCaption = shortLines.join('').trim();
+
+  // Hashtags
+  const hashtags = buildTeamHashtags({ teamName, conference, slug: teamSlug });
+
+  return { shortCaption, longCaption, hashtags };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -393,8 +762,24 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
 export function buildCaption({
   template, team, game, picks, stats, atsLeaders,
   headlines, asOf, styleMode, chatDigest, nextGame,
+  teamNews, ats,
 } = {}) {
   switch (template) {
+    case 'team-summary':
+      return buildTeamSummaryCaption({
+        team,
+        rank:       stats?.rank,
+        record:     stats?.record,
+        ats:        ats ?? {},
+        picks,
+        conference: team?.conference ?? null,
+        slug:       team?.slug ?? null,
+        asOf,
+        nextGame:   nextGame ?? null,
+        teamNews:   teamNews ?? [],
+        last5Wins:  stats?.last5Wins ?? null,
+        totalGames: stats?.totalGames ?? null,
+      });
     case 'team':
       return buildTeamCaption({
         team,
