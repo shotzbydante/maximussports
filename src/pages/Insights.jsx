@@ -22,7 +22,7 @@ import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import RankingsTable from '../components/insights/RankingsTable';
 import ShareButton from '../components/common/ShareButton';
 import MaximusPicks from '../components/home/MaximusPicks';
-import AffiliateCta from '../components/common/AffiliateCta';
+import AffiliateCta, { BrandMark } from '../components/common/AffiliateCta';
 import styles from './Insights.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -655,25 +655,32 @@ function MatchupCard({ game, rankLookup }) {
         )}
       </div>
 
-      {/* Actions: affiliate CTA + share */}
+      {/* Actions: helper text + affiliate CTA + share */}
       <div className={styles.matchupFooter}>
-        <AffiliateCta
-          offer="xbet-ncaa"
-          label="View Odds"
-          slot="high-interest-matchup"
-          gameId={gameId}
-          team={getTeamSlug(homeTeam) || getTeamSlug(awayTeam) || undefined}
-          variant="subtle"
-        />
-        <ShareButton
-          shareType={upsetScore >= 2 ? 'upset_watch' : 'matchup'}
-          title={`${homeTeam} vs ${awayTeam}`}
-          subtitle={[spread != null && `Spread: ${spread}`, total != null && `O/U: ${total}`].filter(Boolean).join(' · ')}
-          meta={timeStr || ''}
-          teamSlug={getTeamSlug(homeTeam) || ''}
-          destinationPath={gameLink || '/insights'}
-          placement="matchup_card"
-        />
+        <p className={styles.matchupHelper}>
+          Live odds and spreads available at our partner sportsbook.
+        </p>
+        <div className={styles.matchupActions}>
+          <AffiliateCta
+            offer="xbet-ncaa"
+            label="View Odds at XBet"
+            brand="xbet"
+            ariaLabel={`View live odds for ${homeTeam} vs ${awayTeam} at XBet`}
+            slot="high-interest-matchup"
+            gameId={gameId}
+            team={getTeamSlug(homeTeam) || getTeamSlug(awayTeam) || undefined}
+            variant="subtle"
+          />
+          <ShareButton
+            shareType={upsetScore >= 2 ? 'upset_watch' : 'matchup'}
+            title={`${homeTeam} vs ${awayTeam}`}
+            subtitle={[spread != null && `Spread: ${spread}`, total != null && `O/U: ${total}`].filter(Boolean).join(' · ')}
+            meta={timeStr || ''}
+            teamSlug={getTeamSlug(homeTeam) || ''}
+            destinationPath={gameLink || '/insights'}
+            placement="matchup_card"
+          />
+        </div>
       </div>
     </div>
   );
@@ -719,7 +726,9 @@ function UnderdogCard({ game, rankLookup }) {
       <div className={styles.underdogFooter}>
         <AffiliateCta
           offer="xbet-ncaa"
-          label="View Market"
+          label="View Market at XBet"
+          brand="xbet"
+          ariaLabel={`View market odds for ${underdogTeam || awayTeam} vs ${favoredTeam || homeTeam} at XBet`}
           slot="underdog-watch"
           gameId={gameId}
           team={getTeamSlug(underdogTeam || awayTeam) || undefined}
@@ -856,20 +865,24 @@ function DataTable({ enriched, rankLookup }) {
 
 /**
  * Inline sportsbook partner strip. Renders between content sections.
- * Looks like a native intelligence card, not a banner.
+ * Looks like a native editorial card, not a banner.
  */
-function AffiliatePromoModule({ slot, headline, primaryOffer, primaryLabel, secondaryOffer, secondaryLabel }) {
+function AffiliatePromoModule({ slot, brand, headline, primaryOffer, primaryLabel, secondaryOffer, secondaryLabel }) {
   return (
     <div className={styles.promoModule}>
       <div className={styles.promoInner}>
         <div className={styles.promoText}>
-          <span className={styles.promoPartnerTag}>Partner</span>
+          <div className={styles.promoHeaderRow}>
+            {brand && <BrandMark brand={brand} size="md" />}
+            <span className={styles.promoPartnerTag}>Partner Sportsbook</span>
+          </div>
           <p className={styles.promoHeadline}>{headline}</p>
         </div>
         <div className={styles.promoActions}>
           <AffiliateCta
             offer={primaryOffer}
             label={primaryLabel}
+            brand={brand}
             slot={slot}
             campaign="odds-insights-launch"
             variant="primary"
@@ -886,7 +899,7 @@ function AffiliatePromoModule({ slot, headline, primaryOffer, primaryLabel, seco
         </div>
       </div>
       <p className={styles.promoDisclosure}>
-        21+ only · Partner link · Please bet responsibly
+        21+ only · Partner link · Please bet responsibly.
       </p>
     </div>
   );
@@ -1103,9 +1116,10 @@ export default function Insights() {
       {/* ── Affiliate promo module A ── */}
       <AffiliatePromoModule
         slot="promo-module-a"
-        headline="Access NCAAB odds, spreads, and moneylines for every game on today's slate."
+        brand="xbet"
+        headline="Maximus Sports users can access full NCAA spreads, moneylines, and totals through our partner sportsbook."
         primaryOffer="xbet-ncaa"
-        primaryLabel="Bet at XBet →"
+        primaryLabel="See Lines at XBet →"
         secondaryOffer="xbet-welcome"
         secondaryLabel="Claim Welcome Bonus"
       />
@@ -1177,9 +1191,10 @@ export default function Insights() {
       {/* ── Affiliate promo module B ── */}
       <AffiliatePromoModule
         slot="promo-module-b"
-        headline="Bet-back offer available on today's college basketball action at MyBookie."
+        brand="mybookie"
+        headline="Maximus Sports users can access full NCAA spreads, moneylines, and totals through our partner sportsbook."
         primaryOffer="mybookie-welcome"
-        primaryLabel="Welcome Bonus →"
+        primaryLabel="Claim Welcome Bonus at MyBookie →"
         secondaryOffer="mybookie-betback"
         secondaryLabel="Bet-Back Offer"
       />

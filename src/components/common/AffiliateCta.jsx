@@ -6,15 +6,18 @@
  *   2. Keep raw WebPartners URLs off the frontend
  *
  * Props:
- *   offer    {string}                          — offer key (e.g. "xbet-ncaa")
- *   label    {string}                          — primary CTA text
- *   sublabel {string}                          — optional muted secondary label
- *   slot     {string}                          — attribution placement (e.g. "high-interest-matchup")
- *   gameId   {string|number}                   — optional game ID for attribution
- *   team     {string}                          — optional team slug for attribution
- *   campaign {string}                          — optional campaign override
- *   variant  {"subtle"|"primary"|"module"}     — visual style; default "subtle"
- *   className {string}                         — optional extra class
+ *   offer      {string}                          — offer key (e.g. "xbet-ncaa")
+ *   label      {string}                          — primary CTA text
+ *   sublabel   {string}                          — optional muted secondary label
+ *   brand      {"xbet"|"mybookie"}               — optional brand; renders a small logo left of label
+ *   brandSize  {"sm"|"md"}                       — logo size; "sm" (14 px) in buttons, "md" (18 px) in module headers
+ *   ariaLabel  {string}                          — optional rich aria-label (e.g. "View live odds for Duke vs UNC at XBet")
+ *   slot       {string}                          — attribution placement (e.g. "high-interest-matchup")
+ *   gameId     {string|number}                   — optional game ID for attribution
+ *   team       {string}                          — optional team slug for attribution
+ *   campaign   {string}                          — optional campaign override
+ *   variant    {"subtle"|"primary"|"module"}     — visual style; default "subtle"
+ *   className  {string}                          — optional extra class
  */
 
 import { useCallback } from 'react';
@@ -24,6 +27,65 @@ import styles from './AffiliateCta.module.css';
 const DEFAULT_CAMPAIGN = 'odds-insights-launch';
 const DEFAULT_SOURCE   = 'odds-insights';
 const DEFAULT_PAGE     = 'odds-insights';
+
+// ─── Brand mark SVG logos ─────────────────────────────────────────────────────
+
+const BRAND_SIZE_PX = { sm: 14, md: 18 };
+
+/**
+ * Inline SVG brand mark — monochrome, uses currentColor so it inherits button text color.
+ * Exported so the promo module header can also render it standalone.
+ */
+export function BrandMark({ brand, size = 'sm' }) {
+  const px = BRAND_SIZE_PX[size] ?? 14;
+
+  if (brand === 'xbet') {
+    return (
+      <span className={styles.brandMark} aria-hidden="true">
+        {/* XBet: bold X cross — immediately recognisable at small sizes */}
+        <svg
+          className={styles.brandIcon}
+          width={px}
+          height={px}
+          viewBox="0 0 14 14"
+          fill="none"
+        >
+          <line x1="1.5" y1="1.5" x2="12.5" y2="12.5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" />
+          <line x1="12.5" y1="1.5" x2="1.5" y2="12.5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" />
+        </svg>
+        <span className={styles.brandName}>XBet</span>
+      </span>
+    );
+  }
+
+  if (brand === 'mybookie') {
+    return (
+      <span className={styles.brandMark} aria-hidden="true">
+        {/* MyBookie: open book / M silhouette */}
+        <svg
+          className={styles.brandIcon}
+          width={px}
+          height={Math.round(px * 0.9)}
+          viewBox="0 0 16 14"
+          fill="none"
+        >
+          <path
+            d="M1 12V2L8 8.5L15 2V12"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className={styles.brandName}>MyBookie</span>
+      </span>
+    );
+  }
+
+  return null;
+}
+
+// ─── URL builder ──────────────────────────────────────────────────────────────
 
 /**
  * Build the internal redirect href with all attribution query params.
@@ -42,10 +104,15 @@ function buildHref(offer, { slot, gameId, team, campaign, variant } = {}) {
   return `/api/affiliate/${offer}?${params.toString()}`;
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function AffiliateCta({
   offer,
   label,
   sublabel,
+  brand,
+  brandSize = 'sm',
+  ariaLabel,
   slot,
   gameId,
   team,
@@ -59,6 +126,7 @@ export default function AffiliateCta({
     track('affiliate_click', {
       offer,
       label,
+      brand:    brand    || null,
       slot:     slot     || null,
       game_id:  gameId   || null,
       team:     team     || null,
@@ -67,7 +135,7 @@ export default function AffiliateCta({
       source:   DEFAULT_SOURCE,
       variant:  variant  || null,
     });
-  }, [offer, label, slot, gameId, team, campaign, variant]);
+  }, [offer, label, brand, slot, gameId, team, campaign, variant]);
 
   const cls = [
     styles.cta,
@@ -84,8 +152,14 @@ export default function AffiliateCta({
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      aria-label={label}
+      aria-label={ariaLabel || label}
     >
+      {brand && (
+        <>
+          <BrandMark brand={brand} size={brandSize} />
+          <span className={styles.brandSep} aria-hidden="true" />
+        </>
+      )}
       <span className={styles.ctaLabel}>{label}</span>
       {sublabel && <span className={styles.ctaSublabel}>{sublabel}</span>}
     </a>

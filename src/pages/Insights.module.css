@@ -415,13 +415,29 @@
   border-top: 1px solid var(--color-border-light);
 }
 
+/* matchupFooter now wraps helper text + action row */
 .matchupFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+/* Muted contextual helper line above the CTA */
+.matchupHelper {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Row containing AffiliateCta + ShareButton */
+.matchupActions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding-top: 8px;
-  margin-top: 4px;
   flex-wrap: wrap;
 }
 
@@ -1150,6 +1166,14 @@
   flex: 1;
 }
 
+/* Brand logo + "Partner Sportsbook" tag — flex row in the module header */
+.promoHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
 .promoPartnerTag {
   font-size: 0.58rem;
   font-weight: 800;
@@ -1202,5 +1226,20 @@
   }
   .promoActions {
     width: 100%;
+  }
+
+  /* CTA spans full width inside card footers on narrow screens */
+  .matchupActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .matchupActions a {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .underdogFooter a {
+    width: 100%;
+    justify-content: center;
   }
 }

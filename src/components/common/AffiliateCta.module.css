@@ -9,7 +9,7 @@
 .cta {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   text-decoration: none;
   border-radius: 6px;
   font-family: inherit;
@@ -99,6 +99,45 @@
   letter-spacing: 0.06em;
   opacity: 0.6;
   text-transform: uppercase;
+}
+
+/* ── Brand mark ───────────────────────────────────────────────────────────── */
+
+/*
+ * Rendered left of the CTA label when a `brand` prop is provided.
+ * Uses currentColor so it inherits the button's text color in every variant.
+ */
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  opacity: 0.82;
+  line-height: 1;
+}
+
+.brandIcon {
+  flex-shrink: 0;
+  display: block;
+}
+
+.brandName {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* Thin hairline separator between brand mark and label text */
+.brandSep {
+  display: inline-block;
+  width: 1px;
+  height: 11px;
+  background: currentColor;
+  opacity: 0.2;
+  flex-shrink: 0;
+  border-radius: 1px;
 }
 
 /* ── Motion / accessibility ───────────────────────────────────────────────── */
