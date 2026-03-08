@@ -5,15 +5,17 @@
  * Fully custom artboard — does not use SlideShell.
  *
  * Content hierarchy:
- *   1. Header       — Maximus branding + timestamp
- *   2. Logo hero    — team logo with animated glow
- *   3. Identity     — rank · champ odds · conf · record · form
- *   4. Headline     — editorial hero statement (data-driven, 2 lines max)
- *   5. Quick intel  — 1-line synthesis from snapshot.personality
- *   6. ATS row      — L7 / L30 / Season compact chips
- *   7. Schedule     — Next game (opp · spread · date) + Last result
- *   8. Lean line    — Maximus pick or market signal
- *   9. Footer       — URL + disclaimer
+ *   1. Header        — Maximus branding + timestamp
+ *   2. Logo hero     — team logo with animated glow
+ *   3. Identity      — rank · champ odds · conf · meta chips
+ *   4. Record line   — overall · conference · last-10
+ *   5. Headline      — buildHeroNarrative() — context-aware storyline engine
+ *   6. Quick intel   — 1-line synthesis from snapshot.personality
+ *   7. ATS grid      — ATS L7 / ATS L30 / ATS SZN chips
+ *   8. Schedule      — LAST game result → NEXT game (spread · total · date)
+ *   9. Lean line     — Maximus pick or market signal fallback
+ *  10. News intel    — INTEL bullets from team news feed
+ *  11. Footer        — URL + disclaimer
  */
 
 import styles from './TeamIntelSlide4.module.css';
@@ -51,51 +53,105 @@ function fmtOdds(american) {
 }
 
 /**
- * Derive a cinematic two-line editorial headline from team data.
- * Priority: undefeated run → ATS fire → elite+underpriced → surging → hot streak → generic
+ * Extract conference W-L record from ESPN team.record.items array.
+ * ESPN API typically stores: items[0]=overall, items[1]=conference.
+ * We also try type/name matching for robustness.
  */
-function buildHeroHeadline({ teamName, ats, last5Wins, last10Len, rank, nextLine }) {
-  const shortName = (teamName || '').split(' ').slice(0, -1).join(' ') || (teamName || '').split(' ')[0] || 'This team';
+function extractConferenceRecord(teamObj) {
+  const items = teamObj?.record?.items;
+  if (!items?.length) return null;
+  // Prefer explicit type/name match
+  const confItem = items.find(i => {
+    const t = (i.type || i.name || '').toLowerCase();
+    return t.includes('conf') || t === 'vsconf' || t === 'vs-conf' || t === 'conference';
+  });
+  if (confItem?.summary) return confItem.summary;
+  // ESPN places conference record at index 1 when overall is at index 0
+  if (items.length >= 2) {
+    const s = items[1]?.summary;
+    // Sanity-check: must look like a record (digits-digits)
+    if (s && /^\d+-\d+$/.test(s.trim())) return s;
+  }
+  return null;
+}
 
+// ─── buildHeroNarrative ────────────────────────────────────────────────────────
+/**
+ * Context-aware cinematic headline engine.
+ *
+ * Analyses all available signals and maps to a storyline category.
+ * Returns a 2-line `\n`-separated string.
+ * Each line ≤ 28 characters · all caps · no emojis · cinematic tone.
+ *
+ * STORYLINE PRIORITY
+ *  1  undefeated_run      — overall record has 0 losses (≥10 wins)
+ *  2  ats_accelerating    — L7 cover rate significantly higher than L30
+ *  3  ats_heater          — L7 or L30 ATS ≥ 65%
+ *  4  elite_contender     — top-5 ranked + hot form
+ *  5  surging_team        — 70%+ SU wins in last 10
+ *  6  underdog_value      — getting points + solid ATS
+ *  7  market_adjusting    — good season ATS but recent cooling (market corrected)
+ *  8  cold_against_spread — L7 or L30 ATS ≤ 38%
+ *  9  bubble_watch        — unranked but competitive, postseason pressure
+ * 10  standard_analysis   — fallback
+ *
+ * ROOT CAUSE OF PREVIOUS WEAK HEADLINES:
+ *   The old buildHeroHeadline() evaluated conditions with partial short-circuit
+ *   logic and returned team-name strings like "Nebraska.\nFull intel inside."
+ *   or "Value still\nin this number." by hitting `marketBehind` from season ATS
+ *   while ignoring the L7/L30 cooling trend. The new function evaluates the
+ *   full signal set in strict priority order before choosing a storyline.
+ */
+function buildHeroNarrative({ ats, overallRecord, last10W, last10Total, rank, nextLine }) {
   const l7  = parseRecord(ats?.last7);
   const l30 = parseRecord(ats?.last30);
   const ssn = parseRecord(ats?.season);
 
-  const trending = l7 && l30
-    ? l7.pct > l30.pct + 0.08 ? 'up' : l7.pct < l30.pct - 0.08 ? 'down' : 'flat'
-    : 'flat';
-
-  const spreadVal = nextLine?.consensus?.spread != null ? parseFloat(nextLine.consensus.spread) : null;
+  // Spread context
+  const spreadVal  = nextLine?.consensus?.spread != null ? parseFloat(nextLine.consensus.spread) : null;
   const isUnderdog = spreadVal != null && spreadVal > 3;
-  const isBigFav   = spreadVal != null && spreadVal < -10;
 
-  const perfectRun   = last10Len >= 8 && (last5Wins ?? 0) === 5;
-  const atsOnFire    = l7 && l7.pct >= 0.72 && l30 && l30.pct >= 0.65;
-  const atsHeater    = (l7 && l7.pct >= 0.65) || (l30 && l30.pct >= 0.65);
-  const marketBehind = (l30 && l30.pct >= 0.62) || (ssn && ssn.pct >= 0.60);
-  const isSurging    = (last5Wins ?? 0) >= 4;
-  const isElite      = rank != null && rank <= 5;
-  const isRankedHot  = rank != null && rank <= 15 && isSurging;
+  // Overall record
+  const recP       = parseRecord(overallRecord);
+  const isUndefeated = recP && recP.l === 0 && recP.w >= 10;
 
-  if (perfectRun)                          return `Perfect run.\nAnd still covering.`;
-  if (atsOnFire && trending === 'up')      return `Market still\ncatching up.`;
-  if (isElite && atsHeater)               return `${shortName}\nlooks underpriced.`;
-  if (isRankedHot && marketBehind)        return `${shortName} is\nsurging.`;
-  if (atsHeater && marketBehind && isUnderdog) return `Quiet value\non the underdog.`;
-  if (atsOnFire)                           return `Quiet ATS heater\nin progress.`;
-  if (atsHeater && trending === 'up')      return `Cover rate\naccelerating fast.`;
-  if (isBigFav && isSurging)              return `Dominant.\nWatch the number.`;
-  if (isSurging && atsHeater)             return `${shortName}\nis rolling.`;
-  if (isSurging)                           return `Playing their\nbest ball.`;
-  if (marketBehind)                        return `Value still\nin this number.`;
-  if (isElite)                             return `Elite team.\nFull intel inside.`;
-  if (ssn && ssn.pct <= 0.42)            return `Rough patch ATS.\nOther side in focus.`;
-  return `${shortName}.\nFull intel inside.`;
+  // Last-10 form
+  const last10Pct  = last10Total > 0 ? last10W / last10Total : null;
+  const isSurging  = last10Pct != null && last10Pct >= 0.70 && last10Total >= 7;
+
+  // ATS signals
+  const atsAccel  = l7 != null && l30 != null && l7.pct > l30.pct + 0.10 && l7.pct >= 0.60;
+  const atsOnFire = (l7 && l7.pct >= 0.70) && (l30 && l30.pct >= 0.62);
+  const atsHeater = (l7 && l7.pct >= 0.64) || (l30 && l30.pct >= 0.64);
+  const atsCold   = (l7 && l7.pct <= 0.38) || (l30 && l30.pct <= 0.38);
+  // Market corrected: season was strong but recent windows have cooled
+  const marketCorrected = ssn && l30 && ssn.pct >= 0.58 && l30.pct <= 0.45;
+
+  // Tier signals
+  const isElite       = rank != null && rank <= 5;
+  const isRanked      = rank != null && rank <= 25;
+  const isUnderdogVal = isUnderdog && (atsHeater || (l30 && l30.pct >= 0.55));
+  // Bubble: unranked team with a .500–.580 overall win rate
+  const isBubble      = !isRanked && recP != null && recP.pct >= 0.50 && recP.pct <= 0.58;
+
+  // ── Storyline → headline copy ──────────────────────────────────────────────
+  // All lines ≤ 28 chars, ALL CAPS, no emojis
+  if (isUndefeated)                   return `STILL\nUNBEATEN.`;
+  if (atsAccel)                        return `THE NUMBER\nIS MOVING.`;
+  if (atsOnFire || atsHeater)         return `MARKET STILL\nHASN'T CAUGHT UP.`;
+  if (isElite && isSurging)           return `A TITLE RUN\nIS BUILDING.`;
+  if (isSurging)                       return `MOMENTUM\nIS REAL.`;
+  if (isUnderdogVal)                  return `BOOKS STILL\nUNDERPRICING THEM.`;
+  if (marketCorrected || atsCold)     return `THE MARKET\nHAS ADJUSTED.`;
+  if (isBubble)                        return `TOURNAMENT\nPRESSURE RISING.`;
+  // standard_analysis — generic but still cinematic
+  if (ssn && ssn.pct >= 0.58)         return `VALUE STILL\nIN THE NUMBER.`;
+  return `WATCH THIS\nNUMBER CLOSELY.`;
 }
 
 /**
  * One-line market signal — compact version of Slide 2's signal text.
- * Shown as the lean line when no Maximus pick is available.
+ * Used as lean fallback when no Maximus pick is available.
  */
 function buildSignalText(ats) {
   const l7  = parseRecord(ats?.last7);
@@ -104,39 +160,54 @@ function buildSignalText(ats) {
   const primary = l7 ?? l30 ?? ssn;
   if (!primary) return null;
 
-  const pct = Math.round(primary.pct * 100);
+  const pct      = Math.round(primary.pct * 100);
   const trending = l7 && l30
     ? l7.pct > l30.pct + 0.08 ? 'up' : l7.pct < l30.pct - 0.08 ? 'down' : 'flat'
     : 'flat';
 
-  if (primary.pct >= 0.68)  return trending === 'up' ? `Cover trend accelerating — market behind.` : `Covering at ${pct}% — market still adjusting.`;
-  if (primary.pct >= 0.60)  return trending === 'up' ? `ATS rate climbing toward 60% — edge building.` : `Holding firm at ${pct}% ATS. Consistent value.`;
-  if (primary.pct >= 0.52)  return `Fairly priced right now — no screaming edge either way.`;
-  if (primary.pct >= 0.45)  return trending === 'down' ? `ATS cooling off — ${pct}% and sliding.` : `${pct}% ATS — around break-even.`;
+  if (primary.pct >= 0.68) return trending === 'up'
+    ? `Cover trend accelerating — market behind.`
+    : `Covering at ${pct}% — market still adjusting.`;
+  if (primary.pct >= 0.60) return trending === 'up'
+    ? `ATS rate climbing toward 60% — edge building.`
+    : `Holding firm at ${pct}% ATS. Consistent value.`;
+  if (primary.pct >= 0.52) return `Fairly priced right now — no clear edge either way.`;
+  if (primary.pct >= 0.45) return trending === 'down'
+    ? `ATS cooling off — ${pct}% and sliding.`
+    : `${pct}% ATS — around break-even territory.`;
   return `Struggling ATS at ${pct}%. Value may be on the other side.`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
-  const team = teamData?.team ?? {};
-  const name = team.displayName || team.name || data?.selectedTeamName || '—';
-  const slug = team.slug || data?.selectedTeamSlug || null;
-  const rank = teamData?.rank ?? null;
-  const titleOdds = teamData?.titleOdds ?? null;
+  const team       = teamData?.team ?? {};
+  const name       = team.displayName || team.name || data?.selectedTeamName || '—';
+  const slug       = team.slug || data?.selectedTeamSlug || null;
+  const rank       = teamData?.rank ?? null;
+  const titleOdds  = teamData?.titleOdds ?? null;
 
   const { primary: teamPrimary, secondary: teamSecondary } = getTeamColors(slug);
 
-  const record = team.record?.items?.[0]?.summary || team.recordSummary || team.record || null;
-  const conf   = team.conference || data?.selectedTeamConf || null;
+  const conf = team.conference || data?.selectedTeamConf || null;
 
-  // ── ATS — use teamData first, fall back to atsLeaders global data ──────────
+  // ── Records ────────────────────────────────────────────────────────────────
+  // Overall: items[0] or recordSummary
+  const overallRecord = team.record?.items?.[0]?.summary
+    || team.recordSummary
+    || (typeof team.record === 'string' ? team.record : null)
+    || null;
+
+  // Conference: look for vsConf/conference type in items, fallback to items[1]
+  const confRecord = extractConferenceRecord(team);
+
+  // ── ATS — use teamData first, fall back to atsLeaders global ──────────────
   const ats = teamData?.ats ?? {};
   const resolvedAts = { ...ats };
   if (!ats.last30 && !ats.season) {
-    const leaders = [...(data?.atsLeaders?.best ?? []), ...(data?.atsLeaders?.worst ?? [])];
+    const leaders  = [...(data?.atsLeaders?.best ?? []), ...(data?.atsLeaders?.worst ?? [])];
     const nameFrag = (name.split(' ').pop() || '').toLowerCase();
-    const found = leaders.find(l =>
+    const found    = leaders.find(l =>
       l.slug === slug || (l.team || l.name || '').toLowerCase().includes(nameFrag)
     );
     if (found) {
@@ -150,28 +221,26 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
   const l30P = parseRecord(resolvedAts.last30);
   const ssnP = parseRecord(resolvedAts.season);
 
-  // ── Recent game form from schedule ────────────────────────────────────────
+  // ── Last-10 SU form from schedule ─────────────────────────────────────────
   const schedEvents = teamData?.schedule?.events ?? [];
   const recentFinished = schedEvents
     .filter(e => e.isFinal && e.ourScore != null && e.oppScore != null)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
-  const last10 = recentFinished.slice(0, 10);
-  const last5  = recentFinished.slice(0, 5);
+  const last10  = recentFinished.slice(0, 10);
   const last10W = last10.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
-  const last5W  = last5.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
 
-  // ── Next game from nextLine (odds API) ─────────────────────────────────────
-  const nextLine = teamData?.nextLine ?? null;
-  const spread   = nextLine?.consensus?.spread ?? null;
-  const ml       = nextLine?.consensus?.moneyline ?? null;
-  let nextOpp    = nextLine?.nextEvent?.opponent ?? null;
-  let nextTime   = nextLine?.nextEvent?.commenceTime
+  // ── Next game from odds API; schedule fallback ─────────────────────────────
+  const nextLine  = teamData?.nextLine ?? null;
+  const spread    = nextLine?.consensus?.spread ?? null;
+  const ml        = nextLine?.consensus?.moneyline ?? null;
+  const total     = nextLine?.consensus?.total ?? null;
+  let nextOpp     = nextLine?.nextEvent?.opponent ?? null;
+  let nextTime    = nextLine?.nextEvent?.commenceTime
     ? new Date(nextLine.nextEvent.commenceTime).toLocaleDateString('en-US', {
-        weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'America/Los_Angeles',
+        weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles',
       })
     : null;
 
-  // Schedule fallback for upcoming opponent if nextLine hasn't resolved yet
   if (!nextOpp) {
     const upcoming = schedEvents.find(e => {
       const st = (e.status?.type?.name || e.status?.name || '').toLowerCase();
@@ -184,7 +253,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
       nextOpp  = opp?.team?.displayName || opp?.team?.name || null;
       if (!nextTime && upcoming.date) {
         nextTime = new Date(upcoming.date).toLocaleDateString('en-US', {
-          weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'America/Los_Angeles',
+          weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles',
         });
       }
     }
@@ -197,10 +266,12 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
   if (lastGame) {
     const comps    = lastGame.competitions?.[0]?.competitors ?? [];
     const nameFrag = (name.split(' ').pop() || '').toLowerCase();
-    const me       = comps.find(c => c.team?.slug === slug || (c.team?.name || '').toLowerCase().includes(nameFrag));
-    const opp      = comps.find(c => c !== me) ?? (comps.length > 1 ? comps[1] : comps[0]);
-    if (opp?.team)  lastOpp = opp.team.displayName || opp.team.name || null;
-    const won = Number(lastGame.ourScore) > Number(lastGame.oppScore);
+    const me       = comps.find(c =>
+      c.team?.slug === slug || (c.team?.name || '').toLowerCase().includes(nameFrag)
+    );
+    const opp = comps.find(c => c !== me) ?? (comps.length > 1 ? comps[1] : comps[0]);
+    if (opp?.team) lastOpp = opp.team.displayName || opp.team.name || null;
+    const won  = Number(lastGame.ourScore) > Number(lastGame.oppScore);
     lastResult = { won, label: `${won ? 'W' : 'L'} ${lastGame.ourScore}–${lastGame.oppScore}` };
   }
 
@@ -229,31 +300,51 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
   } catch { /* ignore */ }
 
   // ── Derived content ───────────────────────────────────────────────────────
-  const heroLines = buildHeroHeadline({
-    teamName: name,
-    ats: resolvedAts,
-    last5Wins: last5W,
-    last10Len: last10.length,
+
+  // Hero narrative — full storyline-detection headline engine
+  const heroLines = buildHeroNarrative({
+    ats:           resolvedAts,
+    overallRecord,
+    last10W,
+    last10Total:   last10.length,
     rank,
     nextLine,
   });
 
-  // Quick intel — use snapshot personality (already quality-curated by buildTeamSnapshot)
-  // Falls back to buildSignalText if snapshot not populated
+  // Quick intel — snapshot.personality is quality-curated by buildTeamSnapshot
   const quickIntel = teamData?.snapshot?.personality || buildSignalText(resolvedAts) || null;
 
   const signalText = buildSignalText(resolvedAts);
 
   const titleOddsLabel = fmtOdds(titleOdds);
 
-  // ATS display windows — only show those with actual data
+  // ATS windows — updated labels per spec: "ATS L7 / ATS L30 / ATS SZN"
   const atsWindows = [
-    { label: 'L7',  parsed: l7P  },
-    { label: 'L30', parsed: l30P },
-    { label: 'SZN', parsed: ssnP },
+    { label: 'ATS L7',  parsed: l7P  },
+    { label: 'ATS L30', parsed: l30P },
+    { label: 'ATS SZN', parsed: ssnP },
   ].filter(w => w.parsed != null);
 
+  // Record display line: "18–9 overall · 8–6 Big Ten · 5–5 last 10"
+  const recordLineParts = [];
+  if (overallRecord) recordLineParts.push(`${overallRecord.replace('-', '–')} overall`);
+  if (confRecord)    recordLineParts.push(`${confRecord.replace('-', '–')} ${conf || 'conf.'}`);
+  if (last10.length >= 5) recordLineParts.push(`${last10W}–${last10.length - last10W} last ${last10.length}`);
+  const recordLine = recordLineParts.length > 0 ? recordLineParts.join(' · ') : null;
+
   const hasSchedule = nextOpp || lastGame;
+
+  // News intel — prefer last-7-day news, then all teamNews, trim to 3 items
+  const rawNews = teamData?.last7News?.length > 0
+    ? teamData.last7News
+    : (teamData?.teamNews ?? []);
+  const newsItems = rawNews
+    .slice(0, 3)
+    .map(n => {
+      const raw = (n.headline || n.title || '').trim();
+      return raw.length > 80 ? raw.slice(0, 79) + '…' : raw;
+    })
+    .filter(Boolean);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -262,7 +353,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
       style={{ '--team-primary': teamPrimary, '--team-secondary': teamSecondary }}
       {...rest}
     >
-      {/* Background atmosphere */}
+      {/* Background atmosphere — untouched */}
       <div className={styles.bgBase}  aria-hidden="true" />
       <div className={styles.bgGlow}  aria-hidden="true" />
       <div className={styles.bgRay}   aria-hidden="true" />
@@ -283,7 +374,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
         </div>
       </header>
 
-      {/* Team logo hero */}
+      {/* Team logo hero — untouched */}
       <div className={styles.logoZone}>
         <div className={styles.logoGlowRing} aria-hidden="true" />
         {slug ? (
@@ -305,18 +396,15 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
           {rank != null           && <span className={styles.rankPill}>#{rank} AP</span>}
           {titleOddsLabel != null && <span className={styles.titleOddsPill}>🏆 {titleOddsLabel}</span>}
           {conf                   && <span className={styles.confPill}>{conf}</span>}
-          {record                 && <span className={styles.recordPill}>{record}</span>}
         </div>
         <h1 className={styles.teamName}>{name.toUpperCase()}</h1>
-        {last10.length > 0 && (
-          <div className={styles.formLine}>
-            {last10W}–{last10.length - last10W} L{last10.length}
-            {last5.length === 5 ? `  ·  ${last5W}–${5 - last5W} L5` : ''}
-          </div>
+        {/* Structured record line: overall · conference · last-10 */}
+        {recordLine && (
+          <div className={styles.formLine}>{recordLine}</div>
         )}
       </div>
 
-      {/* Editorial headline */}
+      {/* Editorial headline — powered by buildHeroNarrative */}
       <div className={styles.headlineZone}>
         <div className={styles.headlineDivider} />
         <h2 className={styles.headline}>
@@ -332,7 +420,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
         <div className={styles.quickIntel}>{quickIntel}</div>
       )}
 
-      {/* ATS compact row */}
+      {/* ATS grid — updated labels */}
       {atsWindows.length > 0 && (
         <div className={styles.atsGrid}>
           {atsWindows.map((w, i) => (
@@ -342,32 +430,13 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
               <div className={styles.atsPct}>{Math.round(w.parsed.pct * 100)}%</div>
             </div>
           ))}
-          {atsWindows.length < 3 && (
-            <div className={styles.atsLabel} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', fontSize: 13, opacity: 0.3 }}>
-              ATS vs the number
-            </div>
-          )}
         </div>
       )}
 
-      {/* Schedule module — next game + last result */}
+      {/* Schedule module — LAST first, then NEXT (per spec) */}
       {hasSchedule && (
         <div className={styles.scheduleModule}>
-          {nextOpp && (
-            <div className={styles.schedRow}>
-              <span className={styles.schedBadge} data-type="next">NEXT</span>
-              <span className={styles.schedContent}>
-                <span className={styles.schedOpp}>vs {nextOpp}</span>
-                {spread != null
-                  ? <span className={styles.schedLine}>{fmtSpread(spread)}</span>
-                  : ml != null
-                    ? <span className={styles.schedLine}>{ml > 0 ? `+${ml}` : ml} ML</span>
-                    : null
-                }
-                {nextTime && <span className={styles.schedTime}>{nextTime}</span>}
-              </span>
-            </div>
-          )}
+          {/* LAST game result */}
           {lastResult && (
             <div className={styles.schedRow}>
               <span className={styles.schedBadge} data-type={lastResult.won ? 'win' : 'loss'}>LAST</span>
@@ -375,7 +444,29 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
                 <span className={`${styles.schedResultLabel} ${lastResult.won ? styles.schedWin : styles.schedLoss}`}>
                   {lastResult.label}
                 </span>
-                {lastOpp && <span className={styles.schedOppSmall}> vs {lastOpp}</span>}
+                {lastOpp && <span className={styles.schedOppSmall}>vs {lastOpp}</span>}
+              </span>
+            </div>
+          )}
+          {/* NEXT game — with spread, total, and date */}
+          {nextOpp && (
+            <div className={styles.schedRow}>
+              <span className={styles.schedBadge} data-type="next">NEXT</span>
+              <span className={styles.schedContent}>
+                <span className={styles.schedOpp}>vs {nextOpp}</span>
+                {spread != null && (
+                  <span className={styles.schedLine}>{fmtSpread(spread)}</span>
+                )}
+                {spread == null && ml != null && (
+                  <span className={styles.schedLine}>{ml > 0 ? `+${ml}` : ml} ML</span>
+                )}
+                {total != null && (
+                  <span className={styles.schedLine}>{total}o/u</span>
+                )}
+                {!spread && !ml && !total && (
+                  <span className={styles.schedTime}>Line opening soon</span>
+                )}
+                {nextTime && <span className={styles.schedTime}>{nextTime}</span>}
               </span>
             </div>
           )}
@@ -393,8 +484,20 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
               <span className={styles.leanConf}> · {confidenceLabel(teamPick.confidence)} confidence</span>
             </>
           ) : (
-            <span className={styles.leanText}>{signalText}</span>
+            <span className={styles.leanText}>{signalText || 'Market signal still developing.'}</span>
           )}
+        </div>
+      )}
+
+      {/* News INTEL module — up to 3 headlines, no emojis, no source names */}
+      {newsItems.length > 0 && (
+        <div className={styles.intelModule}>
+          <div className={styles.intelTitle}>INTEL</div>
+          <ul className={styles.intelList}>
+            {newsItems.map((item, i) => (
+              <li key={i} className={styles.intelItem}>{item}</li>
+            ))}
+          </ul>
         </div>
       )}
 

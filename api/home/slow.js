@@ -281,6 +281,24 @@ export default async function handler(req, res) {
 
     if (result.timedOut) return returnCachedOrEmpty(true);
     const payload = result.payload;
+
+    // Guard: don't overwrite a good odds cache entry with an empty/failed odds response.
+    // A transient Odds API timeout should not evict valid lines cached minutes ago.
+    const existingCached = homeSlowCache.get(key);
+    const existingOddsCount = existingCached?.odds?.games?.length ?? 0;
+    const newOddsCount = payload.odds?.games?.length ?? 0;
+    if (existingOddsCount > 0 && newOddsCount === 0) {
+      // Preserve odds + upcomingGamesWithSpreads from the prior good cache;
+      // still write the fresh headlines, ATS, etc.
+      const safePayload = {
+        ...payload,
+        odds: existingCached.odds,
+        upcomingGamesWithSpreads: existingCached.upcomingGamesWithSpreads ?? [],
+      };
+      homeSlowCache.set(key, safePayload);
+      return res.status(200).json(safePayload);
+    }
+
     homeSlowCache.set(key, payload);
     return res.status(200).json(payload);
   } catch (err) {

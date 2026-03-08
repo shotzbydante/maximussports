@@ -246,7 +246,7 @@ function allGamesComplete(games) {
 /** Minimum number of today's games before we supplement with tomorrow's. */
 const MIN_GAMES_FOR_PICKS = 6;
 
-function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false, slowLoading = false }) {
+function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false, slowLoading = false, futureOddsGames = [] }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
 
@@ -348,9 +348,16 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     thinSlateGames !== null &&
     thinSlateGames.length > 0;
 
-  // activeGames priority: today-complete → next slate | thin slate → today + tomorrow | default → today
+  // activeGames priority:
+  //   today-complete → nextSlateGames (ESPN+odds for next day, fetched via /api/home?dates=)
+  //                 → futureOddsGames fallback (Odds API games already in slow payload)
+  //   thin-slate    → today + tomorrow combined
+  //   default       → today's games
+  // The futureOddsGames fallback fires when nextSlateGames comes back empty (e.g. ESPN
+  // scoreboard hasn't populated tomorrow's schedule yet) but the Odds API already has
+  // lines posted for tomorrow's games.
   const activeGames = todayComplete && nextSlateGames !== null
-    ? nextSlateGames
+    ? (nextSlateGames.length > 0 ? nextSlateGames : futureOddsGames)
     : isThinSlate
       ? [...games, ...thinSlateGames]
       : games;
@@ -530,6 +537,10 @@ export default function Home() {
   const [newsData, setNewsData] = useState({ teamNews: [], newsFeed: mockNewsFeed, pinnedTeamNewsMap: {} });
   const [scores, setScores] = useState({ games: [], loading: true, error: null });
   const [slowLoading, setSlowLoading] = useState(true);
+  // Odds API games whose commence date doesn't match today's ESPN scores.
+  // Populated when today's slate is done and tomorrow's lines are already posted.
+  // Passed to OddsInsightsTeaser as a fallback when nextSlateGames is empty.
+  const [futureOddsGames, setFutureOddsGames] = useState([]);
   const [rankMap, setRankMap] = useState({});
   const [top25, setTop25] = useState([]);
   const {
@@ -707,7 +718,24 @@ export default function Home() {
             const scoresArray = merged.scores ?? [];
             const oddsData = merged.odds ?? {};
             const oddsGames = oddsData.games ?? [];
-            const mergedGames = mergeGamesWithOdds(Array.isArray(scoresArray) ? scoresArray : [], oddsGames, getTeamSlug);
+            const todayScores = Array.isArray(scoresArray) ? scoresArray : [];
+            const mergedGames = mergeGamesWithOdds(todayScores, oddsGames, getTeamSlug);
+
+            // Collect odds games from a future date — needed when today's ESPN games are
+            // finished but tomorrow's lines are already live in the Odds API.
+            // OddsInsightsTeaser uses these as a fallback when nextSlateGames is empty.
+            const scoreDatesSet = new Set(
+              todayScores.flatMap((g) => {
+                const dt = g.startTime ? new Date(g.startTime).toISOString().slice(0, 10) : '';
+                return dt ? [dt] : [];
+              })
+            );
+            const newFutureOddsGames = oddsGames.filter((og) => {
+              const dt = og.commenceTime ? new Date(og.commenceTime).toISOString().slice(0, 10) : '';
+              return dt && !scoreDatesSet.has(dt);
+            });
+            setFutureOddsGames(newFutureOddsGames);
+
             let oddsMessage = null;
             if (oddsData.error === 'missing_key') {
               oddsMessage = 'Odds API key missing in production.';
@@ -1108,6 +1136,7 @@ export default function Home() {
         atsLeaders={atsLeaders}
         loading={scores.loading || atsLoading}
         slowLoading={slowLoading}
+        futureOddsGames={futureOddsGames}
       />
       </div>
 

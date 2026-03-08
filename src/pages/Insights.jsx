@@ -13,7 +13,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchHomeFast, fetchHomeSlow } from '../api/home';
 import { getPinnedTeams } from '../utils/pinnedTeams';
-import { sportsDateStr } from '../utils/slateDate';
+import { sportsDateStr, nextSportsDayStr } from '../utils/slateDate';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { mergeGamesWithOdds } from '../api/odds';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
@@ -1001,15 +1001,43 @@ export default function Insights() {
     [fastData.rankings]
   );
 
-  // Merge ESPN scores + odds into unified game model
+  // Merge ESPN scores + odds into unified game model.
+  //
+  // Core problem this addresses: mergeGamesWithOdds maps ONLY over scoreGames, so any
+  // oddsGames from a *different* date (e.g. Saturday final scores at 2 AM while Sunday's
+  // lines are already posted) are silently dropped.  Those orphaned future-odds games are
+  // exactly the candidates Maximus Picks and Market Movers need, so we include them
+  // explicitly after the standard merge.
   const allGames = useMemo(() => {
-    const today = mergeGamesWithOdds(fastData.scoresToday, slowData.oddsGames, getTeamSlug);
-    // Include upcoming games that aren't already in today's list
-    const todayIds = new Set(today.map((g) => g.gameId).filter(Boolean));
-    const upcoming = (slowData.upcomingGames || []).filter(
-      (g) => !todayIds.has(g.gameId)
+    const scores = fastData.scoresToday;
+    const oddsGames = slowData.oddsGames;
+    const upcomingGames = slowData.upcomingGames || [];
+
+    // Step 1: merge ESPN scores with same-date odds (standard path, works when dates match)
+    const merged = mergeGamesWithOdds(scores, oddsGames, getTeamSlug);
+
+    // Step 2: collect odds games from a future date that the merge missed.
+    // This fires when today's slate is finished (e.g. 2 AM Sunday) but tomorrow's
+    // lines are already live in the Odds API.
+    const scoreDates = new Set(
+      scores.flatMap((g) => {
+        const dt = g.startTime ? new Date(g.startTime).toISOString().slice(0, 10) : '';
+        return dt ? [dt] : [];
+      })
     );
-    return [...today, ...upcoming];
+    const futureOddsGames = oddsGames.filter((og) => {
+      const dt = og.commenceTime ? new Date(og.commenceTime).toISOString().slice(0, 10) : '';
+      return dt && !scoreDates.has(dt);
+    });
+
+    // Step 3: include server-premerged upcoming (typically next-next day), deduplicating
+    const allIdsSoFar = new Set([
+      ...merged.map((g) => g.gameId).filter(Boolean),
+      ...futureOddsGames.map((g) => g.gameId).filter(Boolean),
+    ]);
+    const extraUpcoming = upcomingGames.filter((g) => !g.gameId || !allIdsSoFar.has(g.gameId));
+
+    return [...merged, ...futureOddsGames, ...extraUpcoming];
   }, [fastData.scoresToday, slowData.oddsGames, slowData.upcomingGames]);
 
   // Enrich all games with analytics
@@ -1044,10 +1072,24 @@ export default function Insights() {
     return Object.keys(map).length > 0 ? map : null;
   }, [atsLeaders]);
 
+  // Whether today's ESPN slate is fully finished.
+  // Mirrors Home's allGamesComplete() logic so both pages derive the same date label.
+  const todayScoresComplete = useMemo(() => {
+    const s = fastData.scoresToday;
+    if (!s.length) return false;
+    return s.every((g) => {
+      const st = (g.gameStatus || '').toLowerCase();
+      return st === 'final' || st.includes('final') || st === 'f/ot' || st === 'ft';
+    });
+  }, [fastData.scoresToday]);
+
   // Sports-day aware date for MaximusPicks slate label.
-  // Uses the same 4 AM local-time rollover as Home so the label is consistent
-  // across pages (e.g. 12:30 AM still shows the previous calendar day's slate).
-  const slateDate = useMemo(() => sportsDateStr(), []);
+  // When today's games are all done, advance to the next sports day — exactly as
+  // Home's OddsInsightsTeaser does — so both pages show the same slate date.
+  const slateDate = useMemo(
+    () => (todayScoresComplete ? nextSportsDayStr() : sportsDateStr()),
+    [todayScoresComplete]
+  );
 
   // Persist a compact briefing snapshot to localStorage so the Home teaser
   // can show a live excerpt without triggering any new API calls.

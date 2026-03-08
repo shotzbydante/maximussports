@@ -654,6 +654,51 @@
   color: color-mix(in srgb, var(--team-primary) 78%, rgba(240, 244, 248, 0.8));
 }
 
+/* ── News intel module ─────────────────────────────────────────────────────── */
+
+.intelModule {
+  position: relative;
+  z-index: 10;
+  margin: 10px 64px 0;
+  flex-shrink: 0;
+}
+
+.intelTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.28);
+  margin-bottom: 6px;
+}
+
+.intelList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intelItem {
+  position: relative;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(240, 244, 248, 0.50);
+  line-height: 1.35;
+  padding-left: 14px;
+}
+
+.intelItem::before {
+  content: '·';
+  position: absolute;
+  left: 2px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--team-primary) 65%, transparent);
+}
+
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 
 .footer {
