@@ -552,6 +552,22 @@ export default function MaximusPicks({
     return () => clearTimeout(t);
   }, []);
 
+  // Debug mode: activate with ?debugPicks in the URL
+  const debugPicks = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('debugPicks');
+
+  useEffect(() => {
+    if (!debugPicks || loading) return;
+    console.group('[Picks:MaximusPicks] Rendered with final data');
+    console.log('games:', games.length, '| gamesWithSpread:', games.filter((g) => g.spread != null || g.homeSpread != null).length);
+    console.log('atsLeaders best:', atsLeaders.best.length, '| worst:', atsLeaders.worst.length);
+    console.log('atsBySlug keys:', atsBySlug ? Object.keys(atsBySlug).length : 0);
+    console.log('atsPicks:', atsPicks.length, '| mlPicks:', mlPicks.length, '| totalsPicks:', totalsPicks.length);
+    console.log('hasAny:', hasAny, '| graceExpired:', graceExpired, '| showSkeleton:', loading || (!graceExpired && !hasAny));
+    console.groupEnd();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, atsPicks.length, mlPicks.length, totalsPicks.length]);
+
   const showSkeleton = loading || (!graceExpired && !hasAny);
 
   if (showSkeleton) {

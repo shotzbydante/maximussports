@@ -1,47 +1,50 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   TeamIntelSlide4 — Instagram Hero Summary
-   1080 × 1350 · IG 4:5 · Premium cinematic editorial card
+   TeamIntelSlide4 — Instagram Hero Summary · Slide 1 of Team Intel
+   1080 × 1350 · IG 4:5 · Cinematic editorial card
    ───────────────────────────────────────────────────────────────────────── */
 
 /* ── Keyframes ─────────────────────────────────────────────────────────── */
 
 @keyframes logoFloat {
   0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-8px); }
+  50%       { transform: translateY(-7px); }
 }
 
 @keyframes logoGlowPulse {
   0%, 100% {
     filter:
-      drop-shadow(0 0 40px color-mix(in srgb, var(--team-primary) 55%, transparent))
-      drop-shadow(0 4px 24px rgba(0,0,0,0.55));
+      drop-shadow(0 0 36px color-mix(in srgb, var(--team-primary) 52%, transparent))
+      drop-shadow(0 4px 20px rgba(0,0,0,0.5));
   }
   50% {
     filter:
-      drop-shadow(0 0 80px color-mix(in srgb, var(--team-primary) 80%, transparent))
-      drop-shadow(0 4px 24px rgba(0,0,0,0.55));
+      drop-shadow(0 0 72px color-mix(in srgb, var(--team-primary) 76%, transparent))
+      drop-shadow(0 4px 20px rgba(0,0,0,0.5));
   }
 }
 
 @keyframes bgGlowBreath {
-  0%, 100% { opacity: 0.75; }
-  50%       { opacity: 1.0; }
+  0%, 100% { opacity: 0.78; }
+  50%       { opacity: 1.0;  }
 }
 
+/*
+ * SHIMMER FIX:
+ * Previous implementation used rgba(255,255,255,0) as gradient ends,
+ * making the text essentially invisible except during the shimmer pass.
+ *
+ * Fixed: base gradient is fully opaque white everywhere.
+ * The shimmer adds a subtle team-color highlight — text is NEVER transparent.
+ * Result: permanently readable text, shimmer adds cinematic energy, not chaos.
+ */
 @keyframes shimmerSweep {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0%   { background-position: -240% center; }
+  100% { background-position: 240% center;  }
 }
 
 @keyframes glowRingPulse {
-  0%, 100% {
-    transform: scale(0.92);
-    opacity: 0.35;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 0.7;
-  }
+  0%, 100% { transform: scale(0.90); opacity: 0.30; }
+  50%       { transform: scale(1.06); opacity: 0.65; }
 }
 
 @keyframes scanFade {
@@ -60,14 +63,12 @@
   flex-direction: column;
   font-family: 'DM Sans', system-ui, sans-serif;
   color: #f0f4f8;
-  /* CSS custom props fed by the component */
   --team-primary:   #4A90D9;
   --team-secondary: #071422;
 }
 
-/* ── Background layers (z 0–3, all pointer-events: none) ─────────────── */
+/* ── Background layers (z 0–3) ───────────────────────────────────────── */
 
-/* Layer 0: base dark tinted by team secondary */
 .bgBase {
   position: absolute;
   inset: 0;
@@ -81,45 +82,41 @@
   pointer-events: none;
 }
 
-/* Layer 1: radial team-color glow from upper-center — the atmospheric hero */
 .bgGlow {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background:
-    radial-gradient(
-      ellipse 860px 620px at 50% 22%,
-      color-mix(in srgb, var(--team-primary) 42%, transparent) 0%,
-      color-mix(in srgb, var(--team-primary) 12%, transparent) 45%,
-      transparent 72%
-    );
-  animation: bgGlowBreath 5s ease-in-out infinite;
+  background: radial-gradient(
+    ellipse 860px 580px at 50% 20%,
+    color-mix(in srgb, var(--team-primary) 40%, transparent) 0%,
+    color-mix(in srgb, var(--team-primary) 10%, transparent) 45%,
+    transparent 72%
+  );
+  animation: bgGlowBreath 5.5s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* Layer 2: directional energy ray — vertical light from top */
 .bgRay {
   position: absolute;
   inset: 0;
   z-index: 2;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--team-primary) 8%, transparent) 0%,
+    color-mix(in srgb, var(--team-primary) 7%, transparent) 0%,
     transparent 55%
   );
   pointer-events: none;
 }
 
-/* Layer 3: noise/grain overlay — cinematic texture */
 .bgNoise {
   position: absolute;
   inset: 0;
   z-index: 3;
-  opacity: 0.045;
+  opacity: 0.04;
   background-image:
     url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-size: 220px 220px;
-  animation: scanFade 8s ease-in-out infinite;
+  animation: scanFade 9s ease-in-out infinite;
   pointer-events: none;
 }
 
@@ -131,19 +128,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 52px 80px 24px;
+  padding: 46px 80px 20px;
   border-bottom: 1px solid color-mix(in srgb, var(--team-primary) 18%, transparent);
+  flex-shrink: 0;
 }
 
 .logoRow {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .brandLogo {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
   border-radius: 6px;
 }
@@ -156,7 +154,7 @@
 
 .brandName {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: 0.07em;
   color: #ffffff;
@@ -184,19 +182,18 @@
 }
 
 .asOf {
-  font-size: 18px;
-  color: rgba(240, 244, 248, 0.35);
+  font-size: 17px;
+  color: rgba(240, 244, 248, 0.32);
   font-weight: 400;
-  letter-spacing: 0.02em;
 }
 
 .maxIntel {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--team-primary) 65%, rgba(240,244,248,0.5));
+  color: color-mix(in srgb, var(--team-primary) 60%, rgba(240,244,248,0.5));
 }
 
 /* ── Team logo zone ─────────────────────────────────────────────────────── */
@@ -207,42 +204,42 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 310px;
-  margin-top: 8px;
+  height: 238px;        /* reduced from 310px to make room for new content */
+  margin-top: 6px;
+  flex-shrink: 0;
 }
 
-/* Pulsing glow ring behind the logo */
 .logoGlowRing {
   position: absolute;
-  width: 300px;
-  height: 300px;
+  width: 240px;
+  height: 240px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--team-primary) 35%, transparent) 0%,
+    color-mix(in srgb, var(--team-primary) 32%, transparent) 0%,
     transparent 70%
   );
-  animation: glowRingPulse 3.5s ease-in-out infinite;
+  animation: glowRingPulse 3.8s ease-in-out infinite;
   pointer-events: none;
 }
 
 .teamLogo {
   position: relative;
-  max-width: 280px;
-  max-height: 280px;
+  max-width: 220px;     /* reduced from 280px */
+  max-height: 220px;
   width: auto;
   height: auto;
   object-fit: contain;
   z-index: 2;
-  animation: logoFloat 5s ease-in-out infinite, logoGlowPulse 3.5s ease-in-out infinite;
+  animation: logoFloat 5.2s ease-in-out infinite, logoGlowPulse 3.8s ease-in-out infinite;
 }
 
 .logoFallback {
-  width: 240px;
-  height: 240px;
+  width: 200px;
+  height: 200px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--team-primary) 15%, transparent);
-  border: 2px dashed color-mix(in srgb, var(--team-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--team-primary) 12%, transparent);
+  border: 2px dashed color-mix(in srgb, var(--team-primary) 28%, transparent);
 }
 
 /* ── Team identity ──────────────────────────────────────────────────────── */
@@ -251,78 +248,82 @@
   position: relative;
   z-index: 10;
   text-align: center;
-  padding: 0 60px;
-  margin-top: 6px;
+  padding: 0 56px;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .metaRow {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .rankPill {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   background: color-mix(in srgb, var(--team-primary) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--team-primary) 40%, transparent);
   color: color-mix(in srgb, var(--team-primary) 90%, #fff);
-  border-radius: 8px;
-  padding: 4px 13px;
+  border-radius: 7px;
+  padding: 3px 12px;
   letter-spacing: 0.04em;
 }
 
-.confPill {
+.titleOddsPill {
+  font-family: 'Oswald', sans-serif;
   font-size: 16px;
+  font-weight: 700;
+  background: rgba(107, 214, 158, 0.13);
+  border: 1px solid rgba(107, 214, 158, 0.30);
+  color: #6BD69E;
+  border-radius: 7px;
+  padding: 3px 11px;
+  letter-spacing: 0.03em;
+}
+
+.confPill {
+  font-size: 14px;
   font-weight: 600;
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(240, 244, 248, 0.72);
-  border-radius: 8px;
-  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  color: rgba(240, 244, 248, 0.68);
+  border-radius: 7px;
+  padding: 3px 11px;
   letter-spacing: 0.04em;
 }
 
 .recordPill {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.85);
+  color: rgba(240, 244, 248, 0.82);
   letter-spacing: 0.04em;
 }
 
 .teamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 60px;
+  font-size: 54px;      /* reduced from 60px */
   font-weight: 800;
   line-height: 1.0;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   color: #ffffff;
   text-transform: uppercase;
-  margin: 0 0 10px;
-  /* Subtle team-color text glow */
+  margin: 0 0 8px;
   text-shadow:
-    0 0 60px color-mix(in srgb, var(--team-primary) 50%, transparent),
+    0 0 50px color-mix(in srgb, var(--team-primary) 45%, transparent),
     0 2px 6px rgba(0, 0, 0, 0.6);
-}
-
-.mascotEmoji {
-  margin-left: 10px;
-  font-size: 44px;
-  vertical-align: middle;
-  line-height: 1;
-  display: inline-block;
 }
 
 .formLine {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.45);
+  color: rgba(240, 244, 248, 0.42);
   letter-spacing: 0.06em;
 }
 
@@ -331,54 +332,62 @@
 .headlineZone {
   position: relative;
   z-index: 10;
-  padding: 24px 64px 16px;
+  padding: 18px 64px 12px;
   text-align: center;
-  margin-top: 6px;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
-/* Top divider — team-colored horizontal line */
 .headlineDivider {
   width: 100%;
   height: 2px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--team-primary) 60%, transparent) 20%,
+    color-mix(in srgb, var(--team-primary) 55%, transparent) 20%,
     var(--team-primary) 50%,
-    color-mix(in srgb, var(--team-primary) 60%, transparent) 80%,
+    color-mix(in srgb, var(--team-primary) 55%, transparent) 80%,
     transparent 100%
   );
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   border-radius: 2px;
 }
 
+/*
+ * SHIMMER FIX — headline text is ALWAYS white.
+ *
+ * How it works:
+ *   - Base gradient: rgba(255,255,255,1) everywhere → text is always fully white
+ *   - Shimmer band: a narrow region at 50% adds a subtle team-color tint
+ *   - The sweep moves this highlight slowly across the text
+ *   - Text never becomes transparent — shimmer is purely additive light
+ *
+ * Old (broken) behavior: gradient used rgba(255,255,255,0) as ends →
+ * text was invisible for ~90% of the animation cycle.
+ */
 .headline {
   font-family: 'Oswald', sans-serif;
-  font-size: 96px;
+  font-size: 82px;      /* reduced from 96px */
   font-weight: 800;
   line-height: 1.0;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  color: #ffffff;
   margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
-  /* Shimmer animation on the headline — the hero "cinemagraph" touch */
+  /* Shimmer: text is always white; team-color highlight sweeps across */
   background: linear-gradient(
     105deg,
-    rgba(255,255,255,0) 40%,
-    color-mix(in srgb, var(--team-primary) 35%, rgba(255,255,255,0.25)) 50%,
-    rgba(255,255,255,0) 60%
+    rgba(255, 255, 255, 1) 35%,
+    color-mix(in srgb, var(--team-primary) 25%, rgba(255, 255, 255, 1)) 50%,
+    rgba(255, 255, 255, 1) 65%
   );
-  background-size: 250% auto;
+  background-size: 260% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: transparent; /* fallback overridden by gradient clip */
-  /* Ensure white for environments that don't support bg-clip text */
-  animation: shimmerSweep 5s ease-in-out infinite;
-  /* Force white on text-fill for unsupported; revert to white */
+  animation: shimmerSweep 6s ease-in-out infinite;
   text-shadow: none;
 }
 
@@ -388,89 +397,261 @@
 }
 
 .headlineDividerBottom {
-  width: 80%;
-  margin: 20px auto 0;
+  width: 72%;
+  margin: 16px auto 0;
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--team-primary) 30%, transparent) 30%,
-    color-mix(in srgb, var(--team-primary) 50%, transparent) 50%,
-    color-mix(in srgb, var(--team-primary) 30%, transparent) 70%,
+    color-mix(in srgb, var(--team-primary) 28%, transparent) 30%,
+    color-mix(in srgb, var(--team-primary) 45%, transparent) 50%,
+    color-mix(in srgb, var(--team-primary) 28%, transparent) 70%,
     transparent 100%
   );
 }
 
-/* ── Data chip grid ─────────────────────────────────────────────────────── */
+/* ── Quick intel line ─────────────────────────────────────────────────────── */
 
-.dataGrid {
+.quickIntel {
+  position: relative;
+  z-index: 10;
+  margin: 10px 72px 0;
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 400;
+  color: rgba(240, 244, 248, 0.72);
+  text-align: center;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  /* Very subtle team glow on the text — keeps it atmospheric */
+  text-shadow: 0 0 28px color-mix(in srgb, var(--team-primary) 20%, transparent);
+  flex-shrink: 0;
+}
+
+/* ── ATS compact grid ──────────────────────────────────────────────────────── */
+
+.atsGrid {
   position: relative;
   z-index: 10;
   display: flex;
   align-items: stretch;
-  justify-content: center;
-  gap: 0;
-  margin: 18px 60px 0;
-  border: 1px solid color-mix(in srgb, var(--team-primary) 22%, transparent);
-  border-radius: 16px;
+  margin: 14px 64px 0;
+  border: 1px solid color-mix(in srgb, var(--team-primary) 20%, transparent);
+  border-radius: 12px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(4px);
+  flex-shrink: 0;
 }
 
-.dataChip {
+.atsChip {
   flex: 1;
   text-align: center;
-  padding: 20px 16px 18px;
-  border-right: 1px solid color-mix(in srgb, var(--team-primary) 18%, transparent);
+  padding: 14px 12px 12px;
+  border-right: 1px solid color-mix(in srgb, var(--team-primary) 16%, transparent);
 }
 
-.dataChip:last-child {
+.atsChip:last-child {
   border-right: none;
 }
 
-.chipLabel {
+.atsLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.38);
-  margin-bottom: 8px;
+  color: rgba(240, 244, 248, 0.32);
+  margin-bottom: 5px;
 }
 
-.chipValue {
+.atsValue {
   font-family: 'Oswald', sans-serif;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--team-primary) 90%, #fff);
+  color: color-mix(in srgb, var(--team-primary) 88%, #fff);
   letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.atsPct {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.38);
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Schedule module ───────────────────────────────────────────────────────── */
+
+.scheduleModule {
+  position: relative;
+  z-index: 10;
+  margin: 14px 64px 0;
+  border: 1px solid color-mix(in srgb, var(--team-primary) 18%, transparent);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+}
+
+.schedRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--team-primary) 10%, transparent);
+}
+
+.schedRow:last-child {
+  border-bottom: none;
+}
+
+.schedBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  min-width: 42px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-align: center;
+  /* default (NEXT) styling */
+  background: color-mix(in srgb, var(--team-primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--team-primary) 30%, transparent);
+  color: color-mix(in srgb, var(--team-primary) 88%, #fff);
+  flex-shrink: 0;
+}
+
+.schedBadge[data-type="win"] {
+  background: rgba(107, 214, 158, 0.14);
+  border-color: rgba(107, 214, 158, 0.30);
+  color: #6BD69E;
+}
+
+.schedBadge[data-type="loss"] {
+  background: rgba(220, 80, 80, 0.12);
+  border-color: rgba(220, 80, 80, 0.26);
+  color: rgba(240, 130, 130, 0.90);
+}
+
+.schedContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+  overflow: hidden;
+}
+
+.schedOpp {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #f0f4f8;
+  white-space: nowrap;
+}
+
+.schedLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--team-primary) 88%, #fff);
+  background: color-mix(in srgb, var(--team-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--team-primary) 24%, transparent);
+  border-radius: 6px;
+  padding: 1px 9px;
+  white-space: nowrap;
+}
+
+.schedTime {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.35);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.schedResultLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.schedWin {
+  color: #6BD69E;
+}
+
+.schedLoss {
+  color: rgba(240, 130, 130, 0.88);
+}
+
+.schedOppSmall {
+  font-size: 16px;
+  color: rgba(240, 244, 248, 0.42);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 240px;
 }
 
-/* ── Market signal line ─────────────────────────────────────────────────── */
+/* ── Lean / pick line ──────────────────────────────────────────────────────── */
 
-.signalLine {
+.leanLine {
   position: relative;
   z-index: 10;
-  margin: 20px 64px 0;
-  font-size: 22px;
+  margin: 12px 64px 0;
+  font-size: 19px;
   font-style: italic;
   font-weight: 500;
-  color: color-mix(in srgb, var(--team-primary) 85%, #fff);
+  color: color-mix(in srgb, var(--team-primary) 82%, #fff);
   text-align: center;
-  letter-spacing: 0.01em;
-  opacity: 0.9;
-  text-shadow: 0 0 20px color-mix(in srgb, var(--team-primary) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--team-primary) 35%, transparent);
+  flex-shrink: 0;
 }
 
-.signalArrow {
+.leanArrow {
   font-style: normal;
   font-weight: 700;
-  margin-right: 4px;
-  color: color-mix(in srgb, var(--team-primary) 100%, #fff);
+  flex-shrink: 0;
+}
+
+.leanLabel {
+  font-family: 'Oswald', sans-serif;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(240, 244, 248, 0.38);
+  text-transform: uppercase;
+}
+
+.leanValue {
+  font-family: 'Oswald', sans-serif;
+  font-style: normal;
+  font-size: 22px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--team-primary) 90%, #fff);
+  letter-spacing: 0.02em;
+}
+
+.leanConf {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.40);
+  font-style: italic;
+}
+
+.leanText {
+  font-style: italic;
+  color: color-mix(in srgb, var(--team-primary) 78%, rgba(240, 244, 248, 0.8));
 }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
@@ -482,21 +663,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 80px 68px;
-  border-top: 1px solid color-mix(in srgb, var(--team-primary) 12%, transparent);
+  padding: 18px 80px 64px;
+  border-top: 1px solid color-mix(in srgb, var(--team-primary) 11%, transparent);
   gap: 16px;
+  flex-shrink: 0;
 }
 
 .footerUrl {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--team-primary) 85%, #fff);
+  color: color-mix(in srgb, var(--team-primary) 82%, #fff);
 }
 
 .footerDisclaimer {
-  font-size: 15px;
-  color: rgba(240, 244, 248, 0.25);
+  font-size: 14px;
+  color: rgba(240, 244, 248, 0.22);
   font-style: italic;
 }

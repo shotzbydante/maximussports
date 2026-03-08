@@ -246,7 +246,7 @@ function allGamesComplete(games) {
 /** Minimum number of today's games before we supplement with tomorrow's. */
 const MIN_GAMES_FOR_PICKS = 6;
 
-function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false }) {
+function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false, slowLoading = false }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
 
@@ -445,7 +445,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         games={activeGames}
         atsLeaders={atsLeaders}
         atsBySlug={atsBySlug}
-        loading={loading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
+        loading={loading || slowLoading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
         slateDate={slateDate}
         slateDateSecondary={slateDateSecondary}
         slateComplete={slateComplete}
@@ -1107,6 +1107,7 @@ export default function Home() {
         rankMap={rankMap}
         atsLeaders={atsLeaders}
         loading={scores.loading || atsLoading}
+        slowLoading={slowLoading}
       />
       </div>
 

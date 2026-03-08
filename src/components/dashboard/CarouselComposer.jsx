@@ -34,7 +34,8 @@ import styles from './CarouselComposer.module.css';
 function getSlides(template, slideCount, options = {}) {
   switch (template) {
     case 'team':
-      return [TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3, TeamIntelSlide4].slice(0, Math.min(slideCount, 4));
+      // Slide 1 = hero summary (Slide4 component), then overview, ATS, line/value
+      return [TeamIntelSlide4, TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 4));
     case 'game':
       // '5games' mode: single slide showing 5 key upcoming games
       if (options?.gameMode === '5games') return [GameInsights5GamesSlide];

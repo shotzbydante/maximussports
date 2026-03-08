@@ -12,6 +12,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchHomeFast, fetchHomeSlow } from '../api/home';
+import { getPinnedTeams } from '../utils/pinnedTeams';
 import { sportsDateStr } from '../utils/slateDate';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { mergeGamesWithOdds } from '../api/odds';
@@ -910,6 +911,12 @@ function AffiliatePromoModule({ slot, brand, headline, primaryOffer, primaryLabe
 // Main page component
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Same defaults as Home — ensures Insights hits the same server-side cache
+// key as Home so both pages get the same odds data.  pinnedSlugs on the slow
+// API only affects pinnedTeamNews (which Insights ignores); odds.games and
+// upcomingGamesWithSpreads are identical regardless of pinnedSlugs.
+const INSIGHTS_DEFAULT_SLUGS = ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
+
 export default function Insights() {
   const [fastData, setFastData] = useState({ rankings: [], scoresToday: [] });
   const [slowData, setSlowData] = useState({ oddsGames: [], upcomingGames: [] });
@@ -945,11 +952,17 @@ export default function Insights() {
     return () => { cancelled = true; };
   }, [refreshTick]);
 
-  // Slow path: odds + upcoming games
+  // Slow path: odds + upcoming games.
+  // Uses the same pinnedSlugs as Home so both pages share the same server-side
+  // cache entry (home:slow:slug1,slug2,...).  Without this, Insights would hit
+  // a separate cache key (home:slow — no params) that can hold stale/empty odds
+  // from a cold-start failure while Home's key always has fresh data.
   useEffect(() => {
     let cancelled = false;
     setSlowLoading(true);
-    fetchHomeSlow()
+    const pinned = getPinnedTeams();
+    const pinnedSlugs = pinned.length > 0 ? pinned : INSIGHTS_DEFAULT_SLUGS;
+    fetchHomeSlow({ pinnedSlugs })
       .then((data) => {
         if (cancelled) return;
         setSlowData({
@@ -1053,6 +1066,36 @@ export default function Insights() {
       // localStorage may be unavailable in some environments
     }
   }, [briefing, fastLoading, slowLoading]);
+
+  // ── Debug instrumentation (activate with ?debugPicks in URL) ────────────
+  const debugPicks = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('debugPicks');
+
+  useEffect(() => {
+    if (!debugPicks) return;
+    if (fastLoading || slowLoading || atsLoading) return;
+    console.group('[Picks:Insights] Data when all loading complete');
+    console.log('scoresToday:', fastData.scoresToday.length, 'games');
+    console.log('oddsGames:', slowData.oddsGames.length, 'games from odds API');
+    console.log('upcomingGames:', slowData.upcomingGames.length, 'upcoming with spreads');
+    console.log('allGames:', allGames.length, 'total');
+    console.log('  gamesWithSpread:', allGames.filter((g) => g.spread != null || g.homeSpread != null || g.awaySpread != null).length);
+    console.log('  gamesWithTotal:', allGames.filter((g) => g.total != null).length);
+    console.log('  gamesWithML:', allGames.filter((g) => g.moneyline != null).length);
+    console.log('atsLeaders best:', atsLeaders.best.length, '| worst:', atsLeaders.worst.length);
+    console.log('atsBySlug keys:', atsBySlug ? Object.keys(atsBySlug).length : 0);
+    if (allGames.length > 0) {
+      console.table(allGames.map((g) => ({
+        matchup: `${g.awayTeam} @ ${g.homeTeam}`,
+        startTime: g.startTime ?? '',
+        spread: g.spread ?? g.homeSpread ?? null,
+        total: g.total ?? null,
+        moneyline: g.moneyline ?? null,
+      })));
+    }
+    console.groupEnd();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fastLoading, slowLoading, atsLoading]);
 
   const isLoading = fastLoading && slowLoading;
 
