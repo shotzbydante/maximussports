@@ -21,6 +21,8 @@ import { TEAMS } from '../data/teams';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import RankingsTable from '../components/insights/RankingsTable';
 import ShareButton from '../components/common/ShareButton';
+import MaximusPicks from '../components/home/MaximusPicks';
+import AffiliateCta from '../components/common/AffiliateCta';
 import styles from './Insights.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -573,7 +575,7 @@ function MarketMovers({ model, loading }) {
 function MatchupCard({ game, rankLookup }) {
   const {
     homeTeam, awayTeam, gameStatus, network, startTime,
-    spread, total, moneyline,
+    spread, total, moneyline, gameId,
     homeRank, awayRank, homeProbPct, awayProbPct, homeProb, awayProb,
     homeML, awayML, upsetScore, bothRanked, topTeam, primetime, favoredTeam,
   } = game;
@@ -653,8 +655,16 @@ function MatchupCard({ game, rankLookup }) {
         )}
       </div>
 
-      {/* Share */}
+      {/* Actions: affiliate CTA + share */}
       <div className={styles.matchupFooter}>
+        <AffiliateCta
+          offer="xbet-ncaa"
+          label="View Odds"
+          slot="high-interest-matchup"
+          gameId={gameId}
+          team={getTeamSlug(homeTeam) || getTeamSlug(awayTeam) || undefined}
+          variant="subtle"
+        />
         <ShareButton
           shareType={upsetScore >= 2 ? 'upset_watch' : 'matchup'}
           title={`${homeTeam} vs ${awayTeam}`}
@@ -674,7 +684,7 @@ function UnderdogCard({ game, rankLookup }) {
   const {
     homeTeam, awayTeam, favoredTeam, underdogTeam,
     spread, homeRank, awayRank, underdogRank, favoredRank,
-    upsetScore,
+    upsetScore, gameId,
   } = game;
 
   const label = upsetScore === 3 ? 'High Upset Risk' : 'Upset Watch';
@@ -706,6 +716,16 @@ function UnderdogCard({ game, rankLookup }) {
           ? `Ranked vs ranked with narrow line — coin-flip territory.`
           : `Ranked favorite with small cushion — vulnerable to cover failure.`}
       </p>
+      <div className={styles.underdogFooter}>
+        <AffiliateCta
+          offer="xbet-ncaa"
+          label="View Market"
+          slot="underdog-watch"
+          gameId={gameId}
+          team={getTeamSlug(underdogTeam || awayTeam) || undefined}
+          variant="subtle"
+        />
+      </div>
     </div>
   );
 }
@@ -831,6 +851,48 @@ function DataTable({ enriched, rankLookup }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Affiliate promo module — replaces the placeholder adSlot divs
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Inline sportsbook partner strip. Renders between content sections.
+ * Looks like a native intelligence card, not a banner.
+ */
+function AffiliatePromoModule({ slot, headline, primaryOffer, primaryLabel, secondaryOffer, secondaryLabel }) {
+  return (
+    <div className={styles.promoModule}>
+      <div className={styles.promoInner}>
+        <div className={styles.promoText}>
+          <span className={styles.promoPartnerTag}>Partner</span>
+          <p className={styles.promoHeadline}>{headline}</p>
+        </div>
+        <div className={styles.promoActions}>
+          <AffiliateCta
+            offer={primaryOffer}
+            label={primaryLabel}
+            slot={slot}
+            campaign="odds-insights-launch"
+            variant="primary"
+          />
+          {secondaryOffer && (
+            <AffiliateCta
+              offer={secondaryOffer}
+              label={secondaryLabel}
+              slot={`${slot}-secondary`}
+              campaign="odds-insights-launch"
+              variant="subtle"
+            />
+          )}
+        </div>
+      </div>
+      <p className={styles.promoDisclosure}>
+        21+ only · Partner link · Please bet responsibly
+      </p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Main page component
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -939,6 +1001,28 @@ export default function Insights() {
     [model, refreshTick]
   );
 
+  // Build atsBySlug from ATS leaders — same pattern as OddsInsightsTeaser on Home
+  const atsBySlug = useMemo(() => {
+    const all = [...(atsLeaders.best ?? []), ...(atsLeaders.worst ?? [])];
+    if (all.length === 0) return null;
+    const map = {};
+    for (const row of all) {
+      if (!row.slug) continue;
+      map[row.slug] = {
+        season: row.season ?? row.rec ?? null,
+        last30: row.last30 ?? row.rec ?? null,
+        last7:  row.last7  ?? row.rec ?? null,
+      };
+    }
+    return Object.keys(map).length > 0 ? map : null;
+  }, [atsLeaders]);
+
+  // Today's ISO date string for MaximusPicks slate label
+  const slateDate = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
   // Persist a compact briefing snapshot to localStorage so the Home teaser
   // can show a live excerpt without triggering any new API calls.
   useEffect(() => {
@@ -978,6 +1062,22 @@ export default function Insights() {
         refreshing={fastLoading || slowLoading}
       />
 
+      {/* ── Maximus's Picks ── */}
+      <section className={styles.picksSection}>
+        <div className={styles.picksSectionHeader}>
+          <h2 className={styles.sectionTitle}>Maximus&apos;s Picks</h2>
+          <span className={styles.picksSectionTag}>Data-Driven Leans</span>
+        </div>
+        <MaximusPicks
+          games={allGames}
+          atsLeaders={atsLeaders}
+          atsBySlug={atsBySlug}
+          loading={isLoading || atsLoading}
+          slateDate={slateDate}
+          hideViewMore
+        />
+      </section>
+
       {/* ── Part 4a: Market Movers ── */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Market Movers</h2>
@@ -1000,10 +1100,15 @@ export default function Insights() {
         </section>
       )}
 
-      {/* ── Monetization slot A ── */}
-      <div className={styles.adSlot} aria-hidden data-slot="premium-analytics">
-        Premium analysis · Betting insights · Subscription
-      </div>
+      {/* ── Affiliate promo module A ── */}
+      <AffiliatePromoModule
+        slot="promo-module-a"
+        headline="Access NCAAB odds, spreads, and moneylines for every game on today's slate."
+        primaryOffer="xbet-ncaa"
+        primaryLabel="Bet at XBet →"
+        secondaryOffer="xbet-welcome"
+        secondaryLabel="Claim Welcome Bonus"
+      />
 
       {/* ── Part 4d: Underdog Watch ── */}
       {model.upsetWatch.length > 0 && (
@@ -1069,10 +1174,15 @@ export default function Insights() {
         </section>
       )}
 
-      {/* ── Monetization slot B ── */}
-      <div className={styles.adSlot} aria-hidden data-slot="betting-integrations">
-        Betting integrations · Sportsbook comparison · Video widgets
-      </div>
+      {/* ── Affiliate promo module B ── */}
+      <AffiliatePromoModule
+        slot="promo-module-b"
+        headline="Bet-back offer available on today's college basketball action at MyBookie."
+        primaryOffer="mybookie-welcome"
+        primaryLabel="Welcome Bonus →"
+        secondaryOffer="mybookie-betback"
+        secondaryLabel="Bet-Back Offer"
+      />
 
       {/* ── Part 6: Full Data Table ── */}
       {enriched.length > 0 && (
@@ -1169,6 +1279,11 @@ export default function Insights() {
           championshipOddsLoading={championshipOddsLoading}
         />
       </section>
+
+      {/* ── Disclosure ── */}
+      <p className={styles.pageDisclosure}>
+        Maximus Sports may earn a commission from partner links. 21+ only. Please bet responsibly.
+      </p>
     </div>
   );
 }

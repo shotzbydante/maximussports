@@ -397,7 +397,7 @@ const COLUMN_CONFIG = {
 
 // ─── pick column ─────────────────────────────────────────────────────────────
 
-function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondary, slateComplete }) {
+function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondary, slateComplete, hideViewMore }) {
   const { title, Icon, microcopy, storageKey, isTotal } = COLUMN_CONFIG[section];
 
   const [expanded, setExpanded] = useState(() => {
@@ -497,10 +497,12 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
         </div>
       )}
 
-      {/* Always show the Odds Insights link so users can reach the full board */}
-      <a href="/insights" className={styles.viewMoreLink} aria-label={`View full ${title} board on Odds Insights`}>
-        {picks.length > 0 ? 'Full intel on Odds Insights →' : 'View Odds Insights →'}
-      </a>
+      {/* Link to the full Odds Insights page — suppressed when already on that page */}
+      {!hideViewMore && (
+        <a href="/insights" className={styles.viewMoreLink} aria-label={`View full ${title} board on Odds Insights`}>
+          {picks.length > 0 ? 'Full intel on Odds Insights →' : 'View Odds Insights →'}
+        </a>
+      )}
     </div>
   );
 }
@@ -527,6 +529,7 @@ export default function MaximusPicks({
   slateDate = null,
   slateDateSecondary = null,
   slateComplete = false,
+  hideViewMore = false,
 }) {
   const { atsPicks, mlPicks, totalsPicks } = useMemo(
     () => buildMaximusPicks({ games, atsLeaders, atsBySlug }),
@@ -590,9 +593,9 @@ export default function MaximusPicks({
         </div>
       )}
       <div className={styles.root}>
-        <PickColumn section="ats"    picks={atsPicks}    emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} />
-        <PickColumn section="ml"     picks={mlPicks}     emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} />
-        <PickColumn section="totals" picks={totalsPicks} emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} />
+        <PickColumn section="ats"    picks={atsPicks}    emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
+        <PickColumn section="ml"     picks={mlPicks}     emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
+        <PickColumn section="totals" picks={totalsPicks} emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
       </div>
       <p className={styles.disclaimer}>
         For entertainment only. Please bet responsibly. Leans are data-driven, not advice.

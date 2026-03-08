@@ -417,9 +417,12 @@
 
 .matchupFooter {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   padding-top: 8px;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
 .matchupLineItem {
@@ -1082,4 +1085,122 @@
   }
   .skeleton { animation: none; opacity: 0.5; }
   .spinner { animation: none; border-top-color: rgba(255,255,255,0.6); }
+}
+
+/* ─── Maximus's Picks section ─────────────────────────────────────────────── */
+
+.picksSection {
+  padding: var(--space-xl) var(--space-lg) 0;
+}
+
+.picksSectionHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+/* reuses .sectionTitle but also inline with a tag pill */
+.picksSectionTag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.09);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ─── Underdog card footer ────────────────────────────────────────────────── */
+
+.underdogFooter {
+  display: flex;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(245, 158, 11, 0.12);
+}
+
+/* ─── Affiliate promo module ──────────────────────────────────────────────── */
+
+.promoModule {
+  margin: var(--space-xl) var(--space-lg) 0;
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card, 12px);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.promoInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.promoText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.promoPartnerTag {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+}
+
+.promoHeadline {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.promoActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.promoDisclosure {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Page-level disclosure footer ───────────────────────────────────────── */
+
+.pageDisclosure {
+  margin: var(--space-xl) var(--space-lg) 0;
+  padding: var(--space-md) var(--space-lg);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  text-align: center;
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* ─── Mobile overrides for new elements ──────────────────────────────────── */
+
+@media (max-width: 479px) {
+  .promoInner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .promoActions {
+    width: 100%;
+  }
 }
