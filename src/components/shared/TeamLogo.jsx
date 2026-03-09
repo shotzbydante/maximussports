@@ -35,10 +35,15 @@ function getLogoPath(slug) {
   return [`/logos/${slug}.svg`, `/logos/${slug}.png`];
 }
 
+function slugFromName(name) {
+  if (!name || typeof name !== 'string') return null;
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || null;
+}
+
 export default function TeamLogo({ team, size = 28 }) {
   const [attempt, setAttempt] = useState(0);
   const [imgError, setImgError] = useState(false);
-  const slug = team?.slug;
+  const slug = team?.slug || slugFromName(team?.name);
   const paths = slug ? getLogoPath(slug) : [];
   const currentPath = paths[attempt] || null;
   const initials = getInitials(team?.name);

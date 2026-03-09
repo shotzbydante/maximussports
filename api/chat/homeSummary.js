@@ -107,7 +107,7 @@ function buildPayload(data) {
     .filter(([, v]) => v?.bestChanceAmerican != null || v?.american != null)
     .map(([slug, v]) => {
       const o = v.bestChanceAmerican ?? v.american;
-      return { team: slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' '), odds: o, impliedPct: impliedPct(o) };
+      return { team: slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' '), odds: typeof o === 'number' && o > 0 ? '+' + o : o, impliedPct: impliedPct(o) };
     })
     .sort((a, b) => (b.impliedPct ?? 0) - (a.impliedPct ?? 0))
     .slice(0, 6);

@@ -28,10 +28,11 @@ const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 const ADMIN_EMAIL = 'dantedicicco@gmail.com';
 
 const SECTIONS = [
-  { id: 'daily', label: 'Daily Briefing', icon: '📅' },
-  { id: 'team',  label: 'Team Intel',     icon: '🏀' },
-  { id: 'game',  label: 'Game Insights',  icon: '📊' },
-  { id: 'odds',  label: 'Odds Insights',  icon: '📈' },
+  { id: 'daily',      label: 'Daily Briefing',   icon: '📅' },
+  { id: 'team',       label: 'Team Intel',        icon: '🏀' },
+  { id: 'conference', label: 'Conference Intel',   icon: '🏟️' },
+  { id: 'game',       label: 'Game Insights',     icon: '📊' },
+  { id: 'odds',       label: 'Odds Insights',     icon: '📈' },
 ];
 
 function gameLabel(g) {
@@ -59,13 +60,14 @@ export default function Dashboard() {
   const [riskMode, setRiskMode] = useState('standard');
 
   // ── slide count (per section default) ────────────────────
-  const SECTION_SLIDE_DEFAULTS = { daily: 5, team: 4, game: 3, odds: 3 };
-  const SECTION_SLIDE_MAX = { daily: 5, team: 3, game: 3, odds: 4 };
+  const SECTION_SLIDE_DEFAULTS = { daily: 5, team: 4, conference: 1, game: 3, odds: 3 };
+  const SECTION_SLIDE_MAX = { daily: 5, team: 3, conference: 1, game: 3, odds: 4 };
   const [slideCount, setSlideCount] = useState(SECTION_SLIDE_DEFAULTS.daily);
 
   // ── picker state ──────────────────────────────────────────
   const [teamSearch, setTeamSearch] = useState('');
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [selectedConference, setSelectedConference] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
 
@@ -393,12 +395,11 @@ export default function Dashboard() {
       headlines: dashData?.headlines ?? [],
       asOf,
       styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
-      // Pass digest for richer daily caption
       chatDigest: activeSection === 'daily' ? dailyDigest : null,
-      // Pass next game so Team Intel caption scopes model lean to the correct matchup
       nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
+      conference: activeSection === 'conference' ? selectedConference : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -625,7 +626,7 @@ export default function Dashboard() {
 
   const gamesForPicker = (dashData?.odds?.games ?? []).filter(g => g.awayTeam && g.homeTeam);
   const isWorking = dataLoading || teamPageLoading;
-  const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData);
+  const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference);
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
   const options = {
@@ -807,6 +808,35 @@ export default function Dashboard() {
                     <span className={styles.toggleThumb} />
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Conference Intel controls ─────────────── */}
+          {activeSection === 'conference' && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Conference</label>
+                <div className={styles.confFilterRow}>
+                  {['SEC', 'Big Ten', 'Big 12', 'ACC', 'Big East', 'WCC', 'Mountain West', 'AAC', 'A-10', 'MVC', 'MAC', 'CUSA'].map(c => (
+                    <button
+                      key={c}
+                      className={`${styles.confChip} ${selectedConference === c ? styles.confChipActive : ''}`}
+                      onClick={() => { setSelectedConference(c); setAssetsReady(false); }}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+                {selectedConference && (
+                  <div className={styles.selectedTeamPill}>
+                    {selectedConference} Intel
+                    <button
+                      className={styles.clearBtn}
+                      onClick={() => { setSelectedConference(null); setAssetsReady(false); }}
+                    >&times;</button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1045,7 +1075,7 @@ export default function Dashboard() {
           <TagSuggestionsPanel
             template={activeSection}
             teamSlug={selectedTeam?.slug}
-            conference={selectedTeam?.conference}
+            conference={activeSection === 'conference' ? selectedConference : selectedTeam?.conference}
             awaySlug={gameTagContext.awaySlug}
             homeSlug={gameTagContext.homeSlug}
           />
@@ -1073,6 +1103,7 @@ export default function Dashboard() {
               slideCount={slideCount}
               data={activeSection === 'daily' && dailyDigest ? { ...dashData, chatDigest: dailyDigest } : dashData}
               teamData={enhancedTeamData}
+              conferenceData={activeSection === 'conference' && selectedConference ? { conference: selectedConference } : null}
               selectedGame={selectedGame}
               exportRef={exportRef}
               onAssetsReady={() => setAssetsReady(true)}

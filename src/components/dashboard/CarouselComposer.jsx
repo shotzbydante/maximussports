@@ -25,6 +25,9 @@ import OddsInsightsSlide2 from './slides/OddsInsightsSlide2';
 import OddsInsightsSlide3 from './slides/OddsInsightsSlide3';
 import OddsInsightsSlide4 from './slides/OddsInsightsSlide4';
 
+// Conference Intel slide
+import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
+
 import styles from './CarouselComposer.module.css';
 
 /**
@@ -34,10 +37,10 @@ import styles from './CarouselComposer.module.css';
 function getSlides(template, slideCount, options = {}) {
   switch (template) {
     case 'team':
-      // Slide 1 = hero summary (Slide4 component), then overview, ATS, line/value
       return [TeamIntelSlide4, TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 4));
+    case 'conference':
+      return [ConferenceIntelSlide];
     case 'game':
-      // '5games' mode: single slide showing 5 key upcoming games
       if (options?.gameMode === '5games') return [GameInsights5GamesSlide];
       return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, Math.min(slideCount, 3));
     case 'odds':
@@ -58,10 +61,11 @@ function getSlides(template, slideCount, options = {}) {
 }
 
 const TEMPLATE_LABELS = {
-  daily: 'Daily Briefing',
-  team:  'Team Intel',
-  game:  'Game Insights',
-  odds:  'Odds Insights',
+  daily:      'Daily Briefing',
+  team:       'Team Intel',
+  conference: 'Conference Intel',
+  game:       'Game Insights',
+  odds:       'Odds Insights',
 };
 
 /**
@@ -82,6 +86,7 @@ export default function CarouselComposer({
   slideCount = 3,
   data,
   teamData,
+  conferenceData,
   selectedGame,
   exportRef,
   onAssetsReady,
@@ -96,7 +101,7 @@ export default function CarouselComposer({
   const slides = getSlides(template, slideCount, options);
   const total = slides.length;
 
-  const slideProps = { data, teamData, game: selectedGame, asOf, slideTotal: total, options };
+  const slideProps = { data, teamData, conferenceData, game: selectedGame, asOf, slideTotal: total, options };
 
   useEffect(() => {
     const t = setTimeout(() => onAssetsReady?.(), 700);

@@ -802,6 +802,81 @@ function buildTeamSummaryCaption({
   return { shortCaption, longCaption, hashtags };
 }
 
+// ─── Conference Intel Caption ─────────────────────────────────────────────────
+
+function buildConferenceCaption({ conference, atsLeaders, asOf }) {
+  if (!conference) return { shortCaption: '', longCaption: '', hashtags: [] };
+
+  const confName = conference;
+  const isMarch = new Date().getMonth() === 2;
+  const seed = confName;
+
+  const hookPhrases = [
+    `\uD83C\uDFC0 ${confName} Intel is live. Here\u2019s the full conference breakdown.`,
+    `\uD83C\uDFC0 Fresh intel on the ${confName}. Everything you need to know.`,
+    `\uD83C\uDFC0 The ${confName} report is in. Here\u2019s what the data says.`,
+  ];
+  const hook = _pick(hookPhrases, seed);
+
+  const bestTeams = (atsLeaders?.best ?? []).slice(0, 2);
+  const atsNote = bestTeams.length > 0
+    ? `\uD83D\uDCCA ATS leaders: ${bestTeams.map(t => t.name || t.slug || '').join(', ')} \u2014 covering the number.`
+    : null;
+
+  const marchNote = isMarch
+    ? `\uD83C\uDFC6 ${confName} tournament positioning is heating up. Every game matters from here.`
+    : null;
+
+  const narrativePhrases = [
+    `The ${confName} has been one of the more interesting conferences to track this season.`,
+    `Smart bettors are paying attention to what\u2019s happening in the ${confName} right now.`,
+    `The numbers in the ${confName} tell a compelling story heading into the stretch.`,
+  ];
+  const narrativeLine = _pick(narrativePhrases, seed + 'nar');
+
+  const engagementPhrases = [
+    `Which ${confName} team are you watching most closely right now?`,
+    `Is the ${confName} the most interesting conference in college hoops right now?`,
+    `Who\u2019s the ${confName} team to beat? Drop your pick below.`,
+  ];
+  const engagementQ = _pick(engagementPhrases, seed + 'eng');
+
+  const longCaption = [
+    hook,
+    '',
+    narrativeLine,
+    '',
+    atsNote,
+    marchNote,
+    '',
+    engagementQ,
+    '',
+    `Full intel + signals: maximussports.ai`,
+    '',
+    DISCLAIMER,
+  ].filter(l => l !== null && l !== undefined)
+    .reduce((acc, line) => {
+      if (line === '' && acc[acc.length - 1] === '') return acc;
+      return [...acc, line];
+    }, [])
+    .join('\n')
+    .trim();
+
+  const shortCaption = [hook, atsNote || '', `\n\n${CTA}`].filter(Boolean).join('\n').trim();
+
+  const confTagMap = {
+    'Big Ten': '#BigTen', 'SEC': '#SEC', 'ACC': '#ACC', 'Big 12': '#Big12',
+    'Big East': '#BigEast', 'WCC': '#WCC', 'Mountain West': '#MountainWest',
+    'AAC': '#AAC', 'A-10': '#A10', 'MVC': '#MVC', 'MAC': '#MACtion', 'CUSA': '#CUSA',
+  };
+  const confTag = confTagMap[confName] ?? null;
+  const hashtags = [
+    confTag, '#CollegeBasketball', '#ConferenceIntel', '#MaximusSports', '#SportsBetting',
+  ].filter(Boolean).slice(0, 5);
+
+  return { shortCaption, longCaption, hashtags };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -812,9 +887,15 @@ function buildTeamSummaryCaption({
 export function buildCaption({
   template, team, game, picks, stats, atsLeaders,
   headlines, asOf, styleMode, chatDigest, nextGame,
-  teamNews, ats,
+  teamNews, ats, conference,
 } = {}) {
   switch (template) {
+    case 'conference':
+      return buildConferenceCaption({
+        conference: conference ?? null,
+        atsLeaders: atsLeaders ?? { best: [], worst: [] },
+        asOf,
+      });
     case 'team-summary':
       return buildTeamSummaryCaption({
         team,

@@ -6,6 +6,8 @@
  */
 
 import { parseFormattedSummary } from '../../utils/chatSummary';
+import { getTeamSlug } from '../../utils/teamSlug';
+import { getTeamEmoji } from '../../utils/getTeamEmoji';
 import styles from './FormattedSummary.module.css';
 
 /** Match leading ALL-CAPS section labels like "ODDS PULSE:", "TODAY + TOMORROW:", etc. */
@@ -61,7 +63,11 @@ export default function FormattedSummary({ text, className, as: Component = 'p' 
             )}
             {parseFormattedSummary(rest).map((part, j) => {
               if (part.type === 'text') return part.content;
-              if (part.type === 'bold') return <strong key={j}>{part.content}</strong>;
+              if (part.type === 'bold') {
+                const _slug = getTeamSlug(part.content);
+                const _emoji = _slug ? getTeamEmoji(_slug, part.content) : '';
+                return <strong key={j}>{part.content}{_emoji ? ` ${_emoji}` : ''}</strong>;
+              }
               if (part.type === 'italic') return <em key={j}>{part.content}</em>;
               return part.content;
             })}
