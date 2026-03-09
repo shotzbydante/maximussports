@@ -10,18 +10,19 @@
  *   3. Identity      — rank · champ odds · conf · meta chips
  *   4. Record line   — overall · conference · last-10
  *   5. Headline      — narrative scoring engine (buildHeroNarrative)
- *   6. Subtext       — contextual sentence from highest-scoring signal
- *   7. ATS grid      — ATS L7 / ATS L30 / ATS SZN chips
+ *   6. Subtext       — editorial sentence from highest-scoring signal
+ *   7. ATS grid      — Last 7 / Last 30 / Season — readable format
  *   8. Schedule      — LAST game result → NEXT game (spread · total · datetime)
  *   9. Lean line     — Maximus pick or market signal fallback
  *  10. News intel    — INTEL bullets from team news feed (cleaned)
  *  11. Footer        — URL + disclaimer
  *
- * NARRATIVE ENGINE (v2):
- *   Replaced sequential if/else with a signal scoring model.
- *   1. buildTeamNarrativeSignals()  → generates all applicable signals with base scores
- *   2. buildContextSignals()        → environmental adjustments (tournament window, rivalry, betting momentum)
- *   3. buildHeroNarrative()         → orchestrates: generate → adjust → sort → select top signal
+ * NARRATIVE ENGINE (v3):
+ *   Signal scoring model with context adjustments.
+ *   1. buildTeamNarrativeSignals() → all applicable signals with base scores
+ *   2. buildContextSignals()       → environmental boosts + stale-signal penalty
+ *   3. buildMarchStakesPhrase()    → tournament/seeding context for subtexts
+ *   4. buildHeroNarrative()        → orchestrates: generate → adjust → sort → select
  */
 
 import styles from './TeamIntelSlide4.module.css';
@@ -79,12 +80,27 @@ function extractShortName(team) {
   const full = team?.displayName || team?.name || '';
   const parts = full.split(' ');
   if (parts.length <= 1) return full || 'This team';
-  return parts.slice(0, -1).join(' ') || parts[0];
+  // Short prefixes like "St.", "San", "UC" → keep first two words
+  if (parts[0].length <= 3) return parts.slice(0, 2).join(' ');
+  // Otherwise first word is typically the school/location name
+  return parts[0];
 }
 
 function cap(str, max = 110) {
   if (!str) return '';
   return str.length <= max ? str : str.slice(0, max - 1) + '\u2026';
+}
+
+/**
+ * Format a parsed ATS record for mainstream readability.
+ * Returns { record: "21–7 ATS", cover: "75% cover" } or null.
+ */
+function formatReadableAtsRecord(parsed) {
+  if (!parsed) return null;
+  return {
+    record: `${parsed.w}\u2013${parsed.l} ATS`,
+    cover: `${Math.round(parsed.pct * 100)}% cover`,
+  };
 }
 
 // ─── Last Game Metadata ───────────────────────────────────────────────────────
@@ -130,6 +146,33 @@ function cleanNewsHeadline(raw) {
   return s;
 }
 
+// ─── March Stakes Phrase Library ──────────────────────────────────────────────
+
+/**
+ * Returns a contextual March phrase for subtext enrichment.
+ * Phrases are grammatically ready to append as sentence suffixes.
+ * Returns empty string outside of March.
+ */
+function buildMarchStakesPhrase(ctx) {
+  const { conf, rank, recP } = ctx;
+  if (new Date().getMonth() !== 2) return '';
+
+  const day = new Date().getDate();
+
+  // Selection Sunday window (mid-March, ~14–20)
+  if (day >= 14) {
+    if (!rank && recP && recP.pct >= 0.50 && recP.pct <= 0.60)
+      return 'with at-large hopes on the line';
+    if (rank && rank <= 10)
+      return 'as the bracket begins to take shape';
+    return 'as Selection Sunday approaches';
+  }
+
+  // Conference tournament window (early-mid March)
+  if (conf) return `as ${conf} tournament positioning comes into focus`;
+  return 'during a key late-season stretch';
+}
+
 // ─── Narrative Scoring Engine ─────────────────────────────────────────────────
 //
 // SIGNAL TYPES & BASE SCORES:
@@ -147,26 +190,19 @@ function buildTeamNarrativeSignals(ctx) {
     last10W, last10Total, lastGameMeta, newsHeadlines,
   } = ctx;
   const signals = [];
-
-  const atsSnippet = (() => {
-    if (l30) return `Covering ${l30.w} of the last ${l30.w + l30.l} ATS.`;
-    if (ssn) return `${ssn.w}\u2013${ssn.l} ATS on the season.`;
-    return '';
-  })();
+  const marchStakes = buildMarchStakesPhrase(ctx);
 
   // ── LAST GAME ──────────────────────────────────────────────────────────────
   if (lastGameMeta) {
-    const { won, margin, oppName, isOT, wasUpset, ourScore, oppScore } = lastGameMeta;
-    const opp = oppName || 'their opponent';
-    const sc = `${ourScore}\u2013${oppScore}`;
+    const { won, margin, oppName, isOT, wasUpset } = lastGameMeta;
 
     if (isOT) {
       const hl = wasUpset ? 'OVERTIME\nUPSET' : (won ? 'OVERTIME\nTHRILLER' : 'HEARTBREAK\nIN OT');
       signals.push({
         type: 'lastGameOT', score: 130, headline: hl,
         subtext: won
-          ? `${shortName} survived OT vs ${opp}, ${sc}.${atsSnippet ? ' ' + atsSnippet : ''}`
-          : `${shortName} fell in OT to ${opp}, ${sc}.${atsSnippet ? ' ' + atsSnippet : ''}`,
+          ? `${shortName} survived an overtime thriller${oppName ? ' vs ' + oppName : ''}${marchStakes ? ' ' + marchStakes : ''}.`
+          : `${shortName} fell in a heartbreaking overtime loss${oppName ? ' to ' + oppName : ''}${marchStakes ? ' ' + marchStakes : ''}.`,
       });
     }
 
@@ -174,7 +210,7 @@ function buildTeamNarrativeSignals(ctx) {
       signals.push({
         type: 'lastGameUpset', score: 120,
         headline: 'UPSET\nCOMPLETE',
-        subtext: `${shortName} took down ${opp} ${sc}. The market is recalibrating.`,
+        subtext: `${shortName} pulled off the upset${oppName ? ' over ' + oppName : ''}. The market is recalibrating.`,
       });
     }
 
@@ -183,8 +219,8 @@ function buildTeamNarrativeSignals(ctx) {
         type: 'lastGameClose', score: 100,
         headline: won ? 'DOWN TO\nTHE WIRE' : 'WENT DOWN\nFIGHTING',
         subtext: won
-          ? `${shortName} edged ${opp} ${sc}.${atsSnippet ? ' ' + atsSnippet : ''}`
-          : `${shortName} fell to ${opp} ${sc} in a tight battle.${atsSnippet ? ' ' + atsSnippet : ''}`,
+          ? `${shortName} edged ${oppName ? oppName + ' in a tight one' : 'out a close win'}${marchStakes ? ' ' + marchStakes : ''}.`
+          : `${shortName} fell${oppName ? ' to ' + oppName : ''} in a tight battle${marchStakes ? ' ' + marchStakes : ''}.`,
       });
     }
 
@@ -192,7 +228,7 @@ function buildTeamNarrativeSignals(ctx) {
       signals.push({
         type: 'lastGameStatement', score: 95,
         headline: 'STATEMENT\nWIN',
-        subtext: `${shortName} dominated ${opp} by ${margin}, ${sc}.${atsSnippet ? ' ' + atsSnippet : ''}`,
+        subtext: `${shortName} rolled to a dominant win${oppName ? ' over ' + oppName : ''}${marchStakes ? ' ' + marchStakes : ''}.`,
       });
     }
   }
@@ -204,7 +240,7 @@ function buildTeamNarrativeSignals(ctx) {
     signals.push({
       type: 'atsHot', score: 90,
       headline: pct === 100 && games >= 3 ? 'PERFECT\nAGAINST THE NUMBER' : 'HEATING UP',
-      subtext: `Covering at ${pct}% over the last ${games}. The number hasn\u2019t caught up to ${shortName}.`,
+      subtext: `${shortName} keeps covering${marchStakes ? ' ' + marchStakes : ''}. The market is scrambling to catch up.`,
     });
   }
 
@@ -212,36 +248,32 @@ function buildTeamNarrativeSignals(ctx) {
     signals.push({
       type: 'atsAcceleration', score: 80,
       headline: 'MARKET\nLATE AGAIN',
-      subtext: `${shortName}\u2019s cover rate is accelerating. L7: ${l7.w}\u2013${l7.l}. Market still adjusting.`,
+      subtext: `Cover rate is accelerating for ${shortName}${marchStakes ? ' ' + marchStakes : ''}. Market still adjusting.`,
     });
   }
 
   if ((l7 && l7.pct <= 0.38) || (l30 && l30.pct <= 0.38)) {
-    const window = l7 && l7.pct <= 0.38 ? l7 : l30;
-    const pct = window ? Math.round(window.pct * 100) : 0;
     signals.push({
       type: 'atsCooling', score: 50,
       headline: 'MARKET\nHAS ADJUSTED',
-      subtext: `${shortName}\u2019s ATS rate has cooled to ${pct}%. The line has caught up.`,
+      subtext: `${shortName}\u2019s cover rate has cooled. The line may have caught up${marchStakes ? ' ' + marchStakes : ''}.`,
     });
   }
 
   if (ssn && ssn.pct >= 0.60) {
-    const pct = Math.round(ssn.pct * 100);
     signals.push({
       type: 'marketBehind', score: 60,
       headline: 'BOOKS STILL\nBEHIND',
-      subtext: `${shortName} is ${ssn.w}\u2013${ssn.l} ATS (${pct}%) this season. Sharp money has noticed.`,
+      subtext: `${shortName} has been sharp ATS all season. Books are still behind.`,
     });
   }
 
   // ── TEAM MOMENTUM ──────────────────────────────────────────────────────────
   if (rank && rank <= 25 && last10W >= 7 && last10Total >= 8) {
-    const isMarch = new Date().getMonth() === 2;
     signals.push({
       type: 'rankedMomentum', score: 70,
-      headline: isMarch ? 'MARCH\nMOMENTUM' : 'BUILDING\nMOMENTUM',
-      subtext: `#${rank} ${shortName} is ${last10W}\u2013${last10Total - last10W} in the last ${last10Total} heading into ${conf || 'postseason'} play.`,
+      headline: new Date().getMonth() === 2 ? 'MARCH\nMOMENTUM' : 'BUILDING\nMOMENTUM',
+      subtext: `#${rank} ${shortName} keeps building momentum${marchStakes ? ' ' + marchStakes : ''}.`,
     });
   }
 
@@ -249,19 +281,16 @@ function buildTeamNarrativeSignals(ctx) {
     signals.push({
       type: 'surgingTeam', score: 55,
       headline: 'SURGING',
-      subtext: `${shortName} has won ${last10W} of its last ${last10Total}. The momentum is real.`,
+      subtext: `${shortName} has won ${last10W} of its last ${last10Total}${marchStakes ? ' ' + marchStakes : ''}. Momentum is real.`,
     });
   }
 
   // ── TOURNAMENT POSITIONING ─────────────────────────────────────────────────
-  const isMarch = new Date().getMonth() === 2;
-  if (isMarch && conf) {
+  if (new Date().getMonth() === 2 && conf) {
     signals.push({
       type: 'conferenceTournament', score: 65,
       headline: 'TOURNAMENT\nTIME',
-      subtext: last10Total > 0
-        ? `${conf} tournament on deck. ${shortName} is ${last10W}\u2013${last10Total - last10W} in the last ${last10Total}.`
-        : `${conf} tournament approaching for ${shortName}.`,
+      subtext: `${conf} tournament on deck for ${shortName}. Every game matters from here.`,
     });
   }
 
@@ -269,7 +298,7 @@ function buildTeamNarrativeSignals(ctx) {
     signals.push({
       type: 'bubbleWatch', score: 65,
       headline: 'BUBBLE\nWATCH',
-      subtext: `${shortName} sits at ${recP.w}\u2013${recP.l} overall. Tournament positioning still in play.`,
+      subtext: `${shortName} sits on the bubble${marchStakes ? ' ' + marchStakes : ''}. Every game matters.`,
     });
   }
 
@@ -299,11 +328,11 @@ function buildTeamNarrativeSignals(ctx) {
 }
 
 /**
- * Context layer: adjusts signal scores based on environmental factors.
+ * Context layer: boosts + penalties based on environmental factors.
  * Returns { signalType: scoreAdjustment } map.
  */
 function buildContextSignals(ctx) {
-  const { l7, ssn, lastGameMeta, newsHeadlines } = ctx;
+  const { l7, l30, ssn, lastGameMeta, newsHeadlines } = ctx;
   const adj = {};
 
   // 1. Tournament window (March)
@@ -329,6 +358,17 @@ function buildContextSignals(ctx) {
   if (l7 && l7.pct >= 0.70 && ssn && ssn.pct >= 0.60) {
     adj.atsHot = (adj.atsHot || 0) + 15;
     adj.marketBehind = (adj.marketBehind || 0) + 15;
+  }
+
+  // 4. Stale-signal penalty — season ATS looks strong but recent windows diverge
+  if (ssn && ssn.pct >= 0.60) {
+    const l7Cool = l7 && l7.pct <= 0.40;
+    const l30Cool = l30 && l30.pct <= 0.45;
+    if (l7Cool && l30Cool) {
+      adj.marketBehind = (adj.marketBehind || 0) - 25;
+    } else if (l7Cool || l30Cool) {
+      adj.marketBehind = (adj.marketBehind || 0) - 15;
+    }
   }
 
   return adj;
@@ -439,6 +479,11 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
   const lastGameEvent = recentFinished[0] ?? null;
   const lastGameMeta  = extractLastGameMeta(lastGameEvent, slug, name);
 
+  // Pre-format last-game score line for the schedule module
+  const lastGameScoreLabel = lastGameMeta
+    ? `${lastGameMeta.won ? 'W' : 'L'} ${lastGameMeta.ourScore}\u2013${lastGameMeta.oppScore}`
+    : null;
+
   // ── Next game from odds API; schedule fallback ─────────────────────────────
   const nextLine  = teamData?.nextLine ?? null;
   const spread    = nextLine?.consensus?.spread ?? null;
@@ -528,12 +573,12 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
 
   const titleOddsLabel = fmtOdds(titleOdds);
 
-  // ATS windows
+  // ATS windows — plain-language labels + readable format via formatReadableAtsRecord
   const atsWindows = [
-    { label: 'ATS L7',  parsed: l7P  },
-    { label: 'ATS L30', parsed: l30P },
-    { label: 'ATS SZN', parsed: ssnP },
-  ].filter(w => w.parsed != null);
+    { label: 'Last 7',  fmt: formatReadableAtsRecord(l7P)  },
+    { label: 'Last 30', fmt: formatReadableAtsRecord(l30P) },
+    { label: 'Season',  fmt: formatReadableAtsRecord(ssnP) },
+  ].filter(w => w.fmt != null);
 
   // Record display line
   const recordLineParts = [];
@@ -612,19 +657,19 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
         <div className={styles.headlineDividerBottom} />
       </div>
 
-      {/* Contextual subtext — generated by the winning narrative signal */}
+      {/* Contextual subtext — editorial sentence from the winning signal */}
       {narrative.subtext && (
         <div className={styles.quickIntel}>{narrative.subtext}</div>
       )}
 
-      {/* ATS grid */}
+      {/* ATS grid — mainstream-readable format */}
       {atsWindows.length > 0 && (
         <div className={styles.atsGrid}>
           {atsWindows.map((w, i) => (
             <div key={i} className={styles.atsChip}>
               <div className={styles.atsLabel}>{w.label}</div>
-              <div className={styles.atsValue}>{w.parsed.w}\u2013{w.parsed.l}</div>
-              <div className={styles.atsPct}>{Math.round(w.parsed.pct * 100)}%</div>
+              <div className={styles.atsValue}>{w.fmt.record}</div>
+              <div className={styles.atsPct}>{w.fmt.cover}</div>
             </div>
           ))}
         </div>
@@ -638,7 +683,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
               <span className={styles.schedBadge} data-type={lastGameMeta.won ? 'win' : 'loss'}>LAST</span>
               <span className={styles.schedContent}>
                 <span className={`${styles.schedResultLabel} ${lastGameMeta.won ? styles.schedWin : styles.schedLoss}`}>
-                  {lastGameMeta.won ? 'W' : 'L'} {lastGameMeta.ourScore}\u2013{lastGameMeta.oppScore}
+                  {lastGameScoreLabel}
                 </span>
                 {lastGameMeta.oppName && <span className={styles.schedOppSmall}>vs {lastGameMeta.oppName}</span>}
               </span>

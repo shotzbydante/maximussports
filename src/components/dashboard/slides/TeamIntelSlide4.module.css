@@ -684,10 +684,10 @@
 
 .intelItem {
   position: relative;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
-  color: rgba(240, 244, 248, 0.50);
-  line-height: 1.35;
+  color: rgba(240, 244, 248, 0.55);
+  line-height: 1.45;
   padding-left: 14px;
 }
 
