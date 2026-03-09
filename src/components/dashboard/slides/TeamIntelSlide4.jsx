@@ -146,31 +146,92 @@ function cleanNewsHeadline(raw) {
   return s;
 }
 
+// ─── Phrase Variation System ──────────────────────────────────────────────────
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function pickPhrase(phrases, seed) {
+  return phrases[hashStr(seed || '') % phrases.length];
+}
+
+const PHRASE_LIB = {
+  tournamentStakes: [
+    (conf) => `as ${conf} tournament positioning comes into focus`,
+    (conf) => `with ${conf} tournament seeding on the line`,
+    (conf) => `as ${conf} tournament pressure builds`,
+    (conf) => `with postseason positioning at stake`,
+    (conf) => `as the bracket picture tightens`,
+  ],
+  marchGeneric: [
+    'during a key late-season stretch',
+    'as March pressure builds',
+    'with postseason positioning in focus',
+    'as the season enters its final stretch',
+    'with conference tournament momentum building',
+  ],
+  selectionSunday: [
+    'as Selection Sunday approaches',
+    'with the bracket about to be set',
+    'as the committee finalizes the field',
+  ],
+  bubblePressure: [
+    'with at-large hopes on the line',
+    'as bubble pressure reaches a peak',
+    'with their tournament fate still in the balance',
+  ],
+  eliteBracket: [
+    'as the bracket begins to take shape',
+    'with a potential top seed in play',
+    'as the road to the Final Four sharpens',
+  ],
+  marketMovement: [
+    'The market is scrambling to catch up.',
+    'Books are still adjusting.',
+    'Pricing is tightening.',
+    'The edge is narrowing.',
+    'The number has started to move.',
+  ],
+  momentum: [
+    'Momentum is real.',
+    'This team is heating up.',
+    'Form is trending up.',
+    'They are peaking at the right time.',
+    'The timing looks strong.',
+  ],
+  coverRate: [
+    'keeps covering',
+    'keeps cashing tickets',
+    'continues to beat the number',
+    'stays sharp against the spread',
+    'is still finding value',
+  ],
+};
+
 // ─── March Stakes Phrase Library ──────────────────────────────────────────────
 
-/**
- * Returns a contextual March phrase for subtext enrichment.
- * Phrases are grammatically ready to append as sentence suffixes.
- * Returns empty string outside of March.
- */
 function buildMarchStakesPhrase(ctx) {
-  const { conf, rank, recP } = ctx;
+  const { conf, rank, recP, shortName } = ctx;
   if (new Date().getMonth() !== 2) return '';
-
+  const seed = shortName || conf || '';
   const day = new Date().getDate();
 
-  // Selection Sunday window (mid-March, ~14–20)
   if (day >= 14) {
     if (!rank && recP && recP.pct >= 0.50 && recP.pct <= 0.60)
-      return 'with at-large hopes on the line';
+      return pickPhrase(PHRASE_LIB.bubblePressure, seed);
     if (rank && rank <= 10)
-      return 'as the bracket begins to take shape';
-    return 'as Selection Sunday approaches';
+      return pickPhrase(PHRASE_LIB.eliteBracket, seed);
+    return pickPhrase(PHRASE_LIB.selectionSunday, seed);
   }
 
-  // Conference tournament window (early-mid March)
-  if (conf) return `as ${conf} tournament positioning comes into focus`;
-  return 'during a key late-season stretch';
+  if (conf) {
+    const phraseFn = pickPhrase(PHRASE_LIB.tournamentStakes, seed);
+    return phraseFn(conf);
+  }
+  return pickPhrase(PHRASE_LIB.marchGeneric, seed);
 }
 
 // ─── Narrative Scoring Engine ─────────────────────────────────────────────────
@@ -237,18 +298,21 @@ function buildTeamNarrativeSignals(ctx) {
   if (l7 && l7.pct >= 0.70) {
     const pct = Math.round(l7.pct * 100);
     const games = l7.w + l7.l;
+    const coverVerb = pickPhrase(PHRASE_LIB.coverRate, shortName);
+    const marketLine = pickPhrase(PHRASE_LIB.marketMovement, shortName);
     signals.push({
       type: 'atsHot', score: 90,
       headline: pct === 100 && games >= 3 ? 'PERFECT\nAGAINST THE NUMBER' : 'HEATING UP',
-      subtext: `${shortName} keeps covering${marchStakes ? ' ' + marchStakes : ''}. The market is scrambling to catch up.`,
+      subtext: `${shortName} ${coverVerb}${marchStakes ? ' ' + marchStakes : ''}. ${marketLine}`,
     });
   }
 
   if (l7 && l30 && l7.pct > l30.pct + 0.10 && l7.pct >= 0.58) {
+    const marketLine = pickPhrase(PHRASE_LIB.marketMovement, shortName + 'acc');
     signals.push({
       type: 'atsAcceleration', score: 80,
       headline: 'MARKET\nLATE AGAIN',
-      subtext: `Cover rate is accelerating for ${shortName}${marchStakes ? ' ' + marchStakes : ''}. Market still adjusting.`,
+      subtext: `Cover rate is accelerating for ${shortName}${marchStakes ? ' ' + marchStakes : ''}. ${marketLine}`,
     });
   }
 
@@ -270,18 +334,20 @@ function buildTeamNarrativeSignals(ctx) {
 
   // ── TEAM MOMENTUM ──────────────────────────────────────────────────────────
   if (rank && rank <= 25 && last10W >= 7 && last10Total >= 8) {
+    const momentumLine = pickPhrase(PHRASE_LIB.momentum, shortName + 'ranked');
     signals.push({
       type: 'rankedMomentum', score: 70,
       headline: new Date().getMonth() === 2 ? 'MARCH\nMOMENTUM' : 'BUILDING\nMOMENTUM',
-      subtext: `#${rank} ${shortName} keeps building momentum${marchStakes ? ' ' + marchStakes : ''}.`,
+      subtext: `#${rank} ${shortName} keeps building momentum${marchStakes ? ' ' + marchStakes : ''}. ${momentumLine}`,
     });
   }
 
   if (last10W >= 8 && last10Total >= 10) {
+    const momentumLine = pickPhrase(PHRASE_LIB.momentum, shortName + 'surge');
     signals.push({
       type: 'surgingTeam', score: 55,
       headline: 'SURGING',
-      subtext: `${shortName} has won ${last10W} of its last ${last10Total}${marchStakes ? ' ' + marchStakes : ''}. Momentum is real.`,
+      subtext: `${shortName} has won ${last10W} of its last ${last10Total}${marchStakes ? ' ' + marchStakes : ''}. ${momentumLine}`,
     });
   }
 

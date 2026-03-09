@@ -360,6 +360,69 @@
   border-color: var(--color-primary);
 }
 
+/* Conference filter chips */
+.confFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.confChip {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.confChip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.confChipActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Sort toggle */
+.sortRow {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.sortBtn {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sortBtn:hover {
+  color: var(--color-text);
+}
+
+.sortBtnActive {
+  background: rgba(60, 121, 180, 0.08);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 /* Team picker */
 .teamPickerWrap { position: relative; }
 
@@ -390,7 +453,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   z-index: 100;
-  max-height: 220px;
+  max-height: 280px;
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
 }

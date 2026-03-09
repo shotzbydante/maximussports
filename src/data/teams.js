@@ -11,7 +11,7 @@ export function getTeamBySlug(slug) {
 }
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
-const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
+const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'WCC', 'Mountain West', 'AAC', 'A-10', 'MVC', 'MAC', 'CUSA', 'WAC', 'Southland', 'Others'];
 
 export function getTeamsGroupedByConference() {
   const byConf = {};

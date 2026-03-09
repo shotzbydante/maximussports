@@ -104,12 +104,50 @@ export default function Dashboard() {
   const exportRef = useRef(null);
   const { atsLeaders } = useAtsLeaders({ initialWindow: 'last30' });
 
-  // ── team search filter ───────────────────────────────────
+  // ── team picker filters ─────────────────────────────────
+  const [confFilter, setConfFilter] = useState('All');
+  const [teamSort, setTeamSort] = useState('alpha');
+
+  const CONF_FILTERS = useMemo(() => {
+    const confs = [...new Set(TEAMS.map(t => t.conference))];
+    const order = ['All', 'Top 25', 'SEC', 'Big Ten', 'Big 12', 'ACC', 'Big East', 'WCC', 'AAC', 'Mountain West', 'A-10', 'MVC', 'MAC', 'CUSA'];
+    const known = new Set(order);
+    const extra = confs.filter(c => !known.has(c) && c !== 'Others').sort();
+    return [...order, ...extra, 'Other'];
+  }, []);
+
   const filteredTeams = useMemo(() => {
-    if (!teamSearch.trim()) return TEAMS.slice(0, 20);
-    const q = teamSearch.toLowerCase();
-    return TEAMS.filter(t => t.name.toLowerCase().includes(q)).slice(0, 12);
-  }, [teamSearch]);
+    let list = [...TEAMS];
+
+    if (confFilter === 'Top 25') {
+      // Top 25 is a placeholder filter — shows all teams sorted (ranking data not in static list)
+      // Will show all teams alphabetically — user can search for ranked teams
+    } else if (confFilter !== 'All') {
+      if (confFilter === 'Other') {
+        const knownConfs = new Set(['SEC', 'Big Ten', 'Big 12', 'ACC', 'Big East', 'WCC', 'AAC', 'Mountain West', 'A-10', 'MVC', 'MAC', 'CUSA']);
+        list = list.filter(t => !knownConfs.has(t.conference));
+      } else {
+        list = list.filter(t => t.conference === confFilter);
+      }
+    }
+
+    if (teamSearch.trim()) {
+      const q = teamSearch.toLowerCase();
+      list = list.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        t.conference.toLowerCase().includes(q) ||
+        (t.slug || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (teamSort === 'alpha') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (teamSort === 'conference') {
+      list.sort((a, b) => a.conference.localeCompare(b.conference) || a.name.localeCompare(b.name));
+    }
+
+    return list.slice(0, teamSearch.trim() ? 20 : 30);
+  }, [teamSearch, confFilter, teamSort, CONF_FILTERS]);
 
   // ── load home data + ATS leaders + chatbot summary in parallel ──────────
   const loadData = useCallback(async () => {
@@ -401,7 +439,12 @@ export default function Dashboard() {
         totalGames: last5.length,
       },
       asOf,
-      nextGame: enhancedTeamData?.nextLine?.nextEvent ?? null,
+      nextGame: (() => {
+        const evt = enhancedTeamData?.nextLine?.nextEvent ?? null;
+        if (!evt) return null;
+        const c = enhancedTeamData?.nextLine?.consensus ?? {};
+        return { ...evt, spread: evt.spread ?? c.spread ?? null, moneyline: evt.moneyline ?? c.moneyline ?? null, total: evt.total ?? c.total ?? null };
+      })(),
       teamNews: enhancedTeamData?.last7News ?? enhancedTeamData?.teamNews ?? [],
     });
   }, [activeSection, dashData, enhancedTeamData, selectedTeam]);
@@ -674,11 +717,37 @@ export default function Dashboard() {
             <div className={styles.sectionControls}>
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Team</label>
+
+                {/* Conference filter chips */}
+                <div className={styles.confFilterRow}>
+                  {CONF_FILTERS.filter(c => ['All', 'Top 25', 'SEC', 'Big Ten', 'Big 12', 'ACC', 'Big East', 'WCC', 'AAC', 'Mountain West', 'A-10', 'Other'].includes(c)).map(c => (
+                    <button
+                      key={c}
+                      className={`${styles.confChip} ${confFilter === c ? styles.confChipActive : ''}`}
+                      onClick={() => { setConfFilter(c); setShowTeamDropdown(true); }}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sort toggle */}
+                <div className={styles.sortRow}>
+                  <button
+                    className={`${styles.sortBtn} ${teamSort === 'alpha' ? styles.sortBtnActive : ''}`}
+                    onClick={() => setTeamSort('alpha')}
+                  >A–Z</button>
+                  <button
+                    className={`${styles.sortBtn} ${teamSort === 'conference' ? styles.sortBtnActive : ''}`}
+                    onClick={() => setTeamSort('conference')}
+                  >By Conf</button>
+                </div>
+
                 <div className={styles.teamPickerWrap}>
                   <input
                     type="text"
                     className={styles.searchInput}
-                    placeholder="Search teams…"
+                    placeholder="Search teams or conferences…"
                     value={teamSearch}
                     onChange={e => { setTeamSearch(e.target.value); setShowTeamDropdown(true); }}
                     onFocus={() => setShowTeamDropdown(true)}

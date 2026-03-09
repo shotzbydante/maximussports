@@ -10,6 +10,44 @@
 import { getTeamEmoji } from '../../../utils/getTeamEmoji';
 import { confidenceLabel } from '../../../utils/maximusPicksModel';
 
+// ─── Phrase Variation ─────────────────────────────────────────────────────────
+
+function _hash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function _pick(arr, seed) { return arr[_hash(seed || '') % arr.length]; }
+
+const CAPTION_PHRASES = {
+  hooks_atsHeater: [
+    (n, e) => `Bettors riding ${n} have been printing. ${e}`,
+    (n, e) => `${n} keeps covering and the market can\u2019t keep up. ${e}`,
+    (n, e) => `The number on ${n} keeps moving for a reason. ${e}`,
+    (n, e) => `${n}\u2019s ATS run is one of the best in the country right now. ${e}`,
+  ],
+  hooks_surging: [
+    (n, e) => `${n} is rolling right now. ${e}`,
+    (n, e) => `${n} is playing their best ball of the season. ${e}`,
+    (n, e) => `${n}\u2019s form has been impossible to ignore. ${e}`,
+  ],
+  hooks_standard: [
+    (n, e) => `${n} Team Intel is live. Full breakdown below. ${e}`,
+    (n, e) => `Fresh intel on ${n}. Here\u2019s the full read. ${e}`,
+    (n, e) => `Everything you need to know about ${n} right now. ${e}`,
+  ],
+  marketReads_atsHeater: [
+    'The edge is real. The market is slowly catching up.',
+    'Cover rate like this doesn\u2019t stay under the radar forever.',
+    'Books are adjusting, but they\u2019re still behind.',
+  ],
+  marketReads_surging: [
+    'Momentum teams can be the sharpest bets on the board.',
+    'Timing and form matter. This team has both right now.',
+    'The question is whether the number has caught up yet.',
+  ],
+};
+
 const CTA = 'Full analysis at maximussports.ai';
 const DISCLAIMER = 'For entertainment only. Please bet responsibly. 21+';
 
@@ -446,12 +484,19 @@ function buildTeamHashtags({ teamName, conference, slug }) {
 
   // Conference tag
   const confMap = {
-    'Big Ten': '#BigTen',
-    'SEC':     '#SEC',
-    'ACC':     '#ACC',
-    'Big 12':  '#Big12',
-    'Big East':'#BigEast',
-    'Others':  null,
+    'Big Ten':       '#BigTen',
+    'SEC':           '#SEC',
+    'ACC':           '#ACC',
+    'Big 12':        '#Big12',
+    'Big East':      '#BigEast',
+    'WCC':           '#WCC',
+    'Mountain West': '#MountainWest',
+    'AAC':           '#AAC',
+    'A-10':          '#A10',
+    'MVC':           '#MVC',
+    'MAC':           '#MACtion',
+    'CUSA':          '#CUSA',
+    'Others':        null,
   };
   const confTag = confMap[conference] ?? null;
 
@@ -468,6 +513,8 @@ function buildTeamHashtags({ teamName, conference, slug }) {
     'north-carolina-tar-heels': ['#UNC', '#TarHeels'],
     'kansas-jayhawks': ['#KU', '#RockChalk'],
     'gonzaga-bulldogs': ['#Gonzaga', '#GoZags'],
+    'saint-marys-gaels': ['#SaintMarys', '#Gaels'],
+    'santa-clara-broncos': ['#SantaClara', '#Broncos'],
     'uconn-huskies': ['#UConn', '#Huskies'],
     'houston-cougars': ['#Houston', '#HTownTakeover'],
     'auburn-tigers': ['#Auburn', '#WarEagle'],
@@ -509,7 +556,10 @@ function buildTeamHashtags({ teamName, conference, slug }) {
  * Core viral Instagram caption for the Team Intel Summary (Slide 4).
  *
  * Structure: Hook → Narrative → Data bullets → Market read →
- *            Next game → News signals → Engagement Q → CTA → Hashtags
+ *            Next game → Lean → News → Engagement Q → CTA → Hashtags
+ *
+ * KEY: lean is scoped strictly to team + next opponent matchup.
+ * Line status is derived from actual spread/ML data, never guessed.
  */
 function buildTeamSummaryCaption({
   team, rank, record, ats, picks, conference, asOf, slug,
@@ -518,10 +568,11 @@ function buildTeamSummaryCaption({
   const teamName = team?.displayName || team?.name || 'This team';
   const teamSlug = slug || team?.slug || null;
   const shortName = teamName.split(' ').slice(0, -1).join(' ') || teamName;
+  const seed = teamSlug || teamName;
 
   let mascotEmoji = '';
   try { mascotEmoji = getTeamEmoji(teamSlug, teamName); } catch { /* ignore */ }
-  const sportEmoji = mascotEmoji || '🏀';
+  const sportEmoji = mascotEmoji || '\uD83C\uDFC0';
 
   const story = detectStoryline({ ats, record, last5Wins, rank, nextOpp: nextGame?.opponent, spread: nextGame?.spread });
 
@@ -530,11 +581,11 @@ function buildTeamSummaryCaption({
     if (!r) return null;
     if (typeof r === 'string') {
       const m = r.match(/(\d+)-(\d+)/); if (!m) return null;
-      return `${m[1]}–${m[2]}`;
+      return `${m[1]}\u2013${m[2]}`;
     }
     if (typeof r === 'object') {
       const w = r.wins ?? r.w, l = r.losses ?? r.l;
-      return (w != null && l != null) ? `${w}–${l}` : null;
+      return (w != null && l != null) ? `${w}\u2013${l}` : null;
     }
     return null;
   }
@@ -544,144 +595,147 @@ function buildTeamSummaryCaption({
   const atsSsn = fmtRec(ats?.season);
 
   const atsLine = atsL30
-    ? `• ${atsL30} ATS last 30`
-    : (atsSsn ? `• ${atsSsn} ATS this season` : null);
+    ? `\u2022 ${atsL30} ATS last 30`
+    : (atsSsn ? `\u2022 ${atsSsn} ATS this season` : null);
 
-  const atsL7Line  = atsL7  ? `• ${atsL7} ATS last 7` : null;
-  const atsSsnLine = atsL30 && atsSsn && atsSsn !== atsL30 ? `• ${atsSsn} ATS season` : null;
+  const atsL7Line  = atsL7  ? `\u2022 ${atsL7} ATS last 7` : null;
+  const atsSsnLine = atsL30 && atsSsn && atsSsn !== atsL30 ? `\u2022 ${atsSsn} ATS season` : null;
 
-  // ── Hook — first line must grab instantly ─────────────────────────────────
-  const hooks = {
-    undefeated:        `Holy undefeated ${sportEmoji}🔥`,
-    ats_accelerating:  `The market still hasn't caught up to ${shortName}.`,
-    elite_underpriced: `Quietly one of the hottest ATS teams in the country… ${sportEmoji}`,
-    ats_heater:        `Bettors riding ${shortName} have been printing. 📊`,
-    surging:           `${shortName} is rolling right now. ${sportEmoji}🔥`,
-    underdog_value:    `Underdog. Covering. Market still behind. 📈`,
-    ats_value:         `The cover rate is real on ${shortName}. 📊`,
-    hot_streak:        `${shortName} is playing their best basketball of the year. ${sportEmoji}`,
-    elite_watch:       `${rank != null ? `#${rank} in the country` : 'Elite team'}. And the intel is worth reading. ${sportEmoji}`,
-    standard:          `${shortName} Team Intel is live. Full breakdown below. 🏀`,
-  };
+  // ── Hook — first line grabs instantly; phrase-varied per team ──────────────
+  const isMarch = new Date().getMonth() === 2;
+  const confNote = conference && conference !== 'Others' ? conference : null;
 
-  const hook = hooks[story.type] || hooks.standard;
+  function buildHook() {
+    if (story.type === 'undefeated') return `Holy undefeated ${sportEmoji}\uD83D\uDD25`;
+    if (story.type === 'ats_accelerating') return `The market still hasn\u2019t caught up to ${shortName}. ${sportEmoji}`;
+    if (story.type === 'elite_underpriced') return `Quietly one of the hottest ATS teams in the country. ${sportEmoji}`;
+    if (story.type === 'ats_heater') return _pick(CAPTION_PHRASES.hooks_atsHeater, seed)(shortName, '\uD83D\uDCCA');
+    if (story.type === 'surging') return _pick(CAPTION_PHRASES.hooks_surging, seed)(shortName, sportEmoji);
+    if (story.type === 'underdog_value') return `Underdog. Covering. Market still behind. \uD83D\uDCC8`;
+    if (story.type === 'ats_value') return `The cover rate is real on ${shortName}. \uD83D\uDCCA`;
+    if (story.type === 'hot_streak') return _pick(CAPTION_PHRASES.hooks_surging, seed + 'hot')(shortName, sportEmoji);
+    if (story.type === 'elite_watch') return `${rank != null ? `#${rank} in the country` : 'Elite team'}. The intel is worth reading. ${sportEmoji}`;
+    return _pick(CAPTION_PHRASES.hooks_standard, seed)(shortName, '\uD83C\uDFC0');
+  }
 
-  // ── Headline narrative (2–4 lines) ────────────────────────────────────────
+  const hook = buildHook();
+
+  // ── Headline narrative ────────────────────────────────────────────────────
   const rankStr  = rank != null ? ` (#${rank} AP)` : '';
-  const confStr  = conference ? ` · ${conference}` : '';
-  const recordStr= record ? ` · ${record}` : '';
+  const confStr  = confNote ? ` \u00b7 ${confNote}` : '';
+  const recordStr= record ? ` \u00b7 ${record}` : '';
+  const teamLine = `${teamName}${rankStr}${confStr}${recordStr}`;
+
+  const marchContext = isMarch && confNote
+    ? `${confNote} tournament positioning is at stake.`
+    : (isMarch ? 'The stretch run is here.' : '');
 
   const narratives = {
-    undefeated: [
-      `${teamName.toUpperCase()} IS STILL PERFECT${recordStr}.`,
-      ``,
-      `And bettors who've been riding them have been printing.`,
-    ],
-    ats_accelerating: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `The cover rate is accelerating. That usually means the books haven't caught up yet — and that window closes fast.`,
-    ],
-    elite_underpriced: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `Elite teams covering at this rate are usually underpriced. The signal is real.`,
-    ],
-    ats_heater: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `One of the stronger ATS profiles in college basketball right now. The market keeps adjusting — and they keep covering.`,
-    ],
-    surging: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `${shortName} is on a run. ${last5Wins != null ? `Last 5 games: ${last5Wins}–${5 - last5Wins} SU.` : ''} The momentum is real.`,
-    ],
-    underdog_value: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `Getting points and covering. That's a dangerous combination in this market.`,
-    ],
-    ats_value: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `Steady ATS profile. Not flashy, but the cover rate has been consistent enough to notice.`,
-    ],
-    hot_streak: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `This team is playing with confidence right now. Form matters in college basketball.`,
-    ],
-    elite_watch: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `Ranked team with a number worth watching. Maximus has the full read.`,
-    ],
-    standard: [
-      `${teamName}${rankStr}${confStr}${recordStr}`,
-      ``,
-      `Full team intel package is live. Here's what the data says.`,
-    ],
+    undefeated: [teamName.toUpperCase() + ' IS STILL PERFECT' + recordStr + '.', '', 'Bettors who\u2019ve been riding them have been printing.'],
+    ats_accelerating: [teamLine, '', `Cover rate is accelerating. That window closes fast.${marchContext ? ' ' + marchContext : ''}`],
+    elite_underpriced: [teamLine, '', `Elite teams covering at this rate are usually underpriced.${marchContext ? ' ' + marchContext : ''}`],
+    ats_heater: [teamLine, '', `One of the stronger ATS profiles in college basketball right now.${marchContext ? ' ' + marchContext : ''}`],
+    surging: [teamLine, '', `${shortName} is on a run.${last5Wins != null ? ` Last 5: ${last5Wins}\u2013${5 - last5Wins} SU.` : ''} ${marchContext || 'The momentum is real.'}`],
+    underdog_value: [teamLine, '', `Getting points and covering. Dangerous combination.${marchContext ? ' ' + marchContext : ''}`],
+    ats_value: [teamLine, '', `Steady ATS profile. The cover rate has been consistent enough to notice.${marchContext ? ' ' + marchContext : ''}`],
+    hot_streak: [teamLine, '', `Playing with confidence right now. Form matters this time of year.`],
+    elite_watch: [teamLine, '', `Ranked team with a number worth watching.${marchContext ? ' ' + marchContext : ''}`],
+    standard: [teamLine, '', `Full team intel package is live.${marchContext ? ' ' + marchContext : ''}`],
   };
 
   const narrative = narratives[story.type] || narratives.standard;
 
   // ── Data section ──────────────────────────────────────────────────────────
-  const dataLines = [`📊 ${shortName} vs the number:`];
+  const dataLines = [`\uD83D\uDCCA ${shortName} vs the number:`];
   if (atsLine)    dataLines.push(atsLine);
   if (atsL7Line)  dataLines.push(atsL7Line);
   if (atsSsnLine) dataLines.push(atsSsnLine);
-  if (record)     dataLines.push(`• ${record} overall`);
-  if (rank != null) dataLines.push(`• #${rank} AP ranking`);
+  if (record)     dataLines.push(`\u2022 ${record} overall`);
+  if (rank != null) dataLines.push(`\u2022 #${rank} AP ranking`);
 
-  // Trending signal
   const trendNote = {
-    up:   `• Market still adjusting — cover rate climbing`,
-    down: `• Cooling off ATS — watch the line movement`,
+    up:   `\u2022 Market still adjusting \u2014 cover rate climbing`,
+    down: `\u2022 Cooling off ATS \u2014 watch the line movement`,
     flat: null,
   }[story.trending] ?? null;
   if (trendNote) dataLines.push(trendNote);
 
-  // ── Market interpretation ─────────────────────────────────────────────────
-  const marketReads = {
-    undefeated:        `That kind of run forces the books to make aggressive adjustments.\n\nThe question isn't whether it continues — it's when they close the gap.`,
-    ats_accelerating:  `Cover trend accelerating usually means the line hasn't fully adjusted yet.\n\nThese windows close fast.`,
-    elite_underpriced: `Translation for bettors:\nElite teams + strong ATS = the market is still behind. Until it isn't.`,
-    ats_heater:        `Translation for bettors:\nThe edge is real${story.trending === 'down' ? '\u2026 but it\u2019s been cooling slightly. Monitor the line.' : '. The market is slowly catching up.'}`,
-    surging:           `Momentum teams in college basketball can be some of the sharpest bets on the board.\n\nThe question is whether this number reflects it yet.`,
-    underdog_value:    `Translation for bettors:\nGetting points and covering at this rate is the definition of a live dog. Watch this line.`,
-    ats_value:         `Not a screaming edge — but consistent cover rate at this level is meaningful over time.`,
-    hot_streak:        `Good form at the right time of year matters. This team is playing with something right now.`,
-    elite_watch:       `Ranked teams this deep in the season with strong recent form are worth tracking closely.`,
-    standard:          `Data is live. Model is running. Check the full intel for the complete read.`,
-  };
+  // ── Market interpretation (phrase-varied) ──────────────────────────────────
+  function buildMarketRead() {
+    if (story.type === 'undefeated') return 'That kind of run forces aggressive adjustments. The question is when they close the gap.';
+    if (story.type === 'ats_accelerating') return 'Accelerating cover trend usually means the line hasn\u2019t fully adjusted. These windows close fast.';
+    if (story.type === 'elite_underpriced') return 'Elite teams + strong ATS = the market is still behind. Until it isn\u2019t.';
+    if (story.type === 'ats_heater') return _pick(CAPTION_PHRASES.marketReads_atsHeater, seed);
+    if (story.type === 'surging') return _pick(CAPTION_PHRASES.marketReads_surging, seed);
+    if (story.type === 'underdog_value') return 'Getting points and covering at this rate is the definition of a live dog. Watch this line.';
+    if (story.type === 'ats_value') return 'Not a screaming edge, but consistent cover rate at this level is meaningful.';
+    if (story.type === 'hot_streak') return 'Good form at the right time of year matters. This team has something right now.';
+    if (story.type === 'elite_watch') return 'Ranked teams this deep in the season with strong form are worth tracking closely.';
+    return 'Data is live. Model is running. Check the full intel for the complete read.';
+  }
 
-  const marketRead = marketReads[story.type] || marketReads.standard;
+  const marketRead = buildMarketRead();
 
-  // ── Next game context ─────────────────────────────────────────────────────
+  // ── Next game context — accurate line status ──────────────────────────────
   let nextGameSection = null;
   if (nextGame?.opponent) {
-    const spreadStr = nextGame.spread != null
-      ? ` · Spread: ${parseFloat(nextGame.spread) > 0 ? '+' : ''}${nextGame.spread}`
-      : ' · Line not yet posted';
-    nextGameSection = `👀 Next game: vs ${nextGame.opponent}${spreadStr}`;
+    const hasSpread = nextGame.spread != null && nextGame.spread !== '';
+    const hasML = nextGame.moneyline != null;
+    const hasTotal = nextGame.total != null;
+
+    let linePart = '';
+    if (hasSpread) {
+      const s = parseFloat(nextGame.spread);
+      linePart = ` \u00b7 Spread: ${s > 0 ? '+' : ''}${s}`;
+    } else if (hasML) {
+      linePart = ` \u00b7 ML available`;
+    }
+    if (hasTotal) linePart += ` \u00b7 O/U ${nextGame.total}`;
+    if (!hasSpread && !hasML && !hasTotal) linePart = '';
+
+    nextGameSection = `\uD83D\uDC40 Next game: vs ${nextGame.opponent}${linePart}`;
   }
 
-  // ── Team picks lean ───────────────────────────────────────────────────────
+  // ── Team pick lean — STRICT scoping to actual next game ───────────────────
   let pickSection = null;
-  if (picks?.length > 0) {
-    const p = picks[0];
-    const conf = confidenceLabel(p.confidence);
-    const typeNote = p.pickType === 'ats' ? 'ATS' : 'ML';
-    pickSection = `🎯 Maximus lean: ${p.pickLine}\n${typeNote} · ${conf} confidence · not advice`;
+  if (picks?.length > 0 && nextGame?.opponent) {
+    const teamFrag = teamName.toLowerCase().split(' ').pop() || '';
+    const oppFrag  = nextGame.opponent.toLowerCase().split(' ').pop() || '';
+
+    let matchedPick = null;
+    if (teamFrag && oppFrag) {
+      matchedPick = picks.find(p => {
+        const ht = (p.homeTeam || '').toLowerCase();
+        const at = (p.awayTeam || '').toLowerCase();
+        return (ht.includes(teamFrag) || at.includes(teamFrag)) &&
+               (ht.includes(oppFrag)  || at.includes(oppFrag));
+      }) ?? null;
+    }
+    if (!matchedPick && teamFrag) {
+      matchedPick = picks.find(p => {
+        const ht = (p.homeTeam || '').toLowerCase();
+        const at = (p.awayTeam || '').toLowerCase();
+        return ht.includes(teamFrag) || at.includes(teamFrag);
+      }) ?? null;
+    }
+
+    if (matchedPick) {
+      const conf = confidenceLabel(matchedPick.confidence);
+      const typeNote = matchedPick.pickType === 'ats' ? 'ATS' : 'ML';
+      pickSection = `\uD83C\uDFAF Maximus lean: ${matchedPick.pickLine}\n${typeNote} \u00b7 ${conf} confidence \u00b7 not advice`;
+    }
   }
 
-  // ── News signals ──────────────────────────────────────────────────────────
+  // ── News signals (cleaned) ────────────────────────────────────────────────
   let newsSection = null;
   const newsItems = (teamNews || []).slice(0, 2);
   if (newsItems.length > 0) {
     const newsLines = newsItems
-      .map(n => `• ${(n.headline || n.title || '').slice(0, 80)}`)
+      .map(n => {
+        let s = (n.headline || n.title || '').slice(0, 80);
+        s = s.replace(/\s*[-\u2013\u2014|]\s*(?:ESPN|CBS|Yahoo|Fox|NBC|AP|SI|The Athletic)[\s\w]*$/i, '');
+        return `\u2022 ${s}`;
+      })
       .filter(l => l.length > 3);
     if (newsLines.length > 0) {
       newsSection = `Latest buzz:\n${newsLines.join('\n')}`;
@@ -699,7 +753,7 @@ function buildTeamSummaryCaption({
     ats_value:         `Is the value still there on ${shortName}?`,
     hot_streak:        `Are you fading or riding the hot hand?`,
     elite_watch:       `Is this the team to beat heading into the stretch?`,
-    standard:          `What's your read on ${shortName} right now?`,
+    standard:          `What\u2019s your read on ${shortName} right now?`,
   };
 
   const engagementQ = engagementQs[story.type] || engagementQs.standard;
@@ -727,7 +781,6 @@ function buildTeamSummaryCaption({
     DISCLAIMER,
   ].filter(l => l !== null && l !== undefined);
 
-  // Clean up consecutive blank lines
   const longCaption = blocks
     .reduce((acc, line) => {
       if (line === '' && acc[acc.length - 1] === '') return acc;
@@ -736,17 +789,14 @@ function buildTeamSummaryCaption({
     .join('\n')
     .trim();
 
-  // Short caption: just the hook + ATS line + CTA
   const shortLines = [
     hook,
-    atsLine ? `\n${atsLine.replace('• ', '')}` : '',
+    atsLine ? `\n${atsLine.replace('\u2022 ', '')}` : '',
     nextGameSection ? `\n${nextGameSection}` : '',
     `\n\n${CTA}`,
   ].filter(Boolean);
 
   const shortCaption = shortLines.join('').trim();
-
-  // Hashtags
   const hashtags = buildTeamHashtags({ teamName, conference, slug: teamSlug });
 
   return { shortCaption, longCaption, hashtags };
