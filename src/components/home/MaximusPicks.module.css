@@ -1,25 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════════
-   MaximusPicks — premium 3-column picks module
+   MaximusPicks — 4-column analytics command center
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── grid ───────────────────────────────────────────────────────── */
 
 .root {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: var(--space-md, 14px);
   align-items: start;
   margin-bottom: var(--space-sm, 8px);
 }
 
-/* 768–1023px: 2 cols, Totals (3rd column) spans full width */
-@media (max-width: 1023px) and (min-width: 768px) {
+@media (max-width: 1279px) and (min-width: 768px) {
   .root {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .column:nth-child(3) {
-    grid-column: 1 / -1;
+    gap: var(--space-sm, 10px);
   }
 }
 
@@ -55,27 +51,18 @@
   .column:hover { transform: none; }
 }
 
-/* ─── column header (gradient bar) ──────────────────────────────── */
+/* ─── column header ──────────────────────────────────────────────── */
 
 .columnHeader {
-  padding: 10px 12px 8px;
-  background: linear-gradient(135deg, rgba(60, 121, 180, 0.11) 0%, rgba(60, 121, 180, 0.04) 100%);
-  border-bottom: 1px solid rgba(60, 121, 180, 0.14);
-}
-
-.columnHeaderTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 3px;
+  padding: 12px 12px 0;
 }
 
 .columnTitleRow {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
+  margin-bottom: 4px;
 }
 
 .columnIcon {
@@ -86,7 +73,7 @@
 }
 
 .columnTitle {
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
@@ -96,32 +83,32 @@
   text-overflow: ellipsis;
 }
 
-.columnPill {
-  font-size: 0.46rem;
+.columnCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 0.54rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--color-primary);
   background: rgba(60, 121, 180, 0.1);
-  border: 1px solid rgba(60, 121, 180, 0.2);
   border-radius: 999px;
-  padding: 2px 6px;
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
-/* "WARMING…" variant shown during skeleton state */
-.columnPillWarming {
-  color: var(--color-text-muted);
-  background: rgba(130, 130, 150, 0.08);
-  border-color: rgba(130, 130, 150, 0.18);
-}
-
-.columnMicro {
-  font-size: 0.6rem;
+.columnDesc {
+  font-size: 0.58rem;
   color: var(--color-text-muted);
   margin: 0;
   line-height: 1.4;
+}
+
+.columnDivider {
+  height: 1px;
+  background: rgba(60, 121, 180, 0.12);
+  margin-top: 8px;
 }
 
 /* ─── mobile accordion toggle ────────────────────────────────────── */
@@ -217,7 +204,6 @@
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-/* Watch (monitoring) card — intentional subdued variant, not disabled */
 .watchCard {
   opacity: 0.82;
   background: rgba(var(--color-bg-rgb, 246, 246, 246), 0.6);
@@ -228,6 +214,13 @@
 .watchCard:hover {
   opacity: 1;
   border-color: rgba(110, 110, 110, 0.28);
+}
+
+@media (hover: hover) {
+  .pickCard:hover {
+    border-color: rgba(60, 121, 180, 0.3);
+    box-shadow: 0 2px 8px rgba(60, 121, 180, 0.09);
+  }
 }
 
 /* ─── card meta row (day chip + time) ────────────────────────── */
@@ -255,6 +248,100 @@
   line-height: 1.4;
 }
 
+.pickTime {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ─── matchup line with logos ────────────────────────────────────── */
+
+.cardMatchup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.matchupTeam {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.teamLogoWrap {
+  display: inline-flex;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid rgba(60, 121, 180, 0.14);
+  background: var(--color-bg, #f6f6f6);
+}
+
+.matchupName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.matchupAt {
+  color: var(--color-text-muted);
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+/* ─── recommendation row ─────────────────────────────────────────── */
+
+.cardRecommendation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.recLabel {
+  font-size: 0.54rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ─── pick pill ──────────────────────────────────────────────────── */
+
+.pickPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.09);
+  border: 1px solid rgba(60, 121, 180, 0.22);
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.cardMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .monitoringChip {
   display: inline-block;
   padding: 2px 7px;
@@ -277,17 +364,101 @@
   line-height: 1.4;
 }
 
-.columnPillWatch {
-  background: rgba(110, 110, 110, 0.09);
-  color: var(--color-text-muted);
-  border: 1px solid rgba(110, 110, 110, 0.2);
+/* ─── confidence chips ───────────────────────────────────────────── */
+
+.confChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
 }
 
-@media (hover: hover) {
-  .pickCard:hover {
-    border-color: rgba(60, 121, 180, 0.3);
-    box-shadow: 0 2px 8px rgba(60, 121, 180, 0.09);
-  }
+.confHigh {
+  background: rgba(45, 138, 110, 0.14);
+  color: #1a7a5a;
+  border: 1px solid rgba(45, 138, 110, 0.25);
+}
+
+.confMed {
+  background: rgba(183, 152, 108, 0.18);
+  color: #8a6d3a;
+  border: 1px solid rgba(183, 152, 108, 0.3);
+}
+
+.confLow {
+  background: rgba(130, 130, 150, 0.1);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(130, 130, 150, 0.2);
+}
+
+/* ─── partial badge ──────────────────────────────────────────────── */
+
+.partialBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: rgba(220, 150, 20, 0.1);
+  border: 1px solid rgba(220, 150, 20, 0.25);
+  border-radius: 3px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+/* ─── signal panel ───────────────────────────────────────────────── */
+
+.signalPanel {
+  padding: 5px 8px;
+  background: rgba(60, 121, 180, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.1);
+  border-radius: 5px;
+}
+
+.signalLabel {
+  display: block;
+  font-size: 0.52rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--color-text-muted);
+  margin-bottom: 3px;
+}
+
+.signalList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.signalItem {
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  padding-left: 14px;
+  position: relative;
+}
+
+.signalItem::before {
+  content: '✔';
+  position: absolute;
+  left: 0;
+  font-size: 0.52rem;
+  color: var(--color-primary);
+  opacity: 0.7;
 }
 
 /* ─── skeleton shimmer ───────────────────────────────────────────── */
@@ -317,7 +488,6 @@
   flex-wrap: wrap;
 }
 
-/* Shimmer shape variants */
 .skLineM  { height: 9px;  width: 52%; }
 .skPill   { height: 22px; width: 68%; border-radius: 999px; margin: 1px 0; }
 .skBlock  { height: 40px; width: 100%; border-radius: 5px;  margin-top: 1px; }
@@ -325,200 +495,6 @@
 .skeletonCard {
   pointer-events: none;
   user-select: none;
-}
-
-/* ─── matchup line with logos ────────────────────────────────────── */
-
-.cardMatchup {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  font-size: 0.68rem;
-  color: var(--color-text);
-  line-height: 1.3;
-}
-
-.matchupTeam {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 600;
-  min-width: 0;
-}
-
-/* Circular logo wrapper — clips TeamLogo to a circle with subtle ring */
-.teamLogoWrap {
-  display: inline-flex;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  border: 1px solid rgba(60, 121, 180, 0.14);
-  background: var(--color-bg, #f6f6f6);
-}
-
-.matchupName {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 110px;
-}
-
-.matchupAt {
-  color: var(--color-text-muted);
-  font-size: 0.6rem;
-  flex-shrink: 0;
-}
-
-.pickTime {
-  font-size: 0.6rem;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-/* ─── pick pill + chip row ───────────────────────────────────────── */
-
-.cardMain {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.pickPill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.09);
-  border: 1px solid rgba(60, 121, 180, 0.22);
-  border-radius: 999px;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-/* ─── confidence chips ───────────────────────────────────────────── */
-
-.confChip {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  font-size: 0.58rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  border-radius: 999px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  cursor: default;
-}
-
-.confHigh {
-  background: rgba(45, 138, 110, 0.14);
-  color: #1a7a5a;
-  border: 1px solid rgba(45, 138, 110, 0.25);
-}
-
-.confMed {
-  background: rgba(183, 152, 108, 0.18);
-  color: #8a6d3a;
-  border: 1px solid rgba(183, 152, 108, 0.3);
-}
-
-.confLow {
-  background: rgba(130, 130, 150, 0.1);
-  color: var(--color-text-muted);
-  border: 1px solid rgba(130, 130, 150, 0.2);
-}
-
-/* ─── edge breakdown ─────────────────────────────────────────────── */
-
-.edgeBreakdown {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 5px 8px;
-  background: rgba(60, 121, 180, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.1);
-  border-radius: 5px;
-}
-
-.edgeRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.edgeLabel {
-  font-size: 0.59rem;
-  color: var(--color-text-muted);
-}
-
-.edgeValue {
-  font-size: 0.59rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.edgeHighlight .edgeLabel,
-.edgeHighlight .edgeValue {
-  color: #1a7a5a;
-  font-weight: 700;
-}
-
-/* Small helper text below edge breakdown */
-.edgeHelper {
-  font-size: 0.55rem;
-  color: var(--color-text-muted);
-  opacity: 0.72;
-  margin: 2px 0 0;
-  font-style: italic;
-  line-height: 1.3;
-}
-
-/* ─── rationale bullets ──────────────────────────────────────────── */
-
-.rationaleList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.rationaleItem {
-  font-size: 0.63rem;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-  padding-left: 10px;
-  position: relative;
-}
-
-.rationaleItem::before {
-  content: '·';
-  position: absolute;
-  left: 0;
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-/* ─── confidence rationale ───────────────────────────────────────── */
-
-.confRationale {
-  font-size: 0.6rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin: 0;
-  line-height: 1.4;
 }
 
 /* ─── empty states ───────────────────────────────────────────────── */
@@ -537,21 +513,6 @@
   margin: 0;
 }
 
-.emptyDetail {
-  font-size: 0.62rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.emptyAll {
-  padding: 12px 0;
-  font-size: 0.78rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
 /* ─── disclaimer footer ──────────────────────────────────────────── */
 
 .disclaimer {
@@ -561,152 +522,6 @@
   margin: 4px 0 0;
   line-height: 1.4;
   text-align: right;
-}
-
-/* ─── reduced motion ─────────────────────────────────────────────── */
-
-@media (prefers-reduced-motion: reduce) {
-  .pickCard {
-    transition: none;
-  }
-
-  .chevron,
-  .chevronOpen {
-    transition: none;
-  }
-
-  .skeletonLine {
-    animation: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
-  .accordionToggle {
-    transition: none;
-  }
-
-  .cardListWrapper {
-    transition: none;
-  }
-}
-
-/* ─── bet slip framing ────────────────────────────────────────────── */
-
-.slipRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  margin-bottom: 6px;
-  background: rgba(60, 121, 180, 0.06);
-  border: 1px solid rgba(60, 121, 180, 0.14);
-  border-radius: 6px;
-  font-size: 0.72rem;
-}
-
-.slipLabel {
-  font-weight: 700;
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.slipLineText {
-  flex: 1;
-  font-weight: 600;
-  color: var(--color-primary, #3c79b4);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.copyBtn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--color-border-light);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-  padding: 0;
-}
-
-.copyBtn:hover {
-  color: var(--color-primary, #3c79b4);
-  border-color: var(--color-primary, #3c79b4);
-  background: rgba(60, 121, 180, 0.06);
-}
-
-.copyBtnCopied {
-  color: #22c55e;
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.08);
-}
-
-/* Partial-signal ATS badge */
-.partialBadge {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 5px;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  background: rgba(220, 150, 20, 0.1);
-  border: 1px solid rgba(220, 150, 20, 0.25);
-  border-radius: 3px;
-  cursor: default;
-  white-space: nowrap;
-}
-
-/* ML explainer line */
-.mlExplainer {
-  font-size: 0.68rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin: 4px 0 0;
-  line-height: 1.4;
-}
-
-.whyValue {
-  font-size: 0.72rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-  margin: 0 0 7px;
-  font-style: italic;
-}
-
-.slipTipsList {
-  list-style: none;
-  padding: 0;
-  margin: 6px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.slipTip {
-  font-size: 0.68rem;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-  padding-left: 12px;
-  position: relative;
-}
-
-.slipTip::before {
-  content: '⚠';
-  position: absolute;
-  left: 0;
-  font-size: 0.6rem;
-  opacity: 0.65;
 }
 
 /* ─── view-more link (bottom of each column) ────────────────────── */
@@ -735,26 +550,6 @@
     padding: 6px 12px 8px;
     font-size: 0.6rem;
   }
-}
-
-/* ─── spread unavailable state ───────────────────────────────────── */
-
-.slipLineUnavailable {
-  color: var(--color-text-muted);
-  font-style: italic;
-  font-weight: 500;
-}
-
-.unavailableNote {
-  font-size: 0.62rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin: 0;
-  line-height: 1.4;
-  padding: 3px 6px;
-  background: rgba(220, 150, 20, 0.07);
-  border: 1px solid rgba(220, 150, 20, 0.18);
-  border-radius: 4px;
 }
 
 /* ─── slate date bar ─────────────────────────────────────────── */
@@ -788,4 +583,17 @@
   color: var(--color-text-muted);
   font-style: italic;
   margin-left: auto;
+}
+
+/* ─── reduced motion ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .pickCard { transition: none; }
+  .chevron, .chevronOpen { transition: none; }
+  .skeletonLine { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
+  .accordionToggle { transition: none; }
+  .cardListWrapper { transition: none; }
 }

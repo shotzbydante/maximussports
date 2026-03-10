@@ -1170,6 +1170,8 @@ export default function Insights() {
           games={allGames}
           atsLeaders={atsLeaders}
           atsBySlug={atsBySlug}
+          rankMap={rankLookup}
+          championshipOdds={championshipOdds}
           loading={fastLoading || slowLoading || atsLoading}
           slateDate={slateDate}
           hideViewMore

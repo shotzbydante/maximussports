@@ -820,21 +820,29 @@ export function buildMaximusPicks({
   const valueWatches   = buildValueWatches(sortedGames, valueKeys, Math.max(0, TARGET_SHOW - valuePicks.length));
   const totalsWatches  = buildTotalsWatches(sortedGames, totalsKeys, Math.max(0, TARGET_SHOW - totalsPicks.length));
 
+  const finalPickEm  = [...pickEmPicks, ...pickEmWatches];
+  const finalAts     = [...atsPicks, ...atsWatches];
+  const finalValue   = [...valuePicks, ...valueWatches];
+  const finalTotals  = [...totalsPicks, ...totalsWatches];
+
   return {
-    pickEmPicks:  [...pickEmPicks, ...pickEmWatches],
-    atsPicks:     [...atsPicks, ...atsWatches],
-    valuePicks:   [...valuePicks, ...valueWatches],
-    totalsPicks:  [...totalsPicks, ...totalsWatches],
+    pickEmPicks:  finalPickEm,
+    atsPicks:     finalAts,
+    valuePicks:   finalValue,
+    totalsPicks:  finalTotals,
+    // Backward compat: existing slide/dashboard consumers reference mlPicks
+    mlPicks:      finalValue,
   };
 }
 
 /**
  * Build a 1–2 sentence picks summary for the top briefing.
  */
-export function buildPicksSummary({ pickEmPicks = [], atsPicks = [], valuePicks = [], totalsPicks = [] } = {}) {
+export function buildPicksSummary({ pickEmPicks = [], atsPicks = [], valuePicks, mlPicks, totalsPicks = [] } = {}) {
+  const valPicks = valuePicks ?? mlPicks ?? [];
   const topPickEm = pickEmPicks.find((p) => p.itemType === 'lean');
   const topAts    = atsPicks.find((p) => p.itemType === 'lean');
-  const topValue  = valuePicks.find((p) => p.itemType === 'lean');
+  const topValue  = valPicks.find((p) => p.itemType === 'lean');
 
   if (!topPickEm && !topAts && !topValue) {
     if (totalsPicks.length > 0) {

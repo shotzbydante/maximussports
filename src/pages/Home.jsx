@@ -247,7 +247,7 @@ function allGamesComplete(games) {
 /** Always combine today + tomorrow when today has fewer than this many games. */
 const MIN_GAMES_FOR_PICKS = 12;
 
-function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false, slowLoading = false, futureOddsGames = [] }) {
+function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, championshipOdds = {}, loading = false, slowLoading = false, futureOddsGames = [] }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
 
@@ -393,8 +393,8 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
 
   // Picks summary — derived from same data inline, no new fetch
   const picksResult = activeGames.length
-    ? buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug })
-    : { atsPicks: [], mlPicks: [], totalsPicks: [] };
+    ? buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds })
+    : { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
   const picksSummary = activeGames.length ? buildPicksSummary(picksResult) : null;
 
   // Debug slate — activate with ?debugPicks in URL (dev or prod)
@@ -414,8 +414,9 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       hasML:         g.moneyline != null,
       moneyline:     g.moneyline ?? null,
     })));
-    console.log('[Picks:result] atsPicks:', picksResult.atsPicks.length,
-      '| mlPicks:', picksResult.mlPicks.length,
+    console.log('[Picks:result] pickEmPicks:', picksResult.pickEmPicks.length,
+      '| atsPicks:', picksResult.atsPicks.length,
+      '| valuePicks:', picksResult.valuePicks.length,
       '| totalsPicks:', picksResult.totalsPicks.length);
   }
 
@@ -444,11 +445,13 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         Leans are threshold-qualified. Monitoring tracks games with lines posted.
       </p>
 
-      {/* ── Picks: Spread / ML / Totals ─────────────────────────────── */}
+      {/* ── Picks: Pick 'Ems / ATS / Value / Totals ─────────────────── */}
       <MaximusPicks
         games={activeGames}
         atsLeaders={atsLeaders}
         atsBySlug={atsBySlug}
+        rankMap={rankMap}
+        championshipOdds={championshipOdds}
         loading={loading || slowLoading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
         slateDate={slateDate}
         slateDateSecondary={slateDateSecondary}
@@ -1133,6 +1136,7 @@ export default function Home() {
         games={scores.games}
         rankMap={rankMap}
         atsLeaders={atsLeaders}
+        championshipOdds={championshipOdds}
         loading={scores.loading || atsLoading}
         slowLoading={slowLoading}
         futureOddsGames={futureOddsGames}
