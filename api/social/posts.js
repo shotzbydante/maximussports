@@ -75,9 +75,24 @@ export default async function handler(req, res) {
   const { data, error, count } = await query;
 
   if (error) {
+    const msg = error.message ?? 'Database query failed';
+    const isMissingTable =
+      /could not find.*social_posts.*schema cache/i.test(msg) ||
+      /relation.*social_posts.*does not exist/i.test(msg);
+
+    if (isMissingTable) {
+      return res.status(503).json({
+        ok:    false,
+        stage: 'schema_missing',
+        error: "Social posts storage is not initialized: missing Supabase table 'public.social_posts'. " +
+               'Run the migration in docs/social-posts-migration.sql via the Supabase SQL editor.',
+      });
+    }
+
     return res.status(502).json({
       ok:    false,
-      error: error.message ?? 'Database query failed',
+      stage: 'db_error',
+      error: msg,
     });
   }
 

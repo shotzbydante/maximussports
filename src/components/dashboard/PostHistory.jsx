@@ -233,9 +233,12 @@ export default function PostHistory({ refreshKey = 0 }) {
   const [error,          setError]         = useState(null);
   const [statusFilter,   setStatusFilter]  = useState('');
 
+  const [errorStage, setErrorStage] = useState(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorStage(null);
     try {
       const { posts: fetched } = await fetchPostHistory({
         platform: 'instagram',
@@ -244,6 +247,7 @@ export default function PostHistory({ refreshKey = 0 }) {
       });
       setPosts(fetched);
     } catch (err) {
+      setErrorStage(err.stage ?? null);
       setError(err.message ?? 'Failed to load post history');
     } finally {
       setLoading(false);
@@ -300,9 +304,11 @@ export default function PostHistory({ refreshKey = 0 }) {
         </div>
       ) : error ? (
         <div className={styles.errorState} role="alert">
-          <span className={styles.errorIcon}>⚠</span>
+          <span className={styles.errorIcon}>{errorStage === 'schema_missing' ? '🗄' : '⚠'}</span>
           <span>{error}</span>
-          <button className={styles.retryBtn} onClick={load}>Retry</button>
+          {errorStage !== 'schema_missing' && (
+            <button className={styles.retryBtn} onClick={load}>Retry</button>
+          )}
         </div>
       ) : posts.length === 0 ? (
         <div className={styles.emptyState}>

@@ -126,12 +126,35 @@ export async function fetchPostHistory(filters = {}) {
 
   const qs  = params.toString();
   const url = `/api/social/posts${qs ? `?${qs}` : ''}`;
-  const res = await fetch(url);
 
-  if (!res.ok) {
-    throw new Error(`Post history fetch failed: ${res.status}`);
+  let res;
+  try {
+    res = await fetch(url);
+  } catch {
+    const err = new Error('Network error — could not reach the post history service.');
+    err.stage = 'network';
+    throw err;
   }
 
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    const err = new Error(`Post history fetch failed (HTTP ${res.status})`);
+    err.stage = 'unknown';
+    throw err;
+  }
+
+  if (!res.ok || !data.ok) {
+    const stage   = data.stage ?? 'unknown';
+    const message = stage === 'schema_missing'
+      ? "Social posts storage is not initialized in Supabase. Run the social_posts migration."
+      : data.error ?? `Post history fetch failed (HTTP ${res.status})`;
+
+    const err = new Error(message);
+    err.stage = stage;
+    throw err;
+  }
+
   return { posts: data.posts ?? [], total: data.total ?? 0 };
 }
