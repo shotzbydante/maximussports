@@ -131,8 +131,11 @@ const SLUG_EMOJI = {
   // Golden Gophers
   'minnesota':         '🦫',
 
+  // Cornhuskers
+  'nebraska':          '🌽',
+
   // Illini
-  'illinois':          '🌽',
+  'illinois':          '🔸',
 
   // Hoosiers
   'indiana':           '🏀',
@@ -197,6 +200,9 @@ const SLUG_EMOJI = {
 
   // Gonzaga Bulldogs
   'gonzaga':           '🐶',
+
+  // Saint Mary's Gaels
+  'saint-marys':       '💰',
 
   // Saint John's Red Storm
   'st-johns':          '🌩️',

@@ -16,52 +16,38 @@
  *   9. Footer
  */
 
-import { useState } from 'react';
 import { getTeamSlug } from '../../../utils/teamSlug';
+import { getTeamEmoji } from '../../../utils/getTeamEmoji';
 import styles from './DailyBriefingHeroSlide.module.css';
 
-const NCAA_LOGO_URLS = [
-  'https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png',
-  'https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/ncaa.png&w=100&h=100',
-];
+// ─── NCAA logo — local asset with text fallback ─────────────────────────────
 
 function NcaaLogo({ className }) {
-  const [urlIdx, setUrlIdx] = useState(0);
-  const [allFailed, setAllFailed] = useState(false);
-
-  if (allFailed) {
-    return (
-      <span
-        className={className}
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 800, letterSpacing: '0.12em',
-          color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase',
-        }}
-        aria-label="NCAA"
-      >
-        NCAA
-      </span>
-    );
-  }
-
   return (
     <img
-      src={NCAA_LOGO_URLS[urlIdx]}
+      src="/logos/ncaa.png"
       alt="NCAA"
       className={className}
       crossOrigin="anonymous"
       data-fallback-text="NCAA"
-      onError={() => {
-        const next = urlIdx + 1;
-        if (next < NCAA_LOGO_URLS.length) {
-          setUrlIdx(next);
-        } else {
-          setAllFailed(true);
-        }
+      onError={e => {
+        const span = document.createElement('span');
+        span.textContent = 'NCAA';
+        span.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;letter-spacing:0.12em;color:rgba(255,255,255,0.55);text-transform:uppercase;';
+        span.setAttribute('aria-label', 'NCAA');
+        e.currentTarget.replaceWith(span);
       }}
     />
   );
+}
+
+// ─── Team emoji helper ──────────────────────────────────────────────────────
+
+function teamEmoji(name) {
+  if (!name) return '';
+  const slug = getTeamSlug(name);
+  const e = getTeamEmoji(slug, name);
+  return e ? `${e} ` : '';
 }
 
 // ─── Result classification for editorial verbs ──────────────────────────────
@@ -79,14 +65,45 @@ function classifyResult(highlight) {
   return 'default';
 }
 
-const RESULT_PREFIX = {
-  blowout:  '🔥',
-  cover:    '📈',
-  upset:    '⚠️',
-  rivalry:  '🏀',
-  streak:   '📈',
-  default:  '▸',
-};
+// ─── Varied verb library ────────────────────────────────────────────────────
+
+function pickVerb(margin, kind, seed) {
+  if (kind === 'upset') return 'stunned';
+  if (kind === 'rivalry') {
+    const pool = ['handled', 'took down', 'got the better of', 'came out on top against'];
+    return pool[hashStr(seed) % pool.length];
+  }
+  if (margin == null) return 'beat';
+  if (margin >= 25) return 'demolished';
+  if (margin >= 18) return 'ran away from';
+  if (margin >= 12) return 'rolled past';
+  if (margin >= 8) {
+    const pool = ['took care of', 'handled', 'dispatched'];
+    return pool[hashStr(seed) % pool.length];
+  }
+  if (margin >= 4) {
+    const pool = ['held off', 'edged', 'fended off', 'outlasted'];
+    return pool[hashStr(seed) % pool.length];
+  }
+  return 'edged';
+}
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function colorForKind(kind) {
+  if (kind === 'blowout') return '🔥';
+  if (kind === 'upset') return '⚠️';
+  if (kind === 'cover') return '💰';
+  if (kind === 'rivalry') return '⚔️';
+  if (kind === 'streak') return '📈';
+  return '▸';
+}
+
+// ─── Editorial result bullet ────────────────────────────────────────────────
 
 function buildEditorialBullet(highlight) {
   if (!highlight) return null;
@@ -96,17 +113,44 @@ function buildEditorialBullet(highlight) {
   const scores = score ? score.split('-').map(Number) : [];
   const margin = scores.length === 2 ? Math.abs(scores[0] - scores[1]) : null;
   const kind = classifyResult(highlight);
-  const emoji = RESULT_PREFIX[kind];
+  const emoji = colorForKind(kind);
+  const eA = teamEmoji(teamA);
+  const verb = pickVerb(margin, kind, teamA + (teamB || ''));
 
   if (teamB && score) {
-    const verb = margin != null
-      ? (margin >= 25 ? 'demolished' : margin >= 15 ? 'rolled past' : margin >= 8 ? 'took care of' : 'edged')
-      : 'beat';
-    return `${emoji} ${teamA} ${verb} ${teamB}, ${score}`;
+    const qualifier = margin != null && margin <= 4
+      ? ' in a tight one'
+      : (margin != null && margin >= 20 ? '' : '');
+    return `${eA || emoji + ' '}${teamA} ${verb} ${teamB}, ${score}${qualifier}`;
   }
-  if (score) return `${emoji} ${teamA} wins ${score}`;
-  return `${emoji} ${teamA}`;
+  if (score) return `${eA || emoji + ' '}${teamA} wins ${score}`;
+  return `${eA || emoji + ' '}${teamA}`;
 }
+
+// ─── Subtext variation library ──────────────────────────────────────────────
+
+const SUBTEXT_POOL = {
+  actionPacked: [
+    'Yesterday was chaos in college hoops.',
+    'Wild night on the hardwood. Here\u2019s what happened.',
+    'Another busy night. We have the receipts.',
+  ],
+  titleRace: [
+    'The title race is getting interesting.',
+    'The championship picture just shifted.',
+    'Movement at the top of the board.',
+  ],
+  march: [
+    'March Madness is in the air. Intel is live.',
+    'The road to the Final Four runs through today\u2019s briefing.',
+    'Tournament positioning. Bracket watch. It\u2019s all here.',
+  ],
+  default: [
+    'Your morning college basketball intelligence report.',
+    'Fresh data. Fresh signals. Start here.',
+    'The morning rundown, powered by Maximus.',
+  ],
+};
 
 // ─── Content builder ────────────────────────────────────────────────────────
 
@@ -115,32 +159,36 @@ function buildDailyHeroContent(digest) {
     return {
       headline: 'DAILY\nBRIEFING',
       subtext: 'Your morning intelligence report is live.',
-      bullets: ['Full briefing loading — check back shortly'],
+      bullets: ['Full briefing loading \u2014 check back shortly'],
       titleRaceTeams: [],
       recentResults: [],
     };
   }
 
-  // --- Editorial narrative bullets (analyst-desk voice) ---
+  const seed = new Date().toISOString().slice(0, 10);
+
+  // --- Editorial narrative bullets ---
   const bullets = [];
 
   if (digest.titleRace?.length > 0) {
     const leader = digest.titleRace[0];
+    const e = teamEmoji(leader.team);
     if (leader.team && leader.americanOdds) {
-      bullets.push(`🔥 ${leader.team} sit atop the title race at ${leader.americanOdds}`);
+      bullets.push(`${e}${leader.team} sits atop the title board at ${leader.americanOdds}`);
     }
   }
 
   if (digest.atsEdges?.length > 0) {
     const top = digest.atsEdges[0];
+    const e = teamEmoji(top.team);
     const wl = top.wl ? ` (${top.wl})` : '';
-    bullets.push(`🎯 ATS edge: ${top.team} covering at ${top.atsRate}%${wl}`);
+    bullets.push(`${e || '💰 '}${top.team} keeps cashing ATS at ${top.atsRate}%${wl}`);
   }
 
   if (digest.gamesToWatch?.length > 0) {
     const game = digest.gamesToWatch[0];
     const spreadNote = game.spread ? ` (${game.spread})` : '';
-    bullets.push(`⚔️ ${game.matchup}${spreadNote}`);
+    bullets.push(`👀 Radar game: ${game.matchup}${spreadNote}`);
   }
 
   if (digest.newsIntel?.length > 0) {
@@ -158,19 +206,24 @@ function buildDailyHeroContent(digest) {
   // --- Headline ---
   const isMarch = new Date().getMonth() === 2;
   let headlineParts;
+  let subtextPool;
   if (digest.lastNightHighlights?.length >= 3) {
     headlineParts = ['ACTION-PACKED', 'NIGHT'];
+    subtextPool = SUBTEXT_POOL.actionPacked;
   } else if (digest.titleRace?.length >= 3) {
     headlineParts = ['TITLE RACE', 'HEATING UP'];
+    subtextPool = SUBTEXT_POOL.titleRace;
   } else if (isMarch) {
     headlineParts = ['MARCH', 'INTELLIGENCE'];
+    subtextPool = SUBTEXT_POOL.march;
   } else {
     headlineParts = ['DAILY', 'BRIEFING'];
+    subtextPool = SUBTEXT_POOL.default;
   }
 
   const subtext = digest.recapLeadLine
     || digest.titleMarketLead
-    || 'Your morning college basketball intelligence report.';
+    || subtextPool[hashStr(seed) % subtextPool.length];
 
   // --- Title race: top 5 teams with rank, slug, name, odds ---
   const titleRaceTeams = (digest.titleRace ?? []).slice(0, 5).map((t, i) => ({
@@ -180,15 +233,16 @@ function buildDailyHeroContent(digest) {
     slug: getTeamSlug(t.team),
   }));
 
-  // --- Recent results from last night highlights ---
+  // --- Recent results with editorial voice ---
   const recentResults = (digest.lastNightHighlights ?? []).slice(0, 3)
     .map(buildEditorialBullet)
     .filter(Boolean);
 
   if (recentResults.length < 3 && digest.atsEdges?.length > 0) {
     const top = digest.atsEdges[0];
+    const e = teamEmoji(top.team);
     const wl = top.wl ? ` ${top.wl}` : '';
-    recentResults.push(`📈 ATS heater: ${top.team} covering at ${top.atsRate}%${wl}`);
+    recentResults.push(`${e || '💰 '}${top.team} stays hot ATS \u2014 covering at ${top.atsRate}%${wl}`);
   }
 
   return {
@@ -259,7 +313,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
 
       {content.bullets.length > 0 && (
         <div className={styles.bulletModule}>
-          <div className={styles.bulletModuleHeader}>TODAY'S INTEL</div>
+          <div className={styles.bulletModuleHeader}>TODAY&rsquo;S INTEL</div>
           <ul className={styles.bulletList}>
             {content.bullets.map((b, i) => (
               <li key={i} className={styles.bulletItem}>{b}</li>
@@ -270,7 +324,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
 
       {content.titleRaceTeams.length > 0 && (
         <div className={styles.titleRaceSection}>
-          <div className={styles.titleRaceHeader}>TITLE RACE</div>
+          <div className={styles.titleRaceHeader}>LIVE TITLE BOARD</div>
           <div className={styles.titleRaceGrid}>
             {content.titleRaceTeams.map((t, i) => (
               <div key={i} className={styles.titleRaceChip}>
@@ -288,7 +342,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
                 <div className={styles.titleRaceMeta}>
                   <span className={styles.titleRaceName}>{t.name}</span>
                 </div>
-                <span className={styles.titleRaceOdds}>🏆 {t.odds}</span>
+                <span className={styles.titleRaceOdds}>{t.odds}</span>
               </div>
             ))}
           </div>
@@ -297,7 +351,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
 
       {content.recentResults.length > 0 && (
         <div className={styles.recentResultsSection}>
-          <div className={styles.recentResultsHeader}>RECENT RESULTS</div>
+          <div className={styles.recentResultsHeader}>LAST NIGHT</div>
           <div className={styles.recentResultsList}>
             {content.recentResults.map((r, i) => (
               <div key={i} className={styles.recentResultItem}>{r}</div>
