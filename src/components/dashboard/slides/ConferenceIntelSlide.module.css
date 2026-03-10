@@ -180,7 +180,7 @@
 
 .headlineZone {
   position: relative; z-index: 10;
-  padding: 10px 64px 8px; text-align: center;
+  padding: 14px 64px 10px; text-align: center;
   margin-top: 0; flex-shrink: 0;
 }
 
@@ -205,7 +205,7 @@
 .headlineLine { display: block; color: inherit; }
 
 .headlineDividerBottom {
-  width: 72%; margin: 12px auto 0; height: 1px;
+  width: 72%; margin: 14px auto 0; height: 1px;
   background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--conf-primary) 28%, transparent) 30%, color-mix(in srgb, var(--conf-primary) 45%, transparent) 50%, color-mix(in srgb, var(--conf-primary) 28%, transparent) 70%, transparent 100%);
 }
 
@@ -213,7 +213,7 @@
 
 .quickIntel {
   position: relative; z-index: 10;
-  margin: 8px 64px 0; font-size: 21px; font-style: italic;
+  margin: 14px 64px 0; font-size: 21px; font-style: italic;
   font-weight: 400; color: rgba(240, 244, 248, 0.82);
   text-align: center; line-height: 1.35; letter-spacing: 0.01em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 28px color-mix(in srgb, var(--conf-primary) 20%, transparent);
@@ -224,7 +224,7 @@
 
 .bulletModule {
   position: relative; z-index: 10;
-  margin: 12px 64px 0; flex-shrink: 0;
+  margin: 16px 64px 0; flex-shrink: 0;
   border: 1px solid color-mix(in srgb, var(--conf-primary) 18%, transparent);
   border-radius: 12px; overflow: hidden;
   background: rgba(0,0,0,0.22); backdrop-filter: blur(4px);
@@ -238,35 +238,29 @@
 .bulletItem {
   position: relative; font-size: 19px; font-weight: 400;
   color: rgba(240,244,248,0.80); line-height: 1.35;
-  padding: 11px 22px 11px 40px;
+  padding: 11px 22px;
   border-bottom: 1px solid color-mix(in srgb, var(--conf-primary) 10%, transparent);
   text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
 .bulletItem:last-child { border-bottom: none; }
 
-.bulletItem::before {
-  content: '\25B8'; position: absolute; left: 18px; top: 15px;
-  font-weight: 700; font-size: 16px;
-  color: color-mix(in srgb, var(--conf-primary) 70%, transparent);
-}
-
 /* ── Featured teams — prominent with logo + badge + odds ──────────────── */
 
 .featuredSection {
   position: relative; z-index: 10;
-  margin: 26px 64px 0; flex-shrink: 0;
+  margin: 20px 64px 0; flex-shrink: 0;
 }
 
 .featuredTitle {
   font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700;
   letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(240,244,248,0.42); margin-bottom: 16px;
+  color: rgba(240,244,248,0.42); margin-bottom: 12px;
 }
 
 .featuredGrid {
   display: flex; flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
   justify-content: center;
 }
 
@@ -274,8 +268,8 @@
   display: flex; align-items: center; gap: 10px;
   background: rgba(0,0,0,0.28); backdrop-filter: blur(4px);
   border: 1px solid color-mix(in srgb, var(--conf-primary) 18%, transparent);
-  border-radius: 12px; padding: 14px 20px;
-  flex: 0 1 calc(50% - 10px);
+  border-radius: 12px; padding: 12px 18px;
+  flex: 0 1 calc(50% - 9px);
   min-width: 280px;
 }
 

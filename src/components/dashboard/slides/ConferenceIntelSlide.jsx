@@ -103,12 +103,19 @@ function buildConferenceIntel(conf, allTeams, dashData) {
   const contenders = [...lockTeams, ...shouldBeIn];
   const longShots = confTeams.filter(t => t.oddsTier === 'Long shot');
 
-  // ── Build featured teams with metadata ──
+  // ── Build featured teams with metadata (top 6 by championship odds) ──
   const featured = [];
   const tierOrder = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
-  const sorted = [...confTeams].sort((a, b) => tierOrder.indexOf(a.oddsTier) - tierOrder.indexOf(b.oddsTier));
 
-  // Build slug → record map from rankings (includes W-L for ranked teams)
+  const sorted = [...confTeams].sort((a, b) => {
+    const oddsA = champOdds[a.slug]?.bestChanceAmerican ?? champOdds[a.slug]?.american ?? null;
+    const oddsB = champOdds[b.slug]?.bestChanceAmerican ?? champOdds[b.slug]?.american ?? null;
+    if (oddsA != null && oddsB != null) return oddsA - oddsB;
+    if (oddsA != null) return -1;
+    if (oddsB != null) return 1;
+    return tierOrder.indexOf(a.oddsTier) - tierOrder.indexOf(b.oddsTier);
+  });
+
   const recordBySlug = {};
   for (const r of (dashData?.rankingsTop25 ?? [])) {
     const name = r.teamName || r.name || r.team || '';
@@ -118,7 +125,7 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     if (slug && record) recordBySlug[slug] = record;
   }
 
-  for (const t of sorted.slice(0, 5)) {
+  for (const t of sorted.slice(0, 6)) {
     const co = champOdds[t.slug];
     const odds = co?.bestChanceAmerican ?? co?.american ?? null;
     featured.push({
@@ -131,19 +138,19 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     });
   }
 
-  // ── Build bullets (4–5 substantive insights) ──
+  // ── Build bullets (4–5 substantive insights, each with a contextual emoji) ──
   const bullets = [];
 
   if (lockTeams.length > 0) {
     const names = lockTeams.slice(0, 3).map(t => shortName(t.name));
     if (lockTeams.length >= 3) {
       bullets.push(_pick([
-        `${conf} is stacked at the top \u2014 ${names.join(', ')} all in contention`,
-        `Title-tier depth: ${names.join(', ')} lead a loaded ${conf} field`,
-        `${names.join(', ')} headline a ${conf} conference with serious March firepower`,
+        `\uD83D\uDD25 ${conf} is stacked at the top \u2014 ${names.join(', ')} all in contention`,
+        `\uD83D\uDD25 Title-tier depth: ${names.join(', ')} lead a loaded ${conf} field`,
+        `\uD83D\uDD25 ${names.join(', ')} headline a ${conf} conference with serious March firepower`,
       ], conf + 'lock'));
     } else {
-      bullets.push(`${names.join(' and ')} ${lockTeams.length === 1 ? 'leads' : 'lead'} the ${conf} as projected contender${lockTeams.length > 1 ? 's' : ''}`);
+      bullets.push(`\uD83D\uDD25 ${names.join(' and ')} ${lockTeams.length === 1 ? 'leads' : 'lead'} the ${conf} as projected contender${lockTeams.length > 1 ? 's' : ''}`);
     }
   }
 
@@ -154,29 +161,29 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     const name = shortName(top.name || top.slug || '');
     bullets.push(pct
       ? _pick([
-        `${name} leads ${conf} ATS at ${pct}% \u2014 the market is still catching up`,
-        `ATS leader: ${name} covering at ${pct}%, a sharp bettor\u2019s favorite`,
-        `${name} at ${pct}% ATS is the most profitable ${conf} team to back`,
+        `\uD83C\uDFAF ${name} leads ${conf} ATS at ${pct}% \u2014 the market is still catching up`,
+        `\uD83C\uDFAF ATS leader: ${name} covering at ${pct}%, a sharp bettor\u2019s favorite`,
+        `\uD83C\uDFAF ${name} at ${pct}% ATS is the most profitable ${conf} team to back`,
       ], conf + 'ats')
-      : `ATS leader: ${name} \u2014 top cover rate in the ${conf}`);
+      : `\uD83C\uDFAF ATS leader: ${name} \u2014 top cover rate in the ${conf}`);
   }
 
   if (contenders.length >= 4) {
     bullets.push(_pick([
-      `${contenders.length} teams in the tournament conversation \u2014 the ${conf} runs deep`,
-      `Depth is the story: ${contenders.length} ${conf} teams with legitimate March positioning`,
-      `The ${conf} has ${contenders.length} teams that could make noise in the bracket`,
+      `\uD83C\uDFC0 ${contenders.length} teams in the tournament conversation \u2014 the ${conf} runs deep`,
+      `\uD83C\uDFC0 Depth is the story: ${contenders.length} ${conf} teams with legitimate March positioning`,
+      `\uD83C\uDFC0 The ${conf} has ${contenders.length} teams that could make noise in the bracket`,
     ], conf + 'depth'));
   } else if (contenders.length >= 2) {
-    bullets.push(`${contenders.length} teams positioned for March, but the gap is narrowing`);
+    bullets.push(`\uD83C\uDFC0 ${contenders.length} teams positioned for March, but the gap is narrowing`);
   }
 
   if (isMarch) {
     bullets.push(_pick([
-      `${conf} tournament seeding on the line \u2014 every game matters from here`,
-      `Conference tournament positioning is tightening across the ${conf}`,
-      `March pressure building: ${conf} bracket implications rising daily`,
-      `Selection Sunday looming \u2014 ${conf} bubble teams running out of time`,
+      `\uD83D\uDCC8 ${conf} tournament seeding on the line \u2014 every game matters from here`,
+      `\uD83D\uDCC8 Conference tournament positioning is tightening across the ${conf}`,
+      `\uD83D\uDCC8 March pressure building: ${conf} bracket implications rising daily`,
+      `\uD83D\uDCC8 Selection Sunday looming \u2014 ${conf} bubble teams running out of time`,
     ], conf + 'march'));
   }
 
@@ -184,21 +191,21 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     const cold = confWorst[0];
     const name = shortName(cold.name || cold.slug || '');
     bullets.push(_pick([
-      `${name} struggling ATS \u2014 the market has adjusted`,
-      `Avoid alert: ${name} is cold against the spread and fading`,
-      `${name} is the ${conf}\u2019s biggest ATS fade right now`,
+      `\u26A0\uFE0F ${name} struggling ATS \u2014 the market has adjusted`,
+      `\u26A0\uFE0F Avoid alert: ${name} is cold against the spread and fading`,
+      `\u26A0\uFE0F ${name} is the ${conf}\u2019s biggest ATS fade right now`,
     ], conf + 'cold'));
   }
 
   if (longShots.length >= 2 && bullets.length < 5) {
     bullets.push(_pick([
-      `${longShots.length} ${conf} teams with long-shot value \u2014 watch for bracket busters`,
-      `Sleeper potential: ${shortName(longShots[0].name)} and ${shortName(longShots[1].name)} worth monitoring`,
+      `\uD83D\uDC40 ${longShots.length} ${conf} teams with long-shot value \u2014 watch for bracket busters`,
+      `\uD83D\uDC40 Sleeper potential: ${shortName(longShots[0].name)} and ${shortName(longShots[1].name)} worth monitoring`,
     ], conf + 'longshot'));
   }
 
   if (bullets.length < 4) {
-    bullets.push(`${confTeams.length} tracked teams across the ${conf} with active market signals`);
+    bullets.push(`\uD83D\uDCCA ${confTeams.length} tracked teams across the ${conf} with active market signals`);
   }
 
   // ── Headline generation — editorial, never restates conference name ──
@@ -284,7 +291,7 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     headline,
     subtext,
     bullets: bullets.slice(0, 5),
-    featured: featured.slice(0, 5),
+    featured: featured.slice(0, 6),
   };
 }
 
