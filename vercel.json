@@ -4,6 +4,9 @@
   "functions": {
     "api/social/instagram/publish.js": {
       "maxDuration": 120
+    },
+    "api/email/run-daily.js": {
+      "maxDuration": 120
     }
   },
   "redirects": [

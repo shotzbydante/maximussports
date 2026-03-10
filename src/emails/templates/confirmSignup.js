@@ -15,11 +15,17 @@
 
 import { EmailShell, spacerRow, dividerRow, pill } from '../EmailShell.js';
 
-export function getSubject() {
-  return 'Maximus Sports: Welcome. Confirm your email';
+export function getSubject({ isWelcome = false } = {}) {
+  return isWelcome
+    ? 'Welcome to Maximus Sports'
+    : 'Maximus Sports: Welcome. Confirm your email';
 }
 
-export function renderHTML({ confirmUrl = '#' } = {}) {
+export function renderHTML({ confirmUrl = '#', isWelcome = false } = {}) {
+  const subhead = isWelcome
+    ? 'Your account is ready. Here&#8217;s what Maximus Sports brings to your game.'
+    : 'Confirm your email below to unlock personalized college basketball intelligence.';
+
   const content = `
     ${spacerRow(8)}
 
@@ -46,7 +52,7 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
 
         <!-- Subhead -->
         <p style="margin:0 auto;font-size:14px;color:#6b7d90;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.6;max-width:400px;">
-          Confirm your email below to unlock personalized college basketball intelligence.
+          ${subhead}
         </p>
 
       </td>
@@ -171,7 +177,7 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
 
     ${spacerRow(20)}
 
-    <!-- ═══ FALLBACK LINK — shown above the main CTA button ═══ -->
+    ${!isWelcome ? `<!-- ═══ FALLBACK LINK — shown above the main CTA button ═══ -->
     <tr>
       <td style="padding:0 24px 6px;text-align:center;" class="section-td">
         <p style="margin:0;font-size:12px;color:#4a5870;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.65;">
@@ -182,28 +188,40 @@ export function renderHTML({ confirmUrl = '#' } = {}) {
              style="color:#3d6e90;text-decoration:underline;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${confirmUrl}</a>
         </p>
       </td>
-    </tr>
+    </tr>` : ''}
 
     ${spacerRow(4)}
   `;
 
+  const previewText = isWelcome
+    ? 'Your Maximus Sports account is ready. Personalized college basketball intelligence awaits.'
+    : 'Confirm your email to unlock personalized college basketball intelligence.';
+
   return EmailShell({
     content,
-    previewText: 'Confirm your email to unlock personalized college basketball intelligence.',
-    ctaUrl: confirmUrl,
-    ctaLabel: 'Confirm email &rarr;',
+    previewText,
+    ctaUrl: isWelcome ? 'https://maximussports.ai' : confirmUrl,
+    ctaLabel: isWelcome ? 'Open Maximus Sports &rarr;' : 'Confirm email &rarr;',
   });
 }
 
-export function renderText({ confirmUrl = '' } = {}) {
+export function renderText({ confirmUrl = '', isWelcome = false } = {}) {
   const year = new Date().getFullYear();
-  return [
+  const lines = [
     'Welcome to Maximus Sports',
     '='.repeat(40),
     '',
-    'Confirm your email to unlock personalized college basketball intelligence.',
-    '',
-    'Confirm here: ' + confirmUrl,
+  ];
+
+  if (isWelcome) {
+    lines.push('Your account is ready. Here\'s what Maximus Sports brings to your game.');
+  } else {
+    lines.push('Confirm your email to unlock personalized college basketball intelligence.');
+    lines.push('');
+    lines.push('Confirm here: ' + confirmUrl);
+  }
+
+  lines.push(
     '',
     '-'.repeat(40),
     'What you get with Maximus Sports:',
@@ -220,8 +238,11 @@ export function renderText({ confirmUrl = '' } = {}) {
     'See Pro benefits: https://maximussports.ai/settings?openBilling=1',
     '',
     '='.repeat(40),
-    "You're receiving this because you started signing up at maximussports.ai.",
+    isWelcome
+      ? "You're receiving this because you created an account at maximussports.ai."
+      : "You're receiving this because you started signing up at maximussports.ai.",
     'Not betting advice. For informational purposes only.',
     `© ${year} Maximus Sports · winning@maximussports.ai`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }

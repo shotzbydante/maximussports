@@ -18,6 +18,7 @@
  */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -49,13 +50,14 @@ export default async function handler(req, res) {
     return res.status(503).json({ ok: false, error: 'Database service unavailable' });
   }
 
-  // ignoreDuplicates: true — never overwrites existing plan_tier / stripe fields.
-  // Only writes confirmed-safe columns: id, plan_tier, subscription_status, updated_at.
+  // ignoreDuplicates: true — never overwrites existing plan_tier / stripe / preferences.
+  // New users get default email preferences (opted-in to briefing, teamAlerts, newsDigest).
   const { error } = await sb.from('profiles').insert(
     {
       id:                  caller.id,
       plan_tier:           'free',
       subscription_status: 'inactive',
+      preferences:         { ...DEFAULT_EMAIL_PREFS },
       updated_at:          new Date().toISOString(),
     },
     { onConflict: 'id', ignoreDuplicates: true }

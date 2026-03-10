@@ -23,6 +23,9 @@ export async function sendEmail({ to, subject, html, text }) {
     ...(text ? { text } : {}),
   };
 
+  const recipients = Array.isArray(to) ? to : [to];
+  console.log(`[sendEmail] Sending to=${recipients.join(',')} subject="${subject}"`);
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -34,8 +37,11 @@ export async function sendEmail({ to, subject, html, text }) {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    console.error(`[sendEmail] FAILED to=${recipients.join(',')} status=${res.status} body=${body}`);
     throw new Error(`[sendEmail] Resend API error ${res.status}: ${body}`);
   }
 
-  return res.json();
+  const result = await res.json();
+  console.log(`[sendEmail] OK to=${recipients.join(',')} id=${result?.id ?? '(none)'}`);
+  return result;
 }

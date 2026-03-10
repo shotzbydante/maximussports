@@ -19,6 +19,7 @@
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
+import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
@@ -208,10 +209,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ── 1. Get all users from auth
-    const { data: authData, error: authError } = await sb.auth.admin.listUsers({ perPage: 1000 });
-    if (authError) throw new Error(`auth.admin.listUsers error: ${authError.message}`);
-    const authUsers = authData?.users || [];
+    // ── 1. Get all users from auth (paginated — handles >1000 users)
+    const authUsers = [];
+    let page = 1;
+    const perPage = 1000;
+    while (true) {
+      const { data: authData, error: authError } = await sb.auth.admin.listUsers({ page, perPage });
+      if (authError) throw new Error(`auth.admin.listUsers error: ${authError.message}`);
+      const users = authData?.users || [];
+      authUsers.push(...users);
+      if (users.length < perPage) break;
+      page++;
+    }
+
+    console.log(`[run-daily] Fetched ${authUsers.length} auth users (${page} page${page > 1 ? 's' : ''})`);
 
     if (authUsers.length === 0) {
       return res.status(200).json({ ok: true, type, sent: 0, skipped: 0, message: 'No users found.' });
@@ -222,15 +233,25 @@ export default async function handler(req, res) {
     const profileMap = {};
     for (const p of profiles) profileMap[p.id] = p;
 
-    // ── 3. Filter to subscribed users only
+    // ── 3. Filter to subscribed users
+    // Users without explicit preferences get DEFAULT_EMAIL_PREFS (opted-in to
+    // briefing, teamAlerts, newsDigest). Users who explicitly opted out are
+    // respected because their stored false overrides the default true.
+    let noProfile = 0;
+    let noEmail = 0;
+    let optedOut = 0;
+
     const subscribedUsers = authUsers.filter(u => {
-      if (!u.email) return false;
+      if (!u.email) { noEmail++; return false; }
       const profile = profileMap[u.id];
-      const prefs = profile?.preferences || {};
-      return prefs[prefKey] === true;
+      if (!profile) { noProfile++; }
+      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile?.preferences || {}) };
+      const subscribed = prefs[prefKey] === true;
+      if (!subscribed) optedOut++;
+      return subscribed;
     });
 
-    console.log(`[run-daily] ${subscribedUsers.length}/${authUsers.length} users subscribed to '${type}'`);
+    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${optedOut} opted-out, ${noProfile} no-profile, ${noEmail} no-email, ${authUsers.length} total`);
 
     if (subscribedUsers.length === 0) {
       return res.status(200).json({ ok: true, type, sent: 0, skipped: 0, message: 'No subscribers.' });
@@ -396,11 +417,12 @@ export default async function handler(req, res) {
         await sendEmail({ to: email, subject, html, text });
         await logEmailSend(sb, { userId, email, type, dateKey });
         sent++;
+        console.log(`[run-daily] ✓ sent type=${type} to=${email}`);
 
       } catch (err) {
         failed++;
         const msg = `Failed for ${email}: ${err.message}`;
-        console.error('[run-daily]', msg);
+        console.error(`[run-daily] ✗ ${msg}`);
         errors.push(msg);
       }
     }

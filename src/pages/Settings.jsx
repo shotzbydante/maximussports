@@ -2227,7 +2227,9 @@ function AuthenticatedSettings({ user }) {
         if (!cancelled) {
           setProfile(data);
           setProfileLoading(false);
-          if (!data) { setShowWizard(true); wasNewUserRef.current = true; }
+          // Show wizard if no profile OR if profile shell exists but onboarding
+          // was never completed (no username → user never finished step 2/3).
+          if (!data || !data.username) { setShowWizard(true); wasNewUserRef.current = !data; }
         }
       } catch {
         if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); wasNewUserRef.current = true; }
@@ -2260,6 +2262,15 @@ function AuthenticatedSettings({ user }) {
               trackAccountCreated(user, data, teamSlugs, {
                 method: user.app_metadata?.provider || 'google',
               });
+              // Send welcome email (best-effort, non-blocking)
+              sb.auth.getSession().then(({ data: { session } }) => {
+                if (session?.access_token) {
+                  fetch('/api/auth/send-welcome', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                  }).catch(() => {});
+                }
+              }).catch(() => {});
             }
           }
         })

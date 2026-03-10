@@ -12,12 +12,21 @@ function dbg(...args) {
   if (_debug) console.log('[AuthContext]', ...args);
 }
 
+const DEFAULT_EMAIL_PREFS = {
+  briefing:        true,
+  teamAlerts:      true,
+  oddsIntel:       false,
+  newsDigest:      true,
+  teamDigest:      false,
+  teamDigestTeams: [],
+};
+
 /**
  * Attempt client-side profile shell upsert.
  * Returns true on success, false on failure (RLS block or network error).
  *
  * IMPORTANT: only writes columns confirmed to exist in profiles:
- *   id, plan_tier, subscription_status, updated_at
+ *   id, plan_tier, subscription_status, preferences, updated_at
  * Do NOT include 'email' — that column does not exist in the profiles table.
  */
 async function upsertProfileClient(sb, user) {
@@ -27,6 +36,7 @@ async function upsertProfileClient(sb, user) {
         id:                  user.id,
         plan_tier:           'free',
         subscription_status: 'inactive',
+        preferences:         { ...DEFAULT_EMAIL_PREFS },
         updated_at:          new Date().toISOString(),
       },
       { onConflict: 'id', ignoreDuplicates: true }
