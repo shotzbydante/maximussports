@@ -18,6 +18,7 @@
 import { useState } from 'react';
 import { TEAMS } from '../../../data/teams';
 import { getTeamSlug } from '../../../utils/teamSlug';
+import { getEspnConfLogoUrl } from '../../../utils/conferenceLogos';
 import styles from './ConferenceIntelSlide.module.css';
 
 // ─── Conference color palette ─────────────────────────────────────────────────
@@ -44,30 +45,8 @@ function getConfColors(conf) {
 }
 
 // ─── Conference logo resolution ───────────────────────────────────────────────
-// Real PNGs exist for: ACC, Big 12, Big East, Big Ten, SEC
-// All SVGs in public/conferences/ are placeholder text circles (~294 bytes).
-// Strategy: try PNG first (real logo), then use styled fallback badge.
-
-const CONF_LOGO_PATHS = {
-  'ACC':           ['/conferences/acc.svg', '/conferences/acc.png'],
-  'Big Ten':       ['/conferences/big-ten.svg', '/conferences/big-ten.png'],
-  'Big 12':        ['/conferences/big-12.svg', '/conferences/big-12.png'],
-  'Big East':      ['/conferences/big-east.svg', '/conferences/big-east.png'],
-  'SEC':           ['/conferences/sec.svg', '/conferences/sec.png'],
-  'WCC':           ['/conferences/wcc.svg'],
-  'Mountain West': ['/conferences/mwc.svg'],
-  'AAC':           ['/conferences/aac.svg'],
-  'A-10':          ['/conferences/a10.svg'],
-  'MVC':           ['/conferences/mvc.svg'],
-  'MAC':           ['/conferences/mac.svg'],
-  'CUSA':          ['/conferences/cusa.svg'],
-  'WAC':           null,
-  'Southland':     ['/conferences/southland.svg'],
-};
-
-function getConfLogoPaths(conf) {
-  return CONF_LOGO_PATHS[conf] ?? null;
-}
+// Uses ESPN CDN for up-to-date, clean conference logos.
+// Fallback: styled badge with conference abbreviation.
 
 // ─── Phrase variation ─────────────────────────────────────────────────────────
 
@@ -129,6 +108,16 @@ function buildConferenceIntel(conf, allTeams, dashData) {
   const tierOrder = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
   const sorted = [...confTeams].sort((a, b) => tierOrder.indexOf(a.oddsTier) - tierOrder.indexOf(b.oddsTier));
 
+  // Build slug → record map from rankings (includes W-L for ranked teams)
+  const recordBySlug = {};
+  for (const r of (dashData?.rankingsTop25 ?? [])) {
+    const name = r.teamName || r.name || r.team || '';
+    if (!name) continue;
+    const record = r.recordSummary || r.record || null;
+    const slug = getTeamSlug(name);
+    if (slug && record) recordBySlug[slug] = record;
+  }
+
   for (const t of sorted.slice(0, 5)) {
     const co = champOdds[t.slug];
     const odds = co?.bestChanceAmerican ?? co?.american ?? null;
@@ -138,6 +127,7 @@ function buildConferenceIntel(conf, allTeams, dashData) {
       tier: t.oddsTier,
       odds: typeof odds === 'number' ? odds : null,
       rank: rankBySlug[t.slug] ?? null,
+      record: recordBySlug[t.slug] ?? null,
     });
   }
 
@@ -211,41 +201,61 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     bullets.push(`${confTeams.length} tracked teams across the ${conf} with active market signals`);
   }
 
-  // ── Headline generation ──
+  // ── Headline generation — editorial, never restates conference name ──
   const isPower = lockTeams.length >= 4;
   const isMid = lockTeams.length <= 1 && confTeams.length <= 5;
+  const hasAtsValue = confBest.length >= 2;
+  const hasBubble = contenders.length >= 3 && contenders.length <= 6;
 
   let headlinePool;
-  if (isPower) {
+  if (isPower && hasAtsValue) {
     headlinePool = [
-      [`${conf.toUpperCase()}`, 'POWER CLUSTER'],
-      [`${conf.toUpperCase()}`, 'STOCK RISING'],
-      [`${conf.toUpperCase()}`, 'LOADED'],
-      [`${conf.toUpperCase()}`, 'MARCH READY'],
+      'BRACKET BUILT\nDIFFERENT',
+      'POWER AT\nTHE TOP',
+      'DEPTH THAT\nTRAVELS',
+      'MARCH\nSHARPNESS',
+    ];
+  } else if (isPower) {
+    headlinePool = [
+      'STOCK CLIMBING\nFAST',
+      'LOADED FOR\nMARCH',
+      'FIREPOWER\nRISING',
+      'STACKED\nAND READY',
+    ];
+  } else if (isMid && longShots.length >= 2) {
+    headlinePool = [
+      'QUIETLY\nDANGEROUS',
+      'SLEEPER VALUE\nRISING',
+      'UNDER THE\nRADAR',
+      'DARK HORSE\nTERRITORY',
     ];
   } else if (isMid) {
     headlinePool = [
-      [`${conf.toUpperCase()}`, 'UNDER THE RADAR'],
-      [`${conf.toUpperCase()}`, 'DARK HORSE WATCH'],
-      [`${conf.toUpperCase()}`, 'SLEEPER VALUE'],
-      [`${conf.toUpperCase()}`, 'HIDDEN EDGE'],
+      'TOURNAMENT\nTEETH',
+      'HIDDEN\nEDGE',
+      'WATCH THIS\nCONFERENCE',
+      'MORE THAN\nYOU THINK',
+    ];
+  } else if (hasBubble) {
+    headlinePool = [
+      'BUBBLE\nHEAT',
+      'SURVIVE AND\nADVANCE',
+      'THE RACE\nTIGHTENS',
+      'ON THE\nBUBBLE',
     ];
   } else {
     headlinePool = [
-      [`${conf.toUpperCase()}`, 'HEATING UP'],
-      [`${conf.toUpperCase()}`, 'ON THE MOVE'],
-      [`${conf.toUpperCase()}`, 'INTELLIGENCE'],
-      [`${conf.toUpperCase()}`, 'MARCH PUSH'],
+      'HEATING\nUP',
+      'MARKET\nMOVING',
+      'MOMENTUM\nBUILDING',
+      'MAKING\nNOISE',
     ];
   }
 
-  if (isMarch) {
-    headlinePool.push([`${conf.toUpperCase()}`, 'TOURNAMENT TIME']);
-    if (isPower) headlinePool.push([`${conf.toUpperCase()}`, 'MARCH MADNESS']);
-  }
+  if (isMarch && isPower) headlinePool.push('MARCH\nREADY', 'FINAL FOUR\nVIBES');
+  if (isMarch && hasBubble) headlinePool.push('SELECTION\nPRESSURE', 'DO OR\nDIE');
 
-  const chosen = _pick(headlinePool, conf);
-  const headline = chosen.join('\n');
+  const headline = _pick(headlinePool, conf);
 
   // ── Subtext ──
   let subtextPool;
@@ -282,25 +292,20 @@ function buildConferenceIntel(conf, allTeams, dashData) {
 
 function ConfLogo({ conf, className, fallbackClassName }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const paths = getConfLogoPaths(conf);
-  const [attempt, setAttempt] = useState(0);
-  const currentPath = paths?.[attempt] ?? null;
+  const espnUrl = getEspnConfLogoUrl(conf);
 
-  if (imgFailed || !currentPath) {
+  if (imgFailed || !espnUrl) {
     const abbr = conf.replace(/[^A-Z0-9]/gi, '').slice(0, 5).toUpperCase();
     return <div className={fallbackClassName}>{abbr}</div>;
   }
 
   return (
     <img
-      src={currentPath}
+      src={espnUrl}
       alt={conf}
       className={className}
       crossOrigin="anonymous"
-      onError={() => {
-        if (paths && attempt + 1 < paths.length) setAttempt(a => a + 1);
-        else setImgFailed(true);
-      }}
+      onError={() => setImgFailed(true)}
     />
   );
 }
@@ -357,7 +362,7 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
       <div className={styles.headlineZone}>
         <div className={styles.headlineDivider} />
         <h2 className={styles.headline}>
-          {intel.headline.split('\n').map((line, i) => (
+          {(intel.headline || '').split('\n').map((line, i) => (
             <span key={i} className={styles.headlineLine}>{line}</span>
           ))}
         </h2>
@@ -384,6 +389,7 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
           <div className={styles.featuredGrid}>
             {intel.featured.map((t, i) => (
               <div key={i} className={styles.featuredChip}>
+                {t.rank && <span className={styles.featuredRank}>#{t.rank}</span>}
                 <img
                   src={`/logos/${t.slug}.png`}
                   alt=""
@@ -391,8 +397,10 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
                   crossOrigin="anonymous"
                   onError={e => { e.currentTarget.style.display = 'none'; }}
                 />
-                <span className={styles.featuredName}>{t.name}</span>
-                {t.rank && <span className={styles.featuredBadge}>#{t.rank} AP</span>}
+                <div className={styles.featuredMeta}>
+                  <span className={styles.featuredName}>{t.name}</span>
+                  {t.record && <span className={styles.featuredRecord}>{t.record}</span>}
+                </div>
                 {t.odds != null && (
                   <span className={styles.featuredOdds}>
                     🏆 {t.odds > 0 ? '+' : ''}{t.odds}

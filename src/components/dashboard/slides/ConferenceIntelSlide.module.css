@@ -143,8 +143,6 @@
   position: relative; max-width: 240px; max-height: 220px;
   width: auto; height: auto; object-fit: contain; z-index: 2;
   animation: logoFloat 5.2s ease-in-out infinite, logoGlowPulse 3.8s ease-in-out infinite;
-  mix-blend-mode: screen;
-  border-radius: 16px;
 }
 
 .confFallback {
@@ -267,38 +265,50 @@
 }
 
 .featuredGrid {
-  display: flex; gap: 10px; flex-wrap: wrap;
+  display: flex; gap: 12px; flex-wrap: wrap;
 }
 
 .featuredChip {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 10px;
   background: rgba(0,0,0,0.28); backdrop-filter: blur(4px);
   border: 1px solid color-mix(in srgb, var(--conf-primary) 18%, transparent);
-  border-radius: 10px; padding: 10px 14px;
+  border-radius: 12px; padding: 12px 16px;
 }
 
-.featuredLogo {
-  width: 32px; height: 32px; object-fit: contain; flex-shrink: 0;
-}
-
-.featuredName {
-  font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 600;
-  color: rgba(240,244,248,0.90); white-space: nowrap;
-}
-
-.featuredBadge {
-  font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 700;
+.featuredRank {
+  font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700;
   background: color-mix(in srgb, var(--conf-primary) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--conf-primary) 40%, transparent);
   color: color-mix(in srgb, var(--conf-primary) 90%, #fff);
-  border-radius: 5px; padding: 2px 7px; white-space: nowrap;
+  border-radius: 6px; padding: 3px 8px; white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.featuredLogo {
+  width: 40px; height: 40px; object-fit: contain; flex-shrink: 0;
+}
+
+.featuredMeta {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+
+.featuredName {
+  font-family: 'Oswald', sans-serif; font-size: 22px; font-weight: 600;
+  color: rgba(240,244,248,0.90); white-space: nowrap;
+  line-height: 1.1;
+}
+
+.featuredRecord {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500;
+  color: rgba(240,244,248,0.45); letter-spacing: 0.02em;
 }
 
 .featuredOdds {
-  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700;
+  font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700;
   background: rgba(107, 214, 158, 0.13);
   border: 1px solid rgba(107, 214, 158, 0.30);
-  color: #6BD69E; border-radius: 5px; padding: 2px 8px; white-space: nowrap;
+  color: #6BD69E; border-radius: 6px; padding: 3px 10px; white-space: nowrap;
+  margin-left: auto; flex-shrink: 0;
 }
 
 /* ── Footer — reduced bottom dead space ────────────────────────────────── */

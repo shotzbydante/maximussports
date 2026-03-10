@@ -5,6 +5,15 @@ import styles from './MaximusPicks.module.css';
 
 // ─── inline SVG icons ─────────────────────────────────────────────────────────
 
+function IconPickEm() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+      <polyline points="4,6.5 6,8.5 9.5,4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
 function IconAts() {
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
@@ -15,7 +24,7 @@ function IconAts() {
   );
 }
 
-function IconMl() {
+function IconValue() {
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
       <polyline
@@ -61,41 +70,6 @@ function ChevronIcon({ open }) {
   );
 }
 
-// ─── copy-to-clipboard button ─────────────────────────────────────────────────
-
-function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    if (!navigator?.clipboard) return;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {});
-  };
-
-  return (
-    <button
-      type="button"
-      className={`${styles.copyBtn} ${copied ? styles.copyBtnCopied : ''}`}
-      onClick={handleCopy}
-      title="Copy line to clipboard"
-      aria-label="Copy line to clipboard"
-    >
-      {copied ? (
-        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-          <polyline points="2,6 4.5,8.5 9,3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ) : (
-        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-          <rect x="1" y="3.5" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-          <path d="M3.5 3.5V2a1 1 0 0 1 1-1h4.5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H8.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
-        </svg>
-      )}
-    </button>
-  );
-}
-
 // ─── confidence chip ──────────────────────────────────────────────────────────
 
 function ConfidenceChip({ level }) {
@@ -108,43 +82,6 @@ function ConfidenceChip({ level }) {
     >
       {label}
     </span>
-  );
-}
-
-// ─── skeleton cards ───────────────────────────────────────────────────────────
-
-function SkeletonPickCard() {
-  return (
-    <div className={`${styles.pickCard} ${styles.skeletonCard}`} aria-hidden="true">
-      <div className={styles.skeletonMatchup}>
-        <span className={`${styles.skeletonLine} ${styles.skLineM}`} />
-        <span className={`${styles.skeletonLine} ${styles.skLineM}`} />
-      </div>
-      <span className={`${styles.skeletonLine} ${styles.skPill}`} />
-      <span className={`${styles.skeletonLine} ${styles.skBlock}`} />
-    </div>
-  );
-}
-
-function SkeletonColumn({ section }) {
-  const { title, Icon, microcopy } = COLUMN_CONFIG[section];
-  return (
-    <div className={styles.column}>
-      <div className={styles.columnHeader}>
-        <div className={styles.columnHeaderTop}>
-          <div className={styles.columnTitleRow}>
-            <span className={styles.columnIcon}><Icon /></span>
-            <span className={styles.columnTitle}>{title}</span>
-          </div>
-          <span className={`${styles.columnPill} ${styles.columnPillWarming}`}>WARMING…</span>
-        </div>
-        <p className={styles.columnMicro}>{microcopy}</p>
-      </div>
-      <div className={styles.cardList} aria-busy="true">
-        <SkeletonPickCard />
-        <SkeletonPickCard />
-      </div>
-    </div>
   );
 }
 
@@ -173,7 +110,42 @@ function DayChip({ slateDate }) {
   }
 }
 
-// ─── watch card (no-edge game — monitoring only) ─────────────────────────────
+// ─── skeleton cards ───────────────────────────────────────────────────────────
+
+function SkeletonPickCard() {
+  return (
+    <div className={`${styles.pickCard} ${styles.skeletonCard}`} aria-hidden="true">
+      <div className={styles.skeletonMatchup}>
+        <span className={`${styles.skeletonLine} ${styles.skLineM}`} />
+        <span className={`${styles.skeletonLine} ${styles.skLineM}`} />
+      </div>
+      <span className={`${styles.skeletonLine} ${styles.skPill}`} />
+      <span className={`${styles.skeletonLine} ${styles.skBlock}`} />
+    </div>
+  );
+}
+
+function SkeletonColumn({ section }) {
+  const { title, Icon, description } = COLUMN_CONFIG[section];
+  return (
+    <div className={styles.column}>
+      <div className={styles.columnHeader}>
+        <div className={styles.columnTitleRow}>
+          <span className={styles.columnIcon}><Icon /></span>
+          <span className={styles.columnTitle}>{title}</span>
+        </div>
+        <p className={styles.columnDesc}>{description}</p>
+        <div className={styles.columnDivider} />
+      </div>
+      <div className={styles.cardList} aria-busy="true">
+        <SkeletonPickCard />
+        <SkeletonPickCard />
+      </div>
+    </div>
+  );
+}
+
+// ─── watch card ───────────────────────────────────────────────────────────────
 
 function WatchCard({ pick, slateDate }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
@@ -181,12 +153,10 @@ function WatchCard({ pick, slateDate }) {
 
   return (
     <div className={`${styles.pickCard} ${styles.watchCard}`}>
-      {/* Day chip + time */}
       <div className={styles.cardMetaRow}>
         <DayChip slateDate={slateDate} />
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
-      {/* Matchup */}
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
           <span className={styles.teamLogoWrap}>
@@ -202,14 +172,6 @@ function WatchCard({ pick, slateDate }) {
           <span className={styles.matchupName}>{pick.homeTeam}</span>
         </span>
       </div>
-
-      {/* Line */}
-      <div className={styles.slipRow}>
-        <span className={styles.slipLabel}>Line</span>
-        <span className={styles.slipLineText}>{pick.pickLine}</span>
-      </div>
-
-      {/* Monitoring pill + reason */}
       <div className={styles.cardMain}>
         <span className={styles.monitoringChip}>MONITORING</span>
       </div>
@@ -220,30 +182,19 @@ function WatchCard({ pick, slateDate }) {
   );
 }
 
-// ─── pick card ────────────────────────────────────────────────────────────────
+// ─── game card ────────────────────────────────────────────────────────────────
 
-function PickCard({ pick, isTotal, slateDate }) {
+function GameCard({ pick, slateDate }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
-  const isMl = pick.pickType === 'ml';
-  const isAts = pick.pickType === 'ats';
-
-  // ATS picks with no resolved spread line get a degraded display
-  const spreadUnavailable = isAts && pick.spread == null;
-
-  // Confidence may be capped one tier down when the spread line is missing
-  const displayConfidence = spreadUnavailable
-    ? Math.max(0, pick.confidence - 1)
-    : pick.confidence;
 
   return (
     <div className={styles.pickCard}>
-      {/* Day chip + time */}
       <div className={styles.cardMetaRow}>
         <DayChip slateDate={slateDate} />
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
-      {/* Matchup line with logos */}
+
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
           <span className={styles.teamLogoWrap}>
@@ -260,98 +211,30 @@ function PickCard({ pick, isTotal, slateDate }) {
         </span>
       </div>
 
-      {/* Bet slip row — exact line to place */}
-      <div className={styles.slipRow}>
-        <span className={styles.slipLabel}>Slip</span>
-        {spreadUnavailable ? (
-          <span className={`${styles.slipLineText} ${styles.slipLineUnavailable}`}>
-            Line unavailable
-          </span>
-        ) : (
-          <>
-            <span className={styles.slipLineText}>{pick.pickLine}</span>
-            <CopyButton text={pick.pickLine} />
-          </>
-        )}
-      </div>
-
-      {spreadUnavailable && (
-        <p className={styles.unavailableNote}>
-          Spread line unavailable. Pick shown for ATS tracking only.
-        </p>
-      )}
-
-      {/* Primary pick pill + confidence chip + partial badge */}
-      <div className={styles.cardMain}>
+      <div className={styles.cardRecommendation}>
+        <span className={styles.recLabel}>
+          {pick.pickType === 'pickem' ? 'Pick' :
+           pick.pickType === 'ats' ? 'Recommendation' :
+           pick.pickType === 'value' ? 'Lean' : 'Lean'}
+        </span>
         <span className={styles.pickPill}>{pick.pickLine}</span>
-        <ConfidenceChip level={displayConfidence} />
+        <ConfidenceChip level={pick.confidence} />
         {pick.partial && (
           <span className={styles.partialBadge} title="One-team ATS signal — opponent data unavailable">
-            PARTIAL SIGNAL
+            PARTIAL
           </span>
         )}
       </div>
 
-      {/* Why value */}
-      {pick.whyValue && (
-        <p className={styles.whyValue}>{pick.whyValue}</p>
-      )}
-
-      {/* Edge breakdown — omit for totals */}
-      {!isTotal && (
-        <div className={styles.edgeBreakdown}>
-          {pick.modelPct != null && (
-            <div className={styles.edgeRow}>
-              <span className={styles.edgeLabel}>Model</span>
-              <span className={styles.edgeValue}>{pick.modelPct}%</span>
-            </div>
-          )}
-          <div className={styles.edgeRow}>
-            <span className={styles.edgeLabel}>Market implied</span>
-            <span className={styles.edgeValue}>
-              {pick.marketImpliedPct != null ? `${pick.marketImpliedPct}%` : '—'}
-            </span>
-          </div>
-          {pick.edgePp != null && (
-            <div className={`${styles.edgeRow} ${styles.edgeHighlight}`}>
-              <span className={styles.edgeLabel}>{isMl ? 'Value gap' : 'Edge'}</span>
-              <span className={styles.edgeValue}>+{pick.edgePp}pp</span>
-            </div>
-          )}
-          {pick.marketImpliedPct != null && (
-            <p className={styles.edgeHelper}>Market implied is derived from the current line.</p>
-          )}
+      {pick.signals?.length > 0 && (
+        <div className={styles.signalPanel}>
+          <span className={styles.signalLabel}>Signals</span>
+          <ul className={styles.signalList}>
+            {pick.signals.map((s, i) => (
+              <li key={i} className={styles.signalItem}>{s}</li>
+            ))}
+          </ul>
         </div>
-      )}
-
-      {/* ML explainer */}
-      {isMl && (
-        <p className={styles.mlExplainer}>
-          Moneyline price is the payout odds for a straight-up win.
-        </p>
-      )}
-
-      {/* Rationale bullets */}
-      {pick.rationale?.length > 0 && (
-        <ul className={styles.rationaleList}>
-          {pick.rationale.map((r, i) => (
-            <li key={i} className={styles.rationaleItem}>{r}</li>
-          ))}
-        </ul>
-      )}
-
-      {/* Confidence rationale */}
-      {pick.confidenceRationale && (
-        <p className={styles.confRationale}>{pick.confidenceRationale}</p>
-      )}
-
-      {/* Slip tips */}
-      {pick.slipTips?.length > 0 && (
-        <ul className={styles.slipTipsList}>
-          {pick.slipTips.map((tip, i) => (
-            <li key={i} className={styles.slipTip}>{tip}</li>
-          ))}
-        </ul>
       )}
     </div>
   );
@@ -372,104 +255,70 @@ function formatSlateDate(dateStr) {
 // ─── column configuration ─────────────────────────────────────────────────────
 
 const COLUMN_CONFIG = {
-  ats: {
-    title:      'Against the Spread',
-    Icon:       IconAts,
-    microcopy:  'Leans based on spreads + recent ATS form. Some use partial ATS data when opponent record is unavailable.',
-    storageKey: 'homePicksAtsCollapsed',
-    isTotal:    false,
+  pickem: {
+    title:       "PICK 'EMS",
+    Icon:        IconPickEm,
+    description: 'Predicting straight-up winners based on rankings, odds, recent form, and strength of schedule.',
+    storageKey:  'homePicksPickEmCollapsed',
   },
-  ml: {
-    title:      "Pick 'Ems (Moneyline)",
-    Icon:       IconMl,
-    microcopy:  'Value leans blending ATS form + implied odds.',
-    storageKey: 'homePicksMlCollapsed',
-    isTotal:    false,
+  ats: {
+    title:       'AGAINST THE SPREAD',
+    Icon:        IconAts,
+    description: 'ATS recommendations evaluate spread performance, line movement, and matchup efficiency.',
+    storageKey:  'homePicksAtsCollapsed',
+  },
+  value: {
+    title:       'VALUE LEANS',
+    Icon:        IconValue,
+    description: 'Value Leans highlight situations where market pricing may underestimate a team.',
+    storageKey:  'homePicksValueCollapsed',
   },
   totals: {
-    title:      'Totals (O/U)',
-    Icon:       IconTotals,
-    microcopy:  'Best numbers available. Informational only.',
-    storageKey: 'homePicksTotalsCollapsed',
-    isTotal:    true,
+    title:       'GAME TOTALS',
+    Icon:        IconTotals,
+    description: 'Game Total leans evaluate how teams historically perform relative to betting totals.',
+    storageKey:  'homePicksTotalsCollapsed',
   },
 };
 
 // ─── pick column ─────────────────────────────────────────────────────────────
 
-function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondary, slateComplete, hideViewMore }) {
-  const { title, Icon, microcopy, storageKey, isTotal } = COLUMN_CONFIG[section];
+function PickColumn({ section, picks, slateDate, slateDateSecondary, slateComplete, hideViewMore }) {
+  const { title, Icon, description, storageKey } = COLUMN_CONFIG[section];
 
   const [expanded, setExpanded] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey) !== '1';
-    } catch {
-      return true;
-    }
+    try { return localStorage.getItem(storageKey) !== '1'; } catch { return true; }
   });
 
   const toggle = () => {
     const next = !expanded;
     setExpanded(next);
-    try {
-      localStorage.setItem(storageKey, next ? '0' : '1');
-    } catch { /* ignore */ }
+    try { localStorage.setItem(storageKey, next ? '0' : '1'); } catch { /* ignore */ }
   };
 
   const slateDateLabel = formatSlateDate(slateDate);
-  const secondaryDateLabel = formatSlateDate(slateDateSecondary);
-  const combinedSlateLabel = slateDateLabel && secondaryDateLabel
-    ? `${slateDateLabel} + ${secondaryDateLabel}`
-    : slateDateLabel;
+  const leanCount = picks.filter((p) => p.itemType === 'lean').length;
+  const watchCount = picks.filter((p) => p.itemType === 'watch').length;
 
-  // Context-aware empty state — reference the slate date(s) when available
   let emptyReason = 'No qualified leans right now.';
-  let emptyDetail = null;
   if (slateComplete && picks.length === 0) {
-    emptyReason = 'Today\'s slate is complete.';
-    emptyDetail = slateDateLabel
-      ? `Picks for ${slateDateLabel} will appear when lines post.`
-      : 'Check back when tomorrow\'s lines post.';
-  } else if (section === 'ats') {
-    const { spreadsCount = 0, atsSlugCount = 0 } = emptyContext ?? {};
-    emptyReason = `No ATS leans met${combinedSlateLabel ? ` ${combinedSlateLabel}'s` : ' today\'s'} thresholds.`;
-    if (spreadsCount === 0) {
-      emptyDetail = 'Waiting for spread lines to post.';
-    } else if (atsSlugCount < 5) {
-      emptyDetail = 'ATS form available for limited teams right now.';
-    } else {
-      emptyDetail = 'No edges above thresholds today.';
-    }
-  } else if (section === 'ml') {
-    emptyReason = 'No qualified moneyline leans right now.';
-    emptyDetail = `Value gaps haven't met the 4pp threshold${combinedSlateLabel ? ` for ${combinedSlateLabel}` : ''}.`;
-  } else {
-    emptyReason = `No totals posted${combinedSlateLabel ? ` for ${combinedSlateLabel}` : ''} yet.`;
+    emptyReason = "Today's slate is complete. Check back when next lines post.";
   }
 
   return (
     <div className={styles.column}>
-      {/* Premium gradient header */}
       <div className={styles.columnHeader}>
-        <div className={styles.columnHeaderTop}>
-          <div className={styles.columnTitleRow}>
-            <span className={styles.columnIcon}><Icon /></span>
-            <span className={styles.columnTitle}>{title}</span>
-          </div>
-          {(() => {
-        const leanCount = picks.filter((p) => p.itemType === 'lean').length;
-        const watchCount = picks.filter((p) => p.itemType === 'watch').length;
-        return leanCount > 0
-          ? <span className={styles.columnPill}>DATA-DRIVEN LEANS</span>
-          : watchCount > 0
-            ? <span className={`${styles.columnPill} ${styles.columnPillWatch}`}>MONITORING</span>
-            : null;
-      })()}
+        <div className={styles.columnTitleRow}>
+          <span className={styles.columnIcon}><Icon /></span>
+          <span className={styles.columnTitle}>{title}</span>
+          {leanCount > 0 && (
+            <span className={styles.columnCount}>{leanCount}</span>
+          )}
         </div>
-        <p className={styles.columnMicro}>{microcopy}</p>
+        <p className={styles.columnDesc}>{description}</p>
+        <div className={styles.columnDivider} />
       </div>
 
-      {/* Mobile-only accordion toggle */}
       <button
         className={styles.accordionToggle}
         onClick={toggle}
@@ -483,7 +332,6 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
       {picks.length === 0 ? (
         <div className={styles.emptyState}>
           <p className={styles.emptyReason}>{emptyReason}</p>
-          {emptyDetail && <p className={styles.emptyDetail}>{emptyDetail}</p>}
         </div>
       ) : (
         <div className={`${styles.cardListWrapper} ${!expanded ? styles.cardListWrapperCollapsed : ''}`}>
@@ -491,13 +339,12 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
             {picks.map((p) =>
               p.itemType === 'watch'
                 ? <WatchCard key={p.key} pick={p} slateDate={slateDate} />
-                : <PickCard key={p.key} pick={p} isTotal={isTotal} slateDate={slateDate} />,
+                : <GameCard key={p.key} pick={p} slateDate={slateDate} />,
             )}
           </div>
         </div>
       )}
 
-      {/* Link to the full Odds Insights page — suppressed when already on that page */}
       {!hideViewMore && (
         <a href="/insights" className={styles.viewMoreLink} aria-label={`View full ${title} board on Odds Insights`}>
           {picks.length > 0 ? 'Full intel on Odds Insights →' : 'View Odds Insights →'}
@@ -510,41 +357,38 @@ function PickColumn({ section, picks, emptyContext, slateDate, slateDateSecondar
 // ─── main component ───────────────────────────────────────────────────────────
 
 /**
- * MaximusPicks — deterministic picks derived from data already on the Home page.
+ * MaximusPicks — 4-column analytics dashboard for game recommendations.
  *
  * Props:
  *   games               {Array}        — merged game objects (with odds)
  *   atsLeaders          {Object}       — { best: AtsLeaderRow[], worst: AtsLeaderRow[] }
  *   atsBySlug           {Object|null}  — optional explicit ATS map keyed by team slug
+ *   rankMap             {Object}       — slug→AP rank (from rankings/rankingsTop25)
+ *   championshipOdds    {Object}       — slug→{american,...} championship winner odds
  *   loading             {boolean}      — true while Home is still fetching
  *   slateDate           {string|null}  — ISO date string (YYYY-MM-DD) for the primary slate date
- *   slateDateSecondary  {string|null}  — ISO date string for a secondary slate day (thin-slate combine)
- *   slateComplete       {boolean}      — true when today's games are all final (showing next slate)
+ *   slateDateSecondary  {string|null}  — ISO date string for a secondary slate day
+ *   slateComplete       {boolean}      — true when today's games are all final
+ *   hideViewMore        {boolean}      — suppress "View Odds Insights" link
  */
 export default function MaximusPicks({
   games = [],
   atsLeaders = { best: [], worst: [] },
   atsBySlug = null,
+  rankMap = {},
+  championshipOdds = {},
   loading = false,
   slateDate = null,
   slateDateSecondary = null,
   slateComplete = false,
   hideViewMore = false,
 }) {
-  const { atsPicks, mlPicks, totalsPicks } = useMemo(
-    () => buildMaximusPicks({ games, atsLeaders, atsBySlug }),
-    [games, atsLeaders, atsBySlug],
+  const { pickEmPicks, atsPicks, valuePicks, totalsPicks } = useMemo(
+    () => buildMaximusPicks({ games, atsLeaders, atsBySlug, rankMap, championshipOdds }),
+    [games, atsLeaders, atsBySlug, rankMap, championshipOdds],
   );
 
-  const hasAny = atsPicks.length > 0 || mlPicks.length > 0 || totalsPicks.length > 0;
-
-  // Context for ATS empty state (avoids guessing — uses real data counts)
-  const spreadsCount = useMemo(() => games.filter((g) => g.spread != null).length, [games]);
-  const atsSlugCount = useMemo(
-    () => (atsBySlug ? Object.keys(atsBySlug).length : 0),
-    [atsBySlug],
-  );
-  const emptyContext = { spreadsCount, atsSlugCount };
+  const hasAny = pickEmPicks.length > 0 || atsPicks.length > 0 || valuePicks.length > 0 || totalsPicks.length > 0;
 
   const [graceExpired, setGraceExpired] = useState(false);
   useEffect(() => {
@@ -552,30 +396,15 @@ export default function MaximusPicks({
     return () => clearTimeout(t);
   }, []);
 
-  // Debug mode: activate with ?debugPicks in the URL
-  const debugPicks = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).has('debugPicks');
-
-  useEffect(() => {
-    if (!debugPicks || loading) return;
-    console.group('[Picks:MaximusPicks] Rendered with final data');
-    console.log('games:', games.length, '| gamesWithSpread:', games.filter((g) => g.spread != null || g.homeSpread != null).length);
-    console.log('atsLeaders best:', atsLeaders.best.length, '| worst:', atsLeaders.worst.length);
-    console.log('atsBySlug keys:', atsBySlug ? Object.keys(atsBySlug).length : 0);
-    console.log('atsPicks:', atsPicks.length, '| mlPicks:', mlPicks.length, '| totalsPicks:', totalsPicks.length);
-    console.log('hasAny:', hasAny, '| graceExpired:', graceExpired, '| showSkeleton:', loading || (!graceExpired && !hasAny));
-    console.groupEnd();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, atsPicks.length, mlPicks.length, totalsPicks.length]);
-
   const showSkeleton = loading || (!graceExpired && !hasAny);
 
   if (showSkeleton) {
     return (
       <>
         <div className={styles.root}>
+          <SkeletonColumn section="pickem" />
           <SkeletonColumn section="ats" />
-          <SkeletonColumn section="ml" />
+          <SkeletonColumn section="value" />
           <SkeletonColumn section="totals" />
         </div>
         <p className={styles.disclaimer}>
@@ -609,9 +438,10 @@ export default function MaximusPicks({
         </div>
       )}
       <div className={styles.root}>
-        <PickColumn section="ats"    picks={atsPicks}    emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
-        <PickColumn section="ml"     picks={mlPicks}     emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
-        <PickColumn section="totals" picks={totalsPicks} emptyContext={emptyContext} slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
+        <PickColumn section="pickem"  picks={pickEmPicks}  slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
+        <PickColumn section="ats"     picks={atsPicks}     slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
+        <PickColumn section="value"   picks={valuePicks}   slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
+        <PickColumn section="totals"  picks={totalsPicks}  slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
       </div>
       <p className={styles.disclaimer}>
         For entertainment only. Please bet responsibly. Leans are data-driven, not advice.

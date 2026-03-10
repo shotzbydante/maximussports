@@ -1,54 +1,62 @@
 /**
- * Conference name → logo asset. Returns { src, alt } when we have a real PNG; null otherwise.
- * Normalizes: trim, lowercase, "Big 10" → "Big Ten", "Big-12" → "Big 12", etc.
+ * Conference logo resolution backed by ESPN CDN.
+ *
+ * Static mapping of our conference short-names → ESPN CDN URLs.
+ * These are the official ESPN conference logos, served from ESPN's CDN
+ * with CORS support (safe for html-to-image export).
+ *
+ * Discovery source:
+ *   sports.core.api.espn.com/v2/sports/basketball/leagues/
+ *   mens-college-basketball/seasons/{year}/types/2/groups/{id}
  */
 
-const CONF_TO_LOGO = {
-  acc:         { src: '/conferences/acc.png', alt: 'Atlantic Coast Conference logo' },
-  'big ten':   { src: '/conferences/big-ten.png', alt: 'Big Ten Conference logo' },
-  'big 10':    { src: '/conferences/big-ten.png', alt: 'Big Ten Conference logo' },
-  'big 12':    { src: '/conferences/big-12.png', alt: 'Big 12 Conference logo' },
-  'big twelve': { src: '/conferences/big-12.png', alt: 'Big 12 Conference logo' },
-  sec:         { src: '/conferences/sec.png', alt: 'Southeastern Conference logo' },
-  'southeastern conference': { src: '/conferences/sec.png', alt: 'SEC logo' },
-  'big east':  { src: '/conferences/big-east.png', alt: 'Big East Conference logo' },
+const ESPN_CONF_LOGO_MAP = {
+  'ACC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/acc.png',
+  'A-10':          'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/atlantic_10.png',
+  'Big East':      'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/big_east.png',
+  'Big Ten':       'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/big_ten.png',
+  'Big 12':        'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/big_12.png',
+  'CUSA':          'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/conference_usa.png',
+  'MAC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/mid_american.png',
+  'MVC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/missouri_valley.png',
+  'SEC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/sec.png',
+  'WCC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/west_coast.png',
+  'Mountain West': 'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/mountain_west.png',
+  'AAC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/american.png',
+  'Horizon':       'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/horizon.png',
+  'Big West':      'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/big_west.png',
+  'Ivy':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/ivy.png',
+  'MAAC':          'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/maac.png',
+  'Sun Belt':      'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/sun_belt.png',
+  'SWAC':          'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/swac.png',
+  'OVC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/ohio_valley.png',
+  'NEC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/northeast.png',
+  'WAC':           'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/wac.png',
+  'Southland':     'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/southland.png',
+  'Summit':        'https://a.espncdn.com/i/teamlogos/ncaa_conf/500/summit.png',
 };
 
-function normalize(name) {
-  if (!name || typeof name !== 'string') return '';
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .replace(/[^\w\s]/g, '')
-    .replace(/\b10\b/g, 'ten')
-    .replace(/\b12\b/g, 'twelve');
-}
-
-function toLookupKey(n) {
-  if (!n) return null;
-  if (n === 'acc' || n.includes('atlantic coast')) return 'acc';
-  if (n === 'sec' || n.includes('southeastern')) return 'sec';
-  if (n === 'big ten' || n === 'bigten' || n === 'big 10') return 'big ten';
-  if (n === 'big 12' || n === 'big12' || n === 'big twelve') return 'big 12';
-  if (n === 'big east' || n === 'bigeast') return 'big east';
-  if (n === 'wcc' || n.includes('west coast')) return 'wcc';
-  if (n === 'mountain west' || n === 'mwc') return 'mountain west';
-  if (n === 'aac' || n.includes('american athletic')) return 'aac';
-  if (n === 'a10' || n === 'a 10' || n.includes('atlantic 10') || n.includes('atlantic ten')) return 'a-10';
-  if (n === 'mvc' || n.includes('missouri valley')) return 'mvc';
-  if (n === 'mac' || n.includes('mid american')) return 'mac';
-  if (n === 'cusa' || n.includes('conference usa') || n === 'c usa') return 'cusa';
-  if (n === 'southland') return 'southland';
-  return n;
+/**
+ * Returns the ESPN CDN URL for a conference logo, or null if unknown.
+ * @param {string} conf - Conference short name (e.g. "ACC", "Big 12")
+ */
+export function getEspnConfLogoUrl(conf) {
+  return ESPN_CONF_LOGO_MAP[conf] ?? null;
 }
 
 /**
- * @param {string} conferenceName - e.g. "Big Ten", "ACC", "Big 12"
- * @returns {{ src: string, alt: string } | null}
+ * Returns { src, alt } for a conference logo (used by shared ConferenceLogo component).
+ * @param {string} conf - Conference short name
  */
-export function getConferenceLogo(conferenceName) {
-  const n = normalize(conferenceName);
-  const key = toLookupKey(n) ?? n;
-  return CONF_TO_LOGO[key] ?? null;
+export function getConferenceLogo(conf) {
+  const url = ESPN_CONF_LOGO_MAP[conf];
+  if (!url) return null;
+  return { src: url, alt: `${conf} logo` };
+}
+
+/**
+ * Returns all known conference → ESPN CDN logo mappings.
+ */
+export function getAllConfLogos() {
+  return { ...ESPN_CONF_LOGO_MAP };
 }

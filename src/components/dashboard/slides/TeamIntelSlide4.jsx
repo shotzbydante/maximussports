@@ -163,8 +163,8 @@ const PHRASE_LIB = {
     (conf) => `as ${conf} tournament positioning comes into focus`,
     (conf) => `with ${conf} tournament seeding on the line`,
     (conf) => `as ${conf} tournament pressure builds`,
-    (conf) => `with postseason positioning at stake`,
-    (conf) => `as the bracket picture tightens`,
+    () => `with postseason positioning at stake`,
+    () => `as the bracket picture tightens`,
   ],
   marchGeneric: [
     'during a key late-season stretch',
@@ -300,9 +300,12 @@ function buildTeamNarrativeSignals(ctx) {
     const games = l7.w + l7.l;
     const coverVerb = pickPhrase(PHRASE_LIB.coverRate, shortName);
     const marketLine = pickPhrase(PHRASE_LIB.marketMovement, shortName);
+    const atsHl = pct === 100 && games >= 3
+      ? 'PERFECT\nAGAINST THE NUMBER'
+      : pickPhrase(['CASH\nMACHINE', 'COVERING\nEVERYTHING', 'SHARP MONEY\nMAGNET', 'THE NUMBER\nIS WRONG'], shortName + 'ah');
     signals.push({
       type: 'atsHot', score: 90,
-      headline: pct === 100 && games >= 3 ? 'PERFECT\nAGAINST THE NUMBER' : 'HEATING UP',
+      headline: atsHl,
       subtext: `${shortName} ${coverVerb}${marchStakes ? ' ' + marchStakes : ''}. ${marketLine}`,
     });
   }
@@ -335,9 +338,12 @@ function buildTeamNarrativeSignals(ctx) {
   // ── TEAM MOMENTUM ──────────────────────────────────────────────────────────
   if (rank && rank <= 25 && last10W >= 7 && last10Total >= 8) {
     const momentumLine = pickPhrase(PHRASE_LIB.momentum, shortName + 'ranked');
+    const momentumHl = new Date().getMonth() === 2
+      ? pickPhrase(['MARCH\nDOMINANCE', 'PEAKING AT\nTHE RIGHT TIME', 'FINAL FOUR\nENERGY', 'LOCKED IN\nFOR MARCH'], shortName + 'rm')
+      : pickPhrase(['BUILDING\nSOMETHING', 'CAN\'T STOP\nWON\'T STOP', 'MOMENTUM\nRISING'], shortName + 'rm');
     signals.push({
       type: 'rankedMomentum', score: 70,
-      headline: new Date().getMonth() === 2 ? 'MARCH\nMOMENTUM' : 'BUILDING\nMOMENTUM',
+      headline: momentumHl,
       subtext: `#${rank} ${shortName} keeps building momentum${marchStakes ? ' ' + marchStakes : ''}. ${momentumLine}`,
     });
   }
@@ -382,9 +388,12 @@ function buildTeamNarrativeSignals(ctx) {
   }
 
   // ── FALLBACK ───────────────────────────────────────────────────────────────
+  const fallbackHl = ssn && ssn.pct >= 0.55
+    ? pickPhrase(['THE NUMBER\nTO KNOW', 'MARKET\nINTELLIGENCE', 'EDGE\nDETECTED'], shortName + 'fb')
+    : pickPhrase(['FULL\nBREAKDOWN', 'INTEL\nFILE', 'DEEP\nDIVE'], shortName + 'fb');
   signals.push({
     type: 'standard', score: 10,
-    headline: ssn && ssn.pct >= 0.55 ? 'WATCH THIS\nNUMBER' : 'FULL INTEL\nREPORT',
+    headline: fallbackHl,
     subtext: ssn
       ? `${shortName} is ${ssn.w}\u2013${ssn.l} ATS (${Math.round(ssn.pct * 100)}%) on the season.`
       : `Full market intelligence on ${shortName}.`,
@@ -578,7 +587,22 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
       const comps = upcoming.competitions?.[0]?.competitors ?? [];
       const me    = comps.find(c => c.team?.slug === slug);
       const opp   = comps.find(c => c !== me) ?? comps[0];
-      nextOpp  = opp?.team?.displayName || opp?.team?.name || null;
+      const oppName = opp?.team?.displayName || opp?.team?.name || null;
+      // Tournament-aware next-game phrasing
+      const compNotes = upcoming.competitions?.[0]?.notes ?? [];
+      const noteText = compNotes.map(n => n.headline || n.text || '').join(' ');
+      const isMarch = new Date().getMonth() === 2;
+      if (oppName && oppName !== 'TBD') {
+        nextOpp = oppName;
+      } else if (noteText) {
+        nextOpp = noteText.length > 50 ? noteText.slice(0, 47) + '\u2026' : noteText;
+      } else if (isMarch && conf) {
+        nextOpp = `${conf} Tournament game TBD`;
+      } else if (isMarch) {
+        nextOpp = 'Tournament game TBD';
+      } else {
+        nextOpp = oppName || 'TBD';
+      }
       if (!nextTime && upcoming.date) {
         const d = new Date(upcoming.date);
         const datePart = d.toLocaleDateString('en-US', {
@@ -646,11 +670,16 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
     { label: 'Season',  fmt: formatReadableAtsRecord(ssnP) },
   ].filter(w => w.fmt != null);
 
-  // Record display line
+  // Record display line — full season + conference + last 10 with form indicator
   const recordLineParts = [];
   if (overallRecord) recordLineParts.push(`${overallRecord.replace('-', '\u2013')} overall`);
   if (confRecord)    recordLineParts.push(`${confRecord.replace('-', '\u2013')} ${conf || 'conf.'}`);
-  if (last10.length >= 5) recordLineParts.push(`${last10W}\u2013${last10.length - last10W} last ${last10.length}`);
+  const last10L = last10.length - last10W;
+  const last10Str = last10.length >= 5 ? `${last10W}\u2013${last10L} last ${last10.length}` : null;
+  const formIcon = last10.length >= 7
+    ? (last10W >= 8 ? ' \uD83D\uDD25' : last10W <= 3 ? ' \u2744\uFE0F' : '')
+    : '';
+  if (last10Str) recordLineParts.push(`${last10Str}${formIcon}`);
   const recordLine = recordLineParts.length > 0 ? recordLineParts.join(' \u00b7 ') : null;
 
   const hasSchedule = nextOpp || lastGameMeta;

@@ -31,6 +31,7 @@ import { buildMaximusPicks, buildPicksSummary } from '../utils/maximusPicksModel
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
+import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
@@ -243,8 +244,8 @@ function allGamesComplete(games) {
  *   atsLeaders  — ATS leaders already on Home state
  */
 
-/** Minimum number of today's games before we supplement with tomorrow's. */
-const MIN_GAMES_FOR_PICKS = 6;
+/** Always combine today + tomorrow when today has fewer than this many games. */
+const MIN_GAMES_FOR_PICKS = 12;
 
 function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, loading = false, slowLoading = false, futureOddsGames = [] }) {
   const [briefingData, setBriefingData] = useState(null);
@@ -340,26 +341,22 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   const todayComplete = allGamesComplete(games) && !loading;
 
   // Thin slate: today has games but fewer than MIN_GAMES_FOR_PICKS and is not complete
+  const thinSlateSupp = (thinSlateGames?.length > 0) ? thinSlateGames : futureOddsGames;
   const isThinSlate =
     !loading &&
     !todayComplete &&
     games.length > 0 &&
     games.length < MIN_GAMES_FOR_PICKS &&
-    thinSlateGames !== null &&
-    thinSlateGames.length > 0;
+    thinSlateSupp.length > 0;
 
-  // activeGames priority:
-  //   today-complete → nextSlateGames (ESPN+odds for next day, fetched via /api/home?dates=)
-  //                 → futureOddsGames fallback (Odds API games already in slow payload)
+  // activeGames: always combine today + tomorrow when possible.
+  //   today-complete → today + nextSlateGames (or futureOddsGames fallback)
   //   thin-slate    → today + tomorrow combined
   //   default       → today's games
-  // The futureOddsGames fallback fires when nextSlateGames comes back empty (e.g. ESPN
-  // scoreboard hasn't populated tomorrow's schedule yet) but the Odds API already has
-  // lines posted for tomorrow's games.
   const activeGames = todayComplete && nextSlateGames !== null
-    ? (nextSlateGames.length > 0 ? nextSlateGames : futureOddsGames)
+    ? [...games, ...(nextSlateGames.length > 0 ? nextSlateGames : futureOddsGames)]
     : isThinSlate
-      ? [...games, ...thinSlateGames]
+      ? [...games, ...thinSlateSupp]
       : games;
 
   const slateDate = todayComplete
@@ -794,7 +791,7 @@ export default function Home() {
   useEffect(() => {
     const now = Date.now();
     if (_llmSummaryCache.data && now - _llmSummaryCache.ts < LLM_SUMMARY_TTL_MS) {
-      setLlmSummary(_llmSummaryCache.data);
+      setLlmSummary(fixPositiveOdds(_llmSummaryCache.data));
       return;
     }
     const controller = new AbortController();
@@ -803,9 +800,10 @@ export default function Home() {
         .then((r) => r.json())
         .then((d) => {
           if (d?.summary) {
-            _llmSummaryCache.data = d.summary;
+            const fixed = fixPositiveOdds(d.summary);
+            _llmSummaryCache.data = fixed;
             _llmSummaryCache.ts = Date.now();
-            setLlmSummary(d.summary);
+            setLlmSummary(fixed);
           }
           return d;
         }),
@@ -925,9 +923,10 @@ export default function Home() {
           .then((d) => {
             setLlmSummaryRefreshing(false);
             if (d?.summary) {
-              _llmSummaryCache.data = d.summary;
+              const fixed = fixPositiveOdds(d.summary);
+              _llmSummaryCache.data = fixed;
               _llmSummaryCache.ts = Date.now();
-              setLlmSummary(d.summary);
+              setLlmSummary(fixed);
             }
             return d;
           }),

@@ -112,7 +112,9 @@ export async function fetchRankingsSource() {
       rankings: ranks.map((r) => {
         const team = r.team || {};
         const teamName = [team.location, team.name].filter(Boolean).join(' ').trim() || 'Unknown';
-        return { teamName, rank: r.current ?? r.rank ?? null, teamId: team.id ? String(team.id) : null };
+        const recItems = team.record?.items ?? r.recordSummary ? [{ summary: r.recordSummary }] : [];
+        const recordSummary = recItems[0]?.summary ?? r.recordSummary ?? null;
+        return { teamName, rank: r.current ?? r.rank ?? null, teamId: team.id ? String(team.id) : null, recordSummary };
       }),
     };
   });
