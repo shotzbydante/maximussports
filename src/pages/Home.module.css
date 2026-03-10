@@ -896,65 +896,104 @@
   flex-shrink: 0;
 }
 
+/* ── Header right group (toggle + tag) ──────────────────────────── */
+
+.oddsTeaserHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Collapse / Expand toggle in header ─────────────────────────── */
+
+.picksToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-primary, #3c79b4);
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  border-radius: var(--pill-radius, 999px);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--transition-fast, 0.12s ease),
+    border-color var(--transition-fast, 0.12s ease);
+}
+
+.picksToggleBtn:hover {
+  background: rgba(60, 121, 180, 0.12);
+  border-color: rgba(60, 121, 180, 0.3);
+}
+
+.picksToggleChevron {
+  display: inline-block;
+  font-size: 0.72rem;
+  line-height: 1;
+  transition: transform 0.25s ease;
+  transform: rotate(-90deg);
+}
+
+.picksToggleChevronOpen {
+  transform: rotate(90deg);
+}
+
 /* ── Picks collapsible wrapper (Home only) ──────────────────────── */
 
 .picksCollapsible {
   position: relative;
-  max-height: 540px;
-  overflow: hidden;
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.picksCollapsible::after {
+.picksCollapsibleCollapsed {
+  max-height: 540px;
+  overflow: hidden;
+}
+
+.picksCollapsibleCollapsed::after {
   content: '';
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 72px;
+  height: 80px;
   background: linear-gradient(
     to bottom,
-    transparent,
-    var(--color-bg-elevated, #fff) 92%
+    rgba(255, 255, 255, 0),
+    var(--color-bg-elevated, #fff) 85%
   );
   pointer-events: none;
-  opacity: 1;
-  transition: opacity 0.3s ease;
+  z-index: 1;
 }
 
-.picksCollapsibleExpanded {
-  max-height: 8000px;
-}
+/* ── Bottom expand button (shown when collapsed) ────────────────── */
 
-.picksCollapsibleExpanded::after {
-  opacity: 0;
-  height: 0;
-}
-
-.picksExpandBtn,
-.picksCollapseBtn {
+.picksExpandBtn {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   width: 100%;
-  padding: 10px var(--space-md);
-  border: 1px solid rgba(60, 121, 180, 0.18);
+  padding: 11px var(--space-md);
+  margin-top: -4px;
+  border: 1px solid rgba(60, 121, 180, 0.2);
   border-radius: var(--radius-sm, 6px);
   font-family: inherit;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  color: var(--color-primary, #3c79b4);
+  background: rgba(60, 121, 180, 0.06);
   cursor: pointer;
   transition:
     background var(--transition-fast, 0.12s ease),
     border-color var(--transition-fast, 0.12s ease),
     transform var(--transition-fast, 0.12s ease);
-}
-
-.picksExpandBtn {
-  color: var(--color-primary, #3c79b4);
-  background: rgba(60, 121, 180, 0.06);
-  margin-top: -4px;
 }
 
 .picksExpandBtn:hover {
@@ -963,31 +1002,23 @@
   transform: translateY(-1px);
 }
 
-.picksCollapseBtn {
-  color: var(--color-text-muted);
-  background: transparent;
-  margin-top: var(--space-xs, 4px);
-  border-color: rgba(60, 121, 180, 0.1);
-}
-
-.picksCollapseBtn:hover {
-  background: rgba(60, 121, 180, 0.04);
-  color: var(--color-primary, #3c79b4);
-}
-
 @media (max-width: 767px) {
-  .picksCollapsible {
+  .picksCollapsibleCollapsed {
     max-height: 480px;
+  }
+
+  .picksToggleBtn {
+    font-size: 0.56rem;
+    padding: 3px 8px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .picksCollapsible { transition: none; }
-  .picksCollapsible::after { transition: none; }
-  .picksExpandBtn,
-  .picksCollapseBtn { transition: none; }
-  .picksExpandBtn:hover,
-  .picksCollapseBtn:hover { transform: none; }
+  .picksToggleChevron,
+  .picksToggleChevronOpen { transition: none; }
+  .picksToggleBtn { transition: none; }
+  .picksExpandBtn { transition: none; }
+  .picksExpandBtn:hover { transform: none; }
 }
 
 /* ── Market Briefing divider ─────────────────────────────────────── */
