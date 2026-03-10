@@ -247,12 +247,14 @@ function allGamesComplete(games) {
 /** Always combine today + tomorrow when today has fewer than this many games. */
 const MIN_GAMES_FOR_PICKS = 12;
 
+const PICKS_COLLAPSE_THRESHOLD = 540;
+
 function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, championshipOdds = {}, loading = false, slowLoading = false, futureOddsGames = [], upcomingGamesWithSpreads = [] }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
-  const [isPicksExpanded, setIsPicksExpanded] = useState(false);
-  const picksContainerRef = useRef(null);
-  const [picksOverflows, setPicksOverflows] = useState(false);
+  const [isPicksExpanded, setIsPicksExpanded] = useState(true);
+  const picksContentRef = useRef(null);
+  const [picksExceedsThreshold, setPicksExceedsThreshold] = useState(false);
 
   // ── Next-slate state: fetch tomorrow's schedule when today is done ──
   const [nextSlateGames, setNextSlateGames] = useState(null);   // null = not fetched yet
@@ -416,11 +418,11 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     picksResult.valuePicks.length +
     picksResult.totalsPicks.length;
 
-  // Detect whether the picks container overflows its collapsed height
+  // Detect whether the picks content exceeds the collapse threshold
   useEffect(() => {
-    const el = picksContainerRef.current;
+    const el = picksContentRef.current;
     if (!el) return;
-    const check = () => setPicksOverflows(el.scrollHeight > el.clientHeight + 4);
+    const check = () => setPicksExceedsThreshold(el.scrollHeight > PICKS_COLLAPSE_THRESHOLD);
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
@@ -461,7 +463,25 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       {/* ── Widget header ───────────────────────────────────────────── */}
       <div className={styles.oddsTeaserHeader}>
         <h3 className={styles.oddsTeaserTitle}>Maximus&apos;s Picks</h3>
-        <span className={styles.oddsTeaserTag}>Data-Driven Leans</span>
+        <div className={styles.oddsTeaserHeaderRight}>
+          {picksExceedsThreshold && (
+            <button
+              type="button"
+              className={styles.picksToggleBtn}
+              onClick={() => setIsPicksExpanded((prev) => !prev)}
+              aria-expanded={isPicksExpanded}
+            >
+              {isPicksExpanded ? 'Collapse picks' : `Show all ${totalPicksCount} picks`}
+              <span
+                className={`${styles.picksToggleChevron} ${isPicksExpanded ? styles.picksToggleChevronOpen : ''}`}
+                aria-hidden
+              >
+                ‹
+              </span>
+            </button>
+          )}
+          <span className={styles.oddsTeaserTag}>Data-Driven Leans</span>
+        </div>
       </div>
       {/* ── Picks summary line ──────────────────────────────────────── */}
       {picksSummary && (
@@ -477,8 +497,8 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
 
       {/* ── Picks: Pick 'Ems / ATS / Value / Totals ─────────────────── */}
       <div
-        ref={picksContainerRef}
-        className={`${styles.picksCollapsible} ${isPicksExpanded ? styles.picksCollapsibleExpanded : ''}`}
+        ref={picksContentRef}
+        className={`${styles.picksCollapsible} ${!isPicksExpanded && picksExceedsThreshold ? styles.picksCollapsibleCollapsed : ''}`}
       >
         <MaximusPicks
           games={activeGames}
@@ -493,25 +513,13 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         />
       </div>
 
-      {picksOverflows && !isPicksExpanded && (
+      {picksExceedsThreshold && !isPicksExpanded && (
         <button
           type="button"
           className={styles.picksExpandBtn}
           onClick={() => setIsPicksExpanded(true)}
         >
-          Show all {totalPicksCount} picks
-        </button>
-      )}
-      {isPicksExpanded && picksOverflows && (
-        <button
-          type="button"
-          className={styles.picksCollapseBtn}
-          onClick={() => {
-            setIsPicksExpanded(false);
-            picksContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }}
-        >
-          Show less
+          Show all {totalPicksCount} picks ↓
         </button>
       )}
 
