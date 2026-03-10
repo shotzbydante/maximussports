@@ -2,13 +2,18 @@
  * maximusPicksModel — pure pick derivation for 4-column analytics layout.
  *
  * Columns:
- *   1. Pick 'Ems        — straight-up winner prediction
- *   2. Against the Spread — ATS recommendation
+ *   1. Pick 'Ems        — straight-up winner prediction (3-tier fallback)
+ *   2. Against the Spread — ATS recommendation (3-tier fallback)
  *   3. Value Leans       — market value identification
  *   4. Game Totals       — over/under leans
  *
+ * Fallback ladder (Pick 'Ems & ATS):
+ *   Tier 1 — full model: all major enrichments available
+ *   Tier 2 — reduced model: missing some enrichments, still has form/market data
+ *   Tier 3 — minimum viable: market signal + home court, confidence capped LOW
+ *
  * Exported:
- *   buildMaximusPicks(opts) → { pickEmPicks, atsPicks, valuePicks, totalsPicks }
+ *   buildMaximusPicks(opts) → { pickEmPicks, atsPicks, valuePicks, totalsPicks, mlPicks }
  *   buildPicksSummary(picks) → string | null
  *   confidenceLabel(level) → 'HIGH' | 'MEDIUM' | 'LOW'
  */
@@ -18,22 +23,29 @@ import { getAtsCache } from './atsCache';
 
 // ─── tuneable constants ────────────────────────────────────────────────────────
 
-// Pick 'Ems weights (sum to 1.0)
-const PE_W_RANKING     = 0.15;
-const PE_W_CHAMP_ODDS  = 0.25;
-const PE_W_SEASON_REC  = 0.15;
-const PE_W_LAST10      = 0.25;
-const PE_W_SOS         = 0.10;
+// Pick 'Ems — Tier 1 (full model) weights
+const PE_W_RANKING     = 0.12;
+const PE_W_CHAMP_ODDS  = 0.18;
+const PE_W_SEASON_REC  = 0.12;
+const PE_W_LAST10      = 0.15;
+const PE_W_SOS         = 0.08;
 const PE_W_ATS         = 0.10;
+const PE_W_MARKET      = 0.25;
 const PE_HOME_BUMP     = 0.03;
-const PE_MIN_EDGE      = 0.06;
-const PE_HIGH_EDGE     = 0.15;
-const PE_MED_EDGE      = 0.10;
+const PE_MIN_EDGE_T1   = 0.04;
+const PE_MIN_EDGE_T2   = 0.03;
+const PE_MIN_EDGE_T3   = 0.05;
+const PE_HIGH_EDGE     = 0.12;
+const PE_MED_EDGE      = 0.07;
 
-// ATS thresholds
-const ATS_EDGE_MIN  = 0.12;
-const ATS_EDGE_HIGH = 0.18;
-const ATS_EDGE_MED  = 0.14;
+// ATS thresholds — relaxed from original to reduce monitoring
+const ATS_EDGE_MIN  = 0.08;
+const ATS_EDGE_HIGH = 0.16;
+const ATS_EDGE_MED  = 0.11;
+
+// ATS partial-signal thresholds — relaxed
+const ATS_PARTIAL_COVER_MIN  = 0.53;
+const ATS_PARTIAL_SAMPLE_MIN = 5;
 
 // Value Leans thresholds
 const VL_VALUE_MIN  = 0.04;
@@ -47,10 +59,6 @@ const VL_ATS_WEIGHT  = 0.35;
 const TOT_OU_MIN_EDGE   = 0.06;
 const TOT_OU_HIGH_EDGE  = 0.14;
 const TOT_OU_MED_EDGE   = 0.10;
-
-// Partial-signal ATS thresholds
-const ATS_PARTIAL_COVER_MIN  = 0.60;
-const ATS_PARTIAL_SAMPLE_MIN = 8;
 
 const PICKS_PER_SECTION = 5;
 const TARGET_SHOW = 4;
@@ -67,6 +75,12 @@ function parseNum(v) {
   if (v == null) return null;
   const n = parseFloat(v);
   return isNaN(n) ? null : n;
+}
+
+/** Convert a point-spread to an approximate home-win probability. */
+function spreadToWinProb(spread) {
+  if (spread == null) return null;
+  return clamp(0.5 - spread * 0.03, 0.15, 0.85);
 }
 
 function getBestAtsRecord(slug, atsLeaders, atsBySlug) {
@@ -209,15 +223,15 @@ export function confidenceLabel(level) {
   return 'LOW';
 }
 
-// ─── ranking signal helpers ───────────────────────────────────────────────────
+// ─── signal helpers ──────────────────────────────────────────────────────────
 
 function rankSignal(rank) {
-  if (rank == null || rank <= 0) return 0.5;
+  if (rank == null || rank <= 0) return null;
   return clamp(1 - (rank - 1) / 50, 0.2, 0.95);
 }
 
 function champOddsSignal(americanOdds) {
-  if (americanOdds == null) return 0.5;
+  if (americanOdds == null) return null;
   const implied = americanOdds > 0
     ? 100 / (americanOdds + 100)
     : Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
@@ -225,21 +239,43 @@ function champOddsSignal(americanOdds) {
 }
 
 function recordSignal(ats) {
-  if (!ats || ats.coverPct == null) return 0.5;
+  if (!ats || ats.coverPct == null) return null;
   return clamp(ats.coverPct / 100, 0.2, 0.8);
 }
 
-// ─── COLUMN 1: Pick 'Ems ─────────────────────────────────────────────────────
+/**
+ * Derive a market-implied win probability for the home team from ML and/or spread.
+ * Returns null only when neither ML nor spread data exists.
+ */
+function marketWinSignal(game) {
+  const ml = resolveMoneyline(game);
+  if (ml) {
+    const [rawH, rawA] = String(ml).split('/');
+    const homeML = parseNum(rawH);
+    const awayML = parseNum(rawA);
+    if (homeML != null && awayML != null) {
+      const hImp = mlToImplied(homeML);
+      const aImp = mlToImplied(awayML);
+      if (hImp != null && aImp != null) {
+        const total = hImp + aImp;
+        return clamp(hImp / total, 0.1, 0.9);
+      }
+    }
+  }
+  const { spread: homeSpread } = getTeamSpread(game, true);
+  if (homeSpread != null) {
+    return spreadToWinProb(homeSpread);
+  }
+  return null;
+}
+
+// ─── COLUMN 1: Pick 'Ems (3-tier fallback) ───────────────────────────────────
 
 function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds) {
   const picks = [];
 
   for (const game of games) {
     if (!hasMoneylineLine(game) && !hasSpreadLine(game)) continue;
-    const ml = resolveMoneyline(game);
-    const [rawHome, rawAway] = ml ? String(ml).split('/') : ['', ''];
-    const homeML = parseNum(rawHome);
-    const awayML = parseNum(rawAway);
 
     const homeSlug = getTeamSlug(game.homeTeam);
     const awaySlug = getTeamSlug(game.awayTeam);
@@ -250,65 +286,104 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     const awayChampOdds = championshipOdds?.[awaySlug]?.american ?? null;
     const homeAts = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
     const awayAts = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
+    const marketProb = marketWinSignal(game);
 
-    const homeSignals = {
-      ranking:   rankSignal(homeRank),
-      champOdds: champOddsSignal(homeChampOdds),
-      seasonRec: recordSignal(homeAts),
-      last10:    homeAts?.window === 'last30' ? recordSignal(homeAts) : 0.5,
-      sos:       homeRank != null && homeRank <= 25 ? 0.65 : 0.5,
-      ats:       homeAts ? clamp(homeAts.coverPct / 100, 0.3, 0.7) : 0.5,
-    };
+    // Count how many enrichments are available per side
+    const homeHasRank   = rankSignal(homeRank) !== null;
+    const homeHasChamp  = champOddsSignal(homeChampOdds) !== null;
+    const homeHasAts    = recordSignal(homeAts) !== null;
+    const awayHasRank   = rankSignal(awayRank) !== null;
+    const awayHasChamp  = champOddsSignal(awayChampOdds) !== null;
+    const awayHasAts    = recordSignal(awayAts) !== null;
+    const hasMarket     = marketProb !== null;
 
-    const awaySignals = {
-      ranking:   rankSignal(awayRank),
-      champOdds: champOddsSignal(awayChampOdds),
-      seasonRec: recordSignal(awayAts),
-      last10:    awayAts?.window === 'last30' ? recordSignal(awayAts) : 0.5,
-      sos:       awayRank != null && awayRank <= 25 ? 0.65 : 0.5,
-      ats:       awayAts ? clamp(awayAts.coverPct / 100, 0.3, 0.7) : 0.5,
-    };
+    const enrichCount = [homeHasRank || awayHasRank, homeHasChamp || awayHasChamp,
+                         homeHasAts || awayHasAts, hasMarket].filter(Boolean).length;
 
-    const homeScore =
-      homeSignals.ranking   * PE_W_RANKING +
-      homeSignals.champOdds * PE_W_CHAMP_ODDS +
-      homeSignals.seasonRec * PE_W_SEASON_REC +
-      homeSignals.last10    * PE_W_LAST10 +
-      homeSignals.sos       * PE_W_SOS +
-      homeSignals.ats       * PE_W_ATS +
-      PE_HOME_BUMP;
+    let tier, homeScore, awayScore, minEdge;
 
-    const awayScore =
-      awaySignals.ranking   * PE_W_RANKING +
-      awaySignals.champOdds * PE_W_CHAMP_ODDS +
-      awaySignals.seasonRec * PE_W_SEASON_REC +
-      awaySignals.last10    * PE_W_LAST10 +
-      awaySignals.sos       * PE_W_SOS +
-      awaySignals.ats       * PE_W_ATS;
+    if (enrichCount >= 3) {
+      // Tier 1: full model — at least 3 of 4 signal categories present
+      tier = 1;
+      minEdge = PE_MIN_EDGE_T1;
+      const hRank  = rankSignal(homeRank)          ?? 0.5;
+      const hChamp = champOddsSignal(homeChampOdds) ?? 0.5;
+      const hRec   = recordSignal(homeAts)          ?? 0.5;
+      const hLast  = homeAts?.window === 'last30' ? (recordSignal(homeAts) ?? 0.5) : 0.5;
+      const hSos   = homeRank != null && homeRank <= 25 ? 0.65 : 0.5;
+      const hAts   = homeAts ? clamp(homeAts.coverPct / 100, 0.3, 0.7) : 0.5;
+      const hMkt   = marketProb ?? 0.5;
+
+      const aRank  = rankSignal(awayRank)          ?? 0.5;
+      const aChamp = champOddsSignal(awayChampOdds) ?? 0.5;
+      const aRec   = recordSignal(awayAts)          ?? 0.5;
+      const aLast  = awayAts?.window === 'last30' ? (recordSignal(awayAts) ?? 0.5) : 0.5;
+      const aSos   = awayRank != null && awayRank <= 25 ? 0.65 : 0.5;
+      const aAts   = awayAts ? clamp(awayAts.coverPct / 100, 0.3, 0.7) : 0.5;
+      const aMkt   = 1 - hMkt;
+
+      homeScore = hRank * PE_W_RANKING + hChamp * PE_W_CHAMP_ODDS + hRec * PE_W_SEASON_REC +
+                  hLast * PE_W_LAST10 + hSos * PE_W_SOS + hAts * PE_W_ATS + hMkt * PE_W_MARKET + PE_HOME_BUMP;
+      awayScore = aRank * PE_W_RANKING + aChamp * PE_W_CHAMP_ODDS + aRec * PE_W_SEASON_REC +
+                  aLast * PE_W_LAST10 + aSos * PE_W_SOS + aAts * PE_W_ATS + aMkt * PE_W_MARKET;
+
+    } else if (enrichCount >= 1) {
+      // Tier 2: reduced model — at least 1 enrichment + market or form
+      tier = 2;
+      minEdge = PE_MIN_EDGE_T2;
+      const hRec  = recordSignal(homeAts)          ?? 0.5;
+      const hAts  = homeAts ? clamp(homeAts.coverPct / 100, 0.3, 0.7) : 0.5;
+      const hMkt  = marketProb ?? 0.5;
+      const hRank = rankSignal(homeRank)           ?? 0.5;
+      const hChamp = champOddsSignal(homeChampOdds) ?? 0.5;
+
+      const aRec  = recordSignal(awayAts)          ?? 0.5;
+      const aAts  = awayAts ? clamp(awayAts.coverPct / 100, 0.3, 0.7) : 0.5;
+      const aMkt  = 1 - hMkt;
+      const aRank = rankSignal(awayRank)           ?? 0.5;
+      const aChamp = champOddsSignal(awayChampOdds) ?? 0.5;
+
+      // Reweight: market gets 0.40, form 0.25, rank+champ 0.20, ATS 0.15
+      homeScore = hMkt * 0.40 + hRec * 0.15 + hAts * 0.10 + hRank * 0.10 + hChamp * 0.10 +
+                  (homeAts?.window === 'last30' ? (recordSignal(homeAts) ?? 0.5) : 0.5) * 0.10 + PE_HOME_BUMP;
+      awayScore = aMkt * 0.40 + aRec * 0.15 + aAts * 0.10 + aRank * 0.10 + aChamp * 0.10 +
+                  (awayAts?.window === 'last30' ? (recordSignal(awayAts) ?? 0.5) : 0.5) * 0.10;
+
+    } else if (hasMarket) {
+      // Tier 3: minimum viable — market signal + home court only
+      tier = 3;
+      minEdge = PE_MIN_EDGE_T3;
+      homeScore = (marketProb ?? 0.5) * 0.85 + PE_HOME_BUMP + 0.5 * 0.15;
+      awayScore = (1 - (marketProb ?? 0.5)) * 0.85 + 0.5 * 0.15;
+    } else {
+      continue;
+    }
 
     const edge = homeScore - awayScore;
-    if (Math.abs(edge) < PE_MIN_EDGE) continue;
+    if (Math.abs(edge) < minEdge) continue;
 
     const pickHome = edge > 0;
     const pickTeam = pickHome ? game.homeTeam : game.awayTeam;
-    const pickSlug = pickHome ? homeSlug : awaySlug;
     const pickRank = pickHome ? homeRank : awayRank;
     const oppRank  = pickHome ? awayRank : homeRank;
-    const pickChampOdds = pickHome ? homeChampOdds : awayChampOdds;
+    const pickChampOddsVal = pickHome ? homeChampOdds : awayChampOdds;
     const pickAts = pickHome ? homeAts : awayAts;
     const oppAts  = pickHome ? awayAts : homeAts;
     const edgeMag = Math.abs(edge);
 
+    // Confidence: tier 3 capped at LOW, tier 2 capped at MEDIUM
     let confidence = 0;
     if (edgeMag >= PE_HIGH_EDGE) confidence = 2;
     else if (edgeMag >= PE_MED_EDGE) confidence = 1;
+    if (tier === 3) confidence = Math.min(confidence, 0);
+    if (tier === 2) confidence = Math.min(confidence, 1);
 
     const signals = [];
     if (pickRank != null && pickRank <= 25) {
       if (oppRank == null || oppRank > 25) signals.push(`Top 25 ranking edge (#${pickRank})`);
       else if (pickRank < oppRank) signals.push(`Higher ranked (#${pickRank} vs #${oppRank})`);
     }
-    if (pickChampOdds != null && pickChampOdds < 5000) {
+    if (pickChampOddsVal != null && pickChampOddsVal < 5000) {
       signals.push('Championship odds favor');
     }
     if (pickAts && pickAts.coverPct >= 55) {
@@ -317,14 +392,17 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     if (oppAts && oppAts.coverPct < 45) {
       signals.push(`Opponent struggling (${Math.round(oppAts.coverPct)}% ATS)`);
     }
+    if (hasMarket && marketProb != null) {
+      const favPct = Math.round((pickHome ? marketProb : 1 - marketProb) * 100);
+      if (favPct >= 55) signals.push(`Market implied ${favPct}% win probability`);
+    }
     if (pickHome) signals.push('Home court advantage');
-
     if (signals.length === 0) signals.push('Composite model edge');
 
-    const pickML = pickHome ? homeML : awayML;
-    const pickLine = pickML != null
-      ? `${pickTeam} ${fmtPrice(pickML)}`
-      : pickTeam;
+    const ml = resolveMoneyline(game);
+    const [rH, rA] = ml ? String(ml).split('/') : ['', ''];
+    const pickML = pickHome ? parseNum(rH) : parseNum(rA);
+    const pickLine = pickML != null ? `${pickTeam} ${fmtPrice(pickML)}` : pickTeam;
 
     picks.push({
       key: game.gameId || `${game.homeTeam}-${game.awayTeam}`,
@@ -341,18 +419,19 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       confidence,
       edgeMag,
       signals,
-      partial: false,
+      partial: tier >= 2,
+      _tier: tier,
     });
   }
 
   return picks
-    .sort((a, b) => b.edgeMag - a.edgeMag)
+    .sort((a, b) => (a._tier - b._tier) || (b.edgeMag - a.edgeMag))
     .slice(0, PICKS_PER_SECTION);
 }
 
-// ─── COLUMN 2: Against the Spread ────────────────────────────────────────────
+// ─── COLUMN 2: Against the Spread (3-tier fallback) ──────────────────────────
 
-function buildSpreadPicks(games, atsLeaders, atsBySlug) {
+function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds) {
   const picks = [];
 
   for (const game of games) {
@@ -376,7 +455,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
       pickType: 'ats',
     };
 
-    // Tier 1: both teams have ATS records
+    // ── Tier 1: both teams have ATS records ──
     if (homeAts && awayAts) {
       const homePct = homeAts.coverPct / 100;
       const awayPct = awayAts.coverPct / 100;
@@ -389,16 +468,15 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
       const oppAts   = pickHome ? awayAts : homeAts;
 
       const homeIsFav = homeSpreadNum != null ? homeSpreadNum < 0 : false;
-      const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
+      const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 12;
       if (isBigFav && homeIsFav && pickHome && Math.abs(edge) < ATS_EDGE_HIGH) continue;
 
       const { spread: teamSpreadNum } = getTeamSpread(game, pickHome);
       const spreadDisplay = fmtSpread(teamSpreadNum);
-
-      const win          = windowLabel(pickAts.window);
-      const edgeMag      = Math.abs(edge);
-      const pickRecord   = fmtRecord(pickAts) ?? `${Math.round(pickAts.coverPct)}%`;
-      const oppRecord    = fmtRecord(oppAts)  ?? `${Math.round(oppAts.coverPct)}%`;
+      const win     = windowLabel(pickAts.window);
+      const edgeMag = Math.abs(edge);
+      const pickRecord = fmtRecord(pickAts) ?? `${Math.round(pickAts.coverPct)}%`;
+      const oppRecord  = fmtRecord(oppAts)  ?? `${Math.round(oppAts.coverPct)}%`;
 
       let confidence = 0;
       if (edgeMag >= ATS_EDGE_HIGH) confidence = 2;
@@ -422,49 +500,96 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug) {
         edgeMag,
         signals,
         partial: false,
+        _tier: 1,
       });
       continue;
     }
 
-    // Tier 2: partial single-team pick
+    // ── Tier 2: one team has ATS records ──
     const singleAts = homeAts ?? awayAts;
-    if (!singleAts) continue;
+    if (singleAts) {
+      const pickIsHome = !!homeAts;
+      const sampleSize = (singleAts.w ?? 0) + (singleAts.l ?? 0);
+      if (singleAts.coverPct >= ATS_PARTIAL_COVER_MIN * 100 && sampleSize >= ATS_PARTIAL_SAMPLE_MIN) {
+        const pickTeamP = pickIsHome ? game.homeTeam : game.awayTeam;
+        const { spread: teamSpreadNumP } = getTeamSpread(game, pickIsHome);
+        const spreadDisplayP = fmtSpread(teamSpreadNumP);
+        const win = windowLabel(singleAts.window);
+        const pickRecord = fmtRecord(singleAts) ?? `${Math.round(singleAts.coverPct)}%`;
+        const rawConf = singleAts.coverPct >= 65 ? 1 : 0;
 
-    const pickIsHome = !!homeAts;
-    const sampleSize = (singleAts.w ?? 0) + (singleAts.l ?? 0);
-    if (singleAts.coverPct < ATS_PARTIAL_COVER_MIN * 100) continue;
-    if (sampleSize < ATS_PARTIAL_SAMPLE_MIN) continue;
+        const signals = [];
+        signals.push(`ATS form (${win}): ${pickRecord}`);
+        signals.push('Opponent ATS data unavailable');
 
-    const pickTeamP = pickIsHome ? game.homeTeam : game.awayTeam;
-    const { spread: teamSpreadNumP } = getTeamSpread(game, pickIsHome);
-    const spreadDisplayP = fmtSpread(teamSpreadNumP);
-    const win = windowLabel(singleAts.window);
-    const pickRecord = fmtRecord(singleAts) ?? `${Math.round(singleAts.coverPct)}%`;
-    const rawConf = singleAts.coverPct >= 70 ? 1 : 0;
+        const hasLineP = spreadDisplayP != null;
+        picks.push({
+          ...sharedBase,
+          itemType: 'lean',
+          pickTeam: pickTeamP,
+          spread: teamSpreadNumP,
+          pickLine: hasLineP ? `${pickTeamP} ${spreadDisplayP}` : `${pickTeamP} ATS —`,
+          confidence: rawConf,
+          edgeMag: (singleAts.coverPct - 50) / 100,
+          signals,
+          partial: true,
+          _tier: 2,
+        });
+        continue;
+      }
+    }
 
-    const signals = [];
-    signals.push(`ATS form (${win}): ${pickRecord}`);
-    signals.push('Opponent ATS data unavailable');
+    // ── Tier 3: no ATS data — use market + ranking signals for directional lean ──
+    if (homeSpreadNum != null && spreadMagnitude != null && spreadMagnitude >= 2) {
+      const homeRank = rankMap?.[homeSlug] ?? null;
+      const awayRank = rankMap?.[awaySlug] ?? null;
+      const homeIsRanked = homeRank != null && homeRank <= 25;
+      const awayIsRanked = awayRank != null && awayRank <= 25;
 
-    const hasLineP = spreadDisplayP != null;
-    picks.push({
-      ...sharedBase,
-      itemType: 'lean',
-      pickTeam: pickTeamP,
-      spread: teamSpreadNumP,
-      pickLine: hasLineP ? `${pickTeamP} ${spreadDisplayP}` : `${pickTeamP} ATS —`,
-      confidence: rawConf,
-      edgeMag: 0,
-      signals,
-      partial: true,
-    });
+      // Lean toward the underdog unless spread is large + ranking confirms favorite
+      const homeIsFav = homeSpreadNum < 0;
+      const favTeam   = homeIsFav ? game.homeTeam : game.awayTeam;
+      const dogTeam   = homeIsFav ? game.awayTeam : game.homeTeam;
+      const dogIsHome = !homeIsFav;
+
+      // Default: lean dog if spread is moderate (3-8 pts), lean fav if spread is large (>8)
+      let leanFav = spreadMagnitude > 8;
+
+      // Ranking override: if one team is ranked and the other isn't, lean toward the ranked side
+      if (homeIsRanked !== awayIsRanked) {
+        const rankedIsFav = (homeIsRanked && homeIsFav) || (awayIsRanked && !homeIsFav);
+        leanFav = rankedIsFav ? (spreadMagnitude > 10) : true;
+      }
+
+      const pickTeamT3 = leanFav ? favTeam : dogTeam;
+      const pickIsHomeT3 = pickTeamT3 === game.homeTeam;
+      const { spread: teamSpreadT3 } = getTeamSpread(game, pickIsHomeT3);
+      const spreadDispT3 = fmtSpread(teamSpreadT3);
+
+      const signals = [];
+      signals.push(`Spread: ${fmtSpread(homeSpreadNum)} (${game.homeTeam})`);
+      if (homeIsRanked) signals.push(`${game.homeTeam} ranked #${homeRank}`);
+      if (awayIsRanked) signals.push(`${game.awayTeam} ranked #${awayRank}`);
+      if (!leanFav) signals.push('Market spread creates underdog cover value');
+      else signals.push('Large spread supports favorite cover');
+
+      picks.push({
+        ...sharedBase,
+        itemType: 'lean',
+        pickTeam: pickTeamT3,
+        spread: teamSpreadT3,
+        pickLine: spreadDispT3 ? `${pickTeamT3} ${spreadDispT3}` : `${pickTeamT3} ATS —`,
+        confidence: 0,
+        edgeMag: spreadMagnitude * 0.005,
+        signals,
+        partial: true,
+        _tier: 3,
+      });
+    }
   }
 
   return picks
-    .sort((a, b) => {
-      if (a.partial !== b.partial) return a.partial ? 1 : -1;
-      return b.edgeMag - a.edgeMag;
-    })
+    .sort((a, b) => (a._tier - b._tier) || (a.partial !== b.partial ? (a.partial ? 1 : -1) : 0) || (b.edgeMag - a.edgeMag))
     .slice(0, PICKS_PER_SECTION);
 }
 
@@ -493,7 +618,6 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
     const awayCover = awayAts ? awayAts.coverPct / 100 : 0.5;
     const atsDiff   = homeCover - awayCover;
 
-    // Championship odds adjustment
     const homeChamp = championshipOdds?.[homeSlug]?.american;
     const awayChamp = championshipOdds?.[awaySlug]?.american;
     let champAdj = 0;
@@ -513,18 +637,10 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
 
     if (homeValue >= awayValue && homeValue >= VL_VALUE_MIN) {
       if (homeML <= VL_AVOID_PRICE) continue;
-      pickTeam   = game.homeTeam;
-      pickML     = homeML;
-      pickProb   = homeModelProb;
-      impliedPct = homeImplied;
-      value      = homeValue;
+      pickTeam = game.homeTeam; pickML = homeML; pickProb = homeModelProb; impliedPct = homeImplied; value = homeValue;
     } else if (awayValue >= VL_VALUE_MIN) {
       if (awayML <= VL_AVOID_PRICE) continue;
-      pickTeam   = game.awayTeam;
-      pickML     = awayML;
-      pickProb   = awayModelProb;
-      impliedPct = awayImplied;
-      value      = awayValue;
+      pickTeam = game.awayTeam; pickML = awayML; pickProb = awayModelProb; impliedPct = awayImplied; value = awayValue;
     } else {
       continue;
     }
@@ -545,9 +661,7 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
     if (pickML >= 150) signals.push('Underdog value — market may be underestimating');
     if (homeAts || awayAts) {
       const atsRec = pickTeam === game.homeTeam ? homeAts : awayAts;
-      if (atsRec) {
-        signals.push(`Recent ATS form: ${Math.round(atsRec.coverPct)}%`);
-      }
+      if (atsRec) signals.push(`Recent ATS form: ${Math.round(atsRec.coverPct)}%`);
     }
 
     picks.push({
@@ -592,8 +706,6 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     const homeAts = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
     const awayAts = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
 
-    // Estimate O/U lean from ATS data as proxy for scoring tendency
-    // Teams that cover well tend to score more → slight over lean
     const homeCover = homeAts ? (homeAts.coverPct - 50) / 100 : 0;
     const awayCover = awayAts ? (awayAts.coverPct - 50) / 100 : 0;
     const combinedTrend = (homeCover + awayCover) / 2;
@@ -603,62 +715,38 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     const underPrice = game.underPrice ? fmtPrice(parseNum(game.underPrice)) : null;
 
     const isOver = combinedTrend > 0;
-    const leanLabel = trendMag >= TOT_OU_MIN_EDGE
-      ? (isOver ? 'OVER' : 'UNDER')
-      : null;
+    const leanLabel = trendMag >= TOT_OU_MIN_EDGE ? (isOver ? 'OVER' : 'UNDER') : null;
 
     let confidence = 0;
     if (trendMag >= TOT_OU_HIGH_EDGE) confidence = 2;
     else if (trendMag >= TOT_OU_MED_EDGE) confidence = 1;
 
-    const priceStr = overPrice || underPrice
-      ? ` (O ${overPrice ?? '—'} / U ${underPrice ?? '—'})`
-      : '';
+    const priceStr = overPrice || underPrice ? ` (O ${overPrice ?? '—'} / U ${underPrice ?? '—'})` : '';
 
     const signals = [];
-    if (homeAts && homeAts.coverPct != null) {
-      signals.push(`${game.homeTeam} ATS: ${Math.round(homeAts.coverPct)}% cover rate`);
-    }
-    if (awayAts && awayAts.coverPct != null) {
-      signals.push(`${game.awayTeam} ATS: ${Math.round(awayAts.coverPct)}% cover rate`);
-    }
-    if (leanLabel) {
-      signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
-    } else {
-      signals.push('No clear directional edge');
-    }
+    if (homeAts && homeAts.coverPct != null) signals.push(`${game.homeTeam} ATS: ${Math.round(homeAts.coverPct)}% cover rate`);
+    if (awayAts && awayAts.coverPct != null) signals.push(`${game.awayTeam} ATS: ${Math.round(awayAts.coverPct)}% cover rate`);
+    if (leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
+    else signals.push('No clear directional edge');
 
     picks.push({
       key:      game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup:  `${game.awayTeam} @ ${game.homeTeam}`,
-      homeTeam: game.homeTeam,
-      awayTeam: game.awayTeam,
-      homeSlug,
-      awaySlug,
+      homeTeam: game.homeTeam, awayTeam: game.awayTeam, homeSlug, awaySlug,
       time:     fmtTime(game.startTime || game.commence_time || game.commenceTime),
-      pickType: 'total',
-      itemType: 'lean',
-      pickTeam: null,
-      pickLine: leanLabel
-        ? `${leanLabel} ${marketTotal}${priceStr}`
-        : `O/U ${marketTotal}${priceStr}`,
-      leanDirection: leanLabel ?? null,
-      confidence,
-      lineValue: marketTotal,
-      edgeMag: trendMag,
-      signals,
-      partial: false,
+      pickType: 'total', itemType: 'lean', pickTeam: null,
+      pickLine: leanLabel ? `${leanLabel} ${marketTotal}${priceStr}` : `O/U ${marketTotal}${priceStr}`,
+      leanDirection: leanLabel ?? null, confidence, lineValue: marketTotal,
+      edgeMag: trendMag, signals, partial: false,
     });
   }
 
-  return picks
-    .sort((a, b) => b.edgeMag - a.edgeMag)
-    .slice(0, PICKS_PER_SECTION);
+  return picks.sort((a, b) => b.edgeMag - a.edgeMag).slice(0, PICKS_PER_SECTION);
 }
 
-// ─── watch item helpers ───────────────────────────────────────────────────────
+// ─── watch item helpers (with debug reason codes) ────────────────────────────
 
-function buildWatchBase(game, pickType) {
+function buildWatchBase(game, pickType, debugReason) {
   return {
     key:              `${baseGameKey(game)}-watch`,
     matchup:          `${game.awayTeam} @ ${game.homeTeam}`,
@@ -674,6 +762,7 @@ function buildWatchBase(game, pickType) {
     edgeMag:          0,
     signals:          [],
     partial:          false,
+    _debugReason:     debugReason || 'unknown',
   };
 }
 
@@ -683,14 +772,17 @@ function buildPickEmWatches(games, leanKeys, needed) {
     if (watches.length >= needed) break;
     if (leanKeys.has(baseGameKey(game))) continue;
     if (!hasMoneylineLine(game) && !hasSpreadLine(game)) continue;
-    const { spread: homeSpreadNum } = getTeamSpread(game, true);
-    const { spread: awaySpreadNum } = getTeamSpread(game, false);
-    const favIsHome = homeSpreadNum != null && homeSpreadNum < 0;
-    const favTeam   = favIsHome ? game.homeTeam : game.awayTeam;
+
+    let reason = 'insufficient_edge';
+    const homeSlug = getTeamSlug(game.homeTeam);
+    const awaySlug = getTeamSlug(game.awayTeam);
+    if (!homeSlug && !awaySlug) reason = 'unresolved_team_identity';
+    else if (!hasMoneylineLine(game) && !hasSpreadLine(game)) reason = 'missing_market_data';
+
     watches.push({
-      ...buildWatchBase(game, 'pickem'),
+      ...buildWatchBase(game, 'pickem', reason),
       pickLine: `${game.awayTeam} @ ${game.homeTeam}`,
-      watchReason: 'Monitoring — awaiting signal alignment.',
+      watchReason: 'Monitoring — edge below threshold.',
     });
   }
   return watches;
@@ -702,17 +794,24 @@ function buildSpreadWatches(games, leanKeys, needed) {
     if (watches.length >= needed) break;
     if (leanKeys.has(baseGameKey(game))) continue;
     if (!hasSpreadLine(game)) continue;
+
+    const homeSlug = getTeamSlug(game.homeTeam);
+    const awaySlug = getTeamSlug(game.awayTeam);
+    let reason = 'insufficient_edge';
+    if (!homeSlug && !awaySlug) reason = 'unresolved_team_identity';
+
     const { spread: homeSpreadNum } = getTeamSpread(game, true);
     const { spread: awaySpreadNum } = getTeamSpread(game, false);
     const favIsHome = homeSpreadNum != null && homeSpreadNum < 0;
     const favTeam   = favIsHome ? game.homeTeam : game.awayTeam;
     const favSpread = favIsHome ? fmtSpread(homeSpreadNum) : fmtSpread(awaySpreadNum ?? null);
     const pickLine  = favSpread ? `${favTeam} ${favSpread}` : `${game.awayTeam} @ ${game.homeTeam}`;
+
     watches.push({
-      ...buildWatchBase(game, 'ats'),
+      ...buildWatchBase(game, 'ats', reason),
       spread: homeSpreadNum,
       pickLine,
-      watchReason: 'Lines posted. Monitoring for ATS edge.',
+      watchReason: 'Lines posted. Edge below threshold.',
     });
   }
   return watches;
@@ -731,7 +830,7 @@ function buildValueWatches(games, leanKeys, needed) {
     const awayML = parseNum(rawAway);
     if (homeML == null || awayML == null) continue;
     watches.push({
-      ...buildWatchBase(game, 'value'),
+      ...buildWatchBase(game, 'value', 'insufficient_value_gap'),
       pickLine: `${game.awayTeam} ${fmtPrice(awayML)} / ${game.homeTeam} ${fmtPrice(homeML)}`,
       watchReason: 'Lines posted. Monitoring for value edge.',
     });
@@ -748,7 +847,7 @@ function buildTotalsWatches(games, leanKeys, needed) {
     const marketTotal = resolveTotal(game);
     if (marketTotal == null) continue;
     watches.push({
-      ...buildWatchBase(game, 'total'),
+      ...buildWatchBase(game, 'total', 'no_directional_edge'),
       pickLine:  `O/U ${marketTotal}`,
       lineValue: marketTotal,
       watchReason: 'Line posted. Monitoring for directional lean.',
@@ -759,17 +858,6 @@ function buildTotalsWatches(games, leanKeys, needed) {
 
 // ─── public API ───────────────────────────────────────────────────────────────
 
-/**
- * Build all Maximus picks from Home state data. Pure — no side effects, no fetches.
- *
- * @param {object} opts
- * @param {object[]} opts.games           — merged game objects (with odds)
- * @param {{ best: object[], worst: object[] }} opts.atsLeaders
- * @param {Record<string,object>|null} [opts.atsBySlug]
- * @param {Record<string,number>} [opts.rankMap]       — slug→AP rank
- * @param {Record<string,object>} [opts.championshipOdds] — slug→{american,...}
- * @returns {{ pickEmPicks: object[], atsPicks: object[], valuePicks: object[], totalsPicks: object[] }}
- */
 export function buildMaximusPicks({
   games = [],
   atsLeaders = { best: [], worst: [] },
@@ -799,45 +887,34 @@ export function buildMaximusPicks({
   });
 
   const rawPickEm = buildPickEmPicks(sortedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
-  const rawAts    = buildSpreadPicks(sortedGames, atsLeaders, atsBySlug);
+  const rawAts    = buildSpreadPicks(sortedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
   const rawValue  = buildValuePicks(sortedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
   const rawTotals = buildTotalsPicks(sortedGames, atsLeaders, atsBySlug);
 
-  const pickEmPicks  = rawPickEm;
-  const atsPicks     = rawAts;
-  const valuePicks   = rawValue;
-  const totalsPicks  = rawTotals;
+  const pickEmKeys  = new Set(rawPickEm.map(baseGameKey));
+  const atsKeys     = new Set(rawAts.map(baseGameKey));
+  const valueKeys   = new Set(rawValue.map(baseGameKey));
+  const totalsKeys  = new Set(rawTotals.map(baseGameKey));
 
-  // Collect keys for watch dedup
-  const pickEmKeys  = new Set(pickEmPicks.map(baseGameKey));
-  const atsKeys     = new Set(atsPicks.map(baseGameKey));
-  const valueKeys   = new Set(valuePicks.map(baseGameKey));
-  const totalsKeys  = new Set(totalsPicks.map(baseGameKey));
+  const pickEmWatches  = buildPickEmWatches(sortedGames, pickEmKeys, Math.max(0, TARGET_SHOW - rawPickEm.length));
+  const atsWatches     = buildSpreadWatches(sortedGames, atsKeys, Math.max(0, TARGET_SHOW - rawAts.length));
+  const valueWatches   = buildValueWatches(sortedGames, valueKeys, Math.max(0, TARGET_SHOW - rawValue.length));
+  const totalsWatches  = buildTotalsWatches(sortedGames, totalsKeys, Math.max(0, TARGET_SHOW - rawTotals.length));
 
-  // Fill columns with watches
-  const pickEmWatches  = buildPickEmWatches(sortedGames, pickEmKeys, Math.max(0, TARGET_SHOW - pickEmPicks.length));
-  const atsWatches     = buildSpreadWatches(sortedGames, atsKeys, Math.max(0, TARGET_SHOW - atsPicks.length));
-  const valueWatches   = buildValueWatches(sortedGames, valueKeys, Math.max(0, TARGET_SHOW - valuePicks.length));
-  const totalsWatches  = buildTotalsWatches(sortedGames, totalsKeys, Math.max(0, TARGET_SHOW - totalsPicks.length));
-
-  const finalPickEm  = [...pickEmPicks, ...pickEmWatches];
-  const finalAts     = [...atsPicks, ...atsWatches];
-  const finalValue   = [...valuePicks, ...valueWatches];
-  const finalTotals  = [...totalsPicks, ...totalsWatches];
+  const finalPickEm = [...rawPickEm, ...pickEmWatches];
+  const finalAts    = [...rawAts, ...atsWatches];
+  const finalValue  = [...rawValue, ...valueWatches];
+  const finalTotals = [...rawTotals, ...totalsWatches];
 
   return {
     pickEmPicks:  finalPickEm,
     atsPicks:     finalAts,
     valuePicks:   finalValue,
     totalsPicks:  finalTotals,
-    // Backward compat: existing slide/dashboard consumers reference mlPicks
     mlPicks:      finalValue,
   };
 }
 
-/**
- * Build a 1–2 sentence picks summary for the top briefing.
- */
 export function buildPicksSummary({ pickEmPicks = [], atsPicks = [], valuePicks, mlPicks, totalsPicks = [] } = {}) {
   const valPicks = valuePicks ?? mlPicks ?? [];
   const topPickEm = pickEmPicks.find((p) => p.itemType === 'lean');
@@ -845,9 +922,7 @@ export function buildPicksSummary({ pickEmPicks = [], atsPicks = [], valuePicks,
   const topValue  = valPicks.find((p) => p.itemType === 'lean');
 
   if (!topPickEm && !topAts && !topValue) {
-    if (totalsPicks.length > 0) {
-      return 'No strong leans today. Totals available for monitoring.';
-    }
+    if (totalsPicks.length > 0) return 'No strong leans today. Totals available for monitoring.';
     return null;
   }
 

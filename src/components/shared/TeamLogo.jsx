@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { getTeamSlug } from '../../utils/teamSlug';
+import { getEspnLogoUrl } from '../../utils/espnTeamLogos';
 import styles from './TeamLogo.module.css';
 
-/** Monogram initials from team name */
 function getInitials(name) {
   const n = (name || '').trim();
   if (!n) return '?';
@@ -18,7 +18,6 @@ function getInitials(name) {
   return (first[0] + (last?.[0] || first[1] || '')).toUpperCase();
 }
 
-/** Inline SVG monogram fallback — polished badge style */
 function Monogram({ initials, className }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
@@ -35,10 +34,6 @@ function slugFromName(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || null;
 }
 
-/**
- * Resolve the best available slug for a team.
- * Priority: explicit slug > getTeamSlug (canonical) > naive slugFromName.
- */
 function resolveSlug(team) {
   if (team?.slug) return team.slug;
   const name = team?.name;
@@ -49,31 +44,53 @@ function resolveSlug(team) {
 }
 
 export default function TeamLogo({ team, size = 28 }) {
-  const [imgError, setImgError] = useState(false);
+  const [localError, setLocalError] = useState(false);
+  const [espnError, setEspnError] = useState(false);
+
   const slug = resolveSlug(team);
-  const logoPath = slug ? `/logos/${slug}.png` : null;
+  const localPath = slug ? `/logos/${slug}.png` : null;
+  const espnUrl = slug ? getEspnLogoUrl(slug) : null;
   const initials = getInitials(team?.name);
 
   if (!team) return null;
 
-  if (imgError || !logoPath) {
+  // Tier 1: local logo
+  if (!localError && localPath) {
     return (
       <span className={styles.wrapper} style={{ width: size, height: size }}>
-        <Monogram initials={initials} className={styles.monogram} />
+        <img
+          src={localPath}
+          alt=""
+          width={size}
+          height={size}
+          onError={() => setLocalError(true)}
+          className={styles.img}
+        />
       </span>
     );
   }
 
+  // Tier 2: ESPN CDN logo
+  if (!espnError && espnUrl) {
+    return (
+      <span className={styles.wrapper} style={{ width: size, height: size }}>
+        <img
+          src={espnUrl}
+          alt=""
+          width={size}
+          height={size}
+          onError={() => setEspnError(true)}
+          className={styles.img}
+          crossOrigin="anonymous"
+        />
+      </span>
+    );
+  }
+
+  // Tier 3: monogram fallback
   return (
     <span className={styles.wrapper} style={{ width: size, height: size }}>
-      <img
-        src={logoPath}
-        alt=""
-        width={size}
-        height={size}
-        onError={() => setImgError(true)}
-        className={styles.img}
-      />
+      <Monogram initials={initials} className={styles.monogram} />
     </span>
   );
 }
