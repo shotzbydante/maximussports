@@ -57,6 +57,7 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
                 alt={awayTeam}
                 className={styles.teamLogo}
                 crossOrigin="anonymous"
+                data-fallback-text={awayTeam?.slice(0, 2)?.toUpperCase() || ''}
                 onError={e => { e.currentTarget.style.display = 'none'; }}
               />
             )}
@@ -86,6 +87,7 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
                 alt={homeTeam}
                 className={styles.teamLogo}
                 crossOrigin="anonymous"
+                data-fallback-text={homeTeam?.slice(0, 2)?.toUpperCase() || ''}
                 onError={e => { e.currentTarget.style.display = 'none'; }}
               />
             )}

@@ -16,7 +16,7 @@ import CarouselComposer from '../components/dashboard/CarouselComposer';
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import InstagramPublishButton from '../components/dashboard/InstagramPublishButton';
 import PostHistory from '../components/dashboard/PostHistory';
-import { waitForImages } from '../components/dashboard/utils/exportReady';
+import { sanitizeImagesForExport } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
 import { getTeamSlug } from '../utils/teamSlug';
 import styles from './Dashboard.module.css';
@@ -463,13 +463,13 @@ export default function Dashboard() {
     try {
       const { toPng } = await import('html-to-image');
       await document.fonts.ready;
-      await waitForImages(exportRef.current);
+      await sanitizeImagesForExport(exportRef.current);
       const slides = exportRef.current.querySelectorAll('[data-slide]');
       const prefix = `maximus_${activeSection}`;
       let idx = 1;
       for (const slide of slides) {
         const dataUrl = await toPng(slide, {
-          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true, cacheBust: true,
+          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
         });
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -497,14 +497,14 @@ export default function Dashboard() {
         import('jszip').then(m => m.default),
       ]);
       await document.fonts.ready;
-      await waitForImages(exportRef.current);
+      await sanitizeImagesForExport(exportRef.current);
       const zip = new JSZip();
       const slides = exportRef.current.querySelectorAll('[data-slide]');
       const prefix = `maximus_${activeSection}`;
       let idx = 1;
       for (const slide of slides) {
         const dataUrl = await toPng(slide, {
-          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true, cacheBust: true,
+          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
         });
         const base64 = dataUrl.split(',')[1];
         zip.file(`${prefix}_${idx}.png`, base64, { base64: true });

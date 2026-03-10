@@ -19,7 +19,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { waitForImages } from './utils/exportReady';
+import { sanitizeImagesForExport } from './utils/exportReady';
 import { uploadAsset, publishToInstagram } from '../../lib/socialPosts';
 import styles from './InstagramPublishButton.module.css';
 
@@ -84,13 +84,35 @@ export default function InstagramPublishButton({
     let dataUrl;
     try {
       const { toPng } = await import('html-to-image');
+
+      // Wait for fonts
       await document.fonts.ready;
-      await waitForImages(exportRef.current);
+
+      // Wait for all images to load, then hide/replace any that broke.
+      // This prevents html-to-image from choking on 404'd remote assets.
+      const imgReport = await sanitizeImagesForExport(exportRef.current);
+
+      if (imgReport.failed > 0) {
+        console.warn(
+          `[InstagramPublish] ${imgReport.failed} image(s) failed to load and were replaced before capture:`,
+          imgReport.details,
+        );
+      }
+
       dataUrl = await toPng(slide1, {
-        width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true, cacheBust: true,
+        width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
       });
     } catch (err) {
-      setErrorMessage(`Render failed: ${err.message ?? 'html-to-image error'}`);
+      const msg = err.message || '';
+      if (/img|image|load|fetch|network|cors/i.test(msg)) {
+        setErrorMessage('Slide export failed — one or more remote logos/images did not load.');
+      } else if (/font/i.test(msg)) {
+        setErrorMessage('Slide export failed — fonts did not load in time.');
+      } else if (/node/i.test(msg) || /null/i.test(msg)) {
+        setErrorMessage('Slide export failed — the render node was missing or detached.');
+      } else {
+        setErrorMessage(`Render failed: ${msg || 'html-to-image error'}`);
+      }
       setStage('error');
       return;
     }
@@ -133,7 +155,7 @@ export default function InstagramPublishButton({
     } catch (err) {
       const msg = err.message ?? 'Publish failed';
       const code = err.code ? ` (code ${err.code})` : '';
-      setErrorMessage(`${msg}${code}`);
+      setErrorMessage(`Instagram publish failed: ${msg}${code}`);
       setStage('error');
     }
   }, [isWorking, buildCaptionText, exportRef, metadata, onSuccess]);

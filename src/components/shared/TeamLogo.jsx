@@ -65,6 +65,7 @@ export default function TeamLogo({ team, size = 28 }) {
           height={size}
           onError={() => setLocalError(true)}
           className={styles.img}
+          data-fallback-text={initials}
         />
       </span>
     );
@@ -82,6 +83,7 @@ export default function TeamLogo({ team, size = 28 }) {
           onError={() => setEspnError(true)}
           className={styles.img}
           crossOrigin="anonymous"
+          data-fallback-text={initials}
         />
       </span>
     );

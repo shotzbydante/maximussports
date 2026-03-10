@@ -1,7 +1,11 @@
 /**
- * Conference logo — real PNG when available via getConferenceLogo; otherwise initials only (no fake logo).
+ * Conference logo — real PNG when available via getConferenceLogo;
+ * otherwise initials only (no fake logo).
+ *
+ * Includes onError fallback + crossOrigin for safe html-to-image export.
  */
 
+import { useState } from 'react';
 import { getConferenceLogo } from '../../utils/conferenceLogos';
 import styles from './ConferenceLogo.module.css';
 
@@ -13,18 +17,15 @@ function getInitials(conference) {
 }
 
 export default function ConferenceLogo({ conference, size = 28 }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const logo = getConferenceLogo(conference);
   const initials = getInitials(conference);
 
   if (!conference) return null;
 
-  // Inline styles enforce the size prop regardless of parent container,
-  // preventing the `width: 100%; height: 100%` CSS from resolving to the
-  // image's natural dimensions (e.g. acc.png is 1024×300) in unconstrained
-  // flex/inline-flex ancestors.
   const sizeStyle = { width: size, height: size, minWidth: size, minHeight: size };
 
-  if (logo?.src) {
+  if (logo?.src && !imgFailed) {
     return (
       <img
         src={logo.src}
@@ -33,6 +34,9 @@ export default function ConferenceLogo({ conference, size = 28 }) {
         height={size}
         style={sizeStyle}
         className={styles.img}
+        crossOrigin="anonymous"
+        data-fallback-text={initials}
+        onError={() => setImgFailed(true)}
       />
     );
   }

@@ -15,8 +15,53 @@
  *   8. Footer
  */
 
+import { useState } from 'react';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './DailyBriefingHeroSlide.module.css';
+
+const NCAA_LOGO_URLS = [
+  'https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png',
+  'https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/ncaa.png&w=100&h=100',
+];
+
+function NcaaLogo({ className }) {
+  const [urlIdx, setUrlIdx] = useState(0);
+  const [allFailed, setAllFailed] = useState(false);
+
+  if (allFailed) {
+    return (
+      <span
+        className={className}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 800, letterSpacing: '0.12em',
+          color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase',
+        }}
+        aria-label="NCAA"
+      >
+        NCAA
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={NCAA_LOGO_URLS[urlIdx]}
+      alt="NCAA"
+      className={className}
+      crossOrigin="anonymous"
+      data-fallback-text="NCAA"
+      onError={() => {
+        const next = urlIdx + 1;
+        if (next < NCAA_LOGO_URLS.length) {
+          setUrlIdx(next);
+        } else {
+          setAllFailed(true);
+        }
+      }}
+    />
+  );
+}
 
 const RESULT_EMOJIS = {
   blowout:  '🔥',
@@ -182,13 +227,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
       </header>
 
       <div className={styles.ncaaLogoZone}>
-        <img
-          src="https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png"
-          alt="NCAA"
-          className={styles.ncaaLogo}
-          crossOrigin="anonymous"
-          onError={e => { e.currentTarget.style.display = 'none'; }}
-        />
+        <NcaaLogo className={styles.ncaaLogo} />
       </div>
 
       <div className={styles.dateZone}>
@@ -233,6 +272,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
                     alt=""
                     className={styles.titleRaceLogo}
                     crossOrigin="anonymous"
+                    data-fallback-text={t.name?.slice(0, 2)?.toUpperCase() || ''}
                     onError={e => { e.currentTarget.style.display = 'none'; }}
                   />
                 )}

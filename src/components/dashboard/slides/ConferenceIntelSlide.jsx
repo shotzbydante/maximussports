@@ -402,6 +402,7 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
                   alt=""
                   className={styles.featuredLogo}
                   crossOrigin="anonymous"
+                  data-fallback-text={t.name?.slice(0, 2)?.toUpperCase() || ''}
                   onError={e => { e.currentTarget.style.display = 'none'; }}
                 />
                 <div className={styles.featuredMeta}>

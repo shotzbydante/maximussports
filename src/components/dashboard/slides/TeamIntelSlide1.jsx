@@ -145,6 +145,7 @@ export default function TeamIntelSlide1({ data, teamData, asOf, slideNumber, sli
             alt={name}
             className={styles.teamLogo}
             crossOrigin="anonymous"
+            data-fallback-text={name?.slice(0, 2)?.toUpperCase() || ''}
             onError={e => { e.currentTarget.style.display = 'none'; }}
           />
         ) : (
