@@ -21,17 +21,36 @@
  * @returns {Promise<{ url: string, filename: string, sizeBytes: number }>}
  */
 export async function uploadAsset(base64, filename) {
-  const res = await fetch('/api/social/upload-asset', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ base64, filename }),
-  });
+  let res;
+  try {
+    res = await fetch('/api/social/upload-asset', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ base64, filename }),
+    });
+  } catch {
+    const err = new Error('Network error — could not reach the upload service.');
+    err.stage = 'network';
+    throw err;
+  }
 
   const data = await res.json();
 
   if (!res.ok || !data.ok) {
-    const err = new Error(data.error ?? 'Asset upload failed');
-    err.stage = data.stage ?? 'upload';
+    const stage = data.stage ?? 'upload';
+    const raw   = data.error ?? 'Asset upload failed';
+
+    const STAGE_HINTS = {
+      supabase_init:  'Storage service is not configured in this environment.',
+      bucket_config:  `Storage bucket '${data.bucket ?? 'social-assets'}' is not configured. Check Supabase Dashboard → Storage.`,
+      bucket_missing: `Storage bucket '${data.bucket ?? 'social-assets'}' does not exist. Create it in Supabase Dashboard → Storage.`,
+      storage_auth:   'Storage credentials are invalid or expired. Check SUPABASE_SERVICE_ROLE_KEY in Vercel.',
+      size_limit:     'Image is too large for the storage bucket.',
+    };
+
+    const message = STAGE_HINTS[stage] ?? raw;
+    const err = new Error(message);
+    err.stage = stage;
     throw err;
   }
 
