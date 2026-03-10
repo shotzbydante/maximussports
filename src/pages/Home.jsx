@@ -354,25 +354,35 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     games.length < MIN_GAMES_FOR_PICKS &&
     thinSlateSupp.length > 0;
 
-  // activeGames: always include futureOddsGames + upcomingGamesWithSpreads
-  // to match Insights' allGames logic (data parity).
-  //   today-complete → today + nextSlateGames (or futureOddsGames fallback)
-  //   thin-slate    → today + tomorrow combined
-  //   default       → today's games + future odds games
-  // Then always append deduplicated upcoming games (same as Insights Step 3).
-  const baseGames = todayComplete && nextSlateGames !== null
-    ? [...games, ...(nextSlateGames.length > 0 ? nextSlateGames : futureOddsGames)]
-    : isThinSlate
-      ? [...games, ...thinSlateSupp]
-      : [...games, ...futureOddsGames];
+  // activeGames: mirror Insights' allGames logic for full data parity.
+  // Always: today's games + futureOddsGames + deduped upcomingGamesWithSpreads.
+  // Supplementary: nextSlateGames (when today complete) or thinSlateSupp
+  // (when today is thin) are ADDED, never replacing futureOddsGames.
+  const baseParts = [...games];
 
-  const baseIds = new Set(baseGames.map((g) => g.gameId).filter(Boolean));
+  if (todayComplete && nextSlateGames?.length > 0) {
+    baseParts.push(...nextSlateGames);
+  }
+  if (isThinSlate) {
+    baseParts.push(...thinSlateSupp);
+  }
+
+  // Always include futureOddsGames (deduped) — matches Insights Step 2
+  const baseIds1 = new Set(baseParts.map((g) => g.gameId).filter(Boolean));
+  for (const g of futureOddsGames) {
+    if (!g.gameId || !baseIds1.has(g.gameId)) {
+      baseParts.push(g);
+      if (g.gameId) baseIds1.add(g.gameId);
+    }
+  }
+
+  // Always include upcomingGamesWithSpreads (deduped) — matches Insights Step 3
   const extraUpcoming = upcomingGamesWithSpreads.filter(
-    (g) => !g.gameId || !baseIds.has(g.gameId),
+    (g) => !g.gameId || !baseIds1.has(g.gameId),
   );
   const activeGames = extraUpcoming.length > 0
-    ? [...baseGames, ...extraUpcoming]
-    : baseGames;
+    ? [...baseParts, ...extraUpcoming]
+    : baseParts;
 
   const slateDate = todayComplete
     ? nextSportsDayStr()   // sports-aware: returns today's calendar date before 4 AM
@@ -504,7 +514,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
           atsBySlug={atsBySlug}
           rankMap={rankMap}
           championshipOdds={championshipOdds}
-          loading={loading || slowLoading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
+          loading={loading || slowLoading || nextSlateLoading || thinSlateLoading}
           slateDate={slateDate}
           slateDateSecondary={slateDateSecondary}
           slateComplete={slateComplete}
