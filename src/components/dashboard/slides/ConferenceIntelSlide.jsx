@@ -17,6 +17,7 @@
 
 import { useState } from 'react';
 import { TEAMS } from '../../../data/teams';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './ConferenceIntelSlide.module.css';
 
 // ─── Conference color palette ─────────────────────────────────────────────────
@@ -48,20 +49,20 @@ function getConfColors(conf) {
 // Strategy: try PNG first (real logo), then use styled fallback badge.
 
 const CONF_LOGO_PATHS = {
-  'ACC':           ['/conferences/acc.png'],
-  'Big Ten':       ['/conferences/big-ten.png'],
-  'Big 12':        ['/conferences/big-12.png'],
-  'Big East':      ['/conferences/big-east.png'],
-  'SEC':           ['/conferences/sec.png'],
-  'WCC':           null,
-  'Mountain West': null,
-  'AAC':           null,
-  'A-10':          null,
-  'MVC':           null,
-  'MAC':           null,
-  'CUSA':          null,
+  'ACC':           ['/conferences/acc.svg', '/conferences/acc.png'],
+  'Big Ten':       ['/conferences/big-ten.svg', '/conferences/big-ten.png'],
+  'Big 12':        ['/conferences/big-12.svg', '/conferences/big-12.png'],
+  'Big East':      ['/conferences/big-east.svg', '/conferences/big-east.png'],
+  'SEC':           ['/conferences/sec.svg', '/conferences/sec.png'],
+  'WCC':           ['/conferences/wcc.svg'],
+  'Mountain West': ['/conferences/mwc.svg'],
+  'AAC':           ['/conferences/aac.svg'],
+  'A-10':          ['/conferences/a10.svg'],
+  'MVC':           ['/conferences/mvc.svg'],
+  'MAC':           ['/conferences/mac.svg'],
+  'CUSA':          ['/conferences/cusa.svg'],
   'WAC':           null,
-  'Southland':     null,
+  'Southland':     ['/conferences/southland.svg'],
 };
 
 function getConfLogoPaths(conf) {
@@ -103,6 +104,17 @@ function buildConferenceIntel(conf, allTeams, dashData) {
   const allWorst = [...(atsLeaders.worst ?? [])];
   const champOdds = dashData?.championshipOdds ?? {};
 
+  // Build slug → AP rank map from rankingsTop25
+  const rankBySlug = {};
+  for (const r of (dashData?.rankingsTop25 ?? [])) {
+    const name = r.teamName || r.name || r.team || '';
+    if (!name) continue;
+    const rank = r.rank ?? r.ranking ?? null;
+    if (rank == null) continue;
+    const slug = getTeamSlug(name);
+    if (slug) rankBySlug[slug] = rank;
+  }
+
   const confSlugs = new Set(confTeams.map(t => t.slug));
   const confBest = allBest.filter(r => confSlugs.has(r.slug));
   const confWorst = allWorst.filter(r => confSlugs.has(r.slug));
@@ -125,7 +137,7 @@ function buildConferenceIntel(conf, allTeams, dashData) {
       name: shortName(t.name),
       tier: t.oddsTier,
       odds: typeof odds === 'number' ? odds : null,
-      rank: null,
+      rank: rankBySlug[t.slug] ?? null,
     });
   }
 

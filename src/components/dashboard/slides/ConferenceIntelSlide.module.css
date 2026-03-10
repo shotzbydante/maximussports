@@ -143,6 +143,8 @@
   position: relative; max-width: 240px; max-height: 220px;
   width: auto; height: auto; object-fit: contain; z-index: 2;
   animation: logoFloat 5.2s ease-in-out infinite, logoGlowPulse 3.8s ease-in-out infinite;
+  mix-blend-mode: screen;
+  border-radius: 16px;
 }
 
 .confFallback {

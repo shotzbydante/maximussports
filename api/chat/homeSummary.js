@@ -184,7 +184,7 @@ FORMAT — exactly 5 short paragraphs (no headers, no bullet lists, no numbered 
 
 ¶1 YESTERDAY RECAP: Mention 3–5 completed games from yesterdayGames. State the winner, loser, and final score for each. Be specific and punchy.
 
-¶2 ODDS PULSE: Reference 2–3 teams from yesterday + their championship odds from champOdds (impliedPct shows probability). Include ONE quote from the approved list only if it fits naturally — no forced quotes.
+¶2 ODDS PULSE: Reference 2–3 teams from yesterday + their championship odds from champOdds (impliedPct shows probability). ALWAYS preserve the exact odds format from the data — positive odds MUST include the leading "+" sign (e.g. write "+320", never just "320"). Include ONE quote from the approved list only if it fits naturally — no forced quotes.
 
 ¶3 TODAY + TOMORROW: Cover 1–3 matchups each from todayGames and tomorrowGames. Mention spreads when present.
 
@@ -204,6 +204,26 @@ STYLE RULES:
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 paragraphs, no headers.`;
 
   return { systemPrompt, userPrompt };
+}
+
+/**
+ * Post-process LLM output to fix positive American odds missing their "+" sign.
+ * Matches patterns like "at 320" or "at 1400" in championship-odds contexts
+ * and ensures the "+" is present.
+ */
+function fixPositiveOdds(text) {
+  if (!text) return text;
+  return text
+    .replace(/\bat\s+(\d{3,4})(?=[\s.,;!?)\-–—]|$)/g, (match, num) => {
+      const n = parseInt(num, 10);
+      if (n >= 100 && n <= 9999) return `at +${num}`;
+      return match;
+    })
+    .replace(/\((\d{3,4})\)/g, (match, num) => {
+      const n = parseInt(num, 10);
+      if (n >= 100 && n <= 9999) return `(+${num})`;
+      return match;
+    });
 }
 
 async function generateWithOpenAI(systemPrompt, userPrompt) {
@@ -236,7 +256,8 @@ async function generateWithOpenAI(systemPrompt, userPrompt) {
       return null;
     }
     const json = await r.json();
-    return json?.choices?.[0]?.message?.content?.trim() || null;
+    const raw = json?.choices?.[0]?.message?.content?.trim() || null;
+    return raw ? fixPositiveOdds(raw) : null;
   } catch (err) {
     clearTimeout(t);
     console.error('[chat/homeSummary] OpenAI fetch error', err?.message);

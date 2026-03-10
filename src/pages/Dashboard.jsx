@@ -60,8 +60,8 @@ export default function Dashboard() {
   const [riskMode, setRiskMode] = useState('standard');
 
   // ── slide count (per section default) ────────────────────
-  const SECTION_SLIDE_DEFAULTS = { daily: 5, team: 4, conference: 1, game: 3, odds: 3 };
-  const SECTION_SLIDE_MAX = { daily: 5, team: 3, conference: 1, game: 3, odds: 4 };
+  const SECTION_SLIDE_DEFAULTS = { daily: 6, team: 4, conference: 1, game: 3, odds: 3 };
+  const SECTION_SLIDE_MAX = { daily: 6, team: 3, conference: 1, game: 3, odds: 4 };
   const [slideCount, setSlideCount] = useState(SECTION_SLIDE_DEFAULTS.daily);
 
   // ── picker state ──────────────────────────────────────────
@@ -988,7 +988,7 @@ export default function Dashboard() {
                     className={`${styles.chip} ${previewSize === size ? styles.chipActive : ''}`}
                     onClick={() => {
                       setPreviewSize(size);
-                      try { localStorage.setItem('maximus_preview_size', size); } catch {}
+                      try { localStorage.setItem('maximus_preview_size', size); } catch { /* non-fatal */ }
                     }}
                   >
                     {size === 'small' ? 'S' : size === 'medium' ? 'M' : 'L'}
@@ -1101,7 +1101,11 @@ export default function Dashboard() {
             <CarouselComposer
               template={activeSection}
               slideCount={slideCount}
-              data={activeSection === 'daily' && dailyDigest ? { ...dashData, chatDigest: dailyDigest } : dashData}
+              data={activeSection === 'daily' && dailyDigest
+                ? { ...dashData, chatDigest: dailyDigest }
+                : activeSection === 'conference' && dailyChampOdds
+                  ? { ...dashData, championshipOdds: dailyChampOdds }
+                  : dashData}
               teamData={enhancedTeamData}
               conferenceData={activeSection === 'conference' && selectedConference ? { conference: selectedConference } : null}
               selectedGame={selectedGame}

@@ -140,8 +140,9 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
   const short = [
     robotPrefix + shortLines[0],
     ...shortLines.slice(1),
+    '',
     CTA,
-  ].filter(Boolean).join('\n\n');
+  ].filter(l => l !== null && l !== undefined).join('\n\n');
 
   // ── Long caption ─────────────────────────────────────────────────────────
   const narrativeBody = hasChatContent && chatDigest.captionNarrative
@@ -189,11 +190,25 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
     DISCLAIMER,
   ].filter(l => l !== null && l !== '').join('\n');
 
-  const hashtags = [
-    '#CollegeBasketball', '#NCAABB', '#CollegeHoops',
-    '#MaximusSports', '#DailyBriefing', '#SportsBetting',
-    '#BettingAnalysis', '#NCAAB', '#MarchMadness',
-  ];
+  // Smart hashtags: max 5, contextually relevant to the briefing content
+  const hashtagPool = ['#CollegeBasketball', '#MarchMadness'];
+
+  // Add team-specific hashtags when teams dominate the briefing
+  if (hasChatContent) {
+    const topTeamName = chatDigest?.titleRace?.[0]?.team;
+    const topAtsTeam = chatDigest?.atsEdges?.[0]?.team;
+    if (topTeamName) {
+      const school = topTeamName.split(' ')[0];
+      if (school && school.length > 3) hashtagPool.push(`#${school}`);
+    }
+    if (topAtsTeam && topAtsTeam !== chatDigest?.titleRace?.[0]?.team) {
+      const school = topAtsTeam.split(' ')[0];
+      if (school && school.length > 3) hashtagPool.push(`#${school}`);
+    }
+  }
+
+  hashtagPool.push('#MaximusSports', '#CBB', '#NCAABB');
+  const hashtags = [...new Set(hashtagPool)].slice(0, 5);
 
   return { shortCaption: short, longCaption: long, hashtags };
 }

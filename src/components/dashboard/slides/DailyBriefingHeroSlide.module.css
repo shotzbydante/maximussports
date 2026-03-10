@@ -1,0 +1,287 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   DailyBriefingHeroSlide — Instagram Hero · Daily Briefing
+   1080 × 1350 · IG 4:5 · Cinematic editorial card
+   Visually aligned with TeamIntelSlide4 / ConferenceIntelSlide family.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes bgGlowBreath {
+  0%, 100% { opacity: 0.78; }
+  50%       { opacity: 1.0;  }
+}
+
+@keyframes shimmerSweep {
+  0%   { background-position: -240% center; }
+  100% { background-position: 240% center;  }
+}
+
+@keyframes scanFade {
+  0%, 100% { opacity: 0.04; }
+  50%       { opacity: 0.07; }
+}
+
+/* ── Root artboard ─────────────────────────────────────────────────────── */
+
+.artboard {
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #f0f4f8;
+}
+
+/* ── Background layers ────────────────────────────────────────────────── */
+
+.bgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(165deg,
+    #0c1a2e 0%,
+    #061222 45%,
+    #02060c 100%);
+  pointer-events: none;
+}
+
+.bgGlow {
+  position: absolute; inset: 0; z-index: 1;
+  background: radial-gradient(ellipse 860px 580px at 50% 18%,
+    rgba(60, 121, 180, 0.35) 0%,
+    rgba(60, 121, 180, 0.10) 45%,
+    transparent 72%);
+  animation: bgGlowBreath 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.bgRay {
+  position: absolute; inset: 0; z-index: 2;
+  background: linear-gradient(180deg,
+    rgba(60, 121, 180, 0.06) 0%,
+    transparent 55%);
+  pointer-events: none;
+}
+
+.bgNoise {
+  position: absolute; inset: 0; z-index: 3;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  animation: scanFade 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+.header {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 46px 80px 20px;
+  border-bottom: 1px solid rgba(60, 121, 180, 0.18);
+  flex-shrink: 0;
+}
+
+.logoRow { display: flex; align-items: center; gap: 14px; }
+.brandLogo { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; }
+.logoMeta { display: flex; flex-direction: column; gap: 4px; }
+.brandName { font-family: 'Oswald', sans-serif; font-size: 23px; font-weight: 700; letter-spacing: 0.07em; color: #ffffff; }
+
+.intelChip {
+  font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 4px;
+  border: 1px solid rgba(60, 121, 180, 0.45);
+  background: rgba(60, 121, 180, 0.12);
+  color: rgba(120, 175, 230, 0.90);
+  display: inline-block;
+}
+
+.headerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.asOf { font-size: 17px; color: rgba(240, 244, 248, 0.42); font-weight: 400; }
+.maxIntel { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(120, 175, 230, 0.50); }
+
+/* ── Date zone ─────────────────────────────────────────────────────────── */
+
+.dateZone {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 42px 64px 10px; flex-shrink: 0;
+}
+
+.dateLabel {
+  font-family: 'Oswald', sans-serif; font-size: 36px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff;
+  text-shadow: 0 0 40px rgba(60, 121, 180, 0.35), 0 2px 6px rgba(0,0,0,0.6);
+}
+
+.dateSub {
+  font-family: 'JetBrains Mono', monospace; font-size: 19px; font-weight: 500;
+  color: rgba(240, 244, 248, 0.48); letter-spacing: 0.06em; margin-top: 4px;
+}
+
+/* ── Headline zone ─────────────────────────────────────────────────────── */
+
+.headlineZone {
+  position: relative; z-index: 10;
+  padding: 18px 64px 12px; text-align: center;
+  margin-top: 4px; flex-shrink: 0;
+}
+
+.headlineDivider {
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(60,121,180,0.55) 20%, rgba(60,121,180,1) 50%, rgba(60,121,180,0.55) 80%, transparent 100%);
+  margin-bottom: 20px; border-radius: 2px;
+}
+
+.headline {
+  font-family: 'Oswald', sans-serif; font-size: 90px; font-weight: 800;
+  line-height: 1.0; letter-spacing: -0.01em; text-transform: uppercase; margin: 0;
+  display: flex; flex-direction: column; gap: 0;
+  background: linear-gradient(105deg, rgba(255,255,255,1) 35%, rgba(120,175,230,0.25) 50%, rgba(255,255,255,1) 65%);
+  background-size: 260% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerSweep 6s ease-in-out infinite;
+  text-shadow: none;
+}
+
+.headlineLine { display: block; color: inherit; }
+
+.headlineDividerBottom {
+  width: 72%; margin: 16px auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(60,121,180,0.28) 30%, rgba(60,121,180,0.45) 50%, rgba(60,121,180,0.28) 70%, transparent 100%);
+}
+
+/* ── Quick intel line ─────────────────────────────────────────────────── */
+
+.quickIntel {
+  position: relative; z-index: 10;
+  margin: 12px 64px 0; font-size: 22px; font-style: italic;
+  font-weight: 400; color: rgba(240, 244, 248, 0.82);
+  text-align: center; line-height: 1.35; letter-spacing: 0.01em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 28px rgba(60,121,180,0.20);
+  flex-shrink: 0;
+}
+
+/* ── Intel bullets ────────────────────────────────────────────────────── */
+
+.bulletModule {
+  position: relative; z-index: 10;
+  margin: 18px 64px 0; flex-shrink: 0;
+  border: 1px solid rgba(60,121,180,0.18);
+  border-radius: 12px; overflow: hidden;
+  background: rgba(0,0,0,0.22); backdrop-filter: blur(4px);
+}
+
+.bulletList {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 0;
+}
+
+.bulletItem {
+  position: relative; font-size: 20px; font-weight: 400;
+  color: rgba(240,244,248,0.80); line-height: 1.4;
+  padding: 14px 22px 14px 40px;
+  border-bottom: 1px solid rgba(60,121,180,0.10);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.bulletItem:last-child { border-bottom: none; }
+
+.bulletItem::before {
+  content: '\25B8'; position: absolute; left: 18px; top: 15px;
+  font-weight: 700; font-size: 16px;
+  color: rgba(60,121,180,0.70);
+}
+
+/* ── Spotlight section ─────────────────────────────────────────────────── */
+
+.spotlightSection {
+  position: relative; z-index: 10;
+  margin: 18px 64px 0; flex-shrink: 0;
+}
+
+.spotlightTitle {
+  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(240,244,248,0.42); margin-bottom: 10px;
+}
+
+.spotlightGrid {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+
+.spotlightChip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,0.28); backdrop-filter: blur(4px);
+  border: 1px solid rgba(60,121,180,0.18);
+  border-radius: 10px; padding: 10px 14px;
+}
+
+.spotlightLogo {
+  width: 28px; height: 28px; object-fit: contain; flex-shrink: 0;
+}
+
+.spotlightName {
+  font-family: 'Oswald', sans-serif; font-size: 17px; font-weight: 600;
+  color: rgba(240,244,248,0.90); white-space: nowrap;
+}
+
+.spotlightValue {
+  font-family: 'Oswald', sans-serif; font-size: 14px; font-weight: 700;
+  background: rgba(107, 214, 158, 0.13);
+  border: 1px solid rgba(107, 214, 158, 0.30);
+  color: #6BD69E; border-radius: 5px; padding: 2px 8px; white-space: nowrap;
+}
+
+/* ── Featured teams ────────────────────────────────────────────────────── */
+
+.featuredSection {
+  position: relative; z-index: 10;
+  margin: 16px 64px 0; flex-shrink: 0;
+}
+
+.featuredTitle {
+  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(240,244,248,0.42); margin-bottom: 10px;
+}
+
+.featuredGrid {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+
+.featuredChip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,0.28); backdrop-filter: blur(4px);
+  border: 1px solid rgba(60,121,180,0.18);
+  border-radius: 10px; padding: 10px 14px;
+}
+
+.featuredLogo {
+  width: 28px; height: 28px; object-fit: contain; flex-shrink: 0;
+}
+
+.featuredName {
+  font-family: 'Oswald', sans-serif; font-size: 17px; font-weight: 600;
+  color: rgba(240,244,248,0.90); white-space: nowrap;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+
+.footer {
+  position: relative; z-index: 10; margin-top: auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 80px 42px;
+  border-top: 1px solid rgba(60,121,180,0.11);
+  gap: 16px; flex-shrink: 0;
+}
+
+.footerUrl {
+  font-family: 'Oswald', sans-serif; font-size: 19px; font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(120,175,230,0.82);
+}
+
+.footerDisclaimer {
+  font-size: 14px; color: rgba(240,244,248,0.30); font-style: italic;
+}
