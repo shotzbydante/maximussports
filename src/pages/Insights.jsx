@@ -18,7 +18,7 @@ import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { mergeGamesWithOdds } from '../api/odds';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { getTeamSlug } from '../utils/teamSlug';
-import { getSlugFromRankingsName } from '../utils/rankingsNormalize';
+import { getSlugFromRankingsName, buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import RankingsTable from '../components/insights/RankingsTable';
@@ -995,9 +995,15 @@ export default function Insights() {
 
   const handleRefresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
-  // Build rank lookup for team linking
+  // Build rank lookup for team linking (name-keyed, used by enrichGame/TeamLink)
   const rankLookup = useMemo(
     () => buildRankLookup(fastData.rankings),
+    [fastData.rankings]
+  );
+
+  // Slug-keyed rank map for MaximusPicks — buildMaximusPicks uses rankMap[slug]
+  const picksRankMap = useMemo(
+    () => buildSlugToRankMap({ rankings: fastData.rankings }, TEAMS),
     [fastData.rankings]
   );
 
@@ -1170,7 +1176,7 @@ export default function Insights() {
           games={allGames}
           atsLeaders={atsLeaders}
           atsBySlug={atsBySlug}
-          rankMap={rankLookup}
+          rankMap={picksRankMap}
           championshipOdds={championshipOdds}
           loading={fastLoading || slowLoading || atsLoading}
           slateDate={slateDate}
