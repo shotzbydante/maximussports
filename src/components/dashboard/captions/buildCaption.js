@@ -390,6 +390,56 @@ function buildGameCaption({ game, picks, asOf }) {
   return { shortCaption: short, longCaption: long, hashtags };
 }
 
+// ─── Maximus's Picks ──────────────────────────────────────────────────────────
+
+function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
+  const picksCount = picks?.length ?? 0;
+  const gamesCount = stats?.gamesWithOdds ?? null;
+
+  const hook = picksCount > 0
+    ? `📊 MAXIMUS'S PICKS — TODAY\n\nOur model flagged ${picksCount} lean${picksCount > 1 ? 's' : ''} across spreads, value plays, and totals.`
+    : `📊 MAXIMUS'S PICKS — TODAY\n\n${gamesCount != null ? `Scanning ${gamesCount} games.` : 'Live odds tracked across today\'s slate.'} No leans cleared the threshold.`;
+
+  const topLines = (picks || []).slice(0, 3).map(p => {
+    const emoji = p.pickType === 'ats' ? '🏀' : p.pickType === 'value' ? '💰' : p.pickType === 'total' ? '🔢' : '🏀';
+    return `${emoji} ${p.pickLine || p.pickTeam || '—'}`;
+  });
+
+  const short = [
+    hook,
+    topLines.length > 0 ? `\nTop signals today:\n${topLines.join('\n')}` : null,
+    '\nAll picks are data-driven with confidence rankings and matchup signals.',
+    `\nFull analysis → maximussports.ai`,
+  ].filter(Boolean).join('\n');
+
+  const long = [
+    `📊 MAXIMUS'S PICKS — TODAY`,
+    '',
+    picksCount > 0
+      ? `Our model flagged ${picksCount} lean${picksCount > 1 ? 's' : ''} across spreads, value plays, and totals.`
+      : `No leans cleared the model threshold today. Discipline beats volume.`,
+    '',
+    topLines.length > 0 ? `Top signals today:\n${topLines.join('\n')}` : null,
+    '',
+    'All picks are data-driven with confidence rankings and matchup signals.',
+    '',
+    '6 slides: Hero → Pick \'Ems → ATS → Value → Totals → Upset Alerts',
+    '',
+    asOf ? `Data as of ${asOf}` : null,
+    CTA,
+    DISCLAIMER,
+  ].filter(Boolean).join('\n');
+
+  const hashtags = [
+    '#CollegeBasketball', '#SportsBetting', '#MarchMadness',
+    '#ATS', '#SportsAnalytics', '#MaximusSports',
+    '#NCAABB', '#BettingPicks', '#ValueBet',
+    '#CollegeHoops', '#MaximusPicks',
+  ].slice(0, 12);
+
+  return { shortCaption: short, longCaption: long, hashtags };
+}
+
 // ─── Odds Insights ────────────────────────────────────────────────────────────
 
 function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
@@ -980,6 +1030,8 @@ export function buildCaption({
       });
     case 'game':
       return buildGameCaption({ game, picks, asOf });
+    case 'picks':
+      return buildPicksCaption({ stats, atsLeaders, picks, asOf });
     case 'odds':
       return buildOddsCaption({ stats, atsLeaders, picks, asOf });
     case 'daily':

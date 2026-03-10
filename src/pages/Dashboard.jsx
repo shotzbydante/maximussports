@@ -12,7 +12,7 @@ import { buildCaption, formatCaptionFile } from '../components/dashboard/caption
 import { buildDailyBriefingDigest } from '../utils/chatbotDigest';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import { buildTeamSnapshot } from '../utils/teamSnapshot';
-import CarouselComposer from '../components/dashboard/CarouselComposer';
+import CarouselComposer, { getTemplateDimensions } from '../components/dashboard/CarouselComposer';
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import InstagramPublishButton from '../components/dashboard/InstagramPublishButton';
 import PostHistory from '../components/dashboard/PostHistory';
@@ -28,11 +28,11 @@ const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 const ADMIN_EMAIL = 'dantedicicco@gmail.com';
 
 const SECTIONS = [
-  { id: 'daily',      label: 'Daily Briefing',   icon: '📅' },
-  { id: 'team',       label: 'Team Intel',        icon: '🏀' },
-  { id: 'conference', label: 'Conference Intel',   icon: '🏟️' },
-  { id: 'game',       label: 'Game Insights',     icon: '📊' },
-  { id: 'odds',       label: 'Odds Insights',     icon: '📈' },
+  { id: 'daily',      label: 'Daily Briefing',    icon: '📅' },
+  { id: 'team',       label: 'Team Intel',         icon: '🏀' },
+  { id: 'conference', label: 'Conference Intel',    icon: '🏟️' },
+  { id: 'game',       label: 'Game Insights',      icon: '📊' },
+  { id: 'picks',      label: "Maximus's Picks",    icon: '📈' },
 ];
 
 function gameLabel(g) {
@@ -60,8 +60,8 @@ export default function Dashboard() {
   const [riskMode, setRiskMode] = useState('standard');
 
   // ── slide count (per section default) ────────────────────
-  const SECTION_SLIDE_DEFAULTS = { daily: 6, team: 4, conference: 1, game: 3, odds: 3 };
-  const SECTION_SLIDE_MAX = { daily: 6, team: 3, conference: 1, game: 3, odds: 4 };
+  const SECTION_SLIDE_DEFAULTS = { daily: 6, team: 4, conference: 1, game: 3, picks: 6, odds: 3 };
+  const SECTION_SLIDE_MAX = { daily: 6, team: 3, conference: 1, game: 3, picks: 6, odds: 4 };
   const [slideCount, setSlideCount] = useState(SECTION_SLIDE_DEFAULTS.daily);
 
   // ── picker state ──────────────────────────────────────────
@@ -463,6 +463,7 @@ export default function Dashboard() {
     const layer = exportRef.current;
     const prevVis = layer.style.visibility;
     layer.style.visibility = 'visible';
+    const dims = getTemplateDimensions(activeSection);
     try {
       const { toPng } = await import('html-to-image');
       await document.fonts.ready;
@@ -473,7 +474,7 @@ export default function Dashboard() {
       for (const slide of slides) {
         slide.style.visibility = 'visible';
         const dataUrl = await toPng(slide, {
-          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
+          width: dims.width, height: dims.height, pixelRatio: 1, skipAutoScale: true,
         });
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -499,6 +500,7 @@ export default function Dashboard() {
     const layer = exportRef.current;
     const prevVis = layer.style.visibility;
     layer.style.visibility = 'visible';
+    const dims = getTemplateDimensions(activeSection);
     try {
       const [{ toPng }, JSZip] = await Promise.all([
         import('html-to-image'),
@@ -513,7 +515,7 @@ export default function Dashboard() {
       for (const slide of slides) {
         slide.style.visibility = 'visible';
         const dataUrl = await toPng(slide, {
-          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
+          width: dims.width, height: dims.height, pixelRatio: 1, skipAutoScale: true,
         });
         const base64 = dataUrl.split(',')[1];
         zip.file(`${prefix}_${idx}.png`, base64, { base64: true });
@@ -922,47 +924,13 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ─── Odds Insights controls ────────────────── */}
-          {activeSection === 'odds' && (
+          {/* ─── Maximus's Picks controls ─────────────── */}
+          {activeSection === 'picks' && (
             <div className={styles.sectionControls}>
-              <div className={styles.controlGroup}>
-                <label className={styles.controlLabel}>Picks focus</label>
-                <div className={styles.chipGroup}>
-                  {[
-                    { id: 'top3', label: 'Top 3' },
-                    { id: 'full', label: 'Full card' },
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      className={`${styles.chip} ${picksMode === opt.id ? styles.chipActive : ''}`}
-                      onClick={() => { setPicksMode(opt.id); setAssetsReady(false); }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className={styles.controlGroup}>
-                <label className={styles.controlLabel}>Risk mode</label>
-                <div className={styles.chipGroup}>
-                  {[
-                    { id: 'standard', label: 'Standard' },
-                    { id: 'conservative', label: 'Conservative' },
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      className={`${styles.chip} ${riskMode === opt.id ? styles.chipActive : ''}`}
-                      onClick={() => { setRiskMode(opt.id); setAssetsReady(false); }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Slides</label>
                 <div className={styles.chipGroup}>
-                  {[3, 4].map(n => (
+                  {[6].map(n => (
                     <button
                       key={n}
                       className={`${styles.chip} ${slideCount === n ? styles.chipActive : ''}`}
@@ -971,6 +939,14 @@ export default function Dashboard() {
                       {n}
                     </button>
                   ))}
+                </div>
+              </div>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Format</label>
+                <div className={styles.chipGroup}>
+                  <span className={styles.chip} style={{ opacity: 0.6, cursor: 'default' }}>
+                    1080 × 1080
+                  </span>
                 </div>
               </div>
             </div>
@@ -1022,6 +998,7 @@ export default function Dashboard() {
               canPublish={canExport && !exporting && !zipping}
               metadata={publishMetadata}
               onSuccess={handlePublishSuccess}
+              template={activeSection}
             />
           </div>
 

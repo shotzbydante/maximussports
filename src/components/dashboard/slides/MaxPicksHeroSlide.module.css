@@ -1,0 +1,236 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   MaxPicksHeroSlide — Slide 1 · Hero summary of today's picks
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes shimmerSweep {
+  0%   { background-position: -240% center; }
+  100% { background-position: 240% center;  }
+}
+
+.datePill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.45);
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #B7986C;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 62px;
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+  background: linear-gradient(
+    105deg,
+    rgba(255, 255, 255, 1) 35%,
+    rgba(183, 152, 108, 0.6) 50%,
+    rgba(255, 255, 255, 1) 65%
+  );
+  background-size: 260% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerSweep 6s ease-in-out infinite;
+}
+
+.subtitle {
+  font-size: 18px;
+  font-weight: 400;
+  color: rgba(240, 244, 248, 0.60);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+.divider {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(183, 152, 108, 0.50) 20%,
+    #B7986C 50%,
+    rgba(183, 152, 108, 0.50) 80%,
+    transparent 100%
+  );
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+
+/* ── Stat tiles ──────────────────────────────────────────────────── */
+
+.countGrid {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid rgba(183, 152, 108, 0.20);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(4px);
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.countCell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px 10px;
+  border-right: 1px solid rgba(183, 152, 108, 0.14);
+}
+
+.countCell:last-child {
+  border-right: none;
+}
+
+.countValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #B7986C;
+  line-height: 1;
+}
+
+.countLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.40);
+  margin-top: 3px;
+}
+
+/* ── Featured highlights ─────────────────────────────────────────── */
+
+.highlightsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.highlightCard {
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(183, 152, 108, 0.16);
+  border-radius: 10px;
+  padding: 14px 16px 12px;
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.highlightCategory {
+  font-family: 'Oswald', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(183, 152, 108, 0.70);
+}
+
+.highlightTeamRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.highlightLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #f0f4f8;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.highlightConfRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.highlightSignal {
+  font-size: 13px;
+  color: rgba(240, 244, 248, 0.52);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ── Model methodology note ──────────────────────────────────────── */
+
+.methodNote {
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(240, 244, 248, 0.32);
+  text-align: center;
+  margin-top: auto;
+  padding-top: 8px;
+  line-height: 1.4;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.emptyIcon {
+  font-size: 42px;
+}
+
+.emptyTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.65);
+  margin: 0;
+}
+
+.emptyText {
+  font-size: 16px;
+  color: rgba(240, 244, 248, 0.40);
+  margin: 0;
+  text-align: center;
+  max-width: 500px;
+}

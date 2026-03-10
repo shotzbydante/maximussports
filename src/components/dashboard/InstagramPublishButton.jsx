@@ -18,6 +18,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { sanitizeImagesForExport } from './utils/exportReady';
+import { getTemplateDimensions } from './CarouselComposer';
 import { uploadAsset, publishToInstagram } from '../../lib/socialPosts';
 import styles from './InstagramPublishButton.module.css';
 
@@ -116,6 +117,7 @@ export default function InstagramPublishButton({
   canPublish = false,
   metadata   = {},
   onSuccess,
+  template,
 }) {
   const [stage,        setStage]       = useState('idle');
   const [errorMessage, setErrorMessage] = useState(null);
@@ -195,9 +197,10 @@ export default function InstagramPublishButton({
       exportLayer.style.visibility = 'visible';
       slide1.style.visibility = 'visible';
 
+      const dims = getTemplateDimensions(template);
       try {
         dataUrl = await toPng(slide1, {
-          width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
+          width: dims.width, height: dims.height, pixelRatio: 1, skipAutoScale: true,
         });
       } finally {
         exportLayer.style.visibility = prevLayerVis;

@@ -20,16 +20,37 @@ import GamePreviewSlide2 from './slides/GamePreviewSlide2';
 import GamePreviewSlide3 from './slides/GamePreviewSlide3';
 import GameInsights5GamesSlide from './slides/GameInsights5GamesSlide';
 
-// Odds Insights slides
+// Odds Insights slides (legacy)
 import OddsInsightsSlide1 from './slides/OddsInsightsSlide1';
 import OddsInsightsSlide2 from './slides/OddsInsightsSlide2';
 import OddsInsightsSlide3 from './slides/OddsInsightsSlide3';
 import OddsInsightsSlide4 from './slides/OddsInsightsSlide4';
 
+// Maximus's Picks slides (1080×1080)
+import MaxPicksHeroSlide from './slides/MaxPicksHeroSlide';
+import MaxPicksPickemsSlide from './slides/MaxPicksPickemsSlide';
+import MaxPicksATSSlide from './slides/MaxPicksATSSlide';
+import MaxPicksValueSlide from './slides/MaxPicksValueSlide';
+import MaxPicksTotalsSlide from './slides/MaxPicksTotalsSlide';
+import MaxPicksUpsetsSlide from './slides/MaxPicksUpsetsSlide';
+
 // Conference Intel slide
 import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
 
 import styles from './CarouselComposer.module.css';
+
+/**
+ * Template → artboard dimensions. All templates default to 1080×1350 (IG 4:5)
+ * except Maximus's Picks which uses 1080×1080 (IG square).
+ */
+const TEMPLATE_DIMENSIONS = {
+  picks: { width: 1080, height: 1080 },
+};
+const DEFAULT_DIMENSIONS = { width: 1080, height: 1350 };
+
+export function getTemplateDimensions(template) {
+  return TEMPLATE_DIMENSIONS[template] || DEFAULT_DIMENSIONS;
+}
 
 /**
  * Template → ordered slide component list.
@@ -44,6 +65,15 @@ function getSlides(template, slideCount, options = {}) {
     case 'game':
       if (options?.gameMode === '5games') return [GameInsights5GamesSlide];
       return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, Math.min(slideCount, 3));
+    case 'picks':
+      return [
+        MaxPicksHeroSlide,
+        MaxPicksPickemsSlide,
+        MaxPicksATSSlide,
+        MaxPicksValueSlide,
+        MaxPicksTotalsSlide,
+        MaxPicksUpsetsSlide,
+      ].slice(0, Math.min(slideCount, 6));
     case 'odds':
       if (slideCount >= 4) {
         return [OddsInsightsSlide1, OddsInsightsSlide2, OddsInsightsSlide3, OddsInsightsSlide4].slice(0, Math.min(slideCount, 4));
@@ -67,6 +97,7 @@ const TEMPLATE_LABELS = {
   team:       'Team Intel',
   conference: 'Conference Intel',
   game:       'Game Insights',
+  picks:      "Maximus's Picks",
   odds:       'Odds Insights',
 };
 
@@ -102,6 +133,7 @@ export default function CarouselComposer({
 
   const slides = getSlides(template, slideCount, options);
   const total = slides.length;
+  const dims = getTemplateDimensions(template);
 
   const slideProps = { data, teamData, conferenceData, game: selectedGame, asOf, slideTotal: total, options };
 
@@ -110,8 +142,8 @@ export default function CarouselComposer({
     return () => clearTimeout(t);
   }, [data, teamData, selectedGame, template, options, onAssetsReady]);
 
-  const scaledW = Math.round(1080 * previewScale);
-  const scaledH = Math.round(1350 * previewScale);
+  const scaledW = Math.round(dims.width * previewScale);
+  const scaledH = Math.round(dims.height * previewScale);
 
   return (
     <div className={styles.root}>
