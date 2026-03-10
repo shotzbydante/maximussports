@@ -464,22 +464,20 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       <div className={styles.oddsTeaserHeader}>
         <h3 className={styles.oddsTeaserTitle}>Maximus&apos;s Picks</h3>
         <div className={styles.oddsTeaserHeaderRight}>
-          {picksExceedsThreshold && (
-            <button
-              type="button"
-              className={styles.picksToggleBtn}
-              onClick={() => setIsPicksExpanded((prev) => !prev)}
-              aria-expanded={isPicksExpanded}
+          <button
+            type="button"
+            className={styles.picksToggleBtn}
+            onClick={() => setIsPicksExpanded((prev) => !prev)}
+            aria-expanded={isPicksExpanded}
+          >
+            {isPicksExpanded ? 'Collapse picks' : `Show all ${totalPicksCount} picks`}
+            <span
+              className={`${styles.picksToggleChevron} ${isPicksExpanded ? styles.picksToggleChevronOpen : ''}`}
+              aria-hidden
             >
-              {isPicksExpanded ? 'Collapse picks' : `Show all ${totalPicksCount} picks`}
-              <span
-                className={`${styles.picksToggleChevron} ${isPicksExpanded ? styles.picksToggleChevronOpen : ''}`}
-                aria-hidden
-              >
-                ‹
-              </span>
-            </button>
-          )}
+              ‹
+            </span>
+          </button>
           <span className={styles.oddsTeaserTag}>Data-Driven Leans</span>
         </div>
       </div>
@@ -498,7 +496,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       {/* ── Picks: Pick 'Ems / ATS / Value / Totals ─────────────────── */}
       <div
         ref={picksContentRef}
-        className={`${styles.picksCollapsible} ${!isPicksExpanded && picksExceedsThreshold ? styles.picksCollapsibleCollapsed : ''}`}
+        className={`${styles.picksCollapsible} ${!isPicksExpanded ? (picksExceedsThreshold ? styles.picksCollapsibleCollapsed : styles.picksCollapsibleMinimized) : ''}`}
       >
         <MaximusPicks
           games={activeGames}
@@ -513,7 +511,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         />
       </div>
 
-      {picksExceedsThreshold && !isPicksExpanded && (
+      {!isPicksExpanded && (
         <button
           type="button"
           className={styles.picksExpandBtn}

@@ -971,6 +971,13 @@
   z-index: 1;
 }
 
+/* ── Minimized state (short content – no gradient, just hide) ──── */
+
+.picksCollapsibleMinimized {
+  max-height: 0;
+  overflow: hidden;
+}
+
 /* ── Bottom expand button (shown when collapsed) ────────────────── */
 
 .picksExpandBtn {
