@@ -6,13 +6,14 @@
  *
  * Content hierarchy:
  *   1. Header       — Maximus branding + timestamp
- *   2. Date + category badge
- *   3. Narrative headline for the day
- *   4. Short summary / deck line
- *   5. 3–5 editorial narrative bullets
- *   6. Title race module (top 5 teams with rank + logo + odds)
- *   7. Recent results module (sports desk recap)
- *   8. Footer
+ *   2. Program strip divider
+ *   3. NCAA logo + date + category
+ *   4. Narrative headline for the day
+ *   5. Short summary / deck line
+ *   6. Intel recap panel (3–4 editorial bullets)
+ *   7. Title race module (top 5 teams with rank + logo + odds)
+ *   8. Recent results module (sports desk recap)
+ *   9. Footer
  */
 
 import { useState } from 'react';
@@ -63,14 +64,7 @@ function NcaaLogo({ className }) {
   );
 }
 
-const RESULT_EMOJIS = {
-  blowout:  '🔥',
-  cover:    '📈',
-  upset:    '⚠️',
-  rivalry:  '🏀',
-  streak:   '📈',
-  default:  '▸',
-};
+// ─── Result classification for editorial verbs ──────────────────────────────
 
 function classifyResult(highlight) {
   if (!highlight) return 'default';
@@ -85,6 +79,15 @@ function classifyResult(highlight) {
   return 'default';
 }
 
+const RESULT_PREFIX = {
+  blowout:  '🔥',
+  cover:    '📈',
+  upset:    '⚠️',
+  rivalry:  '🏀',
+  streak:   '📈',
+  default:  '▸',
+};
+
 function buildEditorialBullet(highlight) {
   if (!highlight) return null;
   const { teamA, teamB, score } = highlight;
@@ -92,17 +95,20 @@ function buildEditorialBullet(highlight) {
 
   const scores = score ? score.split('-').map(Number) : [];
   const margin = scores.length === 2 ? Math.abs(scores[0] - scores[1]) : null;
-  const emoji = RESULT_EMOJIS[classifyResult(highlight)];
+  const kind = classifyResult(highlight);
+  const emoji = RESULT_PREFIX[kind];
 
   if (teamB && score) {
     const verb = margin != null
-      ? (margin >= 25 ? 'demolished' : margin >= 15 ? 'rolled past' : margin >= 8 ? 'handled' : 'edged')
+      ? (margin >= 25 ? 'demolished' : margin >= 15 ? 'rolled past' : margin >= 8 ? 'took care of' : 'edged')
       : 'beat';
-    return `${emoji} ${teamA} ${verb} ${teamB} ${score}`;
+    return `${emoji} ${teamA} ${verb} ${teamB}, ${score}`;
   }
   if (score) return `${emoji} ${teamA} wins ${score}`;
   return `${emoji} ${teamA}`;
 }
+
+// ─── Content builder ────────────────────────────────────────────────────────
 
 function buildDailyHeroContent(digest) {
   if (!digest?.hasChatContent) {
@@ -115,38 +121,37 @@ function buildDailyHeroContent(digest) {
     };
   }
 
-  // --- Editorial narrative bullets ---
+  // --- Editorial narrative bullets (analyst-desk voice) ---
   const bullets = [];
 
   if (digest.titleRace?.length > 0) {
     const leader = digest.titleRace[0];
     if (leader.team && leader.americanOdds) {
-      bullets.push(`${leader.team} leads the title race at ${leader.americanOdds}`);
+      bullets.push(`🔥 ${leader.team} sit atop the title race at ${leader.americanOdds}`);
     }
   }
 
   if (digest.atsEdges?.length > 0) {
     const top = digest.atsEdges[0];
     const wl = top.wl ? ` (${top.wl})` : '';
-    bullets.push(`📊 ATS edge: ${top.team} covering at ${top.atsRate}%${wl}`);
+    bullets.push(`🎯 ATS edge: ${top.team} covering at ${top.atsRate}%${wl}`);
   }
 
   if (digest.gamesToWatch?.length > 0) {
     const game = digest.gamesToWatch[0];
-    const spreadNote = game.spread ? ` · Spread: ${game.spread}` : '';
-    bullets.push(`👀 Top game: ${game.matchup}${spreadNote}`);
+    const spreadNote = game.spread ? ` (${game.spread})` : '';
+    bullets.push(`⚔️ ${game.matchup}${spreadNote}`);
   }
 
   if (digest.newsIntel?.length > 0) {
     const news = digest.newsIntel[0];
-    const tag = news.tag ? `${news.tag}: ` : '';
-    bullets.push(`📰 ${tag}${news.headline}`);
+    bullets.push(`📰 ${news.headline}`);
   }
 
   if (bullets.length < 3 && digest.maximusSays?.length > 0) {
     for (const b of digest.maximusSays) {
-      if (bullets.length >= 5) break;
-      if (!bullets.includes(b)) bullets.push(b);
+      if (bullets.length >= 4) break;
+      if (!bullets.includes(b)) bullets.push(`🏀 ${b}`);
     }
   }
 
@@ -180,7 +185,6 @@ function buildDailyHeroContent(digest) {
     .map(buildEditorialBullet)
     .filter(Boolean);
 
-  // Add ATS heater note if available and we have room
   if (recentResults.length < 3 && digest.atsEdges?.length > 0) {
     const top = digest.atsEdges[0];
     const wl = top.wl ? ` ${top.wl}` : '';
@@ -195,6 +199,8 @@ function buildDailyHeroContent(digest) {
     recentResults: recentResults.slice(0, 3),
   };
 }
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
   const digest = data?.chatDigest ?? null;
@@ -226,6 +232,8 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
         </div>
       </header>
 
+      <div className={styles.programStrip} aria-hidden="true" />
+
       <div className={styles.ncaaLogoZone}>
         <NcaaLogo className={styles.ncaaLogo} />
       </div>
@@ -251,6 +259,7 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
 
       {content.bullets.length > 0 && (
         <div className={styles.bulletModule}>
+          <div className={styles.bulletModuleHeader}>TODAY'S INTEL</div>
           <ul className={styles.bulletList}>
             {content.bullets.map((b, i) => (
               <li key={i} className={styles.bulletItem}>{b}</li>
