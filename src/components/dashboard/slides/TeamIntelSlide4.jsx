@@ -515,7 +515,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
   const conf = team.conference || data?.selectedTeamConf || null;
 
   // ── Records ────────────────────────────────────────────────────────────────
-  const overallRecord = team.record?.items?.[0]?.summary
+  const rawOverallRecord = team.record?.items?.[0]?.summary
     || team.recordSummary
     || (typeof team.record === 'string' ? team.record : null)
     || null;
@@ -549,6 +549,12 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   const last10  = recentFinished.slice(0, 10);
   const last10W = last10.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
+
+  // Compute full season record from all finished games as fallback
+  const computedSeasonW = recentFinished.filter(e => Number(e.ourScore) > Number(e.oppScore)).length;
+  const computedSeasonL = recentFinished.length - computedSeasonW;
+  const overallRecord = rawOverallRecord
+    || (recentFinished.length >= 5 ? `${computedSeasonW}-${computedSeasonL}` : null);
 
   // ── Last game metadata (for narrative engine + schedule render) ────────────
   const lastGameEvent = recentFinished[0] ?? null;
@@ -670,10 +676,9 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
     { label: 'Season',  fmt: formatReadableAtsRecord(ssnP) },
   ].filter(w => w.fmt != null);
 
-  // Record display line — full season + conference + last 10 with form indicator
+  // Record display line — full season + last 10 with form indicator
   const recordLineParts = [];
-  if (overallRecord) recordLineParts.push(`${overallRecord.replace('-', '\u2013')} overall`);
-  if (confRecord)    recordLineParts.push(`${confRecord.replace('-', '\u2013')} ${conf || 'conf.'}`);
+  if (overallRecord) recordLineParts.push(`${overallRecord.replace('-', '\u2013')} season`);
   const last10L = last10.length - last10W;
   const last10Str = last10.length >= 5 ? `${last10W}\u2013${last10L} last ${last10.length}` : null;
   const formIcon = last10.length >= 7

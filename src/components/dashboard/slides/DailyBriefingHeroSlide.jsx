@@ -131,12 +131,12 @@ function buildDailyHeroContent(digest) {
   }));
 
   // --- Recent results from last night highlights ---
-  const recentResults = (digest.lastNightHighlights ?? []).slice(0, 4)
+  const recentResults = (digest.lastNightHighlights ?? []).slice(0, 3)
     .map(buildEditorialBullet)
     .filter(Boolean);
 
   // Add ATS heater note if available and we have room
-  if (recentResults.length < 4 && digest.atsEdges?.length > 0) {
+  if (recentResults.length < 3 && digest.atsEdges?.length > 0) {
     const top = digest.atsEdges[0];
     const wl = top.wl ? ` ${top.wl}` : '';
     recentResults.push(`📈 ATS heater: ${top.team} covering at ${top.atsRate}%${wl}`);
@@ -145,9 +145,9 @@ function buildDailyHeroContent(digest) {
   return {
     headline: headlineParts.join('\n'),
     subtext: subtext.slice(0, 140),
-    bullets: bullets.slice(0, 5),
+    bullets: bullets.slice(0, 4),
     titleRaceTeams,
-    recentResults: recentResults.slice(0, 4),
+    recentResults: recentResults.slice(0, 3),
   };
 }
 
@@ -180,6 +180,16 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
           <div className={styles.maxIntel}>MAXIMUM INTELLIGENCE</div>
         </div>
       </header>
+
+      <div className={styles.ncaaLogoZone}>
+        <img
+          src="https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png"
+          alt="NCAA"
+          className={styles.ncaaLogo}
+          crossOrigin="anonymous"
+          onError={e => { e.currentTarget.style.display = 'none'; }}
+        />
+      </div>
 
       <div className={styles.dateZone}>
         <span className={styles.dateLabel}>{today}</span>
