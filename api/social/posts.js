@@ -15,6 +15,7 @@
  */
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { getQuery } from '../_requestUrl.js';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT     = 200;
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { platform, status, team, limit: rawLimit } = req.query ?? {};
+  const { platform, status, team, limit: rawLimit } = getQuery(req);
   const limit = Math.min(parseInt(rawLimit ?? DEFAULT_LIMIT, 10) || DEFAULT_LIMIT, MAX_LIMIT);
 
   let query = supabase

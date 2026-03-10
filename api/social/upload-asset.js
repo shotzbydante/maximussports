@@ -8,6 +8,10 @@
  * The bucket must be marked PUBLIC in Supabase so Instagram can fetch the image
  * server-to-server. See docs/social-posts-migration.sql for setup instructions.
  *
+ * If the bucket does not yet exist the handler will attempt to auto-create it
+ * (service-role key has the required permission). When auto-creation is not
+ * possible a clear actionable error is returned.
+ *
  * Request body (JSON):
  *   base64    {string}  — data URI ("data:image/png;base64,…") or raw base64 string
  *   filename  {string}  — suggested filename (optional, auto-generated if omitted)
@@ -21,6 +25,52 @@ import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
 const BUCKET = 'social-assets';
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — Instagram's image size limit
+
+let _bucketVerified = false;
+
+/**
+ * Verify the storage bucket exists; auto-create it when missing.
+ * Caches the result so subsequent requests in the same cold-start skip the check.
+ */
+async function ensureBucket(supabase) {
+  if (_bucketVerified) return;
+
+  const { error } = await supabase.storage.getBucket(BUCKET);
+
+  if (!error) {
+    _bucketVerified = true;
+    return;
+  }
+
+  if (/not\s*found/i.test(error.message ?? '')) {
+    const { error: createErr } = await supabase.storage.createBucket(BUCKET, {
+      public: true,
+      fileSizeLimit: MAX_BYTES,
+    });
+
+    if (createErr) {
+      const e = new Error(
+        `Storage bucket '${BUCKET}' does not exist and auto-creation failed: ${createErr.message}. ` +
+        `Create the bucket manually in Supabase Dashboard → Storage, or run docs/social-posts-migration.sql.`
+      );
+      e.code = 'BUCKET_CREATION_FAILED';
+      throw e;
+    }
+
+    console.log(`[upload-asset] Auto-created public storage bucket '${BUCKET}'`);
+    _bucketVerified = true;
+    return;
+  }
+
+  const e = new Error(
+    `Cannot verify storage bucket '${BUCKET}': ${error.message}. ` +
+    `Check that SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are configured correctly.`
+  );
+  e.code = /unauthorized|forbidden|jwt|invalid.*key/i.test(error.message ?? '')
+    ? 'AUTH_ERROR'
+    : 'BUCKET_CHECK_FAILED';
+  throw e;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,7 +92,6 @@ export default async function handler(req, res) {
     });
   }
 
-  // Strip data URI prefix if present: "data:image/png;base64,<actual-base64>"
   const raw = base64.includes(',') ? base64.split(',')[1] : base64;
 
   if (!raw || raw.trim() === '') {
@@ -53,7 +102,6 @@ export default async function handler(req, res) {
     });
   }
 
-  // Decode to Buffer and size-check
   let buffer;
   try {
     buffer = Buffer.from(raw, 'base64');
@@ -74,14 +122,13 @@ export default async function handler(req, res) {
     });
   }
 
-  // Build a unique, safe filename
   const ts = Date.now();
   const rand = Math.random().toString(36).slice(2, 8);
   const filename = suggestedFilename
     ? `${ts}_${rand}_${suggestedFilename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     : `${ts}_${rand}_slide.png`;
 
-  // --- Upload to Supabase Storage ---
+  // --- Init Supabase ---
   let supabase;
   try {
     supabase = getSupabaseAdmin();
@@ -89,23 +136,51 @@ export default async function handler(req, res) {
     return res.status(500).json({
       ok: false,
       stage: 'supabase_init',
-      error: err.message ?? 'Supabase admin client unavailable',
+      error: `Supabase admin client unavailable: ${err.message}. ` +
+             'Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Vercel environment variables.',
     });
   }
 
+  // --- Ensure bucket exists (auto-create if missing) ---
+  try {
+    await ensureBucket(supabase);
+  } catch (err) {
+    const stage = err.code === 'AUTH_ERROR' ? 'storage_auth' : 'bucket_config';
+    return res.status(502).json({
+      ok: false,
+      stage,
+      error: err.message,
+      bucket: BUCKET,
+    });
+  }
+
+  // --- Upload to Supabase Storage ---
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(filename, buffer, {
       contentType: 'image/png',
       upsert:      false,
-      cacheControl: '31536000', // 1 year — assets are immutable snapshots
+      cacheControl: '31536000',
     });
 
   if (uploadError) {
+    const detail = uploadError.message ?? 'Storage upload failed';
+    let stage = 'storage_upload';
+
+    if (/not\s*found|bucket/i.test(detail)) {
+      _bucketVerified = false;
+      stage = 'bucket_missing';
+    } else if (/unauthorized|forbidden|jwt|invalid.*key/i.test(detail)) {
+      stage = 'storage_auth';
+    } else if (/size|too large|limit/i.test(detail)) {
+      stage = 'size_limit';
+    }
+
     return res.status(502).json({
       ok:    false,
-      stage: 'storage_upload',
-      error: uploadError.message ?? 'Storage upload failed',
+      stage,
+      error: detail,
+      bucket: BUCKET,
     });
   }
 
