@@ -460,6 +460,9 @@ export default function Dashboard() {
   const handleExport = useCallback(async () => {
     if (!exportRef.current) return;
     setExporting(true);
+    const layer = exportRef.current;
+    const prevVis = layer.style.visibility;
+    layer.style.visibility = 'visible';
     try {
       const { toPng } = await import('html-to-image');
       await document.fonts.ready;
@@ -468,6 +471,7 @@ export default function Dashboard() {
       const prefix = `maximus_${activeSection}`;
       let idx = 1;
       for (const slide of slides) {
+        slide.style.visibility = 'visible';
         const dataUrl = await toPng(slide, {
           width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
         });
@@ -483,6 +487,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error('[Dashboard] Export failed:', err);
     } finally {
+      layer.style.visibility = prevVis;
       setExporting(false);
     }
   }, [activeSection]);
@@ -491,6 +496,9 @@ export default function Dashboard() {
   const handleDownloadZip = useCallback(async () => {
     if (!exportRef.current) return;
     setZipping(true);
+    const layer = exportRef.current;
+    const prevVis = layer.style.visibility;
+    layer.style.visibility = 'visible';
     try {
       const [{ toPng }, JSZip] = await Promise.all([
         import('html-to-image'),
@@ -503,6 +511,7 @@ export default function Dashboard() {
       const prefix = `maximus_${activeSection}`;
       let idx = 1;
       for (const slide of slides) {
+        slide.style.visibility = 'visible';
         const dataUrl = await toPng(slide, {
           width: 1080, height: 1350, pixelRatio: 1, skipAutoScale: true,
         });
@@ -544,6 +553,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error('[Dashboard] ZIP failed:', err);
     } finally {
+      layer.style.visibility = prevVis;
       setZipping(false);
     }
   }, [activeSection, caption, summaryCaptionData]);

@@ -67,7 +67,10 @@
   }
 }
 
-/* ── Export layer (visually hidden but reachable by html-to-image) ── */
+/* ── Export layer (offscreen but paintable by html-to-image) ── */
+/* DO NOT add visibility:hidden here — it is inherited by children and
+   html-to-image copies computed styles, which would make the capture blank.
+   position:absolute + left:-9999px is sufficient to keep it offscreen. */
 .exportLayer {
   position: absolute;
   left: -9999px;
@@ -75,5 +78,4 @@
   display: flex;
   gap: 0;
   pointer-events: none;
-  visibility: hidden;
 }
