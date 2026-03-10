@@ -896,6 +896,100 @@
   flex-shrink: 0;
 }
 
+/* ── Picks collapsible wrapper (Home only) ──────────────────────── */
+
+.picksCollapsible {
+  position: relative;
+  max-height: 540px;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.picksCollapsible::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-bg-elevated, #fff) 92%
+  );
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.picksCollapsibleExpanded {
+  max-height: 8000px;
+}
+
+.picksCollapsibleExpanded::after {
+  opacity: 0;
+  height: 0;
+}
+
+.picksExpandBtn,
+.picksCollapseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px var(--space-md);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  border-radius: var(--radius-sm, 6px);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast, 0.12s ease),
+    border-color var(--transition-fast, 0.12s ease),
+    transform var(--transition-fast, 0.12s ease);
+}
+
+.picksExpandBtn {
+  color: var(--color-primary, #3c79b4);
+  background: rgba(60, 121, 180, 0.06);
+  margin-top: -4px;
+}
+
+.picksExpandBtn:hover {
+  background: rgba(60, 121, 180, 0.12);
+  border-color: rgba(60, 121, 180, 0.3);
+  transform: translateY(-1px);
+}
+
+.picksCollapseBtn {
+  color: var(--color-text-muted);
+  background: transparent;
+  margin-top: var(--space-xs, 4px);
+  border-color: rgba(60, 121, 180, 0.1);
+}
+
+.picksCollapseBtn:hover {
+  background: rgba(60, 121, 180, 0.04);
+  color: var(--color-primary, #3c79b4);
+}
+
+@media (max-width: 767px) {
+  .picksCollapsible {
+    max-height: 480px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picksCollapsible { transition: none; }
+  .picksCollapsible::after { transition: none; }
+  .picksExpandBtn,
+  .picksCollapseBtn { transition: none; }
+  .picksExpandBtn:hover,
+  .picksCollapseBtn:hover { transform: none; }
+}
+
 /* ── Market Briefing divider ─────────────────────────────────────── */
 
 .oddsMarketBriefingDivider {

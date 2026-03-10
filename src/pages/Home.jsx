@@ -247,9 +247,12 @@ function allGamesComplete(games) {
 /** Always combine today + tomorrow when today has fewer than this many games. */
 const MIN_GAMES_FOR_PICKS = 12;
 
-function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, championshipOdds = {}, loading = false, slowLoading = false, futureOddsGames = [] }) {
+function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, championshipOdds = {}, loading = false, slowLoading = false, futureOddsGames = [], upcomingGamesWithSpreads = [] }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
+  const [isPicksExpanded, setIsPicksExpanded] = useState(false);
+  const picksContainerRef = useRef(null);
+  const [picksOverflows, setPicksOverflows] = useState(false);
 
   // ── Next-slate state: fetch tomorrow's schedule when today is done ──
   const [nextSlateGames, setNextSlateGames] = useState(null);   // null = not fetched yet
@@ -349,15 +352,25 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     games.length < MIN_GAMES_FOR_PICKS &&
     thinSlateSupp.length > 0;
 
-  // activeGames: always combine today + tomorrow when possible.
+  // activeGames: always include futureOddsGames + upcomingGamesWithSpreads
+  // to match Insights' allGames logic (data parity).
   //   today-complete → today + nextSlateGames (or futureOddsGames fallback)
   //   thin-slate    → today + tomorrow combined
-  //   default       → today's games
-  const activeGames = todayComplete && nextSlateGames !== null
+  //   default       → today's games + future odds games
+  // Then always append deduplicated upcoming games (same as Insights Step 3).
+  const baseGames = todayComplete && nextSlateGames !== null
     ? [...games, ...(nextSlateGames.length > 0 ? nextSlateGames : futureOddsGames)]
     : isThinSlate
       ? [...games, ...thinSlateSupp]
-      : games;
+      : [...games, ...futureOddsGames];
+
+  const baseIds = new Set(baseGames.map((g) => g.gameId).filter(Boolean));
+  const extraUpcoming = upcomingGamesWithSpreads.filter(
+    (g) => !g.gameId || !baseIds.has(g.gameId),
+  );
+  const activeGames = extraUpcoming.length > 0
+    ? [...baseGames, ...extraUpcoming]
+    : baseGames;
 
   const slateDate = todayComplete
     ? nextSportsDayStr()   // sports-aware: returns today's calendar date before 4 AM
@@ -396,6 +409,23 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     ? buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds })
     : { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
   const picksSummary = activeGames.length ? buildPicksSummary(picksResult) : null;
+
+  const totalPicksCount =
+    picksResult.pickEmPicks.length +
+    picksResult.atsPicks.length +
+    picksResult.valuePicks.length +
+    picksResult.totalsPicks.length;
+
+  // Detect whether the picks container overflows its collapsed height
+  useEffect(() => {
+    const el = picksContainerRef.current;
+    if (!el) return;
+    const check = () => setPicksOverflows(el.scrollHeight > el.clientHeight + 4);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [totalPicksCount, loading, slowLoading]);
 
   // Debug slate — activate with ?debugPicks in URL (dev or prod)
   const debugPicks = typeof window !== 'undefined'
@@ -446,17 +476,44 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       </p>
 
       {/* ── Picks: Pick 'Ems / ATS / Value / Totals ─────────────────── */}
-      <MaximusPicks
-        games={activeGames}
-        atsLeaders={atsLeaders}
-        atsBySlug={atsBySlug}
-        rankMap={rankMap}
-        championshipOdds={championshipOdds}
-        loading={loading || slowLoading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
-        slateDate={slateDate}
-        slateDateSecondary={slateDateSecondary}
-        slateComplete={slateComplete}
-      />
+      <div
+        ref={picksContainerRef}
+        className={`${styles.picksCollapsible} ${isPicksExpanded ? styles.picksCollapsibleExpanded : ''}`}
+      >
+        <MaximusPicks
+          games={activeGames}
+          atsLeaders={atsLeaders}
+          atsBySlug={atsBySlug}
+          rankMap={rankMap}
+          championshipOdds={championshipOdds}
+          loading={loading || slowLoading || nextSlateLoading || thinSlateLoading || (todayComplete && nextSlateGames === null)}
+          slateDate={slateDate}
+          slateDateSecondary={slateDateSecondary}
+          slateComplete={slateComplete}
+        />
+      </div>
+
+      {picksOverflows && !isPicksExpanded && (
+        <button
+          type="button"
+          className={styles.picksExpandBtn}
+          onClick={() => setIsPicksExpanded(true)}
+        >
+          Show all {totalPicksCount} picks
+        </button>
+      )}
+      {isPicksExpanded && picksOverflows && (
+        <button
+          type="button"
+          className={styles.picksCollapseBtn}
+          onClick={() => {
+            setIsPicksExpanded(false);
+            picksContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}
+        >
+          Show less
+        </button>
+      )}
 
       {/* ── Divider into Market Briefing subsection ─────────────────── */}
       <div className={styles.oddsMarketBriefingDivider}>
@@ -559,6 +616,7 @@ export default function Home() {
   const [dataStatus, setDataStatus] = useState(null);
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
+  const [upcomingGamesWithSpreads, setUpcomingGamesWithSpreads] = useState([]);
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
@@ -735,6 +793,7 @@ export default function Home() {
               return dt && !scoreDatesSet.has(dt);
             });
             setFutureOddsGames(newFutureOddsGames);
+            setUpcomingGamesWithSpreads(merged.upcomingGamesWithSpreads ?? []);
 
             let oddsMessage = null;
             if (oddsData.error === 'missing_key') {
@@ -1140,6 +1199,7 @@ export default function Home() {
         loading={scores.loading || atsLoading}
         slowLoading={slowLoading}
         futureOddsGames={futureOddsGames}
+        upcomingGamesWithSpreads={upcomingGamesWithSpreads}
       />
       </div>
 
