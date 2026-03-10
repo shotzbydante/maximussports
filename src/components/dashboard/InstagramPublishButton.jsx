@@ -225,7 +225,7 @@ export default function InstagramPublishButton({
       return;
     }
 
-    // ── Step 3: Publish to Instagram ───────────────────────────────────────
+    // ── Step 3: Publish to Instagram (includes server-side container polling) ─
     setStage('publishing');
     try {
       const result = await publishToInstagram({
@@ -240,16 +240,30 @@ export default function InstagramPublishButton({
         templateType:          metadata.templateType       ?? null,
       });
 
+      if (DEBUG) console.log('[InstagramPublish:debug] publish success:', result);
+
       setLastPostId(result.postId ?? null);
       setStage('success');
       onSuccess?.({ postId: result.postId, publishedMediaId: result.publishedMediaId });
 
-      // Auto-reset to idle after 6 s so the button is reusable
       setTimeout(() => setStage('idle'), 6000);
     } catch (err) {
-      const msg = err.message ?? 'Publish failed';
+      const stage = err.stage ?? 'publish';
       const code = err.code ? ` (code ${err.code})` : '';
-      setErrorMessage(`Instagram publish failed: ${msg}${code}`);
+
+      const STAGE_MESSAGES = {
+        preflight:      'Image URL was not reachable by Instagram. Please retry.',
+        create_media:   `Instagram rejected the image${code}. ${err.message ?? ''}`,
+        poll_container: err.message ?? 'Instagram took too long to process the image. Please retry.',
+        publish_media:  `Instagram publish step failed${code}. ${err.message ?? ''}`,
+      };
+
+      const userMsg = STAGE_MESSAGES[stage]
+        ?? `Instagram publish failed: ${err.message ?? 'Unknown error'}${code}`;
+
+      if (DEBUG) console.error('[InstagramPublish:debug] publish error:', { stage, code, message: err.message, serverDebug: err.serverDebug });
+
+      setErrorMessage(userMsg);
       setStage('error');
     }
   }, [isWorking, buildCaptionText, exportRef, metadata, onSuccess]);

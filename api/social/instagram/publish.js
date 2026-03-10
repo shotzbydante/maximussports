@@ -5,12 +5,14 @@
  *
  * Flow:
  *   1. Validate request body
- *   2. Insert a `pending` social_posts record (audit trail starts immediately)
- *   3. Two-step Instagram Login API publish:
- *        a. POST /media  → creationId
- *        b. POST /media_publish → publishedMediaId
- *   4. Update the record to `posted` or `failed`
- *   5. Return safe response JSON
+ *   2. Pre-flight: HEAD-check the image URL to confirm it is fetchable
+ *   3. Insert a `pending` social_posts record (audit trail starts immediately)
+ *   4. Three-step Instagram Login API publish:
+ *        a. POST  /{id}/media        → creationId  (container creation)
+ *        b. POLL  GET /{creationId}?fields=status_code  until FINISHED
+ *        c. POST  /{id}/media_publish → publishedMediaId
+ *   5. Update the record to `posted` or `failed`
+ *   6. Return safe response JSON
  *
  * Request body (JSON):
  *   imageUrl  {string}   — public HTTPS URL (must be reachable by Meta's servers)
@@ -31,6 +33,11 @@
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 
+// ── Constants ───────────────────────────────────────────────────────────────
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS  = 90_000;
+const IG_API_VERSION   = 'v23.0';
+
 // ── Env sanitization (same pattern as /api/instagram/status) ────────────────
 function sanitizeEnv(value) {
   if (value == null) return '';
@@ -50,6 +57,10 @@ function safeMetaError(raw) {
     code:       e.code       ?? null,
     fbtrace_id: e.fbtrace_id ?? null,
   };
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // ── Supabase helpers ─────────────────────────────────────────────────────────
@@ -87,6 +98,76 @@ async function updateRecord(supabase, id, patch) {
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) console.error('[social/publish] DB update failed:', error.message);
+}
+
+// ── Pre-flight image check ──────────────────────────────────────────────────
+
+async function verifyImageUrl(url) {
+  try {
+    const resp = await fetch(url, { method: 'HEAD' });
+    const ct = resp.headers.get('content-type') ?? '';
+    return {
+      reachable:   resp.ok,
+      status:      resp.status,
+      contentType: ct,
+      isImage:     ct.startsWith('image/'),
+    };
+  } catch (err) {
+    return { reachable: false, status: 0, contentType: null, isImage: false, error: err.message };
+  }
+}
+
+// ── Container status polling ────────────────────────────────────────────────
+
+async function pollContainerStatus(containerId, accessToken) {
+  const endpoint = `https://graph.instagram.com/${IG_API_VERSION}/${containerId}`;
+  const start = Date.now();
+  const pollLog = [];
+
+  while (Date.now() - start < POLL_TIMEOUT_MS) {
+    await sleep(POLL_INTERVAL_MS);
+    const elapsed = Date.now() - start;
+
+    let statusCode, rawData;
+    try {
+      const resp = await fetch(
+        `${endpoint}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`,
+      );
+      rawData = await resp.json();
+      statusCode = rawData.status_code ?? rawData.status ?? null;
+    } catch (err) {
+      pollLog.push({ elapsed, error: err.message });
+      continue;
+    }
+
+    const entry = { elapsed, statusCode, id: rawData.id ?? containerId };
+    if (rawData.status) entry.statusDetail = rawData.status;
+    pollLog.push(entry);
+
+    console.log(`[social/publish] poll container ${containerId}: ${statusCode} (${elapsed}ms)`);
+
+    if (statusCode === 'FINISHED') {
+      return { ready: true, statusCode, elapsed, pollLog };
+    }
+
+    if (statusCode === 'ERROR' || statusCode === 'EXPIRED') {
+      return {
+        ready: false,
+        statusCode,
+        elapsed,
+        pollLog,
+        error: rawData.status ?? `Container entered ${statusCode} state`,
+      };
+    }
+  }
+
+  return {
+    ready: false,
+    statusCode: 'TIMEOUT',
+    elapsed: Date.now() - start,
+    pollLog,
+    error: `Container did not reach FINISHED within ${POLL_TIMEOUT_MS / 1000}s`,
+  };
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
@@ -154,12 +235,27 @@ export default async function handler(req, res) {
     });
   }
 
+  // --- Stage: preflight (verify image URL is reachable) ---
+  const imgCheck = await verifyImageUrl(imageUrl.trim());
+  debug.imageUrlCheck = imgCheck;
+  console.log('[social/publish] image preflight:', imgCheck);
+
+  if (!imgCheck.reachable) {
+    return res.status(400).json({
+      ok: false, stage: 'preflight',
+      error: `Image URL is not reachable (HTTP ${imgCheck.status}). Instagram will not be able to fetch it.`,
+      debug,
+    });
+  }
+  if (!imgCheck.isImage) {
+    console.warn(`[social/publish] image URL Content-Type is "${imgCheck.contentType}", expected image/*`);
+  }
+
   // --- Init Supabase ---
   let supabase = null;
   try {
     supabase = getSupabaseAdmin();
   } catch {
-    // Non-fatal — we proceed without persistence if Supabase is unavailable
     supabase = null;
   }
 
@@ -184,7 +280,7 @@ export default async function handler(req, res) {
   }
 
   // --- Stage: create_media ---
-  const createEndpoint = `https://graph.instagram.com/v23.0/${accountId}/media`;
+  const createEndpoint = `https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media`;
   const createBody = new URLSearchParams({
     image_url:    imageUrl.trim(),
     caption:      caption.trim(),
@@ -193,6 +289,7 @@ export default async function handler(req, res) {
 
   let creationId = null;
   try {
+    console.log(`[social/publish] creating media container — image: ${imageUrl.trim().slice(0, 120)}`);
     const createRes  = await fetch(createEndpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -202,6 +299,7 @@ export default async function handler(req, res) {
 
     if (!createRes.ok || createData.error) {
       const err = safeMetaError(createData);
+      console.error('[social/publish] create_media failed:', JSON.stringify(err));
       if (supabase && postId) {
         await updateRecord(supabase, postId, {
           lifecycle_status: 'failed',
@@ -211,11 +309,13 @@ export default async function handler(req, res) {
         });
       }
       return res.status(502).json({
-        ok: false, stage: 'create_media', postId, debug, error: err,
+        ok: false, stage: 'create_media', postId, debug,
+        error: err,
       });
     }
 
     creationId = createData.id ?? createData.creation_id ?? null;
+    console.log(`[social/publish] container created: ${creationId}`);
 
     if (!creationId) {
       if (supabase && postId) {
@@ -233,6 +333,7 @@ export default async function handler(req, res) {
       });
     }
   } catch (err) {
+    console.error('[social/publish] create_media network error:', err.message);
     if (supabase && postId) {
       await updateRecord(supabase, postId, {
         lifecycle_status: 'failed',
@@ -247,13 +348,45 @@ export default async function handler(req, res) {
     });
   }
 
-  // Save creationId to record
   if (supabase && postId) {
     await updateRecord(supabase, postId, { creation_id: creationId });
   }
 
+  // --- Stage: poll_container (wait for FINISHED) ---
+  console.log(`[social/publish] polling container ${creationId} for readiness…`);
+  const poll = await pollContainerStatus(creationId, accessToken);
+  debug.containerPoll = {
+    ready:      poll.ready,
+    statusCode: poll.statusCode,
+    elapsed:    poll.elapsed,
+    attempts:   poll.pollLog.length,
+  };
+
+  if (!poll.ready) {
+    const errMsg = poll.statusCode === 'TIMEOUT'
+      ? `Instagram did not finish processing the image within ${POLL_TIMEOUT_MS / 1000}s. The image may be too large or Instagram is slow — please try again.`
+      : `Instagram media container failed with status "${poll.statusCode}": ${poll.error}`;
+
+    console.error(`[social/publish] container not ready: ${poll.statusCode}`, poll.error);
+    if (supabase && postId) {
+      await updateRecord(supabase, postId, {
+        lifecycle_status: 'failed',
+        status_detail:    'poll_container',
+        error_message:    errMsg,
+        response_stage:   'poll_container',
+      });
+    }
+    return res.status(502).json({
+      ok: false, stage: 'poll_container', postId, creationId, debug,
+      error: { message: errMsg, type: null, code: poll.statusCode, fbtrace_id: null },
+      pollLog: poll.pollLog,
+    });
+  }
+
+  console.log(`[social/publish] container FINISHED after ${poll.elapsed}ms (${poll.pollLog.length} polls)`);
+
   // --- Stage: publish_media ---
-  const publishEndpoint = `https://graph.instagram.com/v23.0/${accountId}/media_publish`;
+  const publishEndpoint = `https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media_publish`;
   const publishBody = new URLSearchParams({
     creation_id:  creationId,
     access_token: accessToken,
@@ -261,6 +394,7 @@ export default async function handler(req, res) {
 
   let publishedMediaId = null;
   try {
+    console.log(`[social/publish] publishing container ${creationId}…`);
     const publishRes  = await fetch(publishEndpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -270,6 +404,7 @@ export default async function handler(req, res) {
 
     if (!publishRes.ok || publishData.error) {
       const err = safeMetaError(publishData);
+      console.error('[social/publish] publish_media failed:', JSON.stringify(err));
       if (supabase && postId) {
         await updateRecord(supabase, postId, {
           lifecycle_status: 'failed',
@@ -279,12 +414,15 @@ export default async function handler(req, res) {
         });
       }
       return res.status(502).json({
-        ok: false, stage: 'publish_media', postId, creationId, debug, error: err,
+        ok: false, stage: 'publish_media', postId, creationId, debug,
+        error: err,
       });
     }
 
     publishedMediaId = publishData.id ?? null;
+    console.log(`[social/publish] published! mediaId: ${publishedMediaId}`);
   } catch (err) {
+    console.error('[social/publish] publish_media network error:', err.message);
     if (supabase && postId) {
       await updateRecord(supabase, postId, {
         lifecycle_status: 'failed',

@@ -1,6 +1,11 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/social/instagram/publish.js": {
+      "maxDuration": 120
+    }
+  },
   "redirects": [
     {
       "source": "/:path*",
