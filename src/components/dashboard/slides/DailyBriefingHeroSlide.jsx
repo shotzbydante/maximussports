@@ -9,14 +9,55 @@
  *   2. Date + category badge
  *   3. Narrative headline for the day
  *   4. Short summary / deck line
- *   5. 3–5 core bullets from the intelligence briefing
- *   6. Optional spotlight (biggest result, ATS trend, championship odds)
- *   7. Featured teams row
+ *   5. 3–5 editorial narrative bullets
+ *   6. Title race module (top 5 teams with rank + logo + odds)
+ *   7. Recent results module (sports desk recap)
  *   8. Footer
  */
 
 import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './DailyBriefingHeroSlide.module.css';
+
+const RESULT_EMOJIS = {
+  blowout:  '🔥',
+  cover:    '📈',
+  upset:    '⚠️',
+  rivalry:  '🏀',
+  streak:   '📈',
+  default:  '▸',
+};
+
+function classifyResult(highlight) {
+  if (!highlight) return 'default';
+  const scores = (highlight.score || '').split('-').map(Number);
+  const margin = scores.length === 2 ? Math.abs(scores[0] - scores[1]) : null;
+  const line = (highlight.summaryLine || '').toLowerCase();
+  if (line.includes('upset') || line.includes('stunned') || line.includes('shocked')) return 'upset';
+  if (margin != null && margin >= 15) return 'blowout';
+  if (line.includes('cover') || line.includes('ats')) return 'cover';
+  if (line.includes('rival')) return 'rivalry';
+  if (line.includes('streak') || line.includes('straight')) return 'streak';
+  return 'default';
+}
+
+function buildEditorialBullet(highlight) {
+  if (!highlight) return null;
+  const { teamA, teamB, score } = highlight;
+  if (!teamA) return null;
+
+  const scores = score ? score.split('-').map(Number) : [];
+  const margin = scores.length === 2 ? Math.abs(scores[0] - scores[1]) : null;
+  const emoji = RESULT_EMOJIS[classifyResult(highlight)];
+
+  if (teamB && score) {
+    const verb = margin != null
+      ? (margin >= 25 ? 'demolished' : margin >= 15 ? 'rolled past' : margin >= 8 ? 'handled' : 'edged')
+      : 'beat';
+    return `${emoji} ${teamA} ${verb} ${teamB} ${score}`;
+  }
+  if (score) return `${emoji} ${teamA} wins ${score}`;
+  return `${emoji} ${teamA}`;
+}
 
 function buildDailyHeroContent(digest) {
   if (!digest?.hasChatContent) {
@@ -24,17 +65,13 @@ function buildDailyHeroContent(digest) {
       headline: 'DAILY\nBRIEFING',
       subtext: 'Your morning intelligence report is live.',
       bullets: ['Full briefing loading — check back shortly'],
-      spotlight: null,
-      featuredTeams: [],
+      titleRaceTeams: [],
+      recentResults: [],
     };
   }
 
+  // --- Editorial narrative bullets ---
   const bullets = [];
-
-  const highlight = digest.lastNightHighlights?.[0];
-  if (highlight?.teamA && highlight?.score) {
-    bullets.push(`${highlight.teamA} ${highlight.teamB ? `over ${highlight.teamB}` : ''} ${highlight.score}`);
-  }
 
   if (digest.titleRace?.length > 0) {
     const leader = digest.titleRace[0];
@@ -46,17 +83,19 @@ function buildDailyHeroContent(digest) {
   if (digest.atsEdges?.length > 0) {
     const top = digest.atsEdges[0];
     const wl = top.wl ? ` (${top.wl})` : '';
-    bullets.push(`ATS edge: ${top.team} covering at ${top.atsRate}%${wl}`);
+    bullets.push(`📊 ATS edge: ${top.team} covering at ${top.atsRate}%${wl}`);
   }
 
   if (digest.gamesToWatch?.length > 0) {
     const game = digest.gamesToWatch[0];
     const spreadNote = game.spread ? ` · Spread: ${game.spread}` : '';
-    bullets.push(`Top game: ${game.matchup}${spreadNote}`);
+    bullets.push(`👀 Top game: ${game.matchup}${spreadNote}`);
   }
 
   if (digest.newsIntel?.length > 0) {
-    bullets.push(digest.newsIntel[0].headline);
+    const news = digest.newsIntel[0];
+    const tag = news.tag ? `${news.tag}: ` : '';
+    bullets.push(`📰 ${tag}${news.headline}`);
   }
 
   if (bullets.length < 3 && digest.maximusSays?.length > 0) {
@@ -66,7 +105,7 @@ function buildDailyHeroContent(digest) {
     }
   }
 
-  // Headline
+  // --- Headline ---
   const isMarch = new Date().getMonth() === 2;
   let headlineParts;
   if (digest.lastNightHighlights?.length >= 3) {
@@ -83,52 +122,32 @@ function buildDailyHeroContent(digest) {
     || digest.titleMarketLead
     || 'Your morning college basketball intelligence report.';
 
-  // Spotlight
-  let spotlight = null;
-  if (digest.titleRace?.length >= 2) {
-    spotlight = {
-      label: 'TITLE RACE',
-      items: digest.titleRace.slice(0, 3).map(t => ({
-        name: t.team,
-        value: t.americanOdds,
-        slug: getTeamSlug(t.team),
-      })),
-    };
-  } else if (digest.atsEdges?.length >= 2) {
-    spotlight = {
-      label: 'ATS LEADERS',
-      items: digest.atsEdges.slice(0, 3).map(t => ({
-        name: t.team,
-        value: `${t.atsRate}%`,
-        slug: getTeamSlug(t.team),
-      })),
-    };
-  }
+  // --- Title race: top 5 teams with rank, slug, name, odds ---
+  const titleRaceTeams = (digest.titleRace ?? []).slice(0, 5).map((t, i) => ({
+    rank: i + 1,
+    name: t.team,
+    odds: t.americanOdds,
+    slug: getTeamSlug(t.team),
+  }));
 
-  // Featured teams from highlights + title race
-  const teamSlugs = new Set();
-  const featuredTeams = [];
-  for (const h of (digest.lastNightHighlights ?? []).slice(0, 3)) {
-    const slug = getTeamSlug(h.teamA);
-    if (slug && !teamSlugs.has(slug)) {
-      teamSlugs.add(slug);
-      featuredTeams.push({ name: h.teamA?.split(' ').slice(0, -1).join(' ') || h.teamA, slug });
-    }
-  }
-  for (const t of (digest.titleRace ?? []).slice(0, 3)) {
-    const slug = getTeamSlug(t.team);
-    if (slug && !teamSlugs.has(slug)) {
-      teamSlugs.add(slug);
-      featuredTeams.push({ name: t.team?.split(' ').slice(0, -1).join(' ') || t.team, slug });
-    }
+  // --- Recent results from last night highlights ---
+  const recentResults = (digest.lastNightHighlights ?? []).slice(0, 4)
+    .map(buildEditorialBullet)
+    .filter(Boolean);
+
+  // Add ATS heater note if available and we have room
+  if (recentResults.length < 4 && digest.atsEdges?.length > 0) {
+    const top = digest.atsEdges[0];
+    const wl = top.wl ? ` ${top.wl}` : '';
+    recentResults.push(`📈 ATS heater: ${top.team} covering at ${top.atsRate}%${wl}`);
   }
 
   return {
     headline: headlineParts.join('\n'),
     subtext: subtext.slice(0, 140),
     bullets: bullets.slice(0, 5),
-    spotlight,
-    featuredTeams: featuredTeams.slice(0, 5),
+    titleRaceTeams,
+    recentResults: recentResults.slice(0, 4),
   };
 }
 
@@ -191,44 +210,38 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
         </div>
       )}
 
-      {content.spotlight && (
-        <div className={styles.spotlightSection}>
-          <div className={styles.spotlightTitle}>{content.spotlight.label}</div>
-          <div className={styles.spotlightGrid}>
-            {content.spotlight.items.map((item, i) => (
-              <div key={i} className={styles.spotlightChip}>
-                {item.slug && (
+      {content.titleRaceTeams.length > 0 && (
+        <div className={styles.titleRaceSection}>
+          <div className={styles.titleRaceHeader}>TITLE RACE</div>
+          <div className={styles.titleRaceGrid}>
+            {content.titleRaceTeams.map((t, i) => (
+              <div key={i} className={styles.titleRaceChip}>
+                <span className={styles.titleRaceRank}>#{t.rank}</span>
+                {t.slug && (
                   <img
-                    src={`/logos/${item.slug}.png`}
+                    src={`/logos/${t.slug}.png`}
                     alt=""
-                    className={styles.spotlightLogo}
+                    className={styles.titleRaceLogo}
                     crossOrigin="anonymous"
                     onError={e => { e.currentTarget.style.display = 'none'; }}
                   />
                 )}
-                <span className={styles.spotlightName}>{item.name}</span>
-                <span className={styles.spotlightValue}>{item.value}</span>
+                <div className={styles.titleRaceMeta}>
+                  <span className={styles.titleRaceName}>{t.name}</span>
+                </div>
+                <span className={styles.titleRaceOdds}>🏆 {t.odds}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {content.featuredTeams.length > 0 && (
-        <div className={styles.featuredSection}>
-          <div className={styles.featuredTitle}>FEATURED TEAMS</div>
-          <div className={styles.featuredGrid}>
-            {content.featuredTeams.map((t, i) => (
-              <div key={i} className={styles.featuredChip}>
-                <img
-                  src={`/logos/${t.slug}.png`}
-                  alt=""
-                  className={styles.featuredLogo}
-                  crossOrigin="anonymous"
-                  onError={e => { e.currentTarget.style.display = 'none'; }}
-                />
-                <span className={styles.featuredName}>{t.name}</span>
-              </div>
+      {content.recentResults.length > 0 && (
+        <div className={styles.recentResultsSection}>
+          <div className={styles.recentResultsHeader}>RECENT RESULTS</div>
+          <div className={styles.recentResultsList}>
+            {content.recentResults.map((r, i) => (
+              <div key={i} className={styles.recentResultItem}>{r}</div>
             ))}
           </div>
         </div>

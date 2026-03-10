@@ -80,135 +80,119 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
   const hasChatContent = chatDigest?.hasChatContent === true;
   const voiceLine      = hasChatContent ? (chatDigest.voiceLine || '') : '';
 
-  // ── Build editorial short caption ─────────────────────────────────────────
-  let editorialLines = [];
-
-  if (hasChatContent) {
-    // Line 1: top last-night highlight — punchy, strong lead verb
-    const highlight = chatDigest.lastNightHighlights?.[0];
-    if (highlight?.teamA && highlight?.score) {
-      const scores = highlight.score.split('-').map(Number);
-      const margin = scores.length === 2 ? Math.abs(scores[0] - scores[1]) : null;
-      const verb = margin != null
-        ? (margin >= 25 ? 'demolished' : margin >= 15 ? 'rolled' : margin >= 8 ? 'handled' : 'edged out')
-        : 'beat';
-      editorialLines.push(
-        `${highlight.teamA} ${verb} ${highlight.teamB || 'the opposition'} ${highlight.score}.`
-      );
-    } else if (chatDigest.recapLeadLine) {
-      editorialLines.push(chatDigest.recapLeadLine.slice(0, 120));
-    } else if (chatDigest.leadNarrative) {
-      const firstSentence = chatDigest.leadNarrative.split(/(?<=[.!?])\s+/)[0] || '';
-      if (firstSentence.length >= 20) editorialLines.push(firstSentence.slice(0, 120));
-    }
-
-    // Line 2: title market or ATS edge — one sharp insight
-    const topTitleEntry = chatDigest.titleRace?.[0];
-    const topAtsEdge    = chatDigest.atsEdges?.[0];
-    if (topTitleEntry?.team && topTitleEntry?.americanOdds) {
-      const implStr = topTitleEntry.impliedProbability
-        ? ` — ${topTitleEntry.impliedProbability}% implied`
-        : '';
-      editorialLines.push(
-        `${topTitleEntry.team} has separated in the title market at ${topTitleEntry.americanOdds}${implStr}.`
-      );
-    } else if (topAtsEdge?.team) {
-      const wlStr = topAtsEdge.wl ? ` (${topAtsEdge.wl})` : '';
-      editorialLines.push(
-        `${topAtsEdge.team} keeps cashing tickets at ${topAtsEdge.atsRate}%${wlStr}. The market still hasn't caught up.`
-      );
-    } else if (chatDigest.bettingAngle) {
-      editorialLines.push(chatDigest.bettingAngle.slice(0, 120));
-    }
-
-    // Line 3: voice closer
-    if (voiceLine) editorialLines.push(voiceLine);
-  } else {
-    // Non-chat fallback hook
-    const picksCount = picks?.length ?? 0;
-    editorialLines.push(
-      isRobot
-        ? `The model scanned the slate. Here's what it found.`
-        : (picksCount > 0
-            ? `${picksCount} value edge${picksCount > 1 ? 's' : ''} surfaced today. The briefing is live.`
-            : `Daily CBB briefing is up.${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`),
-    );
+  // ── Helper: build a result verb from score margin ──────────────────────
+  function resultVerb(score) {
+    const parts = (score || '').split('-').map(Number);
+    const margin = parts.length === 2 ? Math.abs(parts[0] - parts[1]) : null;
+    if (margin == null) return 'beat';
+    if (margin >= 25) return 'demolished';
+    if (margin >= 15) return 'rolled past';
+    if (margin >= 8) return 'handled';
+    return 'edged';
   }
 
-  const robotPrefix = isRobot ? '🤖 ' : '🏀 ';
-  const shortLines  = editorialLines.filter(Boolean).slice(0, 3);
-  const short = [
-    robotPrefix + shortLines[0],
-    ...shortLines.slice(1),
+  // ── 1. Opening hook ────────────────────────────────────────────────────
+  let hookLine = '';
+  if (hasChatContent) {
+    const highlights = chatDigest.lastNightHighlights ?? [];
+    if (highlights.length >= 3) {
+      hookLine = 'College hoops delivered another wild night 🔥';
+    } else if (highlights.length >= 1) {
+      const h = highlights[0];
+      if (h.teamA && h.score) {
+        hookLine = `${h.teamA} ${resultVerb(h.score)} ${h.teamB || 'the opposition'} ${h.score} 🔥`;
+      } else {
+        hookLine = chatDigest.recapLeadLine?.slice(0, 120) || 'College hoops recap is live 🏀';
+      }
+    } else {
+      hookLine = chatDigest.recapLeadLine?.slice(0, 120) || 'Daily intelligence briefing is live 🏀';
+    }
+  } else {
+    const picksCount = picks?.length ?? 0;
+    hookLine = isRobot
+      ? 'The model scanned the slate. Here\'s what it found. 🤖'
+      : (picksCount > 0
+          ? `${picksCount} value edge${picksCount > 1 ? 's' : ''} surfaced today 🏀`
+          : `Daily CBB briefing is up 🏀${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`);
+  }
+
+  // ── 2. Quick recap of major results ────────────────────────────────────
+  const recapLines = [];
+  if (hasChatContent) {
+    for (const h of (chatDigest.lastNightHighlights ?? []).slice(0, 3)) {
+      if (!h.teamA) continue;
+      if (h.teamB && h.score) {
+        recapLines.push(`${h.teamA} ${resultVerb(h.score)} ${h.teamB} ${h.score}.`);
+      } else if (h.summaryLine) {
+        recapLines.push(h.summaryLine);
+      }
+    }
+  }
+
+  // ── 3. Title race update ───────────────────────────────────────────────
+  let titleLine = '';
+  if (hasChatContent && chatDigest.titleRace?.length >= 2) {
+    const top2 = chatDigest.titleRace.slice(0, 2);
+    titleLine = `The title race is tightening — ${top2.map(t => `${t.team} (${t.americanOdds})`).join(' and ')} lead the field.`;
+  } else if (hasChatContent && chatDigest.titleRace?.length === 1) {
+    const leader = chatDigest.titleRace[0];
+    titleLine = `${leader.team} leads the title market at ${leader.americanOdds}.`;
+  }
+
+  // ── 4. Upcoming games tease ────────────────────────────────────────────
+  let teaseLine = '';
+  if (hasChatContent && chatDigest.gamesToWatch?.length > 0) {
+    const game = chatDigest.gamesToWatch[0];
+    teaseLine = `Next up: ${game.matchup}${game.spread ? ` (${game.spread})` : ''} — full intel on the card.`;
+  }
+
+  // ── 5. Voice closer ───────────────────────────────────────────────────
+  const closerLine = voiceLine || '';
+
+  // ── Assemble short caption ─────────────────────────────────────────────
+  const shortParts = [
+    hookLine,
+    recapLines.length > 0 ? recapLines.join(' ') : null,
+    titleLine || null,
     '',
     CTA,
-  ].filter(l => l !== null && l !== undefined).join('\n\n');
+  ].filter(l => l !== null && l !== undefined);
+  const short = shortParts.join('\n\n');
 
-  // ── Long caption ─────────────────────────────────────────────────────────
-  const narrativeBody = hasChatContent && chatDigest.captionNarrative
-    ? chatDigest.captionNarrative
-    : (isRobot
-        ? `Maximus scanned ${gamesCount ?? "today's"} games overnight. ATS history, line movement, implied probability — all cross-referenced.`
-        : (gamesCount != null
-            ? `Tracking ${gamesCount} games for today. The model flags ATS edges, spread value, and title market movement.`
-            : `Lines are active. Model running the numbers now.`));
-
-  // Sharp ATS edge line
-  const topEdge = hasChatContent && chatDigest.atsEdges?.[0];
-  const atsEdgeNote = topEdge
-    ? (() => {
-        const wlStr = topEdge.wl ? ` (${topEdge.wl})` : '';
-        return `📊 ATS edge: ${topEdge.team} covering at ${topEdge.atsRate}%${wlStr} — ${topEdge.timeframe}.`;
-      })()
-    : null;
-
-  // Top game to watch
-  const topGame = hasChatContent && chatDigest.gamesToWatch?.[0];
-  const gameNote = topGame
-    ? `👀 Top game: ${topGame.matchup}${topGame.spread ? ` · Spread: ${topGame.spread}` : ''}${topGame.network ? ` · ${topGame.network}` : ''}.`
-    : null;
-
-  // Top headline when no chat
-  const headlineSnip = !hasChatContent && headlines?.[0]
-    ? `📰 ${(headlines[0].title || headlines[0].headline || '').slice(0, 85)}`
-    : null;
-
-  const long = [
-    `🏀 ${fmtDate()} — Daily Briefing`,
+  // ── Assemble long caption ──────────────────────────────────────────────
+  const longParts = [
+    hookLine,
     '',
-    narrativeBody,
+    recapLines.length > 0 ? recapLines.join('\n') : null,
     '',
-    atsEdgeNote,
-    gameNote,
+    titleLine || null,
     '',
-    headlineSnip,
+    teaseLine || null,
     '',
-    voiceLine ? `"${voiceLine}"` : null,
+    closerLine || null,
+    '',
+    `Full intelligence at maximussports.ai`,
     '',
     asOf ? `Data as of ${asOf}` : null,
-    CTA,
     DISCLAIMER,
-  ].filter(l => l !== null && l !== '').join('\n');
+  ].filter(l => l !== null && l !== undefined);
 
-  // Smart hashtags: max 5, contextually relevant to the briefing content
-  const hashtagPool = ['#CollegeBasketball', '#MarchMadness'];
+  const long = longParts
+    .reduce((acc, line) => {
+      if (line === '' && acc.length > 0 && acc[acc.length - 1] === '') return acc;
+      return [...acc, line];
+    }, [])
+    .join('\n')
+    .trim();
 
-  // Add team-specific hashtags when teams dominate the briefing
-  if (hasChatContent) {
-    const topTeamName = chatDigest?.titleRace?.[0]?.team;
-    const topAtsTeam = chatDigest?.atsEdges?.[0]?.team;
-    if (topTeamName) {
-      const school = topTeamName.split(' ')[0];
-      if (school && school.length > 3) hashtagPool.push(`#${school}`);
-    }
-    if (topAtsTeam && topAtsTeam !== chatDigest?.titleRace?.[0]?.team) {
-      const school = topAtsTeam.split(' ')[0];
-      if (school && school.length > 3) hashtagPool.push(`#${school}`);
-    }
-  }
-
-  hashtagPool.push('#MaximusSports', '#CBB', '#NCAABB');
-  const hashtags = [...new Set(hashtagPool)].slice(0, 5);
+  // ── Hashtags: max 5, curated list ──────────────────────────────────────
+  const hashtags = [
+    '#CollegeBasketball',
+    '#MarchMadness',
+    '#CBB',
+    '#NCAAB',
+    '#MaximusSports',
+  ].slice(0, 5);
 
   return { shortCaption: short, longCaption: long, hashtags };
 }
