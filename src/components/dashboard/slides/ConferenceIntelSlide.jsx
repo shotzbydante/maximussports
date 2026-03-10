@@ -6,15 +6,16 @@
  *
  * Content hierarchy:
  *   1. Header       — Maximus branding + timestamp
- *   2. Conference logo hero
+ *   2. Conference logo hero (real PNGs where available, styled fallback otherwise)
  *   3. Conference name + subline
  *   4. Narrative headline (conference-level scoring engine)
  *   5. Quick intel subtext
- *   6. Intel bullets (3–5 conference-level insights)
- *   7. Featured teams with logos
+ *   6. Intel bullets (4–5 conference-level insights)
+ *   7. Featured teams with logos + rank badge + championship odds
  *   8. Footer
  */
 
+import { useState } from 'react';
 import { TEAMS } from '../../../data/teams';
 import styles from './ConferenceIntelSlide.module.css';
 
@@ -41,27 +42,30 @@ function getConfColors(conf) {
   return CONF_COLORS[conf] || { primary: '#4A90D9', secondary: '#071422' };
 }
 
-// ─── Conference logo path ─────────────────────────────────────────────────────
+// ─── Conference logo resolution ───────────────────────────────────────────────
+// Real PNGs exist for: ACC, Big 12, Big East, Big Ten, SEC
+// All SVGs in public/conferences/ are placeholder text circles (~294 bytes).
+// Strategy: try PNG first (real logo), then use styled fallback badge.
 
-const CONF_LOGO_MAP = {
-  'SEC':           '/conferences/sec.svg',
-  'Big Ten':       '/conferences/big-ten.svg',
-  'ACC':           '/conferences/acc.svg',
-  'Big 12':        '/conferences/big-12.svg',
-  'Big East':      '/conferences/big-east.svg',
-  'WCC':           '/conferences/wcc.svg',
-  'Mountain West': '/conferences/mwc.svg',
-  'AAC':           '/conferences/aac.svg',
-  'A-10':          '/conferences/a10.svg',
-  'MVC':           '/conferences/mvc.svg',
-  'MAC':           '/conferences/mac.svg',
-  'CUSA':          '/conferences/cusa.svg',
+const CONF_LOGO_PATHS = {
+  'ACC':           ['/conferences/acc.png'],
+  'Big Ten':       ['/conferences/big-ten.png'],
+  'Big 12':        ['/conferences/big-12.png'],
+  'Big East':      ['/conferences/big-east.png'],
+  'SEC':           ['/conferences/sec.png'],
+  'WCC':           null,
+  'Mountain West': null,
+  'AAC':           null,
+  'A-10':          null,
+  'MVC':           null,
+  'MAC':           null,
+  'CUSA':          null,
   'WAC':           null,
-  'Southland':     '/conferences/southland.svg',
+  'Southland':     null,
 };
 
-function getConfLogo(conf) {
-  return CONF_LOGO_MAP[conf] || null;
+function getConfLogoPaths(conf) {
+  return CONF_LOGO_PATHS[conf] ?? null;
 }
 
 // ─── Phrase variation ─────────────────────────────────────────────────────────
@@ -73,6 +77,13 @@ function _hash(s) {
 }
 function _pick(arr, seed) { return arr[_hash(seed || '') % arr.length]; }
 
+function shortName(fullName) {
+  if (!fullName) return '';
+  const parts = fullName.split(' ');
+  if (parts.length <= 1) return fullName;
+  return parts.slice(0, -1).join(' ');
+}
+
 // ─── Conference narrative engine ──────────────────────────────────────────────
 
 function buildConferenceIntel(conf, allTeams, dashData) {
@@ -81,7 +92,7 @@ function buildConferenceIntel(conf, allTeams, dashData) {
     return {
       headline: `${conf.toUpperCase()}\nINTEL`,
       subtext: `Conference intelligence report for the ${conf}.`,
-      bullets: [`${confTeams.length} tracked teams in the ${conf}`],
+      bullets: [`Tracking ${conf} teams and market signals`],
       featured: [],
     };
   }
@@ -90,110 +101,162 @@ function buildConferenceIntel(conf, allTeams, dashData) {
   const atsLeaders = dashData?.atsLeaders ?? { best: [], worst: [] };
   const allBest = [...(atsLeaders.best ?? [])];
   const allWorst = [...(atsLeaders.worst ?? [])];
+  const champOdds = dashData?.championshipOdds ?? {};
 
   const confSlugs = new Set(confTeams.map(t => t.slug));
-
   const confBest = allBest.filter(r => confSlugs.has(r.slug));
   const confWorst = allWorst.filter(r => confSlugs.has(r.slug));
 
   const lockTeams = confTeams.filter(t => t.oddsTier === 'Lock');
-  const contenders = confTeams.filter(t => t.oddsTier === 'Lock' || t.oddsTier === 'Should be in');
+  const shouldBeIn = confTeams.filter(t => t.oddsTier === 'Should be in');
+  const contenders = [...lockTeams, ...shouldBeIn];
+  const longShots = confTeams.filter(t => t.oddsTier === 'Long shot');
 
-  const bullets = [];
+  // ── Build featured teams with metadata ──
   const featured = [];
+  const tierOrder = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
+  const sorted = [...confTeams].sort((a, b) => tierOrder.indexOf(a.oddsTier) - tierOrder.indexOf(b.oddsTier));
 
-  // Ranked teams (we don't have runtime rank data, so focus on tier)
-  if (lockTeams.length > 0) {
-    const names = lockTeams.slice(0, 3).map(t => t.name.split(' ').slice(0, -1).join(' ') || t.name);
-    bullets.push(`${lockTeams.length} projected contender${lockTeams.length > 1 ? 's' : ''}: ${names.join(', ')}`);
-    lockTeams.slice(0, 4).forEach(t => featured.push({ slug: t.slug, name: t.name.split(' ').slice(0, -1).join(' ') || t.name, detail: t.oddsTier }));
+  for (const t of sorted.slice(0, 5)) {
+    const co = champOdds[t.slug];
+    const odds = co?.bestChanceAmerican ?? co?.american ?? null;
+    featured.push({
+      slug: t.slug,
+      name: shortName(t.name),
+      tier: t.oddsTier,
+      odds: typeof odds === 'number' ? odds : null,
+      rank: null,
+    });
   }
 
-  // ATS leaders in conference
+  // ── Build bullets (4–5 substantive insights) ──
+  const bullets = [];
+
+  if (lockTeams.length > 0) {
+    const names = lockTeams.slice(0, 3).map(t => shortName(t.name));
+    if (lockTeams.length >= 3) {
+      bullets.push(_pick([
+        `${conf} is stacked at the top \u2014 ${names.join(', ')} all in contention`,
+        `Title-tier depth: ${names.join(', ')} lead a loaded ${conf} field`,
+        `${names.join(', ')} headline a ${conf} conference with serious March firepower`,
+      ], conf + 'lock'));
+    } else {
+      bullets.push(`${names.join(' and ')} ${lockTeams.length === 1 ? 'leads' : 'lead'} the ${conf} as projected contender${lockTeams.length > 1 ? 's' : ''}`);
+    }
+  }
+
   if (confBest.length > 0) {
     const top = confBest[0];
     const rec = top.rec || top.last30 || top.season;
     const pct = rec ? Math.round((rec.w / (rec.w + rec.l)) * 100) : null;
-    const name = (top.name || top.slug || '').split(' ').slice(0, -1).join(' ') || top.name || top.slug;
-    bullets.push(pct ? `ATS leader: ${name} covering at ${pct}%` : `ATS leader: ${name}`);
+    const name = shortName(top.name || top.slug || '');
+    bullets.push(pct
+      ? _pick([
+        `${name} leads ${conf} ATS at ${pct}% \u2014 the market is still catching up`,
+        `ATS leader: ${name} covering at ${pct}%, a sharp bettor\u2019s favorite`,
+        `${name} at ${pct}% ATS is the most profitable ${conf} team to back`,
+      ], conf + 'ats')
+      : `ATS leader: ${name} \u2014 top cover rate in the ${conf}`);
   }
 
-  // Conference depth
   if (contenders.length >= 4) {
-    bullets.push(`${contenders.length} teams in the tournament conversation`);
+    bullets.push(_pick([
+      `${contenders.length} teams in the tournament conversation \u2014 the ${conf} runs deep`,
+      `Depth is the story: ${contenders.length} ${conf} teams with legitimate March positioning`,
+      `The ${conf} has ${contenders.length} teams that could make noise in the bracket`,
+    ], conf + 'depth'));
+  } else if (contenders.length >= 2) {
+    bullets.push(`${contenders.length} teams positioned for March, but the gap is narrowing`);
   }
 
-  // March context
   if (isMarch) {
-    bullets.push(`${conf} tournament positioning is heating up`);
+    bullets.push(_pick([
+      `${conf} tournament seeding on the line \u2014 every game matters from here`,
+      `Conference tournament positioning is tightening across the ${conf}`,
+      `March pressure building: ${conf} bracket implications rising daily`,
+      `Selection Sunday looming \u2014 ${conf} bubble teams running out of time`,
+    ], conf + 'march'));
   }
 
-  // ATS cold in conference
   if (confWorst.length > 0) {
     const cold = confWorst[0];
-    const name = (cold.name || cold.slug || '').split(' ').slice(0, -1).join(' ') || cold.name || cold.slug;
-    bullets.push(`${name} struggling ATS \u2014 market may have adjusted`);
+    const name = shortName(cold.name || cold.slug || '');
+    bullets.push(_pick([
+      `${name} struggling ATS \u2014 the market has adjusted`,
+      `Avoid alert: ${name} is cold against the spread and fading`,
+      `${name} is the ${conf}\u2019s biggest ATS fade right now`,
+    ], conf + 'cold'));
   }
 
-  // Conference team count
-  if (bullets.length < 3) {
-    bullets.push(`${confTeams.length} tracked teams in the ${conf}`);
+  if (longShots.length >= 2 && bullets.length < 5) {
+    bullets.push(_pick([
+      `${longShots.length} ${conf} teams with long-shot value \u2014 watch for bracket busters`,
+      `Sleeper potential: ${shortName(longShots[0].name)} and ${shortName(longShots[1].name)} worth monitoring`,
+    ], conf + 'longshot'));
   }
 
-  // Headline generation
-  const headlineTemplates = {
-    powerhouse: [
+  if (bullets.length < 4) {
+    bullets.push(`${confTeams.length} tracked teams across the ${conf} with active market signals`);
+  }
+
+  // ── Headline generation ──
+  const isPower = lockTeams.length >= 4;
+  const isMid = lockTeams.length <= 1 && confTeams.length <= 5;
+
+  let headlinePool;
+  if (isPower) {
+    headlinePool = [
       [`${conf.toUpperCase()}`, 'POWER CLUSTER'],
       [`${conf.toUpperCase()}`, 'STOCK RISING'],
-      [`${conf.toUpperCase()}`, 'FORCE TO WATCH'],
-    ],
-    balanced: [
-      [`${conf.toUpperCase()}`, 'INTEL REPORT'],
-      [`${conf.toUpperCase()}`, 'MARCH PUSH'],
-      [`${conf.toUpperCase()}`, 'HEATING UP'],
-    ],
-    midMajor: [
+      [`${conf.toUpperCase()}`, 'LOADED'],
+      [`${conf.toUpperCase()}`, 'MARCH READY'],
+    ];
+  } else if (isMid) {
+    headlinePool = [
       [`${conf.toUpperCase()}`, 'UNDER THE RADAR'],
       [`${conf.toUpperCase()}`, 'DARK HORSE WATCH'],
-      [`${conf.toUpperCase()}`, 'SLEEPER ALERT'],
-    ],
-  };
-
-  let category = 'balanced';
-  if (lockTeams.length >= 4) category = 'powerhouse';
-  else if (lockTeams.length <= 1 && confTeams.length <= 5) category = 'midMajor';
-
-  if (isMarch) {
-    if (category === 'powerhouse') {
-      headlineTemplates.powerhouse.push([`${conf.toUpperCase()}`, 'MARCH MADNESS']);
-    }
-    headlineTemplates.balanced.push([`${conf.toUpperCase()}`, 'TOURNAMENT TIME']);
+      [`${conf.toUpperCase()}`, 'SLEEPER VALUE'],
+      [`${conf.toUpperCase()}`, 'HIDDEN EDGE'],
+    ];
+  } else {
+    headlinePool = [
+      [`${conf.toUpperCase()}`, 'HEATING UP'],
+      [`${conf.toUpperCase()}`, 'ON THE MOVE'],
+      [`${conf.toUpperCase()}`, 'INTELLIGENCE'],
+      [`${conf.toUpperCase()}`, 'MARCH PUSH'],
+    ];
   }
 
-  const templates = headlineTemplates[category];
-  const chosen = _pick(templates, conf);
+  if (isMarch) {
+    headlinePool.push([`${conf.toUpperCase()}`, 'TOURNAMENT TIME']);
+    if (isPower) headlinePool.push([`${conf.toUpperCase()}`, 'MARCH MADNESS']);
+  }
+
+  const chosen = _pick(headlinePool, conf);
   const headline = chosen.join('\n');
 
-  // Subtext
-  const subtextTemplates = {
-    powerhouse: [
-      `The ${conf} continues to stack contenders as the season enters its final stretch.`,
-      `Multiple ${conf} teams are making noise heading toward Selection Sunday.`,
-      `Depth and talent define the ${conf} as the postseason approaches.`,
-    ],
-    balanced: [
-      `Conference intel on the ${conf} \u2014 key teams, ATS trends, and what to watch.`,
-      `The ${conf} is in the spotlight. Here\u2019s what the data says right now.`,
-      `Full breakdown of ${conf} positioning, form, and market angles.`,
-    ],
-    midMajor: [
-      `The ${conf} has value hiding in plain sight. Here\u2019s the full read.`,
-      `Don\u2019t sleep on the ${conf}. The numbers tell an interesting story.`,
-      `Small-conference intel that sharp bettors are watching closely.`,
-    ],
-  };
-
-  const subtext = _pick(subtextTemplates[category], conf + 'sub');
+  // ── Subtext ──
+  let subtextPool;
+  if (isPower) {
+    subtextPool = [
+      `The ${conf} is tightening up at the top with multiple contenders fighting for seeding and momentum.`,
+      `Depth and talent define the ${conf} as the postseason approaches \u2014 this conference runs deep.`,
+      `Multiple ${conf} teams are making noise \u2014 the national conversation starts here.`,
+    ];
+  } else if (isMid) {
+    subtextPool = [
+      `The ${conf} has value hiding in plain sight. Sharp bettors are paying attention.`,
+      `Don\u2019t sleep on the ${conf} \u2014 the numbers tell an interesting story heading into March.`,
+      `Small-conference intel that smart money is watching closely right now.`,
+    ];
+  } else {
+    subtextPool = [
+      `The ${conf} is in the spotlight. Here\u2019s what the data and the market say right now.`,
+      `Full ${conf} breakdown: positioning, ATS trends, and what to watch heading forward.`,
+      `Key teams, market signals, and tournament angles across the ${conf}.`,
+    ];
+  }
+  const subtext = _pick(subtextPool, conf + 'sub');
 
   return {
     headline,
@@ -203,12 +266,38 @@ function buildConferenceIntel(conf, allTeams, dashData) {
   };
 }
 
+// ─── Conference logo component with error handling ────────────────────────────
+
+function ConfLogo({ conf, className, fallbackClassName }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const paths = getConfLogoPaths(conf);
+  const [attempt, setAttempt] = useState(0);
+  const currentPath = paths?.[attempt] ?? null;
+
+  if (imgFailed || !currentPath) {
+    const abbr = conf.replace(/[^A-Z0-9]/gi, '').slice(0, 5).toUpperCase();
+    return <div className={fallbackClassName}>{abbr}</div>;
+  }
+
+  return (
+    <img
+      src={currentPath}
+      alt={conf}
+      className={className}
+      crossOrigin="anonymous"
+      onError={() => {
+        if (paths && attempt + 1 < paths.length) setAttempt(a => a + 1);
+        else setImgFailed(true);
+      }}
+    />
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...rest }) {
   const conf = conferenceData?.conference || 'Conference';
   const { primary, secondary } = getConfColors(conf);
-  const logoSrc = getConfLogo(conf);
   const intel = buildConferenceIntel(conf, TEAMS, data);
 
   const confTeams = TEAMS.filter(t => t.conference === conf);
@@ -241,19 +330,11 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
 
       <div className={styles.logoZone}>
         <div className={styles.logoGlowRing} aria-hidden="true" />
-        {logoSrc ? (
-          <img
-            src={logoSrc}
-            alt={conf}
-            className={styles.confLogo}
-            crossOrigin="anonymous"
-            onError={e => { e.currentTarget.style.display = 'none'; }}
-          />
-        ) : (
-          <div className={styles.confFallback}>
-            {conf.replace(/[^A-Z0-9]/gi, '').slice(0, 4).toUpperCase()}
-          </div>
-        )}
+        <ConfLogo
+          conf={conf}
+          className={styles.confLogo}
+          fallbackClassName={styles.confFallback}
+        />
       </div>
 
       <div className={styles.identity}>
@@ -299,7 +380,12 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
                   onError={e => { e.currentTarget.style.display = 'none'; }}
                 />
                 <span className={styles.featuredName}>{t.name}</span>
-                {t.detail && <span className={styles.featuredDetail}>{t.detail}</span>}
+                {t.rank && <span className={styles.featuredBadge}>#{t.rank} AP</span>}
+                {t.odds != null && (
+                  <span className={styles.featuredOdds}>
+                    🏆 {t.odds > 0 ? '+' : ''}{t.odds}
+                  </span>
+                )}
               </div>
             ))}
           </div>

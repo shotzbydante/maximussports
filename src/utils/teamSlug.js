@@ -287,6 +287,37 @@ const ALIASES = {
   "new mexico lobos": "New Mexico Lobos",
 };
 
+const FEED_SLUGS = {
+  'penn state': 'penn-state-nittany-lions',
+  'penn state nittany lions': 'penn-state-nittany-lions',
+  'penn st': 'penn-state-nittany-lions',
+  'northwestern': 'northwestern-wildcats',
+  'northwestern wildcats': 'northwestern-wildcats',
+  'colorado state': 'colorado-state-rams',
+  'colorado st': 'colorado-state-rams',
+  'kansas state': 'kansas-state-wildcats',
+  'kansas st': 'kansas-state-wildcats',
+  'k state': 'kansas-state-wildcats',
+  'oregon state': 'oregon-state-beavers',
+  'oregon st': 'oregon-state-beavers',
+  'florida atlantic': 'florida-atlantic-owls',
+  'fau': 'florida-atlantic-owls',
+  'florida gulf coast': 'florida-gulf-coast-eagles',
+  'fgcu': 'florida-gulf-coast-eagles',
+  'george mason': 'george-mason-patriots',
+  'george mason patriots': 'george-mason-patriots',
+  'richmond': 'richmond-spiders',
+  'richmond spiders': 'richmond-spiders',
+  'temple': 'temple-owls',
+  'temple owls': 'temple-owls',
+  'rhode island': 'rhode-island-rams',
+  'rhode island rams': 'rhode-island-rams',
+  'east carolina': 'east-carolina-pirates',
+  'american': 'american-eagles',
+  'youngstown state': 'youngstown-state-penguins',
+  'youngstown st': 'youngstown-state-penguins',
+};
+
 /**
  * Resolve ESPN/API team name to teams.js slug, or null if no match.
  * @param {string} name - Display name (e.g., "UConn", "Miami (FL)", "Duke Blue Devils")
@@ -308,6 +339,10 @@ export function getTeamSlug(name) {
     const team = TEAMS.find((t) => t.name === aliasName);
     if (team) return team.slug;
   }
+
+  // 2.5) Feed-slug direct lookup (odds feed names → canonical slug)
+  const feedSlug = FEED_SLUGS[key];
+  if (feedSlug) return feedSlug;
 
   // 3) Normalized match: compare tokenized names
   const token = toToken(trimmed);

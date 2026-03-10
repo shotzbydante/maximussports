@@ -9,6 +9,7 @@
 
 import { getTeamEmoji } from '../../../utils/getTeamEmoji';
 import { confidenceLabel } from '../../../utils/maximusPicksModel';
+import { TEAMS } from '../../../data/teams';
 
 // ─── Phrase Variation ─────────────────────────────────────────────────────────
 
@@ -804,6 +805,12 @@ function buildTeamSummaryCaption({
 
 // ─── Conference Intel Caption ─────────────────────────────────────────────────
 
+function _shortName(fullName) {
+  if (!fullName) return '';
+  const parts = fullName.split(' ');
+  return parts.length > 1 ? parts.slice(0, -1).join(' ') : fullName;
+}
+
 function buildConferenceCaption({ conference, atsLeaders, asOf }) {
   if (!conference) return { shortCaption: '', longCaption: '', hashtags: [] };
 
@@ -811,58 +818,91 @@ function buildConferenceCaption({ conference, atsLeaders, asOf }) {
   const isMarch = new Date().getMonth() === 2;
   const seed = confName;
 
-  const hookPhrases = [
-    `\uD83C\uDFC0 ${confName} Intel is live. Here\u2019s the full conference breakdown.`,
-    `\uD83C\uDFC0 Fresh intel on the ${confName}. Everything you need to know.`,
-    `\uD83C\uDFC0 The ${confName} report is in. Here\u2019s what the data says.`,
-  ];
-  const hook = _pick(hookPhrases, seed);
+  const confTeams = TEAMS.filter(t => t.conference === confName);
+  const lockTeams = confTeams.filter(t => t.oddsTier === 'Lock');
+  const contenders = confTeams.filter(t => t.oddsTier === 'Lock' || t.oddsTier === 'Should be in');
+  const isPower = lockTeams.length >= 4;
+  const isMid = lockTeams.length <= 1 && confTeams.length <= 5;
 
-  const bestTeams = (atsLeaders?.best ?? []).slice(0, 2);
-  const atsNote = bestTeams.length > 0
-    ? `\uD83D\uDCCA ATS leaders: ${bestTeams.map(t => t.name || t.slug || '').join(', ')} \u2014 covering the number.`
-    : null;
+  const confSlugs = new Set(confTeams.map(t => t.slug));
+  const confBest = (atsLeaders?.best ?? []).filter(r => confSlugs.has(r.slug));
 
-  const marchNote = isMarch
-    ? `\uD83C\uDFC6 ${confName} tournament positioning is heating up. Every game matters from here.`
-    : null;
+  const topNames = lockTeams.slice(0, 3).map(t => _shortName(t.name));
+  const atsTopName = confBest.length > 0 ? _shortName(confBest[0].name || confBest[0].slug || '') : null;
+  const atsTopRec = confBest.length > 0 ? (confBest[0].rec || confBest[0].last30 || confBest[0].season) : null;
+  const atsTopPct = atsTopRec ? Math.round((atsTopRec.w / (atsTopRec.w + atsTopRec.l)) * 100) : null;
 
-  const narrativePhrases = [
-    `The ${confName} has been one of the more interesting conferences to track this season.`,
-    `Smart bettors are paying attention to what\u2019s happening in the ${confName} right now.`,
-    `The numbers in the ${confName} tell a compelling story heading into the stretch.`,
-  ];
-  const narrativeLine = _pick(narrativePhrases, seed + 'nar');
+  // Hook
+  let hookPool;
+  if (isPower) {
+    hookPool = [
+      `\uD83C\uDFC0 The ${confName} is loaded. ${topNames.slice(0, 2).join(', ')} lead a conference with serious March firepower.`,
+      `\uD83C\uDFC0 ${confName} Intel: ${topNames.slice(0, 2).join(' and ')} are setting the pace in one of the deepest conferences in the country.`,
+      `\uD83C\uDFC0 Power conference alert: the ${confName} has ${lockTeams.length} title-tier teams and the race is tightening.`,
+    ];
+  } else if (isMid) {
+    hookPool = [
+      `\uD83C\uDFC0 Don\u2019t sleep on the ${confName}. There\u2019s value here that sharp bettors are watching.`,
+      `\uD83C\uDFC0 ${confName} Intel is live. Small conference, real opportunity.`,
+      `\uD83C\uDFC0 The ${confName} flies under the radar, but the numbers tell an interesting story.`,
+    ];
+  } else {
+    hookPool = [
+      `\uD83C\uDFC0 ${confName} Intel: ${topNames.length > 0 ? topNames[0] + ' leads the way, but ' : ''}the conference picture is evolving.`,
+      `\uD83C\uDFC0 Fresh ${confName} breakdown. Key teams, ATS trends, and what the market is saying.`,
+      `\uD83C\uDFC0 The ${confName} is heating up. Here\u2019s the full intel report.`,
+    ];
+  }
+  const hook = _pick(hookPool, seed);
 
-  const engagementPhrases = [
-    `Which ${confName} team are you watching most closely right now?`,
-    `Is the ${confName} the most interesting conference in college hoops right now?`,
-    `Who\u2019s the ${confName} team to beat? Drop your pick below.`,
-  ];
-  const engagementQ = _pick(engagementPhrases, seed + 'eng');
+  // Conference narrative
+  const narrativeLines = [];
+  if (contenders.length >= 3) {
+    narrativeLines.push(`${contenders.length} ${confName} teams are in the tournament conversation, with ${topNames.slice(0, 2).join(' and ')} leading the charge.`);
+  } else if (topNames.length > 0) {
+    narrativeLines.push(`${topNames[0]} is the headline ${confName} story, but there\u2019s more to the picture.`);
+  }
+
+  // ATS context
+  if (atsTopName && atsTopPct) {
+    narrativeLines.push(`\uD83D\uDCCA ATS spotlight: ${atsTopName} is covering at ${atsTopPct}% \u2014 the market still hasn\u2019t fully adjusted.`);
+  } else if (atsTopName) {
+    narrativeLines.push(`\uD83D\uDCCA ${atsTopName} leads ${confName} ATS \u2014 one of the sharper plays in the conference.`);
+  }
+
+  // March context
+  if (isMarch) {
+    narrativeLines.push(_pick([
+      `\uD83C\uDFC6 ${confName} tournament positioning is on the line. Every game from here carries bracket weight.`,
+      `\uD83C\uDFC6 Selection Sunday is approaching \u2014 ${confName} seeding battles intensifying.`,
+      `\uD83C\uDFC6 March pressure is building across the ${confName}. Bubble teams are running out of runway.`,
+    ], seed + 'march'));
+  }
+
+  // Engagement
+  const engagementQ = _pick([
+    `Which ${confName} team are you watching most closely heading into tournament play?`,
+    `Is the ${confName} getting the respect it deserves from the betting market?`,
+    `Who\u2019s the ${confName} team to beat? Drop your take below \u2B07\uFE0F`,
+    `Best ${confName} bet right now? We want to hear your pick.`,
+  ], seed + 'eng');
 
   const longCaption = [
     hook,
     '',
-    narrativeLine,
-    '',
-    atsNote,
-    marchNote,
+    ...narrativeLines,
     '',
     engagementQ,
     '',
-    `Full intel + signals: maximussports.ai`,
+    `Full conference intel + market signals at maximussports.ai`,
     '',
     DISCLAIMER,
-  ].filter(l => l !== null && l !== undefined)
-    .reduce((acc, line) => {
-      if (line === '' && acc[acc.length - 1] === '') return acc;
-      return [...acc, line];
-    }, [])
-    .join('\n')
-    .trim();
+  ].reduce((acc, line) => {
+    if (line === '' && acc.length > 0 && acc[acc.length - 1] === '') return acc;
+    return [...acc, line];
+  }, []).join('\n').trim();
 
-  const shortCaption = [hook, atsNote || '', `\n\n${CTA}`].filter(Boolean).join('\n').trim();
+  const shortCaption = [hook, narrativeLines[0] || '', `\n${CTA}`].filter(Boolean).join('\n').trim();
 
   const confTagMap = {
     'Big Ten': '#BigTen', 'SEC': '#SEC', 'ACC': '#ACC', 'Big 12': '#Big12',
@@ -871,7 +911,7 @@ function buildConferenceCaption({ conference, atsLeaders, asOf }) {
   };
   const confTag = confTagMap[confName] ?? null;
   const hashtags = [
-    confTag, '#CollegeBasketball', '#ConferenceIntel', '#MaximusSports', '#SportsBetting',
+    confTag, '#CollegeBasketball', '#MarchMadness', '#MaximusSports', '#CBB',
   ].filter(Boolean).slice(0, 5);
 
   return { shortCaption, longCaption, hashtags };
