@@ -57,6 +57,35 @@ function truncate(str, max = 90) {
   return str.length > max ? `${str.slice(0, max)}…` : str;
 }
 
+function parseStatusDetail(raw) {
+  if (!raw) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+}
+
+const FAILURE_STAGE_LABELS = {
+  env:            'Environment config error',
+  validate:       'Request validation failed',
+  preflight:      'Image URL unreachable',
+  create_media:   'Instagram rejected the image',
+  poll_container: 'Instagram processing timed out',
+  publish_media:  'Instagram publish failed',
+  network:        'Network error',
+};
+
+function humanizeFailureStage(stage) {
+  return FAILURE_STAGE_LABELS[stage] ?? stage ?? 'Unknown';
+}
+
+function formatDuration(ms) {
+  if (ms == null) return null;
+  const s = Math.round(ms / 1000);
+  return s < 1 ? '<1s' : `${s}s`;
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
@@ -122,6 +151,11 @@ function PostCard({ post }) {
   const displayTs  = post.posted_at ? postedTs : createdTs;
   const tsLabel    = post.posted_at ? 'Posted' : 'Created';
 
+  const detail = parseStatusDetail(post.status_detail);
+  const permalink = detail?.permalink ?? null;
+  const durationLabel = formatDuration(detail?.duration_ms);
+  const requestId = post.asset_version ?? detail?.request_id ?? null;
+
   return (
     <div className={`${styles.card} ${styles[`card_${post.lifecycle_status}`] ?? ''}`}>
       {/* Thumbnail */}
@@ -158,7 +192,7 @@ function PostCard({ post }) {
           <StatusBadge status={post.lifecycle_status} />
         </div>
 
-        {/* Row 2: platform + team */}
+        {/* Row 2: platform + team + duration */}
         <div className={styles.cardMeta}>
           <span className={styles.platformPill}>
             {platformMeta.icon} {platformMeta.label}
@@ -169,6 +203,9 @@ function PostCard({ post }) {
           {post.content_studio_section && (
             <span className={styles.sectionPill}>{post.content_studio_section}</span>
           )}
+          {durationLabel && (
+            <span className={styles.sectionPill}>{durationLabel}</span>
+          )}
         </div>
 
         {/* Row 3: caption preview */}
@@ -178,24 +215,43 @@ function PostCard({ post }) {
           </p>
         )}
 
-        {/* Row 4: error message */}
-        {post.lifecycle_status === 'failed' && post.error_message && (
-          <p className={styles.errorDetail} role="alert">
-            {post.error_message}
-          </p>
+        {/* Row 4: failure detail — human-readable stage + message */}
+        {post.lifecycle_status === 'failed' && (
+          <div className={styles.errorDetail} role="alert">
+            {post.response_stage && (
+              <span className={styles.failStageLabel}>
+                {humanizeFailureStage(post.response_stage)}
+              </span>
+            )}
+            {post.error_message && (
+              <p className={styles.errorMsg}>{post.error_message}</p>
+            )}
+          </div>
         )}
 
-        {/* Row 5: media ID */}
-        {post.published_media_id && (
+        {/* Row 5: permalink or media ID */}
+        {permalink && post.lifecycle_status === 'posted' ? (
+          <a
+            href={permalink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.permalinkRow}
+          >
+            View on Instagram ↗
+          </a>
+        ) : post.published_media_id ? (
           <p className={styles.mediaId}>
             ID&nbsp;{post.published_media_id}
           </p>
-        )}
+        ) : null}
 
-        {/* Row 6: timestamps + actions */}
+        {/* Row 6: timestamps + request_id + actions */}
         <div className={styles.cardFooter}>
           <span className={styles.timestamp}>
             {tsLabel}&nbsp;{displayTs}
+            {requestId && (
+              <span className={styles.requestId}> · req {requestId.slice(0, 8)}</span>
+            )}
           </span>
           <div className={styles.actions}>
             {post.caption_snapshot && (

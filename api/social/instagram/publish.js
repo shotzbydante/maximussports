@@ -11,8 +11,12 @@
  *        a. POST  /{id}/media        → creationId  (container creation)
  *        b. POLL  GET /{creationId}?fields=status_code  until FINISHED
  *        c. POST  /{id}/media_publish → publishedMediaId
- *   5. Update the record to `posted` or `failed`
- *   6. Return safe response JSON
+ *   5. Fetch permalink for the published media
+ *   6. Update the record to `posted` or `failed` with extended metadata
+ *   7. Return safe response JSON
+ *
+ * Every request gets a unique request_id carried through all log lines and
+ * persisted to the social_posts record for operator traceability.
  *
  * Request body (JSON):
  *   imageUrl  {string}   — public HTTPS URL (must be reachable by Meta's servers)
@@ -22,7 +26,7 @@
  *     contentStudioSection, generatedBy, templateType
  *
  * Response:
- *   { ok, stage, postId, creationId, publishedMediaId, debug }
+ *   { ok, stage, postId, creationId, publishedMediaId, permalink, requestId, durationMs, debug }
  *
  * Required env vars:
  *   INSTAGRAM_ACCOUNT_ID   — numeric Instagram user ID
@@ -32,13 +36,27 @@
  */
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
+import { randomUUID } from 'node:crypto';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS  = 90_000;
 const IG_API_VERSION   = 'v23.0';
 
-// ── Env sanitization (same pattern as /api/instagram/status) ────────────────
+// ── Structured logger ───────────────────────────────────────────────────────
+
+function createLogger(requestId) {
+  const short = requestId.slice(0, 8);
+  const prefix = `[social/publish req=${short}]`;
+  return {
+    info:  (...args) => console.log(prefix, ...args),
+    warn:  (...args) => console.warn(prefix, ...args),
+    error: (...args) => console.error(prefix, ...args),
+  };
+}
+
+// ── Env sanitization ────────────────────────────────────────────────────────
+
 function sanitizeEnv(value) {
   if (value == null) return '';
   let s = String(value).trim();
@@ -49,6 +67,7 @@ function sanitizeEnv(value) {
 }
 
 // ── Safe Meta error extractor ────────────────────────────────────────────────
+
 function safeMetaError(raw) {
   const e = raw?.error ?? raw ?? {};
   return {
@@ -84,6 +103,7 @@ async function insertPendingRecord(supabase, fields) {
       template_type:          fields.templateType       ?? null,
       triggered_by:           'manual_ui',
       route_used:             '/api/social/instagram/publish',
+      asset_version:          fields.requestId          ?? null,
     }])
     .select('id')
     .single();
@@ -119,7 +139,7 @@ async function verifyImageUrl(url) {
 
 // ── Container status polling ────────────────────────────────────────────────
 
-async function pollContainerStatus(containerId, accessToken) {
+async function pollContainerStatus(containerId, accessToken, log) {
   const endpoint = `https://graph.instagram.com/${IG_API_VERSION}/${containerId}`;
   const start = Date.now();
   const pollLog = [];
@@ -137,6 +157,7 @@ async function pollContainerStatus(containerId, accessToken) {
       statusCode = rawData.status_code ?? rawData.status ?? null;
     } catch (err) {
       pollLog.push({ elapsed, error: err.message });
+      log.warn(`poll error at ${elapsed}ms:`, err.message);
       continue;
     }
 
@@ -144,7 +165,7 @@ async function pollContainerStatus(containerId, accessToken) {
     if (rawData.status) entry.statusDetail = rawData.status;
     pollLog.push(entry);
 
-    console.log(`[social/publish] poll container ${containerId}: ${statusCode} (${elapsed}ms)`);
+    log.info(`poll: ${statusCode} (${elapsed}ms)`);
 
     if (statusCode === 'FINISHED') {
       return { ready: true, statusCode, elapsed, pollLog };
@@ -170,9 +191,53 @@ async function pollContainerStatus(containerId, accessToken) {
   };
 }
 
+// ── Permalink fetch ─────────────────────────────────────────────────────────
+
+async function fetchPermalink(mediaId, accessToken, log) {
+  try {
+    const resp = await fetch(
+      `https://graph.instagram.com/${IG_API_VERSION}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(accessToken)}`,
+    );
+    const data = await resp.json();
+    if (data.permalink) {
+      log.info('permalink:', data.permalink);
+      return data.permalink;
+    }
+    log.warn('permalink not returned:', JSON.stringify(data));
+    return null;
+  } catch (err) {
+    log.warn('permalink fetch failed (non-fatal):', err.message);
+    return null;
+  }
+}
+
+// ── Build extended status_detail JSON ───────────────────────────────────────
+
+function buildStatusDetail(fields) {
+  return JSON.stringify({
+    request_id:     fields.requestId,
+    started_at:     fields.startedAt,
+    completed_at:   new Date().toISOString(),
+    duration_ms:    Date.now() - fields.startTs,
+    final_stage:    fields.finalStage,
+    poll_attempts:  fields.pollAttempts  ?? 0,
+    poll_elapsed:   fields.pollElapsed   ?? 0,
+    permalink:      fields.permalink     ?? null,
+    preflight:      fields.preflight     ?? null,
+    ig_error_code:  fields.igErrorCode   ?? null,
+    ig_error_type:  fields.igErrorType   ?? null,
+    ig_fbtrace_id:  fields.igFbtraceId   ?? null,
+  });
+}
+
 // ── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
+  const requestId = randomUUID();
+  const startTs   = Date.now();
+  const startedAt = new Date(startTs).toISOString();
+  const log       = createLogger(requestId);
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
 
@@ -181,6 +246,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
+  log.info('publish request received');
+
   // --- Stage: env ---
   const envCheck = {
     INSTAGRAM_ACCOUNT_ID:   !!process.env.INSTAGRAM_ACCOUNT_ID,
@@ -188,9 +255,9 @@ export default async function handler(req, res) {
   };
 
   if (!envCheck.INSTAGRAM_ACCOUNT_ID || !envCheck.INSTAGRAM_ACCESS_TOKEN) {
+    log.error('missing env vars:', envCheck);
     return res.status(500).json({
-      ok: false,
-      stage: 'env',
+      ok: false, stage: 'env', requestId,
       error: 'Missing required Instagram environment variables',
       envCheck,
     });
@@ -200,6 +267,8 @@ export default async function handler(req, res) {
   const accessToken = sanitizeEnv(process.env.INSTAGRAM_ACCESS_TOKEN);
 
   const debug = {
+    requestId,
+    startedAt,
     tokenLength:              accessToken.length,
     tokenPrefix:              accessToken.slice(0, 8),
     tokenHasWhitespace:       /\s/.test(accessToken),
@@ -207,7 +276,6 @@ export default async function handler(req, res) {
     instagramAccountIdLength: accountId.length,
     deploymentEnv:            process.env.VERCEL_ENV ?? null,
     vercelUrl:                process.env.VERCEL_URL ?? null,
-    tokenHostFamily:          'instagram_login_candidate',
   };
 
   // --- Stage: validate ---
@@ -215,40 +283,42 @@ export default async function handler(req, res) {
 
   if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
     return res.status(400).json({
-      ok: false, stage: 'validate',
+      ok: false, stage: 'validate', requestId,
       error: 'imageUrl is required and must be a non-empty string', debug,
     });
   }
 
   if (!imageUrl.startsWith('https://')) {
     return res.status(400).json({
-      ok: false, stage: 'validate',
-      error: 'imageUrl must be a public HTTPS URL so Instagram can fetch it',
-      debug,
+      ok: false, stage: 'validate', requestId,
+      error: 'imageUrl must be a public HTTPS URL so Instagram can fetch it', debug,
     });
   }
 
   if (!caption || typeof caption !== 'string' || caption.trim() === '') {
     return res.status(400).json({
-      ok: false, stage: 'validate',
+      ok: false, stage: 'validate', requestId,
       error: 'caption is required and must be a non-empty string', debug,
     });
   }
 
+  log.info('validated — image:', imageUrl.slice(0, 100), '| caption:', caption.length, 'chars');
+
   // --- Stage: preflight (verify image URL is reachable) ---
   const imgCheck = await verifyImageUrl(imageUrl.trim());
   debug.imageUrlCheck = imgCheck;
-  console.log('[social/publish] image preflight:', imgCheck);
+  log.info('preflight:', JSON.stringify(imgCheck));
 
   if (!imgCheck.reachable) {
+    log.error('preflight FAILED — image unreachable');
     return res.status(400).json({
-      ok: false, stage: 'preflight',
+      ok: false, stage: 'preflight', requestId,
       error: `Image URL is not reachable (HTTP ${imgCheck.status}). Instagram will not be able to fetch it.`,
       debug,
     });
   }
   if (!imgCheck.isImage) {
-    console.warn(`[social/publish] image URL Content-Type is "${imgCheck.contentType}", expected image/*`);
+    log.warn(`image URL Content-Type is "${imgCheck.contentType}", expected image/*`);
   }
 
   // --- Init Supabase ---
@@ -273,11 +343,39 @@ export default async function handler(req, res) {
         contentStudioSection:  metadata.contentStudioSection ?? null,
         generatedBy:           metadata.generatedBy        ?? null,
         templateType:          metadata.templateType       ?? null,
+        requestId,
       });
+      log.info('DB record created:', postId);
     } catch (err) {
-      console.error('[social/publish] Could not insert pending record:', err.message);
+      log.error('DB insert failed (non-fatal):', err.message);
     }
   }
+
+  // Helper to fail + persist in one call
+  const failAndReturn = async (httpStatus, stage, errorObj, extra = {}) => {
+    log.error(`FAILED at stage=${stage}:`, errorObj.message ?? errorObj);
+    if (supabase && postId) {
+      await updateRecord(supabase, postId, {
+        lifecycle_status: 'failed',
+        response_stage:   stage,
+        error_message:    errorObj.message ?? String(errorObj),
+        status_detail:    buildStatusDetail({
+          requestId, startedAt, startTs, finalStage: stage,
+          igErrorCode:  errorObj.code  ?? null,
+          igErrorType:  errorObj.type  ?? null,
+          igFbtraceId:  errorObj.fbtrace_id ?? null,
+          preflight:    imgCheck,
+          ...extra,
+        }),
+      });
+    }
+    return res.status(httpStatus).json({
+      ok: false, stage, postId, requestId, debug,
+      error: errorObj,
+      durationMs: Date.now() - startTs,
+      ...extra,
+    });
+  };
 
   // --- Stage: create_media ---
   const createEndpoint = `https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media`;
@@ -289,7 +387,7 @@ export default async function handler(req, res) {
 
   let creationId = null;
   try {
-    console.log(`[social/publish] creating media container — image: ${imageUrl.trim().slice(0, 120)}`);
+    log.info('creating media container…');
     const createRes  = await fetch(createEndpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -299,62 +397,35 @@ export default async function handler(req, res) {
 
     if (!createRes.ok || createData.error) {
       const err = safeMetaError(createData);
-      console.error('[social/publish] create_media failed:', JSON.stringify(err));
-      if (supabase && postId) {
-        await updateRecord(supabase, postId, {
-          lifecycle_status: 'failed',
-          status_detail:    'create_media',
-          error_message:    err.message,
-          response_stage:   'create_media',
-        });
-      }
-      return res.status(502).json({
-        ok: false, stage: 'create_media', postId, debug,
-        error: err,
-      });
+      return failAndReturn(502, 'create_media', err);
     }
 
     creationId = createData.id ?? createData.creation_id ?? null;
-    console.log(`[social/publish] container created: ${creationId}`);
+    log.info('container created:', creationId);
 
     if (!creationId) {
-      if (supabase && postId) {
-        await updateRecord(supabase, postId, {
-          lifecycle_status: 'failed',
-          status_detail:    'create_media',
-          error_message:    'No container id returned by Instagram API',
-          response_stage:   'create_media',
-        });
-      }
-      return res.status(502).json({
-        ok: false, stage: 'create_media', postId, debug,
-        error: { message: 'Media container created but no id returned', type: null, code: null, fbtrace_id: null },
-        rawKeys: Object.keys(createData),
+      return failAndReturn(502, 'create_media', {
+        message: 'Media container created but no id returned',
+        type: null, code: null, fbtrace_id: null,
       });
     }
   } catch (err) {
-    console.error('[social/publish] create_media network error:', err.message);
-    if (supabase && postId) {
-      await updateRecord(supabase, postId, {
-        lifecycle_status: 'failed',
-        status_detail:    'create_media',
-        error_message:    err.message ?? 'Network error',
-        response_stage:   'create_media',
-      });
-    }
-    return res.status(500).json({
-      ok: false, stage: 'create_media', postId, debug,
-      error: { message: err.message ?? 'Network error during media container creation', type: null, code: null, fbtrace_id: null },
+    return failAndReturn(500, 'create_media', {
+      message: err.message ?? 'Network error during media container creation',
+      type: null, code: null, fbtrace_id: null,
     });
   }
 
   if (supabase && postId) {
-    await updateRecord(supabase, postId, { creation_id: creationId });
+    await updateRecord(supabase, postId, {
+      creation_id:    creationId,
+      response_stage: 'polling',
+    });
   }
 
   // --- Stage: poll_container (wait for FINISHED) ---
-  console.log(`[social/publish] polling container ${creationId} for readiness…`);
-  const poll = await pollContainerStatus(creationId, accessToken);
+  log.info('polling container for readiness…');
+  const poll = await pollContainerStatus(creationId, accessToken, log);
   debug.containerPoll = {
     ready:      poll.ready,
     statusCode: poll.statusCode,
@@ -367,23 +438,17 @@ export default async function handler(req, res) {
       ? `Instagram did not finish processing the image within ${POLL_TIMEOUT_MS / 1000}s. The image may be too large or Instagram is slow — please try again.`
       : `Instagram media container failed with status "${poll.statusCode}": ${poll.error}`;
 
-    console.error(`[social/publish] container not ready: ${poll.statusCode}`, poll.error);
-    if (supabase && postId) {
-      await updateRecord(supabase, postId, {
-        lifecycle_status: 'failed',
-        status_detail:    'poll_container',
-        error_message:    errMsg,
-        response_stage:   'poll_container',
-      });
-    }
-    return res.status(502).json({
-      ok: false, stage: 'poll_container', postId, creationId, debug,
-      error: { message: errMsg, type: null, code: poll.statusCode, fbtrace_id: null },
+    return failAndReturn(502, 'poll_container', {
+      message: errMsg, type: null, code: poll.statusCode, fbtrace_id: null,
+    }, {
+      creationId,
       pollLog: poll.pollLog,
+      pollAttempts: poll.pollLog.length,
+      pollElapsed: poll.elapsed,
     });
   }
 
-  console.log(`[social/publish] container FINISHED after ${poll.elapsed}ms (${poll.pollLog.length} polls)`);
+  log.info(`container FINISHED after ${poll.elapsed}ms (${poll.pollLog.length} polls)`);
 
   // --- Stage: publish_media ---
   const publishEndpoint = `https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media_publish`;
@@ -394,7 +459,7 @@ export default async function handler(req, res) {
 
   let publishedMediaId = null;
   try {
-    console.log(`[social/publish] publishing container ${creationId}…`);
+    log.info('publishing…');
     const publishRes  = await fetch(publishEndpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -404,58 +469,65 @@ export default async function handler(req, res) {
 
     if (!publishRes.ok || publishData.error) {
       const err = safeMetaError(publishData);
-      console.error('[social/publish] publish_media failed:', JSON.stringify(err));
-      if (supabase && postId) {
-        await updateRecord(supabase, postId, {
-          lifecycle_status: 'failed',
-          status_detail:    'publish_media',
-          error_message:    err.message,
-          response_stage:   'publish_media',
-        });
-      }
-      return res.status(502).json({
-        ok: false, stage: 'publish_media', postId, creationId, debug,
-        error: err,
+      return failAndReturn(502, 'publish_media', err, {
+        creationId,
+        pollAttempts: poll.pollLog.length,
+        pollElapsed: poll.elapsed,
       });
     }
 
     publishedMediaId = publishData.id ?? null;
-    console.log(`[social/publish] published! mediaId: ${publishedMediaId}`);
+    log.info('published — mediaId:', publishedMediaId);
   } catch (err) {
-    console.error('[social/publish] publish_media network error:', err.message);
-    if (supabase && postId) {
-      await updateRecord(supabase, postId, {
-        lifecycle_status: 'failed',
-        status_detail:    'publish_media',
-        error_message:    err.message ?? 'Network error',
-        response_stage:   'publish_media',
-      });
-    }
-    return res.status(500).json({
-      ok: false, stage: 'publish_media', postId, creationId, debug,
-      error: { message: err.message ?? 'Network error during media publish', type: null, code: null, fbtrace_id: null },
+    return failAndReturn(500, 'publish_media', {
+      message: err.message ?? 'Network error during media publish',
+      type: null, code: null, fbtrace_id: null,
+    }, {
+      creationId,
+      pollAttempts: poll.pollLog.length,
+      pollElapsed: poll.elapsed,
     });
   }
+
+  // --- Stage: permalink (best-effort, non-blocking) ---
+  let permalink = null;
+  if (publishedMediaId) {
+    permalink = await fetchPermalink(publishedMediaId, accessToken, log);
+  }
+
+  const durationMs = Date.now() - startTs;
 
   // --- Update record to posted ---
   if (supabase && postId) {
     await updateRecord(supabase, postId, {
-      lifecycle_status:  'posted',
-      posted_at:         new Date().toISOString(),
-      creation_id:       creationId,
+      lifecycle_status:   'posted',
+      posted_at:          new Date().toISOString(),
+      creation_id:        creationId,
       published_media_id: publishedMediaId,
-      status_detail:     'ok',
-      response_stage:    'ok',
+      response_stage:     'ok',
+      error_message:      null,
+      status_detail:      buildStatusDetail({
+        requestId, startedAt, startTs, finalStage: 'ok',
+        pollAttempts: poll.pollLog.length,
+        pollElapsed:  poll.elapsed,
+        permalink,
+        preflight:    imgCheck,
+      }),
     });
   }
+
+  log.info(`SUCCESS — mediaId=${publishedMediaId} duration=${durationMs}ms`);
 
   // --- Stage: ok ---
   return res.status(200).json({
     ok:              true,
     stage:           'ok',
     postId,
+    requestId,
     creationId,
     publishedMediaId,
+    permalink,
+    durationMs,
     debug,
   });
 }

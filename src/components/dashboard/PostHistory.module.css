@@ -402,9 +402,39 @@
   color: var(--color-down, #c45c4a);
   background: rgba(196, 92, 74, 0.05);
   border-radius: 4px;
-  padding: 3px 6px;
+  padding: 4px 7px;
   margin: 0;
   word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.failStageLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.errorMsg {
+  margin: 0;
+  line-height: 1.35;
+}
+
+/* ── Permalink ─────────────────────────────────────────────────────────── */
+.permalinkRow {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary, #3C79B4);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.permalinkRow:hover {
+  opacity: 0.8;
+  text-decoration: underline;
 }
 
 /* ── Media ID ───────────────────────────────────────────────────────────── */
@@ -413,6 +443,13 @@
   font-family: var(--font-mono);
   color: var(--color-text-muted);
   margin: 0;
+}
+
+/* ── Request ID ────────────────────────────────────────────────────────── */
+.requestId {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.6;
 }
 
 /* ── Card footer ────────────────────────────────────────────────────────── */

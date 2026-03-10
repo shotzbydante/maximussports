@@ -5,31 +5,26 @@
  *
  * Flow on click:
  *   1. Render slide 1 of the hidden export artboard to a 1080×1350 PNG
- *      using html-to-image (same settings as the PNG export flow)
- *   2. Upload the PNG to Supabase Storage via /api/social/upload-asset
- *   3. POST the public URL + caption to /api/social/instagram/publish
- *   4. Transition through: idle → rendering → uploading → publishing → success | error
+ *   2. Blank-image validation
+ *   3. Upload the PNG to Supabase Storage via /api/social/upload-asset
+ *   4. POST the public URL + caption to /api/social/instagram/publish
+ *      (backend polls container until FINISHED, then publishes)
+ *   5. Transition through: idle → rendering → uploading → publishing → success | error
  *
- * Props:
- *   exportRef      {React.RefObject}  — ref forwarded to the hidden export layer in CarouselComposer
- *   caption        {object|null}      — { shortCaption, longCaption, hashtags } from buildCaption()
- *   canPublish     {boolean}          — gates the button (mirrors the canExport flag in Dashboard)
- *   metadata       {object}           — audit context: title, templateType, contentType, teamSlug, teamName, contentStudioSection
- *   onSuccess      {function}         — called with { postId, publishedMediaId } on success; triggers history refresh
+ * Duplicate protection:
+ *   - Button disabled while any stage is in-flight
+ *   - In-flight asset URL tracked via ref — prevents double-submit of the same image
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { sanitizeImagesForExport } from './utils/exportReady';
 import { uploadAsset, publishToInstagram } from '../../lib/socialPosts';
 import styles from './InstagramPublishButton.module.css';
 
 const DEBUG = import.meta.env.DEV;
 
-/**
- * Analyse a data-URL PNG and return true if the image contains only
- * white / near-white pixels (i.e. the capture was blank).
- * Uses an offscreen canvas to sample pixels — fast and synchronous after decode.
- */
+// ── Blank-image detection ───────────────────────────────────────────────────
+
 async function isBlankImage(dataUrl, threshold = 0.995) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -41,8 +36,6 @@ async function isBlankImage(dataUrl, threshold = 0.995) {
       ctx.drawImage(img, 0, 0);
 
       const step = 4;
-      const sampleW = Math.ceil(img.width / step);
-      const sampleH = Math.ceil(img.height / step);
       const { data } = ctx.getImageData(0, 0, img.width, img.height);
 
       let whiteCount = 0;
@@ -59,7 +52,7 @@ async function isBlankImage(dataUrl, threshold = 0.995) {
 
       const ratio = totalSampled > 0 ? whiteCount / totalSampled : 1;
       if (DEBUG) {
-        console.log(`[InstagramPublish:debug] blank-check: ${whiteCount}/${totalSampled} white pixels (${(ratio * 100).toFixed(1)}%), threshold ${(threshold * 100).toFixed(1)}%`);
+        console.log(`[InstagramPublish:debug] blank-check: ${whiteCount}/${totalSampled} white (${(ratio * 100).toFixed(1)}%)`);
       }
       resolve(ratio >= threshold);
     };
@@ -68,14 +61,54 @@ async function isBlankImage(dataUrl, threshold = 0.995) {
   });
 }
 
+// ── Elapsed time display ────────────────────────────────────────────────────
+
+function useElapsedTimer(active) {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(null);
+
+  useEffect(() => {
+    if (!active) {
+      setElapsed(0);
+      startRef.current = null;
+      return;
+    }
+    startRef.current = Date.now();
+    const id = setInterval(() => {
+      if (startRef.current) setElapsed(Date.now() - startRef.current);
+    }, 500);
+    return () => clearInterval(id);
+  }, [active]);
+
+  return elapsed;
+}
+
+function formatElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 1) return '';
+  return `${s}s`;
+}
+
+// ── Stage configuration ─────────────────────────────────────────────────────
+
 const STAGE_LABELS = {
   idle:       'Post to Instagram',
-  rendering:  'Rendering…',
-  uploading:  'Uploading…',
-  publishing: 'Publishing…',
-  success:    '✓ Posted',
+  rendering:  'Rendering slide…',
+  uploading:  'Uploading image…',
+  publishing: 'Publishing to Instagram…',
+  success:    'Posted',
   error:      'Retry',
 };
+
+const STAGE_MESSAGES = {
+  preflight:      'Image URL was not reachable by Instagram. Please retry.',
+  create_media:   'Instagram rejected the image.',
+  poll_container: 'Instagram took too long to process the image. Please retry.',
+  publish_media:  'Instagram publish step failed.',
+  network:        'Network error — check your connection and retry.',
+};
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function InstagramPublishButton({
   exportRef,
@@ -86,9 +119,13 @@ export default function InstagramPublishButton({
 }) {
   const [stage,        setStage]       = useState('idle');
   const [errorMessage, setErrorMessage] = useState(null);
-  const [lastPostId,   setLastPostId]   = useState(null);
+  const [lastResult,   setLastResult]   = useState(null);
+
+  // Duplicate-submission guard: track in-flight asset URL
+  const inFlightRef = useRef(null);
 
   const isWorking = stage === 'rendering' || stage === 'uploading' || stage === 'publishing';
+  const elapsed = useElapsedTimer(isWorking);
 
   const buildCaptionText = useCallback(() => {
     if (!caption) return '';
@@ -98,11 +135,11 @@ export default function InstagramPublishButton({
   }, [caption]);
 
   const handleClick = useCallback(async () => {
-    if (isWorking) return;
+    if (isWorking || inFlightRef.current) return;
 
     setErrorMessage(null);
+    setLastResult(null);
 
-    // Validate caption first so the error is clear
     const captionText = buildCaptionText();
     if (!captionText.trim()) {
       setErrorMessage('No caption available. Generate content first.');
@@ -110,7 +147,6 @@ export default function InstagramPublishButton({
       return;
     }
 
-    // Validate export ref
     if (!exportRef?.current) {
       setErrorMessage('Export artboard not ready. Wait for slides to load.');
       setStage('error');
@@ -124,7 +160,7 @@ export default function InstagramPublishButton({
       return;
     }
 
-    // ── Step 1: Render slide to PNG ────────────────────────────────────────
+    // ── Step 1: Render slide to PNG ──────────────────────────────────────
     setStage('rendering');
     let dataUrl;
     try {
@@ -136,7 +172,7 @@ export default function InstagramPublishButton({
 
       if (imgReport.failed > 0) {
         console.warn(
-          `[InstagramPublish] ${imgReport.failed} image(s) failed to load and were replaced before capture:`,
+          `[InstagramPublish] ${imgReport.failed} image(s) failed and replaced before capture:`,
           imgReport.details,
         );
       }
@@ -146,22 +182,13 @@ export default function InstagramPublishButton({
         const cs = window.getComputedStyle(slide1);
         console.log('[InstagramPublish:debug] capture node:', {
           tagName: slide1.tagName,
-          className: slide1.className,
           dataSlide: slide1.getAttribute('data-slide'),
-          boundingRect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left },
-          computedVisibility: cs.visibility,
-          computedDisplay: cs.display,
-          computedOpacity: cs.opacity,
-          childElementCount: slide1.childElementCount,
-          innerHTML_length: slide1.innerHTML.length,
+          dims: { w: rect.width, h: rect.height },
+          visibility: cs.visibility,
+          children: slide1.childElementCount,
         });
-        if (cs.visibility === 'hidden') {
-          console.error('[InstagramPublish:debug] CRITICAL — capture node has visibility:hidden, image will be blank!');
-        }
       }
 
-      // Force visibility on the capture target and its export-layer parent so
-      // html-to-image never clones inherited visibility:hidden styles.
       const exportLayer = exportRef.current;
       const prevLayerVis = exportLayer.style.visibility;
       const prevSlideVis = slide1.style.visibility;
@@ -179,7 +206,7 @@ export default function InstagramPublishButton({
 
       if (DEBUG) {
         const sizeKB = Math.round((dataUrl.length * 3) / 4 / 1024);
-        console.log(`[InstagramPublish:debug] rendered PNG data-URL: ${sizeKB} KB (${dataUrl.length} chars)`);
+        console.log(`[InstagramPublish:debug] rendered PNG: ${sizeKB} KB`);
       }
     } catch (err) {
       const msg = err.message || '';
@@ -196,21 +223,20 @@ export default function InstagramPublishButton({
       return;
     }
 
-    // ── Step 1b: Validate the rendered PNG is not blank ─────────────────────
+    // ── Step 1b: Blank-image validation ──────────────────────────────────
     try {
       const blank = await isBlankImage(dataUrl);
       if (blank) {
-        console.error('[InstagramPublish] Rendered PNG is blank/white — aborting upload.');
+        console.error('[InstagramPublish] Rendered PNG is blank — aborting.');
         setErrorMessage('Slide export produced a blank image. Please retry or check the slide preview.');
         setStage('error');
         return;
       }
-      if (DEBUG) console.log('[InstagramPublish:debug] blank-check passed — image has visible content');
     } catch {
-      if (DEBUG) console.warn('[InstagramPublish:debug] blank-check skipped (decode error)');
+      if (DEBUG) console.warn('[InstagramPublish:debug] blank-check skipped');
     }
 
-    // ── Step 2: Upload PNG to get a public URL ─────────────────────────────
+    // ── Step 2: Upload PNG ───────────────────────────────────────────────
     setStage('uploading');
     let imageUrl;
     try {
@@ -218,14 +244,17 @@ export default function InstagramPublishButton({
       const ts           = Date.now();
       const { url }      = await uploadAsset(dataUrl, `${templateSlug}_${ts}_slide1.png`);
       imageUrl = url;
-      if (DEBUG) console.log('[InstagramPublish:debug] uploaded asset URL:', imageUrl);
+      if (DEBUG) console.log('[InstagramPublish:debug] uploaded:', imageUrl);
     } catch (err) {
       setErrorMessage(`Upload failed: ${err.message ?? 'Storage error'}`);
       setStage('error');
       return;
     }
 
-    // ── Step 3: Publish to Instagram (includes server-side container polling) ─
+    // Mark in-flight to prevent duplicate submissions for same asset
+    inFlightRef.current = imageUrl;
+
+    // ── Step 3: Publish (server polls container, then publishes) ─────────
     setStage('publishing');
     try {
       const result = await publishToInstagram({
@@ -240,37 +269,42 @@ export default function InstagramPublishButton({
         templateType:          metadata.templateType       ?? null,
       });
 
-      if (DEBUG) console.log('[InstagramPublish:debug] publish success:', result);
+      if (DEBUG) console.log('[InstagramPublish:debug] success:', result);
 
-      setLastPostId(result.postId ?? null);
+      setLastResult(result);
       setStage('success');
-      onSuccess?.({ postId: result.postId, publishedMediaId: result.publishedMediaId });
+      onSuccess?.({
+        postId:          result.postId,
+        publishedMediaId: result.publishedMediaId,
+        permalink:        result.permalink,
+        requestId:        result.requestId,
+        durationMs:       result.durationMs,
+      });
 
-      setTimeout(() => setStage('idle'), 6000);
+      setTimeout(() => setStage('idle'), 8000);
     } catch (err) {
-      const stage = err.stage ?? 'publish';
+      const failStage = err.stage ?? 'publish';
       const code = err.code ? ` (code ${err.code})` : '';
 
-      const STAGE_MESSAGES = {
-        preflight:      'Image URL was not reachable by Instagram. Please retry.',
-        create_media:   `Instagram rejected the image${code}. ${err.message ?? ''}`,
-        poll_container: err.message ?? 'Instagram took too long to process the image. Please retry.',
-        publish_media:  `Instagram publish step failed${code}. ${err.message ?? ''}`,
-      };
+      const baseMsg = STAGE_MESSAGES[failStage] ?? 'Instagram publish failed.';
+      const detail  = err.message && !baseMsg.includes(err.message)
+        ? ` ${err.message}`
+        : '';
+      const userMsg = `${baseMsg}${detail}${code}`;
 
-      const userMsg = STAGE_MESSAGES[stage]
-        ?? `Instagram publish failed: ${err.message ?? 'Unknown error'}${code}`;
-
-      if (DEBUG) console.error('[InstagramPublish:debug] publish error:', { stage, code, message: err.message, serverDebug: err.serverDebug });
+      if (DEBUG) console.error('[InstagramPublish:debug] error:', { stage: failStage, code, message: err.message, requestId: err.requestId });
 
       setErrorMessage(userMsg);
       setStage('error');
+    } finally {
+      inFlightRef.current = null;
     }
   }, [isWorking, buildCaptionText, exportRef, metadata, onSuccess]);
 
   const handleReset = () => {
     setStage('idle');
     setErrorMessage(null);
+    setLastResult(null);
   };
 
   const disabled = !canPublish || isWorking || stage === 'success';
@@ -287,25 +321,57 @@ export default function InstagramPublishButton({
         <span className={styles.icon} aria-hidden="true">
           {stage === 'success' ? '✓' : stage === 'error' ? '✕' : '▶'}
         </span>
-        <span className={styles.label}>{STAGE_LABELS[stage] ?? 'Post to Instagram'}</span>
+        <span className={styles.label}>
+          {STAGE_LABELS[stage] ?? 'Post to Instagram'}
+          {isWorking && elapsed > 1000 && (
+            <span className={styles.elapsed}> {formatElapsed(elapsed)}</span>
+          )}
+        </span>
         {isWorking && <span className={styles.spinner} aria-hidden="true" />}
       </button>
 
-      {stage === 'success' && lastPostId && (
-        <p className={styles.successNote}>
-          Live on Instagram · record #{lastPostId.slice(0, 8)}…
-        </p>
+      {/* Success state */}
+      {stage === 'success' && lastResult && (
+        <div className={styles.successBlock}>
+          <p className={styles.successNote}>
+            Live on Instagram
+            {lastResult.durationMs != null && (
+              <span className={styles.durationNote}>
+                {' '}· {Math.round(lastResult.durationMs / 1000)}s
+              </span>
+            )}
+          </p>
+          {lastResult.permalink && (
+            <a
+              href={lastResult.permalink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.permalinkLink}
+            >
+              View post ↗
+            </a>
+          )}
+        </div>
       )}
 
+      {/* Error state */}
       {stage === 'error' && errorMessage && (
         <p className={styles.errorNote} role="alert">
           {errorMessage}
         </p>
       )}
 
+      {/* Idle hint */}
       {stage === 'idle' && (
         <p className={styles.hint}>
           Posts slide&nbsp;1 · short caption
+        </p>
+      )}
+
+      {/* Publishing sub-status */}
+      {stage === 'publishing' && elapsed > 3000 && (
+        <p className={styles.hint}>
+          Waiting for Instagram to process the image…
         </p>
       )}
     </div>

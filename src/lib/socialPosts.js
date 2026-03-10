@@ -62,6 +62,10 @@ export async function uploadAsset(base64, filename) {
 /**
  * Publishes a post to Instagram via the production backend route.
  *
+ * The backend creates the media container, polls for readiness, publishes,
+ * and fetches the permalink — all in a single request. This can take up to
+ * ~90 s while Instagram processes the image.
+ *
  * @param {{
  *   imageUrl:              string,
  *   caption:               string,
@@ -73,20 +77,31 @@ export async function uploadAsset(base64, filename) {
  *   generatedBy?:          string,
  *   templateType?:         string,
  * }} payload
- * @returns {Promise<{ ok: true, postId: string, creationId: string, publishedMediaId: string }>}
+ * @returns {Promise<{
+ *   ok: true, postId: string, requestId: string,
+ *   creationId: string, publishedMediaId: string,
+ *   permalink: string|null, durationMs: number,
+ * }>}
  */
 export async function publishToInstagram(payload) {
   const { imageUrl, caption, ...metaFields } = payload;
 
-  const res = await fetch('/api/social/instagram/publish', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      imageUrl,
-      caption,
-      metadata: metaFields,
-    }),
-  });
+  let res;
+  try {
+    res = await fetch('/api/social/instagram/publish', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        imageUrl,
+        caption,
+        metadata: metaFields,
+      }),
+    });
+  } catch {
+    const err = new Error('Network error — could not reach the Instagram publish service. Check your connection and retry.');
+    err.stage = 'network';
+    throw err;
+  }
 
   const data = await res.json();
 
@@ -94,18 +109,22 @@ export async function publishToInstagram(payload) {
     const err = new Error(
       data.error?.message ?? data.error ?? 'Instagram publish failed',
     );
-    err.stage       = data.stage  ?? 'publish';
+    err.stage       = data.stage     ?? 'publish';
     err.code        = data.error?.code ?? null;
-    err.postId      = data.postId ?? null;
-    err.serverDebug = data.debug  ?? null;
+    err.postId      = data.postId    ?? null;
+    err.requestId   = data.requestId ?? null;
+    err.serverDebug = data.debug     ?? null;
     throw err;
   }
 
   return {
-    ok:              true,
-    postId:          data.postId,
-    creationId:      data.creationId,
+    ok:               true,
+    postId:           data.postId,
+    requestId:        data.requestId      ?? null,
+    creationId:       data.creationId,
     publishedMediaId: data.publishedMediaId,
+    permalink:        data.permalink       ?? null,
+    durationMs:       data.durationMs      ?? null,
   };
 }
 
