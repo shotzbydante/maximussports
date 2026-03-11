@@ -1,16 +1,22 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getTeamsGroupedByConference, TEAMS } from '../data/teams';
+import { TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
 import ConferenceLogo from '../components/shared/ConferenceLogo';
 import ChampionshipBadge from '../components/shared/ChampionshipBadge';
-import Top25Rankings from '../components/home/Top25Rankings';
+import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
+import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
+import { fetchHomeFast } from '../api/home';
+import { buildSlugToRankMap } from '../utils/rankingsNormalize';
+import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import styles from './Teams.module.css';
 import SEOHead from '../components/seo/SEOHead';
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
 const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
+const MAJOR_CONFS = CONF_ORDER.slice(0, -1);
+
 const TIER_CLASS = {
   Lock: styles.tierLock,
   'Should be in': styles.tierShould,
@@ -58,33 +64,103 @@ const CONFERENCE_INTEL = {
 };
 
 const VALUE_PROPS = [
-  {
-    icon: '\uD83D\uDCCA',
-    title: 'ATS Trends',
-    desc: 'Season, last 30, and last 7 performance against the spread \u2014 the betting signal that matters most.',
-  },
-  {
-    icon: '\uD83C\uDFC6',
-    title: 'Championship Odds',
-    desc: 'Live futures context with implied probability and tier positioning for every tracked program.',
-  },
-  {
-    icon: '\uD83C\uDFAF',
-    title: 'Next-Game Intel',
-    desc: 'Spread, total, moneyline, and data-driven leans for every upcoming matchup.',
-  },
-  {
-    icon: '\uD83D\uDCF0',
-    title: 'News & Signals',
-    desc: 'Curated headlines, momentum indicators, and contextual intelligence updated daily.',
-  },
+  { icon: '\uD83D\uDCCA', title: 'ATS Trends', desc: 'Season, last 30, and last 7 performance against the spread \u2014 the betting signal that matters most.' },
+  { icon: '\uD83C\uDFC6', title: 'Championship Odds', desc: 'Live futures context with implied probability and tier positioning for every tracked program.' },
+  { icon: '\uD83C\uDFAF', title: 'Next-Game Intel', desc: 'Spread, total, moneyline, and data-driven leans for every upcoming matchup.' },
+  { icon: '\uD83D\uDCF0', title: 'News & Signals', desc: 'Curated headlines, momentum indicators, and contextual intelligence updated daily.' },
 ];
+
+const CONF_NETWORK_LABELS = {
+  'Big Ten': 'Big Ten Network',
+  'SEC': 'SEC Network',
+  'ACC': 'ACC Network',
+  'Big 12': 'Big 12 Conference',
+  'Big East': 'Big East Conference',
+};
 
 function impliedProbFromAmerican(american) {
   if (american == null || typeof american !== 'number') return null;
   if (american < 0) return (-american) / ((-american) + 100);
   return 100 / (american + 100);
 }
+
+function formatOdds(american) {
+  if (american == null) return null;
+  return american > 0 ? `+${american}` : String(american);
+}
+
+function getFeaturedTagClass(tag) {
+  if (tag === 'Title Contender') return styles.featuredTagContender;
+  if (tag === 'ATS Signal') return styles.featuredTagSignal;
+  return styles.featuredTagRanked;
+}
+
+function mapConf(conference) {
+  return MAJOR_CONFS.includes(conference) ? conference : 'Others';
+}
+
+/* ── Conference YouTube Feed (lazy-loaded per conference section) ── */
+function ConferenceVideos({ conference, onSelectVideo }) {
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const containerRef = useRef(null);
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !fetchedRef.current) {
+          fetchedRef.current = true;
+          const cacheKey = `yt:conf:${conference}`;
+          try {
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) { setVideos(parsed); return; }
+            }
+          } catch { /* ignore */ }
+          setLoading(true);
+          const network = CONF_NETWORK_LABELS[conference];
+          const q = `${network || conference} basketball highlights ${new Date().getFullYear()}`;
+          fetch(`/api/youtube/search?q=${encodeURIComponent(q)}&maxResults=3`)
+            .then((r) => r.json())
+            .then((data) => {
+              const items = data.items ?? [];
+              if (items.length > 0) {
+                setVideos(items);
+                try { sessionStorage.setItem(cacheKey, JSON.stringify(items)); } catch { /* ignore */ }
+              }
+              setLoading(false);
+            })
+            .catch(() => setLoading(false));
+        }
+      },
+      { rootMargin: '300px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [conference]);
+
+  return (
+    <div ref={containerRef} className={styles.confVideos}>
+      {(videos.length > 0 || loading) && (
+        <span className={styles.confVideosLabel}>{conference} Videos</span>
+      )}
+      {loading && <div className={styles.confVideosLoading}>Loading videos\u2026</div>}
+      {videos.length > 0 && (
+        <div className={styles.confVideosGrid}>
+          {videos.map((v) => (
+            <YouTubeVideoCard key={v.videoId} video={v} onSelect={onSelectVideo} compact />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
 
 export default function Teams() {
   const [search, setSearch] = useState('');
@@ -99,7 +175,13 @@ export default function Teams() {
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const [sortBy, setSortBy] = useState('default');
+  const [rankMap, setRankMap] = useState({});
+  const [rankFilter, setRankFilter] = useState(false);
+  const [activeVideo, setActiveVideo] = useState(null);
 
+  const { atsLeaders } = useAtsLeaders({ initialWindow: 'last30' });
+
+  /* ── Fetch championship odds ── */
   useEffect(() => {
     let cancelled = false;
     fetchChampionshipOdds()
@@ -120,20 +202,88 @@ export default function Teams() {
     return () => { cancelled = true; };
   }, []);
 
+  /* ── Fetch rankings for ranked badges & featured strip ── */
+  useEffect(() => {
+    let cancelled = false;
+    fetchHomeFast({})
+      .then((data) => {
+        if (!cancelled) {
+          const rankings = data.rankingsTop25 ?? data.rankings?.rankings ?? [];
+          setRankMap(buildSlugToRankMap({ rankings }, TEAMS));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  /* ── Static conference tier counts ── */
   const confTierCounts = useMemo(() => {
     const counts = {};
     for (const conf of CONF_ORDER) {
       counts[conf] = { Lock: 0, 'Should be in': 0, 'Work to do': 0, 'Long shot': 0, total: 0 };
     }
     for (const team of TEAMS) {
-      const conf = CONF_ORDER.slice(0, -1).includes(team.conference) ? team.conference : 'Others';
-      if (!counts[conf]) counts[conf] = { Lock: 0, 'Should be in': 0, 'Work to do': 0, 'Long shot': 0, total: 0 };
+      const conf = mapConf(team.conference);
       counts[conf][team.oddsTier] = (counts[conf][team.oddsTier] || 0) + 1;
       counts[conf].total++;
     }
     return counts;
   }, []);
 
+  /* ── Conference featured teams (Lock-tier, up to 3 per conference) ── */
+  const confFeaturedMap = useMemo(() => {
+    const map = {};
+    for (const conf of CONF_ORDER) {
+      map[conf] = TEAMS.filter((t) => mapConf(t.conference) === conf && t.oddsTier === 'Lock').slice(0, 3);
+    }
+    return map;
+  }, []);
+
+  /* ── Featured teams strip: title contenders + ranked + ATS signals ── */
+  const featuredTeams = useMemo(() => {
+    const featured = [];
+    const seen = new Set();
+
+    const oddsRanked = Object.entries(championshipOdds)
+      .map(([slug, entry]) => {
+        const american = entry?.bestChanceAmerican ?? entry?.american;
+        const prob = american != null ? impliedProbFromAmerican(american) : null;
+        return { slug, american, prob };
+      })
+      .filter((e) => e.prob != null)
+      .sort((a, b) => b.prob - a.prob);
+
+    for (const { slug } of oddsRanked.slice(0, 5)) {
+      const team = TEAMS.find((t) => t.slug === slug);
+      if (team && !seen.has(slug)) {
+        featured.push({ ...team, featuredTag: 'Title Contender' });
+        seen.add(slug);
+      }
+    }
+
+    const rankedEntries = Object.entries(rankMap).sort((a, b) => a[1] - b[1]);
+    for (const [slug, rank] of rankedEntries) {
+      if (seen.has(slug) || featured.length >= 9) break;
+      const team = TEAMS.find((t) => t.slug === slug);
+      if (team) {
+        featured.push({ ...team, featuredTag: `#${rank} Ranked` });
+        seen.add(slug);
+      }
+    }
+
+    for (const row of (atsLeaders?.best ?? []).slice(0, 6)) {
+      if (!row.slug || seen.has(row.slug) || featured.length >= 12) continue;
+      const team = TEAMS.find((t) => t.slug === row.slug);
+      if (team) {
+        featured.push({ ...team, featuredTag: 'ATS Signal' });
+        seen.add(row.slug);
+      }
+    }
+
+    return featured.slice(0, 12);
+  }, [championshipOdds, rankMap, atsLeaders]);
+
+  /* ── Filtered teams (FIXED: "Others" filter now works) ── */
   const filteredTeams = useMemo(() => {
     let list = TEAMS;
     const q = search.trim().toLowerCase();
@@ -142,18 +292,26 @@ export default function Teams() {
         (t) =>
           t.name.toLowerCase().includes(q) ||
           t.conference.toLowerCase().includes(q) ||
-          t.oddsTier.toLowerCase().includes(q)
+          t.oddsTier.toLowerCase().includes(q),
       );
     }
     if (conferenceFilter) {
-      list = list.filter((t) => t.conference === conferenceFilter);
+      if (conferenceFilter === 'Others') {
+        list = list.filter((t) => !MAJOR_CONFS.includes(t.conference));
+      } else {
+        list = list.filter((t) => t.conference === conferenceFilter);
+      }
     }
     if (tierFilter) {
       list = list.filter((t) => t.oddsTier === tierFilter);
     }
+    if (rankFilter) {
+      list = list.filter((t) => rankMap[t.slug] != null);
+    }
     return list;
-  }, [search, conferenceFilter, tierFilter]);
+  }, [search, conferenceFilter, tierFilter, rankFilter, rankMap]);
 
+  /* ── Sorted teams (FIXED: minor conferences sort into "Others" position) ── */
   const sortedTeams = useMemo(() => {
     const list = [...filteredTeams];
     if (sortBy === 'championship') {
@@ -164,17 +322,15 @@ export default function Teams() {
         const bAmerican = bEntry?.bestChanceAmerican ?? bEntry?.american;
         const aProb = aAmerican != null ? impliedProbFromAmerican(aAmerican) : null;
         const bProb = bAmerican != null ? impliedProbFromAmerican(bAmerican) : null;
-        const aHas = aProb != null;
-        const bHas = bProb != null;
-        if (aHas && !bHas) return -1;
-        if (!aHas && bHas) return 1;
-        if (!aHas && !bHas) return a.name.localeCompare(b.name);
+        if (aProb != null && bProb == null) return -1;
+        if (aProb == null && bProb != null) return 1;
+        if (aProb == null && bProb == null) return a.name.localeCompare(b.name);
         return bProb - aProb;
       });
     } else {
       list.sort((a, b) => {
-        const ac = CONF_ORDER.indexOf(a.conference);
-        const bc = CONF_ORDER.indexOf(b.conference);
+        const ac = CONF_ORDER.indexOf(mapConf(a.conference));
+        const bc = CONF_ORDER.indexOf(mapConf(b.conference));
         if (ac !== bc) return ac - bc;
         const at = TIER_ORDER.indexOf(a.oddsTier);
         const bt = TIER_ORDER.indexOf(b.oddsTier);
@@ -185,30 +341,29 @@ export default function Teams() {
     return list;
   }, [filteredTeams, sortBy, championshipOdds]);
 
+  /* ── Grouped by conference (FIXED: minor conferences bucket into "Others") ── */
   const grouped = useMemo(() => {
     const byConf = {};
     for (const team of sortedTeams) {
-      if (!byConf[team.conference]) byConf[team.conference] = {};
+      const conf = mapConf(team.conference);
+      if (!byConf[conf]) byConf[conf] = {};
       const tier = team.oddsTier;
-      if (!byConf[team.conference][tier]) byConf[team.conference][tier] = [];
-      byConf[team.conference][tier].push(team);
+      if (!byConf[conf][tier]) byConf[conf][tier] = [];
+      byConf[conf][tier].push(team);
     }
     for (const conf of Object.keys(byConf)) {
       for (const tier of TIER_ORDER) {
         if (byConf[conf][tier]) byConf[conf][tier].sort((a, b) => a.name.localeCompare(b.name));
       }
     }
-    return CONF_ORDER.filter((conf) => byConf[conf] && Object.keys(byConf[conf]).length > 0).map((conf) => ({
-      conference: conf,
-      tiers: byConf[conf] || {},
-    }));
+    return CONF_ORDER
+      .filter((conf) => byConf[conf] && Object.keys(byConf[conf]).length > 0)
+      .map((conf) => ({ conference: conf, tiers: byConf[conf] || {} }));
   }, [sortedTeams]);
 
   const handleConfExplore = (conf) => {
-    if (conf === 'Others') {
-      setConferenceFilter('');
-    } else {
-      setConferenceFilter(conf);
+    setConferenceFilter(conf);
+    if (conf !== 'Others') {
       setExpanded((e) => ({ ...e, [conf]: true }));
     }
     setTimeout(() => {
@@ -219,28 +374,45 @@ export default function Teams() {
   return (
     <div className={styles.page}>
       <SEOHead
-        title={`College Basketball Team Intel \u2014 Conference Betting Intelligence (${new Date().getFullYear()})`}
-        description={`Explore ${new Date().getFullYear()} college basketball team intelligence by conference. ATS trends, championship odds, tournament projections, and betting signals for every tracked NCAAB program.`}
+        title={`College Basketball Team Intel Hub \u2014 Conference Betting Intelligence (${new Date().getFullYear()})`}
+        description={`The Team Intel Hub: explore ${new Date().getFullYear()} college basketball intelligence by conference. ATS trends, championship odds, tournament projections, and betting signals for every tracked NCAAB program.`}
         canonicalPath="/teams"
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'CollectionPage',
-          'name': `College Basketball Team Intel \u2014 Conference Betting Intelligence (${new Date().getFullYear()})`,
+          'name': `College Basketball Team Intel Hub (${new Date().getFullYear()})`,
           'description': `Explore ${new Date().getFullYear()} college basketball team intelligence by conference with ATS trends and championship odds.`,
           'url': 'https://maximussports.ai/teams',
-          'isPartOf': { '@type': 'WebSite', 'name': 'Maximus Sports', 'url': 'https://maximussports.ai' }
+          'isPartOf': { '@type': 'WebSite', 'name': 'Maximus Sports', 'url': 'https://maximussports.ai' },
         }}
       />
 
-      {/* ── Hero: Team Intel value proposition ─────────────────────────── */}
+      {/* ── 1. Why Team Intel — product marketing (moved to top) ────── */}
+      <section className={styles.merchSection}>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Why Team Intel</span>
+          <h2 className={styles.sectionHeadTitle}>Intelligence That Moves the Line</h2>
+        </div>
+        <div className={styles.valueGrid}>
+          {VALUE_PROPS.map((vp) => (
+            <div key={vp.title} className={styles.valueCard}>
+              <span className={styles.valueCardIcon}>{vp.icon}</span>
+              <h4 className={styles.valueCardTitle}>{vp.title}</h4>
+              <p className={styles.valueCardDesc}>{vp.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 2. Hero: Team Intel Hub ────────────────────────────────── */}
       <header className={styles.hero}>
         <div className={styles.heroContent}>
-          <span className={styles.heroEyebrow}>Team Intel</span>
+          <span className={styles.heroEyebrow}>Team Intel Hub</span>
           <h1 className={styles.heroTitle}>Conference &amp; Team Intelligence</h1>
           <p className={styles.heroSubtitle}>
-            Track every conference through a betting intelligence lens. Explore the teams
-            shaping the title race, bubble watch, and ATS landscape &mdash; then pin your
-            favorites to your dashboard.
+            Conference-level context, team-by-team betting intelligence, and the
+            fastest path to the programs you want to track. Explore contenders,
+            scan the bubble, and pin your favorites.
           </p>
           <div className={styles.heroCtas}>
             <button
@@ -261,7 +433,56 @@ export default function Teams() {
         </div>
       </header>
 
-      {/* ── Conference Intel Modules ───────────────────────────────────── */}
+      {/* ── 3. Featured Teams Strip ────────────────────────────────── */}
+      {featuredTeams.length > 0 && (
+        <section className={styles.featuredSection}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionEyebrow}>Featured Programs</span>
+            <h2 className={styles.sectionHeadTitle}>Teams to Watch</h2>
+          </div>
+          <div className={styles.featuredStrip}>
+            {featuredTeams.map((team) => {
+              const odds = championshipOdds[team.slug];
+              const american = odds?.bestChanceAmerican ?? odds?.american;
+              const rank = rankMap[team.slug];
+              return (
+                <Link key={team.slug} to={`/teams/${team.slug}`} className={styles.featuredCard}>
+                  <TeamLogo team={team} size={36} />
+                  <span className={styles.featuredName}>{team.name}</span>
+                  <span className={`${styles.featuredTag} ${getFeaturedTagClass(team.featuredTag)}`}>
+                    {team.featuredTag}
+                  </span>
+                  <div className={styles.intelPreview}>
+                    <div className={styles.previewRow}>
+                      <span className={styles.previewLabel}>Conference</span>
+                      <span className={styles.previewValue}>{team.conference}</span>
+                    </div>
+                    <div className={styles.previewRow}>
+                      <span className={styles.previewLabel}>Tier</span>
+                      <span className={styles.previewValue}>{team.oddsTier}</span>
+                    </div>
+                    {rank && (
+                      <div className={styles.previewRow}>
+                        <span className={styles.previewLabel}>Ranking</span>
+                        <span className={styles.previewValue}>#{rank}</span>
+                      </div>
+                    )}
+                    {american != null && (
+                      <div className={styles.previewRow}>
+                        <span className={styles.previewLabel}>Title Odds</span>
+                        <span className={styles.previewValue}>{formatOdds(american)}</span>
+                      </div>
+                    )}
+                    <span className={styles.previewCta}>View Full Team Intel &rarr;</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── 4. Conference Intel Modules ────────────────────────────── */}
       <section id="conferences" className={styles.confSection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Conference Intel</span>
@@ -271,6 +492,7 @@ export default function Teams() {
           {CONF_ORDER.map((conf) => {
             const intel = CONFERENCE_INTEL[conf];
             const counts = confTierCounts[conf];
+            const confTeams = confFeaturedMap[conf] || [];
             if (!intel || !counts || counts.total === 0) return null;
             return (
               <article key={conf} className={styles.confCard}>
@@ -284,6 +506,16 @@ export default function Teams() {
                   </div>
                 </div>
                 <p className={styles.confCardNarrative}>{intel.narrative}</p>
+                {confTeams.length > 0 && (
+                  <div className={styles.confFeaturedTeams}>
+                    {confTeams.map((t) => (
+                      <Link key={t.slug} to={`/teams/${t.slug}`} className={styles.confFeaturedTeam}>
+                        <TeamLogo team={t} size={18} />
+                        <span>{t.name.split(' ').pop()}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
                 <div className={styles.confCardTiers}>
                   {TIER_ORDER.map((tier) => {
                     const count = counts[tier] || 0;
@@ -314,29 +546,7 @@ export default function Teams() {
         </div>
       </section>
 
-      {/* ── Team Intel Merchandising ───────────────────────────────────── */}
-      <section className={styles.merchSection}>
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Why Team Intel</span>
-          <h2 className={styles.sectionHeadTitle}>Intelligence That Moves the Line</h2>
-        </div>
-        <div className={styles.valueGrid}>
-          {VALUE_PROPS.map((vp) => (
-            <div key={vp.title} className={styles.valueCard}>
-              <span className={styles.valueCardIcon}>{vp.icon}</span>
-              <h4 className={styles.valueCardTitle}>{vp.title}</h4>
-              <p className={styles.valueCardDesc}>{vp.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Top 25 Rankings ────────────────────────────────────────────── */}
-      <section className={styles.top25Section}>
-        <Top25Rankings />
-      </section>
-
-      {/* ── Team Discovery ─────────────────────────────────────────────── */}
+      {/* ── 5. Team Discovery ──────────────────────────────────────── */}
       <section id="team-discovery" className={styles.discoverySection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Team Discovery</span>
@@ -374,6 +584,14 @@ export default function Teams() {
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
+          <button
+            type="button"
+            className={`${styles.rankFilterBtn} ${rankFilter ? styles.rankFilterBtnActive : ''}`}
+            onClick={() => setRankFilter((f) => !f)}
+            aria-pressed={rankFilter}
+          >
+            Top 25
+          </button>
           <label className={styles.filterLabel}>
             <span className={styles.sortLabel}>Sort</span>
             <select
@@ -412,30 +630,38 @@ export default function Teams() {
                 <span className={styles.chevron} aria-hidden>{expanded[conference] ? '\u25BE' : '\u25B8'}</span>
               </button>
               {expanded[conference] && (
-                <div className={styles.conferenceBody}>
-                  {TIER_ORDER.map((tier) => {
-                    const teams = tiers[tier];
-                    if (!teams || teams.length === 0) return null;
-                    return (
-                      <div key={tier} className={styles.tierBlock}>
-                        <span className={styles.tierLabel}>{tier}</span>
-                        <ul className={styles.teamList}>
-                          {teams.map((team) => (
-                            <li key={team.slug}>
-                              <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
-                                <TeamLogo team={team} size={24} />
-                                <span className={styles.teamName}>{team.name}</span>
-                                <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                                <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
-                                <span className={styles.chevron}>&rarr;</span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className={styles.conferenceBody}>
+                    {TIER_ORDER.map((tier) => {
+                      const teams = tiers[tier];
+                      if (!teams || teams.length === 0) return null;
+                      return (
+                        <div key={tier} className={styles.tierBlock}>
+                          <span className={styles.tierLabel}>{tier}</span>
+                          <ul className={styles.teamList}>
+                            {teams.map((team) => (
+                              <li key={team.slug}>
+                                <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
+                                  <TeamLogo team={team} size={24} />
+                                  {rankMap[team.slug] && (
+                                    <span className={styles.rankBadge}>#{rankMap[team.slug]}</span>
+                                  )}
+                                  <span className={styles.teamName}>{team.name}</span>
+                                  <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                                  <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
+                                  <span className={styles.chevron}>&rarr;</span>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {MAJOR_CONFS.includes(conference) && (
+                    <ConferenceVideos conference={conference} onSelectVideo={setActiveVideo} />
+                  )}
+                </>
               )}
             </section>
           ))}
@@ -446,7 +672,7 @@ export default function Teams() {
         )}
       </section>
 
-      {/* ── Pinning / Watchlist CTA ────────────────────────────────────── */}
+      {/* ── 6. Pinning / Watchlist CTA ─────────────────────────────── */}
       <section className={styles.pinSection}>
         <div className={styles.pinInner}>
           <h2 className={styles.pinTitle}>Build Your Watchlist</h2>
@@ -459,6 +685,11 @@ export default function Teams() {
           </Link>
         </div>
       </section>
+
+      {/* ── Video Modal (page-level) ───────────────────────────────── */}
+      {activeVideo && (
+        <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
+      )}
     </div>
   );
 }
