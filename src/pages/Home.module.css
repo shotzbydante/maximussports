@@ -680,19 +680,23 @@
 }
 
 .topStoriesItem {
-  position: relative;
-  padding-left: 10px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
   font-size: 0.78rem;
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
 
-.topStoriesItem::before {
-  content: '·';
-  position: absolute;
-  left: 0;
-  color: var(--color-primary);
+.topStoriesSource {
+  font-size: 0.52rem;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  margin-right: 4px;
+  opacity: 0.7;
 }
 
 .topStoriesLink {
@@ -1145,7 +1149,7 @@
   }
 
   .picksCollapsiblePeek {
-    max-height: 240px;
+    max-height: 380px;
   }
 
   .picksToggleBtn {

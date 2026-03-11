@@ -43,6 +43,13 @@ const LLM_SUMMARY_TTL_MS = 60_000;
 const SCORES_REFRESH_MS = 60_000;
 const TIER_VALUE = { Lock: 0, 'Should be in': 1, 'Work to do': 2, 'Long shot': 3 };
 
+const _entityEl = typeof document !== 'undefined' ? document.createElement('textarea') : null;
+function decodeEntities(str) {
+  if (!str || !_entityEl) return str || '';
+  _entityEl.innerHTML = str;
+  return _entityEl.value;
+}
+
 function formatRelativeTime(pubDate) {
   if (!pubDate) return '';
   const d = new Date(pubDate);
@@ -522,13 +529,21 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         />
       </div>
 
-      {!isPicksExpanded && (
+      {!isPicksExpanded ? (
         <button
           type="button"
           className={styles.picksExpandBtn}
           onClick={() => setIsPicksExpanded(true)}
         >
           Show all {totalPicksCount} picks ↓
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={styles.picksExpandBtn}
+          onClick={() => setIsPicksExpanded(false)}
+        >
+          Collapse picks ↑
         </button>
       )}
 
@@ -990,9 +1005,9 @@ export default function Home() {
   const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (typeof t.headlines === 'number' ? t.headlines : (t.headlines?.length || 0)), 0);
 
   const dynamicStats = [
-    { label: 'Upset Alerts Today', value: upsetCount, trend: upsetCount > 0 ? 'up' : 'neutral', subtext: 'ESPN scores + tiers', source: 'ESPN' },
-    { label: 'Ranked Teams in Action', value: rankedInAction, trend: 'neutral', subtext: 'Top 25 playing today', source: 'ESPN' },
-    { label: 'News Velocity', value: newsVelocity, trend: newsVelocity > 0 ? 'up' : 'neutral', subtext: 'Headlines (pinned teams)', source: newsSource },
+    { label: 'Upsets today', value: upsetCount, trend: upsetCount > 0 ? 'up' : 'neutral', subtext: 'ESPN scores + tiers', source: 'ESPN' },
+    { label: 'ranked teams playing today', value: rankedInAction, trend: 'neutral', subtext: 'Top 25 playing today', source: 'ESPN' },
+    { label: 'News velocity', value: newsVelocity, trend: newsVelocity > 0 ? 'up' : 'neutral', subtext: 'Headlines (pinned teams)', source: newsSource },
   ];
 
   const todayDisplay = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -1059,7 +1074,7 @@ export default function Home() {
 
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
       <div className={styles.pulseStrip}>
-        <DynamicStats stats={dynamicStats} compact games={scores.games} />
+        <DynamicStats stats={dynamicStats} compact games={scores.games} rankMap={rankMap} />
         {/* Inline news headline teasers */}
         {(newsData.newsFeed || []).length > 0 && (
           <div className={styles.topStories}>
@@ -1067,12 +1082,13 @@ export default function Home() {
             <ul className={styles.topStoriesList}>
               {(newsData.newsFeed || []).slice(0, 3).map((h) => (
                 <li key={h.id || h.title} className={styles.topStoriesItem}>
+                  {h.source && <span className={styles.topStoriesSource}>{h.source}</span>}
                   {h.link ? (
                     <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
-                      {h.title}
+                      {decodeEntities(h.title)}
                     </a>
                   ) : (
-                    <span className={styles.topStoriesLink}>{h.title}</span>
+                    <span className={styles.topStoriesLink}>{decodeEntities(h.title)}</span>
                   )}
                 </li>
               ))}
