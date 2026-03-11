@@ -918,25 +918,23 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     </>
                   );
                 })()}
-                {!compact && (
-                  <div className={styles.teamSummary}>
-                    {!loadedSlugs.has(slug) ? (
-                      <div className={styles.summarySkeletonLines} aria-label="Loading summary">
-                        <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
-                        <div className={styles.summarySkeletonLine} style={{ width: '82%' }} />
-                      </div>
-                    ) : headlines.length > 0 ? (
-                      (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
-                        <p className={`${styles.teamSummaryText} ${isCompact ? styles.teamSummaryCompact : ''}`}>
-                          {teamSummaries[slug]}
-                        </p>
-                      ) : (
-                        <p className={styles.teamSummaryGenerating}>Generating summary…</p>
-                      )
-                    ) : null}
-                  </div>
-                )}
-                {!compact && headlines.length > 0 && (
+                <div className={styles.teamSummary}>
+                  {!loadedSlugs.has(slug) ? (
+                    <div className={styles.summarySkeletonLines} aria-label="Loading summary">
+                      <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
+                      <div className={styles.summarySkeletonLine} style={{ width: '82%' }} />
+                    </div>
+                  ) : headlines.length > 0 ? (
+                    (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
+                      <p className={`${styles.teamSummaryText} ${compact ? styles.teamSummaryClamped : ''} ${isCompact ? styles.teamSummaryCompact : ''}`}>
+                        {teamSummaries[slug]}
+                      </p>
+                    ) : (
+                      <p className={styles.teamSummaryGenerating}>Generating summary…</p>
+                    )
+                  ) : null}
+                </div>
+                {headlines.length > 0 && !compact && (
                   <ul className={styles.headlines}>
                     {headlines.slice(0, maxHeadlines).map((h) => (
                       <li key={h.id || h.title}>

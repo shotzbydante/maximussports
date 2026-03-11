@@ -22,6 +22,7 @@ import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import FormattedSummary from '../components/shared/FormattedSummary';
+import TeamLogo from '../components/shared/TeamLogo';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pinnedCache';
 import { perfLog } from '../utils/perfLog';
@@ -506,7 +507,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       {/* ── Picks: Pick 'Ems / ATS / Value / Totals ─────────────────── */}
       <div
         ref={picksContentRef}
-        className={`${styles.picksCollapsible} ${!isPicksExpanded ? (picksExceedsThreshold ? styles.picksCollapsibleCollapsed : styles.picksCollapsibleMinimized) : ''}`}
+        className={`${styles.picksCollapsible} ${!isPicksExpanded ? styles.picksCollapsiblePeek : ''}`}
       >
         <MaximusPicks
           games={activeGames}
@@ -1058,10 +1059,33 @@ export default function Home() {
 
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
       <div className={styles.pulseStrip}>
-        <DynamicStats stats={dynamicStats} compact />
+        <DynamicStats stats={dynamicStats} compact games={scores.games} />
+        {/* Inline news headline teasers */}
+        {(newsData.newsFeed || []).length > 0 && (
+          <div className={styles.topStories}>
+            <span className={styles.topStoriesLabel}>Top Stories</span>
+            <ul className={styles.topStoriesList}>
+              {(newsData.newsFeed || []).slice(0, 3).map((h) => (
+                <li key={h.id || h.title} className={styles.topStoriesItem}>
+                  {h.link ? (
+                    <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
+                      {h.title}
+                    </a>
+                  ) : (
+                    <span className={styles.topStoriesLink}>{h.title}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Link to="/news" className={styles.topStoriesCta}>
+              View full Intel Feed →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* ── 4. Teams You Follow ──────────────────────────────────────── */}
+      <hr className={styles.sectionDivider} />
       <div className={styles.pinnedSection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Following</span>
@@ -1080,6 +1104,7 @@ export default function Home() {
       </div>
 
       {/* ── 5. Maximus's Picks ───────────────────────────────────────── */}
+      <hr className={styles.sectionDivider} />
       <div className={styles.picksSection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Betting Intelligence</span>
@@ -1098,6 +1123,7 @@ export default function Home() {
       </div>
 
       {/* ── 6. Today's Action / Live Scores ──────────────────────────── */}
+      <hr className={styles.sectionDivider} />
       <section className={styles.todayActionSection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Live Data</span>
@@ -1123,7 +1149,8 @@ export default function Home() {
         </Link>
       </section>
 
-      {/* ── 7. ATS / Market Signals Teaser ────────────────────────────── */}
+      {/* ── 7. ATS / Market Signals ──────────────────────────────────── */}
+      <hr className={styles.sectionDivider} />
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Market Signals</span>
@@ -1137,7 +1164,6 @@ export default function Home() {
           seasonWarming={seasonWarming}
           onPeriodChange={atsOnPeriodChange}
           onRetry={atsOnRetry}
-          teaserMode
         />
         <Link to="/insights" className={styles.sectionCta}>
           View full market signals →
@@ -1145,6 +1171,7 @@ export default function Home() {
       </section>
 
       {/* ── 8. News / Videos / Intel Feed ─────────────────────────────── */}
+      <hr className={styles.sectionDivider} />
       <section className={styles.intelFeedSection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Intel Feed</span>
@@ -1166,6 +1193,7 @@ export default function Home() {
       </section>
 
       {/* ── 9. Rankings / Team Intel Teaser ────────────────────────────── */}
+      <hr className={styles.sectionDivider} />
       <section className={styles.bubbleWatchSection} aria-label="Rankings">
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
