@@ -17,6 +17,7 @@ import CarouselComposer, { getTemplateDimensions } from '../components/dashboard
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import InstagramPublishButton from '../components/dashboard/InstagramPublishButton';
 import PostHistory from '../components/dashboard/PostHistory';
+import VideosEditor from '../components/dashboard/videos/VideosEditor';
 import { sanitizeImagesForExport } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
 import { getTeamSlug } from '../utils/teamSlug';
@@ -32,6 +33,7 @@ const SECTIONS = [
   { id: 'conference', label: 'Conference Intel',    icon: '🏟️' },
   { id: 'game',       label: 'Game Insights',      icon: '📊' },
   { id: 'picks',      label: "Maximus's Picks",    icon: '📈' },
+  { id: 'videos',     label: 'Videos',             icon: '🎬' },
 ];
 
 function gameLabel(g) {
@@ -687,6 +689,8 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {activeSection !== 'videos' && (<>
+
           {/* ─── Daily Briefing controls ──────────────── */}
           {activeSection === 'daily' && (
             <div className={styles.sectionControls}>
@@ -1066,11 +1070,14 @@ export default function Dashboard() {
             homeSlug={gameTagContext.homeSlug}
           />
 
+          </>)}
         </aside>
 
-        {/* ─── Right: Slide previews ─────────────────── */}
+        {/* ─── Right: Preview area ──────────────────────── */}
         <section className={styles.previewArea}>
-          {isWorking || !dashData ? (
+          {activeSection === 'videos' ? (
+            <VideosEditor />
+          ) : isWorking || !dashData ? (
             <div className={styles.skeletonRow}>
               {Array.from({ length: slideCount }).map((_, i) => (
                 <div
