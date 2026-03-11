@@ -7,6 +7,7 @@ import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
 import SourceBadge from '../components/shared/SourceBadge';
 import styles from './Games.module.css';
+import SEOHead from '../components/seo/SEOHead';
 
 const KeyDatesWidget = lazy(() => import('../components/home/KeyDatesWidget'));
 const DailySchedule = lazy(() => import('../components/home/DailySchedule'));
@@ -81,9 +82,14 @@ export default function Games() {
 
   return (
     <div className={styles.page}>
+      <SEOHead
+        title="College Basketball Games Today — Live Scores, Spreads & Schedule"
+        description="Live college basketball scores, spreads, and the full NCAAB daily schedule. Track every game with real-time odds and betting lines powered by Maximus Sports."
+        canonicalPath="/games"
+      />
       <header className={styles.header}>
-        <h1>Games</h1>
-        <p className={styles.subtitle}>Live scores, spreads, and daily schedule</p>
+        <h1>College Basketball Games Today</h1>
+        <p className={styles.subtitle}>Live scores, spreads, and the full NCAAB daily schedule</p>
       </header>
 
       <section className={styles.sectionCompact}>

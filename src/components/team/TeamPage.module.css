@@ -4,6 +4,14 @@
      Tables and wide content use their own overflow rules. */
 }
 
+.teamSeoIntro {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin-bottom: var(--space-md);
+  max-width: 640px;
+}
+
 .header {
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-md);

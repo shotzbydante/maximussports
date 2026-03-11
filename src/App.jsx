@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import ScrollToTop from './components/layout/ScrollToTop';
@@ -18,6 +19,9 @@ import Contact from './pages/Contact';
 import Dashboard from './pages/Dashboard';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
+
+const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
+const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
 
 export default function App() {
   return (
@@ -43,6 +47,8 @@ export default function App() {
               <Route path="terms" element={<Terms />} />
               <Route path="contact" element={<Contact />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="college-basketball-picks-today" element={<Suspense fallback={null}><CollegeBasketballPicksToday /></Suspense>} />
+              <Route path="march-madness-betting-intelligence" element={<Suspense fallback={null}><MarchMadnessHub /></Suspense>} />
             </Route>
             {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}
             <Route path="share/:id" element={<SharePage />} />

@@ -7,6 +7,7 @@ import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed, getStaleIntelFeedAge } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
 import { getPublicationLogoUrl } from '../utils/publicationLogos';
+import SEOHead from '../components/seo/SEOHead';
 import styles from './NewsFeed.module.css';
 
 const INTEL_FEED_KEY = 'yt:news:intelFeed';
@@ -444,13 +445,18 @@ export default function NewsFeed() {
 
   return (
     <div className={styles.page}>
+      <SEOHead
+        title="College Basketball News — NCAAB Headlines, Videos & Analysis"
+        description="Stay informed with curated college basketball news, video highlights, and expert analysis across every major conference. Your NCAAB intel feed powered by Maximus Sports."
+        canonicalPath="/news"
+      />
 
       {/* ── Premium page header ── */}
       <header className={styles.pageHeader}>
         <div className={styles.pageHeaderTop}>
           <div>
-            <h1 className={styles.pageTitle}>News Feed</h1>
-            <p className={styles.pageSubtitle}>Curated videos and headlines</p>
+            <h1 className={styles.pageTitle}>College Basketball News</h1>
+            <p className={styles.pageSubtitle}>Curated NCAAB videos, headlines, and analysis</p>
           </div>
           {activeConf !== 'All' && (
             <button

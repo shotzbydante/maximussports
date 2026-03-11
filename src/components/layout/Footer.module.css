@@ -276,3 +276,30 @@
     font-size: 0.7rem;
   }
 }
+
+.seoNav {
+  display: flex;
+  gap: var(--space-md, 16px);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.seoNavLink {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.seoNavLink:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.seoMicrocopy {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.28);
+  text-align: center;
+  line-height: 1.55;
+  max-width: 560px;
+  margin: var(--space-sm, 8px) auto 0;
+}

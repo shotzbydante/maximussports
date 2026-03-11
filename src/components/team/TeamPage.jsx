@@ -17,6 +17,7 @@ import YouTubeVideoModal from '../shared/YouTubeVideoModal';
 import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge,
   getStaleVideos, getStaleVideosAge, setStaleVideos } from '../../utils/ytClientCache';
 import ShareButton from '../common/ShareButton';
+import SEOHead from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
@@ -399,6 +400,12 @@ export default function TeamPage() {
   if (!team) {
     return (
       <div className={styles.page}>
+        <SEOHead
+          title="Team Not Found"
+          description="The requested college basketball team was not found on Maximus Sports."
+          canonicalPath={`/teams/${slug}`}
+          noindex
+        />
         <h1>Team Not Found</h1>
         <p>That team doesn&apos;t exist.</p>
         <Link to="/teams">← Teams</Link>
@@ -406,14 +413,33 @@ export default function TeamPage() {
     );
   }
 
+  const teamSeoTitle = `${team.name} Betting Intelligence — ATS Trends & Odds`;
+  const teamSeoDesc = `Data-driven college basketball betting intelligence for ${team.name} including ATS trends, matchup analysis, model projections, and ${team.conference} conference insights.`;
+
   return (
     <div className={styles.page}>
+      <SEOHead
+        title={teamSeoTitle}
+        description={teamSeoDesc}
+        canonicalPath={`/teams/${slug}`}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'SportsTeam',
+          'name': team.name,
+          'sport': 'Basketball',
+          'memberOf': {
+            '@type': 'SportsOrganization',
+            'name': team.conference,
+          },
+          'url': `https://maximussports.ai/teams/${slug}`,
+        }}
+      />
       <header className={styles.header}>
         <Link to="/teams" className={styles.backLink}>← Teams</Link>
         <div className={styles.headerRow}>
           <TeamLogo team={team} size={36} />
           <div className={styles.headerInfo}>
-            <h1>{team.name}</h1>
+            <h1>{team.name} Betting Intelligence</h1>
             <div className={styles.headerMeta}>
               {rank != null && <span className={styles.rank}>#{rank}</span>}
               <span className={styles.conference}>{team.conference}</span>
@@ -456,6 +482,10 @@ export default function TeamPage() {
           </div>
         </div>
       </header>
+
+      <p className={styles.teamSeoIntro}>
+        Data-driven college basketball betting intelligence for {team.name} — ATS trends, upcoming matchup analysis, and model projections from the {team.conference}.
+      </p>
 
       <section className={styles.insightSection} aria-label="Maximus's Insight">
         <TeamSummaryBox

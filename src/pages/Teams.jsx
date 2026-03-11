@@ -7,6 +7,7 @@ import ChampionshipBadge from '../components/shared/ChampionshipBadge';
 import Top25Rankings from '../components/home/Top25Rankings';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import styles from './Teams.module.css';
+import SEOHead from '../components/seo/SEOHead';
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
 const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
@@ -129,9 +130,22 @@ export default function Teams() {
 
   return (
     <div className={styles.page}>
+      <SEOHead
+        title="College Basketball Teams — NCAAB Betting Intelligence by Conference"
+        description="Browse college basketball teams by conference and odds tier. Access ATS trends, championship odds, and betting intelligence for every NCAAB program tracked by Maximus Sports."
+        canonicalPath="/teams"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          'name': 'College Basketball Teams — Betting Intelligence',
+          'description': 'Browse college basketball teams by conference and odds tier with ATS trends and championship odds.',
+          'url': 'https://maximussports.ai/teams',
+          'isPartOf': { '@type': 'WebSite', 'name': 'Maximus Sports', 'url': 'https://maximussports.ai' }
+        }}
+      />
       <header className={styles.header}>
-        <h1>Bubble Watch</h1>
-        <p className={styles.subtitle}>ESPN bubble breakdown by conference & odds tier</p>
+        <h1>College Basketball Teams — Bubble Watch</h1>
+        <p className={styles.subtitle}>NCAAB betting intelligence by conference and odds tier — ATS trends, championship odds, and tournament projections</p>
       </header>
 
       <section className={styles.top25Section}>

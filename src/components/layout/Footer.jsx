@@ -59,7 +59,7 @@ export default function Footer() {
         <div className={styles.brandCluster}>
           <img
             src={mascot2d}
-            alt="Maximus mascot"
+            alt="Maximus Sports college basketball intelligence mascot"
             className={styles.mascot}
           />
           <div className={styles.brandText}>
@@ -99,6 +99,17 @@ export default function Footer() {
 
         <div className={styles.divider} />
 
+        {/* ── SEO footer navigation ── */}
+        <nav className={styles.seoNav} aria-label="Explore">
+          <Link to="/" className={styles.seoNavLink}>Home</Link>
+          <Link to="/teams" className={styles.seoNavLink}>Teams</Link>
+          <Link to="/games" className={styles.seoNavLink}>Games</Link>
+          <Link to="/insights" className={styles.seoNavLink}>Odds Insights</Link>
+          <Link to="/news" className={styles.seoNavLink}>News</Link>
+        </nav>
+
+        <div className={styles.divider} />
+
         {/* ── Attribution ── */}
         <p className={styles.attribution}>
           Built by Maximus 🤖, the genius toddler AI sports guru. Independent open source
@@ -112,6 +123,13 @@ export default function Footer() {
             Dante DiCicco
           </a>
           .
+        </p>
+
+        {/* ── SEO microcopy ── */}
+        <p className={styles.seoMicrocopy}>
+          Maximus Sports provides data-driven college basketball betting intelligence, ATS trends,
+          and March Madness insights powered by advanced analytics. NCAAB picks, odds analysis,
+          and tournament projections updated daily.
         </p>
 
         {/* ── Legal links + support ── */}

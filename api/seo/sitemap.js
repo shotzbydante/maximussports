@@ -33,6 +33,8 @@ export default function handler(req, res) {
     url('/news', { changefreq: 'hourly', priority: '0.85', lastmod: today }),
     url('/games', { changefreq: 'hourly', priority: '0.8', lastmod: today }),
     url('/alerts', { changefreq: 'hourly', priority: '0.75', lastmod: today }),
+    url('/college-basketball-picks-today', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
+    url('/march-madness-betting-intelligence', { changefreq: 'daily', priority: '0.92', lastmod: today }),
     // SEO landing pages
     url('/march-madness-odds', { changefreq: 'daily', priority: '0.9', lastmod: today }),
     url('/upset-picks', { changefreq: 'daily', priority: '0.88', lastmod: today }),

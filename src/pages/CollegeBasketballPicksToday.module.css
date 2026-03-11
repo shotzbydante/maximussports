@@ -1,0 +1,114 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg, 24px);
+}
+
+.header {
+  padding: var(--space-lg, 24px) 0 var(--space-md, 16px);
+  border-bottom: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  margin-bottom: var(--space-lg, 24px);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, rgba(255,255,255,0.45));
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.breadcrumb a {
+  color: var(--color-text-muted, rgba(255,255,255,0.45));
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-text-secondary, rgba(255,255,255,0.7));
+}
+
+.pageTitle {
+  font-size: clamp(1.3rem, 3.5vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.pageSubtitle {
+  font-size: 0.88rem;
+  color: var(--color-text-muted, rgba(255,255,255,0.5));
+  line-height: 1.55;
+  max-width: 640px;
+}
+
+.dateLine {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, rgba(255,255,255,0.38));
+  margin-top: var(--space-xs, 4px);
+}
+
+.picksSection {
+  margin-bottom: var(--space-xl, 32px);
+}
+
+.sectionTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.sectionIntro {
+  font-size: 0.82rem;
+  color: var(--color-text-muted, rgba(255,255,255,0.5));
+  line-height: 1.5;
+  margin-bottom: var(--space-md, 16px);
+  max-width: 580px;
+}
+
+.linksSection {
+  margin-top: var(--space-xl, 32px);
+  padding-top: var(--space-lg, 24px);
+  border-top: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  margin-bottom: var(--space-xl, 32px);
+}
+
+.linksGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-sm, 8px);
+  margin-top: var(--space-md, 16px);
+}
+
+.linkCard {
+  display: block;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-md, 16px);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.linkCard:hover {
+  background: rgba(60, 121, 180, 0.08);
+  border-color: rgba(60, 121, 180, 0.25);
+  text-decoration: none;
+}
+
+.linkCardTitle {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #fff);
+  margin-bottom: 4px;
+}
+
+.linkCardDesc {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--color-text-muted, rgba(255,255,255,0.45));
+  line-height: 1.4;
+}

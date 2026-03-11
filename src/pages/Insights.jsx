@@ -26,6 +26,7 @@ import ShareButton from '../components/common/ShareButton';
 import MaximusPicks from '../components/home/MaximusPicks';
 import AffiliateCta, { BrandMark } from '../components/common/AffiliateCta';
 import styles from './Insights.module.css';
+import SEOHead from '../components/seo/SEOHead';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Analytics Engine — pure functions, no side-effects
@@ -1152,10 +1153,15 @@ export default function Insights() {
 
   return (
     <div className={styles.page}>
+      <SEOHead
+        title="Odds Insights — College Basketball Betting Intelligence & ATS Trends"
+        description="Premium college basketball market intelligence with live odds, ATS performance leaders, spread analysis, upset alerts, and data-driven NCAAB betting picks powered by the Maximus model."
+        canonicalPath="/insights"
+      />
       {/* ── Header ── */}
       <header className={styles.header}>
-        <h1 className={styles.pageTitle}>Odds Insights</h1>
-        <p className={styles.pageSubtitle}>Market intelligence · Lines · Rankings · ATS</p>
+        <h1 className={styles.pageTitle}>College Basketball Odds Insights</h1>
+        <p className={styles.pageSubtitle}>Market intelligence · Lines · Rankings · ATS trends · Data-driven betting picks</p>
       </header>
 
       {/* ── Part 3: Market Briefing ── */}

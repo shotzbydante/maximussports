@@ -1,6 +1,10 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /settings
+Disallow: /dashboard
+Disallow: /alerts
+Disallow: /share/
 
 # Specific allows for SEO-critical API endpoints served as HTML
 Allow: /api/seo/
