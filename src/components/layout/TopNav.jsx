@@ -62,7 +62,7 @@ function PlanBadge({ tier, isLoading, isSyncing }) {
 const NAV_LINKS = [
   { to: '/', end: true, label: 'Home' },
   { to: '/games', end: false, label: 'Games' },
-  { to: '/teams', end: false, label: 'Teams' },
+  { to: '/teams', end: false, label: 'Team Intel' },
   { to: '/insights', end: false, label: 'Odds Insights' },
   { to: '/news', end: false, label: 'News Feed' },
   { to: '/settings', end: false, label: 'Settings', testId: 'nav-settings' },
