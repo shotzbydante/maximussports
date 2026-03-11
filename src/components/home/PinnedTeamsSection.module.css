@@ -969,6 +969,36 @@
   max-width: none;
 }
 
+/* ── Compact headline chips — mini story teasers ──────────────────── */
+
+.headlineChips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.headlineChip {
+  display: block;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  padding: 4px 8px;
+  background: rgba(60, 121, 180, 0.035);
+  border: 1px solid rgba(60, 121, 180, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.headlineChip:hover {
+  border-color: rgba(60, 121, 180, 0.22);
+  color: var(--color-primary);
+}
+
 .teamSummaryUnavailable {
   font-size: 0.75rem;
   color: var(--color-text-muted);

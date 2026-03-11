@@ -72,7 +72,7 @@ export default function DynamicStats({ stats, compact = false, games = [], rankM
           <div className={styles.stripLogos}>
             {teamLogos.map(({ team, slug, rank }) => (
               <Link key={slug} to={`/teams/${slug}`} className={styles.stripLogoLink} title={team.name}>
-                <TeamLogo team={team} size={22} />
+                <TeamLogo team={team} size={26} />
                 {rank != null && <span className={styles.stripRankBadge}>#{rank}</span>}
               </Link>
             ))}
