@@ -1154,8 +1154,8 @@ export default function Insights() {
   return (
     <div className={styles.page}>
       <SEOHead
-        title="Odds Insights — College Basketball Betting Intelligence & ATS Trends"
-        description="Premium college basketball market intelligence with live odds, ATS performance leaders, spread analysis, upset alerts, and data-driven NCAAB betting picks powered by the Maximus model."
+        title={`Odds Insights — College Basketball Betting Intelligence & ATS Trends (${new Date().getFullYear()})`}
+        description={`Premium ${new Date().getFullYear()} college basketball market intelligence with live odds, ATS performance leaders, spread analysis, upset alerts, and data-driven NCAAB betting picks powered by the Maximus model.`}
         canonicalPath="/insights"
       />
       {/* ── Header ── */}

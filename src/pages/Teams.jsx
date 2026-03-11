@@ -131,14 +131,14 @@ export default function Teams() {
   return (
     <div className={styles.page}>
       <SEOHead
-        title="College Basketball Teams — NCAAB Betting Intelligence by Conference"
-        description="Browse college basketball teams by conference and odds tier. Access ATS trends, championship odds, and betting intelligence for every NCAAB program tracked by Maximus Sports."
+        title={`College Basketball Teams — NCAAB Betting Intelligence by Conference (${new Date().getFullYear()})`}
+        description={`Browse ${new Date().getFullYear()} college basketball teams by conference and odds tier. Access ATS trends, championship odds, and betting intelligence for every NCAAB program tracked by Maximus Sports.`}
         canonicalPath="/teams"
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'CollectionPage',
-          'name': 'College Basketball Teams — Betting Intelligence',
-          'description': 'Browse college basketball teams by conference and odds tier with ATS trends and championship odds.',
+          'name': `College Basketball Teams — Betting Intelligence (${new Date().getFullYear()})`,
+          'description': `Browse ${new Date().getFullYear()} college basketball teams by conference and odds tier with ATS trends and championship odds.`,
           'url': 'https://maximussports.ai/teams',
           'isPartOf': { '@type': 'WebSite', 'name': 'Maximus Sports', 'url': 'https://maximussports.ai' }
         }}

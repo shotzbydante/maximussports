@@ -17,6 +17,8 @@ import YouTubeVideoModal from '../shared/YouTubeVideoModal';
 import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge,
   getStaleVideos, getStaleVideosAge, setStaleVideos } from '../../utils/ytClientCache';
 import ShareButton from '../common/ShareButton';
+import { buildMatchupSlug } from '../../utils/matchupSlug';
+import { getTeamSlug } from '../../utils/teamSlug';
 import SEOHead from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
@@ -413,8 +415,25 @@ export default function TeamPage() {
     );
   }
 
-  const teamSeoTitle = `${team.name} Betting Intelligence — ATS Trends & Odds`;
-  const teamSeoDesc = `Data-driven college basketball betting intelligence for ${team.name} including ATS trends, matchup analysis, model projections, and ${team.conference} conference insights.`;
+  const currentYear = new Date().getFullYear();
+  const teamSeoTitle = `${team.name} Betting Intelligence (${currentYear}) — ATS Trends & Odds`;
+  const teamSeoDesc = `${currentYear} college basketball betting intelligence for ${team.name} — ATS trends, matchup analysis, model projections, next game prediction, and ${team.conference} conference insights.`;
+
+  const nextUpcoming = (batch?.schedule?.events ?? [])
+    .filter((e) => !e.isFinal)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+
+  const nextOpponentSlug = nextUpcoming
+    ? (() => {
+        const oppName = (nextUpcoming.awayTeam === team.name) ? nextUpcoming.homeTeam : nextUpcoming.awayTeam;
+        if (!oppName) return null;
+        return getTeamSlug(oppName);
+      })()
+    : null;
+
+  const nextMatchupLink = nextOpponentSlug
+    ? `/games/${buildMatchupSlug(slug, nextOpponentSlug)}`
+    : null;
 
   return (
     <div className={styles.page}>
@@ -432,6 +451,7 @@ export default function TeamPage() {
             'name': team.conference,
           },
           'url': `https://maximussports.ai/teams/${slug}`,
+          'description': teamSeoDesc,
         }}
       />
       <header className={styles.header}>
@@ -484,8 +504,58 @@ export default function TeamPage() {
       </header>
 
       <p className={styles.teamSeoIntro}>
-        Data-driven college basketball betting intelligence for {team.name} — ATS trends, upcoming matchup analysis, and model projections from the {team.conference}.
+        {currentYear} college basketball betting intelligence for {team.name} — ATS trends, upcoming matchup analysis, and model projections from the {team.conference}.
       </p>
+
+      {/* ── Betting Trends Authority Block ── */}
+      <section className={styles.bettingTrendsBlock} aria-label={`${team.name} betting trends`}>
+        <h2 className={styles.bettingTrendsTitle}>{team.name} Betting Trends &amp; ATS History</h2>
+        <div className={styles.bettingTrendsGrid}>
+          <div className={styles.bettingTrendCard}>
+            <h3 className={styles.bettingTrendLabel}>ATS Trends</h3>
+            {atsForSummary?.season?.total > 0 ? (
+              <div className={styles.bettingTrendBody}>
+                <span className={styles.bettingTrendStat}>
+                  Season: {atsForSummary.season.wins}–{atsForSummary.season.losses}
+                  {atsForSummary.season.total > 0 && ` (${Math.round((atsForSummary.season.wins / atsForSummary.season.total) * 100)}%)`}
+                </span>
+                {atsForSummary.last30?.total > 0 && (
+                  <span className={styles.bettingTrendStat}>
+                    Last 30 days: {atsForSummary.last30.wins}–{atsForSummary.last30.losses}
+                    {` (${Math.round((atsForSummary.last30.wins / atsForSummary.last30.total) * 100)}%)`}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className={styles.bettingTrendMuted}>ATS data loading…</p>
+            )}
+          </div>
+          <div className={styles.bettingTrendCard}>
+            <h3 className={styles.bettingTrendLabel}>Recent Performance Signals</h3>
+            <div className={styles.bettingTrendBody}>
+              {rank != null && <span className={styles.bettingTrendStat}>National rank: #{rank}</span>}
+              <span className={styles.bettingTrendStat}>Conference: {team.conference}</span>
+              <span className={styles.bettingTrendStat}>Tier: {team.oddsTier}</span>
+            </div>
+          </div>
+          <div className={styles.bettingTrendCard}>
+            <h3 className={styles.bettingTrendLabel}>Betting Intelligence Summary</h3>
+            <div className={styles.bettingTrendLinks}>
+              {nextMatchupLink && nextUpcoming && (
+                <Link to={nextMatchupLink} className={styles.bettingTrendLink}>
+                  Next game prediction →
+                </Link>
+              )}
+              <Link to="/college-basketball-picks-today" className={styles.bettingTrendLink}>
+                Today&apos;s picks &amp; predictions →
+              </Link>
+              <Link to="/insights" className={styles.bettingTrendLink}>
+                Full odds insights →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className={styles.insightSection} aria-label="Maximus's Insight">
         <TeamSummaryBox

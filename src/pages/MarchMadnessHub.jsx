@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS } from '../data/teams';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
+import { buildMatchupSlug } from '../utils/matchupSlug';
 import TeamLogo from '../components/shared/TeamLogo';
 import SEOHead from '../components/seo/SEOHead';
 import styles from './MarchMadnessHub.module.css';
@@ -49,11 +50,13 @@ export default function MarchMadnessHub() {
     }));
   }, []);
 
+  const currentYear = new Date().getFullYear();
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    'name': 'March Madness Betting Intelligence — NCAA Tournament Analysis',
-    'description': 'March Madness betting intelligence including tournament matchup insights, team betting trends, bracket analysis signals, and championship odds powered by Maximus Sports.',
+    'name': `March Madness Betting Intelligence (${currentYear}) — NCAA Tournament Analysis`,
+    'description': `${currentYear} March Madness betting intelligence including tournament matchup insights, team betting trends, bracket analysis signals, and championship odds powered by Maximus Sports.`,
     'url': 'https://maximussports.ai/march-madness-betting-intelligence',
     'isPartOf': { '@type': 'WebSite', 'name': 'Maximus Sports', 'url': 'https://maximussports.ai' },
     'breadcrumb': {
@@ -68,8 +71,8 @@ export default function MarchMadnessHub() {
   return (
     <div className={styles.page}>
       <SEOHead
-        title="March Madness Betting Intelligence — NCAA Tournament Picks & Analysis"
-        description="March Madness betting intelligence including tournament matchup insights, team betting trends, bracket analysis signals, and championship odds powered by Maximus Sports."
+        title={`March Madness Betting Intelligence (${currentYear}) — Picks, Trends & Predictions`}
+        description={`${currentYear} March Madness betting intelligence including tournament matchup insights, team betting trends, bracket analysis signals, and championship odds powered by Maximus Sports.`}
         canonicalPath="/march-madness-betting-intelligence"
         jsonLd={jsonLd}
       />
@@ -80,10 +83,10 @@ export default function MarchMadnessHub() {
           <span aria-hidden>/</span>
           <span>March Madness</span>
         </nav>
-        <h1 className={styles.pageTitle}>March Madness Betting Intelligence</h1>
+        <h1 className={styles.pageTitle}>March Madness Betting Intelligence ({currentYear})</h1>
         <p className={styles.pageSubtitle}>
           NCAA tournament matchup insights, team betting trends, bracket analysis signals,
-          and championship odds — powered by advanced analytics.
+          and championship odds for the {currentYear} season — powered by advanced analytics.
         </p>
       </header>
 
@@ -133,6 +136,35 @@ export default function MarchMadnessHub() {
           </div>
         ))}
       </section>
+
+      {/* ── Key matchup prediction links (generated from top contenders) ── */}
+      {topContenders.length >= 4 && (
+        <section className={styles.section} aria-label="Key matchup predictions">
+          <h2 className={styles.sectionTitle}>Key Tournament Matchup Predictions</h2>
+          <p className={styles.sectionIntro}>
+            Explore AI-powered matchup intelligence for potential tournament showdowns between top contenders.
+          </p>
+          <div className={styles.matchupLinks}>
+            {(() => {
+              const pairs = [];
+              const top = topContenders.slice(0, 8);
+              for (let i = 0; i < top.length && pairs.length < 6; i++) {
+                for (let j = i + 1; j < top.length && pairs.length < 6; j++) {
+                  pairs.push([top[i], top[j]]);
+                }
+              }
+              return pairs.map(([a, b]) => {
+                const mSlug = buildMatchupSlug(a.slug, b.slug);
+                return (
+                  <Link to={`/games/${mSlug}`} key={mSlug} className={styles.matchupLinkPill}>
+                    {a.team.name} vs {b.team.name} →
+                  </Link>
+                );
+              });
+            })()}
+          </div>
+        </section>
+      )}
 
       <section className={styles.section} aria-label="Related intelligence">
         <h2 className={styles.sectionTitle}>More March Madness Intelligence</h2>

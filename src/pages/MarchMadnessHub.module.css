@@ -195,3 +195,26 @@
   color: var(--color-text-muted, rgba(255,255,255,0.45));
   line-height: 1.4;
 }
+
+/* ── Matchup Links ── */
+.matchupLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs, 4px) var(--space-sm, 8px);
+  margin-top: var(--space-sm, 8px);
+}
+
+.matchupLinkPill {
+  font-size: 0.78rem;
+  color: var(--color-accent, #7dd3fc);
+  text-decoration: none;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border-light, rgba(60,121,180,0.12));
+  border-radius: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.matchupLinkPill:hover {
+  background: rgba(60, 121, 180, 0.08);
+  border-color: rgba(60, 121, 180, 0.25);
+}

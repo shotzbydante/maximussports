@@ -83,8 +83,8 @@ export default function Games() {
   return (
     <div className={styles.page}>
       <SEOHead
-        title="College Basketball Games Today — Live Scores, Spreads & Schedule"
-        description="Live college basketball scores, spreads, and the full NCAAB daily schedule. Track every game with real-time odds and betting lines powered by Maximus Sports."
+        title={`College Basketball Games Today — Live Scores, Spreads & Schedule (${new Date().getFullYear()})`}
+        description={`Live college basketball scores, spreads, and the full NCAAB daily schedule for ${new Date().getFullYear()}. Track every game with real-time odds and betting lines powered by Maximus Sports.`}
         canonicalPath="/games"
       />
       <header className={styles.header}>

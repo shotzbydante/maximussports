@@ -1,8 +1,9 @@
 import { Helmet } from 'react-helmet-async';
 
-const ORIGIN = 'https://maximussports.ai';
+export const ORIGIN = 'https://maximussports.ai';
 const DEFAULT_OG_IMAGE = `${ORIGIN}/og.png`;
-const SITE_NAME = 'Maximus Sports';
+export const SITE_NAME = 'Maximus Sports';
+export const CURRENT_YEAR = new Date().getFullYear();
 
 /**
  * Per-page SEO metadata via react-helmet-async.

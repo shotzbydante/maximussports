@@ -10,6 +10,7 @@ import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
 import { sportsDateStr } from '../utils/slateDate';
 import { getPinnedTeams } from '../utils/pinnedTeams';
+import { buildMatchupSlug } from '../utils/matchupSlug';
 import MaximusPicks from '../components/home/MaximusPicks';
 import SEOHead from '../components/seo/SEOHead';
 import styles from './CollegeBasketballPicksToday.module.css';
@@ -120,11 +121,13 @@ export default function CollegeBasketballPicksToday() {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 
+  const currentYear = new Date().getFullYear();
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    'name': `College Basketball Picks Today — ${todayDisplay}`,
-    'description': 'Today\'s college basketball betting intelligence powered by the Maximus model, highlighting ATS trends, value plays, and game totals across the NCAAB slate.',
+    'name': `College Basketball Picks Today (${currentYear}) — ${todayDisplay}`,
+    'description': `Today's college basketball betting intelligence for the ${currentYear} season — ATS trends, value plays, and game totals across the NCAAB slate.`,
     'url': 'https://maximussports.ai/college-basketball-picks-today',
     'dateModified': new Date().toISOString(),
     'isPartOf': { '@type': 'WebSite', 'name': 'Maximus Sports', 'url': 'https://maximussports.ai' },
@@ -140,8 +143,8 @@ export default function CollegeBasketballPicksToday() {
   return (
     <div className={styles.page}>
       <SEOHead
-        title="College Basketball Picks Today — NCAAB Predictions & Betting Intelligence"
-        description="Today's college basketball betting intelligence powered by the Maximus model, highlighting ATS trends, value plays, and game totals across the NCAAB slate."
+        title={`College Basketball Picks Today (${currentYear}) — NCAAB Predictions & Betting Intelligence`}
+        description={`Today's college basketball betting intelligence for the ${currentYear} season — ATS picks, model-driven predictions, and game totals across the NCAAB slate powered by the Maximus model.`}
         canonicalPath="/college-basketball-picks-today"
         jsonLd={jsonLd}
       />
@@ -153,11 +156,11 @@ export default function CollegeBasketballPicksToday() {
           <span>Today&apos;s Picks</span>
         </nav>
         <h1 className={styles.pageTitle}>
-          College Basketball Picks Today
+          College Basketball Picks Today ({currentYear})
         </h1>
         <p className={styles.pageSubtitle}>
-          Today&apos;s college basketball betting intelligence powered by the Maximus model,
-          highlighting ATS trends, value plays, and game totals across the NCAAB slate.
+          Today&apos;s college basketball slate features high-confidence signals from the Maximus model,
+          highlighting ATS opportunities, moneyline value plays, and game total projections across major conference matchups.
         </p>
         <time className={styles.dateLine} dateTime={new Date().toISOString().slice(0, 10)}>
           {todayDisplay}
@@ -183,6 +186,26 @@ export default function CollegeBasketballPicksToday() {
           hideViewMore
         />
       </section>
+
+      {/* ── Featured Matchup Links ── */}
+      {allGames.length > 0 && (
+        <section className={styles.matchupLinksSection} aria-label="Featured matchup predictions">
+          <h2 className={styles.sectionTitle}>Featured Matchup Predictions</h2>
+          <div className={styles.matchupLinksGrid}>
+            {allGames.slice(0, 8).map((g) => {
+              const hs = getTeamSlug(g.homeTeam);
+              const as_ = getTeamSlug(g.awayTeam);
+              if (!hs || !as_) return null;
+              const mSlug = buildMatchupSlug(hs, as_);
+              return (
+                <Link to={`/games/${mSlug}`} key={mSlug} className={styles.matchupLink}>
+                  {g.homeTeam} vs {g.awayTeam} →
+                </Link>
+              );
+            }).filter(Boolean)}
+          </div>
+        </section>
+      )}
 
       <section className={styles.linksSection} aria-label="Related pages">
         <h2 className={styles.sectionTitle}>Explore More Betting Intelligence</h2>

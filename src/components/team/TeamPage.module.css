@@ -12,6 +12,78 @@
   max-width: 640px;
 }
 
+/* ── Betting Trends Authority Block ── */
+.bettingTrendsBlock {
+  margin-bottom: var(--space-lg, 24px);
+}
+
+.bettingTrendsTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+}
+
+.bettingTrendsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-sm, 8px);
+}
+@media (max-width: 640px) {
+  .bettingTrendsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bettingTrendCard {
+  background: var(--color-card-bg, rgba(255,255,255,0.03));
+  border: 1px solid var(--color-border, rgba(255,255,255,0.06));
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.bettingTrendLabel {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted, rgba(255,255,255,0.5));
+  margin: 0 0 8px;
+}
+
+.bettingTrendBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bettingTrendStat {
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.bettingTrendMuted {
+  font-size: 0.78rem;
+  color: var(--color-text-muted, rgba(255,255,255,0.35));
+  margin: 0;
+}
+
+.bettingTrendLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bettingTrendLink {
+  font-size: 0.8rem;
+  color: var(--color-accent, #7dd3fc);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.bettingTrendLink:hover {
+  text-decoration: underline;
+}
+
 .header {
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-md);
