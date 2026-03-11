@@ -393,49 +393,110 @@ function buildGameCaption({ game, picks, asOf }) {
 // ─── Maximus's Picks ──────────────────────────────────────────────────────────
 
 function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
-  const picksCount = picks?.length ?? 0;
-  const gamesCount = stats?.gamesWithOdds ?? null;
+  const all = picks ?? [];
+  const picksCount = all.length;
 
-  const hook = picksCount > 0
-    ? `📊 MAXIMUS'S PICKS — TODAY\n\nOur model flagged ${picksCount} lean${picksCount > 1 ? 's' : ''} across spreads, value plays, and totals.`
-    : `📊 MAXIMUS'S PICKS — TODAY\n\n${gamesCount != null ? `Scanning ${gamesCount} games.` : 'Live odds tracked across today\'s slate.'} No leans cleared the threshold.`;
+  const byType = (t) => all.filter(p => p.pickType === t && p.itemType === 'lean');
+  const atsList  = byType('ats');
+  const valList  = byType('value');
+  const totList  = byType('total');
+  const peList   = byType('pickem');
 
-  const topLines = (picks || []).slice(0, 3).map(p => {
-    const emoji = p.pickType === 'ats' ? '🏀' : p.pickType === 'value' ? '💰' : p.pickType === 'total' ? '🔢' : '🏀';
-    return `${emoji} ${p.pickLine || p.pickTeam || '—'}`;
-  });
+  const best = (arr) => arr.sort((a, b) => (b.confidence - a.confidence) || ((b.edgeMag ?? 0) - (a.edgeMag ?? 0)))[0] ?? null;
+
+  const topAts = best([...atsList]);
+  const topVal = best([...valList]);
+  const topTot = best([...totList]);
+  const topPe  = best([...peList]);
+
+  const confWord = (c) => c >= 2 ? 'HIGH' : c >= 1 ? 'MEDIUM' : 'LOW';
+
+  function pickSummary(p) {
+    if (!p) return null;
+    return `${p.pickLine || p.pickTeam || '—'} (${confWord(p.confidence)})`;
+  }
+
+  function pickRationale(p) {
+    if (!p) return null;
+    const c = p.confidence;
+    switch (p.pickType) {
+      case 'ats':
+        return c >= 2 ? 'ATS trends and model projection both favor a cover here.'
+                      : 'Recent form suggests a spread opportunity the market hasn\u2019t fully adjusted to.';
+      case 'value':
+        return c >= 2 ? 'Model probability is significantly higher than what the market implies.'
+                      : 'Moderate pricing gap \u2014 enough to qualify as a value spot.';
+      case 'total':
+        return p.leanDirection === 'OVER'
+          ? (c >= 2 ? 'Tempo and scoring trends make this the strongest over environment on the board.'
+                    : 'Combined pace points toward the over.')
+          : (c >= 2 ? 'Defensive matchup strongly supports the under.'
+                    : 'Scoring pace suggests the total may be set a touch too high.');
+      case 'pickem':
+        return c >= 2 ? 'Significant model edge on the moneyline here.'
+                      : 'Market may be underrating this side.';
+      default: return 'Model edge detected.';
+    }
+  }
+
+  const categoryCount = [atsList.length > 0, valList.length > 0, totList.length > 0, peList.length > 0].filter(Boolean).length;
+  const catWords = [];
+  if (peList.length > 0)  catWords.push('pick \u2019ems');
+  if (atsList.length > 0) catWords.push('spreads');
+  if (valList.length > 0) catWords.push('value plays');
+  if (totList.length > 0) catWords.push('totals');
+  const catJoin = catWords.length <= 2
+    ? catWords.join(' and ')
+    : catWords.slice(0, -1).join(', ') + ', and ' + catWords[catWords.length - 1];
+
+  const hookLine = picksCount > 0
+    ? `Today\u2019s board is loaded. \uD83C\uDFC0`
+    : `The model scanned the full slate. No edges cleared the threshold today \u2014 discipline over volume.`;
+
+  const summaryLine = picksCount > 0
+    ? `${picksCount} data-driven leans across ${catJoin}. Every pick is confidence-ranked and model-verified.`
+    : '';
+
+  const boardLines = [];
+  if (topAts) boardLines.push(`\uD83D\uDCC9 ATS: ${pickSummary(topAts)}\n${pickRationale(topAts)}`);
+  if (topVal) boardLines.push(`\uD83D\uDCB0 VALUE: ${pickSummary(topVal)}\n${pickRationale(topVal)}`);
+  if (topTot) boardLines.push(`\uD83D\uDD22 TOTAL: ${pickSummary(topTot)}\n${pickRationale(topTot)}`);
+  if (topPe)  boardLines.push(`\uD83C\uDFC0 PICK \u2019EM: ${pickSummary(topPe)}\n${pickRationale(topPe)}`);
 
   const short = [
-    hook,
-    topLines.length > 0 ? `\nTop signals today:\n${topLines.join('\n')}` : null,
-    '\nAll picks are data-driven with confidence rankings and matchup signals.',
-    `\nFull analysis → maximussports.ai`,
-  ].filter(Boolean).join('\n');
+    hookLine,
+    summaryLine || null,
+    boardLines.length > 0 ? boardLines.join('\n\n') : null,
+    `Full board + signals \u2192 maximussports.ai`,
+  ].filter(Boolean).join('\n\n');
 
   const long = [
-    `📊 MAXIMUS'S PICKS — TODAY`,
+    hookLine,
     '',
-    picksCount > 0
-      ? `Our model flagged ${picksCount} lean${picksCount > 1 ? 's' : ''} across spreads, value plays, and totals.`
-      : `No leans cleared the model threshold today. Discipline beats volume.`,
+    summaryLine || null,
     '',
-    topLines.length > 0 ? `Top signals today:\n${topLines.join('\n')}` : null,
+    boardLines.length > 0 ? boardLines.join('\n\n') : null,
     '',
-    'All picks are data-driven with confidence rankings and matchup signals.',
-    '',
-    '6 slides: Hero → Pick \'Ems → ATS → Value → Totals → Upset Alerts',
+    'Swipe for full breakdowns: spreads, value, totals, and upset alerts.',
     '',
     asOf ? `Data as of ${asOf}` : null,
-    CTA,
+    `Full board + signals \u2192 maximussports.ai`,
     DISCLAIMER,
-  ].filter(Boolean).join('\n');
+  ].filter(l => l !== null && l !== undefined)
+   .reduce((acc, line) => {
+     if (line === '' && acc.length > 0 && acc[acc.length - 1] === '') return acc;
+     return [...acc, line];
+   }, [])
+   .join('\n')
+   .trim();
 
   const hashtags = [
-    '#CollegeBasketball', '#SportsBetting', '#MarchMadness',
-    '#ATS', '#SportsAnalytics', '#MaximusSports',
-    '#NCAABB', '#BettingPicks', '#ValueBet',
-    '#CollegeHoops', '#MaximusPicks',
-  ].slice(0, 12);
+    '#CollegeBasketball',
+    '#MarchMadness',
+    '#BettingPicks',
+    '#NCAAB',
+    '#SportsBetting',
+  ];
 
   return { shortCaption: short, longCaption: long, hashtags };
 }

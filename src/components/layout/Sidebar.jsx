@@ -52,7 +52,7 @@ const DashboardIcon = () => (
   </svg>
 );
 
-const ADMIN_EMAIL = 'dantedicco@gmail.com';
+const ADMIN_EMAIL = 'dantedicicco@gmail.com';
 
 export default function Sidebar() {
   const { user } = useAuth();
