@@ -92,7 +92,7 @@ export default function Sidebar() {
                 className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
               >
                 <span className={styles.icon}><TeamsIcon /></span>
-                <span>Team Intel</span>
+                <span>Team Intel Hub</span>
               </NavLink>
               <button
                 type="button"

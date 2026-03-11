@@ -208,11 +208,28 @@
   flex-shrink: 0;
   border-radius: 50%;
   padding: 2px;
+  position: relative;
   transition: transform var(--transition-fast, 0.12s ease);
 }
 
 .stripLogoLink:hover {
   transform: scale(1.15);
+}
+
+.stripRankBadge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--color-primary, #3c79b4);
+  border-radius: 6px;
+  padding: 1px 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: -0.02em;
 }
 
 .stripSep {

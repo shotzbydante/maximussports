@@ -87,8 +87,15 @@ export default function ATSLeaderboard({
 
   const periodKey = period;
   const teaserCap = teaserMode ? 3 : 10;
-  const best10 = best.slice(0, teaserCap).map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
-  const worst10 = worst.slice(0, teaserCap).map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
+  const mapRec = (r) => ({ ...r, rec: r[periodKey] ?? r.rec ?? r.season });
+  const best10 = best.map(mapRec)
+    .filter((r) => r.rec?.total > 0)
+    .sort((a, b) => (b.rec?.coverPct ?? 0) - (a.rec?.coverPct ?? 0))
+    .slice(0, teaserCap);
+  const worst10 = worst.map(mapRec)
+    .filter((r) => r.rec?.total > 0)
+    .sort((a, b) => (a.rec?.coverPct ?? 100) - (b.rec?.coverPct ?? 100))
+    .slice(0, teaserCap);
   const showRecordAsNa = (rec) => isProxy || !rec || rec.total == null || (rec.total === 0 && (rec.w ?? 0) === 0 && (rec.l ?? 0) === 0);
   const recordLabel = (r) => {
     const rec = r.rec;

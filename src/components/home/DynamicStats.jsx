@@ -42,7 +42,7 @@ function getTileVariant(stat, index) {
   return 'neutral';
 }
 
-export default function DynamicStats({ stats, compact = false, games = [] }) {
+export default function DynamicStats({ stats, compact = false, games = [], rankMap = {} }) {
   const teamLogos = useMemo(() => {
     if (!compact || !games?.length) return [];
     const seen = new Set();
@@ -53,12 +53,12 @@ export default function DynamicStats({ stats, compact = false, games = [] }) {
         if (!slug || seen.has(slug)) continue;
         seen.add(slug);
         const team = getTeamBySlug(slug);
-        if (team) logos.push({ team, slug, gameId: g.gameId });
+        if (team) logos.push({ team, slug, gameId: g.gameId, rank: rankMap[slug] ?? null });
       }
       if (logos.length >= 10) break;
     }
     return logos;
-  }, [compact, games]);
+  }, [compact, games, rankMap]);
 
   if (!stats?.length && teamLogos.length === 0) return null;
 
@@ -70,9 +70,10 @@ export default function DynamicStats({ stats, compact = false, games = [] }) {
         <span className={styles.stripLabel}>Today</span>
         {teamLogos.length > 0 && (
           <div className={styles.stripLogos}>
-            {teamLogos.map(({ team, slug }) => (
+            {teamLogos.map(({ team, slug, rank }) => (
               <Link key={slug} to={`/teams/${slug}`} className={styles.stripLogoLink} title={team.name}>
                 <TeamLogo team={team} size={22} />
+                {rank != null && <span className={styles.stripRankBadge}>#{rank}</span>}
               </Link>
             ))}
           </div>
