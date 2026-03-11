@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
 import { useAuth } from '../../context/AuthContext';
+import { isAdminUser } from '../../config/admin';
 import styles from './Sidebar.module.css';
 
 /* ─── Inline SVG icon set (16×16, 1.5px stroke, no fill) ─────────────────── */
@@ -52,11 +53,9 @@ const DashboardIcon = () => (
   </svg>
 );
 
-const ADMIN_EMAIL = 'dantedicicco@gmail.com';
-
 export default function Sidebar() {
   const { user } = useAuth();
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminUser(user?.email);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
   const grouped = getTeamsGroupedByConference();

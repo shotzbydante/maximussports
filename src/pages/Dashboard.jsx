@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isAdminUser } from '../config/admin';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
 import { fetchTeamPage } from '../api/team';
 import { fetchTeamNextLine } from '../api/teamNextLine';
@@ -25,8 +26,6 @@ const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 
-const ADMIN_EMAIL = 'dantedicicco@gmail.com';
-
 const SECTIONS = [
   { id: 'daily',      label: 'Daily Briefing',    icon: '📅' },
   { id: 'team',       label: 'Team Intel',         icon: '🏀' },
@@ -45,8 +44,8 @@ function gameLabel(g) {
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
-  const isAuthorized = !authLoading && user?.email === ADMIN_EMAIL;
-  const isUnauthorized = !authLoading && (!user || user.email !== ADMIN_EMAIL);
+  const isAuthorized = !authLoading && isAdminUser(user?.email);
+  const isUnauthorized = !authLoading && !isAdminUser(user?.email);
 
   // ── section / template state ────────────────────────────
   const [activeSection, setActiveSection] = useState('daily');

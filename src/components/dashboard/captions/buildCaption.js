@@ -402,85 +402,101 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
   const totList  = byType('total');
   const peList   = byType('pickem');
 
-  const best = (arr) => arr.sort((a, b) => (b.confidence - a.confidence) || ((b.edgeMag ?? 0) - (a.edgeMag ?? 0)))[0] ?? null;
+  const best = (arr) => [...arr].sort((a, b) => (b.confidence - a.confidence) || ((b.edgeMag ?? 0) - (a.edgeMag ?? 0)))[0] ?? null;
 
-  const topAts = best([...atsList]);
-  const topVal = best([...valList]);
-  const topTot = best([...totList]);
-  const topPe  = best([...peList]);
+  const topAts = best(atsList);
+  const topVal = best(valList);
+  const topTot = best(totList);
+  const topPe  = best(peList);
 
   const confWord = (c) => c >= 2 ? 'HIGH' : c >= 1 ? 'MEDIUM' : 'LOW';
 
-  function pickSummary(p) {
+  function pickTag(p) {
     if (!p) return null;
-    return `${p.pickLine || p.pickTeam || '—'} (${confWord(p.confidence)})`;
+    return `${p.pickLine || p.pickTeam || '\u2014'} (${confWord(p.confidence)})`;
   }
 
-  function pickRationale(p) {
-    if (!p) return null;
-    const c = p.confidence;
-    switch (p.pickType) {
-      case 'ats':
-        return c >= 2 ? 'ATS trends and model projection both favor a cover here.'
-                      : 'Recent form suggests a spread opportunity the market hasn\u2019t fully adjusted to.';
-      case 'value':
-        return c >= 2 ? 'Model probability is significantly higher than what the market implies.'
-                      : 'Moderate pricing gap \u2014 enough to qualify as a value spot.';
-      case 'total':
-        return p.leanDirection === 'OVER'
-          ? (c >= 2 ? 'Tempo and scoring trends make this the strongest over environment on the board.'
-                    : 'Combined pace points toward the over.')
-          : (c >= 2 ? 'Defensive matchup strongly supports the under.'
-                    : 'Scoring pace suggests the total may be set a touch too high.');
-      case 'pickem':
-        return c >= 2 ? 'Significant model edge on the moneyline here.'
-                      : 'Market may be underrating this side.';
-      default: return 'Model edge detected.';
-    }
+  const atsRationale = [
+    'Cover rate + model projection both lean this way.',
+    'ATS form and spread differential say this side has value.',
+    'The number looks soft \u2014 our model sees a clear cover path.',
+  ];
+  const valRationale = [
+    'Model price is well above the market \u2014 real value gap.',
+    'Market is underpricing this outcome. Model disagrees sharply.',
+    'Significant implied probability edge vs the posted line.',
+  ];
+  const totRationale = [
+    'Tempo and pace profiles point convincingly toward the over.',
+    'Scoring environments don\u2019t get much stronger than this one.',
+    'Combined offensive output should push this total.',
+    'Defensive profiles and pace strongly favor the under.',
+    'Scoring pace says this total is set too high.',
+  ];
+  const peRationale = [
+    'Model sees a meaningful moneyline edge here.',
+    'Win probability gap is wide enough to act on.',
+    'The market may be underrating this side straight-up.',
+  ];
+
+  const dayIdx = new Date().getDate();
+  function rationale(pool, pick) {
+    if (!pick) return '';
+    return pool[_hash(pick.pickLine || '') % pool.length];
   }
 
-  const categoryCount = [atsList.length > 0, valList.length > 0, totList.length > 0, peList.length > 0].filter(Boolean).length;
+  const FIXED_HOOK = 'Maximus\u2019s pick drop \uD83D\uDD25';
+
+  const followUps = [
+    () => `${picksCount} model-backed leans just hit the board.`,
+    () => `The model scanned today\u2019s full slate \u2014 here\u2019s what cleared.`,
+    () => `${picksCount} edges surfaced across the board. Confidence-ranked and data-verified.`,
+    () => `Fresh intel. ${picksCount} qualified leans across today\u2019s slate.`,
+    () => `The numbers spoke. ${picksCount} edges cleared the model threshold.`,
+    () => `Board is live. ${picksCount} signals worth knowing about.`,
+  ];
+
+  const followUp = picksCount > 0
+    ? followUps[dayIdx % followUps.length]()
+    : 'No edges cleared the model threshold today \u2014 discipline over volume.';
+
   const catWords = [];
-  if (peList.length > 0)  catWords.push('pick \u2019ems');
   if (atsList.length > 0) catWords.push('spreads');
-  if (valList.length > 0) catWords.push('value plays');
+  if (valList.length > 0) catWords.push('value');
   if (totList.length > 0) catWords.push('totals');
+  if (peList.length > 0)  catWords.push('pick \u2019ems');
   const catJoin = catWords.length <= 2
     ? catWords.join(' and ')
     : catWords.slice(0, -1).join(', ') + ', and ' + catWords[catWords.length - 1];
-
-  const hookLine = picksCount > 0
-    ? `Today\u2019s board is loaded. \uD83C\uDFC0`
-    : `The model scanned the full slate. No edges cleared the threshold today \u2014 discipline over volume.`;
-
-  const summaryLine = picksCount > 0
-    ? `${picksCount} data-driven leans across ${catJoin}. Every pick is confidence-ranked and model-verified.`
-    : '';
+  const catLine = catWords.length > 0 ? `Covering ${catJoin}.` : '';
 
   const boardLines = [];
-  if (topAts) boardLines.push(`\uD83D\uDCC9 ATS: ${pickSummary(topAts)}\n${pickRationale(topAts)}`);
-  if (topVal) boardLines.push(`\uD83D\uDCB0 VALUE: ${pickSummary(topVal)}\n${pickRationale(topVal)}`);
-  if (topTot) boardLines.push(`\uD83D\uDD22 TOTAL: ${pickSummary(topTot)}\n${pickRationale(topTot)}`);
-  if (topPe)  boardLines.push(`\uD83C\uDFC0 PICK \u2019EM: ${pickSummary(topPe)}\n${pickRationale(topPe)}`);
+  if (topAts) boardLines.push(`\uD83D\uDCC9 ATS: ${pickTag(topAts)}\n${rationale(atsRationale, topAts)}`);
+  if (topVal) boardLines.push(`\uD83D\uDCB0 VALUE: ${pickTag(topVal)}\n${rationale(valRationale, topVal)}`);
+  if (topTot) {
+    const pool = (topTot.leanDirection === 'OVER') ? totRationale.slice(0, 3) : totRationale.slice(3);
+    boardLines.push(`\uD83D\uDD22 TOTAL: ${pickTag(topTot)}\n${rationale(pool, topTot)}`);
+  }
+  if (topPe) boardLines.push(`\uD83C\uDFC0 PICK \u2019EM: ${pickTag(topPe)}\n${rationale(peRationale, topPe)}`);
 
   const short = [
-    hookLine,
-    summaryLine || null,
+    FIXED_HOOK,
+    [followUp, catLine].filter(Boolean).join(' '),
     boardLines.length > 0 ? boardLines.join('\n\n') : null,
-    `Full board + signals \u2192 maximussports.ai`,
+    'Full board + signals \u2192 maximussports.ai',
   ].filter(Boolean).join('\n\n');
 
   const long = [
-    hookLine,
+    FIXED_HOOK,
     '',
-    summaryLine || null,
+    [followUp, catLine].filter(Boolean).join(' '),
     '',
     boardLines.length > 0 ? boardLines.join('\n\n') : null,
     '',
     'Swipe for full breakdowns: spreads, value, totals, and upset alerts.',
     '',
     asOf ? `Data as of ${asOf}` : null,
-    `Full board + signals \u2192 maximussports.ai`,
+    'Full board + signals \u2192 maximussports.ai',
     DISCLAIMER,
   ].filter(l => l !== null && l !== undefined)
    .reduce((acc, line) => {

@@ -99,11 +99,11 @@ function PickRow({ pick, rank }) {
         <div className={styles.pickLogos}>
           {isTot ? (
             <>
-              {awayObj && <TeamLogo team={awayObj} size={22} />}
-              {homeObj && <TeamLogo team={homeObj} size={22} />}
+              {awayObj && <TeamLogo team={awayObj} size={26} />}
+              {homeObj && <TeamLogo team={homeObj} size={26} />}
             </>
           ) : (
-            teamObj && <TeamLogo team={teamObj} size={24} />
+            teamObj && <TeamLogo team={teamObj} size={28} />
           )}
         </div>
         <span className={styles.pickLine}>{pick.pickLine || '—'}</span>
