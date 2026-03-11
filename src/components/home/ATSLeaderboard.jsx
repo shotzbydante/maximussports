@@ -116,7 +116,7 @@ export default function ATSLeaderboard({
         ? 'ATS Leaders (real, Pinned + Top 25)'
         : isProxy
           ? 'ATS Leaders (Top 25 proxy)'
-          : 'ATS Leaders';
+          : 'Against the Spread Leaders';
   const confidenceLabel =
     status === 'FULL'
       ? 'High confidence'

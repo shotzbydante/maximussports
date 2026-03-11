@@ -969,33 +969,69 @@
   max-width: none;
 }
 
-/* ── Compact headline chips — mini story teasers ──────────────────── */
+/* ── Video teaser tile — single video preview ─────────────────────── */
 
-.headlineChips {
+.videoTeaser {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 6px;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  padding: 6px;
+  margin: 2px -6px 4px;
+  border-radius: 8px;
+  transition: background var(--transition-fast);
 }
 
-.headlineChip {
-  display: block;
-  font-size: 0.7rem;
-  line-height: 1.35;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  padding: 4px 8px;
-  background: rgba(60, 121, 180, 0.035);
-  border: 1px solid rgba(60, 121, 180, 0.08);
+.videoTeaser:hover {
+  background: rgba(60, 121, 180, 0.04);
+}
+
+.videoThumb {
+  position: relative;
+  width: 96px;
+  height: 54px;
   border-radius: 6px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #1a2d3d 0%, #243b55 100%);
 }
 
-.headlineChip:hover {
-  border-color: rgba(60, 121, 180, 0.22);
+.videoThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.videoPlayOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.18);
+  transition: background 0.15s ease;
+}
+
+.videoTeaser:hover .videoPlayOverlay {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.videoTitle {
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.videoTeaser:hover .videoTitle {
   color: var(--color-primary);
 }
 

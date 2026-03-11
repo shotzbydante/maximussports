@@ -14,8 +14,8 @@ import { getQueryParam } from '../../_requestUrl.js';
 export default async function handler(req, res) {
   const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
   const windowRaw = (getQueryParam(req, 'window', 'last30') || 'last30').toLowerCase();
-  const window = normalizeWindow(windowRaw === 'season' ? 'last30' : windowRaw);
-  const windowDays = window === 'last7' ? 7 : 30;
+  const window = normalizeWindow(windowRaw);
+  const windowDays = window === 'last7' ? 7 : window === 'season' ? 90 : 30;
   const kvKey = getFreshKey(window);
 
   if (isDev) {

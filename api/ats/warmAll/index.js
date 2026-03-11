@@ -40,9 +40,8 @@ export default async function handler(req, res) {
         results[win] = { status: 'skipped', reason: 'locked' };
         continue;
       }
-      const computeWindow = win === 'season' ? 'last30' : win;
       const result = await Promise.race([
-        computeAtsLeadersForRefresh({ atsWindow: computeWindow }),
+        computeAtsLeadersForRefresh({ atsWindow: win }),
         timeoutMs(COMPUTE_TIMEOUT_MS),
       ]).catch(() => null);
 
