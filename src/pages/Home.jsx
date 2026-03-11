@@ -33,6 +33,7 @@ import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
+import SEOHead from '../components/seo/SEOHead';
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
 const _llmSummaryCache = { data: null, ts: 0 };
@@ -1083,6 +1084,11 @@ export default function Home() {
 
   return (
     <div className={styles.home}>
+      <SEOHead
+        title="College Basketball Betting Intelligence & March Madness Picks"
+        description="AI-powered college basketball betting intelligence featuring today's ATS picks, model-driven predictions, and March Madness insights across every major NCAAB matchup."
+        canonicalPath="/"
+      />
       <WelcomeModal
         open={welcomeOpen}
         onClose={handleWelcomeClose}
@@ -1091,15 +1097,16 @@ export default function Home() {
       />
 
       {/* Page intro — date + context bar */}
-      <div className={styles.pageIntro}>
+      <header className={styles.pageIntro}>
+        <h1 className={styles.srOnly}>Maximus Sports — College Basketball Betting Intelligence</h1>
         <span className={styles.pageIntroDate}>{todayDisplay}</span>
         <span className={styles.pageIntroDivider}>·</span>
         <span className={styles.pageIntroSub}>College Basketball Intelligence</span>
-      </div>
+      </header>
 
       {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>
-        <img src="/mascot.png" alt="" className={styles.bannerMascot} aria-hidden />
+        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} />
         <div className={styles.bannerContent}>
           {/* Editorial briefing header — always visible */}
           <div className={styles.heroBriefingHeader}>
