@@ -1085,8 +1085,8 @@ export default function Home() {
   return (
     <div className={styles.home}>
       <SEOHead
-        title="College Basketball Betting Intelligence & March Madness Picks"
-        description="AI-powered college basketball betting intelligence featuring today's ATS picks, model-driven predictions, and March Madness insights across every major NCAAB matchup."
+        title={`College Basketball Betting Intelligence & March Madness Picks (${new Date().getFullYear()})`}
+        description={`AI-powered college basketball betting intelligence for the ${new Date().getFullYear()} season — today's ATS picks, model-driven predictions, and March Madness insights across every major NCAAB matchup.`}
         canonicalPath="/"
       />
       <WelcomeModal
