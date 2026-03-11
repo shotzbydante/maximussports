@@ -253,7 +253,7 @@ const PICKS_COLLAPSE_THRESHOLD = 540;
 function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [], worst: [] }, championshipOdds = {}, loading = false, slowLoading = false, futureOddsGames = [], upcomingGamesWithSpreads = [] }) {
   const [briefingData, setBriefingData] = useState(null);
   const [relTimeStr, setRelTimeStr] = useState('');
-  const [isPicksExpanded, setIsPicksExpanded] = useState(true);
+  const [isPicksExpanded, setIsPicksExpanded] = useState(false);
   const picksContentRef = useRef(null);
   const [picksExceedsThreshold, setPicksExceedsThreshold] = useState(false);
 
@@ -471,9 +471,8 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
 
   return (
     <div className={styles.oddsTeaser}>
-      {/* ── Widget header ───────────────────────────────────────────── */}
+      {/* ── Picks controls ──────────────────────────────────────────── */}
       <div className={styles.oddsTeaserHeader}>
-        <h3 className={styles.oddsTeaserTitle}>Maximus&apos;s Picks</h3>
         <div className={styles.oddsTeaserHeaderRight}>
           <button
             type="button"
@@ -532,63 +531,6 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         </button>
       )}
 
-      {/* ── Divider into Market Briefing subsection ─────────────────── */}
-      <div className={styles.oddsMarketBriefingDivider}>
-        <span className={styles.oddsMarketBriefingLabel}>Market Briefing</span>
-        {relTimeStr && (
-          <span className={styles.oddsBriefingTime}>Updated {relTimeStr}</span>
-        )}
-      </div>
-
-      {/* Market Briefing — live cached data → live game fallback → static placeholder */}
-      <div className={styles.oddsBriefingBlock}>
-        <div className={styles.oddsBriefingLabelRow}>
-          <span className={styles.oddsBriefingLabel}>
-            {slateComplete
-              ? 'Market Briefing (Today)'
-              : isThinSlate
-                ? 'Today + Tomorrow\'s Briefing'
-                : 'Today\'s Market Briefing'}
-          </span>
-        </div>
-        {briefingData ? (
-          <>
-            <p className={styles.oddsBriefingSummary}>
-              {renderBriefingText(briefingData.summary)}
-            </p>
-            {bullets.length > 0 && (
-              <ul className={styles.oddsBriefingBullets}>
-                {bullets.map((b, i) => (
-                  <li key={i} className={styles.oddsBriefingBullet}>
-                    {renderBriefingText(b.replace(/^•\s*/, ''))}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : liveBriefing ? (
-          <>
-            {liveBriefing.split('\n\n').map((line, i) =>
-              line.startsWith('• ') ? (
-                <ul key={i} className={styles.oddsBriefingBullets}>
-                  <li className={styles.oddsBriefingBullet}>
-                    {renderBriefingText(line.slice(2))}
-                  </li>
-                </ul>
-              ) : (
-                <p key={i} className={styles.oddsBriefingSummary}>
-                  {renderBriefingText(line)}
-                </p>
-              )
-            )}
-          </>
-        ) : (
-          <p className={styles.oddsBriefingPlaceholder}>
-            Visit <strong>Odds Insights</strong> for today&apos;s full market briefing, line movement, and upset alerts.
-          </p>
-        )}
-      </div>
-
       <Link to="/insights" className={styles.oddsTeaserCta}>
         Open Full Odds Insights →
       </Link>
@@ -629,7 +571,8 @@ export default function Home() {
   const [oddsHistory, setOddsHistory] = useState({ games: [] });
   const [newsSource, setNewsSource] = useState('Mock');
   const [pinned, setPinned] = useState(() => getPinnedTeams());
-  const [showDataStatus, setShowDataStatus] = useState(false);
+  // Data status UI moved to Settings; kept as debug-only via ?debugData=1
+  const [showDataStatus] = useState(false);
   const [dataStatus, setDataStatus] = useState(null);
   const [pinnedTeamDataBySlug, setPinnedTeamDataBySlug] = useState({});
   const [headlinesWarming, setHeadlinesWarming] = useState(false);
@@ -647,20 +590,7 @@ export default function Home() {
       return v === null ? true : v === '1';
     } catch { return true; }
   });
-  // ATS Leaders: collapsed by default on mobile; persisted in localStorage.
-  const [isAtsCollapsed, setIsAtsCollapsed] = useState(() => {
-    try {
-      const v = localStorage.getItem('homeAtsCollapsed');
-      return v === null ? true : v === '1';
-    } catch { return true; }
-  });
-  // Bubble Watch: collapsed by default on mobile; persisted in localStorage.
-  const [isBubbleCollapsed, setIsBubbleCollapsed] = useState(() => {
-    try {
-      const v = localStorage.getItem('homeBubbleCollapsed');
-      return v === null ? true : v === '1';
-    } catch { return true; }
-  });
+  // ATS and Bubble Watch now use teaser mode — mobile collapse state no longer needed
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const championshipScheduledRef = useRef(false);
@@ -924,9 +854,7 @@ export default function Home() {
     return () => timeouts.forEach(clearTimeout);
   }, [pinnedSlugs.join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleToggleDataStatus = useCallback(() => {
-    setShowDataStatus((prev) => !prev);
-  }, []);
+  // handleToggleDataStatus removed — data status UI moved to debug mode
 
   const handleWelcomeClose = useCallback(() => {
     setWelcomeOpen(false);
@@ -1023,21 +951,7 @@ export default function Home() {
     });
   }, []);
 
-  const handleToggleAts = useCallback(() => {
-    setIsAtsCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem('homeAtsCollapsed', next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }, []);
-
-  const handleToggleBubble = useCallback(() => {
-    setIsBubbleCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem('homeBubbleCollapsed', next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }, []);
+  // handleToggleAts and handleToggleBubble removed — teaser mode replaces collapse
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
@@ -1133,69 +1047,21 @@ export default function Home() {
             aria-expanded={!isBannerCollapsed}
             aria-controls="home-insight-body"
           >
-            <span>{isBannerCollapsed ? 'Expand briefing' : 'Show less'}</span>
+            <span>{isBannerCollapsed ? 'Read full briefing' : 'Show less'}</span>
             <span
               className={`${styles.insightToggleChevron} ${!isBannerCollapsed ? styles.insightToggleChevronOpen : ''}`}
               aria-hidden
             >›</span>
           </button>
-          <div className={styles.summaryActions}>
-            <button
-              type="button"
-              className={styles.summaryRefresh}
-              onClick={handleRefreshSummary}
-              disabled={llmSummaryRefreshing}
-              aria-label="Refresh summary"
-            >
-              {llmSummaryRefreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
-            <label className={styles.dataStatusToggle}>
-              <input
-                type="checkbox"
-                checked={showDataStatus}
-                onChange={handleToggleDataStatus}
-                aria-label="Show data status"
-              />
-              <span>Show data status</span>
-            </label>
-          </div>
-          {showDataStatus && (
-            <div className={styles.dataStatusBadges} role="status" aria-live="polite">
-              <span className={styles[`badge${getESPNStatus().charAt(0).toUpperCase() + getESPNStatus().slice(1)}`]}>
-                ESPN {statusLabel(getESPNStatus())}
-              </span>
-              <span className={styles[`badge${getOddsStatus().charAt(0).toUpperCase() + getOddsStatus().slice(1)}`]}>
-                Odds {statusLabel(getOddsStatus())}
-              </span>
-              <span className={styles[`badge${getAtsStatus().charAt(0).toUpperCase() + getAtsStatus().slice(1)}`]}>
-                ATS {statusLabel(getAtsStatus())}
-              </span>
-              <span className={styles[`badge${getNewsStatus().charAt(0).toUpperCase() + getNewsStatus().slice(1)}`]}>
-                News {statusLabel(getNewsStatus())}
-              </span>
-              {atsMeta && (
-                <div className={styles.dataStatusAtsMeta}>
-                  ATS: source={atsMeta.source ?? '—'} cacheAgeSec={atsMeta.cacheAgeSec ?? '—'} generatedAt={atsMeta.generatedAt ? new Date(atsMeta.generatedAt).toLocaleTimeString() : '—'} confidence={atsMeta.confidence ?? '—'} reason={atsMeta.reason ?? '—'}
-                  {atsMeta.refreshEndpoint && ` · refresh: ${atsMeta.refreshEndpoint}`}
-                </div>
-              )}
-              {championshipOddsMeta && (championshipOddsMeta.missingTeamSlugsSample?.length > 0 || championshipOddsMeta.unmappedOutcomesSample?.length > 0) && (
-                <details className={styles.dataStatusChampionshipDetails}>
-                  <summary>Championship odds mapping (dev)</summary>
-                  {championshipOddsMeta.missingTeamSlugsSample?.length > 0 && (
-                    <div>Missing slugs sample: {championshipOddsMeta.missingTeamSlugsSample.slice(0, 10).join(', ')}{championshipOddsMeta.missingTeamSlugsSample.length > 10 ? '…' : ''}</div>
-                  )}
-                  {championshipOddsMeta.unmappedOutcomesSample?.length > 0 && (
-                    <div>Unmapped outcomes sample: {championshipOddsMeta.unmappedOutcomesSample.slice(0, 10).join(', ')}{championshipOddsMeta.unmappedOutcomesSample.length > 10 ? '…' : ''}</div>
-                  )}
-                </details>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ── Teams You Follow ──────────────────────────────────────────── */}
+      {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
+      <div className={styles.pulseStrip}>
+        <DynamicStats stats={dynamicStats} compact />
+      </div>
+
+      {/* ── 4. Teams You Follow ──────────────────────────────────────── */}
       <div className={styles.pinnedSection}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Following</span>
@@ -1208,139 +1074,117 @@ export default function Home() {
             games={scores.games}
             teamNewsBySlug={newsData.pinnedTeamNewsMap}
             pinnedTeamDataBySlug={pinnedTeamDataBySlug}
+            compact
           />
         </PinnedErrorBoundary>
       </div>
 
-      {/* ── Maximus's Picks / Odds Insights teaser ────────────────────── */}
+      {/* ── 5. Maximus's Picks ───────────────────────────────────────── */}
       <div className={styles.picksSection}>
-      <OddsInsightsTeaser
-        games={scores.games}
-        rankMap={rankMap}
-        atsLeaders={atsLeaders}
-        championshipOdds={championshipOdds}
-        loading={scores.loading || atsLoading}
-        slowLoading={slowLoading}
-        futureOddsGames={futureOddsGames}
-        upcomingGamesWithSpreads={upcomingGamesWithSpreads}
-      />
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Betting Intelligence</span>
+          <h2 className={styles.sectionHeadTitle}>Maximus&apos;s Picks</h2>
+        </div>
+        <OddsInsightsTeaser
+          games={scores.games}
+          rankMap={rankMap}
+          atsLeaders={atsLeaders}
+          championshipOdds={championshipOdds}
+          loading={scores.loading || atsLoading}
+          slowLoading={slowLoading}
+          futureOddsGames={futureOddsGames}
+          upcomingGamesWithSpreads={upcomingGamesWithSpreads}
+        />
       </div>
 
-      {/* ── ATS Performance Leaders ───────────────────────────────────── */}
+      {/* ── 6. Today's Action / Live Scores ──────────────────────────── */}
+      <section className={styles.todayActionSection}>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>Live Data</span>
+          <h2 className={styles.sectionHeadTitle}>Today&apos;s Games</h2>
+        </div>
+        <LiveScores
+          games={scores.games}
+          loading={scores.loading}
+          error={scores.error}
+          oddsMessage={scores.oddsMessage}
+          compact
+          rankMap={rankMap}
+          cap={8}
+          mobileCap={4}
+        />
+        {upsetCount > 0 && (
+          <div className={styles.todayActionAlerts}>
+            <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+          </div>
+        )}
+        <Link to="/games" className={styles.sectionCta}>
+          View full schedule →
+        </Link>
+      </section>
+
+      {/* ── 7. ATS / Market Signals Teaser ────────────────────────────── */}
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Market Signals</span>
           <h2 className={styles.sectionHeadTitle}>ATS Performance Leaders</h2>
         </div>
-        <div
-          id="home-ats-body"
-          className={`${styles.sectionBody} ${isAtsCollapsed ? styles.sectionBodyAtsCollapsed : ''}`}
-        >
-          <ATSLeaderboard
-            atsLeaders={atsLeaders}
-            atsMeta={atsMeta}
-            loading={atsLoading}
-            atsWindow={atsWindow}
-            seasonWarming={seasonWarming}
-            onPeriodChange={atsOnPeriodChange}
-            onRetry={atsOnRetry}
-          />
-        </div>
-        <button
-          type="button"
-          className={`${styles.sectionToggle}${isAtsCollapsed ? ` ${styles.sectionToggleFooter}` : ''}`}
-          onClick={handleToggleAts}
-          aria-expanded={!isAtsCollapsed}
-          aria-controls="home-ats-body"
-        >
-          <span>{isAtsCollapsed ? 'Show full standings' : 'Collapse'}</span>
-          <span
-            className={`${styles.insightToggleChevron} ${!isAtsCollapsed ? styles.insightToggleChevronOpen : ''}`}
-            aria-hidden
-          >›</span>
-        </button>
+        <ATSLeaderboard
+          atsLeaders={atsLeaders}
+          atsMeta={atsMeta}
+          loading={atsLoading}
+          atsWindow={atsWindow}
+          seasonWarming={seasonWarming}
+          onPeriodChange={atsOnPeriodChange}
+          onRetry={atsOnRetry}
+          teaserMode
+        />
+        <Link to="/insights" className={styles.sectionCta}>
+          View full market signals →
+        </Link>
       </section>
 
-      {/* ── Live Intelligence Grid ─────────────────────────────────────── */}
-      <div className={styles.dashboardGridSection}>
+      {/* ── 8. News / Videos / Intel Feed ─────────────────────────────── */}
+      <section className={styles.intelFeedSection}>
         <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Live Data</span>
-          <h2 className={styles.sectionHeadTitle}>Today&apos;s Feed</h2>
+          <span className={styles.sectionEyebrow}>Intel Feed</span>
+          <h2 className={styles.sectionHeadTitle}>News &amp; Highlights</h2>
         </div>
-      <div className={styles.dashboardGrid}>
-
-        {/* ── scores cell ── */}
-        <div className={styles.gridScores}>
-          <DynamicStats stats={dynamicStats} />
-          <LiveScores
-            games={scores.games}
-            loading={scores.loading}
-            error={scores.error}
-            oddsMessage={scores.oddsMessage}
-            compact
-            rankMap={rankMap}
-            cap={8}
-            mobileCap={4}
-          />
-        </div>
-
-        {/* ── upsets cell ── */}
-        <div className={styles.gridUpsets}>
-          <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
-        </div>
-
-        {/* ── rail cell: Top Videos card + Headlines card, spans both left rows ── */}
-        <aside className={styles.gridRail} id="news">
-          {/* Card 1: Top Videos — owns YouTube fetch + 10-min cache */}
-          <NewsFeed mode="videos" limitVideos={4} />
-          {/* Card 2: Headlines — skips video fetch, shows capped news list */}
+        <div className={styles.intelFeedGrid}>
+          <NewsFeed mode="videos" limitVideos={2} />
           <NewsFeed
             mode="headlines"
-            items={(newsData.newsFeed || []).slice(0, 8)}
+            items={(newsData.newsFeed || []).slice(0, 6)}
             source={newsSource}
             loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
-            limitHeadlines={6}
+            limitHeadlines={4}
           />
-        </aside>
+        </div>
+        <Link to="/news" className={styles.sectionCta}>
+          View full Intel Feed →
+        </Link>
+      </section>
 
-      </div>{/* end dashboardGrid */}
-      </div>{/* end dashboardGridSection */}
-
-      {/* ── Bubble Watch: Deep Dive — full rankings, collapsible ────── */}
-      <section className={styles.bubbleWatchSection} aria-label="Bubble Watch">
+      {/* ── 9. Rankings / Team Intel Teaser ────────────────────────────── */}
+      <section className={styles.bubbleWatchSection} aria-label="Rankings">
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
           <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
         </div>
-        <div
-          id="home-bubble-body"
-          className={`${styles.sectionBody} ${isBubbleCollapsed ? styles.sectionBodyBubbleCollapsed : ''}`}
-        >
-          <RankingsTable
-            title="Bubble Watch — Full Rankings"
-            badge="Deep Dive"
-            collapsible
-            capRows={25}
-            defaultSortBy="top25"
-            rankings={top25}
-            championshipOdds={championshipOdds}
-            championshipOddsMeta={championshipOddsMeta}
-            championshipOddsLoading={championshipOddsLoading}
-          />
-        </div>
-        <button
-          type="button"
-          className={`${styles.sectionToggle}${isBubbleCollapsed ? ` ${styles.sectionToggleFooter}` : ''}`}
-          onClick={handleToggleBubble}
-          aria-expanded={!isBubbleCollapsed}
-          aria-controls="home-bubble-body"
-        >
-          <span>{isBubbleCollapsed ? 'Show full rankings' : 'Collapse'}</span>
-          <span
-            className={`${styles.insightToggleChevron} ${!isBubbleCollapsed ? styles.insightToggleChevronOpen : ''}`}
-            aria-hidden
-          >›</span>
-        </button>
+        <RankingsTable
+          title="Bubble Watch — Top 25"
+          badge="Deep Dive"
+          collapsible
+          capRows={10}
+          defaultSortBy="top25"
+          rankings={top25}
+          championshipOdds={championshipOdds}
+          championshipOddsMeta={championshipOddsMeta}
+          championshipOddsLoading={championshipOddsLoading}
+        />
+        <Link to="/teams" className={styles.sectionCta}>
+          Explore full rankings →
+        </Link>
       </section>
     </div>
   );

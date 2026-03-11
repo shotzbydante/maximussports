@@ -191,7 +191,7 @@ function recordFromBatchData(batchSlot) {
   return { season: { w: seasonW, l: seasonL }, last10: { w: l10W, l: l10L }, ats };
 }
 
-export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {}, pinnedTeamDataBySlug = {} }) {
+export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {}, pinnedTeamDataBySlug = {}, compact = false }) {
   const { user } = useAuth();
 
   // Plan state — fetched once on mount (optimistic free until confirmed)
@@ -918,23 +918,25 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     </>
                   );
                 })()}
-                <div className={styles.teamSummary}>
-                  {!loadedSlugs.has(slug) ? (
-                    <div className={styles.summarySkeletonLines} aria-label="Loading summary">
-                      <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
-                      <div className={styles.summarySkeletonLine} style={{ width: '82%' }} />
-                    </div>
-                  ) : headlines.length > 0 ? (
-                    (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
-                      <p className={`${styles.teamSummaryText} ${isCompact ? styles.teamSummaryCompact : ''}`}>
-                        {teamSummaries[slug]}
-                      </p>
-                    ) : (
-                      <p className={styles.teamSummaryGenerating}>Generating summary…</p>
-                    )
-                  ) : null}
-                </div>
-                {headlines.length > 0 && (
+                {!compact && (
+                  <div className={styles.teamSummary}>
+                    {!loadedSlugs.has(slug) ? (
+                      <div className={styles.summarySkeletonLines} aria-label="Loading summary">
+                        <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
+                        <div className={styles.summarySkeletonLine} style={{ width: '82%' }} />
+                      </div>
+                    ) : headlines.length > 0 ? (
+                      (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
+                        <p className={`${styles.teamSummaryText} ${isCompact ? styles.teamSummaryCompact : ''}`}>
+                          {teamSummaries[slug]}
+                        </p>
+                      ) : (
+                        <p className={styles.teamSummaryGenerating}>Generating summary…</p>
+                      )
+                    ) : null}
+                  </div>
+                )}
+                {!compact && headlines.length > 0 && (
                   <ul className={styles.headlines}>
                     {headlines.slice(0, maxHeadlines).map((h) => (
                       <li key={h.id || h.title}>
@@ -955,8 +957,8 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     )}
                   </ul>
                 )}
-                <Link to={`/teams/${slug}`} className={styles.teamLink}>
-                  View team →
+                <Link to={`/teams/${slug}`} className={compact ? styles.teamLinkCompact : styles.teamLink}>
+                  {compact ? 'View Team Intel →' : 'View team →'}
                 </Link>
               </article>
             );

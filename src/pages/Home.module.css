@@ -115,7 +115,6 @@
 
 .banner:hover {
   box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -125,7 +124,7 @@
 
 .bannerMascot {
   flex-shrink: 0;
-  height: 116px;
+  height: 96px;
   width: auto;
   object-fit: contain;
   opacity: 0.92;
@@ -642,6 +641,10 @@
    PAGE SECTION WRAPPERS — consistent spacing separators
    ═══════════════════════════════════════════════════════════════════ */
 
+.pulseStrip {
+  margin-bottom: var(--section-gap);
+}
+
 .pinnedSection {
   margin-bottom: var(--section-gap);
 }
@@ -650,22 +653,72 @@
   margin-bottom: var(--section-gap);
 }
 
+.todayActionSection {
+  margin-bottom: var(--section-gap);
+  padding-top: var(--space-xl);
+  border-top: 1px solid rgba(60, 121, 180, 0.07);
+}
+
+.todayActionAlerts {
+  margin-top: var(--space-lg);
+}
+
 .atsSection {
   margin-bottom: var(--section-gap);
   padding-top: var(--space-xl);
   border-top: 1px solid rgba(60, 121, 180, 0.07);
 }
 
-.marketSignalsSection {
+.intelFeedSection {
   margin-bottom: var(--section-gap);
   padding-top: var(--space-xl);
   border-top: 1px solid rgba(60, 121, 180, 0.07);
+}
+
+.intelFeedGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (max-width: 767px) {
+  .intelFeedGrid {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
 }
 
 .bubbleWatchSection {
   margin-bottom: var(--space-xl);
   padding-top: var(--space-lg);
   border-top: 1px solid rgba(60, 121, 180, 0.07);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CONSISTENT SECTION CTA — "go deeper" link after every section
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sectionCta {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-md);
+  padding: 6px 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color var(--transition-fast);
+}
+
+.sectionCta:hover {
+  color: var(--color-primary-hover, #2a65b8);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sectionCta { transition: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -765,7 +818,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   DASHBOARD INTELLIGENCE GRID
+   LEGACY DASHBOARD GRID — kept for compat, no longer primary layout
    ═══════════════════════════════════════════════════════════════════ */
 
 .dashboardGridSection {
@@ -785,48 +838,9 @@
   align-items: start;
 }
 
-.gridScores {
-  grid-area: scores;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  min-width: 0;
-}
-
-.gridUpsets {
-  grid-area: upsets;
-  min-width: 0;
-}
-
-.gridRail {
-  grid-area: rail;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  min-width: 0;
-}
-
-@media (max-width: 1099px) {
-  .dashboardGrid {
-    grid-template-columns: 1.4fr 1fr;
-    gap: var(--space-lg);
-  }
-}
-
-@media (max-width: 767px) {
-  .dashboardGrid {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "scores"
-      "upsets"
-      "rail";
-    gap: var(--space-md);
-  }
-
-  .dashboardGridSection {
-    margin-bottom: var(--space-2xl);
-  }
-}
+.gridScores { grid-area: scores; min-width: 0; }
+.gridUpsets { grid-area: upsets; min-width: 0; }
+.gridRail { grid-area: rail; min-width: 0; }
 
 /* Legacy stubs */
 .dashboardLeft  { display: contents; }
