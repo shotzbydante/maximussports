@@ -20,6 +20,7 @@ import { getAtsCache, setAtsCache } from '../../utils/atsCache';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../../utils/pinnedSync';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
+import { getCachedVideos, setCachedVideos, getStaleVideos, setStaleVideos } from '../../utils/ytClientCache';
 import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
@@ -501,6 +502,38 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     console.groupEnd();
   }, [pinnedTeamDataBySlug, teamRecords, teamNews, teamSummaries, loadedSlugs, pinned.join(',')]);
 
+  const [teamVideos, setTeamVideos] = useState({});
+
+  useEffect(() => {
+    if (pinned.length === 0) return;
+    let cancelled = false;
+    const slugs = pinned.slice(0, 8);
+    slugs.forEach((slug) => {
+      const cached = getCachedVideos(slug);
+      if (cached?.length) {
+        setTeamVideos((prev) => (prev[slug] ? prev : { ...prev, [slug]: cached }));
+        return;
+      }
+      const stale = getStaleVideos(slug);
+      if (stale?.length) {
+        setTeamVideos((prev) => (prev[slug] ? prev : { ...prev, [slug]: stale }));
+      }
+      fetch(`/api/youtube/team?teamSlug=${encodeURIComponent(slug)}&maxResults=2`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (cancelled || !data) return;
+          const items = data.items ?? [];
+          if (items.length > 0) {
+            setCachedVideos(slug, items);
+            setStaleVideos(slug, items);
+          }
+          setTeamVideos((prev) => ({ ...prev, [slug]: items }));
+        })
+        .catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [pinned.join(',')]);
+
   const filteredTeams = search.trim()
     ? TEAMS.filter(
         (t) =>
@@ -934,14 +967,24 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     )
                   ) : null}
                 </div>
-                {compact && headlines.length > 0 && (
-                  <div className={styles.headlineChips}>
-                    {headlines.slice(0, 2).map((h) => (
-                      <Link key={h.id || h.title} to={`/teams/${slug}`} className={styles.headlineChip}>
-                        {h.title}
-                      </Link>
-                    ))}
-                  </div>
+                {compact && (teamVideos[slug] ?? []).length > 0 && (
+                  <Link to={`/teams/${slug}`} className={styles.videoTeaser}>
+                    <div className={styles.videoThumb}>
+                      <img
+                        src={teamVideos[slug][0].thumbUrl}
+                        alt=""
+                        className={styles.videoThumbImg}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <div className={styles.videoPlayOverlay} aria-hidden>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <path d="M6 4.5L16 10L6 15.5V4.5Z" fill="currentColor" />
+                        </svg>
+                      </div>
+                    </div>
+                    <span className={styles.videoTitle}>{teamVideos[slug][0].title}</span>
+                  </Link>
                 )}
                 {!compact && headlines.length > 0 && (
                   <ul className={styles.headlines}>

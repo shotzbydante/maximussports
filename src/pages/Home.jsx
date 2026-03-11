@@ -110,6 +110,7 @@ function warmAtsBothWindows() {
     sessionStorage.setItem('lastWarmAt', String(Date.now()));
     fetch('/api/ats/warm', { method: 'GET' }).catch(() => {});
     fetch('/api/ats/warm?window=last7', { method: 'GET' }).catch(() => {});
+    fetch('/api/ats/warm?window=season', { method: 'GET' }).catch(() => {});
   } catch (_) {}
 }
 
@@ -1172,7 +1173,7 @@ export default function Home() {
       <section className={styles.atsSection} aria-busy={scores.loading}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionEyebrow}>Market Signals</span>
-          <h2 className={styles.sectionHeadTitle}>ATS Performance Leaders</h2>
+          <h2 className={styles.sectionHeadTitle}>Against the Spread Leaders</h2>
         </div>
         <ATSLeaderboard
           atsLeaders={atsLeaders}
