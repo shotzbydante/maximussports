@@ -37,8 +37,31 @@ function getTileVariant(stat, index) {
   return 'neutral';
 }
 
-export default function DynamicStats({ stats }) {
+export default function DynamicStats({ stats, compact = false }) {
   if (!stats?.length) return null;
+
+  if (compact) {
+    const active = stats.filter((s) => s.value > 0);
+    if (active.length === 0) return null;
+    return (
+      <section className={styles.strip}>
+        <span className={styles.stripLabel}>Today</span>
+        <div className={styles.stripItems}>
+          {active.map((stat, i) => {
+            const Icon = ICONS[stats.indexOf(stat) % ICONS.length];
+            const variant = getTileVariant(stat, stats.indexOf(stat));
+            return (
+              <span key={stat.label} className={`${styles.stripItem} ${styles[`strip--${variant}`]}`}>
+                <span className={`${styles.stripIcon} ${styles[`icon--${variant}`]}`}><Icon /></span>
+                <span className={styles.stripValue}>{stat.value}</span>
+                <span className={styles.stripName}>{stat.label}</span>
+              </span>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.section}>

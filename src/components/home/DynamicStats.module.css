@@ -167,3 +167,82 @@
     font-size: 2.2rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPACT PULSE STRIP — horizontal ribbon mode
+   ═══════════════════════════════════════════════════════════════════ */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px 16px;
+  background: var(--color-bg-elevated);
+  border: 1px solid rgba(60, 121, 180, 0.10);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.stripLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.stripItems {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.stripItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stripIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stripValue {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.strip--alert .stripValue  { color: var(--color-down); }
+.strip--active .stripValue { color: var(--color-primary); }
+.strip--news .stripValue   { color: var(--color-up); }
+
+.stripName {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 600px) {
+  .strip {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    padding: 8px 12px;
+  }
+
+  .stripItems {
+    gap: var(--space-md);
+  }
+
+  .stripValue {
+    font-size: 1.1rem;
+  }
+}

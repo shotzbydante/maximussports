@@ -1039,6 +1039,27 @@
   text-decoration: underline;
 }
 
+.teamLinkCompact {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.16);
+  border-radius: var(--pill-radius, 999px);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.teamLinkCompact:hover {
+  background: rgba(60, 121, 180, 0.12);
+  border-color: rgba(60, 121, 180, 0.28);
+}
+
 /* ─── Reduced motion ─────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .quickChip,

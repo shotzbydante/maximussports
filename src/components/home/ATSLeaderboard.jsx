@@ -41,6 +41,7 @@ export default function ATSLeaderboard({
   atsWindow = 'last30',
   seasonWarming = false,
   onPeriodChange = null,
+  teaserMode = false,
 }) {
   const [period, setPeriod] = useState(atsWindow || 'last30');
   const [now, setNow] = useState(() => Date.now());
@@ -85,8 +86,9 @@ export default function ATSLeaderboard({
   }, [best.length, worst.length]);
 
   const periodKey = period;
-  const best10 = best.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
-  const worst10 = worst.map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
+  const teaserCap = teaserMode ? 3 : 10;
+  const best10 = best.slice(0, teaserCap).map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
+  const worst10 = worst.slice(0, teaserCap).map((r) => ({ ...r, rec: r[periodKey] ?? r.season ?? r.rec }));
   const showRecordAsNa = (rec) => isProxy || !rec || rec.total == null || (rec.total === 0 && (rec.w ?? 0) === 0 && (rec.l ?? 0) === 0);
   const recordLabel = (r) => {
     const rec = r.rec;
@@ -159,21 +161,23 @@ export default function ATSLeaderboard({
           )}
         </div>
         <div className={styles.headerRight}>
-          <div className={styles.pills}>
-            {PERIODS.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                className={`${styles.pill} ${period === p.key ? styles.pillActive : ''}`}
-                onClick={() => {
-                  setPeriod(p.key);
-                  if (typeof onPeriodChange === 'function') onPeriodChange(p.key);
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          {!teaserMode && (
+            <div className={styles.pills}>
+              {PERIODS.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  className={`${styles.pill} ${period === p.key ? styles.pillActive : ''}`}
+                  onClick={() => {
+                    setPeriod(p.key);
+                    if (typeof onPeriodChange === 'function') onPeriodChange(p.key);
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
           <SourceBadge source="Odds API" />
         </div>
       </div>
@@ -211,7 +215,7 @@ export default function ATSLeaderboard({
             )}
             <div className={styles.grid}>
             <div className={styles.col}>
-              <span className={styles.colLabel}>Top 10 (cover %)</span>
+              <span className={styles.colLabel}>{teaserMode ? 'ATS Hot' : 'Top 10'} (cover %)</span>
               <ul className={styles.list}>
                 {best10.map((r, i) => (
                   <li key={r.slug} className={styles.row}>
@@ -228,7 +232,7 @@ export default function ATSLeaderboard({
               </ul>
             </div>
             <div className={styles.col}>
-              <span className={styles.colLabel}>Bottom 10</span>
+              <span className={styles.colLabel}>{teaserMode ? 'ATS Cold' : 'Bottom 10'}</span>
               <ul className={styles.list}>
                 {worst10.map((r, i) => (
                   <li key={r.slug} className={styles.row}>
