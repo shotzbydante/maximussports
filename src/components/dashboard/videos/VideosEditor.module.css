@@ -1,0 +1,384 @@
+/* ─── Videos editor layout ─── */
+.editor {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── left column: controls ─── */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.section {
+  background: rgba(60, 121, 180, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.08);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.sectionTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(200, 214, 229, 0.45);
+  margin-bottom: 10px;
+}
+
+/* ─── template chip ─── */
+.templateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3C79B4;
+  background: rgba(60, 121, 180, 0.10);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+}
+
+/* ─── form fields ─── */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(200, 214, 229, 0.55);
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+
+.fieldInput {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  background: rgba(10, 14, 26, 0.5);
+  color: #e0e6ed;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.fieldInput:focus {
+  border-color: rgba(60, 121, 180, 0.45);
+}
+
+.fieldInput::placeholder {
+  color: rgba(200, 214, 229, 0.25);
+}
+
+.charCount {
+  font-size: 10px;
+  color: rgba(200, 214, 229, 0.3);
+  text-align: right;
+  margin-top: -2px;
+}
+
+/* ─── trim controls ─── */
+.trimRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.trimField {
+  flex: 1;
+}
+
+.trimInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.trimInput {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  background: rgba(10, 14, 26, 0.5);
+  color: #e0e6ed;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+}
+
+.trimInput:focus {
+  border-color: rgba(60, 121, 180, 0.45);
+}
+
+.trimUnit {
+  font-size: 10px;
+  color: rgba(200, 214, 229, 0.35);
+  white-space: nowrap;
+}
+
+.trimDuration {
+  font-size: 11px;
+  color: rgba(200, 214, 229, 0.4);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.trimSlider {
+  width: 100%;
+  margin-top: 6px;
+  accent-color: #3C79B4;
+}
+
+/* ─── toggle row ─── */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toggleLabel {
+  font-size: 12px;
+  color: rgba(200, 214, 229, 0.6);
+  font-weight: 500;
+}
+
+.toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(60, 121, 180, 0.15);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: none;
+  padding: 0;
+}
+
+.toggle[data-on='true'] {
+  background: rgba(60, 121, 180, 0.55);
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e0e6ed;
+  transition: transform 0.2s ease;
+}
+
+.toggle[data-on='true'] .toggleKnob {
+  transform: translateX(16px);
+}
+
+/* ─── action buttons ─── */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btnRender {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  color: #fff;
+  background: linear-gradient(135deg, #3C79B4, #2a5a8a);
+  box-shadow: 0 2px 10px rgba(60, 121, 180, 0.25);
+}
+
+.btnRender:hover:not(:disabled) {
+  box-shadow: 0 4px 16px rgba(60, 121, 180, 0.35);
+  transform: translateY(-1px);
+}
+
+.btnRender:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(60, 121, 180, 0.18);
+  background: rgba(60, 121, 180, 0.06);
+  color: rgba(200, 214, 229, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background: rgba(60, 121, 180, 0.12);
+  color: #c8d6e5;
+}
+
+/* ─── progress bar ─── */
+.progressWrap {
+  margin-top: 4px;
+}
+
+.progressBar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(60, 121, 180, 0.12);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #3C79B4, #5a9fd4);
+  transition: width 0.2s ease;
+}
+
+.progressText {
+  font-size: 10px;
+  color: rgba(200, 214, 229, 0.45);
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* ─── status messages ─── */
+.successBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(46, 204, 113, 0.08);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+.successTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2ecc71;
+}
+
+.successDetail {
+  font-size: 11px;
+  color: rgba(200, 214, 229, 0.5);
+}
+
+.errorBanner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(231, 76, 60, 0.08);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  font-size: 12px;
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+/* ─── right column: preview area ─── */
+.previewArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.previewMeta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.metaChip {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(200, 214, 229, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.08);
+}
+
+/* ─── file info pill ─── */
+.filePill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.1);
+}
+
+.fileName {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(200, 214, 229, 0.65);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  font-size: 10px;
+  color: rgba(200, 214, 229, 0.35);
+}
+
+.fileRemove {
+  background: none;
+  border: none;
+  color: rgba(231, 76, 60, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.fileRemove:hover {
+  color: #e74c3c;
+}
