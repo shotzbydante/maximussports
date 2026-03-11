@@ -1,0 +1,202 @@
+/* ─── 9:16 preview container ─── */
+.previewWrap {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0a0e1a;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(60, 121, 180, 0.12);
+}
+
+.previewWrap::before {
+  content: '';
+  display: block;
+  padding-top: 177.78%; /* 16/9 */
+}
+
+.inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ─── safe zone overlay ─── */
+.safeOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.unsafeTop,
+.unsafeBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(231, 76, 60, 0.08),
+    rgba(231, 76, 60, 0.08) 4px,
+    transparent 4px,
+    transparent 10px
+  );
+  border: 1px dashed rgba(231, 76, 60, 0.25);
+}
+
+.unsafeTop {
+  top: 0;
+  height: 15%;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.unsafeBottom {
+  bottom: 0;
+  height: 22%;
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+}
+
+.safeLabel {
+  position: absolute;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(231, 76, 60, 0.5);
+  text-transform: uppercase;
+}
+
+.safeLabelTop {
+  top: 6px;
+  right: 8px;
+}
+
+.safeLabelBottom {
+  bottom: 6px;
+  right: 8px;
+}
+
+/* ─── text overlay preview zones ─── */
+.overlayZone {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(10, 14, 26, 0.72);
+  border: 1px solid rgba(60, 121, 180, 0.2);
+  z-index: 3;
+  transition: opacity 0.3s ease;
+}
+
+.overlayText {
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: center;
+  word-break: break-word;
+}
+
+.overlayPlaceholder {
+  color: rgba(200, 214, 229, 0.3);
+  font-style: italic;
+}
+
+/* ─── scene indicator (Intro / Footage / Outro) ─── */
+.sceneLabel {
+  position: absolute;
+  top: 17%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(60, 121, 180, 0.6);
+  background: rgba(10, 14, 26, 0.6);
+  padding: 3px 10px;
+  border-radius: 6px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* ─── play button overlay ─── */
+.playOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  cursor: pointer;
+  background: rgba(10, 14, 26, 0.25);
+  transition: background 0.2s ease;
+}
+
+.playOverlay:hover {
+  background: rgba(10, 14, 26, 0.15);
+}
+
+.playBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(60, 121, 180, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.playBtn:hover {
+  transform: scale(1.08);
+}
+
+.playIcon {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 10px 0 10px 18px;
+  border-color: transparent transparent transparent #fff;
+  margin-left: 3px;
+}
+
+/* ─── empty state ─── */
+.emptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(200, 214, 229, 0.3);
+}
+
+.emptyIcon {
+  font-size: 36px;
+}
+
+.emptyLabel {
+  font-size: 12px;
+  font-weight: 500;
+}
