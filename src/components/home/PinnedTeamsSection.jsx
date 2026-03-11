@@ -934,7 +934,16 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     )
                   ) : null}
                 </div>
-                {headlines.length > 0 && !compact && (
+                {compact && headlines.length > 0 && (
+                  <div className={styles.headlineChips}>
+                    {headlines.slice(0, 2).map((h) => (
+                      <Link key={h.id || h.title} to={`/teams/${slug}`} className={styles.headlineChip}>
+                        {h.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {!compact && headlines.length > 0 && (
                   <ul className={styles.headlines}>
                     {headlines.slice(0, maxHeadlines).map((h) => (
                       <li key={h.id || h.title}>

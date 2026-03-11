@@ -1005,9 +1005,9 @@ export default function Home() {
   const newsVelocity = newsData.teamNews.reduce((sum, t) => sum + (typeof t.headlines === 'number' ? t.headlines : (t.headlines?.length || 0)), 0);
 
   const dynamicStats = [
-    { label: 'Upsets today', value: upsetCount, trend: upsetCount > 0 ? 'up' : 'neutral', subtext: 'ESPN scores + tiers', source: 'ESPN' },
-    { label: 'ranked teams playing today', value: rankedInAction, trend: 'neutral', subtext: 'Top 25 playing today', source: 'ESPN' },
-    { label: 'News velocity', value: newsVelocity, trend: newsVelocity > 0 ? 'up' : 'neutral', subtext: 'Headlines (pinned teams)', source: newsSource },
+    { label: 'Upsets', value: upsetCount, trend: upsetCount > 0 ? 'up' : 'neutral', subtext: 'ESPN scores + tiers', source: 'ESPN' },
+    { label: 'Ranked in action', value: rankedInAction, trend: 'neutral', subtext: 'Top 25 playing today', source: 'ESPN' },
+    { label: 'Headlines', value: newsVelocity, trend: newsVelocity > 0 ? 'up' : 'neutral', subtext: 'Pinned team news', source: newsSource },
   ];
 
   const todayDisplay = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -1078,7 +1078,12 @@ export default function Home() {
         {/* Inline news headline teasers */}
         {(newsData.newsFeed || []).length > 0 && (
           <div className={styles.topStories}>
-            <span className={styles.topStoriesLabel}>Top Stories</span>
+            <div className={styles.topStoriesHeader}>
+              <span className={styles.topStoriesLabel}>Top Stories</span>
+              <Link to="/news" className={styles.topStoriesCta}>
+                View full Intel Feed →
+              </Link>
+            </div>
             <ul className={styles.topStoriesList}>
               {(newsData.newsFeed || []).slice(0, 3).map((h) => (
                 <li key={h.id || h.title} className={styles.topStoriesItem}>
@@ -1093,9 +1098,6 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link to="/news" className={styles.topStoriesCta}>
-              View full Intel Feed →
-            </Link>
           </div>
         )}
       </div>
