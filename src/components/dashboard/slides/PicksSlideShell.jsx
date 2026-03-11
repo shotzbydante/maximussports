@@ -9,6 +9,7 @@ export default function PicksSlideShell({
   asOf,
   slideNumber,
   slideTotal,
+  hideMascot = false,
   rest = {},
 }) {
   return (
@@ -18,14 +19,16 @@ export default function PicksSlideShell({
       <div className={styles.bgRay} aria-hidden="true" />
       <div className={styles.bgNoise} aria-hidden="true" />
 
-      <div className={styles.mascotWrap}>
-        <img
-          src="/mascot.png"
-          alt=""
-          className={styles.mascot}
-          crossOrigin="anonymous"
-        />
-      </div>
+      {!hideMascot && (
+        <div className={styles.mascotWrap}>
+          <img
+            src="/mascot.png"
+            alt=""
+            className={styles.mascot}
+            crossOrigin="anonymous"
+          />
+        </div>
+      )}
 
       <header className={styles.header}>
         <div className={styles.logoRow}>

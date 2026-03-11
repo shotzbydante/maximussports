@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   MaxPicksHeroSlide — Enhanced Intelligence Modules · Hero Slide
-   4-module 2×2 grid with Model Edge Meter, Model vs Market, Bracket Buster
+   MaxPicksHeroSlide — Premium Intelligence Board · 1080×1080
+   3 ranked picks per module · Frosted row strips · Inline edge meters
    ───────────────────────────────────────────────────────────────────────── */
 
 @keyframes shimmerSweep {
@@ -8,35 +8,47 @@
   100% { background-position: 240% center;  }
 }
 
-/* ── Header area ─────────────────────────────────────────────── */
+/* ── Hero header with mascot ─────────────────────────────────── */
+
+.heroHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.heroMascot {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter:
+    drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 0 10px rgba(183, 152, 108, 0.18));
+}
+
+.heroTitleBlock {
+  display: flex;
+  flex-direction: column;
+}
 
 .datePill {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.40);
+  color: rgba(240, 244, 248, 0.38);
   letter-spacing: 0.06em;
-  margin-bottom: 3px;
-}
-
-.titleSup {
-  font-family: 'Oswald', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #B7986C;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 52px;
+  font-size: 46px;
   font-weight: 800;
   line-height: 1.0;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  margin: 0 0 2px;
+  margin: 0;
   background: linear-gradient(
     105deg,
     rgba(255, 255, 255, 1) 35%,
@@ -51,11 +63,11 @@
 }
 
 .subtitle {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 400;
-  color: rgba(240, 244, 248, 0.55);
+  color: rgba(240, 244, 248, 0.50);
   font-style: italic;
-  margin-bottom: 6px;
+  margin-top: 1px;
 }
 
 .divider {
@@ -70,7 +82,7 @@
     transparent 100%
   );
   border-radius: 2px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 /* ── Stat tiles (5 columns) ──────────────────────────────────── */
@@ -84,7 +96,7 @@
   overflow: hidden;
   background: rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(4px);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   flex-shrink: 0;
 }
 
@@ -93,7 +105,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 7px 4px 6px;
+  padding: 6px 4px 5px;
   border-right: 1px solid rgba(183, 152, 108, 0.12);
 }
 
@@ -103,7 +115,7 @@
 
 .countValue {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: #B7986C;
   line-height: 1;
@@ -111,11 +123,11 @@
 
 .countLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.35);
+  color: rgba(240, 244, 248, 0.32);
   margin-top: 2px;
 }
 
@@ -124,7 +136,7 @@
 .modsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 7px;
   flex: 1;
   min-height: 0;
 }
@@ -132,17 +144,17 @@
 /* ── Module card ─────────────────────────────────────────────── */
 
 .modCard {
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(183, 152, 108, 0.18);
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(183, 152, 108, 0.14);
   border-radius: 10px;
-  padding: 10px 12px 8px;
+  padding: 0;
   backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
-  gap: 3px;
   overflow: hidden;
 }
 
+/* Frosted module header — stronger treatment with gold left accent */
 .modHead {
   font-family: 'Oswald', sans-serif;
   font-size: 10px;
@@ -152,10 +164,19 @@
   color: #B7986C;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding-bottom: 3px;
+  gap: 5px;
+  padding: 7px 10px 6px;
+  background: rgba(10, 22, 38, 0.55);
   border-bottom: 1px solid rgba(183, 152, 108, 0.12);
-  margin-bottom: 1px;
+  border-left: 3px solid rgba(183, 152, 108, 0.50);
+}
+
+.modEmoji {
+  font-size: 11px;
+}
+
+.modLabel {
+  flex: 1;
 }
 
 .modNone {
@@ -163,245 +184,136 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.22);
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.18);
   font-style: italic;
+  padding: 16px;
 }
 
-/* ── Totals matchup row ──────────────────────────────────────── */
-
-.modMatch {
+.modRows {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px 6px;
 }
 
-.modMatchText {
-  font-size: 10px;
-  color: rgba(240, 244, 248, 0.50);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* ── Pick row — frosted strip per row ────────────────────────── */
 
-/* ── Team / pick line row ────────────────────────────────────── */
-
-.modTeam {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.modLine {
-  font-family: 'Oswald', sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  color: #f0f4f8;
-  line-height: 1.15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Confidence badge ────────────────────────────────────────── */
-
-.confBadge {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  padding: 1px 7px;
-  border-radius: 3px;
-  border: 1px solid;
-  white-space: nowrap;
-  align-self: flex-start;
-}
-
-/* ── Signal bullets ──────────────────────────────────────────── */
-
-.modSigs {
+.pickRow {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-top: 1px;
-}
-
-.sigRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.sigChk {
-  color: #B7986C;
-  font-size: 9px;
-  flex-shrink: 0;
-  line-height: 1.4;
-}
-
-.sigTxt {
-  font-size: 10px;
-  color: rgba(240, 244, 248, 0.55);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-}
-
-/* ── Model Edge Meter ────────────────────────────────────────── */
-
-.edgeMeter {
-  margin-top: 2px;
-}
-
-.emTitle {
-  font-family: 'Oswald', sans-serif;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.35);
-}
-
-.emRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.emBar {
-  display: flex;
-  gap: 2px;
-  flex: 1;
-}
-
-.emBlock {
-  flex: 1;
-  height: 8px;
-  border-radius: 2px;
-  background: rgba(240, 244, 248, 0.06);
-}
-
-.emBlockOn {
-  background: linear-gradient(135deg, #B7986C, #d4b896);
-  box-shadow: 0 0 4px rgba(183, 152, 108, 0.25);
-}
-
-/* ── Model vs Market ─────────────────────────────────────────── */
-
-.mvm {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(183, 152, 108, 0.10);
+  padding: 5px 6px 4px;
   border-radius: 6px;
-  overflow: hidden;
-  margin-top: 2px;
+  background: rgba(10, 22, 38, 0.35);
+  border: 1px solid rgba(183, 152, 108, 0.06);
 }
 
-.mvmCell {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px 4px 3px;
-}
-
-.mvmArr {
-  display: flex;
-  align-items: center;
-  color: rgba(240, 244, 248, 0.18);
-  font-size: 10px;
-  padding: 0 2px;
-}
-
-.mvmH {
-  font-family: 'Oswald', sans-serif;
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.35);
-}
-
-.mvmS {
-  font-size: 7px;
-  color: rgba(240, 244, 248, 0.22);
-  white-space: nowrap;
-}
-
-.mvmV {
-  font-family: 'Oswald', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #f0f4f8;
-  line-height: 1.1;
-}
-
-.mvmEdge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px 3px;
-  border-left: 1px solid rgba(183, 152, 108, 0.12);
-  background: rgba(183, 152, 108, 0.06);
-}
-
-.mvmEH {
-  font-family: 'Oswald', sans-serif;
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(183, 152, 108, 0.55);
-}
-
-.mvmEV {
-  font-family: 'Oswald', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #B7986C;
-  line-height: 1.1;
-}
-
-/* ── Bracket Buster ──────────────────────────────────────────── */
-
-.bb {
+.pickMain {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: rgba(220, 53, 69, 0.12);
-  border: 1px solid rgba(220, 53, 69, 0.30);
-  margin-top: 2px;
 }
 
-.bbIco {
-  font-size: 10px;
+.pickRank {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(183, 152, 108, 0.55);
+  width: 16px;
+  text-align: center;
   flex-shrink: 0;
 }
 
-.bbLbl {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #dc3545;
+.pickLogos {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.bbP {
-  font-size: 9px;
-  color: rgba(240, 244, 248, 0.50);
-  margin-left: auto;
+.pickLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f0f4f8;
+  line-height: 1.15;
+  flex: 1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pickConf {
+  font-family: 'Oswald', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Mini edge meter (inline per row) ────────────────────────── */
+
+.miniEdge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.miniBar {
+  display: flex;
+  gap: 1px;
+}
+
+.miniBlock {
+  width: 7px;
+  height: 6px;
+  border-radius: 1px;
+  background: rgba(240, 244, 248, 0.06);
+}
+
+.miniOn {
+  background: linear-gradient(135deg, #B7986C, #d4b896);
+  box-shadow: 0 0 3px rgba(183, 152, 108, 0.2);
+}
+
+.miniVal {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: #B7986C;
+  white-space: nowrap;
+}
+
+/* ── Editorial one-liner ─────────────────────────────────────── */
+
+.pickExplain {
+  font-size: 9px;
+  color: rgba(240, 244, 248, 0.38);
+  font-style: italic;
+  line-height: 1.3;
+  padding-left: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Edge helper note ────────────────────────────────────────── */
+
+.edgeNote {
+  font-size: 10px;
+  font-style: italic;
+  color: rgba(240, 244, 248, 0.25);
+  text-align: center;
+  margin-top: auto;
+  padding-top: 3px;
+  line-height: 1.3;
 }
 
 /* ── Empty state ─────────────────────────────────────────────── */
@@ -433,16 +345,4 @@
   margin: 0;
   text-align: center;
   max-width: 500px;
-}
-
-/* ── Method note ─────────────────────────────────────────────── */
-
-.methodNote {
-  font-size: 11px;
-  font-style: italic;
-  color: rgba(240, 244, 248, 0.28);
-  text-align: center;
-  margin-top: auto;
-  padding-top: 4px;
-  line-height: 1.3;
 }

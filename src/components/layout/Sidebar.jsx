@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
+import { useAuth } from '../../context/AuthContext';
 import styles from './Sidebar.module.css';
 
 /* ─── Inline SVG icon set (16×16, 1.5px stroke, no fill) ─────────────────── */
@@ -42,8 +43,20 @@ const SettingsIcon = () => (
     <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
+const DashboardIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="9" y="2" width="5" height="3" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="9" y="7" width="5" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
+
+const ADMIN_EMAIL = 'dantedicco@gmail.com';
 
 export default function Sidebar() {
+  const { user } = useAuth();
+  const isAdmin = user?.email === ADMIN_EMAIL;
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
   const grouped = getTeamsGroupedByConference();
@@ -151,6 +164,18 @@ export default function Sidebar() {
             <span className={styles.icon}><SettingsIcon /></span>
             <span>Settings</span>
           </NavLink>
+          {isAdmin && (
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                `${styles.link} ${styles.adminLink}${isActive ? ` ${styles.active}` : ''}`
+              }
+            >
+              <span className={styles.icon}><DashboardIcon /></span>
+              <span>Dashboard</span>
+              <span className={styles.adminBadge}>ADMIN</span>
+            </NavLink>
+          )}
         </nav>
       </div>
     </aside>

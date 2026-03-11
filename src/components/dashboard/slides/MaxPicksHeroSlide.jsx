@@ -14,46 +14,10 @@ function confStyle(l) {
   return CONF_COLOR[l >= 2 ? 'high' : l >= 1 ? 'medium' : 'low'];
 }
 
-function parseNum(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
-
-function mlToImplied(ml) {
-  if (ml == null || isNaN(ml)) return null;
-  return ml > 0 ? 100 / (ml + 100) : Math.abs(ml) / (Math.abs(ml) + 100);
-}
-
 function makeTeamObj(name) {
   if (!name) return null;
   return { name: name.replace(/^(?:The |the )/, '').trim(), slug: getTeamSlug(name) };
 }
-
-function findGame(games, pick) {
-  return games.find(g => g.homeTeam === pick.homeTeam && g.awayTeam === pick.awayTeam) ?? null;
-}
-
-function getPickML(game, team) {
-  if (!game?.moneyline) return null;
-  const [h, a] = String(game.moneyline).split('/');
-  return team === game.homeTeam ? parseNum(h) : parseNum(a);
-}
-
-function marketProbForTeam(game, team) {
-  if (!game?.moneyline) return null;
-  const [h, a] = String(game.moneyline).split('/');
-  const hI = mlToImplied(parseNum(h));
-  const aI = mlToImplied(parseNum(a));
-  if (!hI || !aI) return null;
-  const tot = hI + aI;
-  return Math.round((team === game.homeTeam ? hI / tot : aI / tot) * 100);
-}
-
-const CAT = {
-  pickem: { label: "PICK 'EMS",           emoji: '🏀' },
-  ats:    { label: 'AGAINST THE SPREAD',  emoji: '📉' },
-  value:  { label: 'VALUE LEANS',         emoji: '💰' },
-  total:  { label: 'GAME TOTALS',         emoji: '🔢' },
-};
-
-/* ── Model Edge Meter ─────────────────────────────────────────── */
 
 function edgePctScale(pick) {
   const e = pick.edgeMag ?? 0;
@@ -66,178 +30,116 @@ function edgeText(pick) {
   return `+${Math.round((pick.edgeMag ?? 0) * 100)}%`;
 }
 
-function EdgeMeter({ pick }) {
+function editorialLine(pick) {
+  const c = pick.confidence;
+  switch (pick.pickType) {
+    case 'pickem':
+      if (c >= 2) return 'Strong model conviction — significant edge detected';
+      if (c >= 1) return 'Model sees value the market may be underrating';
+      return 'Marginal edge — market price looks close to fair';
+    case 'ats':
+      if (c >= 2) return 'ATS trends strongly favor this side to cover';
+      if (c >= 1) return 'Recent form suggests a cover opportunity';
+      return 'Directional lean — spread value at the margin';
+    case 'value':
+      if (c >= 2) return 'Model sees significantly more value than the market';
+      if (c >= 1) return 'Moderate value gap between model and market price';
+      return 'Price looks efficient but edge still qualifies';
+    case 'total':
+      if (pick.leanDirection === 'OVER') {
+        if (c >= 2) return 'Strongest scoring environment on the board';
+        if (c >= 1) return 'Scoring trends point toward the over';
+        return 'Combined tempo leans toward higher scoring';
+      }
+      if (c >= 2) return 'Defensive matchup strongly favors the under';
+      if (c >= 1) return 'Scoring pace suggests total may be set too high';
+      return 'Marginal lean toward lower-scoring outcome';
+    default:
+      return 'Model edge detected';
+  }
+}
+
+const CAT = {
+  pickem: { label: "PICK 'EM",             emoji: '🏀' },
+  ats:    { label: 'AGAINST THE SPREAD',   emoji: '📉' },
+  value:  { label: 'VALUE LEANS',          emoji: '💰' },
+  total:  { label: 'GAME TOTALS',          emoji: '🔢' },
+};
+
+/* ── Compact inline edge meter for pick rows ──────────────────── */
+
+function MiniEdge({ pick }) {
   const pct = edgePctScale(pick);
-  const filled = Math.round(pct / 10);
+  const filled = Math.max(1, Math.round((pct / 100) * 6));
   return (
-    <div className={styles.edgeMeter}>
-      <span className={styles.emTitle}>MODEL EDGE</span>
-      <div className={styles.emRow}>
-        <div className={styles.emBar}>
-          {Array.from({ length: 10 }, (_, i) => (
-            <span key={i} className={`${styles.emBlock} ${i < filled ? styles.emBlockOn : ''}`} />
-          ))}
-        </div>
-        <span className={styles.emVal}>{edgeText(pick)}</span>
+    <div className={styles.miniEdge}>
+      <div className={styles.miniBar}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} className={`${styles.miniBlock} ${i < filled ? styles.miniOn : ''}`} />
+        ))}
       </div>
+      <span className={styles.miniVal}>{edgeText(pick)}</span>
     </div>
   );
 }
 
-/* ── Model vs Market ──────────────────────────────────────────── */
+/* ── Pick Row — one ranked row per pick ───────────────────────── */
 
-function buildMvm(pick, game) {
-  if (pick.pickType === 'value' && pick.modelPct != null && pick.marketImpliedPct != null) {
-    return {
-      mktLbl: 'Win probability', mktVal: `${pick.marketImpliedPct}%`,
-      mdlLbl: 'Win probability', mdlVal: `${pick.modelPct}%`,
-      edge: `+${pick.edgePp ?? (pick.modelPct - pick.marketImpliedPct)}%`,
-    };
-  }
-  if (pick.pickType === 'pickem' && game) {
-    const mkt = marketProbForTeam(game, pick.pickTeam);
-    if (mkt != null) {
-      const mdl = Math.min(99, mkt + Math.round((pick.edgeMag ?? 0) * 50));
-      return {
-        mktLbl: 'Win probability', mktVal: `${mkt}%`,
-        mdlLbl: 'Win probability', mdlVal: `${mdl}%`,
-        edge: `+${mdl - mkt}%`,
-      };
-    }
-  }
-  if (pick.pickType === 'ats' && pick.spread != null) {
-    const s = pick.spread;
-    const proj = s - (pick.edgeMag ?? 0) * 15;
-    const f = n => (n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1));
-    return {
-      mktLbl: 'Market line', mktVal: f(s),
-      mdlLbl: 'Model projection', mdlVal: f(proj),
-      edge: `+${Math.abs(proj - s).toFixed(1)}`,
-    };
-  }
-  if (pick.pickType === 'total' && pick.lineValue != null) {
-    const dir = pick.leanDirection === 'OVER' ? 1 : -1;
-    const proj = (pick.lineValue + dir * (pick.edgeMag ?? 0) * 40).toFixed(1);
-    return {
-      mktLbl: 'Market total', mktVal: String(pick.lineValue),
-      mdlLbl: 'Model projection', mdlVal: proj,
-      edge: `+${Math.abs(parseFloat(proj) - pick.lineValue).toFixed(1)}`,
-    };
-  }
-  return null;
-}
-
-function MvmSection({ mvm }) {
-  if (!mvm) return null;
-  return (
-    <div className={styles.mvm}>
-      <div className={styles.mvmCell}>
-        <span className={styles.mvmH}>MARKET</span>
-        <span className={styles.mvmS}>{mvm.mktLbl}</span>
-        <span className={styles.mvmV}>{mvm.mktVal}</span>
-      </div>
-      <span className={styles.mvmArr}>→</span>
-      <div className={styles.mvmCell}>
-        <span className={styles.mvmH}>MAXIMUS</span>
-        <span className={styles.mvmS}>{mvm.mdlLbl}</span>
-        <span className={styles.mvmV}>{mvm.mdlVal}</span>
-      </div>
-      <div className={styles.mvmEdge}>
-        <span className={styles.mvmEH}>EDGE</span>
-        <span className={styles.mvmEV}>{mvm.edge}</span>
-      </div>
-    </div>
-  );
-}
-
-/* ── Bracket Buster ───────────────────────────────────────────── */
-
-function checkBB(pick, game) {
-  if (pick.pickType === 'total') return null;
-  const ml = game ? getPickML(game, pick.pickTeam) : null;
-  if (ml != null && ml >= 300) {
-    const mkt = game ? marketProbForTeam(game, pick.pickTeam) : null;
-    let upProb = pick.modelPct;
-    if (!upProb && mkt != null) upProb = Math.min(45, mkt + Math.round((pick.edgeMag ?? 0) * 50));
-    return { ml, upProb };
-  }
-  if (pick.modelPct != null && pick.marketImpliedPct != null &&
-      pick.modelPct - pick.marketImpliedPct >= 6 && pick.marketImpliedPct < 40) {
-    return { ml, upProb: pick.modelPct };
-  }
-  return null;
-}
-
-function BBTag({ bb }) {
-  return (
-    <div className={styles.bb}>
-      <span className={styles.bbIco}>🚨</span>
-      <span className={styles.bbLbl}>BRACKET BUSTER</span>
-      {bb.upProb != null && <span className={styles.bbP}>Upset prob: {bb.upProb}%</span>}
-    </div>
-  );
-}
-
-/* ── Intelligence Module (one per category) ───────────────────── */
-
-function IntelModule({ pick, game, cat }) {
-  const meta = CAT[cat];
-  if (!pick) {
-    return (
-      <div className={styles.modCard}>
-        <div className={styles.modHead}>{meta.emoji} {meta.label}</div>
-        <div className={styles.modNone}>No qualified leans</div>
-      </div>
-    );
-  }
-
+function PickRow({ pick, rank }) {
   const cs = confStyle(pick.confidence);
   const isTot = pick.pickType === 'total';
   const teamObj = !isTot ? makeTeamObj(pick.pickTeam) : null;
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
   const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
-  const sigs = (pick.signals || []).slice(0, 3);
-  const mvm = buildMvm(pick, game);
-  const bb = checkBB(pick, game);
+
+  return (
+    <div className={styles.pickRow}>
+      <div className={styles.pickMain}>
+        <span className={styles.pickRank}>#{rank}</span>
+        <div className={styles.pickLogos}>
+          {isTot ? (
+            <>
+              {awayObj && <TeamLogo team={awayObj} size={18} />}
+              {homeObj && <TeamLogo team={homeObj} size={18} />}
+            </>
+          ) : (
+            teamObj && <TeamLogo team={teamObj} size={20} />
+          )}
+        </div>
+        <span className={styles.pickLine}>{pick.pickLine || '—'}</span>
+        <span
+          className={styles.pickConf}
+          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
+        >
+          {confidenceLabel(pick.confidence)}
+        </span>
+        <MiniEdge pick={pick} />
+      </div>
+      <div className={styles.pickExplain}>{editorialLine(pick)}</div>
+    </div>
+  );
+}
+
+/* ── Intelligence Module — shows top 3 picks per category ─────── */
+
+function IntelModule({ picks, cat }) {
+  const meta = CAT[cat];
 
   return (
     <div className={styles.modCard}>
-      <div className={styles.modHead}>{meta.emoji} {meta.label}</div>
-
-      {isTot && (
-        <div className={styles.modMatch}>
-          {awayObj && <TeamLogo team={awayObj} size={16} />}
-          {homeObj && <TeamLogo team={homeObj} size={16} />}
-          <span className={styles.modMatchText}>{pick.awayTeam} vs {pick.homeTeam}</span>
-        </div>
-      )}
-
-      <div className={styles.modTeam}>
-        {!isTot && teamObj && <TeamLogo team={teamObj} size={22} />}
-        <span className={styles.modLine}>{pick.pickLine || '—'}</span>
+      <div className={styles.modHead}>
+        <span className={styles.modEmoji}>{meta.emoji}</span>
+        <span className={styles.modLabel}>{meta.label}</span>
       </div>
-
-      <span
-        className={styles.confBadge}
-        style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
-      >
-        {confidenceLabel(pick.confidence)}
-      </span>
-
-      {sigs.length > 0 && (
-        <div className={styles.modSigs}>
-          {sigs.map((s, i) => (
-            <div key={i} className={styles.sigRow}>
-              <span className={styles.sigChk}>✔</span>
-              <span className={styles.sigTxt}>{s}</span>
-            </div>
+      {picks.length === 0 ? (
+        <div className={styles.modNone}>No qualified leans</div>
+      ) : (
+        <div className={styles.modRows}>
+          {picks.map((p, i) => (
+            <PickRow key={p.key || i} pick={p} rank={i + 1} />
           ))}
         </div>
       )}
-
-      <EdgeMeter pick={pick} />
-      <MvmSection mvm={mvm} />
-      {bb && <BBTag bb={bb} />}
     </div>
   );
 }
@@ -258,33 +160,40 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const val = picks.valuePicks   ?? [];
   const tot = picks.totalsPicks  ?? [];
 
-  const leanCt = a => a.filter(p => p.itemType === 'lean').length;
-  const totalLeans = leanCt(pe) + leanCt(ats) + leanCt(val) + leanCt(tot);
-  const totalPicks = pe.length + ats.length + val.length + tot.length;
+  const topLeans = (arr, n = 3) =>
+    arr.filter(p => p.itemType === 'lean')
+       .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag))
+       .slice(0, n);
 
-  const bestLean = arr => {
-    const l = arr.filter(p => p.itemType === 'lean');
-    return l.length ? l.sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag))[0] : null;
-  };
+  const peTop  = topLeans(pe);
+  const atsTop = topLeans(ats);
+  const valTop = topLeans(val);
+  const totTop = topLeans(tot);
+
+  const leanCt = a => a.filter(p => p.itemType === 'lean').length;
+  const totalSignals = leanCt(pe) + leanCt(ats) + leanCt(val) + leanCt(tot);
+  const totalPicks = pe.length + ats.length + val.length + tot.length;
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
   });
 
-  const categories = ['pickem', 'ats', 'value', 'total'];
-  const best = {
-    pickem: bestLean(pe),
-    ats:    bestLean(ats),
-    value:  bestLean(val),
-    total:  bestLean(tot),
-  };
-
   return (
-    <PicksSlideShell asOf={asOf} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
-      <div className={styles.datePill}>{today}</div>
-      <div className={styles.titleSup}>MAXIMUS PICKS</div>
-      <h2 className={styles.title}>MAXIMUS&apos;S PICKS</h2>
-      <div className={styles.subtitle}>Today&apos;s Top Data-Driven Leans</div>
+    <PicksSlideShell asOf={asOf} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest} hideMascot>
+      {/* ── Title row with mascot icon ── */}
+      <div className={styles.heroHeader}>
+        <img
+          src="/mascot.png"
+          alt=""
+          className={styles.heroMascot}
+          crossOrigin="anonymous"
+        />
+        <div className={styles.heroTitleBlock}>
+          <div className={styles.datePill}>{today}</div>
+          <h2 className={styles.title}>MAXIMUS&apos;S PICKS</h2>
+          <div className={styles.subtitle}>Today&apos;s Top Data-Driven Leans</div>
+        </div>
+      </div>
       <div className={styles.divider} />
 
       {totalPicks === 0 ? (
@@ -299,11 +208,11 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
         <>
           <div className={styles.countGrid}>
             {[
-              [totalLeans, 'Total Leans'],
+              [totalSignals, 'Signals Today'],
               [leanCt(pe), "Pick 'Ems"],
-              [leanCt(ats), 'ATS'],
-              [leanCt(val), 'Value'],
-              [leanCt(tot), 'Totals'],
+              [leanCt(ats), 'Spread Edges'],
+              [leanCt(val), 'Value Spots'],
+              [leanCt(tot), 'Total Signals'],
             ].map(([v, l]) => (
               <div key={l} className={styles.countCell}>
                 <span className={styles.countValue}>{v}</span>
@@ -313,18 +222,14 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
           </div>
 
           <div className={styles.modsGrid}>
-            {categories.map(cat => (
-              <IntelModule
-                key={cat}
-                pick={best[cat]}
-                game={best[cat] ? findGame(games, best[cat]) : null}
-                cat={cat}
-              />
-            ))}
+            <IntelModule picks={peTop} cat="pickem" />
+            <IntelModule picks={atsTop} cat="ats" />
+            <IntelModule picks={valTop} cat="value" />
+            <IntelModule picks={totTop} cat="total" />
           </div>
 
-          <div className={styles.methodNote}>
-            Model combines rankings, ATS trends, price inefficiencies, and matchup signals.
+          <div className={styles.edgeNote}>
+            Higher bar = stronger model signal vs the market
           </div>
         </>
       )}

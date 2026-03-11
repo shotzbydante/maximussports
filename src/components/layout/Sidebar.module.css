@@ -192,6 +192,35 @@
   color: var(--color-primary);
 }
 
+/* ── Admin dashboard link ─────────────────────────────────────── */
+
+.adminLink {
+  color: #B7986C !important;
+}
+
+.adminLink:hover {
+  background: rgba(183, 152, 108, 0.08);
+  color: #B7986C;
+}
+
+.adminLink.active {
+  background: rgba(183, 152, 108, 0.12);
+  color: #B7986C;
+}
+
+.adminBadge {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(183, 152, 108, 0.15);
+  color: #B7986C;
+  border: 1px solid rgba(183, 152, 108, 0.25);
+  margin-left: auto;
+}
+
 @media (max-width: 1024px) {
   .sidebar {
     display: none;
