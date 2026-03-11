@@ -20,3 +20,13 @@
   letter-spacing: 0.02em;
   font-family: var(--font-sans);
 }
+
+.othersBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(92, 122, 145, 0.12);
+  color: var(--color-text-muted);
+}

@@ -34,7 +34,7 @@
   --space-lg: 20px;
   --space-xl: 24px;
   --space-2xl: 32px;
-  --section-gap: 40px;
+  --section-gap: 28px;
 
   /* ── Animations ──────────────────────────────────────────────────── */
   --transition-fast: 0.12s cubic-bezier(0.4, 0, 0.2, 1);

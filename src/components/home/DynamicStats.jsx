@@ -3,6 +3,11 @@
  * Upset alerts, ranked teams in action, news velocity.
  */
 
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { getTeamBySlug } from '../../data/teams';
+import { getTeamSlug } from '../../utils/teamSlug';
+import TeamLogo from '../shared/TeamLogo';
 import styles from './DynamicStats.module.css';
 
 const UpsetIcon = () => (
@@ -37,15 +42,42 @@ function getTileVariant(stat, index) {
   return 'neutral';
 }
 
-export default function DynamicStats({ stats, compact = false }) {
-  if (!stats?.length) return null;
+export default function DynamicStats({ stats, compact = false, games = [] }) {
+  const teamLogos = useMemo(() => {
+    if (!compact || !games?.length) return [];
+    const seen = new Set();
+    const logos = [];
+    for (const g of games) {
+      for (const name of [g.homeTeam, g.awayTeam]) {
+        const slug = getTeamSlug(name);
+        if (!slug || seen.has(slug)) continue;
+        seen.add(slug);
+        const team = getTeamBySlug(slug);
+        if (team) logos.push({ team, slug, gameId: g.gameId });
+      }
+      if (logos.length >= 10) break;
+    }
+    return logos;
+  }, [compact, games]);
+
+  if (!stats?.length && teamLogos.length === 0) return null;
 
   if (compact) {
     const active = stats.filter((s) => s.value > 0);
-    if (active.length === 0) return null;
+    if (active.length === 0 && teamLogos.length === 0) return null;
     return (
       <section className={styles.strip}>
         <span className={styles.stripLabel}>Today</span>
+        {teamLogos.length > 0 && (
+          <div className={styles.stripLogos}>
+            {teamLogos.map(({ team, slug }) => (
+              <Link key={slug} to={`/teams/${slug}`} className={styles.stripLogoLink} title={team.name}>
+                <TeamLogo team={team} size={22} />
+              </Link>
+            ))}
+          </div>
+        )}
+        {active.length > 0 && <span className={styles.stripSep} aria-hidden />}
         <div className={styles.stripItems}>
           {active.map((stat, i) => {
             const Icon = ICONS[stats.indexOf(stat) % ICONS.length];

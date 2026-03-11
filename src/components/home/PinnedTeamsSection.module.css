@@ -960,6 +960,15 @@
   overflow: hidden;
 }
 
+/* Clamped: 2-line clamp for home page compact cards */
+.teamSummaryClamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: none;
+}
+
 .teamSummaryUnavailable {
   font-size: 0.75rem;
   color: var(--color-text-muted);

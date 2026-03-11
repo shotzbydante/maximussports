@@ -699,8 +699,8 @@ export default function Teams() {
                                   )}
                                   <span className={styles.teamName}>{team.name}</span>
                                   {isOthers && (
-                                    <span className={styles.confBadge}>
-                                      {CONF_ABBREV[team.conference] || team.conference}
+                                    <span className={styles.confLogoInline}>
+                                      <ConferenceLogo conference={team.conference} size={16} />
                                     </span>
                                   )}
                                   <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />

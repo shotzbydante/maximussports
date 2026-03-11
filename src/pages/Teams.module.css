@@ -908,6 +908,13 @@
   white-space: nowrap;
 }
 
+.confLogoInline {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
 .badge {
   font-size: 0.58rem;
   font-weight: 600;
