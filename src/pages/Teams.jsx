@@ -78,6 +78,27 @@ const CONF_NETWORK_LABELS = {
   'Big East': 'Big East Conference',
 };
 
+const CONF_ABBREV = {
+  'WCC': 'WCC',
+  'Mountain West': 'MWC',
+  'AAC': 'AAC',
+  'A-10': 'A-10',
+  'MVC': 'MVC',
+  'MAC': 'MAC',
+  'CUSA': 'CUSA',
+  'WAC': 'WAC',
+  'Southland': 'SLC',
+};
+
+const CONF_ACCENT = {
+  'Big Ten': 'rgba(0, 75, 135, 0.25)',
+  'SEC': 'rgba(81, 12, 118, 0.20)',
+  'ACC': 'rgba(1, 60, 166, 0.22)',
+  'Big 12': 'rgba(200, 16, 46, 0.20)',
+  'Big East': 'rgba(0, 45, 114, 0.22)',
+  'Others': 'rgba(92, 122, 145, 0.18)',
+};
+
 function impliedProbFromAmerican(american) {
   if (american == null || typeof american !== 'number') return null;
   if (american < 0) return (-american) / ((-american) + 100);
@@ -148,7 +169,7 @@ function ConferenceVideos({ conference, onSelectVideo }) {
       {(videos.length > 0 || loading) && (
         <span className={styles.confVideosLabel}>{conference} Videos</span>
       )}
-      {loading && <div className={styles.confVideosLoading}>Loading videos\u2026</div>}
+      {loading && <div className={styles.confVideosLoading}>Loading videos...</div>}
       {videos.length > 0 && (
         <div className={styles.confVideosGrid}>
           {videos.map((v) => (
@@ -238,6 +259,20 @@ export default function Teams() {
     }
     return map;
   }, []);
+
+  /* ── Ranked programs per conference (for power signal on conf cards) ── */
+  const confRankedCounts = useMemo(() => {
+    const counts = {};
+    for (const conf of CONF_ORDER) counts[conf] = 0;
+    for (const [slug] of Object.entries(rankMap)) {
+      const team = TEAMS.find((t) => t.slug === slug);
+      if (team) {
+        const conf = mapConf(team.conference);
+        counts[conf] = (counts[conf] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [rankMap]);
 
   /* ── Featured teams strip: title contenders + ranked + ATS signals ── */
   const featuredTeams = useMemo(() => {
@@ -437,8 +472,8 @@ export default function Teams() {
       {featuredTeams.length > 0 && (
         <section className={styles.featuredSection}>
           <div className={styles.sectionHead}>
-            <span className={styles.sectionEyebrow}>Featured Programs</span>
-            <h2 className={styles.sectionHeadTitle}>Teams to Watch</h2>
+            <span className={styles.sectionEyebrow}>Intel Spotlight</span>
+            <h2 className={styles.sectionHeadTitle}>Programs Driving the Board</h2>
           </div>
           <div className={styles.featuredStrip}>
             {featuredTeams.map((team) => {
@@ -478,6 +513,15 @@ export default function Teams() {
                 </Link>
               );
             })}
+            <button
+              type="button"
+              className={`${styles.featuredCard} ${styles.exploreAllCard}`}
+              onClick={() => document.getElementById('team-discovery')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <span className={styles.exploreAllIcon}>&darr;</span>
+              <span className={styles.featuredName}>Browse All Teams</span>
+              <span className={styles.exploreAllSub}>{TEAMS.length} programs</span>
+            </button>
           </div>
         </section>
       )}
@@ -495,7 +539,7 @@ export default function Teams() {
             const confTeams = confFeaturedMap[conf] || [];
             if (!intel || !counts || counts.total === 0) return null;
             return (
-              <article key={conf} className={styles.confCard}>
+              <article key={conf} className={styles.confCard} style={CONF_ACCENT[conf] ? { borderTop: `3px solid ${CONF_ACCENT[conf]}` } : undefined}>
                 <div className={styles.confCardHeader}>
                   <span className={styles.confCardLogo}>
                     <ConferenceLogo conference={conf} size={36} />
@@ -529,6 +573,11 @@ export default function Teams() {
                     );
                   })}
                 </div>
+                {confRankedCounts[conf] > 0 && (
+                  <span className={styles.confCardSignal}>
+                    {confRankedCounts[conf]} ranked program{confRankedCounts[conf] !== 1 ? 's' : ''}
+                  </span>
+                )}
                 <div className={styles.confCardWatch}>
                   <span className={styles.confCardWatchLabel}>Watch for: </span>
                   {intel.watch}
@@ -556,7 +605,7 @@ export default function Teams() {
         <div className={styles.filters}>
           <input
             type="search"
-            placeholder="Search teams\u2026"
+            placeholder="Search teams..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
@@ -605,7 +654,7 @@ export default function Teams() {
             </select>
           </label>
           {sortBy === 'championship' && championshipOddsLoading && (
-            <span className={styles.sortHint}>Loading odds\u2026</span>
+            <span className={styles.sortHint}>Loading odds...</span>
           )}
           {filteredTeams.length < TEAMS.length && (
             <span className={styles.filterCount}>
@@ -615,7 +664,9 @@ export default function Teams() {
         </div>
 
         <div className={styles.grid}>
-          {grouped.map(({ conference, tiers }) => (
+          {grouped.map(({ conference, tiers }) => {
+            const isOthers = conference === 'Others';
+            return (
             <section key={conference} className={styles.conferenceSection}>
               <button
                 type="button"
@@ -647,6 +698,11 @@ export default function Teams() {
                                     <span className={styles.rankBadge}>#{rankMap[team.slug]}</span>
                                   )}
                                   <span className={styles.teamName}>{team.name}</span>
+                                  {isOthers && (
+                                    <span className={styles.confBadge}>
+                                      {CONF_ABBREV[team.conference] || team.conference}
+                                    </span>
+                                  )}
                                   <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
                                   <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
                                   <span className={styles.chevron}>&rarr;</span>
@@ -664,7 +720,8 @@ export default function Teams() {
                 </>
               )}
             </section>
-          ))}
+            );
+          })}
         </div>
 
         {grouped.length === 0 && (

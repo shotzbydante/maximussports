@@ -364,6 +364,39 @@
   color: var(--color-beige-dune);
 }
 
+/* ─── "Explore All Teams" final card in featured strip ─── */
+
+.exploreAllCard {
+  background: transparent;
+  border: 2px dashed var(--color-border-light);
+  justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--color-text-muted);
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.exploreAllCard:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.03);
+  box-shadow: none;
+  transform: none;
+}
+
+.exploreAllIcon {
+  font-size: 1.2rem;
+  line-height: 1;
+  opacity: 0.65;
+}
+
+.exploreAllSub {
+  font-size: 0.56rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    INTEL PREVIEW — hover card on featured teams (desktop only)
    ═══════════════════════════════════════════════════════════════════ */
@@ -587,6 +620,15 @@
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.confCardSignal {
+  font-size: 0.62rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-primary);
+  letter-spacing: 0.03em;
+  opacity: 0.85;
 }
 
 .confCardCta {
@@ -849,6 +891,21 @@
   border-radius: 3px;
   flex-shrink: 0;
   line-height: 1.5;
+}
+
+.confBadge {
+  font-size: 0.56rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(92, 122, 145, 0.10);
+  color: var(--color-text-muted);
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .badge {
