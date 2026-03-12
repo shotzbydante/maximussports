@@ -57,8 +57,21 @@ function _hash(s) {
 }
 function _pick(arr, seed) { return arr[_hash(seed || '') % arr.length]; }
 
+const MULTI_WORD_MASCOTS = new Set([
+  'wolf pack', 'red raiders', 'blue devils', 'tar heels', 'red storm',
+  'golden eagles', 'sun devils', 'golden hurricane', 'fighting illini',
+  'crimson tide', 'golden bears', 'demon deacons', 'horned frogs',
+  'red hawks', 'blue jays', 'mean green', 'black bears',
+]);
+
 function shortName(fullName) {
   if (!fullName) return '';
+  const lower = fullName.toLowerCase();
+  for (const mascot of MULTI_WORD_MASCOTS) {
+    if (lower.endsWith(mascot)) {
+      return fullName.slice(0, fullName.length - mascot.length).trim();
+    }
+  }
   const parts = fullName.split(' ');
   if (parts.length <= 1) return fullName;
   return parts.slice(0, -1).join(' ');
@@ -317,6 +330,27 @@ function ConfLogo({ conf, className, fallbackClassName }) {
   );
 }
 
+// ─── Featured team logo with graceful fallback ────────────────────────────────
+
+function FeaturedTeamLogo({ slug, name }) {
+  const [failed, setFailed] = useState(false);
+  const initials = (name || '').slice(0, 2).toUpperCase();
+
+  if (failed || !slug) {
+    return <div className={styles.featuredLogoFallback}>{initials}</div>;
+  }
+
+  return (
+    <img
+      src={`/logos/${slug}.png`}
+      alt=""
+      className={styles.featuredLogo}
+      crossOrigin="anonymous"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...rest }) {
@@ -397,14 +431,7 @@ export default function ConferenceIntelSlide({ data, conferenceData, asOf, ...re
             {intel.featured.map((t, i) => (
               <div key={i} className={styles.featuredChip}>
                 {t.rank && <span className={styles.featuredRank}>#{t.rank}</span>}
-                <img
-                  src={`/logos/${t.slug}.png`}
-                  alt=""
-                  className={styles.featuredLogo}
-                  crossOrigin="anonymous"
-                  data-fallback-text={t.name?.slice(0, 2)?.toUpperCase() || ''}
-                  onError={e => { e.currentTarget.style.display = 'none'; }}
-                />
+                <FeaturedTeamLogo slug={t.slug} name={t.name} />
                 <div className={styles.featuredMeta}>
                   <span className={styles.featuredName}>{t.name}</span>
                   {t.record && <span className={styles.featuredRecord}>{t.record}</span>}

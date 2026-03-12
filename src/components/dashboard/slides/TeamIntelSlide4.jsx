@@ -25,6 +25,7 @@
  *   4. buildHeroNarrative()        → orchestrates: generate → adjust → sort → select
  */
 
+import { useState } from 'react';
 import styles from './TeamIntelSlide4.module.css';
 import { getTeamColors } from '../../../utils/teamColors';
 import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
@@ -74,15 +75,27 @@ function extractConferenceRecord(teamObj) {
   return null;
 }
 
+const MULTI_WORD_MASCOTS = new Set([
+  'wolf pack', 'red raiders', 'blue devils', 'tar heels', 'red storm',
+  'golden eagles', 'sun devils', 'golden hurricane', 'fighting illini',
+  'crimson tide', 'golden bears', 'demon deacons', 'horned frogs',
+  'red hawks', 'blue jays', 'mean green', 'black bears',
+]);
+
 function extractShortName(team) {
   if (team?.location) return team.location;
   if (team?.shortDisplayName) return team.shortDisplayName;
   const full = team?.displayName || team?.name || '';
+  if (!full) return 'This team';
+  const lower = full.toLowerCase();
+  for (const mascot of MULTI_WORD_MASCOTS) {
+    if (lower.endsWith(mascot)) {
+      return full.slice(0, full.length - mascot.length).trim() || full;
+    }
+  }
   const parts = full.split(' ');
-  if (parts.length <= 1) return full || 'This team';
-  // Short prefixes like "St.", "San", "UC" → keep first two words
+  if (parts.length <= 1) return full;
   if (parts[0].length <= 3) return parts.slice(0, 2).join(' ');
-  // Otherwise first word is typically the school/location name
   return parts[0];
 }
 
@@ -500,6 +513,29 @@ function buildSignalText(ats) {
   return `Struggling ATS at ${pct}%. Value may be on the other side.`;
 }
 
+// ─── Team logo with graceful fallback ──────────────────────────────────────────
+
+function TeamLogoHero({ slug, name }) {
+  const [failed, setFailed] = useState(false);
+  const initials = (name || '').split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
+
+  if (failed || !slug) {
+    return (
+      <div className={styles.logoFallbackText}>{initials}</div>
+    );
+  }
+
+  return (
+    <img
+      src={`/logos/${slug}.png`}
+      alt={name}
+      className={styles.teamLogo}
+      crossOrigin="anonymous"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
@@ -720,18 +756,7 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
       {/* Team logo hero */}
       <div className={styles.logoZone}>
         <div className={styles.logoGlowRing} aria-hidden="true" />
-        {slug ? (
-          <img
-            src={`/logos/${slug}.png`}
-            alt={name}
-            className={styles.teamLogo}
-            crossOrigin="anonymous"
-            data-fallback-text={name?.slice(0, 2)?.toUpperCase() || ''}
-            onError={e => { e.currentTarget.style.display = 'none'; }}
-          />
-        ) : (
-          <div className={styles.logoFallback} />
-        )}
+        <TeamLogoHero slug={slug} name={name} />
       </div>
 
       {/* Team identity */}

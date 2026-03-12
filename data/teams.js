@@ -73,6 +73,7 @@ const TEAM_LIST = [
   { slug: 'boise-state-broncos', name: 'Boise State Broncos', conference: 'Mountain West', oddsTier: 'Long shot', keywords: 'Boise State Broncos basketball' },
   { slug: 'grand-canyon-lopes', name: 'Grand Canyon Lopes', conference: 'WAC', oddsTier: 'Long shot', keywords: 'Grand Canyon Lopes basketball' },
   { slug: 'nevada-wolf-pack', name: 'Nevada Wolf Pack', conference: 'Mountain West', oddsTier: 'Long shot', keywords: 'Nevada Wolf Pack basketball' },
+  { slug: 'unlv-rebels', name: 'UNLV Rebels', conference: 'Mountain West', oddsTier: 'Long shot', keywords: 'UNLV Rebels basketball' },
   { slug: 'tulsa-golden-hurricane', name: 'Tulsa Golden Hurricane', conference: 'AAC', oddsTier: 'Long shot', keywords: 'Tulsa Golden Hurricane basketball' },
   { slug: 'liberty-flames', name: 'Liberty Flames', conference: 'CUSA', oddsTier: 'Long shot', keywords: 'Liberty Flames basketball' },
   { slug: 'dayton-flyers', name: 'Dayton Flyers', conference: 'A-10', oddsTier: 'Long shot', keywords: 'Dayton Flyers basketball' },
