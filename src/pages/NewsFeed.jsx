@@ -6,7 +6,7 @@ import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed, getStaleIntelFeedAge } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
-import { getPublicationLogoUrl } from '../utils/publicationLogos';
+import { getPublicationLogoUrl, getSourceBrandLogo } from '../utils/publicationLogos';
 import SEOHead from '../components/seo/SEOHead';
 import styles from './NewsFeed.module.css';
 
@@ -166,13 +166,27 @@ function SignalTag({ signal }) {
  */
 function LogoChip({ source, conference }) {
   const [failed, setFailed] = useState(false);
-  const logoUrl = !failed ? getPublicationLogoUrl(source) : null;
+  const brandLogo = !failed ? getSourceBrandLogo(source) : null;
+  const logoUrl = !failed && !brandLogo ? getPublicationLogoUrl(source) : null;
   const pub = getPublisherConfig(source);
   const fallbackBg = pub ? pub.bg : getGradient(conference);
   const initials = source
     ? source.replace(/^(?:the|a)\s+/i, '').slice(0, 2).toUpperCase()
     : '—';
 
+  if (brandLogo) {
+    return (
+      <div className={styles.logoChip} style={{ background: '#fff' }}>
+        <img
+          src={brandLogo}
+          alt=""
+          className={styles.logoChipBrand}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
   if (logoUrl) {
     return (
       <div className={styles.logoChip}>

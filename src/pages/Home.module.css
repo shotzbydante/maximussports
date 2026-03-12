@@ -654,7 +654,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 18px;
+  padding: 16px 22px;
   background: var(--color-bg-elevated);
   border: 1px solid rgba(60, 121, 180, 0.08);
   border-radius: var(--radius-card);
@@ -668,7 +668,7 @@
 }
 
 .topStoriesLabel {
-  font-size: 0.56rem;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -680,7 +680,7 @@
 .topStoriesList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -690,21 +690,21 @@
 .topStoriesItem {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 0.8rem;
   line-height: 1.45;
   color: var(--color-text-secondary);
-  padding-left: 2px;
+  padding: 2px 0;
 }
 
 .topStoriesItem::before {
   content: '';
   display: inline-block;
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
   background: var(--color-primary, #3c79b4);
-  opacity: 0.45;
+  opacity: 0.35;
   flex-shrink: 0;
 }
 
@@ -728,11 +728,21 @@
   height: 14px;
   border-radius: 3px;
   object-fit: contain;
-  opacity: 0.75;
+  opacity: 0.7;
   transition: opacity var(--transition-fast, 0.12s ease);
 }
 
-.topStoriesItem:hover .sourceLogo {
+.sourceBrandLogo {
+  display: block;
+  height: 12px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.72;
+  transition: opacity var(--transition-fast, 0.12s ease);
+}
+
+.topStoriesItem:hover .sourceLogo,
+.topStoriesItem:hover .sourceBrandLogo {
   opacity: 1;
 }
 
@@ -753,7 +763,7 @@
 }
 
 .topStoriesCta {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   color: var(--color-primary);
   text-decoration: none;
@@ -769,12 +779,17 @@
 
 @media (max-width: 767px) {
   .topStories {
-    padding: 12px 14px;
+    padding: 14px 14px;
     gap: 8px;
   }
 
   .topStoriesItem {
     font-size: 0.76rem;
+    gap: 6px;
+  }
+
+  .sourceBrandLogo {
+    height: 10px;
   }
 }
 
