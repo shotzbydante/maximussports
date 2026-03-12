@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildMaximusPicks } from '../../utils/maximusPicksModel';
-import { getConfidenceLabel } from '../../utils/confidenceSystem';
+import { getConfidenceLabel, getModelEdgeDisplay } from '../../utils/confidenceSystem';
 import TeamLogo from '../shared/TeamLogo';
+import MaximusTakeCard from '../shared/MaximusTakeCard';
 import styles from './MaximusPicks.module.css';
 
 // ─── inline SVG icons ─────────────────────────────────────────────────────────
@@ -185,6 +186,21 @@ function WatchCard({ pick, slateDate }) {
 
 // ─── game card ────────────────────────────────────────────────────────────────
 
+function ModelEdge({ pick }) {
+  const edgeData = getModelEdgeDisplay(pick);
+  if (!edgeData) return null;
+  return (
+    <div className={styles.modelEdge}>
+      {edgeData.lines.map((l) => (
+        <span key={l.label} className={styles.edgePair}>
+          <span className={styles.edgeLabel}>{l.label}</span>
+          <span className={styles.edgeValue}>{l.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function GameCard({ pick, slateDate }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
@@ -244,6 +260,8 @@ function GameCard({ pick, slateDate }) {
           </span>
         </div>
       )}
+
+      <ModelEdge pick={pick} />
 
       {pick.signals?.length > 0 && (
         <div className={styles.signalPanel}>
@@ -407,7 +425,8 @@ export default function MaximusPicks({
     [games, atsLeaders, atsBySlug, rankMap, championshipOdds],
   );
 
-  const hasAny = pickEmPicks.length > 0 || atsPicks.length > 0 || valuePicks.length > 0 || totalsPicks.length > 0;
+  const allPicks = useMemo(() => [...pickEmPicks, ...atsPicks, ...valuePicks, ...totalsPicks], [pickEmPicks, atsPicks, valuePicks, totalsPicks]);
+  const hasAny = allPicks.length > 0;
 
   const [graceExpired, setGraceExpired] = useState(false);
   useEffect(() => {
@@ -454,6 +473,11 @@ export default function MaximusPicks({
           {isCombined && !slateComplete && (
             <span className={styles.slateCompleteNote}>Thin slate — today + tomorrow combined</span>
           )}
+        </div>
+      )}
+      {hasAny && (
+        <div className={styles.takeRow}>
+          <MaximusTakeCard allPicks={allPicks} variant="web" />
         </div>
       )}
       <div className={styles.root}>
