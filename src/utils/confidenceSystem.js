@@ -21,25 +21,28 @@ const THRESHOLDS = {
 
 export const CONF_COLORS_SLIDE = {
   high: {
-    bg:       'rgba(45, 138, 110, 0.22)',
-    text:     '#2d8a6e',
-    border:   'rgba(45, 138, 110, 0.40)',
-    barFill:  'linear-gradient(135deg, #2d8a6e, #3db88c)',
-    barGlow:  'rgba(45, 138, 110, 0.30)',
+    bg:        'rgba(45, 138, 110, 0.22)',
+    text:      '#2d8a6e',
+    border:    'rgba(45, 138, 110, 0.40)',
+    barFill:   'linear-gradient(135deg, #2d8a6e, #3db88c)',
+    barGlow:   'rgba(45, 138, 110, 0.30)',
+    barHeight: 6,
   },
   medium: {
-    bg:       'rgba(183, 152, 108, 0.22)',
-    text:     '#B7986C',
-    border:   'rgba(183, 152, 108, 0.40)',
-    barFill:  'linear-gradient(135deg, #B7986C, #d4b896)',
-    barGlow:  'rgba(183, 152, 108, 0.25)',
+    bg:        'rgba(183, 152, 108, 0.22)',
+    text:      '#B7986C',
+    border:    'rgba(183, 152, 108, 0.40)',
+    barFill:   'linear-gradient(135deg, #B7986C, #d4b896)',
+    barGlow:   'rgba(183, 152, 108, 0.25)',
+    barHeight: 5,
   },
   low: {
-    bg:       'rgba(90, 107, 125, 0.18)',
-    text:     '#7a8fa3',
-    border:   'rgba(90, 107, 125, 0.30)',
-    barFill:  'linear-gradient(135deg, #5a6b7d, #7a8b9d)',
-    barGlow:  'rgba(90, 107, 125, 0.15)',
+    bg:        'rgba(90, 107, 125, 0.18)',
+    text:      '#7a8fa3',
+    border:    'rgba(90, 107, 125, 0.30)',
+    barFill:   'linear-gradient(135deg, #5a6b7d, #7a8b9d)',
+    barGlow:   'rgba(90, 107, 125, 0.15)',
+    barHeight: 4,
   },
 };
 
@@ -125,6 +128,53 @@ export function getEditorialLine(pick) {
     default:
       return 'Model edge detected';
   }
+}
+
+// ─── Model Edge display (optional — only when data exists) ──────────────────
+
+export function getModelEdgeDisplay(pick) {
+  if (!pick) return null;
+
+  if (pick.pickType === 'value' && pick.modelPct != null && pick.marketImpliedPct != null) {
+    return {
+      lines: [
+        { label: 'Model prob', value: `${pick.modelPct}%` },
+        { label: 'Market implied', value: `${pick.marketImpliedPct}%` },
+        { label: 'Edge', value: `+${pick.edgePp ?? Math.round((pick.edgeMag ?? 0) * 100)}pp` },
+      ],
+    };
+  }
+
+  if (pick.pickType === 'ats' && pick.spread != null && pick.edgeMag != null) {
+    return {
+      lines: [
+        { label: 'Spread', value: pick.spread > 0 ? `+${pick.spread}` : String(pick.spread) },
+        { label: 'ATS edge', value: `+${Math.round(pick.edgeMag * 100)}%` },
+      ],
+    };
+  }
+
+  if (pick.pickType === 'total' && pick.lineValue != null && pick.edgeMag != null) {
+    return {
+      lines: [
+        { label: 'Line', value: String(pick.lineValue) },
+        { label: 'Edge', value: `+${Math.round(pick.edgeMag * 100)}%` },
+      ],
+    };
+  }
+
+  if (pick.modelLine != null && pick.marketLine != null) {
+    const edge = Math.abs(pick.modelLine - pick.marketLine);
+    return {
+      lines: [
+        { label: 'Model', value: String(pick.modelLine) },
+        { label: 'Market', value: String(pick.marketLine) },
+        { label: 'Edge', value: `+${edge.toFixed(1)} pts` },
+      ],
+    };
+  }
+
+  return null;
 }
 
 // ─── Maximus Take — compact top-signal summary ──────────────────────────────

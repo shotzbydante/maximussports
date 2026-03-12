@@ -4,7 +4,7 @@ import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import {
   getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText,
-  getEditorialLine, getMaximusTake,
+  getEditorialLine, getMaximusTake, getModelEdgeDisplay,
 } from '../../../utils/confidenceSystem';
 import styles from './MaxPicksHeroSlide.module.css';
 
@@ -25,6 +25,7 @@ const CAT = {
 function MiniEdge({ pick }) {
   const filled = getBarBlocks(pick);
   const cs = getSlideColors(pick.confidence);
+  const h = cs.barHeight ?? 6;
   return (
     <div className={styles.miniEdge}>
       <div className={styles.miniBar}>
@@ -32,7 +33,11 @@ function MiniEdge({ pick }) {
           <span
             key={i}
             className={`${styles.miniBlock} ${i < filled ? styles.miniOn : ''}`}
-            style={i < filled ? { background: cs.barFill, boxShadow: `0 0 4px ${cs.barGlow}` } : undefined}
+            style={
+              i < filled
+                ? { height: h, background: cs.barFill, boxShadow: `0 0 4px ${cs.barGlow}` }
+                : { height: h }
+            }
           />
         ))}
       </div>
@@ -49,6 +54,7 @@ function PickRow({ pick, rank }) {
   const teamObj = !isTot ? makeTeamObj(pick.pickTeam) : null;
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
   const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
+  const edgeData = getModelEdgeDisplay(pick);
 
   const opponentLabel = !isTot && pick.opponentTeam
     ? `vs ${pick.opponentTeam}`
@@ -78,6 +84,16 @@ function PickRow({ pick, rank }) {
         <MiniEdge pick={pick} />
       </div>
       {opponentLabel && <div className={styles.pickMatchup}>{opponentLabel}</div>}
+      {edgeData && (
+        <div className={styles.pickEdge}>
+          {edgeData.lines.map((l) => (
+            <span key={l.label} className={styles.edgeStat}>
+              <span className={styles.edgeStatLabel}>{l.label} </span>
+              <span className={styles.edgeStatValue}>{l.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
       <div className={styles.pickExplain}>{getEditorialLine(pick)}</div>
     </div>
   );

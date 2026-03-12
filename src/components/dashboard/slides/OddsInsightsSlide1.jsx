@@ -43,14 +43,14 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
 
   function buildRationale(pick) {
     if (pick.whyValue) return pick.whyValue;
-    const conf = confidenceLabel(pick.confidence);
+    const conf = getConfidenceLabel(pick.confidence);
     const pickType = pick.type === 'ats' || pick.pickType === 'ats' ? 'spread' : 'moneyline';
-    if (conf === 'High') {
+    if (conf === 'HIGH') {
       return pickType === 'spread'
         ? 'Strong cover profile edge. Market still hasn\'t fully caught up on this side.'
         : 'Implied probability gap is significant. This price looks wrong.';
     }
-    if (conf === 'Medium') {
+    if (conf === 'MEDIUM') {
       return pickType === 'spread'
         ? 'Recent cover trend is solid and the number looks a bit light.'
         : 'Model sees a slight value edge versus the implied odds. Worth a lean.';
