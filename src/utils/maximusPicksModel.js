@@ -994,6 +994,47 @@ export function buildPicksSummary({ pickEmPicks = [], atsPicks = [], valuePicks,
  *
  * Returns { headline, body, boardType } or null when no leans exist.
  */
+const HEADLINE_TEMPLATES = {
+  spreads: [
+    'Spread signals are driving the strongest edge today, led by {p1} and {p2}.',
+    'ATS edges are the headline of today\u2019s board, with {p1} and {p2} standing out.',
+    'The model is locking onto spread edges today, led by {p1} and {p2}.',
+  ],
+  value: [
+    'Longshot value is unusually active today, with {p1} and {p2} highlighting the board.',
+    'Value edges are clustering across the board, led by {p1} and {p2}.',
+    'The model sees asymmetric value today, headlined by {p1} and {p2}.',
+  ],
+  totals: [
+    'Totals are carrying the strongest edge today, with scoring signals clustering around {p1}.',
+    'Game totals are the most actionable part of today\u2019s board, led by {p1}.',
+    'Environment-driven signals are leading today, with {p1} at the top.',
+  ],
+  pickem: [
+    'Straight-up winner signals are leading the board, with {p1} and {p2} standing out.',
+    'The model is most confident on outright winners today, led by {p1} and {p2}.',
+    'Pick \u2019em leans are the clearest signals today, highlighted by {p1} and {p2}.',
+  ],
+  mixed: [
+    'Signals are spread across the board today, with notable edges on {angles}.',
+    'Today\u2019s board is diversified, with the model seeing {angles}.',
+    'Multiple angles are active today, including {angles}.',
+  ],
+};
+
+const TONE_MODIFIERS = {
+  favoritesHeavy: 'Favorites dominate the model board today.',
+  underdogValue:  'Underdog value is appearing more frequently than usual.',
+  lightSignals:   'Signals are lighter than usual across today\u2019s slate.',
+  strongBoard:    'This is one of the sharper boards the model has produced recently.',
+};
+
+function templateRotate(templates) {
+  const d = new Date();
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  return templates[dayOfYear % templates.length];
+}
+
 export function buildBoardBriefing({ pickEmPicks = [], atsPicks = [], valuePicks, mlPicks, totalsPicks = [] } = {}) {
   const valPicks = valuePicks ?? mlPicks ?? [];
 
@@ -1009,12 +1050,7 @@ export function buildBoardBriefing({ pickEmPicks = [], atsPicks = [], valuePicks
   const highVal = valLeans.filter(p => p.confidence >= 2);
   const highTot = totLeans.filter(p => p.confidence >= 2);
   const highPe  = peLeans.filter(p => p.confidence >= 2);
-
-  function shortName(team) {
-    if (!team) return '';
-    const parts = team.split(' ');
-    return parts.length > 1 ? parts.slice(0, -1).join(' ') : team;
-  }
+  const totalHigh = highAts.length + highVal.length + highTot.length + highPe.length;
 
   function pickLabel(p) {
     return p.pickLine || p.pickTeam || '';
@@ -1039,10 +1075,9 @@ export function buildBoardBriefing({ pickEmPicks = [], atsPicks = [], valuePicks
   const totScore = totLeans.length * 2 + highTot.length * 3;
   const peScore  = peLeans.length * 2 + highPe.length * 3;
   const maxScore = Math.max(atsScore, valScore, totScore, peScore);
+  const totalScore = atsScore + valScore + totScore + peScore;
 
-  const isConcentrated = maxScore >= (atsScore + valScore + totScore + peScore) * 0.45;
-  const overCount = totLeans.filter(p => p.leanDirection === 'OVER').length;
-  const underCount = totLeans.filter(p => p.leanDirection === 'UNDER').length;
+  const isConcentrated = maxScore >= totalScore * 0.45;
 
   let boardType = 'mixed';
   let headline = '';
@@ -1051,40 +1086,37 @@ export function buildBoardBriefing({ pickEmPicks = [], atsPicks = [], valuePicks
   if (isConcentrated && atsScore === maxScore && atsLeans.length >= 2) {
     boardType = 'spreads';
     const ex = topExamples(atsLeans);
-    headline = 'Spreads are driving the strongest signals today.';
-    body = ex.length > 0
-      ? `${listStr(ex)} ${ex.length === 1 ? 'leads' : 'lead'} the ATS edge board${valLeans.length > 0 ? `, with ${valLeans.length} value spot${valLeans.length > 1 ? 's' : ''} also qualifying` : ''}.`
+    const tpl = templateRotate(HEADLINE_TEMPLATES.spreads);
+    headline = tpl.replace('{p1}', ex[0] || '').replace('{p2}', ex[1] || '');
+    body = valLeans.length > 0
+      ? `${valLeans.length} value spot${valLeans.length > 1 ? 's' : ''} also qualifying.`
       : '';
   } else if (isConcentrated && valScore === maxScore && valLeans.length >= 2) {
     boardType = 'value';
     const ex = topExamples(valLeans);
-    const hasLongshot = valLeans.some(p => {
-      const ml = parseInt(String(p.mlPriceLabel || '').replace('+', ''), 10);
-      return !isNaN(ml) && ml >= 500;
-    });
-    headline = hasLongshot
-      ? 'Longshot value is unusually active today.'
-      : 'Value edges are clustering across the board.';
-    body = ex.length > 0
-      ? `${listStr(ex)} headline the value side${atsLeans.length > 0 ? `, while ${atsLeans.length} spread signal${atsLeans.length > 1 ? 's' : ''} also ${atsLeans.length > 1 ? 'qualify' : 'qualifies'}` : ''}.`
+    const tpl = templateRotate(HEADLINE_TEMPLATES.value);
+    headline = tpl.replace('{p1}', ex[0] || '').replace('{p2}', ex[1] || '');
+    body = atsLeans.length > 0
+      ? `${atsLeans.length} spread signal${atsLeans.length > 1 ? 's' : ''} also active.`
       : '';
   } else if (isConcentrated && totScore === maxScore && totLeans.length >= 2) {
     boardType = 'totals';
     const ex = topExamples(totLeans);
-    const dirNote = underCount > overCount
-      ? 'under signals clustering around lower-tempo matchups'
+    const tpl = templateRotate(HEADLINE_TEMPLATES.totals);
+    headline = tpl.replace('{p1}', ex[0] || '').replace('{p2}', ex[1] || '');
+    const overCount = totLeans.filter(p => p.leanDirection === 'OVER').length;
+    const underCount = totLeans.filter(p => p.leanDirection === 'UNDER').length;
+    body = underCount > overCount
+      ? 'Under signals are clustering around lower-tempo matchups.'
       : overCount > underCount
-        ? 'over signals pointing to high-scoring environments'
-        : 'over and under signals both active';
-    headline = 'Totals are carrying the strongest edge today.';
-    body = `Multiple ${dirNote}${ex.length > 0 ? `, led by ${listStr(ex)}` : ''}.`;
+        ? 'Over signals are pointing to high-scoring environments.'
+        : 'Over and under signals are both active.';
   } else if (isConcentrated && peScore === maxScore && peLeans.length >= 2) {
     boardType = 'pickem';
     const ex = topExamples(peLeans);
-    headline = 'Straight-up winner signals are leading the board.';
-    body = ex.length > 0
-      ? `${listStr(ex.map(e => shortName(e.split(' ').length > 2 ? e : e)))} ${ex.length === 1 ? 'stands' : 'stand'} out on the pick \u2019em side${atsLeans.length > 0 ? ', with spread edges also available' : ''}.`
-      : '';
+    const tpl = templateRotate(HEADLINE_TEMPLATES.pickem);
+    headline = tpl.replace('{p1}', ex[0] || '').replace('{p2}', ex[1] || '');
+    body = atsLeans.length > 0 ? 'Spread edges are also available.' : '';
   } else {
     boardType = 'mixed';
     const angles = [];
@@ -1102,11 +1134,45 @@ export function buildBoardBriefing({ pickEmPicks = [], atsPicks = [], valuePicks
     if (peLeans.length > 0 && angles.length < 3) {
       angles.push(`${peLeans.length} straight-up lean${peLeans.length > 1 ? 's' : ''}`);
     }
-    headline = 'Signals are spread across the board today.';
-    body = angles.length > 0
-      ? `The model is seeing ${listStr(angles)}.`
-      : '';
+    const tpl = templateRotate(HEADLINE_TEMPLATES.mixed);
+    headline = tpl.replace('{angles}', listStr(angles));
+    body = '';
   }
 
-  return { headline, body, boardType };
+  // Tone modifier — append when applicable
+  const favLeans = [...atsLeans, ...peLeans].filter(p => {
+    const ml = parseInt(String(p.mlPriceLabel || '').replace('+', ''), 10);
+    return !isNaN(ml) && ml < 0;
+  });
+  const dogLeans = valLeans.filter(p => {
+    const ml = parseInt(String(p.mlPriceLabel || '').replace('+', ''), 10);
+    return !isNaN(ml) && ml >= 300;
+  });
+
+  let tone = '';
+  if (totalLeans <= 4 && totalHigh === 0) {
+    tone = TONE_MODIFIERS.lightSignals;
+  } else if (totalHigh >= 4) {
+    tone = TONE_MODIFIERS.strongBoard;
+  } else if (dogLeans.length >= 3) {
+    tone = TONE_MODIFIERS.underdogValue;
+  } else if (favLeans.length >= Math.ceil(totalLeans * 0.7)) {
+    tone = TONE_MODIFIERS.favoritesHeavy;
+  }
+
+  if (tone && body) {
+    body = body + ' ' + tone;
+  } else if (tone) {
+    body = tone;
+  }
+
+  // Board strength
+  let boardStrength = 'Moderate';
+  if (totalHigh >= 4 || totalLeans >= 12) {
+    boardStrength = 'Strong';
+  } else if (totalLeans <= 4 && totalHigh === 0) {
+    boardStrength = 'Light';
+  }
+
+  return { headline, body, boardType, boardStrength };
 }

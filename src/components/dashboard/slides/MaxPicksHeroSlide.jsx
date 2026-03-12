@@ -4,10 +4,23 @@ import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import {
   getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText,
-  getEditorialLine, getMaximusTake,
+  getEditorialLine,
 } from '../../../utils/confidenceSystem';
-import MaximusTakeCard from '../../shared/MaximusTakeCard';
 import styles from './MaxPicksHeroSlide.module.css';
+
+const ENGAGEMENT_HOOKS = [
+  'Which signal do you trust most today?',
+  'Which side are you riding tonight?',
+  'Do you agree with the model?',
+  'Which of these plays would you back?',
+  'Where do you see the biggest edge?',
+];
+
+function engagementHookForDate() {
+  const d = new Date();
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  return ENGAGEMENT_HOOKS[dayOfYear % ENGAGEMENT_HOOKS.length];
+}
 
 function makeTeamObj(name) {
   if (!name) return null;
@@ -198,15 +211,9 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
             <IntelModule picks={totTop} cat="total" />
           </div>
 
-          {getMaximusTake(allPicks) ? (
-            <div className={styles.takeStrip}>
-              <MaximusTakeCard allPicks={allPicks} variant="slide" />
-            </div>
-          ) : (
-            <div className={styles.edgeNote}>
-              Higher bar = stronger model signal vs the market
-            </div>
-          )}
+          <div className={styles.engagementHook}>
+            {engagementHookForDate()}
+          </div>
         </>
       )}
     </PicksSlideShell>

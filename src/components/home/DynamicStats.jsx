@@ -83,6 +83,11 @@ export default function DynamicStats({
       if (!homeTeam || !awayTeam) continue;
 
       const bothRanked = homeRank != null && awayRank != null;
+      const gameTime = g.time || g.startTime || null;
+      const network = g.network || g.broadcastName || g.broadcast || null;
+      const spread = g.homeSpread ?? g.spread ?? null;
+      const total = g.total ?? g.totals?.points ?? null;
+
       matchups.push({
         game: g,
         homeTeam,
@@ -92,6 +97,10 @@ export default function DynamicStats({
         homeRank,
         awayRank,
         bothRanked,
+        gameTime,
+        network,
+        spread: spread != null ? String(spread) : null,
+        total: total != null ? String(total) : null,
         score: bothRanked
           ? 1000 - Math.min(homeRank, awayRank)
           : 500 - (homeRank ?? awayRank),
@@ -122,23 +131,29 @@ export default function DynamicStats({
     const signals = {};
     for (const m of featuredMatchups) {
       const key = matchupKey(m.homeSlug, m.awaySlug);
-      const match = allPicks.find(
+      const matching = allPicks.filter(
         (p) => matchupKey(p.homeSlug, p.awaySlug) === key,
       );
-      if (!match) continue;
+      if (matching.length === 0) continue;
+
+      const best = matching.sort((a, b) => (b.confidence - a.confidence))[0];
 
       let label;
-      if (match._st === 'ats' && match.pickLine) {
-        label = `ATS Edge: ${match.pickLine}`;
-      } else if (match._st === 'pickem' && match.pickTeam) {
-        label = `Model Lean: ${match.pickTeam}`;
-      } else if (match._st === 'value' && match.pickLine) {
-        label = `Value Signal: ${match.pickLine}`;
-      } else if (match._st === 'totals' && match.leanDirection) {
-        label = `${match.leanDirection} ${match.lineValue}`;
+      if (best._st === 'ats' && best.pickLine) {
+        label = `ATS Edge: ${best.pickLine}`;
+      } else if (best._st === 'pickem' && best.pickTeam) {
+        label = `Model Lean: ${best.pickTeam}`;
+      } else if (best._st === 'value' && best.pickLine) {
+        label = `Value Signal: ${best.pickLine}`;
+      } else if (best._st === 'totals' && best.leanDirection) {
+        label = `${best.leanDirection} ${best.lineValue}`;
       }
+
+      const totalsMatch = matching.find(p => p._st === 'totals' && p.leanDirection);
+      const totalLean = totalsMatch ? `${totalsMatch.leanDirection} ${totalsMatch.lineValue}` : null;
+
       if (label) {
-        signals[key] = { label, type: match._st, confidence: match.confidence };
+        signals[key] = { label, type: best._st, confidence: best.confidence, totalLean };
       }
     }
     return signals;
@@ -209,12 +224,29 @@ export default function DynamicStats({
                     </div>
                   </div>
 
-                  {signal && (
-                    <span
-                      className={`${styles.signalPill} ${styles[`signal--${signal.type}`] || ''}`}
-                    >
-                      {signal.label}
-                    </span>
+                  {/* Metadata row: network, time, spread, signal */}
+                  {(m.network || m.gameTime || m.spread || signal) && (
+                    <div className={styles.matchupMeta}>
+                      {(m.network || m.gameTime) && (
+                        <span className={styles.metaTime}>
+                          {m.network && <span className={styles.networkBadge}>{m.network}</span>}
+                          {m.gameTime && <span>{m.gameTime}</span>}
+                        </span>
+                      )}
+                      {m.spread && (
+                        <span className={styles.metaLine}>Spread: {m.spread}</span>
+                      )}
+                      {signal && (
+                        <span className={`${styles.metaSignal} ${styles[`signal--${signal.type}`] || ''}`}>
+                          {signal.label}
+                        </span>
+                      )}
+                      {signal?.totalLean && signal.type !== 'totals' && (
+                        <span className={`${styles.metaSignal} ${styles['signal--totals'] || ''}`}>
+                          {signal.totalLean}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </Link>
               );
