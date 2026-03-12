@@ -4,13 +4,9 @@
  * Pipeline:  Canvas (1080×1920) → VideoEncoder (H.264) → mp4-muxer → Blob
  *
  * Requires WebCodecs (Chrome 94+, Safari 16.4+).
- * The render loop seeks through the source video frame-by-frame and
- * composites intro/outro cards and text overlays onto a Canvas, encoding
- * each frame as it goes. Progress is reported via callback.
- *
- * This module is the *render implementation*. The orchestration lives in
- * VideosEditor. The module can be swapped for Remotion Lambda or server-
- * side FFmpeg later without changing the editor.
+ * Supports dynamic beat timing from clip analysis and template-defined
+ * overlay positions. The render loop composites intro/outro cards
+ * and text overlays onto a Canvas, encoding each frame.
  */
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
@@ -55,17 +51,18 @@ export async function checkH264Support(width = 1080, height = 1920) {
 
 /**
  * @param {object}   opts
- * @param {string}   opts.sourceUrl        Object URL or public URL to source video
+ * @param {string}   opts.sourceUrl        Object URL or public URL
  * @param {number}   opts.trimStart        Trim start in seconds
  * @param {number}   opts.trimEnd          Trim end in seconds
  * @param {string}   opts.headline         Headline overlay text
  * @param {string}   opts.subhead          Subhead overlay text
  * @param {string}   opts.cta              CTA text for outro
- * @param {boolean}  [opts.watermark=true] Show logo watermark during footage
- * @param {string[]} [opts.overlayBeats]   Beat text array (shown sequentially during footage)
- * @param {string}   [opts.templateId]     Template ID (default feature-spotlight)
+ * @param {boolean}  [opts.watermark]      Show logo watermark
+ * @param {string[]} [opts.overlayBeats]   Beat text array
+ * @param {Array}    [opts.beatTimings]    Dynamic beat timing [{startPct, endPct}]
+ * @param {string}   [opts.templateId]     Template ID
  * @param {function} [opts.onProgress]     (0-1) progress callback
- * @param {AbortSignal} [opts.signal]      Abort signal for cancellation
+ * @param {AbortSignal} [opts.signal]      Abort signal
  * @returns {Promise<Blob>}  H.264 MP4 blob
  */
 export async function renderVideo(opts) {
@@ -78,6 +75,7 @@ export async function renderVideo(opts) {
     cta = 'Get Maximus Sports',
     watermark = true,
     overlayBeats = [],
+    beatTimings = null,
     templateId = 'feature-spotlight',
     onProgress,
     signal,
@@ -126,8 +124,7 @@ export async function renderVideo(opts) {
   });
 
   const fieldValues = { headline, subhead };
-
-  const beatConfigs = buildBeatConfigs(overlayBeats, tpl);
+  const beatConfigs = buildBeatConfigs(overlayBeats, tpl, beatTimings);
 
   // ── render loop ──────────────────────────────────────────────
   for (let i = 0; i < totalFrames; i++) {
@@ -198,15 +195,17 @@ export async function renderVideo(opts) {
 
 // ─── helpers ─────────────────────────────────────────────────────
 
-function buildBeatConfigs(beats, tpl) {
+function buildBeatConfigs(beats, tpl, dynamicTimings) {
   if (!beats || beats.length === 0) return [];
 
   const beatDefs = tpl.overlayBeats || [];
+
   return beats
     .map((text, i) => {
       if (!text) return null;
-      const def = beatDefs[i] || { startPct: i * 0.33, endPct: i * 0.33 + 0.28 };
-      return { text, startPct: def.startPct, endPct: def.endPct };
+      // prefer dynamic (analysis-driven) timings, fall back to template defaults
+      const timing = dynamicTimings?.[i] || beatDefs[i] || { startPct: i * 0.33, endPct: i * 0.33 + 0.28 };
+      return { text, startPct: timing.startPct, endPct: timing.endPct };
     })
     .filter(Boolean);
 }

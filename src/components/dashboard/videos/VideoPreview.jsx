@@ -4,8 +4,7 @@ import styles from './VideoPreview.module.css';
 /**
  * 9:16 video preview with IG Reels safe-zone guides and overlay zones.
  *
- * This is a *preview-only* component — it shows the user an approximation
- * of the final render using HTML/CSS overlays over a <video> element.
+ * Supports both fixed and dynamic (analysis-driven) beat timing.
  * The actual export uses Canvas + WebCodecs (see renderVideo.js).
  */
 export default function VideoPreview({
@@ -15,6 +14,7 @@ export default function VideoPreview({
   headline,
   subhead,
   overlayBeats = [],
+  beatTimings = null,
   showSafeZones = true,
 }) {
   const videoRef = useRef(null);
@@ -70,9 +70,8 @@ export default function VideoPreview({
 
   const activeBeatIndex = overlayBeats.findIndex((beat, i) => {
     if (!beat) return false;
-    const beatStart = i * 0.33;
-    const beatEnd = beatStart + 0.28;
-    return footageProgress >= beatStart && footageProgress <= beatEnd;
+    const timing = beatTimings?.[i] || { startPct: i * 0.33, endPct: i * 0.33 + 0.28 };
+    return footageProgress >= timing.startPct && footageProgress <= timing.endPct;
   });
 
   return (
@@ -114,14 +113,10 @@ export default function VideoPreview({
         {showSafeZones && sourceUrl && (
           <div className={styles.safeOverlay}>
             <div className={styles.unsafeTop}>
-              <span className={`${styles.safeLabel} ${styles.safeLabelTop}`}>
-                unsafe
-              </span>
+              <span className={`${styles.safeLabel} ${styles.safeLabelTop}`}>unsafe</span>
             </div>
             <div className={styles.unsafeBottom}>
-              <span className={`${styles.safeLabel} ${styles.safeLabelBottom}`}>
-                unsafe
-              </span>
+              <span className={`${styles.safeLabel} ${styles.safeLabelBottom}`}>unsafe</span>
             </div>
           </div>
         )}
@@ -133,9 +128,7 @@ export default function VideoPreview({
         )}
         {sourceUrl && subheadVisible && !playing && (
           <div className={styles.overlayZone} style={{ top: '32%', opacity: 0.55 }}>
-            <span className={`${styles.overlayText} ${styles.overlaySmall}`}>
-              {subhead}
-            </span>
+            <span className={`${styles.overlayText} ${styles.overlaySmall}`}>{subhead}</span>
           </div>
         )}
 

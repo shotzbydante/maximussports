@@ -1,18 +1,17 @@
 /**
- * Smart auto-trim analyzer.
+ * Smart auto-trim analyzer with Web Worker offloading.
  *
- * Samples frames from the source video, computes pixel-difference scores
- * between adjacent samples, and identifies the most "active" 10–15 s
- * segment. This avoids idle intro/outro footage and selects the portion
- * with the most visual change (cursor movement, UI transitions, etc.).
+ * Frame capture (DOM-dependent) runs on the main thread with generous
+ * yielding. Pixel differencing and peak detection run in a Web Worker
+ * to keep the editor responsive during analysis.
  *
- * Returns a suggested { trimStart, trimEnd } in seconds.
+ * Returns { trimStart, trimEnd, scores, beatPeaks, analyzed }.
+ * beatPeaks contains activity peak positions usable for smart beat placement.
  */
 
 const SAMPLE_INTERVAL_S = 0.5;
 const THUMB_W = 160;
 const THUMB_H = 90;
-const TARGET_MIN_S = 10;
 const TARGET_MAX_S = 15;
 
 export async function analyzeTrim(videoUrl, onProgress) {
@@ -20,7 +19,14 @@ export async function analyzeTrim(videoUrl, onProgress) {
   const duration = video.duration;
 
   if (duration <= TARGET_MAX_S) {
-    return { trimStart: 0, trimEnd: duration, scores: [], analyzed: true };
+    return {
+      trimStart: 0,
+      trimEnd: duration,
+      scores: [],
+      beatPeaks: [],
+      analyzed: true,
+      sampleInterval: SAMPLE_INTERVAL_S,
+    };
   }
 
   const canvas = document.createElement('canvas');
@@ -29,64 +35,152 @@ export async function analyzeTrim(videoUrl, onProgress) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
   const sampleCount = Math.floor(duration / SAMPLE_INTERVAL_S);
-  const scores = [];
-  let prevData = null;
+  const frameBuffers = [];
 
+  // capture frames on main thread with yielding
   for (let i = 0; i < sampleCount; i++) {
     const time = i * SAMPLE_INTERVAL_S;
     await seekVideo(video, time);
 
     ctx.drawImage(video, 0, 0, THUMB_W, THUMB_H);
     const imageData = ctx.getImageData(0, 0, THUMB_W, THUMB_H);
-    const currentData = imageData.data;
+    frameBuffers.push(imageData.data.buffer.slice(0));
 
-    if (prevData) {
-      let diff = 0;
-      const len = currentData.length;
-      for (let p = 0; p < len; p += 4) {
-        diff += Math.abs(currentData[p] - prevData[p]);
-        diff += Math.abs(currentData[p + 1] - prevData[p + 1]);
-        diff += Math.abs(currentData[p + 2] - prevData[p + 2]);
-      }
-      const pixelCount = len / 4;
-      scores.push(diff / (pixelCount * 3 * 255));
-    } else {
-      scores.push(0);
+    if (i % 4 === 0) {
+      onProgress?.(i / sampleCount * 0.6);
+      await yieldToMain();
     }
-
-    prevData = new Uint8ClampedArray(currentData);
-    onProgress?.(i / sampleCount);
   }
 
-  const windowSamples = Math.round(TARGET_MIN_S / SAMPLE_INTERVAL_S);
-  const maxWindowSamples = Math.round(TARGET_MAX_S / SAMPLE_INTERVAL_S);
+  onProgress?.(0.6);
 
-  let bestScore = -1;
-  let bestStart = 0;
-  let bestLen = windowSamples;
+  // offload computation to worker
+  const result = await runWorkerAnalysis(frameBuffers, THUMB_W, THUMB_H, SAMPLE_INTERVAL_S, duration, (p) => {
+    onProgress?.(0.6 + p * 0.4);
+  });
 
+  onProgress?.(1);
+
+  return {
+    ...result,
+    analyzed: true,
+    sampleInterval: SAMPLE_INTERVAL_S,
+  };
+}
+
+/**
+ * Convert beat peaks into overlay timing percentages within the footage window.
+ * Falls back to evenly-spaced defaults if no peaks available.
+ */
+export function beatPeaksToTimings(beatPeaks, trimStart, trimEnd, numBeats = 3) {
+  const footageDuration = trimEnd - trimStart;
+  if (footageDuration <= 0) return [];
+
+  if (!beatPeaks || beatPeaks.length === 0) {
+    return Array.from({ length: numBeats }, (_, i) => ({
+      startPct: (i / numBeats) + 0.02,
+      endPct: ((i + 1) / numBeats) - 0.03,
+    }));
+  }
+
+  const usePeaks = beatPeaks.slice(0, numBeats);
+  const beatDurationPct = 0.18;
+
+  return usePeaks.map((peak) => {
+    const relativeTime = peak.time - trimStart;
+    const centerPct = relativeTime / footageDuration;
+    return {
+      startPct: Math.max(0.01, centerPct - beatDurationPct / 2),
+      endPct: Math.min(0.99, centerPct + beatDurationPct / 2),
+    };
+  });
+}
+
+// ─── Worker communication ────────────────────────────────────────
+
+function runWorkerAnalysis(frameBuffers, width, height, sampleInterval, duration, onProgress) {
+  return new Promise((resolve, reject) => {
+    let worker;
+    try {
+      worker = new Worker(
+        new URL('./analyzeWorker.js', import.meta.url),
+        { type: 'module' }
+      );
+    } catch {
+      // worker creation failed — fall back to main thread
+      return resolve(mainThreadFallback(frameBuffers, width, height, sampleInterval, duration));
+    }
+
+    const timeout = setTimeout(() => {
+      worker.terminate();
+      resolve(mainThreadFallback(frameBuffers, width, height, sampleInterval, duration));
+    }, 30000);
+
+    worker.onmessage = (e) => {
+      if (e.data.type === 'progress') {
+        onProgress?.(e.data.value);
+      } else if (e.data.type === 'result') {
+        clearTimeout(timeout);
+        worker.terminate();
+        resolve(e.data);
+      }
+    };
+
+    worker.onerror = () => {
+      clearTimeout(timeout);
+      worker.terminate();
+      resolve(mainThreadFallback(frameBuffers, width, height, sampleInterval, duration));
+    };
+
+    const transferable = frameBuffers.map(b => (b instanceof ArrayBuffer ? b : b));
+    worker.postMessage(
+      { type: 'analyze', buffers: frameBuffers, width, height, sampleInterval, duration },
+      transferable
+    );
+  });
+}
+
+// ─── Main-thread fallback if Worker unavailable ──────────────────
+
+function mainThreadFallback(frameBuffers, width, height, sampleInterval, duration) {
+  const pixelCount = width * height;
+  const scores = [];
+
+  for (let i = 0; i < frameBuffers.length; i++) {
+    if (i === 0) { scores.push(0); continue; }
+    const prev = new Uint8ClampedArray(frameBuffers[i - 1]);
+    const curr = new Uint8ClampedArray(frameBuffers[i]);
+    let diff = 0;
+    for (let p = 0; p < curr.length; p += 4) {
+      diff += Math.abs(curr[p] - prev[p]);
+      diff += Math.abs(curr[p + 1] - prev[p + 1]);
+      diff += Math.abs(curr[p + 2] - prev[p + 2]);
+    }
+    scores.push(diff / (pixelCount * 3 * 255));
+  }
+
+  // simplified best window (same logic as worker)
+  const windowSamples = Math.round(10 / sampleInterval);
+  const maxWindowSamples = Math.round(15 / sampleInterval);
+  let bestScore = -1, bestStart = 0, bestLen = windowSamples;
   for (let wLen = windowSamples; wLen <= maxWindowSamples; wLen++) {
     for (let start = 0; start <= scores.length - wLen; start++) {
       let sum = 0;
-      for (let j = start; j < start + wLen; j++) {
-        sum += scores[j];
-      }
+      for (let j = start; j < start + wLen; j++) sum += scores[j];
       const avg = sum / wLen;
-      if (avg > bestScore) {
-        bestScore = avg;
-        bestStart = start;
-        bestLen = wLen;
-      }
+      if (avg > bestScore) { bestScore = avg; bestStart = start; bestLen = wLen; }
     }
   }
 
-  const trimStart = parseFloat((bestStart * SAMPLE_INTERVAL_S).toFixed(1));
-  const trimEnd = parseFloat(
-    Math.min((bestStart + bestLen) * SAMPLE_INTERVAL_S, duration).toFixed(1)
-  );
-
-  return { trimStart, trimEnd, scores, analyzed: true };
+  return {
+    scores,
+    trimStart: parseFloat((bestStart * sampleInterval).toFixed(1)),
+    trimEnd: parseFloat(Math.min((bestStart + bestLen) * sampleInterval, duration).toFixed(1)),
+    beatPeaks: [],
+  };
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────
 
 function loadVideo(url) {
   return new Promise((resolve, reject) => {
@@ -107,4 +201,8 @@ function seekVideo(video, time) {
     video.onseeked = () => resolve();
     video.currentTime = time;
   });
+}
+
+function yieldToMain() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }

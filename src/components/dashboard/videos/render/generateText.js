@@ -1,168 +1,117 @@
 /**
- * AI-like text generation for reel overlays.
+ * Structured text generation for reel overlays.
  *
- * Uses keyword extraction + template matching to produce marketing copy
- * from a prompt context string. Designed to be swappable with a real
- * LLM endpoint later — the function signature stays the same.
+ * Generates marketing copy from three structured inputs:
+ *   1. Feature Type  — what the video demonstrates
+ *   2. Hook Style    — how the hook is phrased
+ *   3. Prompt Context — optional free-text for extra flavor
  *
- * Returns { headline, subhead, overlayBeats[], cta, variantHooks[] }
+ * Designed to be swappable with a real LLM endpoint later.
+ * The function signatures stay the same.
  */
 
-const KEYWORD_MAP = {
-  pin: {
-    actions: ['Pin', 'Save', 'Lock in'],
-    objects: ['your teams', 'your favorites', 'matchups'],
-  },
-  track: {
-    actions: ['Track', 'Follow', 'Monitor'],
-    objects: ['every game', 'live scores', 'your teams'],
-  },
-  bet: {
-    actions: ['Find', 'Spot', 'Track'],
-    objects: ['ATS signals', 'betting edges', 'line movements'],
-  },
-  ats: {
-    actions: ['Track', 'Spot', 'Analyze'],
-    objects: ['ATS signals', 'spread movements', 'cover trends'],
-  },
-  leaderboard: {
-    actions: ['Dominate', 'Climb', 'Check'],
-    objects: ['the leaderboard', 'your rankings', 'the standings'],
-  },
-  score: {
-    actions: ['Track', 'Get', 'Watch'],
-    objects: ['live scores', 'real-time updates', 'every play'],
-  },
-  signal: {
-    actions: ['Find', 'Spot', 'Discover'],
-    objects: ['betting signals', 'smart edges', 'hidden value'],
-  },
-  odds: {
-    actions: ['Compare', 'Track', 'Find'],
-    objects: ['live odds', 'the best lines', 'odds shifts'],
-  },
-  lineup: {
-    actions: ['Set', 'Manage', 'Customize'],
-    objects: ['your lineup', 'your watchlist', 'your roster'],
-  },
-  demo: {
-    actions: ['See', 'Watch', 'Discover'],
-    objects: ['how it works', 'the platform', 'every feature'],
-  },
-  college: {
-    actions: ['Track', 'Follow', 'Dominate'],
-    objects: ['college hoops', 'March Madness', 'NCAA action'],
-  },
-  nba: {
-    actions: ['Track', 'Follow', 'Dominate'],
-    objects: ['NBA action', 'pro basketball', 'every game'],
-  },
-};
+import {
+  FEATURE_TYPES,
+  HOOK_STYLES,
+  CTA_TYPES,
+  VARIANT_COMBOS,
+} from '../templates/featureSpotlight';
 
-const PRODUCT_HOOKS = [
-  (v) => `${v.action} ${v.object} Instantly`,
-  (v) => `${v.action} ${v.object} in Seconds`,
-  (v) => `The Smartest Way to ${v.action} ${v.object}`,
-];
+// ─── Auto-detect feature type from prompt context ────────────────
 
-const BETTING_HOOKS = [
-  (v) => `Find ${v.bettingObject} Faster`,
-  (v) => `Never Miss ${v.bettingObject} Again`,
-  (v) => `${v.bettingObject}: Decoded`,
-];
-
-const CURIOSITY_HOOKS = [
-  (v) => `The Smartest Way To ${v.action} ${v.object}`,
-  (v) => `What 10K+ Bettors Already Know`,
-  (v) => `This Changes How You ${v.action}`,
-];
-
-const BEAT_TEMPLATES = [
-  (v) => `${v.action} ${v.object.split(' ').slice(0, 3).join(' ')}`,
-  (v) => `Real-time ${v.object}`,
-  (v) => `Never miss a game`,
-];
-
-const SUBHEAD_TEMPLATES = [
-  (v) => `Track ${v.object}, scores, and highlights in seconds.`,
-  (v) => `Real-time ${v.object} at your fingertips.`,
-  (v) => `${v.action} smarter. Win bigger.`,
-];
-
-function extractKeywords(prompt) {
-  const lower = prompt.toLowerCase();
-  const matched = [];
-  for (const [keyword, data] of Object.entries(KEYWORD_MAP)) {
-    if (lower.includes(keyword)) {
-      matched.push({ keyword, ...data });
-    }
-  }
-  return matched.length > 0
-    ? matched
-    : [{ keyword: 'default', actions: ['Discover', 'Track', 'See'], objects: ['every feature', 'live updates', 'the platform'] }];
+export function detectFeatureType(promptContext) {
+  if (!promptContext) return 'generalDemo';
+  const lower = promptContext.toLowerCase();
+  const scored = Object.entries(FEATURE_TYPES).map(([id, ft]) => {
+    const hits = ft.keywords.filter(kw => lower.includes(kw)).length;
+    return { id, hits };
+  });
+  scored.sort((a, b) => b.hits - a.hits);
+  return scored[0].hits > 0 ? scored[0].id : 'generalDemo';
 }
+
+// ─── Core generation ─────────────────────────────────────────────
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export function generateReelText(promptContext, ctaType = 'website') {
-  const keywords = extractKeywords(promptContext || '');
-  const primary = keywords[0];
-
-  const action = primary.actions[0];
-  const object = primary.objects[0];
-  const bettingObject = keywords.find(k =>
-    ['bet', 'ats', 'signal', 'odds'].includes(k.keyword)
-  )?.objects[0] || 'ATS signals';
-
-  const vars = { action, object, bettingObject };
-
-  const headline = pick(PRODUCT_HOOKS)(vars);
-  const subhead = pick(SUBHEAD_TEMPLATES)(vars);
-
-  const overlayBeats = BEAT_TEMPLATES.map((fn) => fn(vars));
-
-  let cta;
-  if (ctaType === 'instagram') {
-    cta = 'Follow @maximussports.ai for daily intel';
-  } else if (ctaType === 'website') {
-    cta = 'Create your free account at maximussports.ai';
-  } else {
-    cta = '';
-  }
-
-  const variantHooks = [
-    { id: 'product', headline: PRODUCT_HOOKS[0](vars), tone: 'Product Hook' },
-    { id: 'betting', headline: BETTING_HOOKS[0](vars), tone: 'Betting Hook' },
-    { id: 'curiosity', headline: CURIOSITY_HOOKS[0](vars), tone: 'Curiosity Hook' },
-  ];
-
-  return { headline, subhead, overlayBeats, cta, variantHooks };
+function pickDeterministic(arr, seed) {
+  return arr[seed % arr.length];
 }
 
-export function generateVariantText(promptContext, tone = 'product') {
-  const keywords = extractKeywords(promptContext || '');
-  const primary = keywords[0];
+function generateHeadline(featureType, hookStyle, seed = 0) {
+  const ft = FEATURE_TYPES[featureType] || FEATURE_TYPES.generalDemo;
+  const hs = HOOK_STYLES[hookStyle] || HOOK_STYLES.product;
+  const action = ft.actions[0];
+  const object = ft.objects[0];
+  const template = pickDeterministic(hs.headlineTemplates, seed);
+  return template(action, object);
+}
 
-  const action = primary.actions[0];
-  const object = primary.objects[0];
-  const bettingObject = keywords.find(k =>
-    ['bet', 'ats', 'signal', 'odds'].includes(k.keyword)
-  )?.objects[0] || 'ATS signals';
+function generateSubhead(featureType) {
+  const ft = FEATURE_TYPES[featureType] || FEATURE_TYPES.generalDemo;
+  return pick(ft.subheads);
+}
 
-  const vars = { action, object, bettingObject };
+function generateBeats(featureType) {
+  const ft = FEATURE_TYPES[featureType] || FEATURE_TYPES.generalDemo;
+  return [...ft.beats];
+}
 
-  let hooks;
-  switch (tone) {
-    case 'betting': hooks = BETTING_HOOKS; break;
-    case 'curiosity': hooks = CURIOSITY_HOOKS; break;
-    default: hooks = PRODUCT_HOOKS;
+function generateCta(ctaType, featureType) {
+  const ct = CTA_TYPES[ctaType];
+  if (!ct || ctaType === 'custom') return '';
+
+  if (ct.templates && ct.templates.length > 0) {
+    const ft = FEATURE_TYPES[featureType] || FEATURE_TYPES.generalDemo;
+
+    if (ctaType === 'intel' && featureType !== 'generalDemo') {
+      return `Get ${ft.objects[0]} intel at maximussports.ai`;
+    }
+    return pick(ct.templates);
   }
 
-  const headline = pick(hooks)(vars);
-  const subhead = pick(SUBHEAD_TEMPLATES)(vars);
-  const overlayBeats = BEAT_TEMPLATES.map((fn) => fn(vars));
+  return ct.defaultText || '';
+}
+
+// ─── Main generation: returns all fields ─────────────────────────
+
+export function generateReelText(promptContext, ctaType = 'website', featureType = null, hookStyle = 'product') {
+  const resolvedFeature = featureType || detectFeatureType(promptContext);
+  const resolvedHook = hookStyle || 'product';
+
+  const headline = generateHeadline(resolvedFeature, resolvedHook, 0);
+  const subhead = generateSubhead(resolvedFeature);
+  const overlayBeats = generateBeats(resolvedFeature);
+  const cta = generateCta(ctaType, resolvedFeature);
+
+  const combos = VARIANT_COMBOS[resolvedHook] || VARIANT_COMBOS.product;
+  const variantHooks = combos.map((style, i) => ({
+    id: style,
+    tone: style,
+    headline: generateHeadline(resolvedFeature, style, i),
+  }));
+
+  return {
+    headline,
+    subhead,
+    overlayBeats,
+    cta,
+    variantHooks,
+    detectedFeatureType: resolvedFeature,
+  };
+}
+
+// ─── Variant-specific generation ─────────────────────────────────
+
+export function generateVariantText(promptContext, hookStyle = 'product', featureType = null) {
+  const resolvedFeature = featureType || detectFeatureType(promptContext);
+  const resolvedHook = hookStyle || 'product';
+
+  const headline = generateHeadline(resolvedFeature, resolvedHook, Math.floor(Math.random() * 3));
+  const subhead = generateSubhead(resolvedFeature);
+  const overlayBeats = generateBeats(resolvedFeature);
 
   return { headline, subhead, overlayBeats };
 }
