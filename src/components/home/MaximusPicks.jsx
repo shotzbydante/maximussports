@@ -187,6 +187,12 @@ function WatchCard({ pick, slateDate }) {
 function GameCard({ pick, slateDate }) {
   const homeTeamObj = { slug: pick.homeSlug, name: pick.homeTeam };
   const awayTeamObj = { slug: pick.awaySlug, name: pick.awayTeam };
+  const isTot = pick.pickType === 'total';
+  const pickTeamSlug = pick.pickTeam === pick.homeTeam ? pick.homeSlug : pick.awaySlug;
+  const pickTeamObj = pick.pickTeam ? { slug: pickTeamSlug, name: pick.pickTeam } : null;
+  const opponentObj = pick.opponentTeam
+    ? { slug: pick.opponentSlug, name: pick.opponentTeam }
+    : null;
 
   return (
     <div className={styles.pickCard}>
@@ -195,28 +201,12 @@ function GameCard({ pick, slateDate }) {
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}
       </div>
 
-      <div className={styles.cardMatchup}>
-        <span className={styles.matchupTeam}>
-          <span className={styles.teamLogoWrap}>
-            <TeamLogo team={awayTeamObj} size={20} />
-          </span>
-          <span className={styles.matchupName}>{pick.awayTeam}</span>
-        </span>
-        <span className={styles.matchupAt}>@</span>
-        <span className={styles.matchupTeam}>
-          <span className={styles.teamLogoWrap}>
-            <TeamLogo team={homeTeamObj} size={20} />
-          </span>
-          <span className={styles.matchupName}>{pick.homeTeam}</span>
-        </span>
-      </div>
-
       <div className={styles.cardRecommendation}>
-        <span className={styles.recLabel}>
-          {pick.pickType === 'pickem' ? 'Pick' :
-           pick.pickType === 'ats' ? 'Recommendation' :
-           pick.pickType === 'value' ? 'Lean' : 'Lean'}
-        </span>
+        {!isTot && pickTeamObj && (
+          <span className={styles.teamLogoWrap}>
+            <TeamLogo team={pickTeamObj} size={20} />
+          </span>
+        )}
         <span className={styles.pickPill}>{pick.pickLine}</span>
         <ConfidenceChip level={pick.confidence} />
         {pick.partial && (
@@ -225,6 +215,34 @@ function GameCard({ pick, slateDate }) {
           </span>
         )}
       </div>
+
+      {!isTot && opponentObj && (
+        <div className={styles.cardOpponent}>
+          <span className={styles.vsTag}>vs</span>
+          <span className={styles.teamLogoWrap}>
+            <TeamLogo team={opponentObj} size={18} />
+          </span>
+          <span className={styles.opponentName}>{pick.opponentTeam}</span>
+        </div>
+      )}
+
+      {isTot && (
+        <div className={styles.cardMatchup}>
+          <span className={styles.matchupTeam}>
+            <span className={styles.teamLogoWrap}>
+              <TeamLogo team={awayTeamObj} size={20} />
+            </span>
+            <span className={styles.matchupName}>{pick.awayTeam}</span>
+          </span>
+          <span className={styles.matchupAt}>vs</span>
+          <span className={styles.matchupTeam}>
+            <span className={styles.teamLogoWrap}>
+              <TeamLogo team={homeTeamObj} size={20} />
+            </span>
+            <span className={styles.matchupName}>{pick.homeTeam}</span>
+          </span>
+        </div>
+      )}
 
       {pick.signals?.length > 0 && (
         <div className={styles.signalPanel}>
