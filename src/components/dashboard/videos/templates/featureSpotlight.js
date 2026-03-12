@@ -431,6 +431,15 @@ export const STATS_PROOF_REEL = {
   ],
 };
 
+// ─── Caption Tones ──────────────────────────────────────────────
+
+export const CAPTION_TONES = {
+  instagram: { id: 'instagram', label: 'Instagram Native' },
+  brand:     { id: 'brand',     label: 'Clean Brand' },
+  betting:   { id: 'betting',   label: 'Betting Audience' },
+  hype:      { id: 'hype',      label: 'Fan Hype' },
+};
+
 // ─── Registry ────────────────────────────────────────────────────
 
 export const TEMPLATES = [FEATURE_SPOTLIGHT, QUICK_WALKTHROUGH, STATS_PROOF_REEL];

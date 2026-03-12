@@ -36,6 +36,7 @@ export function saveProject(data) {
     hookStyle: data.hookStyle || 'product',
     messageAngle: data.messageAngle || 'demo',
     copyIntensity: data.copyIntensity || 'balanced',
+    captionTone: data.captionTone || 'instagram',
     headline: data.headline || '',
     subhead: data.subhead || '',
     overlayBeats: data.overlayBeats || ['', '', ''],

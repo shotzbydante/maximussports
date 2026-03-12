@@ -2,8 +2,8 @@
  * Variant recommendation scoring + posting package.
  *
  * Scores each reel variant on readability, brevity, CTA quality,
- * and feature-type relevance to recommend the strongest default.
- * Also generates posting package metadata.
+ * and feature-type relevance. Adds lightweight explainability
+ * labels to help users understand why a variant was recommended.
  */
 
 import { FEATURE_TYPES } from '../templates/featureSpotlight';
@@ -52,16 +52,46 @@ function scoreRelevance(headline, featureType) {
   return Math.min(1, 0.3 + keywordHits * 0.15 + actionHits * 0.2 + objectHits * 0.15);
 }
 
+function scoreReadability(headline) {
+  if (!headline) return 0;
+  const charLen = headline.length;
+  if (charLen <= 35) return 1;
+  if (charLen <= 50) return 0.8;
+  return 0.5;
+}
+
+function explainScore(breakdown) {
+  const strengths = [];
+
+  if (breakdown.brevity >= 0.9) strengths.push('ideal headline length');
+  else if (breakdown.brevity >= 0.7) strengths.push('good headline length');
+
+  if (breakdown.clarity >= 0.9) strengths.push('strong hook clarity');
+  if (breakdown.readability >= 0.9) strengths.push('best mobile readability');
+  if (breakdown.relevance >= 0.8) strengths.push('high feature relevance');
+  if (breakdown.ctaQ >= 0.8) strengths.push('strong CTA');
+
+  if (strengths.length === 0) strengths.push('balanced quality');
+  return strengths.slice(0, 2).join(' + ');
+}
+
 export function scoreVariants(variants, { cta = '', featureType = 'generalDemo' } = {}) {
   const scored = variants.map((v) => {
     const brevity = scoreBrevity(v.headline);
     const clarity = scoreClarity(v.headline);
     const ctaQ = scoreCtaQuality(cta);
     const relevance = scoreRelevance(v.headline, featureType);
+    const readability = scoreReadability(v.headline);
 
-    const total = brevity * 0.25 + clarity * 0.25 + ctaQ * 0.2 + relevance * 0.3;
+    const total = brevity * 0.2 + clarity * 0.2 + ctaQ * 0.15 + relevance * 0.25 + readability * 0.2;
+    const breakdown = { brevity, clarity, ctaQ, relevance, readability };
 
-    return { ...v, score: parseFloat(total.toFixed(3)) };
+    return {
+      ...v,
+      score: parseFloat(total.toFixed(3)),
+      scoreBreakdown: breakdown,
+      explanation: explainScore(breakdown),
+    };
   });
 
   const maxScore = Math.max(...scored.map(s => s.score));
@@ -72,10 +102,20 @@ export function scoreVariants(variants, { cta = '', featureType = 'generalDemo' 
 }
 
 /**
+ * Explain why a cover type was recommended.
+ */
+function explainCover(type) {
+  if (type === 'frame') return 'Strongest footage frame — highest visual engagement';
+  return 'Clearest headline readability';
+}
+
+/**
  * Build posting package recommendation from scored variants.
  */
 export function buildPostingPackage(variants, { caption = '', featureType = '', hookStyle = '' } = {}) {
   const recommended = variants.find(v => v.recommended) || variants[0];
+
+  const recommendedCoverType = recommended?.coverBlob ? 'frame' : 'intro';
 
   return {
     recommendedVariant: recommended ? {
@@ -83,13 +123,21 @@ export function buildPostingPackage(variants, { caption = '', featureType = '', 
       tone: recommended.tone,
       headline: recommended.headline,
       score: recommended.score,
+      explanation: recommended.explanation || 'Best overall quality',
     } : null,
-    recommendedCover: recommended?.coverBlob ? 'frame' : 'intro',
+    recommendedCover: recommendedCoverType,
+    coverExplanation: explainCover(recommendedCoverType),
     caption,
     hookStyleSummary: hookStyle
       ? `${hookStyle.charAt(0).toUpperCase() + hookStyle.slice(1)} hook`
       : null,
     featureType,
     variantCount: variants.length,
+    allScores: variants.map(v => ({
+      id: v.id,
+      score: v.score,
+      explanation: v.explanation,
+      recommended: v.recommended,
+    })),
   };
 }

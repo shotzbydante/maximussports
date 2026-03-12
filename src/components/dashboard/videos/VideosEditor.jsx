@@ -9,10 +9,11 @@ import {
   HOOK_STYLES,
   MESSAGE_ANGLES,
   COPY_INTENSITIES,
+  CAPTION_TONES,
 } from './templates/featureSpotlight';
 import { isRenderSupported, checkH264Support, renderVideo } from './render/renderVideo';
 import { analyzeTrim, beatPeaksToTimings } from './render/analyzeTrim';
-import { generate as generateCopy } from './render/generationAdapter';
+import { generate as generateCopy, GENERATION_MODES } from './render/generationAdapter';
 import { generateVariantText, detectFeatureType } from './render/generateText';
 import { generateCoverImage, generateCoverSet, downloadBlob } from './render/coverExport';
 import { saveProject, loadLastProject, listProjects, deleteProject } from './render/projectStore';
@@ -39,6 +40,7 @@ export default function VideosEditor() {
   const [hookStyle, setHookStyle] = useState('product');
   const [messageAngle, setMessageAngle] = useState('demo');
   const [copyIntensity, setCopyIntensity] = useState('balanced');
+  const [captionTone, setCaptionTone] = useState('instagram');
 
   // ── fields ─────────────────────────────────────────────────────
   const [headline, setHeadline] = useState('');
@@ -71,6 +73,10 @@ export default function VideosEditor() {
   const [variantRenderState, setVariantRenderState] = useState('idle');
   const [variantProgress, setVariantProgress] = useState(0);
   const [variantHooks, setVariantHooks] = useState([]);
+
+  // ── generation state ───────────────────────────────────────────
+  const [genState, setGenState] = useState('idle');
+  const [genMode, setGenMode] = useState(null);
 
   // ── project persistence ────────────────────────────────────────
   const [projectId, setProjectId] = useState(null);
@@ -196,39 +202,93 @@ export default function VideosEditor() {
 
   // ── auto-generate copy ─────────────────────────────────────────
   const handleAutoGenerate = useCallback(async () => {
-    const result = await generateCopy({
-      promptContext,
-      featureType: featureType === 'generalDemo' ? null : featureType,
-      hookStyle,
-      templateId,
-      ctaDestination: ctaType,
-      messageAngle,
-      copyIntensity,
-      clipDuration: videoDuration || null,
-    });
+    setGenState('generating');
+    setGenMode(null);
+    try {
+      const analysisSummary = analysisResult ? {
+        segmentCount: analysisResult.segments?.length || 0,
+        peakCount: analysisResult.beatPeaks?.length || 0,
+        fullDuration: analysisResult.fullDuration || videoDuration,
+      } : null;
 
-    setHeadline(result.headline);
-    setSubhead(result.subhead);
-    setOverlayBeats(prev => {
-      const beats = result.overlayBeats || [];
-      return Array.from({ length: prev.length }, (_, i) => beats[i] || prev[i] || '');
-    });
-    if (ctaType !== 'custom') setCta(result.cta);
-    setVariantHooks(result.variantHooks);
-    setCaption(result.caption);
+      const editPlanSummary = currentEditPlan ? {
+        segmentCount: currentEditPlan.segmentCount,
+        totalOutputDuration: currentEditPlan.totalOutputDuration,
+        hasSpeedRamps: currentEditPlan.segments.some(s => s.speed > 1.05),
+      } : null;
 
-    if (result.detectedFeatureType !== featureType && featureType === 'generalDemo') {
-      setFeatureType(result.detectedFeatureType);
+      const result = await generateCopy({
+        promptContext,
+        featureType: featureType === 'generalDemo' ? null : featureType,
+        hookStyle,
+        templateId,
+        ctaDestination: ctaType,
+        messageAngle,
+        copyIntensity,
+        captionTone,
+        clipDuration: videoDuration || null,
+        analysisSummary,
+        editPlanSummary,
+      });
+
+      setHeadline(result.headline);
+      setSubhead(result.subhead);
+      setOverlayBeats(prev => {
+        const beats = result.overlayBeats || [];
+        return Array.from({ length: prev.length }, (_, i) => beats[i] || prev[i] || '');
+      });
+      if (ctaType !== 'custom') setCta(result.cta);
+      setVariantHooks(result.variantHooks);
+      setCaption(result.caption);
+      setGenMode(result.generationMode || GENERATION_MODES.heuristic);
+      setGenState(result.generationMode === GENERATION_MODES.llm ? 'llm_success' : 'heuristic_success');
+
+      if (result.detectedFeatureType !== featureType && featureType === 'generalDemo') {
+        setFeatureType(result.detectedFeatureType);
+      }
+    } catch {
+      setGenState('error');
     }
-  }, [promptContext, featureType, hookStyle, templateId, ctaType, messageAngle, copyIntensity, videoDuration]);
+  }, [promptContext, featureType, hookStyle, templateId, ctaType, messageAngle, copyIntensity, captionTone, videoDuration, analysisResult, currentEditPlan]);
 
   useEffect(() => {
     if (!promptContext.trim() || promptContext.length < 3) return;
     const timer = setTimeout(() => {
       handleAutoGenerate();
-    }, 500);
+    }, 600);
     return () => clearTimeout(timer);
-  }, [promptContext, featureType, hookStyle, messageAngle, copyIntensity, ctaType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [promptContext, featureType, hookStyle, messageAngle, copyIntensity, ctaType, captionTone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── generate fresh variants (copy only, no re-render) ──────────
+  const handleFreshVariants = useCallback(async () => {
+    setGenState('generating');
+    try {
+      const result = await generateCopy({
+        promptContext: promptContext || headline,
+        featureType,
+        hookStyle,
+        templateId,
+        ctaDestination: ctaType,
+        messageAngle,
+        copyIntensity,
+        captionTone,
+        clipDuration: videoDuration || null,
+      });
+
+      setVariantHooks(result.variantHooks);
+      setCaption(result.caption);
+      setHeadline(result.headline);
+      setSubhead(result.subhead);
+      setOverlayBeats(prev => {
+        const beats = result.overlayBeats || [];
+        return Array.from({ length: prev.length }, (_, i) => beats[i] || prev[i] || '');
+      });
+      setGenMode(result.generationMode || GENERATION_MODES.heuristic);
+      setGenState(result.generationMode === GENERATION_MODES.llm ? 'llm_success' : 'heuristic_success');
+    } catch {
+      setGenState('error');
+    }
+  }, [promptContext, headline, featureType, hookStyle, templateId, ctaType, messageAngle, copyIntensity, captionTone, videoDuration]);
 
   // ── CTA type change ────────────────────────────────────────────
   const handleCtaTypeChange = useCallback((type) => {
@@ -293,6 +353,7 @@ export default function VideosEditor() {
       hookStyle,
       messageAngle,
       copyIntensity,
+      captionTone,
       headline,
       subhead,
       overlayBeats,
@@ -309,7 +370,7 @@ export default function VideosEditor() {
     });
     setProjectId(proj.id);
     setSavedProjects(listProjects());
-  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration]);
+  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, captionTone, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration]);
 
   const handleLoadProject = useCallback((proj) => {
     setProjectId(proj.id);
@@ -319,6 +380,7 @@ export default function VideosEditor() {
     setHookStyle(proj.hookStyle || 'product');
     setMessageAngle(proj.messageAngle || 'demo');
     setCopyIntensity(proj.copyIntensity || 'balanced');
+    setCaptionTone(proj.captionTone || 'instagram');
     setHeadline(proj.headline || '');
     setSubhead(proj.subhead || '');
     setOverlayBeats(proj.overlayBeats || ['', '', '']);
@@ -393,6 +455,7 @@ export default function VideosEditor() {
         ctaDestination: ctaType,
         messageAngle,
         copyIntensity,
+        captionTone,
       });
       hooks = gen.variantHooks;
     }
@@ -411,19 +474,22 @@ export default function VideosEditor() {
     try {
       for (let i = 0; i < hooks.length; i++) {
         const hook = hooks[i];
-        const varText = generateVariantText(promptContext || headline, hook.tone, featureType, messageAngle, copyIntensity);
+
+        const variantCopy = hook.subhead
+          ? { headline: hook.headline, subhead: hook.subhead, overlayBeats: hook.overlayBeats || [] }
+          : generateVariantText(promptContext || headline, hook.tone, featureType, messageAngle, copyIntensity);
 
         const blob = await renderVideo({
           sourceUrl,
           trimStart,
           trimEnd,
           editPlan: editMode === 'smart' ? currentEditPlan : null,
-          headline: hook.headline || varText.headline,
-          subhead: varText.subhead,
-          cta: cta.trim() || 'Get Maximus Sports',
+          headline: hook.headline || variantCopy.headline,
+          subhead: variantCopy.subhead,
+          cta: hook.cta || cta.trim() || 'Get Maximus Sports',
           watermark,
           templateId,
-          overlayBeats: varText.overlayBeats,
+          overlayBeats: variantCopy.overlayBeats?.length ? variantCopy.overlayBeats : overlayBeats,
           beatTimings,
           onProgress: (p) => setVariantProgress((i + p) / hooks.length),
           signal: controller.signal,
@@ -432,14 +498,15 @@ export default function VideosEditor() {
         const videoUrl = URL.createObjectURL(blob);
 
         let coverBlob = null;
+        let coverSet = null;
         try {
-          const covers = await generateCoverSet({
-            headline: hook.headline || varText.headline,
+          coverSet = await generateCoverSet({
+            headline: hook.headline || variantCopy.headline,
             sourceUrl,
             seekTime: analysisResult?.beatPeaks?.[0]?.time ?? trimStart + 2,
             templateId,
           });
-          coverBlob = covers.frameCover || covers.introCover;
+          coverBlob = coverSet.frameCover || coverSet.introCover;
         } catch {
           // cover generation failed
         }
@@ -448,10 +515,13 @@ export default function VideosEditor() {
           id: hook.id,
           tone: hook.tone,
           label: hook.tone.charAt(0).toUpperCase() + hook.tone.slice(1) + ' Hook',
-          headline: hook.headline || varText.headline,
+          headline: hook.headline || variantCopy.headline,
           url: videoUrl,
           blob,
           coverBlob,
+          coverType: coverSet?.recommended || 'intro',
+          introCoverBlob: coverSet?.introCover || null,
+          frameCoverBlob: coverSet?.frameCover || null,
         });
       }
 
@@ -473,7 +543,7 @@ export default function VideosEditor() {
         setVariantRenderState('error');
       }
     }
-  }, [canRender, variantHooks, promptContext, headline, ctaType, featureType, hookStyle, messageAngle, copyIntensity, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, cta, watermark, templateId, beatTimings, analysisResult, caption]);
+  }, [canRender, variantHooks, promptContext, headline, ctaType, featureType, hookStyle, messageAngle, copyIntensity, captionTone, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, cta, watermark, templateId, overlayBeats, beatTimings, analysisResult, caption]);
 
   const handleCancelRender = useCallback(() => {
     abortRef.current?.abort();
@@ -513,6 +583,19 @@ export default function VideosEditor() {
   const handleCopyCaption = useCallback(() => {
     if (caption) navigator.clipboard?.writeText(caption);
   }, [caption]);
+
+  const handleCopyPostingPackage = useCallback(() => {
+    if (!postingPackage) return;
+    const rec = postingPackage.recommendedVariant;
+    const text = [
+      rec ? `Best variant: ${rec.tone} hook — "${rec.headline}"` : '',
+      rec?.explanation ? `Why: ${rec.explanation}` : '',
+      postingPackage.coverExplanation ? `Cover: ${postingPackage.coverExplanation}` : '',
+      postingPackage.hookStyleSummary ? `Style: ${postingPackage.hookStyleSummary}` : '',
+      caption ? `\nCaption:\n${caption}` : '',
+    ].filter(Boolean).join('\n');
+    navigator.clipboard?.writeText(text);
+  }, [postingPackage, caption]);
 
   const handleReset = useCallback(() => {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
@@ -556,6 +639,30 @@ export default function VideosEditor() {
   }, [beatTimings, footageDuration, template]);
 
   const isRendering = renderState === 'rendering' || variantRenderState === 'rendering';
+
+  const genStateBadge = genState === 'generating'
+    ? { text: 'Generating reel copy…', cls: styles.genBadgeLoading }
+    : genState === 'llm_success'
+      ? { text: 'AI-generated', cls: styles.genBadgeLlm }
+      : genState === 'heuristic_success'
+        ? { text: 'Using fallback engine', cls: styles.genBadgeFallback }
+        : genState === 'error'
+          ? { text: 'Generation failed', cls: styles.genBadgeError }
+          : null;
+
+  // ── edit plan summary ──────────────────────────────────────────
+  const editPlanSummary = useMemo(() => {
+    if (!currentEditPlan) return null;
+    const heroCount = currentEditPlan.segments.filter(s => s.type === 'hero').length;
+    const hasRamps = currentEditPlan.segments.some(s => s.speed > 1.05);
+    return {
+      segmentCount: currentEditPlan.segmentCount,
+      heroCount,
+      compressedFrom: videoDuration,
+      compressedTo: currentEditPlan.totalOutputDuration,
+      hasRamps,
+    };
+  }, [currentEditPlan, videoDuration]);
 
   // ── render UI ──────────────────────────────────────────────────
   return (
@@ -678,6 +785,19 @@ export default function VideosEditor() {
             ))}
           </div>
 
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Caption Tone</div>
+          <div className={styles.chipRow}>
+            {Object.values(CAPTION_TONES).map((ct) => (
+              <button
+                key={ct.id}
+                className={`${styles.chipBtn} ${captionTone === ct.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setCaptionTone(ct.id)}
+              >
+                {ct.label}
+              </button>
+            ))}
+          </div>
+
           <div className={styles.fieldLabel} style={{ marginTop: 10 }}>CTA Destination</div>
           <div className={styles.chipRow}>
             {Object.values(CTA_TYPES).map((t) => (
@@ -696,11 +816,20 @@ export default function VideosEditor() {
             <button
               className={styles.btnGenerate}
               onClick={handleAutoGenerate}
+              disabled={genState === 'generating'}
             >
-              ✦ Generate Reel Copy
+              {genState === 'generating' ? '⏳ Generating…' : '✦ Generate Reel Copy'}
             </button>
           </div>
         </div>
+
+        {/* generation state indicator */}
+        {genStateBadge && (
+          <div className={`${styles.genBanner} ${genStateBadge.cls}`}>
+            {genState === 'generating' && <div className={styles.analyzingDot} />}
+            {genStateBadge.text}
+          </div>
+        )}
 
         {/* source upload */}
         <div className={styles.section}>
@@ -763,18 +892,28 @@ export default function VideosEditor() {
               </button>
             </div>
 
-            {editMode === 'smart' && currentEditPlan ? (
-              <div className={styles.editPlanInfo}>
-                <span className={styles.editPlanBadge}>
-                  {currentEditPlan.segmentCount} segment{currentEditPlan.segmentCount > 1 ? 's' : ''}
-                </span>
-                <span className={styles.editPlanDetail}>
-                  {currentEditPlan.totalOutputDuration.toFixed(1)}s condensed
-                  {videoDuration > 0 && ` from ${videoDuration.toFixed(1)}s`}
-                </span>
-                {currentEditPlan.segments.some(s => s.speed > 1.05) && (
-                  <span className={styles.speedBadge}>speed-ramped</span>
-                )}
+            {editMode === 'smart' && editPlanSummary ? (
+              <div className={styles.editPlanSummary}>
+                <div className={styles.editPlanSummaryRow}>
+                  <span className={styles.editPlanSummaryLabel}>Segments selected</span>
+                  <span className={styles.editPlanSummaryValue}>{editPlanSummary.segmentCount}</span>
+                </div>
+                <div className={styles.editPlanSummaryRow}>
+                  <span className={styles.editPlanSummaryLabel}>Hero moments</span>
+                  <span className={styles.editPlanSummaryValue}>{editPlanSummary.heroCount}</span>
+                </div>
+                <div className={styles.editPlanSummaryRow}>
+                  <span className={styles.editPlanSummaryLabel}>Compressed from</span>
+                  <span className={styles.editPlanSummaryValue}>
+                    {editPlanSummary.compressedFrom.toFixed(1)}s → {editPlanSummary.compressedTo.toFixed(1)}s
+                  </span>
+                </div>
+                <div className={styles.editPlanSummaryRow}>
+                  <span className={styles.editPlanSummaryLabel}>Speed ramps</span>
+                  <span className={styles.editPlanSummaryValue}>
+                    {editPlanSummary.hasRamps ? 'subtle' : 'none'}
+                  </span>
+                </div>
               </div>
             ) : editMode === 'smart' && !analysisResult ? (
               <div className={styles.editPlanDetail}>
@@ -838,7 +977,8 @@ export default function VideosEditor() {
         <div className={styles.section}>
           <div className={styles.sectionTitle}>
             Generated Copy
-            {headline && <span className={styles.autoGenBadge}>auto-generated</span>}
+            {headline && genMode === GENERATION_MODES.llm && <span className={styles.genBadgeLlm}>AI-generated</span>}
+            {headline && genMode === GENERATION_MODES.heuristic && <span className={styles.autoGenBadge}>auto-generated</span>}
           </div>
           <div className={styles.fieldGroup}>
             <div>
@@ -961,6 +1101,11 @@ export default function VideosEditor() {
               <button className={styles.btnSecondary} disabled={!canRender} onClick={handleRender}>
                 <span>▶</span> Render Single Reel
               </button>
+              {variantRenderState === 'complete' && (
+                <button className={styles.btnVariant} onClick={handleFreshVariants}>
+                  ✦ Generate Fresh Copy Variants
+                </button>
+              )}
             </>
           ) : renderState === 'rendering' ? (
             <>
@@ -1016,6 +1161,7 @@ export default function VideosEditor() {
           subhead={subhead}
           overlayBeats={overlayBeats}
           beatTimings={beatTimings}
+          editPlan={editMode === 'smart' ? currentEditPlan : null}
         />
 
         <div className={styles.previewMeta}>
@@ -1087,12 +1233,17 @@ export default function VideosEditor() {
               {variantOutputs.map((v) => (
                 <div key={v.id} className={`${styles.variantCard} ${v.recommended ? styles.variantCardRecommended : ''}`}>
                   {v.recommended && (
-                    <div className={styles.recommendedBadge}>Recommended</div>
+                    <div className={styles.recommendedBadge}>
+                      Recommended
+                    </div>
                   )}
                   <video src={v.url} controls playsInline muted className={styles.variantVideo} />
                   <div className={styles.variantInfo}>
                     <div className={styles.variantLabel}>{v.label}</div>
                     <div className={styles.variantHeadline}>"{v.headline}"</div>
+                    {v.explanation && (
+                      <div className={styles.variantExplanation}>{v.explanation}</div>
+                    )}
                     <div className={styles.variantBtnRow}>
                       <button
                         className={styles.btnSmall}
@@ -1108,6 +1259,17 @@ export default function VideosEditor() {
                           🖼 Cover
                         </button>
                       )}
+                      {v.frameCoverBlob && v.introCoverBlob && (
+                        <button
+                          className={styles.btnSmall}
+                          onClick={() => handleDownloadCover(
+                            v.coverType === 'frame' ? v.introCoverBlob : v.frameCoverBlob,
+                            `_${v.id}_alt`
+                          )}
+                        >
+                          🖼 Alt Cover
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1120,17 +1282,33 @@ export default function VideosEditor() {
                 <div className={styles.postingTitle}>Posting Package</div>
                 <div className={styles.postingMeta}>
                   {postingPackage.recommendedVariant && (
-                    <div className={styles.postingRow}>
-                      <span className={styles.postingLabel}>Best variant:</span>
-                      <span className={styles.postingValue}>
-                        {postingPackage.recommendedVariant.tone?.charAt(0).toUpperCase() + postingPackage.recommendedVariant.tone?.slice(1)} hook
-                      </span>
-                    </div>
+                    <>
+                      <div className={styles.postingRow}>
+                        <span className={styles.postingLabel}>Best variant:</span>
+                        <span className={styles.postingValue}>
+                          {postingPackage.recommendedVariant.tone?.charAt(0).toUpperCase() + postingPackage.recommendedVariant.tone?.slice(1)} hook
+                        </span>
+                      </div>
+                      {postingPackage.recommendedVariant.explanation && (
+                        <div className={styles.postingRow}>
+                          <span className={styles.postingLabel}>Why:</span>
+                          <span className={styles.postingExplanation}>
+                            {postingPackage.recommendedVariant.explanation}
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                   {postingPackage.hookStyleSummary && (
                     <div className={styles.postingRow}>
                       <span className={styles.postingLabel}>Hook style:</span>
                       <span className={styles.postingValue}>{postingPackage.hookStyleSummary}</span>
+                    </div>
+                  )}
+                  {postingPackage.coverExplanation && (
+                    <div className={styles.postingRow}>
+                      <span className={styles.postingLabel}>Cover:</span>
+                      <span className={styles.postingExplanation}>{postingPackage.coverExplanation}</span>
                     </div>
                   )}
                 </div>
@@ -1139,7 +1317,7 @@ export default function VideosEditor() {
                     <div className={styles.captionHeader}>
                       <span className={styles.fieldLabel}>Caption</span>
                       <button className={styles.btnSmall} onClick={handleCopyCaption}>
-                        📋 Copy
+                        📋 Copy Caption
                       </button>
                     </div>
                     <div className={styles.captionText}>{caption}</div>
@@ -1148,6 +1326,12 @@ export default function VideosEditor() {
                 <div className={styles.postingActions}>
                   <button className={styles.btnRender} onClick={handleExportBundle}>
                     📦 Download Full Bundle
+                  </button>
+                  <button className={styles.btnSecondary} onClick={handleCopyPostingPackage} style={{ marginTop: 6 }}>
+                    📋 Copy Full Posting Package
+                  </button>
+                  <button className={styles.btnVariant} onClick={handleFreshVariants} style={{ marginTop: 6 }}>
+                    ✦ Generate Fresh Variants
                   </button>
                 </div>
               </div>

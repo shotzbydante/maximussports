@@ -4,8 +4,9 @@ import styles from './VideoPreview.module.css';
 /**
  * 9:16 video preview with IG Reels safe-zone guides and overlay zones.
  *
- * Supports both fixed and dynamic (analysis-driven) beat timing.
- * The actual export uses Canvas + WebCodecs (see renderVideo.js).
+ * Now supports multi-segment edit plans: when playing, the preview
+ * jumps across selected segments and approximates speed ramping by
+ * adjusting playbackRate per segment.
  */
 export default function VideoPreview({
   sourceUrl,
@@ -15,18 +16,80 @@ export default function VideoPreview({
   subhead,
   overlayBeats = [],
   beatTimings = null,
+  editPlan = null,
   showSafeZones = true,
 }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [currentScene, setCurrentScene] = useState('empty');
   const [footageProgress, setFootageProgress] = useState(0);
+  const segIdxRef = useRef(0);
+  const rafRef = useRef(null);
+
+  const useEditPlan = editPlan && editPlan.segments?.length > 0;
 
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !sourceUrl) return;
+    if (useEditPlan) {
+      v.currentTime = editPlan.segments[0]?.sourceStart ?? 0;
+    } else {
+      v.currentTime = trimStart;
+    }
+  }, [sourceUrl, trimStart, useEditPlan, editPlan]);
 
-    v.currentTime = trimStart;
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !sourceUrl || !playing) return;
+
+    if (useEditPlan) {
+      const segs = editPlan.segments;
+      const totalOut = editPlan.totalOutputDuration;
+      let segIdx = segIdxRef.current;
+
+      const tick = () => {
+        if (!v || v.paused) return;
+        const seg = segs[segIdx];
+        if (!seg) {
+          v.pause();
+          setPlaying(false);
+          setFootageProgress(0);
+          segIdxRef.current = 0;
+          v.currentTime = segs[0]?.sourceStart ?? 0;
+          return;
+        }
+
+        if (v.currentTime >= seg.sourceEnd - 0.05) {
+          segIdx += 1;
+          segIdxRef.current = segIdx;
+          const nextSeg = segs[segIdx];
+          if (!nextSeg) {
+            v.pause();
+            setPlaying(false);
+            setFootageProgress(0);
+            segIdxRef.current = 0;
+            v.currentTime = segs[0]?.sourceStart ?? 0;
+            return;
+          }
+          v.currentTime = nextSeg.sourceStart;
+          v.playbackRate = Math.min(nextSeg.speed || 1, 2);
+        }
+
+        let accum = 0;
+        for (let i = 0; i < segIdx; i++) accum += segs[i].outputDuration;
+        const curSeg = segs[segIdx];
+        if (curSeg) {
+          const segProg = (v.currentTime - curSeg.sourceStart) / curSeg.sourceDuration;
+          accum += Math.min(1, Math.max(0, segProg)) * curSeg.outputDuration;
+        }
+        if (totalOut > 0) setFootageProgress(accum / totalOut);
+
+        rafRef.current = requestAnimationFrame(tick);
+      };
+
+      rafRef.current = requestAnimationFrame(tick);
+      return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }
 
     const onTimeUpdate = () => {
       if (v.currentTime >= trimEnd) {
@@ -43,7 +106,7 @@ export default function VideoPreview({
     };
     v.addEventListener('timeupdate', onTimeUpdate);
     return () => v.removeEventListener('timeupdate', onTimeUpdate);
-  }, [sourceUrl, trimStart, trimEnd]);
+  }, [sourceUrl, trimStart, trimEnd, playing, useEditPlan, editPlan]);
 
   useEffect(() => {
     if (sourceUrl) setCurrentScene('footage');
@@ -55,16 +118,26 @@ export default function VideoPreview({
     if (!v) return;
     if (playing) {
       v.pause();
+      v.playbackRate = 1;
       setPlaying(false);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     } else {
-      if (v.currentTime >= trimEnd || v.currentTime < trimStart) {
-        v.currentTime = trimStart;
+      if (useEditPlan) {
+        const segs = editPlan.segments;
+        segIdxRef.current = 0;
+        v.currentTime = segs[0]?.sourceStart ?? 0;
+        v.playbackRate = Math.min(segs[0]?.speed || 1, 2);
+      } else {
+        if (v.currentTime >= trimEnd || v.currentTime < trimStart) {
+          v.currentTime = trimStart;
+        }
+        v.playbackRate = 1;
       }
       v.play().then(() => setPlaying(true)).catch(() => {});
     }
-  }, [playing, trimStart, trimEnd]);
+  }, [playing, trimStart, trimEnd, useEditPlan, editPlan]);
 
-  const footageDuration = trimEnd - trimStart;
+  const footageDuration = useEditPlan ? editPlan.totalOutputDuration : (trimEnd - trimStart);
   const headlineVisible = headline && footageDuration > 0;
   const subheadVisible = subhead && footageDuration > 0;
 
@@ -140,7 +213,9 @@ export default function VideoPreview({
 
         {sourceUrl && (
           <div className={styles.sceneLabel}>
-            {currentScene === 'footage' ? 'footage preview' : currentScene}
+            {playing && useEditPlan
+              ? `segment ${segIdxRef.current + 1}/${editPlan.segments.length}`
+              : currentScene === 'footage' ? 'footage preview' : currentScene}
           </div>
         )}
 

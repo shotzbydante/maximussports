@@ -2,9 +2,10 @@
  * Canvas drawing helpers for video rendering.
  *
  * All coordinates target the 1080×1920 output canvas.
- * Supports template-specific accent colors for differentiated
- * visual treatment across Feature Spotlight, Quick Walkthrough,
- * and Stats Proof Reel templates.
+ * Template-specific visual differentiation:
+ *   - Feature Spotlight: bold accent bar, premium gradient
+ *   - Quick Walkthrough: step-numbered overlays, snappy pacing
+ *   - Stats Proof Reel: stat-forward callout style, orange accent
  */
 
 const W = 1080;
@@ -90,13 +91,25 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight, opts =
   return totalHeight;
 }
 
-// ─── intro card ──────────────────────────────────────────────────
-export function drawIntroCard(ctx, logo, { headline, brand }, alpha = 1) {
+// ─── intro card (template-differentiated) ────────────────────────
+export function drawIntroCard(ctx, logo, { headline, brand, templateId }, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
   fillGradient(ctx, brand.gradientStart, brand.gradientEnd);
 
+  if (templateId === 'quick-walkthrough') {
+    drawIntroWalkthrough(ctx, logo, headline, brand);
+  } else if (templateId === 'stats-proof') {
+    drawIntroStatsProof(ctx, logo, headline, brand);
+  } else {
+    drawIntroSpotlight(ctx, logo, headline, brand);
+  }
+
+  ctx.restore();
+}
+
+function drawIntroSpotlight(ctx, logo, headline, brand) {
   if (logo) {
     const lw = 100;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
@@ -113,32 +126,98 @@ export function drawIntroCard(ctx, logo, { headline, brand }, alpha = 1) {
   drawDivider(ctx, H * 0.42, brand.accentColor);
 
   if (headline) {
-    drawWrappedText(ctx, headline, W / 2, H * 0.52, W * 0.78, 56, 1.25, {
-      weight: '700',
-      alpha: 1,
-    });
+    drawWrappedText(ctx, headline, W / 2, H * 0.52, W * 0.78, 56, 1.25, { weight: '700' });
   }
 
   ctx.font = `500 20px ${FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.textAlign = 'center';
   ctx.fillText(brand.url, W / 2, H * 0.72);
-
-  ctx.restore();
 }
 
-// ─── outro / CTA card ────────────────────────────────────────────
-export function drawOutroCard(ctx, logo, { cta, brand }, alpha = 1) {
+function drawIntroWalkthrough(ctx, logo, headline, brand) {
+  const accent = brand.accentColor;
+
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.06, H * 0.28, 5, H * 0.22, 3);
+  ctx.fill();
+
+  if (logo) {
+    const lw = 60;
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, W * 0.08, H * 0.30, lw, lh);
+  }
+
+  ctx.font = `600 14px ${FONT}`;
+  ctx.fillStyle = `${accent}cc`;
+  ctx.textAlign = 'left';
+  ctx.letterSpacing = '0.2em';
+  ctx.fillText('QUICK WALKTHROUGH', W * 0.08, H * 0.38);
+  ctx.letterSpacing = '0px';
+
+  if (headline) {
+    drawWrappedText(ctx, headline, W / 2, H * 0.48, W * 0.82, 50, 1.2, { weight: '700' });
+  }
+
+  ctx.font = `500 18px ${FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'center';
+  ctx.fillText(brand.url, W / 2, H * 0.68);
+}
+
+function drawIntroStatsProof(ctx, logo, headline, brand) {
+  const accent = brand.accentColor;
+
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.35, H * 0.26, W * 0.30, 4, 2);
+  ctx.fill();
+
+  if (logo) {
+    const lw = 70;
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.29, lw, lh);
+  }
+
+  ctx.font = `800 16px ${FONT}`;
+  ctx.fillStyle = accent;
+  ctx.textAlign = 'center';
+  ctx.letterSpacing = '0.22em';
+  ctx.fillText('STATS PROOF', W / 2, H * 0.37);
+  ctx.letterSpacing = '0px';
+
+  if (headline) {
+    drawWrappedText(ctx, headline, W / 2, H * 0.50, W * 0.80, 52, 1.2, { weight: '800' });
+  }
+
+  ctx.font = `600 22px ${FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.textAlign = 'center';
+  ctx.fillText(brand.url, W / 2, H * 0.70);
+}
+
+// ─── outro / CTA card (template-differentiated) ──────────────────
+export function drawOutroCard(ctx, logo, { cta, brand, templateId }, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
   fillGradient(ctx, brand.gradientStart, brand.gradientEnd);
 
+  if (templateId === 'quick-walkthrough') {
+    drawOutroWalkthrough(ctx, logo, cta, brand);
+  } else if (templateId === 'stats-proof') {
+    drawOutroStatsProof(ctx, logo, cta, brand);
+  } else {
+    drawOutroSpotlight(ctx, logo, cta, brand);
+  }
+
+  ctx.restore();
+}
+
+function drawOutroSpotlight(ctx, logo, cta, brand) {
   if (cta) {
-    drawWrappedText(ctx, cta, W / 2, H * 0.40, W * 0.78, 54, 1.25, {
-      weight: '700',
-      alpha: 1,
-    });
+    drawWrappedText(ctx, cta, W / 2, H * 0.40, W * 0.78, 54, 1.25, { weight: '700' });
   }
 
   drawDivider(ctx, H * 0.50, brand.accentColor);
@@ -159,8 +238,56 @@ export function drawOutroCard(ctx, logo, { cta, brand }, alpha = 1) {
   ctx.font = `500 20px ${FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.fillText(brand.url, W / 2, H * 0.72);
+}
 
-  ctx.restore();
+function drawOutroWalkthrough(ctx, logo, cta, brand) {
+  const accent = brand.accentColor;
+
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = 0.15;
+  ctx.beginPath();
+  ctx.arc(W * 0.85, H * 0.35, 120, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  if (cta) {
+    drawWrappedText(ctx, cta, W / 2, H * 0.42, W * 0.80, 48, 1.2, { weight: '700' });
+  }
+
+  if (logo) {
+    const lw = 60;
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.58, lw, lh);
+  }
+
+  ctx.font = `500 18px ${FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'center';
+  ctx.fillText(brand.url, W / 2, H * 0.70);
+}
+
+function drawOutroStatsProof(ctx, logo, cta, brand) {
+  const accent = brand.accentColor;
+
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.35, H * 0.32, W * 0.30, 4, 2);
+  ctx.fill();
+
+  if (cta) {
+    drawWrappedText(ctx, cta, W / 2, H * 0.42, W * 0.78, 50, 1.2, { weight: '700' });
+  }
+
+  if (logo) {
+    const lw = 70;
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.56, lw, lh);
+  }
+
+  ctx.font = `600 18px ${FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'center';
+  ctx.fillText(brand.url, W / 2, H * 0.70);
 }
 
 // ─── video frame (cover-fit into 1080×1920) ──────────────────────
@@ -258,7 +385,7 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
 }
 
 // ─── beat overlay (compact pill with accent dot) ─────────────────
-export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4') {
+export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4', opts = {}) {
   if (!text || alpha <= 0) return;
 
   ctx.save();
@@ -268,6 +395,7 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   const padding = 20;
   const dotR = 5;
   const dotGap = 10;
+  const stepNum = opts.stepNum;
 
   ctx.font = `600 ${fontSize}px ${FONT}`;
   const words = text.split(' ');
@@ -303,10 +431,22 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.stroke();
 
-  ctx.beginPath();
-  ctx.arc(boxX + padding, yCenter, dotR, 0, Math.PI * 2);
-  ctx.fillStyle = accentColor;
-  ctx.fill();
+  if (stepNum != null) {
+    ctx.beginPath();
+    ctx.arc(boxX + padding, yCenter, dotR + 3, 0, Math.PI * 2);
+    ctx.fillStyle = accentColor;
+    ctx.fill();
+    ctx.font = `700 ${dotR * 2 + 2}px ${FONT}`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(stepNum), boxX + padding, yCenter);
+  } else {
+    ctx.beginPath();
+    ctx.arc(boxX + padding, yCenter, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = accentColor;
+    ctx.fill();
+  }
 
   ctx.font = `600 ${fontSize}px ${FONT}`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
@@ -315,6 +455,72 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   let drawY = boxY + padding;
   for (const line of lines) {
     ctx.fillText(line, W / 2 + dotR, drawY);
+    drawY += fontSize * lineHeight;
+  }
+
+  ctx.restore();
+}
+
+// ─── stat callout overlay (stats proof template) ─────────────────
+export function drawStatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#e67e22') {
+  if (!text || alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const maxWidth = W * 0.80;
+  const padding = 24;
+
+  ctx.font = `800 ${fontSize}px ${FONT}`;
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth - padding * 2 && cur) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+
+  const textH = lines.length * fontSize * lineHeight;
+  const boxH = textH + padding * 2;
+  const textMaxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const boxW = Math.min(maxWidth, textMaxW + padding * 3);
+  const boxX = (W - boxW) / 2;
+  const boxY = yCenter - boxH / 2;
+  const radius = 10;
+
+  const bgGrad = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY);
+  bgGrad.addColorStop(0, 'rgba(10, 14, 26, 0.82)');
+  bgGrad.addColorStop(1, 'rgba(10, 14, 26, 0.68)');
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
+  ctx.fill();
+
+  ctx.fillStyle = accentColor;
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY, boxW, 3, 2);
+  ctx.fill();
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY + boxH - 3, boxW, 3, 2);
+  ctx.fill();
+
+  ctx.font = `800 ${fontSize}px ${FONT}`;
+  ctx.fillStyle = accentColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  let drawY = boxY + padding;
+  for (let i = 0; i < lines.length; i++) {
+    const isNumber = /^\d/.test(lines[i].trim());
+    ctx.fillStyle = isNumber ? accentColor : '#ffffff';
+    ctx.font = isNumber ? `800 ${fontSize + 4}px ${FONT}` : `700 ${fontSize}px ${FONT}`;
+    ctx.fillText(lines[i], W / 2, drawY);
     drawY += fontSize * lineHeight;
   }
 

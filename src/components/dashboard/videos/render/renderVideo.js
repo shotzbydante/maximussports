@@ -21,6 +21,7 @@ import {
   drawVideoFrame,
   drawHeadlineOverlay,
   drawBeatOverlay,
+  drawStatOverlay,
   drawWatermark,
   easeAlpha,
 } from './drawUtils';
@@ -148,7 +149,7 @@ export async function renderVideo(opts) {
     if (i < introFrames) {
       const progress = i / introFrames;
       const alpha = easeAlpha(progress, 0.20, 0.12);
-      drawIntroCard(ctx, logo, { headline, brand }, alpha);
+      drawIntroCard(ctx, logo, { headline, brand, templateId }, alpha);
 
     } else if (i < introFrames + footageTotalFrames) {
       const footageFrame = i - introFrames;
@@ -174,12 +175,16 @@ export async function renderVideo(opts) {
         }
       }
 
-      // Draw beat overlays with accent-dot styling
       for (const beat of beatConfigs) {
         if (footageProgress >= beat.startPct && footageProgress <= beat.endPct) {
           const beatLocal = (footageProgress - beat.startPct) / (beat.endPct - beat.startPct);
           const alpha = easeAlpha(beatLocal, 0.15, 0.15);
-          drawBeatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor);
+          if (templateId === 'stats-proof') {
+            drawStatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor);
+          } else {
+            const beatOpts = templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {};
+            drawBeatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor, beatOpts);
+          }
         }
       }
 
@@ -189,7 +194,7 @@ export async function renderVideo(opts) {
       const outroIdx = i - introFrames - footageTotalFrames;
       const progress = outroIdx / outroFrames;
       const alpha = easeAlpha(progress, 0.20, 0.12);
-      drawOutroCard(ctx, logo, { cta, brand }, alpha);
+      drawOutroCard(ctx, logo, { cta, brand, templateId }, alpha);
     }
 
     const frame = new VideoFrame(canvas, {
@@ -222,7 +227,7 @@ function buildBeatConfigs(beats, tpl, dynamicTimings) {
     .map((text, i) => {
       if (!text) return null;
       const timing = dynamicTimings?.[i] || beatDefs[i] || { startPct: i * 0.33, endPct: i * 0.33 + 0.28 };
-      return { text, startPct: timing.startPct, endPct: timing.endPct };
+      return { text, startPct: timing.startPct, endPct: timing.endPct, idx: i };
     })
     .filter(Boolean);
 }
