@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { buildMaximusPicks, confidenceLabel } from '../../utils/maximusPicksModel';
+import { buildMaximusPicks } from '../../utils/maximusPicksModel';
+import { getConfidenceLabel } from '../../utils/confidenceSystem';
 import TeamLogo from '../shared/TeamLogo';
 import styles from './MaximusPicks.module.css';
 
@@ -73,7 +74,7 @@ function ChevronIcon({ open }) {
 // ─── confidence chip ──────────────────────────────────────────────────────────
 
 function ConfidenceChip({ level }) {
-  const label = confidenceLabel(level);
+  const label = getConfidenceLabel(level);
   return (
     <span
       className={`${styles.confChip} ${level >= 2 ? styles.confHigh : level >= 1 ? styles.confMed : styles.confLow}`}

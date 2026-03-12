@@ -196,8 +196,8 @@
 .pickCard {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 9px 10px;
+  gap: 6px;
+  padding: 10px 11px;
   background: var(--color-bg, #f6f6f6);
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
