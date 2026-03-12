@@ -33,7 +33,6 @@ import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
-import { getPublicationLogoUrl, getSourceBrandLogo } from '../utils/publicationLogos';
 import styles from './Home.module.css';
 import SEOHead from '../components/seo/SEOHead';
 
@@ -510,9 +509,16 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
             <span className={styles.briefingHeadline}>{boardBriefing.headline}</span>
             {boardBriefing.body && <span className={styles.briefingBody}>{boardBriefing.body}</span>}
           </div>
-          <span className={styles.boardTypeChip} data-type={boardBriefing.boardType}>
-            {{ spreads: 'SPREADS ACTIVE', value: 'VALUE BOARD', totals: 'TOTALS HEAVY', pickem: 'WINNERS BOARD', mixed: 'MIXED SLATE' }[boardBriefing.boardType] || 'ACTIVE'}
-          </span>
+          <div className={styles.briefingChips}>
+            <span className={styles.boardTypeChip} data-type={boardBriefing.boardType}>
+              {{ spreads: 'SPREADS ACTIVE', value: 'VALUE BOARD', totals: 'TOTALS HEAVY', pickem: 'WINNERS BOARD', mixed: 'MIXED SLATE' }[boardBriefing.boardType] || 'ACTIVE'}
+            </span>
+            {boardBriefing.boardStrength && (
+              <span className={styles.boardStrengthChip} data-strength={boardBriefing.boardStrength.toLowerCase()}>
+                {boardBriefing.boardStrength}
+              </span>
+            )}
+          </div>
         </div>
       ) : picksSummary ? (
         <div className={styles.picksSummaryBar}>
@@ -1100,32 +1106,11 @@ export default function Home() {
             </div>
             <ul className={styles.topStoriesList}>
               {(newsData.newsFeed || []).slice(0, 3).map((h) => {
-                const brandLogo = h.source ? getSourceBrandLogo(h.source) : null;
-                const faviconUrl = !brandLogo && h.source ? getPublicationLogoUrl(h.source) : null;
                 return (
                   <li key={h.id || h.title} className={styles.topStoriesItem}>
                     {h.source && (
-                      <span className={styles.topStoriesSource}>
-                        {brandLogo ? (
-                          <img
-                            src={brandLogo}
-                            alt={h.source}
-                            className={styles.sourceBrandLogo}
-                            height="16"
-                            loading="lazy"
-                          />
-                        ) : faviconUrl ? (
-                          <img
-                            src={faviconUrl}
-                            alt={h.source}
-                            className={styles.sourceLogo}
-                            width="16"
-                            height="16"
-                            loading="lazy"
-                          />
-                        ) : (
-                          h.source
-                        )}
+                      <span className={styles.sourceTextBadge}>
+                        {h.source}
                       </span>
                     )}
                     {h.link ? (
