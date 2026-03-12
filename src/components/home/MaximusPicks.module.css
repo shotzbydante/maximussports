@@ -478,15 +478,15 @@
   gap: 8px;
   flex-wrap: wrap;
   padding: 3px 6px;
-  background: rgba(60, 121, 180, 0.04);
-  border: 1px solid rgba(60, 121, 180, 0.08);
+  background: rgba(60, 121, 180, 0.03);
+  border: 1px solid rgba(60, 121, 180, 0.07);
   border-radius: 4px;
 }
 
 .edgePair {
   display: inline-flex;
   gap: 3px;
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -494,12 +494,12 @@
 .edgeLabel {
   color: var(--color-text-muted);
   font-weight: 500;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 .edgeValue {
-  color: var(--color-text);
-  font-weight: 700;
+  color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 /* ─── signal panel ───────────────────────────────────────────────── */
