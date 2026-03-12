@@ -1099,7 +1099,7 @@ export default function Home() {
                             src={brandLogo}
                             alt={h.source}
                             className={styles.sourceBrandLogo}
-                            height="12"
+                            height="16"
                             loading="lazy"
                           />
                         ) : faviconUrl ? (
@@ -1107,8 +1107,8 @@ export default function Home() {
                             src={faviconUrl}
                             alt={h.source}
                             className={styles.sourceLogo}
-                            width="14"
-                            height="14"
+                            width="16"
+                            height="16"
                             loading="lazy"
                           />
                         ) : (
