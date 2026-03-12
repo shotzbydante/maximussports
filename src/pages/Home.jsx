@@ -33,6 +33,7 @@ import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
+import { getPublicationLogoUrl } from '../utils/publicationLogos';
 import styles from './Home.module.css';
 import SEOHead from '../components/seo/SEOHead';
 
@@ -1075,7 +1076,7 @@ export default function Home() {
 
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
       <div className={styles.pulseStrip}>
-        <DynamicStats stats={dynamicStats} compact games={scores.games} rankMap={rankMap} />
+        <DynamicStats stats={dynamicStats} compact games={scores.games} rankMap={rankMap} atsLeaders={atsLeaders} championshipOdds={championshipOdds} />
         {/* Inline news headline teasers */}
         {(newsData.newsFeed || []).length > 0 && (
           <div className={styles.topStories}>
@@ -1086,18 +1087,36 @@ export default function Home() {
               </Link>
             </div>
             <ul className={styles.topStoriesList}>
-              {(newsData.newsFeed || []).slice(0, 3).map((h) => (
-                <li key={h.id || h.title} className={styles.topStoriesItem}>
-                  {h.source && <span className={styles.topStoriesSource}>{h.source}</span>}
-                  {h.link ? (
-                    <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
-                      {decodeEntities(h.title)}
-                    </a>
-                  ) : (
-                    <span className={styles.topStoriesLink}>{decodeEntities(h.title)}</span>
-                  )}
-                </li>
-              ))}
+              {(newsData.newsFeed || []).slice(0, 3).map((h) => {
+                const logoUrl = h.source ? getPublicationLogoUrl(h.source) : null;
+                return (
+                  <li key={h.id || h.title} className={styles.topStoriesItem}>
+                    {h.source && (
+                      <span className={styles.topStoriesSource}>
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={h.source}
+                            className={styles.sourceLogo}
+                            width="14"
+                            height="14"
+                            loading="lazy"
+                          />
+                        ) : (
+                          h.source
+                        )}
+                      </span>
+                    )}
+                    {h.link ? (
+                      <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
+                        {decodeEntities(h.title)}
+                      </a>
+                    ) : (
+                      <span className={styles.topStoriesLink}>{decodeEntities(h.title)}</span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

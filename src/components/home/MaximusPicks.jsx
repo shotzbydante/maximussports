@@ -160,14 +160,14 @@ function WatchCard({ pick, slateDate }) {
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
           <span className={styles.teamLogoWrap}>
-            <TeamLogo team={awayTeamObj} size={18} />
+            <TeamLogo team={awayTeamObj} size={20} />
           </span>
           <span className={styles.matchupName}>{pick.awayTeam}</span>
         </span>
         <span className={styles.matchupAt}>@</span>
         <span className={styles.matchupTeam}>
           <span className={styles.teamLogoWrap}>
-            <TeamLogo team={homeTeamObj} size={18} />
+            <TeamLogo team={homeTeamObj} size={20} />
           </span>
           <span className={styles.matchupName}>{pick.homeTeam}</span>
         </span>
@@ -198,14 +198,14 @@ function GameCard({ pick, slateDate }) {
       <div className={styles.cardMatchup}>
         <span className={styles.matchupTeam}>
           <span className={styles.teamLogoWrap}>
-            <TeamLogo team={awayTeamObj} size={18} />
+            <TeamLogo team={awayTeamObj} size={20} />
           </span>
           <span className={styles.matchupName}>{pick.awayTeam}</span>
         </span>
         <span className={styles.matchupAt}>@</span>
         <span className={styles.matchupTeam}>
           <span className={styles.teamLogoWrap}>
-            <TeamLogo team={homeTeamObj} size={18} />
+            <TeamLogo team={homeTeamObj} size={20} />
           </span>
           <span className={styles.matchupName}>{pick.homeTeam}</span>
         </span>
