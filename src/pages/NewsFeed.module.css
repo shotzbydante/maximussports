@@ -585,6 +585,14 @@
   image-rendering: crisp-edges;
 }
 
+/* Brand wordmark logo inside the chip (wider aspect ratio) */
+.logoChipBrand {
+  max-width: 30px;
+  max-height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
 /* Fallback initials when logo URL fails or is unknown */
 .logoChipInitials {
   font-size: 0.58rem;

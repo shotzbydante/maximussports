@@ -134,21 +134,22 @@
 .todayWidget {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   background: var(--color-bg-elevated);
   border: 1px solid rgba(60, 121, 180, 0.10);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  padding: 16px 20px;
+  padding: 18px 22px 16px;
 }
 
 .todayHeader {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .todayLabel {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -160,12 +161,12 @@
 
 .featuredMatchups {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 2px 0;
+  padding: 4px 2px;
 }
 
 .featuredMatchups::-webkit-scrollbar {
@@ -174,13 +175,13 @@
 
 .matchupCard {
   flex: 1 1 0;
-  min-width: 200px;
-  max-width: 320px;
+  min-width: 210px;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px 12px;
+  gap: 10px;
+  padding: 16px 18px 14px;
   background: var(--color-bg);
   border: 1px solid rgba(60, 121, 180, 0.10);
   border-radius: var(--radius-card);
@@ -188,31 +189,35 @@
   color: inherit;
   cursor: pointer;
   transition:
-    border-color var(--transition-fast, 0.12s ease),
-    box-shadow var(--transition-fast, 0.12s ease),
-    transform var(--transition-fast, 0.12s ease);
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .matchupCard:hover {
-  border-color: rgba(60, 121, 180, 0.28);
-  box-shadow: 0 2px 8px rgba(60, 121, 180, 0.10);
-  transform: translateY(-1px);
+  border-color: rgba(60, 121, 180, 0.25);
+  box-shadow: 0 3px 12px rgba(60, 121, 180, 0.09);
+  transform: translateY(-2px);
 }
 
 .matchupCardRanked {
-  border-color: rgba(60, 121, 180, 0.18);
+  border-color: rgba(60, 121, 180, 0.16);
   background: linear-gradient(
     135deg,
-    rgba(60, 121, 180, 0.03) 0%,
-    transparent 60%
+    rgba(60, 121, 180, 0.028) 0%,
+    transparent 55%
   );
+}
+
+.matchupCardRanked:hover {
+  border-color: rgba(60, 121, 180, 0.30);
 }
 
 .matchupTeams {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
   width: 100%;
 }
 
@@ -220,8 +225,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
+  flex: 1;
 }
 
 .matchupLogoWrap {
@@ -229,85 +235,94 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-bg-elevated);
+  border: 1px solid rgba(60, 121, 180, 0.08);
 }
 
 .matchupRank {
   position: absolute;
-  top: -4px;
-  right: -10px;
-  font-size: 0.6rem;
-  font-weight: 700;
+  top: -3px;
+  right: -8px;
+  font-size: 0.58rem;
+  font-weight: 800;
   line-height: 1;
   color: #fff;
   background: var(--color-primary, #3c79b4);
-  border-radius: 8px;
-  padding: 3px 5px;
+  border-radius: 6px;
+  padding: 2.5px 5px;
   white-space: nowrap;
   pointer-events: none;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  font-variant-numeric: tabular-nums;
 }
 
 .matchupName {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   color: var(--color-text-secondary);
   text-align: center;
-  line-height: 1.2;
-  max-width: 110px;
+  line-height: 1.25;
+  max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .matchupVs {
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--color-text-muted);
-  opacity: 0.5;
+  opacity: 0.38;
   flex-shrink: 0;
-  padding-bottom: 16px;
+  margin-top: 16px;
 }
 
 /* ── Model Signal Pill ───────────────────────────────────────────── */
 
 .signalPill {
   display: inline-block;
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 600;
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   line-height: 1;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 10px;
   white-space: nowrap;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  opacity: 0.85;
 }
 
 .signal--ats {
   color: var(--color-primary, #3c79b4);
-  background: rgba(60, 121, 180, 0.10);
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.12);
 }
 
 .signal--pickem {
   color: var(--color-up, #2d8a6e);
-  background: rgba(45, 138, 110, 0.10);
+  background: rgba(45, 138, 110, 0.08);
+  border: 1px solid rgba(45, 138, 110, 0.12);
 }
 
 .signal--value {
-  color: #b07d3a;
-  background: rgba(176, 125, 58, 0.10);
+  color: #9a6d2e;
+  background: rgba(176, 125, 58, 0.07);
+  border: 1px solid rgba(176, 125, 58, 0.12);
 }
 
 .signal--totals {
-  color: #7c5cbf;
-  background: rgba(124, 92, 191, 0.10);
+  color: #6d4da8;
+  background: rgba(124, 92, 191, 0.07);
+  border: 1px solid rgba(124, 92, 191, 0.12);
 }
 
 /* ── Layer 2: Activity Snapshot ──────────────────────────────────── */
@@ -315,9 +330,9 @@
 .activitySnapshot {
   display: flex;
   align-items: center;
-  gap: var(--space-lg, 24px);
+  gap: 20px;
   flex-wrap: wrap;
-  padding-top: 8px;
+  padding-top: 10px;
   border-top: 1px solid rgba(60, 121, 180, 0.08);
 }
 
@@ -331,12 +346,13 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .snapText {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: var(--color-text-muted);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .snapText strong {
@@ -348,43 +364,59 @@
 
 @media (max-width: 600px) {
   .todayWidget {
-    padding: 12px 14px;
-    gap: 10px;
+    padding: 14px 14px 12px;
+    gap: 12px;
   }
 
   .featuredMatchups {
     gap: 8px;
+    padding: 2px 0;
   }
 
   .matchupCard {
-    min-width: 170px;
-    padding: 10px 12px 8px;
+    min-width: 175px;
+    padding: 12px 14px 10px;
+    gap: 8px;
+  }
+
+  .matchupTeams {
+    gap: 12px;
+  }
+
+  .matchupLogoWrap {
+    width: 42px;
+    height: 42px;
   }
 
   .matchupRank {
-    font-size: 0.56rem;
+    font-size: 0.54rem;
     padding: 2px 4px;
-    top: -3px;
-    right: -8px;
+    top: -2px;
+    right: -7px;
   }
 
   .matchupName {
-    font-size: 0.62rem;
-    max-width: 85px;
+    font-size: 0.6rem;
+    max-width: 80px;
+  }
+
+  .matchupVs {
+    font-size: 0.5rem;
+    margin-top: 14px;
   }
 
   .signalPill {
-    font-size: 0.52rem;
-    padding: 3px 6px;
+    font-size: 0.5rem;
+    padding: 3px 8px;
   }
 
   .activitySnapshot {
-    gap: var(--space-md, 16px);
-    padding-top: 6px;
+    gap: 14px;
+    padding-top: 8px;
   }
 
   .snapText {
-    font-size: 0.66rem;
+    font-size: 0.68rem;
   }
 }
 

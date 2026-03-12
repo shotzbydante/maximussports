@@ -180,7 +180,7 @@ export default function DynamicStats({
                   <div className={styles.matchupTeams}>
                     <div className={styles.matchupSide}>
                       <div className={styles.matchupLogoWrap}>
-                        <TeamLogo team={m.awayTeam} size={38} />
+                        <TeamLogo team={m.awayTeam} size={32} />
                         {m.awayRank != null && (
                           <span className={styles.matchupRank}>
                             #{m.awayRank}
@@ -196,7 +196,7 @@ export default function DynamicStats({
 
                     <div className={styles.matchupSide}>
                       <div className={styles.matchupLogoWrap}>
-                        <TeamLogo team={m.homeTeam} size={38} />
+                        <TeamLogo team={m.homeTeam} size={32} />
                         {m.homeRank != null && (
                           <span className={styles.matchupRank}>
                             #{m.homeRank}

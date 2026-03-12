@@ -9,6 +9,7 @@ const SOURCE_TO_DOMAIN = {
   // Yahoo
   'yahoo sports':       'sports.yahoo.com',
   'yahoo':              'sports.yahoo.com',
+  'yahoosports':        'sports.yahoo.com',
 
   // CBS
   'cbs sports':         'cbssports.com',
@@ -67,13 +68,21 @@ const SOURCE_TO_DOMAIN = {
 };
 
 /**
+ * Sources that have a dedicated brand-quality logo asset shipped in /public.
+ * These are used instead of the generic favicon when a full wordmark or
+ * brand treatment is appropriate (e.g. in headlines, story attribution).
+ */
+const SOURCE_BRAND_LOGOS = {
+  'yahoo sports': '/logos/yahoo-sports.png',
+  'yahoo':        '/logos/yahoo-sports.png',
+  'yahoosports':  '/logos/yahoo-sports.png',
+};
+
+/**
  * Normalizes a raw source string:
  *   - lowercases and trims
  *   - strips leading "www."
  *   - strips trailing punctuation / whitespace
- *
- * @param {string} source
- * @returns {string}
  */
 function normalizeSource(source) {
   return (source || '')
@@ -95,4 +104,28 @@ export function getPublicationLogoUrl(source) {
   const domain = SOURCE_TO_DOMAIN[key];
   if (!domain) return null;
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+}
+
+/**
+ * Returns a local brand logo asset path for sources that have one,
+ * or null for all other sources. Brand logos are full wordmarks or
+ * official treatments — higher quality than favicons.
+ *
+ * @param {string} source
+ * @returns {string|null}
+ */
+export function getSourceBrandLogo(source) {
+  const key = normalizeSource(source);
+  return SOURCE_BRAND_LOGOS[key] || null;
+}
+
+/**
+ * Returns true if the source string matches Yahoo Sports (any variant).
+ *
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function isYahooSports(source) {
+  const key = normalizeSource(source);
+  return key === 'yahoo sports' || key === 'yahoo' || key === 'yahoosports';
 }
