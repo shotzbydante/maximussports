@@ -3,15 +3,17 @@
  *
  * Server-side OpenAI reel copy generation. Returns structured JSON
  * with headline, subhead, overlay beats, CTA, caption, and 3 variants.
- * The client adapter falls back to the heuristic engine on failure.
  *
- * Uses the same raw-fetch pattern as api/chat/teamSummary.js.
+ * Uses config/aiModels.js for model selection and timeout.
+ * Validates output shape before returning.
  */
 
-const OPENAI_MODEL = 'gpt-4o-mini';
-const MAX_TOKENS = 1200;
-const TEMPERATURE = 0.7;
-const OPENAI_TIMEOUT = 20000;
+import {
+  REEL_COPY_MODEL,
+  REEL_COPY_MAX_TOKENS,
+  REEL_COPY_TEMPERATURE,
+  REEL_COPY_TIMEOUT_MS,
+} from '../../config/aiModels.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -65,6 +67,14 @@ ${captionTone === 'hype' ? '- Fan energy. Excitement. Emojis OK (tasteful). Hype
 
 Always return ONLY valid JSON. No markdown. No explanation. No code fences.`;
 
+    const editPlanBlock = editPlanSummary
+      ? `\n- editPlanSummary: segments=${editPlanSummary.segmentCount || '?'}, heroMoments=${editPlanSummary.heroMoments || '?'}, originalDuration=${editPlanSummary.originalDuration || '?'}s, reelDuration=${editPlanSummary.reelDuration || '?'}s, speedRamps=${editPlanSummary.hasSpeedRamps ? 'yes' : 'no'}`
+      : '';
+
+    const analysisBlock = analysisSummary
+      ? `\n- analysisSummary: avgActivity=${analysisSummary.avgActivity || '?'}, peakMoments=${analysisSummary.peakMoments || '?'}, feature="${analysisSummary.feature || 'general'}", demoDuration=${analysisSummary.demoDuration || '?'}s`
+      : '';
+
     const userPrompt = `Generate reel copy for a Maximus Sports product video.
 
 Inputs:
@@ -75,9 +85,7 @@ Inputs:
 - ctaType: "${ctaType}"
 - messageAngle: "${messageAngle}"
 - copyIntensity: "${copyIntensity}"
-- captionTone: "${captionTone}"
-${analysisSummary ? `- analysisSummary: ${JSON.stringify(analysisSummary)}` : ''}
-${editPlanSummary ? `- editPlanSummary: ${JSON.stringify(editPlanSummary)}` : ''}
+- captionTone: "${captionTone}"${analysisBlock}${editPlanBlock}
 
 CTA destination "${ctaType}" means:
 ${ctaType === 'website' ? 'Direct to maximussports.ai signup' : ''}
@@ -112,7 +120,7 @@ Rules:
 - curiosity variant: scroll-stopping/contrarian`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
+    const timeout = setTimeout(() => controller.abort(), REEL_COPY_TIMEOUT_MS);
 
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -121,13 +129,13 @@ Rules:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model: REEL_COPY_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
+        max_tokens: REEL_COPY_MAX_TOKENS,
+        temperature: REEL_COPY_TEMPERATURE,
       }),
       signal: controller.signal,
     });
@@ -148,9 +156,16 @@ Rules:
     }
 
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error('OpenAI reel gen: invalid JSON', cleaned.slice(0, 200));
+      return res.status(502).json({ error: 'openai_invalid_json' });
+    }
 
-    if (!parsed.headline || !parsed.variants || !Array.isArray(parsed.variants)) {
+    if (!validateOutput(parsed)) {
+      console.error('OpenAI reel gen: invalid shape', JSON.stringify(parsed).slice(0, 200));
       return res.status(502).json({ error: 'openai_invalid_shape' });
     }
 
@@ -163,4 +178,15 @@ Rules:
     console.error('OpenAI reel gen error:', err.message || err);
     return res.status(500).json({ error: 'generation_failed' });
   }
+}
+
+function validateOutput(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (typeof obj.headline !== 'string' || !obj.headline) return false;
+  if (typeof obj.caption !== 'string') return false;
+  if (!Array.isArray(obj.variants) || obj.variants.length === 0) return false;
+  for (const v of obj.variants) {
+    if (!v || typeof v.headline !== 'string' || !v.headline) return false;
+  }
+  return true;
 }

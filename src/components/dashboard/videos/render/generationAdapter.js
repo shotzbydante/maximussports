@@ -110,29 +110,44 @@ export function isLLMAvailable() {
 
 // ─── LLM path ────────────────────────────────────────────────────
 
+const CLIENT_TIMEOUT_MS = 8000;
+
 async function callLLM(input) {
-  const res = await fetch('/api/reels/generateCopy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      promptContext: input.promptContext,
-      featureType: input.featureType,
-      templateType: input.templateId,
-      hookStyle: input.hookStyle,
-      ctaType: input.ctaDestination,
-      messageAngle: input.messageAngle,
-      copyIntensity: input.copyIntensity,
-      captionTone: input.captionTone,
-      analysisSummary: input.analysisSummary,
-      editPlanSummary: input.editPlanSummary,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
 
-  if (!res.ok) return null;
+  try {
+    const res = await fetch('/api/reels/generateCopy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        promptContext: input.promptContext,
+        featureType: input.featureType,
+        templateType: input.templateId,
+        hookStyle: input.hookStyle,
+        ctaType: input.ctaDestination,
+        messageAngle: input.messageAngle,
+        copyIntensity: input.copyIntensity,
+        captionTone: input.captionTone,
+        analysisSummary: input.analysisSummary,
+        editPlanSummary: input.editPlanSummary,
+      }),
+      signal: controller.signal,
+    });
 
-  const data = await res.json();
-  if (data.error || !data.headline) return null;
-  return data;
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.error || !data.headline) return null;
+    if (!data.variants || !Array.isArray(data.variants)) return null;
+    if (!data.caption && data.caption !== '') return null;
+    return data;
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
 }
 
 // ─── Heuristic fallback ──────────────────────────────────────────

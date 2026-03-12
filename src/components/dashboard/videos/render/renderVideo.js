@@ -3,19 +3,20 @@
  *
  * Pipeline:  Canvas (1080×1920) → VideoEncoder (H.264) → mp4-muxer → Blob
  *
- * Supports two modes:
- *   1. Simple trim (trimStart/trimEnd) — single continuous segment
- *   2. Edit plan (editPlan) — multi-segment with per-segment speed ramping
- *
- * The edit plan takes priority when provided. Uses premium overlay
- * drawing (drawHeadlineOverlay, drawBeatOverlay) with template-specific
- * accent colors.
+ * Render phases:
+ *   1. Hook Boost (0.7s) — micro pattern-interrupt with bold hook text
+ *   2. Intro card — branded template intro
+ *   3. Footage — multi-segment with speed ramping + animated overlays
+ *   4. Outro — CTA card with optional robot hero
  */
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { getTemplate } from '../templates/featureSpotlight';
 import {
   loadLogo,
+  loadRobotImage,
+  drawHookBoostFrame,
+  getHookBoostText,
   drawIntroCard,
   drawOutroCard,
   drawVideoFrame,
@@ -24,6 +25,7 @@ import {
   drawStatOverlay,
   drawWatermark,
   easeAlpha,
+  computeOverlaySafeZone,
 } from './drawUtils';
 
 // ─── capability check ────────────────────────────────────────────
@@ -67,6 +69,7 @@ export async function renderVideo(opts) {
     overlayBeats = [],
     beatTimings = null,
     templateId = 'feature-spotlight',
+    hookStyle = 'product',
     onProgress,
     signal,
   } = opts;
@@ -75,7 +78,6 @@ export async function renderVideo(opts) {
   const { width: W, height: H, fps, scenes, overlays, brand } = tpl;
   const accentColor = brand.accentColor || '#3C79B4';
 
-  // Determine footage segments
   let footageSegments;
   let footageTotalFrames;
 
@@ -98,19 +100,23 @@ export async function renderVideo(opts) {
     footageTotalFrames = frames;
   }
 
+  const hookBoostFrames = Math.round(0.7 * fps);
   const introFrames = Math.round((scenes.intro.durationMs / 1000) * fps);
   const outroFrames = Math.round((scenes.outro.durationMs / 1000) * fps);
-  const totalFrames = introFrames + footageTotalFrames + outroFrames;
+  const totalFrames = hookBoostFrames + introFrames + footageTotalFrames + outroFrames;
 
-  const [logo, video] = await Promise.all([
+  const hookText = getHookBoostText(hookStyle);
+
+  const [logo, video, robotImage] = await Promise.all([
     loadLogo(brand.logo),
     loadSourceVideo(sourceUrl),
+    loadRobotImage(),
   ]);
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
-  const ctx = canvas.getContext('2d', { willReadFrequently: false });
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
   const target = new ArrayBufferTarget();
   const muxer = new Muxer({
@@ -137,25 +143,42 @@ export async function renderVideo(opts) {
 
   const fieldValues = { headline, subhead };
   const beatConfigs = buildBeatConfigs(overlayBeats, tpl, beatTimings);
-
-  // Pre-compute segment frame ranges for fast lookup
   const segRanges = buildSegmentRanges(footageSegments);
+
+  let safeZone = null;
+  let safeZoneComputed = false;
+
+  // Seek video to first segment's start for the hook boost blurred background
+  const firstSeek = footageSegments[0]?.sourceStart ?? trimStart;
+  await seekVideo(video, firstSeek + 1);
 
   // ── render loop ──────────────────────────────────────────────
   for (let i = 0; i < totalFrames; i++) {
     if (signal?.aborted) { encoder.close(); throw new DOMException('Render aborted', 'AbortError'); }
     if (encodeError) throw encodeError;
 
-    if (i < introFrames) {
-      const progress = i / introFrames;
+    if (i < hookBoostFrames) {
+      // Phase 1: Hook Boost Frame
+      drawHookBoostFrame(ctx, video, {
+        hookText,
+        brand,
+        frameIndex: i,
+        totalFrames: hookBoostFrames,
+        fps,
+      });
+
+    } else if (i < hookBoostFrames + introFrames) {
+      // Phase 2: Intro card
+      const introIdx = i - hookBoostFrames;
+      const progress = introIdx / introFrames;
       const alpha = easeAlpha(progress, 0.20, 0.12);
       drawIntroCard(ctx, logo, { headline, brand, templateId }, alpha);
 
-    } else if (i < introFrames + footageTotalFrames) {
-      const footageFrame = i - introFrames;
+    } else if (i < hookBoostFrames + introFrames + footageTotalFrames) {
+      // Phase 3: Footage with overlays
+      const footageFrame = i - hookBoostFrames - introFrames;
       const footageProgress = footageFrame / footageTotalFrames;
 
-      // Find active segment and compute seek time
       const { segment, frameInSegment } = findActiveSegment(segRanges, footageFrame);
       const segProgress = segment.outputFrames > 0 ? frameInSegment / segment.outputFrames : 0;
       const seekTime = segment.sourceStart + segProgress * segment.sourceDuration;
@@ -163,7 +186,15 @@ export async function renderVideo(opts) {
       await seekVideo(video, seekTime);
       drawVideoFrame(ctx, video);
 
-      // Draw headline/subhead overlays with premium styling
+      if (!safeZoneComputed && footageFrame === 0) {
+        try {
+          safeZone = computeOverlaySafeZone(ctx, W, H);
+        } catch { /* ignore */ }
+        safeZoneComputed = true;
+      }
+
+      const overlayYPctOffset = safeZone ? safeZone.yPct : null;
+
       for (const ov of overlays) {
         const text = fieldValues[ov.field];
         if (!text) continue;
@@ -171,7 +202,11 @@ export async function renderVideo(opts) {
           const ovLocal = (footageProgress - ov.startPct) / (ov.endPct - ov.startPct);
           const fadePct = ov.fadeMs / ((footageTotalFrames / fps * 1000) * (ov.endPct - ov.startPct));
           const alpha = easeAlpha(ovLocal, fadePct, fadePct);
-          drawHeadlineOverlay(ctx, text, H * ov.yPct, ov.maxFontSize, ov.lineHeight, alpha, accentColor);
+          const yPct = overlayYPctOffset || ov.yPct;
+          drawHeadlineOverlay(ctx, text, H * yPct, ov.maxFontSize, ov.lineHeight, alpha, accentColor, {
+            templateId,
+            animProgress: ovLocal,
+          });
         }
       }
 
@@ -180,9 +215,15 @@ export async function renderVideo(opts) {
           const beatLocal = (footageProgress - beat.startPct) / (beat.endPct - beat.startPct);
           const alpha = easeAlpha(beatLocal, 0.15, 0.15);
           if (templateId === 'stats-proof') {
-            drawStatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor);
+            drawStatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor, {
+              animProgress: beatLocal,
+            });
           } else {
-            const beatOpts = templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {};
+            const beatOpts = {
+              templateId,
+              animProgress: beatLocal,
+              ...(templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {}),
+            };
             drawBeatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor, beatOpts);
           }
         }
@@ -191,10 +232,18 @@ export async function renderVideo(opts) {
       if (watermark) drawWatermark(ctx, logo);
 
     } else {
-      const outroIdx = i - introFrames - footageTotalFrames;
+      // Phase 4: Outro with robot
+      const outroIdx = i - hookBoostFrames - introFrames - footageTotalFrames;
       const progress = outroIdx / outroFrames;
       const alpha = easeAlpha(progress, 0.20, 0.12);
-      drawOutroCard(ctx, logo, { cta, brand, templateId }, alpha);
+      drawOutroCard(ctx, logo, {
+        cta,
+        brand,
+        templateId,
+        robotImage,
+        outroFrame: outroIdx,
+        outroTotalFrames: outroFrames,
+      }, alpha);
     }
 
     const frame = new VideoFrame(canvas, {

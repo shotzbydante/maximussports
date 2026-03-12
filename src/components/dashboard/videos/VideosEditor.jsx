@@ -423,6 +423,7 @@ export default function VideosEditor() {
         cta: cta.trim() || 'Get Maximus Sports',
         watermark,
         templateId,
+        hookStyle,
         overlayBeats,
         beatTimings,
         onProgress: setRenderProgress,
@@ -489,6 +490,7 @@ export default function VideosEditor() {
           cta: hook.cta || cta.trim() || 'Get Maximus Sports',
           watermark,
           templateId,
+          hookStyle,
           overlayBeats: variantCopy.overlayBeats?.length ? variantCopy.overlayBeats : overlayBeats,
           beatTimings,
           onProgress: (p) => setVariantProgress((i + p) / hooks.length),
@@ -1240,9 +1242,12 @@ export default function VideosEditor() {
                   <video src={v.url} controls playsInline muted className={styles.variantVideo} />
                   <div className={styles.variantInfo}>
                     <div className={styles.variantLabel}>{v.label}</div>
-                    <div className={styles.variantHeadline}>"{v.headline}"</div>
+                    <div className={styles.variantHookPreview}>{v.headline}</div>
                     {v.explanation && (
                       <div className={styles.variantExplanation}>{v.explanation}</div>
+                    )}
+                    {v.score != null && (
+                      <div className={styles.variantScore}>Score: {(v.score * 100).toFixed(0)}/100</div>
                     )}
                     <div className={styles.variantBtnRow}>
                       <button
