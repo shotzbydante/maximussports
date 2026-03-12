@@ -5,7 +5,7 @@ import { fetchTeamPage } from '../../api/team';
 import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import TeamSchedule from './TeamSchedule';
-import MaximusInsight, { computeAtsFromScheduleAndHistory } from './MaximusInsight';
+import { computeAtsFromScheduleAndHistory } from './MaximusInsight';
 import TeamSummaryBox from './TeamSummaryBox';
 import SourceBadge from '../shared/SourceBadge';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
@@ -19,45 +19,38 @@ import { getCachedVideos, setCachedVideos, getCached, setCached, getCacheAge,
 import ShareButton from '../common/ShareButton';
 import { buildMatchupSlug } from '../../utils/matchupSlug';
 import { getTeamSlug } from '../../utils/teamSlug';
+import { getTeamColors } from '../../utils/teamColors';
+import { teamPersonality } from '../../utils/teamSnapshot';
+import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
+import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import SEOHead from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugYT');
-
-// ?debugVideos=1 mirrors the News Feed debug flag — logs team video fetch path
 const debugVideos = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugVideos');
-
 const debugTeam = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugTeam');
-
 const debugTeamNews = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).has('debugTeamNews');
 
 const NEXT_LINE_SLOW_MS  = 18000;
-const TEAM_PAGE_TTL_MS   = 5 * 60 * 1000; // 5-minute client cache for batch data
-const TEAM_PAGE_STALE_MS = 60 * 1000;     // silent background revalidation after 60 s
-
-// QA: ?debugTeam=1 logs cache path and core/full timings. Insight ATS/News must match ATS section and Last 7 days.
-// Core-first fetch: ATS + schedule render quickly; news merges when full response arrives.
+const TEAM_PAGE_TTL_MS   = 5 * 60 * 1000;
+const TEAM_PAGE_STALE_MS = 60 * 1000;
 
 function formatDate(str) {
   if (!str) return '';
   try {
     const d = new Date(str);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-  } catch {
-    return str;
-  }
+  } catch { return str; }
 }
 function formatDateTime(iso) {
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
+  } catch { return iso; }
 }
 function formatSpread(n) {
   if (n == null || typeof n !== 'number') return '—';
@@ -68,40 +61,20 @@ function formatMoneyline(n) {
   return n > 0 ? `+${n}` : String(n);
 }
 
-const TIER_CLASS = {
-  Lock: styles.tierLock,
-  'Should be in': styles.tierShould,
-  'Work to do': styles.tierWork,
-  'Long shot': styles.tierLong,
+const TIER_LABEL = {
+  Lock: { cls: 'tierLock', icon: '✓' },
+  'Should be in': { cls: 'tierShould', icon: '↗' },
+  'Work to do': { cls: 'tierWork', icon: '⚠' },
+  'Long shot': { cls: 'tierLong', icon: '↘' },
 };
 
-/**
- * Subtle monetization CTA — sits below the video rail, above schedule.
- * Routes to /insights (Odds Insights) pre-scoped to the team.
- * Emits impression once on mount and click on interaction.
- */
-function BettingCta({ slug, team }) {
-  const impressionFired = useRef(false);
-  useEffect(() => {
-    if (impressionFired.current || !slug) return;
-    impressionFired.current = true;
-    track('sportsbook_cta_impression', { placement: 'team_videos_footer', team_slug: slug });
-  }, [slug]);
-
-  if (!team) return null;
-  return (
-    <div className={styles.bettingCta}>
-      <Link
-        to={`/insights?team=${slug}`}
-        className={styles.bettingCtaLink}
-        onClick={() => track('sportsbook_cta_click', { placement: 'team_videos_footer', team_slug: slug })}
-      >
-        Want to bet this team&apos;s next game?{' '}
-        <span className={styles.bettingCtaAction}>See best line →</span>
-      </Link>
-    </div>
-  );
-}
+const SECTION_NAV = [
+  { id: 'briefing', label: 'Intel' },
+  { id: 'nextgame', label: 'Next Game' },
+  { id: 'performance', label: 'ATS' },
+  { id: 'results', label: 'Results' },
+  { id: 'schedule', label: 'Schedule' },
+];
 
 export default function TeamPage() {
   const { slug } = useParams();
@@ -110,68 +83,46 @@ export default function TeamPage() {
   const [headlines, setHeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [prev90Expanded, setPrev90Expanded] = useState(false);
   const [championshipOdds, setChampionshipOdds] = useState({});
   const [championshipOddsMeta, setChampionshipOddsMeta] = useState(null);
   const [championshipOddsLoading, setChampionshipOddsLoading] = useState(true);
   const [nextLine, setNextLine] = useState({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: {} });
   const [nextLineLoading, setNextLineLoading] = useState(true);
   const [nextLineLoadStarted, setNextLineLoadStarted] = useState(null);
-
-  // Videos
   const [videos, setVideos] = useState([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const [videosError, setVideosError] = useState(false);
   const [videosIsStale, setVideosIsStale] = useState(false);
   const [videosStaleAgeMs, setVideosStaleAgeMs] = useState(0);
   const [activeVideo, setActiveVideo] = useState(null);
-
-  // Debug timing — only populated when ?debugTeam=1
+  const [isPinned, setIsPinned] = useState(false);
+  const [newsExpanded, setNewsExpanded] = useState(false);
+  const [activeSection, setActiveSection] = useState('briefing');
   const [debugInfo, setDebugInfo] = useState(null);
 
-  // Team view event — fires once per slug change
+  useEffect(() => {
+    if (slug) setIsPinned(getPinnedTeams().includes(slug));
+  }, [slug]);
+
   useEffect(() => {
     if (!slug) return;
-    track('team_view', {
-      team_slug:  slug,
-      team_name:  team?.name,
-      conference: team?.conference,
-      tier:       team?.oddsTier,
-    });
+    track('team_view', { team_slug: slug, team_name: team?.name, conference: team?.conference, tier: team?.oddsTier });
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debug panel view event — fires when full data lands and debug mode is active
+  // Batch load: core first, then full
   useEffect(() => {
-    if (debugTeam && batch) {
-      track('team_debug_panel_view', { team_slug: slug });
-    }
-  }, [batch, slug]);
-
-  // Batch load: core first (schedule, odds, rank) for fast ATS/Insight, then full (with news).
-  // With cache: paint immediately, then SWR if stale. Without cache: fetch core → paint → fetch full → merge news.
-  useEffect(() => {
-    if (!team || !slug) {
-      setLoading(false);
-      return;
-    }
-
+    if (!team || !slug) { setLoading(false); return; }
     let cancelled = false;
     const t0 = debugTeam ? Date.now() : 0;
 
     function applyData(data) {
       const news = (data.teamNews || []).map((item, i) => ({
         id: item.link || item.id || `news-${i}`,
-        title: item.title,
-        link: item.link,
-        pubDate: item.pubDate,
-        source: item.source || 'News',
+        title: item.title, link: item.link, pubDate: item.pubDate, source: item.source || 'News',
       }));
       const cacheKey = `teamPage:${slug}`;
       setCached(cacheKey, { batch: data, headlines: news }, TEAM_PAGE_TTL_MS);
-      if (!cancelled) {
-        setBatch(data);
-        setHeadlines(news);
-      }
+      if (!cancelled) { setBatch(data); setHeadlines(news); }
     }
 
     function applyCoreOnly(data) {
@@ -179,72 +130,32 @@ export default function TeamPage() {
       setBatch(data);
       setHeadlines((data.teamNews || []).map((item, i) => ({
         id: item.link || item.id || `news-${i}`,
-        title: item.title,
-        link: item.link,
-        pubDate: item.pubDate,
-        source: item.source || 'News',
+        title: item.title, link: item.link, pubDate: item.pubDate, source: item.source || 'News',
       })));
     }
 
     const cacheKey = `teamPage:${slug}`;
-    const cached   = getCached(cacheKey);
-    const age      = getCacheAge(cacheKey);
+    const cached = getCached(cacheKey);
+    const age = getCacheAge(cacheKey);
 
     if (cached) {
-      if (debugTeam) console.log(`[TeamPage] ${slug} cache HIT, age=${Math.round(age / 1000)}s`);
-      setBatch(cached.batch);
-      setHeadlines(cached.headlines);
-      setLoading(false);
-      if (debugTeam) {
-        setDebugInfo((prev) => ({
-          ...prev,
-          cacheAge: Math.round(age / 1000),
-          cacheHit: true,
-          coreMs: null,
-          fullMs: null,
-        }));
-      }
-
+      setBatch(cached.batch); setHeadlines(cached.headlines); setLoading(false);
       if (age > TEAM_PAGE_STALE_MS) {
-        fetchTeamPage(slug)
-          .then(applyData)
-          .catch(() => {});
+        fetchTeamPage(slug).then(applyData).catch(() => {});
       }
       return () => { cancelled = true; };
     }
 
-    if (debugTeam) setDebugInfo({ cacheHit: false, cacheAge: null, coreMs: null, fullMs: null });
-
-    setLoading(true);
-    setError(null);
-
+    setLoading(true); setError(null);
     fetchTeamPage(slug, { coreOnly: true })
       .then((coreData) => {
         if (cancelled) return;
-        applyCoreOnly(coreData);
-        setLoading(false);
-        const coreMs = debugTeam ? Date.now() - t0 : null;
-        if (debugTeam) {
-          console.log(`[TeamPage] ${slug} core in ${coreMs}ms`);
-          setDebugInfo((prev) => ({ ...prev, coreMs }));
-        }
+        applyCoreOnly(coreData); setLoading(false);
         return fetchTeamPage(slug, { debugNews: debugTeamNews });
       })
-      .then((fullData) => {
-        if (cancelled || !fullData) return;
-        applyData(fullData);
-        const fullMs = debugTeam ? Date.now() - t0 : null;
-        if (debugTeam) {
-          console.log(`[TeamPage] ${slug} full in ${fullMs}ms total`);
-          setDebugInfo((prev) => ({ ...prev, fullMs }));
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .then((fullData) => { if (!cancelled && fullData) applyData(fullData); })
+      .catch((err) => { if (!cancelled) setError(err?.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [slug, team]);
@@ -254,132 +165,70 @@ export default function TeamPage() {
     let cancelled = false;
     setChampionshipOddsLoading(true);
     fetchChampionshipOdds()
-      .then(({ odds, oddsMeta }) => {
-        if (!cancelled) {
-          setChampionshipOdds(odds ?? {});
-          setChampionshipOddsMeta(oddsMeta ?? null);
-          setChampionshipOddsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setChampionshipOdds({});
-          setChampionshipOddsMeta(null);
-          setChampionshipOddsLoading(false);
-        }
-      });
+      .then(({ odds, oddsMeta }) => { if (!cancelled) { setChampionshipOdds(odds ?? {}); setChampionshipOddsMeta(oddsMeta ?? null); setChampionshipOddsLoading(false); } })
+      .catch(() => { if (!cancelled) { setChampionshipOdds({}); setChampionshipOddsMeta(null); setChampionshipOddsLoading(false); } });
     return () => { cancelled = true; };
   }, [slug]);
 
   useEffect(() => {
     if (!slug) return;
-    setNextLineLoading(true);
-    setNextLineLoadStarted(Date.now());
+    setNextLineLoading(true); setNextLineLoadStarted(Date.now());
     let cancelled = false;
     fetchTeamNextLine(slug)
-      .then((data) => {
-        if (!cancelled) {
-          setNextLine(data);
-          setNextLineLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setNextLine({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: { stage: 'error' } });
-          setNextLineLoading(false);
-        }
-      });
+      .then((data) => { if (!cancelled) { setNextLine(data); setNextLineLoading(false); } })
+      .catch(() => { if (!cancelled) { setNextLine({ nextEvent: null, consensus: {}, outliers: {}, movement: null, contributingBooks: {}, oddsMeta: { stage: 'error' } }); setNextLineLoading(false); } });
     return () => { cancelled = true; };
   }, [slug]);
 
   useEffect(() => {
     if (!slug) return;
-
-    // Serve from in-memory live cache if fresh (avoids flicker on back-navigation)
     const cached = getCachedVideos(slug);
-    if (cached) {
-      if (ytDebug || debugVideos) console.log(`[TeamPage debugVideos] cache HIT for ${slug}`, { count: cached.length, component: 'src/components/team/TeamPage.jsx' });
-      setVideos(cached);
-      setVideosIsStale(false);
-      setVideosLoading(false);
-      return;
-    }
-
-    // Show stale last-known-good immediately while fetching fresh data
+    if (cached) { setVideos(cached); setVideosIsStale(false); setVideosLoading(false); return; }
     const stale = getStaleVideos(slug);
     if (stale?.length > 0) {
-      if (ytDebug || debugVideos) console.log(`[TeamPage debugVideos] stale HIT for ${slug}`, { staleCount: stale.length, staleAgeHours: Math.round(getStaleVideosAge(slug) / 3_600_000), component: 'src/components/team/TeamPage.jsx' });
-      setVideos(stale);
-      setVideosIsStale(true);
-      setVideosStaleAgeMs(getStaleVideosAge(slug));
-      setVideosLoading(false); // show stale immediately; fetch in background
+      setVideos(stale); setVideosIsStale(true); setVideosStaleAgeMs(getStaleVideosAge(slug)); setVideosLoading(false);
     }
-
     const controller = new AbortController();
     const qs = new URLSearchParams({ teamSlug: slug, maxResults: '6' });
-    if (ytDebug) qs.set('debugYT', '1');
-    const t0 = ytDebug ? Date.now() : 0;
-
-    if (!stale?.length) setVideosLoading(true); // only show loading spinner when no stale available
-
+    if (!stale?.length) setVideosLoading(true);
     fetch(`/api/youtube/team?${qs}`, { signal: controller.signal })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data) => {
         const items = data.items ?? [];
-        if (ytDebug || debugVideos) {
-          console.log(`[TeamPage debugVideos] fetch complete for ${slug}`, {
-            rawFetchedCount: items.length,
-            status: data.status ?? 'ok',
-            staleCount: stale?.length ?? 0,
-            willRender: items.length > 0 ? items.length : (stale?.length ?? 0),
-            emptyStateShown: items.length === 0 && !stale?.length,
-            elapsedMs: ytDebug ? Date.now() - t0 : null,
-            component: 'src/components/team/TeamPage.jsx',
-          });
-        }
-        track('videos_fetch_result', {
-          team_slug: slug,
-          items_count: items.length,
-          status: items.length > 0 ? 'ok' : (data.status ?? 'empty'),
-        });
-        if (items.length > 0) {
-          setCachedVideos(slug, items);
-          setStaleVideos(slug, items); // update last-known-good
-          setVideos(items);
-          setVideosIsStale(false);
-          setVideosError(false);
-        } else if (!stale?.length) {
-          setVideos([]);
-          setVideosIsStale(false);
-        }
-        if (data.status && data.status !== 'ok') {
-          console.warn(`[YT Team] API non-ok status for ${slug}:`, data.status);
-        }
+        track('videos_fetch_result', { team_slug: slug, items_count: items.length, status: items.length > 0 ? 'ok' : (data.status ?? 'empty') });
+        if (items.length > 0) { setCachedVideos(slug, items); setStaleVideos(slug, items); setVideos(items); setVideosIsStale(false); setVideosError(false); }
+        else if (!stale?.length) { setVideos([]); setVideosIsStale(false); }
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
-          console.warn(`[YT Team] fetch failed for ${slug}:`, err.message);
-          if (debugVideos) console.log(`[TeamPage debugVideos] fetch error for ${slug}`, { error: err.message, staleCount: stale?.length ?? 0, component: 'src/components/team/TeamPage.jsx' });
           track('videos_fetch_result', { team_slug: slug, items_count: 0, status: 'error' });
-          if (!stale?.length) {
-            setVideosError(true);
-            setVideos([]);
-          }
+          if (!stale?.length) { setVideosError(true); setVideos([]); }
         }
       })
-      .finally(() => {
-        setVideosLoading(false);
-      });
-
+      .finally(() => { setVideosLoading(false); });
     return () => controller.abort();
   }, [slug]);
 
+  // Intersection observer for section nav
+  useEffect(() => {
+    const ids = SECTION_NAV.map((s) => s.id);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) { setActiveSection(entry.target.id); break; }
+        }
+      },
+      { rootMargin: '-20% 0px -70% 0px' }
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [batch]);
+
   const rank = batch?.rank ?? null;
   const nextLineSlow = nextLineLoadStarted != null && nextLineLoading && (Date.now() - nextLineLoadStarted > NEXT_LINE_SLOW_MS);
-  const nextLineShowRetry = nextLine.oddsMeta?.stage === 'error' || nextLineSlow;
 
   const { scheduleForSummary, atsForSummary } = useMemo(() => {
     const events = batch?.schedule?.events ?? [];
@@ -388,26 +237,76 @@ export default function TeamPage() {
     const ats = batch?.schedule && batch?.oddsHistory && team
       ? computeAtsFromScheduleAndHistory(batch.schedule, batch.oddsHistory, team.name)
       : null;
-    return {
-      scheduleForSummary: { upcoming, recent },
-      atsForSummary: ats,
-    };
+    return { scheduleForSummary: { upcoming, recent, events }, atsForSummary: ats };
   }, [batch?.schedule, batch?.oddsHistory, team]);
 
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const last7 = headlines.filter((h) => new Date(h.pubDate || 0).getTime() >= sevenDaysAgo);
-  const prev90 = headlines.filter((h) => new Date(h.pubDate || 0).getTime() < sevenDaysAgo);
+
+  // Derived: record, streak, form guide
+  const { record, streak, formGuide, recentGames } = useMemo(() => {
+    const events = batch?.schedule?.events ?? [];
+    const finals = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+    let w = 0, l = 0;
+    finals.forEach((e) => { if (e.ourScore != null && e.oppScore != null) { if (e.ourScore > e.oppScore) w++; else l++; } });
+    const rec = (w + l > 0) ? `${w}-${l}` : null;
+
+    let streakStr = null;
+    if (finals.length > 0) {
+      const scored = finals.filter((e) => e.ourScore != null && e.oppScore != null);
+      if (scored.length > 0) {
+        const firstWin = scored[0].ourScore > scored[0].oppScore;
+        let count = 1;
+        for (let i = 1; i < scored.length; i++) {
+          const isWin = scored[i].ourScore > scored[i].oppScore;
+          if (isWin === firstWin) count++;
+          else break;
+        }
+        streakStr = firstWin ? `W${count}` : `L${count}`;
+      }
+    }
+
+    const form = finals.slice(0, 7).map((e) => {
+      if (e.ourScore == null || e.oppScore == null) return null;
+      const won = e.ourScore > e.oppScore;
+      return { won, score: `${e.ourScore}-${e.oppScore}`, opponent: e.opponent, date: e.date };
+    }).filter(Boolean);
+
+    return { record: rec, streak: streakStr, formGuide: form, recentGames: finals.slice(0, 7) };
+  }, [batch?.schedule?.events]);
+
+  const personality = useMemo(() => {
+    if (!team || !atsForSummary) return null;
+    return teamPersonality(atsForSummary, team.oddsTier);
+  }, [team, atsForSummary]);
+
+  const teamColors = useMemo(() => getTeamColors(slug), [slug]);
+
+  const nextUpcoming = (batch?.schedule?.events ?? [])
+    .filter((e) => !e.isFinal)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+
+  const nextOpponentSlug = nextUpcoming
+    ? (() => {
+        const oppName = (nextUpcoming.awayTeam === team?.name) ? nextUpcoming.homeTeam : nextUpcoming.awayTeam;
+        return oppName ? getTeamSlug(oppName) : null;
+      })()
+    : null;
+
+  const nextMatchupLink = nextOpponentSlug ? `/games/${buildMatchupSlug(slug, nextOpponentSlug)}` : null;
+
+  const handleTogglePin = () => {
+    togglePinnedTeam(slug);
+    setIsPinned(!isPinned);
+    notifyPinnedChanged();
+    track(isPinned ? 'team_unpin' : 'team_pin', { team_slug: slug });
+  };
 
   if (!team) {
     return (
       <div className={styles.page}>
-        <SEOHead
-          title="Team Not Found"
-          description="The requested college basketball team was not found on Maximus Sports."
-          canonicalPath={`/teams/${slug}`}
-          noindex
-        />
+        <SEOHead title="Team Not Found" description="The requested college basketball team was not found." canonicalPath={`/teams/${slug}`} noindex />
         <h1>Team Not Found</h1>
         <p>That team doesn&apos;t exist.</p>
         <Link to="/teams">← Teams</Link>
@@ -417,23 +316,9 @@ export default function TeamPage() {
 
   const currentYear = new Date().getFullYear();
   const teamSeoTitle = `${team.name} Betting Intelligence (${currentYear}) — ATS Trends & Odds`;
-  const teamSeoDesc = `${currentYear} college basketball betting intelligence for ${team.name} — ATS trends, matchup analysis, model projections, next game prediction, and ${team.conference} conference insights.`;
-
-  const nextUpcoming = (batch?.schedule?.events ?? [])
-    .filter((e) => !e.isFinal)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-
-  const nextOpponentSlug = nextUpcoming
-    ? (() => {
-        const oppName = (nextUpcoming.awayTeam === team.name) ? nextUpcoming.homeTeam : nextUpcoming.awayTeam;
-        if (!oppName) return null;
-        return getTeamSlug(oppName);
-      })()
-    : null;
-
-  const nextMatchupLink = nextOpponentSlug
-    ? `/games/${buildMatchupSlug(slug, nextOpponentSlug)}`
-    : null;
+  const teamSeoDesc = `${currentYear} college basketball betting intelligence for ${team.name} — ATS trends, matchup analysis, model projections, and ${team.conference} conference insights.`;
+  const tierInfo = TIER_LABEL[team.oddsTier] || {};
+  const hasConsensus = nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null;
 
   return (
     <div className={styles.page}>
@@ -441,420 +326,333 @@ export default function TeamPage() {
         title={teamSeoTitle}
         description={teamSeoDesc}
         canonicalPath={`/teams/${slug}`}
-        jsonLd={{
-          '@context': 'https://schema.org',
-          '@type': 'SportsTeam',
-          'name': team.name,
-          'sport': 'Basketball',
-          'memberOf': {
-            '@type': 'SportsOrganization',
-            'name': team.conference,
-          },
-          'url': `https://maximussports.ai/teams/${slug}`,
-          'description': teamSeoDesc,
-        }}
+        jsonLd={{ '@context': 'https://schema.org', '@type': 'SportsTeam', name: team.name, sport: 'Basketball', memberOf: { '@type': 'SportsOrganization', name: team.conference }, url: `https://maximussports.ai/teams/${slug}` }}
       />
-      <header className={styles.header}>
-        <Link to="/teams" className={styles.backLink}>← Teams</Link>
-        <div className={styles.headerRow}>
-          <TeamLogo team={team} size={36} />
-          <div className={styles.headerInfo}>
-            <h1>{team.name} Betting Intelligence</h1>
-            <div className={styles.headerMeta}>
-              {rank != null && <span className={styles.rank}>#{rank}</span>}
-              <span className={styles.conference}>{team.conference}</span>
-              <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                {team.oddsTier}
-              </span>
-              <ChampionshipBadge slug={slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+
+      {/* ── Hero ── */}
+      <header className={styles.hero} style={{ '--team-primary': teamColors.primary, '--team-secondary': teamColors.secondary }}>
+        <div className={styles.heroAccent} />
+        <Link to="/teams" className={styles.backLink}>← Team Intel Hub</Link>
+        <div className={styles.heroMain}>
+          <div className={styles.heroIdentity}>
+            <TeamLogo team={team} size={56} />
+            <div className={styles.heroText}>
+              <h1 className={styles.teamName}>{team.name}</h1>
+              <div className={styles.heroMeta}>
+                {rank != null && <span className={styles.rank}>#{rank}</span>}
+                <span className={styles.conference}>{team.conference}</span>
+                {record && <span className={styles.record}>{record}</span>}
+                {streak && (
+                  <span className={`${styles.streak} ${streak.startsWith('W') ? styles.streakWin : styles.streakLoss}`}>
+                    {streak}
+                  </span>
+                )}
+                <span className={`${styles.tierBadge} ${styles[tierInfo.cls] || ''}`} title={team.oddsTier}>
+                  {team.oddsTier}
+                </span>
+                <ChampionshipBadge slug={slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+              </div>
+              {personality && <p className={styles.personality}>{personality}</p>}
             </div>
           </div>
-          <div className={styles.headerShare}>
+          <div className={styles.heroActions}>
+            <button type="button" className={`${styles.pinBtn} ${isPinned ? styles.pinBtnActive : ''}`} onClick={handleTogglePin} title={isPinned ? 'Unpin team' : 'Pin team'}>
+              {isPinned ? '★' : '☆'}
+            </button>
             <ShareButton
               variant="primary"
               shareType="team_intel"
-              title={`${team.name} — Quick Pulse`}
+              title={`${team.name} — Intel Briefing`}
               subtitle={(() => {
-                const season = atsForSummary?.season;
-                const last30 = atsForSummary?.last30;
                 const parts = [];
-                if (season?.total > 0) {
-                  const pct = season.total > 0 ? Math.round((season.wins / season.total) * 100) : null;
-                  parts.push(`ATS Season: ${season.wins}–${season.losses}${pct != null ? ` (${pct}%)` : ''}`);
-                }
-                if (last30?.total > 0) {
-                  const pct30 = Math.round((last30.wins / last30.total) * 100);
-                  parts.push(`Last 30: ${last30.wins}–${last30.losses} (${pct30}%)`);
-                }
-                if (parts.length === 0 && rank != null) {
-                  parts.push(`#${rank} ${team.conference} · ${team.oddsTier}`);
-                } else if (parts.length === 0) {
-                  parts.push(`${team.conference} · ${team.oddsTier}`);
-                }
-                return parts.join(' | ');
+                if (record) parts.push(record);
+                if (atsForSummary?.season?.total > 0) parts.push(`ATS: ${atsForSummary.season.wins}–${atsForSummary.season.losses}`);
+                if (parts.length === 0 && rank != null) parts.push(`#${rank} ${team.conference}`);
+                return parts.join(' | ') || team.conference;
               })()}
-              meta={rank != null ? `${team.conference} | Rank #${rank}` : team.conference}
+              meta={rank != null ? `${team.conference} | #${rank}` : team.conference}
               teamSlug={slug}
               destinationPath={`/teams/${slug}`}
               placement="team_header"
-              data-testid="share-team-header"
             />
           </div>
         </div>
       </header>
 
-      <p className={styles.teamSeoIntro}>
-        {currentYear} college basketball betting intelligence for {team.name} — ATS trends, upcoming matchup analysis, and model projections from the {team.conference}.
-      </p>
+      {/* ── Section Nav ── */}
+      <nav className={styles.sectionNav} aria-label="Page sections">
+        {SECTION_NAV.map((s) => (
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            className={`${styles.navPill} ${activeSection === s.id ? styles.navPillActive : ''}`}
+            onClick={(e) => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+          >
+            {s.label}
+          </a>
+        ))}
+      </nav>
 
-      {/* ── Betting Trends Authority Block ── */}
-      <section className={styles.bettingTrendsBlock} aria-label={`${team.name} betting trends`}>
-        <h2 className={styles.bettingTrendsTitle}>{team.name} Betting Trends &amp; ATS History</h2>
-        <div className={styles.bettingTrendsGrid}>
-          <div className={styles.bettingTrendCard}>
-            <h3 className={styles.bettingTrendLabel}>ATS Trends</h3>
-            {atsForSummary?.season?.total > 0 ? (
-              <div className={styles.bettingTrendBody}>
-                <span className={styles.bettingTrendStat}>
-                  Season: {atsForSummary.season.wins}–{atsForSummary.season.losses}
-                  {atsForSummary.season.total > 0 && ` (${Math.round((atsForSummary.season.wins / atsForSummary.season.total) * 100)}%)`}
-                </span>
-                {atsForSummary.last30?.total > 0 && (
-                  <span className={styles.bettingTrendStat}>
-                    Last 30 days: {atsForSummary.last30.wins}–{atsForSummary.last30.losses}
-                    {` (${Math.round((atsForSummary.last30.wins / atsForSummary.last30.total) * 100)}%)`}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <p className={styles.bettingTrendMuted}>ATS data loading…</p>
+      <div className={styles.content}>
+        {/* ── Intel Briefing ── */}
+        <section id="briefing">
+          <TeamSummaryBox
+            slug={slug}
+            team={team}
+            schedule={scheduleForSummary}
+            ats={atsForSummary}
+            news={last7}
+            rank={rank}
+            nextLine={nextLine}
+            dataReady={!!batch}
+          />
+        </section>
+
+        {/* ── Desktop 2-col: Next Game + Performance ── */}
+        <div className={styles.twoCol}>
+          {/* ── Next Game Spotlight ── */}
+          <section id="nextgame" className={styles.nextGameCard}>
+            <h3 className={styles.sectionTitle}>Next Game</h3>
+            {nextLineLoading && !nextLine.nextEvent && (
+              <p className={styles.muted}>Loading odds…</p>
             )}
-          </div>
-          <div className={styles.bettingTrendCard}>
-            <h3 className={styles.bettingTrendLabel}>Recent Performance Signals</h3>
-            <div className={styles.bettingTrendBody}>
-              {rank != null && <span className={styles.bettingTrendStat}>National rank: #{rank}</span>}
-              <span className={styles.bettingTrendStat}>Conference: {team.conference}</span>
-              <span className={styles.bettingTrendStat}>Tier: {team.oddsTier}</span>
-            </div>
-          </div>
-          <div className={styles.bettingTrendCard}>
-            <h3 className={styles.bettingTrendLabel}>Betting Intelligence Summary</h3>
-            <div className={styles.bettingTrendLinks}>
-              {nextMatchupLink && nextUpcoming && (
-                <Link to={nextMatchupLink} className={styles.bettingTrendLink}>
-                  Next game prediction →
-                </Link>
-              )}
-              <Link to="/college-basketball-picks-today" className={styles.bettingTrendLink}>
-                Today&apos;s picks &amp; predictions →
-              </Link>
-              <Link to="/insights" className={styles.bettingTrendLink}>
-                Full odds insights →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.insightSection} aria-label="Maximus's Insight">
-        <TeamSummaryBox
-          slug={slug}
-          team={team}
-          schedule={scheduleForSummary}
-          ats={atsForSummary}
-          news={last7}
-          rank={rank}
-          nextLine={nextLine}
-          dataReady={!!batch}
-        />
-      </section>
-
-      <section className={styles.atsSection} aria-label="ATS">
-        <MaximusInsight
-          slug={slug}
-          initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory } : null}
-          atsOnly
-        />
-      </section>
-
-      <section className={styles.nextLineSection} aria-label="Next game line">
-        <div className={styles.nextLineCard}>
-          <h3 className={styles.nextLineTitle}>Next Game Line</h3>
-          {nextLineLoading && !nextLine.nextEvent && (
-            <p className={styles.nextLineMeta}>Loading odds…</p>
-          )}
-          {nextLineShowRetry && (
-            <div className={styles.nextLineRetryRow}>
-              {nextLineSlow && <span className={styles.nextLineSlow}>Still loading…</span>}
-              <button
-                type="button"
-                className={styles.retryButton}
-                onClick={() => {
-                  setNextLineLoadStarted(Date.now());
-                  setNextLineLoading(true);
-                  fetchTeamNextLine(slug).then((data) => {
-                    setNextLine(data);
-                    setNextLineLoading(false);
-                  }).catch(() => setNextLineLoading(false));
-                }}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-          {!nextLineLoading && nextLine.nextEvent && (
-            <>
-              <p className={styles.nextLineGame}>
-                vs <strong>{nextLine.nextEvent.opponent || 'TBD'}</strong>
-                {nextLine.nextEvent.commenceTime && (
-                  <span className={styles.nextLineTime}> · {formatDateTime(nextLine.nextEvent.commenceTime)}</span>
-                )}
-              </p>
-              {(() => {
-                const hasConsensus = nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null;
-                if (!hasConsensus) {
-                  return <p className={styles.nextLineMeta}>Line not available yet.</p>;
-                }
-                return (
-                  <div className={styles.nextLineConsensus}>
-                    <span>Spread: {formatSpread(nextLine.consensus?.spread)}</span>
-                    <span>Total: {nextLine.consensus?.total != null ? nextLine.consensus.total : '—'}</span>
+            {!nextLineLoading && nextLine.nextEvent && (
+              <div className={styles.nextGameBody}>
+                <div className={styles.nextGameMatchup}>
+                  <span className={styles.nextGameLabel}>vs</span>
+                  <strong className={styles.nextGameOpponent}>{nextLine.nextEvent.opponent || 'TBD'}</strong>
+                  {nextLine.nextEvent.commenceTime && (
+                    <span className={styles.nextGameTime}>{formatDateTime(nextLine.nextEvent.commenceTime)}</span>
+                  )}
+                </div>
+                {hasConsensus && (
+                  <div className={styles.nextGameOdds}>
+                    {nextLine.consensus?.spread != null && (
+                      <div className={styles.oddsPill}>
+                        <span className={styles.oddsLabel}>Spread</span>
+                        <span className={styles.oddsValue}>{formatSpread(nextLine.consensus.spread)}</span>
+                      </div>
+                    )}
+                    {nextLine.consensus?.total != null && (
+                      <div className={styles.oddsPill}>
+                        <span className={styles.oddsLabel}>O/U</span>
+                        <span className={styles.oddsValue}>{nextLine.consensus.total}</span>
+                      </div>
+                    )}
                     {nextLine.consensus?.moneyline != null && (
-                      <span>ML: {formatMoneyline(nextLine.consensus.moneyline)}</span>
+                      <div className={styles.oddsPill}>
+                        <span className={styles.oddsLabel}>ML</span>
+                        <span className={styles.oddsValue}>{formatMoneyline(nextLine.consensus.moneyline)}</span>
+                      </div>
                     )}
                   </div>
-                );
-              })()}
-              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && nextLine.outliers?.spreadBestForTeam && (
-                <p className={styles.nextLineOutlier}>
-                  Best spread: {nextLine.outliers.spreadBestForTeam.bookTitle} {formatSpread(nextLine.outliers.spreadBestForTeam.spread)}
-                  {nextLine.consensus?.spread != null && (
-                    <> (consensus {formatSpread(nextLine.consensus.spread)})</>
-                  )}
-                </p>
+                )}
+                {hasConsensus && nextLine.outliers?.spreadBestForTeam && (
+                  <p className={styles.nextGameDetail}>
+                    Best spread: {nextLine.outliers.spreadBestForTeam.bookTitle} {formatSpread(nextLine.outliers.spreadBestForTeam.spread)}
+                  </p>
+                )}
+                {hasConsensus && nextLine.outliers?.moneylineBest && (
+                  <p className={styles.nextGameDetail}>
+                    Best ML: {nextLine.outliers.moneylineBest.bookTitle} {formatMoneyline(nextLine.outliers.moneylineBest.moneyline)}
+                  </p>
+                )}
+                {nextLine.movement?.samples > 0 && (nextLine.movement.spread?.delta !== 0 || nextLine.movement.total?.delta !== 0) && (
+                  <div className={styles.nextGameMovement}>
+                    {nextLine.movement.spread?.delta != null && nextLine.movement.spread.delta !== 0 && (
+                      <span>Spread {nextLine.movement.spread.delta > 0 ? '↑' : '↓'} {nextLine.movement.spread.delta > 0 ? '+' : ''}{nextLine.movement.spread.delta}</span>
+                    )}
+                    {nextLine.movement.total?.delta != null && nextLine.movement.total.delta !== 0 && (
+                      <span>Total {nextLine.movement.total.delta > 0 ? '↑' : '↓'} {nextLine.movement.total.delta > 0 ? '+' : ''}{nextLine.movement.total.delta}</span>
+                    )}
+                  </div>
+                )}
+                {nextMatchupLink && (
+                  <Link to={nextMatchupLink} className={styles.nextGameCta}>Full matchup intel →</Link>
+                )}
+              </div>
+            )}
+            {!nextLineLoading && !nextLine.nextEvent && nextLine.oddsMeta?.stage === 'no_upcoming' && (
+              <p className={styles.muted}>No upcoming game scheduled.</p>
+            )}
+            {!nextLineLoading && !nextLine.nextEvent && nextLine.oddsMeta?.stage === 'error' && (
+              <div>
+                <p className={styles.muted}>Odds unavailable.</p>
+                <button type="button" className={styles.retryBtn} onClick={() => {
+                  setNextLineLoadStarted(Date.now()); setNextLineLoading(true);
+                  fetchTeamNextLine(slug).then((d) => { setNextLine(d); setNextLineLoading(false); }).catch(() => setNextLineLoading(false));
+                }}>Retry</button>
+              </div>
+            )}
+          </section>
+
+          {/* ── Performance Dashboard ── */}
+          <section id="performance" className={styles.perfCard}>
+            <h3 className={styles.sectionTitle}>ATS Profile</h3>
+            <div className={styles.perfBody}>
+              {atsForSummary ? (
+                <>
+                  <div className={styles.atsGrid}>
+                    {atsForSummary.season?.total > 0 && (
+                      <div className={styles.atsStat}>
+                        <span className={styles.atsLabel}>Season</span>
+                        <span className={styles.atsValue}>
+                          {atsForSummary.season.wins}-{atsForSummary.season.losses}
+                          {atsForSummary.season.total > 0 && <span className={styles.atsPct}> {Math.round((atsForSummary.season.wins / atsForSummary.season.total) * 100)}%</span>}
+                        </span>
+                      </div>
+                    )}
+                    {atsForSummary.last30?.total > 0 && (
+                      <div className={styles.atsStat}>
+                        <span className={styles.atsLabel}>Last 30</span>
+                        <span className={styles.atsValue}>
+                          {atsForSummary.last30.wins}-{atsForSummary.last30.losses}
+                          <span className={styles.atsPct}> {Math.round((atsForSummary.last30.wins / atsForSummary.last30.total) * 100)}%</span>
+                        </span>
+                      </div>
+                    )}
+                    {atsForSummary.last7?.total > 0 && (
+                      <div className={styles.atsStat}>
+                        <span className={styles.atsLabel}>Last 7</span>
+                        <span className={styles.atsValue}>
+                          {atsForSummary.last7.wins}-{atsForSummary.last7.losses}
+                          <span className={styles.atsPct}> {Math.round((atsForSummary.last7.wins / atsForSummary.last7.total) * 100)}%</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.sourceLine}><SourceBadge source="Odds API" /></div>
+                </>
+              ) : (
+                <p className={styles.muted}>ATS data loading…</p>
               )}
-              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && nextLine.outliers?.moneylineBest && (
-                <p className={styles.nextLineOutlier}>
-                  Best ML: {nextLine.outliers.moneylineBest.bookTitle} {formatMoneyline(nextLine.outliers.moneylineBest.moneyline)}
-                </p>
-              )}
-              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && (nextLine.outliers?.spreadOutlier || nextLine.outliers?.bestSpreadOutlier) && (!nextLine.outliers?.spreadBestForTeam || (nextLine.outliers.spreadOutlier?.bookKey || nextLine.outliers.bestSpreadOutlier?.bookKey) !== nextLine.outliers.spreadBestForTeam?.bookKey) && (
-                <p className={styles.nextLineOutlier}>
-                  Outlier: {(nextLine.outliers.spreadOutlier || nextLine.outliers.bestSpreadOutlier).bookTitle} {formatSpread((nextLine.outliers.spreadOutlier || nextLine.outliers.bestSpreadOutlier).spread)}
-                  {nextLine.consensus?.spread != null && <> (consensus {formatSpread(nextLine.consensus.spread)})</>}
-                </p>
-              )}
-              {(nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null) && nextLine.outliers?.totalOutlier && (
-                <p className={styles.nextLineOutlier}>
-                  Total outlier: {nextLine.outliers.totalOutlier.bookTitle} {nextLine.outliers.totalOutlier.total}
-                  {nextLine.consensus?.total != null && <> (consensus {nextLine.consensus.total})</>}
-                </p>
-              )}
-              {nextLine.movement?.samples > 0 && (nextLine.movement.spread?.delta !== 0 || nextLine.movement.total?.delta !== 0 || nextLine.movement.moneyline?.delta !== 0) && (
-                <div className={styles.nextLineMovement}>
-                  <span>Market movement (last {nextLine.movement.windowMinutes}m): </span>
-                  {nextLine.movement.spread?.delta != null && (
-                    <span>Spread {nextLine.movement.spread.delta > 0 ? '↑' : nextLine.movement.spread.delta < 0 ? '↓' : ''} {nextLine.movement.spread.delta > 0 ? '+' : ''}{nextLine.movement.spread.delta}</span>
-                  )}
-                  {nextLine.movement.total?.delta != null && (
-                    <span>Total {nextLine.movement.total.delta > 0 ? '↑' : nextLine.movement.total.delta < 0 ? '↓' : ''} {nextLine.movement.total.delta > 0 ? '+' : ''}{nextLine.movement.total.delta}</span>
-                  )}
-                  <span className={styles.nextLineMovementMeta}>Based on {nextLine.movement.samples} samples</span>
+            </div>
+
+            {/* Form Guide */}
+            {formGuide.length > 0 && (
+              <div className={styles.formGuide}>
+                <span className={styles.formLabel}>Form</span>
+                <div className={styles.formStrip}>
+                  {formGuide.map((g, i) => (
+                    <span
+                      key={i}
+                      className={`${styles.formDot} ${g.won ? styles.formWin : styles.formLoss}`}
+                      title={`${g.won ? 'W' : 'L'} ${g.score} vs ${g.opponent}`}
+                    >
+                      {g.won ? 'W' : 'L'}
+                    </span>
+                  ))}
                 </div>
-              )}
-              {nextLine.oddsMeta?.updatedAt && (
-                <p className={styles.nextLineMeta}>Last updated: {formatDateTime(nextLine.oddsMeta.updatedAt)}</p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* ── Recent Results ── */}
+        <section id="results" className={styles.resultsSection}>
+          <h3 className={styles.sectionTitle}>Recent Results</h3>
+          {recentGames.length > 0 ? (
+            <div className={styles.resultsList}>
+              {recentGames.map((ev) => {
+                const oppSlug = getTeamSlug(ev.opponent);
+                const won = ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore;
+                const scoreStr = ev.ourScore != null && ev.oppScore != null ? `${ev.ourScore}-${ev.oppScore}` : '—';
+                return (
+                  <div key={ev.id} className={styles.resultRow}>
+                    <span className={styles.resultDate}>{formatDate(ev.date)}</span>
+                    <span className={styles.resultOpp}>
+                      {ev.homeAway === 'home' ? 'vs' : '@'}{' '}
+                      {oppSlug ? <Link to={`/teams/${oppSlug}`} className={styles.oppLink}>{ev.opponent}</Link> : ev.opponent}
+                    </span>
+                    <span className={`${styles.resultScore} ${won ? styles.resultWin : styles.resultLoss}`}>
+                      {scoreStr}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className={styles.muted}>No recent results available.</p>
+          )}
+        </section>
+
+        {/* ── News & Storylines ── */}
+        <section className={styles.newsSection}>
+          <h3 className={styles.sectionTitle}>{team.name} News</h3>
+          {loading && <div className={styles.loadingRow}><span className={styles.spinner} /><span>Loading…</span></div>}
+          {!loading && !error && headlines.length === 0 && (
+            <p className={styles.muted}>No men&apos;s basketball coverage found recently.</p>
+          )}
+          {!loading && !error && headlines.length > 0 && (
+            <>
+              <ul className={styles.newsList}>
+                {(newsExpanded ? headlines : headlines.slice(0, 4)).map((h) => (
+                  <li key={h.id} className={styles.newsItem}>
+                    <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.newsLink}>
+                      <span className={styles.newsTitle}>{h.title}</span>
+                      <span className={styles.newsMeta}>
+                        <SourceBadge source={h.source} />
+                        <span className={styles.newsDate}>{formatDate(h.pubDate)}</span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              {headlines.length > 4 && (
+                <button type="button" className={styles.expandBtn} onClick={() => setNewsExpanded(!newsExpanded)}>
+                  {newsExpanded ? 'Show less' : `View all ${headlines.length} headlines`}
+                </button>
               )}
             </>
           )}
-          {!nextLineLoading && !nextLine.nextEvent && nextLine.oddsMeta?.stage === 'no_upcoming' && (
-            <p className={styles.nextLineMeta}>No upcoming game.</p>
-          )}
-        </div>
-      </section>
+        </section>
 
-      <section className={styles.newsSection}>
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionLabel}>{team?.name ? `${team.name} News Feed` : 'Team News Feed'}</span>
-          <span className={styles.sourceLegend}>ESPN · NCAA · CBS · Yahoo · Team Feeds · Google News</span>
-        </div>
-
-        {loading && (
-          <div className={styles.loading}>
-            <span className={styles.spinner} />
-            <span>Loading...</span>
-          </div>
-        )}
-
-        {error && <div className={styles.error}>{error}</div>}
-
-        {!loading && !error && headlines.length === 0 && (
-          <div className={styles.empty}>
-            <p>No men&apos;s basketball coverage found in the last 90 days. Check back soon.</p>
-            <a href="#schedule" className={styles.emptyCta}>View schedule</a>
-          </div>
-        )}
-
-        {!loading && !error && headlines.length > 0 && (
-          <>
-            <div className={styles.newsSubsection}>
-              <h4 className={styles.subsectionTitle}>Last 7 days</h4>
-              {last7.length === 0 ? (
-                <div className={styles.empty}>
-                  <p>No men&apos;s basketball coverage found in the last 7 days. Check back soon.</p>
-                  <a href="#schedule" className={styles.emptyCta}>View schedule</a>
-                </div>
-              ) : (
-                <ul className={styles.list}>
-                  {last7.map((h) => (
-                    <li key={h.id} className={styles.row}>
-                      <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
-                        <span className={styles.title}>{h.title}</span>
-                        <span className={styles.meta}>
-                          <SourceBadge source={h.source} />
-                          <span className={styles.date}>{formatDate(h.pubDate)}</span>
-                        </span>
-                        <span className={styles.chevron}>→</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {prev90.length > 0 && (
-              <div className={styles.newsSubsection}>
-                <button
-                  type="button"
-                  className={styles.collapseHeader}
-                  onClick={() => setPrev90Expanded((e) => !e)}
-                  aria-expanded={prev90Expanded}
-                >
-                  <span className={styles.subsectionTitle}>Previous 90 days</span>
-                  <span className={styles.collapseChevron} aria-hidden>{prev90Expanded ? '▾' : '▸'}</span>
-                </button>
-                {prev90Expanded && (
-                  <ul className={styles.list}>
-                    {prev90.map((h) => (
-                      <li key={h.id} className={styles.row}>
-                        <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
-                          <span className={styles.title}>{h.title}</span>
-                          <span className={styles.meta}>
-                            <SourceBadge source={h.source} />
-                            <span className={styles.date}>{formatDate(h.pubDate)}</span>
-                          </span>
-                          <span className={styles.chevron}>→</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* ── Videos ── */}
-      <section className={styles.videosSection} aria-label="Video highlights">
-        <ModuleShell
-          title="Videos"
-          loading={videosLoading}
-          skeletonRows={2}
-          isEmpty={!videosLoading && videos.length === 0 && !videosError}
-          emptyMessage="No video highlights found for this team right now."
-          footer={
-            team && !videosLoading && (
-              videosError ? (
-                <button
-                  type="button"
-                  className={styles.videosMoreLink}
-                  onClick={() => {
-                    setVideosError(false);
-                    setVideosLoading(true);
-                    const qs = new URLSearchParams({ teamSlug: slug, maxResults: '6' });
-                    fetch(`/api/youtube/team?${qs}`)
-                      .then((r) => r.json())
-                      .then((data) => {
-                        const items = data.items ?? [];
-                        if (items.length > 0) {
-                          setCachedVideos(slug, items);
-                          setStaleVideos(slug, items);
-                        }
-                        setVideos(items);
-                      })
-                      .catch(() => { setVideosError(true); setVideos([]); })
-                      .finally(() => setVideosLoading(false));
-                  }}
-                >
-                  Retry videos
-                </button>
-              ) : videos.length > 0 ? (
-                <span className={styles.videosFooterRow}>
-                  {videosIsStale && (
-                    <span className={styles.videosStaleLabel}>
-                      Updated {Math.round(videosStaleAgeMs / 3600000)}h ago
-                    </span>
-                  )}
-                  <a
-                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.videosMoreLink}
-                  >
-                    More on YouTube →
-                  </a>
+        {/* ── Videos ── */}
+        <section className={styles.videosSection} aria-label="Video highlights">
+          <ModuleShell
+            title="Videos"
+            loading={videosLoading}
+            skeletonRows={2}
+            isEmpty={!videosLoading && videos.length === 0 && !videosError}
+            emptyMessage="No video highlights found right now."
+            footer={
+              team && !videosLoading && videos.length > 0 ? (
+                <span className={styles.videosFooter}>
+                  {videosIsStale && <span className={styles.staleLabel}>Updated {Math.round(videosStaleAgeMs / 3600000)}h ago</span>}
+                  <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${team.name} basketball highlights`)}`} target="_blank" rel="noopener noreferrer" className={styles.moreLink}>More on YouTube →</a>
                 </span>
-              ) : (
-                <a href="#schedule" className={styles.videosMoreLink}>View schedule</a>
-              )
-            )
-          }
-        >
-          {videosError ? (
-            <p className={styles.videosEmptyMsg}>Videos unavailable. Check your connection and retry.</p>
-          ) : (
-            <YouTubeVideoRail items={videos} onSelect={setActiveVideo} />
-          )}
-        </ModuleShell>
-      </section>
+              ) : null
+            }
+          >
+            {videosError ? (
+              <p className={styles.muted}>Videos unavailable. <button type="button" className={styles.retryBtn} onClick={() => {
+                setVideosError(false); setVideosLoading(true);
+                fetch(`/api/youtube/team?${new URLSearchParams({ teamSlug: slug, maxResults: '6' })}`)
+                  .then((r) => r.json())
+                  .then((data) => { const items = data.items ?? []; if (items.length > 0) { setCachedVideos(slug, items); setStaleVideos(slug, items); } setVideos(items); })
+                  .catch(() => { setVideosError(true); setVideos([]); })
+                  .finally(() => setVideosLoading(false));
+              }}>Retry</button></p>
+            ) : (
+              <YouTubeVideoRail items={videos} onSelect={setActiveVideo} />
+            )}
+          </ModuleShell>
+        </section>
 
-      {/* ── Subtle betting CTA — fires impression + click events ── */}
-      <BettingCta slug={slug} team={team} />
+        <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
 
-      <YouTubeVideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
+        {/* ── Quick Links ── */}
+        <div className={styles.quickLinks}>
+          {nextMatchupLink && <Link to={nextMatchupLink} className={styles.quickLink}>Next game matchup →</Link>}
+          <Link to="/insights" className={styles.quickLink}>Odds Insights →</Link>
+          <Link to="/college-basketball-picks-today" className={styles.quickLink}>Today&apos;s picks →</Link>
+        </div>
 
-      <div id="schedule">
-        <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
+        {/* ── Full Schedule ── */}
+        <div id="schedule">
+          <TeamSchedule slug={slug} initialData={batch ? { schedule: batch.schedule, oddsHistory: batch.oddsHistory, teamId: batch.teamId } : null} />
+        </div>
       </div>
-
-      {/* ── Debug panel — only renders when ?debugTeam=1 ── */}
-      {debugTeam && (
-        <aside
-          style={{
-            position: 'fixed', bottom: 12, right: 12, zIndex: 9999,
-            background: 'rgba(10,20,35,0.93)', color: '#7dd3fc',
-            border: '1px solid rgba(125,211,252,0.25)', borderRadius: 8,
-            padding: '10px 14px', fontSize: '0.68rem', fontFamily: 'monospace',
-            lineHeight: 1.6, maxWidth: 320, backdropFilter: 'blur(6px)',
-          }}
-          aria-label="Debug panel"
-        >
-          <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>
-            🔍 debugTeam — {slug}
-          </div>
-          <div>Cache: {debugInfo?.cacheHit ? `HIT (${debugInfo.cacheAge}s old)` : (debugInfo?.cacheHit === false ? 'MISS' : '—')}</div>
-          <div>Core ms: {debugInfo?.coreMs != null ? `${debugInfo.coreMs}ms` : '—'}</div>
-          <div>Full ms: {debugInfo?.fullMs != null ? `${debugInfo.fullMs}ms` : '—'}</div>
-          <div>ATS present: {atsForSummary ? `✓ (s:${atsForSummary.season?.total ?? 0} l30:${atsForSummary.last30?.total ?? 0})` : '✗'}</div>
-          <div>last7 count: {last7.length}</div>
-          <div>Events total: {batch?.schedule?.events?.length ?? 0}</div>
-          <div>Finals: {batch?.schedule?.events?.filter((e) => e.isFinal).length ?? 0}</div>
-          <div>Upcoming: {batch?.schedule?.events?.filter((e) => !e.isFinal).length ?? 0}</div>
-          <div>OddsHistory: {batch?.oddsHistory?.games?.length ?? 0} games</div>
-        </aside>
-      )}
     </div>
   );
 }

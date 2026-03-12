@@ -1,152 +1,92 @@
-/* Chat/speech bubble — same style as Home recap (Air Force One + Coinbase polish) */
-.bubble {
+/* Intel Briefing — premium editorial component */
+.briefing {
   background: var(--color-bg-elevated);
   border: var(--card-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  margin-bottom: var(--space-lg);
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-muted);
+  justify-content: space-between;
+  padding: 10px var(--space-md);
+  background: linear-gradient(135deg, rgba(60, 121, 180, 0.06), rgba(60, 121, 180, 0.02));
   border-bottom: 1px solid var(--color-border-light);
 }
 
-.headerMascot {
-  flex-shrink: 0;
-  height: 56px;
-  width: auto;
-  object-fit: contain;
-}
-
-@media (max-width: 767px) {
-  .headerMascot {
-    height: 44px;
-  }
-}
-
-.title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.content {
-  padding: var(--space-md);
-  font-size: 0.9rem;
-}
-
-.summaryText {
-  margin: 0 0 var(--space-sm);
-  line-height: 1.45;
-  color: var(--color-text);
-  white-space: pre-line;
-}
-
-.cursor {
-  display: inline-block;
-  margin-left: 2px;
-  animation: blink 1s steps(2, start) infinite;
-}
-
-@keyframes blink {
-  to { visibility: hidden; }
-}
-
-.updated {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-sm);
-}
-
-.actions {
-  margin-top: var(--space-sm);
-}
-
-.refresh {
-  font-size: 0.8rem;
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-.refresh:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.refresh:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.loading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.loadingRow {
+.headerLeft {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-primary);
+.mascot {
+  flex-shrink: 0;
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+@media (max-width: 767px) {
+  .mascot {
+    height: 30px;
+  }
+}
+
+.title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-metro-blue);
+  margin: 0;
+}
+
+.refreshBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-light);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.05);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-top: var(--space-sm);
+.body {
+  padding: var(--space-md);
 }
 
-.skeletonLine {
-  height: 0.9em;
-  width: 100%;
-  max-width: 320px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    90deg,
-    var(--color-border-light) 0%,
-    var(--color-bg-muted) 50%,
-    var(--color-border-light) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.2s ease-in-out infinite;
+.text {
+  margin: 0 0 6px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--color-text);
+  white-space: pre-line;
 }
 
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-.error {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  margin: 0 0 var(--space-sm);
+.text:last-child {
+  margin-bottom: 0;
 }

@@ -1,8 +1,7 @@
 /**
- * Maximus's Insight — instant client-side team summary. Chat/speech bubble style.
- * Synthesizes team, schedule, ATS, news, rank, and next-line data already on the page.
- * No streaming, no summary API calls. Renders with FormattedSummary (bold/italic/emojis).
- * Refresh button recomputes summary from current page data (no network).
+ * Maximus's Intel Briefing — premium editorial team summary.
+ * Synthesizes team, schedule, ATS, news, rank, and next-line data into a
+ * concise, punchy intel briefing. Local-first with optional LLM enhancement.
  */
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -20,8 +19,6 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
   const [llmRefreshing, setLlmRefreshing] = useState(false);
   const fetchedSlugRef = useRef(null);
 
-  // Stable content key for news array — recomputes only when actual content changes (not on
-  // every render caused by inline .filter() calls in the parent).
   const newsKey = useMemo(
     () => (Array.isArray(news) ? news.map((n) => n.id || n.title || '').join('|') : ''),
     [news]
@@ -34,7 +31,6 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     news: Array.isArray(news) ? news.slice(0, 10) : [],
     rank: rank ?? undefined,
     nextLine: nextLine ?? {},
-  // Explicit deps: recomputes when ATS, last7 headlines (via newsKey), nextLine, or schedule change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [team, schedule, ats, newsKey, rank, nextLine]);
 
@@ -43,13 +39,11 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     return formatTeamInsight(summaryData);
   }, [team, dataReady, summaryData, refreshTick]);
 
-  // Fetch LLM summary in background once data is ready; cache 5 min to avoid refetch on navigation.
   useEffect(() => {
     if (!slug || !dataReady) return;
     if (fetchedSlugRef.current === slug) return;
     fetchedSlugRef.current = slug;
 
-    // Serve from client cache if fresh
     const cacheKey = `teamInsight:${slug}`;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -71,7 +65,7 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     return () => { cancelled = true; };
   }, [slug, dataReady]);
 
-  const handleRefreshSummary = () => {
+  const handleRefresh = () => {
     setRefreshTick((t) => t + 1);
     track('team_summary_refresh', { team_slug: slug });
     if (!slug || llmRefreshing) return;
@@ -98,28 +92,29 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
   const displayText = (hasCanonicalAtsData && localSummary) ? localSummary : (llmSummary || localSummary);
 
   return (
-    <section className={styles.bubble} aria-labelledby="team-summary-title">
+    <section className={styles.briefing} aria-labelledby="team-briefing-title">
       <div className={styles.header}>
-        <img src="/mascot.png" alt="" className={styles.headerMascot} aria-hidden />
-        <h2 id="team-summary-title" className={styles.title}>Maximus&apos;s Insight</h2>
-      </div>
-      <div className={styles.content}>
-        {displayText ? (
-          <FormattedSummary text={displayText} className={styles.summaryText} />
-        ) : (
-          <p className={styles.summaryText}>Loading today&apos;s intel…</p>
-        )}
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.refresh}
-            onClick={handleRefreshSummary}
-            disabled={llmRefreshing}
-            aria-label="Refresh summary"
-          >
-            {llmRefreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+        <div className={styles.headerLeft}>
+          <img src="/mascot.png" alt="" className={styles.mascot} aria-hidden />
+          <h2 id="team-briefing-title" className={styles.title}>Intel Briefing</h2>
         </div>
+        <button
+          type="button"
+          className={styles.refreshBtn}
+          onClick={handleRefresh}
+          disabled={llmRefreshing}
+          aria-label="Refresh briefing"
+          title="Refresh intel"
+        >
+          {llmRefreshing ? '↻' : '↻'}
+        </button>
+      </div>
+      <div className={styles.body}>
+        {displayText ? (
+          <FormattedSummary text={displayText} className={styles.text} />
+        ) : (
+          <p className={styles.text}>Loading today&apos;s intel…</p>
+        )}
       </div>
     </section>
   );

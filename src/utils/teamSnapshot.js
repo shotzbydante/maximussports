@@ -131,7 +131,7 @@ function selectTopHeadlines(rawHeadlines, teamName, maxCount = 5) {
  * @param {string|null} tier
  * @returns {string}
  */
-function teamPersonality(ats, tier) {
+export function teamPersonality(ats, tier) {
   const pct = ats?.last7?.coverPct ?? ats?.last30?.coverPct ?? null;
 
   if (pct === null) {
