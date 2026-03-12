@@ -1,12 +1,17 @@
 /**
- * Snapshot module — market-style stat tiles.
- * Upset alerts, ranked teams in action, news velocity.
+ * DynamicStats — Today widget with Featured Matchups + Activity Snapshot.
+ * Compact mode renders a two-layer editorial module:
+ *   Layer 1: Ranked matchup cards (clickable → Game Matchup page)
+ *   Layer 2: Activity snapshot row (ranked games, headlines, upsets)
+ * Non-compact mode renders full market-style stat tiles (unchanged).
  */
 
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getTeamBySlug } from '../../data/teams';
 import { getTeamSlug } from '../../utils/teamSlug';
+import { buildMatchupSlug } from '../../utils/matchupSlug';
+import { buildMaximusPicks } from '../../utils/maximusPicksModel';
 import TeamLogo from '../shared/TeamLogo';
 import styles from './DynamicStats.module.css';
 
@@ -42,60 +47,222 @@ function getTileVariant(stat, index) {
   return 'neutral';
 }
 
-export default function DynamicStats({ stats, compact = false, games = [], rankMap = {} }) {
-  const teamLogos = useMemo(() => {
+function matchupKey(slugA, slugB) {
+  return [slugA, slugB].sort().join('|');
+}
+
+export default function DynamicStats({
+  stats,
+  compact = false,
+  games = [],
+  rankMap = {},
+  atsLeaders = { best: [], worst: [] },
+  championshipOdds = {},
+}) {
+  const featuredMatchups = useMemo(() => {
     if (!compact || !games?.length) return [];
+
+    const matchups = [];
     const seen = new Set();
-    const logos = [];
+
     for (const g of games) {
-      for (const name of [g.homeTeam, g.awayTeam]) {
-        const slug = getTeamSlug(name);
-        if (!slug || seen.has(slug)) continue;
-        seen.add(slug);
-        const team = getTeamBySlug(slug);
-        if (team) logos.push({ team, slug, gameId: g.gameId, rank: rankMap[slug] ?? null });
-      }
-      if (logos.length >= 10) break;
+      const homeSlug = getTeamSlug(g.homeTeam);
+      const awaySlug = getTeamSlug(g.awayTeam);
+      if (!homeSlug || !awaySlug) continue;
+
+      const key = matchupKey(homeSlug, awaySlug);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const homeRank = rankMap[homeSlug] ?? null;
+      const awayRank = rankMap[awaySlug] ?? null;
+      if (homeRank == null && awayRank == null) continue;
+
+      const homeTeam = getTeamBySlug(homeSlug);
+      const awayTeam = getTeamBySlug(awaySlug);
+      if (!homeTeam || !awayTeam) continue;
+
+      const bothRanked = homeRank != null && awayRank != null;
+      matchups.push({
+        game: g,
+        homeTeam,
+        awayTeam,
+        homeSlug,
+        awaySlug,
+        homeRank,
+        awayRank,
+        bothRanked,
+        score: bothRanked
+          ? 1000 - Math.min(homeRank, awayRank)
+          : 500 - (homeRank ?? awayRank),
+        slug: buildMatchupSlug(homeSlug, awaySlug),
+      });
     }
-    return logos;
+
+    return matchups.sort((a, b) => b.score - a.score).slice(0, 3);
   }, [compact, games, rankMap]);
 
-  if (!stats?.length && teamLogos.length === 0) return null;
+  const matchupSignals = useMemo(() => {
+    if (featuredMatchups.length === 0 || !games?.length) return {};
 
+    let picks;
+    try {
+      picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds });
+    } catch {
+      return {};
+    }
+
+    const allPicks = [
+      ...picks.atsPicks.map((p) => ({ ...p, _st: 'ats' })),
+      ...picks.pickEmPicks.map((p) => ({ ...p, _st: 'pickem' })),
+      ...picks.valuePicks.map((p) => ({ ...p, _st: 'value' })),
+      ...picks.totalsPicks.map((p) => ({ ...p, _st: 'totals' })),
+    ].filter((p) => p.itemType === 'lean' && p.confidence >= 1);
+
+    const signals = {};
+    for (const m of featuredMatchups) {
+      const key = matchupKey(m.homeSlug, m.awaySlug);
+      const match = allPicks.find(
+        (p) => matchupKey(p.homeSlug, p.awaySlug) === key,
+      );
+      if (!match) continue;
+
+      let label;
+      if (match._st === 'ats' && match.pickLine) {
+        label = `ATS Edge: ${match.pickLine}`;
+      } else if (match._st === 'pickem' && match.pickTeam) {
+        label = `Model Lean: ${match.pickTeam}`;
+      } else if (match._st === 'value' && match.pickLine) {
+        label = `Value Signal: ${match.pickLine}`;
+      } else if (match._st === 'totals' && match.leanDirection) {
+        label = `${match.leanDirection} ${match.lineValue}`;
+      }
+      if (label) {
+        signals[key] = { label, type: match._st, confidence: match.confidence };
+      }
+    }
+    return signals;
+  }, [featuredMatchups, games, atsLeaders, rankMap, championshipOdds]);
+
+  if (!stats?.length && featuredMatchups.length === 0) return null;
+
+  /* ── compact: Featured Matchups + Activity Snapshot ────────────────── */
   if (compact) {
-    const active = stats.filter((s) => s.value > 0);
-    if (active.length === 0 && teamLogos.length === 0) return null;
+    const rankedCount =
+      stats?.find((s) => s.label === 'Ranked in action')?.value ?? 0;
+    const headlinesCount =
+      stats?.find((s) => s.label === 'Headlines')?.value ?? 0;
+    const upsetsCount =
+      stats?.find((s) => s.label === 'Upsets')?.value ?? 0;
+    const active = (stats || []).filter((s) => s.value > 0);
+
+    if (featuredMatchups.length === 0 && active.length === 0) return null;
+
     return (
-      <section className={styles.strip}>
-        <span className={styles.stripLabel}>Today</span>
-        {teamLogos.length > 0 && (
-          <div className={styles.stripLogos}>
-            {teamLogos.map(({ team, slug, rank }) => (
-              <Link key={slug} to={`/teams/${slug}`} className={styles.stripLogoLink} title={team.name}>
-                <TeamLogo team={team} size={26} />
-                {rank != null && <span className={styles.stripRankBadge}>#{rank}</span>}
-              </Link>
-            ))}
+      <section className={styles.todayWidget}>
+        <div className={styles.todayHeader}>
+          <span className={styles.todayLabel}>Today</span>
+        </div>
+
+        {/* Layer 1 — Featured Matchups */}
+        {featuredMatchups.length > 0 && (
+          <div className={styles.featuredMatchups}>
+            {featuredMatchups.map((m) => {
+              const key = matchupKey(m.homeSlug, m.awaySlug);
+              const signal = matchupSignals[key];
+              return (
+                <Link
+                  key={key}
+                  to={`/games/${m.slug}`}
+                  className={`${styles.matchupCard}${m.bothRanked ? ` ${styles.matchupCardRanked}` : ''}`}
+                  title={`${m.awayTeam.name} vs ${m.homeTeam.name}`}
+                >
+                  <div className={styles.matchupTeams}>
+                    <div className={styles.matchupSide}>
+                      <div className={styles.matchupLogoWrap}>
+                        <TeamLogo team={m.awayTeam} size={38} />
+                        {m.awayRank != null && (
+                          <span className={styles.matchupRank}>
+                            #{m.awayRank}
+                          </span>
+                        )}
+                      </div>
+                      <span className={styles.matchupName}>
+                        {m.awayTeam.name}
+                      </span>
+                    </div>
+
+                    <span className={styles.matchupVs}>vs</span>
+
+                    <div className={styles.matchupSide}>
+                      <div className={styles.matchupLogoWrap}>
+                        <TeamLogo team={m.homeTeam} size={38} />
+                        {m.homeRank != null && (
+                          <span className={styles.matchupRank}>
+                            #{m.homeRank}
+                          </span>
+                        )}
+                      </div>
+                      <span className={styles.matchupName}>
+                        {m.homeTeam.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  {signal && (
+                    <span
+                      className={`${styles.signalPill} ${styles[`signal--${signal.type}`] || ''}`}
+                    >
+                      {signal.label}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         )}
-        {active.length > 0 && <span className={styles.stripSep} aria-hidden />}
-        <div className={styles.stripItems}>
-          {active.map((stat, i) => {
-            const Icon = ICONS[stats.indexOf(stat) % ICONS.length];
-            const variant = getTileVariant(stat, stats.indexOf(stat));
-            return (
-              <span key={stat.label} className={`${styles.stripItem} ${styles[`strip--${variant}`]}`}>
-                <span className={`${styles.stripIcon} ${styles[`icon--${variant}`]}`}><Icon /></span>
-                <span className={styles.stripValue}>{stat.value}</span>
-                <span className={styles.stripName}>{stat.label}</span>
+
+        {/* Layer 2 — Activity Snapshot */}
+        <div className={styles.activitySnapshot}>
+          {rankedCount > 0 && (
+            <span className={styles.snapItem}>
+              <span className={`${styles.snapIcon} ${styles['icon--active']}`}>
+                <RankedIcon />
               </span>
-            );
-          })}
+              <span className={styles.snapText}>
+                <strong>{rankedCount}</strong> Ranked game
+                {rankedCount !== 1 ? 's' : ''} today
+              </span>
+            </span>
+          )}
+          {headlinesCount > 0 && (
+            <span className={styles.snapItem}>
+              <span className={`${styles.snapIcon} ${styles['icon--news']}`}>
+                <NewsIcon />
+              </span>
+              <span className={styles.snapText}>
+                <strong>{headlinesCount}</strong> Headlines across college
+                basketball
+              </span>
+            </span>
+          )}
+          {upsetsCount > 0 && (
+            <span className={styles.snapItem}>
+              <span className={`${styles.snapIcon} ${styles['icon--alert']}`}>
+                <UpsetIcon />
+              </span>
+              <span className={styles.snapText}>
+                <strong>{upsetsCount}</strong> Upset
+                {upsetsCount !== 1 ? 's' : ''} today
+              </span>
+            </span>
+          )}
         </div>
       </section>
     );
   }
 
+  /* ── non-compact: full stat tiles (unchanged) ──────────────────────── */
   return (
     <section className={styles.section}>
       <div className={styles.header}>
@@ -106,14 +273,21 @@ export default function DynamicStats({ stats, compact = false, games = [], rankM
           const Icon = ICONS[i % ICONS.length];
           const variant = getTileVariant(stat, i);
           return (
-            <div key={stat.label} className={`${styles.tile} ${styles[`tile--${variant}`]}`}>
+            <div
+              key={stat.label}
+              className={`${styles.tile} ${styles[`tile--${variant}`]}`}
+            >
               <div className={styles.tileTop}>
-                <span className={`${styles.tileIcon} ${styles[`icon--${variant}`]}`}>
+                <span
+                  className={`${styles.tileIcon} ${styles[`icon--${variant}`]}`}
+                >
                   <Icon />
                 </span>
                 <span className={styles.tileLabel}>{stat.label}</span>
               </div>
-              <div className={`${styles.tileValue} ${styles[`value--${variant}`]}`}>
+              <div
+                className={`${styles.tileValue} ${styles[`value--${variant}`]}`}
+              >
                 {stat.value}
               </div>
               <div className={styles.tileContext}>{stat.subtext}</div>

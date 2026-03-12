@@ -886,20 +886,31 @@ export function buildMaximusPicks({
     return ta - tb;
   });
 
-  const rawPickEm = buildPickEmPicks(sortedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
-  const rawAts    = buildSpreadPicks(sortedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
-  const rawValue  = buildValuePicks(sortedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
-  const rawTotals = buildTotalsPicks(sortedGames, atsLeaders, atsBySlug);
+  // Deduplicate by team matchup — same pair of teams from different sources
+  // (ESPN scores vs Odds API) can produce different gameIds but identical matchups.
+  const seenMatchups = new Set();
+  const dedupedGames = [];
+  for (const g of sortedGames) {
+    const key = baseGameKey(g);
+    if (key && seenMatchups.has(key)) continue;
+    if (key) seenMatchups.add(key);
+    dedupedGames.push(g);
+  }
+
+  const rawPickEm = buildPickEmPicks(dedupedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
+  const rawAts    = buildSpreadPicks(dedupedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
+  const rawValue  = buildValuePicks(dedupedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
+  const rawTotals = buildTotalsPicks(dedupedGames, atsLeaders, atsBySlug);
 
   const pickEmKeys  = new Set(rawPickEm.map(baseGameKey));
   const atsKeys     = new Set(rawAts.map(baseGameKey));
   const valueKeys   = new Set(rawValue.map(baseGameKey));
   const totalsKeys  = new Set(rawTotals.map(baseGameKey));
 
-  const pickEmWatches  = buildPickEmWatches(sortedGames, pickEmKeys, Math.max(0, TARGET_SHOW - rawPickEm.length));
-  const atsWatches     = buildSpreadWatches(sortedGames, atsKeys, Math.max(0, TARGET_SHOW - rawAts.length));
-  const valueWatches   = buildValueWatches(sortedGames, valueKeys, Math.max(0, TARGET_SHOW - rawValue.length));
-  const totalsWatches  = buildTotalsWatches(sortedGames, totalsKeys, Math.max(0, TARGET_SHOW - rawTotals.length));
+  const pickEmWatches  = buildPickEmWatches(dedupedGames, pickEmKeys, Math.max(0, TARGET_SHOW - rawPickEm.length));
+  const atsWatches     = buildSpreadWatches(dedupedGames, atsKeys, Math.max(0, TARGET_SHOW - rawAts.length));
+  const valueWatches   = buildValueWatches(dedupedGames, valueKeys, Math.max(0, TARGET_SHOW - rawValue.length));
+  const totalsWatches  = buildTotalsWatches(dedupedGames, totalsKeys, Math.max(0, TARGET_SHOW - rawTotals.length));
 
   const finalPickEm = [...rawPickEm, ...pickEmWatches];
   const finalAts    = [...rawAts, ...atsWatches];
