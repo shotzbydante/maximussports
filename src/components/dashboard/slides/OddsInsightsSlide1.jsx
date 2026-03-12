@@ -1,5 +1,6 @@
 import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
+import MaximusTakeCard from '../../shared/MaximusTakeCard';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import { getSlideColors, getConfidenceLabel } from '../../../utils/confidenceSystem';
@@ -9,7 +10,7 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
   const games = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
-  let picks = { atsPicks: [], mlPicks: [], totalsPicks: [] };
+  let picks = { pickEmPicks: [], atsPicks: [], valuePicks: [], mlPicks: [], totalsPicks: [] };
   try {
     picks = buildMaximusPicks({ games, atsLeaders });
   } catch { /* ignore */ }
@@ -17,10 +18,13 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
   const atsPicks = picks.atsPicks ?? [];
   const mlPicks = picks.mlPicks ?? [];
   const totalsPicks = picks.totalsPicks ?? [];
-  const allPicks = [...atsPicks, ...mlPicks];
-  const totalCount = allPicks.length;
+  const pickEmPicks = picks.pickEmPicks ?? [];
+  const valuePicks = picks.valuePicks ?? [];
+  const spreadMlPicks = [...atsPicks, ...mlPicks];
+  const totalCount = spreadMlPicks.length;
+  const allPicksForTake = [...pickEmPicks, ...atsPicks, ...valuePicks, ...totalsPicks, ...mlPicks];
 
-  const strongestPick = allPicks.reduce((best, p) =>
+  const strongestPick = spreadMlPicks.reduce((best, p) =>
     (p.confidence ?? 0) > (best?.confidence ?? -1) ? p : best, null);
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -30,7 +34,7 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
   const confStyle = getSlideColors(strongestPick?.confidence ?? 0);
 
   // Build featured picks list: top 3 picks by confidence
-  const featuredPicks = allPicks
+  const featuredPicks = spreadMlPicks
     .slice()
     .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
     .slice(0, 3);
@@ -100,6 +104,10 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
               <span className={styles.countValue}>{totalsPicks.length}</span>
               <span className={styles.countLabel}>Totals</span>
             </div>
+          </div>
+
+          <div className={styles.takeWrap}>
+            <MaximusTakeCard allPicks={allPicksForTake} variant="slide" />
           </div>
 
           <div className={styles.picksList}>

@@ -6,6 +6,7 @@ import {
   getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText,
   getEditorialLine, getMaximusTake, getModelEdgeDisplay,
 } from '../../../utils/confidenceSystem';
+import MaximusTakeCard from '../../shared/MaximusTakeCard';
 import styles from './MaxPicksHeroSlide.module.css';
 
 function makeTeamObj(name) {
@@ -152,6 +153,7 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const leanCt = a => a.filter(p => p.itemType === 'lean').length;
   const totalSignals = leanCt(pe) + leanCt(ats) + leanCt(val) + leanCt(tot);
   const totalPicks = pe.length + ats.length + val.length + tot.length;
+  const allPicks = [...pe, ...ats, ...val, ...tot];
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
@@ -207,9 +209,15 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
             <IntelModule picks={totTop} cat="total" />
           </div>
 
-          <div className={styles.edgeNote}>
-            Higher bar = stronger model signal vs the market
-          </div>
+          {getMaximusTake(allPicks) ? (
+            <div className={styles.takeStrip}>
+              <MaximusTakeCard allPicks={allPicks} variant="slide" />
+            </div>
+          ) : (
+            <div className={styles.edgeNote}>
+              Higher bar = stronger model signal vs the market
+            </div>
+          )}
         </>
       )}
     </PicksSlideShell>

@@ -328,24 +328,31 @@
   display: flex;
   gap: 10px;
   padding-left: 28px;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .edgeStat {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.32);
+  color: rgba(240, 244, 248, 0.28);
   white-space: nowrap;
 }
 
 .edgeStatLabel {
-  color: rgba(240, 244, 248, 0.22);
+  color: rgba(240, 244, 248, 0.18);
 }
 
 .edgeStatValue {
-  color: rgba(240, 244, 248, 0.48);
+  color: rgba(240, 244, 248, 0.38);
   font-weight: 600;
+}
+
+/* ── Maximus Take strip (bottom of slide) ────────────────────── */
+
+.takeStrip {
+  margin-top: auto;
+  padding-top: 3px;
 }
 
 /* ── Edge helper note ────────────────────────────────────────── */
