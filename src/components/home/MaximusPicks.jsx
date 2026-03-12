@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { buildMaximusPicks } from '../../utils/maximusPicksModel';
 import { getConfidenceLabel, getModelEdgeDisplay } from '../../utils/confidenceSystem';
 import TeamLogo from '../shared/TeamLogo';
-import MaximusTakeCard from '../shared/MaximusTakeCard';
 import styles from './MaximusPicks.module.css';
 
 // ─── inline SVG icons ─────────────────────────────────────────────────────────
@@ -473,11 +472,6 @@ export default function MaximusPicks({
           {isCombined && !slateComplete && (
             <span className={styles.slateCompleteNote}>Thin slate — today + tomorrow combined</span>
           )}
-        </div>
-      )}
-      {hasAny && (
-        <div className={styles.takeRow}>
-          <MaximusTakeCard allPicks={allPicks} variant="web" />
         </div>
       )}
       <div className={styles.root}>

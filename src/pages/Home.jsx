@@ -28,7 +28,7 @@ import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pi
 import { perfLog } from '../utils/perfLog';
 import WelcomeModal from '../components/marketing/WelcomeModal';
 import MaximusPicks from '../components/home/MaximusPicks';
-import { buildMaximusPicks, buildPicksSummary } from '../utils/maximusPicksModel';
+import { buildMaximusPicks, buildPicksSummary, buildBoardBriefing } from '../utils/maximusPicksModel';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
@@ -432,6 +432,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     ? buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds })
     : { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
   const picksSummary = activeGames.length ? buildPicksSummary(picksResult) : null;
+  const boardBriefing = activeGames.length ? buildBoardBriefing(picksResult) : null;
 
   const totalPicksCount =
     picksResult.pickEmPicks.length +
@@ -501,13 +502,24 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
           <span className={styles.oddsTeaserTag}>Data-Driven Leans</span>
         </div>
       </div>
-      {/* ── Picks summary line ──────────────────────────────────────── */}
-      {picksSummary && (
+      {/* ── Board briefing ──────────────────────────────────────────── */}
+      {boardBriefing ? (
+        <div className={styles.picksSummaryBar}>
+          <span className={styles.picksSummaryLabel}>{slateSummaryLabel}</span>
+          <div className={styles.briefingContent}>
+            <span className={styles.briefingHeadline}>{boardBriefing.headline}</span>
+            {boardBriefing.body && <span className={styles.briefingBody}>{boardBriefing.body}</span>}
+          </div>
+          <span className={styles.boardTypeChip} data-type={boardBriefing.boardType}>
+            {{ spreads: 'SPREADS ACTIVE', value: 'VALUE BOARD', totals: 'TOTALS HEAVY', pickem: 'WINNERS BOARD', mixed: 'MIXED SLATE' }[boardBriefing.boardType] || 'ACTIVE'}
+          </span>
+        </div>
+      ) : picksSummary ? (
         <div className={styles.picksSummaryBar}>
           <span className={styles.picksSummaryLabel}>{slateSummaryLabel}</span>
           <span className={styles.picksSummaryText}>{picksSummary}</span>
         </div>
-      )}
+      ) : null}
 
       <p className={styles.oddsPicksSubheader}>
         Leans are threshold-qualified. Monitoring tracks games with lines posted.

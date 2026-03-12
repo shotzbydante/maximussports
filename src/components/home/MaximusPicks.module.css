@@ -26,19 +26,6 @@
   }
 }
 
-/* ─── maximus take row ───────────────────────────────────────────── */
-
-.takeRow {
-  margin-bottom: var(--space-sm, 10px);
-  max-width: 520px;
-}
-
-@media (max-width: 767px) {
-  .takeRow {
-    max-width: 100%;
-  }
-}
-
 /* ─── column ─────────────────────────────────────────────────────── */
 
 .column {

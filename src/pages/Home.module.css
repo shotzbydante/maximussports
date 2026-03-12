@@ -1360,9 +1360,9 @@
 
 .picksSummaryBar {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 7px 12px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
   margin-bottom: var(--space-sm);
   background: linear-gradient(135deg, rgba(28, 80, 165, 0.06) 0%, rgba(60, 121, 180, 0.03) 100%);
   border: 1px solid rgba(60, 121, 180, 0.14);
@@ -1380,12 +1380,81 @@
   white-space: nowrap;
   flex-shrink: 0;
   font-family: var(--font-mono);
+  margin-top: 2px;
 }
 
 .picksSummaryText {
   font-size: 0.78rem;
   color: var(--color-text-secondary);
   line-height: 1.45;
+}
+
+.briefingContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.briefingHeadline {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
+.briefingBody {
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.boardTypeChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+  border: 1px solid rgba(60, 121, 180, 0.18);
+}
+
+.boardTypeChip[data-type="spreads"] {
+  background: rgba(60, 121, 180, 0.10);
+  color: var(--color-primary);
+  border-color: rgba(60, 121, 180, 0.22);
+}
+
+.boardTypeChip[data-type="value"] {
+  background: rgba(183, 152, 108, 0.10);
+  color: #8a6d3a;
+  border-color: rgba(183, 152, 108, 0.25);
+}
+
+.boardTypeChip[data-type="totals"] {
+  background: rgba(45, 138, 110, 0.08);
+  color: #1a7a5a;
+  border-color: rgba(45, 138, 110, 0.20);
+}
+
+.boardTypeChip[data-type="pickem"] {
+  background: rgba(120, 80, 180, 0.08);
+  color: #6a4aad;
+  border-color: rgba(120, 80, 180, 0.20);
+}
+
+.boardTypeChip[data-type="mixed"] {
+  background: rgba(100, 110, 130, 0.08);
+  color: var(--color-text-muted);
+  border-color: rgba(100, 110, 130, 0.18);
 }
 
 /* ── Picks subheader ─────────────────────────────────────────────── */
