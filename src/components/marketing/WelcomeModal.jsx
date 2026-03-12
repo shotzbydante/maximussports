@@ -1,42 +1,163 @@
 /**
- * WelcomeModal — First-visit marketing modal.
+ * WelcomeModal — 3-step onboarding carousel for first-time visitors.
  *
- * Opens when mx_welcome_seen_v1 is absent in localStorage, or when ?welcome=1
- * is present in the URL. Closing by any means sets the flag so it won't
- * re-appear on future visits.
+ * Step 1: Product hook — mascot video + positioning headline
+ * Step 2: Product showcase — feature cards with screenshots
+ * Step 3: Conversion — value props + CTAs
  *
- * Architecture note:
- *   Rendered via ReactDOM.createPortal into document.body so it is immune to
- *   any ancestor stacking context issues (transform, opacity, overflow, etc.).
- *   Home.jsx's .home container uses `animation: homeFadeIn ... both` which
- *   permanently applies `transform: translateY(0)` via forwards-fill, making
- *   it a containing block that traps position:fixed descendants. The portal
- *   bypasses this entirely.
+ * Preserves:
+ *   - Portal rendering (bypasses ancestor stacking contexts)
+ *   - Focus management with restore-on-close
+ *   - Escape key close
+ *   - ARIA dialog attributes
+ *   - Reduced motion handling
+ *   - iOS-safe scroll locking
+ *   - Mobile bottom-sheet layout
  *
- * Accessibility:
- *   - role="dialog" aria-modal="true"
- *   - Focus is moved to close button on open; restored on close.
- *   - Escape key closes the modal.
- *   - Backdrop click closes the modal.
- *   - Body scroll is locked while open.
+ * Navigation:
+ *   - Dot indicators (clickable)
+ *   - Arrow keys (← →) advance/retreat steps
+ *   - Swipe gestures on touch devices
+ *   - "Skip intro" on steps 1–2, full CTAs on step 3
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  trackWelcomeModalViewed,
+  trackWelcomeModalStepAdvanced,
+  trackWelcomeModalSkipped,
+  trackWelcomeModalSignupClicked,
+  trackWelcomeModalExploreClicked,
+  trackWelcomeModalClosed,
+} from '../../lib/analytics/posthog';
 import styles from './WelcomeModal.module.css';
 
-const BULLETS = [
-  'Pin your teams to build a personalized dashboard',
-  'Track ATS leaders, odds movement, and upset alerts fast',
-  'Get AI briefings that cut through the noise',
-  'Follow scores, headlines, and top videos in one place',
+const TOTAL_STEPS = 3;
+const SWIPE_THRESHOLD = 50;
+
+const FEATURE_CARDS = [
+  {
+    id: 'team-intel',
+    label: 'Team Intel Hub',
+    sublabel: 'Bubble watch tiers, ATS profiles, and deep conference intel.',
+    image: '/images/onboarding/team-intel.svg',
+    overlay: 'ATS leaders + upcoming matchup edge',
+  },
+  {
+    id: 'odds-insights',
+    label: 'Odds Insights',
+    sublabel: 'Market movers, spread signals, and underdog watch.',
+    image: '/images/onboarding/odds-insights.svg',
+    overlay: 'Live odds movement + value plays',
+  },
+  {
+    id: 'ai-picks',
+    label: 'AI-Powered Picks',
+    sublabel: 'Model-driven signals with confidence levels.',
+    image: '/images/onboarding/ai-picks.svg',
+    overlay: "Pick'Em \u00b7 ATS \u00b7 Value \u00b7 Totals",
+  },
 ];
 
-export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) {
+const VALUE_PROPS = [
+  {
+    id: 'pin',
+    title: 'Pin your teams',
+    desc: 'Build a personalized dashboard around the teams you follow.',
+  },
+  {
+    id: 'intel',
+    title: 'Get daily intel',
+    desc: 'AI briefings, ATS trends, and odds movement delivered to you.',
+  },
+  {
+    id: 'pro',
+    title: 'Unlock more with Pro',
+    desc: 'Unlimited teams, full odds access, and deeper intelligence.',
+  },
+];
+
+function PinIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2v8m-4-4h8m-4 4v10" />
+      <circle cx="12" cy="6" r="4" />
+    </svg>
+  );
+}
+
+function IntelIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 20h20M5 20V10l4-6h6l4 6v10" />
+      <path d="M9 20v-4h6v4" />
+    </svg>
+  );
+}
+
+function ProIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+    </svg>
+  );
+}
+
+const ICONS = { pin: PinIcon, intel: IntelIcon, pro: ProIcon };
+
+export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
   const closeBtnRef  = useRef(null);
   const prevFocusRef = useRef(null);
-  const [videoReady, setVideoReady] = useState(false);
+  const touchXRef    = useRef(null);
+  const touchEndXRef = useRef(null);
+  const trackedStepsRef = useRef(new Set());
 
-  // Focus management: rAF ensures DOM is painted before we grab focus
+  const [step, setStep]           = useState(1);
+  const [videoReady, setVideoReady] = useState(false);
+  const [imgErrors, setImgErrors] = useState({});
+
+  const goTo = useCallback((target, from) => {
+    if (target < 1 || target > TOTAL_STEPS || target === from) return;
+    trackWelcomeModalStepAdvanced({ from_step: from, to_step: target });
+    setStep(target);
+  }, []);
+
+  const handleNext = useCallback(() => goTo(step + 1, step), [goTo, step]);
+
+  const handleSkip = useCallback(() => {
+    trackWelcomeModalSkipped({ step });
+    onClose?.();
+  }, [step, onClose]);
+
+  const handleSignup = useCallback(() => {
+    trackWelcomeModalSignupClicked({ step });
+    onSignup?.();
+  }, [step, onSignup]);
+
+  const handleExplore = useCallback(() => {
+    trackWelcomeModalExploreClicked({ step });
+    onExplore?.();
+  }, [step, onExplore]);
+
+  const handleCloseBtn = useCallback(() => {
+    trackWelcomeModalClosed({ step, method: 'x_button' });
+    onClose?.();
+  }, [step, onClose]);
+
+  const handleBackdropClose = useCallback(() => {
+    trackWelcomeModalClosed({ step, method: 'backdrop' });
+    onClose?.();
+  }, [step, onClose]);
+
+  // Track step views (fire once per step per modal open)
+  useEffect(() => {
+    if (!open) return;
+    if (trackedStepsRef.current.has(step)) return;
+    trackedStepsRef.current.add(step);
+    trackWelcomeModalViewed({ step });
+  }, [open, step]);
+
+  // Focus management
   useEffect(() => {
     if (open) {
       prevFocusRef.current = document.activeElement;
@@ -48,23 +169,29 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
     }
   }, [open]);
 
-  // Scroll lock + Escape — iOS-safe: position:fixed prevents page scroll
+  // Keyboard: Escape + Arrow keys
   const handleKeyDown = useCallback(
-    (e) => { if (e.key === 'Escape') onClose?.(); },
-    [onClose],
+    (e) => {
+      if (e.key === 'Escape') {
+        trackWelcomeModalClosed({ step, method: 'escape' });
+        onClose?.();
+      }
+      if (e.key === 'ArrowRight' && step < TOTAL_STEPS) goTo(step + 1, step);
+      if (e.key === 'ArrowLeft' && step > 1) goTo(step - 1, step);
+    },
+    [onClose, step, goTo],
   );
 
+  // Scroll lock + keyboard listener
   useEffect(() => {
     if (!open) return;
     document.addEventListener('keydown', handleKeyDown);
-
     const scrollY = window.scrollY;
-    const body = document.body;
+    const { body } = document;
     body.style.overflow  = 'hidden';
     body.style.position  = 'fixed';
     body.style.top       = `-${scrollY}px`;
     body.style.width     = '100%';
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       body.style.overflow  = '';
@@ -75,93 +202,201 @@ export default function WelcomeModal({ open, onClose, onPrimary, onSecondary }) 
     };
   }, [open, handleKeyDown]);
 
-  // Reset video-ready flag each time modal opens so fade plays fresh
+  // Reset state on open
   useEffect(() => {
-    if (open) setVideoReady(false);
+    if (open) {
+      setStep(1);
+      setVideoReady(false);
+      setImgErrors({});
+      trackedStepsRef.current = new Set();
+    }
   }, [open]);
+
+  // Preload Step 2 images during Step 1
+  useEffect(() => {
+    if (!open || step !== 1) return;
+    FEATURE_CARDS.forEach(({ image }) => {
+      const link = document.createElement('link');
+      link.rel  = 'preload';
+      link.as   = 'image';
+      link.href = image;
+      document.head.appendChild(link);
+    });
+  }, [open, step]);
+
+  // Touch / swipe handlers
+  const handleTouchStart = useCallback((e) => {
+    touchXRef.current    = e.targetTouches[0].clientX;
+    touchEndXRef.current = null;
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    touchEndXRef.current = e.targetTouches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchXRef.current == null || touchEndXRef.current == null) return;
+    const diff = touchXRef.current - touchEndXRef.current;
+    if (diff > SWIPE_THRESHOLD && step < TOTAL_STEPS) goTo(step + 1, step);
+    else if (diff < -SWIPE_THRESHOLD && step > 1) goTo(step - 1, step);
+    touchXRef.current    = null;
+    touchEndXRef.current = null;
+  }, [step, goTo]);
+
+  const handleImgError = useCallback((cardId) => {
+    setImgErrors((prev) => ({ ...prev, [cardId]: true }));
+  }, []);
 
   if (!open) return null;
 
-  // Portal: renders directly into document.body, bypassing all ancestor
-  // stacking contexts (transform, opacity, overflow, z-index) completely.
   return createPortal(
     <div
       className={styles.backdrop}
       role="dialog"
       aria-modal="true"
       aria-label="Welcome to Maximus Sports"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleBackdropClose(); }}
     >
-      <div className={styles.panel}>
-
-        {/*
-          Close button is absolutely positioned on the panel (overflow:hidden).
-          Rock-solid — no sticky / zero-height tricks that break in Safari.
-        */}
+      <div
+        className={styles.panel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <button
           ref={closeBtnRef}
           type="button"
           className={styles.closeBtn}
           aria-label="Close welcome modal"
-          onClick={onClose}
+          onClick={handleCloseBtn}
         >
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
         </button>
 
-        {/*
-          Separate scroll container — keeps the absolute close button above it
-          regardless of scroll position inside the panel.
-        */}
         <div className={styles.scroller}>
 
-          {/* Dunk video — fades in once first frame is ready */}
-          <div className={`${styles.videoWrap}${videoReady ? ` ${styles.videoLoaded}` : ''}`}>
-            <video
-              className={styles.video}
-              src="/videos/maximus-dunk.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              onCanPlay={() => setVideoReady(true)}
-            />
-          </div>
-
-          {/* Copy + CTAs */}
-          <div className={styles.body}>
-            <div>
-              <p className={styles.eyebrow}>Welcome to</p>
-              <h2 className={styles.title}>Maximus Sports</h2>
+          {/* ── Step 1: Product Hook ── */}
+          {step === 1 && (
+            <div className={styles.stepContent} aria-label="Step 1 of 3: Product introduction">
+              <div className={`${styles.videoWrap}${videoReady ? ` ${styles.videoLoaded}` : ''}`}>
+                <video
+                  className={styles.video}
+                  src="/videos/maximus-dunk.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  onCanPlay={() => setVideoReady(true)}
+                />
+              </div>
+              <div className={styles.body}>
+                <h2 className={styles.headline}>
+                  See the College Basketball Board Like&nbsp;a&nbsp;Pro
+                </h2>
+                <p className={styles.subtitle}>
+                  Turn the college basketball board into actionable intelligence
+                  — from team intel and ATS trends to odds insights and model-driven picks.
+                </p>
+              </div>
             </div>
+          )}
 
-            <p className={styles.subtitle}>
-              Your one-stop shop for actionable college hoops news, odds, betting intel, and AI-powered analysis.
-            </p>
+          {/* ── Step 2: Product Showcase ── */}
+          {step === 2 && (
+            <div className={styles.stepContent} aria-label="Step 2 of 3: Feature showcase">
+              <div className={styles.showcaseBody}>
+                <p className={styles.showcaseEyebrow}>See What&#8217;s Inside</p>
+                <div className={styles.featureCards}>
+                  {FEATURE_CARDS.map((card) => (
+                    <div key={card.id} className={styles.featureCard}>
+                      <div className={styles.featureImageWrap}>
+                        {imgErrors[card.id] ? (
+                          <div className={styles.featureImageFallback} />
+                        ) : (
+                          <img
+                            src={card.image}
+                            alt={card.label}
+                            className={styles.featureImage}
+                            loading="eager"
+                            onError={() => handleImgError(card.id)}
+                          />
+                        )}
+                        <span className={styles.featureOverlay}>{card.overlay}</span>
+                      </div>
+                      <h3 className={styles.featureLabel}>{card.label}</h3>
+                      <p className={styles.featureSublabel}>{card.sublabel}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
-            <ul className={styles.bullets} aria-label="Key features">
-              {BULLETS.map((b) => (
-                <li key={b} className={styles.bullet}>
-                  <span className={styles.bulletCheck} aria-hidden>✓</span>
-                  {b}
-                </li>
-              ))}
-            </ul>
+          {/* ── Step 3: Conversion ── */}
+          {step === 3 && (
+            <div className={styles.stepContent} aria-label="Step 3 of 3: Get started">
+              <div className={styles.conversionBody}>
+                <h2 className={styles.conversionHeadline}>Make It Yours</h2>
+                <div className={styles.valueProps}>
+                  {VALUE_PROPS.map((vp) => {
+                    const Icon = ICONS[vp.id];
+                    return (
+                      <div key={vp.id} className={styles.valueProp}>
+                        <span className={`${styles.valuePropIcon} ${vp.id === 'pro' ? styles.valuePropIconPro : ''}`}>
+                          <Icon />
+                        </span>
+                        <div>
+                          <h3 className={styles.valuePropTitle}>{vp.title}</h3>
+                          <p className={styles.valuePropDesc}>{vp.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className={styles.ctaGroup}>
+                  <button type="button" className={styles.ctaPrimary} onClick={handleSignup}>
+                    Create free account
+                  </button>
+                  <button type="button" className={styles.ctaSecondary} onClick={handleExplore}>
+                    Explore the board
+                  </button>
+                </div>
+                <p className={styles.footerNote}>Free to use. Pro available when you&#8217;re ready.</p>
+              </div>
+            </div>
+          )}
 
-            <div className={styles.ctaGroup}>
-              <button type="button" className={styles.ctaPrimary} onClick={onPrimary}>
-                Create account and pin your first team
+        </div>
+
+        {/* ── Navigation footer ── */}
+        <div className={styles.navFooter}>
+          <div className={styles.dots} role="tablist" aria-label="Onboarding steps">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="tab"
+                className={`${styles.dot} ${step === n ? styles.dotActive : ''}`}
+                onClick={() => goTo(n, step)}
+                aria-label={`Step ${n}`}
+                aria-selected={step === n}
+              />
+            ))}
+          </div>
+          {step < TOTAL_STEPS && (
+            <div className={styles.navActions}>
+              <button type="button" className={styles.navNext} onClick={handleNext}>
+                {step === 1 ? 'Get Started' : 'Next'}
+                <span aria-hidden="true">{' \u2192'}</span>
               </button>
-              <button type="button" className={styles.ctaSecondary} onClick={onSecondary}>
-                Continue without signing in
+              <button type="button" className={styles.navSkip} onClick={handleSkip}>
+                Skip intro
               </button>
             </div>
-
-            <p className={styles.footerNote}>Customize your experience in under 30 seconds.</p>
-          </div>
-
+          )}
         </div>
       </div>
     </div>,

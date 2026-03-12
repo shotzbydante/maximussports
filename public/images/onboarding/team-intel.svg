@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="640" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0d1a26"/>
+      <stop offset="1" stop-color="#1a3048"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c3450"/>
+      <stop offset="1" stop-color="#162a40"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" rx="12" fill="url(#bg)"/>
+  <!-- Header bar -->
+  <rect x="24" y="20" width="592" height="44" rx="8" fill="#1c3450" opacity=".7"/>
+  <text x="44" y="47" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#5c9fd4" letter-spacing=".08em">TEAM INTEL HUB</text>
+  <rect x="220" y="34" width="56" height="18" rx="9" fill="#3C79B4" opacity=".25"/>
+  <text x="230" y="47" font-family="system-ui,sans-serif" font-size="9" font-weight="600" fill="#7bb8e0">BUBBLE</text>
+  <!-- Bubble Watch tiers -->
+  <rect x="24" y="76" width="280" height="36" rx="6" fill="#1c3450" opacity=".55"/>
+  <circle cx="44" cy="94" r="8" fill="#2d8a6e"/>
+  <text x="58" y="98" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#c9ecf5">Lock</text>
+  <rect x="100" y="86" width="60" height="16" rx="4" fill="#2d8a6e" opacity=".2"/>
+  <text x="110" y="98" font-family="monospace" font-size="10" fill="#2d8a6e">12 teams</text>
+
+  <rect x="24" y="118" width="280" height="36" rx="6" fill="#1c3450" opacity=".45"/>
+  <circle cx="44" cy="136" r="8" fill="#3C79B4"/>
+  <text x="58" y="140" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#c9ecf5">Should Be In</text>
+  <rect x="156" y="128" width="52" height="16" rx="4" fill="#3C79B4" opacity=".2"/>
+  <text x="162" y="140" font-family="monospace" font-size="10" fill="#5c9fd4">8 teams</text>
+
+  <rect x="24" y="160" width="280" height="36" rx="6" fill="#1c3450" opacity=".35"/>
+  <circle cx="44" cy="178" r="8" fill="#B7986C"/>
+  <text x="58" y="182" font-family="system-ui,sans-serif" font-size="12" font-weight="600" fill="#c9ecf5">Work To Do</text>
+  <rect x="142" y="170" width="52" height="16" rx="4" fill="#B7986C" opacity=".2"/>
+  <text x="148" y="182" font-family="monospace" font-size="10" fill="#B7986C">6 teams</text>
+
+  <!-- ATS Profile card -->
+  <rect x="320" y="76" width="296" height="120" rx="8" fill="url(#card)" opacity=".8"/>
+  <text x="340" y="100" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="#5c9fd4" letter-spacing=".08em">ATS PROFILE</text>
+  <text x="340" y="124" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#ffffff">18-9-1</text>
+  <text x="418" y="124" font-family="system-ui,sans-serif" font-size="13" fill="#5c9fd4">vs spread</text>
+  <rect x="340" y="138" width="120" height="6" rx="3" fill="#1a3048"/>
+  <rect x="340" y="138" width="78" height="6" rx="3" fill="#2d8a6e"/>
+  <text x="340" y="164" font-family="monospace" font-size="11" fill="#7bb8e0">Last 30: 8-3 · Season: 18-9</text>
+  <text x="340" y="182" font-family="monospace" font-size="11" fill="#5c9fd4">Cover rate: 64.3%</text>
+
+  <!-- Conference intel -->
+  <rect x="320" y="208" width="296" height="80" rx="8" fill="url(#card)" opacity=".6"/>
+  <text x="340" y="232" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="#5c9fd4" letter-spacing=".08em">CONFERENCE INTEL</text>
+  <circle cx="348" cy="256" r="6" fill="#3C79B4"/>
+  <text x="360" y="260" font-family="system-ui,sans-serif" font-size="11" fill="#c9ecf5">Big Ten  7 bubble teams</text>
+  <circle cx="348" cy="274" r="6" fill="#B7986C"/>
+  <text x="360" y="278" font-family="system-ui,sans-serif" font-size="11" fill="#c9ecf5">SEC  5 bubble teams</text>
+
+  <!-- Next game card -->
+  <rect x="24" y="212" width="280" height="76" rx="8" fill="url(#card)" opacity=".6"/>
+  <text x="44" y="236" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="#5c9fd4" letter-spacing=".08em">NEXT GAME</text>
+  <text x="44" y="258" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#ffffff">vs #8 Purdue</text>
+  <text x="44" y="276" font-family="monospace" font-size="11" fill="#7bb8e0">Spread: -3.5 · O/U: 142.5</text>
+
+  <!-- Bottom bar -->
+  <rect x="24" y="310" width="592" height="68" rx="8" fill="#1c3450" opacity=".4"/>
+  <text x="44" y="336" font-family="system-ui,sans-serif" font-size="10" font-weight="600" fill="#5c9fd4" letter-spacing=".08em">CHAMPIONSHIP ODDS</text>
+  <text x="44" y="358" font-family="monospace" font-size="18" font-weight="700" fill="#2d8a6e">+650</text>
+  <text x="96" y="358" font-family="system-ui,sans-serif" font-size="11" fill="#7bb8e0">to win national championship</text>
+  <rect x="440" y="326" width="64" height="22" rx="4" fill="#3C79B4" opacity=".3"/>
+  <text x="450" y="342" font-family="monospace" font-size="10" fill="#7bb8e0">² +50</text>
+</svg>

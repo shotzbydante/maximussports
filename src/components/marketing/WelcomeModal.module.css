@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════
-   WelcomeModal — first-visit marketing overlay.
-   Follows the Air Force One design system (tokens.css + index.css).
+   WelcomeModal — 3-step onboarding carousel.
+   Air Force One design system (tokens.css + index.css).
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── Backdrop ───────────────────────────────────────────────────── */
@@ -14,11 +14,9 @@
   align-items: center;
   justify-content: center;
   padding: 20px 16px;
-  /* Prefix required for Safari < 16 */
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   animation: fadeIn 0.22s ease;
-  /* Prevent page rubber-band scroll on iOS while modal is open */
   overscroll-behavior: none;
 }
 
@@ -32,12 +30,7 @@
 .panel {
   position: relative;
   width: 100%;
-  max-width: 560px;
-  /*
-    dvh = dynamic viewport height (excludes browser chrome on mobile).
-    The vh fallback is for older browsers that don't support dvh.
-    This is the primary fix for iOS Safari cutting the modal off.
-  */
+  max-width: 620px;
   max-height: calc(100vh - 48px);
   max-height: calc(100dvh - 48px);
   background: var(--color-bg-elevated);
@@ -46,10 +39,6 @@
     0 2px 8px rgba(0, 0, 0, 0.08),
     0 16px 48px rgba(0, 0, 0, 0.28),
     0 32px 80px rgba(0, 0, 0, 0.16);
-  /*
-    overflow: hidden here (not on scroller) keeps the close button absolutely
-    positioned inside the panel so it's always visible — no sticky tricks.
-  */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -57,21 +46,16 @@
 }
 
 @keyframes slideUp {
-  /*
-    Animate only position/scale — never start at opacity:0.
-    The panel must be immediately visible; a subtle lift-in is enough polish.
-    No fill-mode needed because the to-state matches the element's base CSS.
-  */
   from { transform: translateY(18px) scale(0.984); }
   to   { transform: translateY(0)    scale(1);     }
 }
 
-/* ─── Inner scroll container ─────────────────────────────────────── */
+/* ─── Scroller ───────────────────────────────────────────────────── */
 
 .scroller {
   overflow-y: auto;
   flex: 1;
-  min-height: 0; /* critical for flex children to scroll correctly */
+  min-height: 0;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -81,7 +65,7 @@
   display: none;
 }
 
-/* ─── Close button — absolute on panel, always above scroll ──────── */
+/* ─── Close button ───────────────────────────────────────────────── */
 
 .closeBtn {
   position: absolute;
@@ -111,18 +95,24 @@
   outline-offset: 2px;
 }
 
-/* ─── Video ──────────────────────────────────────────────────────── */
+/* ─── Step content wrapper ───────────────────────────────────────── */
+
+.stepContent {
+  animation: stepFadeIn 0.25s ease;
+}
+
+@keyframes stepFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* ─── Step 1: Video ──────────────────────────────────────────────── */
 
 .videoWrap {
   width: 100%;
-  /*
-    aspect-ratio reserves intrinsic space before video loads, preventing
-    layout shift. max-height caps it on short viewports so copy stays visible.
-    object-fit: cover on the video makes any crop feel intentional.
-  */
   aspect-ratio: 16 / 9;
   max-height: min(260px, 38vh);
-  background: #0d1a26; /* dark placeholder — matches video's colour palette */
+  background: #0d1a26;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -132,27 +122,51 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  /* Starts invisible; fades in once onCanPlay fires */
   opacity: 0;
   transition: opacity 0.35s ease;
 }
 
-/* Applied to .videoWrap when the video is ready to play */
 .videoLoaded .video {
   opacity: 1;
 }
 
-/* ─── Body copy ──────────────────────────────────────────────────── */
+/* ─── Step 1: Body ───────────────────────────────────────────────── */
 
 .body {
-  padding: 22px 28px 28px;
+  padding: 24px 28px 8px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
-.eyebrow {
-  margin: 0 0 2px;
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.12;
+  letter-spacing: -0.005em;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+/* ─── Step 2: Showcase ───────────────────────────────────────────── */
+
+.showcaseBody {
+  padding: 24px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.showcaseEyebrow {
+  margin: 0;
   font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 600;
@@ -161,65 +175,156 @@
   text-transform: uppercase;
 }
 
-.title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.9rem;
-  font-weight: 700;
-  color: var(--color-text);
-  line-height: 1.08;
-  letter-spacing: -0.01em;
+.featureCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
 
-.subtitle {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-}
-
-/* ─── Bullet list ────────────────────────────────────────────────── */
-
-.bullets {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.featureCard {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
 }
 
-.bullet {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 0.875rem;
+.featureImageWrap {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: #0d1a26;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: perspective(800px) rotateY(-2deg);
+  transition: transform 0.25s ease;
+}
+
+.featureCard:nth-child(2) .featureImageWrap {
+  transform: perspective(800px) rotateY(0deg);
+}
+
+.featureCard:nth-child(3) .featureImageWrap {
+  transform: perspective(800px) rotateY(2deg);
+}
+
+.featureCard:hover .featureImageWrap {
+  transform: perspective(800px) rotateY(0deg) scale(1.02);
+}
+
+.featureImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.featureImageFallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0d1a26 0%, #1a3048 100%);
+}
+
+.featureOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 8px;
+  background: linear-gradient(transparent, rgba(10, 18, 28, 0.85));
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: rgba(201, 236, 245, 0.9);
+  letter-spacing: 0.02em;
+}
+
+.featureLabel {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
   color: var(--color-text);
+  line-height: 1.2;
+}
+
+.featureSublabel {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
   line-height: 1.45;
 }
 
-.bulletCheck {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 50%;
-  font-size: 0.6rem;
+/* ─── Step 3: Conversion ─────────────────────────────────────────── */
+
+.conversionBody {
+  padding: 28px 28px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.conversionHeadline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
   font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.08;
+  letter-spacing: -0.005em;
+}
+
+.valueProps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.valueProp {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.valuePropIcon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
-/* ─── CTA group ──────────────────────────────────────────────────── */
+.valuePropIconPro {
+  background: rgba(183, 152, 108, 0.12);
+  color: var(--color-accent);
+}
+
+.valuePropTitle {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.valuePropDesc {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ─── CTAs ───────────────────────────────────────────────────────── */
 
 .ctaGroup {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .ctaPrimary {
@@ -276,8 +381,6 @@
   outline-offset: 2px;
 }
 
-/* ─── Footer note ────────────────────────────────────────────────── */
-
 .footerNote {
   margin: 0;
   font-size: 0.73rem;
@@ -285,6 +388,100 @@
   text-align: center;
   font-style: italic;
   letter-spacing: 0.01em;
+}
+
+/* ─── Navigation footer ──────────────────────────────────────────── */
+
+.navFooter {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px 18px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.dots {
+  display: flex;
+  gap: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: var(--color-border);
+  cursor: pointer;
+  transition: background var(--transition-fast, 0.12s ease), transform 0.15s;
+}
+
+.dot:hover {
+  background: var(--color-text-muted);
+}
+
+.dotActive {
+  background: var(--color-primary);
+  transform: scale(1.25);
+}
+
+.dotActive:hover {
+  background: var(--color-primary);
+}
+
+.dot:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navNext {
+  padding: 8px 18px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast, 0.12s ease);
+}
+
+.navNext:hover {
+  background: var(--color-primary-hover);
+}
+
+.navNext:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.navSkip {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast, 0.12s ease);
+}
+
+.navSkip:hover {
+  color: var(--color-text-secondary);
+}
+
+.navSkip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ─── Mobile — bottom sheet ──────────────────────────────────────── */
@@ -298,10 +495,6 @@
   .panel {
     border-radius: 20px 20px 0 0;
     max-width: 100%;
-    /*
-      dvh fallback pattern repeated for mobile-specific cap.
-      92% leaves a small top gap so users see they're in a modal.
-    */
     max-height: 92vh;
     max-height: 92dvh;
   }
@@ -312,18 +505,61 @@
   }
 
   .body {
-    padding: 18px 20px 20px;
-    /* Respect notch / home indicator on modern iPhones */
-    padding-bottom: max(20px, calc(16px + env(safe-area-inset-bottom, 0px)));
-    gap: 12px;
+    padding: 18px 20px 8px;
+    gap: 10px;
   }
 
-  .title {
-    font-size: 1.55rem;
+  .headline {
+    font-size: 1.4rem;
   }
 
   .subtitle {
-    font-size: 0.84rem;
+    font-size: 0.82rem;
+  }
+
+  .showcaseBody {
+    padding: 18px 16px 8px;
+    gap: 14px;
+  }
+
+  .featureCards {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    padding-bottom: 4px;
+  }
+
+  .featureCard {
+    min-width: 78%;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+
+  .featureImageWrap {
+    transform: none;
+    aspect-ratio: 16 / 10;
+  }
+
+  .featureCard:hover .featureImageWrap {
+    transform: none;
+  }
+
+  .conversionBody {
+    padding: 20px 20px 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    gap: 14px;
+  }
+
+  .conversionHeadline {
+    font-size: 1.35rem;
+  }
+
+  .navFooter {
+    padding: 12px 20px 14px;
+    padding-bottom: max(14px, calc(10px + env(safe-area-inset-bottom, 0px)));
   }
 
   .closeBtn {
@@ -336,19 +572,31 @@
 
 @media (prefers-reduced-motion: reduce) {
   .backdrop,
-  .panel {
+  .panel,
+  .stepContent {
     animation: none;
   }
 
   .closeBtn,
   .ctaPrimary,
   .ctaSecondary,
-  .video {
+  .video,
+  .dot,
+  .navNext,
+  .navSkip,
+  .featureImageWrap {
     transition: none;
   }
 
   .video {
-    /* Skip fade when motion is reduced — show video immediately */
     opacity: 1;
+  }
+
+  .featureImageWrap {
+    transform: none;
+  }
+
+  .featureCard:hover .featureImageWrap {
+    transform: none;
   }
 }

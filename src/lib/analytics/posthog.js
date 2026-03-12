@@ -144,3 +144,35 @@ export function trackSignupViewed() {
   dbg('trackSignupViewed');
   track('signup_viewed', {});
 }
+
+/* ── Onboarding carousel events ─────────────────────────────────── */
+
+export function trackWelcomeModalViewed({ step = 1 } = {}) {
+  dbg('trackWelcomeModalViewed', { step });
+  track('welcome_modal_viewed', { step });
+}
+
+export function trackWelcomeModalStepAdvanced({ from_step, to_step } = {}) {
+  dbg('trackWelcomeModalStepAdvanced', { from_step, to_step });
+  track('welcome_modal_step_advanced', { from_step, to_step });
+}
+
+export function trackWelcomeModalSkipped({ step = 1 } = {}) {
+  dbg('trackWelcomeModalSkipped', { step });
+  track('welcome_modal_skipped', { step });
+}
+
+export function trackWelcomeModalSignupClicked({ step = 3 } = {}) {
+  dbg('trackWelcomeModalSignupClicked', { step });
+  track('welcome_modal_signup_clicked', { step });
+}
+
+export function trackWelcomeModalExploreClicked({ step = 3 } = {}) {
+  dbg('trackWelcomeModalExploreClicked', { step });
+  track('welcome_modal_explore_clicked', { step });
+}
+
+export function trackWelcomeModalClosed({ step = 1, method = 'x_button' } = {}) {
+  dbg('trackWelcomeModalClosed', { step, method });
+  track('welcome_modal_closed', { step, method });
+}
