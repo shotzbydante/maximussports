@@ -1,62 +1,16 @@
 import PicksSlideShell from './PicksSlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import {
+  getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText,
+  getEditorialLine, getMaximusTake,
+} from '../../../utils/confidenceSystem';
 import styles from './MaxPicksHeroSlide.module.css';
-
-const CONF_COLOR = {
-  high:   { bg: 'rgba(45,138,110,0.22)', text: '#2d8a6e', border: 'rgba(45,138,110,0.40)' },
-  medium: { bg: 'rgba(183,152,108,0.22)', text: '#B7986C', border: 'rgba(183,152,108,0.40)' },
-  low:    { bg: 'rgba(60,121,180,0.15)', text: '#3C79B4', border: 'rgba(60,121,180,0.30)' },
-};
-
-function confStyle(l) {
-  return CONF_COLOR[l >= 2 ? 'high' : l >= 1 ? 'medium' : 'low'];
-}
 
 function makeTeamObj(name) {
   if (!name) return null;
   return { name: name.replace(/^(?:The |the )/, '').trim(), slug: getTeamSlug(name) };
-}
-
-function edgePctScale(pick) {
-  const e = pick.edgeMag ?? 0;
-  const s = { value: 0.12, total: 0.18, ats: 0.25, pickem: 0.18 }[pick.pickType] ?? 0.18;
-  return Math.min(Math.round((e / s) * 100), 100);
-}
-
-function edgeText(pick) {
-  if (pick.pickType === 'value' && pick.edgePp != null) return `+${pick.edgePp}%`;
-  return `+${Math.round((pick.edgeMag ?? 0) * 100)}%`;
-}
-
-function editorialLine(pick) {
-  const c = pick.confidence;
-  switch (pick.pickType) {
-    case 'pickem':
-      if (c >= 2) return 'Strong model conviction — significant edge detected';
-      if (c >= 1) return 'Model sees value the market may be underrating';
-      return 'Marginal edge — market price looks close to fair';
-    case 'ats':
-      if (c >= 2) return 'ATS trends strongly favor this side to cover';
-      if (c >= 1) return 'Recent form suggests a cover opportunity';
-      return 'Directional lean — spread value at the margin';
-    case 'value':
-      if (c >= 2) return 'Model sees significantly more value than the market';
-      if (c >= 1) return 'Moderate value gap between model and market price';
-      return 'Price looks efficient but edge still qualifies';
-    case 'total':
-      if (pick.leanDirection === 'OVER') {
-        if (c >= 2) return 'Strongest scoring environment on the board';
-        if (c >= 1) return 'Scoring trends point toward the over';
-        return 'Combined tempo leans toward higher scoring';
-      }
-      if (c >= 2) return 'Defensive matchup strongly favors the under';
-      if (c >= 1) return 'Scoring pace suggests total may be set too high';
-      return 'Marginal lean toward lower-scoring outcome';
-    default:
-      return 'Model edge detected';
-  }
 }
 
 const CAT = {
@@ -69,16 +23,20 @@ const CAT = {
 /* ── Compact inline edge meter for pick rows ──────────────────── */
 
 function MiniEdge({ pick }) {
-  const pct = edgePctScale(pick);
-  const filled = Math.max(1, Math.round((pct / 100) * 6));
+  const filled = getBarBlocks(pick);
+  const cs = getSlideColors(pick.confidence);
   return (
     <div className={styles.miniEdge}>
       <div className={styles.miniBar}>
         {Array.from({ length: 6 }, (_, i) => (
-          <span key={i} className={`${styles.miniBlock} ${i < filled ? styles.miniOn : ''}`} />
+          <span
+            key={i}
+            className={`${styles.miniBlock} ${i < filled ? styles.miniOn : ''}`}
+            style={i < filled ? { background: cs.barFill, boxShadow: `0 0 4px ${cs.barGlow}` } : undefined}
+          />
         ))}
       </div>
-      <span className={styles.miniVal}>{edgeText(pick)}</span>
+      <span className={styles.miniVal} style={{ color: cs.text }}>{getEdgeText(pick)}</span>
     </div>
   );
 }
@@ -86,7 +44,7 @@ function MiniEdge({ pick }) {
 /* ── Pick Row — one ranked row per pick ───────────────────────── */
 
 function PickRow({ pick, rank }) {
-  const cs = confStyle(pick.confidence);
+  const cs = getSlideColors(pick.confidence);
   const isTot = pick.pickType === 'total';
   const teamObj = !isTot ? makeTeamObj(pick.pickTeam) : null;
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
@@ -115,12 +73,12 @@ function PickRow({ pick, rank }) {
           className={styles.pickConf}
           style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
         >
-          {confidenceLabel(pick.confidence)}
+          {getConfidenceLabel(pick.confidence)}
         </span>
         <MiniEdge pick={pick} />
       </div>
       {opponentLabel && <div className={styles.pickMatchup}>{opponentLabel}</div>}
-      <div className={styles.pickExplain}>{editorialLine(pick)}</div>
+      <div className={styles.pickExplain}>{getEditorialLine(pick)}</div>
     </div>
   );
 }

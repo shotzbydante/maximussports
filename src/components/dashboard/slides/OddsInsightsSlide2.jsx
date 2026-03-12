@@ -2,17 +2,8 @@ import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './OddsInsightsSlide2.module.css';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
-
-const CONF_COLOR = {
-  high:   { bg: 'rgba(45,138,110,0.18)', text: '#2d8a6e', border: 'rgba(45,138,110,0.35)' },
-  medium: { bg: 'rgba(183,152,108,0.18)', text: '#B7986C', border: 'rgba(183,152,108,0.35)' },
-  low:    { bg: 'rgba(60,121,180,0.12)', text: '#3C79B4', border: 'rgba(60,121,180,0.25)' },
-};
-
-function confStyle(level) {
-  return CONF_COLOR[level === 2 ? 'high' : level === 1 ? 'medium' : 'low'] || CONF_COLOR.low;
-}
+import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import { getSlideColors, getConfidenceLabel } from '../../../utils/confidenceSystem';
 
 function makeTeamObj(name) {
   if (!name) return null;
@@ -22,14 +13,14 @@ function makeTeamObj(name) {
 
 function buildAtsRationale(pick) {
   if (pick.whyValue) return pick.whyValue;
-  const conf = confidenceLabel(pick.confidence);
-  if (conf === 'High') return 'Strong cover profile gives this side a clear edge. Market still looks light.';
-  if (conf === 'Medium') return 'Recent cover trend is solid and the number looks a bit off.';
+  const conf = getConfidenceLabel(pick.confidence);
+  if (conf === 'HIGH') return 'Strong cover profile gives this side a clear edge. Market still looks light.';
+  if (conf === 'MEDIUM') return 'Recent cover trend is solid and the number looks a bit off.';
   return 'Slight lean based on ATS form. Watch for line movement closer to tip.';
 }
 
 function PickRow({ pick }) {
-  const cs = confStyle(pick.confidence);
+  const cs = getSlideColors(pick.confidence);
   const teamObj = makeTeamObj(pick.pickTeam);
   const rationale = buildAtsRationale(pick);
   return (
@@ -40,7 +31,7 @@ function PickRow({ pick }) {
           className={styles.confBadge}
           style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}
         >
-          {confidenceLabel(pick.confidence)}
+          {getConfidenceLabel(pick.confidence)}
         </span>
       </div>
       <div className={styles.pickTeamRow}>
@@ -60,14 +51,14 @@ function PickRow({ pick }) {
 
 function buildMlRationale(pick) {
   if (pick.whyValue) return pick.whyValue;
-  const conf = confidenceLabel(pick.confidence);
-  if (conf === 'High') return 'Implied probability gap is real. The market hasn\'t fully caught up on this one.';
-  if (conf === 'Medium') return 'Model sees a slight pricing edge vs the implied number. Worth a look.';
+  const conf = getConfidenceLabel(pick.confidence);
+  if (conf === 'HIGH') return 'Implied probability gap is real. The market hasn\'t fully caught up on this one.';
+  if (conf === 'MEDIUM') return 'Model sees a slight pricing edge vs the implied number. Worth a look.';
   return 'Thin value edge on the moneyline. Lean, not a hammer.';
 }
 
 function MlPickRow({ pick }) {
-  const cs = confStyle(pick.confidence);
+  const cs = getSlideColors(pick.confidence);
   const teamObj = makeTeamObj(pick.pickTeam);
   const rationale = buildMlRationale(pick);
   return (
@@ -79,7 +70,7 @@ function MlPickRow({ pick }) {
           className={styles.confBadge}
           style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}
         >
-          {confidenceLabel(pick.confidence)}
+          {getConfidenceLabel(pick.confidence)}
         </span>
       </div>
       <div className={styles.pickTeamRow}>

@@ -1,18 +1,9 @@
 import PicksSlideShell from './PicksSlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import { getSlideColors, getConfidenceLabel } from '../../../utils/confidenceSystem';
 import styles from './MaxPicksATSSlide.module.css';
-
-const CONF_COLOR = {
-  high:   { bg: 'rgba(45,138,110,0.18)', text: '#2d8a6e', border: 'rgba(45,138,110,0.35)' },
-  medium: { bg: 'rgba(183,152,108,0.18)', text: '#B7986C', border: 'rgba(183,152,108,0.35)' },
-  low:    { bg: 'rgba(60,121,180,0.12)', text: '#3C79B4', border: 'rgba(60,121,180,0.25)' },
-};
-
-function confStyle(level) {
-  return CONF_COLOR[level === 2 ? 'high' : level === 1 ? 'medium' : 'low'];
-}
 
 function makeTeamObj(name) {
   if (!name) return null;
@@ -47,7 +38,7 @@ export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, 
       ) : (
         <div className={styles.cardList}>
           {atsPicks.map((pick, i) => {
-            const cs = confStyle(pick.confidence);
+            const cs = getSlideColors(pick.confidence);
             const pickTeamObj = makeTeamObj(pick.pickTeam);
             const homeObj = makeTeamObj(pick.homeTeam);
             const awayObj = makeTeamObj(pick.awayTeam);
@@ -64,7 +55,7 @@ export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, 
                     className={styles.confBadge}
                     style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
                   >
-                    {confidenceLabel(pick.confidence)}
+                    {getConfidenceLabel(pick.confidence)}
                   </span>
                 </div>
                 <div className={styles.cardMatchup}>

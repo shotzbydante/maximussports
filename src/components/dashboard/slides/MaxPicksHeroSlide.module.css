@@ -193,8 +193,8 @@
 .modRows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 7px 10px 10px;
+  gap: 6px;
+  padding: 8px 10px 10px;
   flex: 1;
   justify-content: space-evenly;
 }
@@ -204,8 +204,8 @@
 .pickRow {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 9px 12px 8px;
+  gap: 3px;
+  padding: 10px 14px 9px;
   border-radius: 6px;
   background: rgba(10, 22, 38, 0.40);
   border: 1px solid rgba(183, 152, 108, 0.08);
@@ -236,10 +236,11 @@
 
 .pickLine {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 700;
   color: #f0f4f8;
-  line-height: 1.15;
+  line-height: 1.18;
+  letter-spacing: 0.01em;
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -281,42 +282,43 @@
 }
 
 .miniOn {
-  background: linear-gradient(135deg, #B7986C, #d4b896);
-  box-shadow: 0 0 4px rgba(183, 152, 108, 0.25);
+  /* color set dynamically via inline style to match confidence tier */
 }
 
 .miniVal {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   font-weight: 600;
-  color: #B7986C;
   white-space: nowrap;
+  /* color set dynamically via inline style to match confidence tier */
 }
 
 /* ── Matchup context line ────────────────────────────────────── */
 
 .pickMatchup {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.36);
+  color: rgba(240, 244, 248, 0.40);
   line-height: 1.2;
   padding-left: 28px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-bottom: 1px;
 }
 
 /* ── Editorial one-liner ─────────────────────────────────────── */
 
 .pickExplain {
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.44);
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.38);
   font-style: italic;
   line-height: 1.3;
   padding-left: 28px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 1px;
 }
 
 /* ── Edge helper note ────────────────────────────────────────── */

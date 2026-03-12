@@ -2,13 +2,8 @@ import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import styles from './OddsInsightsSlide3.module.css';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
-
-const CONF_COLOR = {
-  high:   { bg: 'rgba(45,138,110,0.18)', text: '#2d8a6e', border: 'rgba(45,138,110,0.35)' },
-  medium: { bg: 'rgba(183,152,108,0.18)', text: '#B7986C', border: 'rgba(183,152,108,0.35)' },
-  low:    { bg: 'rgba(60,121,180,0.12)', text: '#3C79B4', border: 'rgba(60,121,180,0.25)' },
-};
+import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import { getSlideColors, getConfidenceLabel } from '../../../utils/confidenceSystem';
 
 /**
  * Safely convert an ATS record object/string to a display string.
@@ -91,7 +86,7 @@ export default function OddsInsightsSlide3({ data, asOf, slideNumber, slideTotal
         ) : (
           <div className={styles.mlList}>
             {mlPicks.slice(0, 3).map((p, i) => {
-              const cs = CONF_COLOR[p.confidence === 2 ? 'high' : p.confidence === 1 ? 'medium' : 'low'] || CONF_COLOR.low;
+              const cs = getSlideColors(p.confidence);
               return (
                 <div key={i} className={styles.mlCard}>
                   <div className={styles.mlCardTop}>
@@ -101,7 +96,7 @@ export default function OddsInsightsSlide3({ data, asOf, slideNumber, slideTotal
                       className={styles.confBadge}
                       style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}
                     >
-                      {confidenceLabel(p.confidence)}
+                      {getConfidenceLabel(p.confidence)}
                     </span>
                   </div>
                   <div className={styles.mlPickLine}>{p.pickTeam || p.pickLine || '—'}</div>

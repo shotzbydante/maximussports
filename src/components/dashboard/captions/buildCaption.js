@@ -8,7 +8,7 @@
  */
 
 import { getTeamEmoji } from '../../../utils/getTeamEmoji';
-import { confidenceLabel } from '../../../utils/maximusPicksModel';
+import { getConfidenceLabel, getMaximusTake } from '../../../utils/confidenceSystem';
 import { TEAMS } from '../../../data/teams';
 
 // ─── Phrase Variation ─────────────────────────────────────────────────────────
@@ -274,10 +274,10 @@ function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, as
       if (nextOpp) return `No qualified edge yet for the ${nextOpp} game. Value threshold not met.`;
       return `No qualified lean right now \u2014 value threshold not met.`;
     }
-    const conf = confidenceLabel(pick.confidence);
+    const conf = getConfidenceLabel(pick.confidence);
     const confPhrase =
-      conf === 'High'   ? 'The model has a real lean here.' :
-      conf === 'Medium' ? 'Slight edge \u2014 worth watching.' :
+      conf === 'HIGH'   ? 'The model has a real lean here.' :
+      conf === 'MEDIUM' ? 'Slight edge \u2014 worth watching.' :
                           'Early signal, low conviction.';
     const typeNote = pick.pickType === 'ats' ? 'ATS differential + implied probability' : 'Market value vs. model probability';
     return `Model lean: ${pick.pickLine}. ${confPhrase} Based on ${typeNote}.`;
@@ -398,6 +398,27 @@ function buildGameCaption({ game, picks, asOf }) {
 
 // ─── Maximus's Picks ──────────────────────────────────────────────────────────
 
+const PICKS_HOOKS = [
+  '\uD83D\uDD25 MAXIMUS\u2019S PICKS ARE LIVE',
+  '\uD83D\uDCCA TODAY\u2019S MODEL BOARD',
+  '\uD83C\uDFAF DATA EDGE ALERT',
+  '\uD83C\uDFC0 MAXIMUS MODEL DROP',
+  '\uD83D\uDEA8 MODEL SIGNALS JUST DROPPED',
+];
+
+function _picksHookForDate() {
+  const d = new Date();
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  return PICKS_HOOKS[dayOfYear % PICKS_HOOKS.length];
+}
+
+function _emojiOrFallback(slug, name) {
+  try {
+    const e = getTeamEmoji(slug, name);
+    return e || '\uD83C\uDFC0';
+  } catch { return '\uD83C\uDFC0'; }
+}
+
 function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
   const all = picks ?? [];
 
@@ -410,13 +431,15 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
   const signalCount = peList.length + atsList.length + valList.length + totList.length;
 
   function teamEmoji(pick) {
-    if (!pick) return '';
+    if (!pick) return '\uD83C\uDFC0';
     const slug = pick.pickTeam === pick.homeTeam ? pick.homeSlug : pick.awaySlug;
-    try { return getTeamEmoji(slug, pick.pickTeam); } catch { return ''; }
+    return _emojiOrFallback(slug, pick.pickTeam);
   }
 
   function totTeamEmoji(pick) {
-    try { return getTeamEmoji(pick.homeSlug, pick.homeTeam) || getTeamEmoji(pick.awaySlug, pick.awayTeam); } catch { return ''; }
+    const e1 = _emojiOrFallback(pick.homeSlug, pick.homeTeam);
+    const e2 = _emojiOrFallback(pick.awaySlug, pick.awayTeam);
+    return e1 !== '\uD83C\uDFC0' ? e1 : e2;
   }
 
   function shortTeamName(fullName) {
@@ -426,30 +449,26 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
   }
 
   function fmtPickEmEntry(pick) {
-    const e = teamEmoji(pick);
-    return `${e ? e + ' ' : ''}${pick.pickTeam || pick.pickLine}`;
+    return `${teamEmoji(pick)} ${pick.pickTeam || pick.pickLine}`;
   }
 
   function fmtAtsEntry(pick) {
-    const e = teamEmoji(pick);
     const shortName = shortTeamName(pick.pickTeam);
     const spreadPart = pick.spread != null
       ? (pick.spread > 0 ? `+${pick.spread}` : String(pick.spread))
       : '';
-    return `${e ? e + ' ' : ''}${shortName} ${spreadPart}`.trim();
+    return `${teamEmoji(pick)} ${shortName} ${spreadPart}`.trim();
   }
 
   function fmtValueEntry(pick) {
-    const e = teamEmoji(pick);
     const shortName = shortTeamName(pick.pickTeam);
-    return `${e ? e + ' ' : ''}${shortName} ${pick.mlPriceLabel || ''}`.trim();
+    return `${teamEmoji(pick)} ${shortName} ${pick.mlPriceLabel || ''}`.trim();
   }
 
   function fmtTotalEntry(pick) {
-    const e = totTeamEmoji(pick);
     const shortName = shortTeamName(pick.homeTeam);
     const dir = pick.leanDirection || 'OVER';
-    return `${e ? e + ' ' : ''}${shortName} ${dir} ${pick.lineValue || ''}`.trim();
+    return `${totTeamEmoji(pick)} ${shortName} ${dir} ${pick.lineValue || ''}`.trim();
   }
 
   const pickemLines = peList.map(fmtPickEmEntry).join('\n');
@@ -473,22 +492,18 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
     : clusterParts.slice(0, -1).join(', ') + ', and ' + clusterParts[clusterParts.length - 1];
 
   const sections = [];
+  if (peList.length > 0) sections.push(`\uD83C\uDFAF Pick \u2019Em Signals\n${pickemLines}`);
+  if (atsList.length > 0) sections.push(`\uD83D\uDCC9 Against the Spread\n${atsLines}`);
+  if (valList.length > 0) sections.push(`\uD83D\uDCB0 Value Leans (longer odds)\n${valueLines}`);
+  if (totList.length > 0) sections.push(`\uD83D\uDCCA Totals Signals\n${totalsLines}`);
 
-  if (peList.length > 0) {
-    sections.push(`\uD83C\uDFAF Pick \u2019Em Signals\n${pickemLines}`);
-  }
-  if (atsList.length > 0) {
-    sections.push(`\uD83D\uDCC9 Against the Spread\n${atsLines}`);
-  }
-  if (valList.length > 0) {
-    sections.push(`\uD83D\uDCB0 Value Leans (longer odds)\n${valueLines}`);
-  }
-  if (totList.length > 0) {
-    sections.push(`\uD83D\uDCCA Totals Signals\n${totalsLines}`);
-  }
+  const take = getMaximusTake(all);
+  const takeLine = take
+    ? `\uD83D\uDCA1 Maximus\u2019s top signal: ${take.label} (${take.category} \u00b7 ${take.tierLabel})`
+    : null;
 
   const caption = [
-    `\uD83D\uDD25 MAXIMUS\u2019S PICKS ARE LIVE`,
+    _picksHookForDate(),
     '',
     `The model just scanned today\u2019s board and flagged ${signalCount} signal${signalCount !== 1 ? 's' : ''} across spreads, totals, and value plays.`,
     `Here\u2019s where the data says there\u2019s market edge today \uD83D\uDC47`,
@@ -496,6 +511,7 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
     ...sections.flatMap(s => [s, '']),
     `\uD83D\uDCE1 Model note:`,
     `Signals today are clustering around ${signalSummary || 'the full board'}.`,
+    ...(takeLine ? ['', takeLine] : []),
     '',
     'Swipe the card for the full board + signal strength breakdown.',
     '',
@@ -862,7 +878,7 @@ function buildTeamSummaryCaption({
     }
 
     if (matchedPick) {
-      const conf = confidenceLabel(matchedPick.confidence);
+      const conf = getConfidenceLabel(matchedPick.confidence);
       const typeNote = matchedPick.pickType === 'ats' ? 'ATS' : 'ML';
       pickSection = `\uD83C\uDFAF Maximus lean: ${matchedPick.pickLine}\n${typeNote} \u00b7 ${conf} confidence \u00b7 not advice`;
     }

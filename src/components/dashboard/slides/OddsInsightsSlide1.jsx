@@ -1,7 +1,8 @@
 import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import { getSlideColors, getConfidenceLabel } from '../../../utils/confidenceSystem';
 import styles from './OddsInsightsSlide1.module.css';
 
 export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
@@ -26,16 +27,7 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
   });
 
-  const CONF_COLOR = {
-    high:   { bg: 'rgba(45,138,110,0.18)', text: '#2d8a6e', border: 'rgba(45,138,110,0.35)' },
-    medium: { bg: 'rgba(183,152,108,0.18)', text: '#B7986C', border: 'rgba(183,152,108,0.35)' },
-    low:    { bg: 'rgba(60,121,180,0.12)', text: '#3C79B4', border: 'rgba(60,121,180,0.25)' },
-  };
-
-  const confKey = strongestPick
-    ? (strongestPick.confidence === 2 ? 'high' : strongestPick.confidence === 1 ? 'medium' : 'low')
-    : 'low';
-  const confStyle = CONF_COLOR[confKey];
+  const confStyle = getSlideColors(strongestPick?.confidence ?? 0);
 
   // Build featured picks list: top 3 picks by confidence
   const featuredPicks = allPicks
@@ -113,8 +105,7 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
           <div className={styles.picksList}>
             {featuredPicks.map((pick, i) => {
               const isStrongest = i === 0;
-              const ck = pick.confidence === 2 ? 'high' : pick.confidence === 1 ? 'medium' : 'low';
-              const cs = CONF_COLOR[ck];
+              const cs = getSlideColors(pick.confidence);
               const teamObj = makeTeamObj(pick.pickTeam);
               const rationale = buildRationale(pick);
               const pickTypeLabel = (pick.type === 'ats' || pick.pickType === 'ats') ? 'SPREAD' : 'ML';
@@ -127,7 +118,7 @@ export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal
                       className={styles.confBadge}
                       style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}
                     >
-                      {confidenceLabel(pick.confidence)}
+                      {getConfidenceLabel(pick.confidence)}
                     </span>
                   </div>
                   <div className={styles.pickCardTeamRow}>
