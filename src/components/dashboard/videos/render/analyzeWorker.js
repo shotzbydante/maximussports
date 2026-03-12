@@ -3,17 +3,21 @@
  *
  * Receives raw pixel data (ArrayBuffers) from the main thread,
  * computes frame-to-frame diff scores, finds the optimal trim window,
- * and identifies activity peaks for beat placement.
+ * identifies activity peaks for beat placement, and classifies
+ * segments for the multi-segment edit plan.
  *
  * Protocol:
- *   Main → Worker:  { type: 'analyze', buffers: ArrayBuffer[], width, height, sampleInterval, duration }
- *   Worker → Main:  { type: 'progress', value: number }
- *   Worker → Main:  { type: 'result', scores, trimStart, trimEnd, beatPeaks }
+ *   Main → Worker:  { type: 'analyze', buffers, width, height, sampleInterval, duration }
+ *   Worker → Main:  { type: 'progress', value }
+ *   Worker → Main:  { type: 'result', scores, trimStart, trimEnd, beatPeaks, segments, fullDuration }
  */
 
 const TARGET_MIN_S = 10;
 const TARGET_MAX_S = 15;
-const MIN_PEAK_DISTANCE = 4; // samples apart (~2s at 0.5s interval)
+const MIN_PEAK_DISTANCE = 4;
+const ACTIVITY_HIGH = 0.015;
+const ACTIVITY_LOW = 0.005;
+const MIN_SEGMENT_SAMPLES = 2;
 
 self.onmessage = function (e) {
   const { type } = e.data;
@@ -56,6 +60,7 @@ self.onmessage = function (e) {
     }
 
     const beatPeaks = findActivityPeaks(scores, sampleInterval, trimStart, trimEnd);
+    const segments = classifySegments(scores, sampleInterval);
 
     self.postMessage({
       type: 'result',
@@ -63,6 +68,8 @@ self.onmessage = function (e) {
       trimStart,
       trimEnd,
       beatPeaks,
+      segments,
+      fullDuration: duration,
     });
   }
 };
@@ -103,7 +110,6 @@ function findActivityPeaks(scores, sampleInterval, trimStart, trimEnd) {
 
   if (window.length < 3) return [];
 
-  // smooth with 3-sample moving average
   const smoothed = window.map((_, i) => {
     const start = Math.max(0, i - 1);
     const end = Math.min(window.length, i + 2);
@@ -112,7 +118,6 @@ function findActivityPeaks(scores, sampleInterval, trimStart, trimEnd) {
     return sum / (end - start);
   });
 
-  // find local maxima
   const peaks = [];
   for (let i = 1; i < smoothed.length - 1; i++) {
     if (smoothed[i] > smoothed[i - 1] && smoothed[i] >= smoothed[i + 1]) {
@@ -122,7 +127,6 @@ function findActivityPeaks(scores, sampleInterval, trimStart, trimEnd) {
 
   peaks.sort((a, b) => b.score - a.score);
 
-  // select top peaks with minimum separation
   const selected = [];
   for (const peak of peaks) {
     if (selected.length >= 4) break;
@@ -139,4 +143,37 @@ function findActivityPeaks(scores, sampleInterval, trimStart, trimEnd) {
     time: parseFloat(((startIdx + p.idx) * sampleInterval).toFixed(1)),
     score: p.score,
   }));
+}
+
+function classifySegments(scores, sampleInterval) {
+  const classified = scores.map((score, i) => {
+    let type = 'idle';
+    if (score >= ACTIVITY_HIGH) type = 'hero';
+    else if (score >= ACTIVITY_LOW) type = 'normal';
+    return { index: i, score, type };
+  });
+
+  const segments = [];
+  let cur = null;
+
+  for (const sample of classified) {
+    if (!cur || sample.type !== cur.type) {
+      if (cur) segments.push(cur);
+      cur = { type: sample.type, startIdx: sample.index, endIdx: sample.index, scores: [sample.score] };
+    } else {
+      cur.endIdx = sample.index;
+      cur.scores.push(sample.score);
+    }
+  }
+  if (cur) segments.push(cur);
+
+  return segments
+    .filter(seg => seg.scores.length >= MIN_SEGMENT_SAMPLES)
+    .map(seg => ({
+      sourceStart: parseFloat((seg.startIdx * sampleInterval).toFixed(1)),
+      sourceEnd: parseFloat(((seg.endIdx + 1) * sampleInterval).toFixed(1)),
+      type: seg.type,
+      activity: parseFloat((seg.scores.reduce((a, b) => a + b, 0) / seg.scores.length).toFixed(4)),
+      maxActivity: parseFloat(Math.max(...seg.scores).toFixed(4)),
+    }));
 }

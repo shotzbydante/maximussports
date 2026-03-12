@@ -3,10 +3,13 @@
  *
  * Pipeline:  Canvas (1080×1920) → VideoEncoder (H.264) → mp4-muxer → Blob
  *
- * Requires WebCodecs (Chrome 94+, Safari 16.4+).
- * Supports dynamic beat timing from clip analysis and template-defined
- * overlay positions. The render loop composites intro/outro cards
- * and text overlays onto a Canvas, encoding each frame.
+ * Supports two modes:
+ *   1. Simple trim (trimStart/trimEnd) — single continuous segment
+ *   2. Edit plan (editPlan) — multi-segment with per-segment speed ramping
+ *
+ * The edit plan takes priority when provided. Uses premium overlay
+ * drawing (drawHeadlineOverlay, drawBeatOverlay) with template-specific
+ * accent colors.
  */
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
@@ -16,7 +19,8 @@ import {
   drawIntroCard,
   drawOutroCard,
   drawVideoFrame,
-  drawTextOverlay,
+  drawHeadlineOverlay,
+  drawBeatOverlay,
   drawWatermark,
   easeAlpha,
 } from './drawUtils';
@@ -49,27 +53,12 @@ export async function checkH264Support(width = 1080, height = 1920) {
 
 // ─── main render function ────────────────────────────────────────
 
-/**
- * @param {object}   opts
- * @param {string}   opts.sourceUrl        Object URL or public URL
- * @param {number}   opts.trimStart        Trim start in seconds
- * @param {number}   opts.trimEnd          Trim end in seconds
- * @param {string}   opts.headline         Headline overlay text
- * @param {string}   opts.subhead          Subhead overlay text
- * @param {string}   opts.cta              CTA text for outro
- * @param {boolean}  [opts.watermark]      Show logo watermark
- * @param {string[]} [opts.overlayBeats]   Beat text array
- * @param {Array}    [opts.beatTimings]    Dynamic beat timing [{startPct, endPct}]
- * @param {string}   [opts.templateId]     Template ID
- * @param {function} [opts.onProgress]     (0-1) progress callback
- * @param {AbortSignal} [opts.signal]      Abort signal
- * @returns {Promise<Blob>}  H.264 MP4 blob
- */
 export async function renderVideo(opts) {
   const {
     sourceUrl,
-    trimStart,
-    trimEnd,
+    trimStart = 0,
+    trimEnd = 10,
+    editPlan = null,
     headline = '',
     subhead = '',
     cta = 'Get Maximus Sports',
@@ -83,12 +72,34 @@ export async function renderVideo(opts) {
 
   const tpl = getTemplate(templateId);
   const { width: W, height: H, fps, scenes, overlays, brand } = tpl;
+  const accentColor = brand.accentColor || '#3C79B4';
 
-  const footageDurMs = (trimEnd - trimStart) * 1000;
+  // Determine footage segments
+  let footageSegments;
+  let footageTotalFrames;
+
+  if (editPlan && editPlan.segments && editPlan.segments.length > 0) {
+    footageSegments = editPlan.segments;
+    footageTotalFrames = editPlan.totalOutputFrames;
+  } else {
+    const dur = trimEnd - trimStart;
+    const frames = Math.max(1, Math.round(dur * fps));
+    footageSegments = [{
+      sourceStart: trimStart,
+      sourceEnd: trimEnd,
+      sourceDuration: dur,
+      speed: 1.0,
+      outputStart: 0,
+      outputEnd: dur,
+      outputDuration: dur,
+      outputFrames: frames,
+    }];
+    footageTotalFrames = frames;
+  }
+
   const introFrames = Math.round((scenes.intro.durationMs / 1000) * fps);
-  const footageFrames = Math.round((footageDurMs / 1000) * fps);
   const outroFrames = Math.round((scenes.outro.durationMs / 1000) * fps);
-  const totalFrames = introFrames + footageFrames + outroFrames;
+  const totalFrames = introFrames + footageTotalFrames + outroFrames;
 
   const [logo, video] = await Promise.all([
     loadLogo(brand.logo),
@@ -126,6 +137,9 @@ export async function renderVideo(opts) {
   const fieldValues = { headline, subhead };
   const beatConfigs = buildBeatConfigs(overlayBeats, tpl, beatTimings);
 
+  // Pre-compute segment frame ranges for fast lookup
+  const segRanges = buildSegmentRanges(footageSegments);
+
   // ── render loop ──────────────────────────────────────────────
   for (let i = 0; i < totalFrames; i++) {
     if (signal?.aborted) { encoder.close(); throw new DOMException('Render aborted', 'AbortError'); }
@@ -136,37 +150,43 @@ export async function renderVideo(opts) {
       const alpha = easeAlpha(progress, 0.20, 0.12);
       drawIntroCard(ctx, logo, { headline, brand }, alpha);
 
-    } else if (i < introFrames + footageFrames) {
-      const footageIdx = i - introFrames;
-      const footageProgress = footageIdx / footageFrames;
-      const seekTime = trimStart + footageIdx / fps;
+    } else if (i < introFrames + footageTotalFrames) {
+      const footageFrame = i - introFrames;
+      const footageProgress = footageFrame / footageTotalFrames;
+
+      // Find active segment and compute seek time
+      const { segment, frameInSegment } = findActiveSegment(segRanges, footageFrame);
+      const segProgress = segment.outputFrames > 0 ? frameInSegment / segment.outputFrames : 0;
+      const seekTime = segment.sourceStart + segProgress * segment.sourceDuration;
 
       await seekVideo(video, seekTime);
       drawVideoFrame(ctx, video);
 
+      // Draw headline/subhead overlays with premium styling
       for (const ov of overlays) {
         const text = fieldValues[ov.field];
         if (!text) continue;
         if (footageProgress >= ov.startPct && footageProgress <= ov.endPct) {
           const ovLocal = (footageProgress - ov.startPct) / (ov.endPct - ov.startPct);
-          const fadePct = ov.fadeMs / (footageDurMs * (ov.endPct - ov.startPct));
+          const fadePct = ov.fadeMs / ((footageTotalFrames / fps * 1000) * (ov.endPct - ov.startPct));
           const alpha = easeAlpha(ovLocal, fadePct, fadePct);
-          drawTextOverlay(ctx, text, H * ov.yPct, ov.maxFontSize, ov.lineHeight, alpha);
+          drawHeadlineOverlay(ctx, text, H * ov.yPct, ov.maxFontSize, ov.lineHeight, alpha, accentColor);
         }
       }
 
+      // Draw beat overlays with accent-dot styling
       for (const beat of beatConfigs) {
         if (footageProgress >= beat.startPct && footageProgress <= beat.endPct) {
           const beatLocal = (footageProgress - beat.startPct) / (beat.endPct - beat.startPct);
           const alpha = easeAlpha(beatLocal, 0.15, 0.15);
-          drawTextOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha);
+          drawBeatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor);
         }
       }
 
       if (watermark) drawWatermark(ctx, logo);
 
     } else {
-      const outroIdx = i - introFrames - footageFrames;
+      const outroIdx = i - introFrames - footageTotalFrames;
       const progress = outroIdx / outroFrames;
       const alpha = easeAlpha(progress, 0.20, 0.12);
       drawOutroCard(ctx, logo, { cta, brand }, alpha);
@@ -197,17 +217,34 @@ export async function renderVideo(opts) {
 
 function buildBeatConfigs(beats, tpl, dynamicTimings) {
   if (!beats || beats.length === 0) return [];
-
   const beatDefs = tpl.overlayBeats || [];
-
   return beats
     .map((text, i) => {
       if (!text) return null;
-      // prefer dynamic (analysis-driven) timings, fall back to template defaults
       const timing = dynamicTimings?.[i] || beatDefs[i] || { startPct: i * 0.33, endPct: i * 0.33 + 0.28 };
       return { text, startPct: timing.startPct, endPct: timing.endPct };
     })
     .filter(Boolean);
+}
+
+function buildSegmentRanges(segments) {
+  const ranges = [];
+  let frameOffset = 0;
+  for (const seg of segments) {
+    ranges.push({ segment: seg, startFrame: frameOffset, endFrame: frameOffset + seg.outputFrames - 1 });
+    frameOffset += seg.outputFrames;
+  }
+  return ranges;
+}
+
+function findActiveSegment(ranges, footageFrame) {
+  for (const r of ranges) {
+    if (footageFrame >= r.startFrame && footageFrame <= r.endFrame) {
+      return { segment: r.segment, frameInSegment: footageFrame - r.startFrame };
+    }
+  }
+  const last = ranges[ranges.length - 1];
+  return { segment: last.segment, frameInSegment: 0 };
 }
 
 function loadSourceVideo(url) {

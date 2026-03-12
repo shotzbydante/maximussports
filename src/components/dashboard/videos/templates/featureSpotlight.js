@@ -2,11 +2,13 @@
  * Video template configuration + structured content types.
  *
  * Exports:
- *   FEATURE_TYPES  — what the video demonstrates
- *   HOOK_STYLES    — how the hook is phrased
- *   CTA_TYPES      — call-to-action destination modes
- *   TEMPLATES      — renderable template configs
- *   getTemplate(id) — template lookup
+ *   FEATURE_TYPES    — what the video demonstrates
+ *   HOOK_STYLES      — how the hook is phrased
+ *   MESSAGE_ANGLES   — framing / perspective
+ *   COPY_INTENSITIES — energy level of the copy
+ *   CTA_TYPES        — call-to-action destination modes
+ *   TEMPLATES        — renderable template configs
+ *   getTemplate(id)  — template lookup
  */
 
 // ─── Feature Types ───────────────────────────────────────────────
@@ -101,50 +103,71 @@ export const FEATURE_TYPES = {
 // ─── Hook Styles ─────────────────────────────────────────────────
 
 export const HOOK_STYLES = {
-  product: {
-    id: 'product',
-    label: 'Product / Utility',
-    headlineTemplates: [
-      (a, o) => `${a} ${o} in Seconds`,
-      (a, o) => `${a} ${o}. Instantly.`,
-      (a, o) => `The Fastest Way to ${a} ${o}`,
-    ],
+  product: { id: 'product', label: 'Product / Utility' },
+  betting: { id: 'betting', label: 'Betting / Edge' },
+  curiosity: { id: 'curiosity', label: 'Curiosity / Scroll-stopper' },
+  fans: { id: 'fans', label: 'Fans / Hype' },
+  editorial: { id: 'editorial', label: 'Clean / Editorial' },
+};
+
+// ─── Message Angles ──────────────────────────────────────────────
+
+export const MESSAGE_ANGLES = {
+  demo: {
+    id: 'demo',
+    label: 'Product Demo',
+    preferredIndex: 0,
+    hookWeight: { product: 1.5, editorial: 1.2, curiosity: 0.8 },
   },
-  betting: {
-    id: 'betting',
-    label: 'Betting / Edge',
-    headlineTemplates: [
-      (a, o) => `Your Edge: ${a} ${o}`,
-      (_a, o) => `Find ${o} Before the Line Moves`,
-      (a, o) => `${a} ${o} — Sharper Than the Market`,
-    ],
+  edge: {
+    id: 'edge',
+    label: 'Betting Edge',
+    preferredIndex: 1,
+    hookWeight: { betting: 1.5, curiosity: 1.2, product: 0.8 },
   },
-  curiosity: {
-    id: 'curiosity',
-    label: 'Curiosity / Scroll-stopper',
-    headlineTemplates: [
-      (a, o) => `What If You Could ${a} ${o}?`,
-      () => 'What 10K+ Bettors Already Know',
-      (a) => `This Changes How You ${a}`,
-    ],
+  excitement: {
+    id: 'excitement',
+    label: 'Fan Excitement',
+    preferredIndex: 2,
+    hookWeight: { fans: 1.5, curiosity: 1.2, editorial: 0.8 },
   },
-  fans: {
-    id: 'fans',
-    label: 'Fans / Hype',
-    headlineTemplates: [
-      (a, o) => `${a} ${o} Like a Pro`,
-      (_a, o) => `Dominate ${o} This Season`,
-      (a, o) => `${a} ${o} — Own Your Edge`,
-    ],
+  education: {
+    id: 'education',
+    label: 'Feature Education',
+    preferredIndex: 0,
+    hookWeight: { editorial: 1.5, product: 1.2, curiosity: 0.8 },
   },
-  editorial: {
-    id: 'editorial',
-    label: 'Clean / Editorial',
-    headlineTemplates: [
-      (a, _o) => `${a}. Track. Win.`,
-      (a, o) => `${a} ${o}. No Noise.`,
-      (_a, o) => `${o}. Simplified.`,
-    ],
+  significance: {
+    id: 'significance',
+    label: 'Why This Matters',
+    preferredIndex: 2,
+    hookWeight: { curiosity: 1.5, editorial: 1.2, fans: 0.8 },
+  },
+};
+
+// ─── Copy Intensities ────────────────────────────────────────────
+
+export const COPY_INTENSITIES = {
+  clean: {
+    id: 'clean',
+    label: 'Clean',
+    maxHeadlineWords: 5,
+    subheadKey: 0,
+    beatStyle: 'minimal',
+  },
+  balanced: {
+    id: 'balanced',
+    label: 'Balanced',
+    maxHeadlineWords: 8,
+    subheadKey: 1,
+    beatStyle: 'standard',
+  },
+  bold: {
+    id: 'bold',
+    label: 'Bold',
+    maxHeadlineWords: 11,
+    subheadKey: 2,
+    beatStyle: 'emphatic',
   },
 };
 
@@ -155,47 +178,47 @@ export const CTA_TYPES = {
     id: 'website',
     label: 'Website Signup',
     defaultText: 'Get started free at maximussports.ai',
-    templates: [
-      'Get started free at maximussports.ai',
-      'Create your free account at maximussports.ai',
-      'Try Maximus Sports free — maximussports.ai',
-    ],
+    templates: {
+      clean: ['maximussports.ai', 'Start at maximussports.ai'],
+      balanced: ['Get started free at maximussports.ai', 'Create your free account at maximussports.ai'],
+      bold: ['Get your edge — free at maximussports.ai', 'Start winning at maximussports.ai'],
+    },
   },
   instagram: {
     id: 'instagram',
     label: 'Instagram Follow',
     defaultText: 'Follow @maximussports.ai for daily intel',
-    templates: [
-      'Follow @maximussports.ai for daily intel',
-      'Follow @maximussports.ai — new content daily',
-      '@maximussports.ai — Follow for more',
-    ],
+    templates: {
+      clean: ['@maximussports.ai', 'Follow @maximussports.ai'],
+      balanced: ['Follow @maximussports.ai for daily intel', 'Follow @maximussports.ai — new content daily'],
+      bold: ['Follow @maximussports.ai for daily sports intel', '@maximussports.ai — your daily edge'],
+    },
   },
   explore: {
     id: 'explore',
     label: 'Explore Product',
     defaultText: 'Explore Maximus Sports — maximussports.ai',
-    templates: [
-      'Explore Maximus Sports — maximussports.ai',
-      'See everything at maximussports.ai',
-      'Explore the full platform — maximussports.ai',
-    ],
+    templates: {
+      clean: ['Explore at maximussports.ai', 'See more at maximussports.ai'],
+      balanced: ['Explore Maximus Sports — maximussports.ai', 'See everything at maximussports.ai'],
+      bold: ['Explore the full platform — maximussports.ai', 'See what you\'re missing — maximussports.ai'],
+    },
   },
   intel: {
     id: 'intel',
     label: 'Team Intel',
     defaultText: 'Get intel on every team at maximussports.ai',
-    templates: [
-      'Get intel on every team at maximussports.ai',
-      'Full team intelligence — maximussports.ai',
-      'Deep sports intel starts at maximussports.ai',
-    ],
+    templates: {
+      clean: ['Deep intel at maximussports.ai', 'Intel at maximussports.ai'],
+      balanced: ['Get team intel at maximussports.ai', 'Full team intelligence — maximussports.ai'],
+      bold: ['Get the full intel package at maximussports.ai', 'Deep sports intel starts at maximussports.ai'],
+    },
   },
   custom: {
     id: 'custom',
     label: 'Custom',
     defaultText: '',
-    templates: [],
+    templates: { clean: [], balanced: [], bold: [] },
   },
 };
 
@@ -222,7 +245,7 @@ export const FEATURE_SPOTLIGHT = {
 
   scenes: {
     intro: { durationMs: 1500 },
-    footage: { defaultDurationMs: 9000, minMs: 4000, maxMs: 12000 },
+    footage: { defaultDurationMs: 9000, minMs: 4000, maxMs: 15000 },
     outro: { durationMs: 2000 },
   },
 
@@ -238,6 +261,7 @@ export const FEATURE_SPOTLIGHT = {
       yPct: 0.20,
       maxFontSize: 52,
       lineHeight: 1.25,
+      style: 'headline',
     },
     {
       id: 'subhead',
@@ -248,6 +272,7 @@ export const FEATURE_SPOTLIGHT = {
       yPct: 0.20,
       maxFontSize: 40,
       lineHeight: 1.3,
+      style: 'subhead',
     },
   ],
 
@@ -302,6 +327,7 @@ export const QUICK_WALKTHROUGH = {
       yPct: 0.20,
       maxFontSize: 48,
       lineHeight: 1.25,
+      style: 'headline',
     },
     {
       id: 'subhead',
@@ -312,6 +338,7 @@ export const QUICK_WALKTHROUGH = {
       yPct: 0.20,
       maxFontSize: 38,
       lineHeight: 1.3,
+      style: 'subhead',
     },
   ],
 
@@ -326,9 +353,9 @@ export const QUICK_WALKTHROUGH = {
     logo: '/logo.png',
     name: 'MAXIMUS SPORTS',
     url: 'maximussports.ai',
-    accentColor: '#3C79B4',
+    accentColor: '#27ae60',
     gradientStart: '#0a0e1a',
-    gradientEnd: '#131c30',
+    gradientEnd: '#0f1f14',
   },
 
   variantPresets: [
@@ -338,9 +365,75 @@ export const QUICK_WALKTHROUGH = {
   ],
 };
 
+// ─── Template: Stats Proof Reel (scaffold) ───────────────────────
+
+export const STATS_PROOF_REEL = {
+  id: 'stats-proof',
+  name: 'Stats Proof Reel',
+  description: 'Data-driven highlight with stat callouts',
+
+  width: 1080,
+  height: 1920,
+  fps: 30,
+
+  scenes: {
+    intro: { durationMs: 1200 },
+    footage: { defaultDurationMs: 10000, minMs: 5000, maxMs: 15000 },
+    outro: { durationMs: 1500 },
+  },
+
+  safeZone: { top: 0.15, bottom: 0.78 },
+
+  overlays: [
+    {
+      id: 'headline',
+      field: 'headline',
+      startPct: 0.05,
+      endPct: 0.30,
+      fadeMs: 250,
+      yPct: 0.18,
+      maxFontSize: 48,
+      lineHeight: 1.25,
+      style: 'headline',
+    },
+    {
+      id: 'subhead',
+      field: 'subhead',
+      startPct: 0.35,
+      endPct: 0.60,
+      fadeMs: 250,
+      yPct: 0.20,
+      maxFontSize: 36,
+      lineHeight: 1.3,
+      style: 'subhead',
+    },
+  ],
+
+  overlayBeats: [
+    { startPct: 0.10, endPct: 0.30, field: 'beat0' },
+    { startPct: 0.35, endPct: 0.55, field: 'beat1' },
+    { startPct: 0.60, endPct: 0.80, field: 'beat2' },
+  ],
+
+  brand: {
+    logo: '/logo.png',
+    name: 'MAXIMUS SPORTS',
+    url: 'maximussports.ai',
+    accentColor: '#e67e22',
+    gradientStart: '#0a0e1a',
+    gradientEnd: '#1a150e',
+  },
+
+  variantPresets: [
+    { id: 'product', label: 'Product Hook', tone: 'product' },
+    { id: 'betting', label: 'Data Hook', tone: 'betting' },
+    { id: 'editorial', label: 'Clean Hook', tone: 'editorial' },
+  ],
+};
+
 // ─── Registry ────────────────────────────────────────────────────
 
-export const TEMPLATES = [FEATURE_SPOTLIGHT, QUICK_WALKTHROUGH];
+export const TEMPLATES = [FEATURE_SPOTLIGHT, QUICK_WALKTHROUGH, STATS_PROOF_REEL];
 
 export function getTemplate(id) {
   return TEMPLATES.find(t => t.id === id) || FEATURE_SPOTLIGHT;

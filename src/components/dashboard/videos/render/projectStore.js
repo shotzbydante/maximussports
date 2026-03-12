@@ -21,7 +21,7 @@ function writeStore(projects) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.slice(0, MAX_PROJECTS)));
   } catch {
-    // storage full or unavailable — fail silently
+    // storage full or unavailable
   }
 }
 
@@ -34,13 +34,17 @@ export function saveProject(data) {
     promptContext: data.promptContext || '',
     featureType: data.featureType || 'generalDemo',
     hookStyle: data.hookStyle || 'product',
+    messageAngle: data.messageAngle || 'demo',
+    copyIntensity: data.copyIntensity || 'balanced',
     headline: data.headline || '',
     subhead: data.subhead || '',
     overlayBeats: data.overlayBeats || ['', '', ''],
     cta: data.cta || '',
     ctaType: data.ctaType || 'website',
+    caption: data.caption || '',
     trimStart: data.trimStart ?? 0,
     trimEnd: data.trimEnd ?? 10,
+    editMode: data.editMode || 'smart',
     watermark: data.watermark ?? true,
     templateId: data.templateId || 'feature-spotlight',
     sourceFileName: data.sourceFileName || null,

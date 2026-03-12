@@ -1,9 +1,10 @@
 /**
- * Canvas drawing helpers for Feature Spotlight video rendering.
+ * Canvas drawing helpers for video rendering.
  *
  * All coordinates target the 1080×1920 output canvas.
- * Fonts use the system stack — renders identically on every machine
- * that has the default OS fonts, which covers all modern platforms.
+ * Supports template-specific accent colors for differentiated
+ * visual treatment across Feature Spotlight, Quick Walkthrough,
+ * and Stats Proof Reel templates.
  */
 
 const W = 1080;
@@ -34,7 +35,7 @@ export function fillGradient(ctx, startColor = '#0a0e1a', endColor = '#131c30') 
   ctx.fillRect(0, 0, W, H);
 }
 
-// ─── decorative divider ( ── ● ── ) ─────────────────────────────
+// ─── decorative divider ──────────────────────────────────────────
 function drawDivider(ctx, y, accent) {
   const cx = W / 2;
   ctx.strokeStyle = accent;
@@ -96,14 +97,12 @@ export function drawIntroCard(ctx, logo, { headline, brand }, alpha = 1) {
 
   fillGradient(ctx, brand.gradientStart, brand.gradientEnd);
 
-  // logo
   if (logo) {
     const lw = 100;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
     ctx.drawImage(logo, (W - lw) / 2, H * 0.33 - lh / 2, lw, lh);
   }
 
-  // brand name
   ctx.font = `600 18px ${FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.textAlign = 'center';
@@ -120,7 +119,6 @@ export function drawIntroCard(ctx, logo, { headline, brand }, alpha = 1) {
     });
   }
 
-  // url
   ctx.font = `500 20px ${FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.textAlign = 'center';
@@ -190,7 +188,140 @@ export function drawVideoFrame(ctx, video) {
   ctx.drawImage(video, dx, dy, dw, dh);
 }
 
-// ─── text overlay pill (during footage) ──────────────────────────
+// ─── premium headline overlay (during footage) ──────────────────
+export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4') {
+  if (!text || alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const maxWidth = W * 0.82;
+  const padding = 28;
+  const accentW = 4;
+
+  ctx.font = `700 ${fontSize}px ${FONT}`;
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth - padding * 2 - accentW && cur) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+
+  const textH = lines.length * fontSize * lineHeight;
+  const boxH = textH + padding * 2;
+  const boxW = Math.min(maxWidth, Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 3 + accentW);
+  const boxX = (W - boxW) / 2;
+  const boxY = yCenter - boxH / 2;
+  const radius = 14;
+
+  const bgGrad = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxH);
+  bgGrad.addColorStop(0, 'rgba(10, 14, 26, 0.85)');
+  bgGrad.addColorStop(1, 'rgba(10, 14, 26, 0.75)');
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
+  ctx.fill();
+
+  ctx.fillStyle = accentColor;
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY + 6, accentW, boxH - 12, 2);
+  ctx.fill();
+
+  ctx.strokeStyle = `${accentColor}40`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
+  ctx.stroke();
+
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+
+  ctx.font = `700 ${fontSize}px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  let drawY = boxY + padding;
+  for (const line of lines) {
+    ctx.fillText(line, W / 2, drawY);
+    drawY += fontSize * lineHeight;
+  }
+
+  ctx.restore();
+}
+
+// ─── beat overlay (compact pill with accent dot) ─────────────────
+export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4') {
+  if (!text || alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const maxWidth = W * 0.78;
+  const padding = 20;
+  const dotR = 5;
+  const dotGap = 10;
+
+  ctx.font = `600 ${fontSize}px ${FONT}`;
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth - padding * 2 - dotR * 2 - dotGap && cur) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+
+  const textH = lines.length * fontSize * lineHeight;
+  const boxH = textH + padding * 2;
+  const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const boxW = Math.min(maxWidth, textW + padding * 2.5 + dotR * 2 + dotGap);
+  const boxX = (W - boxW) / 2;
+  const boxY = yCenter - boxH / 2;
+  const radius = 12;
+
+  ctx.fillStyle = 'rgba(10, 14, 26, 0.72)';
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
+  ctx.fill();
+
+  ctx.strokeStyle = `${accentColor}30`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(boxX + padding, yCenter, dotR, 0, Math.PI * 2);
+  ctx.fillStyle = accentColor;
+  ctx.fill();
+
+  ctx.font = `600 ${fontSize}px ${FONT}`;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  let drawY = boxY + padding;
+  for (const line of lines) {
+    ctx.fillText(line, W / 2 + dotR, drawY);
+    drawY += fontSize * lineHeight;
+  }
+
+  ctx.restore();
+}
+
+// ─── legacy text overlay (fallback) ──────────────────────────────
 export function drawTextOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1) {
   if (!text || alpha <= 0) return;
 
@@ -200,7 +331,6 @@ export function drawTextOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   const maxWidth = W * 0.82;
   const padding = 24;
 
-  // measure text to size the background
   ctx.font = `700 ${fontSize}px ${FONT}`;
   const words = text.split(' ');
   const lines = [];
@@ -218,28 +348,22 @@ export function drawTextOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
 
   const textH = lines.length * fontSize * lineHeight;
   const boxH = textH + padding * 2;
-  const boxW = Math.min(
-    maxWidth,
-    Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 3,
-  );
+  const boxW = Math.min(maxWidth, Math.max(...lines.map(l => ctx.measureText(l).width)) + padding * 3);
   const boxX = (W - boxW) / 2;
   const boxY = yCenter - boxH / 2;
-
-  // background
   const radius = 16;
+
   ctx.fillStyle = 'rgba(10, 14, 26, 0.72)';
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.fill();
 
-  // subtle border
   ctx.strokeStyle = 'rgba(60, 121, 180, 0.25)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.stroke();
 
-  // text
   ctx.font = `700 ${fontSize}px ${FONT}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
@@ -264,7 +388,7 @@ export function drawWatermark(ctx, logo, alpha = 0.35) {
   ctx.restore();
 }
 
-// ─── rounded rectangle (fallback for older engines) ─────────────
+// ─── rounded rectangle ──────────────────────────────────────────
 function roundedRect(ctx, x, y, w, h, r) {
   if (ctx.roundRect) {
     ctx.roundRect(x, y, w, h, r);

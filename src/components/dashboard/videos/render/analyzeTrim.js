@@ -1,29 +1,33 @@
 /**
  * Smart auto-trim analyzer with Web Worker offloading.
  *
- * Frame capture (DOM-dependent) runs on the main thread with generous
- * yielding. Pixel differencing and peak detection run in a Web Worker
- * to keep the editor responsive during analysis.
+ * Always analyzes the FULL clip. Returns:
+ *   - trimStart / trimEnd  (best single window for backward compat)
+ *   - scores               (raw frame-diff scores)
+ *   - beatPeaks            (activity peaks for overlay timing)
+ *   - segments             (classified segments for edit plan)
+ *   - fullDuration         (source clip length)
  *
- * Returns { trimStart, trimEnd, scores, beatPeaks, analyzed }.
- * beatPeaks contains activity peak positions usable for smart beat placement.
+ * The editor uses `segments` + `scores` to build a multi-segment
+ * edit plan via editPlan.js.
  */
 
 const SAMPLE_INTERVAL_S = 0.5;
 const THUMB_W = 160;
 const THUMB_H = 90;
-const TARGET_MAX_S = 15;
 
 export async function analyzeTrim(videoUrl, onProgress) {
   const video = await loadVideo(videoUrl);
   const duration = video.duration;
 
-  if (duration <= TARGET_MAX_S) {
+  if (duration <= 3) {
     return {
       trimStart: 0,
       trimEnd: duration,
       scores: [],
       beatPeaks: [],
+      segments: [],
+      fullDuration: duration,
       analyzed: true,
       sampleInterval: SAMPLE_INTERVAL_S,
     };
@@ -37,7 +41,6 @@ export async function analyzeTrim(videoUrl, onProgress) {
   const sampleCount = Math.floor(duration / SAMPLE_INTERVAL_S);
   const frameBuffers = [];
 
-  // capture frames on main thread with yielding
   for (let i = 0; i < sampleCount; i++) {
     const time = i * SAMPLE_INTERVAL_S;
     await seekVideo(video, time);
@@ -54,7 +57,6 @@ export async function analyzeTrim(videoUrl, onProgress) {
 
   onProgress?.(0.6);
 
-  // offload computation to worker
   const result = await runWorkerAnalysis(frameBuffers, THUMB_W, THUMB_H, SAMPLE_INTERVAL_S, duration, (p) => {
     onProgress?.(0.6 + p * 0.4);
   });
@@ -70,7 +72,6 @@ export async function analyzeTrim(videoUrl, onProgress) {
 
 /**
  * Convert beat peaks into overlay timing percentages within the footage window.
- * Falls back to evenly-spaced defaults if no peaks available.
  */
 export function beatPeaksToTimings(beatPeaks, trimStart, trimEnd, numBeats = 3) {
   const footageDuration = trimEnd - trimStart;
@@ -107,7 +108,6 @@ function runWorkerAnalysis(frameBuffers, width, height, sampleInterval, duration
         { type: 'module' }
       );
     } catch {
-      // worker creation failed — fall back to main thread
       return resolve(mainThreadFallback(frameBuffers, width, height, sampleInterval, duration));
     }
 
@@ -140,7 +140,7 @@ function runWorkerAnalysis(frameBuffers, width, height, sampleInterval, duration
   });
 }
 
-// ─── Main-thread fallback if Worker unavailable ──────────────────
+// ─── Main-thread fallback ────────────────────────────────────────
 
 function mainThreadFallback(frameBuffers, width, height, sampleInterval, duration) {
   const pixelCount = width * height;
@@ -159,7 +159,6 @@ function mainThreadFallback(frameBuffers, width, height, sampleInterval, duratio
     scores.push(diff / (pixelCount * 3 * 255));
   }
 
-  // simplified best window (same logic as worker)
   const windowSamples = Math.round(10 / sampleInterval);
   const maxWindowSamples = Math.round(15 / sampleInterval);
   let bestScore = -1, bestStart = 0, bestLen = windowSamples;
@@ -177,6 +176,8 @@ function mainThreadFallback(frameBuffers, width, height, sampleInterval, duratio
     trimStart: parseFloat((bestStart * sampleInterval).toFixed(1)),
     trimEnd: parseFloat(Math.min((bestStart + bestLen) * sampleInterval, duration).toFixed(1)),
     beatPeaks: [],
+    segments: [],
+    fullDuration: duration,
   };
 }
 

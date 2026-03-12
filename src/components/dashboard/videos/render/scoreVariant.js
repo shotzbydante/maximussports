@@ -1,14 +1,15 @@
 /**
- * Variant recommendation scoring.
+ * Variant recommendation scoring + posting package.
  *
  * Scores each reel variant on readability, brevity, CTA quality,
  * and feature-type relevance to recommend the strongest default.
+ * Also generates posting package metadata.
  */
 
 import { FEATURE_TYPES } from '../templates/featureSpotlight';
 
 const IDEAL_HEADLINE_WORDS = { min: 3, max: 7 };
-const SPAMMY_PATTERNS = /!{2,}|ALL CAPS|FREE FREE|🔥{2,}/i;
+const SPAMMY_PATTERNS = /!{2,}|ALL CAPS|FREE FREE/i;
 
 function wordCount(text) {
   return (text || '').trim().split(/\s+/).filter(Boolean).length;
@@ -68,4 +69,27 @@ export function scoreVariants(variants, { cta = '', featureType = 'generalDemo' 
     ...v,
     recommended: v.score === maxScore,
   }));
+}
+
+/**
+ * Build posting package recommendation from scored variants.
+ */
+export function buildPostingPackage(variants, { caption = '', featureType = '', hookStyle = '' } = {}) {
+  const recommended = variants.find(v => v.recommended) || variants[0];
+
+  return {
+    recommendedVariant: recommended ? {
+      id: recommended.id,
+      tone: recommended.tone,
+      headline: recommended.headline,
+      score: recommended.score,
+    } : null,
+    recommendedCover: recommended?.coverBlob ? 'frame' : 'intro',
+    caption,
+    hookStyleSummary: hookStyle
+      ? `${hookStyle.charAt(0).toUpperCase() + hookStyle.slice(1)} hook`
+      : null,
+    featureType,
+    variantCount: variants.length,
+  };
 }

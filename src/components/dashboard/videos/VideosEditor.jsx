@@ -7,13 +7,18 @@ import {
   CTA_TYPES,
   FEATURE_TYPES,
   HOOK_STYLES,
+  MESSAGE_ANGLES,
+  COPY_INTENSITIES,
 } from './templates/featureSpotlight';
 import { isRenderSupported, checkH264Support, renderVideo } from './render/renderVideo';
 import { analyzeTrim, beatPeaksToTimings } from './render/analyzeTrim';
-import { generateReelText, generateVariantText, detectFeatureType } from './render/generateText';
-import { generateCoverImage, downloadBlob } from './render/coverExport';
+import { generate as generateCopy } from './render/generationAdapter';
+import { generateVariantText, detectFeatureType } from './render/generateText';
+import { generateCoverImage, generateCoverSet, downloadBlob } from './render/coverExport';
 import { saveProject, loadLastProject, listProjects, deleteProject } from './render/projectStore';
-import { scoreVariants } from './render/scoreVariant';
+import { scoreVariants, buildPostingPackage } from './render/scoreVariant';
+import { buildEditPlan, editPlanBeatTimings } from './render/editPlan';
+import { exportBundle } from './render/bundleExport';
 import styles from './VideosEditor.module.css';
 
 export default function VideosEditor() {
@@ -32,12 +37,15 @@ export default function VideosEditor() {
   const [promptContext, setPromptContext] = useState('');
   const [featureType, setFeatureType] = useState('generalDemo');
   const [hookStyle, setHookStyle] = useState('product');
+  const [messageAngle, setMessageAngle] = useState('demo');
+  const [copyIntensity, setCopyIntensity] = useState('balanced');
 
   // ── fields ─────────────────────────────────────────────────────
   const [headline, setHeadline] = useState('');
   const [subhead, setSubhead] = useState('');
   const [cta, setCta] = useState(CTA_TYPES.website.defaultText);
   const [ctaType, setCtaType] = useState('website');
+  const [caption, setCaption] = useState('');
   const [projectName, setProjectName] = useState('');
   const [watermark, setWatermark] = useState(true);
   const [overlayBeats, setOverlayBeats] = useState(['', '', '']);
@@ -49,6 +57,7 @@ export default function VideosEditor() {
   const [analyzeProgress, setAnalyzeProgress] = useState(0);
   const [trimSuggested, setTrimSuggested] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [editMode, setEditMode] = useState('smart');
 
   // ── render state ───────────────────────────────────────────────
   const [renderState, setRenderState] = useState('idle');
@@ -68,6 +77,9 @@ export default function VideosEditor() {
   const [savedProjects, setSavedProjects] = useState([]);
   const [showProjectList, setShowProjectList] = useState(false);
 
+  // ── posting package ────────────────────────────────────────────
+  const [postingPackage, setPostingPackage] = useState(null);
+
   // ── capability check ───────────────────────────────────────────
   const [codecSupported, setCodecSupported] = useState(null);
   useEffect(() => {
@@ -75,20 +87,33 @@ export default function VideosEditor() {
     setSavedProjects(listProjects());
   }, []);
 
-  // ── dynamic beat timings from analysis ─────────────────────────
+  // ── edit plan from analysis ────────────────────────────────────
+  const currentEditPlan = useMemo(() => {
+    if (editMode !== 'smart' || !analysisResult?.scores?.length) return null;
+    return buildEditPlan(analysisResult.scores, analysisResult.sampleInterval, analysisResult.fullDuration || videoDuration, {
+      targetDuration: 12,
+      fps: template.fps,
+      beatCount: template.overlayBeats?.length || 3,
+    });
+  }, [editMode, analysisResult, videoDuration, template]);
+
+  // ── dynamic beat timings ───────────────────────────────────────
   const beatTimings = useMemo(() => {
+    if (currentEditPlan?.beatPositions?.length) {
+      const numBeats = template.overlayBeats?.length || 3;
+      return editPlanBeatTimings(currentEditPlan, numBeats);
+    }
     if (!analysisResult?.beatPeaks?.length) return null;
     const numBeats = template.overlayBeats?.length || 3;
     return beatPeaksToTimings(analysisResult.beatPeaks, trimStart, trimEnd, numBeats);
-  }, [analysisResult, trimStart, trimEnd, template]);
+  }, [currentEditPlan, analysisResult, trimStart, trimEnd, template]);
 
   // ── adjust overlay beats count when template changes ───────────
   useEffect(() => {
     const beatCount = template.overlayBeats?.length || 3;
     setOverlayBeats(prev => {
       if (prev.length === beatCount) return prev;
-      const next = Array.from({ length: beatCount }, (_, i) => prev[i] || '');
-      return next;
+      return Array.from({ length: beatCount }, (_, i) => prev[i] || '');
     });
   }, [template]);
 
@@ -98,6 +123,7 @@ export default function VideosEditor() {
     if (outputUrl) { URL.revokeObjectURL(outputUrl); setOutputUrl(null); }
     setVariantOutputs([]);
     setVariantRenderState('idle');
+    setPostingPackage(null);
 
     const url = URL.createObjectURL(file);
     setSourceFile(file);
@@ -117,10 +143,7 @@ export default function VideosEditor() {
       setTrimStart(0);
       setTrimEnd(Math.min(dur, template.scenes.footage.maxMs / 1000));
       setVideoReady(true);
-
-      if (dur > 20) {
-        runAutoTrim(url);
-      }
+      runAutoTrim(url);
     };
     probe.onerror = () => setError('Could not read video metadata.');
     probeRef.current = probe;
@@ -138,7 +161,7 @@ export default function VideosEditor() {
         setAnalysisResult(result);
       }
     } catch {
-      // analysis failed — user keeps manual trim
+      // analysis failed
     } finally {
       setAnalyzing(false);
     }
@@ -161,6 +184,7 @@ export default function VideosEditor() {
     setAnalysisResult(null);
     setVariantOutputs([]);
     setVariantRenderState('idle');
+    setPostingPackage(null);
   }, [sourceUrl, outputUrl, variantOutputs]);
 
   useEffect(() => {
@@ -170,15 +194,19 @@ export default function VideosEditor() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── AI text generation ─────────────────────────────────────────
-  const handleGenerateText = useCallback(() => {
-    const resolved = featureType === 'generalDemo' && promptContext.trim()
-      ? detectFeatureType(promptContext)
-      : featureType;
+  // ── auto-generate copy ─────────────────────────────────────────
+  const handleAutoGenerate = useCallback(async () => {
+    const result = await generateCopy({
+      promptContext,
+      featureType: featureType === 'generalDemo' ? null : featureType,
+      hookStyle,
+      templateId,
+      ctaDestination: ctaType,
+      messageAngle,
+      copyIntensity,
+      clipDuration: videoDuration || null,
+    });
 
-    if (resolved !== featureType) setFeatureType(resolved);
-
-    const result = generateReelText(promptContext, ctaType, resolved, hookStyle);
     setHeadline(result.headline);
     setSubhead(result.subhead);
     setOverlayBeats(prev => {
@@ -187,7 +215,20 @@ export default function VideosEditor() {
     });
     if (ctaType !== 'custom') setCta(result.cta);
     setVariantHooks(result.variantHooks);
-  }, [promptContext, ctaType, featureType, hookStyle]);
+    setCaption(result.caption);
+
+    if (result.detectedFeatureType !== featureType && featureType === 'generalDemo') {
+      setFeatureType(result.detectedFeatureType);
+    }
+  }, [promptContext, featureType, hookStyle, templateId, ctaType, messageAngle, copyIntensity, videoDuration]);
+
+  useEffect(() => {
+    if (!promptContext.trim() || promptContext.length < 3) return;
+    const timer = setTimeout(() => {
+      handleAutoGenerate();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [promptContext, featureType, hookStyle, messageAngle, copyIntensity, ctaType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── CTA type change ────────────────────────────────────────────
   const handleCtaTypeChange = useCallback((type) => {
@@ -198,7 +239,13 @@ export default function VideosEditor() {
   }, []);
 
   // ── trim helpers ───────────────────────────────────────────────
-  const footageDuration = trimEnd - trimStart;
+  const footageDuration = useMemo(() => {
+    if (editMode === 'smart' && currentEditPlan) {
+      return currentEditPlan.totalOutputDuration;
+    }
+    return trimEnd - trimStart;
+  }, [editMode, currentEditPlan, trimStart, trimEnd]);
+
   const totalDuration = useMemo(() => {
     const intro = template.scenes.intro.durationMs / 1000;
     const outro = template.scenes.outro.durationMs / 1000;
@@ -221,15 +268,18 @@ export default function VideosEditor() {
   const validationErrors = useMemo(() => {
     const errs = [];
     if (!sourceFile) errs.push('Upload a source video.');
-    if (footageDuration < template.scenes.footage.minMs / 1000) {
-      errs.push(`Footage must be at least ${template.scenes.footage.minMs / 1000}s.`);
+    if (editMode !== 'smart') {
+      const rawDur = trimEnd - trimStart;
+      if (rawDur < template.scenes.footage.minMs / 1000) {
+        errs.push(`Footage must be at least ${template.scenes.footage.minMs / 1000}s.`);
+      }
+      if (rawDur > template.scenes.footage.maxMs / 1000) {
+        errs.push(`Footage must be at most ${template.scenes.footage.maxMs / 1000}s.`);
+      }
     }
-    if (footageDuration > template.scenes.footage.maxMs / 1000) {
-      errs.push(`Footage must be at most ${template.scenes.footage.maxMs / 1000}s.`);
-    }
-    if (!headline.trim() && !subhead.trim()) errs.push('Add at least a headline or subhead.');
+    if (!headline.trim() && !subhead.trim()) errs.push('Add context or generate text first.');
     return errs;
-  }, [sourceFile, footageDuration, headline, subhead, template]);
+  }, [sourceFile, editMode, trimStart, trimEnd, headline, subhead, template]);
 
   const canRender = validationErrors.length === 0 && codecSupported && videoReady;
 
@@ -241,13 +291,17 @@ export default function VideosEditor() {
       promptContext,
       featureType,
       hookStyle,
+      messageAngle,
+      copyIntensity,
       headline,
       subhead,
       overlayBeats,
       cta,
       ctaType,
+      caption,
       trimStart,
       trimEnd,
+      editMode,
       watermark,
       templateId,
       sourceFileName: sourceFile?.name || null,
@@ -255,7 +309,7 @@ export default function VideosEditor() {
     });
     setProjectId(proj.id);
     setSavedProjects(listProjects());
-  }, [projectId, projectName, promptContext, featureType, hookStyle, headline, subhead, overlayBeats, cta, ctaType, trimStart, trimEnd, watermark, templateId, sourceFile, videoDuration]);
+  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration]);
 
   const handleLoadProject = useCallback((proj) => {
     setProjectId(proj.id);
@@ -263,13 +317,17 @@ export default function VideosEditor() {
     setPromptContext(proj.promptContext || '');
     setFeatureType(proj.featureType || 'generalDemo');
     setHookStyle(proj.hookStyle || 'product');
+    setMessageAngle(proj.messageAngle || 'demo');
+    setCopyIntensity(proj.copyIntensity || 'balanced');
     setHeadline(proj.headline || '');
     setSubhead(proj.subhead || '');
     setOverlayBeats(proj.overlayBeats || ['', '', '']);
     setCta(proj.cta || '');
     setCtaType(proj.ctaType || 'website');
+    setCaption(proj.caption || '');
     setTrimStart(proj.trimStart ?? 0);
     setTrimEnd(proj.trimEnd ?? 10);
+    setEditMode(proj.editMode || 'smart');
     setWatermark(proj.watermark ?? true);
     setTemplateId(proj.templateId || 'feature-spotlight');
     setShowProjectList(false);
@@ -297,6 +355,7 @@ export default function VideosEditor() {
         sourceUrl,
         trimStart,
         trimEnd,
+        editPlan: editMode === 'smart' ? currentEditPlan : null,
         headline: headline.trim(),
         subhead: subhead.trim(),
         cta: cta.trim() || 'Get Maximus Sports',
@@ -319,20 +378,30 @@ export default function VideosEditor() {
         setRenderState('error');
       }
     }
-  }, [canRender, sourceUrl, trimStart, trimEnd, headline, subhead, cta, watermark, outputUrl, overlayBeats, beatTimings, templateId]);
+  }, [canRender, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, headline, subhead, cta, watermark, outputUrl, overlayBeats, beatTimings, templateId]);
 
   // ── multi-variant render ───────────────────────────────────────
   const handleRenderVariants = useCallback(async () => {
     if (!canRender) return;
 
-    const hooks = variantHooks.length > 0
-      ? variantHooks
-      : generateReelText(promptContext || headline, ctaType, featureType, hookStyle).variantHooks;
+    let hooks = variantHooks;
+    if (hooks.length === 0) {
+      const gen = await generateCopy({
+        promptContext: promptContext || headline,
+        featureType,
+        hookStyle,
+        ctaDestination: ctaType,
+        messageAngle,
+        copyIntensity,
+      });
+      hooks = gen.variantHooks;
+    }
 
     setVariantRenderState('rendering');
     setVariantProgress(0);
     setVariantOutputs([]);
     setError(null);
+    setPostingPackage(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -342,12 +411,13 @@ export default function VideosEditor() {
     try {
       for (let i = 0; i < hooks.length; i++) {
         const hook = hooks[i];
-        const varText = generateVariantText(promptContext || headline, hook.tone, featureType);
+        const varText = generateVariantText(promptContext || headline, hook.tone, featureType, messageAngle, copyIntensity);
 
         const blob = await renderVideo({
           sourceUrl,
           trimStart,
           trimEnd,
+          editPlan: editMode === 'smart' ? currentEditPlan : null,
           headline: hook.headline || varText.headline,
           subhead: varText.subhead,
           cta: cta.trim() || 'Get Maximus Sports',
@@ -363,12 +433,15 @@ export default function VideosEditor() {
 
         let coverBlob = null;
         try {
-          coverBlob = await generateCoverImage({
+          const covers = await generateCoverSet({
             headline: hook.headline || varText.headline,
+            sourceUrl,
+            seekTime: analysisResult?.beatPeaks?.[0]?.time ?? trimStart + 2,
             templateId,
           });
+          coverBlob = covers.frameCover || covers.introCover;
         } catch {
-          // cover generation failed — not critical
+          // cover generation failed
         }
 
         results.push({
@@ -385,6 +458,13 @@ export default function VideosEditor() {
       const scored = scoreVariants(results, { cta, featureType });
       setVariantOutputs(scored);
       setVariantRenderState('complete');
+
+      const pkg = buildPostingPackage(scored, {
+        caption,
+        featureType,
+        hookStyle,
+      });
+      setPostingPackage(pkg);
     } catch (err) {
       if (err.name === 'AbortError') {
         setVariantRenderState('idle');
@@ -393,7 +473,7 @@ export default function VideosEditor() {
         setVariantRenderState('error');
       }
     }
-  }, [canRender, variantHooks, promptContext, headline, ctaType, featureType, hookStyle, sourceUrl, trimStart, trimEnd, cta, watermark, templateId, beatTimings]);
+  }, [canRender, variantHooks, promptContext, headline, ctaType, featureType, hookStyle, messageAngle, copyIntensity, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, cta, watermark, templateId, beatTimings, analysisResult, caption]);
 
   const handleCancelRender = useCallback(() => {
     abortRef.current?.abort();
@@ -418,6 +498,22 @@ export default function VideosEditor() {
     downloadBlob(coverBlob, `${name}${suffix}_cover.png`);
   }, [projectName]);
 
+  const handleExportBundle = useCallback(async () => {
+    if (variantOutputs.length === 0) return;
+    await exportBundle(variantOutputs, {
+      projectName: projectName.trim() || 'maximus_reel',
+      caption,
+      featureType,
+      hookStyle,
+      messageAngle,
+      templateId,
+    });
+  }, [variantOutputs, projectName, caption, featureType, hookStyle, messageAngle, templateId]);
+
+  const handleCopyCaption = useCallback(() => {
+    if (caption) navigator.clipboard?.writeText(caption);
+  }, [caption]);
+
   const handleReset = useCallback(() => {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     variantOutputs.forEach(v => v.url && URL.revokeObjectURL(v.url));
@@ -428,6 +524,7 @@ export default function VideosEditor() {
     setRenderProgress(0);
     setVariantProgress(0);
     setError(null);
+    setPostingPackage(null);
   }, [outputUrl, variantOutputs]);
 
   // ── timeline structure ─────────────────────────────────────────
@@ -437,7 +534,7 @@ export default function VideosEditor() {
     const total = introS + footageDuration + outroS;
     if (total <= 0) return [];
     return [
-      { label: 'Intro', duration: introS, pct: (introS / total) * 100, color: '#3C79B4' },
+      { label: 'Intro', duration: introS, pct: (introS / total) * 100, color: template.brand.accentColor },
       { label: 'Demo', duration: footageDuration, pct: (footageDuration / total) * 100, color: '#2ecc71' },
       { label: 'CTA', duration: outroS, pct: (outroS / total) * 100, color: '#e74c3c' },
     ];
@@ -516,9 +613,9 @@ export default function VideosEditor() {
           )}
         </div>
 
-        {/* AI context + structured inputs */}
+        {/* creative direction */}
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>AI Context</div>
+          <div className={styles.sectionTitle}>Creative Direction</div>
           <div className={styles.fieldLabel}>Describe what happens in this video</div>
           <textarea
             className={styles.promptTextarea}
@@ -555,13 +652,52 @@ export default function VideosEditor() {
             ))}
           </div>
 
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Message Angle</div>
+          <div className={styles.chipRow}>
+            {Object.values(MESSAGE_ANGLES).map((ma) => (
+              <button
+                key={ma.id}
+                className={`${styles.chipBtn} ${messageAngle === ma.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setMessageAngle(ma.id)}
+              >
+                {ma.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Copy Intensity</div>
+          <div className={styles.chipRow}>
+            {Object.values(COPY_INTENSITIES).map((ci) => (
+              <button
+                key={ci.id}
+                className={`${styles.chipBtn} ${copyIntensity === ci.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setCopyIntensity(ci.id)}
+              >
+                {ci.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>CTA Destination</div>
+          <div className={styles.chipRow}>
+            {Object.values(CTA_TYPES).map((t) => (
+              <button
+                key={t.id}
+                className={`${styles.chipBtn} ${ctaType === t.id ? styles.chipBtnActive : ''}`}
+                onClick={() => handleCtaTypeChange(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className={styles.promptActions}>
             <div className={styles.charCount}>{promptContext.length}/200</div>
             <button
               className={styles.btnGenerate}
-              onClick={handleGenerateText}
+              onClick={handleAutoGenerate}
             >
-              ✦ Generate Text
+              ✦ Generate Reel Copy
             </button>
           </div>
         </div>
@@ -597,79 +733,119 @@ export default function VideosEditor() {
           )}
           {trimSuggested && !analyzing && (
             <div className={styles.suggestedBanner}>
-              ✦ Smart trim suggested ({trimStart.toFixed(1)}s – {trimEnd.toFixed(1)}s)
+              ✦ Full clip analyzed
+              {analysisResult?.segments?.length > 0 && (
+                <span> · {analysisResult.segments.length} segments found</span>
+              )}
               {analysisResult?.beatPeaks?.length > 0 && (
-                <span> · {analysisResult.beatPeaks.length} activity peaks found</span>
+                <span> · {analysisResult.beatPeaks.length} activity peaks</span>
               )}
             </div>
           )}
         </div>
 
-        {/* trim controls */}
+        {/* edit mode + trim controls */}
         {videoReady && (
           <div className={styles.section}>
-            <div className={styles.sectionTitle}>Trim</div>
-            <div className={styles.trimRow}>
-              <div className={styles.trimField}>
-                <div className={styles.fieldLabel}>Start</div>
-                <div className={styles.trimInputWrap}>
-                  <input
-                    type="number"
-                    className={styles.trimInput}
-                    value={trimStart}
-                    min={0}
-                    max={trimEnd - 1}
-                    step={0.1}
-                    onChange={(e) => handleTrimStartChange(parseFloat(e.target.value) || 0)}
-                  />
-                  <span className={styles.trimUnit}>sec</span>
-                </div>
-              </div>
-              <div className={styles.trimField}>
-                <div className={styles.fieldLabel}>End</div>
-                <div className={styles.trimInputWrap}>
-                  <input
-                    type="number"
-                    className={styles.trimInput}
-                    value={trimEnd}
-                    min={trimStart + 1}
-                    max={videoDuration}
-                    step={0.1}
-                    onChange={(e) => handleTrimEndChange(parseFloat(e.target.value) || 0)}
-                  />
-                  <span className={styles.trimUnit}>sec</span>
-                </div>
-              </div>
+            <div className={styles.sectionTitle}>Edit Mode</div>
+            <div className={styles.chipRow} style={{ marginBottom: 10 }}>
+              <button
+                className={`${styles.chipBtn} ${editMode === 'smart' ? styles.chipBtnActive : ''}`}
+                onClick={() => setEditMode('smart')}
+              >
+                ✦ Smart Cuts
+              </button>
+              <button
+                className={`${styles.chipBtn} ${editMode === 'manual' ? styles.chipBtnActive : ''}`}
+                onClick={() => setEditMode('manual')}
+              >
+                Manual Trim
+              </button>
             </div>
-            <input
-              type="range"
-              className={styles.trimSlider}
-              min={0}
-              max={videoDuration}
-              step={0.1}
-              value={trimEnd}
-              onChange={(e) => handleTrimEndChange(parseFloat(e.target.value))}
-            />
+
+            {editMode === 'smart' && currentEditPlan ? (
+              <div className={styles.editPlanInfo}>
+                <span className={styles.editPlanBadge}>
+                  {currentEditPlan.segmentCount} segment{currentEditPlan.segmentCount > 1 ? 's' : ''}
+                </span>
+                <span className={styles.editPlanDetail}>
+                  {currentEditPlan.totalOutputDuration.toFixed(1)}s condensed
+                  {videoDuration > 0 && ` from ${videoDuration.toFixed(1)}s`}
+                </span>
+                {currentEditPlan.segments.some(s => s.speed > 1.05) && (
+                  <span className={styles.speedBadge}>speed-ramped</span>
+                )}
+              </div>
+            ) : editMode === 'smart' && !analysisResult ? (
+              <div className={styles.editPlanDetail}>
+                {analyzing ? 'Analyzing...' : 'Upload a clip to enable smart cuts'}
+              </div>
+            ) : null}
+
+            {editMode === 'manual' && (
+              <>
+                <div className={styles.trimRow}>
+                  <div className={styles.trimField}>
+                    <div className={styles.fieldLabel}>Start</div>
+                    <div className={styles.trimInputWrap}>
+                      <input
+                        type="number"
+                        className={styles.trimInput}
+                        value={trimStart}
+                        min={0}
+                        max={trimEnd - 1}
+                        step={0.1}
+                        onChange={(e) => handleTrimStartChange(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className={styles.trimUnit}>sec</span>
+                    </div>
+                  </div>
+                  <div className={styles.trimField}>
+                    <div className={styles.fieldLabel}>End</div>
+                    <div className={styles.trimInputWrap}>
+                      <input
+                        type="number"
+                        className={styles.trimInput}
+                        value={trimEnd}
+                        min={trimStart + 1}
+                        max={videoDuration}
+                        step={0.1}
+                        onChange={(e) => handleTrimEndChange(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className={styles.trimUnit}>sec</span>
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  className={styles.trimSlider}
+                  min={0}
+                  max={videoDuration}
+                  step={0.1}
+                  value={trimEnd}
+                  onChange={(e) => handleTrimEndChange(parseFloat(e.target.value))}
+                />
+              </>
+            )}
+
             <div className={styles.trimDuration}>
               footage {footageDuration.toFixed(1)}s · total {totalDuration.toFixed(1)}s
             </div>
-            {videoDuration > 20 && !analyzing && !trimSuggested && (
-              <button className={styles.btnSmall} onClick={() => runAutoTrim(sourceUrl)}>
-                ✦ Auto-detect best segment
-              </button>
-            )}
           </div>
         )}
 
-        {/* text fields */}
+        {/* generated copy (editable) */}
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Text Overlays</div>
+          <div className={styles.sectionTitle}>
+            Generated Copy
+            {headline && <span className={styles.autoGenBadge}>auto-generated</span>}
+          </div>
           <div className={styles.fieldGroup}>
             <div>
               <div className={styles.fieldLabel}>Headline</div>
               <input
                 className={styles.fieldInput}
-                placeholder="e.g. Track your favorites in seconds"
+                placeholder="Auto-generated from context…"
                 value={headline}
                 maxLength={60}
                 onChange={(e) => setHeadline(e.target.value)}
@@ -680,12 +856,12 @@ export default function VideosEditor() {
               <div className={styles.fieldLabel}>Subhead</div>
               <input
                 className={styles.fieldInput}
-                placeholder="e.g. Real-time scores, odds, and intel"
+                placeholder="Auto-generated from context…"
                 value={subhead}
-                maxLength={60}
+                maxLength={80}
                 onChange={(e) => setSubhead(e.target.value)}
               />
-              <div className={styles.charCount}>{subhead.length}/60</div>
+              <div className={styles.charCount}>{subhead.length}/80</div>
             </div>
           </div>
         </div>
@@ -696,6 +872,9 @@ export default function VideosEditor() {
           <div className={styles.beatsHint}>
             Short text snippets during the demo
             {beatTimings && <span className={styles.beatsBadge}>activity-timed</span>}
+            {editMode === 'smart' && currentEditPlan?.segments.some(s => s.speed > 1.05) && (
+              <span className={styles.speedBadge}>speed-ramped</span>
+            )}
           </div>
           <div className={styles.fieldGroup}>
             {overlayBeats.map((beat, i) => (
@@ -717,23 +896,11 @@ export default function VideosEditor() {
           </div>
         </div>
 
-        {/* CTA options */}
+        {/* CTA text */}
         <div className={styles.section}>
           <div className={styles.sectionTitle}>Call to Action</div>
-          <div className={styles.chipRow}>
-            {Object.values(CTA_TYPES).map((t) => (
-              <button
-                key={t.id}
-                className={`${styles.chipBtn} ${ctaType === t.id ? styles.chipBtnActive : ''}`}
-                onClick={() => handleCtaTypeChange(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
           <input
             className={styles.fieldInput}
-            style={{ marginTop: 8 }}
             placeholder={ctaType === 'custom' ? 'Enter your CTA…' : CTA_TYPES[ctaType]?.defaultText}
             value={cta}
             maxLength={60}
@@ -788,11 +955,11 @@ export default function VideosEditor() {
         <div className={styles.actions}>
           {(renderState === 'idle' || renderState === 'error') && variantRenderState !== 'rendering' ? (
             <>
-              <button className={styles.btnRender} disabled={!canRender} onClick={handleRender}>
-                <span>▶</span> Render Reel
+              <button className={styles.btnRender} disabled={!canRender} onClick={handleRenderVariants}>
+                ✦ Generate 3 Reel Variants
               </button>
-              <button className={styles.btnVariant} disabled={!canRender} onClick={handleRenderVariants}>
-                ✦ Render 3 Variants
+              <button className={styles.btnSecondary} disabled={!canRender} onClick={handleRender}>
+                <span>▶</span> Render Single Reel
               </button>
             </>
           ) : renderState === 'rendering' ? (
@@ -811,7 +978,7 @@ export default function VideosEditor() {
                 <div className={styles.progressBar}>
                   <div className={styles.progressFill} style={{ width: `${Math.round(variantProgress * 100)}%` }} />
                 </div>
-                <div className={styles.progressText}>Rendering variants… {Math.round(variantProgress * 100)}%</div>
+                <div className={styles.progressText}>Generating variants… {Math.round(variantProgress * 100)}%</div>
               </div>
               <button className={styles.btnSecondary} onClick={handleCancelRender}>Cancel</button>
             </>
@@ -825,7 +992,7 @@ export default function VideosEditor() {
                 ⬇ Download MP4
               </button>
               <button className={styles.btnVariant} onClick={handleRenderVariants} disabled={!canRender}>
-                ✦ Also render 3 variants
+                ✦ Also generate 3 variants
               </button>
               <button className={styles.btnSecondary} onClick={handleReset}>
                 Edit &amp; re-render
@@ -856,6 +1023,11 @@ export default function VideosEditor() {
           <span className={styles.metaChip}>{template.fps} fps</span>
           <span className={styles.metaChip}>H.264</span>
           <span className={styles.metaChip}>silent</span>
+          {editMode === 'smart' && currentEditPlan && (
+            <span className={styles.metaChip} style={{ color: template.brand.accentColor }}>
+              {currentEditPlan.segmentCount} cuts
+            </span>
+          )}
         </div>
 
         {/* enhanced timeline */}
@@ -941,6 +1113,46 @@ export default function VideosEditor() {
                 </div>
               ))}
             </div>
+
+            {/* posting package */}
+            {postingPackage && (
+              <div className={styles.postingPackage}>
+                <div className={styles.postingTitle}>Posting Package</div>
+                <div className={styles.postingMeta}>
+                  {postingPackage.recommendedVariant && (
+                    <div className={styles.postingRow}>
+                      <span className={styles.postingLabel}>Best variant:</span>
+                      <span className={styles.postingValue}>
+                        {postingPackage.recommendedVariant.tone?.charAt(0).toUpperCase() + postingPackage.recommendedVariant.tone?.slice(1)} hook
+                      </span>
+                    </div>
+                  )}
+                  {postingPackage.hookStyleSummary && (
+                    <div className={styles.postingRow}>
+                      <span className={styles.postingLabel}>Hook style:</span>
+                      <span className={styles.postingValue}>{postingPackage.hookStyleSummary}</span>
+                    </div>
+                  )}
+                </div>
+                {caption && (
+                  <div className={styles.captionWrap}>
+                    <div className={styles.captionHeader}>
+                      <span className={styles.fieldLabel}>Caption</span>
+                      <button className={styles.btnSmall} onClick={handleCopyCaption}>
+                        📋 Copy
+                      </button>
+                    </div>
+                    <div className={styles.captionText}>{caption}</div>
+                  </div>
+                )}
+                <div className={styles.postingActions}>
+                  <button className={styles.btnRender} onClick={handleExportBundle}>
+                    📦 Download Full Bundle
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button className={styles.btnSecondary} onClick={handleReset} style={{ marginTop: 12 }}>
               Edit &amp; re-render
             </button>
