@@ -55,13 +55,6 @@ export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, 
             const signals = (pick.signals ?? []).slice(0, 3);
             return (
               <div key={i} className={styles.card}>
-                <div className={styles.cardMatchup}>
-                  {awayObj && <TeamLogo team={awayObj} size={22} />}
-                  <span>{pick.awayTeam}</span>
-                  <span className={styles.vsText}>VS</span>
-                  {homeObj && <TeamLogo team={homeObj} size={22} />}
-                  <span>{pick.homeTeam}</span>
-                </div>
                 <div className={styles.cardPickRow}>
                   <span className={styles.spreadBadge}>SPREAD</span>
                   {spreadStr && <span className={styles.spreadValue}>{spreadStr}</span>}
@@ -73,6 +66,22 @@ export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, 
                   >
                     {confidenceLabel(pick.confidence)}
                   </span>
+                </div>
+                <div className={styles.cardMatchup}>
+                  {pick.opponentTeam ? (
+                    <>
+                      <span className={styles.vsText}>vs</span>
+                      <span>{pick.opponentTeam}</span>
+                    </>
+                  ) : (
+                    <>
+                      {awayObj && <TeamLogo team={awayObj} size={22} />}
+                      <span>{pick.awayTeam}</span>
+                      <span className={styles.vsText}>VS</span>
+                      {homeObj && <TeamLogo team={homeObj} size={22} />}
+                      <span>{pick.homeTeam}</span>
+                    </>
+                  )}
                 </div>
                 {signals.length > 0 && (
                   <div className={styles.signalsList}>

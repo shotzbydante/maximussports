@@ -105,7 +105,7 @@ export default function OddsInsightsSlide3({ data, asOf, slideNumber, slideTotal
                     </span>
                   </div>
                   <div className={styles.mlPickLine}>{p.pickTeam || p.pickLine || '—'}</div>
-                  <div className={styles.mlMatchup}>{p.matchup}</div>
+                  <div className={styles.mlMatchup}>{p.opponentTeam ? `vs ${p.opponentTeam}` : p.matchup}</div>
                   {p.whyValue && <div className={styles.mlWhy}>{p.whyValue}</div>}
                   {p.slipTips?.length > 0 && (
                     <div className={styles.slipTip}>{p.slipTips[0]}</div>

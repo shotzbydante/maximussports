@@ -400,7 +400,6 @@ function buildGameCaption({ game, picks, asOf }) {
 
 function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
   const all = picks ?? [];
-  const picksCount = all.length;
 
   const byType = (t) => all.filter(p => p.pickType === t && p.itemType === 'lean');
   const atsList  = byType('ats');
@@ -408,119 +407,115 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
   const totList  = byType('total');
   const peList   = byType('pickem');
 
-  const best = (arr) => [...arr].sort((a, b) => (b.confidence - a.confidence) || ((b.edgeMag ?? 0) - (a.edgeMag ?? 0)))[0] ?? null;
+  const signalCount = peList.length + atsList.length + valList.length + totList.length;
 
-  const topAts = best(atsList);
-  const topVal = best(valList);
-  const topTot = best(totList);
-  const topPe  = best(peList);
-
-  const confWord = (c) => c >= 2 ? 'HIGH' : c >= 1 ? 'MEDIUM' : 'LOW';
-
-  function pickTag(p) {
-    if (!p) return null;
-    return `${p.pickLine || p.pickTeam || '\u2014'} (${confWord(p.confidence)})`;
-  }
-
-  const atsRationale = [
-    'Cover rate + model projection both lean this way.',
-    'ATS form and spread differential say this side has value.',
-    'The number looks soft \u2014 our model sees a clear cover path.',
-  ];
-  const valRationale = [
-    'Model price is well above the market \u2014 real value gap.',
-    'Market is underpricing this outcome. Model disagrees sharply.',
-    'Significant implied probability edge vs the posted line.',
-  ];
-  const totRationale = [
-    'Tempo and pace profiles point convincingly toward the over.',
-    'Scoring environments don\u2019t get much stronger than this one.',
-    'Combined offensive output should push this total.',
-    'Defensive profiles and pace strongly favor the under.',
-    'Scoring pace says this total is set too high.',
-  ];
-  const peRationale = [
-    'Model sees a meaningful moneyline edge here.',
-    'Win probability gap is wide enough to act on.',
-    'The market may be underrating this side straight-up.',
-  ];
-
-  const dayIdx = new Date().getDate();
-  function rationale(pool, pick) {
+  function teamEmoji(pick) {
     if (!pick) return '';
-    return pool[_hash(pick.pickLine || '') % pool.length];
+    const slug = pick.pickTeam === pick.homeTeam ? pick.homeSlug : pick.awaySlug;
+    try { return getTeamEmoji(slug, pick.pickTeam); } catch { return ''; }
   }
 
-  const FIXED_HOOK = 'Maximus\u2019s pick drop \uD83D\uDD25';
-
-  const followUps = [
-    () => `${picksCount} model-backed leans just hit the board.`,
-    () => `The model scanned today\u2019s full slate \u2014 here\u2019s what cleared.`,
-    () => `${picksCount} edges surfaced across the board. Confidence-ranked and data-verified.`,
-    () => `Fresh intel. ${picksCount} qualified leans across today\u2019s slate.`,
-    () => `The numbers spoke. ${picksCount} edges cleared the model threshold.`,
-    () => `Board is live. ${picksCount} signals worth knowing about.`,
-  ];
-
-  const followUp = picksCount > 0
-    ? followUps[dayIdx % followUps.length]()
-    : 'No edges cleared the model threshold today \u2014 discipline over volume.';
-
-  const catWords = [];
-  if (atsList.length > 0) catWords.push('spreads');
-  if (valList.length > 0) catWords.push('value');
-  if (totList.length > 0) catWords.push('totals');
-  if (peList.length > 0)  catWords.push('pick \u2019ems');
-  const catJoin = catWords.length <= 2
-    ? catWords.join(' and ')
-    : catWords.slice(0, -1).join(', ') + ', and ' + catWords[catWords.length - 1];
-  const catLine = catWords.length > 0 ? `Covering ${catJoin}.` : '';
-
-  const boardLines = [];
-  if (topAts) boardLines.push(`\uD83D\uDCC9 ATS: ${pickTag(topAts)}\n${rationale(atsRationale, topAts)}`);
-  if (topVal) boardLines.push(`\uD83D\uDCB0 VALUE: ${pickTag(topVal)}\n${rationale(valRationale, topVal)}`);
-  if (topTot) {
-    const pool = (topTot.leanDirection === 'OVER') ? totRationale.slice(0, 3) : totRationale.slice(3);
-    boardLines.push(`\uD83D\uDD22 TOTAL: ${pickTag(topTot)}\n${rationale(pool, topTot)}`);
+  function totTeamEmoji(pick) {
+    try { return getTeamEmoji(pick.homeSlug, pick.homeTeam) || getTeamEmoji(pick.awaySlug, pick.awayTeam); } catch { return ''; }
   }
-  if (topPe) boardLines.push(`\uD83C\uDFC0 PICK \u2019EM: ${pickTag(topPe)}\n${rationale(peRationale, topPe)}`);
 
-  const short = [
-    FIXED_HOOK,
-    [followUp, catLine].filter(Boolean).join(' '),
-    boardLines.length > 0 ? boardLines.join('\n\n') : null,
-    'Full board + signals \u2192 maximussports.ai',
-  ].filter(Boolean).join('\n\n');
+  function shortTeamName(fullName) {
+    if (!fullName) return '';
+    const parts = fullName.split(' ');
+    return parts.length > 1 ? parts.slice(0, -1).join(' ') : fullName;
+  }
 
-  const long = [
-    FIXED_HOOK,
+  function fmtPickEmEntry(pick) {
+    const e = teamEmoji(pick);
+    return `${e ? e + ' ' : ''}${pick.pickTeam || pick.pickLine}`;
+  }
+
+  function fmtAtsEntry(pick) {
+    const e = teamEmoji(pick);
+    const shortName = shortTeamName(pick.pickTeam);
+    const spreadPart = pick.spread != null
+      ? (pick.spread > 0 ? `+${pick.spread}` : String(pick.spread))
+      : '';
+    return `${e ? e + ' ' : ''}${shortName} ${spreadPart}`.trim();
+  }
+
+  function fmtValueEntry(pick) {
+    const e = teamEmoji(pick);
+    const shortName = shortTeamName(pick.pickTeam);
+    return `${e ? e + ' ' : ''}${shortName} ${pick.mlPriceLabel || ''}`.trim();
+  }
+
+  function fmtTotalEntry(pick) {
+    const e = totTeamEmoji(pick);
+    const shortName = shortTeamName(pick.homeTeam);
+    const dir = pick.leanDirection || 'OVER';
+    return `${e ? e + ' ' : ''}${shortName} ${dir} ${pick.lineValue || ''}`.trim();
+  }
+
+  const pickemLines = peList.map(fmtPickEmEntry).join('\n');
+  const atsLines    = atsList.map(fmtAtsEntry).join('\n');
+  const valueLines  = valList.map(fmtValueEntry).join('\n');
+  const totalsLines = totList.map(fmtTotalEntry).join('\n');
+
+  const clusterParts = [];
+  if (atsList.length >= 2) clusterParts.push('spread edges');
+  if (valList.length >= 2) clusterParts.push('underdog value');
+  if (totList.length >= 2) clusterParts.push('totals');
+  if (peList.length >= 2)  clusterParts.push('straight-up winners');
+  if (clusterParts.length === 0) {
+    if (atsList.length > 0) clusterParts.push('spreads');
+    if (valList.length > 0) clusterParts.push('value plays');
+    if (totList.length > 0) clusterParts.push('totals');
+    if (peList.length > 0)  clusterParts.push('pick \u2019ems');
+  }
+  const signalSummary = clusterParts.length <= 2
+    ? clusterParts.join(' and ')
+    : clusterParts.slice(0, -1).join(', ') + ', and ' + clusterParts[clusterParts.length - 1];
+
+  const sections = [];
+
+  if (peList.length > 0) {
+    sections.push(`\uD83C\uDFAF Pick \u2019Em Signals\n${pickemLines}`);
+  }
+  if (atsList.length > 0) {
+    sections.push(`\uD83D\uDCC9 Against the Spread\n${atsLines}`);
+  }
+  if (valList.length > 0) {
+    sections.push(`\uD83D\uDCB0 Value Leans (longer odds)\n${valueLines}`);
+  }
+  if (totList.length > 0) {
+    sections.push(`\uD83D\uDCCA Totals Signals\n${totalsLines}`);
+  }
+
+  const caption = [
+    `\uD83D\uDD25 MAXIMUS\u2019S PICKS ARE LIVE`,
     '',
-    [followUp, catLine].filter(Boolean).join(' '),
+    `The model just scanned today\u2019s board and flagged ${signalCount} signal${signalCount !== 1 ? 's' : ''} across spreads, totals, and value plays.`,
+    `Here\u2019s where the data says there\u2019s market edge today \uD83D\uDC47`,
     '',
-    boardLines.length > 0 ? boardLines.join('\n\n') : null,
+    ...sections.flatMap(s => [s, '']),
+    `\uD83D\uDCE1 Model note:`,
+    `Signals today are clustering around ${signalSummary || 'the full board'}.`,
     '',
-    'Swipe for full breakdowns: spreads, value, totals, and upset alerts.',
+    'Swipe the card for the full board + signal strength breakdown.',
     '',
-    asOf ? `Data as of ${asOf}` : null,
-    'Full board + signals \u2192 maximussports.ai',
+    'Full model intel \u2192 maximussports.ai',
+    '',
+    '\uD83D\uDC47 Question for the college hoops crowd:',
+    'Which of these plays would you ride tonight?',
+    '',
     DISCLAIMER,
-  ].filter(l => l !== null && l !== undefined)
-   .reduce((acc, line) => {
-     if (line === '' && acc.length > 0 && acc[acc.length - 1] === '') return acc;
-     return [...acc, line];
-   }, [])
-   .join('\n')
-   .trim();
+  ].join('\n').trim();
 
   const hashtags = [
     '#CollegeBasketball',
     '#MarchMadness',
-    '#BettingPicks',
     '#NCAAB',
     '#SportsBetting',
+    '#MaximusSports',
   ];
 
-  return { shortCaption: short, longCaption: long, hashtags };
+  return { shortCaption: caption, longCaption: caption, hashtags };
 }
 
 // ─── Odds Insights ────────────────────────────────────────────────────────────

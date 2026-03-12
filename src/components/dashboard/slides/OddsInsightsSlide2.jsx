@@ -47,6 +47,9 @@ function PickRow({ pick }) {
         {teamObj && <TeamLogo team={teamObj} size={30} />}
         <div className={styles.pickLine}>{pick.pickLine || '—'}</div>
       </div>
+      {pick.opponentTeam && (
+        <div className={styles.vsLine}>vs {pick.opponentTeam}</div>
+      )}
       <div className={styles.whyValue}>{rationale}</div>
       {pick.slipTips?.length > 0 && (
         <div className={styles.slipTip}>{pick.slipTips[0]}</div>
@@ -83,6 +86,9 @@ function MlPickRow({ pick }) {
         {teamObj && <TeamLogo team={teamObj} size={30} />}
         <div className={styles.pickLine}>{pick.pickTeam || '—'}</div>
       </div>
+      {pick.opponentTeam && (
+        <div className={styles.vsLine}>vs {pick.opponentTeam}</div>
+      )}
       <div className={styles.whyValue}>{rationale}</div>
     </div>
   );

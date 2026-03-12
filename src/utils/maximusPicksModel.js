@@ -404,6 +404,9 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     const pickML = pickHome ? parseNum(rH) : parseNum(rA);
     const pickLine = pickML != null ? `${pickTeam} ${fmtPrice(pickML)}` : pickTeam;
 
+    const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
+    const opponentSlug = pickHome ? awaySlug : homeSlug;
+
     picks.push({
       key: game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup: `${game.awayTeam} @ ${game.homeTeam}`,
@@ -415,6 +418,8 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       pickType: 'pickem',
       itemType: 'lean',
       pickTeam,
+      opponentTeam,
+      opponentSlug,
       pickLine,
       confidence,
       edgeMag,
@@ -490,10 +495,14 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       }
 
       const hasLine = spreadDisplay != null;
+      const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
+      const opponentSlug = pickHome ? awaySlug : homeSlug;
       picks.push({
         ...sharedBase,
         itemType: 'lean',
         pickTeam,
+        opponentTeam,
+        opponentSlug,
         spread: teamSpreadNum,
         pickLine: hasLine ? `${pickTeam} ${spreadDisplay}` : `${pickTeam} ATS —`,
         confidence,
@@ -523,10 +532,14 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         signals.push('Opponent ATS data unavailable');
 
         const hasLineP = spreadDisplayP != null;
+        const opponentTeamP = pickIsHome ? game.awayTeam : game.homeTeam;
+        const opponentSlugP = pickIsHome ? awaySlug : homeSlug;
         picks.push({
           ...sharedBase,
           itemType: 'lean',
           pickTeam: pickTeamP,
+          opponentTeam: opponentTeamP,
+          opponentSlug: opponentSlugP,
           spread: teamSpreadNumP,
           pickLine: hasLineP ? `${pickTeamP} ${spreadDisplayP}` : `${pickTeamP} ATS —`,
           confidence: rawConf,
@@ -573,10 +586,14 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       if (!leanFav) signals.push('Market spread creates underdog cover value');
       else signals.push('Large spread supports favorite cover');
 
+      const opponentTeamT3 = pickTeamT3 === game.homeTeam ? game.awayTeam : game.homeTeam;
+      const opponentSlugT3 = pickTeamT3 === game.homeTeam ? awaySlug : homeSlug;
       picks.push({
         ...sharedBase,
         itemType: 'lean',
         pickTeam: pickTeamT3,
+        opponentTeam: opponentTeamT3,
+        opponentSlug: opponentSlugT3,
         spread: teamSpreadT3,
         pickLine: spreadDispT3 ? `${pickTeamT3} ${spreadDispT3}` : `${pickTeamT3} ATS —`,
         confidence: 0,
@@ -664,6 +681,9 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
       if (atsRec) signals.push(`Recent ATS form: ${Math.round(atsRec.coverPct)}%`);
     }
 
+    const opponentTeamV = pickTeam === game.homeTeam ? game.awayTeam : game.homeTeam;
+    const opponentSlugV = pickTeam === game.homeTeam ? getTeamSlug(game.awayTeam) : homeSlug;
+
     picks.push({
       key:      game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup:  `${game.awayTeam} @ ${game.homeTeam}`,
@@ -675,6 +695,8 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
       pickType: 'value',
       itemType: 'lean',
       pickTeam,
+      opponentTeam: opponentTeamV,
+      opponentSlug: opponentSlugV,
       pickLine,
       mlPriceLabel,
       confidence,

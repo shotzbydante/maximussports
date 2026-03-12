@@ -86,13 +86,6 @@ export default function MaxPicksUpsetsSlide({ data, asOf, slideNumber, slideTota
             const signals = (pick.signals ?? []).slice(0, 3);
             return (
               <div key={i} className={styles.card}>
-                <div className={styles.cardMatchup}>
-                  {awayObj && <TeamLogo team={awayObj} size={22} />}
-                  <span>{pick.awayTeam}</span>
-                  <span style={{ opacity: 0.35, fontSize: 11 }}>VS</span>
-                  {homeObj && <TeamLogo team={homeObj} size={22} />}
-                  <span>{pick.homeTeam}</span>
-                </div>
                 <div className={styles.cardPickRow}>
                   <span className={styles.alertBadge}>🚨 UPSET</span>
                   {pick._upsetOdds && <span className={styles.oddsPrice}>{pick._upsetOdds}</span>}
@@ -104,6 +97,22 @@ export default function MaxPicksUpsetsSlide({ data, asOf, slideNumber, slideTota
                   >
                     {confidenceLabel(pick.confidence)}
                   </span>
+                </div>
+                <div className={styles.cardMatchup}>
+                  {pick.opponentTeam ? (
+                    <>
+                      <span style={{ opacity: 0.35, fontSize: 11 }}>vs</span>
+                      <span>{pick.opponentTeam}</span>
+                    </>
+                  ) : (
+                    <>
+                      {awayObj && <TeamLogo team={awayObj} size={22} />}
+                      <span>{pick.awayTeam}</span>
+                      <span style={{ opacity: 0.35, fontSize: 11 }}>VS</span>
+                      {homeObj && <TeamLogo team={homeObj} size={22} />}
+                      <span>{pick.homeTeam}</span>
+                    </>
+                  )}
                 </div>
                 {signals.length > 0 && (
                   <div className={styles.signalsList}>

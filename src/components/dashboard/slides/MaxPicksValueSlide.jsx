@@ -46,9 +46,6 @@ export default function MaxPicksValueSlide({ data, asOf, slideNumber, slideTotal
             const signals = (pick.signals ?? []).slice(0, 3);
             return (
               <div key={i} className={styles.card}>
-                <div className={styles.cardMatchup}>
-                  <span>{pick.matchup || `${pick.awayTeam} @ ${pick.homeTeam}`}</span>
-                </div>
                 <div className={styles.cardPickRow}>
                   <span className={styles.valueBadge}>VALUE</span>
                   {pick.mlPriceLabel && <span className={styles.mlPrice}>{pick.mlPriceLabel}</span>}
@@ -60,6 +57,9 @@ export default function MaxPicksValueSlide({ data, asOf, slideNumber, slideTotal
                   >
                     {confidenceLabel(pick.confidence)}
                   </span>
+                </div>
+                <div className={styles.cardMatchup}>
+                  <span>{pick.opponentTeam ? `vs ${pick.opponentTeam}` : (pick.matchup || `${pick.awayTeam} @ ${pick.homeTeam}`)}</span>
                 </div>
                 {signals.length > 0 && (
                   <div className={styles.signalsList}>

@@ -48,24 +48,33 @@ export default function MaxPicksPickemsSlide({ data, asOf, slideNumber, slideTot
             const signals = (pick.signals ?? []).slice(0, 3);
             return (
               <div key={i} className={styles.card}>
-                <div className={styles.cardMatchup}>
-                  {awayObj && <TeamLogo team={awayObj} size={22} />}
-                  <span>{pick.awayTeam}</span>
-                  <span className={styles.vsText}>VS</span>
-                  {homeObj && <TeamLogo team={homeObj} size={22} />}
-                  <span>{pick.homeTeam}</span>
-                  {pick.time && <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.4 }}>{pick.time}</span>}
-                </div>
                 <div className={styles.cardPickRow}>
                   <span className={styles.pickLabel}>PICK</span>
                   {pickTeamObj && <TeamLogo team={pickTeamObj} size={28} />}
-                  <span className={styles.pickTeamName}>{pick.pickTeam || '—'}</span>
+                  <span className={styles.pickTeamName}>{pick.pickLine || pick.pickTeam || '—'}</span>
                   <span
                     className={styles.confBadge}
                     style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
                   >
                     {confidenceLabel(pick.confidence)}
                   </span>
+                </div>
+                <div className={styles.cardMatchup}>
+                  {pick.opponentTeam ? (
+                    <>
+                      <span className={styles.vsText}>vs</span>
+                      <span>{pick.opponentTeam}</span>
+                    </>
+                  ) : (
+                    <>
+                      {awayObj && <TeamLogo team={awayObj} size={22} />}
+                      <span>{pick.awayTeam}</span>
+                      <span className={styles.vsText}>VS</span>
+                      {homeObj && <TeamLogo team={homeObj} size={22} />}
+                      <span>{pick.homeTeam}</span>
+                    </>
+                  )}
+                  {pick.time && <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.4 }}>{pick.time}</span>}
                 </div>
                 {signals.length > 0 && (
                   <div className={styles.signalsList}>

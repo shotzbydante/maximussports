@@ -92,6 +92,10 @@ function PickRow({ pick, rank }) {
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
   const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
 
+  const opponentLabel = !isTot && pick.opponentTeam
+    ? `vs ${pick.opponentTeam}`
+    : (isTot ? `${pick.awayTeam} vs ${pick.homeTeam}` : null);
+
   return (
     <div className={styles.pickRow}>
       <div className={styles.pickMain}>
@@ -115,6 +119,7 @@ function PickRow({ pick, rank }) {
         </span>
         <MiniEdge pick={pick} />
       </div>
+      {opponentLabel && <div className={styles.pickMatchup}>{opponentLabel}</div>}
       <div className={styles.pickExplain}>{editorialLine(pick)}</div>
     </div>
   );

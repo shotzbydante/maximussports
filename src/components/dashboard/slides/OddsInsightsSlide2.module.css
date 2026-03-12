@@ -124,6 +124,12 @@
   line-height: 1.2;
 }
 
+.vsLine {
+  font-size: 17px;
+  color: rgba(240, 244, 248, 0.35);
+  font-weight: 500;
+}
+
 .whyValue {
   font-size: 19px;
   color: rgba(240, 244, 248, 0.5);
