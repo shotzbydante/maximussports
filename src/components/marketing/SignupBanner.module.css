@@ -1,0 +1,114 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SignupBanner — persistent anonymous-user signup prompt.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  margin-bottom: 16px;
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.14);
+  border-radius: 10px;
+  animation: bannerSlideIn 0.3s ease;
+}
+
+@keyframes bannerSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.text {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.signupBtn {
+  padding: 6px 16px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast, 0.12s ease);
+}
+
+.signupBtn:hover {
+  background: var(--color-primary-hover);
+}
+
+.signupBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.dismissBtn {
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast, 0.12s ease);
+}
+
+.dismissBtn:hover {
+  color: var(--color-text-secondary);
+}
+
+.dismissBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ─── Mobile ─────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .banner {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .text {
+    font-size: 0.78rem;
+  }
+
+  .signupBtn {
+    padding: 6px 12px;
+    font-size: 0.74rem;
+  }
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+  }
+
+  .signupBtn,
+  .dismissBtn {
+    transition: none;
+  }
+}
