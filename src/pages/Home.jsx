@@ -31,6 +31,8 @@ import MaximusPicks from '../components/home/MaximusPicks';
 import { buildMaximusPicks, buildPicksSummary, buildBoardBriefing } from '../utils/maximusPicksModel';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
+import { getSupabase } from '../lib/supabaseClient';
+import SignupBanner from '../components/marketing/SignupBanner';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
@@ -897,15 +899,23 @@ export default function Home() {
     setFlag('mx_welcome_seen_v1');
   }, []);
 
-  const handleWelcomeSkipped = useCallback(() => {
-    trackAccountCreateSkipped({ reason: 'welcome_modal_skipped' });
+  const handleWelcomeSignup = useCallback(() => {
+    handleWelcomeClose();
+    const sb = getSupabase();
+    if (sb) {
+      sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/settings` },
+      });
+    } else {
+      navigate('/settings');
+    }
+  }, [handleWelcomeClose, navigate]);
+
+  const handleWelcomeExplore = useCallback(() => {
+    trackAccountCreateSkipped({ reason: 'welcome_modal_explore' });
     handleWelcomeClose();
   }, [handleWelcomeClose]);
-
-  const handleWelcomePrimary = useCallback(() => {
-    handleWelcomeClose();
-    navigate('/settings');
-  }, [handleWelcomeClose, navigate]);
 
   const dataStatusForBadges = useMemo(() => {
     if (dataStatus) return dataStatus;
@@ -1042,9 +1052,10 @@ export default function Home() {
       <WelcomeModal
         open={welcomeOpen}
         onClose={handleWelcomeClose}
-        onPrimary={handleWelcomePrimary}
-        onSecondary={handleWelcomeSkipped}
+        onSignup={handleWelcomeSignup}
+        onExplore={handleWelcomeExplore}
       />
+      <SignupBanner />
 
       {/* Page intro — date + context bar */}
       <header className={styles.pageIntro}>
