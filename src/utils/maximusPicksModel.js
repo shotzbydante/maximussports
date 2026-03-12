@@ -985,3 +985,128 @@ export function buildPicksSummary({ pickEmPicks = [], atsPicks = [], valuePicks,
   if (totalsPicks.filter((p) => p.leanDirection).length > 0) sentence += ' Totals leans active.';
   return sentence;
 }
+
+/**
+ * buildBoardBriefing — editorial intelligence summary for the picks board.
+ *
+ * Detects board state (spread-heavy, value-heavy, totals-heavy, mixed, quiet)
+ * and generates 1–2 sentence prose with standout examples.
+ *
+ * Returns { headline, body, boardType } or null when no leans exist.
+ */
+export function buildBoardBriefing({ pickEmPicks = [], atsPicks = [], valuePicks, mlPicks, totalsPicks = [] } = {}) {
+  const valPicks = valuePicks ?? mlPicks ?? [];
+
+  const peLeans  = pickEmPicks.filter(p => p.itemType === 'lean');
+  const atsLeans = atsPicks.filter(p => p.itemType === 'lean');
+  const valLeans = valPicks.filter(p => p.itemType === 'lean');
+  const totLeans = totalsPicks.filter(p => p.itemType === 'lean' && p.leanDirection);
+
+  const totalLeans = peLeans.length + atsLeans.length + valLeans.length + totLeans.length;
+  if (totalLeans === 0) return null;
+
+  const highAts = atsLeans.filter(p => p.confidence >= 2);
+  const highVal = valLeans.filter(p => p.confidence >= 2);
+  const highTot = totLeans.filter(p => p.confidence >= 2);
+  const highPe  = peLeans.filter(p => p.confidence >= 2);
+
+  function shortName(team) {
+    if (!team) return '';
+    const parts = team.split(' ');
+    return parts.length > 1 ? parts.slice(0, -1).join(' ') : team;
+  }
+
+  function pickLabel(p) {
+    return p.pickLine || p.pickTeam || '';
+  }
+
+  function topExamples(arr, n = 2) {
+    return [...arr]
+      .sort((a, b) => (b.confidence - a.confidence) || ((b.edgeMag ?? 0) - (a.edgeMag ?? 0)))
+      .slice(0, n)
+      .map(pickLabel)
+      .filter(Boolean);
+  }
+
+  function listStr(arr) {
+    if (arr.length === 0) return '';
+    if (arr.length === 1) return arr[0];
+    return arr.slice(0, -1).join(', ') + ' and ' + arr[arr.length - 1];
+  }
+
+  const atsScore = atsLeans.length * 2 + highAts.length * 3;
+  const valScore = valLeans.length * 2 + highVal.length * 3;
+  const totScore = totLeans.length * 2 + highTot.length * 3;
+  const peScore  = peLeans.length * 2 + highPe.length * 3;
+  const maxScore = Math.max(atsScore, valScore, totScore, peScore);
+
+  const isConcentrated = maxScore >= (atsScore + valScore + totScore + peScore) * 0.45;
+  const overCount = totLeans.filter(p => p.leanDirection === 'OVER').length;
+  const underCount = totLeans.filter(p => p.leanDirection === 'UNDER').length;
+
+  let boardType = 'mixed';
+  let headline = '';
+  let body = '';
+
+  if (isConcentrated && atsScore === maxScore && atsLeans.length >= 2) {
+    boardType = 'spreads';
+    const ex = topExamples(atsLeans);
+    headline = 'Spreads are driving the strongest signals today.';
+    body = ex.length > 0
+      ? `${listStr(ex)} ${ex.length === 1 ? 'leads' : 'lead'} the ATS edge board${valLeans.length > 0 ? `, with ${valLeans.length} value spot${valLeans.length > 1 ? 's' : ''} also qualifying` : ''}.`
+      : '';
+  } else if (isConcentrated && valScore === maxScore && valLeans.length >= 2) {
+    boardType = 'value';
+    const ex = topExamples(valLeans);
+    const hasLongshot = valLeans.some(p => {
+      const ml = parseInt(String(p.mlPriceLabel || '').replace('+', ''), 10);
+      return !isNaN(ml) && ml >= 500;
+    });
+    headline = hasLongshot
+      ? 'Longshot value is unusually active today.'
+      : 'Value edges are clustering across the board.';
+    body = ex.length > 0
+      ? `${listStr(ex)} headline the value side${atsLeans.length > 0 ? `, while ${atsLeans.length} spread signal${atsLeans.length > 1 ? 's' : ''} also ${atsLeans.length > 1 ? 'qualify' : 'qualifies'}` : ''}.`
+      : '';
+  } else if (isConcentrated && totScore === maxScore && totLeans.length >= 2) {
+    boardType = 'totals';
+    const ex = topExamples(totLeans);
+    const dirNote = underCount > overCount
+      ? 'under signals clustering around lower-tempo matchups'
+      : overCount > underCount
+        ? 'over signals pointing to high-scoring environments'
+        : 'over and under signals both active';
+    headline = 'Totals are carrying the strongest edge today.';
+    body = `Multiple ${dirNote}${ex.length > 0 ? `, led by ${listStr(ex)}` : ''}.`;
+  } else if (isConcentrated && peScore === maxScore && peLeans.length >= 2) {
+    boardType = 'pickem';
+    const ex = topExamples(peLeans);
+    headline = 'Straight-up winner signals are leading the board.';
+    body = ex.length > 0
+      ? `${listStr(ex.map(e => shortName(e.split(' ').length > 2 ? e : e)))} ${ex.length === 1 ? 'stands' : 'stand'} out on the pick \u2019em side${atsLeans.length > 0 ? ', with spread edges also available' : ''}.`
+      : '';
+  } else {
+    boardType = 'mixed';
+    const angles = [];
+    if (atsLeans.length > 0) {
+      const ex = topExamples(atsLeans, 1);
+      angles.push(ex.length > 0 ? `spread edges led by ${ex[0]}` : `${atsLeans.length} spread signal${atsLeans.length > 1 ? 's' : ''}`);
+    }
+    if (valLeans.length > 0) {
+      const ex = topExamples(valLeans, 1);
+      angles.push(ex.length > 0 ? `value on ${ex[0]}` : `${valLeans.length} value play${valLeans.length > 1 ? 's' : ''}`);
+    }
+    if (totLeans.length > 0) {
+      angles.push(`${totLeans.length} total${totLeans.length > 1 ? 's' : ''} signal${totLeans.length > 1 ? 's' : ''}`);
+    }
+    if (peLeans.length > 0 && angles.length < 3) {
+      angles.push(`${peLeans.length} straight-up lean${peLeans.length > 1 ? 's' : ''}`);
+    }
+    headline = 'Signals are spread across the board today.';
+    body = angles.length > 0
+      ? `The model is seeing ${listStr(angles)}.`
+      : '';
+  }
+
+  return { headline, body, boardType };
+}
