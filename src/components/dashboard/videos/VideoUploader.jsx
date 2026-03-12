@@ -59,10 +59,10 @@ export default function VideoUploader({ onFileSelected, disabled }) {
       style={{
         border: `2px dashed ${dragOver ? '#3C79B4' : 'rgba(60,121,180,0.25)'}`,
         borderRadius: 12,
-        padding: '32px 20px',
+        padding: '28px 20px',
         textAlign: 'center',
         cursor: disabled ? 'default' : 'pointer',
-        background: dragOver ? 'rgba(60,121,180,0.06)' : 'rgba(60,121,180,0.02)',
+        background: dragOver ? 'rgba(60,121,180,0.06)' : '#f8f9fb',
         transition: 'all 0.2s ease',
         opacity: disabled ? 0.5 : 1,
       }}
@@ -75,14 +75,14 @@ export default function VideoUploader({ onFileSelected, disabled }) {
         style={{ display: 'none' }}
       />
       <div style={{ fontSize: 28, marginBottom: 8 }}>🎬</div>
-      <div style={{ fontWeight: 600, fontSize: 14, color: '#c8d6e5' }}>
+      <div style={{ fontWeight: 600, fontSize: 14, color: '#1a2d3d' }}>
         {dragOver ? 'Drop video here' : 'Upload screen recording'}
       </div>
-      <div style={{ fontSize: 12, color: 'rgba(200,214,229,0.5)', marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: '#5c7a91', marginTop: 4 }}>
         .mp4 or .mov · up to {MAX_SIZE_MB} MB
       </div>
       {error && (
-        <div style={{ color: '#e74c3c', fontSize: 12, marginTop: 8, fontWeight: 500 }}>
+        <div style={{ color: '#c0392b', fontSize: 12, marginTop: 8, fontWeight: 500 }}>
           {error}
         </div>
       )}

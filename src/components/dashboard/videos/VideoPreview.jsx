@@ -5,7 +5,7 @@ import styles from './VideoPreview.module.css';
  * 9:16 video preview with IG Reels safe-zone guides and overlay zones.
  *
  * This is a *preview-only* component — it shows the user an approximation
- * of the final render using HTML/CSS overlays over an <video> element.
+ * of the final render using HTML/CSS overlays over a <video> element.
  * The actual export uses Canvas + WebCodecs (see renderVideo.js).
  */
 export default function VideoPreview({
@@ -14,13 +14,14 @@ export default function VideoPreview({
   trimEnd = 10,
   headline,
   subhead,
+  overlayBeats = [],
   showSafeZones = true,
 }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [currentScene, setCurrentScene] = useState('empty');
+  const [footageProgress, setFootageProgress] = useState(0);
 
-  // clamp playback to trim window
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !sourceUrl) return;
@@ -32,6 +33,12 @@ export default function VideoPreview({
         v.pause();
         v.currentTime = trimStart;
         setPlaying(false);
+        setFootageProgress(0);
+      } else {
+        const dur = trimEnd - trimStart;
+        if (dur > 0) {
+          setFootageProgress((v.currentTime - trimStart) / dur);
+        }
       }
     };
     v.addEventListener('timeupdate', onTimeUpdate);
@@ -57,15 +64,20 @@ export default function VideoPreview({
     }
   }, [playing, trimStart, trimEnd]);
 
-  // compute overlay visibility based on footage progress
   const footageDuration = trimEnd - trimStart;
   const headlineVisible = headline && footageDuration > 0;
   const subheadVisible = subhead && footageDuration > 0;
 
+  const activeBeatIndex = overlayBeats.findIndex((beat, i) => {
+    if (!beat) return false;
+    const beatStart = i * 0.33;
+    const beatEnd = beatStart + 0.28;
+    return footageProgress >= beatStart && footageProgress <= beatEnd;
+  });
+
   return (
     <div className={styles.previewWrap}>
       <div className={styles.inner}>
-        {/* source video */}
         {sourceUrl ? (
           <>
             <video
@@ -77,7 +89,6 @@ export default function VideoPreview({
               preload="auto"
             />
 
-            {/* play button */}
             {!playing && (
               <div className={styles.playOverlay} onClick={togglePlay}>
                 <div className={styles.playBtn}>
@@ -100,7 +111,6 @@ export default function VideoPreview({
           </div>
         )}
 
-        {/* safe zone guides */}
         {showSafeZones && sourceUrl && (
           <div className={styles.safeOverlay}>
             <div className={styles.unsafeTop}>
@@ -116,24 +126,38 @@ export default function VideoPreview({
           </div>
         )}
 
-        {/* text overlay previews */}
-        {sourceUrl && headlineVisible && (
+        {sourceUrl && headlineVisible && !playing && (
           <div className={styles.overlayZone} style={{ top: '20%' }}>
             <span className={styles.overlayText}>{headline}</span>
           </div>
         )}
-        {sourceUrl && subheadVisible && (
-          <div className={styles.overlayZone} style={{ top: '20%', opacity: 0.45 }}>
-            <span className={`${styles.overlayText} ${styles.overlayPlaceholder}`}>
-              {subhead} <span style={{ fontSize: 9, opacity: 0.6 }}>(appears after headline)</span>
+        {sourceUrl && subheadVisible && !playing && (
+          <div className={styles.overlayZone} style={{ top: '32%', opacity: 0.55 }}>
+            <span className={`${styles.overlayText} ${styles.overlaySmall}`}>
+              {subhead}
             </span>
           </div>
         )}
 
-        {/* scene label */}
+        {sourceUrl && playing && activeBeatIndex >= 0 && overlayBeats[activeBeatIndex] && (
+          <div className={styles.overlayZone} style={{ top: '20%' }}>
+            <span className={styles.overlayText}>{overlayBeats[activeBeatIndex]}</span>
+          </div>
+        )}
+
         {sourceUrl && (
           <div className={styles.sceneLabel}>
             {currentScene === 'footage' ? 'footage preview' : currentScene}
+          </div>
+        )}
+
+        {sourceUrl && overlayBeats.some(b => b) && !playing && (
+          <div className={styles.beatsPreview}>
+            {overlayBeats.map((b, i) => b && (
+              <div key={i} className={styles.beatChip}>
+                <span className={styles.beatNum}>{i + 1}</span> {b}
+              </div>
+            ))}
           </div>
         )}
       </div>

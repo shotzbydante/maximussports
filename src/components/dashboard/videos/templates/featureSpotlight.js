@@ -10,6 +10,24 @@
  *   bottom 78–100% → unsafe (username / captions / actions)
  */
 
+export const CTA_TYPES = {
+  website: {
+    id: 'website',
+    label: 'Website',
+    defaultText: 'Create your free account at maximussports.ai',
+  },
+  instagram: {
+    id: 'instagram',
+    label: 'Instagram',
+    defaultText: 'Follow @maximussports.ai for daily intel',
+  },
+  custom: {
+    id: 'custom',
+    label: 'Custom CTA',
+    defaultText: '',
+  },
+};
+
 export const FEATURE_SPOTLIGHT = {
   id: 'feature-spotlight',
   name: 'Feature Spotlight',
@@ -53,6 +71,12 @@ export const FEATURE_SPOTLIGHT = {
     },
   ],
 
+  overlayBeats: [
+    { startPct: 0.05, endPct: 0.30, field: 'beat0' },
+    { startPct: 0.33, endPct: 0.60, field: 'beat1' },
+    { startPct: 0.63, endPct: 0.92, field: 'beat2' },
+  ],
+
   brand: {
     logo: '/logo.png',
     name: 'MAXIMUS SPORTS',
@@ -61,6 +85,12 @@ export const FEATURE_SPOTLIGHT = {
     gradientStart: '#0a0e1a',
     gradientEnd: '#131c30',
   },
+
+  variantPresets: [
+    { id: 'product', label: 'Product Hook', tone: 'product' },
+    { id: 'betting', label: 'Betting Hook', tone: 'betting' },
+    { id: 'curiosity', label: 'Curiosity Hook', tone: 'curiosity' },
+  ],
 };
 
 export const TEMPLATES = [FEATURE_SPOTLIGHT];
