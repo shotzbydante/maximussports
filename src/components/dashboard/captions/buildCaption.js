@@ -499,7 +499,7 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
 
   const take = getMaximusTake(all);
   const takeLine = take
-    ? `\uD83D\uDCA1 Maximus\u2019s top signal: ${take.label} (${take.category} \u00b7 ${take.tierLabel})`
+    ? `\uD83D\uDCA1 ${take.takeType || 'Top signal'}: ${take.label} (${take.category} \u00b7 ${take.tierLabel})`
     : null;
 
   const caption = [

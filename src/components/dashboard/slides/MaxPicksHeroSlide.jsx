@@ -4,7 +4,7 @@ import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import {
   getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText,
-  getEditorialLine, getMaximusTake, getModelEdgeDisplay,
+  getEditorialLine, getMaximusTake,
 } from '../../../utils/confidenceSystem';
 import MaximusTakeCard from '../../shared/MaximusTakeCard';
 import styles from './MaxPicksHeroSlide.module.css';
@@ -55,7 +55,6 @@ function PickRow({ pick, rank }) {
   const teamObj = !isTot ? makeTeamObj(pick.pickTeam) : null;
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
   const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
-  const edgeData = getModelEdgeDisplay(pick);
 
   const opponentLabel = !isTot && pick.opponentTeam
     ? `vs ${pick.opponentTeam}`
@@ -85,16 +84,6 @@ function PickRow({ pick, rank }) {
         <MiniEdge pick={pick} />
       </div>
       {opponentLabel && <div className={styles.pickMatchup}>{opponentLabel}</div>}
-      {edgeData && (
-        <div className={styles.pickEdge}>
-          {edgeData.lines.map((l) => (
-            <span key={l.label} className={styles.edgeStat}>
-              <span className={styles.edgeStatLabel}>{l.label} </span>
-              <span className={styles.edgeStatValue}>{l.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
       <div className={styles.pickExplain}>{getEditorialLine(pick)}</div>
     </div>
   );

@@ -43,6 +43,8 @@
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid rgba(183, 152, 108, 0.20);
   backdrop-filter: blur(4px);
+  padding: 8px 12px;
+  gap: 4px;
 }
 
 .slideVariant .title {
@@ -80,7 +82,15 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.takeType {
+  font-size: 10px;
+  font-weight: 500;
+  font-style: italic;
+  opacity: 0.55;
   flex: 1;
+  white-space: nowrap;
 }
 
 .confBadge {

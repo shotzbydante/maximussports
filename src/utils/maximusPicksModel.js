@@ -159,6 +159,31 @@ function fmtPrice(price) {
   return price > 0 ? `+${price}` : String(price);
 }
 
+/**
+ * Reliably parse a moneyline string into { homeML, awayML }.
+ * Cross-validates against spread direction when available to catch
+ * data sources that provide the ML string in away/home order.
+ */
+function parseMoneylinePair(game) {
+  const ml = resolveMoneyline(game);
+  if (!ml) return { homeML: null, awayML: null };
+  const parts = String(ml).split('/');
+  if (parts.length < 2) return { homeML: null, awayML: null };
+  let homeML = parseNum(parts[0]);
+  let awayML = parseNum(parts[1]);
+  if (homeML == null || awayML == null) return { homeML: null, awayML: null };
+  if (homeML === awayML) return { homeML, awayML };
+  const { spread: homeSpread } = getTeamSpread(game, true);
+  if (homeSpread != null && homeSpread !== 0) {
+    const homeIsFavBySpread = homeSpread < 0;
+    const homeIsFavByML = homeML < awayML;
+    if (homeIsFavBySpread !== homeIsFavByML) {
+      [homeML, awayML] = [awayML, homeML];
+    }
+  }
+  return { homeML, awayML };
+}
+
 function windowLabel(w) {
   if (w === 'last30') return 'last 30';
   if (w === 'last7') return 'last 7';
@@ -248,18 +273,13 @@ function recordSignal(ats) {
  * Returns null only when neither ML nor spread data exists.
  */
 function marketWinSignal(game) {
-  const ml = resolveMoneyline(game);
-  if (ml) {
-    const [rawH, rawA] = String(ml).split('/');
-    const homeML = parseNum(rawH);
-    const awayML = parseNum(rawA);
-    if (homeML != null && awayML != null) {
-      const hImp = mlToImplied(homeML);
-      const aImp = mlToImplied(awayML);
-      if (hImp != null && aImp != null) {
-        const total = hImp + aImp;
-        return clamp(hImp / total, 0.1, 0.9);
-      }
+  const { homeML, awayML } = parseMoneylinePair(game);
+  if (homeML != null && awayML != null) {
+    const hImp = mlToImplied(homeML);
+    const aImp = mlToImplied(awayML);
+    if (hImp != null && aImp != null) {
+      const total = hImp + aImp;
+      return clamp(hImp / total, 0.1, 0.9);
     }
   }
   const { spread: homeSpread } = getTeamSpread(game, true);
@@ -399,9 +419,8 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     if (pickHome) signals.push('Home court advantage');
     if (signals.length === 0) signals.push('Composite model edge');
 
-    const ml = resolveMoneyline(game);
-    const [rH, rA] = ml ? String(ml).split('/') : ['', ''];
-    const pickML = pickHome ? parseNum(rH) : parseNum(rA);
+    const { homeML: peHomeML, awayML: peAwayML } = parseMoneylinePair(game);
+    const pickML = pickHome ? peHomeML : peAwayML;
     const pickLine = pickML != null ? `${pickTeam} ${fmtPrice(pickML)}` : pickTeam;
 
     const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
@@ -617,9 +636,7 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
 
   for (const game of games) {
     if (!game.moneyline) continue;
-    const [rawHome, rawAway] = String(game.moneyline).split('/');
-    const homeML = parseNum(rawHome);
-    const awayML = parseNum(rawAway);
+    const { homeML, awayML } = parseMoneylinePair(game);
     if (homeML == null || awayML == null) continue;
 
     const homeImplied = mlToImplied(homeML);

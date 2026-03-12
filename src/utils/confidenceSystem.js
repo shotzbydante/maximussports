@@ -177,24 +177,57 @@ export function getModelEdgeDisplay(pick) {
   return null;
 }
 
-// ─── Maximus Take — compact top-signal summary ──────────────────────────────
+// ─── Maximus Take — editorial top-signal summary ─────────────────────────────
+
+const TAKE_TYPE_LABELS = {
+  pickem: 'Top straight-up signal',
+  ats:    'Sharpest spread edge',
+  value:  'Best value shot',
+  total_OVER: 'Sharpest over on the board',
+  total_UNDER: 'Sharp under signal',
+};
+
+function getTakeTypeLabel(pick) {
+  if (!pick) return '';
+  if (pick.pickType === 'total') {
+    const dir = pick.leanDirection || 'OVER';
+    return TAKE_TYPE_LABELS[`total_${dir}`] ?? 'Sharpest total';
+  }
+  if (pick.pickType === 'value' && pick.mlPriceLabel) {
+    const ml = parseInt(String(pick.mlPriceLabel).replace('+', ''), 10);
+    if (!isNaN(ml) && ml >= 500) return 'Longshot worth watching';
+  }
+  return TAKE_TYPE_LABELS[pick.pickType] ?? '';
+}
+
+/**
+ * Score picks for editorial interest, not just raw strength.
+ * Value and total picks get a slight boost because they tell a more
+ * compelling "story of the board" than a straightforward pick'em or spread.
+ */
+function editorialScore(pick) {
+  const conf = pick.confidence ?? 0;
+  const edge = pick.edgeMag ?? 0;
+  const typeBoost = { value: 0.25, total: 0.15, ats: 0.05, pickem: 0 }[pick.pickType] ?? 0;
+  return conf * 2 + edge + typeBoost;
+}
 
 export function getMaximusTake(allPicks) {
   if (!allPicks || allPicks.length === 0) return null;
   const leans = allPicks.filter(p => p.itemType === 'lean' && p.confidence >= 1);
   if (leans.length === 0) return null;
 
-  const top = [...leans].sort(
-    (a, b) => (b.confidence - a.confidence) || ((b.edgeMag ?? 0) - (a.edgeMag ?? 0)),
-  )[0];
+  const top = [...leans].sort((a, b) => editorialScore(b) - editorialScore(a))[0];
   if (!top) return null;
 
   const catLabel = { pickem: "Pick 'Em", ats: 'ATS', value: 'Value', total: 'Totals' }[top.pickType] ?? '';
+  const takeType = getTakeTypeLabel(top);
 
   return {
     pick: top,
     label: top.pickLine || top.pickTeam || '—',
     category: catLabel,
+    takeType,
     tier: getConfidenceTier(top.confidence),
     tierLabel: getConfidenceLabel(top.confidence),
     editorial: getEditorialLine(top),

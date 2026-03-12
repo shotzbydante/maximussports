@@ -8,13 +8,6 @@ function makeTeamObj(name) {
   return { name: name.replace(/^(?:The |the )/, '').trim(), slug: getTeamSlug(name) };
 }
 
-/**
- * MaximusTakeCard — compact top-signal summary for any Maximus Picks surface.
- *
- * Props:
- *   allPicks  {Array}   — full picks array (all categories combined)
- *   variant   {'slide'|'web'}  — 'slide' for dark Content Studio/export, 'web' for light home page
- */
 export default function MaximusTakeCard({ allPicks, variant = 'web' }) {
   const take = getMaximusTake(allPicks);
   if (!take) return null;
@@ -32,6 +25,7 @@ export default function MaximusTakeCard({ allPicks, variant = 'web' }) {
       <div className={styles.header}>
         <span className={styles.bolt}>⚡</span>
         <span className={styles.title}>MAXIMUS TAKE</span>
+        {take.takeType && <span className={styles.takeType}>{take.takeType}</span>}
         <span
           className={styles.confBadge}
           style={isSlide ? { background: cs.bg, color: cs.text, borderColor: cs.border } : undefined}
