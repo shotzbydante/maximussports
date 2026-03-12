@@ -13,7 +13,7 @@ import styles from './TeamSummaryBox.module.css';
 
 const LLM_CACHE_TTL_MS = 5 * 60 * 1000;
 
-export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank = null, nextLine = null, dataReady = true }) {
+export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank = null, nextLine = null, championshipOdds = null, dataReady = true }) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [llmSummary, setLlmSummary] = useState(null);
   const [llmRefreshing, setLlmRefreshing] = useState(false);
@@ -31,8 +31,9 @@ export default function TeamSummaryBox({ slug, team, schedule, ats, news, rank =
     news: Array.isArray(news) ? news.slice(0, 10) : [],
     rank: rank ?? undefined,
     nextLine: nextLine ?? {},
+    championshipOdds: championshipOdds ?? null,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [team, schedule, ats, newsKey, rank, nextLine]);
+  }), [team, schedule, ats, newsKey, rank, nextLine, championshipOdds]);
 
   const localSummary = useMemo(() => {
     if (!team || !dataReady) return '';

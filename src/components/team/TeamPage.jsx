@@ -8,7 +8,6 @@ import TeamSchedule from './TeamSchedule';
 import { computeAtsFromScheduleAndHistory } from './MaximusInsight';
 import TeamSummaryBox from './TeamSummaryBox';
 import SourceBadge from '../shared/SourceBadge';
-import ChampionshipBadge from '../shared/ChampionshipBadge';
 import { fetchChampionshipOdds } from '../../api/championshipOdds';
 import { fetchTeamNextLine } from '../../api/teamNextLine';
 import { ModuleShell } from '../shared/ModuleShell';
@@ -350,8 +349,22 @@ export default function TeamPage() {
                 <span className={`${styles.tierBadge} ${styles[tierInfo.cls] || ''}`} title={team.oddsTier}>
                   {team.oddsTier}
                 </span>
-                <ChampionshipBadge slug={slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
               </div>
+              {!championshipOddsLoading && (() => {
+                const entry = championshipOdds?.[slug];
+                const odds = entry?.bestChanceAmerican ?? entry?.american ?? null;
+                if (odds == null) return null;
+                const label = odds > 0 ? `+${odds}` : String(odds);
+                return (
+                  <div className={styles.champChip}>
+                    <span className={styles.champChipIcon}>🏆</span>
+                    <div className={styles.champChipText}>
+                      <span className={styles.champChipLabel}>Title Odds</span>
+                      <span className={styles.champChipValue}>{label}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               {personality && <p className={styles.personality}>{personality}</p>}
             </div>
           </div>
@@ -404,6 +417,10 @@ export default function TeamPage() {
             news={last7}
             rank={rank}
             nextLine={nextLine}
+            championshipOdds={(() => {
+              const entry = championshipOdds?.[slug];
+              return entry?.bestChanceAmerican ?? entry?.american ?? null;
+            })()}
             dataReady={!!batch}
           />
         </section>
@@ -425,63 +442,88 @@ export default function TeamPage() {
                     <span className={styles.nextGameTime}>{formatDateTime(nextLine.nextEvent.commenceTime)}</span>
                   )}
                 </div>
-                {hasConsensus && (
-                  <div className={styles.nextGameOdds}>
-                    {nextLine.consensus?.spread != null && (
-                      <div className={styles.oddsPill}>
-                        <span className={styles.oddsLabel}>Spread</span>
-                        <span className={styles.oddsValue}>{formatSpread(nextLine.consensus.spread)}</span>
-                      </div>
-                    )}
-                    {nextLine.consensus?.total != null && (
-                      <div className={styles.oddsPill}>
-                        <span className={styles.oddsLabel}>O/U</span>
-                        <span className={styles.oddsValue}>{nextLine.consensus.total}</span>
-                      </div>
-                    )}
-                    {nextLine.consensus?.moneyline != null && (
-                      <div className={styles.oddsPill}>
-                        <span className={styles.oddsLabel}>ML</span>
-                        <span className={styles.oddsValue}>{formatMoneyline(nextLine.consensus.moneyline)}</span>
-                      </div>
-                    )}
+                {!nextLine.nextEvent.opponent || nextLine.nextEvent.opponent === 'TBD' ? (
+                  <div className={styles.nextGameTbd}>
+                    <p className={styles.nextGameTbdContext}>
+                      {team.conference} Tournament — opponent TBD
+                    </p>
+                    <p className={styles.nextGameTbdLine}>Line: pending</p>
                   </div>
-                )}
-                {hasConsensus && nextLine.outliers?.spreadBestForTeam && (
-                  <p className={styles.nextGameDetail}>
-                    Best spread: {nextLine.outliers.spreadBestForTeam.bookTitle} {formatSpread(nextLine.outliers.spreadBestForTeam.spread)}
-                  </p>
-                )}
-                {hasConsensus && nextLine.outliers?.moneylineBest && (
-                  <p className={styles.nextGameDetail}>
-                    Best ML: {nextLine.outliers.moneylineBest.bookTitle} {formatMoneyline(nextLine.outliers.moneylineBest.moneyline)}
-                  </p>
-                )}
-                {nextLine.movement?.samples > 0 && (nextLine.movement.spread?.delta !== 0 || nextLine.movement.total?.delta !== 0) && (
-                  <div className={styles.nextGameMovement}>
-                    {nextLine.movement.spread?.delta != null && nextLine.movement.spread.delta !== 0 && (
-                      <span>Spread {nextLine.movement.spread.delta > 0 ? '↑' : '↓'} {nextLine.movement.spread.delta > 0 ? '+' : ''}{nextLine.movement.spread.delta}</span>
+                ) : (
+                  <>
+                    {hasConsensus && (
+                      <div className={styles.nextGameOdds}>
+                        {nextLine.consensus?.spread != null && (
+                          <div className={styles.oddsPill}>
+                            <span className={styles.oddsLabel}>Spread</span>
+                            <span className={styles.oddsValue}>{formatSpread(nextLine.consensus.spread)}</span>
+                          </div>
+                        )}
+                        {nextLine.consensus?.total != null && (
+                          <div className={styles.oddsPill}>
+                            <span className={styles.oddsLabel}>O/U</span>
+                            <span className={styles.oddsValue}>{nextLine.consensus.total}</span>
+                          </div>
+                        )}
+                        {nextLine.consensus?.moneyline != null && (
+                          <div className={styles.oddsPill}>
+                            <span className={styles.oddsLabel}>ML</span>
+                            <span className={styles.oddsValue}>{formatMoneyline(nextLine.consensus.moneyline)}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    {nextLine.movement.total?.delta != null && nextLine.movement.total.delta !== 0 && (
-                      <span>Total {nextLine.movement.total.delta > 0 ? '↑' : '↓'} {nextLine.movement.total.delta > 0 ? '+' : ''}{nextLine.movement.total.delta}</span>
+                    {hasConsensus && nextLine.outliers?.spreadBestForTeam && (
+                      <p className={styles.nextGameDetail}>
+                        Best spread: {nextLine.outliers.spreadBestForTeam.bookTitle} {formatSpread(nextLine.outliers.spreadBestForTeam.spread)}
+                      </p>
                     )}
-                  </div>
-                )}
-                {nextMatchupLink && (
-                  <Link to={nextMatchupLink} className={styles.nextGameCta}>Full matchup intel →</Link>
+                    {hasConsensus && nextLine.outliers?.moneylineBest && (
+                      <p className={styles.nextGameDetail}>
+                        Best ML: {nextLine.outliers.moneylineBest.bookTitle} {formatMoneyline(nextLine.outliers.moneylineBest.moneyline)}
+                      </p>
+                    )}
+                    {nextLine.movement?.samples > 0 && (nextLine.movement.spread?.delta !== 0 || nextLine.movement.total?.delta !== 0) && (
+                      <div className={styles.nextGameMovement}>
+                        {nextLine.movement.spread?.delta != null && nextLine.movement.spread.delta !== 0 && (
+                          <span>Spread {nextLine.movement.spread.delta > 0 ? '↑' : '↓'} {nextLine.movement.spread.delta > 0 ? '+' : ''}{nextLine.movement.spread.delta}</span>
+                        )}
+                        {nextLine.movement.total?.delta != null && nextLine.movement.total.delta !== 0 && (
+                          <span>Total {nextLine.movement.total.delta > 0 ? '↑' : '↓'} {nextLine.movement.total.delta > 0 ? '+' : ''}{nextLine.movement.total.delta}</span>
+                        )}
+                      </div>
+                    )}
+                    {nextMatchupLink && (
+                      <Link to={nextMatchupLink} className={styles.nextGameCta}>Full matchup intel →</Link>
+                    )}
+                  </>
                 )}
               </div>
             )}
-            {!nextLineLoading && !nextLine.nextEvent && nextLine.oddsMeta?.stage === 'no_upcoming' && (
-              <p className={styles.muted}>No upcoming game scheduled.</p>
-            )}
-            {!nextLineLoading && !nextLine.nextEvent && nextLine.oddsMeta?.stage === 'error' && (
-              <div>
-                <p className={styles.muted}>Odds unavailable.</p>
-                <button type="button" className={styles.retryBtn} onClick={() => {
-                  setNextLineLoadStarted(Date.now()); setNextLineLoading(true);
-                  fetchTeamNextLine(slug).then((d) => { setNextLine(d); setNextLineLoading(false); }).catch(() => setNextLineLoading(false));
-                }}>Retry</button>
+            {!nextLineLoading && !nextLine.nextEvent && (
+              <div className={styles.nextGameBody}>
+                {nextLine.oddsMeta?.stage === 'error' ? (
+                  <>
+                    <p className={styles.muted}>Odds unavailable.</p>
+                    <button type="button" className={styles.retryBtn} onClick={() => {
+                      setNextLineLoadStarted(Date.now()); setNextLineLoading(true);
+                      fetchTeamNextLine(slug).then((d) => { setNextLine(d); setNextLineLoading(false); }).catch(() => setNextLineLoading(false));
+                    }}>Retry</button>
+                  </>
+                ) : nextUpcoming ? (
+                  <div className={styles.nextGameTbd}>
+                    <div className={styles.nextGameMatchup}>
+                      <span className={styles.nextGameLabel}>{nextUpcoming.homeAway === 'home' ? 'vs' : '@'}</span>
+                      <strong className={styles.nextGameOpponent}>{nextUpcoming.opponent || 'TBD'}</strong>
+                    </div>
+                    {(!nextUpcoming.opponent || nextUpcoming.opponent === 'TBD') && (
+                      <p className={styles.nextGameTbdContext}>{team.conference} Tournament — opponent TBD</p>
+                    )}
+                    <p className={styles.nextGameTbdLine}>Line: pending</p>
+                  </div>
+                ) : (
+                  <p className={styles.muted}>No upcoming game scheduled.</p>
+                )}
               </div>
             )}
           </section>
@@ -493,38 +535,39 @@ export default function TeamPage() {
               {atsForSummary ? (
                 <>
                   <div className={styles.atsGrid}>
-                    {atsForSummary.season?.total > 0 && (
-                      <div className={styles.atsStat}>
-                        <span className={styles.atsLabel}>Season</span>
-                        <span className={styles.atsValue}>
-                          {atsForSummary.season.wins}-{atsForSummary.season.losses}
-                          {atsForSummary.season.total > 0 && <span className={styles.atsPct}> {Math.round((atsForSummary.season.wins / atsForSummary.season.total) * 100)}%</span>}
-                        </span>
-                      </div>
-                    )}
-                    {atsForSummary.last30?.total > 0 && (
-                      <div className={styles.atsStat}>
-                        <span className={styles.atsLabel}>Last 30</span>
-                        <span className={styles.atsValue}>
-                          {atsForSummary.last30.wins}-{atsForSummary.last30.losses}
-                          <span className={styles.atsPct}> {Math.round((atsForSummary.last30.wins / atsForSummary.last30.total) * 100)}%</span>
-                        </span>
-                      </div>
-                    )}
-                    {atsForSummary.last7?.total > 0 && (
-                      <div className={styles.atsStat}>
-                        <span className={styles.atsLabel}>Last 7</span>
-                        <span className={styles.atsValue}>
-                          {atsForSummary.last7.wins}-{atsForSummary.last7.losses}
-                          <span className={styles.atsPct}> {Math.round((atsForSummary.last7.wins / atsForSummary.last7.total) * 100)}%</span>
-                        </span>
-                      </div>
-                    )}
+                    <div className={styles.atsStat}>
+                      <span className={styles.atsLabel}>Season</span>
+                      <span className={styles.atsValue}>
+                        {atsForSummary.season?.total > 0
+                          ? <>{atsForSummary.season.wins}-{atsForSummary.season.losses}<span className={styles.atsPct}> {Math.round((atsForSummary.season.wins / atsForSummary.season.total) * 100)}%</span></>
+                          : <span className={styles.atsPending}>Pending</span>}
+                      </span>
+                    </div>
+                    <div className={styles.atsStat}>
+                      <span className={styles.atsLabel}>Last 30</span>
+                      <span className={styles.atsValue}>
+                        {atsForSummary.last30?.total > 0
+                          ? <>{atsForSummary.last30.wins}-{atsForSummary.last30.losses}<span className={styles.atsPct}> {Math.round((atsForSummary.last30.wins / atsForSummary.last30.total) * 100)}%</span></>
+                          : <span className={styles.atsPending}>Pending</span>}
+                      </span>
+                    </div>
+                    <div className={styles.atsStat}>
+                      <span className={styles.atsLabel}>Last 7</span>
+                      <span className={styles.atsValue}>
+                        {atsForSummary.last7?.total > 0
+                          ? <>{atsForSummary.last7.wins}-{atsForSummary.last7.losses}<span className={styles.atsPct}> {Math.round((atsForSummary.last7.wins / atsForSummary.last7.total) * 100)}%</span></>
+                          : <span className={styles.atsPending}>Pending</span>}
+                      </span>
+                    </div>
                   </div>
                   <div className={styles.sourceLine}><SourceBadge source="Odds API" /></div>
                 </>
               ) : (
-                <p className={styles.muted}>ATS data loading…</p>
+                <div className={styles.atsGrid}>
+                  <div className={styles.atsStat}><span className={styles.atsLabel}>Season ATS</span><span className={styles.atsValue}><span className={styles.atsPending}>Pending</span></span></div>
+                  <div className={styles.atsStat}><span className={styles.atsLabel}>Last 30</span><span className={styles.atsValue}><span className={styles.atsPending}>Pending</span></span></div>
+                  <div className={styles.atsStat}><span className={styles.atsLabel}>Last 7</span><span className={styles.atsValue}><span className={styles.atsPending}>Pending</span></span></div>
+                </div>
               )}
             </div>
 
@@ -537,7 +580,8 @@ export default function TeamPage() {
                     <span
                       key={i}
                       className={`${styles.formDot} ${g.won ? styles.formWin : styles.formLoss}`}
-                      title={`${g.won ? 'W' : 'L'} ${g.score} vs ${g.opponent}`}
+                      title={`${g.won ? 'W' : 'L'}\n${g.won ? 'vs' : 'vs'} ${g.opponent}\n${g.score}`}
+                      aria-label={`${g.won ? 'Win' : 'Loss'} ${g.score} vs ${g.opponent}`}
                     >
                       {g.won ? 'W' : 'L'}
                     </span>
