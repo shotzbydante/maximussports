@@ -50,29 +50,30 @@ export default async function handler(req, res) {
     return res.status(503).json({ ok: false, error: 'Database service unavailable' });
   }
 
-  // ignoreDuplicates: true — never overwrites existing plan_tier / stripe / preferences.
-  // New users get default email preferences (opted-in to briefing, teamAlerts, newsDigest).
+  const defaultPrefs = { ...DEFAULT_EMAIL_PREFS };
+  const now = new Date().toISOString();
+
   const { error } = await sb.from('profiles').insert(
     {
       id:                  caller.id,
       plan_tier:           'free',
       subscription_status: 'inactive',
-      preferences:         { ...DEFAULT_EMAIL_PREFS },
-      updated_at:          new Date().toISOString(),
+      preferences:         defaultPrefs,
+      updated_at:          now,
     },
     { onConflict: 'id', ignoreDuplicates: true }
   );
 
   if (error) {
-    // PostgreSQL unique_violation (23505) means the row already exists — that is success.
-    // ignoreDuplicates may not fully suppress the Supabase error in all versions.
     const isDuplicate = error.code === '23505' || /duplicate key/i.test(error.message ?? '');
     if (isDuplicate) {
+      console.log(`[profile/ensure] Profile already exists for user=${caller.id}`);
       return res.status(200).json({ ok: true, existed: true });
     }
-    console.error('[profile/ensure] upsert error:', error.message);
+    console.error(`[profile/ensure] Upsert error for user=${caller.id}:`, error.message);
     return res.status(500).json({ ok: false, error: 'Could not ensure profile row' });
   }
 
-  return res.status(200).json({ ok: true });
+  console.log(`[profile/ensure] Created new profile for user=${caller.id} with default digest prefs: briefing=${defaultPrefs.briefing} teamAlerts=${defaultPrefs.teamAlerts} newsDigest=${defaultPrefs.newsDigest} oddsIntel=${defaultPrefs.oddsIntel}`);
+  return res.status(200).json({ ok: true, created: true });
 }

@@ -2905,6 +2905,16 @@
   margin: 0;
 }
 
+.doneDigestNote {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  max-width: 340px;
+  text-align: center;
+  line-height: 1.5;
+  margin: var(--space-sm) 0 0;
+  opacity: 0.8;
+}
+
 /* ─── Edit form robot section ────────────────────────────────────────────── */
 .editRobotSection {
   display: flex;

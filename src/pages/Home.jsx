@@ -31,7 +31,7 @@ import MaximusPicks from '../components/home/MaximusPicks';
 import { buildMaximusPicks, buildPicksSummary, buildBoardBriefing } from '../utils/maximusPicksModel';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
-import { getSupabase } from '../lib/supabaseClient';
+
 import SignupBanner from '../components/marketing/SignupBanner';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
@@ -901,15 +901,7 @@ export default function Home() {
 
   const handleWelcomeSignup = useCallback(() => {
     handleWelcomeClose();
-    const sb = getSupabase();
-    if (sb) {
-      sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/settings` },
-      });
-    } else {
-      navigate('/settings');
-    }
+    navigate('/settings');
   }, [handleWelcomeClose, navigate]);
 
   const handleWelcomeExplore = useCallback(() => {

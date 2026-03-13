@@ -1,8 +1,17 @@
 /* global process */
 /**
- * GET /api/email/run-daily?type=daily|pinned|odds|news
+ * GET /api/email/run-daily?type=daily|pinned|odds|news|teamDigest
  *
  * Automated daily email engine. Called by Vercel cron jobs.
+ *
+ * Schedule (configured in vercel.json, all times UTC):
+ *   daily:  0 14 * * *  → ~6 AM PST / 7 AM PDT
+ *   pinned: 0 15 * * *  → ~7 AM PST / 8 AM PDT
+ *   odds:   0 19 * * *  → ~11 AM PST / 12 PM PDT
+ *   news:   0  0 * * *  → ~4 PM PST / 5 PM PDT
+ *
+ * Note: Vercel cron uses UTC. The ~1 hr variance between PST/PDT is expected;
+ * per-user timezone delivery is not yet supported.
  *
  * For each email type:
  *  1. Fetch all users from Supabase auth
@@ -11,6 +20,10 @@
  *  4. Gather data for the email type
  *  5. Render and send personalized emails
  *  6. Log each send to email_send_log
+ *
+ * New users without a profile row receive default preferences
+ * (briefing: true, teamAlerts: true, newsDigest: true) so they are
+ * automatically included in the next eligible send after signup.
  *
  * Security: Vercel cron requests include `Authorization: Bearer <CRON_SECRET>`.
  * Falls back to open access if CRON_SECRET is not set (safe for initial deploy).
@@ -234,24 +247,32 @@ export default async function handler(req, res) {
     for (const p of profiles) profileMap[p.id] = p;
 
     // ── 3. Filter to subscribed users
-    // Users without explicit preferences get DEFAULT_EMAIL_PREFS (opted-in to
-    // briefing, teamAlerts, newsDigest). Users who explicitly opted out are
-    // respected because their stored false overrides the default true.
     let noProfile = 0;
     let noEmail = 0;
     let optedOut = 0;
+    const usingDefaults = [];
+    const skippedReasons = [];
 
     const subscribedUsers = authUsers.filter(u => {
-      if (!u.email) { noEmail++; return false; }
+      if (!u.email) { noEmail++; skippedReasons.push({ id: u.id, reason: 'no_email' }); return false; }
       const profile = profileMap[u.id];
-      if (!profile) { noProfile++; }
+      if (!profile) {
+        noProfile++;
+        usingDefaults.push(u.id);
+      }
       const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile?.preferences || {}) };
       const subscribed = prefs[prefKey] === true;
-      if (!subscribed) optedOut++;
+      if (!subscribed) {
+        optedOut++;
+        skippedReasons.push({ id: u.id, email: u.email, reason: `opted_out_${prefKey}` });
+      }
       return subscribed;
     });
 
-    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${optedOut} opted-out, ${noProfile} no-profile, ${noEmail} no-email, ${authUsers.length} total`);
+    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${optedOut} opted-out, ${noProfile} no-profile (using defaults), ${noEmail} no-email, ${authUsers.length} total`);
+    if (usingDefaults.length > 0) {
+      console.log(`[run-daily] Users receiving '${type}' via default prefs (no profile row): ${usingDefaults.length} user(s)`);
+    }
 
     if (subscribedUsers.length === 0) {
       return res.status(200).json({ ok: true, type, sent: 0, skipped: 0, message: 'No subscribers.' });
@@ -428,7 +449,7 @@ export default async function handler(req, res) {
     }
 
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    console.log(`[run-daily] Done. type=${type} sent=${sent} failed=${failed} skipped=${alreadySent.size} elapsed=${elapsed}s`);
+    console.log(`[run-daily] Done. type=${type} sent=${sent} failed=${failed} alreadySent=${alreadySent.size} totalSubscribed=${subscribedUsers.length} totalAuth=${authUsers.length} noProfile=${noProfile} optedOut=${optedOut} elapsed=${elapsed}s`);
 
     return res.status(200).json({
       ok: true,
@@ -437,6 +458,9 @@ export default async function handler(req, res) {
       failed,
       skipped: alreadySent.size,
       total: subscribedUsers.length,
+      totalAuth: authUsers.length,
+      noProfile,
+      optedOut,
       elapsed: `${elapsed}s`,
       ...(errors.length ? { errors: errors.slice(0, 5) } : {}),
     });

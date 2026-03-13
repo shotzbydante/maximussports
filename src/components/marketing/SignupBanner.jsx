@@ -10,14 +10,15 @@
  * Renders via portal into document.body (fixed positioning).
  */
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getSupabase } from '../../lib/supabaseClient';
 import { getFlag } from '../../utils/localFlags';
 import { track } from '../../analytics/index';
 import styles from './SignupBanner.module.css';
 
 export default function SignupBanner() {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
 
   const welcomeSeen = getFlag('mx_welcome_seen_v1');
@@ -25,14 +26,8 @@ export default function SignupBanner() {
 
   const handleSignup = useCallback(() => {
     track('signup_banner_clicked', {});
-    const sb = getSupabase();
-    if (sb) {
-      sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/settings` },
-      });
-    }
-  }, []);
+    navigate('/settings');
+  }, [navigate]);
 
   const handleDismiss = useCallback(() => {
     track('signup_banner_dismissed', {});

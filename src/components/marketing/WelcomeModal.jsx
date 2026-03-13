@@ -40,23 +40,23 @@ const FEATURE_CARDS = [
   {
     id: 'team-intel',
     label: 'Team Intel Hub',
-    sublabel: 'Bubble watch tiers, ATS profiles, and deep conference intel.',
+    sublabel: 'Bubble watch, ATS profiles, and conference-level intel at a glance.',
     image: '/images/onboarding/team-intel.svg',
-    overlay: 'ATS leaders + upcoming matchup edge',
+    overlay: 'ATS leaders + matchup edges',
   },
   {
     id: 'odds-insights',
     label: 'Odds Insights',
-    sublabel: 'Market movers, spread signals, and underdog watch.',
+    sublabel: 'Spread movement, sharp signals, and underdog watch — updated live.',
     image: '/images/onboarding/odds-insights.svg',
     overlay: 'Live odds movement + value plays',
   },
   {
     id: 'ai-picks',
     label: 'AI-Powered Picks',
-    sublabel: 'Model-driven signals with confidence levels.',
+    sublabel: 'Model-driven picks with confidence scores across every market.',
     image: '/images/onboarding/ai-picks.svg',
-    overlay: "Pick'Em \u00b7 ATS \u00b7 Value \u00b7 Totals",
+    overlay: "Pick\u2019Em \u00b7 ATS \u00b7 Value \u00b7 Totals",
   },
 ];
 
@@ -64,17 +64,17 @@ const VALUE_PROPS = [
   {
     id: 'pin',
     title: 'Pin your teams',
-    desc: 'Build a personalized dashboard around the teams you follow.',
+    desc: 'Build a personalized command center around the teams you care about.',
   },
   {
     id: 'intel',
-    title: 'Get daily intel',
-    desc: 'AI briefings, ATS trends, and odds movement delivered to you.',
+    title: 'Daily intel, delivered',
+    desc: 'AI briefings, ATS trends, and odds movement hit your inbox every morning.',
   },
   {
     id: 'pro',
-    title: 'Unlock more with Pro',
-    desc: 'Unlimited teams, full odds access, and deeper intelligence.',
+    title: 'Go deeper with Pro',
+    desc: 'Unlimited teams, full odds access, and next-level intelligence.',
   },
 ];
 
@@ -323,11 +323,12 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
               </div>
               <div className={styles.body}>
                 <h2 className={styles.headline}>
-                  See the College Basketball Board Like&nbsp;a&nbsp;Pro
+                  Own the Board
                 </h2>
                 <p className={styles.subtitle}>
-                  Turn the college basketball board into actionable intelligence
-                  — from team intel and ATS trends to odds insights and model-driven picks.
+                  Real-time college basketball intelligence — live team intel,
+                  odds movement, ATS trends, and model-driven picks.
+                  Built for the sharpest fans in the&nbsp;game.
                 </p>
               </div>
             </div>
@@ -338,9 +339,9 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             <div className={styles.stepContent} aria-label="Step 2 of 3: Feature showcase">
               <div className={styles.showcaseBody}>
                 <div className={styles.showcaseHeader}>
-                  <p className={styles.showcaseEyebrow}>See What&#8217;s Inside</p>
+                  <p className={styles.showcaseEyebrow}>Inside Your Edge</p>
                   <p className={styles.showcaseSubtitle}>
-                    Three surfaces. One command center.
+                    Three intel surfaces. One command center.
                   </p>
                 </div>
                 <div className={styles.featureCards}>
@@ -373,7 +374,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
           {step === 3 && (
             <div className={styles.stepContent} aria-label="Step 3 of 3: Get started">
               <div className={styles.conversionBody}>
-                <h2 className={styles.conversionHeadline}>Your Edge Starts Here</h2>
+                <h2 className={styles.conversionHeadline}>Your Edge Starts Now</h2>
                 <div className={styles.valueProps}>
                   {VALUE_PROPS.map((vp) => {
                     const Icon = ICONS[vp.id];
@@ -392,13 +393,13 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                 </div>
                 <div className={styles.ctaGroup}>
                   <button type="button" className={styles.ctaPrimary} onClick={handleSignup}>
-                    Create free account
+                    Get started — it&#8217;s free
                   </button>
                   <button type="button" className={styles.ctaSecondary} onClick={handleExplore}>
                     Continue as guest
                   </button>
                 </div>
-                <p className={styles.footerNote}>Free to use. Pro available when you&#8217;re ready.</p>
+                <p className={styles.footerNote}>Always free. Pro unlocks when you&#8217;re ready.</p>
               </div>
             </div>
           )}

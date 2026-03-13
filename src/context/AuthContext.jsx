@@ -89,13 +89,17 @@ async function ensureProfileShell(sb, user) {
   dbg('ensureProfileShell for', user.id, 'email:', user.email);
 
   const clientOk = await upsertProfileClient(sb, user);
-  if (!clientOk) {
-    dbg('client upsert failed — trying server fallback');
-    const serverOk = await upsertProfileServer(sb, user);
-    if (!serverOk) {
-      dbg('ensureProfileShell: both client and server paths failed for', user.id);
-      // Non-fatal — billing/sync can still recover plan state.
-    }
+  if (clientOk) {
+    console.log(`[auth] Profile shell ensured for user=${user.id} via client upsert`);
+    return;
+  }
+
+  dbg('client upsert failed — trying server fallback');
+  const serverOk = await upsertProfileServer(sb, user);
+  if (serverOk) {
+    console.log(`[auth] Profile shell ensured for user=${user.id} via server fallback`);
+  } else {
+    console.warn(`[auth] ensureProfileShell: both client and server paths failed for user=${user.id} — digest enrollment may be delayed until onboarding completes`);
   }
 }
 

@@ -31,8 +31,8 @@
     {"path": "/api/ats/warm",                           "schedule": "*/7 * * * *"},
     {"path": "/api/ats/warmAll",                        "schedule": "*/10 * * * *"},
     {"path": "/api/ats/warmFull",                       "schedule": "*/30 * * * *"},
-    {"path": "/api/email/run-daily?type=daily",         "schedule": "0 16 * * *"},
-    {"path": "/api/email/run-daily?type=pinned",        "schedule": "0 17 * * *"},
+    {"path": "/api/email/run-daily?type=daily",         "schedule": "0 14 * * *"},
+    {"path": "/api/email/run-daily?type=pinned",        "schedule": "0 15 * * *"},
     {"path": "/api/email/run-daily?type=odds",          "schedule": "0 19 * * *"},
     {"path": "/api/email/run-daily?type=news",          "schedule": "0 0 * * *"}
   ]
