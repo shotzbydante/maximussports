@@ -1082,6 +1082,102 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
   );
 }
 
+/* ─── Admin QA helpers ───────────────────────────────────────────────────── */
+
+/** Digest metadata: maps cron type key to a human-readable label. */
+const DIGEST_META = [
+  { type: 'daily',      name: 'Daily AI Briefing' },
+  { type: 'pinned',     name: 'Pinned Teams Alerts' },
+  { type: 'odds',       name: 'Odds & ATS Intel' },
+  { type: 'news',       name: 'Breaking News Digest' },
+  { type: 'teamDigest', name: 'Team Digest' },
+];
+
+/** Returns today's date string in YYYY-MM-DD format in Pacific Time. */
+function todayPT() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+/** Returns true when an ISO timestamp falls on today's PT calendar date. */
+function isTodayPT(iso) {
+  if (!iso) return false;
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }) === todayPT();
+}
+
+/** Format a run timestamp to a short PT time like "6:02 AM PT". */
+function formatTimePT(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
+  }) + ' PT';
+}
+
+/** Format a run timestamp to a short PT date like "Mar 12". */
+function formatDatePT(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles',
+  });
+}
+
+/**
+ * Derive the visual status for a single digest's latest job run.
+ * Returns { status, statusLabel, time, detail, variant }.
+ *   variant: 'success' | 'partial' | 'failed' | 'idle' | 'never'
+ */
+function deriveRunStatus(run) {
+  if (!run) {
+    return { variant: 'never', statusLabel: 'Never run', time: '\u2014', detail: '' };
+  }
+
+  const ts = run.completed_at || run.started_at;
+  const ranToday = isTodayPT(ts);
+  const runStatus = run.status; // 'success' | 'partial' | 'failed' | 'error' | 'running'
+
+  if (runStatus === 'success') {
+    if (ranToday) {
+      return {
+        variant: 'success',
+        statusLabel: 'Sent today',
+        time: formatTimePT(ts),
+        detail: `${run.sent_count ?? 0} sent`,
+      };
+    }
+    return {
+      variant: 'idle',
+      statusLabel: 'Not sent today',
+      time: `Last: ${formatDatePT(ts)}, ${formatTimePT(ts)}`,
+      detail: '',
+    };
+  }
+
+  if (runStatus === 'partial') {
+    const label = ranToday ? 'Partial today' : 'Partial';
+    return {
+      variant: 'partial',
+      statusLabel: label,
+      time: ranToday ? formatTimePT(ts) : `${formatDatePT(ts)}, ${formatTimePT(ts)}`,
+      detail: `${run.sent_count ?? 0} sent · ${run.failed_count ?? 0} failed`,
+    };
+  }
+
+  // 'failed' or 'error'
+  if (ranToday) {
+    return {
+      variant: 'failed',
+      statusLabel: 'Failed today',
+      time: formatTimePT(ts),
+      detail: run.error_message ? run.error_message.slice(0, 80) : `${run.failed_count ?? 0} failed`,
+    };
+  }
+  return {
+    variant: 'idle',
+    statusLabel: 'Not sent today',
+    time: `Last fail: ${formatDatePT(ts)}`,
+    detail: '',
+  };
+}
+
 /* ─── Admin QA Email Panel ───────────────────────────────────────────────── */
 function AdminQAPanel() {
   const { user } = useAuth();
@@ -1113,20 +1209,6 @@ function AdminQAPanel() {
     loadJobStatus();
     return () => { cancelled = true; };
   }, []);
-
-  function formatJobRun(run) {
-    if (!run) return { label: 'No runs yet', cls: 'Muted' };
-    const d = new Date(run.completed_at || run.started_at);
-    const ts = d.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-      hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
-    }) + ' PT';
-    const status = run.status === 'success' ? 'success'
-      : run.status === 'partial' ? 'partial' : 'failed';
-    const counts = run.sent_count != null ? ` · ${run.sent_count} sent` : '';
-    const failNote = run.failed_count > 0 ? ` · ${run.failed_count} failed` : '';
-    return { label: `${ts}${counts}${failNote}`, status, cls: status };
-  }
 
   async function handleSendTest(type) {
     if (sending) return;
@@ -1166,20 +1248,52 @@ function AdminQAPanel() {
       <div className={styles.adminQaHeader}>
         <div>
           <h3 className={styles.adminQaTitle}>Admin QA</h3>
-          <p className={styles.adminQaSubtitle}>Send test emails and monitor global digest runs.</p>
+          <p className={styles.adminQaSubtitle}>Global send logs and test actions.</p>
         </div>
         <span className={styles.adminBadge}>Admin</span>
       </div>
-      <p className={styles.adminQaSendTo}>Sends to: <strong>{adminEmail}</strong></p>
-      <div className={styles.adminQaGrid}>
-        {TEST_EMAIL_TYPES.map(({ type, label }) => {
-          const result = results[type];
-          const isSending = sending === type;
-          const run = jobRuns[type];
-          const runInfo = formatJobRun(run);
-          return (
-            <div key={type} className={styles.adminQaRow}>
-              <div className={styles.adminQaRowInner}>
+
+      {/* ── Section 1: Email Send Logs ───────────────────────────────────────── */}
+      <div className={styles.logsSection}>
+        <h4 className={styles.logsSectionTitle}>Email Send Logs</h4>
+        <div className={styles.logsTable}>
+          {DIGEST_META.map(({ type, name }) => {
+            const run = jobRuns[type];
+            const info = deriveRunStatus(run);
+            const chipCls =
+              info.variant === 'success' ? styles.logChipSuccess
+              : info.variant === 'partial' ? styles.logChipPartial
+              : info.variant === 'failed'  ? styles.logChipFailed
+              : info.variant === 'never'   ? styles.logChipNever
+              : styles.logChipIdle;
+            return (
+              <div key={type} className={styles.logsRow}>
+                <span className={styles.logsDigestName}>{name}</span>
+                {jobRunsLoading ? (
+                  <span className={styles.logsLoadingPill}>Loading…</span>
+                ) : (
+                  <>
+                    <span className={`${styles.logChip} ${chipCls}`}>{info.statusLabel}</span>
+                    <span className={styles.logsTime}>{info.time}</span>
+                    {info.detail && <span className={styles.logsDetail}>{info.detail}</span>}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Section 2: Test Send Actions ─────────────────────────────────────── */}
+      <div className={styles.testSection}>
+        <h4 className={styles.logsSectionTitle}>Test Send</h4>
+        <p className={styles.adminQaSendTo}>Sends to: <strong>{adminEmail}</strong></p>
+        <div className={styles.testGrid}>
+          {TEST_EMAIL_TYPES.map(({ type, label }) => {
+            const result = results[type];
+            const isSending = sending === type;
+            return (
+              <div key={type} className={styles.testRow}>
                 <button
                   type="button"
                   className={`${styles.btnAdminTest} ${result?.ok === true ? styles.btnAdminTestSent : ''} ${result?.ok === false ? styles.btnAdminTestError : ''}`}
@@ -1193,32 +1307,15 @@ function AdminQAPanel() {
                   )}
                   <span>{label}</span>
                 </button>
-                <div className={styles.adminQaSendLog}>
-                  {jobRunsLoading ? (
-                    <span className={styles.adminQaLogMuted}>Loading…</span>
-                  ) : (
-                    <>
-                      <span className={
-                        runInfo.cls === 'success' ? styles.adminQaLogSuccess
-                          : runInfo.cls === 'partial' ? styles.adminQaLogPartial
-                          : runInfo.cls === 'failed' ? styles.adminQaLogFailed
-                          : styles.adminQaLogMuted
-                      }>
-                        {runInfo.cls === 'success' ? '●' : runInfo.cls === 'partial' ? '◐' : runInfo.cls === 'failed' ? '●' : '○'}
-                      </span>
-                      <span className={styles.adminQaLogText}>{runInfo.label}</span>
-                    </>
-                  )}
-                </div>
+                {result && (
+                  <span className={result.ok ? styles.adminQaResultOk : styles.adminQaResultErr}>
+                    {result.ok ? '✓' : '✕'} {result.message}
+                  </span>
+                )}
               </div>
-              {result && (
-                <span className={result.ok ? styles.adminQaResultOk : styles.adminQaResultErr}>
-                  {result.ok ? '✓' : '✕'} {result.message}
-                </span>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
