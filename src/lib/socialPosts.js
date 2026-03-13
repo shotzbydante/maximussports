@@ -106,14 +106,16 @@ export async function publishToInstagram(payload) {
   const data = await res.json();
 
   if (!res.ok || !data.ok) {
+    const errData = data.error ?? {};
     const err = new Error(
-      data.error?.message ?? data.error ?? 'Instagram publish failed',
+      errData.userMessage ?? errData.message ?? data.error ?? 'Instagram publish failed',
     );
-    err.stage       = data.stage     ?? 'publish';
-    err.code        = data.error?.code ?? null;
-    err.postId      = data.postId    ?? null;
-    err.requestId   = data.requestId ?? null;
-    err.serverDebug = data.debug     ?? null;
+    err.stage       = data.stage          ?? 'publish';
+    err.code        = errData.code        ?? null;
+    err.category    = errData.category    ?? null;
+    err.postId      = data.postId         ?? null;
+    err.requestId   = data.requestId      ?? null;
+    err.serverDebug = data.debug          ?? null;
     throw err;
   }
 

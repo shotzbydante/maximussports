@@ -124,9 +124,11 @@ export default async function handler(req, res) {
 
   const ts = Date.now();
   const rand = Math.random().toString(36).slice(2, 8);
-  const filename = suggestedFilename
-    ? `${ts}_${rand}_${suggestedFilename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-    : `${ts}_${rand}_slide.png`;
+  const sanitized = suggestedFilename
+    ? suggestedFilename.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.(png|jpe?g)$/i, '')
+    : '';
+  const base = sanitized ? `${ts}_${rand}_${sanitized}` : `${ts}_${rand}`;
+  const filename = `${base}.png`;
 
   // --- Init Supabase ---
   let supabase;
