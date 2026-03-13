@@ -5,7 +5,7 @@
  * Uses the Supabase service role key (bypasses RLS).
  *
  * Writes ONLY columns that are guaranteed to exist in all deployments:
- *   id, plan_tier, subscription_status, updated_at
+ *   id, plan_tier, subscription_status, preferences, updated_at
  *
  * NEVER writes: email (not a column in profiles — email is in auth.users),
  *               stripe_customer_id, cancel_at_period_end, etc.

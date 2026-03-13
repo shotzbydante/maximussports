@@ -1087,15 +1087,52 @@ function AdminQAPanel() {
   const { user } = useAuth();
   const [sending, setSending] = useState(null);
   const [results, setResults] = useState({});
+  const [jobRuns, setJobRuns] = useState({});
+  const [jobRunsLoading, setJobRunsLoading] = useState(true);
 
   const adminEmail = user?.email || '';
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadJobStatus() {
+      try {
+        const sb = getSupabase();
+        if (!sb) return;
+        const { data: { session } } = await sb.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const resp = await fetch('/api/email/job-status', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!resp.ok) return;
+        const json = await resp.json();
+        if (!cancelled && json.runs) setJobRuns(json.runs);
+      } catch { /* non-critical */ }
+      if (!cancelled) setJobRunsLoading(false);
+    }
+    loadJobStatus();
+    return () => { cancelled = true; };
+  }, []);
+
+  function formatJobRun(run) {
+    if (!run) return { label: 'No runs yet', cls: 'Muted' };
+    const d = new Date(run.completed_at || run.started_at);
+    const ts = d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
+    }) + ' PT';
+    const status = run.status === 'success' ? 'success'
+      : run.status === 'partial' ? 'partial' : 'failed';
+    const counts = run.sent_count != null ? ` · ${run.sent_count} sent` : '';
+    const failNote = run.failed_count > 0 ? ` · ${run.failed_count} failed` : '';
+    return { label: `${ts}${counts}${failNote}`, status, cls: status };
+  }
 
   async function handleSendTest(type) {
     if (sending) return;
     setSending(type);
     setResults(prev => ({ ...prev, [type]: null }));
     try {
-      // Always fetch a fresh session token at click time — never rely on stale props.
       const sb = getSupabase();
       if (!sb) throw new Error('Not signed in.');
       const { data: { session: freshSession } } = await sb.auth.getSession();
@@ -1117,7 +1154,6 @@ function AdminQAPanel() {
       setResults(prev => ({ ...prev, [type]: { ok: true, message: `Sent at ${ts}` } }));
       showToast(`Test sent — check ${adminEmail}`, { type: 'success' });
     } catch (err) {
-      const ts = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
       setResults(prev => ({ ...prev, [type]: { ok: false, message: err.message || 'Send failed.' } }));
       showToast(err.message || 'Send failed.', { type: 'error' });
     } finally {
@@ -1130,7 +1166,7 @@ function AdminQAPanel() {
       <div className={styles.adminQaHeader}>
         <div>
           <h3 className={styles.adminQaTitle}>Admin QA</h3>
-          <p className={styles.adminQaSubtitle}>Send yourself test emails for each subscription.</p>
+          <p className={styles.adminQaSubtitle}>Send test emails and monitor global digest runs.</p>
         </div>
         <span className={styles.adminBadge}>Admin</span>
       </div>
@@ -1139,21 +1175,42 @@ function AdminQAPanel() {
         {TEST_EMAIL_TYPES.map(({ type, label }) => {
           const result = results[type];
           const isSending = sending === type;
+          const run = jobRuns[type];
+          const runInfo = formatJobRun(run);
           return (
             <div key={type} className={styles.adminQaRow}>
-              <button
-                type="button"
-                className={`${styles.btnAdminTest} ${result?.ok === true ? styles.btnAdminTestSent : ''} ${result?.ok === false ? styles.btnAdminTestError : ''}`}
-                onClick={() => handleSendTest(type)}
-                disabled={!!sending}
-              >
-                {isSending ? <SpinnerIcon /> : (
-                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden style={{flexShrink:0}}>
-                    <path d="M1 1l12 6-12 6V8.5l8-1.5-8-1.5V1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
-                  </svg>
-                )}
-                <span>{label}</span>
-              </button>
+              <div className={styles.adminQaRowInner}>
+                <button
+                  type="button"
+                  className={`${styles.btnAdminTest} ${result?.ok === true ? styles.btnAdminTestSent : ''} ${result?.ok === false ? styles.btnAdminTestError : ''}`}
+                  onClick={() => handleSendTest(type)}
+                  disabled={!!sending}
+                >
+                  {isSending ? <SpinnerIcon /> : (
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden style={{flexShrink:0}}>
+                      <path d="M1 1l12 6-12 6V8.5l8-1.5-8-1.5V1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
+                    </svg>
+                  )}
+                  <span>{label}</span>
+                </button>
+                <div className={styles.adminQaSendLog}>
+                  {jobRunsLoading ? (
+                    <span className={styles.adminQaLogMuted}>Loading…</span>
+                  ) : (
+                    <>
+                      <span className={
+                        runInfo.cls === 'success' ? styles.adminQaLogSuccess
+                          : runInfo.cls === 'partial' ? styles.adminQaLogPartial
+                          : runInfo.cls === 'failed' ? styles.adminQaLogFailed
+                          : styles.adminQaLogMuted
+                      }>
+                        {runInfo.cls === 'success' ? '●' : runInfo.cls === 'partial' ? '◐' : runInfo.cls === 'failed' ? '●' : '○'}
+                      </span>
+                      <span className={styles.adminQaLogText}>{runInfo.label}</span>
+                    </>
+                  )}
+                </div>
+              </div>
               {result && (
                 <span className={result.ok ? styles.adminQaResultOk : styles.adminQaResultErr}>
                   {result.ok ? '✓' : '✕'} {result.message}

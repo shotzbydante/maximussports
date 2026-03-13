@@ -5,13 +5,11 @@
  * Automated daily email engine. Called by Vercel cron jobs.
  *
  * Schedule (configured in vercel.json, all times UTC):
- *   daily:  0 14 * * *  → ~6 AM PST / 7 AM PDT
- *   pinned: 0 15 * * *  → ~7 AM PST / 8 AM PDT
- *   odds:   0 19 * * *  → ~11 AM PST / 12 PM PDT
- *   news:   0  0 * * *  → ~4 PM PST / 5 PM PDT
- *
- * Note: Vercel cron uses UTC. The ~1 hr variance between PST/PDT is expected;
- * per-user timezone delivery is not yet supported.
+ *   daily:      0 14 * * *  → ~6 AM PST / 7 AM PDT
+ *   pinned:     0 15 * * *  → ~7 AM PST / 8 AM PDT
+ *   odds:       0 19 * * *  → ~11 AM PST / 12 PM PDT
+ *   news:       0  0 * * *  → ~4 PM PST / 5 PM PDT
+ *   teamDigest: 0 14 * * *  → ~6 AM PST / 7 AM PDT (same window as daily)
  *
  * For each email type:
  *  1. Fetch all users from Supabase auth
@@ -20,13 +18,18 @@
  *  4. Gather data for the email type
  *  5. Render and send personalized emails
  *  6. Log each send to email_send_log
+ *  7. Log the job run to email_job_runs for admin visibility
+ *
+ * Eligibility rules:
+ *   daily   → ALL users by default unless explicitly opted out (briefing: false)
+ *   pinned  → subscribed users (teamAlerts: true, default true)
+ *   odds    → subscribed users (oddsIntel: true, default false — opt-in only)
+ *   news    → subscribed users (newsDigest: true, default true)
+ *   teamDigest → subscribed users with at least one selected team
  *
  * New users without a profile row receive default preferences
  * (briefing: true, teamAlerts: true, newsDigest: true) so they are
  * automatically included in the next eligible send after signup.
- *
- * Security: Vercel cron requests include `Authorization: Bearer <CRON_SECRET>`.
- * Falls back to open access if CRON_SECRET is not set (safe for initial deploy).
  */
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
@@ -55,13 +58,11 @@ const TYPE_TO_PREF_KEY = {
 
 const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
 
-/** Returns today's date key for the send log, e.g. "2026-03-04_daily" */
 function makeDateKey(type) {
   const today = new Date().toISOString().slice(0, 10);
   return `${today}_${type}`;
 }
 
-/** Fetch all profiles (up to 5000) with their preferences and subscription state */
 async function fetchAllProfiles(sb) {
   const { data: profiles, error } = await sb
     .from('profiles')
@@ -71,7 +72,6 @@ async function fetchAllProfiles(sb) {
   return profiles || [];
 }
 
-/** Fetch all user_teams for a list of user IDs */
 async function fetchUserTeams(sb, userIds) {
   if (!userIds.length) return {};
   const { data, error } = await sb
@@ -90,7 +90,6 @@ async function fetchUserTeams(sb, userIds) {
   return map;
 }
 
-/** Get set of user IDs that already received this type today */
 async function fetchAlreadySent(sb, dateKey) {
   const { data, error } = await sb
     .from('email_send_log')
@@ -103,7 +102,6 @@ async function fetchAlreadySent(sb, dateKey) {
   return new Set((data || []).map(r => r.user_id));
 }
 
-/** Log a successful email send */
 async function logEmailSend(sb, { userId, email, type, dateKey }) {
   const { error } = await sb.from('email_send_log').insert({
     user_id:  userId,
@@ -117,7 +115,47 @@ async function logEmailSend(sb, { userId, email, type, dateKey }) {
   }
 }
 
-/** Fetch pinned team metadata from teams data */
+/** Persist a job-level run record to email_job_runs for admin visibility. */
+async function logJobRun(sb, record) {
+  try {
+    const { error } = await sb.from('email_job_runs').insert(record);
+    if (error) {
+      console.warn('[run-daily] failed to log job run:', error.message);
+    }
+  } catch (err) {
+    console.warn('[run-daily] email_job_runs insert exception:', err.message);
+  }
+}
+
+/** Ensure email_job_runs table exists (safe no-op if already present). */
+async function ensureJobRunsTable(sb) {
+  try {
+    const { error } = await sb.rpc('run_sql', {
+      sql: `
+        CREATE TABLE IF NOT EXISTS email_job_runs (
+          id            uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+          digest_type   text        NOT NULL,
+          started_at    timestamptz NOT NULL DEFAULT now(),
+          completed_at  timestamptz,
+          status        text        NOT NULL DEFAULT 'running',
+          scanned_count integer     DEFAULT 0,
+          eligible_count integer    DEFAULT 0,
+          sent_count    integer     DEFAULT 0,
+          failed_count  integer     DEFAULT 0,
+          skipped_counts jsonb      DEFAULT '{}',
+          error_message text,
+          created_at    timestamptz DEFAULT now()
+        );
+      `
+    });
+    if (error) {
+      console.warn('[run-daily] ensureJobRunsTable rpc error:', error.message);
+    }
+  } catch {
+    // rpc might not exist — fall back to direct insert and let it fail naturally
+  }
+}
+
 async function resolvePinnedTeams(teamRows) {
   if (!teamRows || teamRows.length === 0) return [];
   const { getTeamBySlug } = await import('../../src/data/teams.js');
@@ -131,22 +169,11 @@ async function resolvePinnedTeams(teamRows) {
     .filter(Boolean);
 }
 
-/**
- * Try to extract 2–4 concise intel bullets from the cached LLM home summary.
- * Falls back to data-derived bullets if the cache is empty or unparseable.
- *
- * @param {object} atsLeaders
- * @param {Array}  rankingsTop25
- * @param {Array}  scoresToday
- * @returns {Promise<string[]>}
- */
 async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
-  // Try to read from the KV-cached LLM home summary first
   try {
     const kvSummary = await getJson('chat:home:summary:v1');
     if (kvSummary?.text || kvSummary?.summary) {
       const text = kvSummary.text || kvSummary.summary || '';
-      // Split into sentences / bullet-like lines; pick 2–4 concise ones
       const rawLines = text
         .split(/[-\n•*]+/)
         .map(l => l.replace(/^\d+\.\s*/, '').trim())
@@ -156,10 +183,9 @@ async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
       }
     }
   } catch {
-    // KV unavailable — fall through to data-derived bullets
+    // KV unavailable — fall through
   }
 
-  // Data-derived fallback bullets
   const bullets = [];
   const best = atsLeaders?.best || [];
   if (best.length > 0) {
@@ -191,7 +217,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // ── Cron secret verification (optional but recommended)
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = req.headers['authorization'] || '';
@@ -201,7 +226,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── Type param
   const type = req.query?.type;
   if (!type || !VALID_TYPES.includes(type)) {
     return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
@@ -210,8 +234,9 @@ export default async function handler(req, res) {
   const prefKey = TYPE_TO_PREF_KEY[type];
   const dateKey = makeDateKey(type);
   const startedAt = Date.now();
+  const startedAtISO = new Date(startedAt).toISOString();
 
-  console.log(`[run-daily] Starting email run: type=${type} dateKey=${dateKey}`);
+  console.log(`[run-daily] ▶ Starting email run: type=${type} dateKey=${dateKey} startedAt=${startedAtISO}`);
 
   let sb;
   try {
@@ -221,8 +246,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database service unavailable.' });
   }
 
+  // Try to ensure job runs table exists (non-blocking)
+  await ensureJobRunsTable(sb);
+
+  // Track skip reasons for the summary
+  const skipCounts = { opted_out: 0, no_email: 0, no_profile: 0, already_sent: 0, no_digest_teams: 0 };
+
   try {
-    // ── 1. Get all users from auth (paginated — handles >1000 users)
+    // ── 1. Get all users from auth (paginated)
     const authUsers = [];
     let page = 1;
     const perPage = 1000;
@@ -238,7 +269,13 @@ export default async function handler(req, res) {
     console.log(`[run-daily] Fetched ${authUsers.length} auth users (${page} page${page > 1 ? 's' : ''})`);
 
     if (authUsers.length === 0) {
-      return res.status(200).json({ ok: true, type, sent: 0, skipped: 0, message: 'No users found.' });
+      const summary = { ok: true, type, sent: 0, skipped: 0, message: 'No users found.' };
+      await logJobRun(sb, {
+        digest_type: type, started_at: startedAtISO, completed_at: new Date().toISOString(),
+        status: 'success', scanned_count: 0, eligible_count: 0, sent_count: 0, failed_count: 0,
+        skipped_counts: skipCounts,
+      });
+      return res.status(200).json(summary);
     }
 
     // ── 2. Load profiles and preferences
@@ -247,55 +284,79 @@ export default async function handler(req, res) {
     for (const p of profiles) profileMap[p.id] = p;
 
     // ── 3. Filter to subscribed users
-    let noProfile = 0;
-    let noEmail = 0;
-    let optedOut = 0;
     const usingDefaults = [];
     const skippedReasons = [];
 
     const subscribedUsers = authUsers.filter(u => {
-      if (!u.email) { noEmail++; skippedReasons.push({ id: u.id, reason: 'no_email' }); return false; }
+      if (!u.email) {
+        skipCounts.no_email++;
+        skippedReasons.push({ id: u.id, reason: 'no_deliverable_email' });
+        console.log(`[run-daily] SKIP user=${u.id} reason=no_deliverable_email`);
+        return false;
+      }
+
       const profile = profileMap[u.id];
       if (!profile) {
-        noProfile++;
+        skipCounts.no_profile++;
         usingDefaults.push(u.id);
       }
+
       const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile?.preferences || {}) };
       const subscribed = prefs[prefKey] === true;
+
       if (!subscribed) {
-        optedOut++;
+        skipCounts.opted_out++;
         skippedReasons.push({ id: u.id, email: u.email, reason: `opted_out_${prefKey}` });
+        console.log(`[run-daily] SKIP user=${u.id} reason=opted_out_${prefKey}`);
       }
       return subscribed;
     });
 
-    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${optedOut} opted-out, ${noProfile} no-profile (using defaults), ${noEmail} no-email, ${authUsers.length} total`);
+    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${skipCounts.opted_out} opted-out, ${skipCounts.no_profile} no-profile (using defaults), ${skipCounts.no_email} no-email, ${authUsers.length} total`);
     if (usingDefaults.length > 0) {
       console.log(`[run-daily] Users receiving '${type}' via default prefs (no profile row): ${usingDefaults.length} user(s)`);
     }
 
     if (subscribedUsers.length === 0) {
-      return res.status(200).json({ ok: true, type, sent: 0, skipped: 0, message: 'No subscribers.' });
+      const summary = { ok: true, type, sent: 0, skipped: 0, message: 'No subscribers.' };
+      await logJobRun(sb, {
+        digest_type: type, started_at: startedAtISO, completed_at: new Date().toISOString(),
+        status: 'success', scanned_count: authUsers.length, eligible_count: 0, sent_count: 0, failed_count: 0,
+        skipped_counts: skipCounts,
+      });
+      return res.status(200).json(summary);
     }
 
     // ── 4. Check already-sent for today
     const alreadySent = await fetchAlreadySent(sb, dateKey);
+    skipCounts.already_sent = alreadySent.size;
 
     // ── 5. Determine who still needs to receive
-    const toSend = subscribedUsers.filter(u => !alreadySent.has(u.id));
+    const toSend = subscribedUsers.filter(u => {
+      if (alreadySent.has(u.id)) {
+        console.log(`[run-daily] SKIP user=${u.id} reason=already_sent_today`);
+        return false;
+      }
+      return true;
+    });
     console.log(`[run-daily] ${toSend.length} users to send (${alreadySent.size} already sent today)`);
 
     if (toSend.length === 0) {
-      return res.status(200).json({ ok: true, type, sent: 0, skipped: subscribedUsers.length, message: 'All already sent today.' });
+      const summary = { ok: true, type, sent: 0, skipped: subscribedUsers.length, message: 'All already sent today.' };
+      await logJobRun(sb, {
+        digest_type: type, started_at: startedAtISO, completed_at: new Date().toISOString(),
+        status: 'success', scanned_count: authUsers.length, eligible_count: subscribedUsers.length,
+        sent_count: 0, failed_count: 0, skipped_counts: skipCounts,
+      });
+      return res.status(200).json(summary);
     }
 
-    // ── 6. Fetch shared data for this email type
+    // ── 6. Fetch shared data
     const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
       fetchScoresSource(),
       fetchRankingsSource(),
       getAtsLeadersPipeline(),
       fetchNewsAggregateSource({ includeNational: true }),
-      // Fetch odds data for odds/ATS email only — provides spread data for game cards
       type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
     ]);
 
@@ -308,7 +369,6 @@ export default async function handler(req, res) {
     const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
     const headlines = dedupeNewsItems(headlinesRaw);
 
-    // Odds games with spread/total data — used by ATS email game cards
     const oddsGames = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
       ? oddsRaw.value.games.map(g => ({
           ...g,
@@ -317,7 +377,7 @@ export default async function handler(req, res) {
         }))
       : [];
 
-    // ── 7. Fetch bot intel bullets (shared for all users in this run)
+    // ── 7. Bot intel bullets
     let botIntelBullets = [];
     if (type === 'daily' || type === 'pinned') {
       try {
@@ -327,7 +387,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 7b. Pre-load team data for Team Digest (one-time lookup)
+    // ── 7b. Pre-load team data for Team Digest
     let getTeamBySlugFn = null;
     if (type === 'teamDigest') {
       try {
@@ -338,7 +398,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 8. Load user_teams for pinned-type (and always for personalization)
+    // ── 8. Load user_teams
     const userIds = toSend.map(u => u.id);
     const userTeamsMap = await fetchUserTeams(sb, userIds);
 
@@ -352,10 +412,8 @@ export default async function handler(req, res) {
       const email = authUser.email;
       const profile = profileMap[userId];
 
-      // Resolve display name using the shared helper
       const displayName = getUserDisplayName({ user: authUser, profile });
 
-      // Resolve pinned teams for this user
       const teamRows = userTeamsMap[userId] || [];
       let pinnedTeams = [];
       try {
@@ -364,7 +422,6 @@ export default async function handler(req, res) {
         pinnedTeams = [];
       }
 
-      // Build a short "MAXIMUS SAYS" note for pinned alerts (use first bullet)
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
 
       const emailData = {
@@ -376,7 +433,6 @@ export default async function handler(req, res) {
         pinnedTeams,
         botIntelBullets,
         maximusNote,
-        // Odds games with spread/total data (populated for odds email type only)
         oddsGames,
       };
 
@@ -407,10 +463,10 @@ export default async function handler(req, res) {
             const prefs = profile?.preferences || {};
             const allDigestSlugs = Array.isArray(prefs.teamDigestTeams) ? prefs.teamDigestTeams : [];
             if (!getTeamBySlugFn || allDigestSlugs.length === 0) {
-              console.log(`[run-daily] teamDigest: skipping ${email} — no digest teams configured`);
+              skipCounts.no_digest_teams++;
+              console.log(`[run-daily] SKIP user=${userId} reason=no_digest_teams email=${email}`);
               continue;
             }
-            // Enforce plan-based team limit server-side
             const planEntitlements = getProfileEntitlements(profile);
             const maxEmailTeams = isFinite(planEntitlements.maxEmailTeams)
               ? planEntitlements.maxEmailTeams
@@ -438,35 +494,87 @@ export default async function handler(req, res) {
         await sendEmail({ to: email, subject, html, text });
         await logEmailSend(sb, { userId, email, type, dateKey });
         sent++;
-        console.log(`[run-daily] ✓ sent type=${type} to=${email}`);
+        console.log(`[run-daily] SENT type=${type} to=${email} user=${userId}`);
 
       } catch (err) {
         failed++;
         const msg = `Failed for ${email}: ${err.message}`;
-        console.error(`[run-daily] ✗ ${msg}`);
+        console.error(`[run-daily] FAIL type=${type} to=${email} user=${userId} error=${err.message}`);
         errors.push(msg);
       }
     }
 
+    const completedAtISO = new Date().toISOString();
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    console.log(`[run-daily] Done. type=${type} sent=${sent} failed=${failed} alreadySent=${alreadySent.size} totalSubscribed=${subscribedUsers.length} totalAuth=${authUsers.length} noProfile=${noProfile} optedOut=${optedOut} elapsed=${elapsed}s`);
+
+    // ── 10. Summary
+    const summaryLog = [
+      `\n[run-daily] ═══ ${type.toUpperCase()} DIGEST RUN SUMMARY ═══`,
+      `  digest_type:  ${type}`,
+      `  status:       ${failed === 0 ? 'success' : (sent > 0 ? 'partial' : 'failed')}`,
+      `  scanned:      ${authUsers.length}`,
+      `  eligible:     ${subscribedUsers.length}`,
+      `  sent:         ${sent}`,
+      `  failed:       ${failed}`,
+      `  skipped:`,
+      `    opted_out:        ${skipCounts.opted_out}`,
+      `    no_email:         ${skipCounts.no_email}`,
+      `    no_profile:       ${skipCounts.no_profile} (used defaults)`,
+      `    already_sent:     ${skipCounts.already_sent}`,
+      `    no_digest_teams:  ${skipCounts.no_digest_teams}`,
+      `  started_at:   ${startedAtISO}`,
+      `  completed_at: ${completedAtISO}`,
+      `  elapsed:      ${elapsed}s`,
+      `[run-daily] ═══════════════════════════════════\n`,
+    ].join('\n');
+    console.log(summaryLog);
+
+    // ── 11. Persist job run to email_job_runs
+    const jobStatus = failed === 0 ? 'success' : (sent > 0 ? 'partial' : 'failed');
+    await logJobRun(sb, {
+      digest_type:    type,
+      started_at:     startedAtISO,
+      completed_at:   completedAtISO,
+      status:         jobStatus,
+      scanned_count:  authUsers.length,
+      eligible_count: subscribedUsers.length,
+      sent_count:     sent,
+      failed_count:   failed,
+      skipped_counts: skipCounts,
+      error_message:  errors.length > 0 ? errors.slice(0, 5).join('; ') : null,
+    });
 
     return res.status(200).json({
       ok: true,
       type,
+      status: jobStatus,
       sent,
       failed,
       skipped: alreadySent.size,
       total: subscribedUsers.length,
       totalAuth: authUsers.length,
-      noProfile,
-      optedOut,
+      noProfile: skipCounts.no_profile,
+      optedOut: skipCounts.opted_out,
       elapsed: `${elapsed}s`,
+      startedAt: startedAtISO,
+      completedAt: completedAtISO,
       ...(errors.length ? { errors: errors.slice(0, 5) } : {}),
     });
 
   } catch (err) {
     console.error('[run-daily] Fatal error:', err.message);
+    await logJobRun(sb, {
+      digest_type:   type,
+      started_at:    startedAtISO,
+      completed_at:  new Date().toISOString(),
+      status:        'error',
+      scanned_count: 0,
+      eligible_count: 0,
+      sent_count:    0,
+      failed_count:  0,
+      skipped_counts: skipCounts,
+      error_message: err.message,
+    });
     return res.status(500).json({ error: err.message || 'Internal server error.' });
   }
 }
