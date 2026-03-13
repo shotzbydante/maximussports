@@ -23,3 +23,30 @@ export const ALLOWLIST = [
   'Stadium',
   'On3',
 ];
+
+/**
+ * Betting-specific channel allowlist for the Betting Intel feed.
+ * Includes sportsbook media, betting shows, and picks-oriented channels.
+ */
+export const BETTING_ALLOWLIST = [
+  ...ALLOWLIST,
+  'ESPN BET',
+  'DraftKings',
+  'DraftKings Network',
+  'FanDuel',
+  'FanDuel TV',
+  'Caesars Sportsbook',
+  'BetMGM',
+  'Action Network',
+  'VSiN',
+  'Bet365',
+  'WagerTalk',
+  'Odds Shark',
+  'The Action Network',
+  'Pat McAfee',
+  'Barstool Sports',
+  'Penn Entertainment',
+  'Covers',
+  'Pick Dawgz',
+  'Sportsbook Review',
+];

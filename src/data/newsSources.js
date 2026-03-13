@@ -7,6 +7,16 @@ export const NATIONAL_FEEDS = [
   { id: 'yahoo', name: 'Yahoo Sports', url: 'https://sports.yahoo.com/ncaab/rss.xml' },
   { id: 'cbs', name: 'CBS Sports', url: 'https://www.cbssports.com/rss/headlines/college-basketball/' },
   { id: 'ncaa', name: 'NCAA.com', url: 'https://www.ncaa.com/rss/feeds/college-basketball' },
+  { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/ncb/news' },
+  { id: 'ap', name: 'Associated Press', url: 'https://rsshub.app/apnews/topics/college-basketball' },
+  { id: 'fox', name: 'Fox Sports', url: 'https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/cbk' },
+  { id: '247', name: '247Sports', url: 'https://247sports.com/college/basketball/rss/' },
+];
+
+export const BETTING_FEEDS = [
+  { id: 'action', name: 'Action Network', url: 'https://www.actionnetwork.com/ncaab/rss' },
+  { id: 'covers', name: 'Covers', url: 'https://www.covers.com/pagefeeds/rss/ncaab-news' },
+  { id: 'vsin', name: 'VSiN', url: 'https://www.vsin.com/feed/' },
 ];
 
 export const TEAM_FEEDS = {

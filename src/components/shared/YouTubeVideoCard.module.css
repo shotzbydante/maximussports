@@ -151,7 +151,67 @@
   flex-shrink: 0;
 }
 
-/* ─── Compact variant (used in NewsFeed hero) ───────────────────── */
+/* ─── Channel Badge — top-left corner of thumbnail ────────────────── */
+
+.channelBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.5;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* ─── Hero variant ────────────────────────────────────────────────── */
+
+.hero {
+  border: none;
+  border-radius: var(--radius-card, 12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.hero .thumb {
+  aspect-ratio: 16 / 9;
+}
+
+.hero .playRing {
+  width: 56px;
+  height: 56px;
+}
+
+.hero .body {
+  padding: 12px 14px 14px;
+}
+
+.hero .title {
+  font-size: 1rem;
+  font-weight: 700;
+  -webkit-line-clamp: 2;
+}
+
+.hero .channelBadge {
+  top: 10px;
+  left: 10px;
+  padding: 3px 10px;
+  font-size: 0.64rem;
+}
+
+.hero .duration {
+  bottom: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+}
+
+/* ─── Compact variant ─────────────────────────────────────────────── */
 
 .compact {
   flex-direction: row;

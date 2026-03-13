@@ -627,20 +627,31 @@ function isWatchSpam(title) {
 
 /**
  * Analysis-intent boost: recaps, previews, analysis, injuries, roster moves, outlook.
- * Returns a positive score if the headline signals real news.
+ * Returns a positive score if the headline signals real editorial news value.
  */
 function analysisBoost(title) {
   const t = (title || '').toLowerCase();
-  const patterns = [
+  const highSignal = [
     'preview', 'recap', 'takeaways', 'analysis', 'grade', 'report card',
+    'breaking', 'just in', 'report:', 'sources say', 'per sources', 'breaking:',
     'injury', 'injured', 'out for', 'questionable', 'doubtful', 'suspended',
     'outlook', 'bracketology', 'tournament', 'march madness', 'bubble',
     'transfer', 'portal', 'signing', 'commit', 'coaching', 'fired', 'hired',
     'post-game', 'postgame', 'halftime', 'overtime', 'upset', 'ranked',
     'milestone', 'record', 'streak', 'losing streak', 'winning streak',
-    'key matchup', 'big ten', 'acc ', 'sec ', 'big east', 'big 12',
+    'key matchup', 'rivalry', 'top 25', 'ap poll', 'poll', 'seed',
+    'big ten', 'acc ', 'sec ', 'big east', 'big 12',
+    'draft', 'nba draft', 'mock draft', 'projected',
+    'exclusive', 'insider', 'deep dive', 'breakdown',
   ];
-  return patterns.some((p) => t.includes(p)) ? 30 : 0;
+  if (highSignal.some((p) => t.includes(p))) return 40;
+  const mediumSignal = [
+    'power rankings', 'standings', 'conference', 'matchup', 'highlights',
+    'what to know', 'what we learned', 'best players', 'player of',
+    'coach of', 'team of', 'awards', 'all-american',
+  ];
+  if (mediumSignal.some((p) => t.includes(p))) return 20;
+  return 0;
 }
 
 /**
@@ -669,6 +680,18 @@ function recencyBonus(pubDate) {
 }
 
 /**
+ * Additional low-signal content detector.
+ */
+function isLowSignal(title) {
+  const t = (title || '').toLowerCase();
+  return [
+    'schedule:', 'schedule for', 'game time', 'tip-off time', 'tipoff time',
+    'what channel', 'odds, line', 'odds and line for', 'prediction and pick for',
+    'score, result', 'score and result', 'box score',
+  ].some((p) => t.includes(p));
+}
+
+/**
  * Compute a quality score for a news headline.
  * Higher = better. Watch-spam gets a heavy penalty but is not hard-excluded.
  */
@@ -677,6 +700,7 @@ function scoreNewsItem(item) {
   const source = (item.source && (item.source['#text'] || item.source)) || '';
   let score = 50; // base
   if (isWatchSpam(title)) score -= 60;
+  if (isLowSignal(title)) score -= 35;
   score += analysisBoost(title);
   score += sourceRepBoost(source);
   score += recencyBonus(item.pubDate);
@@ -779,14 +803,114 @@ export async function fetchTeamNewsSource(slug, { debug = false } = {}) {
   return result;
 }
 
-// --- News (aggregate) ---
+// --- News (aggregate) — quality-ranked with deduplication + diversity ---
+
+/**
+ * Normalize a URL for deduplication: lowercase host, strip tracking params.
+ */
+function normalizeUrlForDedupe(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const u = new URL(url.trim());
+    for (const p of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ref', 'source', 'cid']) {
+      u.searchParams.delete(p);
+    }
+    u.hostname = u.hostname.toLowerCase();
+    u.pathname = u.pathname.replace(/\/+$/, '') || '/';
+    u.hash = '';
+    return u.toString().toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
+}
+
+function normTitleForDedupe(title) {
+  return (title || '').toLowerCase().trim().replace(/\s+/g, ' ').replace(/[^\w\s]/g, '');
+}
+
+function dedupeAggregateItems(items) {
+  const seenUrls = new Set();
+  const seenTitles = new Set();
+  return items.filter((item) => {
+    const urlKey = normalizeUrlForDedupe(item.link);
+    const titleKey = normTitleForDedupe(item.title);
+    if (urlKey && seenUrls.has(urlKey)) return false;
+    if (titleKey && seenTitles.has(titleKey)) return false;
+    if (urlKey) seenUrls.add(urlKey);
+    if (titleKey) seenTitles.add(titleKey);
+    return true;
+  });
+}
+
+/**
+ * Source diversity pass: prevent any single source from dominating the top N.
+ * If one source owns >40% of the top slots, demote its lowest-scored items.
+ */
+function diversityPassArticles(items, topN = 12) {
+  if (items.length <= topN) return items;
+  const top = items.slice(0, topN);
+  const rest = items.slice(topN);
+  const sourceCounts = {};
+  for (const item of top) {
+    const s = (item.source || '').toLowerCase();
+    sourceCounts[s] = (sourceCounts[s] || 0) + 1;
+  }
+  const maxPerSource = Math.ceil(topN * 0.4);
+  const demoted = [];
+  const kept = [];
+  const keptCounts = {};
+  for (const item of top) {
+    const s = (item.source || '').toLowerCase();
+    keptCounts[s] = (keptCounts[s] || 0);
+    if ((sourceCounts[s] || 0) > maxPerSource && keptCounts[s] >= maxPerSource) {
+      demoted.push(item);
+    } else {
+      keptCounts[s]++;
+      kept.push(item);
+    }
+  }
+  const promoted = rest.filter((item) => {
+    const s = (item.source || '').toLowerCase();
+    return !sourceCounts[s] || sourceCounts[s] <= 2;
+  }).slice(0, demoted.length);
+  return [...kept, ...promoted, ...demoted, ...rest.filter((r) => !promoted.includes(r))];
+}
+
+async function fetchRssFeeds(feeds, headers) {
+  const settled = await Promise.allSettled(
+    feeds.map(async (f) => {
+      try {
+        const res = await fetch(f.url, { headers, signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return [];
+        const xml = await res.text();
+        const { XMLParser } = await import('fast-xml-parser');
+        const parser = new XMLParser({ ignoreAttributes: false });
+        const parsed = parser.parse(xml);
+        const channel = parsed?.rss?.channel || parsed?.feed;
+        const rawItems = channel?.item || channel?.entry;
+        const list = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+        return list.map((item) => ({
+          title: (item?.title?.['#text'] || item?.title || 'No title').trim(),
+          link: item?.link?.['#text'] || item?.link?.['@_href'] || item?.link || '',
+          pubDate: item?.pubDate || item?.published || item?.updated || '',
+          source: f.name || 'News',
+          image: item?.enclosure?.['@_url'] || item?.['media:content']?.['@_url'] || null,
+          description: (item?.description?.['#text'] || item?.description || item?.summary || '').replace(/<[^>]*>/g, '').slice(0, 200),
+        }));
+      } catch {
+        return [];
+      }
+    })
+  );
+  return settled.flatMap((s) => (s.status === 'fulfilled' ? s.value : []));
+}
+
 export async function fetchNewsAggregateSource(options = {}) {
   const { includeNational = true } = options;
   const cacheKey = `news-agg:${includeNational}`;
   const cached = newsAggCache.get(cacheKey);
   if (cached) return cached;
 
-  const { getTeamBySlug } = await import('../src/data/teams.js');
   const { NATIONAL_FEEDS } = await import('../src/data/newsSources.js');
   const { isMensBasketball, isMensBasketballLoose } = await import('./news/filters.js');
   const HEADERS = { 'User-Agent': 'MaximusSports/1.0 (+https://maximussports.vercel.app)', Accept: 'application/rss+xml, application/xml, text/xml' };
@@ -794,40 +918,64 @@ export async function fetchNewsAggregateSource(options = {}) {
   const result = await coalesce(cacheKey, async () => {
     let items = [];
     if (includeNational && NATIONAL_FEEDS?.length > 0) {
-      const settled = await Promise.allSettled(
-        NATIONAL_FEEDS.slice(0, 5).map(async (f) => {
-          const res = await fetch(f.url, { headers: HEADERS });
-          if (!res.ok) return [];
-          const xml = await res.text();
-          const { XMLParser } = await import('fast-xml-parser');
-          const parser = new XMLParser({ ignoreAttributes: false });
-          const parsed = parser.parse(xml);
-          const channel = parsed?.rss?.channel || parsed?.feed;
-          const rawItems = channel?.item || channel?.entry;
-          const list = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
-          return list.map((item) => ({
-            title: (item?.title?.['#text'] || item?.title || 'No title').trim(),
-            link: item?.link?.['#text'] || item?.link?.['@_href'] || item?.link || '',
-            pubDate: item?.pubDate || item?.published || item?.updated || '',
-            source: f.name || 'News',
-          }));
-        })
-      );
-      const all = settled.flatMap((s) => (s.status === 'fulfilled' ? s.value : []));
+      const all = await fetchRssFeeds(NATIONAL_FEEDS.slice(0, 8), HEADERS);
       let filtered = all.filter((item) => isMensBasketball(item.title, item.source, item.link));
-      if (filtered.length === 0 && all.length > 0) filtered = all.filter((item) => isMensBasketballLoose(item.title, item.source, item.link));
-      const seen = new Set();
-      items = filtered.filter((item) => {
-        const key = item.link || `${item.title}-${item.pubDate}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      items.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
+      if (filtered.length === 0 && all.length > 0) {
+        filtered = all.filter((item) => isMensBasketballLoose(item.title, item.source, item.link));
+      }
+      const deduped = dedupeAggregateItems(filtered);
+      const scored = deduped.map((item) => ({ ...item, _score: scoreNewsItem(item) }));
+      scored.sort((a, b) => b._score - a._score);
+      items = diversityPassArticles(scored);
     }
     return { items };
   });
 
   newsAggCache.set(cacheKey, result);
+  return result;
+}
+
+// --- News (betting aggregate) — betting-oriented content ---
+const bettingNewsCache = createCache(20 * 60 * 1000);
+
+export async function fetchBettingNewsSource() {
+  const cacheKey = 'news-betting';
+  const cached = bettingNewsCache.get(cacheKey);
+  if (cached) return cached;
+
+  const { BETTING_FEEDS, NATIONAL_FEEDS } = await import('../src/data/newsSources.js');
+  const HEADERS = { 'User-Agent': 'MaximusSports/1.0 (+https://maximussports.vercel.app)', Accept: 'application/rss+xml, application/xml, text/xml' };
+
+  const result = await coalesce(cacheKey, async () => {
+    const feeds = [...(BETTING_FEEDS || []), ...(NATIONAL_FEEDS || []).slice(0, 3)];
+    const all = await fetchRssFeeds(feeds, HEADERS);
+
+    const BETTING_KEYWORDS = [
+      'bet', 'betting', 'pick', 'picks', 'spread', 'odds', 'over/under',
+      'parlay', 'moneyline', 'futures', 'prop', 'wager', 'sportsbook',
+      'handicap', 'line', 'best bet', 'lock', 'fade', 'ats', 'against the spread',
+      'total', 'cover', 'point spread', 'money line',
+    ];
+    const BASKETBALL_KEYWORDS = [
+      'basketball', 'ncaab', 'ncaam', 'college basketball', 'march madness',
+      'final four', 'bracket', 'cbb', 'hoops',
+    ];
+
+    const filtered = all.filter((item) => {
+      const t = (item.title || '').toLowerCase();
+      const s = (item.source || '').toLowerCase();
+      const hasBetting = BETTING_KEYWORDS.some((k) => t.includes(k));
+      const hasBasketball = BASKETBALL_KEYWORDS.some((k) => t.includes(k));
+      const isBettingSource = ['action network', 'covers', 'vsin'].some((src) => s.includes(src));
+      if (isBettingSource) return true;
+      return hasBetting && hasBasketball;
+    });
+
+    const deduped = dedupeAggregateItems(filtered);
+    deduped.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
+    return { items: deduped };
+  });
+
+  bettingNewsCache.set(cacheKey, result);
   return result;
 }
