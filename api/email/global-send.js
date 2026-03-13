@@ -50,7 +50,7 @@ function makeDateKey(type) {
 async function fetchAllProfiles(sb) {
   const { data, error } = await sb
     .from('profiles')
-    .select('id, full_name, display_name, username, preferences, plan_tier, subscription_status')
+    .select('id, display_name, username, preferences, plan_tier, subscription_status')
     .limit(5000);
   if (error) throw new Error(`profiles fetch: ${error.message}`);
   return data || [];
