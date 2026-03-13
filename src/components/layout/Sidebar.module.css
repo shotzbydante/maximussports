@@ -3,24 +3,26 @@
   min-width: var(--sidebar-width);
   background: var(--color-bg-elevated);
   border-right: 1px solid var(--color-border-light);
-  padding: var(--space-md) 0 var(--space-lg);
+  padding: var(--space-md) 0 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
   box-shadow: var(--shadow-sm);
-  /* Sticky: stays visible while the main content scrolls.
-     top must account for the fixed TopNav so the first nav item is never clipped.
-     Fallback 56px covers environments where --topnav-height is not yet defined. */
   position: sticky;
   top: var(--topnav-height, 56px);
   height: calc(100vh - var(--topnav-height, 56px));
   overflow-y: auto;
 }
 
+.navArea {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .profileDivider {
   height: 1px;
   background: var(--divider-color, rgba(60, 121, 180, 0.08));
-  margin: 0 var(--space-md) var(--space-sm);
+  margin: 0 var(--space-md);
+  flex-shrink: 0;
 }
 
 .section {
