@@ -102,11 +102,21 @@ const STAGE_LABELS = {
 };
 
 const STAGE_MESSAGES = {
-  preflight:      'Image URL was not reachable by Instagram. Please retry.',
-  create_media:   'Instagram rejected the image.',
-  poll_container: 'Instagram took too long to process the image. Please retry.',
-  publish_media:  'Instagram publish step failed.',
+  preflight:      'The image URL could not be verified. It may not be publicly reachable.',
+  create_media:   null,
+  poll_container: 'Instagram took too long to process the image.',
+  publish_media:  'Instagram publish step failed after image was processed.',
   network:        'Network error — check your connection and retry.',
+};
+
+const CATEGORY_MESSAGES = {
+  auth:          'Instagram access token is invalid or expired. Reconnect in Settings.',
+  permission:    'This Instagram account lacks publish permissions. Check Settings.',
+  image_fetch:   'Instagram could not fetch the image. The URL or format may be unsupported.',
+  image_format:  'Instagram could not process this image format.',
+  rate_limit:    'Instagram rate limit reached. Wait a few minutes before retrying.',
+  transient:     'Instagram encountered a temporary error. Retry in a moment.',
+  invalid_param: 'The publish request had an invalid parameter.',
 };
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -201,6 +211,7 @@ export default function InstagramPublishButton({
       try {
         dataUrl = await toPng(slide1, {
           width: dims.width, height: dims.height, pixelRatio: 1, skipAutoScale: true,
+          backgroundColor: '#ffffff',
         });
       } finally {
         exportLayer.style.visibility = prevLayerVis;
@@ -287,15 +298,25 @@ export default function InstagramPublishButton({
       setTimeout(() => setStage('idle'), 8000);
     } catch (err) {
       const failStage = err.stage ?? 'publish';
-      const code = err.code ? ` (code ${err.code})` : '';
+      const category  = err.category ?? null;
 
-      const baseMsg = STAGE_MESSAGES[failStage] ?? 'Instagram publish failed.';
-      const detail  = err.message && !baseMsg.includes(err.message)
-        ? ` ${err.message}`
-        : '';
-      const userMsg = `${baseMsg}${detail}${code}`;
+      let userMsg;
+      if (category && CATEGORY_MESSAGES[category]) {
+        userMsg = CATEGORY_MESSAGES[category];
+      } else if (STAGE_MESSAGES[failStage]) {
+        userMsg = STAGE_MESSAGES[failStage];
+      } else {
+        userMsg = err.message || 'Instagram publish failed.';
+      }
 
-      if (DEBUG) console.error('[InstagramPublish:debug] error:', { stage: failStage, code, message: err.message, requestId: err.requestId });
+      const isRetryable = ['transient', 'rate_limit'].includes(category) ||
+                          failStage === 'poll_container';
+
+      if (!isRetryable && category !== 'unknown') {
+        userMsg += ' Check the image and account configuration before retrying.';
+      }
+
+      if (DEBUG) console.error('[InstagramPublish:debug] error:', { stage: failStage, category, code: err.code, message: err.message, requestId: err.requestId });
 
       setErrorMessage(userMsg);
       setStage('error');

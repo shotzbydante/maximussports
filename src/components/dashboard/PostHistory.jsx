@@ -69,10 +69,10 @@ function parseStatusDetail(raw) {
 const FAILURE_STAGE_LABELS = {
   env:            'Environment config error',
   validate:       'Request validation failed',
-  preflight:      'Image URL unreachable',
-  create_media:   'Instagram rejected the image',
+  preflight:      'Image URL unreachable or invalid',
+  create_media:   'Instagram could not process the image',
   poll_container: 'Instagram processing timed out',
-  publish_media:  'Instagram publish failed',
+  publish_media:  'Instagram publish step failed',
   network:        'Network error',
 };
 

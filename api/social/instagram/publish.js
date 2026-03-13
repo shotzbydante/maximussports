@@ -71,11 +71,42 @@ function sanitizeEnv(value) {
 function safeMetaError(raw) {
   const e = raw?.error ?? raw ?? {};
   return {
-    message:    e.message    ?? 'Unknown error',
-    type:       e.type       ?? null,
-    code:       e.code       ?? null,
-    fbtrace_id: e.fbtrace_id ?? null,
+    message:       e.message        ?? 'Unknown error',
+    type:          e.type           ?? null,
+    code:          e.code           ?? null,
+    error_subcode: e.error_subcode  ?? null,
+    fbtrace_id:    e.fbtrace_id     ?? null,
   };
+}
+
+// ── Error classifier — maps Meta codes to actionable categories ─────────────
+
+function classifyMetaError(err) {
+  const code    = err.code;
+  const sub     = err.error_subcode;
+  const msg     = (err.message ?? '').toLowerCase();
+
+  if (code === 190)
+    return { category: 'auth', userMessage: 'Instagram access token is invalid or expired. Reconnect the account in Settings.' };
+  if (code === 10 || code === 200)
+    return { category: 'permission', userMessage: 'The Instagram account does not have publish permissions. Check account configuration in Settings.' };
+  if (code === 100 && sub === 33)
+    return { category: 'invalid_param', userMessage: 'A required parameter was missing or invalid in the publish request.' };
+  if (code === 100)
+    return { category: 'invalid_param', userMessage: `Invalid parameter: ${err.message}` };
+  if (code === 36003 || code === 4 || code === 32)
+    return { category: 'rate_limit', userMessage: 'Instagram rate limit reached. Wait a few minutes before retrying.' };
+
+  if (code === 2) {
+    if (msg.includes('image') || msg.includes('url') || msg.includes('download') || msg.includes('fetch'))
+      return { category: 'image_fetch', userMessage: 'Instagram could not fetch the image. The URL may be inaccessible to Instagram servers, or the image format is unsupported.' };
+    return { category: 'transient', userMessage: 'Instagram encountered a temporary processing error. This may be caused by image format, URL accessibility, or a transient Meta outage.' };
+  }
+
+  if (msg.includes('image') || msg.includes('photo') || msg.includes('media'))
+    return { category: 'image_format', userMessage: 'Instagram could not process this image. The file may need format normalization.' };
+
+  return { category: 'unknown', userMessage: err.message ?? 'An unknown Instagram error occurred.' };
 }
 
 function sleep(ms) {
@@ -126,14 +157,21 @@ async function verifyImageUrl(url) {
   try {
     const resp = await fetch(url, { method: 'HEAD' });
     const ct = resp.headers.get('content-type') ?? '';
+    const cl = resp.headers.get('content-length');
+    const parsed = new URL(url);
+    const pathExt = parsed.pathname.match(/\.(png|jpe?g|gif|webp)$/i)?.[1] ?? null;
+
     return {
-      reachable:   resp.ok,
-      status:      resp.status,
-      contentType: ct,
-      isImage:     ct.startsWith('image/'),
+      reachable:     resp.ok,
+      status:        resp.status,
+      contentType:   ct,
+      isImage:       ct.startsWith('image/'),
+      contentLength: cl ? Number(cl) : null,
+      hasExtension:  !!pathExt,
+      extension:     pathExt,
     };
   } catch (err) {
-    return { reachable: false, status: 0, contentType: null, isImage: false, error: err.message };
+    return { reachable: false, status: 0, contentType: null, isImage: false, hasExtension: false, extension: null, error: err.message };
   }
 }
 
@@ -215,18 +253,21 @@ async function fetchPermalink(mediaId, accessToken, log) {
 
 function buildStatusDetail(fields) {
   return JSON.stringify({
-    request_id:     fields.requestId,
-    started_at:     fields.startedAt,
-    completed_at:   new Date().toISOString(),
-    duration_ms:    Date.now() - fields.startTs,
-    final_stage:    fields.finalStage,
-    poll_attempts:  fields.pollAttempts  ?? 0,
-    poll_elapsed:   fields.pollElapsed   ?? 0,
-    permalink:      fields.permalink     ?? null,
-    preflight:      fields.preflight     ?? null,
-    ig_error_code:  fields.igErrorCode   ?? null,
-    ig_error_type:  fields.igErrorType   ?? null,
-    ig_fbtrace_id:  fields.igFbtraceId   ?? null,
+    request_id:        fields.requestId,
+    started_at:        fields.startedAt,
+    completed_at:      new Date().toISOString(),
+    duration_ms:       Date.now() - fields.startTs,
+    final_stage:       fields.finalStage,
+    poll_attempts:     fields.pollAttempts    ?? 0,
+    poll_elapsed:      fields.pollElapsed     ?? 0,
+    permalink:         fields.permalink       ?? null,
+    preflight:         fields.preflight       ?? null,
+    ig_error_code:     fields.igErrorCode     ?? null,
+    ig_error_subcode:  fields.igErrorSubcode  ?? null,
+    ig_error_type:     fields.igErrorType     ?? null,
+    ig_fbtrace_id:     fields.igFbtraceId     ?? null,
+    error_category:    fields.errorCategory   ?? null,
+    image_url_snippet: fields.imageUrlSnippet ?? null,
   });
 }
 
@@ -302,7 +343,25 @@ export default async function handler(req, res) {
     });
   }
 
-  log.info('validated — image:', imageUrl.slice(0, 100), '| caption:', caption.length, 'chars');
+  const trimmedCaption = caption.trim();
+  if (trimmedCaption.length > 2200) {
+    return res.status(400).json({
+      ok: false, stage: 'validate', requestId,
+      error: `Caption is ${trimmedCaption.length} characters — Instagram allows a maximum of 2200.`,
+      debug,
+    });
+  }
+
+  const hashtagCount = (trimmedCaption.match(/#\w+/g) ?? []).length;
+  if (hashtagCount > 30) {
+    return res.status(400).json({
+      ok: false, stage: 'validate', requestId,
+      error: `Caption contains ${hashtagCount} hashtags — Instagram allows a maximum of 30.`,
+      debug,
+    });
+  }
+
+  log.info('validated — image:', imageUrl.slice(0, 100), '| caption:', trimmedCaption.length, 'chars |', hashtagCount, 'hashtags');
 
   // --- Stage: preflight (verify image URL is reachable) ---
   const imgCheck = await verifyImageUrl(imageUrl.trim());
@@ -353,7 +412,8 @@ export default async function handler(req, res) {
 
   // Helper to fail + persist in one call
   const failAndReturn = async (httpStatus, stage, errorObj, extra = {}) => {
-    log.error(`FAILED at stage=${stage}:`, errorObj.message ?? errorObj);
+    const classified = classifyMetaError(errorObj);
+    log.error(`FAILED at stage=${stage}: [${classified.category}] code=${errorObj.code ?? '-'} subcode=${errorObj.error_subcode ?? '-'} type=${errorObj.type ?? '-'} message=${errorObj.message ?? '-'} fbtrace=${errorObj.fbtrace_id ?? '-'}`);
     if (supabase && postId) {
       await updateRecord(supabase, postId, {
         lifecycle_status: 'failed',
@@ -361,21 +421,36 @@ export default async function handler(req, res) {
         error_message:    errorObj.message ?? String(errorObj),
         status_detail:    buildStatusDetail({
           requestId, startedAt, startTs, finalStage: stage,
-          igErrorCode:  errorObj.code  ?? null,
-          igErrorType:  errorObj.type  ?? null,
-          igFbtraceId:  errorObj.fbtrace_id ?? null,
-          preflight:    imgCheck,
+          igErrorCode:     errorObj.code           ?? null,
+          igErrorSubcode:  errorObj.error_subcode  ?? null,
+          igErrorType:     errorObj.type            ?? null,
+          igFbtraceId:     errorObj.fbtrace_id      ?? null,
+          errorCategory:   classified.category,
+          imageUrlSnippet: imageUrl?.slice(0, 120)  ?? null,
+          preflight:       imgCheck,
           ...extra,
         }),
       });
     }
     return res.status(httpStatus).json({
       ok: false, stage, postId, requestId, debug,
-      error: errorObj,
+      error: { ...errorObj, category: classified.category, userMessage: classified.userMessage },
       durationMs: Date.now() - startTs,
       ...extra,
     });
   };
+
+  // --- Stage: pre-publish validation ---
+  if (!imgCheck.hasExtension) {
+    log.warn(`image URL has no file extension — Meta may reject it. URL: ${imageUrl.slice(0, 120)}`);
+  }
+
+  if (imgCheck.contentLength != null && imgCheck.contentLength > 8 * 1024 * 1024) {
+    return failAndReturn(400, 'preflight', {
+      message: `Image is too large (${Math.round(imgCheck.contentLength / 1024 / 1024)}MB). Instagram max is 8MB.`,
+      type: null, code: null, error_subcode: null, fbtrace_id: null,
+    });
+  }
 
   // --- Stage: create_media ---
   const createEndpoint = `https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media`;
@@ -387,32 +462,37 @@ export default async function handler(req, res) {
 
   let creationId = null;
   try {
-    log.info('creating media container…');
+    log.info(`creating media container… endpoint=${createEndpoint} image_url=${imageUrl.slice(0, 120)} caption_length=${caption.trim().length} has_extension=${imgCheck.hasExtension}`);
+    const createStart = Date.now();
     const createRes  = await fetch(createEndpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body:    createBody.toString(),
     });
     const createData = await createRes.json();
+    const createElapsed = Date.now() - createStart;
+
+    log.info(`create_media response: status=${createRes.status} elapsed=${createElapsed}ms`);
 
     if (!createRes.ok || createData.error) {
       const err = safeMetaError(createData);
+      log.error(`create_media Meta error: code=${err.code} subcode=${err.error_subcode} type=${err.type} message=${err.message} fbtrace=${err.fbtrace_id}`);
       return failAndReturn(502, 'create_media', err);
     }
 
     creationId = createData.id ?? createData.creation_id ?? null;
-    log.info('container created:', creationId);
+    log.info(`container created: ${creationId} (${createElapsed}ms)`);
 
     if (!creationId) {
       return failAndReturn(502, 'create_media', {
         message: 'Media container created but no id returned',
-        type: null, code: null, fbtrace_id: null,
+        type: null, code: null, error_subcode: null, fbtrace_id: null,
       });
     }
   } catch (err) {
     return failAndReturn(500, 'create_media', {
       message: err.message ?? 'Network error during media container creation',
-      type: null, code: null, fbtrace_id: null,
+      type: null, code: null, error_subcode: null, fbtrace_id: null,
     });
   }
 
@@ -439,7 +519,7 @@ export default async function handler(req, res) {
       : `Instagram media container failed with status "${poll.statusCode}": ${poll.error}`;
 
     return failAndReturn(502, 'poll_container', {
-      message: errMsg, type: null, code: poll.statusCode, fbtrace_id: null,
+      message: errMsg, type: null, code: poll.statusCode, error_subcode: null, fbtrace_id: null,
     }, {
       creationId,
       pollLog: poll.pollLog,
@@ -481,7 +561,7 @@ export default async function handler(req, res) {
   } catch (err) {
     return failAndReturn(500, 'publish_media', {
       message: err.message ?? 'Network error during media publish',
-      type: null, code: null, fbtrace_id: null,
+      type: null, code: null, error_subcode: null, fbtrace_id: null,
     }, {
       creationId,
       pollAttempts: poll.pollLog.length,
