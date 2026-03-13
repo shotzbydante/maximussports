@@ -1,0 +1,99 @@
+.menu {
+  position: absolute;
+  min-width: 200px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+  z-index: 200;
+  padding: var(--space-xs) 0;
+  animation: menuFadeIn 0.12s ease-out;
+}
+
+.posBottomRight {
+  top: calc(100% + 8px);
+  right: 0;
+}
+
+.posTopLeft {
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.guestHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px 8px;
+}
+
+.guestTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.guestSub {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  transition: background 0.12s, color 0.12s;
+  text-align: left;
+  line-height: 1;
+}
+
+.menuItem:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-primary);
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.menuItemPrimary {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.menuItemPrimary:hover {
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+}
+
+.menuItemDanger {
+  color: var(--color-down);
+}
+
+.menuItemDanger:hover {
+  background: rgba(196, 92, 74, 0.06);
+  color: var(--color-down);
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--divider-color, rgba(60, 121, 180, 0.08));
+  margin: var(--space-xs) 0;
+}

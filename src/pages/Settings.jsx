@@ -319,20 +319,34 @@ function StepTeams({ onNext, initialSelected = [] }) {
     onNext(selected);
   };
 
+  const canContinue = selected.length > 0;
+  const primaryTeam = canContinue ? TEAMS.find((t) => t.slug === selected[0]) : null;
+
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Pick your teams</h2>
-      <p className={styles.stepSubtitle}>Select one or more teams. Your first pick becomes your primary.</p>
+      <p className={styles.stepSubtitle}>
+        Select at least 1 team to personalize your daily intel.
+        Your first pick becomes your primary team.
+      </p>
 
       <div className={styles.teamFilters}>
-        <input
-          className={styles.searchInput}
-          type="search"
-          placeholder="Search teams or conferences…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-        />
+        <div className={styles.searchWrap}>
+          <span className={styles.searchIcon} aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </span>
+          <input
+            className={styles.searchInput}
+            type="search"
+            placeholder="Search by school name or conference…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+          />
+        </div>
         <div className={styles.filterRow}>
           <select
             className={styles.confSelect}
@@ -340,14 +354,15 @@ function StepTeams({ onNext, initialSelected = [] }) {
             onChange={(e) => setConference(e.target.value)}
             aria-label="Filter by conference"
           >
-            {CONFERENCES.map(c => <option key={c} value={c}>{c}</option>)}
+            {CONFERENCES.map(c => <option key={c} value={c}>{c === 'All' ? 'All Conferences' : c}</option>)}
           </select>
           <button
             type="button"
             className={`${styles.filterChip} ${topTierOnly ? styles.filterChipActive : ''}`}
             onClick={() => setTopTierOnly(v => !v)}
+            title="Show only tournament-caliber teams"
           >
-            Top tier only
+            {topTierOnly ? '✓ ' : ''}Top tier only
           </button>
         </div>
       </div>
@@ -361,10 +376,10 @@ function StepTeams({ onNext, initialSelected = [] }) {
             <button
               key={team.slug}
               type="button"
-              className={`${styles.teamPickRow} ${isSelected ? styles.teamPickRowSelected : ''}`}
+              className={`${styles.teamPickRow} ${isSelected ? styles.teamPickRowSelected : ''} ${isPrimary ? styles.teamPickRowPrimary : ''}`}
               onClick={() => toggleTeam(team.slug)}
             >
-              <span className={styles.teamPickLogo}><TeamLogo team={team} size={24} /></span>
+              <span className={styles.teamPickLogo}><TeamLogo team={team} size={26} /></span>
               <span className={styles.teamPickInfo}>
                 <span className={styles.teamPickName}>{team.name}</span>
                 <span className={styles.teamPickConf}>{team.conference}</span>
@@ -373,27 +388,44 @@ function StepTeams({ onNext, initialSelected = [] }) {
                 {team.oddsTier}
               </span>
               <span className={styles.teamPickCheck}>
-                {isSelected ? (isPrimary ? '★' : <CheckIcon />) : ''}
+                {isSelected
+                  ? isPrimary
+                    ? <span className={styles.primaryBadge}>★ PRIMARY</span>
+                    : <CheckIcon />
+                  : <span className={styles.teamPickAdd}>+</span>
+                }
               </span>
             </button>
           );
         })}
         {filtered.length === 0 && (
-          <p className={styles.emptyState}>No teams match your filters.</p>
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateTitle}>No teams match your search</p>
+            <p className={styles.emptyStateSub}>Try a different school name or clear your filters.</p>
+          </div>
         )}
       </div>
 
-      {selected.length > 0 && (
-        <p className={styles.selectionHint}>
-          {selected.length} selected · Primary: {TEAMS.find((t) => t.slug === selected[0])?.name}
-        </p>
-      )}
+      <div className={styles.teamPickFooter}>
+        {canContinue ? (
+          <p className={styles.selectionHint}>
+            <span className={styles.selectionCount}>{selected.length} team{selected.length > 1 ? 's' : ''} selected</span>
+            {primaryTeam && <span className={styles.selectionPrimary}> · Primary: {primaryTeam.name}</span>}
+          </p>
+        ) : (
+          <p className={styles.selectionRequired}>Select at least 1 team to continue</p>
+        )}
 
-      {error && <p className={styles.errorMsg}>{error}</p>}
+        {error && <p className={styles.errorMsg}>{error}</p>}
 
-      <button className={styles.btnPrimary} onClick={handleNext}>
-        Continue
-      </button>
+        <button
+          className={`${styles.btnPrimary} ${!canContinue ? styles.btnDisabled : ''}`}
+          onClick={handleNext}
+          disabled={!canContinue}
+        >
+          {canContinue ? `Continue with ${selected.length} team${selected.length > 1 ? 's' : ''}` : 'Select a team to continue'}
+        </button>
+      </div>
     </div>
   );
 }

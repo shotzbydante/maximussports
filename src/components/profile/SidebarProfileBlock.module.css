@@ -1,3 +1,8 @@
+.blockWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .block {
   display: flex;
   flex-direction: column;
@@ -8,20 +13,36 @@
   text-align: left;
   font-family: inherit;
   border-radius: 0;
-  transition: background var(--transition-fast);
+  transition: background 0.12s;
   width: 100%;
-  flex-shrink: 0;
 }
 
 .block:hover {
   background: var(--color-bg-muted);
 }
 
+.block:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .identity {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 10px;
   min-width: 0;
+}
+
+.avatarWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(60, 121, 180, 0.06);
 }
 
 .names {
@@ -29,10 +50,11 @@
   flex-direction: column;
   min-width: 0;
   flex: 1;
+  gap: 1px;
 }
 
 .username {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
@@ -42,7 +64,7 @@
 }
 
 .handle {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -62,4 +84,17 @@
   border: 1px solid rgba(60, 121, 180, 0.2);
   flex-shrink: 0;
   line-height: 1.5;
+}
+
+.menuDots {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.block:hover .menuDots {
+  opacity: 0.6;
 }

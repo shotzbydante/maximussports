@@ -21,10 +21,8 @@ const GamesIcon = () => (
 );
 const TeamsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
-    {/* Jersey body */}
     <path d="M3.5 2.5L1 5l2 1v7h10V6l2-1-2.5-2.5c-.8.8-1.6 1.2-2.5 1.2S5.3 3.3 4.5 2.5z"
       stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-    {/* Collar V */}
     <path d="M5.5 2.8L8 5l2.5-2.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
@@ -66,6 +64,8 @@ export default function Sidebar() {
   const toggleConf = (conf) => {
     setExpandedConfs((prev) => ({ ...prev, [conf]: !prev[conf] }));
   };
+
+  const isGuest = !user;
 
   return (
     <aside className={styles.sidebar}>
@@ -182,12 +182,11 @@ export default function Sidebar() {
           </nav>
         </div>
       </div>
-      {profile && (
-        <>
-          <div className={styles.profileDivider} />
-          <SidebarProfileBlock profile={profile} />
-        </>
-      )}
+      <div className={styles.profileDivider} />
+      {isGuest
+        ? <SidebarProfileBlock isGuest />
+        : profile && <SidebarProfileBlock profile={profile} />
+      }
     </aside>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import HeaderProfileChip from '../profile/HeaderProfileChip';
@@ -7,16 +8,8 @@ import styles from './TopNav.module.css';
 
 /**
  * PlanBadge — shows PRO / FREE / ··· depending on plan state.
- *
- * Rules:
- *  • isSyncing=true  → always shows ··· (no timeout — we have evidence of Pro)
- *  • isLoading=true  → shows ··· for up to 8s, then shows resolved tier
- *  • both false      → shows PRO or FREE based on tier
- *
- * FREE is never shown while syncing — only when confirmed free.
  */
 function PlanBadge({ tier, isLoading, isSyncing }) {
-  // Only apply a timeout for pure loading state (no syncing evidence).
   const [loadingExpired, setLoadingExpired] = useState(false);
   const timerRef = useRef(null);
 
@@ -31,25 +24,12 @@ function PlanBadge({ tier, isLoading, isSyncing }) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [isLoading, isSyncing]);
 
-  // Always syncing pill when evidence exists — no timeout fallback to FREE.
   if (isSyncing) {
-    return (
-      <span className={styles.badgeSyncing} aria-label="Verifying subscription">
-        ···
-      </span>
-    );
+    return <span className={styles.badgeSyncing} aria-label="Verifying subscription">···</span>;
   }
-
-  // Show syncing pill during initial load unless timeout expired.
   if (isLoading && !loadingExpired) {
-    return (
-      <span className={styles.badgeSyncing} aria-label="Loading plan">
-        ···
-      </span>
-    );
+    return <span className={styles.badgeSyncing} aria-label="Loading plan">···</span>;
   }
-
-  // Confirmed state — show PRO or FREE.
   const resolved = tier ?? 'free';
   return (
     <span
@@ -72,6 +52,7 @@ const NAV_LINKS = [
 
 export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
   const { planTier, isLoading, isSyncing } = usePlan();
   const { profile } = useUserProfile();
 
@@ -85,6 +66,8 @@ export default function TopNav() {
       document.body.style.overflow = '';
     };
   }, [menuOpen]);
+
+  const isGuest = !user;
 
   return (
     <header className={styles.topnav}>
@@ -117,7 +100,10 @@ export default function TopNav() {
           </span>
         ))}
       </nav>
-      {profile && <HeaderProfileChip profile={profile} />}
+      {isGuest
+        ? <HeaderProfileChip isGuest />
+        : profile && <HeaderProfileChip profile={profile} />
+      }
       <button
         type="button"
         className={styles.hamburger}
