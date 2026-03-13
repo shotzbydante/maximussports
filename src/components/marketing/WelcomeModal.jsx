@@ -34,6 +34,7 @@ import styles from './WelcomeModal.module.css';
 
 const TOTAL_STEPS = 3;
 const SWIPE_THRESHOLD = 50;
+const VIDEO_READY_TIMEOUT_MS = 2000;
 
 const FEATURE_CARDS = [
   {
@@ -108,13 +109,20 @@ const ICONS = { pin: PinIcon, intel: IntelIcon, pro: ProIcon };
 export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
   const closeBtnRef  = useRef(null);
   const prevFocusRef = useRef(null);
+  const videoRef     = useRef(null);
   const touchXRef    = useRef(null);
   const touchEndXRef = useRef(null);
   const trackedStepsRef = useRef(new Set());
+  const videoTimerRef = useRef(null);
 
-  const [step, setStep]           = useState(1);
+  const [step, setStep]             = useState(1);
   const [videoReady, setVideoReady] = useState(false);
-  const [imgErrors, setImgErrors] = useState({});
+  const [imgErrors, setImgErrors]   = useState({});
+
+  const markVideoReady = useCallback(() => {
+    setVideoReady(true);
+    if (videoTimerRef.current) clearTimeout(videoTimerRef.current);
+  }, []);
 
   const goTo = useCallback((target, from) => {
     if (target < 1 || target > TOTAL_STEPS || target === from) return;
@@ -202,14 +210,26 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     };
   }, [open, handleKeyDown]);
 
-  // Reset state on open
+  // Reset state on open + force video play on mobile
   useEffect(() => {
     if (open) {
       setStep(1);
       setVideoReady(false);
       setImgErrors({});
       trackedStepsRef.current = new Set();
+
+      videoTimerRef.current = setTimeout(() => setVideoReady(true), VIDEO_READY_TIMEOUT_MS);
+
+      requestAnimationFrame(() => {
+        const vid = videoRef.current;
+        if (vid) {
+          vid.play().catch(() => {});
+        }
+      });
     }
+    return () => {
+      if (videoTimerRef.current) clearTimeout(videoTimerRef.current);
+    };
   }, [open]);
 
   // Preload Step 2 images during Step 1
@@ -281,7 +301,14 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
           {step === 1 && (
             <div className={styles.stepContent} aria-label="Step 1 of 3: Product introduction">
               <div className={`${styles.videoWrap}${videoReady ? ` ${styles.videoLoaded}` : ''}`}>
+                <img
+                  src="/mascot.png"
+                  alt=""
+                  className={styles.videoPoster}
+                  aria-hidden="true"
+                />
                 <video
+                  ref={videoRef}
                   className={styles.video}
                   src="/videos/maximus-dunk.mp4"
                   autoPlay
@@ -289,7 +316,9 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                   loop
                   playsInline
                   preload="auto"
-                  onCanPlay={() => setVideoReady(true)}
+                  onCanPlay={markVideoReady}
+                  onLoadedData={markVideoReady}
+                  onPlaying={markVideoReady}
                 />
               </div>
               <div className={styles.body}>
@@ -308,7 +337,12 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
           {step === 2 && (
             <div className={styles.stepContent} aria-label="Step 2 of 3: Feature showcase">
               <div className={styles.showcaseBody}>
-                <p className={styles.showcaseEyebrow}>See What&#8217;s Inside</p>
+                <div className={styles.showcaseHeader}>
+                  <p className={styles.showcaseEyebrow}>See What&#8217;s Inside</p>
+                  <p className={styles.showcaseSubtitle}>
+                    Three surfaces. One command center.
+                  </p>
+                </div>
                 <div className={styles.featureCards}>
                   {FEATURE_CARDS.map((card) => (
                     <div key={card.id} className={styles.featureCard}>
@@ -339,7 +373,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
           {step === 3 && (
             <div className={styles.stepContent} aria-label="Step 3 of 3: Get started">
               <div className={styles.conversionBody}>
-                <h2 className={styles.conversionHeadline}>Make It Yours</h2>
+                <h2 className={styles.conversionHeadline}>Your Edge Starts Here</h2>
                 <div className={styles.valueProps}>
                   {VALUE_PROPS.map((vp) => {
                     const Icon = ICONS[vp.id];
@@ -361,7 +395,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                     Create free account
                   </button>
                   <button type="button" className={styles.ctaSecondary} onClick={handleExplore}>
-                    Explore the board
+                    Continue as guest
                   </button>
                 </div>
                 <p className={styles.footerNote}>Free to use. Pro available when you&#8217;re ready.</p>
@@ -373,18 +407,21 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
 
         {/* ── Navigation footer ── */}
         <div className={styles.navFooter}>
-          <div className={styles.dots} role="tablist" aria-label="Onboarding steps">
-            {[1, 2, 3].map((n) => (
-              <button
-                key={n}
-                type="button"
-                role="tab"
-                className={`${styles.dot} ${step === n ? styles.dotActive : ''}`}
-                onClick={() => goTo(n, step)}
-                aria-label={`Step ${n}`}
-                aria-selected={step === n}
-              />
-            ))}
+          <div className={styles.dotsWrap}>
+            <div className={styles.dots} role="tablist" aria-label="Onboarding steps">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  role="tab"
+                  className={`${styles.dot} ${step === n ? styles.dotActive : ''}`}
+                  onClick={() => goTo(n, step)}
+                  aria-label={`Step ${n}`}
+                  aria-selected={step === n}
+                />
+              ))}
+            </div>
+            <span className={styles.stepCounter}>{step}/{TOTAL_STEPS}</span>
           </div>
           {step < TOTAL_STEPS && (
             <div className={styles.navActions}>

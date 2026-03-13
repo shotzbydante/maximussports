@@ -8,8 +8,8 @@
 }
 
 .badgeESPN {
-  background: rgba(60, 121, 180, 0.12);
-  color: var(--color-metro-blue);
+  background: #c41230;
+  color: #fff;
 }
 
 .badgeGoogleNews {

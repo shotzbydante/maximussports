@@ -51,6 +51,21 @@ function matchupKey(slugA, slugB) {
   return [slugA, slugB].sort().join('|');
 }
 
+function formatGameTime(raw) {
+  if (!raw) return null;
+  if (raw.length < 12 && !raw.includes('T')) return raw;
+  try {
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return raw;
+  }
+}
+
 export default function DynamicStats({
   stats,
   compact = false,
@@ -229,8 +244,12 @@ export default function DynamicStats({
                     <div className={styles.matchupMeta}>
                       {(m.network || m.gameTime) && (
                         <span className={styles.metaTime}>
-                          {m.network && <span className={styles.networkBadge}>{m.network}</span>}
-                          {m.gameTime && <span>{m.gameTime}</span>}
+                          {m.network && (
+                            <span className={`${styles.networkBadge}${m.network.toUpperCase() === 'ESPN' ? ` ${styles.networkBadgeEspn}` : ''}`}>
+                              {m.network}
+                            </span>
+                          )}
+                          {m.gameTime && <span>{formatGameTime(m.gameTime)}</span>}
                         </span>
                       )}
                       {m.spread && (
