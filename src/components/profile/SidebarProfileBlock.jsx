@@ -1,7 +1,7 @@
 /**
- * SidebarProfileBlock — compact profile identity module placed at the top
- * of the left sidebar. Shows avatar, username, handle, and greyed-out
- * social counts. Clicking navigates to /settings.
+ * SidebarProfileBlock — compact profile identity module docked at the
+ * bottom of the left sidebar. Shows avatar, username, handle, and plan badge.
+ * Clicking navigates to /settings.
  */
 import { useNavigate } from 'react-router-dom';
 import ProfileAvatar from './ProfileAvatar';
@@ -10,7 +10,10 @@ import styles from './SidebarProfileBlock.module.css';
 export default function SidebarProfileBlock({ profile }) {
   const navigate = useNavigate();
 
-  if (!profile || !profile.username) return null;
+  if (!profile) return null;
+
+  const displayName = profile.displayName || profile.username || profile.email?.split('@')[0] || 'User';
+  const handle = profile.handle || (profile.username ? `@${profile.username}` : profile.email || '');
 
   return (
     <button
@@ -23,26 +26,15 @@ export default function SidebarProfileBlock({ profile }) {
         <ProfileAvatar
           username={profile.username}
           favoriteNumber={profile.favoriteNumber}
-          isPro={profile.isPro}
+          isPro={false}
           avatarConfig={profile.avatarConfig}
-          size="md"
+          size="sm"
         />
         <div className={styles.names}>
-          <span className={styles.username}>{profile.displayName || profile.username}</span>
-          <span className={styles.handle}>{profile.handle}</span>
+          <span className={styles.username}>{displayName}</span>
+          <span className={styles.handle}>{handle}</span>
         </div>
-      </div>
-
-      <div className={styles.socialRow} title="Social features coming soon">
-        <span className={styles.socialStat}>
-          <span className={styles.socialCount}>0</span>
-          <span className={styles.socialLabel}>Followers</span>
-        </span>
-        <span className={styles.socialDot}>·</span>
-        <span className={styles.socialStat}>
-          <span className={styles.socialCount}>0</span>
-          <span className={styles.socialLabel}>Following</span>
-        </span>
+        {profile.isPro && <span className={styles.planPill}>PRO</span>}
       </div>
     </button>
   );

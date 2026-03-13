@@ -117,7 +117,7 @@ export default function TopNav() {
           </span>
         ))}
       </nav>
-      {profile?.username && <HeaderProfileChip profile={profile} />}
+      {profile && <HeaderProfileChip profile={profile} />}
       <button
         type="button"
         className={styles.hamburger}

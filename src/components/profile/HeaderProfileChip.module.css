@@ -96,6 +96,9 @@
 }
 
 @media (max-width: 768px) {
+  .chipWrap {
+    margin-left: var(--space-sm);
+  }
   .chipName {
     display: none;
   }

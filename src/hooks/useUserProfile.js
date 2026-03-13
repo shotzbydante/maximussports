@@ -18,6 +18,20 @@ import { buildUserProfile } from '../types/social';
 const _cache = new Map();
 const _listeners = new Set();
 
+/**
+ * Normalize a profile row so avatar_config is always populated when available,
+ * even if the dedicated column doesn't exist (falls back to preferences.robotConfig).
+ */
+function normalizeProfileRow(row) {
+  if (!row) return row;
+  if (row.avatar_config) return row;
+  const fromPrefs = row.preferences?.robotConfig;
+  if (fromPrefs) {
+    return { ...row, avatar_config: fromPrefs };
+  }
+  return row;
+}
+
 function broadcast() {
   _listeners.forEach((fn) => fn());
 }
@@ -78,17 +92,24 @@ export function useUserProfile() {
     setIsLoading(true);
 
     sb.from('profiles')
-      .select('username, display_name, favorite_number, plan_tier, avatar_config')
+      .select('username, display_name, favorite_number, plan_tier, avatar_config, preferences')
       .eq('id', uid)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error) {
-          setProfile(buildUserProfile(user, null));
-          setIsLoading(false);
-          return;
+          // avatar_config column may not exist yet — retry with core columns only
+          return sb.from('profiles')
+            .select('username, display_name, favorite_number, plan_tier, preferences')
+            .eq('id', uid)
+            .maybeSingle()
+            .then(({ data: fallbackData }) => {
+              if (fallbackData) _cache.set(uid, normalizeProfileRow(fallbackData));
+              setProfile(buildUserProfile(user, fallbackData ? normalizeProfileRow(fallbackData) : null));
+              setIsLoading(false);
+            });
         }
-        if (data) _cache.set(uid, data);
-        setProfile(buildUserProfile(user, data));
+        if (data) _cache.set(uid, normalizeProfileRow(data));
+        setProfile(buildUserProfile(user, data ? normalizeProfileRow(data) : null));
         setIsLoading(false);
       })
       .catch(() => {

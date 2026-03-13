@@ -56,9 +56,11 @@ function isSchemaMissingError(err) {
     msg.includes('could not find') ||
     msg.includes('does not exist') ||
     msg.includes('relation') ||
+    msg.includes('column') ||
     err.code === 'PGRST116' ||
     err.code === 'PGRST204' ||
-    err.code === '42P01'
+    err.code === '42P01' ||
+    err.code === '42703'
   );
 }
 
@@ -67,6 +69,15 @@ function friendlyDbError(err) {
   if (isSchemaMissingError(err)) return 'Service temporarily unavailable. Please try again shortly.';
   if (err.code === '23505') return 'That username is already taken.';
   return err.message || 'Something went wrong. Please try again.';
+}
+
+/** Resolve robot avatar config from profile row, checking both avatar_config column and preferences.robotConfig. */
+function resolveAvatarConfig(profile) {
+  if (!profile) return null;
+  const cfg = profile.avatar_config || profile.preferences?.robotConfig;
+  if (cfg && cfg.type === 'maximus_robot') return cfg;
+  if (cfg && cfg.jerseyColor) return cfg;
+  return null;
 }
 
 /* ─── Icons ──────────────────────────────────────────────────────────────── */
@@ -628,21 +639,34 @@ function OnboardingWizard({ user, onComplete }) {
         ? { type: 'maximus_robot', ...profileData.robotConfig }
         : null;
 
-      const { error: profileErr } = await sb.from('profiles').upsert(
-        {
-          id:               userId,
-          username:         profileData.username,
-          display_name:     profileData.username,
-          favorite_number:  profileData.favoriteNumber,
-          avatar_config:    avatarConfig,
-          preferences:      prefs,
-          updated_at:       new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
-      if (profileErr) {
-        if (profileErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
-        throw new Error(friendlyDbError(profileErr));
+      // Store robotConfig inside preferences for durable fallback
+      const mergedPrefs = { ...prefs, robotConfig: avatarConfig };
+
+      // Try with avatar_config column first; fall back to core-only if column missing
+      let profileSaved = false;
+      const fullRow = {
+        id:               userId,
+        username:         profileData.username,
+        display_name:     profileData.username,
+        favorite_number:  profileData.favoriteNumber,
+        avatar_config:    avatarConfig,
+        preferences:      mergedPrefs,
+        updated_at:       new Date().toISOString(),
+      };
+      const { error: fullErr } = await sb.from('profiles').upsert(fullRow, { onConflict: 'id' });
+      if (!fullErr) {
+        profileSaved = true;
+      } else if (isSchemaMissingError(fullErr)) {
+        const { avatar_config: _, ...coreRow } = fullRow;
+        const { error: coreErr } = await sb.from('profiles').upsert(coreRow, { onConflict: 'id' });
+        if (coreErr) {
+          if (coreErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
+          throw new Error(friendlyDbError(coreErr));
+        }
+        profileSaved = true;
+      } else {
+        if (fullErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
+        throw new Error(friendlyDbError(fullErr));
       }
 
       // Idempotently replace user_teams
@@ -684,8 +708,9 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
   const [username, setUsername]           = useState(profile?.username || '');
   const [displayName, setDisplayName]     = useState(profile?.display_name || '');
   const [number, setNumber]               = useState(profile?.favorite_number != null ? String(profile.favorite_number) : '');
-  const [jerseyColor, setJerseyColor]     = useState(profile?.avatar_config?.jerseyColor || DEFAULT_ROBOT_CONFIG.jerseyColor);
-  const [robotColor, setRobotColor]       = useState(profile?.avatar_config?.robotColor || DEFAULT_ROBOT_CONFIG.robotColor);
+  const existingCfg = resolveAvatarConfig(profile);
+  const [jerseyColor, setJerseyColor]     = useState(existingCfg?.jerseyColor || DEFAULT_ROBOT_CONFIG.jerseyColor);
+  const [robotColor, setRobotColor]       = useState(existingCfg?.robotColor || DEFAULT_ROBOT_CONFIG.robotColor);
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [suggestions, setSuggestions]     = useState([]);
   const [saving, setSaving]               = useState(false);
@@ -734,24 +759,44 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
         jerseyColor,
         robotColor,
       };
-      const updates = {
+
+      // Merge avatar config into existing preferences for durable storage
+      const existingPrefs = profile?.preferences || {};
+      const mergedPrefs = { ...existingPrefs, robotConfig: avatarConfig };
+
+      const coreUpdates = {
         username:        username.trim(),
         display_name:    (displayName.trim() || username.trim()),
         favorite_number: number !== '' ? number : null,
-        avatar_config:   avatarConfig,
+        preferences:     mergedPrefs,
         updated_at:      new Date().toISOString(),
       };
-      const { error: dbErr } = await sb.from('profiles').update(updates).eq('id', user.id);
-      if (dbErr) throw dbErr;
-      const fieldsChanged = ['username', 'display_name', 'favorite_number', 'avatar_config'].filter(
-        f => updates[f] !== (f === 'favorite_number'
-          ? (profile?.favorite_number != null ? String(profile.favorite_number) : null)
-          : profile?.[f])
-      );
-      track('profile_updated', { fields_changed: fieldsChanged });
-      onSave(updates);
+
+      // Try with avatar_config column first (works if migration has been run)
+      let saved = false;
+      const fullUpdates = { ...coreUpdates, avatar_config: avatarConfig };
+      const { error: fullErr } = await sb.from('profiles').update(fullUpdates).eq('id', user.id);
+      if (!fullErr) {
+        saved = true;
+      } else if (isSchemaMissingError(fullErr)) {
+        // avatar_config column doesn't exist yet — save without it
+        const { error: coreErr } = await sb.from('profiles').update(coreUpdates).eq('id', user.id);
+        if (coreErr) throw coreErr;
+        saved = true;
+      } else {
+        throw fullErr;
+      }
+
+      if (saved) {
+        track('profile_updated', { fields_changed: ['username', 'display_name', 'favorite_number', 'avatar'] });
+        onSave({ ...coreUpdates, avatar_config: avatarConfig });
+      }
     } catch (err) {
-      setError(friendlyDbError(err));
+      if (err?.code === '23505') {
+        setError('That username is already taken.');
+      } else {
+        setError(friendlyDbError(err));
+      }
     } finally {
       setSaving(false);
     }
@@ -1934,28 +1979,19 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         </div>
       ) : (
         <div className={styles.profileCard}>
-          <div className={styles.profileHeader}>
-            <div className={styles.avatar}>
-              {profile?.avatar_config?.type === 'maximus_robot' ? (
-                <RobotAvatar
-                  jerseyNumber={profile.avatar_config.jerseyNumber || jerseyDisplay}
-                  jerseyColor={profile.avatar_config.jerseyColor}
-                  robotColor={profile.avatar_config.robotColor}
-                  size={52}
-                />
-              ) : user.user_metadata?.avatar_url ? (
-                <img src={user.user_metadata.avatar_url} alt="avatar" className={styles.avatarImg} />
-              ) : (
-                <span className={styles.avatarInitial}>{displayName[0].toUpperCase()}</span>
-              )}
+          <div className={styles.profileCardHero}>
+            <div className={styles.profileAvatarLarge}>
+              <RobotAvatar
+                jerseyNumber={resolveAvatarConfig(profile)?.jerseyNumber || jerseyDisplay}
+                jerseyColor={resolveAvatarConfig(profile)?.jerseyColor}
+                robotColor={resolveAvatarConfig(profile)?.robotColor}
+                size={72}
+              />
             </div>
-            <div className={styles.profileInfo}>
-              <div className={styles.profileNameRow}>
-                <span className={styles.profileName}>{displayName}</span>
-                {!profile?.avatar_config && <JerseyGraphic name={displayName} number={jerseyDisplay} />}
-              </div>
-              <div className={styles.profileEmailRow}>
-                <span className={styles.profileEmail}>{user.email}</span>
+            <div className={styles.profileHeroInfo}>
+              <span className={styles.profileName}>{displayName}</span>
+              <span className={styles.profileEmail}>{user.email}</span>
+              <div className={styles.profileBadgeRow}>
                 {planRefreshing
                   ? <span className={styles.billingVerifyingBadge}><SpinnerIcon /></span>
                   : <PlanBadge tier={planTier} />

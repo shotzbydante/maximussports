@@ -30,7 +30,9 @@ export default function HeaderProfileChip({ profile }) {
     };
   }, [open]);
 
-  if (!profile || !profile.username) return null;
+  if (!profile) return null;
+
+  const chipLabel = profile.displayName || profile.username || profile.email?.split('@')[0] || 'Account';
 
   return (
     <div className={styles.chipWrap} ref={ref}>
@@ -49,7 +51,7 @@ export default function HeaderProfileChip({ profile }) {
           avatarConfig={profile.avatarConfig}
           size="sm"
         />
-        <span className={styles.chipName}>{profile.displayName || profile.username}</span>
+        <span className={styles.chipName}>{chipLabel}</span>
         <span className={styles.chipCaret} aria-hidden>▾</span>
       </button>
 
