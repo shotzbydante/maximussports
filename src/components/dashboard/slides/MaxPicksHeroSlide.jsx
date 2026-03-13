@@ -140,7 +140,7 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const pe  = picks.pickEmPicks  ?? [];
   const ats = picks.atsPicks     ?? [];
   const val = picks.valuePicks   ?? [];
-  const tot = picks.totalsPicks  ?? [];
+  const tot = (picks.totalsPicks ?? []).filter(p => p.leanDirection);
 
   const topLeans = (arr, n = 3) =>
     arr.filter(p => p.itemType === 'lean')

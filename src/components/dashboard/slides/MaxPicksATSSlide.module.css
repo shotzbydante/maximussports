@@ -69,6 +69,14 @@
   font-weight: 700;
   letter-spacing: 0.10em;
   color: rgba(240, 244, 248, 0.30);
+  flex-shrink: 0;
+}
+
+.matchupTeam {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .cardPickRow {
@@ -107,6 +115,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .confBadge {

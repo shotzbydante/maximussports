@@ -62,15 +62,15 @@ export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, 
                   {pick.opponentTeam ? (
                     <>
                       <span className={styles.vsText}>vs</span>
-                      <span>{pick.opponentTeam}</span>
+                      <span className={styles.matchupTeam}>{pick.opponentTeam}</span>
                     </>
                   ) : (
                     <>
                       {awayObj && <TeamLogo team={awayObj} size={22} />}
-                      <span>{pick.awayTeam}</span>
+                      <span className={styles.matchupTeam}>{pick.awayTeam}</span>
                       <span className={styles.vsText}>VS</span>
                       {homeObj && <TeamLogo team={homeObj} size={22} />}
-                      <span>{pick.homeTeam}</span>
+                      <span className={styles.matchupTeam}>{pick.homeTeam}</span>
                     </>
                   )}
                 </div>

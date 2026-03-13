@@ -18,7 +18,9 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
   let picks = { totalsPicks: [] };
   try { picks = buildMaximusPicks({ games, atsLeaders }); } catch { /* ignore */ }
 
-  const totalsPicks = (picks.totalsPicks ?? []).slice(0, 4);
+  const totalsPicks = (picks.totalsPicks ?? [])
+    .filter(p => p.leanDirection)
+    .slice(0, 4);
 
   return (
     <PicksSlideShell asOf={asOf} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
@@ -45,7 +47,6 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
                     {dir}
                   </span>
                   {pick.lineValue != null && <span className={styles.ouLine}>{pick.lineValue}</span>}
-                  <span className={styles.matchupText}>{pick.pickLine || '—'}</span>
                   <span
                     className={styles.confBadge}
                     style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
@@ -55,10 +56,10 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
                 </div>
                 <div className={styles.cardMatchup}>
                   {awayObj && <TeamLogo team={awayObj} size={22} />}
-                  <span>{pick.awayTeam}</span>
-                  <span style={{ opacity: 0.35, fontSize: 11 }}>vs</span>
+                  <span className={styles.matchupTeam}>{pick.awayTeam}</span>
+                  <span className={styles.vsText}>vs</span>
                   {homeObj && <TeamLogo team={homeObj} size={22} />}
-                  <span>{pick.homeTeam}</span>
+                  <span className={styles.matchupTeam}>{pick.homeTeam}</span>
                 </div>
                 {signals.length > 0 && (
                   <div className={styles.signalsList}>

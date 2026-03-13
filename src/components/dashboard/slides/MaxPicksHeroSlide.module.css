@@ -242,6 +242,7 @@
   line-height: 1.18;
   letter-spacing: 0.01em;
   flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -305,7 +306,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 /* ── Editorial one-liner ─────────────────────────────────────── */
