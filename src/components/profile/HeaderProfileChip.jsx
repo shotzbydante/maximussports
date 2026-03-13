@@ -46,6 +46,7 @@ export default function HeaderProfileChip({ profile }) {
           username={profile.username}
           favoriteNumber={profile.favoriteNumber}
           isPro={profile.isPro}
+          avatarConfig={profile.avatarConfig}
           size="sm"
         />
         <span className={styles.chipName}>{profile.displayName || profile.username}</span>

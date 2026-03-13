@@ -20,6 +20,9 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS following_count integer DEFAULT 0;
 -- Public profile toggle (default off — users opt in when feature activates)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_profile_enabled boolean DEFAULT false;
 
+-- Robot avatar configuration (JSONB: { type, jerseyNumber, jerseyColor, robotColor })
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_config jsonb DEFAULT NULL;
+
 -- ── 2. Follows table ────────────────────────────────────────────────────────
 -- Models follow relationships between users.
 -- Future integration: feed modules, follower lists, follow suggestions.

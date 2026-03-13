@@ -78,7 +78,7 @@ export function useUserProfile() {
     setIsLoading(true);
 
     sb.from('profiles')
-      .select('username, display_name, favorite_number, plan_tier')
+      .select('username, display_name, favorite_number, plan_tier, avatar_config')
       .eq('id', uid)
       .maybeSingle()
       .then(({ data, error }) => {

@@ -19,6 +19,8 @@ import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
 import { invalidateProfileCache } from '../hooks/useUserProfile';
+import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
+import RobotCustomizer from '../components/profile/RobotCustomizer';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -385,13 +387,15 @@ function StepTeams({ onNext, initialSelected = [] }) {
   );
 }
 
-/* ─── Step 2: Username + Jersey ─────────────────────────────────────────── */
+/* ─── Step 2: Username + Jersey + Robot Customization ───────────────────── */
 function StepProfile({ onNext, defaultName = '', userId }) {
   const [username, setUsername]           = useState(() => {
     const base = defaultName.toLowerCase().replace(/[^a-z0-9_]/g, '');
     return base.slice(0, 20);
   });
   const [number, setNumber]               = useState('');
+  const [jerseyColor, setJerseyColor]     = useState(DEFAULT_ROBOT_CONFIG.jerseyColor);
+  const [robotColor, setRobotColor]       = useState(DEFAULT_ROBOT_CONFIG.robotColor);
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [suggestions, setSuggestions]     = useState([]);
   const [error, setError]                 = useState('');
@@ -427,14 +431,9 @@ function StepProfile({ onNext, defaultName = '', userId }) {
   };
 
   const handleNumberChange = (e) => {
-    // Preserve exact input (e.g. "09" stays "09")
     setNumber(e.target.value.replace(/\D/g, '').slice(0, 2));
     setError('');
   };
-
-  const preview = username.trim()
-    ? `${username.trim().toUpperCase()}${number ? ` #${number}` : ''}`
-    : '';
 
   const handleNext = () => {
     if (!username.trim()) { setError('Username is required.'); return; }
@@ -443,7 +442,11 @@ function StepProfile({ onNext, defaultName = '', userId }) {
     if (usernameStatus === 'checking') { setError('Still checking availability. Please wait a moment.'); return; }
     if (number && (Number(number) < 0 || Number(number) > 99)) { setError('Jersey number must be 0–99.'); return; }
     track('onboarding_step_submit', { step: 2, success: true });
-    onNext({ username: username.trim(), favoriteNumber: number !== '' ? number : null });
+    onNext({
+      username: username.trim(),
+      favoriteNumber: number !== '' ? number : null,
+      robotConfig: { jerseyNumber: number, jerseyColor, robotColor },
+    });
   };
 
   const hint = (() => {
@@ -459,48 +462,75 @@ function StepProfile({ onNext, defaultName = '', userId }) {
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.stepTitle}>Your identity</h2>
-      <p className={styles.stepSubtitle}>How should we know you?</p>
+      <h2 className={styles.stepTitle}>Create your Maximus profile</h2>
+      <p className={styles.stepSubtitle}>Choose your username and customize your Maximus robot.</p>
 
-      <div className={styles.fieldGroup}>
-        <label className={styles.label} htmlFor="username">Username</label>
-        <div className={styles.inputWrap}>
-          <input
-            id="username"
-            className={`${styles.input} ${usernameStatus === 'taken' ? styles.inputError : ''} ${usernameStatus === 'available' ? styles.inputOk : ''}`}
-            type="text" placeholder="e.g. hoops_fan" value={username}
-            onChange={handleUsernameChange} autoFocus autoComplete="off"
-            autoCapitalize="none" spellCheck={false}
-          />
-          {usernameStatus === 'checking' && <span className={styles.inputSpinner}><SpinnerIcon /></span>}
-          {usernameStatus === 'available' && <span className={styles.inputCheck}>✓</span>}
-        </div>
-        {hint && <span className={`${styles.fieldHint} ${styles[`hint_${hint.type}`]}`}>{hint.text}</span>}
-        {usernameStatus === 'taken' && suggestions.length > 0 && (
-          <div className={styles.suggestions}>
-            <span className={styles.suggestionLabel}>Try one of these:</span>
-            {suggestions.map((s) => (
-              <button key={s} type="button" className={styles.suggestionChip} onClick={() => { setUsername(s); setError(''); }}>
-                {s}
-              </button>
-            ))}
+      <div className={styles.identityLayout}>
+        {/* Left: Live robot preview */}
+        <div className={styles.robotPreviewContainer}>
+          <div className={styles.robotPreviewGlow}>
+            <RobotAvatar
+              jerseyNumber={number}
+              jerseyColor={jerseyColor}
+              robotColor={robotColor}
+              size={160}
+              glow
+            />
           </div>
-        )}
+          {username.trim() && (
+            <span className={styles.robotPreviewName}>@{username.trim()}</span>
+          )}
+        </div>
+
+        {/* Right: Form + customization */}
+        <div className={styles.identityForm}>
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="username">Username</label>
+            <div className={styles.inputWrap}>
+              <input
+                id="username"
+                className={`${styles.input} ${usernameStatus === 'taken' ? styles.inputError : ''} ${usernameStatus === 'available' ? styles.inputOk : ''}`}
+                type="text" placeholder="e.g. hoops_fan" value={username}
+                onChange={handleUsernameChange} autoFocus autoComplete="off"
+                autoCapitalize="none" spellCheck={false}
+              />
+              {usernameStatus === 'checking' && <span className={styles.inputSpinner}><SpinnerIcon /></span>}
+              {usernameStatus === 'available' && <span className={styles.inputCheck}>✓</span>}
+            </div>
+            {hint && <span className={`${styles.fieldHint} ${styles[`hint_${hint.type}`]}`}>{hint.text}</span>}
+            {usernameStatus === 'taken' && suggestions.length > 0 && (
+              <div className={styles.suggestions}>
+                <span className={styles.suggestionLabel}>Try one of these:</span>
+                {suggestions.map((s) => (
+                  <button key={s} type="button" className={styles.suggestionChip} onClick={() => { setUsername(s); setError(''); }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="jersey">
+              Jersey Number <span className={styles.optional}>(0–99, optional)</span>
+            </label>
+            <input
+              id="jersey"
+              className={`${styles.input} ${styles.inputJersey}`}
+              type="text" inputMode="numeric" placeholder="23"
+              value={number} onChange={handleNumberChange}
+            />
+          </div>
+
+          <RobotCustomizer
+            jerseyColor={jerseyColor}
+            robotColor={robotColor}
+            onJerseyColorChange={setJerseyColor}
+            onRobotColorChange={setRobotColor}
+          />
+        </div>
       </div>
 
-      <div className={styles.fieldGroup}>
-        <label className={styles.label} htmlFor="jersey">
-          Favorite Jersey Number <span className={styles.optional}>(0–99, optional)</span>
-        </label>
-        <input
-          id="jersey"
-          className={`${styles.input} ${styles.inputNarrow}`}
-          type="text" inputMode="numeric" placeholder="23"
-          value={number} onChange={handleNumberChange}
-        />
-      </div>
-
-      {preview && <div className={styles.previewBadge}>{preview}</div>}
       {error && <p className={styles.errorMsg}>{error}</p>}
 
       <button className={styles.btnPrimary} onClick={handleNext} disabled={usernameStatus === 'checking'}>
@@ -545,15 +575,27 @@ function StepPreferences({ onNext, loading }) {
 }
 
 /* ─── Step 4: Done ───────────────────────────────────────────────────────── */
-function StepDone() {
+function StepDone({ robotConfig }) {
   const navigate = useNavigate();
   useEffect(() => { track('onboarding_complete', {}); }, []);
+  const rc = robotConfig || DEFAULT_ROBOT_CONFIG;
   return (
     <div className={`${styles.step} ${styles.stepCenter}`}>
-      <div className={styles.doneIcon}>🏆</div>
-      <h2 className={styles.stepTitle}>You&apos;re set.</h2>
-      <p className={styles.stepSubtitle}>Your dashboard is now personalized.</p>
-      <button className={styles.btnPrimary} onClick={() => navigate('/')}>Go to Dashboard</button>
+      <div className={styles.doneRobotWrap}>
+        <RobotAvatar
+          jerseyNumber={rc.jerseyNumber}
+          jerseyColor={rc.jerseyColor}
+          robotColor={rc.robotColor}
+          size={180}
+          glow
+        />
+      </div>
+      <h2 className={styles.stepTitle}>Meet your Maximus Robot</h2>
+      <p className={styles.stepSubtitle}>Your Maximus profile is ready.</p>
+      <p className={styles.doneDesc}>You now have a personalized AI-powered college basketball command center.</p>
+      <button className={styles.btnPrimary} onClick={() => navigate('/')}>
+        Enter Maximus Sports →
+      </button>
     </div>
   );
 }
@@ -582,12 +624,17 @@ function OnboardingWizard({ user, onComplete }) {
       if (!sb) throw new Error('Auth service is not configured.');
       const userId = user.id;
 
+      const avatarConfig = profileData.robotConfig
+        ? { type: 'maximus_robot', ...profileData.robotConfig }
+        : null;
+
       const { error: profileErr } = await sb.from('profiles').upsert(
         {
           id:               userId,
           username:         profileData.username,
           display_name:     profileData.username,
-          favorite_number:  profileData.favoriteNumber,   // string, exact input preserved
+          favorite_number:  profileData.favoriteNumber,
+          avatar_config:    avatarConfig,
           preferences:      prefs,
           updated_at:       new Date().toISOString(),
         },
@@ -619,7 +666,7 @@ function OnboardingWizard({ user, onComplete }) {
     }
   }, [user, profileData, teamSlugs, onComplete]);
 
-  if (step === 4) return <StepDone />;
+  if (step === 4) return <StepDone robotConfig={profileData.robotConfig} />;
 
   return (
     <div className={styles.wizardCard}>
@@ -637,6 +684,8 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
   const [username, setUsername]           = useState(profile?.username || '');
   const [displayName, setDisplayName]     = useState(profile?.display_name || '');
   const [number, setNumber]               = useState(profile?.favorite_number != null ? String(profile.favorite_number) : '');
+  const [jerseyColor, setJerseyColor]     = useState(profile?.avatar_config?.jerseyColor || DEFAULT_ROBOT_CONFIG.jerseyColor);
+  const [robotColor, setRobotColor]       = useState(profile?.avatar_config?.robotColor || DEFAULT_ROBOT_CONFIG.robotColor);
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [suggestions, setSuggestions]     = useState([]);
   const [saving, setSaving]               = useState(false);
@@ -679,16 +728,22 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
     try {
       const sb = getSupabase();
       if (!sb) throw new Error('Auth service is not configured.');
+      const avatarConfig = {
+        type: 'maximus_robot',
+        jerseyNumber: number,
+        jerseyColor,
+        robotColor,
+      };
       const updates = {
         username:        username.trim(),
         display_name:    (displayName.trim() || username.trim()),
         favorite_number: number !== '' ? number : null,
+        avatar_config:   avatarConfig,
         updated_at:      new Date().toISOString(),
       };
       const { error: dbErr } = await sb.from('profiles').update(updates).eq('id', user.id);
       if (dbErr) throw dbErr;
-      // Determine which fields actually changed for the analytics event
-      const fieldsChanged = ['username', 'display_name', 'favorite_number'].filter(
+      const fieldsChanged = ['username', 'display_name', 'favorite_number', 'avatar_config'].filter(
         f => updates[f] !== (f === 'favorite_number'
           ? (profile?.favorite_number != null ? String(profile.favorite_number) : null)
           : profile?.[f])
@@ -765,6 +820,23 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
             type="text" inputMode="numeric" placeholder="23"
             value={number}
             onChange={(e) => { setNumber(e.target.value.replace(/\D/g, '').slice(0, 2)); setError(''); }}
+          />
+        </div>
+
+        <div className={styles.editRobotSection}>
+          <div className={styles.editRobotPreview}>
+            <RobotAvatar
+              jerseyNumber={number}
+              jerseyColor={jerseyColor}
+              robotColor={robotColor}
+              size={80}
+            />
+          </div>
+          <RobotCustomizer
+            jerseyColor={jerseyColor}
+            robotColor={robotColor}
+            onJerseyColorChange={setJerseyColor}
+            onRobotColorChange={setRobotColor}
           />
         </div>
 
@@ -1864,15 +1936,23 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         <div className={styles.profileCard}>
           <div className={styles.profileHeader}>
             <div className={styles.avatar}>
-              {user.user_metadata?.avatar_url
-                ? <img src={user.user_metadata.avatar_url} alt="avatar" className={styles.avatarImg} />
-                : <span className={styles.avatarInitial}>{displayName[0].toUpperCase()}</span>
-              }
+              {profile?.avatar_config?.type === 'maximus_robot' ? (
+                <RobotAvatar
+                  jerseyNumber={profile.avatar_config.jerseyNumber || jerseyDisplay}
+                  jerseyColor={profile.avatar_config.jerseyColor}
+                  robotColor={profile.avatar_config.robotColor}
+                  size={52}
+                />
+              ) : user.user_metadata?.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="avatar" className={styles.avatarImg} />
+              ) : (
+                <span className={styles.avatarInitial}>{displayName[0].toUpperCase()}</span>
+              )}
             </div>
             <div className={styles.profileInfo}>
               <div className={styles.profileNameRow}>
                 <span className={styles.profileName}>{displayName}</span>
-                <JerseyGraphic name={displayName} number={jerseyDisplay} />
+                {!profile?.avatar_config && <JerseyGraphic name={displayName} number={jerseyDisplay} />}
               </div>
               <div className={styles.profileEmailRow}>
                 <span className={styles.profileEmail}>{user.email}</span>
@@ -2417,12 +2497,24 @@ function UnauthenticatedPanel() {
       <div className={styles.unauthCard}>
         <div className={styles.emailSentPanel}>
 
-          {/* Envelope icon */}
-          <div className={styles.emailSentIconWrap} aria-hidden="true">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect x="2" y="6" width="24" height="17" rx="2.5" stroke="var(--color-primary)" strokeWidth="1.5"/>
-              <path d="M2 9l12 8 12-8" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
+          {/* Step indicator */}
+          <div className={styles.emailSentStep}>
+            <span className={styles.emailSentStepDot} />
+            <span className={styles.emailSentStepLine} />
+            <span className={styles.emailSentStepDotEmpty} />
+            <span className={styles.emailSentStepLine} />
+            <span className={styles.emailSentStepDotEmpty} />
+            <span className={styles.emailSentStepLabel}>Step 1 of 3 — Confirm Email</span>
+          </div>
+
+          {/* Mascot */}
+          <div className={styles.emailSentMascotWrap}>
+            <img
+              src="/mascot.png"
+              alt="Maximus Robot"
+              className={styles.emailSentMascot}
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
           </div>
 
           <h2 className={styles.emailSentTitle}>Check your inbox</h2>
@@ -2430,30 +2522,38 @@ function UnauthenticatedPanel() {
           <p className={styles.emailSentDesc}>
             We sent a confirmation link to{' '}
             <strong className={styles.emailSentEmailStr}>{email}</strong>.
-            Tap the button in the email to confirm your account and get started.
+          </p>
+          <p className={styles.emailSentDescSub}>
+            Confirm your email to activate your Maximus Sports profile and unlock personalized college basketball intelligence.
           </p>
 
-          <p className={styles.emailSentHint}>
-            Not seeing it? Check your <strong>Promotions</strong> or <strong>Spam</strong> folder.
-          </p>
-
-          {/* What you'll get — compact 3-feature row */}
-          <div className={styles.emailSentFeatures}>
-            <div className={styles.emailSentFeatureRow}>
-              <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
-              <span>Personalized team briefings</span>
-            </div>
-            <div className={styles.emailSentFeatureRow}>
-              <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
-              <span>ATS and line movement insights</span>
-            </div>
-            <div className={styles.emailSentFeatureRow}>
-              <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
-              <span>News and video highlights</span>
+          {/* What you get */}
+          <div className={styles.emailSentFeaturesCard}>
+            <span className={styles.emailSentFeaturesTitle}>What you get</span>
+            <div className={styles.emailSentFeatures}>
+              <div className={styles.emailSentFeatureRow}>
+                <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+                <span>Personalized team briefings every morning</span>
+              </div>
+              <div className={styles.emailSentFeatureRow}>
+                <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+                <span>ATS edges and line movement intelligence</span>
+              </div>
+              <div className={styles.emailSentFeatureRow}>
+                <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+                <span>Breaking news and highlights for teams you follow</span>
+              </div>
+              <div className={styles.emailSentFeatureRow}>
+                <span className={styles.emailSentFeatureIcon} aria-hidden="true">✦</span>
+                <span>Access to your Maximus Picks dashboard</span>
+              </div>
             </div>
           </div>
 
-          {/* Resend link with cooldown */}
+          <p className={styles.emailSentHint}>
+            Email taking a minute? Check <strong>Promotions</strong> or <strong>Spam</strong>.
+          </p>
+
           <button
             type="button"
             className={styles.btnResend}

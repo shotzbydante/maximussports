@@ -24,6 +24,7 @@ export default function SidebarProfileBlock({ profile }) {
           username={profile.username}
           favoriteNumber={profile.favoriteNumber}
           isPro={profile.isPro}
+          avatarConfig={profile.avatarConfig}
           size="md"
         />
         <div className={styles.names}>

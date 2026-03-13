@@ -1,16 +1,38 @@
 /**
- * ProfileAvatar — reusable jersey-based avatar used across sidebar,
- * header chip, and settings page. Renders the same jersey SVG that
- * users create during onboarding, with optional Pro badge overlay.
+ * ProfileAvatar — renders the user's avatar across sidebar, header chip,
+ * settings page, and future social surfaces.
+ *
+ * If the user has a robot avatar config, renders the customized RobotAvatar.
+ * Otherwise falls back to the jersey-based SVG with number/initial.
  *
  * Sizes: 'sm' (28px), 'md' (36px), 'lg' (48px)
  */
+import RobotAvatar from './RobotAvatar';
 import styles from './ProfileAvatar.module.css';
 
 const SIZE_MAP = { sm: 28, md: 36, lg: 48 };
 
-export default function ProfileAvatar({ username, favoriteNumber, isPro, size = 'md' }) {
+export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarConfig, size = 'md' }) {
   const px = SIZE_MAP[size] || SIZE_MAP.md;
+
+  if (avatarConfig && avatarConfig.type === 'maximus_robot') {
+    return (
+      <span
+        className={`${styles.avatar} ${styles[`size_${size}`]}`}
+        style={{ width: px, height: px }}
+        aria-label={`${username || 'User'} robot avatar`}
+      >
+        <RobotAvatar
+          jerseyNumber={avatarConfig.jerseyNumber || favoriteNumber || ''}
+          jerseyColor={avatarConfig.jerseyColor}
+          robotColor={avatarConfig.robotColor}
+          size={px}
+        />
+        {isPro && <span className={styles.proBadge}>PRO</span>}
+      </span>
+    );
+  }
+
   const displayNum = favoriteNumber ?? '—';
   const initial = username ? username[0].toUpperCase() : '?';
 

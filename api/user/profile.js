@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await sb
         .from('profiles')
-        .select('username, display_name, favorite_number, plan_tier, followers_count, following_count, public_profile_enabled')
+        .select('username, display_name, favorite_number, plan_tier, followers_count, following_count, public_profile_enabled, avatar_config')
         .eq('id', user.id)
         .maybeSingle();
       if (error) {
@@ -75,6 +75,7 @@ export default async function handler(req, res) {
       handle:               p.username ? `@${p.username}` : '',
       avatarUrl:            user.user_metadata?.avatar_url || null,
       favoriteNumber:       p.favorite_number ?? null,
+      avatarConfig:         p.avatar_config || null,
       email:                user.email || '',
       isPro:                p.plan_tier === 'pro',
       social: {

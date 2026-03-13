@@ -19,6 +19,7 @@
  * @property {string}  [handle]           - @username handle
  * @property {string}  [avatarUrl]        - OAuth avatar or null
  * @property {string}  [favoriteNumber]   - Jersey number (0–99)
+ * @property {object}  [avatarConfig]     - Robot customization { type, jerseyNumber, jerseyColor, robotColor }
  * @property {string}  [email]
  * @property {boolean} isPro
  * @property {SocialCounts} social
@@ -98,6 +99,7 @@ export function buildUserProfile(authUser, profileRow) {
     handle:                p.username ? `@${p.username}` : '',
     avatarUrl:             authUser.user_metadata?.avatar_url || null,
     favoriteNumber:        p.favorite_number ?? null,
+    avatarConfig:          p.avatar_config || null,
     email:                 authUser.email || '',
     isPro:                 p.plan_tier === 'pro',
     social:                { ...EMPTY_SOCIAL_COUNTS },

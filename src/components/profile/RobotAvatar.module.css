@@ -1,0 +1,17 @@
+.robotWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.robotSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.glow {
+  filter: drop-shadow(0 0 18px rgba(74, 144, 196, 0.25));
+}
