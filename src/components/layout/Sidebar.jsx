@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
 import { useAuth } from '../../context/AuthContext';
 import { isAdminUser } from '../../config/admin';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import SidebarProfileBlock from '../profile/SidebarProfileBlock';
 import styles from './Sidebar.module.css';
 
 /* ─── Inline SVG icon set (16×16, 1.5px stroke, no fill) ─────────────────── */
@@ -55,6 +57,7 @@ const DashboardIcon = () => (
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const isAdmin = isAdminUser(user?.email);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
@@ -66,6 +69,12 @@ export default function Sidebar() {
 
   return (
     <aside className={styles.sidebar}>
+      {profile?.username && (
+        <>
+          <SidebarProfileBlock profile={profile} />
+          <div className={styles.profileDivider} />
+        </>
+      )}
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Navigate</span>
         <nav className={styles.nav}>

@@ -18,6 +18,7 @@ import { showToast } from '../components/common/Toast';
 import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
+import { invalidateProfileCache } from '../hooks/useUserProfile';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -1883,6 +1884,17 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             </div>
           </div>
 
+          <div className={styles.socialCountsRow} title="Social features coming soon">
+            <div className={styles.socialCountBlock}>
+              <span className={styles.socialCountNum}>0</span>
+              <span className={styles.socialCountLabel}>Followers</span>
+            </div>
+            <div className={styles.socialCountBlock}>
+              <span className={styles.socialCountNum}>0</span>
+              <span className={styles.socialCountLabel}>Following</span>
+            </div>
+          </div>
+
           <div className={styles.profileActions}>
             <button type="button" className={styles.btnOutline} onClick={() => setShowEditForm(true)}>
               Edit profile
@@ -1893,6 +1905,26 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           </div>
         </div>
       )}
+
+      {/* ── Your Picks Summary ── */}
+      <div className={styles.picksCard}>
+        <h3 className={styles.picksCardTitle}>Your Picks</h3>
+        <div className={styles.picksGrid}>
+          <div className={styles.picksRow}>
+            <span className={styles.picksCategory}>ATS</span>
+            <span className={styles.picksRecord}>0-0</span>
+          </div>
+          <div className={styles.picksRow}>
+            <span className={styles.picksCategory}>Pick'Em</span>
+            <span className={styles.picksRecord}>0-0</span>
+          </div>
+          <div className={styles.picksRow}>
+            <span className={styles.picksCategory}>Totals</span>
+            <span className={styles.picksRecord}>0-0</span>
+          </div>
+        </div>
+        <p className={styles.picksHelper}>Track record and public pick profile coming soon</p>
+      </div>
 
       {/* ── Tab Navigation ── */}
       <div className={styles.tabNav} role="tablist">
@@ -2258,6 +2290,7 @@ function AuthenticatedSettings({ user }) {
         .then(({ data }) => {
           if (data) {
             setProfile(data);
+            invalidateProfileCache(user.id);
             if (isNew) {
               trackAccountCreated(user, data, teamSlugs, {
                 method: user.app_metadata?.provider || 'google',
@@ -2294,7 +2327,7 @@ function AuthenticatedSettings({ user }) {
     <PremiumProfile
       user={user}
       profile={profile}
-      onProfileUpdate={(updates) => setProfile(prev => ({ ...prev, ...updates }))}
+      onProfileUpdate={(updates) => { setProfile(prev => ({ ...prev, ...updates })); invalidateProfileCache(user.id); }}
       onSignOut={handleSignOut}
       signingOut={signingOut}
     />

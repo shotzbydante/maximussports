@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { usePlan } from '../../hooks/usePlan';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import HeaderProfileChip from '../profile/HeaderProfileChip';
 import styles from './TopNav.module.css';
 
 /**
@@ -71,6 +73,7 @@ const NAV_LINKS = [
 export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { planTier, isLoading, isSyncing } = usePlan();
+  const { profile } = useUserProfile();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -99,17 +102,6 @@ export default function TopNav() {
           <PlanBadge tier={planTier} isLoading={isLoading} isSyncing={isSyncing} />
         </div>
       </div>
-      <button
-        type="button"
-        className={styles.hamburger}
-        onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-        aria-expanded={menuOpen}
-        aria-label="Open menu"
-      >
-        <span className={styles.hamburgerBar} />
-        <span className={styles.hamburgerBar} />
-        <span className={styles.hamburgerBar} />
-      </button>
       <nav className={styles.nav} aria-hidden={menuOpen ? false : undefined}>
         {NAV_LINKS.map(({ to, end, label, testId }) => (
           <span key={to} className={styles.navItem}>
@@ -125,6 +117,18 @@ export default function TopNav() {
           </span>
         ))}
       </nav>
+      {profile?.username && <HeaderProfileChip profile={profile} />}
+      <button
+        type="button"
+        className={styles.hamburger}
+        onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+        aria-expanded={menuOpen}
+        aria-label="Open menu"
+      >
+        <span className={styles.hamburgerBar} />
+        <span className={styles.hamburgerBar} />
+        <span className={styles.hamburgerBar} />
+      </button>
       {menuOpen && (
         <div className={styles.navOverlay} aria-hidden>
           <nav className={styles.navDropdown} onClick={(e) => e.stopPropagation()}>
