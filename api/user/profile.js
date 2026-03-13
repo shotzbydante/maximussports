@@ -6,9 +6,44 @@
  * endpoint used by sidebar, header chip, settings, and future public profile.
  *
  * Response shape matches the UserProfile type in src/types/social.js.
+ *
+ * Schema detection: remembers whether avatar_config / social columns exist
+ * so we don't fire a failing query on every request.
  */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+
+const CORE_COLS = 'username, display_name, favorite_number, plan_tier';
+const FULL_COLS = CORE_COLS + ', followers_count, following_count, public_profile_enabled, avatar_config';
+
+let _hasFullSchema = null;
+
+async function fetchProfile(sb, uid) {
+  if (_hasFullSchema === true) {
+    const { data, error } = await sb.from('profiles').select(FULL_COLS).eq('id', uid).maybeSingle();
+    if (error) {
+      _hasFullSchema = null;
+      const { data: fb } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
+      return fb;
+    }
+    return data;
+  }
+
+  if (_hasFullSchema === false) {
+    const { data } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
+    return data;
+  }
+
+  // Probe once
+  const { data, error } = await sb.from('profiles').select(FULL_COLS).eq('id', uid).maybeSingle();
+  if (!error) {
+    _hasFullSchema = true;
+    return data;
+  }
+  _hasFullSchema = false;
+  const { data: fb } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
+  return fb;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -23,29 +58,7 @@ export default async function handler(req, res) {
 
   try {
     const sb = getSupabaseAdmin();
-
-    let profile = null;
-    try {
-      const { data, error } = await sb
-        .from('profiles')
-        .select('username, display_name, favorite_number, plan_tier, followers_count, following_count, public_profile_enabled, avatar_config')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (error) {
-        // Fallback: if new columns don't exist yet, query core columns only
-        const { data: fallback } = await sb
-          .from('profiles')
-          .select('username, display_name, favorite_number, plan_tier')
-          .eq('id', user.id)
-          .maybeSingle();
-        profile = fallback;
-      } else {
-        profile = data;
-      }
-    } catch (dbErr) {
-      console.error('[user/profile] DB error:', dbErr.message);
-    }
-
+    const profile = await fetchProfile(sb, user.id);
     const p = profile || {};
 
     // Fetch pick stats if the table exists

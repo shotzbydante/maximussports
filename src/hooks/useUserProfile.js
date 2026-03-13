@@ -8,6 +8,13 @@
  *
  * This hook caches profile data and shares it across components via a
  * module-level store + broadcast pattern (same approach as usePlan).
+ *
+ * Schema detection: on the first fetch we discover whether avatar_config
+ * exists in the profiles table. The result is remembered for the lifetime
+ * of the page so subsequent fetches never fire a failing exploratory query.
+ *
+ * In-flight deduplication: concurrent hook instances share a single
+ * promise so only one network request fires per uid at a time.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +24,29 @@ import { buildUserProfile } from '../types/social';
 
 const _cache = new Map();
 const _listeners = new Set();
+
+// Schema capability: null = unknown, true = column exists, false = column missing
+let _hasAvatarConfigColumn = null;
+
+/**
+ * Returns whether the avatar_config column is known to exist (true),
+ * known to be missing (false), or not yet determined (null).
+ * Used by save paths to avoid try-fail-retry on writes.
+ */
+export function getAvatarConfigColumnStatus() {
+  return _hasAvatarConfigColumn;
+}
+
+/**
+ * Mark the avatar_config column as detected (exists or not).
+ * Called by save code after a successful or schema-error write.
+ */
+export function setAvatarConfigColumnStatus(exists) {
+  _hasAvatarConfigColumn = exists;
+}
+
+// In-flight fetch deduplication: one promise per uid at a time
+const _inflight = new Map();
 
 /**
  * Normalize a profile row so avatar_config is always populated when available,
@@ -34,6 +64,58 @@ function normalizeProfileRow(row) {
 
 function broadcast() {
   _listeners.forEach((fn) => fn());
+}
+
+const CORE_COLS = 'username, display_name, favorite_number, plan_tier, preferences';
+const FULL_COLS = CORE_COLS + ', avatar_config';
+
+/**
+ * Fetch profile for a uid. Handles schema detection + caching in one place.
+ * Returns the normalized profile row (or null).
+ */
+async function fetchProfile(sb, uid) {
+  // If we already know the schema, use the right query directly
+  if (_hasAvatarConfigColumn === true) {
+    const { data, error } = await sb.from('profiles').select(FULL_COLS).eq('id', uid).maybeSingle();
+    if (error) {
+      // Column was removed? Fall back and re-detect next time
+      _hasAvatarConfigColumn = null;
+      const { data: fb } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
+      return fb ? normalizeProfileRow(fb) : null;
+    }
+    return data ? normalizeProfileRow(data) : null;
+  }
+
+  if (_hasAvatarConfigColumn === false) {
+    const { data } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
+    return data ? normalizeProfileRow(data) : null;
+  }
+
+  // Unknown schema — probe with full columns once
+  const { data, error } = await sb.from('profiles').select(FULL_COLS).eq('id', uid).maybeSingle();
+  if (!error) {
+    _hasAvatarConfigColumn = true;
+    return data ? normalizeProfileRow(data) : null;
+  }
+
+  // Column doesn't exist — remember and fall back
+  _hasAvatarConfigColumn = false;
+  const { data: fb } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
+  return fb ? normalizeProfileRow(fb) : null;
+}
+
+/**
+ * Deduplicated fetch: if a request is already in-flight for this uid,
+ * piggyback on it instead of starting a new one.
+ */
+function fetchProfileDeduped(sb, uid) {
+  if (_inflight.has(uid)) return _inflight.get(uid);
+
+  const promise = fetchProfile(sb, uid).finally(() => {
+    _inflight.delete(uid);
+  });
+  _inflight.set(uid, promise);
+  return promise;
 }
 
 /**
@@ -91,25 +173,10 @@ export function useUserProfile() {
 
     setIsLoading(true);
 
-    sb.from('profiles')
-      .select('username, display_name, favorite_number, plan_tier, avatar_config, preferences')
-      .eq('id', uid)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          // avatar_config column may not exist yet — retry with core columns only
-          return sb.from('profiles')
-            .select('username, display_name, favorite_number, plan_tier, preferences')
-            .eq('id', uid)
-            .maybeSingle()
-            .then(({ data: fallbackData }) => {
-              if (fallbackData) _cache.set(uid, normalizeProfileRow(fallbackData));
-              setProfile(buildUserProfile(user, fallbackData ? normalizeProfileRow(fallbackData) : null));
-              setIsLoading(false);
-            });
-        }
-        if (data) _cache.set(uid, normalizeProfileRow(data));
-        setProfile(buildUserProfile(user, data ? normalizeProfileRow(data) : null));
+    fetchProfileDeduped(sb, uid)
+      .then((row) => {
+        if (row) _cache.set(uid, row);
+        setProfile(buildUserProfile(user, row));
         setIsLoading(false);
       })
       .catch(() => {
