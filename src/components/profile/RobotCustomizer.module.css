@@ -1,0 +1,60 @@
+.customizer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.paletteGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.paletteLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  padding: 0;
+  outline: none;
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.swatchActive {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px rgba(60, 121, 180, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: scale(1.08);
+}
+
+.swatchCheck {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  line-height: 1;
+}
