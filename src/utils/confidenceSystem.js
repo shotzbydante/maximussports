@@ -5,16 +5,16 @@
  *
  * Thresholds (mirrors maximusPicksModel derivation constants):
  *   Pick 'Em:  HIGH ≥ 0.12  MEDIUM ≥ 0.07  LOW < 0.07
- *   ATS:       HIGH ≥ 0.16  MEDIUM ≥ 0.11  LOW < 0.11
+ *   ATS:       HIGH ≥ 0.16  MEDIUM ≥ 0.12  LOW < 0.12
  *   Value:     HIGH ≥ 0.07  MEDIUM ≥ 0.05  LOW < 0.05
  *   Totals:    HIGH ≥ 0.14  MEDIUM ≥ 0.10  LOW < 0.10
  */
 
 const THRESHOLDS = {
   pickem: { min: 0.04, med: 0.07, high: 0.12 },
-  ats:    { min: 0.08, med: 0.11, high: 0.16 },
+  ats:    { min: 0.10, med: 0.12, high: 0.16 },
   value:  { min: 0.04, med: 0.05, high: 0.07 },
-  total:  { min: 0.06, med: 0.10, high: 0.14 },
+  total:  { min: 0.07, med: 0.10, high: 0.14 },
 };
 
 // ─── Slide-context colors (dark backgrounds) ────────────────────────────────

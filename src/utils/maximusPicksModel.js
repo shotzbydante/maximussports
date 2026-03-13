@@ -38,10 +38,18 @@ const PE_MIN_EDGE_T3   = 0.05;
 const PE_HIGH_EDGE     = 0.12;
 const PE_MED_EDGE      = 0.07;
 
-// ATS thresholds — relaxed from original to reduce monitoring
-const ATS_EDGE_MIN  = 0.08;
+// Pick'Em chalk deflation — de-rank obvious heavy favorites in sort order
+const PE_CHALK_ML    = -1000;
+const PE_CHALK_FLOOR = 0.40;
+
+// ATS thresholds — tightened for selectivity
+const ATS_EDGE_MIN  = 0.10;
 const ATS_EDGE_HIGH = 0.16;
-const ATS_EDGE_MED  = 0.11;
+const ATS_EDGE_MED  = 0.12;
+
+// ATS spread-magnitude discount — large spreads are harder to cover
+const ATS_SPREAD_SOFT_CAP     = 10;
+const ATS_SPREAD_PENALTY_RATE = 0.03;
 
 // ATS partial-signal thresholds — relaxed
 const ATS_PARTIAL_COVER_MIN  = 0.53;
@@ -56,7 +64,7 @@ const VL_HOME_BUMP   = 0.02;
 const VL_ATS_WEIGHT  = 0.35;
 
 // Totals thresholds
-const TOT_OU_MIN_EDGE   = 0.06;
+const TOT_OU_MIN_EDGE   = 0.07;
 const TOT_OU_HIGH_EDGE  = 0.14;
 const TOT_OU_MED_EDGE   = 0.10;
 
@@ -423,6 +431,13 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     const pickML = pickHome ? peHomeML : peAwayML;
     const pickLine = pickML != null ? `${pickTeam} ${fmtPrice(pickML)}` : pickTeam;
 
+    // Deflate sort edge for heavy chalk so more competitive games rank higher
+    let _sortEdge = edgeMag;
+    if (pickML != null && pickML < PE_CHALK_ML) {
+      const chalkFactor = Math.max(PE_CHALK_FLOOR, 1 - (Math.abs(pickML) - Math.abs(PE_CHALK_ML)) / 3000);
+      _sortEdge = edgeMag * chalkFactor;
+    }
+
     const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
     const opponentSlug = pickHome ? awaySlug : homeSlug;
 
@@ -445,11 +460,12 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       signals,
       partial: tier >= 2,
       _tier: tier,
+      _sortEdge,
     });
   }
 
   return picks
-    .sort((a, b) => (a._tier - b._tier) || (b.edgeMag - a.edgeMag))
+    .sort((a, b) => (a._tier - b._tier) || (b._sortEdge - a._sortEdge))
     .slice(0, PICKS_PER_SECTION);
 }
 
@@ -483,22 +499,31 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     if (homeAts && awayAts) {
       const homePct = homeAts.coverPct / 100;
       const awayPct = awayAts.coverPct / 100;
-      const edge    = homePct - awayPct;
-      if (Math.abs(edge) < ATS_EDGE_MIN) continue;
+      const rawEdge = Math.abs(homePct - awayPct);
 
-      const pickHome = edge > 0;
+      // Discount edge for large spreads — covering at high magnitudes is harder
+      let spreadDiscount = 1.0;
+      if (spreadMagnitude != null && spreadMagnitude > ATS_SPREAD_SOFT_CAP) {
+        const excess = spreadMagnitude - ATS_SPREAD_SOFT_CAP;
+        spreadDiscount = Math.max(0.50, 1 - excess * ATS_SPREAD_PENALTY_RATE);
+      }
+      const adjustedEdge = rawEdge * spreadDiscount;
+      if (adjustedEdge < ATS_EDGE_MIN) continue;
+
+      const pickHome = (homePct - awayPct) > 0;
       const pickTeam = pickHome ? game.homeTeam : game.awayTeam;
       const pickAts  = pickHome ? homeAts : awayAts;
       const oppAts   = pickHome ? awayAts : homeAts;
 
       const homeIsFav = homeSpreadNum != null ? homeSpreadNum < 0 : false;
-      const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 12;
-      if (isBigFav && homeIsFav && pickHome && Math.abs(edge) < ATS_EDGE_HIGH) continue;
+      const favTeamName = homeIsFav ? game.homeTeam : game.awayTeam;
+      const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
+      if (isBigFav && pickTeam === favTeamName && adjustedEdge < ATS_EDGE_HIGH) continue;
 
       const { spread: teamSpreadNum } = getTeamSpread(game, pickHome);
       const spreadDisplay = fmtSpread(teamSpreadNum);
       const win     = windowLabel(pickAts.window);
-      const edgeMag = Math.abs(edge);
+      const edgeMag = adjustedEdge;
       const pickRecord = fmtRecord(pickAts) ?? `${Math.round(pickAts.coverPct)}%`;
       const oppRecord  = fmtRecord(oppAts)  ?? `${Math.round(oppAts.coverPct)}%`;
 
