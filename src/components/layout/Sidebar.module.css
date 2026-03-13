@@ -17,6 +17,12 @@
   overflow-y: auto;
 }
 
+.profileDivider {
+  height: 1px;
+  background: var(--divider-color, rgba(60, 121, 180, 0.08));
+  margin: 0 var(--space-md) var(--space-sm);
+}
+
 .section {
   padding: 0 var(--space-md);
 }
