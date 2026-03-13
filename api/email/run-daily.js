@@ -33,7 +33,7 @@
  */
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
-import { sendEmail } from '../_lib/sendEmail.js';
+import { sendEmailThrottled } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
 import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
@@ -103,27 +103,32 @@ async function fetchAlreadySent(sb, dateKey) {
 }
 
 async function logEmailSend(sb, { userId, email, type, dateKey }) {
-  const { error } = await sb.from('email_send_log').insert({
-    user_id:  userId,
-    email:    email,
-    type:     type,
-    date_key: dateKey,
-    sent_at:  new Date().toISOString(),
-  });
-  if (error) {
-    console.warn(`[run-daily] failed to log send for ${userId}:`, error.message);
+  try {
+    const { error } = await sb.from('email_send_log').insert({
+      user_id:  userId,
+      email:    email,
+      type:     type,
+      date_key: dateKey,
+      sent_at:  new Date().toISOString(),
+    });
+    if (error) {
+      console.warn(`[run-daily] email_send_log insert failed for ${userId}: ${error.message} (code=${error.code})`);
+    }
+  } catch (err) {
+    console.warn(`[run-daily] email_send_log insert exception for ${userId}: ${err.message}`);
   }
 }
 
-/** Persist a job-level run record to email_job_runs for admin visibility. */
 async function logJobRun(sb, record) {
   try {
     const { error } = await sb.from('email_job_runs').insert(record);
     if (error) {
-      console.warn('[run-daily] failed to log job run:', error.message);
+      console.error(`[run-daily] email_job_runs insert FAILED: ${error.message} (code=${error.code})`);
+    } else {
+      console.log(`[run-daily] email_job_runs row inserted: type=${record.digest_type} status=${record.status} mode=${record.run_mode}`);
     }
   } catch (err) {
-    console.warn('[run-daily] email_job_runs insert exception:', err.message);
+    console.error(`[run-daily] email_job_runs insert exception: ${err.message}`);
   }
 }
 
@@ -392,12 +397,16 @@ export default async function handler(req, res) {
     const userIds = toSend.map(u => u.id);
     const userTeamsMap = await fetchUserTeams(sb, userIds);
 
-    // ── 9. Send emails
+    // ── 9. Send emails (throttled to respect Resend rate limits)
     let sent = 0;
     let failed = 0;
     const errors = [];
+    const total = toSend.length;
 
-    for (const authUser of toSend) {
+    console.log(`[run-daily] Queued ${total} recipients for ${type} (scheduled)`);
+
+    for (let i = 0; i < total; i++) {
+      const authUser = toSend[i];
       const userId = authUser.id;
       const email = authUser.email;
       const profile = profileMap[userId];
@@ -481,15 +490,16 @@ export default async function handler(req, res) {
           }
         }
 
-        await sendEmail({ to: email, subject, html, text });
+        console.log(`[run-daily] Sending ${i + 1}/${total} to=${email}`);
+        await sendEmailThrottled({ to: email, subject, html, text });
         await logEmailSend(sb, { userId, email, type, dateKey });
         sent++;
-        console.log(`[run-daily] SENT type=${type} to=${email} user=${userId}`);
+        console.log(`[run-daily] SENT ${i + 1}/${total} type=${type} to=${email}`);
 
       } catch (err) {
         failed++;
         const msg = `Failed for ${email}: ${err.message}`;
-        console.error(`[run-daily] FAIL type=${type} to=${email} user=${userId} error=${err.message}`);
+        console.error(`[run-daily] FAIL ${i + 1}/${total} type=${type} to=${email} error=${err.message}`);
         errors.push(msg);
       }
     }

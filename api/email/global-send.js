@@ -17,7 +17,7 @@
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
-import { sendEmail } from '../_lib/sendEmail.js';
+import { sendEmailThrottled } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
 import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
@@ -81,15 +81,29 @@ async function fetchAlreadySent(sb, dateKey) {
 }
 
 async function logEmailSend(sb, { userId, email, type, dateKey }) {
-  await sb.from('email_send_log').insert({
-    user_id: userId, email, type, date_key: dateKey, sent_at: new Date().toISOString(),
-  }).then(() => {}).catch(() => {});
+  try {
+    const { error } = await sb.from('email_send_log').insert({
+      user_id: userId, email, type, date_key: dateKey, sent_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.warn(`[global-send] email_send_log insert failed for ${userId}: ${error.message} (code=${error.code})`);
+    }
+  } catch (err) {
+    console.warn(`[global-send] email_send_log insert exception for ${userId}: ${err.message}`);
+  }
 }
 
 async function logJobRun(sb, record) {
   try {
-    await sb.from('email_job_runs').insert(record);
-  } catch { /* non-critical */ }
+    const { error } = await sb.from('email_job_runs').insert(record);
+    if (error) {
+      console.error(`[global-send] email_job_runs insert FAILED: ${error.message} (code=${error.code})`);
+    } else {
+      console.log(`[global-send] email_job_runs row inserted: type=${record.digest_type} status=${record.status} mode=${record.run_mode}`);
+    }
+  } catch (err) {
+    console.error(`[global-send] email_job_runs insert exception: ${err.message}`);
+  }
 }
 
 async function resolvePinnedTeams(teamRows) {
@@ -270,8 +284,12 @@ export default async function handler(req, res) {
     let sent = 0;
     let failed = 0;
     const errors = [];
+    const total = toSend.length;
 
-    for (const authUser of toSend) {
+    console.log(`[global-send] Queued ${total} recipients for ${type} (${runMode})`);
+
+    for (let i = 0; i < total; i++) {
+      const authUser = toSend[i];
       const userId = authUser.id;
       const email = authUser.email;
       const profile = profileMap[userId];
@@ -311,12 +329,14 @@ export default async function handler(req, res) {
           }
         }
 
-        await sendEmail({ to: email, subject, html, text });
+        console.log(`[global-send] Sending ${i + 1}/${total} to=${email}`);
+        await sendEmailThrottled({ to: email, subject, html, text });
         await logEmailSend(sb, { userId, email, type, dateKey });
         sent++;
       } catch (err) {
         failed++;
         errors.push(`${email}: ${err.message}`);
+        console.error(`[global-send] FAIL ${i + 1}/${total} to=${email}: ${err.message}`);
       }
     }
 
