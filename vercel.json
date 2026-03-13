@@ -7,6 +7,9 @@
     },
     "api/email/run-daily.js": {
       "maxDuration": 120
+    },
+    "api/email/global-send.js": {
+      "maxDuration": 120
     }
   },
   "redirects": [

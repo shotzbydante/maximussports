@@ -127,32 +127,18 @@ async function logJobRun(sb, record) {
   }
 }
 
-/** Ensure email_job_runs table exists (safe no-op if already present). */
-async function ensureJobRunsTable(sb) {
+/** Probe whether email_job_runs table is accessible (lightweight check). */
+async function probeJobRunsTable(sb) {
   try {
-    const { error } = await sb.rpc('run_sql', {
-      sql: `
-        CREATE TABLE IF NOT EXISTS email_job_runs (
-          id            uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
-          digest_type   text        NOT NULL,
-          started_at    timestamptz NOT NULL DEFAULT now(),
-          completed_at  timestamptz,
-          status        text        NOT NULL DEFAULT 'running',
-          scanned_count integer     DEFAULT 0,
-          eligible_count integer    DEFAULT 0,
-          sent_count    integer     DEFAULT 0,
-          failed_count  integer     DEFAULT 0,
-          skipped_counts jsonb      DEFAULT '{}',
-          error_message text,
-          created_at    timestamptz DEFAULT now()
-        );
-      `
-    });
+    const { error } = await sb.from('email_job_runs').select('id').limit(1);
     if (error) {
-      console.warn('[run-daily] ensureJobRunsTable rpc error:', error.message);
+      console.warn('[run-daily] email_job_runs table not accessible:', error.message);
+      console.warn('[run-daily] Run the migration in docs/email-job-runs-migration.sql to create it.');
+      return false;
     }
+    return true;
   } catch {
-    // rpc might not exist — fall back to direct insert and let it fail naturally
+    return false;
   }
 }
 
@@ -222,6 +208,7 @@ export default async function handler(req, res) {
     const authHeader = req.headers['authorization'] || '';
     const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (provided !== cronSecret) {
+      console.warn(`[run-daily] Auth failed — CRON_SECRET mismatch. Header present: ${Boolean(authHeader)}`);
       return res.status(401).json({ error: 'Unauthorized.' });
     }
   }
@@ -246,8 +233,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database service unavailable.' });
   }
 
-  // Try to ensure job runs table exists (non-blocking)
-  await ensureJobRunsTable(sb);
+  // Probe table existence (non-blocking diagnostic)
+  const tableOk = await probeJobRunsTable(sb);
+  if (!tableOk) {
+    console.warn('[run-daily] Continuing without job logging — table missing.');
+  }
 
   // Track skip reasons for the summary
   const skipCounts = { opted_out: 0, no_email: 0, no_profile: 0, already_sent: 0, no_digest_teams: 0 };
@@ -273,7 +263,7 @@ export default async function handler(req, res) {
       await logJobRun(sb, {
         digest_type: type, started_at: startedAtISO, completed_at: new Date().toISOString(),
         status: 'success', scanned_count: 0, eligible_count: 0, sent_count: 0, failed_count: 0,
-        skipped_counts: skipCounts,
+        skipped_counts: skipCounts, run_mode: 'scheduled',
       });
       return res.status(200).json(summary);
     }
@@ -322,7 +312,7 @@ export default async function handler(req, res) {
       await logJobRun(sb, {
         digest_type: type, started_at: startedAtISO, completed_at: new Date().toISOString(),
         status: 'success', scanned_count: authUsers.length, eligible_count: 0, sent_count: 0, failed_count: 0,
-        skipped_counts: skipCounts,
+        skipped_counts: skipCounts, run_mode: 'scheduled',
       });
       return res.status(200).json(summary);
     }
@@ -346,7 +336,7 @@ export default async function handler(req, res) {
       await logJobRun(sb, {
         digest_type: type, started_at: startedAtISO, completed_at: new Date().toISOString(),
         status: 'success', scanned_count: authUsers.length, eligible_count: subscribedUsers.length,
-        sent_count: 0, failed_count: 0, skipped_counts: skipCounts,
+        sent_count: 0, failed_count: 0, skipped_counts: skipCounts, run_mode: 'scheduled',
       });
       return res.status(200).json(summary);
     }
@@ -542,6 +532,7 @@ export default async function handler(req, res) {
       failed_count:   failed,
       skipped_counts: skipCounts,
       error_message:  errors.length > 0 ? errors.slice(0, 5).join('; ') : null,
+      run_mode:       'scheduled',
     });
 
     return res.status(200).json({
@@ -574,6 +565,7 @@ export default async function handler(req, res) {
       failed_count:  0,
       skipped_counts: skipCounts,
       error_message: err.message,
+      run_mode:      'scheduled',
     });
     return res.status(500).json({ error: err.message || 'Internal server error.' });
   }

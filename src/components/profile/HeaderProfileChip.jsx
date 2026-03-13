@@ -4,7 +4,7 @@
  * For guest users, shows the default mascot with a CTA menu.
  */
 import { useState, useEffect, useRef } from 'react';
-import ProfileAvatar from './ProfileAvatar';
+import ProfileAvatar, { VerifiedBadge } from './ProfileAvatar';
 import ProfileMenu from './ProfileMenu';
 import styles from './HeaderProfileChip.module.css';
 
@@ -32,6 +32,8 @@ export default function HeaderProfileChip({ profile, isGuest = false }) {
     ? 'Sign up'
     : (profile?.displayName || profile?.username || profile?.email?.split('@')[0] || 'Account');
 
+  const isPro = !isGuest && profile?.isPro;
+
   return (
     <div className={styles.chipWrap} ref={ref}>
       <button
@@ -46,12 +48,13 @@ export default function HeaderProfileChip({ profile, isGuest = false }) {
           <ProfileAvatar
             username={isGuest ? '' : profile?.username}
             favoriteNumber={isGuest ? '' : profile?.favoriteNumber}
-            isPro={false}
+            isPro={isPro}
             avatarConfig={isGuest ? null : profile?.avatarConfig}
             size="md"
           />
         </span>
         <span className={styles.chipName}>{chipLabel}</span>
+        {isPro && <VerifiedBadge />}
         <span className={styles.chipCaret} aria-hidden>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
             <path d="M3 4l2 2 2-2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />

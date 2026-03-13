@@ -10,6 +10,19 @@ import styles from './ProfileAvatar.module.css';
 
 const SIZE_MAP = { sm: 28, md: 36, lg: 48, xl: 72 };
 
+export function VerifiedBadge({ className = '' }) {
+  return (
+    <svg
+      className={`${styles.verifiedBadge} ${className}`}
+      width="14" height="14" viewBox="0 0 16 16"
+      fill="none" aria-label="Verified Pro account"
+    >
+      <circle cx="8" cy="8" r="7.5" fill="#1a3f6f" />
+      <path d="M5 8.2l2 2 4-4.2" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarConfig, size = 'md' }) {
   const px = SIZE_MAP[size] || SIZE_MAP.md;
 

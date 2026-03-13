@@ -20,6 +20,7 @@ import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/enti
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
 import { invalidateProfileCache, getAvatarConfigColumnStatus, setAvatarConfigColumnStatus } from '../hooks/useUserProfile';
 import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
+import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
@@ -1084,7 +1085,6 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
 
 /* ─── Admin QA helpers ───────────────────────────────────────────────────── */
 
-/** Digest metadata: maps cron type key to a human-readable label. */
 const DIGEST_META = [
   { type: 'daily',      name: 'Daily AI Briefing' },
   { type: 'pinned',     name: 'Pinned Teams Alerts' },
@@ -1093,18 +1093,15 @@ const DIGEST_META = [
   { type: 'teamDigest', name: 'Team Digest' },
 ];
 
-/** Returns today's date string in YYYY-MM-DD format in Pacific Time. */
 function todayPT() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
-/** Returns true when an ISO timestamp falls on today's PT calendar date. */
 function isTodayPT(iso) {
   if (!iso) return false;
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }) === todayPT();
 }
 
-/** Format a run timestamp to a short PT time like "6:02 AM PT". */
 function formatTimePT(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString('en-US', {
@@ -1112,7 +1109,6 @@ function formatTimePT(iso) {
   }) + ' PT';
 }
 
-/** Format a run timestamp to a short PT date like "Mar 12". */
 function formatDatePT(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString('en-US', {
@@ -1120,19 +1116,21 @@ function formatDatePT(iso) {
   });
 }
 
-/**
- * Derive the visual status for a single digest's latest job run.
- * Returns { status, statusLabel, time, detail, variant }.
- *   variant: 'success' | 'partial' | 'failed' | 'idle' | 'never'
- */
+function runModeLabel(mode) {
+  if (mode === 'override') return 'Override';
+  if (mode === 'manual') return 'Manual';
+  return 'Scheduled';
+}
+
 function deriveRunStatus(run) {
   if (!run) {
-    return { variant: 'never', statusLabel: 'Never run', time: '\u2014', detail: '' };
+    return { variant: 'never', statusLabel: 'Never run', time: '\u2014', detail: '', runMode: null };
   }
 
   const ts = run.completed_at || run.started_at;
   const ranToday = isTodayPT(ts);
-  const runStatus = run.status; // 'success' | 'partial' | 'failed' | 'error' | 'running'
+  const runStatus = run.status;
+  const mode = run.run_mode || 'scheduled';
 
   if (runStatus === 'success') {
     if (ranToday) {
@@ -1141,6 +1139,10 @@ function deriveRunStatus(run) {
         statusLabel: 'Sent today',
         time: formatTimePT(ts),
         detail: `${run.sent_count ?? 0} sent`,
+        runMode: mode,
+        scanned: run.scanned_count,
+        eligible: run.eligible_count,
+        skipped: run.skipped_counts,
       };
     }
     return {
@@ -1148,26 +1150,32 @@ function deriveRunStatus(run) {
       statusLabel: 'Not sent today',
       time: `Last: ${formatDatePT(ts)}, ${formatTimePT(ts)}`,
       detail: '',
+      runMode: mode,
     };
   }
 
   if (runStatus === 'partial') {
-    const label = ranToday ? 'Partial today' : 'Partial';
     return {
       variant: 'partial',
-      statusLabel: label,
+      statusLabel: ranToday ? 'Partial today' : 'Partial',
       time: ranToday ? formatTimePT(ts) : `${formatDatePT(ts)}, ${formatTimePT(ts)}`,
       detail: `${run.sent_count ?? 0} sent · ${run.failed_count ?? 0} failed`,
+      runMode: mode,
+      scanned: run.scanned_count,
+      eligible: run.eligible_count,
+      skipped: run.skipped_counts,
+      errorMessage: run.error_message,
     };
   }
 
-  // 'failed' or 'error'
   if (ranToday) {
     return {
       variant: 'failed',
       statusLabel: 'Failed today',
       time: formatTimePT(ts),
       detail: run.error_message ? run.error_message.slice(0, 80) : `${run.failed_count ?? 0} failed`,
+      runMode: mode,
+      errorMessage: run.error_message,
     };
   }
   return {
@@ -1175,6 +1183,7 @@ function deriveRunStatus(run) {
     statusLabel: 'Not sent today',
     time: `Last fail: ${formatDatePT(ts)}`,
     detail: '',
+    runMode: mode,
   };
 }
 
@@ -1182,51 +1191,51 @@ function deriveRunStatus(run) {
 function AdminQAPanel() {
   const { user } = useAuth();
   const [sending, setSending] = useState(null);
+  const [globalSending, setGlobalSending] = useState(null);
   const [results, setResults] = useState({});
+  const [globalResults, setGlobalResults] = useState({});
   const [jobRuns, setJobRuns] = useState({});
   const [jobRunsLoading, setJobRunsLoading] = useState(true);
+  const [healthData, setHealthData] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null);
+  const [confirmOverride, setConfirmOverride] = useState(null);
 
   const adminEmail = user?.email || '';
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadJobStatus() {
-      try {
-        const sb = getSupabase();
-        if (!sb) return;
-        const { data: { session } } = await sb.auth.getSession();
-        const token = session?.access_token;
-        if (!token) return;
-        const resp = await fetch('/api/email/job-status', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!resp.ok) return;
-        const json = await resp.json();
-        if (!cancelled && json.runs) setJobRuns(json.runs);
-      } catch { /* non-critical */ }
-      if (!cancelled) setJobRunsLoading(false);
-    }
-    loadJobStatus();
-    return () => { cancelled = true; };
+  async function getToken() {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Not signed in.');
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Not signed in — please sign out and back in.');
+    return token;
+  }
+
+  const loadJobStatus = useCallback(async () => {
+    try {
+      const token = await getToken();
+      const resp = await fetch('/api/email/job-status', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) return;
+      const json = await resp.json();
+      if (json.runs) setJobRuns(json.runs);
+    } catch { /* non-critical */ }
+    setJobRunsLoading(false);
   }, []);
+
+  useEffect(() => { loadJobStatus(); }, [loadJobStatus]);
 
   async function handleSendTest(type) {
     if (sending) return;
     setSending(type);
     setResults(prev => ({ ...prev, [type]: null }));
     try {
-      const sb = getSupabase();
-      if (!sb) throw new Error('Not signed in.');
-      const { data: { session: freshSession } } = await sb.auth.getSession();
-      const token = freshSession?.access_token;
-      if (!token) throw new Error('Not signed in — please sign out and back in.');
-
+      const token = await getToken();
       const res = await fetch('/api/email/send-test', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ type }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1243,19 +1252,65 @@ function AdminQAPanel() {
     }
   }
 
+  async function handleGlobalSend(type, override = false) {
+    if (globalSending) return;
+    setGlobalSending(type);
+    setGlobalResults(prev => ({ ...prev, [type]: null }));
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/email/global-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ type, override }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+
+      const mode = override ? 'Override' : 'Global';
+      setGlobalResults(prev => ({
+        ...prev,
+        [type]: { ok: true, message: `${mode}: ${data.sent ?? 0} sent, ${data.failed ?? 0} failed (${data.elapsed})` },
+      }));
+      showToast(`${mode} send complete: ${data.sent ?? 0} sent`, { type: data.failed > 0 ? 'warning' : 'success' });
+      loadJobStatus();
+    } catch (err) {
+      setGlobalResults(prev => ({ ...prev, [type]: { ok: false, message: err.message || 'Send failed.' } }));
+      showToast(err.message || 'Global send failed.', { type: 'error' });
+    } finally {
+      setGlobalSending(null);
+      setConfirmOverride(null);
+    }
+  }
+
+  async function handleHealthCheck() {
+    setHealthLoading(true);
+    try {
+      const token = await getToken();
+      const resp = await fetch('/api/email/health', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      setHealthData(data);
+    } catch (err) {
+      setHealthData({ ok: false, error: err.message });
+    } finally {
+      setHealthLoading(false);
+    }
+  }
+
   return (
     <div className={styles.adminQaCard}>
       <div className={styles.adminQaHeader}>
         <div>
           <h3 className={styles.adminQaTitle}>Admin QA</h3>
-          <p className={styles.adminQaSubtitle}>Global send logs and test actions.</p>
+          <p className={styles.adminQaSubtitle}>Email operations, global sends, and diagnostics.</p>
         </div>
         <span className={styles.adminBadge}>Admin</span>
       </div>
 
-      {/* ── Section 1: Email Send Logs ───────────────────────────────────────── */}
+      {/* ── Section 1: Email Send Logs + Global Send ────────────────────────── */}
       <div className={styles.logsSection}>
-        <h4 className={styles.logsSectionTitle}>Email Send Logs</h4>
+        <h4 className={styles.logsSectionTitle}>Email Send Logs &amp; Global Send</h4>
         <div className={styles.logsTable}>
           {DIGEST_META.map(({ type, name }) => {
             const run = jobRuns[type];
@@ -1266,23 +1321,101 @@ function AdminQAPanel() {
               : info.variant === 'failed'  ? styles.logChipFailed
               : info.variant === 'never'   ? styles.logChipNever
               : styles.logChipIdle;
+            const globalResult = globalResults[type];
+            const isGlobalSending = globalSending === type;
+            const expanded = expandedRow === type;
             return (
-              <div key={type} className={styles.logsRow}>
-                <span className={styles.logsDigestName}>{name}</span>
-                {jobRunsLoading ? (
-                  <span className={styles.logsLoadingPill}>Loading…</span>
-                ) : (
-                  <>
-                    <span className={`${styles.logChip} ${chipCls}`}>{info.statusLabel}</span>
-                    <span className={styles.logsTime}>{info.time}</span>
-                    {info.detail && <span className={styles.logsDetail}>{info.detail}</span>}
-                  </>
+              <div key={type} className={styles.logsRowWrap}>
+                <div className={styles.logsRow}>
+                  <span className={styles.logsDigestName}>{name}</span>
+                  {jobRunsLoading ? (
+                    <span className={styles.logsLoadingPill}>Loading…</span>
+                  ) : (
+                    <>
+                      <span className={`${styles.logChip} ${chipCls}`}>{info.statusLabel}</span>
+                      <span className={styles.logsTime}>{info.time}</span>
+                      {info.runMode && info.variant !== 'never' && (
+                        <span className={styles.logsRunMode}>{runModeLabel(info.runMode)}</span>
+                      )}
+                      {info.detail && <span className={styles.logsDetail}>{info.detail}</span>}
+                      <button
+                        type="button"
+                        className={styles.logsDetailsBtn}
+                        onClick={() => setExpandedRow(expanded ? null : type)}
+                        aria-label="Toggle details"
+                      >
+                        {expanded ? '▾' : '▸'}
+                      </button>
+                    </>
+                  )}
+                </div>
+                {expanded && run && (
+                  <div className={styles.logsDetailExpanded}>
+                    <span>Scanned: {run.scanned_count ?? '—'}</span>
+                    <span>Eligible: {run.eligible_count ?? '—'}</span>
+                    <span>Sent: {run.sent_count ?? '—'}</span>
+                    <span>Failed: {run.failed_count ?? '—'}</span>
+                    <span>Mode: {runModeLabel(run.run_mode)}</span>
+                    {run.skipped_counts && (
+                      <span>Skipped: {Object.entries(run.skipped_counts).filter(([,v]) => v > 0).map(([k,v]) => `${k}: ${v}`).join(', ') || 'none'}</span>
+                    )}
+                    {run.error_message && <span className={styles.logsDetailError}>Error: {run.error_message.slice(0, 120)}</span>}
+                  </div>
                 )}
+                {/* Global Send actions */}
+                <div className={styles.globalSendRow}>
+                  <button
+                    type="button"
+                    className={styles.btnGlobalSend}
+                    onClick={() => handleGlobalSend(type, false)}
+                    disabled={!!globalSending}
+                  >
+                    {isGlobalSending ? <SpinnerIcon /> : (
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden style={{flexShrink:0}}>
+                        <path d="M1 1l12 6-12 6V8.5l8-1.5-8-1.5V1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
+                      </svg>
+                    )}
+                    <span>Global Send</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnOverrideSend}
+                    onClick={() => setConfirmOverride(type)}
+                    disabled={!!globalSending}
+                    title="Force send to ALL users, including unsubscribed"
+                  >
+                    Override Send
+                  </button>
+                  {globalResult && (
+                    <span className={globalResult.ok ? styles.adminQaResultOk : styles.adminQaResultErr}>
+                      {globalResult.ok ? '✓' : '✕'} {globalResult.message}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* ── Override confirmation modal ──────────────────────────────────────── */}
+      {confirmOverride && (
+        <ConfirmModal
+          title="Override Send"
+          message={`Send ${DIGEST_META.find(d => d.type === confirmOverride)?.name || confirmOverride} to ALL users, including those who have not subscribed?`}
+          bullets={[
+            'This bypasses user subscription preferences',
+            'All users with an email address will receive this digest',
+            'This run will be logged as "Override" in job history',
+          ]}
+          subtext="Use for marketing pushes and one-off campaigns only."
+          confirmLabel="Force Send to All"
+          danger
+          onConfirm={() => handleGlobalSend(confirmOverride, true)}
+          onCancel={() => setConfirmOverride(null)}
+          loading={!!globalSending}
+        />
+      )}
 
       {/* ── Section 2: Test Send Actions ─────────────────────────────────────── */}
       <div className={styles.testSection}>
@@ -1317,6 +1450,76 @@ function AdminQAPanel() {
           })}
         </div>
       </div>
+
+      {/* ── Section 3: System Health ─────────────────────────────────────────── */}
+      <div className={styles.testSection}>
+        <h4 className={styles.logsSectionTitle}>System Health</h4>
+        <button
+          type="button"
+          className={styles.btnAdminTest}
+          onClick={handleHealthCheck}
+          disabled={healthLoading}
+        >
+          {healthLoading ? <SpinnerIcon /> : (
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden style={{flexShrink:0}}>
+              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/>
+              <path d="M7 4v3l2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+          )}
+          <span>Run Health Check</span>
+        </button>
+        {healthData && (
+          <div className={styles.healthResults}>
+            <div className={`${styles.healthOverall} ${healthData.ok ? styles.healthOk : styles.healthFail}`}>
+              {healthData.ok ? '✓ All systems healthy' : '✕ Issues detected'}
+            </div>
+            {healthData.checks && (
+              <div className={styles.healthChecks}>
+                {healthData.checks.environment && (
+                  <div className={styles.healthCheckRow}>
+                    <span className={styles.healthCheckLabel}>Resend API Key</span>
+                    <span className={healthData.checks.environment.resendApiKey ? styles.healthCheckOk : styles.healthCheckErr}>
+                      {healthData.checks.environment.resendApiKey ? 'Set' : 'Missing'}
+                    </span>
+                  </div>
+                )}
+                {healthData.checks.resend && (
+                  <div className={styles.healthCheckRow}>
+                    <span className={styles.healthCheckLabel}>Resend API</span>
+                    <span className={healthData.checks.resend.ok ? styles.healthCheckOk : styles.healthCheckErr}>
+                      {healthData.checks.resend.ok ? 'Reachable' : (healthData.checks.resend.error || 'Unreachable')}
+                    </span>
+                  </div>
+                )}
+                {healthData.checks.emailJobRunsTable && (
+                  <div className={styles.healthCheckRow}>
+                    <span className={styles.healthCheckLabel}>Job Runs Table</span>
+                    <span className={healthData.checks.emailJobRunsTable.ok ? styles.healthCheckOk : styles.healthCheckErr}>
+                      {healthData.checks.emailJobRunsTable.ok ? 'OK' : (healthData.checks.emailJobRunsTable.error || 'Missing')}
+                    </span>
+                  </div>
+                )}
+                {healthData.checks.emailSendLogTable && (
+                  <div className={styles.healthCheckRow}>
+                    <span className={styles.healthCheckLabel}>Send Log Table</span>
+                    <span className={healthData.checks.emailSendLogTable.ok ? styles.healthCheckOk : styles.healthCheckErr}>
+                      {healthData.checks.emailSendLogTable.ok ? 'OK' : (healthData.checks.emailSendLogTable.error || 'Missing')}
+                    </span>
+                  </div>
+                )}
+                {healthData.checks.authAdmin && (
+                  <div className={styles.healthCheckRow}>
+                    <span className={styles.healthCheckLabel}>Auth Admin</span>
+                    <span className={healthData.checks.authAdmin.ok ? styles.healthCheckOk : styles.healthCheckErr}>
+                      {healthData.checks.authAdmin.ok ? 'OK' : (healthData.checks.authAdmin.error || 'Failed')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1332,6 +1535,7 @@ function PlanBadge({ tier }) {
 
 /* ─── Plan comparison table ──────────────────────────────────────────────── */
 const COMPARISON_ROWS = [
+  { label: 'Verified account',      free: '—',          pro: 'Verified badge' },
   { label: 'Pinned teams',          free: 'Up to 3',    pro: 'Unlimited' },
   { label: 'Team Digest teams',     free: 'Up to 3',    pro: 'Unlimited' },
   { label: 'Odds Insights',         free: 'Limited',    pro: 'Full access' },
@@ -1339,6 +1543,8 @@ const COMPARISON_ROWS = [
   { label: 'Premium email intel',   free: 'Standard',   pro: 'Premium' },
   { label: 'ATS / spread context',  free: '—',          pro: 'Advanced' },
   { label: 'Intelligence depth',    free: 'Standard',   pro: 'Full depth' },
+  { label: 'Advanced beta access',  free: '—',          pro: 'Early access' },
+  { label: 'Future free merch',     free: '—',          pro: 'Included' },
 ];
 
 function PlanComparisonTable({ currentTier }) {
@@ -1507,6 +1713,7 @@ function BillingSection({
           <div className={styles.billingUpgradeCta}>
             <div className={styles.billingUpgradeText}>
               <span className={styles.billingUpgradeTitle}>Unlock the full Maximus experience</span>
+              <span className={styles.billingUpgradeSubline}>Verified badge, beta access, future merch drops, and more.</span>
               <span className={styles.billingUpgradePrice}>{PRO_PRICE_LABEL}</span>
             </div>
             <button
@@ -1561,7 +1768,7 @@ function UpgradePrompt({ message, onUpgrade, onClose, upgradeLoading }) {
           </div>
           <div className={styles.upgradePromptRow}>
             <span className={styles.badgePro}>PRO</span>
-            <span className={styles.upgradePromptLimit}>Unlimited teams everywhere · {PRO_PRICE_LABEL}</span>
+            <span className={styles.upgradePromptLimit}>Unlimited teams · Verified badge · Beta access · {PRO_PRICE_LABEL}</span>
           </div>
         </div>
         <div className={styles.modalActions}>
@@ -2204,7 +2411,10 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
               />
             </div>
             <div className={styles.profileHeroInfo}>
-              <span className={styles.profileName}>{displayName}</span>
+              <span className={styles.profileName}>
+                {displayName}
+                {planTier === 'pro' && !planRefreshing && <VerifiedBadge className={styles.verifiedInline} />}
+              </span>
               <span className={styles.profileEmail}>{user.email}</span>
               <div className={styles.profileBadgeRow}>
                 {planRefreshing

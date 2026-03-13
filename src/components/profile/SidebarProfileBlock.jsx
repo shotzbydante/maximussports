@@ -5,7 +5,7 @@
  * For guest users, shows default mascot with CTA menu.
  */
 import { useState, useEffect, useRef } from 'react';
-import ProfileAvatar from './ProfileAvatar';
+import ProfileAvatar, { VerifiedBadge } from './ProfileAvatar';
 import ProfileMenu from './ProfileMenu';
 import styles from './SidebarProfileBlock.module.css';
 
@@ -37,6 +37,8 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
     ? 'Create your profile'
     : (profile?.handle || (profile?.username ? `@${profile.username}` : profile?.email || ''));
 
+  const isPro = !isGuest && profile?.isPro;
+
   return (
     <div className={styles.blockWrap} ref={ref}>
       <button
@@ -52,16 +54,19 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
             <ProfileAvatar
               username={isGuest ? '' : profile?.username}
               favoriteNumber={isGuest ? '' : profile?.favoriteNumber}
-              isPro={false}
+              isPro={isPro}
               avatarConfig={isGuest ? null : profile?.avatarConfig}
               size="lg"
             />
           </span>
           <div className={styles.names}>
-            <span className={styles.username}>{displayName}</span>
+            <span className={styles.username}>
+              {displayName}
+              {isPro && <VerifiedBadge className={styles.verifiedInline} />}
+            </span>
             <span className={styles.handle}>{handle}</span>
           </div>
-          {!isGuest && profile?.isPro && <span className={styles.planPill}>PRO</span>}
+          {isPro && <span className={styles.planPill}>PRO</span>}
           <span className={styles.menuDots} aria-hidden>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <circle cx="4" cy="8" r="1.2" fill="currentColor" />

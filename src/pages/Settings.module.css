@@ -1223,6 +1223,9 @@
   font-weight: 700;
   color: var(--color-text);
   line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ── Jersey graphic — shows name + number inside an SVG jersey shape ── */
@@ -2112,6 +2115,168 @@
   line-height: 1;
 }
 
+/* ─── Global Send Row ─────────────────────────────────────────────────────── */
+.logsRowWrap {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+.logsRowWrap:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.globalSendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 2px;
+  flex-wrap: wrap;
+}
+
+.btnGlobalSend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 5px;
+  border: 1px solid rgba(60, 121, 180, 0.35);
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-primary, #3c79b4);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnGlobalSend:hover:not(:disabled) {
+  background: rgba(60, 121, 180, 0.2);
+  border-color: rgba(60, 121, 180, 0.5);
+}
+.btnGlobalSend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnOverrideSend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 5px;
+  border: 1px solid rgba(208, 76, 56, 0.3);
+  background: rgba(208, 76, 56, 0.08);
+  color: var(--color-down, #c44f3a);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnOverrideSend:hover:not(:disabled) {
+  background: rgba(208, 76, 56, 0.15);
+  border-color: rgba(208, 76, 56, 0.5);
+}
+.btnOverrideSend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Run Mode Badge ──────────────────────────────────────────────────────── */
+.logsRunMode {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted, #777);
+}
+
+/* ─── Logs Details Toggle ─────────────────────────────────────────────────── */
+.logsDetailsBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--color-text-muted, #777);
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.12s;
+}
+.logsDetailsBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.logsDetailExpanded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 6px 12px 4px;
+  font-size: 0.68rem;
+  color: var(--color-text-muted, #888);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 0 6px 6px;
+}
+.logsDetailError {
+  color: var(--color-down, #c44f3a);
+  width: 100%;
+  word-break: break-word;
+}
+
+/* ─── Health Check ────────────────────────────────────────────────────────── */
+.healthResults {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.healthOverall {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.healthOk {
+  color: #2ea06a;
+  background: rgba(46, 160, 106, 0.1);
+  border: 1px solid rgba(46, 160, 106, 0.25);
+}
+.healthFail {
+  color: #d04c38;
+  background: rgba(208, 76, 56, 0.1);
+  border: 1px solid rgba(208, 76, 56, 0.25);
+}
+.healthChecks {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.healthCheckRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+}
+.healthCheckLabel {
+  color: var(--color-text-muted, #888);
+}
+.healthCheckOk {
+  color: #2ea06a;
+  font-weight: 600;
+}
+.healthCheckErr {
+  color: #d04c38;
+  font-weight: 600;
+  font-size: 0.68rem;
+  max-width: 200px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* ─── Admin QA Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 700px) {
   .logsRow {
@@ -2122,6 +2287,12 @@
 
   .logsDigestName {
     font-size: 0.78rem;
+  }
+
+  .globalSendRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 }
 
@@ -2594,10 +2765,24 @@
   color: var(--color-text);
 }
 
+.billingUpgradeSubline {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
 .billingUpgradePrice {
   font-size: 0.82rem;
   color: var(--color-primary);
   font-weight: 600;
+}
+
+/* ─── Verified Inline Badge ───────────────────────────────────────────────── */
+.verifiedInline {
+  width: 15px;
+  height: 15px;
+  vertical-align: -1px;
+  flex-shrink: 0;
 }
 
 .btnUpgrade {
