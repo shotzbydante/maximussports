@@ -27,6 +27,32 @@ function makeTeamObj(name) {
   return { name: name.replace(/^(?:The |the )/, '').trim(), slug: getTeamSlug(name) };
 }
 
+const MULTI_MASCOTS = [
+  'Blue Devils', 'Crimson Tide', 'Tar Heels', 'Golden Eagles',
+  'Yellow Jackets', 'Red Raiders', 'Nittany Lions', 'Fighting Irish',
+  'Fighting Illini', 'Demon Deacons', 'Sun Devils', 'Green Wave',
+  'Wolf Pack', 'Horned Frogs', 'Golden Gophers', 'Golden Bears',
+  'Mean Green', 'Thundering Herd', 'Red Storm', 'Running Rebels',
+];
+
+function heroDisplayName(fullName) {
+  if (!fullName) return '';
+  const name = fullName.replace(/^(?:The |the )/, '').trim();
+  const parts = name.split(/\s+/);
+  if (parts.length <= 1) return name;
+
+  const last2 = parts.slice(-2).join(' ');
+  let short;
+  if (MULTI_MASCOTS.includes(last2) && parts.length > 2) {
+    short = parts.slice(0, -2).join(' ');
+  } else {
+    short = parts.slice(0, -1).join(' ');
+  }
+
+  if (short.length > 15) short = short.replace(/\bState\b/, 'St');
+  return short || name;
+}
+
 const CAT = {
   pickem: { label: "PICK 'EM",             emoji: '🏀' },
   ats:    { label: 'AGAINST THE SPREAD',   emoji: '📉' },
@@ -69,9 +95,14 @@ function PickRow({ pick, rank }) {
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
   const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
 
+  const teamDisplay = !isTot ? heroDisplayName(pick.pickTeam) : null;
+  const pricePart = !isTot && pick.pickLine && pick.pickTeam && pick.pickLine.length > pick.pickTeam.length
+    ? pick.pickLine.slice(pick.pickTeam.length).trim()
+    : null;
+
   const opponentLabel = !isTot && pick.opponentTeam
-    ? `vs ${pick.opponentTeam}`
-    : (isTot ? `${pick.awayTeam} vs ${pick.homeTeam}` : null);
+    ? `vs ${heroDisplayName(pick.opponentTeam)}`
+    : (isTot ? `${heroDisplayName(pick.awayTeam)} vs ${heroDisplayName(pick.homeTeam)}` : null);
 
   return (
     <div className={styles.pickRow}>
@@ -80,14 +111,21 @@ function PickRow({ pick, rank }) {
         <div className={styles.pickLogos}>
           {isTot ? (
             <>
-              {awayObj && <TeamLogo team={awayObj} size={26} />}
-              {homeObj && <TeamLogo team={homeObj} size={26} />}
+              {awayObj && <TeamLogo team={awayObj} size={24} />}
+              {homeObj && <TeamLogo team={homeObj} size={24} />}
             </>
           ) : (
-            teamObj && <TeamLogo team={teamObj} size={28} />
+            teamObj && <TeamLogo team={teamObj} size={26} />
           )}
         </div>
-        <span className={styles.pickLine}>{pick.pickLine || '—'}</span>
+        {isTot ? (
+          <span className={styles.pickLine}>{pick.pickLine || '—'}</span>
+        ) : (
+          <>
+            <span className={styles.pickLine}>{teamDisplay || '—'}</span>
+            {pricePart && <span className={styles.pickPrice}>{pricePart}</span>}
+          </>
+        )}
         <span
           className={styles.pickConf}
           style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
@@ -155,7 +193,6 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const leanCt = a => a.filter(p => p.itemType === 'lean').length;
   const totalSignals = leanCt(pe) + leanCt(ats) + leanCt(val) + leanCt(tot);
   const totalPicks = pe.length + ats.length + val.length + tot.length;
-  const allPicks = [...pe, ...ats, ...val, ...tot];
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
@@ -191,11 +228,11 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
         <>
           <div className={styles.countGrid}>
             {[
-              [totalSignals, 'Signals Today'],
+              [totalSignals, 'Leans Today'],
               [leanCt(pe), "Pick 'Ems"],
               [leanCt(ats), 'Spread Edges'],
               [leanCt(val), 'Value Spots'],
-              [leanCt(tot), 'Total Signals'],
+              [leanCt(tot), 'Totals'],
             ].map(([v, l]) => (
               <div key={l} className={styles.countCell}>
                 <span className={styles.countValue}>{v}</span>
