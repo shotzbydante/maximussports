@@ -1,0 +1,113 @@
+.container {
+  padding: 2rem 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  justify-content: center;
+}
+
+.glowLine {
+  flex: 1;
+  max-width: 120px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 133, 224, 0.3), transparent);
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.bracket {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.semifinal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.semiLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.regionNote {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.2);
+  font-style: italic;
+}
+
+.championship {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 1rem;
+}
+
+.champLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5a9ee6;
+}
+
+.championDisplay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.1) 0%, rgba(234, 179, 8, 0.08) 100%);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  border-radius: 12px;
+  min-width: 160px;
+}
+
+.trophyIcon {
+  font-size: 1.5rem;
+}
+
+.championName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.championLabel {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(234, 179, 8, 0.8);
+}
+
+@media (max-width: 768px) {
+  .bracket {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .championship {
+    padding-top: 0;
+    order: -1;
+  }
+}

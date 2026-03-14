@@ -1,0 +1,142 @@
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  margin: 0 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.primaryBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.2), rgba(56, 133, 224, 0.1));
+  border: 1px solid rgba(56, 133, 224, 0.35);
+  border-radius: 8px;
+  color: #5a9ee6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.3), rgba(56, 133, 224, 0.15));
+  border-color: rgba(56, 133, 224, 0.5);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btnIcon {
+  font-size: 0.65rem;
+}
+
+.secondaryBtn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.secondaryBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.secondaryBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.dangerBtn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 8px;
+  color: rgba(239, 68, 68, 0.7);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.dangerBtn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.dangerBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pickCount {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+}
+
+.saveSaving {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  animation: pulse 1.5s ease infinite;
+}
+
+.saveSaved {
+  font-size: 0.7rem;
+  color: rgba(34, 197, 94, 0.7);
+  font-weight: 500;
+}
+
+.saveError {
+  font-size: 0.7rem;
+  color: rgba(239, 68, 68, 0.7);
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .controls {
+    flex-direction: column;
+    margin: 0 0.75rem;
+    padding: 0.75rem;
+  }
+  .left, .right {
+    width: 100%;
+    justify-content: center;
+  }
+}
