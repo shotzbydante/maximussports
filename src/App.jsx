@@ -23,6 +23,7 @@ import { AuthProvider } from './context/AuthContext';
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
 const GameMatchup = lazy(() => import('./pages/GameMatchup'));
+const Bracketology = lazy(() => import('./pages/Bracketology'));
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="college-basketball-picks-today" element={<Suspense fallback={null}><CollegeBasketballPicksToday /></Suspense>} />
               <Route path="march-madness-betting-intelligence" element={<Suspense fallback={null}><MarchMadnessHub /></Suspense>} />
+              <Route path="bracketology" element={<Suspense fallback={null}><Bracketology /></Suspense>} />
               <Route path="games/:matchupSlug" element={<Suspense fallback={null}><GameMatchup /></Suspense>} />
             </Route>
             {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}

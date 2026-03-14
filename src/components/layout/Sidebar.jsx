@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
 import { useAuth } from '../../context/AuthContext';
 import { isAdminUser } from '../../config/admin';
+import { hasBracketologyAccess } from '../../config/bracketology';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import SidebarProfileBlock from '../profile/SidebarProfileBlock';
 import styles from './Sidebar.module.css';
@@ -52,11 +53,18 @@ const DashboardIcon = () => (
     <rect x="9" y="7" width="5" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
   </svg>
 );
+const BracketIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <path d="M2 3h4v2H2zM2 7h4v2H2zM10 3h4v2h-4zM10 7h4v2h-4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <path d="M6 4h1.5v4H6M10 4H8.5M6 8h1.5v0M8 6v5M6 11h4v2H6z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function Sidebar() {
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const isAdmin = isAdminUser(user?.email);
+  const showBracketology = hasBracketologyAccess(user?.email);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
   const grouped = getTeamsGroupedByConference();
@@ -159,6 +167,18 @@ export default function Sidebar() {
               <span className={styles.icon}><NewsIcon /></span>
               <span>News Feed</span>
             </NavLink>
+            {showBracketology && (
+              <NavLink
+                to="/bracketology"
+                className={({ isActive }) =>
+                  `${styles.link} ${styles.bracketLink}${isActive ? ` ${styles.active}` : ''}`
+                }
+              >
+                <span className={styles.icon}><BracketIcon /></span>
+                <span>Bracketology</span>
+                <span className={styles.bracketBadge}>NEW</span>
+              </NavLink>
+            )}
             <NavLink
               to="/settings"
               data-testid="nav-settings"

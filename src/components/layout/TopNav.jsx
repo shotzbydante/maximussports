@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { hasBracketologyAccess } from '../../config/bracketology';
 import HeaderProfileChip from '../profile/HeaderProfileChip';
 import styles from './TopNav.module.css';
 
@@ -41,20 +42,28 @@ function PlanBadge({ tier, isLoading, isSyncing }) {
   );
 }
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { to: '/', end: true, label: 'Home' },
   { to: '/games', end: false, label: 'Games' },
   { to: '/teams', end: false, label: 'Team Intel Hub' },
   { to: '/insights', end: false, label: 'Odds Insights' },
   { to: '/news', end: false, label: 'News Feed' },
-  { to: '/settings', end: false, label: 'Settings', testId: 'nav-settings' },
 ];
+
+const BRACKETOLOGY_LINK = { to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true };
+const SETTINGS_LINK = { to: '/settings', end: false, label: 'Settings', testId: 'nav-settings' };
 
 export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
   const { planTier, isLoading, isSyncing } = usePlan();
   const { profile } = useUserProfile();
+  const showBracketology = hasBracketologyAccess(user?.email);
+  const NAV_LINKS = useMemo(() => [
+    ...BASE_NAV_LINKS,
+    ...(showBracketology ? [BRACKETOLOGY_LINK] : []),
+    SETTINGS_LINK,
+  ], [showBracketology]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -86,14 +95,14 @@ export default function TopNav() {
         </div>
       </div>
       <nav className={styles.nav} aria-hidden={menuOpen ? false : undefined}>
-        {NAV_LINKS.map(({ to, end, label, testId }) => (
+        {NAV_LINKS.map(({ to, end, label, testId, isBracketology }) => (
           <span key={to} className={styles.navItem}>
             {end ? (
               <NavLink to={to} end data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
                 {label}
               </NavLink>
             ) : (
-              <NavLink to={to} data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+              <NavLink to={to} data-testid={testId} className={({ isActive }) => `${styles.link}${isBracketology ? ` ${styles.bracketLink}` : ''}${isActive ? ` ${styles.active}` : ''}`} onClick={() => setMenuOpen(false)}>
                 {label}
               </NavLink>
             )}
@@ -118,14 +127,14 @@ export default function TopNav() {
       {menuOpen && (
         <div className={styles.navOverlay} aria-hidden>
           <nav className={styles.navDropdown} onClick={(e) => e.stopPropagation()}>
-            {NAV_LINKS.map(({ to, end, label, testId }) => (
+            {NAV_LINKS.map(({ to, end, label, testId, isBracketology }) => (
               <span key={to} className={styles.navDropdownItem}>
                 {end ? (
                   <NavLink to={to} end data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
                     {label}
                   </NavLink>
                 ) : (
-                  <NavLink to={to} data-testid={testId} className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)} onClick={() => setMenuOpen(false)}>
+                  <NavLink to={to} data-testid={testId} className={({ isActive }) => `${styles.link}${isBracketology ? ` ${styles.bracketLink}` : ''}${isActive ? ` ${styles.active}` : ''}`} onClick={() => setMenuOpen(false)}>
                     {label}
                   </NavLink>
                 )}
