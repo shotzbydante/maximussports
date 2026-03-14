@@ -132,7 +132,7 @@ export function renderEmailVideoCard(video, opts = {}) {
 
   return `
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-       style="background:#0f1825;border:1px solid rgba(255,255,255,0.08);border-radius:7px;border-collapse:collapse;">
+       style="background:#f9fafb;border:1px solid #e8ecf0;border-radius:6px;border-collapse:collapse;">
   <tr>
     <td style="padding:11px 14px 11px;" class="video-card-td">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
@@ -140,14 +140,14 @@ export function renderEmailVideoCard(video, opts = {}) {
           ${thumbCell}
           <td valign="middle">
             <a href="${card.watchUrl}" target="_blank"
-               style="font-size:13px;font-weight:600;color:#c8d4e0;line-height:1.35;text-decoration:none;display:block;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+               style="font-size:13px;font-weight:600;color:#1a1a2e;line-height:1.35;text-decoration:none;display:block;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
               ${card.title}
             </a>
             <div style="margin-top:4px;">
-              ${card.channel ? `<span style="font-size:10px;color:#4a6070;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${card.channel}</span>` : ''}
-              ${card.channel ? `<span style="font-size:10px;color:#2a3848;font-family:'DM Sans',Arial,Helvetica,sans-serif;"> &middot; </span>` : ''}
+              ${card.channel ? `<span style="font-size:11px;color:#8a94a6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${card.channel}</span>` : ''}
+              ${card.channel ? `<span style="font-size:11px;color:#b0b8c4;font-family:'DM Sans',Arial,Helvetica,sans-serif;"> &middot; </span>` : ''}
               <a href="${card.watchUrl}" target="_blank"
-                 style="font-size:10px;color:#3d6e90;text-decoration:underline;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Watch on YouTube</a>
+                 style="font-size:11px;color:#2d6ca8;text-decoration:underline;font-family:'DM Sans',Arial,Helvetica,sans-serif;">Watch on YouTube</a>
             </div>
           </td>
         </tr>

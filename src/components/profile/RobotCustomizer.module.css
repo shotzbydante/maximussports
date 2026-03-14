@@ -20,13 +20,14 @@
 
 .swatches {
   display: flex;
-  gap: 8px;
+  gap: 7px;
   flex-wrap: wrap;
+  max-width: 280px;
 }
 
 .swatch {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 2.5px solid transparent;
   cursor: pointer;

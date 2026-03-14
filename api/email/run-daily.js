@@ -4,12 +4,15 @@
  *
  * Automated daily email engine. Called by Vercel cron jobs.
  *
- * Schedule (configured in vercel.json, all times UTC):
- *   daily:      0 14 * * *  → ~6 AM PST / 7 AM PDT
- *   pinned:     0 15 * * *  → ~7 AM PST / 8 AM PDT
- *   odds:       0 19 * * *  → ~11 AM PST / 12 PM PDT
- *   news:       0  0 * * *  → ~4 PM PST / 5 PM PDT
- *   teamDigest: 0 14 * * *  → ~6 AM PST / 7 AM PDT (same window as daily)
+ * Staggered cadence (configured in vercel.json, all times UTC):
+ *   daily:       0 13 * * *  → 6:00 AM PDT / 5:00 AM PST  — Morning briefing
+ *   news:       30 16 * * *  → 9:30 AM PDT / 8:30 AM PST  — Breaking news digest
+ *   odds:       15 19 * * *  → 12:15 PM PDT / 11:15 AM PST — Odds & ATS intel
+ *   pinned:     45 22 * * *  → 3:45 PM PDT / 2:45 PM PST  — Pinned teams alerts
+ *   teamDigest: 30  2 * * *  → 7:30 PM PDT / 6:30 PM PST  — Team digest
+ *
+ * Designed so a fully subscribed user gets emails spread through the day,
+ * not all at once. Times target Pacific Daylight (PDT, UTC-7).
  *
  * For each email type:
  *  1. Fetch all users from Supabase auth

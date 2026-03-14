@@ -81,7 +81,7 @@ function logoImg(slug, name, size = 28) {
   const initials = getInitials(name);
   const fontSize = size <= 20 ? 7 : size <= 28 ? 9 : 11;
   const lh = size - 2;
-  return `<span style="display:inline-block;width:${size}px;height:${size}px;background:rgba(50,90,140,0.20);border:1px solid rgba(90,140,200,0.28);border-radius:3px;vertical-align:middle;text-align:center;line-height:${lh}px;font-size:${fontSize}px;font-weight:700;color:#5a9fd4;font-family:'DM Sans',Arial,Helvetica,sans-serif;letter-spacing:-0.01em;">${initials}</span>`;
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;background:#e8ecf0;border:1px solid #d0d8e0;border-radius:3px;vertical-align:middle;text-align:center;line-height:${lh}px;font-size:${fontSize}px;font-weight:700;color:#2d6ca8;font-family:'DM Sans',Arial,Helvetica,sans-serif;letter-spacing:-0.01em;">${initials}</span>`;
 }
 
 /**
@@ -188,14 +188,13 @@ export function renderEmailGameCard(game, opts = {}) {
   const card = game?.statusKind ? game : buildGameCardData(game);
   if (!card) return '';
 
-  const { compact = false, baseColor = '#0f1825' } = opts;
+  const { compact = false, baseColor = '#f9fafb' } = opts;
   const pad = compact ? '10px 14px' : '13px 16px';
 
-  // ── Status chip
   const statusChipColors = {
-    final:     { bg: 'rgba(45,140,90,0.15)', border: '#2a7050', text: '#38aa70' },
-    live:      { bg: 'rgba(220,100,30,0.15)', border: '#c05020', text: '#e07030' },
-    scheduled: { bg: 'rgba(50,110,170,0.12)', border: '#2d5e90', text: '#4a8fc0' },
+    final:     { bg: '#ecfdf5', border: '#86efac', text: '#16a34a' },
+    live:      { bg: '#fff7ed', border: '#fdba74', text: '#ea580c' },
+    scheduled: { bg: '#eff6ff', border: '#93c5fd', text: '#2563eb' },
   };
   const sc = statusChipColors[card.statusKind] || statusChipColors.scheduled;
   const statusLabel = card.statusKind === 'final'
@@ -206,24 +205,21 @@ export function renderEmailGameCard(game, opts = {}) {
 
   const statusChip = `<span style="display:inline-block;background:${sc.bg};border:1px solid ${sc.border};color:${sc.text};font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;white-space:nowrap;vertical-align:middle;">${statusLabel}</span>`;
 
-  // ── Away row
   const awayLogo = logoImg(card.awaySlug, card.awayTeam, compact ? 24 : 28);
   const awayScoreHtml = card.awayScore != null
-    ? `<span style="font-size:${compact ? 16 : 18}px;font-weight:800;color:#edf2f8;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">${card.awayScore}</span>`
+    ? `<span style="font-size:${compact ? 16 : 18}px;font-weight:800;color:#1a1a2e;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">${card.awayScore}</span>`
     : '';
 
-  // ── Home row
   const homeLogo = logoImg(card.homeSlug, card.homeTeam, compact ? 24 : 28);
   const homeScoreHtml = card.homeScore != null
-    ? `<span style="font-size:${compact ? 16 : 18}px;font-weight:800;color:#edf2f8;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">${card.homeScore}</span>`
+    ? `<span style="font-size:${compact ? 16 : 18}px;font-weight:800;color:#1a1a2e;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1;">${card.homeScore}</span>`
     : '';
 
-  // Highlight winner
   const awayWins = card.statusKind === 'final' && card.awayScore != null && card.homeScore != null && Number(card.awayScore) > Number(card.homeScore);
   const homeWins = card.statusKind === 'final' && card.awayScore != null && card.homeScore != null && Number(card.homeScore) > Number(card.awayScore);
 
-  const awayNameColor = card.statusKind === 'final' ? (awayWins ? '#edf2f8' : '#60748a') : '#c8d4e0';
-  const homeNameColor = card.statusKind === 'final' ? (homeWins ? '#edf2f8' : '#60748a') : '#c8d4e0';
+  const awayNameColor = card.statusKind === 'final' ? (awayWins ? '#1a1a2e' : '#8a94a6') : '#1a1a2e';
+  const homeNameColor = card.statusKind === 'final' ? (homeWins ? '#1a1a2e' : '#8a94a6') : '#1a1a2e';
   const awayNameWeight = awayWins ? '700' : '500';
   const homeNameWeight = homeWins ? '700' : '500';
 
@@ -231,7 +227,7 @@ export function renderEmailGameCard(game, opts = {}) {
   const lineItems = [card.spread ? `Spread: ${card.spread}` : null, card.ou || null].filter(Boolean);
   const lineRow = lineItems.length > 0
     ? `<tr>
-        <td colspan="2" style="padding:0 ${compact ? 14 : 16}px ${compact ? 8 : 10}px;font-size:11px;color:#4a7fa8;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">
+        <td colspan="2" style="padding:0 ${compact ? 14 : 16}px ${compact ? 8 : 10}px;font-size:11px;color:#2d6ca8;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">
           ${lineItems.join('&nbsp;&nbsp;&middot;&nbsp;&nbsp;')}
         </td>
       </tr>`
@@ -251,7 +247,7 @@ export function renderEmailGameCard(game, opts = {}) {
 
   return `
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-       style="background:${baseColor};border:1px solid rgba(255,255,255,0.09);border-radius:7px;border-collapse:collapse;overflow:hidden;">
+       style="background:${baseColor};border:1px solid #e8ecf0;border-radius:6px;border-collapse:collapse;overflow:hidden;">
   <tr>
     <td colspan="2" style="padding:${compact ? 10 : 12}px ${compact ? 14 : 16}px 8px;">
       ${statusChip}
@@ -290,7 +286,7 @@ export function renderEmailGameCard(game, opts = {}) {
     </td>
   </tr>
   <!-- Divider -->
-  ${lineRow || gamcastRow ? `<tr><td colspan="2" style="height:1px;background:rgba(255,255,255,0.06);font-size:0;line-height:0;">&nbsp;</td></tr>` : ''}
+  ${lineRow || gamcastRow ? `<tr><td colspan="2" style="height:1px;background:#e8ecf0;font-size:0;line-height:0;">&nbsp;</td></tr>` : ''}
   ${lineRow}
   ${gamcastRow}
 </table>`;
