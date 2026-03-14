@@ -1,0 +1,366 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Onboarding Preview Cards — miniature UI replicas for WelcomeModal Step 2.
+   Styled to match Air Force One design tokens at 85% scale.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.previewRoot {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-bg, #F1F4F7);
+  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(60, 121, 180, 0.08);
+  transform: scale(1);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans, 'DM Sans', system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  pointer-events: none;
+}
+
+.previewRoot:hover {
+  transform: scale(1.02);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 10px 24px rgba(60, 121, 180, 0.12);
+}
+
+/* ─── Shared: header bar ──────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--color-bg-elevated, #fff);
+  border-bottom: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  flex-shrink: 0;
+}
+
+.headerLabel {
+  font-family: var(--font-sans, 'DM Sans', sans-serif);
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: var(--color-primary, #3C79B4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.headerBadge {
+  font-size: 0.42rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.headerBadgePrimary {
+  background: rgba(60, 121, 180, 0.12);
+  color: var(--color-primary, #3C79B4);
+}
+
+.headerBadgeAccent {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-accent, #B7986C);
+}
+
+.headerBadgeUp {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up, #2d8a6e);
+}
+
+/* ─── Shared: body area ───────────────────────────── */
+
+.body {
+  flex: 1;
+  padding: 6px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+
+/* ─── Shared: mini card ───────────────────────────── */
+
+.miniCard {
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+  border-radius: 6px;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.miniCardRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.miniCardTitle {
+  margin: 0;
+  font-size: 0.54rem;
+  font-weight: 600;
+  color: var(--color-text, #1a2d3d);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miniCardSub {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.44rem;
+  color: var(--color-text-muted, #5c7a91);
+  line-height: 1.3;
+}
+
+/* ─── Shared: tag / badge ─────────────────────────── */
+
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.38rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.tagHigh {
+  background: rgba(45, 138, 110, 0.12);
+  color: var(--color-up, #2d8a6e);
+}
+
+.tagMedium {
+  background: rgba(183, 152, 108, 0.12);
+  color: var(--color-accent, #B7986C);
+}
+
+.tagLow {
+  background: rgba(60, 121, 180, 0.10);
+  color: var(--color-primary, #3C79B4);
+}
+
+.tagPartial {
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-text-muted, #5c7a91);
+}
+
+.tagContender {
+  background: rgba(45, 138, 110, 0.15);
+  color: var(--color-up, #2d8a6e);
+}
+
+.tagSignal {
+  background: rgba(60, 121, 180, 0.10);
+  color: var(--color-primary, #3C79B4);
+}
+
+/* ─── Shared: logo placeholder ────────────────────── */
+
+.logoCircle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.4rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ─── Shared: progress bar ────────────────────────── */
+
+.progressBar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-border-light, rgba(60, 121, 180, 0.12));
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* ─── TeamIntel: columns layout ───────────────────── */
+
+.teamIntelGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  flex: 1;
+  min-height: 0;
+}
+
+.teamIntelCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teamProfileCard {
+  composes: miniCard;
+  gap: 3px;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.teamName {
+  margin: 0;
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--color-text, #1a2d3d);
+  line-height: 1.1;
+}
+
+.teamConf {
+  margin: 0;
+  font-size: 0.4rem;
+  color: var(--color-text-muted, #5c7a91);
+}
+
+.atsValue {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--color-up, #2d8a6e);
+  line-height: 1;
+}
+
+.oddsValue {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.52rem;
+  font-weight: 700;
+  color: var(--color-up, #2d8a6e);
+}
+
+/* ─── OddsInsights: layout ────────────────────────── */
+
+.oddsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+.oddsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.spreadValue {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--color-text, #1a2d3d);
+}
+
+.edgeValue {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.42rem;
+  font-weight: 600;
+  color: var(--color-up, #2d8a6e);
+}
+
+/* ─── AIPicks: 4-col layout ───────────────────────── */
+
+.picksGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+.picksColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.picksColumnHeader {
+  margin: 0;
+  font-size: 0.4rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #5c7a91);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--color-border-light, rgba(60, 121, 180, 0.12));
+}
+
+.pickCard {
+  composes: miniCard;
+  padding: 4px 5px;
+  gap: 2px;
+}
+
+.pickTeam {
+  margin: 0;
+  font-size: 0.48rem;
+  font-weight: 600;
+  color: var(--color-text, #1a2d3d);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pickDetail {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.38rem;
+  color: var(--color-text-muted, #5c7a91);
+  line-height: 1.3;
+}
+
+/* ─── Mobile (inside onboarding modal) ────────────── */
+
+@media (max-width: 640px) {
+  .previewRoot {
+    aspect-ratio: 3 / 2;
+  }
+
+  .picksGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .teamIntelGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .oddsRow {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    padding: 5px 8px;
+  }
+
+  .body {
+    padding: 5px 8px 6px;
+    gap: 4px;
+  }
+}
