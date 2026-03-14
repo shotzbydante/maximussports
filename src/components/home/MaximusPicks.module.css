@@ -187,8 +187,9 @@
 .cardList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 8px;
+  padding: 10px 8px;
+  overflow: visible;
 }
 
 /* ─── pick card ──────────────────────────────────────────────────── */
@@ -196,14 +197,14 @@
 .pickCard {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 11px;
+  gap: 7px;
+  padding: 10px 12px;
   background: var(--color-bg, #f6f6f6);
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
   transition: border-color 0.12s, box-shadow 0.12s;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .watchCard {
@@ -297,7 +298,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 110px;
+  max-width: 130px;
+}
+
+@media (max-width: 767px) {
+  .matchupName {
+    max-width: 42vw;
+  }
 }
 
 .matchupAt {
@@ -311,10 +318,11 @@
 .cardRecommendation {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-wrap: wrap;
   padding: 4px 0 2px;
   min-width: 0;
+  row-gap: 5px;
 }
 
 .recLabel {
@@ -375,6 +383,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  min-height: 24px;
+}
+
+@media (max-width: 767px) {
+  .pickPill {
+    max-width: calc(100% - 60px);
+  }
 }
 
 .cardMain {
@@ -411,7 +426,7 @@
 .confChip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
+  padding: 2px 8px;
   font-size: 0.56rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -420,6 +435,8 @@
   white-space: nowrap;
   flex-shrink: 0;
   cursor: default;
+  min-height: 20px;
+  line-height: 1;
 }
 
 .confHigh {
@@ -464,10 +481,11 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 3px 6px;
+  padding: 4px 8px;
   background: rgba(60, 121, 180, 0.03);
   border: 1px solid rgba(60, 121, 180, 0.07);
   border-radius: 4px;
+  row-gap: 4px;
 }
 
 .edgePair {
@@ -664,11 +682,13 @@
   position: relative;
   border-color: rgba(183, 152, 108, 0.40);
   box-shadow: 0 0 8px rgba(183, 152, 108, 0.12);
+  margin-top: 6px;
+  padding-top: 12px;
 }
 
 .topSignalBadge {
   position: absolute;
-  top: -8px;
+  top: -9px;
   left: 10px;
   font-size: 0.55rem;
   font-weight: 800;
@@ -676,7 +696,7 @@
   text-transform: uppercase;
   color: #0d1117;
   background: linear-gradient(135deg, #d4b896, #B7986C);
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 4px;
   box-shadow: 0 1px 5px rgba(183, 152, 108, 0.30);
   line-height: 1.3;
