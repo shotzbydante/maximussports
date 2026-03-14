@@ -1,0 +1,129 @@
+/* ─── Bracketology — premium dark-mode tournament surface ───────────── */
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0a1628 0%, #060d1a 40%, #080e1c 100%);
+  color: #fff;
+  overflow-x: hidden;
+}
+
+.backgroundGlow {
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1200px;
+  height: 800px;
+  background: radial-gradient(ellipse, rgba(56, 133, 224, 0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.backgroundVignette {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Bracket layout ────────────────────────────────────────────── */
+
+.bracketContainer {
+  position: relative;
+  z-index: 1;
+  padding: 1.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
+.bracketGrid {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  min-width: max-content;
+}
+
+.leftBracket,
+.rightBracket {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  flex-shrink: 0;
+}
+
+.centerBracket {
+  flex-shrink: 0;
+  align-self: center;
+  min-width: 500px;
+}
+
+/* ─── Legend ──────────────────────────────────────────────────── */
+
+.legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.legendManual {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
+.legendMaximus {
+  color: #5a9ee6;
+  font-size: 0.65rem;
+}
+
+.legendUpset {
+  font-size: 0.75rem;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────── */
+
+@media (max-width: 1400px) {
+  .bracketGrid {
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .leftBracket,
+  .rightBracket {
+    width: 100%;
+  }
+
+  .centerBracket {
+    min-width: 0;
+    width: 100%;
+    max-width: 600px;
+  }
+}
+
+@media (max-width: 768px) {
+  .bracketContainer {
+    padding: 0.75rem;
+  }
+
+  .legend {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+}

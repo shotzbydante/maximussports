@@ -1,0 +1,65 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem;
+  position: relative;
+}
+
+.glow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(ellipse, rgba(56, 133, 224, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.lockIcon {
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+}
+
+.description {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.3);
+  max-width: 400px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.backLink {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #5a9ee6;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.backLink:hover {
+  color: #7ab5f0;
+}
