@@ -22,7 +22,7 @@ import { getTeamColors } from '../../utils/teamColors';
 import { teamPersonality } from '../../utils/teamSnapshot';
 import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
-import SEOHead from '../seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
 const ytDebug = typeof window !== 'undefined'
@@ -314,8 +314,9 @@ export default function TeamPage() {
   }
 
   const currentYear = new Date().getFullYear();
-  const teamSeoTitle = `${team.name} Betting Intelligence (${currentYear}) — ATS Trends & Odds`;
-  const teamSeoDesc = `${currentYear} college basketball betting intelligence for ${team.name} — ATS trends, matchup analysis, model projections, and ${team.conference} conference insights.`;
+  const teamSeoTitle = `${team.name} Team Intel`;
+  const teamSeoDesc = `ATS trends, next-game intel, rankings, and betting signals for ${team.name}. ${team.conference} conference intelligence powered by Maximus Sports.`;
+  const teamOgImage = buildOgImageUrl({ title: team.name, subtitle: 'ATS trends, matchup edges & betting intelligence', meta: atsForSummary?.season?.total > 0 ? `ATS: ${atsForSummary.season.wins}\u2013${atsForSummary.season.losses}` : team.conference, team: team.name, type: 'Team Intel' });
   const tierInfo = TIER_LABEL[team.oddsTier] || {};
   const hasConsensus = nextLine.consensus?.spread != null || nextLine.consensus?.total != null || nextLine.consensus?.moneyline != null;
 
@@ -325,6 +326,7 @@ export default function TeamPage() {
         title={teamSeoTitle}
         description={teamSeoDesc}
         canonicalPath={`/teams/${slug}`}
+        ogImage={teamOgImage}
         jsonLd={{ '@context': 'https://schema.org', '@type': 'SportsTeam', name: team.name, sport: 'Basketball', memberOf: { '@type': 'SportsOrganization', name: team.conference }, url: `https://maximussports.ai/teams/${slug}` }}
       />
 

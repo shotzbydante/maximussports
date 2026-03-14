@@ -23,6 +23,7 @@ import { TEAMS } from '../data/teams';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import RankingsTable from '../components/insights/RankingsTable';
 import ShareButton from '../components/common/ShareButton';
+import { buildOgImageUrl } from '../components/seo/SEOHead';
 import MaximusPicks from '../components/home/MaximusPicks';
 import AffiliateCta, { BrandMark } from '../components/common/AffiliateCta';
 import styles from './Insights.module.css';
@@ -1157,6 +1158,7 @@ export default function Insights() {
         title={`Odds Insights — College Basketball Betting Intelligence & ATS Trends (${new Date().getFullYear()})`}
         description={`Premium ${new Date().getFullYear()} college basketball market intelligence with live odds, ATS performance leaders, spread analysis, upset alerts, and data-driven NCAAB betting picks powered by the Maximus model.`}
         canonicalPath="/insights"
+        ogImage={buildOgImageUrl({ title: 'Odds Insights', subtitle: 'Live spreads, ATS trends & market intelligence', type: 'Odds Insight' })}
       />
       {/* ── Header ── */}
       <header className={styles.header}>

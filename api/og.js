@@ -23,12 +23,14 @@ const MAX_META_LEN     = 60;
 const MAX_TEAM_LEN     = 40;
 
 const BADGE_COLORS = {
-  'Upset Watch':   { bg: '#e53e3e', text: '#fff' },
+  'Upset Watch':    { bg: '#e53e3e', text: '#fff' },
   'High Upset Risk': { bg: '#c53030', text: '#fff' },
-  'ATS Intel':     { bg: '#3c79b4', text: '#fff' },
-  'Odds Insight':  { bg: '#2d6a4f', text: '#e0f2e9' },
-  'Team Intel':    { bg: '#1a365d', text: '#bee3f8' },
-  'Bracket Bust':  { bg: '#744210', text: '#fefcbf' },
+  'ATS Intel':      { bg: '#3c79b4', text: '#fff' },
+  'Odds Insight':   { bg: '#2d6a4f', text: '#e0f2e9' },
+  'Team Intel':     { bg: '#1a365d', text: '#bee3f8' },
+  'Bracket Bust':   { bg: '#744210', text: '#fefcbf' },
+  'Matchup Intel':  { bg: '#553c9a', text: '#e9d8fd' },
+  'Maximus Picks':  { bg: '#2d8a6e', text: '#e0f2e9' },
 };
 
 function clamp(str, max) {

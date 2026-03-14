@@ -4,7 +4,7 @@ import { TEAMS } from '../data/teams';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { buildMatchupSlug } from '../utils/matchupSlug';
 import TeamLogo from '../components/shared/TeamLogo';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import styles from './MarchMadnessHub.module.css';
 
 const CONFERENCES = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East'];
@@ -74,6 +74,7 @@ export default function MarchMadnessHub() {
         title={`March Madness Betting Intelligence (${currentYear}) — Picks, Trends & Predictions`}
         description={`${currentYear} March Madness betting intelligence including tournament matchup insights, team betting trends, bracket analysis signals, and championship odds powered by Maximus Sports.`}
         canonicalPath="/march-madness-betting-intelligence"
+        ogImage={buildOgImageUrl({ title: 'March Madness Intelligence', subtitle: 'Tournament picks, trends & bracket analysis', type: 'Bracket Bust' })}
         jsonLd={jsonLd}
       />
 

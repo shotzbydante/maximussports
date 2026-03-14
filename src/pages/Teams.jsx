@@ -11,7 +11,7 @@ import { fetchHomeFast } from '../api/home';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import styles from './Teams.module.css';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 
 const TIER_ORDER = ['Lock', 'Should be in', 'Work to do', 'Long shot'];
 const CONF_ORDER = ['Big Ten', 'SEC', 'ACC', 'Big 12', 'Big East', 'Others'];
@@ -412,6 +412,7 @@ export default function Teams() {
         title={`College Basketball Team Intel Hub \u2014 Conference Betting Intelligence (${new Date().getFullYear()})`}
         description={`The Team Intel Hub: explore ${new Date().getFullYear()} college basketball intelligence by conference. ATS trends, championship odds, tournament projections, and betting signals for every tracked NCAAB program.`}
         canonicalPath="/teams"
+        ogImage={buildOgImageUrl({ title: 'Team Intel Hub', subtitle: 'ATS trends, championship odds & conference intelligence', type: 'Team Intel' })}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'CollectionPage',

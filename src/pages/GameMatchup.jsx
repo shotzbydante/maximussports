@@ -10,7 +10,7 @@ import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { parseMatchupSlug, buildMatchupSlug, shortTeamName } from '../utils/matchupSlug';
 import { getPinnedTeams } from '../utils/pinnedTeams';
 import TeamLogo from '../components/shared/TeamLogo';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import styles from './GameMatchup.module.css';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -182,8 +182,9 @@ export default function GameMatchup() {
     ? new Date(startTime).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : null;
 
-  const seoTitle = `${shortA} vs ${shortB} Prediction & Betting Intelligence (${CURRENT_YEAR})`;
-  const seoDesc = `AI-powered betting analysis for ${displayTitle} including spread analysis, ATS trends, model projections, and matchup insights. ${shortA} vs ${shortB} picks and predictions.`;
+  const seoTitle = `${shortA} vs ${shortB} Odds, ATS Signals & Picks`;
+  const seoDesc = `Live spread intel, model edges, and game analysis for ${shortA} vs ${shortB}. Data-driven predictions powered by Maximus Sports.`;
+  const matchupOgImage = buildOgImageUrl({ title: `${shortA} vs ${shortB}`, subtitle: 'Matchup analysis, model edges & predictions', type: 'Matchup Intel' });
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -222,6 +223,7 @@ export default function GameMatchup() {
         title={seoTitle}
         description={seoDesc}
         canonicalPath={`/games/${canonicalSlug}`}
+        ogImage={matchupOgImage}
         jsonLd={jsonLd}
       />
 

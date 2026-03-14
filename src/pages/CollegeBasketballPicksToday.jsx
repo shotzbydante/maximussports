@@ -12,7 +12,7 @@ import { sportsDateStr } from '../utils/slateDate';
 import { getPinnedTeams } from '../utils/pinnedTeams';
 import { buildMatchupSlug } from '../utils/matchupSlug';
 import MaximusPicks from '../components/home/MaximusPicks';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import styles from './CollegeBasketballPicksToday.module.css';
 
 const DEFAULT_SLUGS = ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
@@ -146,6 +146,7 @@ export default function CollegeBasketballPicksToday() {
         title={`College Basketball Picks Today (${currentYear}) — NCAAB Predictions & Betting Intelligence`}
         description={`Today's college basketball betting intelligence for the ${currentYear} season — ATS picks, model-driven predictions, and game totals across the NCAAB slate powered by the Maximus model.`}
         canonicalPath="/college-basketball-picks-today"
+        ogImage={buildOgImageUrl({ title: "Today's Picks", subtitle: 'ATS picks, value leans & game totals', type: 'Odds Insight' })}
         jsonLd={jsonLd}
       />
 

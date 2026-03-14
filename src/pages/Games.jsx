@@ -7,7 +7,7 @@ import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
 import SourceBadge from '../components/shared/SourceBadge';
 import styles from './Games.module.css';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 
 const KeyDatesWidget = lazy(() => import('../components/home/KeyDatesWidget'));
 const DailySchedule = lazy(() => import('../components/home/DailySchedule'));
@@ -86,6 +86,7 @@ export default function Games() {
         title={`College Basketball Games Today — Live Scores, Spreads & Schedule (${new Date().getFullYear()})`}
         description={`Live college basketball scores, spreads, and the full NCAAB daily schedule for ${new Date().getFullYear()}. Track every game with real-time odds and betting lines powered by Maximus Sports.`}
         canonicalPath="/games"
+        ogImage={buildOgImageUrl({ title: "Today's Games", subtitle: 'Live scores, spreads & daily schedule', type: 'Odds Insight' })}
       />
       <header className={styles.header}>
         <h1>College Basketball Games Today</h1>
