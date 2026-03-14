@@ -105,7 +105,10 @@ function PickRow({ pick, rank }) {
     : (isTot ? `${heroDisplayName(pick.awayTeam)} vs ${heroDisplayName(pick.homeTeam)}` : null);
 
   return (
-    <div className={styles.pickRow}>
+    <div className={`${styles.pickRow} ${pick.isTopSignal ? styles.topSignalRow : ''}`}>
+      {pick.isTopSignal && (
+        <span className={styles.topSignalBadge}>TOP SIGNAL</span>
+      )}
       <div className={styles.pickMain}>
         <span className={styles.pickRank}>#{rank}</span>
         <div className={styles.pickLogos}>

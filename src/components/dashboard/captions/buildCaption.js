@@ -399,11 +399,11 @@ function buildGameCaption({ game, picks, asOf }) {
 // ─── Maximus's Picks ──────────────────────────────────────────────────────────
 
 const PICKS_HOOKS = [
-  'Today\u2019s model scan surfaced a few interesting edges across the board.',
-  'The model ran today\u2019s slate. Here\u2019s where it sees the clearest separation.',
-  'A handful of signals cleared the model threshold today. Here\u2019s the breakdown.',
-  'Model board is live. The data flagged some notable divergences from market pricing.',
-  'Today\u2019s board has some edges worth watching. Here\u2019s what the model found.',
+  '\uD83D\uDEA8 MODEL SCAN COMPLETE \uD83D\uDEA8\nThe Maximus model just flagged a handful of edges across today\u2019s board.',
+  '\uD83D\uDEA8 MODEL SCAN COMPLETE \uD83D\uDEA8\nThe model ran today\u2019s slate and surfaced some notable divergences from market pricing.',
+  '\uD83D\uDEA8 MODEL SCAN COMPLETE \uD83D\uDEA8\nA handful of signals cleared the model threshold today. Here\u2019s the breakdown.',
+  '\uD83D\uDEA8 MODEL SCAN COMPLETE \uD83D\uDEA8\nToday\u2019s board has some edges worth watching. Here\u2019s what the model found.',
+  '\uD83D\uDEA8 MODEL SCAN COMPLETE \uD83D\uDEA8\nThe model scanned the full board. Several signals cleared the threshold.',
 ];
 
 function _picksHookForDate() {
@@ -471,70 +471,68 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
     return `${totTeamEmoji(pick)} ${shortName} ${dir} ${pick.lineValue || ''}`.trim();
   }
 
-  // ── 1. Opening Hook — analytical, not hype ───────────────────────────────
+  // ── 1. Opening Hook ────────────────────────────────────────────────────────
   const hook = _picksHookForDate();
 
-  // ── 2. Key Picks Summary — scannable list of top signals ─────────────────
-  const topSignals = [];
-  const topPe  = peList[0];
-  const topAts = atsList[0];
-  const topVal = valList[0];
-  const topTot = totList.find(p => p.leanDirection);
-
-  if (topPe) topSignals.push(`${teamEmoji(topPe)} ${topPe.pickLine || topPe.pickTeam} (Pick 'Em)`);
-  if (topAts) topSignals.push(`${teamEmoji(topAts)} ${fmtAtsEntry(topAts)} (ATS)`);
-  if (topVal) topSignals.push(`${teamEmoji(topVal)} ${fmtValueEntry(topVal)} (Value)`);
-  if (topTot) topSignals.push(`${totTeamEmoji(topTot)} ${fmtTotalEntry(topTot)}`);
-
-  const signalsSummarySection = topSignals.length > 0
-    ? `Top signals today:\n${topSignals.join('\n')}`
-    : null;
-
-  // ── 3. Short Rationale — 1-2 lines explaining why the model likes the pick
-  const rationaleLines = [];
-  const take = getMaximusTake(all);
-  if (take?.pick?.rationale) {
-    rationaleLines.push(take.pick.rationale.split('.').slice(0, 2).join('.') + '.');
-  } else if (topVal?.rationale) {
-    rationaleLines.push(topVal.rationale.split('.').slice(0, 2).join('.') + '.');
-  } else if (topAts?.rationale) {
-    rationaleLines.push(topAts.rationale.split('.').slice(0, 2).join('.') + '.');
+  // ── 2. Top Signal Section — highlight the single strongest pick ──────────
+  const topSignalPick = all.find(p => p.isTopSignal && p.itemType === 'lean') ?? null;
+  let topSignalSection = null;
+  if (topSignalPick) {
+    const pickLabel = topSignalPick.pickLine || topSignalPick.pickTeam || '';
+    const tEmoji = topSignalPick.pickType === 'total'
+      ? totTeamEmoji(topSignalPick)
+      : teamEmoji(topSignalPick);
+    const rationaleSnippet = topSignalPick.rationale
+      ? topSignalPick.rationale.split('.').slice(0, 2).join('.') + '.'
+      : null;
+    topSignalSection = [
+      `\uD83D\uDD25 Top Signal`,
+      `${tEmoji} ${pickLabel}`,
+      rationaleSnippet,
+    ].filter(Boolean).join('\n');
+  } else {
+    const take = getMaximusTake(all);
+    if (take?.pick) {
+      const pickLabel = take.label || '';
+      const rationaleSnippet = take.pick.rationale
+        ? take.pick.rationale.split('.').slice(0, 2).join('.') + '.'
+        : null;
+      topSignalSection = [
+        `\uD83D\uDD25 Top Signal`,
+        pickLabel,
+        rationaleSnippet,
+      ].filter(Boolean).join('\n');
+    }
   }
 
-  // ── 4. Full board breakdown ──────────────────────────────────────────────
+  // ── 3. Full Board Breakdown — category grouped ───────────────────────────
   const sections = [];
-  if (peList.length > 0) sections.push(`Pick 'Ems\n${peList.map(fmtPickEmEntry).join('\n')}`);
+  if (peList.length > 0) sections.push(`Pick \u2019Ems\n${peList.map(fmtPickEmEntry).join('\n')}`);
   if (atsList.length > 0) sections.push(`Against the Spread\n${atsList.map(fmtAtsEntry).join('\n')}`);
   if (valList.length > 0) sections.push(`Value Leans\n${valList.map(fmtValueEntry).join('\n')}`);
-  if (totList.length > 0) sections.push(`Totals\n${totList.map(fmtTotalEntry).join('\n')}`);
+  if (totList.length > 0) sections.push(`Game Totals\n${totList.map(fmtTotalEntry).join('\n')}`);
 
-  // ── 5. Risk Framing — acknowledges uncertainty, adds credibility ─────────
-  const riskFrames = [
-    'Some plays carry thinner edges than others \u2014 discipline beats volume.',
-    'Not every signal is equal. Confidence tiers reflect edge magnitude, not certainty.',
-    'The model quantifies edges, not outcomes. Variance is always part of the equation.',
-    'Edges are probabilistic, not predictive. Selectivity matters more than volume.',
-  ];
-  const d = new Date();
-  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
-  const riskLine = riskFrames[dayOfYear % riskFrames.length];
+  // ── 4. Risk Framing ──────────────────────────────────────────────────────
+  const riskLine = 'Not every signal carries the same conviction \u2014 discipline beats volume.';
 
-  // ── 6. CTA — clean, professional ─────────────────────────────────────────
-  const ctaLine = 'Full board and signals at maximussports.ai';
+  // ── 5. CTA ───────────────────────────────────────────────────────────────
+  const ctaLine = 'Full board and model intel \u2192 maximussports.ai';
+
+  // ── 6. Engagement prompt ─────────────────────────────────────────────────
+  const engagementLine = 'Which signal are you riding tonight?';
 
   // ── Assemble caption ─────────────────────────────────────────────────────
   const caption = [
     hook,
     '',
-    signalsSummarySection,
+    topSignalSection,
     '',
-    ...(rationaleLines.length > 0 ? [...rationaleLines, ''] : []),
     ...sections.flatMap(s => [s, '']),
     riskLine,
     '',
     ctaLine,
     '',
-    `\uD83D\uDC47 Which signal do you trust most today?`,
+    engagementLine,
     '',
     DISCLAIMER,
   ].filter(l => l !== null && l !== undefined)

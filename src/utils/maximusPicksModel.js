@@ -49,6 +49,19 @@ const ATS_EDGE_MIN  = 0.10;
 const ATS_EDGE_HIGH = 0.18;
 const ATS_EDGE_MED  = 0.12;
 
+// Public-team penalty — commonly overbet teams get inflated spreads from
+// sportsbooks. Penalize borderline ATS edges when these teams are favored.
+const ATS_PUBLIC_PENALTY = 0.015;
+const PUBLIC_TEAMS = [
+  'duke-blue-devils',
+  'kentucky-wildcats',
+  'kansas-jayhawks',
+  'north-carolina-tar-heels',
+  'ucla-bruins',
+  'michigan-wolverines',
+  'arizona-wildcats',
+];
+
 // ATS spread-magnitude discount — large spreads are harder to cover
 const ATS_SPREAD_SOFT_CAP     = 8;
 const ATS_SPREAD_PENALTY_RATE = 0.04;
@@ -521,18 +534,28 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         const excess = spreadMagnitude - ATS_SPREAD_SOFT_CAP;
         spreadDiscount = Math.max(0.50, 1 - excess * ATS_SPREAD_PENALTY_RATE);
       }
-      const adjustedEdge = rawEdge * spreadDiscount;
+      let adjustedEdge = rawEdge * spreadDiscount;
       if (adjustedEdge < ATS_EDGE_MIN) continue;
 
       const pickHome = (homePct - awayPct) > 0;
       const pickTeam = pickHome ? game.homeTeam : game.awayTeam;
+      const pickSlug = pickHome ? homeSlug : awaySlug;
       const pickAts  = pickHome ? homeAts : awayAts;
       const oppAts   = pickHome ? awayAts : homeAts;
 
       const homeIsFav = homeSpreadNum != null ? homeSpreadNum < 0 : false;
       const favTeamName = homeIsFav ? game.homeTeam : game.awayTeam;
+      const pickIsFav = pickTeam === favTeamName;
+
+      // Public-team penalty: overbet favorites get inflated spreads
+      const isPublicFav = pickIsFav && pickSlug && PUBLIC_TEAMS.includes(pickSlug);
+      if (isPublicFav) {
+        adjustedEdge = Math.max(0, adjustedEdge - ATS_PUBLIC_PENALTY);
+        if (adjustedEdge < ATS_EDGE_MIN) continue;
+      }
+
       const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
-      if (isBigFav && pickTeam === favTeamName && adjustedEdge < ATS_EDGE_HIGH) continue;
+      if (isBigFav && pickIsFav && adjustedEdge < ATS_EDGE_HIGH) continue;
       // Very large spreads (12+) require HIGH-tier edge regardless of side
       if (spreadMagnitude != null && spreadMagnitude >= ATS_LARGE_SPREAD_GATE && adjustedEdge < ATS_EDGE_HIGH) continue;
 
@@ -557,7 +580,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const hasLine = spreadDisplay != null;
       const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
       const opponentSlug = pickHome ? awaySlug : homeSlug;
-      const rationale = buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag: adjustedEdge, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav: pickTeam === favTeamName });
+      const rationale = buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag: adjustedEdge, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav, isPublicFav });
       picks.push({
         ...sharedBase,
         itemType: 'lean',
@@ -882,12 +905,16 @@ function buildPickEmRationale({ pickTeam, opponentTeam, confidence, edgeMag, pic
   return parts.join(' ');
 }
 
-function buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav }) {
+function buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav, isPublicFav }) {
   const parts = [];
   const edgePct = Math.round(edgeMag * 100);
 
   if (pickAts && oppAts) {
     parts.push(`ATS differential: ${Math.round(pickAts.coverPct)}% vs ${Math.round(oppAts.coverPct)}% (${edgePct}pp adjusted edge).`);
+  }
+
+  if (isPublicFav) {
+    parts.push('Public-team spread discount applied — overbet favorite adjustment.');
   }
 
   if (spreadMagnitude != null && spreadMagnitude >= 10) {
@@ -1133,6 +1160,19 @@ export function buildMaximusPicks({
   const finalAts    = [...rawAts, ...atsWatches];
   const finalValue  = [...rawValue, ...valueWatches];
   const finalTotals = [...rawTotals, ...totalsWatches];
+
+  // Tag the single strongest lean across the entire board as Top Signal.
+  const allLeans = [
+    ...finalPickEm, ...finalAts, ...finalValue, ...finalTotals,
+  ].filter(p => p.itemType === 'lean');
+  if (allLeans.length > 0) {
+    const best = allLeans.reduce((top, p) => {
+      const score = (p.confidence ?? 0) * 10 + (p.edgeMag ?? 0);
+      const topScore = (top.confidence ?? 0) * 10 + (top.edgeMag ?? 0);
+      return score > topScore ? p : top;
+    });
+    best.isTopSignal = true;
+  }
 
   return {
     pickEmPicks:  finalPickEm,
