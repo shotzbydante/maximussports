@@ -17,6 +17,7 @@
 
 import { useState, useCallback } from 'react';
 import { track } from '../../analytics/index';
+import { buildShareMessage } from '../../utils/shareMessageBuilder';
 import { showToast } from './Toast';
 import styles from './ShareButton.module.css';
 
@@ -122,8 +123,15 @@ export default function ShareButton({
     }
 
     const shareTitle = `${TYPE_LABELS[shareType] || 'Maximus Insight'}: ${title}`.slice(0, 150);
-    const shareText  = [subtitle, meta].filter(Boolean).join(' · ').slice(0, 200)
-      || 'March Madness intelligence from Maximus Sports.';
+    const shareText  = buildShareMessage({
+      type: shareType,
+      team: title,
+      stat: subtitle || undefined,
+      record: undefined,
+      matchup: subtitle && title ? `${title}` : undefined,
+      line: meta || undefined,
+      signalType: undefined,
+    }).slice(0, 500);
 
     // result: 'success' | 'copy' | 'cancel' | 'error'
     let result = 'error';

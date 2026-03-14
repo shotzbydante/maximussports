@@ -30,6 +30,9 @@ import {
   trackWelcomeModalExploreClicked,
   trackWelcomeModalClosed,
 } from '../../lib/analytics/posthog';
+import TeamIntelPreview from '../onboarding/previews/TeamIntelPreview';
+import OddsInsightsPreview from '../onboarding/previews/OddsInsightsPreview';
+import AIPicksPreview from '../onboarding/previews/AIPicksPreview';
 import styles from './WelcomeModal.module.css';
 
 const TOTAL_STEPS = 3;
@@ -41,22 +44,19 @@ const FEATURE_CARDS = [
     id: 'team-intel',
     label: 'Team Intel Hub',
     sublabel: 'Bubble watch, ATS profiles, and conference-level intel at a glance.',
-    image: '/images/onboarding/team-intel.svg',
-    overlay: 'ATS leaders + matchup edges',
+    Preview: TeamIntelPreview,
   },
   {
     id: 'odds-insights',
     label: 'Odds Insights',
     sublabel: 'Spread movement, sharp signals, and underdog watch — updated live.',
-    image: '/images/onboarding/odds-insights.svg',
-    overlay: 'Live odds movement + value plays',
+    Preview: OddsInsightsPreview,
   },
   {
     id: 'ai-picks',
     label: 'AI-Powered Picks',
     sublabel: 'Model-driven picks with confidence scores across every market.',
-    image: '/images/onboarding/ai-picks.svg',
-    overlay: "Pick\u2019Em \u00b7 ATS \u00b7 Value \u00b7 Totals",
+    Preview: AIPicksPreview,
   },
 ];
 
@@ -117,7 +117,6 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
 
   const [step, setStep]             = useState(1);
   const [videoReady, setVideoReady] = useState(false);
-  const [imgErrors, setImgErrors]   = useState({});
 
   const markVideoReady = useCallback(() => {
     setVideoReady(true);
@@ -215,7 +214,6 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     if (open) {
       setStep(1);
       setVideoReady(false);
-      setImgErrors({});
       trackedStepsRef.current = new Set();
 
       videoTimerRef.current = setTimeout(() => setVideoReady(true), VIDEO_READY_TIMEOUT_MS);
@@ -231,18 +229,6 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
       if (videoTimerRef.current) clearTimeout(videoTimerRef.current);
     };
   }, [open]);
-
-  // Preload Step 2 images during Step 1
-  useEffect(() => {
-    if (!open || step !== 1) return;
-    FEATURE_CARDS.forEach(({ image }) => {
-      const link = document.createElement('link');
-      link.rel  = 'preload';
-      link.as   = 'image';
-      link.href = image;
-      document.head.appendChild(link);
-    });
-  }, [open, step]);
 
   // Touch / swipe handlers
   const handleTouchStart = useCallback((e) => {
@@ -262,10 +248,6 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     touchXRef.current    = null;
     touchEndXRef.current = null;
   }, [step, goTo]);
-
-  const handleImgError = useCallback((cardId) => {
-    setImgErrors((prev) => ({ ...prev, [cardId]: true }));
-  }, []);
 
   if (!open) return null;
 
@@ -347,19 +329,8 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                 <div className={styles.featureCards}>
                   {FEATURE_CARDS.map((card) => (
                     <div key={card.id} className={styles.featureCard}>
-                      <div className={styles.featureImageWrap}>
-                        {imgErrors[card.id] ? (
-                          <div className={styles.featureImageFallback} />
-                        ) : (
-                          <img
-                            src={card.image}
-                            alt={card.label}
-                            className={styles.featureImage}
-                            loading="eager"
-                            onError={() => handleImgError(card.id)}
-                          />
-                        )}
-                        <span className={styles.featureOverlay}>{card.overlay}</span>
+                      <div className={styles.featurePreviewWrap}>
+                        <card.Preview />
                       </div>
                       <h3 className={styles.featureLabel}>{card.label}</h3>
                       <p className={styles.featureSublabel}>{card.sublabel}</p>
