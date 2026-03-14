@@ -1,0 +1,87 @@
+.region {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rightSide .roundsContainer {
+  flex-direction: row-reverse;
+}
+
+.regionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.regionTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.regionBadge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.roundsContainer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.round {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.roundLabel {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.25);
+  text-align: center;
+  padding-bottom: 0.3rem;
+}
+
+.matchupColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  flex: 1;
+}
+
+.matchupWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--round, 1) * 0.5rem) 0;
+}
+
+.matchupWrapper:first-child {
+  padding-top: 0;
+}
+
+@media (max-width: 1200px) {
+  .roundsContainer {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    padding-bottom: 0.5rem;
+  }
+}
