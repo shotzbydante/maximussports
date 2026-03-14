@@ -211,7 +211,10 @@ function GameCard({ pick, slateDate }) {
     : null;
 
   return (
-    <div className={styles.pickCard}>
+    <div className={`${styles.pickCard} ${pick.isTopSignal ? styles.topSignalCard : ''}`}>
+      {pick.isTopSignal && (
+        <span className={styles.topSignalBadge}>TOP SIGNAL</span>
+      )}
       <div className={styles.cardMetaRow}>
         <DayChip slateDate={slateDate} />
         {pick.time && <span className={styles.pickTime}>{pick.time}</span>}

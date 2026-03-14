@@ -658,6 +658,31 @@
   margin-left: auto;
 }
 
+/* ─── Top Signal badge ───────────────────────────────────────────── */
+
+.topSignalCard {
+  position: relative;
+  border-color: rgba(183, 152, 108, 0.40);
+  box-shadow: 0 0 8px rgba(183, 152, 108, 0.12);
+}
+
+.topSignalBadge {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #0d1117;
+  background: linear-gradient(135deg, #d4b896, #B7986C);
+  padding: 2px 7px;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(183, 152, 108, 0.30);
+  line-height: 1.3;
+  z-index: 2;
+}
+
 /* ─── reduced motion ─────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
