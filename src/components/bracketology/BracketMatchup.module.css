@@ -1,0 +1,159 @@
+.matchup {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.compact {
+  width: 170px;
+}
+
+.waiting {
+  opacity: 0.5;
+}
+
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.maximusBtn {
+  position: absolute;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(56, 133, 224, 0.15);
+  border: 1px solid rgba(56, 133, 224, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: all 0.2s;
+}
+
+.maximusBtn:hover {
+  background: rgba(56, 133, 224, 0.3);
+  border-color: rgba(56, 133, 224, 0.5);
+  transform: scale(1.1);
+}
+
+.maximusIcon {
+  color: #5a9ee6;
+  font-size: 0.55rem;
+}
+
+.teamSlot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  cursor: default;
+  transition: all 0.15s;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: left;
+  min-height: 32px;
+  position: relative;
+}
+
+.teamSlot:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.teamSlot:last-child {
+  border-radius: 0 0 6px 6px;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  background: rgba(56, 133, 224, 0.08);
+  border-color: rgba(56, 133, 224, 0.2);
+  color: #fff;
+}
+
+.selected {
+  background: rgba(56, 133, 224, 0.12);
+  border-color: rgba(56, 133, 224, 0.35);
+  color: #fff;
+  font-weight: 600;
+}
+
+.maximusPicked {
+  background: rgba(56, 133, 224, 0.12);
+  border-color: rgba(56, 133, 224, 0.25);
+}
+
+.maximusPicked .pickBadge {
+  color: #5a9ee6;
+}
+
+.winner {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.eliminated {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.empty {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.seed {
+  width: 20px;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.teamLogo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.teamName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickBadge {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .matchup { width: 160px; }
+  .compact { width: 140px; }
+  .teamSlot { padding: 0.3rem 0.4rem; font-size: 0.7rem; min-height: 28px; }
+  .seed { width: 16px; font-size: 0.6rem; }
+  .teamLogo { width: 14px; height: 14px; }
+}
