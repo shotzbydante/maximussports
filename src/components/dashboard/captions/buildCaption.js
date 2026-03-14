@@ -399,11 +399,11 @@ function buildGameCaption({ game, picks, asOf }) {
 // ─── Maximus's Picks ──────────────────────────────────────────────────────────
 
 const PICKS_HOOKS = [
-  '\uD83D\uDD25 MAXIMUS\u2019S PICKS ARE LIVE',
-  '\uD83D\uDCCA TODAY\u2019S MODEL BOARD',
-  '\uD83C\uDFAF DATA EDGE ALERT',
-  '\uD83C\uDFC0 MAXIMUS MODEL DROP',
-  '\uD83D\uDEA8 MODEL SIGNALS JUST DROPPED',
+  'Today\u2019s model scan surfaced a few interesting edges across the board.',
+  'The model ran today\u2019s slate. Here\u2019s where it sees the clearest separation.',
+  'A handful of signals cleared the model threshold today. Here\u2019s the breakdown.',
+  'Model board is live. The data flagged some notable divergences from market pricing.',
+  'Today\u2019s board has some edges worth watching. Here\u2019s what the model found.',
 ];
 
 function _picksHookForDate() {
@@ -471,57 +471,79 @@ function buildPicksCaption({ stats, atsLeaders, picks, asOf }) {
     return `${totTeamEmoji(pick)} ${shortName} ${dir} ${pick.lineValue || ''}`.trim();
   }
 
-  const pickemLines = peList.map(fmtPickEmEntry).join('\n');
-  const atsLines    = atsList.map(fmtAtsEntry).join('\n');
-  const valueLines  = valList.map(fmtValueEntry).join('\n');
-  const totalsLines = totList.map(fmtTotalEntry).join('\n');
+  // ── 1. Opening Hook — analytical, not hype ───────────────────────────────
+  const hook = _picksHookForDate();
 
-  const clusterParts = [];
-  if (atsList.length >= 2) clusterParts.push('spread edges');
-  if (valList.length >= 2) clusterParts.push('underdog value');
-  if (totList.length >= 2) clusterParts.push('totals');
-  if (peList.length >= 2)  clusterParts.push('straight-up winners');
-  if (clusterParts.length === 0) {
-    if (atsList.length > 0) clusterParts.push('spreads');
-    if (valList.length > 0) clusterParts.push('value plays');
-    if (totList.length > 0) clusterParts.push('totals');
-    if (peList.length > 0)  clusterParts.push('pick \u2019ems');
-  }
-  const signalSummary = clusterParts.length <= 2
-    ? clusterParts.join(' and ')
-    : clusterParts.slice(0, -1).join(', ') + ', and ' + clusterParts[clusterParts.length - 1];
+  // ── 2. Key Picks Summary — scannable list of top signals ─────────────────
+  const topSignals = [];
+  const topPe  = peList[0];
+  const topAts = atsList[0];
+  const topVal = valList[0];
+  const topTot = totList.find(p => p.leanDirection);
 
-  const sections = [];
-  if (peList.length > 0) sections.push(`\uD83C\uDFAF Pick \u2019Em Signals\n${pickemLines}`);
-  if (atsList.length > 0) sections.push(`\uD83D\uDCC9 Against the Spread\n${atsLines}`);
-  if (valList.length > 0) sections.push(`\uD83D\uDCB0 Value Leans (longer odds)\n${valueLines}`);
-  if (totList.length > 0) sections.push(`\uD83D\uDCCA Totals Signals\n${totalsLines}`);
+  if (topPe) topSignals.push(`${teamEmoji(topPe)} ${topPe.pickLine || topPe.pickTeam} (Pick 'Em)`);
+  if (topAts) topSignals.push(`${teamEmoji(topAts)} ${fmtAtsEntry(topAts)} (ATS)`);
+  if (topVal) topSignals.push(`${teamEmoji(topVal)} ${fmtValueEntry(topVal)} (Value)`);
+  if (topTot) topSignals.push(`${totTeamEmoji(topTot)} ${fmtTotalEntry(topTot)}`);
 
-  const take = getMaximusTake(all);
-  const takeLine = take
-    ? `\uD83D\uDCA1 ${take.takeType || 'Top signal'}: ${take.label} (${take.category} \u00b7 ${take.tierLabel})`
+  const signalsSummarySection = topSignals.length > 0
+    ? `Top signals today:\n${topSignals.join('\n')}`
     : null;
 
+  // ── 3. Short Rationale — 1-2 lines explaining why the model likes the pick
+  const rationaleLines = [];
+  const take = getMaximusTake(all);
+  if (take?.pick?.rationale) {
+    rationaleLines.push(take.pick.rationale.split('.').slice(0, 2).join('.') + '.');
+  } else if (topVal?.rationale) {
+    rationaleLines.push(topVal.rationale.split('.').slice(0, 2).join('.') + '.');
+  } else if (topAts?.rationale) {
+    rationaleLines.push(topAts.rationale.split('.').slice(0, 2).join('.') + '.');
+  }
+
+  // ── 4. Full board breakdown ──────────────────────────────────────────────
+  const sections = [];
+  if (peList.length > 0) sections.push(`Pick 'Ems\n${peList.map(fmtPickEmEntry).join('\n')}`);
+  if (atsList.length > 0) sections.push(`Against the Spread\n${atsList.map(fmtAtsEntry).join('\n')}`);
+  if (valList.length > 0) sections.push(`Value Leans\n${valList.map(fmtValueEntry).join('\n')}`);
+  if (totList.length > 0) sections.push(`Totals\n${totList.map(fmtTotalEntry).join('\n')}`);
+
+  // ── 5. Risk Framing — acknowledges uncertainty, adds credibility ─────────
+  const riskFrames = [
+    'Some plays carry thinner edges than others \u2014 discipline beats volume.',
+    'Not every signal is equal. Confidence tiers reflect edge magnitude, not certainty.',
+    'The model quantifies edges, not outcomes. Variance is always part of the equation.',
+    'Edges are probabilistic, not predictive. Selectivity matters more than volume.',
+  ];
+  const d = new Date();
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  const riskLine = riskFrames[dayOfYear % riskFrames.length];
+
+  // ── 6. CTA — clean, professional ─────────────────────────────────────────
+  const ctaLine = 'Full board and signals at maximussports.ai';
+
+  // ── Assemble caption ─────────────────────────────────────────────────────
   const caption = [
-    _picksHookForDate(),
+    hook,
     '',
-    `The model just scanned today\u2019s board and flagged ${signalCount} signal${signalCount !== 1 ? 's' : ''} across spreads, totals, and value plays.`,
-    `Here\u2019s where the data says there\u2019s market edge today \uD83D\uDC47`,
-    ...(takeLine ? ['', takeLine] : []),
+    signalsSummarySection,
     '',
+    ...(rationaleLines.length > 0 ? [...rationaleLines, ''] : []),
     ...sections.flatMap(s => [s, '']),
-    `\uD83D\uDCE1 Model note:`,
-    `Signals today are clustering around ${signalSummary || 'the full board'}.`,
+    riskLine,
     '',
-    'Swipe the card for the full board + signal strength breakdown.',
+    ctaLine,
     '',
-    'Full model intel \u2192 maximussports.ai',
-    '',
-    '\uD83D\uDC47 Question for the college hoops crowd:',
-    'Which of these plays would you ride tonight?',
+    `\uD83D\uDC47 Which signal do you trust most today?`,
     '',
     DISCLAIMER,
-  ].join('\n').trim();
+  ].filter(l => l !== null && l !== undefined)
+   .reduce((acc, line) => {
+     if (line === '' && acc.length > 0 && acc[acc.length - 1] === '') return acc;
+     return [...acc, line];
+   }, [])
+   .join('\n')
+   .trim();
 
   const hashtags = [
     '#CollegeBasketball',
@@ -540,31 +562,33 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
   const gamesCount = stats?.gamesWithOdds ?? null;
   const topTeam = atsLeaders?.best?.[0];
   const picksCount = picks?.length ?? 0;
+  const leanPicks = (picks ?? []).filter(p => p.itemType === 'lean');
 
   const hook = picksCount > 0
-    ? `📈 Picks card is live. ${picksCount} value lean${picksCount > 1 ? 's' : ''} surfaced today.`
-    : `📈 Today's odds snapshot — ${gamesCount != null ? `${gamesCount} games tracked. ` : ''}ATS leaders and market edges below.`;
+    ? `Today\u2019s odds scan flagged ${picksCount} signal${picksCount > 1 ? 's' : ''} that cleared the model threshold.`
+    : `Today\u2019s odds snapshot${gamesCount != null ? ` \u2014 ${gamesCount} games tracked` : ''}. ATS leaders and market structure below.`;
 
-  const topPickLine = picks?.length
-    ? `Top lean: ${picks[0]?.pickLine}. Data-driven, risk-labeled.`
+  const topLean = leanPicks[0];
+  const topPickLine = topLean
+    ? `Top signal: ${topLean.pickLine}${topLean.rationale ? `. ${topLean.rationale.split('.')[0]}.` : ''}`
     : null;
 
   const short = [hook, topPickLine, CTA].filter(Boolean).join('\n\n');
 
   const long = [
-    `📈 Odds Insights`,
+    `Odds Insights`,
     '',
     gamesCount != null
-      ? `Scanning ${gamesCount} games for market edges. Model weighs ATS history, spread, and implied probability.`
-      : `Live odds tracked across today's slate.`,
+      ? `Scanning ${gamesCount} games for model-vs-market divergence. Factors: ATS history, spread magnitude, implied probability.`
+      : `Live odds tracked across today\u2019s slate.`,
     '',
     topTeam
-      ? `ATS leader: ${topTeam.team || topTeam.name} — running hot against the spread.`
+      ? `ATS leader: ${topTeam.team || topTeam.name} \u2014 the market may still be catching up to this cover rate.`
       : null,
     '',
     picksCount > 0
-      ? `${picksCount} lean${picksCount > 1 ? 's' : ''} cleared the model threshold. Each is confidence-labeled — no noise picks.`
-      : `No leans cleared the threshold today. Discipline beats volume.`,
+      ? `${picksCount} lean${picksCount > 1 ? 's' : ''} cleared the model threshold. Each is confidence-tiered based on edge magnitude, not team reputation.`
+      : `No leans cleared the threshold today. When signals are weak, discipline means staying off the board.`,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
@@ -572,7 +596,7 @@ function buildOddsCaption({ stats, atsLeaders, picks, asOf }) {
   ].filter(Boolean).join('\n');
 
   const hashtags = [
-    '#CollegeBasketball', '#NCAABB', '#MarchMadness',
+    '#CollegeBasketball', '#NCAAB', '#MarchMadness',
     '#MaximusSports', '#OddsInsights',
   ].slice(0, 5);
 

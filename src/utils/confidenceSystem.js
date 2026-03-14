@@ -4,17 +4,17 @@
  * Consumed by: Content Studio slides, Home page, Odds Insights, captions.
  *
  * Thresholds (mirrors maximusPicksModel derivation constants):
- *   Pick 'Em:  HIGH ≥ 0.12  MEDIUM ≥ 0.07  LOW < 0.07
- *   ATS:       HIGH ≥ 0.16  MEDIUM ≥ 0.12  LOW < 0.12
- *   Value:     HIGH ≥ 0.07  MEDIUM ≥ 0.05  LOW < 0.05
- *   Totals:    HIGH ≥ 0.14  MEDIUM ≥ 0.10  LOW < 0.10
+ *   Pick 'Em:  HIGH ≥ 0.14  MEDIUM ≥ 0.07  LOW < 0.07
+ *   ATS:       HIGH ≥ 0.18  MEDIUM ≥ 0.12  LOW < 0.12
+ *   Value:     HIGH ≥ 0.08  MEDIUM ≥ 0.05  LOW < 0.05
+ *   Totals:    HIGH ≥ 0.16  MEDIUM ≥ 0.12  LOW < 0.12
  */
 
 const THRESHOLDS = {
-  pickem: { min: 0.04, med: 0.07, high: 0.12 },
-  ats:    { min: 0.10, med: 0.12, high: 0.16 },
-  value:  { min: 0.04, med: 0.05, high: 0.07 },
-  total:  { min: 0.07, med: 0.10, high: 0.14 },
+  pickem: { min: 0.05, med: 0.07, high: 0.14 },
+  ats:    { min: 0.10, med: 0.12, high: 0.18 },
+  value:  { min: 0.04, med: 0.05, high: 0.08 },
+  total:  { min: 0.08, med: 0.12, high: 0.16 },
 };
 
 // ─── Slide-context colors (dark backgrounds) ────────────────────────────────
@@ -105,26 +105,26 @@ export function getEditorialLine(pick) {
   const c = pick?.confidence ?? 0;
   switch (pick?.pickType) {
     case 'pickem':
-      if (c >= 2) return 'Strong model conviction — significant edge detected';
-      if (c >= 1) return 'Model sees value the market may be underrating';
-      return 'Marginal edge — market price looks close to fair';
+      if (c >= 2) return 'Composite model edge exceeds HIGH threshold — strongest conviction tier';
+      if (c >= 1) return 'Model-vs-market divergence detected — moderate conviction';
+      return 'Marginal edge — market price looks close to efficient';
     case 'ats':
-      if (c >= 2) return 'ATS trends strongly favor this side to cover';
-      if (c >= 1) return 'Recent form suggests a cover opportunity';
-      return 'Directional lean — spread value at the margin';
+      if (c >= 2) return 'ATS form differential and spread-adjusted edge both exceed top tier';
+      if (c >= 1) return 'Cover rate differential suggests a directional lean after spread discount';
+      return 'Directional lean — spread value exists but magnitude is thin';
     case 'value':
-      if (c >= 2) return 'Model sees significantly more value than the market';
-      if (c >= 1) return 'Moderate value gap between model and market';
-      return 'Price looks efficient but edge still qualifies';
+      if (c >= 2) return 'Model probability exceeds market implied by a significant margin';
+      if (c >= 1) return 'Meaningful model-vs-market probability gap detected';
+      return 'Edge qualifies but the value gap is narrow';
     case 'total':
       if (pick?.leanDirection === 'OVER') {
-        if (c >= 2) return 'Strongest scoring environment on the board';
-        if (c >= 1) return 'Scoring trends point toward the over';
-        return 'Combined tempo leans toward higher scoring';
+        if (c >= 2) return 'Both sides\' ATS trends agree on elevated scoring environment';
+        if (c >= 1) return 'Combined tempo signals lean toward the over';
+        return 'Slight scoring lean — signals are present but not commanding';
       }
-      if (c >= 2) return 'Defensive matchup strongly favors the under';
-      if (c >= 1) return 'Scoring pace suggests total may be set too high';
-      return 'Marginal lean toward lower-scoring outcome';
+      if (c >= 2) return 'Defensive matchup profiles converge on lower-scoring outcome';
+      if (c >= 1) return 'Pace signals suggest total may be set slightly high';
+      return 'Marginal lean toward the under — proceed with caution';
     default:
       return 'Model edge detected';
   }

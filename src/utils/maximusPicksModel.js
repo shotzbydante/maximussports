@@ -32,24 +32,28 @@ const PE_W_SOS         = 0.08;
 const PE_W_ATS         = 0.10;
 const PE_W_MARKET      = 0.25;
 const PE_HOME_BUMP     = 0.03;
-const PE_MIN_EDGE_T1   = 0.04;
-const PE_MIN_EDGE_T2   = 0.03;
+const PE_MIN_EDGE_T1   = 0.05;
+const PE_MIN_EDGE_T2   = 0.04;
 const PE_MIN_EDGE_T3   = 0.05;
-const PE_HIGH_EDGE     = 0.12;
+const PE_HIGH_EDGE     = 0.14;
 const PE_MED_EDGE      = 0.07;
 
 // Pick'Em chalk deflation — de-rank obvious heavy favorites in sort order
-const PE_CHALK_ML    = -1000;
-const PE_CHALK_FLOOR = 0.40;
+const PE_CHALK_ML    = -600;
+const PE_CHALK_FLOOR = 0.30;
+// Suppress extremely lopsided games from surfacing (no analytical value)
+const PE_SUPPRESS_ML = -800;
 
 // ATS thresholds — tightened for selectivity
 const ATS_EDGE_MIN  = 0.10;
-const ATS_EDGE_HIGH = 0.16;
+const ATS_EDGE_HIGH = 0.18;
 const ATS_EDGE_MED  = 0.12;
 
 // ATS spread-magnitude discount — large spreads are harder to cover
-const ATS_SPREAD_SOFT_CAP     = 10;
-const ATS_SPREAD_PENALTY_RATE = 0.03;
+const ATS_SPREAD_SOFT_CAP     = 8;
+const ATS_SPREAD_PENALTY_RATE = 0.04;
+// Extra guard: require top-tier edge for very large spreads
+const ATS_LARGE_SPREAD_GATE   = 12;
 
 // ATS partial-signal thresholds — relaxed
 const ATS_PARTIAL_COVER_MIN  = 0.53;
@@ -57,16 +61,18 @@ const ATS_PARTIAL_SAMPLE_MIN = 5;
 
 // Value Leans thresholds
 const VL_VALUE_MIN  = 0.04;
-const VL_VALUE_HIGH = 0.07;
+const VL_VALUE_HIGH = 0.08;
 const VL_VALUE_MED  = 0.05;
 const VL_AVOID_PRICE = -350;
-const VL_HOME_BUMP   = 0.02;
-const VL_ATS_WEIGHT  = 0.35;
+const VL_HOME_BUMP   = 0.015;
+const VL_ATS_WEIGHT  = 0.40;
+// Bonus when recent form (last-30 ATS) aligns with the model lean
+const VL_FORM_BONUS  = 0.03;
 
-// Totals thresholds
-const TOT_OU_MIN_EDGE   = 0.07;
-const TOT_OU_HIGH_EDGE  = 0.14;
-const TOT_OU_MED_EDGE   = 0.10;
+// Totals thresholds — tightened to suppress conflicting signals
+const TOT_OU_MIN_EDGE   = 0.08;
+const TOT_OU_HIGH_EDGE  = 0.16;
+const TOT_OU_MED_EDGE   = 0.12;
 
 const PICKS_PER_SECTION = 5;
 const TARGET_SHOW = 4;
@@ -429,6 +435,10 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
 
     const { homeML: peHomeML, awayML: peAwayML } = parseMoneylinePair(game);
     const pickML = pickHome ? peHomeML : peAwayML;
+
+    // Suppress extremely heavy favorites — no analytical value
+    if (pickML != null && pickML <= PE_SUPPRESS_ML) continue;
+
     const pickLine = pickML != null ? `${pickTeam} ${fmtPrice(pickML)}` : pickTeam;
 
     // Deflate sort edge for heavy chalk so more competitive games rank higher
@@ -440,6 +450,9 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
 
     const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
     const opponentSlug = pickHome ? awaySlug : homeSlug;
+
+    // Build explainability rationale
+    const rationale = buildPickEmRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickRank, oppRank, pickAts, marketProb, pickHome, pickML, tier });
 
     picks.push({
       key: game.gameId || `${game.homeTeam}-${game.awayTeam}`,
@@ -458,6 +471,7 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       confidence,
       edgeMag,
       signals,
+      rationale,
       partial: tier >= 2,
       _tier: tier,
       _sortEdge,
@@ -519,6 +533,8 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const favTeamName = homeIsFav ? game.homeTeam : game.awayTeam;
       const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
       if (isBigFav && pickTeam === favTeamName && adjustedEdge < ATS_EDGE_HIGH) continue;
+      // Very large spreads (12+) require HIGH-tier edge regardless of side
+      if (spreadMagnitude != null && spreadMagnitude >= ATS_LARGE_SPREAD_GATE && adjustedEdge < ATS_EDGE_HIGH) continue;
 
       const { spread: teamSpreadNum } = getTeamSpread(game, pickHome);
       const spreadDisplay = fmtSpread(teamSpreadNum);
@@ -541,6 +557,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const hasLine = spreadDisplay != null;
       const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
       const opponentSlug = pickHome ? awaySlug : homeSlug;
+      const rationale = buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag: adjustedEdge, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav: pickTeam === favTeamName });
       picks.push({
         ...sharedBase,
         itemType: 'lean',
@@ -552,6 +569,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         confidence,
         edgeMag,
         signals,
+        rationale,
         partial: false,
         _tier: 1,
       });
@@ -686,7 +704,16 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
       champAdj = (homeChampImpl - awayChampImpl) * 0.15;
     }
 
-    const homeModelProb = clamp(0.5 + atsDiff * VL_ATS_WEIGHT + VL_HOME_BUMP + champAdj, 0.35, 0.75);
+    // Form momentum boost: when the lean-side team's recent ATS form (last30)
+    // strongly aligns (>58% cover rate), nudge model probability up
+    let formBoost = 0;
+    const leanHomeCover = homeCover > awayCover;
+    const strongFormSide = leanHomeCover ? homeAts : awayAts;
+    if (strongFormSide && strongFormSide.window === 'last30' && strongFormSide.coverPct >= 58) {
+      formBoost = leanHomeCover ? VL_FORM_BONUS : -VL_FORM_BONUS;
+    }
+
+    const homeModelProb = clamp(0.5 + atsDiff * VL_ATS_WEIGHT + VL_HOME_BUMP + champAdj + formBoost, 0.35, 0.75);
     const awayModelProb = 1 - homeModelProb;
 
     const homeValue = homeModelProb - homeImplied;
@@ -726,6 +753,8 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
     const opponentTeamV = pickTeam === game.homeTeam ? game.awayTeam : game.homeTeam;
     const opponentSlugV = pickTeam === game.homeTeam ? getTeamSlug(game.awayTeam) : homeSlug;
 
+    const rationale = buildValueRationale({ pickTeam, opponentTeam: opponentTeamV, confidence, value, modelPctRounded, marketPctRounded, edgePpRounded, pickML, formBoost: formBoost !== 0 });
+
     picks.push({
       key:      game.gameId || `${game.homeTeam}-${game.awayTeam}`,
       matchup:  `${game.awayTeam} @ ${game.homeTeam}`,
@@ -748,6 +777,7 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
       marketImpliedPct: marketPctRounded,
       edgePp: edgePpRounded,
       signals,
+      rationale,
       partial: false,
     });
   }
@@ -770,10 +800,15 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     const homeAts = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
     const awayAts = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
 
-    const homeCover = homeAts ? (homeAts.coverPct - 50) / 100 : 0;
-    const awayCover = awayAts ? (awayAts.coverPct - 50) / 100 : 0;
-    const combinedTrend = (homeCover + awayCover) / 2;
+    const homeCoverTot = homeAts ? (homeAts.coverPct - 50) / 100 : 0;
+    const awayCoverTot = awayAts ? (awayAts.coverPct - 50) / 100 : 0;
+    const combinedTrend = (homeCoverTot + awayCoverTot) / 2;
     const trendMag = Math.abs(combinedTrend);
+
+    // Suppress totals when the two sides disagree in direction (one over, one under)
+    const sidesConflict = homeAts && awayAts &&
+      ((homeCoverTot > 0.02 && awayCoverTot < -0.02) || (homeCoverTot < -0.02 && awayCoverTot > 0.02));
+    if (sidesConflict && trendMag < TOT_OU_MED_EDGE) continue;
 
     const overPrice  = game.overPrice  ? fmtPrice(parseNum(game.overPrice))  : null;
     const underPrice = game.underPrice ? fmtPrice(parseNum(game.underPrice)) : null;
@@ -790,8 +825,11 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     const signals = [];
     if (homeAts && homeAts.coverPct != null) signals.push(`${game.homeTeam} ATS: ${Math.round(homeAts.coverPct)}% cover rate`);
     if (awayAts && awayAts.coverPct != null) signals.push(`${game.awayTeam} ATS: ${Math.round(awayAts.coverPct)}% cover rate`);
-    if (leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
+    if (sidesConflict) signals.push('Pace signals partially conflict — lean is weaker');
+    else if (leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
     else signals.push('No clear directional edge');
+
+    const rationale = buildTotalsRationale({ homeTeam: game.homeTeam, awayTeam: game.awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence });
 
     picks.push({
       key:      game.gameId || `${game.homeTeam}-${game.awayTeam}`,
@@ -801,11 +839,126 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
       pickType: 'total', itemType: 'lean', pickTeam: null,
       pickLine: leanLabel ? `${leanLabel} ${marketTotal}${priceStr}` : `O/U ${marketTotal}${priceStr}`,
       leanDirection: leanLabel ?? null, confidence, lineValue: marketTotal,
-      edgeMag: trendMag, signals, partial: false,
+      edgeMag: trendMag, signals, rationale, partial: false,
     });
   }
 
   return picks.sort((a, b) => b.edgeMag - a.edgeMag).slice(0, PICKS_PER_SECTION);
+}
+
+// ─── rationale builders (explainability strings) ─────────────────────────────
+
+function buildPickEmRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickRank, oppRank, pickAts, marketProb, pickHome, pickML, tier }) {
+  const parts = [];
+  const confLabel = confidenceLabel(confidence);
+  const edgePct = Math.round(edgeMag * 100);
+
+  if (tier === 1) {
+    parts.push(`Full-model composite edge of ${edgePct}pp favors ${pickTeam}.`);
+  } else if (tier === 2) {
+    parts.push(`Reduced-model edge of ${edgePct}pp with partial enrichment data.`);
+  } else {
+    parts.push(`Market-implied lean on ${pickTeam} — limited model data available.`);
+  }
+
+  if (pickRank != null && pickRank <= 25 && (oppRank == null || oppRank > 25)) {
+    parts.push(`Ranking advantage: #${pickRank} vs unranked.`);
+  } else if (pickRank != null && oppRank != null && pickRank < oppRank) {
+    parts.push(`Higher-ranked (#${pickRank} vs #${oppRank}).`);
+  }
+
+  if (pickAts && pickAts.coverPct >= 58) {
+    parts.push(`Strong recent form — ${Math.round(pickAts.coverPct)}% ATS cover rate.`);
+  }
+
+  if (pickHome) parts.push('Home court advantage factored in.');
+
+  if (pickML != null && pickML >= 150) {
+    parts.push('Underdog value — market may be underestimating win probability.');
+  } else if (pickML != null && pickML <= -500) {
+    parts.push('Heavy favorite — chalk deflation applied to sort ranking.');
+  }
+
+  return parts.join(' ');
+}
+
+function buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav }) {
+  const parts = [];
+  const edgePct = Math.round(edgeMag * 100);
+
+  if (pickAts && oppAts) {
+    parts.push(`ATS differential: ${Math.round(pickAts.coverPct)}% vs ${Math.round(oppAts.coverPct)}% (${edgePct}pp adjusted edge).`);
+  }
+
+  if (spreadMagnitude != null && spreadMagnitude >= 10) {
+    parts.push(`Large spread (${Math.abs(teamSpreadNum)}) — spread-magnitude penalty applied.`);
+    if (pickIsFav) {
+      parts.push('Favorite cover at this magnitude carries elevated risk.');
+    }
+  } else if (spreadMagnitude != null && spreadMagnitude <= 3) {
+    parts.push('Close line — matchup efficiency edge in pick-em range.');
+  }
+
+  if (confidence >= 2) {
+    parts.push('Edge exceeds HIGH threshold after spread-discount adjustment.');
+  } else if (confidence >= 1) {
+    parts.push('Moderate edge — directional lean with reasonable conviction.');
+  } else {
+    parts.push('Marginal ATS lean — spread value at the margin.');
+  }
+
+  return parts.join(' ');
+}
+
+function buildValueRationale({ pickTeam, opponentTeam, confidence, value, modelPctRounded, marketPctRounded, edgePpRounded, pickML, formBoost }) {
+  const parts = [];
+
+  parts.push(`Model win probability (${modelPctRounded}%) exceeds market implied (${marketPctRounded}%) by ${edgePpRounded}pp.`);
+
+  if (pickML != null && pickML >= 200) {
+    parts.push('Underdog pricing suggests the market may be undervaluing this matchup.');
+  } else if (pickML != null && pickML >= 100) {
+    parts.push('Slight underdog with a meaningful probability gap.');
+  }
+
+  if (formBoost) {
+    parts.push('Recent form (last 30 ATS) aligns with model lean — form bonus applied.');
+  }
+
+  if (confidence >= 2) {
+    parts.push('Value gap exceeds HIGH threshold — strongest model-vs-market divergence.');
+  } else if (confidence >= 1) {
+    parts.push('Moderate value gap detected.');
+  } else {
+    parts.push('Edge qualifies but gap is narrow — thinner lean.');
+  }
+
+  return parts.join(' ');
+}
+
+function buildTotalsRationale({ homeTeam, awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence }) {
+  const parts = [];
+  const trendPct = Math.round(trendMag * 100);
+
+  if (leanLabel) {
+    parts.push(`Combined ATS trend (${trendPct}pp) leans ${leanLabel} ${marketTotal}.`);
+  } else {
+    parts.push(`No clear directional signal on ${homeTeam} vs ${awayTeam} total (${marketTotal}).`);
+  }
+
+  if (sidesConflict) {
+    parts.push('Pace signals partially conflict between the two sides — lean carries elevated uncertainty.');
+  }
+
+  if (confidence >= 2) {
+    parts.push('Both sides agree directionally with strong magnitude.');
+  } else if (confidence >= 1) {
+    parts.push('Moderate trend agreement — directional lean with caveats.');
+  } else if (leanLabel) {
+    parts.push('Marginal lean — trend exists but magnitude is low.');
+  }
+
+  return parts.join(' ');
 }
 
 // ─── watch item helpers (with debug reason codes) ────────────────────────────
