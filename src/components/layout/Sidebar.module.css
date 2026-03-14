@@ -200,6 +200,35 @@
   color: var(--color-primary);
 }
 
+/* ── Bracketology link ────────────────────────────────────────── */
+
+.bracketLink {
+  color: #5a9ee6 !important;
+}
+
+.bracketLink:hover {
+  background: rgba(56, 133, 224, 0.08);
+  color: #7ab5f0 !important;
+}
+
+.bracketLink.active {
+  background: rgba(56, 133, 224, 0.12);
+  color: #5a9ee6 !important;
+}
+
+.bracketBadge {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(56, 133, 224, 0.15);
+  color: #5a9ee6;
+  border: 1px solid rgba(56, 133, 224, 0.25);
+  margin-left: auto;
+}
+
 /* ── Admin dashboard link ─────────────────────────────────────── */
 
 .adminLink {
