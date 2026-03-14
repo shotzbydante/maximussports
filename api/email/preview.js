@@ -19,7 +19,7 @@ import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
-import { verifyUserToken } from '../_lib/supabaseAdmin.js';
+import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
 import { renderHTML as renderDailyHTML }  from '../../src/emails/templates/dailyBriefing.js';
 import { renderHTML as renderPinnedHTML } from '../../src/emails/templates/pinnedTeamsAlerts.js';
@@ -27,16 +27,16 @@ import { renderHTML as renderOddsHTML }   from '../../src/emails/templates/oddsI
 import { renderHTML as renderNewsHTML }   from '../../src/emails/templates/breakingNews.js';
 import { renderHTML as renderDigestHTML } from '../../src/emails/templates/teamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
+import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
 
 const VALID_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
 
-const PREVIEW_PINNED_TEAMS = [
-  { name: 'Duke Blue Devils', slug: 'duke-blue-devils', logo: '/logos/duke-blue-devils.svg' },
-  { name: 'Kansas Jayhawks',  slug: 'kansas-jayhawks',  logo: '/logos/kansas-jayhawks.svg'  },
-  { name: 'UConn Huskies',    slug: 'uconn-huskies',    logo: '/logos/uconn-huskies.svg'    },
+// Fallback only used when no authenticated admin or admin has zero pinned teams
+const FALLBACK_PINNED_TEAMS = [
+  { name: 'Duke Blue Devils', slug: 'duke-blue-devils' },
+  { name: 'Kansas Jayhawks',  slug: 'kansas-jayhawks'  },
+  { name: 'UConn Huskies',    slug: 'uconn-huskies'    },
 ];
-
-const PREVIEW_DIGEST_TEAM_SLUGS = ['duke-blue-devils', 'kansas-jayhawks', 'uconn-huskies'];
 
 async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
   try {
@@ -80,19 +80,22 @@ export default async function handler(req, res) {
   const providedSecret = req.query?.secret;
 
   let authorized = false;
+  let adminUserId = null;
 
   if (isDev) {
-    authorized = true; // local dev: always allow
+    authorized = true;
   } else if (previewSecret && providedSecret === previewSecret) {
-    authorized = true; // secret param matches
+    authorized = true;
   } else {
-    // Fall back to JWT admin check
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
     if (token) {
       try {
         const user = await verifyUserToken(token);
-        if (user && isAdminEmail(user.email)) authorized = true;
+        if (user && isAdminEmail(user.email)) {
+          authorized = true;
+          adminUserId = user.id;
+        }
       } catch { /* ignore */ }
     }
   }
@@ -135,13 +138,28 @@ export default async function handler(req, res) {
     }
     const maximusNote = botIntelBullets[0] || '';
 
+    // Resolve real pinned teams if admin is authenticated
+    let pinnedTeams = FALLBACK_PINNED_TEAMS;
+    let pinnedSlugs = FALLBACK_PINNED_TEAMS.map(t => t.slug);
+    if (adminUserId) {
+      try {
+        const sb = getSupabaseAdmin();
+        const realTeams = await getUserPinnedTeams(sb, adminUserId);
+        if (realTeams.length > 0) {
+          pinnedTeams = realTeams;
+          const teamMap = await fetchUserTeamsBatch(sb, [adminUserId]);
+          pinnedSlugs = getPinnedTeamSlugs(teamMap[adminUserId] || []);
+        }
+      } catch { /* fall through to fallback */ }
+    }
+
     const emailData = {
-      displayName: 'Dante',  // use a realistic preview name
+      displayName: 'Dante',
       scoresToday,
       rankingsTop25,
       atsLeaders,
       headlines,
-      pinnedTeams: PREVIEW_PINNED_TEAMS,
+      pinnedTeams,
       botIntelBullets,
       maximusNote,
     };
@@ -156,11 +174,11 @@ export default async function handler(req, res) {
         const { getTeamBySlug } = await import('../../src/data/teams.js');
         const sharedDigestData = { scoresToday, rankingsTop25, atsLeaders, headlines };
         const teamDigests = assembleTeamDigestPayload(
-          PREVIEW_DIGEST_TEAM_SLUGS.slice(0, TEAM_DIGEST_MAX_TEAMS),
+          pinnedSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
           sharedDigestData,
           getTeamBySlug
         );
-        const digestData = { ...emailData, teamDigests, totalTeamCount: PREVIEW_DIGEST_TEAM_SLUGS.length };
+        const digestData = { ...emailData, teamDigests, totalTeamCount: pinnedSlugs.length };
         html = renderDigestHTML(digestData);
         break;
       }

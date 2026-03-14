@@ -8,7 +8,7 @@ import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed, getStaleIntelFeedAge } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
 import { getPublicationLogoUrl, getSourceBrandLogo } from '../utils/publicationLogos';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import styles from './NewsFeed.module.css';
 
 const INTEL_FEED_KEY = 'yt:news:intelFeed';
@@ -487,6 +487,7 @@ export default function NewsFeed() {
         title="College Basketball Intel — NCAAB Videos, Headlines & Betting Analysis"
         description="Your college basketball command center. Curated videos, headlines, analysis, and betting intel across every major conference. Powered by Maximus Sports."
         canonicalPath="/news"
+        ogImage={buildOgImageUrl({ title: 'Intel Feed', subtitle: 'Headlines, analysis & betting intel', type: 'Team Intel' })}
       />
 
       {/* ── Premium page header ── */}

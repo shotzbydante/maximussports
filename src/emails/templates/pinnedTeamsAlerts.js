@@ -13,21 +13,28 @@
 import { EmailShell, heroBlock, sectionCard, sectionLabel, teamLogoImg } from '../EmailShell.js';
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
 import { renderEmailGameCard } from '../../../api/_lib/emailGameCards.js';
+import { getTeamAts } from '../../../api/_lib/teamDigest.js';
 
 export function getSubject(data = {}) {
   const name = data.displayName ? data.displayName.split(' ')[0] : null;
   const { pinnedTeams = [] } = data;
-  if (pinnedTeams.length === 1) {
-    return name
-      ? `${name}: ${pinnedTeams[0].name} \u2014 today\u2019s intel`
-      : `${pinnedTeams[0].name} \u2014 today\u2019s intel`;
+  const firstTeam = pinnedTeams[0]?.name?.split(' ')[0];
+  if (pinnedTeams.length === 1 && firstTeam) {
+    return name ? `${name}: ${firstTeam} update today` : `${firstTeam} update today`;
   }
-  if (pinnedTeams.length > 1) {
+  if (pinnedTeams.length > 1 && firstTeam) {
     return name
-      ? `${name}: ${pinnedTeams[0].name} + ${pinnedTeams.length - 1} more \u2014 team alerts`
-      : `${pinnedTeams[0].name} + ${pinnedTeams.length - 1} more \u2014 team alerts`;
+      ? `${name}: ${firstTeam} + ${pinnedTeams.length - 1} other teams`
+      : `${firstTeam} + ${pinnedTeams.length - 1} other teams today`;
   }
   return name ? `${name}, your team alerts` : 'Your team alerts';
+}
+
+export function getPreviewText(data = {}) {
+  const { pinnedTeams = [] } = data;
+  if (pinnedTeams.length === 0) return 'Pin teams on Maximus Sports to get personalized alerts.';
+  const names = pinnedTeams.slice(0, 2).map(t => t.name).join(' & ');
+  return `ATS trends, scores, and intel for ${names}${pinnedTeams.length > 2 ? ` + ${pinnedTeams.length - 2} more` : ''}.`;
 }
 
 export function renderHTML(data = {}) {
@@ -36,6 +43,7 @@ export function renderHTML(data = {}) {
     pinnedTeams = [],
     scoresToday = [],
     headlines = [],
+    atsLeaders = {},
     maximusNote = '',
   } = data;
 
@@ -56,26 +64,39 @@ ${heroBlock({ line: `Pin teams to get personalized alerts.`, sublabel: today })}
     return EmailShell({ content, previewText: 'Pin teams on Maximus Sports to get personalized alerts.' });
   }
 
-  // Team rows
+  // Team rows with ATS intelligence
   const teamRows = pinnedTeams.slice(0, 5).map(team => {
     const teamSlug = team.slug || '';
     const teamName = team.name || teamSlug || 'Your Team';
     const teamUrl = teamSlug ? `https://maximussports.ai/teams/${teamSlug}` : 'https://maximussports.ai';
     const { hasGame, game, gameInfo } = getTeamTodaySummary(team, scoresToday);
     const logoHtml = teamLogoImg(team, 22);
+    const ats = getTeamAts(team, atsLeaders);
 
     const gameContent = hasGame && game
       ? renderEmailGameCard(game, { compact: true })
       : `<div style="margin-top:3px;font-size:12px;color:#8a94a6;font-family:'DM Sans',Arial,sans-serif;">${gameInfo}</div>`;
 
+    let atsLine = '';
+    if (ats) {
+      const trendColor = ats.trend === 'hot' ? '#16a34a' : ats.trend === 'cold' ? '#dc6b20' : '#2d6ca8';
+      const trendText = ats.trend === 'hot' ? 'Covering' : ats.trend === 'cold' ? 'Fade watch' : 'ATS';
+      atsLine = `<div style="margin-top:4px;font-size:11px;font-family:'DM Sans',Arial,sans-serif;">
+        <span style="color:${trendColor};font-weight:600;">${trendText}</span>
+        ${ats.pct != null ? `<span style="color:#8a94a6;"> &middot; ${ats.pct}% cover rate</span>` : ''}
+        ${ats.record ? `<span style="color:#8a94a6;"> &middot; ${ats.record} ATS</span>` : ''}
+      </div>`;
+    }
+
     return `<tr>
-  <td style="padding:10px 0;border-bottom:1px solid #e8ecf0;" class="row-pad">
+  <td style="padding:12px 0;border-bottom:1px solid #e8ecf0;" class="row-pad">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
-        <td valign="middle" style="width:28px;padding-right:10px;">${logoHtml}</td>
-        <td valign="middle">
+        <td valign="top" style="width:28px;padding-right:10px;padding-top:2px;">${logoHtml}</td>
+        <td valign="top">
           <a href="${teamUrl}" style="font-size:14px;font-weight:700;color:#1a1a2e;text-decoration:none;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.35;">${teamName}</a>
-          <div style="margin-top:4px;">${gameContent}</div>
+          ${atsLine}
+          <div style="margin-top:6px;">${gameContent}</div>
         </td>
         <td align="right" valign="top" style="padding-left:8px;white-space:nowrap;">
           <a href="${teamUrl}" style="font-size:12px;color:#2d6ca8;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,Helvetica,sans-serif;">View &rarr;</a>
@@ -164,7 +185,7 @@ ${newsSection}`;
 
   return EmailShell({
     content,
-    previewText: `Daily intel for ${pinnedTeams.map(t => t.name).slice(0, 2).join(' & ')} \u2014 powered by Maximus Sports.`,
+    previewText: getPreviewText(data),
   });
 }
 

@@ -29,6 +29,7 @@ import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
 import { getSubject as getDailySubject, renderHTML as renderDailyHTML, renderText as renderDailyText } from '../../src/emails/templates/dailyBriefing.js';
+import { getUserPinnedTeams } from '../_lib/getUserPinnedTeams.js';
 
 async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
   try {
@@ -99,10 +100,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ eligible: false, reason: 'no_deliverable_email', emailSent: false });
     }
 
-    // Load profile
     const { data: profile } = await sb
       .from('profiles')
-      .select('id, full_name, display_name, username, preferences, plan_tier')
+      .select('id, display_name, username, preferences, plan_tier')
       .eq('id', authUser.id)
       .maybeSingle();
 
@@ -147,9 +147,19 @@ export default async function handler(req, res) {
     try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); } catch { /* ok */ }
 
     const displayName = getUserDisplayName({ user: authUser, profile });
+
+    // Fetch real pinned teams for the target user
+    let pinnedTeams = [];
+    try {
+      pinnedTeams = await getUserPinnedTeams(sb, authUser.id);
+      console.log(`[test-briefing] Resolved ${pinnedTeams.length} pinned teams for ${authUser.email}: [${pinnedTeams.map(t => t.name).join(', ')}]`);
+    } catch (err) {
+      console.warn(`[test-briefing] Could not resolve pinned teams: ${err.message}`);
+    }
+
     const emailData = {
       displayName, scoresToday, rankingsTop25, atsLeaders, headlines,
-      pinnedTeams: [], botIntelBullets,
+      pinnedTeams, botIntelBullets,
       maximusNote: botIntelBullets[0] || '', oddsGames: [],
     };
 

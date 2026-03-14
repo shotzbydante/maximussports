@@ -18,16 +18,16 @@ export function getSubject(data = {}) {
   const name = data.displayName ? data.displayName.split(' ')[0] : null;
   const { teamDigests = [] } = data;
   if (teamDigests.length === 0) {
-    return name ? `${name}, your team digest is ready` : 'Your team digest is ready';
+    return name ? `${name}, your team digest` : 'Your team digest';
   }
   if (teamDigests.length === 1) {
-    const teamName = teamDigests[0].team.name;
-    return name ? `${name}: ${teamName} \u2014 full digest` : `${teamName} \u2014 full digest`;
+    const short = teamDigests[0].team.name.split(' ')[0];
+    return name ? `${name}: ${short} full digest` : `${short} \u2014 full digest`;
   }
   const first = teamDigests[0].team.name.split(' ')[0];
   return name
-    ? `${name}: ${first} + ${teamDigests.length - 1} more \u2014 team digest`
-    : `${first} + ${teamDigests.length - 1} more \u2014 team digest`;
+    ? `${name}: ${first} + ${teamDigests.length - 1} more teams`
+    : `${first} + ${teamDigests.length - 1} more \u2014 digest`;
 }
 
 export function getPreviewText(data = {}) {
@@ -38,7 +38,7 @@ export function getPreviewText(data = {}) {
 }
 
 function renderTeamSection(digest, isFirst = false) {
-  const { team, game, rank, ats, teamNews, teamVideos, teamUrl, aiSummary } = digest;
+  const { team, game, rank, ats, teamNews, teamVideos, teamUrl, aiSummary, maximusInsight } = digest;
   const teamName = team.name || 'Your Team';
   const logoHtml = teamLogoImg(team, 36, 'https://maximussports.ai');
 
@@ -65,12 +65,13 @@ function renderTeamSection(digest, isFirst = false) {
   </td>
 </tr>`;
 
-  // AI Summary
-  const summarySection = aiSummary ? `
+  // Maximus Insight (AI summary or generated blurb)
+  const insightText = maximusInsight || aiSummary || null;
+  const summarySection = insightText ? `
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
-    <div style="margin-bottom:6px;">${sectionLabel('MAXIMUS SAYS')}</div>
-    <p style="margin:0;font-size:14px;color:#4a5568;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${aiSummary}</p>
+    <div style="margin-bottom:6px;">${sectionLabel('MAXIMUS INSIGHT')}</div>
+    <p style="margin:0;font-size:14px;color:#4a5568;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;font-style:italic;">${insightText}</p>
   </td>
 </tr>` : '';
 
@@ -173,19 +174,19 @@ export function renderHTML(data = {}) {
 
   if (teamDigests.length === 0) {
     const content = `
-${heroBlock({ line: `Set up your Team Digest`, sublabel: today })}
+${heroBlock({ line: `Pin teams to get your digest`, sublabel: today })}
 <tr>
   <td style="padding:10px 24px 16px;" class="intro-td">
     <p style="margin:0;font-size:15px;color:#4a5568;line-height:1.65;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
-      Hey ${greetingName}, head to Settings on Maximus Sports to select the teams you want in your digest. You\u2019ll get full editorial coverage for each team.
+      Hey ${greetingName}, pin your favorite teams in Settings on Maximus Sports. Your Team Digest will automatically cover every team you pin with full intel, ATS trends, and news.
     </p>
   </td>
 </tr>`;
     return EmailShell({
       content,
-      previewText: 'Set up your Team Digest on Maximus Sports.',
+      previewText: 'Pin teams on Maximus Sports to get your personalized digest.',
       ctaUrl: 'https://maximussports.ai/settings',
-      ctaLabel: 'Set up Team Digest &rarr;',
+      ctaLabel: 'Pin teams in Settings &rarr;',
     });
   }
 
@@ -259,7 +260,7 @@ export function renderText(data = {}) {
   ];
 
   for (const digest of teamDigests.slice(0, TEAM_DIGEST_MAX_TEAMS)) {
-    const { team, game, ats, teamNews, teamUrl } = digest;
+    const { team, game, ats, teamNews, teamUrl, maximusInsight } = digest;
     lines.push(`\u2501\u2501\u2501 ${team.name} \u2501\u2501\u2501`);
 
     if (game) {
@@ -278,6 +279,11 @@ export function renderText(data = {}) {
     if (ats) {
       const trendStr = ats.trend === 'hot' ? 'hot streak' : ats.trend === 'cold' ? 'fade watch' : 'neutral';
       lines.push(`ATS: ${trendStr}${ats.pct != null ? ` (${ats.pct}% cover)` : ''}${ats.record ? ` \u2014 ${ats.record}` : ''}`);
+    }
+
+    if (maximusInsight) {
+      lines.push('');
+      lines.push(`Maximus Insight: ${maximusInsight}`);
     }
 
     if (teamNews.length > 0) {

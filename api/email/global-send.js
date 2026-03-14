@@ -31,6 +31,7 @@ import { getSubject as getNewsSubject, renderHTML as renderNewsHTML, renderText 
 import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderText as renderDigestText } from '../../src/emails/templates/teamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
+import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
 
 const TYPE_TO_PREF_KEY = {
   daily:      'briefing',
@@ -56,20 +57,7 @@ async function fetchAllProfiles(sb) {
   return data || [];
 }
 
-async function fetchUserTeams(sb, userIds) {
-  if (!userIds.length) return {};
-  const { data, error } = await sb
-    .from('user_teams')
-    .select('user_id, team_slug, is_primary')
-    .in('user_id', userIds);
-  if (error) return {};
-  const map = {};
-  for (const row of (data || [])) {
-    if (!map[row.user_id]) map[row.user_id] = [];
-    map[row.user_id].push(row);
-  }
-  return map;
-}
+// fetchUserTeams replaced by shared fetchUserTeamsBatch from getUserPinnedTeams.js
 
 async function fetchAlreadySent(sb, dateKey) {
   const { data, error } = await sb
@@ -106,16 +94,7 @@ async function logJobRun(sb, record) {
   }
 }
 
-async function resolvePinnedTeams(teamRows) {
-  if (!teamRows?.length) return [];
-  const { getTeamBySlug } = await import('../../src/data/teams.js');
-  return teamRows
-    .map(row => {
-      const team = getTeamBySlug(row.team_slug);
-      return team ? { name: team.name, slug: team.slug, tier: team.oddsTier || null, logo: `/logos/${team.slug}.svg` } : null;
-    })
-    .filter(Boolean);
-}
+// resolvePinnedTeams replaced by shared resolveTeamRows from getUserPinnedTeams.js
 
 async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
   try {
@@ -274,12 +253,10 @@ export default async function handler(req, res) {
     }
 
     let getTeamBySlugFn = null;
-    if (type === 'teamDigest') {
-      try { const m = await import('../../src/data/teams.js'); getTeamBySlugFn = m.getTeamBySlug; } catch { /* ok */ }
-    }
+    try { const m = await import('../../src/data/teams.js'); getTeamBySlugFn = m.getTeamBySlug; } catch { /* ok */ }
 
     const userIds = toSend.map(u => u.id);
-    const userTeamsMap = await fetchUserTeams(sb, userIds);
+    const userTeamsMap = await fetchUserTeamsBatch(sb, userIds);
 
     let sent = 0;
     let failed = 0;
@@ -294,9 +271,14 @@ export default async function handler(req, res) {
       const email = authUser.email;
       const profile = profileMap[userId];
       const displayName = getUserDisplayName({ user: authUser, profile });
+      // Resolve pinned teams from user_teams (single source of truth)
       const teamRows = userTeamsMap[userId] || [];
-      let pinnedTeams = [];
-      try { pinnedTeams = await resolvePinnedTeams(teamRows); } catch { /* ok */ }
+      const pinnedTeams = getTeamBySlugFn ? resolveTeamRows(teamRows, getTeamBySlugFn) : [];
+      const pinnedSlugs = getPinnedTeamSlugs(teamRows);
+
+      if (type === 'pinned' || type === 'teamDigest') {
+        console.log(`[global-send] Team resolve user=${userId} email=${email} slugs=[${pinnedSlugs.join(',')}] names=[${pinnedTeams.map(t => t.name).join(',')}]`);
+      }
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
       const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames };
@@ -313,17 +295,26 @@ export default async function handler(req, res) {
           case 'news':
             subject = getNewsSubject(emailData); html = renderNewsHTML(emailData); text = renderNewsText(emailData); break;
           case 'teamDigest': {
-            const prefs = profile?.preferences || {};
-            const allDigestSlugs = Array.isArray(prefs.teamDigestTeams) ? prefs.teamDigestTeams : [];
-            if (!getTeamBySlugFn || allDigestSlugs.length === 0) {
+            if (!getTeamBySlugFn || pinnedSlugs.length === 0) {
               skipCounts.no_digest_teams++;
+              console.log(`[global-send] SKIP user=${userId} reason=no_pinned_teams email=${email}`);
               continue;
             }
             const planEntitlements = getProfileEntitlements(profile);
             const maxEmailTeams = isFinite(planEntitlements.maxEmailTeams) ? planEntitlements.maxEmailTeams : TEAM_DIGEST_MAX_TEAMS;
-            const digestSlugs = allDigestSlugs.slice(0, Math.min(maxEmailTeams, TEAM_DIGEST_MAX_TEAMS));
+            const digestSlugs = pinnedSlugs.slice(0, Math.min(maxEmailTeams, TEAM_DIGEST_MAX_TEAMS));
             const teamDigests = assembleTeamDigestPayload(digestSlugs, { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlugFn);
-            const digestEmailData = { ...emailData, teamDigests, totalTeamCount: digestSlugs.length };
+
+            const renderedSlugs = teamDigests.map(d => d.team.slug);
+            const unexpectedTeams = renderedSlugs.filter(s => !pinnedSlugs.includes(s));
+            if (unexpectedTeams.length > 0) {
+              console.error(`[global-send] INTEGRITY VIOLATION: user=${userId} rendered=[${renderedSlugs.join(',')}] pinned=[${pinnedSlugs.join(',')}]. Aborting.`);
+              failed++;
+              errors.push(`${email}: integrity violation`);
+              continue;
+            }
+
+            const digestEmailData = { ...emailData, teamDigests, totalTeamCount: pinnedSlugs.length };
             subject = getDigestSubject(digestEmailData); html = renderDigestHTML(digestEmailData); text = renderDigestText(digestEmailData);
             break;
           }

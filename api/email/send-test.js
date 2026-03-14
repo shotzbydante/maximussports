@@ -13,7 +13,7 @@
  *   BAD_TYPE         — type param missing or unrecognised
  */
 
-import { verifyUserToken, getEnvStatus } from '../_lib/supabaseAdmin.js';
+import { verifyUserToken, getEnvStatus, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { ADMIN_EMAIL, isAdminEmail } from '../_lib/admin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
@@ -27,17 +27,15 @@ import { getSubject as getOddsSubject,   renderHTML as renderOddsHTML,   renderT
 import { getSubject as getNewsSubject,   renderHTML as renderNewsHTML,   renderText as renderNewsText   } from '../../src/emails/templates/breakingNews.js';
 import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderText as renderDigestText } from '../../src/emails/templates/teamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
+import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
 
 const VALID_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
 
-// Test pinned teams using correct full slugs from data/teams.js
-const TEST_PINNED_TEAMS = [
-  { name: 'Duke Blue Devils',  slug: 'duke-blue-devils',  logo: '/logos/duke-blue-devils.svg' },
-  { name: 'Kansas Jayhawks',   slug: 'kansas-jayhawks',   logo: '/logos/kansas-jayhawks.svg'  },
+// Fallback teams only used when the admin has zero pinned teams
+const FALLBACK_PINNED_TEAMS = [
+  { name: 'Duke Blue Devils',  slug: 'duke-blue-devils' },
+  { name: 'Kansas Jayhawks',   slug: 'kansas-jayhawks'  },
 ];
-
-// Test teams for Team Digest
-const TEST_DIGEST_TEAM_SLUGS = ['duke-blue-devils', 'kansas-jayhawks', 'uconn-huskies'];
 
 /**
  * Try to extract concise bullets from cached LLM home summary,
@@ -167,13 +165,32 @@ export default async function handler(req, res) {
 
     const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
 
+    // Use admin's real pinned teams from user_teams instead of hardcoded fakes
+    let pinnedTeams = [];
+    let pinnedSlugs = [];
+    try {
+      const sb = getSupabaseAdmin();
+      pinnedTeams = await getUserPinnedTeams(sb, user.id);
+      const teamMap = await fetchUserTeamsBatch(sb, [user.id]);
+      pinnedSlugs = getPinnedTeamSlugs(teamMap[user.id] || []);
+    } catch (err) {
+      console.warn(`[send-test] Could not fetch real pinned teams for ${user.id}: ${err.message}`);
+    }
+    if (pinnedTeams.length === 0) {
+      pinnedTeams = FALLBACK_PINNED_TEAMS;
+      pinnedSlugs = FALLBACK_PINNED_TEAMS.map(t => t.slug);
+      console.log('[send-test] No pinned teams found — using fallback for test');
+    } else {
+      console.log(`[send-test] Using real pinned teams: [${pinnedTeams.map(t => t.name).join(', ')}]`);
+    }
+
     const emailData = {
       displayName,
       scoresToday,
       rankingsTop25,
       atsLeaders,
       headlines,
-      pinnedTeams: TEST_PINNED_TEAMS,
+      pinnedTeams,
       botIntelBullets,
       maximusNote,
       oddsGames,
@@ -189,11 +206,11 @@ export default async function handler(req, res) {
         const { getTeamBySlug } = await import('../../src/data/teams.js');
         const sharedDigestData = { scoresToday, rankingsTop25, atsLeaders, headlines };
         const teamDigests = assembleTeamDigestPayload(
-          TEST_DIGEST_TEAM_SLUGS.slice(0, TEAM_DIGEST_MAX_TEAMS),
+          pinnedSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
           sharedDigestData,
           getTeamBySlug
         );
-        const digestData = { ...emailData, teamDigests, totalTeamCount: TEST_DIGEST_TEAM_SLUGS.length };
+        const digestData = { ...emailData, teamDigests, totalTeamCount: pinnedSlugs.length };
         subject = getDigestSubject(digestData);
         html    = renderDigestHTML(digestData);
         text    = renderDigestText(digestData);

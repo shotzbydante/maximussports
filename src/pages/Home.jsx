@@ -36,7 +36,7 @@ import SignupBanner from '../components/marketing/SignupBanner';
 import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDate';
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
-import SEOHead from '../components/seo/SEOHead';
+import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
 const _llmSummaryCache = { data: null, ts: 0 };
@@ -1040,6 +1040,7 @@ export default function Home() {
         title={`College Basketball Betting Intelligence & March Madness Picks (${new Date().getFullYear()})`}
         description={`AI-powered college basketball betting intelligence for the ${new Date().getFullYear()} season — today's ATS picks, model-driven predictions, and March Madness insights across every major NCAAB matchup.`}
         canonicalPath="/"
+        ogImage={buildOgImageUrl({ title: 'College Basketball Intelligence', subtitle: 'ATS trends, model-driven picks & March Madness insights', type: 'Team Intel' })}
       />
       <WelcomeModal
         open={welcomeOpen}

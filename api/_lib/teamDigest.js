@@ -131,6 +131,44 @@ export function buildSingleTeamDigest(team, sharedData = {}) {
     return teamNameWords.some(w => text.includes(w));
   }).slice(0, 4);
 
+  // Generate a Maximus Insight blurb from available data
+  let maximusInsight = aiSummary || null;
+  if (!maximusInsight) {
+    const parts = [];
+    if (game) {
+      const isHome = (game.homeTeam || '').toLowerCase().includes((team.name || '').split(' ')[0].toLowerCase());
+      const opponent = isHome ? game.awayTeam : game.homeTeam;
+      const status = (game.gameStatus || '').toLowerCase();
+      if (status === 'final' || status === 'completed') {
+        const homeScore = game.homeScore ?? game.homeTeamScore ?? '';
+        const awayScore = game.awayScore ?? game.awayTeamScore ?? '';
+        if (homeScore && awayScore) {
+          const teamScore = isHome ? homeScore : awayScore;
+          const oppScore = isHome ? awayScore : homeScore;
+          const won = Number(teamScore) > Number(oppScore);
+          parts.push(`${team.name.split(' ')[0]} ${won ? 'defeated' : 'fell to'} ${opponent || 'opponent'} ${teamScore}\u2013${oppScore}.`);
+        }
+      } else if (opponent) {
+        parts.push(`Next up: ${team.name.split(' ')[0]} vs ${opponent}.`);
+      }
+    }
+    if (ats) {
+      if (ats.trend === 'hot' && ats.pct != null) {
+        parts.push(`Covering at a ${ats.pct}% rate${ats.record ? ` (${ats.record} ATS)` : ''} \u2014 one of the hottest ATS trends right now.`);
+      } else if (ats.trend === 'cold' && ats.pct != null) {
+        parts.push(`Just ${ats.pct}% ATS cover rate${ats.record ? ` (${ats.record})` : ''} \u2014 fading sharps are watching.`);
+      } else if (ats.record) {
+        parts.push(`Season ATS record: ${ats.record}.`);
+      }
+    }
+    if (rank) {
+      parts.push(`Ranked #${rank} in the AP poll.`);
+    }
+    if (parts.length > 0) {
+      maximusInsight = parts.join(' ');
+    }
+  }
+
   return {
     team,
     game,
@@ -140,6 +178,7 @@ export function buildSingleTeamDigest(team, sharedData = {}) {
     teamVideos,
     teamUrl,
     aiSummary,
+    maximusInsight,
   };
 }
 
