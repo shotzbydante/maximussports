@@ -859,7 +859,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                           shareType="team_card"
                           title={team.name}
                           subtitle={atsSubtitle}
-                          meta="Get your daily leans at maximussports.ai"
+                          meta={ats && ats.coverPct != null ? `covering at a ${Math.round(ats.coverPct)}% ATS clip` : ''}
                           teamSlug={slug}
                           destinationPath={`/teams/${slug}`}
                           placement="pinned_team_card"
