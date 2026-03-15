@@ -32,11 +32,11 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
 
   const displayName = isGuest
     ? 'Guest'
-    : (profile?.displayName || profile?.username || profile?.email?.split('@')[0] || 'User');
+    : (profile?.username || profile?.displayName || 'User');
 
   const handle = isGuest
     ? 'Create your profile'
-    : (profile?.handle || (profile?.username ? `@${profile.username}` : profile?.email || ''));
+    : (profile?.handle || (profile?.username ? `@${profile.username}` : ''));
 
   const isPro = !isGuest && profile?.isPro;
 

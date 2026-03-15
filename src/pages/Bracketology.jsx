@@ -15,6 +15,7 @@ import { hasBracketologyAccess } from '../config/bracketology';
 import { useBracketData } from '../hooks/useBracketData';
 import { useBracketPicks } from '../hooks/useBracketPicks';
 import { buildFullBracket } from '../data/bracketData';
+import { generateProjectedBracket } from '../data/projectedField';
 import { resolveBracketMatchup, resolveFullBracket } from '../utils/bracketMatchupResolver';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import BracketLoading from '../components/bracketology/BracketLoading';
@@ -25,6 +26,7 @@ import BracketRegion from '../components/bracketology/BracketRegion';
 import BracketFinalFour from '../components/bracketology/BracketFinalFour';
 import BracketIntelStrip from '../components/bracketology/BracketIntelStrip';
 import BracketCompare from '../components/bracketology/BracketCompare';
+import BracketShareSummary from '../components/bracketology/BracketShareSummary';
 import ShareButton from '../components/common/ShareButton';
 import styles from './Bracketology.module.css';
 
@@ -45,6 +47,7 @@ export default function Bracketology() {
   const [maximusPicks, setMaximusPicks] = useState({});
   const [showMinLoadTime, setShowMinLoadTime] = useState(true);
   const [showCompare, setShowCompare] = useState(false);
+  const [showShareSummary, setShowShareSummary] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowMinLoadTime(false), 2200);
@@ -116,6 +119,10 @@ export default function Bracketology() {
     makePick(matchupId, position, 'maximus');
   }, [makePick]);
 
+  const handlePopulateField = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
   const handleAutoFill = useCallback(() => {
     if (!bracket || !modelContext) return;
     const { picks: maxPicksResult } = resolveFullBracket(bracket, modelContext, buildFullBracket);
@@ -167,6 +174,9 @@ export default function Bracketology() {
           maximusCount={maximusCount}
           champion={champion}
           championPrediction={championPrediction}
+          hasBracket={hasBracket}
+          onPopulateField={handlePopulateField}
+          onAutoFill={handleAutoFill}
         />
 
         {hasBracket && (
@@ -257,13 +267,21 @@ export default function Bracketology() {
             </div>
 
             <div className={styles.bracketShare}>
+              <button
+                type="button"
+                className={styles.shareSummaryBtn}
+                onClick={() => setShowShareSummary(true)}
+                disabled={totalPicks === 0}
+              >
+                Share My Bracket
+              </button>
               <ShareButton
                 shareType="bracket_bust"
                 title="My March Madness Bracket"
                 subtitle={picks?.championship ? `Champion: ${allMatchups?.[picks.championship]?.name || picks.championship}` : 'Build your bracket'}
                 destinationPath="/bracketology"
                 placement="bracketology_footer"
-                label="Share Bracket"
+                label="Share Link"
                 variant="primary"
               />
             </div>
@@ -299,6 +317,17 @@ export default function Bracketology() {
               )}
             </div>
           </>
+        )}
+
+        {showShareSummary && (
+          <BracketShareSummary
+            picks={picks}
+            maximusPicks={maximusPicks}
+            allMatchups={allMatchups}
+            predictions={predictions}
+            bracketMode={bracketMode}
+            onClose={() => setShowShareSummary(false)}
+          />
         )}
       </div>
     </>

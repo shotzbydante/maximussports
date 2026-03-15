@@ -146,8 +146,36 @@
 
 .bracketShare {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 0.75rem;
   padding: var(--space-md) 0;
+}
+
+.shareSummaryBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.25rem;
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.2), rgba(56, 133, 224, 0.1));
+  border: 1px solid rgba(56, 133, 224, 0.3);
+  border-radius: 8px;
+  color: #5a9ee6;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shareSummaryBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.3), rgba(56, 133, 224, 0.15));
+  border-color: rgba(56, 133, 224, 0.5);
+}
+
+.shareSummaryBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

@@ -39,7 +39,6 @@ export default async function handler(req, res) {
     const { data: profiles, error } = await supabaseAdmin
       .from('profiles')
       .select('id, username, display_name, avatar_config, plan_tier')
-      .not('username', 'is', null)
       .neq('id', user.id)
       .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
       .order('followers_count', { ascending: false, nullsFirst: false })

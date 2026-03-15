@@ -66,6 +66,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
 
   const [contactTab, setContactTab] = useState('matched');
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [showSyncFallback, setShowSyncFallback] = useState(false);
 
   const inviteLink = `https://maximussports.ai/join?ref=${user?.id || 'maximus'}`;
 
@@ -208,33 +209,74 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
       {/* ── Default content (when NOT searching) ──────────────────── */}
       {!isSearchActive && (
         <>
-          {/* ── 2. Sync Contacts Card — always visible ───────────── */}
+          {/* ── 2. Sync Contacts Card — always visible, fully clickable ─ */}
           {!hasContactResults && !isContactSyncing && (
-            <div className={styles.syncCard}>
-              <div className={styles.syncCardIcon}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M22 21v-2a4 4 0 00-3-3.87" />
-                  <path d="M16 3.13a4 4 0 010 7.75" />
-                </svg>
-              </div>
-              <div className={styles.syncCardBody}>
-                <span className={styles.syncCardTitle}>Sync Contacts</span>
-                <span className={styles.syncCardDesc}>
-                  {isContactPickerSupported
-                    ? 'Find friends already on Maximus from your phone contacts.'
-                    : 'Contact sync is limited in this browser. Use search or invite friends below.'}
+            <>
+              <button
+                type="button"
+                className={styles.syncCard}
+                onClick={() => {
+                  if (isContactPickerSupported) {
+                    requestAndSync();
+                  } else {
+                    setShowSyncFallback(prev => !prev);
+                    track('sync_contacts_tap', { supported: false });
+                  }
+                }}
+              >
+                <div className={styles.syncCardIcon}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 00-3-3.87" />
+                    <path d="M16 3.13a4 4 0 010 7.75" />
+                  </svg>
+                </div>
+                <div className={styles.syncCardBody}>
+                  <span className={styles.syncCardTitle}>Sync Contacts</span>
+                  <span className={styles.syncCardDesc}>
+                    {isContactPickerSupported
+                      ? 'Tap to find friends already on Maximus.'
+                      : 'Tap to find friends via search or invite link.'}
+                  </span>
+                </div>
+                <span className={styles.syncCardArrow} aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
                 </span>
-              </div>
-              {isContactPickerSupported ? (
-                <button type="button" className={styles.syncCardBtn} onClick={requestAndSync}>
-                  Sync
-                </button>
-              ) : (
-                <span className={styles.syncCardBadge}>Limited</span>
+              </button>
+
+              {showSyncFallback && !isContactPickerSupported && (
+                <div className={styles.syncFallbackDrawer}>
+                  <p className={styles.syncFallbackText}>
+                    Contact sync requires Android Chrome. On this device, you can find friends by:
+                  </p>
+                  <div className={styles.syncFallbackActions}>
+                    <button
+                      type="button"
+                      className={styles.syncFallbackBtn}
+                      onClick={() => {
+                        setShowSyncFallback(false);
+                        const searchInput = document.querySelector(`.${styles.searchInput}`);
+                        if (searchInput) searchInput.focus();
+                      }}
+                    >
+                      <SearchIcon />
+                      Search Username
+                    </button>
+                    <button type="button" className={styles.syncFallbackBtn} onClick={handleShareInvite}>
+                      <SmsIcon />
+                      Send Invite
+                    </button>
+                    <button type="button" className={styles.syncFallbackBtn} onClick={handleCopyInviteLink}>
+                      <LinkIcon />
+                      {inviteLinkCopied ? 'Copied!' : 'Copy Invite Link'}
+                    </button>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Contact sync loading */}

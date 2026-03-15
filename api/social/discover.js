@@ -58,19 +58,20 @@ export default async function handler(req, res) {
         const { data: profiles } = await supabaseAdmin
           .from('profiles')
           .select('id, username, display_name, avatar_config, plan_tier, followers_count')
-          .in('id', candidateIds)
-          .not('username', 'is', null);
+          .in('id', candidateIds);
 
-        suggestions = (profiles || []).map(p => ({
-          id: p.id,
-          username: p.username,
-          displayName: p.display_name || p.username,
-          avatarConfig: p.avatar_config,
-          isPro: p.plan_tier === 'pro',
-          followersCount: p.followers_count || 0,
-          followStatus: 'none',
-          reason: 'shared_team',
-        }));
+        suggestions = (profiles || [])
+          .filter(p => p.username || p.display_name)
+          .map(p => ({
+            id: p.id,
+            username: p.username || '',
+            displayName: p.display_name || p.username || '',
+            avatarConfig: p.avatar_config,
+            isPro: p.plan_tier === 'pro',
+            followersCount: p.followers_count || 0,
+            followStatus: 'none',
+            reason: 'shared_team',
+          }));
       }
     }
 
@@ -79,17 +80,16 @@ export default async function handler(req, res) {
       const { data: popular } = await supabaseAdmin
         .from('profiles')
         .select('id, username, display_name, avatar_config, plan_tier, followers_count')
-        .not('username', 'is', null)
         .order('followers_count', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       const additional = (popular || [])
-        .filter(p => !existingIds.has(p.id))
+        .filter(p => !existingIds.has(p.id) && (p.username || p.display_name))
         .slice(0, 10 - suggestions.length)
         .map(p => ({
           id: p.id,
-          username: p.username,
-          displayName: p.display_name || p.username,
+          username: p.username || '',
+          displayName: p.display_name || p.username || '',
           avatarConfig: p.avatar_config,
           isPro: p.plan_tier === 'pro',
           followersCount: p.followers_count || 0,

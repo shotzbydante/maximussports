@@ -10,6 +10,9 @@ export default function BracketHero({
   maximusCount,
   champion,
   championPrediction,
+  hasBracket,
+  onPopulateField,
+  onAutoFill,
 }) {
   const isProjected = bracketMode === 'projected';
 
@@ -25,10 +28,14 @@ export default function BracketHero({
         </div>
 
         <h1 className={styles.heroTitle}>Bracketology</h1>
-        <p className={styles.heroSubtitle}>Build your bracket. Beat the field.</p>
+        <p className={styles.heroSubtitle}>
+          {isProjected
+            ? 'Build your bracket. Beat the field.'
+            : 'The official bracket is live. Lock in your picks.'}
+        </p>
         <p className={styles.heroDescription}>
           {isProjected
-            ? 'Projected field until Selection Sunday. Official bracket will auto-populate once released.'
+            ? 'Projected field based on current-season data. Official bracket auto-populates on Selection Sunday.'
             : 'Model-driven tournament intelligence — 64 teams, 63 games, powered by Maximus.'
           }
         </p>
@@ -82,6 +89,36 @@ export default function BracketHero({
                 <span className={styles.championConfLabel}>Win Prob</span>
               </div>
             )}
+          </div>
+        )}
+
+        {hasBracket && totalPicks === 0 && (
+          <div className={styles.firstUseCta}>
+            <p className={styles.firstUseText}>
+              Your bracket is ready. Choose how to start:
+            </p>
+            <div className={styles.firstUseActions}>
+              {onAutoFill && (
+                <button type="button" className={styles.firstUsePrimary} onClick={onAutoFill}>
+                  <span className={styles.firstUseIcon}>◆</span>
+                  Auto-Fill Maximus
+                </button>
+              )}
+              <button type="button" className={styles.firstUseSecondary} onClick={() => {}}>
+                Build Manually
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!hasBracket && onPopulateField && (
+          <div className={styles.firstUseCta}>
+            <p className={styles.firstUseText}>
+              Load the projected 64-team field to start building your bracket.
+            </p>
+            <button type="button" className={styles.firstUsePrimary} onClick={onPopulateField}>
+              Populate Projected Field
+            </button>
           </div>
         )}
 

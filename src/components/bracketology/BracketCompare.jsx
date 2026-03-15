@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 import styles from './BracketCompare.module.css';
 
-/**
- * BracketCompare — summary strip showing where manual picks diverge from Maximus.
- */
 export default function BracketCompare({
   picks,
   pickOrigins,
@@ -56,12 +53,25 @@ export default function BracketCompare({
       : null;
     const champAgree = userChamp && maxChamp && userChamp.slug === maxChamp.slug;
 
+    const userFF = [];
+    const maxFF = [];
+    for (const mId of ['ff-1', 'ff-2']) {
+      const m = allMatchups[mId];
+      if (!m) continue;
+      if (picks[mId]) userFF.push(picks[mId] === 'top' ? m.topTeam : m.bottomTeam);
+      if (maximusPicks[mId]) maxFF.push(maximusPicks[mId] === 'top' ? m.topTeam : m.bottomTeam);
+    }
+
     let boldestDivergence = null;
     for (const d of divergences) {
       if (!boldestDivergence || d.round > boldestDivergence.round) {
         boldestDivergence = d;
       }
     }
+
+    const topDivergences = [...divergences]
+      .sort((a, b) => b.round - a.round)
+      .slice(0, 3);
 
     const userUpsets = Object.entries(picks).filter(([id]) => {
       const m = allMatchups[id];
@@ -76,11 +86,19 @@ export default function BracketCompare({
       return pred?.isUpset;
     }).length;
 
+    let narrative = '';
+    if (comparison === null) narrative = '';
+    else if (agreePct >= 90) narrative = 'You and Maximus are nearly in lockstep. A chalk-heavy bracket.';
+    else if (agreePct >= 70) narrative = 'Mostly aligned, but you\'re making some bold calls Maximus wouldn\'t.';
+    else if (agreePct >= 50) narrative = 'A healthy amount of disagreement — you\'re thinking independently.';
+    else narrative = 'A contrarian bracket. You\'re betting against the model.';
+
     return {
       agreements, disagreements, agreePct, totalCompared,
-      disagreeByRound, divergences, boldestDivergence,
+      disagreeByRound, divergences, topDivergences, boldestDivergence,
       userChamp, maxChamp, champAgree,
-      userUpsets, maxUpsets,
+      userFF, maxFF,
+      userUpsets, maxUpsets, narrative,
     };
   }, [picks, maximusPicks, predictions, allMatchups]);
 
@@ -92,22 +110,22 @@ export default function BracketCompare({
     <div className={styles.compare}>
       <div className={styles.header}>
         <span className={styles.headerIcon}>◆</span>
-        <h3 className={styles.headerTitle}>Manual vs Maximus</h3>
+        <h3 className={styles.headerTitle}>Your Bracket vs Maximus</h3>
         <span className={styles.headerSub}>{comparison.totalCompared} games compared</span>
       </div>
 
+      {comparison.narrative && (
+        <p className={styles.narrative}>{comparison.narrative}</p>
+      )}
+
       <div className={styles.cards}>
         <div className={styles.card}>
-          <span className={styles.cardValue}>
-            {comparison.agreePct}%
-          </span>
+          <span className={styles.cardValue}>{comparison.agreePct}%</span>
           <span className={styles.cardLabel}>Agreement</span>
         </div>
 
         <div className={styles.card}>
-          <span className={`${styles.cardValue} ${styles.divergeValue}`}>
-            {comparison.disagreements}
-          </span>
+          <span className={`${styles.cardValue} ${styles.divergeValue}`}>{comparison.disagreements}</span>
           <span className={styles.cardLabel}>Disagreements</span>
         </div>
 
@@ -120,44 +138,83 @@ export default function BracketCompare({
           <span className={`${styles.cardValue} ${styles.maximusValue}`}>{comparison.maxUpsets}</span>
           <span className={styles.cardLabel}>Maximus Upsets</span>
         </div>
+      </div>
 
-        {comparison.userChamp && (
-          <div className={`${styles.card} ${comparison.champAgree ? styles.cardAgree : styles.cardDisagree}`}>
-            <div className={styles.champCompare}>
-              <span className={styles.champTeam}>{comparison.userChamp.shortName || comparison.userChamp.name}</span>
-              <span className={styles.champVs}>vs</span>
-              <span className={`${styles.champTeam} ${styles.maximusValue}`}>
+      {/* Champion comparison */}
+      {comparison.userChamp && (
+        <div className={styles.champSection}>
+          <span className={styles.champSectionLabel}>Champion</span>
+          <div className={`${styles.champRow} ${comparison.champAgree ? styles.champAgree : styles.champDisagree}`}>
+            <div className={styles.champSide}>
+              <span className={styles.champSideLabel}>You</span>
+              <span className={styles.champSideName}>{comparison.userChamp.shortName || comparison.userChamp.name}</span>
+              {comparison.userChamp.seed && <span className={styles.champSideSeed}>{comparison.userChamp.seed}-seed</span>}
+            </div>
+            <span className={styles.champVsIcon}>{comparison.champAgree ? '=' : '≠'}</span>
+            <div className={styles.champSide}>
+              <span className={`${styles.champSideLabel} ${styles.maximusAccent}`}>Maximus</span>
+              <span className={styles.champSideName}>
                 {comparison.maxChamp?.shortName || comparison.maxChamp?.name || '—'}
               </span>
+              {comparison.maxChamp?.seed && <span className={styles.champSideSeed}>{comparison.maxChamp.seed}-seed</span>}
             </div>
-            <span className={styles.cardLabel}>Champion</span>
           </div>
-        )}
+        </div>
+      )}
 
-        {Object.keys(comparison.disagreeByRound).length > 0 && (
-          <div className={styles.card}>
-            <div className={styles.roundBreakdown}>
-              {Object.entries(comparison.disagreeByRound)
-                .sort(([a], [b]) => Number(a) - Number(b))
-                .map(([round, count]) => (
-                  <span key={round} className={styles.roundTag}>
-                    {roundNames[round] || `R${round}`}: {count}
-                  </span>
-                ))}
+      {/* Final Four comparison */}
+      {(comparison.userFF.length > 0 || comparison.maxFF.length > 0) && (
+        <div className={styles.ffSection}>
+          <span className={styles.ffSectionLabel}>Final Four</span>
+          <div className={styles.ffRow}>
+            <div className={styles.ffSide}>
+              <span className={styles.ffSideLabel}>You</span>
+              {comparison.userFF.map((t, i) => (
+                <span key={i} className={styles.ffTeam}>{t?.shortName || t?.name || '—'}</span>
+              ))}
             </div>
-            <span className={styles.cardLabel}>Disagree by Round</span>
+            <div className={styles.ffSide}>
+              <span className={`${styles.ffSideLabel} ${styles.maximusAccent}`}>Maximus</span>
+              {comparison.maxFF.map((t, i) => (
+                <span key={i} className={styles.ffTeam}>{t?.shortName || t?.name || '—'}</span>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {comparison.boldestDivergence && (
-          <div className={styles.card}>
-            <span className={styles.cardValue}>
-              {roundNames[comparison.boldestDivergence.round]}
-            </span>
-            <span className={styles.cardLabel}>Boldest Divergence</span>
+      {/* Round-by-round disagreement */}
+      {Object.keys(comparison.disagreeByRound).length > 0 && (
+        <div className={styles.roundSection}>
+          <span className={styles.roundSectionLabel}>Disagreements by Round</span>
+          <div className={styles.roundBreakdown}>
+            {Object.entries(comparison.disagreeByRound)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([round, count]) => (
+                <span key={round} className={styles.roundTag}>
+                  <span className={styles.roundTagName}>{roundNames[round] || `R${round}`}</span>
+                  <span className={styles.roundTagCount}>{count}</span>
+                </span>
+              ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Top divergences */}
+      {comparison.topDivergences.length > 0 && (
+        <div className={styles.divergenceSection}>
+          <span className={styles.divergenceSectionLabel}>Boldest Disagreements</span>
+          {comparison.topDivergences.map((d, i) => (
+            <div key={d.matchupId} className={styles.divergenceItem}>
+              <span className={styles.divergenceRound}>{roundNames[d.round]}</span>
+              <span className={styles.divergenceYou}>{d.userTeam?.shortName || d.userTeam?.name}</span>
+              <span className={styles.divergenceVs}>vs</span>
+              <span className={styles.divergenceMax}>{d.maximusTeam?.shortName || d.maximusTeam?.name}</span>
+              {d.isUpset && <span className={styles.divergenceUpset}>UPSET</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

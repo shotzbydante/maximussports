@@ -60,6 +60,22 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.syncCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(60, 121, 180, 0.08), var(--shadow-sm);
+  background: var(--color-bg-muted);
+}
+
+.syncCard:active {
+  transform: scale(0.99);
 }
 
 .syncCardIcon {
@@ -126,6 +142,73 @@
   border-radius: var(--pill-radius);
   background: rgba(60, 121, 180, 0.08);
   color: var(--color-text-muted);
+}
+
+.syncCardArrow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.syncCard:hover .syncCardArrow {
+  opacity: 0.8;
+  transform: translateX(2px);
+}
+
+/* ─── Sync Fallback Drawer ─────────────────────────────────────────────── */
+.syncFallbackDrawer {
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card);
+  animation: syncFallbackIn 0.2s ease;
+}
+
+@keyframes syncFallbackIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.syncFallbackText {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-md);
+  line-height: 1.5;
+}
+
+.syncFallbackActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.syncFallbackBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(60, 121, 180, 0.06);
+  border: 1px solid rgba(60, 121, 180, 0.12);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.syncFallbackBtn:hover {
+  background: rgba(60, 121, 180, 0.1);
+  border-color: var(--color-primary);
+}
+
+.syncFallbackBtn:active {
+  transform: scale(0.98);
 }
 
 .btnSyncContacts {

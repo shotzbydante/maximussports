@@ -1,6 +1,6 @@
 .compare {
   margin: 0 1.5rem 1rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.04), rgba(56, 133, 224, 0.03));
   border: 1px solid rgba(168, 85, 247, 0.12);
   border-radius: 12px;
@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .headerIcon {
@@ -19,7 +19,7 @@
 }
 
 .headerTitle {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
   margin: 0;
@@ -31,6 +31,16 @@
   margin-left: auto;
 }
 
+.narrative {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 0.75rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ─── Stat Cards ──────────────────────────────────── */
+
 .cards {
   display: flex;
   gap: 0.6rem;
@@ -39,6 +49,7 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
   padding-bottom: 0.2rem;
+  margin-bottom: 0.75rem;
 }
 
 .card {
@@ -54,16 +65,6 @@
   min-width: 80px;
 }
 
-.cardAgree {
-  border-color: rgba(34, 197, 94, 0.15);
-  background: rgba(34, 197, 94, 0.04);
-}
-
-.cardDisagree {
-  border-color: rgba(239, 68, 68, 0.12);
-  background: rgba(239, 68, 68, 0.03);
-}
-
 .cardValue {
   font-size: 1.1rem;
   font-weight: 800;
@@ -72,6 +73,7 @@
 
 .divergeValue { color: #a855f7; }
 .maximusValue { color: #5a9ee6; }
+.maximusAccent { color: #5a9ee6; }
 
 .cardLabel {
   font-size: 0.55rem;
@@ -82,41 +84,237 @@
   white-space: nowrap;
 }
 
-.champCompare {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+/* ─── Champion Comparison ─────────────────────────── */
+
+.champSection {
+  margin-bottom: 0.75rem;
 }
 
-.champTeam {
-  font-size: 0.75rem;
+.champSectionLabel {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 0.4rem;
+}
+
+.champRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+
+.champAgree {
+  background: rgba(34, 197, 94, 0.05);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.champDisagree {
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+}
+
+.champSide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 80px;
+}
+
+.champSideLabel {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.champSideName {
+  font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
 }
 
-.champVs {
+.champSideSeed {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.champVsIcon {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* ─── Final Four Comparison ───────────────────────── */
+
+.ffSection {
+  margin-bottom: 0.75rem;
+}
+
+.ffSectionLabel {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 0.4rem;
+}
+
+.ffRow {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.ffSide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ffSideLabel {
   font-size: 0.55rem;
-  color: rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.ffTeam {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ─── Round Breakdown ─────────────────────────────── */
+
+.roundSection {
+  margin-bottom: 0.75rem;
+}
+
+.roundSectionLabel {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 0.4rem;
 }
 
 .roundBreakdown {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
-  justify-content: center;
 }
 
 .roundTag {
-  font-size: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.12);
+}
+
+.roundTagName {
+  font-size: 0.6rem;
   font-weight: 600;
+  color: rgba(168, 85, 247, 0.6);
+}
+
+.roundTagCount {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: rgba(168, 85, 247, 0.85);
+}
+
+/* ─── Top Divergences ─────────────────────────────── */
+
+.divergenceSection {
+  margin-bottom: 0.25rem;
+}
+
+.divergenceSectionLabel {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 0.4rem;
+}
+
+.divergenceItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.divergenceItem:last-child {
+  border-bottom: none;
+}
+
+.divergenceRound {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: rgba(168, 85, 247, 0.6);
+  min-width: 36px;
+  text-align: center;
+  padding: 0.15rem 0.3rem;
+  background: rgba(168, 85, 247, 0.08);
+  border-radius: 3px;
+}
+
+.divergenceYou {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fff;
+  flex: 1;
+  text-align: right;
+}
+
+.divergenceVs {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.divergenceMax {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5a9ee6;
+  flex: 1;
+}
+
+.divergenceUpset {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
-  background: rgba(168, 85, 247, 0.1);
-  color: rgba(168, 85, 247, 0.7);
+  background: rgba(239, 68, 68, 0.1);
+  color: rgba(239, 68, 68, 0.7);
 }
 
 @media (max-width: 640px) {
   .compare { margin: 0 0.75rem 0.75rem; padding: 0.75rem; }
   .cards { gap: 0.4rem; }
   .card { min-width: 70px; padding: 0.4rem 0.6rem; }
+  .champRow { flex-direction: column; gap: 0.3rem; }
+  .ffRow { flex-direction: column; gap: 0.75rem; }
 }
