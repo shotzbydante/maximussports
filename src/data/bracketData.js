@@ -1,82 +1,50 @@
 /**
  * Bracket data layer — fetches, normalizes, and manages NCAA tournament
- * bracket structure. Handles pre-Selection Sunday empty state gracefully.
+ * bracket structure. Supports two modes:
+ *
+ *   1. PROJECTED — pre-Selection Sunday, uses projected 64-team field
+ *   2. OFFICIAL  — post-Selection Sunday, uses live ESPN bracket data
+ *
+ * Auto-switches from projected to official when ESPN data is detected.
  *
  * Data model:
  *   bracket.regions[].matchups[] — round-of-64 matchups with seeds + teams
- *   bracket.status — 'pre_selection' | 'field_set' | 'in_progress' | 'complete'
+ *   bracket.status — 'projected' | 'field_set' | 'in_progress' | 'complete'
+ *   bracket.bracketMode — 'projected' | 'official'
  *   bracket.year — tournament year
  */
 
 import { REGIONS, SEED_MATCHUP_ORDER, TOURNAMENT_YEAR } from '../config/bracketology';
+import { generateProjectedBracket } from './projectedField';
 
 /**
- * Generate a blank bracket shell for pre-Selection Sunday state.
- * Each region has 8 first-round matchups following standard seeding.
- */
-export function generateBlankBracket() {
-  const regions = REGIONS.map((regionName) => {
-    const matchups = SEED_MATCHUP_ORDER.map(([topSeed, bottomSeed], idx) => ({
-      matchupId: `r1-${regionName.toLowerCase()}-${idx}`,
-      round: 1,
-      region: regionName,
-      position: idx,
-      topTeam: buildPlaceholderTeam(topSeed, regionName),
-      bottomTeam: buildPlaceholderTeam(bottomSeed, regionName),
-      winner: null,
-      status: 'pending',
-    }));
-    return { name: regionName, matchups };
-  });
-
-  return {
-    year: TOURNAMENT_YEAR,
-    status: 'pre_selection',
-    regions,
-    finalFour: [
-      { matchupId: 'ff-1', round: 5, topTeam: null, bottomTeam: null, winner: null, status: 'pending', regionMatchup: `${REGIONS[0]} vs ${REGIONS[1]}` },
-      { matchupId: 'ff-2', round: 5, topTeam: null, bottomTeam: null, winner: null, status: 'pending', regionMatchup: `${REGIONS[2]} vs ${REGIONS[3]}` },
-    ],
-    championship: {
-      matchupId: 'champ', round: 6, topTeam: null, bottomTeam: null, winner: null, status: 'pending',
-    },
-    lastUpdated: new Date().toISOString(),
-  };
-}
-
-function buildPlaceholderTeam(seed, region) {
-  return {
-    teamId: null,
-    name: null,
-    shortName: null,
-    slug: null,
-    seed,
-    logo: null,
-    record: null,
-    region,
-    isPlaceholder: true,
-  };
-}
-
-/**
- * Fetch bracket data from the API. Falls back to blank bracket if
- * data isn't available yet (pre-Selection Sunday).
+ * Fetch bracket data. Tries official ESPN data first.
+ * Falls back to projected bracket if official data unavailable.
+ *
+ * Switchover logic:
+ * - If /api/bracketology/data returns bracket with status !== 'pre_selection',
+ *   that means official ESPN tournament data is available → use it.
+ * - If it returns 'pre_selection' or fails, use projected bracket.
+ * - No manual code change needed to switch.
  */
 export async function fetchBracketData() {
   try {
     const res = await fetch('/api/bracketology/data');
-    if (!res.ok) return generateBlankBracket();
-    const data = await res.json();
-    if (data?.bracket) return data.bracket;
-    return generateBlankBracket();
-  } catch {
-    return generateBlankBracket();
-  }
+    if (res.ok) {
+      const data = await res.json();
+      const bracket = data?.bracket;
+      if (bracket && bracket.status !== 'pre_selection') {
+        return { ...bracket, bracketMode: 'official' };
+      }
+    }
+  } catch { /* fall through to projected */ }
+
+  return generateProjectedBracket();
 }
 
 /**
  * Build the full bracket structure from round-of-64 through championship
- * using user selections. Returns all rounds as a flat list of matchups.
+ * using user selections. Returns all rounds as a flat map of matchups.
  */
 export function buildFullBracket(regions, userPicks = {}) {
   const allMatchups = {};

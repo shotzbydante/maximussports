@@ -76,23 +76,51 @@
 .legendItem {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.35);
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .legendManual {
   color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .legendMaximus {
   color: #5a9ee6;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
 }
 
 .legendUpset {
-  font-size: 0.75rem;
+  color: #ef4444;
+  font-weight: 800;
+  font-size: 0.65rem;
+}
+
+.legendCoinFlip {
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 800;
+  font-size: 0.65rem;
+}
+
+.legendDiverge {
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 0.08rem 0.25rem;
+  border-radius: 3px;
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.legendProjected {
+  font-size: 0.5rem;
+  font-weight: 800;
+  padding: 0.08rem 0.25rem;
+  border-radius: 3px;
+  background: rgba(234, 179, 8, 0.1);
+  color: rgba(234, 179, 8, 0.6);
 }
 
 /* ─── Responsive ──────────────────────────────────────────────── */

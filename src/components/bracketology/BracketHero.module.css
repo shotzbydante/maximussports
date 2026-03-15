@@ -42,15 +42,24 @@
   border: 1px solid rgba(56, 133, 224, 0.25);
 }
 
-.statusBadge {
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+.modeBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   padding: 0.25rem 0.75rem;
   border-radius: 100px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.projectedBadge {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.officialBadge {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
 .heroTitle {
@@ -108,7 +117,7 @@
 }
 
 .metaLabel {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -134,9 +143,10 @@
 }
 
 .progressBar {
-  width: 200px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  width: 100%;
+  max-width: 400px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -148,14 +158,107 @@
   transition: width 0.5s ease;
 }
 
-.progressLabel {
-  font-size: 0.75rem;
+/* ─── Champion card ────────────────────────────────────────────── */
+
+.championCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem auto 0;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.08), rgba(56, 133, 224, 0.03));
+  border: 1px solid rgba(56, 133, 224, 0.2);
+  border-radius: 12px;
+  max-width: 380px;
+  position: relative;
+  overflow: hidden;
+}
+
+.championGlow {
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 100px;
+  background: radial-gradient(ellipse, rgba(56, 133, 224, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.championLogo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.championInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  position: relative;
+  z-index: 1;
+}
+
+.championLabel {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #5a9ee6;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.championName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.championSeed {
+  font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.4);
+}
+
+.championConfidence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.championConfValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #5a9ee6;
+}
+
+.championConfLabel {
+  font-size: 0.5rem;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.projectedNote {
+  font-size: 0.7rem;
+  color: rgba(234, 179, 8, 0.5);
+  margin-top: 0.75rem;
+  font-style: italic;
 }
 
 @media (max-width: 640px) {
   .hero { padding: 2rem 1rem 1.5rem; }
   .heroTitle { font-size: 2rem; }
-  .metaStrip { flex-wrap: wrap; gap: 0.75rem; }
+  .metaStrip { flex-wrap: wrap; gap: 0.75rem; padding: 0.6rem 1rem; }
   .metaDivider { display: none; }
+  .championCard { flex-wrap: wrap; justify-content: center; text-align: center; }
+  .championInfo { text-align: center; }
 }

@@ -24,6 +24,12 @@
   gap: 0.75rem;
 }
 
+.divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .primaryBtn {
   display: flex;
   align-items: center;
@@ -45,13 +51,26 @@
   border-color: rgba(56, 133, 224, 0.5);
 }
 
-.primaryBtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.primaryBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btnIcon { font-size: 0.65rem; }
+
+.resetMaxBtn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(56, 133, 224, 0.06);
+  border: 1px solid rgba(56, 133, 224, 0.15);
+  border-radius: 8px;
+  color: rgba(90, 158, 230, 0.7);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
-.btnIcon {
-  font-size: 0.65rem;
+.resetMaxBtn:hover:not(:disabled) {
+  background: rgba(56, 133, 224, 0.12);
+  color: #5a9ee6;
 }
 
 .secondaryBtn {
@@ -72,10 +91,7 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-.secondaryBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
+.secondaryBtn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .dangerBtn {
   padding: 0.5rem 0.75rem;
@@ -95,15 +111,50 @@
   color: rgba(239, 68, 68, 0.9);
 }
 
-.dangerBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+.dangerBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.compareBtn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(168, 85, 247, 0.06);
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  border-radius: 8px;
+  color: rgba(168, 85, 247, 0.7);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.compareBtn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.12);
+  color: rgba(168, 85, 247, 0.9);
+}
+
+.compareBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.compareActive {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.35);
+  color: #a855f7;
 }
 
 .pickCount {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.4);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.projectedTag {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(234, 179, 8, 0.1);
+  color: rgba(234, 179, 8, 0.7);
+  border: 1px solid rgba(234, 179, 8, 0.15);
 }
 
 .saveSaving {
@@ -118,10 +169,21 @@
   font-weight: 500;
 }
 
+.saveTime {
+  color: rgba(34, 197, 94, 0.45);
+  font-weight: 400;
+  margin-left: 0.2rem;
+}
+
 .saveError {
   font-size: 0.7rem;
   color: rgba(239, 68, 68, 0.7);
   font-weight: 500;
+}
+
+.saveIdle {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.2);
 }
 
 @keyframes pulse {
@@ -139,4 +201,5 @@
     width: 100%;
     justify-content: center;
   }
+  .divider { display: none; }
 }

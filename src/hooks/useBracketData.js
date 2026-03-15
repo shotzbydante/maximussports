@@ -1,10 +1,12 @@
 /**
  * useBracketData — fetches and manages tournament bracket data.
- * Returns bracket structure, loading state, and refresh capability.
+ * Supports projected mode (pre-Selection Sunday) and official mode.
+ * Returns bracket structure, mode, loading state, and refresh.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { fetchBracketData, generateBlankBracket } from '../data/bracketData';
+import { fetchBracketData } from '../data/bracketData';
+import { generateProjectedBracket } from '../data/projectedField';
 
 export function useBracketData() {
   const [bracket, setBracket] = useState(null);
@@ -19,7 +21,7 @@ export function useBracketData() {
       setBracket(data);
     } catch (err) {
       setError(err.message);
-      setBracket(generateBlankBracket());
+      setBracket(generateProjectedBracket());
     } finally {
       setLoading(false);
     }
@@ -27,8 +29,13 @@ export function useBracketData() {
 
   useEffect(() => { load(); }, [load]);
 
-  const isPreSelection = bracket?.status === 'pre_selection';
-  const isFieldSet = bracket?.status === 'field_set' || bracket?.status === 'in_progress' || bracket?.status === 'complete';
+  const bracketMode = bracket?.bracketMode || 'projected';
+  const isProjected = bracketMode === 'projected';
+  const isOfficial = bracketMode === 'official';
+  const isFieldSet = bracket?.status === 'projected' || bracket?.status === 'field_set' || bracket?.status === 'in_progress' || bracket?.status === 'complete';
 
-  return { bracket, loading, error, refresh: load, isPreSelection, isFieldSet };
+  return {
+    bracket, loading, error, refresh: load,
+    bracketMode, isProjected, isOfficial, isFieldSet,
+  };
 }

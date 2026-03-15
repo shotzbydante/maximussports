@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import styles from './BracketMatchup.module.css';
 
 export default function BracketMatchup({
@@ -7,10 +8,12 @@ export default function BracketMatchup({
   prediction,
   onPick,
   onMaximusPick,
-  isPreSelection,
   compact = false,
+  showCompare = false,
+  maximusPick = null,
 }) {
   const { topTeam, bottomTeam, matchupId, status, winner } = matchup;
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const topSelected = userPick === 'top' || userPick === topTeam?.slug || userPick === topTeam?.teamId;
   const bottomSelected = userPick === 'bottom' || userPick === bottomTeam?.slug || userPick === bottomTeam?.teamId;
@@ -18,8 +21,13 @@ export default function BracketMatchup({
   const isReady = status === 'ready' || status === 'final' || status === 'live';
   const isWaiting = status === 'waiting';
 
+  const isDivergent = showCompare && maximusPick && userPick && maximusPick !== userPick;
+  const confLabel = prediction?.confidenceLabel;
+  const isUpset = prediction?.isUpset;
+  const isCoinFlip = prediction && prediction.edgeMagnitude < 0.04;
+
   function handlePick(position) {
-    if (isPreSelection || isWaiting) return;
+    if (isWaiting) return;
     const team = position === 'top' ? topTeam : bottomTeam;
     if (!team?.slug && !team?.teamId && team?.isPlaceholder) return;
     onPick(matchupId, position);
@@ -34,45 +42,89 @@ export default function BracketMatchup({
   }
 
   return (
-    <div className={`${styles.matchup} ${compact ? styles.compact : ''} ${isWaiting ? styles.waiting : ''}`}>
+    <div
+      className={`
+        ${styles.matchup}
+        ${compact ? styles.compact : ''}
+        ${isWaiting ? styles.waiting : ''}
+        ${isDivergent ? styles.divergent : ''}
+      `}
+      onMouseEnter={() => prediction && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {isDivergent && <span className={styles.divergeBadge} title="Your pick differs from Maximus">DIFF</span>}
+
       <TeamSlot
         team={topTeam}
         selected={topSelected}
         hasResult={hasResult}
         isWinner={winner === topTeam?.slug}
-        isPreSelection={isPreSelection}
         isWaiting={isWaiting}
         pickOrigin={topSelected ? pickOrigin : null}
+        isMaximusPick={showCompare && maximusPick === 'top'}
         onClick={() => handlePick('top')}
       />
+
       <div className={styles.divider}>
-        {prediction && isReady && !isPreSelection && (
-          <button
-            className={styles.maximusBtn}
-            onClick={handleMaximus}
-            title={`Maximus pick: ${prediction.winner?.shortName || prediction.winner?.name} (${prediction.confidenceLabel})`}
-          >
-            <span className={styles.maximusIcon}>◆</span>
-          </button>
+        {prediction && isReady && (
+          <div className={styles.dividerActions}>
+            <button
+              className={styles.maximusBtn}
+              onClick={handleMaximus}
+              title={`Maximus: ${prediction.winner?.shortName || prediction.winner?.name} (${confLabel})`}
+            >
+              <span className={styles.maximusIcon}>◆</span>
+            </button>
+            {confLabel && !compact && (
+              <span className={`${styles.confMicro} ${styles[`conf${confLabel}`]}`}>
+                {confLabel === 'HIGH' ? 'H' : confLabel === 'MEDIUM' ? 'M' : 'L'}
+              </span>
+            )}
+            {isUpset && <span className={styles.upsetMicro} title="Upset pick">!</span>}
+            {isCoinFlip && !isUpset && <span className={styles.coinFlipMicro} title="Coin flip">~</span>}
+          </div>
         )}
       </div>
+
       <TeamSlot
         team={bottomTeam}
         selected={bottomSelected}
         hasResult={hasResult}
         isWinner={winner === bottomTeam?.slug}
-        isPreSelection={isPreSelection}
         isWaiting={isWaiting}
         pickOrigin={bottomSelected ? pickOrigin : null}
+        isMaximusPick={showCompare && maximusPick === 'bottom'}
         onClick={() => handlePick('bottom')}
       />
+
+      {showTooltip && prediction && (
+        <div className={styles.tooltip}>
+          <div className={styles.tooltipHeader}>
+            <span className={styles.tooltipWinner}>{prediction.winner?.shortName || prediction.winner?.name}</span>
+            <span className={`${styles.tooltipConf} ${styles[`conf${confLabel}`]}`}>{confLabel}</span>
+          </div>
+          {prediction.winProbability != null && (
+            <span className={styles.tooltipProb}>
+              {Math.round(prediction.winProbability * 100)}% win probability
+            </span>
+          )}
+          {prediction.isUpset && (
+            <span className={styles.tooltipUpset}>
+              Upset: {prediction.winner?.seed}-seed over {prediction.loser?.seed}-seed
+            </span>
+          )}
+          {prediction.signals?.length > 0 && (
+            <span className={styles.tooltipSignal}>{prediction.signals[0]}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function TeamSlot({ team, selected, hasResult, isWinner, isPreSelection, isWaiting, pickOrigin, onClick }) {
+function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, isMaximusPick, onClick }) {
   const isEmpty = !team || team.isPlaceholder;
-  const isClickable = !isEmpty && !isPreSelection && !isWaiting;
+  const isClickable = !isEmpty && !isWaiting;
 
   return (
     <button
@@ -85,13 +137,12 @@ function TeamSlot({ team, selected, hasResult, isWinner, isPreSelection, isWaiti
         ${isEmpty ? styles.empty : ''}
         ${isClickable ? styles.clickable : ''}
         ${pickOrigin === 'maximus' ? styles.maximusPicked : ''}
+        ${isMaximusPick && !selected ? styles.maximusWouldPick : ''}
       `}
       onClick={isClickable ? onClick : undefined}
       disabled={!isClickable}
     >
-      <span className={styles.seed}>
-        {team?.seed ?? '—'}
-      </span>
+      <span className={styles.seed}>{team?.seed ?? '—'}</span>
       {team?.logo && !isEmpty && (
         <img
           src={team.logo}
@@ -101,13 +152,10 @@ function TeamSlot({ team, selected, hasResult, isWinner, isPreSelection, isWaiti
         />
       )}
       <span className={styles.teamName}>
-        {isEmpty
-          ? (isPreSelection ? 'TBD' : (isWaiting ? 'Winner of…' : 'TBD'))
-          : (team.shortName || team.name)
-        }
+        {isEmpty ? (isWaiting ? '...' : 'TBD') : (team.shortName || team.name)}
       </span>
       {selected && (
-        <span className={styles.pickBadge}>
+        <span className={`${styles.pickBadge} ${pickOrigin === 'maximus' ? styles.pickBadgeMaximus : ''}`}>
           {pickOrigin === 'maximus' ? '◆' : '✓'}
         </span>
       )}

@@ -6,9 +6,10 @@ export default function BracketFinalFour({
   picks,
   pickOrigins,
   predictions,
+  maximusPicks,
   onPick,
   onMaximusPick,
-  isPreSelection,
+  showCompare = false,
 }) {
   const ff1 = allMatchups['ff-1'];
   const ff2 = allMatchups['ff-2'];
@@ -35,9 +36,10 @@ export default function BracketFinalFour({
               userPick={picks[ff1.matchupId]}
               pickOrigin={pickOrigins[ff1.matchupId]}
               prediction={predictions[ff1.matchupId]}
+              maximusPick={maximusPicks?.[ff1.matchupId]}
               onPick={onPick}
               onMaximusPick={onMaximusPick}
-              isPreSelection={isPreSelection}
+              showCompare={showCompare}
             />
           )}
           {ff1?.regionMatchup && (
@@ -53,13 +55,22 @@ export default function BracketFinalFour({
               userPick={picks[champ.matchupId]}
               pickOrigin={pickOrigins[champ.matchupId]}
               prediction={predictions[champ.matchupId]}
+              maximusPick={maximusPicks?.[champ.matchupId]}
               onPick={onPick}
               onMaximusPick={onMaximusPick}
-              isPreSelection={isPreSelection}
+              showCompare={showCompare}
             />
           )}
           {champion && (
             <div className={styles.championDisplay}>
+              {champion.logo && (
+                <img
+                  src={champion.logo}
+                  alt=""
+                  className={styles.championLogo}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              )}
               <div className={styles.trophyIcon}>🏆</div>
               <span className={styles.championName}>
                 {champion.shortName || champion.name}
@@ -77,9 +88,10 @@ export default function BracketFinalFour({
               userPick={picks[ff2.matchupId]}
               pickOrigin={pickOrigins[ff2.matchupId]}
               prediction={predictions[ff2.matchupId]}
+              maximusPick={maximusPicks?.[ff2.matchupId]}
               onPick={onPick}
               onMaximusPick={onMaximusPick}
-              isPreSelection={isPreSelection}
+              showCompare={showCompare}
             />
           )}
           {ff2?.regionMatchup && (

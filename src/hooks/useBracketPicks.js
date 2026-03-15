@@ -1,21 +1,21 @@
 /**
  * useBracketPicks — manages user bracket picks with persistence.
  * Handles save/load, pick origin tracking (manual vs maximus),
- * and downstream cascade clearing.
+ * downstream cascade clearing, and bracket mode metadata.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getSupabase } from '../lib/supabaseClient';
 import { cascadeClearDownstream, buildFullBracket } from '../data/bracketData';
 
-const AUTOSAVE_DELAY = 1500;
+const AUTOSAVE_DELAY = 1200;
 
 export function useBracketPicks(bracket) {
   const { user, session } = useAuth();
   const [picks, setPicks] = useState({});
   const [pickOrigins, setPickOrigins] = useState({});
   const [saveStatus, setSaveStatus] = useState('idle');
+  const [lastSaved, setLastSaved] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef(null);
 
@@ -36,6 +36,7 @@ export function useBracketPicks(bracket) {
       if (data.bracket?.picks) {
         setPicks(data.bracket.picks);
         setPickOrigins(data.bracket.pick_origins || {});
+        if (data.bracket.updated_at) setLastSaved(new Date(data.bracket.updated_at));
       }
     } catch {
       // silently fail — user starts with empty bracket
@@ -57,18 +58,20 @@ export function useBracketPicks(bracket) {
         body: JSON.stringify({
           picks: newPicks,
           pickOrigins: newOrigins,
+          bracketMode: bracket?.bracketMode || 'projected',
         }),
       });
       if (res.ok) {
         setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
+        setLastSaved(new Date());
+        setTimeout(() => setSaveStatus('idle'), 2500);
       } else {
         setSaveStatus('error');
       }
     } catch {
       setSaveStatus('error');
     }
-  }, [session?.access_token]);
+  }, [session?.access_token, bracket?.bracketMode]);
 
   const scheduleSave = useCallback((newPicks, newOrigins) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -128,7 +131,7 @@ export function useBracketPicks(bracket) {
     });
   }, [bracket, pickOrigins, scheduleSave]);
 
-  const applyMaximusPicks = useCallback((maximusPicks, maximusPredictions) => {
+  const applyMaximusPicks = useCallback((maximusPicks) => {
     setPicks(prev => {
       const merged = { ...prev };
       const mergedOrigins = { ...pickOrigins };
@@ -142,13 +145,25 @@ export function useBracketPicks(bracket) {
     });
   }, [pickOrigins, scheduleSave]);
 
+  const resetToMaximus = useCallback((maximusPicks) => {
+    const newOrigins = {};
+    for (const matchupId of Object.keys(maximusPicks)) {
+      newOrigins[matchupId] = 'maximus';
+    }
+    setPicks(maximusPicks);
+    setPickOrigins(newOrigins);
+    scheduleSave(maximusPicks, newOrigins);
+  }, [scheduleSave]);
+
   const totalPicks = Object.keys(picks).length;
   const totalGames = 63;
   const progress = Math.round((totalPicks / totalGames) * 100);
+  const manualCount = Object.values(pickOrigins).filter(o => o === 'manual').length;
+  const maximusCount = Object.values(pickOrigins).filter(o => o === 'maximus').length;
 
   return {
-    picks, pickOrigins, saveStatus, loaded,
-    makePick, clearBracket, clearRound, applyMaximusPicks,
-    totalPicks, totalGames, progress,
+    picks, pickOrigins, saveStatus, lastSaved, loaded,
+    makePick, clearBracket, clearRound, applyMaximusPicks, resetToMaximus,
+    totalPicks, totalGames, progress, manualCount, maximusCount,
   };
 }

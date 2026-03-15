@@ -1,8 +1,11 @@
 /**
  * Bracketology — premium tournament bracket surface.
  *
- * Feature-gated to allowlisted emails. Dark-mode cinematic experience
- * with full bracket, manual picks, and Maximus model-driven predictions.
+ * Phase 2: Projected bracket mode with 64 pre-populated teams,
+ * auto-switch to official ESPN data, manual vs Maximus comparison,
+ * richer intelligence overlays, and polished interactions.
+ *
+ * Feature-gated to allowlisted emails.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -21,22 +24,26 @@ import BracketControls from '../components/bracketology/BracketControls';
 import BracketRegion from '../components/bracketology/BracketRegion';
 import BracketFinalFour from '../components/bracketology/BracketFinalFour';
 import BracketIntelStrip from '../components/bracketology/BracketIntelStrip';
-import PreSelectionState from '../components/bracketology/PreSelectionState';
+import BracketCompare from '../components/bracketology/BracketCompare';
 import styles from './Bracketology.module.css';
 
 export default function Bracketology() {
   const { user, loading: authLoading } = useAuth();
   const hasAccess = hasBracketologyAccess(user?.email);
-  const { bracket, loading: bracketLoading, isPreSelection, isFieldSet, refresh } = useBracketData();
   const {
-    picks, pickOrigins, saveStatus, loaded: picksLoaded,
-    makePick, clearBracket, clearRound, applyMaximusPicks,
-    totalPicks, totalGames, progress,
+    bracket, loading: bracketLoading, bracketMode, isProjected, isFieldSet, refresh,
+  } = useBracketData();
+  const {
+    picks, pickOrigins, saveStatus, lastSaved, loaded: picksLoaded,
+    makePick, clearBracket, clearRound, applyMaximusPicks, resetToMaximus,
+    totalPicks, totalGames, progress, manualCount, maximusCount,
   } = useBracketPicks(bracket);
 
   const [modelContext, setModelContext] = useState(null);
   const [predictions, setPredictions] = useState({});
+  const [maximusPicks, setMaximusPicks] = useState({});
   const [showMinLoadTime, setShowMinLoadTime] = useState(true);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowMinLoadTime(false), 2200);
@@ -93,6 +100,12 @@ export default function Bracketology() {
     setPredictions(newPredictions);
   }, [allMatchups, modelContext]);
 
+  useEffect(() => {
+    if (!bracket || !modelContext) return;
+    const { picks: maxPicks } = resolveFullBracket(bracket, modelContext, buildFullBracket);
+    setMaximusPicks(maxPicks);
+  }, [bracket, modelContext]);
+
   const handlePick = useCallback((matchupId, position) => {
     makePick(matchupId, position, 'manual');
   }, [makePick]);
@@ -103,10 +116,23 @@ export default function Bracketology() {
 
   const handleAutoFill = useCallback(() => {
     if (!bracket || !modelContext) return;
-    const { picks: maximusPicks, predictions: maximusPredictions } =
-      resolveFullBracket(bracket, modelContext, buildFullBracket);
-    applyMaximusPicks(maximusPicks, maximusPredictions);
+    const { picks: maxPicksResult } = resolveFullBracket(bracket, modelContext, buildFullBracket);
+    applyMaximusPicks(maxPicksResult);
   }, [bracket, modelContext, applyMaximusPicks]);
+
+  const handleResetToMaximus = useCallback(() => {
+    if (!bracket || !modelContext) return;
+    const { picks: maxPicksResult } = resolveFullBracket(bracket, modelContext, buildFullBracket);
+    resetToMaximus(maxPicksResult);
+  }, [bracket, modelContext, resetToMaximus]);
+
+  const champion = useMemo(() => {
+    const champ = allMatchups['champ'];
+    if (!champ || !picks['champ']) return null;
+    return picks['champ'] === 'top' ? champ.topTeam : champ.bottomTeam;
+  }, [allMatchups, picks]);
+
+  const championPrediction = predictions['champ'] || null;
 
   const isLoading = authLoading || bracketLoading || showMinLoadTime;
 
@@ -116,6 +142,8 @@ export default function Bracketology() {
       <BracketAccessDenied />
     </div>
   );
+
+  const hasBracket = isFieldSet && bracket?.regions?.length > 0;
 
   return (
     <>
@@ -129,24 +157,30 @@ export default function Bracketology() {
         <div className={styles.backgroundVignette} />
 
         <BracketHero
-          isPreSelection={isPreSelection}
+          bracketMode={bracketMode}
           totalPicks={totalPicks}
           totalGames={totalGames}
           progress={progress}
+          manualCount={manualCount}
+          maximusCount={maximusCount}
+          champion={champion}
+          championPrediction={championPrediction}
         />
 
-        {isPreSelection ? (
-          <PreSelectionState />
-        ) : (
+        {hasBracket && (
           <>
             <BracketControls
               saveStatus={saveStatus}
+              lastSaved={lastSaved}
               totalPicks={totalPicks}
               totalGames={totalGames}
-              isPreSelection={isPreSelection}
+              bracketMode={bracketMode}
               onAutoFill={handleAutoFill}
+              onResetToMaximus={handleResetToMaximus}
               onClearBracket={clearBracket}
               onClearRound={clearRound}
+              onToggleCompare={() => setShowCompare(s => !s)}
+              showCompare={showCompare}
             />
 
             <BracketIntelStrip
@@ -154,7 +188,18 @@ export default function Bracketology() {
               pickOrigins={pickOrigins}
               predictions={predictions}
               allMatchups={allMatchups}
+              maximusPicks={maximusPicks}
             />
+
+            {showCompare && (
+              <BracketCompare
+                picks={picks}
+                pickOrigins={pickOrigins}
+                maximusPicks={maximusPicks}
+                predictions={predictions}
+                allMatchups={allMatchups}
+              />
+            )}
 
             <div className={styles.bracketContainer}>
               <div className={styles.bracketGrid}>
@@ -167,9 +212,10 @@ export default function Bracketology() {
                       picks={picks}
                       pickOrigins={pickOrigins}
                       predictions={predictions}
+                      maximusPicks={maximusPicks}
                       onPick={handlePick}
                       onMaximusPick={handleMaximusPick}
-                      isPreSelection={isPreSelection}
+                      showCompare={showCompare}
                       side="left"
                     />
                   ))}
@@ -181,9 +227,10 @@ export default function Bracketology() {
                     picks={picks}
                     pickOrigins={pickOrigins}
                     predictions={predictions}
+                    maximusPicks={maximusPicks}
                     onPick={handlePick}
                     onMaximusPick={handleMaximusPick}
-                    isPreSelection={isPreSelection}
+                    showCompare={showCompare}
                   />
                 </div>
 
@@ -196,9 +243,10 @@ export default function Bracketology() {
                       picks={picks}
                       pickOrigins={pickOrigins}
                       predictions={predictions}
+                      maximusPicks={maximusPicks}
                       onPick={handlePick}
                       onMaximusPick={handleMaximusPick}
-                      isPreSelection={isPreSelection}
+                      showCompare={showCompare}
                       side="right"
                     />
                   ))}
@@ -216,9 +264,25 @@ export default function Bracketology() {
                 <span>Maximus Pick</span>
               </div>
               <div className={styles.legendItem}>
-                <span className={styles.legendUpset}>⚡</span>
+                <span className={styles.legendUpset}>!</span>
                 <span>Upset</span>
               </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendCoinFlip}>~</span>
+                <span>Coin Flip</span>
+              </div>
+              {showCompare && (
+                <div className={styles.legendItem}>
+                  <span className={styles.legendDiverge}>DIFF</span>
+                  <span>Diverges from Maximus</span>
+                </div>
+              )}
+              {isProjected && (
+                <div className={styles.legendItem}>
+                  <span className={styles.legendProjected}>P</span>
+                  <span>Projected Field</span>
+                </div>
+              )}
             </div>
           </>
         )}

@@ -5,30 +5,43 @@
 
 .stripInner {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
   padding-bottom: 0.25rem;
 }
 
 .card {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.9rem;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   flex-shrink: 0;
-  min-width: 160px;
+  min-width: 135px;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .cardIcon {
-  font-size: 1rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
+
+.iconSplit { color: #5a9ee6; font-size: 0.7rem; }
+.iconDiverge { color: #a855f7; font-size: 0.8rem; }
 
 .cardContent {
   display: flex;
@@ -38,34 +51,54 @@
 }
 
 .cardLabel {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.cardRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .cardValue {
   font-size: 0.8rem;
   font-weight: 600;
   color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
   white-space: nowrap;
 }
 
+.cardDetail {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.maximusAccent { color: #5a9ee6; }
+
 .confBadge {
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   font-weight: 700;
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
-  background: rgba(56, 133, 224, 0.15);
-  color: #5a9ee6;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
   letter-spacing: 0.04em;
+}
+
+.confHIGH { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+.confMEDIUM { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+.confLOW { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); }
+
+.inlineTeamLogo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 @media (max-width: 640px) {
   .strip { padding: 0 0.75rem; }
-  .card { min-width: 140px; padding: 0.5rem 0.75rem; }
+  .card { min-width: 120px; padding: 0.45rem 0.65rem; }
 }

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import BracketMatchup from './BracketMatchup';
-import { SEED_MATCHUP_ORDER } from '../../config/bracketology';
 import styles from './BracketRegion.module.css';
 
 export default function BracketRegion({
@@ -9,13 +8,13 @@ export default function BracketRegion({
   picks,
   pickOrigins,
   predictions,
+  maximusPicks,
   onPick,
   onMaximusPick,
-  isPreSelection,
+  showCompare = false,
   side = 'left',
 }) {
   const regionName = region.name;
-  const regionLower = regionName.toLowerCase();
 
   const rounds = useMemo(() => {
     const roundData = [];
@@ -52,9 +51,10 @@ export default function BracketRegion({
                     userPick={picks[matchup.matchupId]}
                     pickOrigin={pickOrigins[matchup.matchupId]}
                     prediction={predictions[matchup.matchupId]}
+                    maximusPick={maximusPicks?.[matchup.matchupId]}
                     onPick={onPick}
                     onMaximusPick={onMaximusPick}
-                    isPreSelection={isPreSelection}
+                    showCompare={showCompare}
                     compact={round >= 3}
                   />
                 </div>
