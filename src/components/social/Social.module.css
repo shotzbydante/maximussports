@@ -348,6 +348,141 @@
   margin: 0;
 }
 
+.searchHint {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin: -8px 0 0;
+  padding: 0 var(--space-sm);
+}
+
+.searchEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+}
+
+.searchEmptyTitle {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.searchEmptyHint {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.searchEmptyInviteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 20px;
+  margin-top: var(--space-sm);
+  background: var(--color-primary);
+  color: white;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--pill-radius);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.searchEmptyInviteBtn:hover {
+  background: var(--color-primary-hover);
+}
+
+.searchEmptyInviteBtn:active {
+  transform: scale(0.97);
+}
+
+/* ─── Find Friends Card (iOS / unsupported browsers) ──────────────────── */
+.findFriendsCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.findFriendsHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.findFriendsIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.findFriendsTitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-text);
+  display: block;
+}
+
+.findFriendsDesc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  display: block;
+  line-height: 1.4;
+  margin-top: 1px;
+}
+
+.findFriendsActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 6px);
+}
+
+.findFriendBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px var(--space-md);
+  background: rgba(60, 121, 180, 0.05);
+  border: 1px solid rgba(60, 121, 180, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.findFriendBtn:hover {
+  background: rgba(60, 121, 180, 0.1);
+  border-color: var(--color-primary);
+}
+
+.findFriendBtn:active {
+  transform: scale(0.98);
+}
+
 /* ─── Invite Section ───────────────────────────────────────────────────── */
 .inviteSection {
   display: flex;

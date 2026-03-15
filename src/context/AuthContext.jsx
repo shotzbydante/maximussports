@@ -21,24 +21,38 @@ const DEFAULT_EMAIL_PREFS = {
   teamDigestTeams: [],
 };
 
+function extractDisplayName(user) {
+  const meta = user.user_metadata || {};
+  return (
+    meta.full_name ||
+    meta.name ||
+    meta.display_name ||
+    (user.email ? user.email.split('@')[0] : null)
+  );
+}
+
 /**
  * Attempt client-side profile shell upsert.
  * Returns true on success, false on failure (RLS block or network error).
  *
- * IMPORTANT: only writes columns confirmed to exist in profiles:
- *   id, plan_tier, subscription_status, preferences, updated_at
+ * Writes columns confirmed to exist in profiles:
+ *   id, plan_tier, subscription_status, preferences, updated_at, display_name
  * Do NOT include 'email' — that column does not exist in the profiles table.
  */
 async function upsertProfileClient(sb, user) {
   try {
+    const row = {
+      id:                  user.id,
+      plan_tier:           'free',
+      subscription_status: 'inactive',
+      preferences:         { ...DEFAULT_EMAIL_PREFS },
+      updated_at:          new Date().toISOString(),
+    };
+    const derivedName = extractDisplayName(user);
+    if (derivedName) row.display_name = derivedName;
+
     const { error } = await sb.from('profiles').insert(
-      {
-        id:                  user.id,
-        plan_tier:           'free',
-        subscription_status: 'inactive',
-        preferences:         { ...DEFAULT_EMAIL_PREFS },
-        updated_at:          new Date().toISOString(),
-      },
+      row,
       { onConflict: 'id', ignoreDuplicates: true }
     );
     if (error) {
@@ -79,9 +93,37 @@ async function upsertProfileServer(sb, user) {
 }
 
 /**
+ * Backfill display_name from auth metadata if the profile row exists but has
+ * no display_name set. Runs client-side (RLS allows users to read/write own row).
+ */
+async function backfillDisplayName(sb, user) {
+  try {
+    const derivedName = extractDisplayName(user);
+    if (!derivedName) return;
+
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('display_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profile && !profile.display_name) {
+      await sb
+        .from('profiles')
+        .update({ display_name: derivedName, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      dbg('backfilled display_name for', user.id, '→', derivedName);
+    }
+  } catch (err) {
+    dbg('backfill display_name warning:', err?.message);
+  }
+}
+
+/**
  * Ensure a minimal profiles row exists for the signed-in user.
  * Tries the client-side upsert first (fast, no round-trip).
  * Falls back to the service-role server endpoint if RLS blocks it.
+ * After ensuring the row exists, backfills display_name if missing.
  * Safe to call on every sign-in — no-op when row already exists.
  */
 async function ensureProfileShell(sb, user) {
@@ -91,6 +133,7 @@ async function ensureProfileShell(sb, user) {
   const clientOk = await upsertProfileClient(sb, user);
   if (clientOk) {
     console.log(`[auth] Profile shell ensured for user=${user.id} via client upsert`);
+    await backfillDisplayName(sb, user);
     return;
   }
 
@@ -101,6 +144,7 @@ async function ensureProfileShell(sb, user) {
   } else {
     console.warn(`[auth] ensureProfileShell: both client and server paths failed for user=${user.id} — digest enrollment may be delayed until onboarding completes`);
   }
+  await backfillDisplayName(sb, user);
 }
 
 export function AuthProvider({ children }) {
