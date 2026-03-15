@@ -123,13 +123,9 @@ export function buildUserProfile(authUser, profileRow) {
   if (!authUser) return null;
   const p = profileRow || {};
 
-  const dbUsername = p.username || '';
-  const dbDisplayName = p.display_name || '';
-  const metaName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || '';
-
-  const username = dbUsername || metaName || '';
-  const displayName = dbDisplayName || dbUsername || metaName || '';
-  const handle = dbUsername ? `@${dbUsername}` : '';
+  const username = p.username || '';
+  const displayName = p.display_name || p.username || '';
+  const handle = p.username ? `@${p.username}` : '';
 
   return {
     id:                    authUser.id,
@@ -138,7 +134,7 @@ export function buildUserProfile(authUser, profileRow) {
     handle,
     avatarUrl:             authUser.user_metadata?.avatar_url || null,
     favoriteNumber:        p.favorite_number ?? null,
-    avatarConfig:          p.avatar_config || null,
+    avatarConfig:          p.avatar_config || p.preferences?.robotConfig || null,
     email:                 authUser.email || '',
     isPro:                 p.plan_tier === 'pro',
     social: {

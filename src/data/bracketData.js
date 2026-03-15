@@ -36,7 +36,16 @@ export async function fetchBracketData() {
       const data = await res.json();
       const bracket = data?.bracket;
       if (bracket && bracket.status !== 'pre_selection' && bracket.regions?.length > 0) {
-        return { ...bracket, bracketMode: 'official' };
+        const realTeamCount = bracket.regions.reduce((total, region) => {
+          return total + (region.matchups || []).reduce((count, m) => {
+            return count
+              + (m.topTeam && !m.topTeam.isPlaceholder ? 1 : 0)
+              + (m.bottomTeam && !m.bottomTeam.isPlaceholder ? 1 : 0);
+          }, 0);
+        }, 0);
+        if (realTeamCount >= 32) {
+          return { ...bracket, bracketMode: 'official' };
+        }
       }
     }
   } catch { /* fall through to projected */ }

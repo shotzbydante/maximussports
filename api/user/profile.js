@@ -7,42 +7,16 @@
  *
  * Response shape matches the UserProfile type in src/types/social.js.
  *
- * Schema detection: remembers whether avatar_config / social columns exist
- * so we don't fire a failing query on every request.
+ * Uses select('*') so we never fail on missing columns — same approach
+ * as the Settings page and the client-side useUserProfile hook.
  */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
-const CORE_COLS = 'username, display_name, favorite_number, plan_tier';
-const FULL_COLS = CORE_COLS + ', followers_count, following_count, public_profile_enabled, avatar_config';
-
-let _hasFullSchema = null;
-
 async function fetchProfile(sb, uid) {
-  if (_hasFullSchema === true) {
-    const { data, error } = await sb.from('profiles').select(FULL_COLS).eq('id', uid).maybeSingle();
-    if (error) {
-      _hasFullSchema = null;
-      const { data: fb } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
-      return fb;
-    }
-    return data;
-  }
-
-  if (_hasFullSchema === false) {
-    const { data } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
-    return data;
-  }
-
-  // Probe once
-  const { data, error } = await sb.from('profiles').select(FULL_COLS).eq('id', uid).maybeSingle();
-  if (!error) {
-    _hasFullSchema = true;
-    return data;
-  }
-  _hasFullSchema = false;
-  const { data: fb } = await sb.from('profiles').select(CORE_COLS).eq('id', uid).maybeSingle();
-  return fb;
+  const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+  if (error) return null;
+  return data;
 }
 
 export default async function handler(req, res) {

@@ -30,14 +30,13 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
     };
   }, [open]);
 
-  const resolvedName = profile?.username || profile?.displayName || '';
   const displayName = isGuest
     ? 'Guest'
-    : (resolvedName || profile?.email?.split('@')[0] || 'User');
+    : (profile?.username || profile?.displayName || '');
 
   const handle = isGuest
     ? 'Create your profile'
-    : (profile?.handle || (resolvedName ? `@${resolvedName}` : ''));
+    : (profile?.handle || '');
 
   const isPro = !isGuest && profile?.isPro;
 

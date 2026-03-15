@@ -40,6 +40,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database not configured' });
   }
 
+  // Diagnostic: log which Supabase project we're connecting to
+  const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const projectRef = supaUrl.match(/https:\/\/([^.]+)\./)?.[1] || 'unknown';
+  console.log(`[bracketology/picks] ${req.method} — project: ${projectRef}`);
+
   if (req.method === 'GET') {
     return handleGet(req, res, sb, user);
   }
@@ -64,12 +69,15 @@ async function handleGet(req, res, sb, user) {
       if (error.code === 'PGRST116') {
         return res.status(200).json({ bracket: null });
       }
-      // Table doesn't exist or schema cache issue — return null gracefully
-      if (error.message?.includes('user_brackets') || error.code === '42P01' || error.code === 'PGRST204') {
-        console.warn('[bracketology/picks] user_brackets table not found — persistence disabled');
-        return res.status(200).json({ bracket: null, _tablesMissing: true });
+      const isTableMissing = error.message?.includes('schema cache')
+        || error.message?.includes('user_brackets')
+        || error.code === '42P01'
+        || error.code === 'PGRST204';
+      if (isTableMissing) {
+        console.warn(`[bracketology/picks] user_brackets not in schema cache — project: ${projectRef}, code: ${error.code}, msg: ${error.message}`);
+        return res.status(200).json({ bracket: null, _tablesMissing: true, _diag: { project: projectRef, code: error.code } });
       }
-      console.error('[bracketology/picks] GET error:', error.message);
+      console.error('[bracketology/picks] GET error:', error.code, error.message);
       return res.status(200).json({ bracket: null });
     }
 
@@ -125,9 +133,13 @@ async function handlePost(req, res, sb, user) {
 
     if (result.error) {
       // Table doesn't exist — return a helpful message instead of a 500
-      if (result.error.message?.includes('user_brackets') || result.error.code === '42P01' || result.error.code === 'PGRST204') {
-        console.warn('[bracketology/picks] user_brackets table not found — save skipped');
-        return res.status(200).json({ ok: false, _tablesMissing: true, error: 'Bracket persistence not yet configured' });
+      const isTableMissing = result.error.message?.includes('schema cache')
+        || result.error.message?.includes('user_brackets')
+        || result.error.code === '42P01'
+        || result.error.code === 'PGRST204';
+      if (isTableMissing) {
+        console.warn(`[bracketology/picks] POST save skipped — table not in schema cache. project: ${projectRef}, code: ${result.error.code}`);
+        return res.status(200).json({ ok: false, _tablesMissing: true, _diag: { project: projectRef, code: result.error.code } });
       }
       console.error('[bracketology/picks] POST error:', result.error.message);
       return res.status(500).json({ error: 'Failed to save bracket' });
