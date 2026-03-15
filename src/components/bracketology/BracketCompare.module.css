@@ -1,0 +1,122 @@
+.compare {
+  margin: 0 1.5rem 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.04), rgba(56, 133, 224, 0.03));
+  border: 1px solid rgba(168, 85, 247, 0.12);
+  border-radius: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.headerIcon {
+  color: #a855f7;
+  font-size: 0.7rem;
+}
+
+.headerTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.headerSub {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin-left: auto;
+}
+
+.cards {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+  padding-bottom: 0.2rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.cardAgree {
+  border-color: rgba(34, 197, 94, 0.15);
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.cardDisagree {
+  border-color: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.cardValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.divergeValue { color: #a855f7; }
+.maximusValue { color: #5a9ee6; }
+
+.cardLabel {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.champCompare {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.champTeam {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.champVs {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.roundBreakdown {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.roundTag {
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  background: rgba(168, 85, 247, 0.1);
+  color: rgba(168, 85, 247, 0.7);
+}
+
+@media (max-width: 640px) {
+  .compare { margin: 0 0.75rem 0.75rem; padding: 0.75rem; }
+  .cards { gap: 0.4rem; }
+  .card { min-width: 70px; padding: 0.4rem 0.6rem; }
+}
