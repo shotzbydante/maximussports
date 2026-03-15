@@ -39,10 +39,10 @@ const PE_HIGH_EDGE     = 0.14;
 const PE_MED_EDGE      = 0.07;
 
 // Pick'Em chalk deflation — de-rank obvious heavy favorites in sort order
-const PE_CHALK_ML    = -600;
-const PE_CHALK_FLOOR = 0.30;
+const PE_CHALK_ML    = -500;
+const PE_CHALK_FLOOR = 0.35;
 // Suppress extremely lopsided games from surfacing (no analytical value)
-const PE_SUPPRESS_ML = -800;
+const PE_SUPPRESS_ML = -700;
 
 // ATS thresholds — tightened for selectivity
 const ATS_EDGE_MIN  = 0.10;
@@ -63,10 +63,10 @@ const PUBLIC_TEAMS = [
 ];
 
 // ATS spread-magnitude discount — large spreads are harder to cover
-const ATS_SPREAD_SOFT_CAP     = 8;
-const ATS_SPREAD_PENALTY_RATE = 0.04;
+const ATS_SPREAD_SOFT_CAP     = 7;
+const ATS_SPREAD_PENALTY_RATE = 0.05;
 // Extra guard: require top-tier edge for very large spreads
-const ATS_LARGE_SPREAD_GATE   = 12;
+const ATS_LARGE_SPREAD_GATE   = 10;
 
 // ATS partial-signal thresholds — relaxed
 const ATS_PARTIAL_COVER_MIN  = 0.53;
@@ -89,6 +89,20 @@ const TOT_OU_MED_EDGE   = 0.12;
 
 const PICKS_PER_SECTION = 5;
 const TARGET_SHOW = 4;
+
+// ── tournament-season adjustments ────────────────────────────────────────────
+// Conference and NCAA tournaments create higher-variance, neutral-court
+// environments where regular-season ATS/form data is less predictive.
+function isTournamentSeason() {
+  const m = new Date().getMonth();
+  return m === 2 || m === 3; // March, April
+}
+const PE_HOME_BUMP_TOURN     = 0.015;
+const ATS_TOURN_EDGE_BUMP    = 0.02;
+const VL_TOURN_VALUE_BUMP    = 0.01;
+const TOT_TOURN_EDGE_BUMP    = 0.02;
+const VL_LONGSHOT_ML         = 300;
+const ATS_TOURN_CONF_SPREAD  = 8;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -320,6 +334,8 @@ function marketWinSignal(game) {
 
 function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds) {
   const picks = [];
+  const tourn = isTournamentSeason();
+  const homeBump = tourn ? PE_HOME_BUMP_TOURN : PE_HOME_BUMP;
 
   for (const game of games) {
     if (!hasMoneylineLine(game) && !hasSpreadLine(game)) continue;
@@ -370,7 +386,7 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const aMkt   = 1 - hMkt;
 
       homeScore = hRank * PE_W_RANKING + hChamp * PE_W_CHAMP_ODDS + hRec * PE_W_SEASON_REC +
-                  hLast * PE_W_LAST10 + hSos * PE_W_SOS + hAts * PE_W_ATS + hMkt * PE_W_MARKET + PE_HOME_BUMP;
+                  hLast * PE_W_LAST10 + hSos * PE_W_SOS + hAts * PE_W_ATS + hMkt * PE_W_MARKET + homeBump;
       awayScore = aRank * PE_W_RANKING + aChamp * PE_W_CHAMP_ODDS + aRec * PE_W_SEASON_REC +
                   aLast * PE_W_LAST10 + aSos * PE_W_SOS + aAts * PE_W_ATS + aMkt * PE_W_MARKET;
 
@@ -392,7 +408,7 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
 
       // Reweight: market gets 0.40, form 0.25, rank+champ 0.20, ATS 0.15
       homeScore = hMkt * 0.40 + hRec * 0.15 + hAts * 0.10 + hRank * 0.10 + hChamp * 0.10 +
-                  (homeAts?.window === 'last30' ? (recordSignal(homeAts) ?? 0.5) : 0.5) * 0.10 + PE_HOME_BUMP;
+                  (homeAts?.window === 'last30' ? (recordSignal(homeAts) ?? 0.5) : 0.5) * 0.10 + homeBump;
       awayScore = aMkt * 0.40 + aRec * 0.15 + aAts * 0.10 + aRank * 0.10 + aChamp * 0.10 +
                   (awayAts?.window === 'last30' ? (recordSignal(awayAts) ?? 0.5) : 0.5) * 0.10;
 
@@ -400,7 +416,7 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       // Tier 3: minimum viable — market signal + home court only
       tier = 3;
       minEdge = PE_MIN_EDGE_T3;
-      homeScore = (marketProb ?? 0.5) * 0.85 + PE_HOME_BUMP + 0.5 * 0.15;
+      homeScore = (marketProb ?? 0.5) * 0.85 + homeBump + 0.5 * 0.15;
       awayScore = (1 - (marketProb ?? 0.5)) * 0.85 + 0.5 * 0.15;
     } else {
       continue;
@@ -500,6 +516,8 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
 
 function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds) {
   const picks = [];
+  const tourn = isTournamentSeason();
+  const atsMinEdge = tourn ? ATS_EDGE_MIN + ATS_TOURN_EDGE_BUMP : ATS_EDGE_MIN;
 
   for (const game of games) {
     if (!hasSpreadLine(game)) continue;
@@ -535,7 +553,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         spreadDiscount = Math.max(0.50, 1 - excess * ATS_SPREAD_PENALTY_RATE);
       }
       let adjustedEdge = rawEdge * spreadDiscount;
-      if (adjustedEdge < ATS_EDGE_MIN) continue;
+      if (adjustedEdge < atsMinEdge) continue;
 
       const pickHome = (homePct - awayPct) > 0;
       const pickTeam = pickHome ? game.homeTeam : game.awayTeam;
@@ -551,7 +569,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const isPublicFav = pickIsFav && pickSlug && PUBLIC_TEAMS.includes(pickSlug);
       if (isPublicFav) {
         adjustedEdge = Math.max(0, adjustedEdge - ATS_PUBLIC_PENALTY);
-        if (adjustedEdge < ATS_EDGE_MIN) continue;
+        if (adjustedEdge < atsMinEdge) continue;
       }
 
       const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
@@ -570,6 +588,10 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       if (edgeMag >= ATS_EDGE_HIGH) confidence = 2;
       else if (edgeMag >= ATS_EDGE_MED) confidence = 1;
 
+      if (tourn && spreadMagnitude != null && spreadMagnitude >= ATS_TOURN_CONF_SPREAD) {
+        confidence = Math.min(confidence, 1);
+      }
+
       const signals = [];
       signals.push(`ATS form (${win}): ${pickRecord}`);
       signals.push(`Opponent ATS (${win}): ${oppRecord}`);
@@ -580,7 +602,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const hasLine = spreadDisplay != null;
       const opponentTeam = pickHome ? game.awayTeam : game.homeTeam;
       const opponentSlug = pickHome ? awaySlug : homeSlug;
-      const rationale = buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag: adjustedEdge, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav, isPublicFav });
+      const rationale = buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag: adjustedEdge, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav, isPublicFav, tourn });
       picks.push({
         ...sharedBase,
         itemType: 'lean',
@@ -699,6 +721,8 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
 
 function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds) {
   const picks = [];
+  const tourn = isTournamentSeason();
+  const vlMin = tourn ? VL_VALUE_MIN + VL_TOURN_VALUE_BUMP : VL_VALUE_MIN;
 
   for (const game of games) {
     if (!game.moneyline) continue;
@@ -744,14 +768,23 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
 
     let pickTeam, pickML, pickProb, impliedPct, value;
 
-    if (homeValue >= awayValue && homeValue >= VL_VALUE_MIN) {
+    if (homeValue >= awayValue && homeValue >= vlMin) {
       if (homeML <= VL_AVOID_PRICE) continue;
       pickTeam = game.homeTeam; pickML = homeML; pickProb = homeModelProb; impliedPct = homeImplied; value = homeValue;
-    } else if (awayValue >= VL_VALUE_MIN) {
+    } else if (awayValue >= vlMin) {
       if (awayML <= VL_AVOID_PRICE) continue;
       pickTeam = game.awayTeam; pickML = awayML; pickProb = awayModelProb; impliedPct = awayImplied; value = awayValue;
     } else {
       continue;
+    }
+
+    // Corroboration gate: large underdogs need ranking or championship-odds
+    // support unless the value gap itself reaches HIGH tier
+    if (pickML >= VL_LONGSHOT_ML && value < VL_VALUE_HIGH) {
+      const pickSlug = pickTeam === game.homeTeam ? homeSlug : awaySlug;
+      const hasRankSupport = rankMap?.[pickSlug] != null;
+      const hasChampSupport = championshipOdds?.[pickSlug]?.american != null;
+      if (!hasRankSupport && !hasChampSupport) continue;
     }
 
     let confidence = 0;
@@ -776,7 +809,7 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
     const opponentTeamV = pickTeam === game.homeTeam ? game.awayTeam : game.homeTeam;
     const opponentSlugV = pickTeam === game.homeTeam ? getTeamSlug(game.awayTeam) : homeSlug;
 
-    const rationale = buildValueRationale({ pickTeam, opponentTeam: opponentTeamV, confidence, value, modelPctRounded, marketPctRounded, edgePpRounded, pickML, formBoost: formBoost !== 0 });
+    const rationale = buildValueRationale({ pickTeam, opponentTeam: opponentTeamV, confidence, value, modelPctRounded, marketPctRounded, edgePpRounded, pickML, formBoost: formBoost !== 0, tourn });
 
     picks.push({
       key:      game.gameId || `${game.homeTeam}-${game.awayTeam}`,
@@ -812,6 +845,8 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
 
 function buildTotalsPicks(games, atsLeaders, atsBySlug) {
   const picks = [];
+  const tourn = isTournamentSeason();
+  const totMinEdge = tourn ? TOT_OU_MIN_EDGE + TOT_TOURN_EDGE_BUMP : TOT_OU_MIN_EDGE;
 
   for (const game of games) {
     if (!game.total) continue;
@@ -830,14 +865,14 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
 
     // Suppress totals when the two sides disagree in direction (one over, one under)
     const sidesConflict = homeAts && awayAts &&
-      ((homeCoverTot > 0.02 && awayCoverTot < -0.02) || (homeCoverTot < -0.02 && awayCoverTot > 0.02));
+      ((homeCoverTot > 0.01 && awayCoverTot < -0.01) || (homeCoverTot < -0.01 && awayCoverTot > 0.01));
     if (sidesConflict && trendMag < TOT_OU_MED_EDGE) continue;
 
     const overPrice  = game.overPrice  ? fmtPrice(parseNum(game.overPrice))  : null;
     const underPrice = game.underPrice ? fmtPrice(parseNum(game.underPrice)) : null;
 
     const isOver = combinedTrend > 0;
-    const leanLabel = trendMag >= TOT_OU_MIN_EDGE ? (isOver ? 'OVER' : 'UNDER') : null;
+    const leanLabel = trendMag >= totMinEdge ? (isOver ? 'OVER' : 'UNDER') : null;
 
     let confidence = 0;
     if (trendMag >= TOT_OU_HIGH_EDGE) confidence = 2;
@@ -852,7 +887,7 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     else if (leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
     else signals.push('No clear directional edge');
 
-    const rationale = buildTotalsRationale({ homeTeam: game.homeTeam, awayTeam: game.awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence });
+    const rationale = buildTotalsRationale({ homeTeam: game.homeTeam, awayTeam: game.awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence, tourn });
 
     picks.push({
       key:      game.gameId || `${game.homeTeam}-${game.awayTeam}`,
@@ -875,6 +910,7 @@ function buildPickEmRationale({ pickTeam, opponentTeam, confidence, edgeMag, pic
   const parts = [];
   const confLabel = confidenceLabel(confidence);
   const edgePct = Math.round(edgeMag * 100);
+  const tourn = isTournamentSeason();
 
   if (tier === 1) {
     parts.push(`Full-model composite edge of ${edgePct}pp favors ${pickTeam}.`);
@@ -894,18 +930,28 @@ function buildPickEmRationale({ pickTeam, opponentTeam, confidence, edgeMag, pic
     parts.push(`Strong recent form — ${Math.round(pickAts.coverPct)}% ATS cover rate.`);
   }
 
-  if (pickHome) parts.push('Home court advantage factored in.');
+  if (pickHome && tourn) {
+    parts.push('Neutral-court environment — home bump reduced.');
+  } else if (pickHome) {
+    parts.push('Home court advantage factored in.');
+  }
 
   if (pickML != null && pickML >= 150) {
     parts.push('Underdog value — market may be underestimating win probability.');
-  } else if (pickML != null && pickML <= -500) {
-    parts.push('Heavy favorite — chalk deflation applied to sort ranking.');
+  } else if (pickML != null && pickML <= -400) {
+    parts.push('Large favorite discounted due to market inflation risk.');
+  } else if (pickML != null && pickML <= -250) {
+    parts.push('Moderate favorite — line already prices in most of the edge.');
+  }
+
+  if (tourn) {
+    parts.push('Tournament environment increases variance.');
   }
 
   return parts.join(' ');
 }
 
-function buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav, isPublicFav }) {
+function buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickAts, oppAts, spreadMagnitude, teamSpreadNum, isBigFav, pickIsFav, isPublicFav, tourn }) {
   const parts = [];
   const edgePct = Math.round(edgeMag * 100);
 
@@ -934,10 +980,14 @@ function buildAtsRationale({ pickTeam, opponentTeam, confidence, edgeMag, pickAt
     parts.push('Marginal ATS lean — spread value at the margin.');
   }
 
+  if (tourn) {
+    parts.push('Tournament environment — regular-season cover rates carry more variance.');
+  }
+
   return parts.join(' ');
 }
 
-function buildValueRationale({ pickTeam, opponentTeam, confidence, value, modelPctRounded, marketPctRounded, edgePpRounded, pickML, formBoost }) {
+function buildValueRationale({ pickTeam, opponentTeam, confidence, value, modelPctRounded, marketPctRounded, edgePpRounded, pickML, formBoost, tourn }) {
   const parts = [];
 
   parts.push(`Model win probability (${modelPctRounded}%) exceeds market implied (${marketPctRounded}%) by ${edgePpRounded}pp.`);
@@ -960,10 +1010,14 @@ function buildValueRationale({ pickTeam, opponentTeam, confidence, value, modelP
     parts.push('Edge qualifies but gap is narrow — thinner lean.');
   }
 
+  if (tourn && pickML != null && pickML >= VL_LONGSHOT_ML) {
+    parts.push('Value gap present, but supporting form signals carry more uncertainty in tournament environment.');
+  }
+
   return parts.join(' ');
 }
 
-function buildTotalsRationale({ homeTeam, awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence }) {
+function buildTotalsRationale({ homeTeam, awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence, tourn }) {
   const parts = [];
   const trendPct = Math.round(trendMag * 100);
 
@@ -974,7 +1028,7 @@ function buildTotalsRationale({ homeTeam, awayTeam, leanLabel, trendMag, marketT
   }
 
   if (sidesConflict) {
-    parts.push('Pace signals partially conflict between the two sides — lean carries elevated uncertainty.');
+    parts.push('Pace signals partially conflict — lean carries elevated uncertainty.');
   }
 
   if (confidence >= 2) {
@@ -983,6 +1037,10 @@ function buildTotalsRationale({ homeTeam, awayTeam, leanLabel, trendMag, marketT
     parts.push('Moderate trend agreement — directional lean with caveats.');
   } else if (leanLabel) {
     parts.push('Marginal lean — trend exists but magnitude is low.');
+  }
+
+  if (tourn && leanLabel) {
+    parts.push('Tournament pace may differ from regular-season norms.');
   }
 
   return parts.join(' ');
