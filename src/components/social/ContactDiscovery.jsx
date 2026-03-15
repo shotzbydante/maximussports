@@ -137,8 +137,13 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
           const data = await res.json();
           setSearchResults(data.results || []);
           setSearchEmpty((data.results || []).length === 0);
+        } else {
+          console.warn('[search] API returned', res.status);
+          setSearchResults([]);
+          setSearchEmpty(true);
         }
-      } catch {
+      } catch (err) {
+        console.warn('[search] fetch error:', err?.message);
         setSearchResults([]);
         setSearchEmpty(true);
       } finally {
