@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getQueryParam } from '../_requestUrl.js';
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -21,8 +22,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
-  const offset = parseInt(req.query.offset) || 0;
+  const limit = Math.min(parseInt(getQueryParam(req, 'limit', '20')) || 20, 50);
+  const offset = parseInt(getQueryParam(req, 'offset', '0')) || 0;
 
   try {
     const { data: following } = await supabaseAdmin

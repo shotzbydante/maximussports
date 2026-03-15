@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getQueryParam } from '../_requestUrl.js';
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -21,7 +22,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const type = req.query.type || 'friends';
+  const type = getQueryParam(req, 'type', 'friends');
 
   try {
     let userIds = [user.id];

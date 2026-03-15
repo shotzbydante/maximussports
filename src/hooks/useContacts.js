@@ -4,11 +4,16 @@
  *
  * Privacy: phone numbers are SHA-256 hashed locally before transmission.
  * Raw contact data never leaves the device.
+ *
+ * Contact Picker API reality:
+ * - Supported: Chrome on Android (80+)
+ * - NOT supported: iOS Safari, iOS Chrome (WebKit), desktop browsers
+ * - On unsupported platforms we expose a clean boolean so the UI can adapt
+ *   without ever showing a broken "try again" error state.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getSupabase } from '../lib/supabaseClient';
 import { track } from '../analytics/index';
 
 async function hashPhone(phone) {
@@ -21,6 +26,13 @@ async function hashPhone(phone) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function detectContactPickerSupport() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  if (!('contacts' in navigator) || !('ContactsManager' in window)) return false;
+  if (typeof navigator.contacts?.select !== 'function') return false;
+  return true;
+}
+
 export function useContacts() {
   const { user, session } = useAuth();
   const [status, setStatus] = useState('idle');
@@ -28,6 +40,8 @@ export function useContacts() {
   const [unmatchedContacts, setUnmatchedContacts] = useState([]);
   const [error, setError] = useState(null);
   const contactMapRef = useRef(new Map());
+
+  const isContactPickerSupported = useMemo(detectContactPickerSupport, []);
 
   const syncContacts = useCallback(async (rawContacts) => {
     if (!user || !session) {
@@ -108,17 +122,15 @@ export function useContacts() {
   }, [user, session]);
 
   const requestAndSync = useCallback(async () => {
+    if (!isContactPickerSupported) {
+      track('contacts_permission', { result: 'unsupported' });
+      return;
+    }
+
     setStatus('requesting');
     setError(null);
 
     try {
-      if (!('contacts' in navigator) && !('ContactsManager' in window)) {
-        setError('Contact sync is not supported in this browser. Please use the mobile app.');
-        setStatus('error');
-        track('contacts_permission', { result: 'unsupported' });
-        return;
-      }
-
       const props = ['name', 'tel'];
       const opts = { multiple: true };
       const contacts = await navigator.contacts.select(props, opts);
@@ -126,17 +138,17 @@ export function useContacts() {
       track('contacts_permission', { result: 'granted', count: contacts.length });
       await syncContacts(contacts);
     } catch (err) {
-      if (err.name === 'TypeError' || err.message?.includes('not supported')) {
-        setError('Contact sync requires the mobile app or a supported browser.');
-        setStatus('error');
+      if (err.name === 'TypeError') {
         track('contacts_permission', { result: 'unsupported' });
+      } else if (err.name === 'InvalidStateError' || err.message?.includes('already')) {
+        setError('Another contact picker is already open.');
+        setStatus('idle');
       } else {
-        setError('Contact permission denied or cancelled.');
         setStatus('idle');
         track('contacts_permission', { result: 'denied' });
       }
     }
-  }, [syncContacts]);
+  }, [syncContacts, isContactPickerSupported]);
 
   const trackInvite = useCallback(async (phoneHash) => {
     if (!session) return;
@@ -160,6 +172,7 @@ export function useContacts() {
     matchedUsers,
     unmatchedContacts,
     error,
+    isContactPickerSupported,
     syncContacts,
     requestAndSync,
     trackInvite,

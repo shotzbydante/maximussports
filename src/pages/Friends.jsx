@@ -1,9 +1,14 @@
 /**
  * Friends page — central hub for social graph features.
  * Surfaces contact discovery, friend activity feed, and leaderboard.
+ *
+ * Default tab logic:
+ * - New users (0 friends, 0 following) → Discover
+ * - Users with a social graph → Activity
+ * - Manual tab switch preserved for the session
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFriendGraph } from '../hooks/useFriendGraph';
 import ContactDiscovery from '../components/social/ContactDiscovery';
@@ -11,10 +16,30 @@ import FriendActivityFeed from '../components/social/FriendActivityFeed';
 import FriendsLeaderboard from '../components/social/FriendsLeaderboard';
 import styles from '../components/social/Social.module.css';
 
+const TABS = [
+  { id: 'activity', label: 'Activity' },
+  { id: 'discover', label: 'Discover' },
+  { id: 'leaderboard', label: 'Leaderboard' },
+];
+
+function computeDefaultTab(socialCounts) {
+  const hasSocialGraph = socialCounts.following > 0 || socialCounts.friends > 0;
+  return hasSocialGraph ? 'activity' : 'discover';
+}
+
 export default function Friends() {
   const { user } = useAuth();
   const { socialCounts } = useFriendGraph();
-  const [activeTab, setActiveTab] = useState('activity');
+
+  const defaultTab = useMemo(
+    () => computeDefaultTab(socialCounts),
+    // Only compute on mount — socialCounts.following/friends drive the initial choice
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [socialCounts.following > 0 || socialCounts.friends > 0],
+  );
+
+  const [activeTab, setActiveTab] = useState(null);
+  const currentTab = activeTab || defaultTab;
 
   if (!user) {
     return (
@@ -25,18 +50,14 @@ export default function Friends() {
     );
   }
 
-  const TABS = [
-    { id: 'activity', label: 'Activity' },
-    { id: 'discover', label: 'Discover' },
-    { id: 'leaderboard', label: 'Leaderboard' },
-  ];
+  const hasStats = socialCounts.following > 0 || socialCounts.followers > 0;
 
   return (
     <div className={styles.socialPage}>
       <div>
         <h1 className={styles.socialPageTitle}>Friends</h1>
         <p className={styles.socialPageSubtitle}>
-          {socialCounts.following > 0
+          {hasStats
             ? `${socialCounts.following} following · ${socialCounts.followers} followers · ${socialCounts.friends} friends`
             : 'Find friends and track picks together'}
         </p>
@@ -47,7 +68,7 @@ export default function Friends() {
           <button
             key={tab.id}
             type="button"
-            className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
+            className={`${styles.tab} ${currentTab === tab.id ? styles.tabActive : ''}`}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
@@ -55,17 +76,9 @@ export default function Friends() {
         ))}
       </div>
 
-      {activeTab === 'activity' && (
-        <FriendActivityFeed limit={20} />
-      )}
-
-      {activeTab === 'discover' && (
-        <ContactDiscovery showDoneButton={false} />
-      )}
-
-      {activeTab === 'leaderboard' && (
-        <FriendsLeaderboard type="friends" />
-      )}
+      {currentTab === 'activity' && <FriendActivityFeed limit={20} />}
+      {currentTab === 'discover' && <ContactDiscovery showDoneButton={false} />}
+      {currentTab === 'leaderboard' && <FriendsLeaderboard type="friends" />}
     </div>
   );
 }
