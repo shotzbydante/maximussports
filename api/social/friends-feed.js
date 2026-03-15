@@ -37,27 +37,31 @@ export default async function handler(req, res) {
       return res.status(200).json({ activities: [], hasMore: false });
     }
 
-    const { data: activities, error } = await supabaseAdmin
-      .from('friend_activity')
-      .select(`
-        id,
-        user_id,
-        activity_type,
-        title,
-        subtitle,
-        metadata,
-        created_at
-      `)
-      .in('user_id', friendIds)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    let activities = [];
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('friend_activity')
+        .select(`
+          id,
+          user_id,
+          activity_type,
+          title,
+          subtitle,
+          metadata,
+          created_at
+        `)
+        .in('user_id', friendIds)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (!error) activities = data || [];
+    } catch {
+      // friend_activity table may not exist yet
+    }
 
-    if (error) throw error;
-
-    const userIds = [...new Set((activities || []).map(a => a.user_id))];
+    const userIds = [...new Set(activities.map(a => a.user_id))];
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
-      .select('id, username, display_name, avatar_config, plan_tier')
+      .select('id, username, display_name, plan_tier, preferences')
       .in('id', userIds);
 
     const profileMap = {};
@@ -65,19 +69,19 @@ export default async function handler(req, res) {
       profileMap[p.id] = {
         username: p.username,
         displayName: p.display_name || p.username,
-        avatarConfig: p.avatar_config,
+        avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
         isPro: p.plan_tier === 'pro',
       };
     });
 
-    const enriched = (activities || []).map(a => ({
+    const enriched = activities.map(a => ({
       ...a,
       user: profileMap[a.user_id] || { username: 'Unknown', displayName: 'Unknown' },
     }));
 
     return res.status(200).json({
       activities: enriched,
-      hasMore: (activities || []).length === limit,
+      hasMore: activities.length === limit,
     });
   } catch (err) {
     console.error('[friends-feed] error:', err);

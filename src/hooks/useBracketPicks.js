@@ -62,14 +62,19 @@ export function useBracketPicks(bracket) {
         }),
       });
       if (res.ok) {
-        setSaveStatus('saved');
-        setLastSaved(new Date());
-        setTimeout(() => setSaveStatus('idle'), 2500);
+        const data = await res.json();
+        if (data._tablesMissing) {
+          setSaveStatus('local');
+        } else {
+          setSaveStatus('saved');
+          setLastSaved(new Date());
+          setTimeout(() => setSaveStatus('idle'), 2500);
+        }
       } else {
-        setSaveStatus('error');
+        setSaveStatus('local');
       }
     } catch {
-      setSaveStatus('error');
+      setSaveStatus('local');
     }
   }, [session?.access_token, bracket?.bracketMode]);
 

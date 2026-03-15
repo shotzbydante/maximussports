@@ -38,7 +38,7 @@ export default async function handler(req, res) {
   try {
     const { data: profiles, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, username, display_name, avatar_config, plan_tier')
+      .select('id, username, display_name, plan_tier, preferences')
       .neq('id', user.id)
       .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
       .order('followers_count', { ascending: false, nullsFirst: false })
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         id: p.id,
         username: p.username,
         displayName: p.display_name || p.username,
-        avatarConfig: p.avatar_config,
+        avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
         isPro: p.plan_tier === 'pro',
         followStatus,
       };

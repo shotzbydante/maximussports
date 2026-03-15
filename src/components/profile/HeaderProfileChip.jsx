@@ -31,7 +31,7 @@ export default function HeaderProfileChip({ profile, isGuest = false }) {
 
   const chipLabel = isGuest
     ? 'Sign up'
-    : (profile?.username || profile?.displayName || 'Account');
+    : (profile?.username || profile?.displayName || profile?.email?.split('@')[0] || 'Account');
 
   const isPro = !isGuest && profile?.isPro;
 

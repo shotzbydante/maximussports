@@ -85,6 +85,9 @@ function SaveIndicator({ status, timeStr }) {
   if (status === 'error') {
     return <span className={styles.saveError}>Save failed</span>;
   }
+  if (status === 'local') {
+    return <span className={styles.saveLocal}>Local only</span>;
+  }
   if (timeStr) {
     return <span className={styles.saveIdle}>Last saved {timeStr}</span>;
   }

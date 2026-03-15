@@ -60,7 +60,15 @@ async function handleGet(req, res, sb, user) {
       .limit(1)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(200).json({ bracket: null });
+      }
+      // Table doesn't exist or schema cache issue — return null gracefully
+      if (error.message?.includes('user_brackets') || error.code === '42P01' || error.code === 'PGRST204') {
+        console.warn('[bracketology/picks] user_brackets table not found — persistence disabled');
+        return res.status(200).json({ bracket: null, _tablesMissing: true });
+      }
       console.error('[bracketology/picks] GET error:', error.message);
       return res.status(200).json({ bracket: null });
     }
@@ -116,6 +124,11 @@ async function handlePost(req, res, sb, user) {
     }
 
     if (result.error) {
+      // Table doesn't exist — return a helpful message instead of a 500
+      if (result.error.message?.includes('user_brackets') || result.error.code === '42P01' || result.error.code === 'PGRST204') {
+        console.warn('[bracketology/picks] user_brackets table not found — save skipped');
+        return res.status(200).json({ ok: false, _tablesMissing: true, error: 'Bracket persistence not yet configured' });
+      }
       console.error('[bracketology/picks] POST error:', result.error.message);
       return res.status(500).json({ error: 'Failed to save bracket' });
     }

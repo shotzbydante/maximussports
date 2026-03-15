@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       handle:               p.username ? `@${p.username}` : '',
       avatarUrl:            user.user_metadata?.avatar_url || null,
       favoriteNumber:       p.favorite_number ?? null,
-      avatarConfig:         p.avatar_config || null,
+      avatarConfig:         p.avatar_config || p.preferences?.robotConfig || null,
       email:                user.email || '',
       isPro:                p.plan_tier === 'pro',
       social: {

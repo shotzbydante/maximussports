@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       if (candidateIds.length > 0) {
         const { data: profiles } = await supabaseAdmin
           .from('profiles')
-          .select('id, username, display_name, avatar_config, plan_tier, followers_count')
+          .select('id, username, display_name, plan_tier, preferences, followers_count')
           .in('id', candidateIds);
 
         suggestions = (profiles || [])
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
             id: p.id,
             username: p.username || '',
             displayName: p.display_name || p.username || '',
-            avatarConfig: p.avatar_config,
+            avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
             isPro: p.plan_tier === 'pro',
             followersCount: p.followers_count || 0,
             followStatus: 'none',
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
       const existingIds = new Set([...excludeIds, ...suggestions.map(s => s.id)]);
       const { data: popular } = await supabaseAdmin
         .from('profiles')
-        .select('id, username, display_name, avatar_config, plan_tier, followers_count')
+        .select('id, username, display_name, plan_tier, preferences, followers_count')
         .order('followers_count', { ascending: false })
         .limit(30);
 
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
           id: p.id,
           username: p.username || '',
           displayName: p.display_name || p.username || '',
-          avatarConfig: p.avatar_config,
+          avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
           isPro: p.plan_tier === 'pro',
           followersCount: p.followers_count || 0,
           followStatus: 'none',

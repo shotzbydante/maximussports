@@ -46,22 +46,26 @@ export default async function handler(req, res) {
       userIds = [...new Set([user.id, ...mutualIds])];
     }
 
-    const { data: stats, error } = await supabaseAdmin
-      .from('user_pick_stats')
-      .select('user_id, ats_wins, ats_losses, pickem_wins, pickem_losses, totals_wins, totals_losses')
-      .in('user_id', userIds);
-
-    if (error) throw error;
+    let stats = [];
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('user_pick_stats')
+        .select('user_id, ats_wins, ats_losses, pickem_wins, pickem_losses, totals_wins, totals_losses')
+        .in('user_id', userIds);
+      if (!error) stats = data || [];
+    } catch {
+      // user_pick_stats may not exist yet
+    }
 
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
-      .select('id, username, display_name, avatar_config, plan_tier')
+      .select('id, username, display_name, plan_tier, preferences')
       .in('id', userIds);
 
     const profileMap = {};
     (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
-    const leaderboard = (stats || []).map(s => {
+    const leaderboard = stats.map(s => {
       const p = profileMap[s.user_id] || {};
       const totalWins = s.ats_wins + s.pickem_wins + s.totals_wins;
       const totalLosses = s.ats_losses + s.pickem_losses + s.totals_losses;
@@ -72,7 +76,7 @@ export default async function handler(req, res) {
         userId: s.user_id,
         username: p.username || 'Unknown',
         displayName: p.display_name || p.username || 'Unknown',
-        avatarConfig: p.avatar_config,
+        avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
         isPro: p.plan_tier === 'pro',
         isCurrentUser: s.user_id === user.id,
         stats: {

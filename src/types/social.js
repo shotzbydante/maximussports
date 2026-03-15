@@ -122,11 +122,20 @@ export const EMPTY_PICK_STATS = Object.freeze({
 export function buildUserProfile(authUser, profileRow) {
   if (!authUser) return null;
   const p = profileRow || {};
+
+  const dbUsername = p.username || '';
+  const dbDisplayName = p.display_name || '';
+  const metaName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || '';
+
+  const username = dbUsername || metaName || '';
+  const displayName = dbDisplayName || dbUsername || metaName || '';
+  const handle = dbUsername ? `@${dbUsername}` : '';
+
   return {
     id:                    authUser.id,
-    username:              p.username || '',
-    displayName:           p.display_name || p.username || '',
-    handle:                p.username ? `@${p.username}` : '',
+    username,
+    displayName,
+    handle,
     avatarUrl:             authUser.user_metadata?.avatar_url || null,
     favoriteNumber:        p.favorite_number ?? null,
     avatarConfig:          p.avatar_config || null,

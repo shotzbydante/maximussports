@@ -181,6 +181,12 @@
   font-weight: 500;
 }
 
+.saveLocal {
+  font-size: 0.65rem;
+  color: rgba(234, 179, 8, 0.6);
+  font-weight: 500;
+}
+
 .saveIdle {
   font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.2);

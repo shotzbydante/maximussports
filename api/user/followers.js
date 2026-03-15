@@ -38,7 +38,7 @@ export default async function handler(req, res) {
 
     const { data: profiles } = await admin
       .from('profiles')
-      .select('id, username, display_name, avatar_config, plan_tier')
+      .select('id, username, display_name, plan_tier, preferences')
       .in('id', followerIds);
 
     const profileMap = {};
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
         id,
         username: p.username || '',
         displayName: p.display_name || p.username || '',
-        avatarConfig: p.avatar_config,
+        avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
         isPro: p.plan_tier === 'pro',
         followStatus: iFollow ? 'friends' : 'follower',
       };
