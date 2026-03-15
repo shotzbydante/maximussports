@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { buildMaximusPicks } from '../../utils/maximusPicksModel';
 import { getConfidenceLabel, getModelEdgeDisplay } from '../../utils/confidenceSystem';
 import TeamLogo from '../shared/TeamLogo';
+import ShareButton from '../common/ShareButton';
 import styles from './MaximusPicks.module.css';
 
 // ─── inline SVG icons ─────────────────────────────────────────────────────────
@@ -483,9 +484,20 @@ export default function MaximusPicks({
         <PickColumn section="value"   picks={valuePicks}   slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
         <PickColumn section="totals"  picks={totalsPicks}  slateDate={slateDate} slateDateSecondary={slateDateSecondary} slateComplete={slateComplete} hideViewMore={hideViewMore} />
       </div>
-      <p className={styles.disclaimer}>
-        For entertainment only. Please bet responsibly. Leans are data-driven, not advice.
-      </p>
+      <div className={styles.picksFooter}>
+        <p className={styles.disclaimer}>
+          For entertainment only. Please bet responsibly. Leans are data-driven, not advice.
+        </p>
+        <ShareButton
+          shareType="ats_intel"
+          title="Maximus AI Picks"
+          subtitle={`${allPicks.length} picks today`}
+          destinationPath="/college-basketball-picks-today"
+          placement="maximus_picks"
+          label="Share Picks"
+          variant="subtle"
+        />
+      </div>
     </>
   );
 }

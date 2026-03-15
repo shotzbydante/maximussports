@@ -703,6 +703,16 @@
   z-index: 2;
 }
 
+/* ─── picks footer ───────────────────────────────────────────────── */
+
+.picksFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
 /* ─── reduced motion ─────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
