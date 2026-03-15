@@ -25,6 +25,7 @@ import BracketRegion from '../components/bracketology/BracketRegion';
 import BracketFinalFour from '../components/bracketology/BracketFinalFour';
 import BracketIntelStrip from '../components/bracketology/BracketIntelStrip';
 import BracketCompare from '../components/bracketology/BracketCompare';
+import ShareButton from '../components/common/ShareButton';
 import styles from './Bracketology.module.css';
 
 export default function Bracketology() {
@@ -252,6 +253,18 @@ export default function Bracketology() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            <div className={styles.bracketShare}>
+              <ShareButton
+                shareType="bracket_bust"
+                title="My March Madness Bracket"
+                subtitle={picks?.championship ? `Champion: ${allMatchups?.[picks.championship]?.name || picks.championship}` : 'Build your bracket'}
+                destinationPath="/bracketology"
+                placement="bracketology_footer"
+                label="Share Bracket"
+                variant="primary"
+              />
             </div>
 
             <div className={styles.legend}>

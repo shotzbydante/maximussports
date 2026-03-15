@@ -144,6 +144,12 @@
   }
 }
 
+.bracketShare {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0;
+}
+
 @media (max-width: 768px) {
   .bracketContainer {
     padding: 0.75rem;

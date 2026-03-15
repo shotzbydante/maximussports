@@ -31,6 +31,7 @@
  * @typedef {Object} SocialCounts
  * @property {number} followers
  * @property {number} following
+ * @property {number} friends
  */
 
 /**
@@ -73,8 +74,37 @@
  * @property {number} [winRate]           - overall win percentage (future)
  */
 
+/**
+ * @typedef {Object} ContactInvite
+ * @property {string}  id
+ * @property {string}  inviterUserId
+ * @property {string}  phoneHash
+ * @property {string}  createdAt
+ * @property {string}  [acceptedAt]
+ */
+
+/**
+ * @typedef {Object} ReferralTracking
+ * @property {string}  id
+ * @property {string}  referrerId
+ * @property {string}  [referredId]
+ * @property {string}  referralCode
+ * @property {string}  status         - 'pending' | 'signed_up' | 'completed'
+ */
+
+/**
+ * @typedef {Object} FriendActivity
+ * @property {string}  id
+ * @property {string}  userId
+ * @property {string}  activityType   - 'pick' | 'bracket_update' | 'upset_hit' | 'win_streak'
+ * @property {string}  title
+ * @property {string}  [subtitle]
+ * @property {object}  [metadata]
+ * @property {string}  createdAt
+ */
+
 /** Default empty social counts. */
-export const EMPTY_SOCIAL_COUNTS = Object.freeze({ followers: 0, following: 0 });
+export const EMPTY_SOCIAL_COUNTS = Object.freeze({ followers: 0, following: 0, friends: 0 });
 
 /** Default empty pick stats. */
 export const EMPTY_PICK_STATS = Object.freeze({

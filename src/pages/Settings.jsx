@@ -22,6 +22,8 @@ import { invalidateProfileCache, getAvatarConfigColumnStatus, setAvatarConfigCol
 import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
 import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
+import ContactDiscovery from '../components/social/ContactDiscovery';
+import { useFriendGraph } from '../hooks/useFriendGraph';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -122,7 +124,7 @@ const PinIcon = () => (
 );
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const PREFERENCES = [
@@ -732,7 +734,7 @@ function OnboardingWizard({ user, onComplete }) {
       identifyUser(user, { username: profileData.username }, teamSlugs);
       track('onboarding_step_submit', { step: 3, success: true });
 
-      setStep(4);
+      setStep(4); // Find Friends (optional)
       if (onComplete) onComplete({ teamSlugs });
     } catch (err) {
       setWizardError(err.message || 'Something went wrong. Please try again.');
@@ -742,7 +744,7 @@ function OnboardingWizard({ user, onComplete }) {
     }
   }, [user, profileData, teamSlugs, onComplete]);
 
-  if (step === 4) return <StepDone robotConfig={profileData.robotConfig} />;
+  if (step === 5) return <StepDone robotConfig={profileData.robotConfig} />;
 
   return (
     <div className={styles.wizardCard}>
@@ -751,6 +753,11 @@ function OnboardingWizard({ user, onComplete }) {
       {step === 1 && <StepTeams onNext={handleTeams} />}
       {step === 2 && <StepProfile onNext={(d) => { setProfileData(d); setStep(3); }} defaultName={defaultName} userId={user.id} />}
       {step === 3 && <StepPreferences onNext={handlePreferences} loading={saving} />}
+      {step === 4 && (
+        <div className={styles.step}>
+          <ContactDiscovery onDone={() => setStep(5)} showDoneButton={true} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -1791,8 +1798,29 @@ function UpgradePrompt({ message, onUpgrade, onClose, upgradeLoading }) {
 }
 
 /* ─── Premium Profile Page ───────────────────────────────────────────────── */
+function SocialCountsRow({ userId }) {
+  const { socialCounts } = useFriendGraph();
+  return (
+    <div className={styles.socialCountsRow} style={{ opacity: 1 }}>
+      <div className={styles.socialCountBlock}>
+        <span className={styles.socialCountNum}>{socialCounts.followers}</span>
+        <span className={styles.socialCountLabel}>Followers</span>
+      </div>
+      <div className={styles.socialCountBlock}>
+        <span className={styles.socialCountNum}>{socialCounts.following}</span>
+        <span className={styles.socialCountLabel}>Following</span>
+      </div>
+      <div className={styles.socialCountBlock}>
+        <span className={styles.socialCountNum}>{socialCounts.friends}</span>
+        <span className={styles.socialCountLabel}>Friends</span>
+      </div>
+    </div>
+  );
+}
+
 function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut }) {
   const { signOut } = useAuth();
+  const navigate = useNavigate();
 
   const [userTeams, setUserTeams]         = useState([]);
   const [teamsLoading, setTeamsLoading]   = useState(true);
@@ -2425,20 +2453,17 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             </div>
           </div>
 
-          <div className={styles.socialCountsRow} title="Social features coming soon">
-            <div className={styles.socialCountBlock}>
-              <span className={styles.socialCountNum}>0</span>
-              <span className={styles.socialCountLabel}>Followers</span>
-            </div>
-            <div className={styles.socialCountBlock}>
-              <span className={styles.socialCountNum}>0</span>
-              <span className={styles.socialCountLabel}>Following</span>
-            </div>
-          </div>
+          <SocialCountsRow userId={user.id} />
 
           <div className={styles.profileActions}>
             <button type="button" className={styles.btnOutline} onClick={() => setShowEditForm(true)}>
               Edit profile
+            </button>
+            <button type="button" className={styles.btnOutline} onClick={() => navigate('/friends')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
+              </svg>
+              Find Friends
             </button>
             <button type="button" className={styles.btnDanger} onClick={onSignOut} disabled={signingOut}>
               {signingOut ? <><SpinnerIcon /> Signing out…</> : 'Sign out'}
