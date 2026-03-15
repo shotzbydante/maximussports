@@ -1,0 +1,851 @@
+/* ─── Contact Discovery Container ──────────────────────────────────────── */
+.discoveryContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--card-padding);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.discoveryContainer.compact {
+  padding: var(--space-md);
+  gap: var(--space-md);
+}
+
+.discoveryHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 0;
+}
+
+.discoveryIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(60, 121, 180, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-sm);
+}
+
+.discoveryTitle {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.discoveryDesc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* ─── Sync Contacts Button ─────────────────────────────────────────────── */
+.btnSyncContacts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 48px;
+  padding: 0 var(--space-xl);
+  background: var(--color-primary);
+  color: white;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  width: 100%;
+}
+
+.btnSyncContacts:hover {
+  background: var(--color-primary-hover);
+}
+
+.btnSyncContacts:active {
+  transform: scale(0.98);
+}
+
+.btnSkip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 var(--space-xl);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  width: 100%;
+}
+
+.btnSkip:hover {
+  color: var(--color-text-secondary);
+}
+
+/* ─── Results ──────────────────────────────────────────────────────────── */
+.resultsTitle {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.tabRow {
+  display: flex;
+  gap: 2px;
+  background: var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.tab {
+  flex: 1;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tabActive {
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.sectionLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin: var(--space-md) 0 var(--space-sm);
+  padding: 0;
+}
+
+/* ─── Contact List ─────────────────────────────────────────────────────── */
+.contactList {
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.contactRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.contactRow:last-child {
+  border-bottom: none;
+}
+
+.contactAvatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.initialsAvatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(60, 121, 180, 0.15), rgba(60, 121, 180, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.contactInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.contactName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contactHandle {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verifiedBadge {
+  flex-shrink: 0;
+}
+
+/* ─── Follow Buttons ───────────────────────────────────────────────────── */
+.btnFollow,
+.btnFollowBack,
+.btnFollowing,
+.btnFriends,
+.btnInvite,
+.btnInvited {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: var(--pill-radius);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnFollow {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btnFollow:hover {
+  background: var(--color-primary-hover);
+}
+
+.btnFollowBack {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btnFollowBack:hover {
+  background: var(--color-primary-hover);
+}
+
+.btnFollowing {
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(60, 121, 180, 0.2);
+}
+
+.btnFollowing:hover {
+  background: rgba(196, 92, 74, 0.08);
+  color: var(--color-down);
+  border-color: rgba(196, 92, 74, 0.2);
+}
+
+.btnFriends {
+  background: linear-gradient(135deg, #2d8a6e, #23735c);
+  color: white;
+}
+
+.btnFriends:hover {
+  opacity: 0.9;
+}
+
+.btnInvite {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btnInvite:hover {
+  background: var(--color-primary-hover);
+}
+
+.btnInvited {
+  background: rgba(45, 138, 110, 0.1);
+  color: var(--color-up);
+  cursor: default;
+}
+
+.btnBusy {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ─── Done Button ──────────────────────────────────────────────────────── */
+.btnDone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  background: var(--color-primary);
+  color: white;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  width: 100%;
+  margin-top: var(--space-md);
+}
+
+.btnDone:hover {
+  background: var(--color-primary-hover);
+}
+
+/* ─── Privacy Note ─────────────────────────────────────────────────────── */
+.privacyNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  text-align: center;
+  justify-content: center;
+}
+
+.errorText {
+  font-size: 0.85rem;
+  color: var(--color-down);
+  text-align: center;
+  margin: 0;
+}
+
+/* ─── Loading ──────────────────────────────────────────────────────────── */
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) 0;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: discoverySpin 0.8s linear infinite;
+}
+
+@keyframes discoverySpin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ─── Suggestions Section ──────────────────────────────────────────────── */
+.suggestionsSection {
+  border-top: 1px solid var(--divider-color);
+  padding-top: var(--space-md);
+}
+
+/* ─── Share Card ───────────────────────────────────────────────────────── */
+.shareCard {
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: 400px;
+}
+
+.shareCardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.shareCardBrand {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.shareCardBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--pill-radius);
+  background: rgba(60, 121, 180, 0.1);
+  color: var(--color-primary);
+}
+
+.shareCardUser {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.shareCardUserInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.shareCardDisplayName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.shareCardHandle {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.shareCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.shareCardPick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(60, 121, 180, 0.04);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-primary);
+}
+
+.shareCardPickTeam {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.shareCardConfidence {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: var(--pill-radius);
+}
+
+.confidenceHigh {
+  background: rgba(45, 138, 110, 0.1);
+  color: var(--color-up);
+}
+
+.confidenceMedium {
+  background: rgba(183, 152, 108, 0.15);
+  color: var(--color-accent);
+}
+
+.confidenceLow {
+  background: rgba(196, 92, 74, 0.1);
+  color: var(--color-down);
+}
+
+.shareCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--divider-color);
+}
+
+.shareCardCta {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.shareCardLink {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* ─── Upset Alert Card ─────────────────────────────────────────────────── */
+.upsetCard {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: 400px;
+}
+
+.upsetBadge {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #ff6b6b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upsetMatchup {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.upsetProb {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.upsetFooter {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Share Actions Row ────────────────────────────────────────────────── */
+.shareActions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.shareActionBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.shareActionSms {
+  background: var(--color-primary);
+  color: white;
+}
+
+.shareActionSms:hover {
+  background: var(--color-primary-hover);
+}
+
+.shareActionCopy {
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+  border: 1px solid rgba(60, 121, 180, 0.15);
+}
+
+.shareActionCopy:hover {
+  background: rgba(60, 121, 180, 0.12);
+}
+
+/* ─── Friend Activity Feed ─────────────────────────────────────────────── */
+.feedContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.feedItem {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-fast);
+}
+
+.feedItem:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.feedAvatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.feedBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feedUser {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.feedAction {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.feedMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 2px;
+}
+
+.feedConfidence {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: var(--pill-radius);
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary);
+}
+
+.feedTime {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.feedEmpty {
+  text-align: center;
+  padding: var(--space-2xl);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ─── Friends Leaderboard ──────────────────────────────────────────────── */
+.leaderboardContainer {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border: var(--card-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.leaderboardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--card-padding);
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.leaderboardTitle {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.leaderboardRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--card-padding);
+  border-bottom: 1px solid var(--divider-color);
+  transition: background var(--transition-fast);
+}
+
+.leaderboardRow:last-child {
+  border-bottom: none;
+}
+
+.leaderboardRow:hover {
+  background: rgba(60, 121, 180, 0.03);
+}
+
+.leaderboardRowCurrent {
+  background: rgba(60, 121, 180, 0.05);
+}
+
+.leaderboardRank {
+  width: 28px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.leaderboardRank1 {
+  color: #d4a017;
+}
+
+.leaderboardRank2 {
+  color: #8a8a8a;
+}
+
+.leaderboardRank3 {
+  color: #b87333;
+}
+
+.leaderboardAvatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.leaderboardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.leaderboardName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboardStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.leaderboardStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.leaderboardStatValue {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.leaderboardStatLabel {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.leaderboardAccuracy {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-up);
+  min-width: 42px;
+  text-align: right;
+}
+
+.leaderboardEmpty {
+  padding: var(--space-xl) var(--card-padding);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ─── Social Page ──────────────────────────────────────────────────────── */
+.socialPage {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.socialPageTitle {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.socialPageSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: -8px 0 0;
+}
+
+/* ─── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .discoveryContainer {
+    padding: var(--space-md);
+  }
+
+  .contactList {
+    max-height: 360px;
+  }
+
+  .shareCard,
+  .upsetCard {
+    max-width: 100%;
+  }
+
+  .leaderboardStats {
+    gap: var(--space-sm);
+  }
+}
