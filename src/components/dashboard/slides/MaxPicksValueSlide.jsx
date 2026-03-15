@@ -12,11 +12,13 @@ function makeTeamObj(name) {
 }
 
 export default function MaxPicksValueSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games = data?.odds?.games ?? [];
+  const games      = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+  const rankMap    = data?.rankMap ?? {};
+  const champOdds  = data?.championshipOdds ?? {};
 
   let picks = { valuePicks: [] };
-  try { picks = buildMaximusPicks({ games, atsLeaders }); } catch { /* ignore */ }
+  try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
 
   const valuePicks = (picks.valuePicks ?? []).slice(0, 4);
 

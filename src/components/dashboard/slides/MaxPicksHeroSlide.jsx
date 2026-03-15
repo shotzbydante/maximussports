@@ -88,17 +88,28 @@ function MiniEdge({ pick }) {
 
 /* ── Pick Row — one ranked row per pick ───────────────────────── */
 
+function fmtSpread(n) {
+  if (n == null) return null;
+  if (n > 0) return `+${n}`;
+  if (n === 0) return '+0';
+  return String(n);
+}
+
 function PickRow({ pick, rank }) {
   const cs = getSlideColors(pick.confidence);
   const isTot = pick.pickType === 'total';
+  const isAts = pick.pickType === 'ats';
   const teamObj = !isTot ? makeTeamObj(pick.pickTeam) : null;
   const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
   const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
 
   const teamDisplay = !isTot ? heroDisplayName(pick.pickTeam) : null;
-  const pricePart = !isTot && pick.pickLine && pick.pickTeam && pick.pickLine.length > pick.pickTeam.length
+
+  const spreadLabel = isAts && pick.spread != null ? fmtSpread(pick.spread) : null;
+  const pricePart = !isTot && !spreadLabel && pick.pickLine && pick.pickTeam && pick.pickLine.length > pick.pickTeam.length
     ? pick.pickLine.slice(pick.pickTeam.length).trim()
     : null;
+  const inlineTag = spreadLabel || pricePart;
 
   const opponentLabel = !isTot && pick.opponentTeam
     ? `vs ${heroDisplayName(pick.opponentTeam)}`
@@ -126,7 +137,7 @@ function PickRow({ pick, rank }) {
         ) : (
           <>
             <span className={styles.pickLine}>{teamDisplay || '—'}</span>
-            {pricePart && <span className={styles.pickPrice}>{pricePart}</span>}
+            {inlineTag && <span className={styles.pickPrice}>{inlineTag}</span>}
           </>
         )}
         <span
@@ -143,10 +154,51 @@ function PickRow({ pick, rank }) {
   );
 }
 
+/* ── Featured totals play — expanded treatment when only 1 total qualifies */
+
+function FeaturedTotalRow({ pick }) {
+  const cs = getSlideColors(pick.confidence);
+  const homeObj = makeTeamObj(pick.homeTeam);
+  const awayObj = makeTeamObj(pick.awayTeam);
+  const dir = pick.leanDirection ?? 'OVER';
+
+  return (
+    <div className={styles.featuredTotal}>
+      <div className={styles.featuredTotalMain}>
+        <div className={styles.featuredTotalLogos}>
+          {awayObj && <TeamLogo team={awayObj} size={24} />}
+          {homeObj && <TeamLogo team={homeObj} size={24} />}
+        </div>
+        <span className={styles.featuredTotalLine}>{pick.pickLine || '—'}</span>
+        <span
+          className={styles.pickConf}
+          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
+        >
+          {getConfidenceLabel(pick.confidence)}
+        </span>
+        <MiniEdge pick={pick} />
+      </div>
+      <div className={styles.featuredTotalMatchup}>
+        {heroDisplayName(pick.awayTeam)} vs {heroDisplayName(pick.homeTeam)}
+      </div>
+      {pick.rationale && (
+        <div className={styles.featuredTotalRationale}>{pick.rationale}</div>
+      )}
+      {!pick.rationale && pick.signals?.length > 0 && (
+        <div className={styles.featuredTotalRationale}>
+          {pick.signals.slice(0, 2).join(' · ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Intelligence Module — shows top 3 picks per category ─────── */
 
 function IntelModule({ picks, cat }) {
   const meta = CAT[cat];
+  const isTotals = cat === 'total';
+  const isSingleTotal = isTotals && picks.length === 1;
 
   return (
     <div className={styles.modCard}>
@@ -156,6 +208,10 @@ function IntelModule({ picks, cat }) {
       </div>
       {picks.length === 0 ? (
         <div className={styles.modNone}>No qualified leans</div>
+      ) : isSingleTotal ? (
+        <div className={styles.modRowsFeatured}>
+          <FeaturedTotalRow pick={picks[0]} />
+        </div>
       ) : (
         <div className={styles.modRows}>
           {picks.map((p, i) => (

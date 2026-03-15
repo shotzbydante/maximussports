@@ -199,6 +199,68 @@
   justify-content: space-evenly;
 }
 
+.modRowsFeatured {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+/* ── Featured total play (single qualifying total) ───────────── */
+
+.featuredTotal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 13px;
+  border-radius: 8px;
+  background: rgba(10, 22, 38, 0.48);
+  border: 1px solid rgba(183, 152, 108, 0.14);
+}
+
+.featuredTotalMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.featuredTotalLogos {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.featuredTotalLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: #f0f4f8;
+  line-height: 1.18;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.featuredTotalMatchup {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.48);
+  line-height: 1.25;
+  padding-left: 2px;
+}
+
+.featuredTotalRationale {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.34);
+  font-style: italic;
+  line-height: 1.4;
+  padding-left: 2px;
+}
+
 /* ── Pick row — frosted strip per row ────────────────────────── */
 
 .pickRow {

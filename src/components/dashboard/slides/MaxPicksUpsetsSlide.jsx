@@ -47,11 +47,13 @@ function findUpsetCandidates(picks) {
 }
 
 export default function MaxPicksUpsetsSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games = data?.odds?.games ?? [];
+  const games      = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+  const rankMap    = data?.rankMap ?? {};
+  const champOdds  = data?.championshipOdds ?? {};
 
   let picks = { valuePicks: [], atsPicks: [] };
-  try { picks = buildMaximusPicks({ games, atsLeaders }); } catch { /* ignore */ }
+  try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
 
   const upsets = findUpsetCandidates(picks);
 

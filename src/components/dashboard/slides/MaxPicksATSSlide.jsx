@@ -18,11 +18,13 @@ function fmtSpread(n) {
 }
 
 export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games = data?.odds?.games ?? [];
+  const games      = data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+  const rankMap    = data?.rankMap ?? {};
+  const champOdds  = data?.championshipOdds ?? {};
 
   let picks = { atsPicks: [] };
-  try { picks = buildMaximusPicks({ games, atsLeaders }); } catch { /* ignore */ }
+  try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
 
   const atsPicks = (picks.atsPicks ?? []).slice(0, 4);
 

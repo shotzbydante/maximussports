@@ -168,8 +168,12 @@ function getTeamSpread(game, isHome) {
     if (game.homeSpread != null) return { spread: -game.homeSpread, source: 'derived_from_homeSpread' };
   }
   const n = parseNum(game.spread);
-  if (n == null) return { spread: null, source: null };
-  return { spread: isHome ? n : -n, source: 'legacy_spread' };
+  if (n != null) return { spread: isHome ? n : -n, source: 'legacy_spread' };
+
+  const alt = parseNum(game.spreads?.home ?? game.lines?.spread ?? game.odds?.spread);
+  if (alt != null) return { spread: isHome ? alt : -alt, source: 'alt_spread' };
+
+  return { spread: null, source: null };
 }
 
 function fmtSpread(n) {
