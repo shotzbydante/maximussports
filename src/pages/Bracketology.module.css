@@ -33,7 +33,7 @@
 .bracketContainer {
   position: relative;
   z-index: 1;
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -68,7 +68,7 @@
   align-items: center;
   justify-content: center;
   gap: 1.5rem;
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   position: relative;
   z-index: 1;
 }
@@ -78,11 +78,11 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .legendManual {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 0.7rem;
   font-weight: 700;
 }
@@ -93,13 +93,13 @@
 }
 
 .legendUpset {
-  color: #ef4444;
+  color: #f87171;
   font-weight: 800;
   font-size: 0.65rem;
 }
 
 .legendCoinFlip {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.32);
   font-weight: 800;
   font-size: 0.65rem;
 }
@@ -110,8 +110,8 @@
   letter-spacing: 0.06em;
   padding: 0.08rem 0.25rem;
   border-radius: 3px;
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
 }
 
 .legendProjected {
@@ -120,7 +120,45 @@
   padding: 0.08rem 0.25rem;
   border-radius: 3px;
   background: rgba(234, 179, 8, 0.1);
-  color: rgba(234, 179, 8, 0.6);
+  color: rgba(234, 179, 8, 0.7);
+}
+
+/* ─── Share ──────────────────────────────────────────────────── */
+
+.bracketShare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 0 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.shareSummaryBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.25rem;
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.2), rgba(56, 133, 224, 0.1));
+  border: 1px solid rgba(56, 133, 224, 0.3);
+  border-radius: 8px;
+  color: #6aabe8;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shareSummaryBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(56, 133, 224, 0.3), rgba(56, 133, 224, 0.15));
+  border-color: rgba(56, 133, 224, 0.5);
+}
+
+.shareSummaryBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* ─── Responsive ──────────────────────────────────────────────── */
@@ -144,40 +182,6 @@
   }
 }
 
-.bracketShare {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: var(--space-md) 0;
-}
-
-.shareSummaryBtn {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.25rem;
-  background: linear-gradient(135deg, rgba(56, 133, 224, 0.2), rgba(56, 133, 224, 0.1));
-  border: 1px solid rgba(56, 133, 224, 0.3);
-  border-radius: 8px;
-  color: #5a9ee6;
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.shareSummaryBtn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(56, 133, 224, 0.3), rgba(56, 133, 224, 0.15));
-  border-color: rgba(56, 133, 224, 0.5);
-}
-
-.shareSummaryBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
 @media (max-width: 768px) {
   .bracketContainer {
     padding: 0.75rem;
@@ -186,6 +190,6 @@
   .legend {
     flex-wrap: wrap;
     gap: 0.75rem;
-    padding: 1rem;
+    padding: 0.75rem;
   }
 }

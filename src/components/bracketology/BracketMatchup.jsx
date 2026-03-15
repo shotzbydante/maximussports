@@ -69,13 +69,14 @@ export default function BracketMatchup({
         {prediction && isReady && (
           <div className={styles.dividerActions}>
             <button
-              className={styles.maximusBtn}
+              className={`${styles.maximusBtn} ${pickOrigin === 'maximus' ? styles.maximusBtnActive : ''}`}
               onClick={handleMaximus}
-              title={`Maximus: ${prediction.winner?.shortName || prediction.winner?.name} (${confLabel})`}
+              title={`Use Maximus: ${prediction.winner?.shortName || prediction.winner?.name} (${confLabel})`}
             >
               <span className={styles.maximusIcon}>◆</span>
+              <span className={styles.maximusBtnLabel}>Maximus</span>
             </button>
-            {confLabel && !compact && (
+            {confLabel && (
               <span className={`${styles.confMicro} ${styles[`conf${confLabel}`]}`}>
                 {confLabel === 'HIGH' ? 'H' : confLabel === 'MEDIUM' ? 'M' : 'L'}
               </span>

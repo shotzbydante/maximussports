@@ -5,33 +5,34 @@
   width: 200px;
   flex-shrink: 0;
   position: relative;
+  border-radius: 8px;
 }
 
-.compact { width: 170px; }
+.compact { width: 174px; }
 
 .waiting { opacity: 0.4; }
 
 .divergent {
-  outline: 1px solid rgba(168, 85, 247, 0.25);
-  border-radius: 6px;
+  outline: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 8px;
 }
 
 .divergeBadge {
   position: absolute;
-  top: -6px;
+  top: -7px;
   right: -4px;
   font-size: 0.45rem;
   font-weight: 800;
   letter-spacing: 0.06em;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  background: rgba(168, 85, 247, 0.2);
-  color: #a855f7;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.25);
+  color: #c084fc;
   z-index: 5;
   pointer-events: none;
 }
 
-/* ─── Divider / mid-actions ─────────────────────────────────── */
+/* ─── Divider / Maximus action ─────────────────────────────── */
 
 .divider {
   height: 1px;
@@ -45,47 +46,63 @@
 .dividerActions {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   position: absolute;
-  right: -14px;
+  right: 6px;
   z-index: 3;
 }
 
 .maximusBtn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(56, 133, 224, 0.12);
-  border: 1px solid rgba(56, 133, 224, 0.25);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border-radius: 11px;
+  background: rgba(56, 133, 224, 0.1);
+  border: 1px solid rgba(56, 133, 224, 0.22);
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .maximusBtn:hover {
-  background: rgba(56, 133, 224, 0.25);
-  border-color: rgba(56, 133, 224, 0.5);
-  transform: scale(1.1);
+  background: rgba(56, 133, 224, 0.22);
+  border-color: rgba(56, 133, 224, 0.45);
+  transform: scale(1.04);
+  box-shadow: 0 2px 8px rgba(56, 133, 224, 0.12);
 }
 
-.maximusIcon { color: #5a9ee6; font-size: 0.5rem; }
+.maximusBtnActive {
+  background: rgba(56, 133, 224, 0.18);
+  border-color: rgba(56, 133, 224, 0.35);
+}
+
+.maximusIcon {
+  color: #5a9ee6;
+  font-size: 0.5rem;
+  line-height: 1;
+}
+
+.maximusBtnLabel {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(90, 158, 230, 0.85);
+  letter-spacing: 0.01em;
+}
 
 .confMicro {
   font-size: 0.45rem;
-  font-weight: 800;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-weight: 700;
+  padding: 0.08rem 0.3rem;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 
-.confHIGH { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.confMEDIUM { background: rgba(234, 179, 8, 0.12); color: #eab308; }
-.confLOW { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.3); }
+.confHIGH { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.confMEDIUM { background: rgba(234, 179, 8, 0.14); color: #facc15; }
+.confLOW { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.38); }
 
 .upsetMicro {
   font-size: 0.5rem;
@@ -96,8 +113,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
 }
 
 .coinFlipMicro {
@@ -110,7 +127,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.3);
 }
 
 /* ─── Team slot ─────────────────────────────────────────────── */
@@ -119,47 +136,47 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.4rem 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 0.42rem 0.5rem;
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0;
   cursor: default;
   transition: all 0.18s ease;
   font-family: inherit;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
   text-align: left;
-  min-height: 32px;
+  min-height: 34px;
   position: relative;
 }
 
-.teamSlot:first-child { border-radius: 6px 6px 0 0; }
-.teamSlot:last-child { border-radius: 0 0 6px 6px; }
+.teamSlot:first-of-type { border-radius: 8px 8px 0 0; }
+.teamSlot:last-of-type { border-radius: 0 0 8px 8px; }
 
 .clickable { cursor: pointer; }
 
 .clickable:hover {
-  background: rgba(56, 133, 224, 0.08);
-  border-color: rgba(56, 133, 224, 0.2);
+  background: rgba(56, 133, 224, 0.1);
+  border-color: rgba(56, 133, 224, 0.25);
   color: #fff;
 }
 
 .selected {
-  background: rgba(56, 133, 224, 0.12);
-  border-color: rgba(56, 133, 224, 0.35);
+  background: rgba(56, 133, 224, 0.14);
+  border-color: rgba(56, 133, 224, 0.4);
   color: #fff;
   font-weight: 600;
-  box-shadow: inset 0 0 12px rgba(56, 133, 224, 0.06);
+  box-shadow: inset 0 0 16px rgba(56, 133, 224, 0.06);
 }
 
 .maximusPicked {
-  background: rgba(56, 133, 224, 0.1);
-  border-color: rgba(56, 133, 224, 0.2);
+  background: rgba(56, 133, 224, 0.12);
+  border-color: rgba(56, 133, 224, 0.3);
 }
 
 .maximusWouldPick {
-  border-color: rgba(168, 85, 247, 0.15);
-  background: rgba(168, 85, 247, 0.04);
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.05);
 }
 
 .winner {
@@ -175,8 +192,8 @@
 
 .empty {
   border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.25);
 }
 
 .seed {
@@ -184,7 +201,7 @@
   text-align: center;
   font-size: 0.6rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   flex-shrink: 0;
 }
 
@@ -205,7 +222,7 @@
 
 .pickBadge {
   font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
   flex-shrink: 0;
   margin-left: auto;
   transition: color 0.2s;
@@ -220,19 +237,19 @@
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-top: 6px;
-  padding: 0.6rem 0.8rem;
-  background: rgba(15, 23, 42, 0.95);
+  margin-top: 8px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(12, 20, 36, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  backdrop-filter: blur(16px);
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  min-width: 180px;
+  gap: 0.3rem;
+  min-width: 190px;
   pointer-events: none;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .tooltipHeader {
@@ -243,7 +260,7 @@
 }
 
 .tooltipWinner {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #fff;
 }
@@ -251,33 +268,35 @@
 .tooltipConf {
   font-size: 0.55rem;
   font-weight: 700;
-  padding: 0.1rem 0.35rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 4px;
   letter-spacing: 0.04em;
 }
 
 .tooltipProb {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .tooltipUpset {
   font-size: 0.65rem;
-  color: #ef4444;
+  color: #f87171;
   font-weight: 600;
 }
 
 .tooltipSignal {
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.45);
   font-style: italic;
 }
 
 @media (max-width: 768px) {
-  .matchup { width: 165px; }
-  .compact { width: 145px; }
-  .teamSlot { padding: 0.3rem 0.4rem; font-size: 0.7rem; min-height: 28px; }
+  .matchup { width: 170px; }
+  .compact { width: 150px; }
+  .teamSlot { padding: 0.32rem 0.4rem; font-size: 0.7rem; min-height: 30px; }
   .seed { width: 16px; font-size: 0.55rem; }
   .teamLogo { width: 14px; height: 14px; }
   .tooltip { display: none; }
+  .maximusBtnLabel { display: none; }
+  .maximusBtn { padding: 0 6px; width: 22px; height: 22px; border-radius: 50%; justify-content: center; }
 }

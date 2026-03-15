@@ -1,11 +1,11 @@
 .strip {
   padding: 0 1.5rem;
-  margin: 1rem 0;
+  margin: 0.75rem 0;
 }
 
 .stripInner {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.5rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -17,17 +17,17 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 0.8rem;
+  padding: 0.5rem 0.75rem;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   flex-shrink: 0;
-  min-width: 135px;
+  min-width: 130px;
   transition: border-color 0.2s;
 }
 
 .card:hover {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .cardIcon {
@@ -41,7 +41,7 @@
 }
 
 .iconSplit { color: #5a9ee6; font-size: 0.7rem; }
-.iconDiverge { color: #a855f7; font-size: 0.8rem; }
+.iconDiverge { color: #c084fc; font-size: 0.8rem; }
 
 .cardContent {
   display: flex;
@@ -55,7 +55,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .cardRow {
@@ -67,13 +67,13 @@
 .cardValue {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.92);
   white-space: nowrap;
 }
 
 .cardDetail {
   font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   white-space: nowrap;
 }
 
@@ -87,9 +87,9 @@
   letter-spacing: 0.04em;
 }
 
-.confHIGH { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
-.confMEDIUM { background: rgba(234, 179, 8, 0.1); color: #eab308; }
-.confLOW { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); }
+.confHIGH { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.confMEDIUM { background: rgba(234, 179, 8, 0.1); color: #facc15; }
+.confLOW { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.38); }
 
 .inlineTeamLogo {
   width: 18px;
@@ -100,5 +100,5 @@
 
 @media (max-width: 640px) {
   .strip { padding: 0 0.75rem; }
-  .card { min-width: 120px; padding: 0.45rem 0.65rem; }
+  .card { min-width: 115px; padding: 0.4rem 0.6rem; }
 }

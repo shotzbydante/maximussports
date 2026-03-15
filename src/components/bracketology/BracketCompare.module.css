@@ -1,8 +1,8 @@
 .compare {
-  margin: 0 1.5rem 1rem;
+  margin: 0 1.5rem 0.75rem;
   padding: 1.25rem;
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.04), rgba(56, 133, 224, 0.03));
-  border: 1px solid rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.14);
   border-radius: 12px;
 }
 
@@ -14,26 +14,26 @@
 }
 
 .headerIcon {
-  color: #a855f7;
+  color: #c084fc;
   font-size: 0.7rem;
 }
 
 .headerTitle {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.95);
   margin: 0;
 }
 
 .headerSub {
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   margin-left: auto;
 }
 
 .narrative {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
   margin: 0 0 0.75rem;
   font-style: italic;
   line-height: 1.4;
@@ -68,10 +68,10 @@
 .cardValue {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.95);
 }
 
-.divergeValue { color: #a855f7; }
+.divergeValue { color: #c084fc; }
 .maximusValue { color: #5a9ee6; }
 .maximusAccent { color: #5a9ee6; }
 
@@ -80,7 +80,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   white-space: nowrap;
 }
 
@@ -96,7 +96,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.35);
   margin-bottom: 0.4rem;
 }
 
@@ -110,13 +110,13 @@
 }
 
 .champAgree {
-  background: rgba(34, 197, 94, 0.05);
-  border: 1px solid rgba(34, 197, 94, 0.15);
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.18);
 }
 
 .champDisagree {
-  background: rgba(239, 68, 68, 0.04);
-  border: 1px solid rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.14);
 }
 
 .champSide {
@@ -132,24 +132,24 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .champSideName {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .champSideSeed {
   font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .champVsIcon {
   font-size: 1.1rem;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.18);
 }
 
 /* ─── Final Four Comparison ───────────────────────── */
@@ -164,7 +164,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.35);
   margin-bottom: 0.4rem;
 }
 
@@ -173,7 +173,7 @@
   gap: 1.5rem;
   padding: 0.6rem 0.75rem;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
 }
 
@@ -189,13 +189,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .ffTeam {
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 /* ─── Round Breakdown ─────────────────────────────── */
@@ -210,7 +210,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.35);
   margin-bottom: 0.4rem;
 }
 
@@ -226,20 +226,20 @@
   gap: 0.3rem;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  background: rgba(168, 85, 247, 0.08);
-  border: 1px solid rgba(168, 85, 247, 0.12);
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.14);
 }
 
 .roundTagName {
   font-size: 0.6rem;
   font-weight: 600;
-  color: rgba(168, 85, 247, 0.6);
+  color: rgba(168, 85, 247, 0.7);
 }
 
 .roundTagCount {
   font-size: 0.7rem;
   font-weight: 800;
-  color: rgba(168, 85, 247, 0.85);
+  color: rgba(168, 85, 247, 0.9);
 }
 
 /* ─── Top Divergences ─────────────────────────────── */
@@ -254,7 +254,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.35);
   margin-bottom: 0.4rem;
 }
 
@@ -263,7 +263,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .divergenceItem:last-child {
@@ -273,25 +273,25 @@
 .divergenceRound {
   font-size: 0.6rem;
   font-weight: 700;
-  color: rgba(168, 85, 247, 0.6);
+  color: rgba(168, 85, 247, 0.7);
   min-width: 36px;
   text-align: center;
   padding: 0.15rem 0.3rem;
-  background: rgba(168, 85, 247, 0.08);
+  background: rgba(168, 85, 247, 0.1);
   border-radius: 3px;
 }
 
 .divergenceYou {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.92);
   flex: 1;
   text-align: right;
 }
 
 .divergenceVs {
   font-size: 0.55rem;
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .divergenceMax {
@@ -307,8 +307,8 @@
   letter-spacing: 0.06em;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
-  background: rgba(239, 68, 68, 0.1);
-  color: rgba(239, 68, 68, 0.7);
+  background: rgba(239, 68, 68, 0.12);
+  color: rgba(239, 68, 68, 0.8);
 }
 
 @media (max-width: 640px) {

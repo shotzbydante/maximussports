@@ -44,7 +44,6 @@ export default function BracketRegion({
                 <div
                   key={matchup.matchupId}
                   className={styles.matchupWrapper}
-                  style={{ '--round': round }}
                 >
                   <BracketMatchup
                     matchup={matchup}

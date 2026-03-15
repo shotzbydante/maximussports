@@ -1,6 +1,6 @@
 .hero {
   position: relative;
-  padding: 3rem 2rem 2rem;
+  padding: 2.5rem 2rem 1.75rem;
   text-align: center;
   overflow: hidden;
 }
@@ -12,7 +12,7 @@
   transform: translateX(-50%);
   width: 600px;
   height: 400px;
-  background: radial-gradient(ellipse, rgba(56, 133, 224, 0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(56, 133, 224, 0.1) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .yearBadge {
@@ -38,7 +38,7 @@
   padding: 0.25rem 0.75rem;
   border-radius: 100px;
   background: rgba(56, 133, 224, 0.15);
-  color: #5a9ee6;
+  color: #6aabe8;
   border: 1px solid rgba(56, 133, 224, 0.25);
 }
 
@@ -52,13 +52,13 @@
 
 .projectedBadge {
   background: rgba(234, 179, 8, 0.12);
-  color: #eab308;
+  color: #facc15;
   border: 1px solid rgba(234, 179, 8, 0.25);
 }
 
 .officialBadge {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: #4ade80;
   border: 1px solid rgba(34, 197, 94, 0.3);
   animation: officialPulse 3s ease infinite;
 }
@@ -69,29 +69,30 @@
 }
 
 .heroTitle {
-  font-size: 3rem;
+  font-size: 2.75rem;
   font-weight: 800;
   color: #fff;
   margin: 0;
   letter-spacing: -0.02em;
   line-height: 1.1;
-  background: linear-gradient(180deg, #ffffff 0%, #8bb8e8 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #94c0eb 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .heroSubtitle {
-  font-size: 1.15rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0.5rem 0 0;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0.4rem 0 0;
   font-weight: 500;
 }
 
 .heroDescription {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.35);
-  margin: 0.5rem 0 0;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0.4rem 0 0;
+  line-height: 1.5;
 }
 
 .metaStrip {
@@ -99,8 +100,8 @@
   align-items: center;
   justify-content: center;
   gap: 1.25rem;
-  margin-top: 1.5rem;
-  padding: 0.75rem 1.5rem;
+  margin-top: 1.25rem;
+  padding: 0.7rem 1.5rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
@@ -110,13 +111,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .metaValue {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.95);
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -124,14 +125,14 @@
 
 .metaLabel {
   font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.45);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .metaDivider {
   width: 1px;
-  height: 28px;
+  height: 24px;
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -144,7 +145,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   justify-content: center;
 }
 
@@ -170,8 +171,8 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin: 1.25rem auto 0;
-  padding: 0.75rem 1.25rem;
+  margin: 1rem auto 0;
+  padding: 0.7rem 1.25rem;
   background: linear-gradient(135deg, rgba(56, 133, 224, 0.08), rgba(56, 133, 224, 0.03));
   border: 1px solid rgba(56, 133, 224, 0.2);
   border-radius: 12px;
@@ -214,7 +215,7 @@
 .championLabel {
   font-size: 0.55rem;
   font-weight: 700;
-  color: #5a9ee6;
+  color: #6aabe8;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -222,12 +223,12 @@
 .championName {
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .championSeed {
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .championConfidence {
@@ -248,7 +249,7 @@
 
 .championConfLabel {
   font-size: 0.5rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -256,7 +257,7 @@
 /* ─── First-use CTA ─────────────────────────────────────────── */
 
 .firstUseCta {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
   padding: 1.25rem 1.5rem;
   background: linear-gradient(135deg, rgba(56, 133, 224, 0.06), rgba(56, 133, 224, 0.02));
   border: 1px solid rgba(56, 133, 224, 0.15);
@@ -268,7 +269,7 @@
 
 .firstUseText {
   font-size: 0.88rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
   margin: 0 0 1rem;
 }
 
@@ -287,7 +288,7 @@
   background: linear-gradient(135deg, rgba(56, 133, 224, 0.25), rgba(56, 133, 224, 0.15));
   border: 1px solid rgba(56, 133, 224, 0.4);
   border-radius: 8px;
-  color: #5a9ee6;
+  color: #6aabe8;
   font-family: inherit;
   font-size: 0.88rem;
   font-weight: 700;
@@ -307,7 +308,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.65);
   font-family: inherit;
   font-size: 0.88rem;
   font-weight: 600;
@@ -317,7 +318,7 @@
 
 .firstUseSecondary:hover {
   background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .firstUseIcon {
@@ -327,13 +328,13 @@
 
 .projectedNote {
   font-size: 0.7rem;
-  color: rgba(234, 179, 8, 0.5);
+  color: rgba(234, 179, 8, 0.6);
   margin-top: 0.75rem;
   font-style: italic;
 }
 
 @media (max-width: 640px) {
-  .hero { padding: 2rem 1rem 1.5rem; }
+  .hero { padding: 1.75rem 1rem 1.25rem; }
   .heroTitle { font-size: 2rem; }
   .metaStrip { flex-wrap: wrap; gap: 0.75rem; padding: 0.6rem 1rem; }
   .metaDivider { display: none; }
