@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ProfileAvatar, { VerifiedBadge } from './ProfileAvatar';
 import ProfileMenu from './ProfileMenu';
+import SocialCountsMini from './SocialCountsMini';
 import styles from './SidebarProfileBlock.module.css';
 
 export default function SidebarProfileBlock({ profile, isGuest = false }) {
@@ -65,6 +66,9 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
               {isPro && <VerifiedBadge className={styles.verifiedInline} />}
             </span>
             <span className={styles.handle}>{handle}</span>
+            {!isGuest && profile?.social && (
+              <SocialCountsMini following={profile.social.following} followers={profile.social.followers} />
+            )}
           </div>
           {isPro && <span className={styles.planPill}>PRO</span>}
           <span className={styles.menuDots} aria-hidden>

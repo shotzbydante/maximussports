@@ -1,11 +1,14 @@
 /**
- * ContactDiscovery — adaptive discovery surface.
+ * ContactDiscovery — layered social acquisition surface.
  *
- * Layout adapts based on browser capabilities:
- * - If Contact Picker API is available: shows sync CTA + search + suggestions
- * - If not (iOS Safari, iOS Chrome, desktop): shows search + invite link + suggestions
+ * Always shows ALL of these together:
+ *   1. Search field
+ *   2. Sync Contacts card (visible in all browsers — adapts messaging if unsupported)
+ *   3. Invite actions (Send Invite + Copy Link)
+ *   4. Suggestions / matched users
  *
- * Never shows a broken error state. Always provides a useful next step.
+ * The Sync Contacts card never disappears. On unsupported browsers it shows
+ * a calm message and keeps the visual module present so Discover feels complete.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -36,13 +39,10 @@ function LinkIcon() {
   );
 }
 
-function PeopleIcon() {
+function SmsIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 00-3-3.87" />
-      <path d="M16 3.13a4 4 0 010 7.75" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     </svg>
   );
 }
@@ -69,10 +69,11 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
 
   const inviteLink = `https://maximussports.ai/join?ref=${user?.id || 'maximus'}`;
 
+  // Load suggestions on mount
   useEffect(() => {
     if (!session) return;
     setSuggestionsLoading(true);
-    async function load() {
+    (async () => {
       try {
         const res = await fetch('/api/social/discover', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -83,10 +84,10 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
         }
       } catch { /* silent */ }
       finally { setSuggestionsLoading(false); }
-    }
-    load();
+    })();
   }, [session]);
 
+  // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = searchQuery.trim();
@@ -120,21 +121,21 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
 
   const handleFollow = useCallback(async (targetId) => {
     const newStatus = await followUser(targetId);
-    const updateList = (list) => list.map(s =>
+    const update = (list) => list.map(s =>
       s.id === targetId ? { ...s, followStatus: newStatus || 'following' } : s
     );
-    setSuggestions(updateList);
-    setSearchResults(updateList);
+    setSuggestions(update);
+    setSearchResults(update);
     return newStatus;
   }, [followUser]);
 
   const handleUnfollow = useCallback(async (targetId) => {
     const newStatus = await unfollowUser(targetId);
-    const updateList = (list) => list.map(s =>
+    const update = (list) => list.map(s =>
       s.id === targetId ? { ...s, followStatus: newStatus || 'none' } : s
     );
-    setSuggestions(updateList);
-    setSearchResults(updateList);
+    setSuggestions(update);
+    setSearchResults(update);
     return newStatus;
   }, [unfollowUser]);
 
@@ -152,8 +153,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
 
   const handleShareInvite = useCallback(() => {
     const message = `Join me on Maximus Sports for AI-powered picks and March Madness brackets.\n\n${inviteLink}`;
-    const smsUrl = `sms:?&body=${encodeURIComponent(message)}`;
-    window.open(smsUrl, '_blank');
+    window.open(`sms:?&body=${encodeURIComponent(message)}`, '_blank');
     track('invite_sms_sent', {});
   }, [inviteLink]);
 
@@ -164,7 +164,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
   return (
     <div className={`${styles.discoveryContainer} ${compact ? styles.compact : ''}`}>
 
-      {/* ── Search Field ─────────────────────────────────────────────────── */}
+      {/* ── 1. Search Field ───────────────────────────────────────────── */}
       <div className={styles.searchWrap}>
         <SearchIcon />
         <input
@@ -177,18 +177,13 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
           spellCheck="false"
         />
         {searchQuery && (
-          <button
-            type="button"
-            className={styles.searchClear}
-            onClick={() => setSearchQuery('')}
-            aria-label="Clear search"
-          >
+          <button type="button" className={styles.searchClear} onClick={() => setSearchQuery('')} aria-label="Clear search">
             ×
           </button>
         )}
       </div>
 
-      {/* ── Search Results ────────────────────────────────────────────────── */}
+      {/* ── Search Results (overlays default content when active) ──── */}
       {isSearchActive && (
         <div className={styles.searchResultsSection}>
           {searchLoading && (
@@ -198,7 +193,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
             </div>
           )}
           {!searchLoading && searchEmpty && (
-            <p className={styles.searchEmptyText}>No users found for "{searchQuery}"</p>
+            <p className={styles.searchEmptyText}>No users found for &ldquo;{searchQuery}&rdquo;</p>
           )}
           {!searchLoading && searchResults.length > 0 && (
             <div className={styles.contactList}>
@@ -210,23 +205,56 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
         </div>
       )}
 
-      {/* ── Below search: contacts OR fallback, then suggestions ───────── */}
+      {/* ── Default content (when NOT searching) ──────────────────── */}
       {!isSearchActive && (
         <>
-          {/* Contact sync loading state */}
+          {/* ── 2. Sync Contacts Card — always visible ───────────── */}
+          {!hasContactResults && !isContactSyncing && (
+            <div className={styles.syncCard}>
+              <div className={styles.syncCardIcon}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 00-3-3.87" />
+                  <path d="M16 3.13a4 4 0 010 7.75" />
+                </svg>
+              </div>
+              <div className={styles.syncCardBody}>
+                <span className={styles.syncCardTitle}>Sync Contacts</span>
+                <span className={styles.syncCardDesc}>
+                  {isContactPickerSupported
+                    ? 'Find friends already on Maximus from your phone contacts.'
+                    : 'Contact sync is limited in this browser. Use search or invite friends below.'}
+                </span>
+              </div>
+              {isContactPickerSupported ? (
+                <button type="button" className={styles.syncCardBtn} onClick={requestAndSync}>
+                  Sync
+                </button>
+              ) : (
+                <span className={styles.syncCardBadge}>Limited</span>
+              )}
+            </div>
+          )}
+
+          {/* Contact sync loading */}
           {isContactSyncing && (
-            <div className={styles.loadingState}>
-              <div className={styles.spinner} />
-              <p className={styles.loadingText}>
-                {contactStatus === 'requesting' && 'Requesting contacts...'}
-                {contactStatus === 'hashing' && 'Securing your data...'}
-                {contactStatus === 'matching' && 'Finding friends...'}
-              </p>
+            <div className={styles.syncCard}>
+              <div className={styles.syncCardIcon}>
+                <div className={styles.spinnerSmall} />
+              </div>
+              <div className={styles.syncCardBody}>
+                <span className={styles.syncCardTitle}>
+                  {contactStatus === 'requesting' && 'Requesting contacts...'}
+                  {contactStatus === 'hashing' && 'Securing your data...'}
+                  {contactStatus === 'matching' && 'Finding friends...'}
+                </span>
+              </div>
             </div>
           )}
 
           {/* Contact sync results */}
-          {hasContactResults && !isContactSyncing && (
+          {hasContactResults && (
             <div className={styles.contactResultsSection}>
               <h4 className={styles.sectionLabel}>
                 {matchedUsers.length > 0
@@ -250,38 +278,19 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
             </div>
           )}
 
-          {/* Contact sync CTA (when supported and not yet used) */}
-          {!hasContactResults && !isContactSyncing && isContactPickerSupported && (
-            <button type="button" className={styles.btnSyncContacts} onClick={requestAndSync}>
-              <PeopleIcon />
-              Sync Contacts
+          {/* ── 3. Invite Actions — always visible ───────────────── */}
+          <div className={styles.inviteActions}>
+            <button type="button" className={styles.btnInviteAction} onClick={handleShareInvite}>
+              <SmsIcon />
+              Send Invite
             </button>
-          )}
+            <button type="button" className={styles.btnCopyLink} onClick={handleCopyInviteLink}>
+              <LinkIcon />
+              {inviteLinkCopied ? 'Copied!' : 'Copy Link'}
+            </button>
+          </div>
 
-          {/* Invite actions — always visible when contacts not synced */}
-          {!hasContactResults && !isContactSyncing && (
-            <div className={styles.inviteSection}>
-              {!isContactPickerSupported && (
-                <p className={styles.contactsLimitedNote}>
-                  Contact sync is currently limited in some mobile browsers.
-                </p>
-              )}
-              <div className={styles.inviteActions}>
-                <button type="button" className={styles.btnInviteAction} onClick={handleShareInvite}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                  </svg>
-                  Send Invite
-                </button>
-                <button type="button" className={styles.btnCopyLink} onClick={handleCopyInviteLink}>
-                  <LinkIcon />
-                  {inviteLinkCopied ? 'Copied!' : 'Copy Link'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Suggestions */}
+          {/* ── 4. Suggestions ───────────────────────────────────── */}
           {suggestions.length > 0 && (
             <div className={styles.suggestionsSection}>
               <h4 className={styles.sectionLabel}>Suggested for you</h4>
@@ -300,24 +309,20 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
             </div>
           )}
 
-          {contactError && (
-            <p className={styles.contactErrorNote}>{contactError}</p>
-          )}
+          {contactError && <p className={styles.contactErrorNote}>{contactError}</p>}
         </>
       )}
 
-      {/* ── Privacy note ─────────────────────────────────────────────────── */}
-      {isContactPickerSupported && (
-        <p className={styles.privacyNote}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0110 0v4" />
-          </svg>
-          Your contacts are used only to help you find friends on Maximus Sports.
-        </p>
-      )}
+      {/* ── Privacy note ─────────────────────────────────────────── */}
+      <p className={styles.privacyNote}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0110 0v4" />
+        </svg>
+        Your contacts are used only to help you find friends on Maximus Sports.
+      </p>
 
-      {/* ── Done / Skip ──────────────────────────────────────────────────── */}
+      {/* ── Done / Skip ──────────────────────────────────────────── */}
       {showDoneButton && (
         <button type="button" className={styles.btnDone} onClick={onDone}>
           Done

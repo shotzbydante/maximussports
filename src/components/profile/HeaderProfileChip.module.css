@@ -53,6 +53,14 @@
   line-height: 1;
 }
 
+.chipCounts {
+  display: flex;
+  align-items: center;
+  margin-left: 2px;
+  padding-left: 6px;
+  border-left: 1px solid var(--color-border-light);
+}
+
 .chipCaret {
   display: flex;
   align-items: center;
@@ -66,6 +74,9 @@
     margin-left: var(--space-sm);
   }
   .chipName {
+    display: none;
+  }
+  .chipCounts {
     display: none;
   }
   .chipCaret {

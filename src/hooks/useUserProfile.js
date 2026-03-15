@@ -66,7 +66,7 @@ function broadcast() {
   _listeners.forEach((fn) => fn());
 }
 
-const CORE_COLS = 'username, display_name, favorite_number, plan_tier, preferences';
+const CORE_COLS = 'username, display_name, favorite_number, plan_tier, preferences, followers_count, following_count, friends_count';
 const FULL_COLS = CORE_COLS + ', avatar_config';
 
 /**
