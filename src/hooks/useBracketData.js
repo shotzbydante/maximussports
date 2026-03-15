@@ -2,6 +2,9 @@
  * useBracketData — fetches and manages tournament bracket data.
  * Supports projected mode (pre-Selection Sunday) and official mode.
  * Returns bracket structure, mode, loading state, and refresh.
+ *
+ * Safety: NEVER returns a null/empty bracket after loading completes.
+ * If all fetches fail, the projected bracket is always available.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,7 +21,7 @@ export function useBracketData() {
     setError(null);
     try {
       const data = await fetchBracketData();
-      setBracket(data);
+      setBracket(data && data.regions?.length > 0 ? data : generateProjectedBracket());
     } catch (err) {
       setError(err.message);
       setBracket(generateProjectedBracket());
@@ -28,6 +31,14 @@ export function useBracketData() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Safety net: if loading finished but bracket is somehow null/invalid,
+  // force the projected bracket so the UI is never blank.
+  useEffect(() => {
+    if (!loading && (!bracket || !bracket.regions || bracket.regions.length === 0)) {
+      setBracket(generateProjectedBracket());
+    }
+  }, [loading, bracket]);
 
   const bracketMode = bracket?.bracketMode || 'projected';
   const isProjected = bracketMode === 'projected';

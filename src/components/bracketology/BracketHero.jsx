@@ -28,7 +28,7 @@ export default function BracketHero({
         <p className={styles.heroSubtitle}>Build your bracket. Beat the field.</p>
         <p className={styles.heroDescription}>
           {isProjected
-            ? 'Projected 64-team field — official bracket will auto-populate on Selection Sunday.'
+            ? 'Projected field until Selection Sunday. Official bracket will auto-populate once released.'
             : 'Model-driven tournament intelligence — 64 teams, 63 games, powered by Maximus.'
           }
         </p>
@@ -87,7 +87,7 @@ export default function BracketHero({
 
         {isProjected && (
           <p className={styles.projectedNote}>
-            Teams and seeds are projections based on current data. Official bracket auto-refreshes once released.
+            Projections based on current-season data — not final. Official bracket auto-populates on Selection Sunday.
           </p>
         )}
       </div>

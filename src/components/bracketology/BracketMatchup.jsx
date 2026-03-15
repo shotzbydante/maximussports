@@ -116,6 +116,9 @@ export default function BracketMatchup({
           {prediction.signals?.length > 0 && (
             <span className={styles.tooltipSignal}>{prediction.signals[0]}</span>
           )}
+          {prediction.tournamentPrior?.applied && (
+            <span className={styles.tooltipSignal}>{prediction.tournamentPrior.rationale}</span>
+          )}
         </div>
       )}
     </div>

@@ -96,6 +96,7 @@ export default function Bracketology() {
       if (matchup.topTeam.isPlaceholder || matchup.bottomTeam.isPlaceholder) continue;
       newPredictions[matchup.matchupId] = resolveBracketMatchup(
         matchup.topTeam, matchup.bottomTeam, modelContext,
+        { round: matchup.round },
       );
     }
     setPredictions(newPredictions);

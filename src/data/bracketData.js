@@ -26,6 +26,8 @@ import { generateProjectedBracket } from './projectedField';
  *   that means official ESPN tournament data is available → use it.
  * - If it returns 'pre_selection' or fails, use projected bracket.
  * - No manual code change needed to switch.
+ *
+ * Guarantee: always returns a valid bracket with populated regions.
  */
 export async function fetchBracketData() {
   try {
@@ -33,7 +35,7 @@ export async function fetchBracketData() {
     if (res.ok) {
       const data = await res.json();
       const bracket = data?.bracket;
-      if (bracket && bracket.status !== 'pre_selection') {
+      if (bracket && bracket.status !== 'pre_selection' && bracket.regions?.length > 0) {
         return { ...bracket, bracketMode: 'official' };
       }
     }

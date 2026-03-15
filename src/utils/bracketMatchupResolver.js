@@ -6,9 +6,16 @@
  * it is display/context only. A 12-seed that is objectively stronger
  * will be picked over a 5-seed.
  *
+ * Includes an optional tournament-history prior layer that provides
+ * lightweight upset-frequency calibration for known volatile seed bands.
+ * The prior only activates when the main model edge is small and never
+ * overrides strong model opinions.
+ *
  * Shared with maximusPicksModel.js signal weights so improvements to
  * the core model automatically benefit bracket predictions.
  */
+
+import { getTournamentPrior } from './tournamentPrior';
 
 const W_RANKING     = 0.12;
 const W_CHAMP_ODDS  = 0.18;
@@ -50,9 +57,11 @@ function recordSignal(coverPct) {
  * @param {object} context.championshipOdds — slug → { american }
  * @param {object} context.atsBySlug — slug → { season, last30, last7 }
  * @param {object} context.marketData — slug → market win probability (optional)
- * @returns {{ winner, loser, confidence, confidenceLabel, signals, rationale, isUpset }}
+ * @param {object} [matchupMeta] — optional bracket context
+ * @param {number} [matchupMeta.round] — tournament round (1–6), enables tournament prior
+ * @returns {{ winner, loser, confidence, confidenceLabel, signals, rationale, isUpset, tournamentPrior }}
  */
-export function resolveBracketMatchup(teamA, teamB, context = {}) {
+export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = {}) {
   const { rankMap = {}, championshipOdds = {}, atsBySlug = {} } = context;
 
   if (!teamA?.slug || !teamB?.slug) {
@@ -62,6 +71,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}) {
       signals: ['Insufficient data — defaulting to higher seed'],
       rationale: 'Not enough data to make a model-driven prediction.',
       isUpset: false,
+      tournamentPrior: null,
     };
   }
 
@@ -116,6 +126,31 @@ export function resolveBracketMatchup(teamA, teamB, context = {}) {
   scoreA += (sosA - sosB) * W_SOS;
   scoreB += (sosB - sosA) * W_SOS;
 
+  // ── Main model edge (before tournament prior) ──────────────────
+  const mainEdge = scoreA - scoreB;
+  const mainEdgeMag = Math.abs(mainEdge);
+
+  // ── Tournament history prior (lightweight calibration layer) ───
+  let tournamentPriorResult = null;
+  if (matchupMeta.round != null && teamA.seed != null && teamB.seed != null) {
+    tournamentPriorResult = getTournamentPrior(
+      teamA.seed, teamB.seed, matchupMeta.round, mainEdgeMag,
+    );
+
+    if (tournamentPriorResult.applied && tournamentPriorResult.adjustment > 0) {
+      const aIsUnderdog = teamA.seed > teamB.seed;
+      const adj = tournamentPriorResult.adjustment;
+      if (aIsUnderdog) {
+        scoreA += adj;
+        scoreB -= adj;
+      } else {
+        scoreB += adj;
+        scoreA -= adj;
+      }
+    }
+  }
+
+  // ── Final edge (after tournament prior) ────────────────────────
   const edge = scoreA - scoreB;
   const edgeMag = Math.abs(edge);
   const pickA = edge >= 0;
@@ -135,6 +170,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}) {
   const signals = buildSignals(winner, loser, {
     rankMap, championshipOdds, atsA: pickA ? atsA : atsB, atsB: pickA ? atsB : atsA,
     winnerRank: pickA ? rankA : rankB, loserRank: pickA ? rankB : rankA,
+    tournamentPrior: tournamentPriorResult,
   });
 
   const confLabel = confidence >= 2 ? 'HIGH' : confidence >= 1 ? 'MEDIUM' : 'LOW';
@@ -144,6 +180,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}) {
     winnerRank: pickA ? rankA : rankB, loserRank: pickA ? rankB : rankA,
     winnerChamp: pickA ? champA : champB,
     winnerAts: pickA ? atsA : atsB,
+    tournamentPrior: tournamentPriorResult,
   });
 
   return {
@@ -151,6 +188,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}) {
     signals, rationale, isUpset,
     edgeMagnitude: edgeMag, enrichmentCount: enrichCount,
     winProbability: clamp(0.5 + edge, 0.1, 0.95),
+    tournamentPrior: tournamentPriorResult,
   };
 }
 
@@ -169,7 +207,10 @@ export function resolveFullBracket(bracket, context, buildFullBracketFn) {
       if (!matchup.topTeam?.slug || !matchup.bottomTeam?.slug) continue;
       if (matchup.topTeam.isPlaceholder || matchup.bottomTeam.isPlaceholder) continue;
 
-      const result = resolveBracketMatchup(matchup.topTeam, matchup.bottomTeam, context);
+      const result = resolveBracketMatchup(
+        matchup.topTeam, matchup.bottomTeam, context,
+        { round: matchup.round || 1 },
+      );
       const pickId = result.winner === matchup.topTeam ? 'top' : 'bottom';
       picks[matchup.matchupId] = pickId;
       predictions[matchup.matchupId] = result;
@@ -185,7 +226,10 @@ export function resolveFullBracket(bracket, context, buildFullBracketFn) {
       if (!matchup.topTeam?.slug || !matchup.bottomTeam?.slug) continue;
       if (picks[matchup.matchupId]) continue;
 
-      const result = resolveBracketMatchup(matchup.topTeam, matchup.bottomTeam, context);
+      const result = resolveBracketMatchup(
+        matchup.topTeam, matchup.bottomTeam, context,
+        { round: matchup.round || round },
+      );
       const pickId = result.winner === matchup.topTeam ? 'top' : 'bottom';
       picks[matchup.matchupId] = pickId;
       predictions[matchup.matchupId] = result;
@@ -223,6 +267,9 @@ function buildSignals(winner, loser, ctx) {
   if (ctx.atsB != null && ctx.atsB < 45) {
     signals.push(`Opponent struggling (${Math.round(ctx.atsB)}% ATS)`);
   }
+  if (ctx.tournamentPrior?.applied) {
+    signals.push('Tournament prior: historically volatile seed band');
+  }
   if (signals.length === 0) signals.push('Composite model edge');
   return signals;
 }
@@ -249,6 +296,10 @@ function buildRationale(winner, loser, ctx) {
 
   if (ctx.winnerAts != null && ctx.winnerAts >= 58) {
     parts.push(`Strong recent form — ${Math.round(ctx.winnerAts)}% ATS cover rate.`);
+  }
+
+  if (ctx.tournamentPrior?.applied && ctx.tournamentPrior.rationale) {
+    parts.push(ctx.tournamentPrior.rationale);
   }
 
   return parts.join(' ');
