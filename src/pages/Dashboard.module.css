@@ -541,6 +541,84 @@
   padding: 6px 0;
 }
 
+/* ── Matchup select list (Tournament mode) ─────────────── */
+.matchupSelectList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  background: var(--color-bg);
+}
+
+.matchupSelectRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.matchupSelectRow:hover {
+  background: rgba(60, 121, 180, 0.05);
+  border-color: var(--color-border-light);
+}
+
+.matchupSelectRowActive {
+  background: rgba(60, 121, 180, 0.08);
+  border-color: var(--color-primary);
+}
+
+.matchupTeamName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.matchupVs {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.matchupCheck {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.matchupPct {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-accent, #E8845F);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 /* Status badges */
 .readyBadge {
   display: inline-flex;

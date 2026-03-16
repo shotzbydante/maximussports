@@ -8,6 +8,8 @@ import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
 import StatusChip from '../shared/StatusChip';
+import SeedBadge from '../common/SeedBadge';
+import { getTeamSeed } from '../../utils/tournamentHelpers';
 import styles from './MatchupRow.module.css';
 
 const TIER_CLASS = {
@@ -68,22 +70,26 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
   const awayRank = awaySlug ? rankMap[awaySlug] : null;
   const live = isLive(gameStatus);
 
-  const TeamCell = ({ name, slug, tier, rank }) => (
-    <span className={styles.teamCell}>
-      <span className={styles.teamLogoWrap}>
-        <TeamLogo team={{ slug, name }} size={18} />
+  const TeamCell = ({ name, slug, tier, rank }) => {
+    const seed = getTeamSeed(slug || name);
+    return (
+      <span className={styles.teamCell}>
+        <span className={styles.teamLogoWrap}>
+          <TeamLogo team={{ slug, name }} size={18} />
+        </span>
+        {seed != null && <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />}
+        {rank != null && !seed && <span className={styles.rank}>#{rank}</span>}
+        {slug ? (
+          <Link to={`/teams/${slug}`} className={styles.link}>
+            {name}
+          </Link>
+        ) : (
+          <span>{name}</span>
+        )}
+        <TierBadge tier={tier} />
       </span>
-      {rank != null && <span className={styles.rank}>#{rank}</span>}
-      {slug ? (
-        <Link to={`/teams/${slug}`} className={styles.link}>
-          {name}
-        </Link>
-      ) : (
-        <span>{name}</span>
-      )}
-      <TierBadge tier={tier} />
-    </span>
-  );
+    );
+  };
 
   return (
     <div className={`${styles.row} ${live ? styles.rowLive : ''}`}>

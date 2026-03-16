@@ -1,5 +1,6 @@
 import SlideShell from './SlideShell';
 import LineBlock from '../ui/LineBlock';
+import { getTeamSeed } from '../../../utils/tournamentHelpers';
 import styles from './GamePreviewSlide1.module.css';
 
 function fmtSpread(v) {
@@ -23,6 +24,8 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
   const homeSlug = game.homeSlug || game.homeTeamSlug || null;
   const awayRank = game.awayRank ?? null;
   const homeRank = game.homeRank ?? null;
+  const awaySeed = getTeamSeed(awaySlug || awayTeam);
+  const homeSeed = getTeamSeed(homeSlug || homeTeam);
 
   const spread = game.homeSpread ?? game.spread ?? null;
   const ml = game.moneyline ?? null;
@@ -62,7 +65,8 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
               />
             )}
           </div>
-          {awayRank != null && <span className={styles.rankPill}>#{awayRank}</span>}
+          {awaySeed != null && <span className={styles.seedPill}>#{awaySeed}</span>}
+          {awayRank != null && !awaySeed && <span className={styles.rankPill}>#{awayRank}</span>}
           <div className={styles.teamName}>{awayTeam}</div>
           <div className={styles.sideLabel}>AWAY</div>
         </div>
@@ -92,7 +96,8 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
               />
             )}
           </div>
-          {homeRank != null && <span className={styles.rankPill}>#{homeRank}</span>}
+          {homeSeed != null && <span className={styles.seedPill}>#{homeSeed}</span>}
+          {homeRank != null && !homeSeed && <span className={styles.rankPill}>#{homeRank}</span>}
           <div className={styles.teamName}>{homeTeam}</div>
           <div className={styles.sideLabel}>HOME</div>
         </div>

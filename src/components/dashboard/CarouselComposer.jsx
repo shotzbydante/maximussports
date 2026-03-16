@@ -20,6 +20,10 @@ import GamePreviewSlide2 from './slides/GamePreviewSlide2';
 import GamePreviewSlide3 from './slides/GamePreviewSlide3';
 import GameInsights5GamesSlide from './slides/GameInsights5GamesSlide';
 
+// Tournament / March Madness slides
+import TournamentInsightsSlide from './slides/TournamentInsightsSlide';
+import UpsetRadarSlide from './slides/UpsetRadarSlide';
+
 // Odds Insights slides (legacy)
 import OddsInsightsSlide1 from './slides/OddsInsightsSlide1';
 import OddsInsightsSlide2 from './slides/OddsInsightsSlide2';
@@ -63,6 +67,8 @@ function getSlides(template, slideCount, options = {}) {
     case 'conference':
       return [ConferenceIntelSlide];
     case 'game':
+      if (options?.gameMode === 'tournament') return [TournamentInsightsSlide];
+      if (options?.gameMode === 'upset-radar') return [UpsetRadarSlide];
       if (options?.gameMode === '5games') return [GameInsights5GamesSlide];
       return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, Math.min(slideCount, 3));
     case 'picks':

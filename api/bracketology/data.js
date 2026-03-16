@@ -108,8 +108,8 @@ function parseTournamentGames(events) {
 
     const homeSeed = parseInt(home?.curatedRank?.current || home?.seed || '0', 10);
     const awaySeed = parseInt(away?.curatedRank?.current || away?.seed || '0', 10);
-    const homeTeam = buildTeamFromESPN(home, homeSeed);
-    const awayTeam = buildTeamFromESPN(away, awaySeed);
+    const homeTeam = buildTeamFromESPN(home, homeSeed, regionInfo);
+    const awayTeam = buildTeamFromESPN(away, awaySeed, regionInfo);
 
     const notes = comp?.notes?.[0]?.headline || '';
     const roundInfo = parseRoundFromNotes(notes);
@@ -151,7 +151,7 @@ function parseTournamentGames(events) {
   return bracket;
 }
 
-function buildTeamFromESPN(competitor, seed) {
+function buildTeamFromESPN(competitor, seed, region) {
   const team = competitor?.team || {};
   const name = team.displayName || team.shortDisplayName || 'TBD';
   return {
@@ -162,8 +162,9 @@ function buildTeamFromESPN(competitor, seed) {
     seed: seed || null,
     logo: team.logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`,
     record: competitor?.records?.[0]?.summary || null,
-    region: null,
+    region: region || null,
     isPlaceholder: false,
+    isFirstFour: seed === 16 && (competitor?.notes?.[0]?.headline || '').toLowerCase().includes('first four'),
   };
 }
 
@@ -194,8 +195,15 @@ export default async function handler(req, res) {
   try {
     const bracket = await fetchESPNTournamentData();
     if (bracket) {
-      return res.status(200).json({ bracket });
+      const realTeamCount = bracket.regions.reduce((sum, r) =>
+        sum + r.matchups.filter(m => !m.topTeam?.isPlaceholder && m.topTeam?.slug).length, 0);
+
+      if (realTeamCount >= 16) {
+        return res.status(200).json({ bracket });
+      }
     }
+
+    // Fallback: return blank bracket (client uses projected field)
     return res.status(200).json({ bracket: generateBlankBracket() });
   } catch (err) {
     console.error('[bracketology/data] Error:', err.message);

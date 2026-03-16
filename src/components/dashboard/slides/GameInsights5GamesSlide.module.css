@@ -107,6 +107,21 @@
   line-height: 1.15;
 }
 
+/* Seed badge (tournament teams) */
+.seedBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #D4B87A;
+  background: rgba(183, 152, 108, 0.14);
+  border: 1px solid rgba(183, 152, 108, 0.30);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
 /* Rankings badge */
 .rankBadge {
   font-family: 'Oswald', sans-serif;

@@ -1,0 +1,57 @@
+/* ── SeedBadge — tournament seed indicator ──────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-family: 'Oswald', var(--font-display), sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: rgba(74, 144, 217, 0.12);
+  border: 1px solid rgba(74, 144, 217, 0.28);
+  color: #6EB3E8;
+}
+
+.hash {
+  opacity: 0.6;
+}
+
+/* ── Size variants ──────────────────────────────────────── */
+.sm {
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+.md {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.lg {
+  font-size: 14px;
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+
+/* ── Gold variant (for top seeds / featured) ────────────── */
+.gold {
+  background: rgba(183, 152, 108, 0.14);
+  border-color: rgba(183, 152, 108, 0.32);
+  color: #D4B87A;
+}
+
+/* ── Slide variant (optimized for 1080px export artboards) */
+.slide {
+  font-size: 18px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border-width: 1.5px;
+}
+
+.slide.gold {
+  font-size: 18px;
+}

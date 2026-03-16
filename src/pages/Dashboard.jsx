@@ -21,6 +21,16 @@ import VideosEditor from '../components/dashboard/videos/VideosEditor';
 import { sanitizeImagesForExport } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
 import { getTeamSlug } from '../utils/teamSlug';
+import SeedBadge from '../components/common/SeedBadge';
+import {
+  SEED_LINE_PRESETS,
+  getPresetMatchups,
+  getFirstRoundMatchupsByRegion,
+  getUpsetRadarGames,
+  getBatchTournamentInsights,
+  getTeamSeed,
+} from '../utils/tournamentHelpers';
+import { REGIONS } from '../config/bracketology';
 import styles from './Dashboard.module.css';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
@@ -56,7 +66,10 @@ export default function Dashboard() {
   const [dailyStyleMode, setDailyStyleMode] = useState('generic');
   const [includeHeadlines, setIncludeHeadlines] = useState(true);
   const [gameAngle, setGameAngle] = useState('value');
-  const [gameMode, setGameMode] = useState('standard'); // 'standard' | '5games'
+  const [gameMode, setGameMode] = useState('tournament'); // 'standard' | '5games' | 'tournament' | 'upset-radar'
+  const [tournamentPreset, setTournamentPreset] = useState('1-seeds');
+  const [tournamentRegion, setTournamentRegion] = useState(null);
+  const [tournamentSelectedMatchups, setTournamentSelectedMatchups] = useState([]);
   const [picksMode, setPicksMode] = useState('top3');
   const [riskMode, setRiskMode] = useState('standard');
 
@@ -359,6 +372,48 @@ export default function Dashboard() {
     });
   }, [dashData, chatSummary, chatStatus, dailyChampOdds]);
 
+  // ── tournament insights (March Madness intelligence) ──────
+  const tournamentInsightsData = useMemo(() => {
+    if (activeSection !== 'game') return null;
+    if (gameMode !== 'tournament' && gameMode !== 'upset-radar') return null;
+
+    const context = {};
+
+    if (gameMode === 'upset-radar') {
+      const upsetGames = getUpsetRadarGames(context);
+      return { mode: 'upset-radar', upsetGames, insights: [], title: 'Upset\nRadar', subtitle: 'UPSET INTELLIGENCE' };
+    }
+
+    let matchups = [];
+    let title = 'March Madness\nInsights';
+    let subtitle = 'TOURNAMENT INTELLIGENCE';
+
+    if (tournamentPreset) {
+      matchups = getPresetMatchups(tournamentPreset);
+      const preset = SEED_LINE_PRESETS.find(p => p.id === tournamentPreset);
+      if (preset) {
+        title = preset.label.replace('All ', '').replace(' Seeds', ' Seeds\nBreakdown');
+        subtitle = `${preset.label.toUpperCase()} · TOURNAMENT INTELLIGENCE`;
+        if (tournamentPreset === '1-seeds') {
+          title = 'All No. 1\nSeeds';
+          subtitle = 'NO. 1 SEEDS · TOURNAMENT INTELLIGENCE';
+        }
+      }
+    } else if (tournamentRegion) {
+      const byRegion = getFirstRoundMatchupsByRegion();
+      matchups = byRegion[tournamentRegion] || [];
+      title = `${tournamentRegion}\nRegion`;
+      subtitle = `${tournamentRegion.toUpperCase()} REGION · ROUND OF 64`;
+    } else if (tournamentSelectedMatchups.length > 0) {
+      matchups = tournamentSelectedMatchups;
+      title = `${matchups.length} Selected\nMatchups`;
+      subtitle = 'CUSTOM SELECTION · TOURNAMENT INTELLIGENCE';
+    }
+
+    const insights = getBatchTournamentInsights(matchups, context);
+    return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [] };
+  }, [activeSection, gameMode, tournamentPreset, tournamentRegion, tournamentSelectedMatchups]);
+
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
     if (!dashData) return null;
@@ -650,6 +705,16 @@ export default function Dashboard() {
     gameMode,
     includeHeadlines,
     slideCount,
+    ...(tournamentInsightsData?.mode === 'tournament' ? {
+      tournamentInsights: {
+        title: tournamentInsightsData.title,
+        subtitle: tournamentInsightsData.subtitle,
+        insights: tournamentInsightsData.insights,
+      },
+    } : {}),
+    ...(tournamentInsightsData?.mode === 'upset-radar' ? {
+      upsetRadarGames: tournamentInsightsData.upsetGames,
+    } : {}),
   };
 
   return (
@@ -856,26 +921,156 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ─── Game Insights controls ────────────────── */}
+          {/* ─── Game Insights controls (March Madness Intelligence) */}
           {activeSection === 'game' && (
             <div className={styles.sectionControls}>
               <div className={styles.controlGroup}>
                 <label className={styles.controlLabel}>Mode</label>
                 <div className={styles.chipGroup}>
                   {[
+                    { id: 'tournament', label: 'Tournament' },
+                    { id: 'upset-radar', label: 'Upset Radar' },
                     { id: 'standard', label: 'Single Game' },
                     { id: '5games',   label: '5 Key Games' },
                   ].map(opt => (
                     <button
                       key={opt.id}
                       className={`${styles.chip} ${gameMode === opt.id ? styles.chipActive : ''}`}
-                      onClick={() => { setGameMode(opt.id); setAssetsReady(false); }}
+                      onClick={() => {
+                        setGameMode(opt.id);
+                        if (opt.id === 'tournament' && !tournamentPreset) setTournamentPreset('1-seeds');
+                        setAssetsReady(false);
+                      }}
                     >
                       {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* ── Tournament mode: presets + region browse ── */}
+              {gameMode === 'tournament' && (
+                <>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Seed-Line Presets</label>
+                    <div className={styles.confFilterRow}>
+                      {SEED_LINE_PRESETS.filter(p => p.id !== 'upset').map(preset => (
+                        <button
+                          key={preset.id}
+                          className={`${styles.confChip} ${tournamentPreset === preset.id ? styles.confChipActive : ''}`}
+                          onClick={() => {
+                            setTournamentPreset(preset.id);
+                            setTournamentRegion(null);
+                            setTournamentSelectedMatchups([]);
+                            setAssetsReady(false);
+                          }}
+                        >
+                          {preset.icon} {preset.label.replace('All ', '')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Browse by Region</label>
+                    <div className={styles.chipGroup}>
+                      {REGIONS.map(region => (
+                        <button
+                          key={region}
+                          className={`${styles.chip} ${tournamentRegion === region && !tournamentPreset ? styles.chipActive : ''}`}
+                          onClick={() => {
+                            setTournamentRegion(region);
+                            setTournamentPreset(null);
+                            setTournamentSelectedMatchups([]);
+                            setAssetsReady(false);
+                          }}
+                        >
+                          {region}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Show selected preset or region info */}
+                  {tournamentPreset && (
+                    <div className={styles.selectedTeamPill}>
+                      {SEED_LINE_PRESETS.find(p => p.id === tournamentPreset)?.icon}{' '}
+                      {SEED_LINE_PRESETS.find(p => p.id === tournamentPreset)?.label}
+                      <button className={styles.clearBtn} onClick={() => { setTournamentPreset(null); setAssetsReady(false); }}>&times;</button>
+                    </div>
+                  )}
+                  {!tournamentPreset && tournamentRegion && (
+                    <div className={styles.selectedTeamPill}>
+                      {tournamentRegion} Region — 8 First Round Matchups
+                      <button className={styles.clearBtn} onClick={() => { setTournamentRegion(null); setAssetsReady(false); }}>&times;</button>
+                    </div>
+                  )}
+                  {/* Region matchup list for manual multi-select */}
+                  {!tournamentPreset && tournamentRegion && (() => {
+                    const byRegion = getFirstRoundMatchupsByRegion();
+                    const matchups = byRegion[tournamentRegion] || [];
+                    return (
+                      <div className={styles.controlGroup}>
+                        <label className={styles.controlLabel}>Select Matchups</label>
+                        <div className={styles.matchupSelectList}>
+                          {matchups.map((m, i) => {
+                            const isSelected = tournamentSelectedMatchups.some(
+                              s => s.topTeam?.slug === m.topTeam?.slug && s.bottomTeam?.slug === m.bottomTeam?.slug,
+                            );
+                            return (
+                              <button
+                                key={i}
+                                className={`${styles.matchupSelectRow} ${isSelected ? styles.matchupSelectRowActive : ''}`}
+                                onClick={() => {
+                                  setTournamentSelectedMatchups(prev => {
+                                    const exists = prev.some(
+                                      s => s.topTeam?.slug === m.topTeam?.slug && s.bottomTeam?.slug === m.bottomTeam?.slug,
+                                    );
+                                    const next = exists
+                                      ? prev.filter(s => !(s.topTeam?.slug === m.topTeam?.slug && s.bottomTeam?.slug === m.bottomTeam?.slug))
+                                      : [...prev, m];
+                                    return next;
+                                  });
+                                  setAssetsReady(false);
+                                }}
+                              >
+                                <SeedBadge seed={m.topSeed} size="sm" variant={m.topSeed <= 4 ? 'gold' : 'default'} />
+                                <span className={styles.matchupTeamName}>{m.topTeam?.shortName}</span>
+                                <span className={styles.matchupVs}>vs</span>
+                                <span className={styles.matchupTeamName}>{m.bottomTeam?.shortName}</span>
+                                <SeedBadge seed={m.bottomSeed} size="sm" />
+                                <span className={styles.matchupCheck}>{isSelected ? '✓' : ''}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+
+              {/* ── Upset Radar mode (auto-populated) ──────── */}
+              {gameMode === 'upset-radar' && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel}>Auto-detected upset candidates</label>
+                  <div className={styles.selectedTeamPill}>
+                    🚨 Top 5 Upset Watch Games
+                  </div>
+                  <div className={styles.matchupSelectList}>
+                    {(tournamentInsightsData?.upsetGames || []).slice(0, 5).map((g, i) => (
+                      <div key={i} className={`${styles.matchupSelectRow} ${styles.matchupSelectRowActive}`}>
+                        <SeedBadge seed={g.topSeed} size="sm" />
+                        <span className={styles.matchupTeamName}>{g.topTeam?.shortName}</span>
+                        <span className={styles.matchupVs}>vs</span>
+                        <span className={styles.matchupTeamName}>{g.bottomTeam?.shortName}</span>
+                        <SeedBadge seed={g.bottomSeed} size="sm" />
+                        <span className={styles.matchupPct}>{Math.round((g.upsetProbability ?? 0) * 100)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Single game mode (legacy) ─────────────── */}
               {gameMode === 'standard' && (
                 <>
                   <div className={styles.controlGroup}>

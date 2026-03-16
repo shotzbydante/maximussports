@@ -1,6 +1,7 @@
 import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
+import { getTeamSeed } from '../../../utils/tournamentHelpers';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import styles from './GameInsights5GamesSlide.module.css';
 
@@ -149,13 +150,17 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const storyline = g.storyline || g.whyItMatters || buildWhyLine(g, pick);
             const isTop = i === 0;
 
+            const awaySeed = getTeamSeed(awayObj?.slug || g.awayTeam);
+            const homeSeed = getTeamSeed(homeObj?.slug || g.homeTeam);
+
             return (
               <div key={i} className={`${styles.gameRow} ${isTop ? styles.gameRowTop : ''}`}>
                 {/* Away team */}
                 <div className={styles.teamCell}>
                   <TeamLogo team={awayObj} size={isTop ? 36 : 28} />
                   <div className={styles.teamMeta}>
-                    {awayRank != null && <span className={styles.rankBadge}>#{awayRank}</span>}
+                    {awaySeed != null && <span className={styles.seedBadge}>#{awaySeed}</span>}
+                    {awayRank != null && !awaySeed && <span className={styles.rankBadge}>#{awayRank}</span>}
                     <span className={styles.teamName}>{awayObj?.name || g.awayTeam}</span>
                   </div>
                 </div>
@@ -172,7 +177,8 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
                 {/* Home team */}
                 <div className={`${styles.teamCell} ${styles.teamCellRight}`}>
                   <div className={`${styles.teamMeta} ${styles.teamMetaRight}`}>
-                    {homeRank != null && <span className={styles.rankBadge}>#{homeRank}</span>}
+                    {homeSeed != null && <span className={styles.seedBadge}>#{homeSeed}</span>}
+                    {homeRank != null && !homeSeed && <span className={styles.rankBadge}>#{homeRank}</span>}
                     <span className={styles.teamName}>{homeObj?.name || g.homeTeam}</span>
                   </div>
                   <TeamLogo team={homeObj} size={isTop ? 36 : 28} />
