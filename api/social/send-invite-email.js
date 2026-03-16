@@ -1,8 +1,44 @@
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getSubject, renderHTML, renderText } from '../../src/emails/templates/inviteEmail.js';
+import { isTournamentWeek } from '../../src/emails/tournamentWindow.js';
 
 const supabaseAdmin = getSupabaseAdmin();
+
+/**
+ * Attempt to load recent model signals for the invite email.
+ * Non-critical — returns empty array on failure.
+ */
+async function loadModelSignals() {
+  try {
+    const { getJson } = await import('../_globalCache.js');
+    const cached = await getJson('picks:latest:v1');
+    if (Array.isArray(cached) && cached.length > 0) {
+      return cached.slice(0, 5);
+    }
+  } catch { /* signals are optional */ }
+  return [];
+}
+
+/**
+ * Build tournament meta context for the invite email.
+ * Returns tournament-specific narrative content when in the tournament window.
+ */
+function buildTournamentMeta() {
+  if (!isTournamentWeek()) return {};
+  return {
+    storylines: [
+      'Top seeds under the microscope \u2014 model confidence vs. consensus',
+      'Early-round upset alerts from the Upset Radar',
+      'Matchups where the model sees a different outcome than the market',
+    ],
+    edgeBullets: [
+      'Strong favorite signals on top seeds entering the tournament',
+      'Multiple volatile 8 vs 9 matchups that are statistical coin flips',
+      'Classic 5 vs 12 upset opportunities with elevated model volatility',
+    ],
+  };
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -40,7 +76,15 @@ export default async function handler(req, res) {
     const inviterEmail = user.email;
 
     const inviteLink = `https://maximussports.ai/join?ref=${user.id}`;
-    const templateData = { inviterName: inviterFirstName, inviteLink };
+
+    const [modelSignals] = await Promise.allSettled([loadModelSignals()]);
+
+    const templateData = {
+      inviterName: inviterFirstName,
+      inviteLink,
+      modelSignals: modelSignals.status === 'fulfilled' ? modelSignals.value : [],
+      tournamentMeta: buildTournamentMeta(),
+    };
 
     const subject = getSubject(templateData);
     const html = renderHTML(templateData);

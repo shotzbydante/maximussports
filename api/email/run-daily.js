@@ -44,6 +44,7 @@ import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetch
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
 import { getJson } from '../_globalCache.js';
 import { getSubject as getDailySubject, renderHTML as renderDailyHTML, renderText as renderDailyText } from '../../src/emails/templates/dailyBriefing.js';
+import { isTournamentWeek, isPreTournament } from '../../src/emails/tournamentWindow.js';
 import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderText as renderPinnedText } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { getSubject as getOddsSubject, renderHTML as renderOddsHTML, renderText as renderOddsText } from '../../src/emails/templates/oddsIntel.js';
 import { getSubject as getNewsSubject, renderHTML as renderNewsHTML, renderText as renderNewsText } from '../../src/emails/templates/breakingNews.js';
@@ -357,7 +358,36 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 7b. Pre-load team data (used by all team-related emails)
+    // ── 7b. Model signals + tournament meta (for daily briefing)
+    let modelSignals = [];
+    let tournamentMeta = {};
+    if (type === 'daily') {
+      try {
+        const cached = await getJson('picks:latest:v1');
+        if (Array.isArray(cached) && cached.length > 0) {
+          modelSignals = cached.slice(0, 5);
+        }
+      } catch { /* non-critical */ }
+
+      if (isTournamentWeek()) {
+        tournamentMeta.topSeeds = ['Houston', 'Duke', 'Auburn', 'Florida'];
+        tournamentMeta.bracketTip = '8 vs 9 matchups are historically coin flips \u2014 but the model still finds slight edges based on team efficiency and conference strength of schedule.';
+
+        if (isPreTournament()) {
+          tournamentMeta.storyline = 'The bracket is locked in. The model has scanned every region and is flagging edges across all four quadrants.';
+          tournamentMeta.confRecap = [
+            'Conference tournament champions are set — several auto-bids enter March Madness with momentum.',
+            'Watch for teams that won 3+ games in conference tournaments. Recent form correlates with first-round cover rates.',
+          ];
+          tournamentMeta.upsetMatchups = [
+            { matchup: '8 vs 9 seed matchups', comment: 'Historically near coin flips (49% upset rate). The model still finds edges based on efficiency margins.' },
+            { matchup: '5 vs 12 seed matchups', comment: '12-seeds upset at a 36% clip since 2011. Multiple matchups this year show elevated volatility.' },
+          ];
+        }
+      }
+    }
+
+    // ── 7c. Pre-load team data (used by all team-related emails)
     let getTeamBySlugFn = null;
     try {
       const teamsModule = await import('../../src/data/teams.js');
@@ -410,6 +440,8 @@ export default async function handler(req, res) {
         botIntelBullets,
         maximusNote,
         oddsGames,
+        modelSignals,
+        tournamentMeta,
       };
 
       let subject, html, text;

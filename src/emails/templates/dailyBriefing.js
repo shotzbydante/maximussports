@@ -2,23 +2,55 @@
  * Daily AI Briefing — editorial newsletter template.
  * Sent at 6:00 AM PT. Clean, readable, Morning Brew–inspired layout.
  *
+ * Structure (tournament-aware):
+ *   Header (via EmailShell)
+ *   Today's headline
+ *   Tournament storyline (conditional — tournament window)
+ *   Maximus Says (bot intel)
+ *   Top Seeds to Watch (conditional — pre-tournament)
+ *   Upsets to Watch (conditional — tournament window)
+ *   Model Picks / strongest signals
+ *   Today's Games
+ *   Conference Tournament Recap (conditional — pre-tournament)
+ *   Bracket Strategy (conditional — tournament window)
+ *   ATS Edge
+ *   AP Top 25
+ *   Your Teams
+ *   Headlines
+ *   CTA (via EmailShell)
+ *   Footer (via EmailShell)
+ *
  * @param {object} data
- * @param {string} [data.displayName]
- * @param {Array}  [data.scoresToday]
- * @param {Array}  [data.rankingsTop25]
- * @param {object} [data.atsLeaders]      — { best: [...], worst: [...] }
- * @param {Array}  [data.headlines]
- * @param {Array}  [data.pinnedTeams]     — [{ name, slug }]
- * @param {Array}  [data.botIntelBullets]
+ * @param {string}  [data.displayName]
+ * @param {Array}   [data.scoresToday]
+ * @param {Array}   [data.rankingsTop25]
+ * @param {object}  [data.atsLeaders]       — { best: [...], worst: [...] }
+ * @param {Array}   [data.headlines]
+ * @param {Array}   [data.pinnedTeams]      — [{ name, slug }]
+ * @param {Array}   [data.botIntelBullets]
+ * @param {Array}   [data.modelSignals]     — top model picks for signal cards
+ * @param {object}  [data.tournamentMeta]   — { topSeeds, upsetMatchups, confRecap, bracketTip }
  */
 
 import { EmailShell, heroBlock, sectionCard, sectionLabel, teamLogoImg } from '../EmailShell.js';
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
 import { renderEmailGameList } from '../../../api/_lib/emailGameCards.js';
+import { signalCard, buildSignalsFromPicks } from '../helpers/signalRows.js';
+import { isTournamentWeek, isPreTournament, getTournamentPhase } from '../tournamentWindow.js';
+
+const TEXT_PRIMARY   = '#1a1a2e';
+const TEXT_SECONDARY = '#4a5568';
+const TEXT_MUTED     = '#8a94a6';
+const ACCENT         = '#2d6ca8';
+const BORDER         = '#e8ecf0';
 
 export function getSubject(data = {}) {
   const name = data.displayName ? data.displayName.split(' ')[0] : null;
   const dow = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  if (isTournamentWeek()) {
+    if (name) return `${name}, tournament intel for ${dow}`;
+    return `March Madness briefing — ${dow}`;
+  }
   if (name) return `${name}, here\u2019s your ${dow} hoops briefing`;
   return `Your ${dow} college hoops briefing`;
 }
@@ -32,6 +64,8 @@ export function renderHTML(data = {}) {
     headlines = [],
     pinnedTeams = [],
     botIntelBullets = [],
+    modelSignals = [],
+    tournamentMeta = {},
   } = data;
 
   const firstName = displayName ? displayName.split(' ')[0] : null;
@@ -41,23 +75,153 @@ export function renderHTML(data = {}) {
   const gameCount = scoresToday.length;
   const bestAts = atsLeaders.best || [];
 
-  // Editorial intro paragraph
-  let introParagraph;
-  if (gameCount > 0 && bestAts.length > 0) {
+  const showTournament = isTournamentWeek();
+  const showPreTournament = isPreTournament();
+  const phase = getTournamentPhase();
+
+  // ── Headline + intro ──
+  let heroLine, introParagraph;
+  if (showPreTournament) {
+    heroLine = 'March Madness Bracket Is Set';
+    introParagraph = `Good morning, ${greetingName}. The NCAA tournament field is finalized and early model signals are already surfacing edges. Here\u2019s your intel.`;
+  } else if (showTournament) {
+    heroLine = 'Tournament Day — Model Signals Active';
+    introParagraph = `Good morning, ${greetingName}. The tournament is live. Maximus is tracking every game and updating edges in real time.`;
+  } else if (gameCount > 0 && bestAts.length > 0) {
+    heroLine = 'What you need to know before tonight\u2019s games.';
     introParagraph = `Good morning, ${greetingName}. ${gameCount} game${gameCount !== 1 ? 's' : ''} on today\u2019s slate and the lines are moving. Here\u2019s what matters before tip-off.`;
   } else if (gameCount > 0) {
+    heroLine = 'What you need to know before tonight\u2019s games.';
     introParagraph = `Good morning, ${greetingName}. ${gameCount} game${gameCount !== 1 ? 's' : ''} on today\u2019s slate. Here\u2019s what Maximus Sports is watching.`;
   } else {
+    heroLine = 'Your daily hoops intel.';
     introParagraph = `Good morning, ${greetingName}. Light slate today \u2014 Maximus Sports is staying disciplined. Here\u2019s the intel that matters.`;
   }
 
-  // Bot intel section
+  // ── Tournament storyline section (tournament window only) ──
+  let tournamentStoryline = '';
+  if (showTournament) {
+    const storyTitle = showPreTournament ? 'TOURNAMENT PREVIEW' : 'TOURNAMENT UPDATE';
+    const storyBody = tournamentMeta.storyline
+      || (showPreTournament
+        ? 'The bracket is locked in. The model has scanned every region and is flagging edges across all four quadrants. Below are the key signals heading into the tournament.'
+        : 'Games are underway. Maximus is tracking results and adjusting model edges after every game.');
+
+    tournamentStoryline = `
+${divider()}
+${sectionCard({
+  pillLabel: storyTitle,
+  pillType: 'intel',
+  headline: showPreTournament ? 'Early Tournament Intel' : 'Live Tournament Intel',
+  body: storyBody,
+})}`;
+  }
+
+  // ── Top Seeds to Watch (pre-tournament only) ──
+  let topSeedsSection = '';
+  if (showPreTournament) {
+    const seeds = tournamentMeta.topSeeds || ['Houston', 'Duke', 'Auburn', 'Florida'];
+    const seedList = seeds.map(s =>
+      `<tr>
+        <td valign="top" style="width:18px;color:${ACCENT};font-size:14px;padding-top:1px;font-family:'DM Sans',Arial,sans-serif;">&bull;</td>
+        <td valign="top" style="font-size:14px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,sans-serif;padding-bottom:6px;">
+          <strong style="color:${TEXT_PRIMARY};">${s}</strong>
+        </td>
+      </tr>`
+    ).join('');
+
+    const seedCommentary = tournamentMeta.seedCommentary
+      || 'The model\u2019s confidence on top seeds varies. Not all #1s carry the same weight \u2014 check the full analysis inside the app.';
+
+    topSeedsSection = `
+<tr>
+  <td style="padding:0 24px 4px;" class="section-td">
+    <div style="margin-bottom:10px;">${sectionLabel('TOP SEEDS TO WATCH')}</div>
+  </td>
+</tr>
+<tr>
+  <td style="padding:0 24px 8px;" class="section-td">
+    <p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">
+      Top seeds entering the tournament:
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      ${seedList}
+    </table>
+    <p style="margin:8px 0 0;font-size:13px;color:${TEXT_MUTED};line-height:1.55;font-family:'DM Sans',Arial,sans-serif;font-style:italic;">
+      ${seedCommentary}
+    </p>
+  </td>
+</tr>
+${spacer(8)}`;
+  }
+
+  // ── Upsets to Watch (tournament window) ──
+  let upsetsSection = '';
+  if (showTournament) {
+    const upsetMatchups = tournamentMeta.upsetMatchups || [];
+    if (upsetMatchups.length > 0) {
+      const upsetRows = upsetMatchups.slice(0, 3).map(u => {
+        const comment = u.comment || 'Model flags this matchup as a high-volatility game.';
+        return `<tr>
+  <td style="padding:10px 16px;border-bottom:1px solid ${BORDER};">
+    <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:${TEXT_PRIMARY};font-family:'DM Sans',Arial,sans-serif;">
+      <span style="color:#c05621;margin-right:4px;">&#9888;&#65039;</span> ${u.matchup}
+    </p>
+    <p style="margin:0;font-size:13px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${comment}</p>
+  </td>
+</tr>`;
+      }).join('');
+
+      upsetsSection = `
+<tr>
+  <td style="padding:0 24px 4px;" class="section-td">
+    <div style="margin-bottom:10px;">${sectionLabel('UPSETS TO WATCH')}</div>
+  </td>
+</tr>
+<tr>
+  <td style="padding:0 24px 14px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:#f9fafb;border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
+      ${upsetRows}
+    </table>
+    <p style="margin:10px 0 0;font-size:13px;color:${TEXT_MUTED};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;font-style:italic;">
+      5 vs 12 matchups historically produce the most bracket chaos. The Upset Radar tracks real-time volatility.
+    </p>
+  </td>
+</tr>`;
+    }
+  }
+
+  // ── Model Picks / Strongest Signals ──
+  let modelPicksSection = '';
+  const signals = modelSignals.length > 0
+    ? buildSignalsFromPicks(modelSignals, 5)
+    : [];
+
+  if (signals.length > 0) {
+    modelPicksSection = `
+<tr>
+  <td style="padding:0 24px 4px;" class="section-td">
+    <div style="margin-bottom:10px;">${sectionLabel('MODEL PICKS')}</div>
+    <p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">
+      Today\u2019s strongest signals:
+    </p>
+  </td>
+</tr>
+<tr>
+  <td style="padding:0 24px 14px;" class="section-td">
+    ${signalCard(signals)}
+  </td>
+</tr>`;
+  }
+
+  // ── Bot intel section ──
   let botIntelSection = '';
   if (botIntelBullets.length > 0) {
     const bullets = botIntelBullets.slice(0, 4).map(b =>
       `<tr>
-        <td valign="top" style="width:18px;color:#2d6ca8;font-size:14px;padding-top:1px;font-family:'DM Sans',Arial,sans-serif;">&bull;</td>
-        <td valign="top" style="font-size:14px;color:#4a5568;line-height:1.6;font-family:'DM Sans',Arial,sans-serif;padding-bottom:8px;">${b}</td>
+        <td valign="top" style="width:18px;color:${ACCENT};font-size:14px;padding-top:1px;font-family:'DM Sans',Arial,sans-serif;">&bull;</td>
+        <td valign="top" style="font-size:14px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,sans-serif;padding-bottom:8px;">${b}</td>
       </tr>`
     ).join('');
     botIntelSection = `
@@ -71,7 +235,7 @@ export function renderHTML(data = {}) {
 </tr>`;
   }
 
-  // Games section
+  // ── Games section ──
   const gameCardsHtml = gameCount > 0 ? renderEmailGameList(scoresToday, { max: 3, compact: true }) : '';
   let gamesSection = '';
   if (gameCount > 0) {
@@ -79,23 +243,71 @@ export function renderHTML(data = {}) {
 <tr>
   <td style="padding:0 24px 4px;" class="section-td">
     <div style="margin-bottom:4px;">${sectionLabel('TODAY\u2019S GAMES')}</div>
-    <p style="margin:0 0 8px;font-size:14px;color:#4a5568;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate.</p>
+    <p style="margin:0 0 8px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate.</p>
   </td>
 </tr>
 ${gameCardsHtml}`;
   }
 
-  // ATS section
+  // ── Conference Tournament Recap (pre-tournament only) ──
+  let confRecapSection = '';
+  if (showPreTournament) {
+    const recap = tournamentMeta.confRecap || [];
+    if (recap.length > 0) {
+      const recapBullets = recap.slice(0, 4).map(r =>
+        `<tr>
+          <td valign="top" style="width:18px;color:${ACCENT};font-size:14px;padding-top:1px;font-family:'DM Sans',Arial,sans-serif;">&bull;</td>
+          <td valign="top" style="font-size:14px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,sans-serif;padding-bottom:8px;">${r}</td>
+        </tr>`
+      ).join('');
+
+      confRecapSection = `
+${divider()}
+<tr>
+  <td style="padding:0 24px 4px;" class="section-td">
+    <div style="margin-bottom:10px;">${sectionLabel('CONFERENCE TOURNAMENT RECAP')}</div>
+  </td>
+</tr>
+<tr>
+  <td style="padding:0 24px 14px;" class="section-td">
+    <p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">
+      Recent conference championship highlights:
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      ${recapBullets}
+    </table>
+  </td>
+</tr>`;
+    }
+  }
+
+  // ── Bracket Strategy (tournament window) ──
+  let bracketStrategySection = '';
+  if (showTournament) {
+    const tip = tournamentMeta.bracketTip
+      || '8 vs 9 matchups are historically coin flips \u2014 but the model still finds slight edges based on team efficiency and conference strength of schedule.';
+
+    bracketStrategySection = `
+${divider()}
+${sectionCard({
+  pillLabel: 'BRACKET STRATEGY',
+  pillType: 'intel',
+  headline: 'Bracket Insight',
+  body: tip,
+})}`;
+  }
+
+  // ── ATS section ──
   let atsBody = '';
   if (bestAts.length > 0) {
     const top = bestAts[0];
     const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : '';
-    atsBody = `<strong style="color:#1a1a2e;">${top.name || top.team || 'A team'}</strong> ${pct ? `is covering at ${pct} ATS` : 'is the top ATS performer right now'}. ${bestAts.length > 1 ? `${bestAts[1].name || bestAts[1].team} is also worth watching.` : ''}`;
+    atsBody = `<strong style="color:${TEXT_PRIMARY};">${top.name || top.team || 'A team'}</strong> ${pct ? `is covering at ${pct} ATS` : 'is the top ATS performer right now'}. ${bestAts.length > 1 ? `${bestAts[1].name || bestAts[1].team} is also worth watching.` : ''}`;
   } else {
     atsBody = 'No major ATS edges detected today. Patience is a strategy.';
   }
 
-  // Rankings
+  // ── Rankings ──
   let rankBody = '';
   if (rankingsTop25.length > 0) {
     const top3 = rankingsTop25.slice(0, 3).map((r, i) => `#${i + 1} ${r.teamName || r.name || r.team || 'Unknown'}`).join(', ');
@@ -104,7 +316,7 @@ ${gameCardsHtml}`;
     rankBody = 'Rankings data is refreshing. Check the app for the latest AP Top 25.';
   }
 
-  // Pinned teams
+  // ── Pinned teams ──
   let pinnedSection = '';
   if (pinnedTeams.length > 0) {
     const pinnedRows = pinnedTeams.slice(0, 3).map(team => {
@@ -113,13 +325,13 @@ ${gameCardsHtml}`;
       const { gameInfo } = getTeamTodaySummary(team, scoresToday);
       const logoHtml = teamLogoImg(team, 20);
       return `<tr>
-  <td style="padding:8px 0;border-bottom:1px solid #e8ecf0;">
+  <td style="padding:8px 0;border-bottom:1px solid ${BORDER};">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
         <td valign="middle" style="width:26px;padding-right:8px;">${logoHtml}</td>
         <td valign="middle">
-          <a href="${teamUrl}" style="font-size:14px;font-weight:600;color:#1a1a2e;text-decoration:none;font-family:'DM Sans',Arial,sans-serif;">${team.name}</a>
-          <div style="margin-top:2px;font-size:12px;color:#8a94a6;">${gameInfo}</div>
+          <a href="${teamUrl}" style="font-size:14px;font-weight:600;color:${TEXT_PRIMARY};text-decoration:none;font-family:'DM Sans',Arial,sans-serif;">${team.name}</a>
+          <div style="margin-top:2px;font-size:12px;color:${TEXT_MUTED};">${gameInfo}</div>
         </td>
       </tr>
     </table>
@@ -135,13 +347,13 @@ ${gameCardsHtml}`;
       ${pinnedRows}
     </table>
     <div style="margin-top:8px;">
-      <a href="https://maximussports.ai/teams" style="font-size:12px;color:#2d6ca8;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All team intel &rarr;</a>
+      <a href="https://maximussports.ai/teams" style="font-size:12px;color:${ACCENT};text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All team intel &rarr;</a>
     </div>
   </td>
 </tr>`;
   }
 
-  // Headlines
+  // ── Headlines ──
   let headlineSection = '';
   if (headlines.length > 0) {
     const headlineItems = headlines.slice(0, 4).map(h => {
@@ -152,18 +364,18 @@ ${gameCardsHtml}`;
         ? new Date(h.pubDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
         : '';
       return `<tr>
-  <td style="padding:8px 0;border-bottom:1px solid #e8ecf0;">
+  <td style="padding:8px 0;border-bottom:1px solid ${BORDER};">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
         <td>
-          <a href="${link}" style="font-size:14px;font-weight:600;color:#1a1a2e;text-decoration:none;line-height:1.4;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${title}</a>
+          <a href="${link}" style="font-size:14px;font-weight:600;color:${TEXT_PRIMARY};text-decoration:none;line-height:1.4;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${title}</a>
           <div style="margin-top:3px;">
-            ${source ? `<span style="font-size:11px;color:#8a94a6;font-family:'DM Sans',Arial,sans-serif;">${source}</span>` : ''}
+            ${source ? `<span style="font-size:11px;color:${TEXT_MUTED};font-family:'DM Sans',Arial,sans-serif;">${source}</span>` : ''}
             ${pubDate ? `<span style="font-size:11px;color:#b0b8c4;font-family:'DM Sans',Arial,sans-serif;"> &middot; ${pubDate}</span>` : ''}
           </div>
         </td>
         <td align="right" valign="top" style="padding-left:12px;white-space:nowrap;">
-          <a href="${link}" style="font-size:12px;color:#2d6ca8;text-decoration:none;font-weight:600;" target="_blank">Read &rarr;</a>
+          <a href="${link}" style="font-size:12px;color:${ACCENT};text-decoration:none;font-weight:600;" target="_blank">Read &rarr;</a>
         </td>
       </tr>
     </table>
@@ -181,15 +393,16 @@ ${gameCardsHtml}`;
 </tr>`;
   }
 
+  // ── Assemble all content ──
   const content = `
 ${heroBlock({
-    line: `What you need to know before tonight\u2019s games.`,
-    sublabel: today,
-  })}
+  line: heroLine,
+  sublabel: today,
+})}
 
 <tr>
   <td style="padding:10px 24px 16px;" class="intro-td">
-    <p style="margin:0;font-size:15px;color:#4a5568;line-height:1.65;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+    <p style="margin:0;font-size:15px;color:${TEXT_SECONDARY};line-height:1.65;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
       ${introParagraph}
     </p>
   </td>
@@ -197,54 +410,106 @@ ${heroBlock({
 
 <tr>
   <td style="padding:0 24px;" class="divider-td">
-    <div style="height:1px;background-color:#e8ecf0;font-size:0;line-height:0;">&nbsp;</div>
+    <div style="height:1px;background-color:${BORDER};font-size:0;line-height:0;">&nbsp;</div>
   </td>
 </tr>
 <tr><td style="height:14px;font-size:0;line-height:0;">&nbsp;</td></tr>
 
+${tournamentStoryline}
+
 ${botIntelSection}
+
+${topSeedsSection}
+
+${upsetsSection}
+
+${modelPicksSection}
 
 ${gamesSection}
 
-${sectionCard({
-    pillLabel: 'ATS EDGE',
-    pillType: 'ats',
-    headline: 'Against the Spread',
-    body: atsBody,
-  })}
+${confRecapSection}
+
+${bracketStrategySection}
 
 ${sectionCard({
-    pillLabel: 'RANKINGS',
-    pillType: 'intel',
-    headline: 'AP Top 25',
-    body: rankBody,
-  })}
+  pillLabel: 'ATS EDGE',
+  pillType: 'ats',
+  headline: 'Against the Spread',
+  body: atsBody,
+})}
+
+${sectionCard({
+  pillLabel: 'RANKINGS',
+  pillType: 'intel',
+  headline: 'AP Top 25',
+  body: rankBody,
+})}
 
 ${pinnedSection}
 
 ${headlineSection}`;
 
+  const ctaLabel = showTournament
+    ? 'Explore tournament insights &rarr;'
+    : 'Explore full insights &rarr;';
+
   return EmailShell({
     content,
-    previewText: `Your Maximus Sports briefing for ${today} \u2014 games, ATS leaders, and intel in one read.`,
+    previewText: `Your Maximus Sports briefing for ${today} \u2014 ${showTournament ? 'tournament intel, model signals, and bracket edges.' : 'games, ATS leaders, and intel in one read.'}`,
+    ctaLabel,
   });
 }
 
 export function renderText(data = {}) {
-  const { displayName, scoresToday = [], atsLeaders = {}, headlines = [], botIntelBullets = [], pinnedTeams = [] } = data;
+  const {
+    displayName,
+    scoresToday = [],
+    atsLeaders = {},
+    headlines = [],
+    botIntelBullets = [],
+    pinnedTeams = [],
+    modelSignals = [],
+    tournamentMeta = {},
+  } = data;
   const name = displayName ? displayName.split(' ')[0] : 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const showTournament = isTournamentWeek();
+  const showPreTournament = isPreTournament();
+
   const lines = [
     'MAXIMUS SPORTS \u2014 Daily Briefing',
     today,
     '',
     `Good morning, ${name}. Here\u2019s your edge today.`,
     '',
-    ...(botIntelBullets.length > 0 ? [
-      'MAXIMUS SAYS',
-      ...botIntelBullets.slice(0, 4).map(b => `- ${b}`),
+  ];
+
+  if (showTournament) {
+    lines.push(
+      showPreTournament ? 'TOURNAMENT PREVIEW' : 'TOURNAMENT UPDATE',
+      showPreTournament
+        ? 'The NCAA tournament bracket is set. Early model signals are surfacing.'
+        : 'Tournament games are underway. Model edges updating in real time.',
       '',
-    ] : []),
+    );
+  }
+
+  if (botIntelBullets.length > 0) {
+    lines.push('MAXIMUS SAYS', ...botIntelBullets.slice(0, 4).map(b => `- ${b}`), '');
+  }
+
+  if (showPreTournament) {
+    const seeds = tournamentMeta.topSeeds || ['Houston', 'Duke', 'Auburn', 'Florida'];
+    lines.push('TOP SEEDS TO WATCH', ...seeds.map(s => `- ${s}`), '');
+  }
+
+  if (modelSignals.length > 0) {
+    lines.push('MODEL PICKS', ...modelSignals.slice(0, 5).map(s =>
+      `- ${s.matchup || '?'}: ${s.edge || 'model edge'}`
+    ), '');
+  }
+
+  lines.push(
     'WHAT TO WATCH',
     scoresToday.length > 0 ? `${scoresToday.length} games on the slate today.` : 'Light slate today.',
     '',
@@ -253,20 +518,53 @@ export function renderText(data = {}) {
       ? `Top ATS performer: ${atsLeaders.best[0].name || atsLeaders.best[0].team}`
       : 'No major ATS edges today.',
     '',
-    ...(pinnedTeams.length > 0 ? [
+  );
+
+  if (showPreTournament && (tournamentMeta.confRecap || []).length > 0) {
+    lines.push('CONFERENCE TOURNAMENT RECAP', ...tournamentMeta.confRecap.slice(0, 3).map(r => `- ${r}`), '');
+  }
+
+  if (showTournament) {
+    lines.push(
+      'BRACKET STRATEGY',
+      tournamentMeta.bracketTip || '8 vs 9 matchups are historically coin flips — the model still finds slight edges.',
+      '',
+    );
+  }
+
+  if (pinnedTeams.length > 0) {
+    lines.push(
       'YOUR TEAMS',
       ...pinnedTeams.slice(0, 3).map(t => {
         const { gameInfoText } = getTeamTodaySummary(t, scoresToday);
         return `${t.name}: ${gameInfoText}`;
       }),
       '',
-    ] : []),
+    );
+  }
+
+  lines.push(
     'HEADLINES',
     ...headlines.slice(0, 3).map(h => `- ${h.title || 'No title'}`),
     '',
     'Open Maximus Sports -> https://maximussports.ai',
     '',
     'Not betting advice. Manage preferences: https://maximussports.ai/settings',
-  ];
+  );
+
   return lines.join('\n');
+}
+
+// ── Helpers ──
+
+function divider() {
+  return `<tr>
+  <td style="padding:4px 24px;" class="divider-td">
+    <div style="height:1px;background-color:#e8ecf0;font-size:0;line-height:0;">&nbsp;</div>
+  </td>
+</tr>`;
+}
+
+function spacer(px = 8) {
+  return `<tr><td style="height:${px}px;font-size:0;line-height:0;" aria-hidden="true">&nbsp;</td></tr>`;
 }
