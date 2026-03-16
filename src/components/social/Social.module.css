@@ -1324,6 +1324,63 @@
   margin: -8px 0 0;
 }
 
+/* ─── Email Invite ─────────────────────────────────────────────────────── */
+.emailInviteWrap {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border, #e8ecf0);
+}
+
+.emailInviteLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.emailInviteRow {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.emailInviteInput {
+  flex: 1;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border, #e8ecf0);
+  border-radius: 6px;
+  background: var(--color-bg-card, #fff);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.emailInviteInput:focus {
+  border-color: var(--color-primary, #2d6ca8);
+}
+
+.emailInviteBtn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-primary, #2d6ca8);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  font-family: inherit;
+}
+
+.emailInviteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ─── Responsive ───────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .discoveryContainer {

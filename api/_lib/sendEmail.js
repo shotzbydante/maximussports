@@ -30,9 +30,10 @@ function sleep(ms) {
  * @param {string}          opts.subject
  * @param {string}          opts.html
  * @param {string}          [opts.text]
+ * @param {string}          [opts.replyTo]  — reply-to address (e.g. inviter's email)
  * @returns {Promise<{ id: string }>}
  */
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, subject, html, text, replyTo }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from   = process.env.RESEND_FROM || 'winning@maximussports.ai';
 
@@ -44,6 +45,7 @@ export async function sendEmail({ to, subject, html, text }) {
     subject,
     html,
     ...(text ? { text } : {}),
+    ...(replyTo ? { reply_to: replyTo } : {}),
   };
 
   const recipients = Array.isArray(to) ? to : [to];

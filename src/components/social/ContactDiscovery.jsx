@@ -99,6 +99,10 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
   const [contactTab, setContactTab] = useState('matched');
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+
   const inviteLink = `https://maximussports.ai/join?ref=${user?.id || 'maximus'}`;
   const inviteMessage = `Join me on Maximus Sports for AI-powered picks and brackets.\n\n${inviteLink}`;
 
@@ -224,6 +228,35 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
     window.open(`sms:?&body=${encodeURIComponent(inviteMessage)}`, '_blank');
     track('invite_sms_sent', {});
   }, [inviteMessage]);
+
+  const handleSendEmailInvite = useCallback(async () => {
+    const trimmed = inviteEmail.trim();
+    if (!trimmed || !trimmed.includes('@') || !session?.access_token) return;
+    setEmailSending(true);
+    try {
+      const res = await fetch('/api/social/send-invite-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      if (res.ok) {
+        setEmailSent(true);
+        setInviteEmail('');
+        showToast('Invite sent!', { type: 'success' });
+        track('invite_email_sent', {});
+        setTimeout(() => setEmailSent(false), 4000);
+      } else {
+        showToast('Failed to send invite', { type: 'error' });
+      }
+    } catch {
+      showToast('Failed to send invite', { type: 'error' });
+    } finally {
+      setEmailSending(false);
+    }
+  }, [inviteEmail, session?.access_token]);
 
   const isSearchActive = searchQuery.trim().length >= 2;
   const hasContactResults = contactStatus === 'done' && (matchedUsers.length > 0 || unmatchedContacts.length > 0);
@@ -438,6 +471,31 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
               <LinkIcon />
               {inviteLinkCopied ? 'Copied!' : 'Copy Link'}
             </button>
+          </div>
+
+          {/* ── Email Invite ─────────────────────────────────── */}
+          <div className={styles.emailInviteWrap}>
+            <p className={styles.emailInviteLabel}>Invite by email</p>
+            <div className={styles.emailInviteRow}>
+              <input
+                type="email"
+                inputMode="email"
+                className={styles.emailInviteInput}
+                placeholder="friend@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSendEmailInvite(); }}
+                disabled={emailSending}
+              />
+              <button
+                type="button"
+                className={styles.emailInviteBtn}
+                onClick={handleSendEmailInvite}
+                disabled={emailSending || !inviteEmail.trim().includes('@')}
+              >
+                {emailSending ? 'Sending…' : emailSent ? 'Sent!' : 'Send'}
+              </button>
+            </div>
           </div>
 
           {contactError && <p className={styles.contactErrorNote}>{contactError}</p>}

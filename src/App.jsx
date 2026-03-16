@@ -25,6 +25,7 @@ const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
 const GameMatchup = lazy(() => import('./pages/GameMatchup'));
 const Bracketology = lazy(() => import('./pages/Bracketology'));
 const Friends = lazy(() => import('./pages/Friends'));
+const Join = lazy(() => import('./pages/Join'));
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
               <Route path="march-madness-betting-intelligence" element={<Suspense fallback={null}><MarchMadnessHub /></Suspense>} />
               <Route path="bracketology" element={<Suspense fallback={null}><Bracketology /></Suspense>} />
               <Route path="friends" element={<Suspense fallback={null}><Friends /></Suspense>} />
+              <Route path="join" element={<Suspense fallback={null}><Join /></Suspense>} />
               <Route path="games/:matchupSlug" element={<Suspense fallback={null}><GameMatchup /></Suspense>} />
             </Route>
             {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}

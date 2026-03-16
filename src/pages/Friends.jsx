@@ -8,7 +8,8 @@
  * - Manual tab switch preserved for the session
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useFriendGraph } from '../hooks/useFriendGraph';
 import ContactDiscovery from '../components/social/ContactDiscovery';
@@ -22,23 +23,18 @@ const TABS = [
   { id: 'leaderboard', label: 'Leaderboard' },
 ];
 
-function computeDefaultTab(socialCounts) {
-  return socialCounts.following > 0 ? 'activity' : 'discover';
-}
+const VALID_TABS = new Set(TABS.map(t => t.id));
 
 export default function Friends() {
   const { user } = useAuth();
   const { socialCounts } = useFriendGraph();
+  const [searchParams] = useSearchParams();
 
-  const defaultTab = useMemo(
-    () => computeDefaultTab(socialCounts),
-    // Only compute on mount — socialCounts.following/friends drive the initial choice
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [socialCounts.following > 0],
-  );
+  const tabParam = searchParams.get('tab');
+  const initialTab = (tabParam && VALID_TABS.has(tabParam)) ? tabParam : 'discover';
 
-  const [activeTab, setActiveTab] = useState(null);
-  const currentTab = activeTab || defaultTab;
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const currentTab = activeTab;
 
   if (!user) {
     return (
