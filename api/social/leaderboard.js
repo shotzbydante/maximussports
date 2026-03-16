@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         userId: s.user_id,
         username: p.username || 'Unknown',
         displayName: p.display_name || p.username || 'Unknown',
-        avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
+        avatarConfig: p.preferences?.robotConfig || null,
         isPro: p.plan_tier === 'pro',
         isCurrentUser: s.user_id === user.id,
         stats: {

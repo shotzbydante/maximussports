@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
   const { data: allProfiles, error: profilesErr } = await sb
     .from('profiles')
-    .select('id, username, display_name, plan_tier, avatar_config, followers_count');
+    .select('id, username, display_name, plan_tier, preferences, followers_count');
 
   if (profilesErr) {
     return res.status(500).json({ error: `Profiles query error: ${profilesErr.message}` });
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       profileDisplayName: profileRow?.display_name || null,
       profilePlan: profileRow?.plan_tier || null,
       profileFollowers: profileRow?.followers_count || 0,
-      hasAvatar: !!(profileRow?.avatar_config),
+      hasAvatar: !!(profileRow?.preferences?.robotConfig),
       rootCause: diagnose(authUser, profileRow, identifier),
     });
   }

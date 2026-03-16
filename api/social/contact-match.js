@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         id: p.id,
         username: p.username,
         displayName: p.display_name || p.username,
-        avatarConfig: p.avatar_config || p.preferences?.robotConfig || null,
+        avatarConfig: p.preferences?.robotConfig || null,
         isPro: p.plan_tier === 'pro',
         followStatus: status,
       };

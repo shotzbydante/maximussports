@@ -18,7 +18,7 @@ import { showToast } from '../components/common/Toast';
 import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
-import { invalidateProfileCache, getAvatarConfigColumnStatus, setAvatarConfigColumnStatus } from '../hooks/useUserProfile';
+import { invalidateProfileCache } from '../hooks/useUserProfile';
 import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
 import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
@@ -74,10 +74,9 @@ function friendlyDbError(err) {
   return err.message || 'Something went wrong. Please try again.';
 }
 
-/** Resolve robot avatar config from profile row, checking both avatar_config column and preferences.robotConfig. */
 function resolveAvatarConfig(profile) {
   if (!profile) return null;
-  const cfg = profile.avatar_config || profile.preferences?.robotConfig;
+  const cfg = profile.preferences?.robotConfig;
   if (cfg && cfg.type === 'maximus_robot') return cfg;
   if (cfg && cfg.jerseyColor) return cfg;
   return null;
@@ -690,38 +689,12 @@ function OnboardingWizard({ user, onComplete }) {
         updated_at:       new Date().toISOString(),
       };
 
-      // Use schema detection to avoid unnecessary failing writes
-      const colStatus = getAvatarConfigColumnStatus();
-      let profileSaved = false;
-
-      if (colStatus === false) {
-        // Known missing — skip avatar_config column entirely
-        const { error: coreErr } = await sb.from('profiles').upsert(coreRow, { onConflict: 'id' });
-        if (coreErr) {
-          if (coreErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
-          throw new Error(friendlyDbError(coreErr));
-        }
-        profileSaved = true;
-      } else {
-        // Known present or unknown — try with avatar_config
-        const fullRow = { ...coreRow, avatar_config: avatarConfig };
-        const { error: fullErr } = await sb.from('profiles').upsert(fullRow, { onConflict: 'id' });
-        if (!fullErr) {
-          setAvatarConfigColumnStatus(true);
-          profileSaved = true;
-        } else if (isSchemaMissingError(fullErr)) {
-          setAvatarConfigColumnStatus(false);
-          const { error: coreErr } = await sb.from('profiles').upsert(coreRow, { onConflict: 'id' });
-          if (coreErr) {
-            if (coreErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
-            throw new Error(friendlyDbError(coreErr));
-          }
-          profileSaved = true;
-        } else {
-          if (fullErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
-          throw new Error(friendlyDbError(fullErr));
-        }
+      const { error: coreErr } = await sb.from('profiles').upsert(coreRow, { onConflict: 'id' });
+      if (coreErr) {
+        if (coreErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
+        throw new Error(friendlyDbError(coreErr));
       }
+      const profileSaved = true;
 
       // Idempotently replace user_teams
       await sb.from('user_teams').delete().eq('user_id', userId);
@@ -831,35 +804,11 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
         updated_at:      new Date().toISOString(),
       };
 
-      const colStatus = getAvatarConfigColumnStatus();
-      let saved = false;
+      const { error: updateErr } = await sb.from('profiles').update(coreUpdates).eq('id', user.id);
+      if (updateErr) throw updateErr;
 
-      if (colStatus === false) {
-        // Known missing — write core fields only (avatar stored in preferences)
-        const { error: coreErr } = await sb.from('profiles').update(coreUpdates).eq('id', user.id);
-        if (coreErr) throw coreErr;
-        saved = true;
-      } else {
-        // Known present or unknown — try with avatar_config
-        const fullUpdates = { ...coreUpdates, avatar_config: avatarConfig };
-        const { error: fullErr } = await sb.from('profiles').update(fullUpdates).eq('id', user.id);
-        if (!fullErr) {
-          setAvatarConfigColumnStatus(true);
-          saved = true;
-        } else if (isSchemaMissingError(fullErr)) {
-          setAvatarConfigColumnStatus(false);
-          const { error: coreErr } = await sb.from('profiles').update(coreUpdates).eq('id', user.id);
-          if (coreErr) throw coreErr;
-          saved = true;
-        } else {
-          throw fullErr;
-        }
-      }
-
-      if (saved) {
-        track('profile_updated', { fields_changed: ['username', 'display_name', 'favorite_number', 'avatar'] });
-        onSave({ ...coreUpdates, avatar_config: avatarConfig });
-      }
+      track('profile_updated', { fields_changed: ['username', 'display_name', 'favorite_number', 'avatar'] });
+      onSave(coreUpdates);
     } catch (err) {
       if (err?.code === '23505') {
         setError('That username is already taken.');

@@ -134,7 +134,7 @@ export function buildUserProfile(authUser, profileRow) {
     handle,
     avatarUrl:             authUser.user_metadata?.avatar_url || null,
     favoriteNumber:        p.favorite_number ?? null,
-    avatarConfig:          p.avatar_config || p.preferences?.robotConfig || null,
+    avatarConfig:          p.preferences?.robotConfig || null,
     email:                 authUser.email || '',
     isPro:                 p.plan_tier === 'pro',
     social: {

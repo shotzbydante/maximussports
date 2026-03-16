@@ -21,28 +21,15 @@ import { buildUserProfile } from '../types/social';
 const _cache = new Map();
 const _listeners = new Set();
 
-let _hasAvatarConfigColumn = null;
-
-export function getAvatarConfigColumnStatus() {
-  return _hasAvatarConfigColumn;
-}
-
-export function setAvatarConfigColumnStatus(exists) {
-  _hasAvatarConfigColumn = exists;
-}
-
 const _inflight = new Map();
 
 function normalizeProfileRow(row) {
   if (!row) return row;
-  if (row.avatar_config) {
-    _hasAvatarConfigColumn = true;
-    return row;
-  }
-  _hasAvatarConfigColumn = false;
-  const fromPrefs = row.preferences?.robotConfig;
-  if (fromPrefs) {
-    return { ...row, avatar_config: fromPrefs };
+  if (!row.avatar_config) {
+    const fromPrefs = row.preferences?.robotConfig;
+    if (fromPrefs) {
+      return { ...row, avatar_config: fromPrefs };
+    }
   }
   return row;
 }
