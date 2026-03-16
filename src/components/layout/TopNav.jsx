@@ -3,7 +3,6 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserProfile } from '../../hooks/useUserProfile';
-import { hasBracketologyAccess } from '../../config/bracketology';
 import HeaderProfileChip from '../profile/HeaderProfileChip';
 import styles from './TopNav.module.css';
 
@@ -58,12 +57,11 @@ export default function TopNav() {
   const { user } = useAuth();
   const { planTier, isLoading, isSyncing } = usePlan();
   const { profile } = useUserProfile();
-  const showBracketology = hasBracketologyAccess(user?.email);
   const NAV_LINKS = useMemo(() => [
     ...BASE_NAV_LINKS,
-    ...(showBracketology ? [BRACKETOLOGY_LINK] : []),
+    BRACKETOLOGY_LINK,
     SETTINGS_LINK,
-  ], [showBracketology]);
+  ], []);
 
   useEffect(() => {
     if (!menuOpen) return;

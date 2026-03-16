@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom';
 import { getTeamsGroupedByConference } from '../../data/teams';
 import { useAuth } from '../../context/AuthContext';
 import { isAdminUser } from '../../config/admin';
-import { hasBracketologyAccess } from '../../config/bracketology';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import SidebarProfileBlock from '../profile/SidebarProfileBlock';
 import styles from './Sidebar.module.css';
@@ -64,7 +63,6 @@ export default function Sidebar() {
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const isAdmin = isAdminUser(user?.email);
-  const showBracketology = hasBracketologyAccess(user?.email);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
   const grouped = getTeamsGroupedByConference();
@@ -167,18 +165,16 @@ export default function Sidebar() {
               <span className={styles.icon}><NewsIcon /></span>
               <span>News Feed</span>
             </NavLink>
-            {showBracketology && (
-              <NavLink
-                to="/bracketology"
-                className={({ isActive }) =>
-                  `${styles.link} ${styles.bracketLink}${isActive ? ` ${styles.active}` : ''}`
-                }
-              >
-                <span className={styles.icon}><BracketIcon /></span>
-                <span>Bracketology</span>
-                <span className={styles.bracketBadge}>NEW</span>
-              </NavLink>
-            )}
+            <NavLink
+              to="/bracketology"
+              className={({ isActive }) =>
+                `${styles.link} ${styles.bracketLink}${isActive ? ` ${styles.active}` : ''}`
+              }
+            >
+              <span className={styles.icon}><BracketIcon /></span>
+              <span>Bracketology</span>
+              <span className={styles.bracketBadge}>NEW</span>
+            </NavLink>
             <NavLink
               to="/settings"
               data-testid="nav-settings"

@@ -137,10 +137,10 @@ export default function DynamicStats({
     }
 
     const allPicks = [
-      ...picks.atsPicks.map((p) => ({ ...p, _st: 'ats' })),
-      ...picks.pickEmPicks.map((p) => ({ ...p, _st: 'pickem' })),
-      ...picks.valuePicks.map((p) => ({ ...p, _st: 'value' })),
-      ...picks.totalsPicks.map((p) => ({ ...p, _st: 'totals' })),
+      ...(picks.atsPicks ?? []).map((p) => ({ ...p, _st: 'ats' })),
+      ...(picks.pickEmPicks ?? []).map((p) => ({ ...p, _st: 'pickem' })),
+      ...(picks.valuePicks ?? []).map((p) => ({ ...p, _st: 'value' })),
+      ...(picks.totalsPicks ?? []).map((p) => ({ ...p, _st: 'totals' })),
     ].filter((p) => p.itemType === 'lean' && p.confidence >= 1);
 
     const signals = {};

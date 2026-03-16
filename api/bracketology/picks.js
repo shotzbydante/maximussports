@@ -2,12 +2,9 @@
  * POST / GET /api/bracketology/picks
  *
  * Save and load user bracket picks. Requires authenticated user.
- * Gate enforcement: only allowed emails can access.
  */
 
 import { createClient } from '@supabase/supabase-js';
-
-const ALLOWED_EMAILS = ['dantedicicco@gmail.com'];
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -31,8 +28,8 @@ async function getAuthUser(req) {
 
 export default async function handler(req, res) {
   const user = await getAuthUser(req);
-  if (!user?.email || !ALLOWED_EMAILS.includes(user.email.toLowerCase())) {
-    return res.status(403).json({ error: 'Access denied' });
+  if (!user?.email) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   const sb = getSupabaseAdmin();

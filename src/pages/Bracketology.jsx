@@ -11,7 +11,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../context/AuthContext';
-import { hasBracketologyAccess } from '../config/bracketology';
 import { useBracketData } from '../hooks/useBracketData';
 import { useBracketPicks } from '../hooks/useBracketPicks';
 import { buildFullBracket } from '../data/bracketData';
@@ -19,7 +18,6 @@ import { generateProjectedBracket } from '../data/projectedField';
 import { resolveBracketMatchup, resolveFullBracket } from '../utils/bracketMatchupResolver';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import BracketLoading from '../components/bracketology/BracketLoading';
-import BracketAccessDenied from '../components/bracketology/BracketAccessDenied';
 import BracketHero from '../components/bracketology/BracketHero';
 import BracketControls from '../components/bracketology/BracketControls';
 import BracketRegion from '../components/bracketology/BracketRegion';
@@ -32,7 +30,6 @@ import styles from './Bracketology.module.css';
 
 export default function Bracketology() {
   const { user, loading: authLoading } = useAuth();
-  const hasAccess = hasBracketologyAccess(user?.email);
   const {
     bracket, loading: bracketLoading, bracketMode, isProjected, isFieldSet, refresh,
   } = useBracketData();
@@ -55,9 +52,8 @@ export default function Bracketology() {
   }, []);
 
   useEffect(() => {
-    if (!hasAccess) return;
     loadModelContext();
-  }, [hasAccess]);
+  }, []);
 
   async function loadModelContext() {
     try {
@@ -146,11 +142,6 @@ export default function Bracketology() {
   const isLoading = authLoading || bracketLoading || showMinLoadTime;
 
   if (isLoading) return <BracketLoading />;
-  if (!hasAccess) return (
-    <div className={styles.page}>
-      <BracketAccessDenied />
-    </div>
-  );
 
   const hasBracket = isFieldSet && bracket?.regions?.length > 0;
 

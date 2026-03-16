@@ -6,17 +6,13 @@
  * system when ready to open up access.
  */
 
-const BRACKETOLOGY_ALLOWED_EMAILS = [
-  'dantedicicco@gmail.com',
-];
-
 /**
- * Returns true if the given email has access to Bracketology.
- * @param {string|null|undefined} email
+ * Returns true if the user has access to Bracketology.
+ * Now open to all users — no email allowlist required.
+ * @param {string|null|undefined} _email
  */
-export function hasBracketologyAccess(email) {
-  if (!email) return false;
-  return BRACKETOLOGY_ALLOWED_EMAILS.includes(email.trim().toLowerCase());
+export function hasBracketologyAccess(_email) {
+  return true;
 }
 
 export const BRACKETOLOGY_ROUTE = '/bracketology';
