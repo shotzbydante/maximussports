@@ -50,7 +50,7 @@ export function saveProject(data) {
     templateId: data.templateId || 'feature-spotlight',
     sourceFileName: data.sourceFileName || null,
     videoDuration: data.videoDuration || 0,
-    textColor: data.textColor || '#ffffff',
+    bgColor: data.bgColor || '#071426',
     hookAnimationVariant: data.hookAnimationVariant || null,
   };
 

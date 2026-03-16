@@ -34,6 +34,17 @@ const ZONE_FALLBACK_ORDER = [
   'BOTTOM_RIGHT',
 ];
 
+const ZONE_ROTATION_CYCLE = [
+  'TOP_CENTER',
+  'MID_LEFT',
+  'MID_RIGHT',
+  'TOP_RIGHT',
+  'BOTTOM_CENTER',
+  'TOP_LEFT',
+  'MID_RIGHT',
+  'TOP_CENTER',
+];
+
 // ─── Timing Constants ────────────────────────────────────────────
 
 export const MIN_CAPTION_GAP = 0.6;
@@ -140,8 +151,22 @@ function zoneOverlapsExclusions(zone, exclusions) {
 
 // ─── Zone Selection ──────────────────────────────────────────────
 
-export function findSafeZone(preferredZones, activeCaptions, exclusions = [], currentTime = 0) {
+export function findSafeZone(preferredZones, activeCaptions, exclusions = [], currentTime = 0, lastUsedZone = null) {
   const activeRects = activeCaptions.filter(c => c.startTime <= currentTime && c.endTime > currentTime);
+
+  // If we have a last-used zone, try rotation first for visual variety
+  if (lastUsedZone) {
+    const rotationStart = ZONE_ROTATION_CYCLE.indexOf(lastUsedZone);
+    if (rotationStart >= 0) {
+      for (let offset = 1; offset <= ZONE_ROTATION_CYCLE.length; offset++) {
+        const zoneName = ZONE_ROTATION_CYCLE[(rotationStart + offset) % ZONE_ROTATION_CYCLE.length];
+        const zone = ZONES[zoneName];
+        if (zone && !captionOverlapsAny(zone, activeRects) && !zoneOverlapsExclusions(zone, exclusions)) {
+          return { ...zone };
+        }
+      }
+    }
+  }
 
   for (const zoneName of preferredZones) {
     const zone = ZONES[zoneName];
@@ -225,6 +250,7 @@ export function planCaptionSequence(captions, totalDuration, sceneMetadata = {})
   const layoutState = new CaptionLayoutState();
   const exclusions = buildExclusions(sceneMetadata);
   const planned = [];
+  let lastUsedZone = null;
 
   const sorted = captions.map((c, i) => ({
     ...c,
@@ -246,7 +272,8 @@ export function planCaptionSequence(captions, totalDuration, sceneMetadata = {})
       continue;
     }
 
-    const zone = findSafeZone(role.preferredZones, layoutState.activeCaptions, exclusions, start);
+    const zone = findSafeZone(role.preferredZones, layoutState.activeCaptions, exclusions, start, lastUsedZone);
+    lastUsedZone = zone.id;
 
     const entry = {
       id: caption.id || `caption_${caption.originalIndex}`,

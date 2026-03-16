@@ -18,6 +18,7 @@ import {
   drawHookBoostFrame,
   getHookBoostText,
   HOOK_ANIMATION_VARIANTS,
+  drawBrandedIntroCard,
   drawIntroCard,
   drawOutroCard,
   drawVideoFrame,
@@ -84,6 +85,7 @@ export async function renderVideo(opts) {
     hookStyle = 'product',
     hookAnimationVariant = null,
     textColor = '#ffffff',
+    bgColor = '#071426',
     onProgress,
     signal,
   } = opts;
@@ -115,9 +117,10 @@ export async function renderVideo(opts) {
   }
 
   const hookBoostFrames = Math.round(1.2 * fps);
+  const brandedIntroFrames = Math.round(1.2 * fps);
   const introFrames = Math.round((scenes.intro.durationMs / 1000) * fps);
   const outroFrames = Math.round(2.2 * fps);
-  const totalFrames = hookBoostFrames + introFrames + footageTotalFrames + outroFrames;
+  const totalFrames = hookBoostFrames + brandedIntroFrames + introFrames + footageTotalFrames + outroFrames;
 
   const hookText = getHookBoostText(hookStyle);
   const chosenHookVariant = hookAnimationVariant
@@ -206,12 +209,17 @@ export async function renderVideo(opts) {
   const firstSeek = footageSegments[0]?.sourceStart ?? trimStart;
   await seekVideo(video, firstSeek + 1);
 
+  const phaseEnd1 = hookBoostFrames;
+  const phaseEnd2 = phaseEnd1 + brandedIntroFrames;
+  const phaseEnd3 = phaseEnd2 + introFrames;
+  const phaseEnd4 = phaseEnd3 + footageTotalFrames;
+
   // ── render loop ──────────────────────────────────────────────
   for (let i = 0; i < totalFrames; i++) {
     if (signal?.aborted) { encoder.close(); throw new DOMException('Render aborted', 'AbortError'); }
     if (encodeError) throw encodeError;
 
-    if (i < hookBoostFrames) {
+    if (i < phaseEnd1) {
       // Phase 1: Hook Boost Frame (pattern interrupt 1.0–1.4s)
       drawHookBoostFrame(ctx, video, {
         hookText,
@@ -224,16 +232,21 @@ export async function renderVideo(opts) {
         accentColor,
       });
 
-    } else if (i < hookBoostFrames + introFrames) {
-      // Phase 2: Intro card
-      const introIdx = i - hookBoostFrames;
+    } else if (i < phaseEnd2) {
+      // Phase 2: Branded Intro Title Card (1.2s)
+      const introIdx = i - phaseEnd1;
+      drawBrandedIntroCard(ctx, logo, { brand, bgColor }, introIdx, brandedIntroFrames);
+
+    } else if (i < phaseEnd3) {
+      // Phase 3: Template-specific intro card
+      const introIdx = i - phaseEnd2;
       const progress = introIdx / introFrames;
       const alpha = easeAlpha(progress, 0.20, 0.12);
       drawIntroCard(ctx, logo, { headline, brand, templateId }, alpha);
 
-    } else if (i < hookBoostFrames + introFrames + footageTotalFrames) {
-      // Phase 3: Footage with safe-zone-aware overlays
-      const footageFrame = i - hookBoostFrames - introFrames;
+    } else if (i < phaseEnd4) {
+      // Phase 4: Footage with safe-zone-aware overlays
+      const footageFrame = i - phaseEnd3;
       const footageProgress = footageFrame / footageTotalFrames;
       const footageTimeS = footageFrame / fps;
 
@@ -252,9 +265,6 @@ export async function renderVideo(opts) {
       }
 
       const overlayYPctOffset = safeZone ? safeZone.yPct : null;
-
-      // Enforce max 2 simultaneous captions using layout state
-      const activeCount = captionLayout.getActiveCount(footageTimeS);
 
       for (const ov of overlays) {
         const text = fieldValues[ov.field];
@@ -302,8 +312,8 @@ export async function renderVideo(opts) {
       if (watermark) drawWatermark(ctx, logo);
 
     } else {
-      // Phase 4: Premium Maximus CTA Card (2.2s)
-      const outroIdx = i - hookBoostFrames - introFrames - footageTotalFrames;
+      // Phase 5: Premium Maximus CTA Card (2.2s)
+      const outroIdx = i - phaseEnd4;
       const progress = outroIdx / outroFrames;
       const alpha = easeAlpha(progress, 0.15, 0.10);
       drawOutroCard(ctx, logo, {
@@ -313,6 +323,7 @@ export async function renderVideo(opts) {
         robotImage,
         outroFrame: outroIdx,
         outroTotalFrames: outroFrames,
+        bgColor,
       }, alpha);
     }
 

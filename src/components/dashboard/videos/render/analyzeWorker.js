@@ -121,26 +121,46 @@ function findActivityPeaks(scores, sampleInterval, trimStart, trimEnd) {
 
   if (window.length < 3) return [];
 
+  // Wider smoothing kernel for more stable peak detection
   const smoothed = window.map((_, i) => {
-    const start = Math.max(0, i - 1);
-    const end = Math.min(window.length, i + 2);
+    const lo = Math.max(0, i - 2);
+    const hi = Math.min(window.length, i + 3);
     let sum = 0;
-    for (let j = start; j < end; j++) sum += window[j];
-    return sum / (end - start);
+    for (let j = lo; j < hi; j++) sum += window[j];
+    return sum / (hi - lo);
+  });
+
+  // Compute a weighted score that boosts scene cuts (large jumps) and
+  // sustained camera motion (high average in a local neighborhood)
+  const weighted = smoothed.map((s, i) => {
+    const raw = window[i];
+    const prev = i > 0 ? window[i - 1] : raw;
+    const jump = Math.abs(raw - prev);
+    const sceneCutBonus = jump > 0.02 ? jump * 2.5 : 0;
+    const lo = Math.max(0, i - 2);
+    const hi = Math.min(window.length, i + 3);
+    let localSum = 0;
+    for (let j = lo; j < hi; j++) localSum += window[j];
+    const localAvg = localSum / (hi - lo);
+    const motionBonus = localAvg > ACTIVITY_HIGH ? localAvg * 0.8 : 0;
+    return s + sceneCutBonus + motionBonus;
   });
 
   const peaks = [];
-  for (let i = 1; i < smoothed.length - 1; i++) {
-    if (smoothed[i] > smoothed[i - 1] && smoothed[i] >= smoothed[i + 1]) {
-      peaks.push({ idx: i, score: smoothed[i] });
+  for (let i = 1; i < weighted.length - 1; i++) {
+    if (weighted[i] > weighted[i - 1] && weighted[i] >= weighted[i + 1]) {
+      peaks.push({ idx: i, score: weighted[i] });
     }
   }
 
   peaks.sort((a, b) => b.score - a.score);
 
+  const trimDuration = trimEnd - trimStart;
+  const maxBeats = trimDuration > 16 ? 6 : trimDuration > 10 ? 5 : 4;
+
   const selected = [];
   for (const peak of peaks) {
-    if (selected.length >= 4) break;
+    if (selected.length >= maxBeats) break;
     const tooClose = selected.some(s => Math.abs(s.idx - peak.idx) < MIN_PEAK_DISTANCE);
     if (!tooClose) {
       selected.push(peak);

@@ -121,6 +121,85 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight, opts =
   return totalHeight;
 }
 
+// ─── SECTION 0: Branded Intro Title Card ─────────────────────────
+// Premium intro card with Maximus text logo, headline, and subheadline.
+// Duration: ~1.2s. Uses the same dark blue theme as the closing CTA card.
+
+export function drawBrandedIntroCard(ctx, logo, { brand, bgColor }, introFrame, introTotalFrames) {
+  const progress = introTotalFrames > 0 ? introFrame / introTotalFrames : 0;
+  const alpha = introFrame < 4
+    ? introFrame / 4
+    : introFrame > introTotalFrames - 5
+      ? Math.max(0, (introTotalFrames - introFrame) / 5)
+      : 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const baseBg = bgColor || '#071426';
+  const bg = ctx.createRadialGradient(W * 0.40, H * 0.30, 0, W * 0.50, H * 0.50, W * 0.9);
+  bg.addColorStop(0, blendDark(baseBg, 0.3));
+  bg.addColorStop(1, baseBg);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const accent = brand.accentColor || '#3C79B4';
+  const textColor = baseBg === '#ffffff' ? '#1a3d7c' : '#ffffff';
+
+  // Logo with zoom-in animation
+  if (logo) {
+    const zoomT = Math.min(1, progress * 3.5);
+    const scale = 0.85 + 0.15 * easeOutCubic(zoomT);
+    const logoAlpha = Math.min(1, progress * 4);
+
+    ctx.globalAlpha = alpha * logoAlpha;
+    const lw = 120 * scale;
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.32 - lh / 2, lw, lh);
+  }
+
+  // Headline: "Welcome to Maximus Sports"
+  const headFadeT = Math.min(1, Math.max(0, (progress - 0.12) * 4));
+  const headSlide = (1 - easeOutCubic(headFadeT)) * 20;
+  ctx.globalAlpha = alpha * headFadeT;
+  ctx.font = `700 46px ${FONT}`;
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Welcome to Maximus Sports', W / 2, H * 0.47 + headSlide);
+
+  // Subheadline
+  const subFadeT = Math.min(1, Math.max(0, (progress - 0.25) * 4));
+  const subSlide = (1 - easeOutCubic(subFadeT)) * 14;
+  ctx.globalAlpha = alpha * subFadeT * 0.6;
+  ctx.font = `400 24px ${FONT}`;
+  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.53 + subSlide);
+
+  // Accent divider
+  const divT = Math.min(1, Math.max(0, (progress - 0.30) * 5));
+  const divW = 100 * divT;
+  ctx.globalAlpha = alpha * divT;
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, H * 0.575, divW, 2.5, 2);
+  else { ctx.rect((W - divW) / 2, H * 0.575, divW, 2.5); }
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function blendDark(hex, amount) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, Math.round(((num >> 16) & 0xff) * (1 - amount)));
+  const g = Math.max(0, Math.round(((num >> 8) & 0xff) * (1 - amount)));
+  const b = Math.max(0, Math.round((num & 0xff) * (1 - amount)));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
 // ─── SECTION 1: Hook Boost Frame (Pattern Interrupt) ─────────────
 // Strong early-retention hook treatment for the first 1.0–1.4s.
 // Supports 3 animation variants: punch-zoom, slam-down, glitch-flash.
@@ -478,31 +557,35 @@ function drawIntroStatsProof(ctx, logo, headline, brand) {
 // Deep navy gradient with centered robot hero, glow effects,
 // data-chip accents, and animated CTA pill.
 
-export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames }, alpha = 1) {
+export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames, bgColor }, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
   const progress = outroTotalFrames > 0 ? (outroFrame || 0) / outroTotalFrames : 0;
   const accent = brand.accentColor || '#3C79B4';
+  const baseBg = bgColor || '#071426';
+  const isWhiteBg = baseBg === '#ffffff';
+  const textMain = isWhiteBg ? '#1a3d7c' : '#ffffff';
+  const textSub = isWhiteBg ? 'rgba(26,61,124,0.55)' : 'rgba(255,255,255,0.55)';
 
   // Premium dark gradient background
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#060a14');
-  bg.addColorStop(0.35, '#0c1425');
-  bg.addColorStop(0.65, '#101c32');
-  bg.addColorStop(1, '#060a14');
+  bg.addColorStop(0, blendDark(baseBg, 0.15));
+  bg.addColorStop(0.35, baseBg);
+  bg.addColorStop(0.65, blendDark(baseBg, 0.05));
+  bg.addColorStop(1, blendDark(baseBg, 0.15));
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle radial glow behind robot
-  const robotGlow = ctx.createRadialGradient(W / 2, H * 0.50, 0, W / 2, H * 0.50, 320);
+  // Subtle radial glow behind robot area
+  const robotGlow = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, 320);
   robotGlow.addColorStop(0, `${accent}22`);
   robotGlow.addColorStop(0.5, `${accent}0a`);
   robotGlow.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = robotGlow;
   ctx.fillRect(0, 0, W, H);
 
-  // Decorative faint lines (data-chip accents)
+  // Decorative faint lines
   ctx.strokeStyle = `${accent}18`;
   ctx.lineWidth = 1;
   for (let i = 0; i < 6; i++) {
@@ -515,7 +598,9 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
 
   // Glassy side panels
   const panelAlpha = 0.04 + Math.sin(progress * Math.PI * 2) * 0.01;
-  ctx.fillStyle = `rgba(255,255,255,${panelAlpha})`;
+  ctx.fillStyle = isWhiteBg
+    ? `rgba(60,121,180,${panelAlpha})`
+    : `rgba(255,255,255,${panelAlpha})`;
   ctx.beginPath();
   roundedRect(ctx, W * 0.04, H * 0.20, W * 0.12, H * 0.18, 8);
   ctx.fill();
@@ -523,7 +608,6 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   roundedRect(ctx, W * 0.84, H * 0.20, W * 0.12, H * 0.18, 8);
   ctx.fill();
 
-  // Thin border accents on panels
   ctx.strokeStyle = `${accent}20`;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -533,7 +617,6 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   roundedRect(ctx, W * 0.84, H * 0.20, W * 0.12, H * 0.18, 8);
   ctx.stroke();
 
-  // Data chip dots inside panels
   ctx.fillStyle = `${accent}40`;
   for (let i = 0; i < 3; i++) {
     ctx.beginPath();
@@ -544,46 +627,23 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
     ctx.fill();
   }
 
-  // Headline: "Explore Maximus Sports"
-  const headlineEntryT = Math.min(1, progress * 3);
-  const headlineAlpha = Math.min(1, headlineEntryT);
-  ctx.globalAlpha = alpha * headlineAlpha;
-  ctx.font = `700 42px ${FONT}`;
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('Explore Maximus Sports', W / 2, H * 0.26);
-
-  // Subheadline
-  ctx.font = `400 22px ${FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.31);
-
-  // Divider
-  const dividerW = 120 * Math.min(1, progress * 4);
-  ctx.fillStyle = accent;
-  ctx.beginPath();
-  roundedRect(ctx, (W - dividerW) / 2, H * 0.34, dividerW, 2.5, 2);
-  ctx.fill();
-
-  // Robot mascot with bounce/float-in animation
+  // Robot mascot — centered hero visual with bounce/float animation
   if (robotImage) {
-    const robotEntryT = Math.min(1, Math.max(0, (progress - 0.08) * 3.5));
-    const bounceY = robotEntryT < 1 ? -40 * (1 - easeOutBounce(robotEntryT)) : 0;
+    const robotEntryT = Math.min(1, Math.max(0, progress * 3.5));
+    const bounceY = robotEntryT < 1 ? -50 * (1 - easeOutBounce(robotEntryT)) : 0;
     const floatY = robotEntryT >= 1 ? Math.sin(progress * Math.PI * 3) * -5 : 0;
     const rAlpha = Math.min(1, robotEntryT);
 
     ctx.globalAlpha = alpha * rAlpha;
 
-    const rw = 165;
+    const rw = 170;
     const rh = (robotImage.naturalHeight / robotImage.naturalWidth) * rw;
     const rx = (W - rw) / 2;
-    const ry = H * 0.44 + bounceY + floatY;
+    const ry = H * 0.30 + bounceY + floatY;
 
-    // Aura glow behind robot
-    const auraSize = rw * 0.9;
+    const auraSize = rw * 1.0;
     const auraGlow = ctx.createRadialGradient(rx + rw / 2, ry + rh / 2, 0, rx + rw / 2, ry + rh / 2, auraSize);
-    const glowPulse = 0.12 + Math.sin(progress * Math.PI * 4) * 0.05;
+    const glowPulse = 0.14 + Math.sin(progress * Math.PI * 4) * 0.06;
     auraGlow.addColorStop(0, `${accent}${Math.round(glowPulse * 255).toString(16).padStart(2, '0')}`);
     auraGlow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = auraGlow;
@@ -592,12 +652,36 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
     ctx.drawImage(robotImage, rx, ry, rw, rh);
   }
 
-  // CTA pill that fades up after mascot settles
+  // Headline below robot
+  const headlineEntryT = Math.min(1, Math.max(0, (progress - 0.15) * 4));
+  const headSlide = (1 - headlineEntryT) * 12;
+  ctx.globalAlpha = alpha * headlineEntryT;
+  ctx.font = `700 42px ${FONT}`;
+  ctx.fillStyle = textMain;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Explore Maximus Sports', W / 2, H * 0.62 + headSlide);
+
+  // Subheadline
+  ctx.font = `400 22px ${FONT}`;
+  ctx.fillStyle = textSub;
+  ctx.fillText('Model-driven college basketball intelligence', W / 2, H * 0.67 + headSlide);
+
+  // Divider
+  const dividerW = 120 * Math.min(1, (progress - 0.20) * 5);
+  if (dividerW > 0) {
+    ctx.globalAlpha = alpha * Math.min(1, (progress - 0.20) * 4);
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    roundedRect(ctx, (W - Math.max(0, dividerW)) / 2, H * 0.71, Math.max(0, dividerW), 2.5, 2);
+    ctx.fill();
+  }
+
+  // CTA pill
   const ctaEntryT = Math.min(1, Math.max(0, (progress - 0.35) * 3));
-  const ctaAlpha = ctaEntryT;
   const ctaSlide = (1 - ctaEntryT) * 16;
 
-  ctx.globalAlpha = alpha * ctaAlpha;
+  ctx.globalAlpha = alpha * ctaEntryT;
 
   const ctaText = 'maximussports.ai';
   ctx.font = `700 24px ${FONT}`;
@@ -605,10 +689,9 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   const pillW = ctaMetrics.width + 56;
   const pillH = 52;
   const pillX = (W - pillW) / 2;
-  const pillY = H * 0.76 + ctaSlide;
+  const pillY = H * 0.78 + ctaSlide;
   const pillR = 26;
 
-  // Pill background with gradient
   const pillGrad = ctx.createLinearGradient(pillX, pillY, pillX + pillW, pillY + pillH);
   pillGrad.addColorStop(0, accent);
   pillGrad.addColorStop(1, shadeColor(accent, -20));
@@ -617,7 +700,6 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   roundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
   ctx.fill();
 
-  // Pill glow
   ctx.shadowColor = `${accent}55`;
   ctx.shadowBlur = 18;
   ctx.shadowOffsetY = 4;
@@ -627,7 +709,6 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  // Pill text
   ctx.font = `700 24px ${FONT}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
@@ -636,10 +717,10 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
 
   // Logo at bottom
   if (logo) {
-    ctx.globalAlpha = alpha * ctaAlpha * 0.6;
+    ctx.globalAlpha = alpha * ctaEntryT * 0.6;
     const lw = 50;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.86, lw, lh);
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.88, lw, lh);
   }
 
   ctx.restore();

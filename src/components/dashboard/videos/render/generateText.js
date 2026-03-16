@@ -102,46 +102,46 @@ const S = {
 
 const B = {
   pinning: [
-    ['One tap to pin', 'Live scores flow in', 'Your season, organized'],
-    ['Pick your teams', 'Updates arrive instantly', 'Never miss a moment'],
-    ['Build your watchlist', 'Real-time tracking', 'Everything, one place'],
+    ['📊 Pin any team instantly', 'Live scores flow in real time', 'Your whole season, organized'],
+    ['Pick your teams, one tap', '🔥 Updates the second they happen', 'Never miss a key moment'],
+    ['Build your custom watchlist', '📊 Real-time score tracking', 'Everything in one place'],
   ],
   ats: [
-    ['Spreads update live', 'Signals surface fast', 'Your edge, visualized'],
-    ['Track every line', 'Spot the movement', 'Act on the signal'],
-    ['Real-time ATS data', 'Cover trends revealed', 'Make sharper calls'],
+    ['📊 Spreads update in real time', '🔥 Signals surface before the market', 'Your edge, visualized'],
+    ['Track every line movement', '🔒 Spot the signal early', 'Act before the shift'],
+    ['📊 Real-time ATS intel', 'Cover trends revealed instantly', 'Make sharper calls'],
   ],
   teamIntel: [
-    ['Pull up any team', 'See the full profile', 'Deep analysis, fast'],
-    ['Every roster detail', 'Matchup breakdowns', 'Trends at a glance'],
-    ['Research any matchup', 'Stats that matter', 'Intel in seconds'],
+    ['📊 Pull up any team profile', 'Full matchup data, one tap', 'Deep analysis in seconds'],
+    ['Every roster detail mapped', '🔥 Matchup breakdowns that matter', 'Trends at a glance'],
+    ['Research any matchup instantly', '📊 Stats the box score misses', 'Intel delivered fast'],
   ],
   conferenceIntel: [
-    ['Map the conference', 'See every trend', 'Full picture, instantly'],
-    ['Standings breakdown', 'Head-to-head history', 'Trend spotting made easy'],
-    ['Conference overview', 'Key matchups highlighted', 'Every angle covered'],
+    ['📊 Map the full conference', 'See every emerging trend', 'The complete picture, instantly'],
+    ['Standings breakdown, live', '🔥 Head-to-head history revealed', 'Trend spotting made simple'],
+    ['Conference overview, one view', '📊 Key matchups highlighted', 'Every angle covered'],
   ],
   oddsInsights: [
-    ['Compare odds live', 'Lines shift in real time', 'Find the value'],
-    ['Every odds source', 'Movement tracked', 'Your advantage'],
-    ['Live odds dashboard', 'Line movement alerts', 'Smarter decisions'],
+    ['📊 Compare odds across books', '🔥 Lines shift — you see it first', 'Find value before it vanishes'],
+    ['Every odds source, one dashboard', 'Movement tracked in real time', '🔒 Your advantage, quantified'],
+    ['Live odds intel, always current', '⚠️ Line movement alerts', 'Smarter decisions, faster'],
   ],
   generalDemo: [
-    ['See the dashboard', 'Track any game', 'Get started instantly'],
-    ['One platform', 'Every insight', 'Total coverage'],
-    ['Real-time scores', 'Deep analytics', 'Your sports hub'],
+    ['📊 See the full dashboard', 'Track any game, any stat', 'Get started in seconds'],
+    ['One platform for everything', '🔥 Every insight, one place', 'Total sports coverage'],
+    ['Real-time scores and analytics', '📊 Deep intel on demand', 'Your complete sports hub'],
   ],
 };
 
 // ─── Caption body fragments ──────────────────────────────────────
 
 const CAPTION_BODIES = {
-  pinning: 'Pin your teams. Get every score, update, and insight — automatically.',
-  ats: 'Track ATS signals, spread movements, and cover trends in real time.',
-  teamIntel: 'Full team profiles, matchup data, and trend analysis — all in one place.',
-  conferenceIntel: 'Conference standings, head-to-head records, and trends. Fully mapped.',
-  oddsInsights: 'Live odds comparison, line tracking, and value alerts. Updated constantly.',
-  generalDemo: 'Scores, odds, team intel, and betting signals — one platform, total coverage.',
+  pinning: '📊 Pin your teams and get every score, update, and insight — automatically. No more app-hopping.',
+  ats: '🔒 Track ATS signals, spread movements, and cover trends the moment they surface.',
+  teamIntel: '📊 Full team profiles, matchup breakdowns, and trend analysis — all in one tap.',
+  conferenceIntel: '🔥 Conference standings, head-to-head history, and emerging trends. Fully mapped out.',
+  oddsInsights: '📊 Live odds comparison, real-time line tracking, and value alerts. Always current.',
+  generalDemo: '📊 Scores, odds, team intel, and signals — one platform built for serious fans and sharp bettors.',
 };
 
 const CAPTION_CTAS = {

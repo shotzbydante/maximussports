@@ -252,3 +252,36 @@ describe('getCaptionSlideOffset', () => {
     expect(offset).toBe(0);
   });
 });
+
+describe('zone rotation via findSafeZone', () => {
+  it('rotates away from the last used zone when possible', () => {
+    const zone1 = findSafeZone(['TOP_CENTER'], [], [], 0, null);
+    expect(zone1.id).toBe('TOP_CENTER');
+    const zone2 = findSafeZone(['TOP_CENTER'], [], [], 0, 'TOP_CENTER');
+    expect(zone2.id).not.toBe('TOP_CENTER');
+  });
+
+  it('still falls back to preferred zone if rotation is fully blocked', () => {
+    const exclusions = Object.values(ZONES).filter(z => z.id !== 'TOP_CENTER').map(z => ({
+      x: z.x, y: z.y, w: z.w, h: z.h,
+    }));
+    const zone = findSafeZone(['TOP_CENTER'], [], exclusions, 0, 'TOP_CENTER');
+    expect(zone.id).toBe('TOP_CENTER');
+  });
+});
+
+describe('planCaptionSequence zone variety', () => {
+  it('assigns different zones to consecutive captions when possible', () => {
+    const captions = [
+      { text: 'Hook text', role: 'hook' },
+      { text: 'Insight about the game', role: 'insight' },
+      { text: 'A data point here', role: 'data' },
+      { text: 'Curiosity line', role: 'curiosity' },
+    ];
+    const planned = planCaptionSequence(captions, 30);
+    const zones = planned.map(c => c.zone);
+    for (let i = 1; i < zones.length; i++) {
+      expect(zones[i]).not.toBe(zones[i - 1]);
+    }
+  });
+});
