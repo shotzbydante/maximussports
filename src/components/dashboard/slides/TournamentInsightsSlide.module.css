@@ -1,15 +1,15 @@
-/* ── Tournament Insights Slide — Premium IG Redesign v2 ──── */
+/* ── Tournament Insights Slide — Premium IG v3 ──────────── */
 
 /* ── Header ──────────────────────────────────────────────── */
 .headerBlock {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  margin-bottom: 10px;
+  gap: 2px;
+  margin-bottom: 12px;
 }
 
 .headerCompact {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .marchBadge {
@@ -19,9 +19,9 @@
   background: rgba(183, 152, 108, 0.14);
   border: 1px solid rgba(183, 152, 108, 0.30);
   border-radius: 999px;
-  padding: 2px 12px;
+  padding: 3px 14px;
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.16em;
   color: #D4B87A;
@@ -30,82 +30,88 @@
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 38px;
+  font-size: 44px;
   font-weight: 700;
-  line-height: 0.95;
+  line-height: 1.0;
   color: #ffffff;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   white-space: pre-line;
 }
 
-.headerCompact .title { font-size: 32px; }
+.headerCompact .title { font-size: 38px; }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #4A90D9;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
-.headerCompact .titleSup { font-size: 10px; margin-top: 2px; }
-
-.presetHint {
-  font-size: 11px;
-  color: rgba(240, 244, 248, 0.30);
-  margin-top: 1px;
-  letter-spacing: 0.01em;
-}
+.headerCompact .titleSup { font-size: 11px; }
 
 /* ── Card List ────────────────────────────────────────────── */
 .cardList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
 }
 
 .cardListCompact {
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ── Card ──────────────────────────────────────────────────── */
 .card {
   background: linear-gradient(
-    135deg,
-    var(--card-accent-12, rgba(74,144,217,0.12)) 0%,
-    rgba(255,255,255,0.015) 55%,
-    transparent 100%
+    140deg,
+    var(--card-accent-15, rgba(74,144,217,0.15)) 0%,
+    rgba(255,255,255,0.02) 50%,
+    rgba(255,255,255,0.005) 100%
   );
-  border: 1px solid var(--card-accent-25, rgba(74,144,217,0.22));
-  border-radius: 12px;
-  padding: 12px 14px 8px;
+  border: 1.5px solid var(--card-accent-30, rgba(74,144,217,0.28));
+  border-radius: 14px;
+  padding: 16px 18px 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   position: relative;
   overflow: hidden;
 }
 
+/* Ambient glow from pick side */
 .card::before {
   content: '';
   position: absolute;
-  top: -30%;
-  left: -8%;
-  width: 45%;
-  height: 160%;
-  background: radial-gradient(ellipse at center, var(--card-accent-06, rgba(74,144,217,0.06)) 0%, transparent 70%);
+  top: -25%;
+  left: -6%;
+  width: 50%;
+  height: 150%;
+  background: radial-gradient(ellipse at center, var(--card-accent-08, rgba(74,144,217,0.08)) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Subtle inner highlight at top edge */
+.card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-accent-30, rgba(74,144,217,0.20)) 50%, transparent);
   pointer-events: none;
 }
 
 .cardCompact {
-  padding: 9px 12px 7px;
-  gap: 4px;
-  border-radius: 10px;
+  padding: 14px 16px 8px;
+  gap: 5px;
+  border-radius: 12px;
 }
 
 /* ── Card Inner: 3-zone layout ─────────────────────────── */
@@ -113,7 +119,7 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   position: relative;
   z-index: 1;
 }
@@ -123,22 +129,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   text-align: center;
-}
-
-.pickMarker {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--card-accent, #4A90D9);
-  text-transform: uppercase;
-  background: var(--card-accent-06, rgba(74,144,217,0.06));
-  border: 1px solid var(--card-accent-25, rgba(74,144,217,0.18));
-  border-radius: 3px;
-  padding: 1px 8px;
-  margin-bottom: 3px;
 }
 
 .pickLogoWrap {
@@ -150,53 +142,68 @@
 
 .pickGlow {
   position: absolute;
-  inset: -18px;
+  inset: -22px;
   border-radius: 50%;
   pointer-events: none;
 }
 
 .seedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #D4B87A;
   background: rgba(183, 152, 108, 0.18);
   border: 1px solid rgba(183, 152, 108, 0.30);
   border-radius: 4px;
-  padding: 0px 6px;
-  letter-spacing: 0.02em;
-  margin-top: 2px;
+  padding: 1px 7px;
+  letter-spacing: 0.03em;
+  margin-top: 3px;
 }
 
 .pickName {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
+  max-width: 200px;
   line-height: 1.1;
   margin-top: 1px;
 }
 
-.cardCompact .pickName { font-size: 17px; max-width: 125px; }
+.cardCompact .pickName { font-size: 21px; max-width: 160px; }
+
+/* "Maximus's Pick" badge */
+.maximusPick {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: var(--card-accent, #4A90D9);
+  background: var(--card-accent-08, rgba(74,144,217,0.08));
+  border: 1px solid var(--card-accent-30, rgba(74,144,217,0.25));
+  border-radius: 4px;
+  padding: 2px 10px;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
 
 /* ── CENTER: Probability Ring + VS ─────────────────────── */
 .centerZone {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 0 2px;
+  gap: 3px;
+  padding: 0 4px;
 }
 
 .probRingWrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
 }
 
 .probRing {
@@ -209,19 +216,19 @@
 .probRingPct {
   position: absolute;
   font-family: 'Oswald', sans-serif;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.cardCompact .probRingPct { font-size: 19px; }
+.cardCompact .probRingPct { font-size: 22px; }
 
 .probRingLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: rgba(240, 244, 248, 0.35);
+  color: rgba(240, 244, 248, 0.40);
   text-transform: uppercase;
 }
 
@@ -234,17 +241,17 @@
 
 .vsLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.18);
+  color: rgba(240, 244, 248, 0.20);
   letter-spacing: 0.08em;
 }
 
 .regionLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.28);
+  color: rgba(240, 244, 248, 0.32);
   letter-spacing: 0.10em;
   text-transform: uppercase;
 }
@@ -254,9 +261,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   text-align: center;
-  opacity: 0.65;
+  opacity: 0.78;
 }
 
 .oppLogoWrap {
@@ -267,57 +274,113 @@
 
 .oppSeedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  color: rgba(212, 184, 122, 0.55);
-  background: rgba(183, 152, 108, 0.10);
-  border: 1px solid rgba(183, 152, 108, 0.16);
+  color: rgba(212, 184, 122, 0.60);
+  background: rgba(183, 152, 108, 0.12);
+  border: 1px solid rgba(183, 152, 108, 0.20);
   border-radius: 4px;
-  padding: 0px 5px;
-  margin-top: 2px;
+  padding: 1px 6px;
+  margin-top: 3px;
 }
 
 .oppName {
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.65);
+  color: rgba(240, 244, 248, 0.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 160px;
   line-height: 1.1;
 }
 
-.cardCompact .oppName { font-size: 13px; max-width: 100px; }
+.cardCompact .oppName { font-size: 16px; max-width: 130px; }
 
-.oppPct {
+/* ── Colored Probability Bar ───────────────────────────── */
+.probBar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  z-index: 1;
+}
+
+.probBarLabels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.probBarWinner {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.60);
+  letter-spacing: 0.02em;
+}
+
+.probBarWinner strong {
+  color: rgba(240, 244, 248, 0.85);
+  margin-left: 4px;
+}
+
+.probBarLoser {
   font-family: 'Oswald', sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: rgba(240, 244, 248, 0.30);
+  letter-spacing: 0.02em;
 }
 
-.cardCompact .oppPct { font-size: 11px; }
+.probBarLoser strong {
+  color: rgba(240, 244, 248, 0.45);
+  margin-left: 4px;
+}
 
-/* ── Game Info Metadata Strip ──────────────────────────── */
+.probBarTrack {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.probBarFill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.6s ease;
+}
+
+/* ── Bottom Row: Meta + Badges ─────────────────────────── */
+.bottomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  padding-top: 2px;
+  border-top: 1px solid rgba(74, 144, 217, 0.06);
+}
+
 .metaStrip {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 5px;
-  position: relative;
-  z-index: 1;
-  padding: 3px 0 1px;
-  border-top: 1px solid rgba(74, 144, 217, 0.06);
+  flex: 1;
+  min-width: 0;
 }
 
 .metaItem {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: rgba(240, 244, 248, 0.40);
+  white-space: nowrap;
 }
 
 .metaDot {
@@ -325,22 +388,19 @@
   color: rgba(240, 244, 248, 0.18);
 }
 
-/* ── Badge Strip ───────────────────────────────────────── */
 .badgeStrip {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 5px;
-  position: relative;
-  z-index: 1;
+  flex-shrink: 0;
 }
 
 .badge {
   font-family: 'Oswald', sans-serif;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 4px;
   border: 1px solid;
   white-space: nowrap;

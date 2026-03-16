@@ -28,6 +28,14 @@ function computeUpsetRisk(insight) {
   return 'LOW';
 }
 
+function socialTitle(rawTitle, preset) {
+  if (!preset) return rawTitle;
+  const m = preset.match(/^(\d+)-seeds?$/);
+  if (m) return `🔒 SEED INTEL: #${m[1]} SEEDS`;
+  if (preset === '8v9') return '🔒 SEED INTEL: #8 VS #9';
+  return rawTitle;
+}
+
 function ConvictionBadge({ label }) {
   const c = CONVICTION_COLORS[label] || CONVICTION_COLORS.LOW;
   return (
@@ -46,8 +54,8 @@ function UpsetMeter({ risk }) {
   );
 }
 
-function ProbRing({ pct, color, size = 80, compact = false }) {
-  const stroke = compact ? 4.5 : 5.5;
+function ProbRing({ pct, color, size = 90 }) {
+  const stroke = 6;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
@@ -71,12 +79,34 @@ function ProbRing({ pct, color, size = 80, compact = false }) {
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            style={{ filter: `drop-shadow(0 0 8px ${color}66)` }}
+            style={{ filter: `drop-shadow(0 0 10px ${color}66)` }}
           />
         </svg>
         <span className={styles.probRingPct} style={{ color }}>{pct}%</span>
       </div>
       <span className={styles.probRingLabel}>WIN PROB</span>
+    </div>
+  );
+}
+
+function ProbBar({ pct, winnerName, loserName, accentColor }) {
+  const losePct = 100 - pct;
+  return (
+    <div className={styles.probBar}>
+      <div className={styles.probBarLabels}>
+        <span className={styles.probBarWinner}>{winnerName} <strong>{pct}%</strong></span>
+        <span className={styles.probBarLoser}>{loserName} <strong>{losePct}%</strong></span>
+      </div>
+      <div className={styles.probBarTrack}>
+        <div
+          className={styles.probBarFill}
+          style={{
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, ${accentColor}, ${accentColor}cc)`,
+            boxShadow: `0 0 14px ${accentColor}44`,
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -88,7 +118,6 @@ function InsightCard({ insight, compact = false }) {
   const loserTeam = loser || matchup?.bottomTeam;
   const upsetRisk = computeUpsetRisk(insight);
   const pct = Math.round((winProbability ?? 0.5) * 100);
-  const losePct = 100 - pct;
 
   const winnerSlug = winnerTeam?.slug || '';
   const tc = getTeamColors(winnerSlug);
@@ -96,7 +125,8 @@ function InsightCard({ insight, compact = false }) {
 
   const winnerSeed = winnerTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
   const loserSeed = loserTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
-  const ringSize = compact ? 64 : 78;
+  const logoSize = compact ? 56 : 68;
+  const ringSize = compact ? 76 : 92;
 
   const spread = matchup?.spread ?? null;
   const overUnder = matchup?.overUnder ?? matchup?.total ?? null;
@@ -108,63 +138,70 @@ function InsightCard({ insight, compact = false }) {
       className={`${styles.card} ${compact ? styles.cardCompact : ''}`}
       style={{
         '--card-accent': accentColor,
-        '--card-accent-25': `${accentColor}40`,
-        '--card-accent-12': `${accentColor}1f`,
-        '--card-accent-06': `${accentColor}0f`,
+        '--card-accent-30': `${accentColor}4d`,
+        '--card-accent-15': `${accentColor}26`,
+        '--card-accent-08': `${accentColor}14`,
       }}
     >
       <div className={styles.cardInner}>
         {/* LEFT: Pick Team — visually dominant */}
         <div className={styles.pickZone}>
-          <div className={styles.pickMarker}>MODEL PICK</div>
           <div className={styles.pickLogoWrap}>
-            <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />
-            <TeamLogo team={winnerTeam} size={compact ? 50 : 60} />
+            <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />
+            <TeamLogo team={winnerTeam} size={logoSize} />
           </div>
           <span className={styles.seedTag}>#{winnerSeed}</span>
           <span className={styles.pickName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
+          <span className={styles.maximusPick}>Maximus&#39;s Pick</span>
         </div>
 
         {/* CENTER: Probability Ring + VS bridge */}
         <div className={styles.centerZone}>
-          <ProbRing pct={pct} color={accentColor} size={ringSize} compact={compact} />
+          <ProbRing pct={pct} color={accentColor} size={ringSize} />
           <div className={styles.vsStrip}>
             <span className={styles.vsLabel}>VS</span>
             {matchup?.region && <span className={styles.regionLabel}>{matchup.region.toUpperCase()}</span>}
           </div>
         </div>
 
-        {/* RIGHT: Opponent — secondary emphasis */}
+        {/* RIGHT: Opponent — balanced size, secondary emphasis */}
         <div className={styles.oppZone}>
           <div className={styles.oppLogoWrap}>
-            <TeamLogo team={loserTeam} size={compact ? 38 : 44} />
+            <TeamLogo team={loserTeam} size={logoSize} />
           </div>
           <span className={styles.oppSeedTag}>#{loserSeed}</span>
           <span className={styles.oppName}>{loserTeam?.shortName || loserTeam?.name}</span>
-          <span className={styles.oppPct}>{losePct}%</span>
         </div>
       </div>
 
-      {/* Game info metadata strip */}
-      <div className={styles.metaStrip}>
-        <span className={styles.metaItem}>
-          Round 1{matchup?.region ? ` · ${matchup.region}` : ''}
-        </span>
-        <span className={styles.metaDot}>·</span>
-        <span className={styles.metaItem}>
-          {gameTime && network ? `${gameTime} · ${network}` : gameTime || network || 'Schedule TBA'}
-        </span>
-        <span className={styles.metaDot}>·</span>
-        <span className={styles.metaItem}>
-          {spread != null ? `${spread}` : 'Line TBA'}
-          {overUnder != null ? ` · O/U ${overUnder}` : ''}
-        </span>
-      </div>
+      {/* Colored probability bar */}
+      <ProbBar
+        pct={pct}
+        winnerName={winnerTeam?.shortName || winnerTeam?.name}
+        loserName={loserTeam?.shortName || loserTeam?.name}
+        accentColor={accentColor}
+      />
 
-      {/* Bottom strip: badges */}
-      <div className={styles.badgeStrip}>
-        <ConvictionBadge label={confidenceLabel} />
-        <UpsetMeter risk={upsetRisk} />
+      {/* Game info + badges in one row */}
+      <div className={styles.bottomRow}>
+        <div className={styles.metaStrip}>
+          <span className={styles.metaItem}>
+            Rd 1{matchup?.region ? ` · ${matchup.region}` : ''}
+          </span>
+          <span className={styles.metaDot}>·</span>
+          <span className={styles.metaItem}>
+            {gameTime && network ? `${gameTime} · ${network}` : 'Schedule TBA'}
+          </span>
+          <span className={styles.metaDot}>·</span>
+          <span className={styles.metaItem}>
+            {spread != null ? `${spread}` : 'Line TBA'}
+            {overUnder != null ? ` · O/U ${overUnder}` : ''}
+          </span>
+        </div>
+        <div className={styles.badgeStrip}>
+          <ConvictionBadge label={confidenceLabel} />
+          <UpsetMeter risk={upsetRisk} />
+        </div>
       </div>
     </div>
   );
@@ -172,16 +209,13 @@ function InsightCard({ insight, compact = false }) {
 
 export default function TournamentInsightsSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const ti = options.tournamentInsights || {};
-  const title = ti.title || 'March Madness\nInsights';
+  const rawTitle = ti.title || 'March Madness\nInsights';
   const subtitle = ti.subtitle || 'TOURNAMENT INTELLIGENCE';
   const insights = ti.insights || [];
 
   const displayInsights = insights.slice(0, 5);
   const isManyCards = displayInsights.length >= 4;
-
-  const presetHint = ti.preset
-    ? 'Model projections for every matchup in this seed line'
-    : null;
+  const title = socialTitle(rawTitle, ti.preset);
 
   return (
     <SlideShell
@@ -197,7 +231,6 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
         <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
         <h2 className={styles.title}>{title}</h2>
         <div className={styles.titleSup}>{subtitle}</div>
-        {presetHint && <div className={styles.presetHint}>{presetHint}</div>}
       </div>
 
       {displayInsights.length === 0 ? (

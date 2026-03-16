@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 44px 72px 22px;
+  padding: 40px 60px 18px;
   border-bottom: 1px solid rgba(60, 121, 180, 0.18);
 }
 
@@ -122,7 +122,7 @@
   position: relative;
   z-index: 2;
   flex: 1;
-  padding: 36px 72px 24px;
+  padding: 28px 60px 16px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -148,7 +148,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 72px 56px;
+  padding: 14px 60px 48px;
   border-top: 1px solid rgba(60, 121, 180, 0.12);
   gap: 20px;
 }
