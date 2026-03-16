@@ -48,7 +48,7 @@ export default function SlideShell({
       {brandMode !== 'light' && (
         <div
           className={styles.mascotWrap}
-          style={{ opacity: isRobot ? 0.80 : 0.62 }}
+          style={{ opacity: isRobot ? 0.85 : 0.78 }}
         >
           <img
             src="/mascot.png"

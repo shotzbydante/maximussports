@@ -4,9 +4,9 @@ import { getTeamColors } from '../../../utils/teamColors';
 import styles from './TournamentInsightsSlide.module.css';
 
 const CONVICTION_COLORS = {
-  HIGH:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)', barFill: '#5FE8A8' },
-  MEDIUM: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)', barFill: '#D4B87A' },
-  LOW:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)', barFill: '#8EAFC4' },
+  HIGH:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)' },
+  MEDIUM: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)' },
+  LOW:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)' },
 };
 
 const UPSET_RISK_CONFIG = {
@@ -46,41 +46,44 @@ function UpsetMeter({ risk }) {
   );
 }
 
-function ProbRing({ pct, color, size = 80 }) {
-  const stroke = 5;
+function ProbRing({ pct, color, size = 80, compact = false }) {
+  const stroke = compact ? 4.5 : 5.5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
 
   return (
-    <div className={styles.probRing} style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ filter: `drop-shadow(0 0 6px ${color}55)` }}
-        />
-      </svg>
-      <span className={styles.probRingPct} style={{ color }}>{pct}%</span>
+    <div className={styles.probRingWrap}>
+      <div className={styles.probRing} style={{ width: size, height: size }}>
+        <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={stroke}
+          />
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            style={{ filter: `drop-shadow(0 0 8px ${color}66)` }}
+          />
+        </svg>
+        <span className={styles.probRingPct} style={{ color }}>{pct}%</span>
+      </div>
+      <span className={styles.probRingLabel}>WIN PROB</span>
     </div>
   );
 }
 
 function InsightCard({ insight, compact = false }) {
   if (!insight) return null;
-  const { matchup, winner, loser, confidenceLabel, isUpset, winProbability } = insight;
+  const { matchup, winner, loser, confidenceLabel, winProbability } = insight;
   const winnerTeam = winner || matchup?.topTeam;
   const loserTeam = loser || matchup?.bottomTeam;
   const upsetRisk = computeUpsetRisk(insight);
@@ -93,47 +96,69 @@ function InsightCard({ insight, compact = false }) {
 
   const winnerSeed = winnerTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
   const loserSeed = loserTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
-  const ringSize = compact ? 68 : 80;
+  const ringSize = compact ? 64 : 78;
+
+  const spread = matchup?.spread ?? null;
+  const overUnder = matchup?.overUnder ?? matchup?.total ?? null;
+  const gameTime = matchup?.gameTime ?? matchup?.time ?? null;
+  const network = matchup?.network ?? matchup?.broadcast ?? null;
 
   return (
     <div
       className={`${styles.card} ${compact ? styles.cardCompact : ''}`}
       style={{
         '--card-accent': accentColor,
-        '--card-accent-20': `${accentColor}33`,
-        '--card-accent-10': `${accentColor}1a`,
+        '--card-accent-25': `${accentColor}40`,
+        '--card-accent-12': `${accentColor}1f`,
+        '--card-accent-06': `${accentColor}0f`,
       }}
     >
       <div className={styles.cardInner}>
-        {/* LEFT: Pick Team (dominant) */}
+        {/* LEFT: Pick Team — visually dominant */}
         <div className={styles.pickZone}>
-          <div className={styles.pickLabel}>PICK</div>
+          <div className={styles.pickMarker}>MODEL PICK</div>
           <div className={styles.pickLogoWrap}>
-            <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}30 0%, transparent 70%)` }} />
-            <TeamLogo team={winnerTeam} size={compact ? 48 : 56} />
+            <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />
+            <TeamLogo team={winnerTeam} size={compact ? 50 : 60} />
           </div>
           <span className={styles.seedTag}>#{winnerSeed}</span>
           <span className={styles.pickName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
         </div>
 
-        {/* CENTER: Probability Ring + VS */}
+        {/* CENTER: Probability Ring + VS bridge */}
         <div className={styles.centerZone}>
-          <ProbRing pct={pct} color={accentColor} size={ringSize} />
+          <ProbRing pct={pct} color={accentColor} size={ringSize} compact={compact} />
           <div className={styles.vsStrip}>
             <span className={styles.vsLabel}>VS</span>
             {matchup?.region && <span className={styles.regionLabel}>{matchup.region.toUpperCase()}</span>}
           </div>
         </div>
 
-        {/* RIGHT: Opponent (secondary) */}
+        {/* RIGHT: Opponent — secondary emphasis */}
         <div className={styles.oppZone}>
           <div className={styles.oppLogoWrap}>
-            <TeamLogo team={loserTeam} size={compact ? 40 : 46} />
+            <TeamLogo team={loserTeam} size={compact ? 38 : 44} />
           </div>
           <span className={styles.oppSeedTag}>#{loserSeed}</span>
           <span className={styles.oppName}>{loserTeam?.shortName || loserTeam?.name}</span>
           <span className={styles.oppPct}>{losePct}%</span>
         </div>
+      </div>
+
+      {/* Game info metadata strip */}
+      <div className={styles.metaStrip}>
+        <span className={styles.metaItem}>
+          Round 1{matchup?.region ? ` · ${matchup.region}` : ''}
+        </span>
+        <span className={styles.metaDot}>·</span>
+        <span className={styles.metaItem}>
+          {gameTime && network ? `${gameTime} · ${network}` : gameTime || network || 'Schedule TBA'}
+        </span>
+        <span className={styles.metaDot}>·</span>
+        <span className={styles.metaItem}>
+          {spread != null ? `${spread}` : 'Line TBA'}
+          {overUnder != null ? ` · O/U ${overUnder}` : ''}
+        </span>
       </div>
 
       {/* Bottom strip: badges */}
@@ -154,7 +179,6 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
   const displayInsights = insights.slice(0, 5);
   const isManyCards = displayInsights.length >= 4;
 
-  // Build a social-friendly subtitle hint
   const presetHint = ti.preset
     ? 'Model projections for every matchup in this seed line'
     : null;
@@ -181,7 +205,7 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
           <p>Select matchups to generate tournament insights.</p>
         </div>
       ) : (
-        <div className={styles.cardList}>
+        <div className={`${styles.cardList} ${isManyCards ? styles.cardListCompact : ''}`}>
           {displayInsights.map((insight, i) => (
             <InsightCard
               key={i}

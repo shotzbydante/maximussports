@@ -28,21 +28,20 @@
 /* ── Robot mascot corner ─────────────────────────────── */
 .mascotWrap {
   position: absolute;
-  bottom: 108px;
-  right: 52px;
+  bottom: 80px;
+  right: 48px;
   z-index: 1;
   pointer-events: none;
-  /* opacity is set via inline style in SlideShell.jsx (0.62 standard / 0.80 robot) */
 }
 
 .mascot {
-  width: 160px;
+  width: 170px;
   height: auto;
   display: block;
-  /* Crisp premium glow: depth shadow + subtle brand-blue aura */
   filter:
-    drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45))
-    drop-shadow(0 0 14px rgba(45, 108, 168, 0.30));
+    drop-shadow(0 6px 22px rgba(0, 0, 0, 0.50))
+    drop-shadow(0 0 20px rgba(45, 108, 168, 0.38))
+    drop-shadow(0 0 40px rgba(74, 144, 217, 0.12));
 }
 
 /* ── Header ─────────────────────────────────────────────── */
@@ -52,7 +51,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 56px 80px 28px;
+  padding: 44px 72px 22px;
   border-bottom: 1px solid rgba(60, 121, 180, 0.18);
 }
 
@@ -123,7 +122,7 @@
   position: relative;
   z-index: 2;
   flex: 1;
-  padding: 52px 80px 36px;
+  padding: 36px 72px 24px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -149,7 +148,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 80px 72px;
+  padding: 18px 72px 56px;
   border-top: 1px solid rgba(60, 121, 180, 0.12);
   gap: 20px;
 }
