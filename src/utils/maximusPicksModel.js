@@ -1171,6 +1171,11 @@ export function buildMaximusPicks({
   rankMap = {},
   championshipOdds = {},
 } = {}) {
+  // Guard: bail early on empty/invalid input rather than processing 1200 lines
+  if (!Array.isArray(games) || games.length === 0) {
+    return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [], mlPicks: [] };
+  }
+
   const atsBySlug = providedAtsBySlug ?? (() => {
     const all = [...(atsLeaders.best ?? []), ...(atsLeaders.worst ?? [])];
     if (all.length === 0) return null;

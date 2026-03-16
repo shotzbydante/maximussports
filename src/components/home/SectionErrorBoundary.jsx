@@ -2,8 +2,9 @@
  * Reusable sectional error boundary for homepage widgets.
  *
  * Catches render-time exceptions so a crash in one section never takes down
- * the whole page. Emits analytics.track('ui_error') and renders a minimal
- * inline fallback that lets the user retry.
+ * the whole page.  Emits both `ui_error` (generic) and `homepage_section_failed`
+ * (funnel-specific) analytics events, then renders a minimal inline fallback
+ * that lets the user retry.
  */
 import { Component } from 'react';
 import { track } from '../../analytics/index';
@@ -26,11 +27,20 @@ export default class SectionErrorBoundary extends Component {
         ?.trim()
         ?.slice(0, 100) ?? 'unknown';
 
+      const sectionName = this.props.name ?? 'unknown';
+      const msg = (error?.message ?? 'unknown').slice(0, 200);
+
       track('ui_error', {
         component: componentHint,
-        section: this.props.name ?? 'unknown',
-        message: (error?.message ?? 'unknown').slice(0, 200),
+        section: sectionName,
+        message: msg,
         stack: (error?.stack ?? '').slice(0, 500),
+      });
+
+      track('homepage_section_failed', {
+        section: sectionName,
+        error_category: categorizeError(msg),
+        fallback_rendered: !this.props.silent,
       });
     } catch { /* never crash the error handler */ }
   }
@@ -80,4 +90,13 @@ export default class SectionErrorBoundary extends Component {
 
     return this.props.children;
   }
+}
+
+function categorizeError(msg) {
+  const lower = (msg || '').toLowerCase();
+  if (lower.includes('undefined') || lower.includes('null'))  return 'null_reference';
+  if (lower.includes('map') || lower.includes('foreach'))     return 'iteration_error';
+  if (lower.includes('network') || lower.includes('fetch'))   return 'network';
+  if (lower.includes('json'))                                  return 'parse_error';
+  return 'render_error';
 }
