@@ -341,6 +341,10 @@ function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, as
 
 // ─── Tournament Insights ──────────────────────────────────────────────────────
 
+function _teamEmoji(slug, name) {
+  try { return getTeamEmoji(slug, name) || '🏀'; } catch { return '🏀'; }
+}
+
 function buildTournamentCaption({ tournamentInsights, asOf }) {
   const ti = tournamentInsights || {};
   const insights = ti.insights || [];
@@ -354,73 +358,95 @@ function buildTournamentCaption({ tournamentInsights, asOf }) {
 
   if (insights.length === 0) {
     return {
-      shortCaption: '🏀 March Madness tournament intelligence is live.\n\nFull analysis at maximussports.ai',
-      longCaption: '🏀 March Madness tournament intelligence is live.\n\nFull analysis at maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+',
+      shortCaption: '🏀 March Madness tournament intelligence is live.\n\nMore model picks + bracket intel at maximussports.ai\n\n#MarchMadness #NCAATournament #Bracketology #CollegeBasketball #MaximusSports',
+      longCaption: '🏀 March Madness tournament intelligence is live.\n\nMore model picks + bracket intel at maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+\n\n#MarchMadness #NCAATournament #Bracketology #CollegeBasketball #MaximusSports',
       hashtags: ['#MarchMadness', '#NCAATournament', '#Bracketology', '#CollegeBasketball', '#MaximusSports'],
     };
   }
 
-  const teamNames = insights.map(ins => {
-    const w = ins.winner;
-    return w?.shortName || w?.name || 'TBD';
-  });
-
   const highConv = insights.filter(ins => ins.confidenceLabel === 'HIGH');
+  const upsetPicks = insights.filter(ins => ins.isUpset);
+
   const strongestPick = highConv.length > 0 ? highConv[0] : insights[0];
+  const strongestSlug = strongestPick?.winner?.slug || '';
   const strongestName = strongestPick?.winner?.shortName || strongestPick?.winner?.name || '';
+  const strongestEmoji = _teamEmoji(strongestSlug, strongestPick?.winner?.name);
   const strongestPct = strongestPick?.winProbability != null
     ? Math.round(strongestPick.winProbability * 100)
     : null;
 
-  const matchupSummaries = insights.slice(0, 4).map(ins => {
-    const top = ins.matchup?.topTeam?.shortName || ins.matchup?.topTeam?.name || '?';
-    const bot = ins.matchup?.bottomTeam?.shortName || ins.matchup?.bottomTeam?.name || '?';
-    const topSeed = ins.matchup?.topSeed;
-    const botSeed = ins.matchup?.bottomSeed;
-    const seedStr = topSeed != null && botSeed != null ? ` (${topSeed}v${botSeed})` : '';
-    return `${top} vs ${bot}${seedStr}`;
+  const pickLines = insights.slice(0, 4).map(ins => {
+    const w = ins.winner;
+    const l = ins.loser;
+    const wName = w?.shortName || w?.name || '?';
+    const lName = l?.shortName || l?.name || '?';
+    const emoji = _teamEmoji(w?.slug, w?.name);
+    const pct = ins.winProbability != null ? Math.round(ins.winProbability * 100) : null;
+    const conf = ins.confidenceLabel || 'LOW';
+    const pctStr = pct != null ? ` — ${pct}%` : '';
+    return `${emoji} ${wName} over ${lName}${pctStr} (${conf})`;
   });
 
-  // Determine hook based on preset type
-  let hook = '🏀 Tournament intelligence just dropped.';
+  let hook;
   if (preset === '1-seeds' || title.includes('No. 1')) {
-    hook = '🏀 All four No. 1 seeds — model breakdown is live.';
+    hook = '🔒 All four No. 1 seeds. The model ran every matchup. Here\u2019s the verdict 👇';
+  } else if (preset === '8v9') {
+    hook = '🪙 8 vs 9 — the ultimate coin-flip games. Who does the model like? 👇';
+  } else if (preset && preset.match(/^\d+-seeds?$/)) {
+    const seedNum = preset.match(/^(\d+)/)[1];
+    hook = `🔒 #${seedNum} seed breakdown — the model scanned every matchup 👇`;
   } else if (title.includes('Region')) {
     const regionName = title.replace('\n', ' ').trim();
-    hook = `🏀 ${regionName} — full bracket intelligence.`;
-  } else if (preset && preset.includes('seeds')) {
-    hook = `🏀 Seed-line breakdown is live. Here's what the model sees.`;
+    hook = `🏀 ${regionName} breakdown — every first-round pick from the model 👇`;
+  } else {
+    hook = '🏀 Tournament picks just dropped. The model ran the board 👇';
   }
 
-  const matchupList = matchupSummaries.map(m => `• ${m}`).join('\n');
+  let upsetNote = '';
+  if (upsetPicks.length > 0) {
+    const upName = upsetPicks[0].winner?.shortName || upsetPicks[0].winner?.name || '?';
+    const upEmoji = _teamEmoji(upsetPicks[0].winner?.slug, upsetPicks[0].winner?.name);
+    upsetNote = `\n\n🚨 Upset alert: model likes ${upEmoji} ${upName} as an underdog winner`;
+  }
 
   const convLine = strongestPct != null
-    ? `Strongest conviction: ${strongestName} at ${strongestPct}% win probability.`
-    : (strongestName ? `Strongest lean: ${strongestName}.` : '');
+    ? `🔥 Strongest pick: ${strongestEmoji} ${strongestName} at ${strongestPct}% win probability`
+    : '';
 
   const short = [
     hook,
-    matchupList,
+    '',
+    pickLines.join('\n'),
+    '',
     convLine,
-    'Full analysis at maximussports.ai',
-  ].filter(Boolean).join('\n\n');
+    upsetNote,
+    '',
+    '📊 Full bracket intel at maximussports.ai',
+    '',
+    '#MarchMadness #NCAATournament #Bracketology #CollegeBasketball #MaximusSports',
+  ].filter(l => l != null && l !== '').join('\n');
 
   const long = [
     hook,
     '',
-    'Matchups:',
-    matchupList,
+    'Model picks:',
+    pickLines.join('\n'),
     '',
     convLine,
+    upsetNote,
     '',
     highConv.length > 1
-      ? `${highConv.length} high-conviction picks on the board. The model likes clear edges in these seed bands.`
-      : 'Model ran each matchup through the full signal pipeline — rankings, ATS, market odds, and tournament history.',
+      ? `📈 ${highConv.length} high-conviction picks on this slide. The model sees clear separation in these matchups.`
+      : '📈 Each matchup ran through rankings, ATS form, title odds, and tournament history.',
     '',
-    'Full intelligence at maximussports.ai',
+    '👇 Who are you riding with? Drop your picks below.',
+    '',
+    'More model picks + bracket intel → maximussports.ai',
     '',
     asOf ? `Data as of ${asOf}` : null,
-    'For entertainment only. Please bet responsibly. 21+',
+    DISCLAIMER,
+    '',
+    '#MarchMadness #NCAATournament #Bracketology #CollegeBasketball #MaximusSports',
   ].filter(l => l != null).join('\n');
 
   const hashtags = ['#MarchMadness', '#NCAATournament', '#Bracketology', '#CollegeBasketball', '#MaximusSports'];
@@ -433,44 +459,81 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
 
   if (upsetGames.length === 0) {
     return {
-      shortCaption: '🚨 Upset Radar is live for the tournament.\n\nFull analysis at maximussports.ai',
-      longCaption: '🚨 Upset Radar is live.\n\nFor entertainment only. Please bet responsibly. 21+',
+      shortCaption: '🚨 Upset Radar is live for the tournament.\n\nSee the full board at maximussports.ai\n\n#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
+      longCaption: '🚨 Upset Radar is live.\n\nSee the full board at maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+\n\n#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
       hashtags: ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'],
     };
   }
 
-  const topUpsets = upsetGames.slice(0, 3);
-  const upsetLines = topUpsets.map(g => {
-    const dog = g.underdog?.shortName || g.underdog?.name || '?';
-    const fav = g.favorite?.shortName || g.favorite?.name || '?';
-    const dogSeed = g.underdog?.seed ?? '?';
-    const favSeed = g.favorite?.seed ?? '?';
-    return `• #${dogSeed} ${dog} over #${favSeed} ${fav}`;
+  const topGames = upsetGames.slice(0, 5);
+
+  const gameLines = topGames.map((g, i) => {
+    const pickTeam = g.modelResult?.winner || g.topTeam;
+    const oppTeam = g.modelResult?.loser || g.bottomTeam;
+    const pickName = pickTeam?.shortName || pickTeam?.name || '?';
+    const oppName = oppTeam?.shortName || oppTeam?.name || '?';
+    const pickEmoji = _teamEmoji(pickTeam?.slug, pickTeam?.name);
+    const pickSeed = pickTeam === g.topTeam ? g.topSeed : g.bottomSeed;
+    const oppSeed = oppTeam === g.topTeam ? g.topSeed : g.bottomSeed;
+    const isUpset = g.modelResult?.isUpset ?? false;
+    const pct = g.modelResult?.winProbability != null
+      ? Math.round(g.modelResult.winProbability * 100)
+      : null;
+    const pctStr = pct != null ? ` (${pct}%)` : '';
+    const prefix = isUpset ? '🚨' : '📊';
+
+    return `${i + 1}. ${prefix} ${pickEmoji} #${pickSeed} ${pickName} over #${oppSeed} ${oppName}${pctStr}`;
   });
 
-  const hook = `🚨 UPSET RADAR: ${topUpsets.length} games flagged for volatility.`;
+  const modelUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
+  const coinFlips = topGames.filter(g => {
+    const p = g.modelResult?.winProbability;
+    return p != null && p < 0.55;
+  });
+
+  let hookDetail = `${topGames.length} games flagged for maximum volatility`;
+  if (modelUpsetPicks.length > 0) {
+    hookDetail = `${modelUpsetPicks.length} model-backed upset${modelUpsetPicks.length > 1 ? 's' : ''} on the board`;
+  }
+
+  const hook = `🚨 UPSET RADAR: ${hookDetail} 🏀`;
+
+  let volatilityNote = '⚠️ The 5/12 and 8/9 seed bands break brackets every year. Don\u2019t sleep on these.';
+  if (coinFlips.length >= 3) {
+    volatilityNote = `⚠️ ${coinFlips.length} games under 55% — this is where brackets get busted.`;
+  }
 
   const short = [
     hook,
-    upsetLines.join('\n'),
-    'These are the spots bracket players need to watch.',
-    'Full analysis at maximussports.ai',
-  ].filter(Boolean).join('\n\n');
+    '',
+    gameLines.join('\n'),
+    '',
+    volatilityNote,
+    '',
+    'Full bracket intel → maximussports.ai',
+    '',
+    '#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
+  ].join('\n');
 
   const long = [
     hook,
     '',
-    'Top upset spots:',
-    upsetLines.join('\n'),
+    'Top upset-watch games:',
     '',
-    'The model flagged these based on seed differential, ATS trends, and historical upset frequency.',
+    gameLines.join('\n'),
     '',
-    'These are the games that break brackets every year. Worth paying attention.',
+    volatilityNote,
     '',
-    'Full intelligence at maximussports.ai',
+    '📊 The model ran each matchup through rankings, ATS trends, title odds, and historical upset rates.',
+    '',
+    '👇 Which upset are you calling? Drop it below.',
+    '',
+    'Full bracket intel + upset picks → maximussports.ai',
     '',
     asOf ? `Data as of ${asOf}` : null,
-    'For entertainment only. Please bet responsibly. 21+',
+    DISCLAIMER,
+    '',
+    '#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
   ].filter(l => l != null).join('\n');
 
   const hashtags = ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'];

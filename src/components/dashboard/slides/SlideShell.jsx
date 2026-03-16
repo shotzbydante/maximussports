@@ -44,11 +44,11 @@ export default function SlideShell({
       {/* Background gradient */}
       <div className={styles.bgLayer} />
 
-      {/* Robot mascot corner accent */}
+      {/* Robot mascot — top-right branded accent */}
       {brandMode !== 'light' && (
         <div
           className={styles.mascotWrap}
-          style={{ opacity: isRobot ? 0.85 : 0.78 }}
+          style={{ opacity: isRobot ? 0.60 : 0.50 }}
         >
           <img
             src="/mascot.png"

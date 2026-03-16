@@ -15,6 +15,12 @@ const UPSET_RISK_CONFIG = {
   LOW:      { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.24)', icon: '🟢' },
 };
 
+function getEdgeColor(pct) {
+  if (pct >= 75) return '#5FE8A8';
+  if (pct >= 62) return '#D4B87A';
+  return '#6EB3E8';
+}
+
 function computeUpsetRisk(insight) {
   const { winProbability, historicalRate } = insight;
   const favProb = winProbability ?? 0.5;
@@ -89,7 +95,7 @@ function ProbRing({ pct, color, size = 92 }) {
   );
 }
 
-function ProbBar({ pct, winnerName, loserName, accentColor }) {
+function ProbBar({ pct, winnerName, loserName, edgeColor }) {
   const losePct = 100 - pct;
   return (
     <div className={styles.probBar}>
@@ -102,8 +108,8 @@ function ProbBar({ pct, winnerName, loserName, accentColor }) {
           className={styles.probBarFill}
           style={{
             width: `${pct}%`,
-            background: `linear-gradient(90deg, ${accentColor}, ${accentColor}cc)`,
-            boxShadow: `0 0 14px ${accentColor}44`,
+            background: `linear-gradient(90deg, ${edgeColor}, ${edgeColor}cc)`,
+            boxShadow: `0 0 14px ${edgeColor}44`,
           }}
         />
       </div>
@@ -122,6 +128,7 @@ function InsightCard({ insight, compact = false }) {
   const winnerSlug = winnerTeam?.slug || '';
   const tc = getTeamColors(winnerSlug);
   const accentColor = tc?.primary || '#4A90D9';
+  const edgeColor = getEdgeColor(pct);
 
   const winnerSeed = winnerTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
   const loserSeed = loserTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
@@ -159,7 +166,7 @@ function InsightCard({ insight, compact = false }) {
 
         {/* CENTER: Probability Ring + VS */}
         <div className={styles.centerZone}>
-          <ProbRing pct={pct} color={accentColor} size={ringSize} />
+          <ProbRing pct={pct} color={edgeColor} size={ringSize} />
           <div className={styles.vsStrip}>
             <span className={styles.vsLabel}>VS</span>
             {matchup?.region && <span className={styles.regionLabel}>{matchup.region.toUpperCase()}</span>}
@@ -176,12 +183,12 @@ function InsightCard({ insight, compact = false }) {
         </div>
       </div>
 
-      {/* Colored probability bar */}
+      {/* Colored probability bar — edge-based color */}
       <ProbBar
         pct={pct}
         winnerName={winnerTeam?.shortName || winnerTeam?.name}
         loserName={loserTeam?.shortName || loserTeam?.name}
-        accentColor={accentColor}
+        edgeColor={edgeColor}
       />
 
       {/* Model rationale */}

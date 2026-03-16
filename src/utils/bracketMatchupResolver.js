@@ -198,7 +198,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   // ── 5. Final outputs ───────────────────────────────────────────
   const edgeMag = Math.abs(edge);
   const pickA = edge >= 0;
-  const winProb = clamp(0.5 + edge, 0.05, 0.97);
+  const winProb = clamp(0.5 + edgeMag, 0.50, 0.97);
 
   let confidence = 0;
   if (edgeMag >= 0.20) confidence = 2;

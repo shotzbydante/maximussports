@@ -15,6 +15,12 @@ const UPSET_RISK_CONFIG = {
   LOW:      { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.24)', icon: '🟢' },
 };
 
+function getEdgeColor(pct) {
+  if (pct >= 75) return '#5FE8A8';
+  if (pct >= 62) return '#D4B87A';
+  return '#6EB3E8';
+}
+
 function computeUpsetRisk(game) {
   const upsetProb = game.upsetProbability ?? game.rateInfo?.rate ?? 0;
   if (upsetProb >= 0.35) return 'HIGH';
@@ -75,7 +81,7 @@ function ProbRing({ pct, color, size = 68 }) {
   );
 }
 
-function ProbBar({ pct, winnerName, loserName, accentColor }) {
+function ProbBar({ pct, winnerName, loserName, edgeColor }) {
   const losePct = 100 - pct;
   return (
     <div className={styles.probBar}>
@@ -88,8 +94,8 @@ function ProbBar({ pct, winnerName, loserName, accentColor }) {
           className={styles.probBarFill}
           style={{
             width: `${pct}%`,
-            background: `linear-gradient(90deg, ${accentColor}, ${accentColor}cc)`,
-            boxShadow: `0 0 12px ${accentColor}44`,
+            background: `linear-gradient(90deg, ${edgeColor}, ${edgeColor}cc)`,
+            boxShadow: `0 0 12px ${edgeColor}44`,
           }}
         />
       </div>
@@ -117,6 +123,7 @@ function UpsetCard({ game, rank }) {
   const pickSlug = pickTeam?.slug || '';
   const tc = getTeamColors(pickSlug);
   const accentColor = tc?.primary || '#E8845F';
+  const edgeColor = getEdgeColor(pct);
 
   return (
     <div
@@ -146,7 +153,7 @@ function UpsetCard({ game, rank }) {
 
         {/* CENTER: Probability Ring + VS */}
         <div className={styles.centerZone}>
-          <ProbRing pct={pct} color={accentColor} size={68} />
+          <ProbRing pct={pct} color={edgeColor} size={68} />
           <div className={styles.vsStrip}>
             <span className={styles.vsLabel}>VS</span>
             {region && <span className={styles.regionLabel}>{region.toUpperCase()}</span>}
@@ -163,12 +170,12 @@ function UpsetCard({ game, rank }) {
         </div>
       </div>
 
-      {/* Colored probability bar */}
+      {/* Colored probability bar — edge-based color */}
       <ProbBar
         pct={pct}
         winnerName={pickTeam?.shortName || pickTeam?.name}
         loserName={oppTeam?.shortName || oppTeam?.name}
-        accentColor={accentColor}
+        edgeColor={edgeColor}
       />
 
       {/* Rationale + Badges */}
