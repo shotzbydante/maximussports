@@ -109,13 +109,13 @@ export default function SocialListDropdown({ type, onClose }) {
   const { fetchFollowers, fetchFollowing, followUser, unfollowUser } = useFriendGraph();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
     const ac = new AbortController();
     setLoading(true);
-    setError(false);
+    setErrorMsg(null);
 
     const fetcher = type === 'followers' ? fetchFollowers : fetchFollowing;
     fetcher(ac.signal)
@@ -128,7 +128,7 @@ export default function SocialListDropdown({ type, onClose }) {
         if (ac.signal.aborted) return;
         if (err?.name === 'AbortError') return;
         setUsers([]);
-        setError(true);
+        setErrorMsg(err?.message || 'Unknown error');
         setLoading(false);
       });
 
@@ -185,13 +185,18 @@ export default function SocialListDropdown({ type, onClose }) {
         <div className={styles.body}>
           {loading && <SkeletonRows />}
 
-          {!loading && error && (
+          {!loading && errorMsg && (
             <div className={styles.empty}>
-              <p className={styles.emptyText}>Something went wrong. Please try again.</p>
+              <p className={styles.emptyText}>
+                {errorMsg.includes('not found') ? 'Database migration required. See docs/follower-list-rpcs.sql.'
+                  : errorMsg.includes('401') || errorMsg.includes('Unauthorized') ? 'Please sign in to view this list.'
+                  : 'Something went wrong. Please try again.'}
+              </p>
+              {import.meta.env.DEV && <p className={styles.emptyText} style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 4 }}>{errorMsg}</p>}
             </div>
           )}
 
-          {!loading && !error && users.length === 0 && (
+          {!loading && !errorMsg && users.length === 0 && (
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>
                 {EMPTY_ICONS[type]}
@@ -204,7 +209,7 @@ export default function SocialListDropdown({ type, onClose }) {
             </div>
           )}
 
-          {!loading && !error && users.length > 0 && (
+          {!loading && !errorMsg && users.length > 0 && (
             <div className={styles.list}>
               {users.map((u) => (
                 <DropdownUserRow
