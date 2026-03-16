@@ -125,46 +125,26 @@ export function useFriendGraph() {
     }
   }, [session, user, refreshAllSurfaces]);
 
-  const fetchFollowers = useCallback(async () => {
-    if (!session?.access_token) {
-      console.warn('[useFriendGraph] fetchFollowers: no session');
-      return [];
-    }
-    try {
-      const res = await fetch('/api/user/followers', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) {
-        console.warn('[useFriendGraph] fetchFollowers: API returned', res.status);
-        throw new Error(`API ${res.status}`);
-      }
-      const data = await res.json();
-      return data.followers || [];
-    } catch (err) {
-      console.error('[useFriendGraph] fetchFollowers error:', err);
-      throw err;
-    }
+  const fetchFollowers = useCallback(async (signal) => {
+    if (!session?.access_token) return [];
+    const res = await fetch('/api/user/followers', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      signal,
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    return data.followers || [];
   }, [session?.access_token]);
 
-  const fetchFollowing = useCallback(async () => {
-    if (!session?.access_token) {
-      console.warn('[useFriendGraph] fetchFollowing: no session');
-      return [];
-    }
-    try {
-      const res = await fetch('/api/user/following', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) {
-        console.warn('[useFriendGraph] fetchFollowing: API returned', res.status);
-        throw new Error(`API ${res.status}`);
-      }
-      const data = await res.json();
-      return data.following || [];
-    } catch (err) {
-      console.error('[useFriendGraph] fetchFollowing error:', err);
-      throw err;
-    }
+  const fetchFollowing = useCallback(async (signal) => {
+    if (!session?.access_token) return [];
+    const res = await fetch('/api/user/following', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      signal,
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    return data.following || [];
   }, [session?.access_token]);
 
   return {

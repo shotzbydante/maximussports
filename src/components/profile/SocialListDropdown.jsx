@@ -111,28 +111,28 @@ export default function SocialListDropdown({ type, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const ref = useRef(null);
-  const abortRef = useRef(false);
 
   useEffect(() => {
-    abortRef.current = false;
+    const ac = new AbortController();
     setLoading(true);
     setError(false);
 
     const fetcher = type === 'followers' ? fetchFollowers : fetchFollowing;
-    fetcher()
+    fetcher(ac.signal)
       .then((list) => {
-        if (abortRef.current) return;
+        if (ac.signal.aborted) return;
         setUsers(Array.isArray(list) ? list : []);
         setLoading(false);
       })
-      .catch(() => {
-        if (abortRef.current) return;
+      .catch((err) => {
+        if (ac.signal.aborted) return;
+        if (err?.name === 'AbortError') return;
         setUsers([]);
         setError(true);
         setLoading(false);
       });
 
-    return () => { abortRef.current = true; };
+    return () => ac.abort();
   }, [type, fetchFollowers, fetchFollowing]);
 
   useEffect(() => {

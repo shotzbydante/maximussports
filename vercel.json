@@ -10,6 +10,12 @@
     },
     "api/email/global-send.js": {
       "maxDuration": 120
+    },
+    "api/user/followers.js": {
+      "maxDuration": 30
+    },
+    "api/user/following.js": {
+      "maxDuration": 30
     }
   },
   "redirects": [
