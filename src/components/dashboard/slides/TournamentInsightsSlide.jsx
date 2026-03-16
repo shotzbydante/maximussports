@@ -119,9 +119,22 @@ function ProbBar({ pct, winnerName, loserName, edgeColor }) {
 
 function InsightCard({ insight, compact = false }) {
   if (!insight) return null;
-  const { matchup, winner, loser, confidenceLabel, winProbability, signals } = insight;
-  const winnerTeam = winner || matchup?.topTeam;
-  const loserTeam = loser || matchup?.bottomTeam;
+  const { matchup, winner, loser, confidenceLabel, winProbability, rationale } = insight;
+
+  // Seed ordering: higher seed (lower number) ALWAYS on left
+  const leftTeam = matchup?.topTeam;
+  const rightTeam = matchup?.bottomTeam;
+  const leftSeed = matchup?.topSeed;
+  const rightSeed = matchup?.bottomSeed;
+
+  const winnerTeam = winner || leftTeam;
+  const loserTeam = loser || rightTeam;
+  const isPickLeft = !!(
+    winnerTeam === leftTeam ||
+    (winnerTeam?.slug && leftTeam?.slug && winnerTeam.slug === leftTeam.slug) ||
+    (winnerTeam?.name && leftTeam?.name && winnerTeam.name === leftTeam.name)
+  );
+
   const upsetRisk = computeUpsetRisk(insight);
   const pct = Math.round((winProbability ?? 0.5) * 100);
 
@@ -130,8 +143,6 @@ function InsightCard({ insight, compact = false }) {
   const accentColor = tc?.primary || '#4A90D9';
   const edgeColor = getEdgeColor(pct);
 
-  const winnerSeed = winnerTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
-  const loserSeed = loserTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
   const logoSize = compact ? 56 : 68;
   const ringSize = compact ? 78 : 92;
 
@@ -140,7 +151,7 @@ function InsightCard({ insight, compact = false }) {
   const gameTime = matchup?.gameTime ?? matchup?.time ?? null;
   const network = matchup?.network ?? matchup?.broadcast ?? null;
 
-  const displaySignals = (signals || []).slice(0, compact ? 1 : 2);
+  const displayRationale = rationale || '';
 
   return (
     <div
@@ -153,15 +164,15 @@ function InsightCard({ insight, compact = false }) {
       }}
     >
       <div className={styles.cardInner}>
-        {/* LEFT: Pick Team */}
-        <div className={styles.pickZone}>
-          <div className={styles.pickLogoWrap}>
-            <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />
-            <TeamLogo team={winnerTeam} size={logoSize} />
+        {/* LEFT: Higher seed (always) */}
+        <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
+          <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
+            {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />}
+            <TeamLogo team={leftTeam} size={logoSize} />
           </div>
-          <span className={styles.seedTag}>#{winnerSeed}</span>
-          <span className={styles.pickName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
-          <span className={styles.maximusPick}>Maximus&#39;s Pick</span>
+          <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
+          <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
+          {isPickLeft && <span className={styles.maximusPick}>Maximus&#39;s Pick</span>}
         </div>
 
         {/* CENTER: Probability Ring + VS */}
@@ -173,17 +184,19 @@ function InsightCard({ insight, compact = false }) {
           </div>
         </div>
 
-        {/* RIGHT: Opponent */}
-        <div className={styles.oppZone}>
-          <div className={styles.oppLogoWrap}>
-            <TeamLogo team={loserTeam} size={logoSize} />
+        {/* RIGHT: Lower seed (always) */}
+        <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
+          <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
+            {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />}
+            <TeamLogo team={rightTeam} size={logoSize} />
           </div>
-          <span className={styles.oppSeedTag}>#{loserSeed}</span>
-          <span className={styles.oppName}>{loserTeam?.shortName || loserTeam?.name}</span>
+          <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
+          <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
+          {!isPickLeft && <span className={styles.maximusPick}>Maximus&#39;s Pick</span>}
         </div>
       </div>
 
-      {/* Colored probability bar — edge-based color */}
+      {/* Colored probability bar — winner always labeled first */}
       <ProbBar
         pct={pct}
         winnerName={winnerTeam?.shortName || winnerTeam?.name}
@@ -191,12 +204,10 @@ function InsightCard({ insight, compact = false }) {
         edgeColor={edgeColor}
       />
 
-      {/* Model rationale */}
-      {displaySignals.length > 0 && (
+      {/* Expanded model rationale */}
+      {displayRationale && (
         <div className={styles.rationale}>
-          {displaySignals.map((s, i) => (
-            <span key={i} className={styles.rationaleItem}>• {s}</span>
-          ))}
+          <p className={styles.rationaleText}>{displayRationale}</p>
         </div>
       )}
 
@@ -239,16 +250,26 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
     <SlideShell
       asOf={asOf}
       accentColor="#4A90D9"
-      brandMode="standard"
+      brandMode="light"
       category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
     >
       <div className={`${styles.headerBlock} ${isManyCards ? styles.headerCompact : ''}`}>
-        <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
-        <h2 className={styles.title}>{title}</h2>
-        <div className={styles.titleSup}>{subtitle}</div>
+        <div className={styles.headerTop}>
+          <div className={styles.headerText}>
+            <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
+            <h2 className={styles.title}>{title}</h2>
+            <div className={styles.titleSup}>{subtitle}</div>
+          </div>
+          <img
+            src="/mascot.png"
+            alt=""
+            className={styles.heroMascot}
+            crossOrigin="anonymous"
+          />
+        </div>
       </div>
 
       {displayInsights.length === 0 ? (

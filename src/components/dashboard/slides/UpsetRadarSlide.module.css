@@ -8,6 +8,31 @@
   margin-bottom: 8px;
 }
 
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.heroMascot {
+  width: 140px;
+  height: auto;
+  opacity: 0.85;
+  flex-shrink: 0;
+  margin-left: 14px;
+  filter:
+    drop-shadow(0 4px 16px rgba(0, 0, 0, 0.50))
+    drop-shadow(0 0 12px rgba(232, 132, 95, 0.28));
+}
+
 .marchBadge {
   display: inline-flex;
   align-items: center;
@@ -17,7 +42,7 @@
   border-radius: 999px;
   padding: 3px 14px;
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.16em;
   color: #E8845F;
@@ -26,7 +51,7 @@
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 40px;
+  font-size: 42px;
   font-weight: 700;
   line-height: 1.0;
   color: #ffffff;
@@ -37,7 +62,7 @@
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -149,7 +174,7 @@
 
 .seedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #D4B87A;
   background: rgba(183, 152, 108, 0.18);
@@ -165,7 +190,7 @@
 
 .pickName {
   font-family: 'Oswald', sans-serif;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -216,14 +241,14 @@
 .probRingPct {
   position: absolute;
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .probRingLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
   color: rgba(240, 244, 248, 0.38);
@@ -283,7 +308,7 @@
 
 .oppSeedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: rgba(212, 184, 122, 0.58);
   background: rgba(183, 152, 108, 0.10);
@@ -299,7 +324,7 @@
 
 .oppName {
   font-family: 'Oswald', sans-serif;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: rgba(240, 244, 248, 0.70);
   white-space: nowrap;
@@ -326,7 +351,7 @@
 
 .probBarWinner {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: rgba(240, 244, 248, 0.58);
 }
@@ -338,7 +363,7 @@
 
 .probBarLoser {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: rgba(240, 244, 248, 0.30);
 }
@@ -380,13 +405,13 @@
 }
 
 .rationaleText {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.38);
-  white-space: nowrap;
+  color: rgba(240, 244, 248, 0.40);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
   line-height: 1.3;
 }
 
@@ -399,7 +424,7 @@
 
 .badge {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
   padding: 1px 7px;

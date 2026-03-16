@@ -114,11 +114,18 @@ function UpsetCard({ game, rank }) {
   const confLabel = modelResult?.confidenceLabel || 'LOW';
   const winProb = modelResult?.winProbability ?? 0.5;
   const pct = Math.round(winProb * 100);
-  const signals = modelResult?.signals || [];
-  const topSignal = signals[0] || null;
+  const rationaleText = modelResult?.rationale || '';
 
-  const pickSeed = pickTeam === topTeam ? topSeed : bottomSeed;
-  const oppSeed = oppTeam === topTeam ? topSeed : bottomSeed;
+  // Seed ordering: higher seed (lower number) ALWAYS on left
+  const leftTeam = topTeam;
+  const rightTeam = bottomTeam;
+  const leftSeed = topSeed;
+  const rightSeed = bottomSeed;
+  const isPickLeft = !!(
+    pickTeam === leftTeam ||
+    (pickTeam?.slug && leftTeam?.slug && pickTeam.slug === leftTeam.slug) ||
+    (pickTeam?.name && leftTeam?.name && pickTeam.name === leftTeam.name)
+  );
 
   const pickSlug = pickTeam?.slug || '';
   const tc = getTeamColors(pickSlug);
@@ -138,17 +145,19 @@ function UpsetCard({ game, rank }) {
       <div className={styles.rankTag}>{rank}</div>
 
       <div className={styles.cardInner}>
-        {/* LEFT: Pick Team */}
-        <div className={styles.pickZone}>
-          <div className={styles.pickLogoWrap}>
-            <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />
-            <TeamLogo team={pickTeam} size={48} />
+        {/* LEFT: Higher seed (always) */}
+        <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
+          <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
+            {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />}
+            <TeamLogo team={leftTeam} size={48} />
           </div>
-          <span className={styles.seedTag}>#{pickSeed}</span>
-          <span className={styles.pickName}>{pickTeam?.shortName || pickTeam?.name}</span>
-          <span className={styles.pickBadge}>
-            {isUpsetPick ? '🚨 Upset Pick' : "Maximus\u2019s Pick"}
-          </span>
+          <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
+          <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
+          {isPickLeft && (
+            <span className={styles.pickBadge}>
+              {isUpsetPick ? '🚨 Upset Pick' : "Maximus\u2019s Pick"}
+            </span>
+          )}
         </div>
 
         {/* CENTER: Probability Ring + VS */}
@@ -160,17 +169,23 @@ function UpsetCard({ game, rank }) {
           </div>
         </div>
 
-        {/* RIGHT: Opponent */}
-        <div className={styles.oppZone}>
-          <div className={styles.oppLogoWrap}>
-            <TeamLogo team={oppTeam} size={48} />
+        {/* RIGHT: Lower seed (always) */}
+        <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
+          <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
+            {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />}
+            <TeamLogo team={rightTeam} size={48} />
           </div>
-          <span className={styles.oppSeedTag}>#{oppSeed}</span>
-          <span className={styles.oppName}>{oppTeam?.shortName || oppTeam?.name}</span>
+          <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
+          <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
+          {!isPickLeft && (
+            <span className={styles.pickBadge}>
+              {isUpsetPick ? '🚨 Upset Pick' : "Maximus\u2019s Pick"}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Colored probability bar — edge-based color */}
+      {/* Colored probability bar — winner always labeled first */}
       <ProbBar
         pct={pct}
         winnerName={pickTeam?.shortName || pickTeam?.name}
@@ -178,10 +193,10 @@ function UpsetCard({ game, rank }) {
         edgeColor={edgeColor}
       />
 
-      {/* Rationale + Badges */}
+      {/* Expanded rationale + Badges */}
       <div className={styles.bottomRow}>
         <div className={styles.rationaleStrip}>
-          {topSignal && <span className={styles.rationaleText}>• {topSignal}</span>}
+          {rationaleText && <span className={styles.rationaleText}>{rationaleText}</span>}
         </div>
         <div className={styles.badgeStrip}>
           <ConvictionBadge label={confLabel} />
@@ -200,16 +215,26 @@ export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, o
     <SlideShell
       asOf={asOf}
       accentColor="#E8845F"
-      brandMode="standard"
+      brandMode="light"
       category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
     >
       <div className={styles.headerBlock}>
-        <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
-        <h2 className={styles.title}>🚨 UPSET RADAR</h2>
-        <div className={styles.titleSup}>UPSET INTELLIGENCE</div>
+        <div className={styles.headerTop}>
+          <div className={styles.headerText}>
+            <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
+            <h2 className={styles.title}>🚨 UPSET RADAR</h2>
+            <div className={styles.titleSup}>UPSET INTELLIGENCE</div>
+          </div>
+          <img
+            src="/mascot.png"
+            alt=""
+            className={styles.heroMascot}
+            crossOrigin="anonymous"
+          />
+        </div>
       </div>
 
       {displayGames.length === 0 ? (

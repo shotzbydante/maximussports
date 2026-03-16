@@ -21,8 +21,8 @@ function getInitials(name) {
 function Monogram({ initials, className }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="6" fill="currentColor" opacity="0.10" />
-      <text x="16" y="21" textAnchor="middle" fontSize="11" fontWeight="700" fill="currentColor" fontFamily="system-ui,sans-serif" opacity="0.55">
+      <rect width="32" height="32" rx="6" fill="currentColor" opacity="0.18" />
+      <text x="16" y="21" textAnchor="middle" fontSize="12" fontWeight="800" fill="currentColor" fontFamily="'Oswald',system-ui,sans-serif" opacity="0.72">
         {initials.slice(0, 3)}
       </text>
     </svg>
@@ -65,6 +65,7 @@ export default function TeamLogo({ team, size = 28 }) {
           height={size}
           onError={() => setLocalError(true)}
           className={styles.img}
+          crossOrigin="anonymous"
           data-fallback-text={initials}
         />
       </span>

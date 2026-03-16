@@ -367,7 +367,7 @@ function buildTournamentCaption({ tournamentInsights, asOf }) {
   const highConv = insights.filter(ins => ins.confidenceLabel === 'HIGH');
   const upsetPicks = insights.filter(ins => ins.isUpset);
 
-  const strongestPick = highConv.length > 0 ? highConv[0] : insights[0];
+  const strongestPick = [...insights].sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0] || null;
   const strongestSlug = strongestPick?.winner?.slug || '';
   const strongestName = strongestPick?.winner?.shortName || strongestPick?.winner?.name || '';
   const strongestEmoji = _teamEmoji(strongestSlug, strongestPick?.winner?.name);
