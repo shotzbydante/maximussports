@@ -122,10 +122,27 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight, opts =
 }
 
 // ─── SECTION 0: Branded Intro Title Card ─────────────────────────
-// Premium intro card with Maximus text logo, headline, and subheadline.
-// Duration: ~1.2s. Uses the same dark blue theme as the closing CTA card.
+// Premium intro card — ALWAYS uses Maximus dark navy regardless of
+// user-selected bgColor. Logo is the large hero visual.
 
-export function drawBrandedIntroCard(ctx, logo, { brand, bgColor }, introFrame, introTotalFrames) {
+const INTRO_OUTRO_BG = '#071426';
+
+function drawNavyBackground(ctx) {
+  const bg = ctx.createRadialGradient(W * 0.50, H * 0.38, 0, W * 0.50, H * 0.50, W * 0.95);
+  bg.addColorStop(0, 'rgba(33,92,180,0.28)');
+  bg.addColorStop(0.26, 'rgba(12,31,58,0.18)');
+  bg.addColorStop(0.78, INTRO_OUTRO_BG);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const edge = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 1.1);
+  edge.addColorStop(0, 'rgba(0,0,0,0)');
+  edge.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, W, H);
+}
+
+export function drawBrandedIntroCard(ctx, logo, { brand }, introFrame, introTotalFrames) {
   const progress = introTotalFrames > 0 ? introFrame / introTotalFrames : 0;
   const alpha = introFrame < 4
     ? introFrame / 4
@@ -136,53 +153,59 @@ export function drawBrandedIntroCard(ctx, logo, { brand, bgColor }, introFrame, 
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  const baseBg = bgColor || '#071426';
-  const bg = ctx.createRadialGradient(W * 0.40, H * 0.30, 0, W * 0.50, H * 0.50, W * 0.9);
-  bg.addColorStop(0, blendDark(baseBg, 0.3));
-  bg.addColorStop(1, baseBg);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
+  drawNavyBackground(ctx);
 
   const accent = brand.accentColor || '#3C79B4';
-  const textColor = baseBg === '#ffffff' ? '#1a3d7c' : '#ffffff';
 
-  // Logo with zoom-in animation
+  // Faint decorative data-chip lines
+  ctx.strokeStyle = `${accent}10`;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const y = H * (0.18 + i * 0.14);
+    ctx.beginPath();
+    ctx.moveTo(W * 0.10, y);
+    ctx.lineTo(W * 0.90, y);
+    ctx.stroke();
+  }
+
+  // Hero logo — large, centered, ~70% frame width
   if (logo) {
     const zoomT = Math.min(1, progress * 3.5);
-    const scale = 0.85 + 0.15 * easeOutCubic(zoomT);
+    const scale = 0.88 + 0.12 * easeOutCubic(zoomT);
     const logoAlpha = Math.min(1, progress * 4);
 
     ctx.globalAlpha = alpha * logoAlpha;
-    const lw = 120 * scale;
+    const lw = W * 0.70 * scale;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.32 - lh / 2, lw, lh);
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.35 - lh / 2, lw, lh);
   }
 
-  // Headline: "Welcome to Maximus Sports"
-  const headFadeT = Math.min(1, Math.max(0, (progress - 0.12) * 4));
-  const headSlide = (1 - easeOutCubic(headFadeT)) * 20;
+  // Headline
+  const headFadeT = Math.min(1, Math.max(0, (progress - 0.15) * 4));
+  const headSlide = (1 - easeOutCubic(headFadeT)) * 18;
   ctx.globalAlpha = alpha * headFadeT;
-  ctx.font = `700 46px ${FONT}`;
-  ctx.fillStyle = textColor;
+  ctx.font = `700 44px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Welcome to Maximus Sports', W / 2, H * 0.47 + headSlide);
+  ctx.fillText('Welcome to Maximus Sports', W / 2, H * 0.54 + headSlide);
 
   // Subheadline
-  const subFadeT = Math.min(1, Math.max(0, (progress - 0.25) * 4));
-  const subSlide = (1 - easeOutCubic(subFadeT)) * 14;
-  ctx.globalAlpha = alpha * subFadeT * 0.6;
+  const subFadeT = Math.min(1, Math.max(0, (progress - 0.28) * 4));
+  const subSlide = (1 - easeOutCubic(subFadeT)) * 12;
+  ctx.globalAlpha = alpha * subFadeT * 0.55;
   ctx.font = `400 24px ${FONT}`;
-  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.53 + subSlide);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.61 + subSlide);
 
   // Accent divider
-  const divT = Math.min(1, Math.max(0, (progress - 0.30) * 5));
+  const divT = Math.min(1, Math.max(0, (progress - 0.35) * 5));
   const divW = 100 * divT;
   ctx.globalAlpha = alpha * divT;
   ctx.fillStyle = accent;
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, H * 0.575, divW, 2.5, 2);
-  else { ctx.rect((W - divW) / 2, H * 0.575, divW, 2.5); }
+  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, H * 0.66, divW, 2.5, 2);
+  else { ctx.rect((W - divW) / 2, H * 0.66, divW, 2.5); }
   ctx.fill();
 
   ctx.restore();
@@ -190,14 +213,6 @@ export function drawBrandedIntroCard(ctx, logo, { brand, bgColor }, introFrame, 
 
 function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
-}
-
-function blendDark(hex, amount) {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, Math.round(((num >> 16) & 0xff) * (1 - amount)));
-  const g = Math.max(0, Math.round(((num >> 8) & 0xff) * (1 - amount)));
-  const b = Math.max(0, Math.round((num & 0xff) * (1 - amount)));
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
 // ─── SECTION 1: Hook Boost Frame (Pattern Interrupt) ─────────────
@@ -557,93 +572,63 @@ function drawIntroStatsProof(ctx, logo, headline, brand) {
 // Deep navy gradient with centered robot hero, glow effects,
 // data-chip accents, and animated CTA pill.
 
-export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames, bgColor }, alpha = 1) {
+export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames }, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
   const progress = outroTotalFrames > 0 ? (outroFrame || 0) / outroTotalFrames : 0;
   const accent = brand.accentColor || '#3C79B4';
-  const baseBg = bgColor || '#071426';
-  const isWhiteBg = baseBg === '#ffffff';
-  const textMain = isWhiteBg ? '#1a3d7c' : '#ffffff';
-  const textSub = isWhiteBg ? 'rgba(26,61,124,0.55)' : 'rgba(255,255,255,0.55)';
 
-  // Premium dark gradient background
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, blendDark(baseBg, 0.15));
-  bg.addColorStop(0.35, baseBg);
-  bg.addColorStop(0.65, blendDark(baseBg, 0.05));
-  bg.addColorStop(1, blendDark(baseBg, 0.15));
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
-
-  // Subtle radial glow behind robot area
-  const robotGlow = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, 320);
-  robotGlow.addColorStop(0, `${accent}22`);
-  robotGlow.addColorStop(0.5, `${accent}0a`);
-  robotGlow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = robotGlow;
-  ctx.fillRect(0, 0, W, H);
+  // ALWAYS dark navy — ignores user bgColor
+  drawNavyBackground(ctx);
 
   // Decorative faint lines
-  ctx.strokeStyle = `${accent}18`;
+  ctx.strokeStyle = `${accent}12`;
   ctx.lineWidth = 1;
-  for (let i = 0; i < 6; i++) {
-    const y = H * (0.15 + i * 0.12);
+  for (let i = 0; i < 5; i++) {
+    const y = H * (0.18 + i * 0.14);
     ctx.beginPath();
-    ctx.moveTo(W * 0.08, y);
-    ctx.lineTo(W * 0.92, y);
+    ctx.moveTo(W * 0.10, y);
+    ctx.lineTo(W * 0.90, y);
     ctx.stroke();
   }
 
   // Glassy side panels
   const panelAlpha = 0.04 + Math.sin(progress * Math.PI * 2) * 0.01;
-  ctx.fillStyle = isWhiteBg
-    ? `rgba(60,121,180,${panelAlpha})`
-    : `rgba(255,255,255,${panelAlpha})`;
+  ctx.fillStyle = `rgba(255,255,255,${panelAlpha})`;
   ctx.beginPath();
-  roundedRect(ctx, W * 0.04, H * 0.20, W * 0.12, H * 0.18, 8);
+  roundedRect(ctx, W * 0.04, H * 0.18, W * 0.10, H * 0.16, 8);
   ctx.fill();
   ctx.beginPath();
-  roundedRect(ctx, W * 0.84, H * 0.20, W * 0.12, H * 0.18, 8);
+  roundedRect(ctx, W * 0.86, H * 0.18, W * 0.10, H * 0.16, 8);
   ctx.fill();
-
-  ctx.strokeStyle = `${accent}20`;
+  ctx.strokeStyle = `${accent}18`;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  roundedRect(ctx, W * 0.04, H * 0.20, W * 0.12, H * 0.18, 8);
+  roundedRect(ctx, W * 0.04, H * 0.18, W * 0.10, H * 0.16, 8);
   ctx.stroke();
   ctx.beginPath();
-  roundedRect(ctx, W * 0.84, H * 0.20, W * 0.12, H * 0.18, 8);
+  roundedRect(ctx, W * 0.86, H * 0.18, W * 0.10, H * 0.16, 8);
   ctx.stroke();
 
-  ctx.fillStyle = `${accent}40`;
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath();
-    ctx.arc(W * 0.10, H * 0.24 + i * 22, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(W * 0.90, H * 0.24 + i * 22, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Robot mascot — centered hero visual with bounce/float animation
+  // Robot mascot — LARGE hero visual, ~45% frame width
   if (robotImage) {
-    const robotEntryT = Math.min(1, Math.max(0, progress * 3.5));
-    const bounceY = robotEntryT < 1 ? -50 * (1 - easeOutBounce(robotEntryT)) : 0;
-    const floatY = robotEntryT >= 1 ? Math.sin(progress * Math.PI * 3) * -5 : 0;
+    const robotEntryT = Math.min(1, Math.max(0, progress * 3.2));
+    const bounceY = robotEntryT < 1 ? -60 * (1 - easeOutBounce(robotEntryT)) : 0;
+    const floatY = robotEntryT >= 1 ? Math.sin(progress * Math.PI * 3) * -4 : 0;
     const rAlpha = Math.min(1, robotEntryT);
 
     ctx.globalAlpha = alpha * rAlpha;
 
-    const rw = 170;
+    const rw = W * 0.45;
     const rh = (robotImage.naturalHeight / robotImage.naturalWidth) * rw;
     const rx = (W - rw) / 2;
-    const ry = H * 0.30 + bounceY + floatY;
+    const ry = H * 0.22 + bounceY + floatY;
 
-    const auraSize = rw * 1.0;
+    // Large aura glow
+    const auraSize = rw * 0.8;
     const auraGlow = ctx.createRadialGradient(rx + rw / 2, ry + rh / 2, 0, rx + rw / 2, ry + rh / 2, auraSize);
-    const glowPulse = 0.14 + Math.sin(progress * Math.PI * 4) * 0.06;
+    const glowPulse = 0.15 + Math.sin(progress * Math.PI * 4) * 0.06;
     auraGlow.addColorStop(0, `${accent}${Math.round(glowPulse * 255).toString(16).padStart(2, '0')}`);
     auraGlow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = auraGlow;
@@ -653,44 +638,40 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   }
 
   // Headline below robot
-  const headlineEntryT = Math.min(1, Math.max(0, (progress - 0.15) * 4));
+  const headlineEntryT = Math.min(1, Math.max(0, (progress - 0.18) * 4));
   const headSlide = (1 - headlineEntryT) * 12;
   ctx.globalAlpha = alpha * headlineEntryT;
-  ctx.font = `700 42px ${FONT}`;
-  ctx.fillStyle = textMain;
+  ctx.font = `700 44px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Explore Maximus Sports', W / 2, H * 0.62 + headSlide);
+  ctx.fillText('Explore Maximus Sports', W / 2, H * 0.60 + headSlide);
 
   // Subheadline
   ctx.font = `400 22px ${FONT}`;
-  ctx.fillStyle = textSub;
-  ctx.fillText('Model-driven college basketball intelligence', W / 2, H * 0.67 + headSlide);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('Model-driven college basketball intelligence', W / 2, H * 0.65 + headSlide);
 
-  // Divider
-  const dividerW = 120 * Math.min(1, (progress - 0.20) * 5);
-  if (dividerW > 0) {
-    ctx.globalAlpha = alpha * Math.min(1, (progress - 0.20) * 4);
-    ctx.fillStyle = accent;
-    ctx.beginPath();
-    roundedRect(ctx, (W - Math.max(0, dividerW)) / 2, H * 0.71, Math.max(0, dividerW), 2.5, 2);
-    ctx.fill();
-  }
+  // Microcopy
+  const microT = Math.min(1, Math.max(0, (progress - 0.30) * 4));
+  ctx.globalAlpha = alpha * microT * 0.4;
+  ctx.font = `400 18px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('Smarter picks, bracket intel, and daily signals', W / 2, H * 0.70 + headSlide);
 
-  // CTA pill
-  const ctaEntryT = Math.min(1, Math.max(0, (progress - 0.35) * 3));
+  // CTA pill — prominent, clear
+  const ctaEntryT = Math.min(1, Math.max(0, (progress - 0.38) * 3));
   const ctaSlide = (1 - ctaEntryT) * 16;
-
   ctx.globalAlpha = alpha * ctaEntryT;
 
   const ctaText = 'maximussports.ai';
-  ctx.font = `700 24px ${FONT}`;
+  ctx.font = `700 28px ${FONT}`;
   const ctaMetrics = ctx.measureText(ctaText);
-  const pillW = ctaMetrics.width + 56;
-  const pillH = 52;
+  const pillW = ctaMetrics.width + 64;
+  const pillH = 58;
   const pillX = (W - pillW) / 2;
-  const pillY = H * 0.78 + ctaSlide;
-  const pillR = 26;
+  const pillY = H * 0.77 + ctaSlide;
+  const pillR = 29;
 
   const pillGrad = ctx.createLinearGradient(pillX, pillY, pillX + pillW, pillY + pillH);
   pillGrad.addColorStop(0, accent);
@@ -700,8 +681,8 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   roundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
   ctx.fill();
 
-  ctx.shadowColor = `${accent}55`;
-  ctx.shadowBlur = 18;
+  ctx.shadowColor = `${accent}66`;
+  ctx.shadowBlur = 22;
   ctx.shadowOffsetY = 4;
   ctx.beginPath();
   roundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
@@ -709,7 +690,7 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  ctx.font = `700 24px ${FONT}`;
+  ctx.font = `700 28px ${FONT}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -717,10 +698,10 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
 
   // Logo at bottom
   if (logo) {
-    ctx.globalAlpha = alpha * ctaEntryT * 0.6;
+    ctx.globalAlpha = alpha * ctaEntryT * 0.5;
     const lw = 50;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.88, lw, lh);
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.89, lw, lh);
   }
 
   ctx.restore();
@@ -851,15 +832,20 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
   ctx.restore();
 }
 
-// ─── SECTION 3+4: Beat overlay with glass pill + animation ───────
+// ─── SECTION 3+4: Beat overlay / support chip with glass pill ─────
+// No bullet dots — clean subordinate chip. Smaller font, lighter bg.
 export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4', opts = {}) {
   if (!text || alpha <= 0) return;
 
   const { stepNum, templateId, animProgress, textColor } = opts;
 
+  const chipFontSize = stepNum != null ? fontSize : Math.round(fontSize * 0.88);
+  const chipWeight = stepNum != null ? '600' : '500';
+  const bgOpacity = stepNum != null ? 0.92 : 0.82;
+
   const slideUp = animProgress != null ? (1 - Math.min(1, animProgress / 0.25)) * 12 : 0;
   const microBounce = animProgress != null && animProgress > 0.25 && animProgress < 0.5
-    ? Math.sin((animProgress - 0.25) / 0.25 * Math.PI) * 0.03
+    ? Math.sin((animProgress - 0.25) / 0.25 * Math.PI) * 0.025
     : 0;
   const effectiveScale = 1 + microBounce;
   const adjustedY = yCenter + slideUp;
@@ -874,18 +860,16 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   }
 
   const maxWidth = W * 0.78;
-  const padding = 20;
-  const dotR = 5;
-  const dotGap = 10;
+  const padding = stepNum != null ? 20 : 16;
 
-  ctx.font = `600 ${fontSize}px ${FONT}`;
+  ctx.font = `${chipWeight} ${chipFontSize}px ${FONT}`;
   ctx.letterSpacing = '0.02em';
   const words = text.split(' ');
   const lines = [];
   let cur = '';
   for (const w of words) {
     const test = cur ? `${cur} ${w}` : w;
-    if (ctx.measureText(test).width > maxWidth - padding * 2 - dotR * 2 - dotGap && cur) {
+    if (ctx.measureText(test).width > maxWidth - padding * 2 && cur) {
       lines.push(cur);
       cur = w;
     } else {
@@ -894,10 +878,10 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   }
   if (cur) lines.push(cur);
 
-  const textH = lines.length * fontSize * lineHeight;
+  const textH = lines.length * chipFontSize * lineHeight;
   const boxH = textH + padding * 2;
   const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
-  const boxW = Math.min(maxWidth, textW + padding * 2.5 + dotR * 2 + dotGap);
+  const boxW = Math.min(maxWidth, textW + padding * 2.5);
   const boxX = (W - boxW) / 2;
   const boxY = adjustedY - boxH / 2;
   const radius = 12;
@@ -906,8 +890,8 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
     ? getGlassGradient(ctx, boxX, boxY, boxW, boxH, templateId)
     : (() => {
         const g = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY + boxH);
-        g.addColorStop(0, 'rgba(60,121,180,0.92)');
-        g.addColorStop(1, 'rgba(40,80,140,0.92)');
+        g.addColorStop(0, `rgba(60,121,180,${bgOpacity})`);
+        g.addColorStop(1, `rgba(40,80,140,${bgOpacity})`);
         return g;
       })();
   ctx.fillStyle = bgGrad;
@@ -915,17 +899,19 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.stroke();
 
-  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowColor = 'rgba(0,0,0,0.30)';
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 2;
 
+  // Step number for walkthrough mode only — no bullet dots otherwise
   if (stepNum != null) {
+    const dotR = 5;
     ctx.beginPath();
     ctx.arc(boxX + padding, adjustedY, dotR + 3, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
@@ -936,25 +922,20 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(stepNum), boxX + padding, adjustedY);
-  } else {
-    ctx.beginPath();
-    ctx.arc(boxX + padding, adjustedY, dotR, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
   }
 
-  ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 8;
+  ctx.shadowColor = 'rgba(0,0,0,0.30)';
+  ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 2;
-  ctx.font = `600 ${fontSize}px ${FONT}`;
+  ctx.font = `${chipWeight} ${chipFontSize}px ${FONT}`;
   ctx.letterSpacing = '0.02em';
   ctx.fillStyle = textColor || '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   let drawY = boxY + padding;
   for (const line of lines) {
-    ctx.fillText(line, W / 2 + dotR, drawY);
-    drawY += fontSize * lineHeight;
+    ctx.fillText(line, W / 2, drawY);
+    drawY += chipFontSize * lineHeight;
   }
 
   ctx.letterSpacing = '0px';

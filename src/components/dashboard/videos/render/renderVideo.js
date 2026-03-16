@@ -233,9 +233,9 @@ export async function renderVideo(opts) {
       });
 
     } else if (i < phaseEnd2) {
-      // Phase 2: Branded Intro Title Card (1.2s)
+      // Phase 2: Branded Intro Title Card (1.2s) — always dark navy
       const introIdx = i - phaseEnd1;
-      drawBrandedIntroCard(ctx, logo, { brand, bgColor }, introIdx, brandedIntroFrames);
+      drawBrandedIntroCard(ctx, logo, { brand }, introIdx, brandedIntroFrames);
 
     } else if (i < phaseEnd3) {
       // Phase 3: Template-specific intro card
@@ -284,13 +284,26 @@ export async function renderVideo(opts) {
         }
       }
 
+      // Check if any headline overlay is currently active to enforce spacing
+      let headlineBottomY = 0;
+      for (const ov of overlays) {
+        const text = fieldValues[ov.field];
+        if (!text) continue;
+        if (footageProgress >= ov.startPct && footageProgress <= ov.endPct) {
+          const yPct = overlayYPctOffset || ov.yPct;
+          headlineBottomY = Math.max(headlineBottomY, H * yPct + H * 0.08);
+        }
+      }
+
       for (const beat of beatConfigs) {
         if (footageProgress >= beat.startPct && footageProgress <= beat.endPct) {
           const beatLocal = (footageProgress - beat.startPct) / (beat.endPct - beat.startPct);
           const alpha = easeAlpha(beatLocal, 0.15, 0.15);
 
           const slideOffset = getCaptionSlideOffset(footageTimeS, beat.startPct * footageDurationS);
-          const beatY = H * 0.72 - slideOffset;
+          const defaultBeatY = H * 0.74;
+          const minBeatY = headlineBottomY + 28;
+          const beatY = Math.max(defaultBeatY, minBeatY) - slideOffset;
 
           if (templateId === 'stats-proof') {
             drawStatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, {
@@ -323,7 +336,6 @@ export async function renderVideo(opts) {
         robotImage,
         outroFrame: outroIdx,
         outroTotalFrames: outroFrames,
-        bgColor,
       }, alpha);
     }
 
