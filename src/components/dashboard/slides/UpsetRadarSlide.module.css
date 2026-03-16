@@ -1,0 +1,257 @@
+/* ── Upset Radar Slide ──────────────────────────────────── */
+.headerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.marchBadge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  background: rgba(232, 132, 95, 0.12);
+  border: 1px solid rgba(232, 132, 95, 0.28);
+  border-radius: 999px;
+  padding: 5px 16px;
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #E8845F;
+  margin-bottom: 4px;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #E8845F;
+}
+
+.title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 60px;
+  font-weight: 700;
+  line-height: 0.94;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.divider {
+  width: 72px;
+  height: 3px;
+  background: linear-gradient(90deg, #E8845F, #D4B87A);
+  border-radius: 3px;
+  margin-top: 8px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.40);
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+
+/* ── Card list ──────────────────────────────────────────── */
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.card {
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(232, 132, 95, 0.12);
+  border-radius: 12px;
+  padding: 12px 16px;
+  align-items: stretch;
+}
+
+.card:first-child {
+  border-left: 3px solid #E8845F;
+  background: rgba(232, 132, 95, 0.05);
+  border-color: rgba(232, 132, 95, 0.22);
+}
+
+/* ── Rank column ────────────────────────────────────────── */
+.rankCol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+}
+
+.rankNum {
+  font-family: 'Oswald', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: rgba(232, 132, 95, 0.5);
+}
+
+/* ── Card body ──────────────────────────────────────────── */
+.cardBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.seedLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.seedBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6EB3E8;
+  background: rgba(74, 144, 217, 0.12);
+  border: 1px solid rgba(74, 144, 217, 0.24);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.seedBadgeHot {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #E8845F;
+  background: rgba(232, 132, 95, 0.12);
+  border: 1px solid rgba(232, 132, 95, 0.24);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.seedVs {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.22);
+  text-transform: uppercase;
+}
+
+.regionLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.35);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pctBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #E8845F;
+  flex-shrink: 0;
+}
+
+/* ── Teams row ──────────────────────────────────────────── */
+.teamsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.teamSide {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.teamRight {
+  justify-content: flex-end;
+}
+
+.teamName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.15;
+}
+
+.upsetPick {
+  color: #E8845F;
+}
+
+.vsText {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.18);
+  flex-shrink: 0;
+}
+
+/* ── Analysis row ───────────────────────────────────────── */
+.analysisRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pickTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.65);
+}
+
+.confTag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(240, 244, 248, 0.35);
+  margin-left: 2px;
+}
+
+.signal {
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.35);
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.emptyState p {
+  font-size: 22px;
+  color: rgba(240, 244, 248, 0.30);
+  text-align: center;
+  line-height: 1.5;
+}
