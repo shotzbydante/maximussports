@@ -1,119 +1,62 @@
 /**
  * GET /api/user/followers
  *
- * Returns the authenticated user's followers list.
+ * Returns the list of users who follow the authenticated user.
  *
- * Uses getSupabaseAdmin() (service-role client) for ALL queries — this is the
- * exact same client pattern used by the working api/social/follow.js endpoint.
- * The service role bypasses RLS, eliminating dependency on whether RLS SELECT
- * policies have been applied to the follows/profiles tables.
+ * Architecture: single RPC call via getUserClient(token).
+ * This is the exact same client + RPC pattern used by api/social/follow.js
+ * for follow_user / unfollow_user — the only pattern proven to work reliably.
  *
- * Profile enrichment and reverse-follow status are optional — if they fail,
- * the route still returns the core list with safe defaults.
+ * The get_followers() database function:
+ *  - runs as SECURITY DEFINER (bypasses RLS)
+ *  - uses auth.uid() from the JWT (no parameter injection)
+ *  - joins follows + profiles + reverse-follows in one query
+ *  - returns a normalized result set
+ *
+ * If the RPC does not exist, run docs/follower-list-rpcs.sql in Supabase.
  */
 
-import { getSupabaseAdmin, getEnvStatus } from '../_lib/supabaseAdmin.js';
+import { getUserClient } from '../_lib/supabaseAdmin.js';
 
-function normalizeUser(id, profile, followStatus) {
+function normalizeRow(row) {
+  const avatarConfig = row.avatar_config || row.preferences?.robotConfig || null;
   return {
-    id,
-    username: profile?.username || '',
-    displayName: profile?.display_name || profile?.username || '',
-    avatarConfig: profile?.preferences?.robotConfig || null,
-    isPro: profile?.plan_tier === 'pro',
-    followStatus,
+    id: row.id,
+    username: row.username || '',
+    displayName: row.display_name || row.username || '',
+    avatarConfig,
+    isPro: row.plan_tier === 'pro',
+    followStatus: row.follow_status || 'follower',
   };
 }
 
 export default async function handler(req, res) {
-  const t0 = Date.now();
-
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  let sb;
-  try {
-    sb = getSupabaseAdmin();
-  } catch (err) {
-    const env = getEnvStatus();
-    console.error('[followers] admin client init failed:', err.message, JSON.stringify(env));
-    return res.status(503).json({ error: 'Service unavailable' });
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Auth — same pattern as the working api/social/follow.js
-  const t1 = Date.now();
-  const { data: authData, error: authErr } = await sb.auth.getUser(token);
-  if (authErr || !authData?.user) {
-    console.warn('[followers] auth failed after', Date.now() - t1, 'ms:', authErr?.message);
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-  const userId = authData.user.id;
-
   try {
-    // Primary query — who follows me?
-    const t2 = Date.now();
-    const { data: follows, error: followsErr } = await sb
-      .from('follows')
-      .select('follower_user_id')
-      .eq('following_user_id', userId);
+    const sb = getUserClient(token);
+    const { data, error } = await sb.rpc('get_followers');
 
-    console.log('[followers] follows query:', Date.now() - t2, 'ms, rows:', follows?.length ?? 'null', followsErr ? `err=${followsErr.message}` : 'ok');
-
-    if (followsErr) {
-      return res.status(500).json({ error: 'Failed to query follows' });
+    if (error) {
+      console.error('[followers] rpc error:', error.message, error.code);
+      if (error.code === '42883') {
+        return res.status(500).json({ error: 'get_followers function not found — run docs/follower-list-rpcs.sql' });
+      }
+      const status = error.message?.includes('JWT') ? 401 : 500;
+      return res.status(status).json({ error: error.message || 'Query failed' });
     }
 
-    const ids = (follows || []).map(f => f.follower_user_id);
-    if (!ids.length) {
-      console.log('[followers] empty list, total:', Date.now() - t0, 'ms');
-      return res.status(200).json({ followers: [], total: 0 });
-    }
-
-    // Enrichment — profiles + reverse follows (parallel, non-blocking)
-    let profileMap = {};
-    let iFollowSet = new Set();
-
-    const t3 = Date.now();
-    try {
-      const [profilesRes, reverseRes] = await Promise.all([
-        sb.from('profiles')
-          .select('id, username, display_name, plan_tier, preferences')
-          .in('id', ids),
-        sb.from('follows')
-          .select('following_user_id')
-          .eq('follower_user_id', userId)
-          .in('following_user_id', ids),
-      ]);
-
-      if (profilesRes.data) {
-        profilesRes.data.forEach(p => { profileMap[p.id] = p; });
-      }
-      if (profilesRes.error) {
-        console.warn('[followers] profiles query warning:', profilesRes.error.message);
-      }
-      if (reverseRes.data) {
-        reverseRes.data.forEach(r => { iFollowSet.add(r.following_user_id); });
-      }
-      if (reverseRes.error) {
-        console.warn('[followers] reverse query warning:', reverseRes.error.message);
-      }
-    } catch (enrichErr) {
-      console.warn('[followers] enrichment failed after', Date.now() - t3, 'ms:', enrichErr.message);
-    }
-    console.log('[followers] enrichment:', Date.now() - t3, 'ms, profiles:', Object.keys(profileMap).length, 'mutuals:', iFollowSet.size);
-
-    const followers = ids.map(id =>
-      normalizeUser(id, profileMap[id], iFollowSet.has(id) ? 'friends' : 'follower')
-    );
-
-    console.log('[followers] done, total:', Date.now() - t0, 'ms, count:', followers.length);
+    const followers = (data || []).map(normalizeRow);
     return res.status(200).json({ followers, total: followers.length });
   } catch (err) {
-    console.error('[followers] unexpected error after', Date.now() - t0, 'ms:', err.message, err.stack);
+    console.error('[followers] error:', err.message);
     return res.status(500).json({ error: 'Internal error' });
   }
 }
