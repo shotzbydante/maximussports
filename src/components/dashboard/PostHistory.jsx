@@ -128,6 +128,30 @@ function SummaryStats({ posts }) {
   );
 }
 
+const CAPTION_PREVIEW_LIMIT = 140;
+
+function CaptionPreview({ text }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return null;
+  const isLong = text.length > CAPTION_PREVIEW_LIMIT;
+
+  return (
+    <div className={styles.captionWrap}>
+      <p className={styles.captionPreview}>
+        {expanded || !isLong ? text : truncate(text, CAPTION_PREVIEW_LIMIT)}
+      </p>
+      {isLong && (
+        <button
+          className={styles.captionToggle}
+          onClick={(e) => { e.stopPropagation(); setExpanded(prev => !prev); }}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function PostCard({ post }) {
   const [captionCopied, setCaptionCopied] = useState(false);
 
@@ -208,11 +232,9 @@ function PostCard({ post }) {
           )}
         </div>
 
-        {/* Row 3: caption preview */}
+        {/* Row 3: caption preview with expand/collapse */}
         {post.caption_snapshot && (
-          <p className={styles.captionPreview}>
-            {truncate(post.caption_snapshot, 100)}
-          </p>
+          <CaptionPreview text={post.caption_snapshot} />
         )}
 
         {/* Row 4: failure detail — human-readable stage + message */}

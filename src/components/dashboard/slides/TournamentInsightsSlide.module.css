@@ -12,6 +12,19 @@
   margin-bottom: 4px;
 }
 
+.headerUltraCompact {
+  margin-bottom: 2px;
+}
+
+.headerUltraCompact .heroMascot {
+  width: 80px;
+  opacity: 0.75;
+}
+
+.headerUltraCompact .title { font-size: 36px; }
+.headerUltraCompact .titleSup { font-size: 12px; }
+.headerUltraCompact .marchBadge { font-size: 11px; padding: 2px 10px; margin-bottom: 2px; }
+
 .headerTop {
   display: flex;
   align-items: center;
@@ -96,6 +109,10 @@
   gap: 5px;
 }
 
+.cardListUltraCompact {
+  gap: 3px;
+}
+
 /* ── Card ──────────────────────────────────────────────────── */
 .card {
   background: linear-gradient(
@@ -141,6 +158,29 @@
   gap: 4px;
   border-radius: 12px;
 }
+
+.cardUltraCompact {
+  padding: 8px 14px 6px;
+  gap: 2px;
+  border-radius: 10px;
+}
+
+.cardUltraCompact .pickName { font-size: 20px; max-width: 130px; }
+.cardUltraCompact .oppName { font-size: 15px; max-width: 110px; }
+.cardUltraCompact .seedTag { font-size: 12px; min-width: 28px; padding: 0; }
+.cardUltraCompact .oppSeedTag { font-size: 11px; min-width: 28px; padding: 0; }
+.cardUltraCompact .probRingPct { font-size: 20px; }
+.cardUltraCompact .probRingLabel { font-size: 8px; }
+.cardUltraCompact .maximusPick { font-size: 8px; padding: 1px 6px; margin-top: 1px; }
+.cardUltraCompact .probBarWinner { font-size: 11px; }
+.cardUltraCompact .probBarLoser { font-size: 11px; }
+.cardUltraCompact .probBarTrack { height: 5px; }
+.cardUltraCompact .metaItem { font-size: 10px; }
+.cardUltraCompact .badge { font-size: 9px; padding: 1px 6px; }
+.cardUltraCompact .vsLabel { font-size: 11px; }
+.cardUltraCompact .regionLabel { font-size: 9px; }
+.cardUltraCompact .bottomRow { gap: 4px; padding-top: 1px; }
+.cardUltraCompact .cardInner { gap: 4px; }
 
 /* ── Card Inner: 3-zone layout ─────────────────────────── */
 .cardInner {

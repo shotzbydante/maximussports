@@ -8,7 +8,7 @@
 
 import { PROJECTED_FIELD } from '../data/projectedField';
 import { REGIONS, SEED_MATCHUP_ORDER } from '../config/bracketology';
-import { resolveBracketMatchup } from './bracketMatchupResolver';
+import { resolveBracketMatchup, warnUniformBatch } from './bracketMatchupResolver';
 import { getTournamentPrior, TOURNAMENT_PRIOR_META } from './tournamentPrior';
 
 // ── Seed lookup maps (built once, cached) ─────────────────────────
@@ -288,7 +288,9 @@ export function getTournamentInsight(matchup, context = {}) {
  * Generate batch tournament insights for an array of matchups.
  */
 export function getBatchTournamentInsights(matchups, context = {}) {
-  return matchups.map(m => getTournamentInsight(m, context)).filter(Boolean);
+  const results = matchups.map(m => getTournamentInsight(m, context)).filter(Boolean);
+  warnUniformBatch(results, `tournament-insights (${matchups.length} matchups)`);
+  return results;
 }
 
 export { TOURNAMENT_PRIOR_META };

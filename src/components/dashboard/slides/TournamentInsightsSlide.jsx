@@ -117,11 +117,10 @@ function ProbBar({ pct, winnerName, loserName, edgeColor }) {
   );
 }
 
-function InsightCard({ insight, compact = false }) {
+function InsightCard({ insight, compact = false, ultraCompact = false }) {
   if (!insight) return null;
   const { matchup, winner, loser, confidenceLabel, winProbability, rationale } = insight;
 
-  // Seed ordering: higher seed (lower number) ALWAYS on left
   const leftTeam = matchup?.topTeam;
   const rightTeam = matchup?.bottomTeam;
   const leftSeed = matchup?.topSeed;
@@ -143,19 +142,25 @@ function InsightCard({ insight, compact = false }) {
   const accentColor = tc?.primary || '#4A90D9';
   const edgeColor = getEdgeColor(pct);
 
-  const logoSize = compact ? 56 : 68;
-  const ringSize = compact ? 78 : 92;
+  const logoSize = ultraCompact ? 38 : compact ? 56 : 68;
+  const ringSize = ultraCompact ? 56 : compact ? 78 : 92;
 
   const spread = matchup?.spread ?? null;
   const overUnder = matchup?.overUnder ?? matchup?.total ?? null;
   const gameTime = matchup?.gameTime ?? matchup?.time ?? null;
   const network = matchup?.network ?? matchup?.broadcast ?? null;
 
-  const displayRationale = rationale || '';
+  const displayRationale = ultraCompact ? '' : (rationale || '');
+
+  const cardClass = ultraCompact
+    ? `${styles.card} ${styles.cardUltraCompact}`
+    : compact
+      ? `${styles.card} ${styles.cardCompact}`
+      : styles.card;
 
   return (
     <div
-      className={`${styles.card} ${compact ? styles.cardCompact : ''}`}
+      className={cardClass}
       style={{
         '--card-accent': accentColor,
         '--card-accent-30': `${accentColor}4d`,
@@ -196,7 +201,7 @@ function InsightCard({ insight, compact = false }) {
         </div>
       </div>
 
-      {/* Colored probability bar — winner always labeled first */}
+      {/* Colored probability bar */}
       <ProbBar
         pct={pct}
         winnerName={winnerTeam?.shortName || winnerTeam?.name}
@@ -204,7 +209,7 @@ function InsightCard({ insight, compact = false }) {
         edgeColor={edgeColor}
       />
 
-      {/* Expanded model rationale */}
+      {/* Rationale — hidden in ultra-compact mode */}
       {displayRationale && (
         <div className={styles.rationale}>
           <p className={styles.rationaleText}>{displayRationale}</p>
@@ -217,10 +222,14 @@ function InsightCard({ insight, compact = false }) {
           <span className={styles.metaItem}>
             Rd 1{matchup?.region ? ` · ${matchup.region}` : ''}
           </span>
-          <span className={styles.metaDot}>·</span>
-          <span className={styles.metaItem}>
-            {gameTime && network ? `${gameTime} · ${network}` : 'Schedule TBA'}
-          </span>
+          {!ultraCompact && (
+            <>
+              <span className={styles.metaDot}>·</span>
+              <span className={styles.metaItem}>
+                {gameTime && network ? `${gameTime} · ${network}` : 'Schedule TBA'}
+              </span>
+            </>
+          )}
           <span className={styles.metaDot}>·</span>
           <span className={styles.metaItem}>
             {spread != null ? `${spread}` : 'Line TBA'}
@@ -242,9 +251,21 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
   const subtitle = ti.subtitle || 'TOURNAMENT INTELLIGENCE';
   const insights = ti.insights || [];
 
-  const displayInsights = insights.slice(0, 5);
+  // Support up to 8 cards for full region views
+  const displayInsights = insights.slice(0, 8);
+  const isUltraCompact = displayInsights.length >= 6;
   const isManyCards = displayInsights.length >= 4;
   const title = socialTitle(rawTitle, ti.preset);
+
+  const headerClass = [
+    styles.headerBlock,
+    isUltraCompact ? styles.headerUltraCompact : isManyCards ? styles.headerCompact : '',
+  ].filter(Boolean).join(' ');
+
+  const listClass = [
+    styles.cardList,
+    isUltraCompact ? styles.cardListUltraCompact : isManyCards ? styles.cardListCompact : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <SlideShell
@@ -256,7 +277,7 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
       slideTotal={slideTotal}
       rest={rest}
     >
-      <div className={`${styles.headerBlock} ${isManyCards ? styles.headerCompact : ''}`}>
+      <div className={headerClass}>
         <div className={styles.headerTop}>
           <div className={styles.headerText}>
             <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
@@ -277,12 +298,13 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
           <p>Select matchups to generate tournament insights.</p>
         </div>
       ) : (
-        <div className={`${styles.cardList} ${isManyCards ? styles.cardListCompact : ''}`}>
+        <div className={listClass}>
           {displayInsights.map((insight, i) => (
             <InsightCard
               key={i}
               insight={insight}
               compact={isManyCards}
+              ultraCompact={isUltraCompact}
             />
           ))}
         </div>

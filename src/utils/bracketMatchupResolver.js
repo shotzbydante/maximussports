@@ -70,6 +70,21 @@ function coverPctSignal(coverPct) {
   return clamp(coverPct / 100, 0.25, 0.75);
 }
 
+// Granular conference strength (replaces binary power/non-power)
+const CONFERENCE_STRENGTH = {
+  'SEC': 0.72, 'Big Ten': 0.70, 'Big 12': 0.69, 'ACC': 0.67,
+  'Big East': 0.62, 'Pac-12': 0.55, 'Mountain West': 0.50,
+  'WCC': 0.48, 'AAC': 0.47, 'A-10': 0.45, 'MVC': 0.44,
+  'CAA': 0.42, 'MAAC': 0.40, 'Horizon': 0.40, 'SoCon': 0.39,
+  'Summit': 0.38, 'Ivy': 0.38, 'Patriot': 0.37, 'MEAC': 0.32,
+  'SWAC': 0.32, 'NEC': 0.33, 'Southland': 0.34,
+};
+
+function confStrengthScore(conf) {
+  if (!conf) return 0.40;
+  return CONFERENCE_STRENGTH[conf] ?? 0.40;
+}
+
 /**
  * Resolve a single bracket matchup between two teams.
  *
@@ -119,6 +134,13 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   const recA = recordWinPct(teamA.record);
   const recB = recordWinPct(teamB.record);
 
+  // For close seed matchups the seed baseline is near-useless, so amplify
+  // whatever team-quality signals are available.
+  const prelimSeedGap = Math.abs((teamA.seed ?? 8) - (teamB.seed ?? 9));
+  const enrichAmp = prelimSeedGap <= 1 ? 3.0
+                  : prelimSeedGap <= 3 ? 2.0
+                  : 1.0;
+
   let enrichDelta = 0;
   let enrichCount = 0;
   const activeSignals = [];
@@ -127,7 +149,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   if (rankA != null || rankB != null) {
     const sigA = rankSignal(rankA) ?? 0.30;
     const sigB = rankSignal(rankB) ?? 0.30;
-    enrichDelta += (sigA - sigB) * 0.30;
+    enrichDelta += (sigA - sigB) * 0.30 * enrichAmp;
     enrichCount++;
     activeSignals.push({ type: 'ranking', valA: rankA, valB: rankB, delta: sigA - sigB });
   }
@@ -136,7 +158,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   if (champA != null || champB != null) {
     const sigA = champOddsSignal(champA) ?? 0.06;
     const sigB = champOddsSignal(champB) ?? 0.06;
-    enrichDelta += (sigA - sigB) * 0.25;
+    enrichDelta += (sigA - sigB) * 0.25 * enrichAmp;
     enrichCount++;
     activeSignals.push({ type: 'championship', valA: champA, valB: champB, delta: sigA - sigB });
   }
@@ -145,7 +167,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   if (atsA != null || atsB != null) {
     const sigA = coverPctSignal(atsA) ?? 0.50;
     const sigB = coverPctSignal(atsB) ?? 0.50;
-    enrichDelta += (sigA - sigB) * 0.20;
+    enrichDelta += (sigA - sigB) * 0.20 * enrichAmp;
     enrichCount++;
     activeSignals.push({ type: 'ats', valA: atsA, valB: atsB, delta: sigA - sigB });
   }
@@ -154,25 +176,36 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   if (recA != null || recB != null) {
     const vA = recA ?? 0.50;
     const vB = recB ?? 0.50;
-    enrichDelta += (vA - vB) * 0.15;
+    enrichDelta += (vA - vB) * 0.15 * enrichAmp;
     enrichCount++;
     activeSignals.push({ type: 'record', valA: teamA.record, valB: teamB.record, delta: vA - vB });
   }
 
-  // Conference strength proxy — power conference advantage
-  const POWER_CONFERENCES = new Set(['SEC', 'Big Ten', 'ACC', 'Big 12', 'Big East']);
-  const confA = POWER_CONFERENCES.has(teamA.conference) ? 0.60 : 0.42;
-  const confB = POWER_CONFERENCES.has(teamB.conference) ? 0.60 : 0.42;
-  enrichDelta += (confA - confB) * 0.10;
+  // Conference strength — granular scale for better same-band differentiation
+  const confA = confStrengthScore(teamA.conference);
+  const confB = confStrengthScore(teamB.conference);
+
+  // For close seed matchups (gap ≤ 3) the seed baseline is nearly
+  // uninformative, so amplify whatever enrichment signals exist.
+  const seedGap = Math.abs((teamA.seed ?? 8) - (teamB.seed ?? 9));
+  const closeMatchup = seedGap <= 3;
+  const confWeight = closeMatchup ? 0.25 : 0.10;
+  enrichDelta += (confA - confB) * confWeight;
 
   // ── 3. Blend seed baseline with enrichment ─────────────────────
   // When enrichment is rich, team-specific signals dominate.
   // When enrichment is absent, seed baseline anchors the output.
   const seedEdge = seedProb - 0.5;
-  const seedWeight = enrichCount >= 3 ? 0.35
-                   : enrichCount >= 2 ? 0.50
-                   : enrichCount >= 1 ? 0.65
-                   : 0.90;
+  let seedWeight = enrichCount >= 3 ? 0.35
+                 : enrichCount >= 2 ? 0.50
+                 : enrichCount >= 1 ? 0.65
+                 : 0.90;
+
+  // Reduce seed weight for close matchups so available enrichment
+  // has a bigger voice — a 0.51 baseline adds almost no information.
+  if (closeMatchup && enrichCount >= 1) {
+    seedWeight = Math.min(seedWeight, 0.25);
+  }
 
   let edge = seedEdge * seedWeight + enrichDelta;
 
@@ -198,7 +231,8 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   // ── 5. Final outputs ───────────────────────────────────────────
   const edgeMag = Math.abs(edge);
   const pickA = edge >= 0;
-  const winProb = clamp(0.5 + edgeMag, 0.50, 0.97);
+  // Floor at 0.51 — a "predicted winner" at 50% is contradictory.
+  const winProb = clamp(0.5 + edgeMag, 0.51, 0.97);
 
   let confidence = 0;
   if (edgeMag >= 0.20) confidence = 2;
@@ -251,6 +285,22 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     winProbability: winProb,
     tournamentPrior: tournamentPriorResult,
   };
+}
+
+/**
+ * Dev-only: warn when a batch of distinct matchups all resolve to the
+ * same probability. Indicates missing enrichment data or a model bug.
+ */
+export function warnUniformBatch(results, label = 'batch') {
+  if (process.env.NODE_ENV !== 'development' || !results || results.length < 2) return;
+  const probs = results.map(r => Math.round((r.winProbability ?? 0.5) * 100));
+  const allSame = probs.every(p => p === probs[0]);
+  if (allSame) {
+    console.warn(
+      `[Maximus] Uniform probability detected in ${label}: all ${results.length} matchups resolved to ${probs[0]}%. ` +
+      `Enrichment counts: [${results.map(r => r.enrichmentCount ?? '?').join(', ')}]`,
+    );
+  }
 }
 
 /**
@@ -348,9 +398,12 @@ function buildSignals(winner, loser, ctx) {
   }
 
   if (ctx.winnerConf && ctx.loserConf) {
-    const POWER = new Set(['SEC', 'Big Ten', 'ACC', 'Big 12', 'Big East']);
-    if (POWER.has(ctx.winnerConf) && !POWER.has(ctx.loserConf)) {
-      signals.push(`Power conference strength (${ctx.winnerConf})`);
+    const wStr = confStrengthScore(ctx.winnerConf);
+    const lStr = confStrengthScore(ctx.loserConf);
+    if (wStr - lStr >= 0.10) {
+      signals.push(`Stronger conference (${ctx.winnerConf} vs ${ctx.loserConf})`);
+    } else if (wStr - lStr >= 0.04) {
+      signals.push(`Conference strength edge (${ctx.winnerConf})`);
     }
   }
 
