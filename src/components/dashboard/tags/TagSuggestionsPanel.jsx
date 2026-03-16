@@ -6,13 +6,13 @@ function storageKey({ template, teamSlug, awaySlug, homeSlug }) {
   return `maximus_tags_${template}_${teamSlug || ''}_${awaySlug || ''}_${homeSlug || ''}`;
 }
 
-export default function TagSuggestionsPanel({ template, teamSlug, conference, awaySlug, homeSlug }) {
+export default function TagSuggestionsPanel({ template, teamSlug, conference, awaySlug, homeSlug, gameMode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const key = storageKey({ template, teamSlug, awaySlug, homeSlug });
-  const suggested = getTagsForContext({ template, teamSlug, conference, awaySlug, homeSlug });
+  const suggested = getTagsForContext({ template, teamSlug, conference, awaySlug, homeSlug, gameMode });
 
   const [customText, setCustomText] = useState(() => {
     try { return localStorage.getItem(key) || ''; } catch { return ''; }

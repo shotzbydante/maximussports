@@ -411,7 +411,7 @@ export default function Dashboard() {
     }
 
     const insights = getBatchTournamentInsights(matchups, context);
-    return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [] };
+    return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [], preset: tournamentPreset || null };
   }, [activeSection, gameMode, tournamentPreset, tournamentRegion, tournamentSelectedMatchups]);
 
   // ── compute caption ───────────────────────────────────────
@@ -454,8 +454,9 @@ export default function Dashboard() {
       chatDigest: activeSection === 'daily' ? dailyDigest : null,
       nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
       conference: activeSection === 'conference' ? selectedConference : null,
+      tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -1263,6 +1264,7 @@ export default function Dashboard() {
             conference={activeSection === 'conference' ? selectedConference : selectedTeam?.conference}
             awaySlug={gameTagContext.awaySlug}
             homeSlug={gameTagContext.homeSlug}
+            gameMode={activeSection === 'game' ? gameMode : undefined}
           />
 
           </>)}

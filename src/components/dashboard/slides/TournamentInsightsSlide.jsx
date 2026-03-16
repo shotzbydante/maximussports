@@ -16,16 +16,20 @@ const UPSET_RISK_CONFIG = {
 
 function computeUpsetRisk(insight) {
   const { matchup, winProbability, historicalRate } = insight;
-  const seedDiff = Math.abs((matchup?.topSeed ?? 0) - (matchup?.bottomSeed ?? 0));
-  const modelUpsetProb = insight.isUpset
-    ? (winProbability ?? 0)
-    : (1 - (winProbability ?? 1));
+  const favProb = winProbability ?? 0.5;
   const histRate = historicalRate ?? 0;
 
-  const composite = (modelUpsetProb * 0.5) + (histRate * 0.3) + (Math.min(seedDiff, 8) / 8 * 0.2);
+  // If the favorite has very high probability, upset risk must be LOW
+  // regardless of historical rate — the model output is the truth signal.
+  if (favProb >= 0.85) return 'LOW';
+  if (favProb >= 0.72) return histRate >= 0.25 ? 'MODERATE' : 'LOW';
+
+  // For closer matchups, blend model and historical signals
+  const modelUpsetProb = 1 - favProb;
+  const composite = (modelUpsetProb * 0.6) + (histRate * 0.4);
 
   if (composite >= 0.35) return 'HIGH';
-  if (composite >= 0.18) return 'MODERATE';
+  if (composite >= 0.22) return 'MODERATE';
   return 'LOW';
 }
 
@@ -74,19 +78,22 @@ function InsightCard({ insight, featured = false, compact = false }) {
   const winnerTeam = winner || matchup?.topTeam;
   const loserTeam = loser || matchup?.bottomTeam;
   const upsetRisk = computeUpsetRisk(insight);
+  const logoSize = compact ? 26 : (featured ? 38 : 30);
 
-  const bullets = [
-    ...(signals || []).slice(0, 3),
-    ...(historicalContext && (signals || []).length < 3 ? [historicalContext] : []),
-  ].slice(0, compact ? 2 : 3);
+  const bullets = compact
+    ? (signals || []).slice(0, 1)
+    : [
+        ...(signals || []).slice(0, 3),
+        ...(historicalContext && (signals || []).length < 3 ? [historicalContext] : []),
+      ].slice(0, 3);
 
   return (
-    <div className={`${styles.card} ${featured ? styles.cardFeatured : ''}`}>
+    <div className={`${styles.card} ${featured ? styles.cardFeatured : ''} ${compact ? styles.cardCompact : ''}`}>
       {/* Row 1: Matchup */}
       <div className={styles.matchupRow}>
         <div className={styles.teamSide}>
           <span className={styles.seedBadge}>#{matchup?.topSeed}</span>
-          <TeamLogo team={matchup?.topTeam} size={featured ? 40 : 32} />
+          <TeamLogo team={matchup?.topTeam} size={logoSize} />
           <span className={styles.teamName}>{matchup?.topTeam?.shortName || matchup?.topTeam?.name}</span>
         </div>
         <div className={styles.vsBlock}>
@@ -95,43 +102,29 @@ function InsightCard({ insight, featured = false, compact = false }) {
         </div>
         <div className={`${styles.teamSide} ${styles.teamSideRight}`}>
           <span className={styles.teamName}>{matchup?.bottomTeam?.shortName || matchup?.bottomTeam?.name}</span>
-          <TeamLogo team={matchup?.bottomTeam} size={featured ? 40 : 32} />
+          <TeamLogo team={matchup?.bottomTeam} size={logoSize} />
           <span className={styles.seedBadge}>#{matchup?.bottomSeed}</span>
         </div>
       </div>
 
-      {/* Row 2: Game Info (tournament context) */}
-      <div className={styles.gameInfoRow}>
-        <span className={styles.gameInfoItem}>Round of 64</span>
-        <span className={styles.gameInfoDot}>·</span>
-        <span className={styles.gameInfoItem}>{matchup?.region} Region</span>
-        {isUpset && (
-          <>
-            <span className={styles.gameInfoDot}>·</span>
-            <span className={styles.upsetTag}>UPSET WATCH</span>
-          </>
-        )}
-      </div>
-
-      {/* Row 3: Prediction + Conviction + Upset Risk */}
+      {/* Prediction + Badges — merged row in compact mode */}
       <div className={styles.predictionBlock}>
         <div className={styles.predictionHeader}>
-          <span className={styles.pickLabel}>MODEL PICK</span>
+          <div className={styles.winnerInline}>
+            <span className={styles.pickLabel}>PICK</span>
+            <span className={styles.winnerName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
+            {winProbability != null && (
+              <span className={styles.winProbPct}>{Math.round(winProbability * 100)}%</span>
+            )}
+          </div>
           <div className={styles.badgeRow}>
             <ConvictionBadge label={confidenceLabel} />
             <UpsetMeter risk={upsetRisk} />
           </div>
         </div>
-        <div className={styles.winnerRow}>
-          <TeamLogo team={winnerTeam} size={28} />
-          <span className={styles.winnerName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
-          {winProbability != null && (
-            <span className={styles.winProbPct}>{Math.round(winProbability * 100)}%</span>
-          )}
-        </div>
       </div>
 
-      {/* Row 4: Probability Bar */}
+      {/* Probability Bar */}
       {winProbability != null && (
         <ProbabilityBar
           winProbability={winProbability}
@@ -141,8 +134,8 @@ function InsightCard({ insight, featured = false, compact = false }) {
         />
       )}
 
-      {/* Row 5: Explanation Bullets */}
-      {bullets.length > 0 && (
+      {/* Explanation Bullets */}
+      {bullets.length > 0 && !compact && (
         <div className={styles.bulletList}>
           {bullets.map((b, i) => (
             <div key={i} className={styles.bullet}>
@@ -180,7 +173,7 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
       slideTotal={slideTotal}
       rest={rest}
     >
-      <div className={styles.headerBlock}>
+      <div className={`${styles.headerBlock} ${isManyCards ? styles.headerCompact : ''}`}>
         <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
         <div className={styles.titleSup}>{subtitle}</div>
         <h2 className={styles.title}>{title}</h2>

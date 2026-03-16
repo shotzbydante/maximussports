@@ -156,8 +156,28 @@
   gap: 14px;
   position: sticky;
   top: 80px;
-  max-height: calc(100vh - 100px);
+  max-height: calc(100vh - 96px);
   overflow-y: auto;
+  /* Make scrollbar always visible so users know content continues */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border, #4a5568) transparent;
+}
+
+.controls::-webkit-scrollbar {
+  width: 5px;
+}
+
+.controls::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.controls::-webkit-scrollbar-thumb {
+  background: var(--color-border, #4a5568);
+  border-radius: 4px;
+}
+
+.controls::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted, #718096);
 }
 
 @media (max-width: 900px) {

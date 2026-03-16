@@ -339,6 +339,145 @@ function buildTeamCaption({ team, rank, record, picks, atsRecord, conference, as
   return { shortCaption: short, longCaption: long, hashtags };
 }
 
+// ─── Tournament Insights ──────────────────────────────────────────────────────
+
+function buildTournamentCaption({ tournamentInsights, asOf }) {
+  const ti = tournamentInsights || {};
+  const insights = ti.insights || [];
+  const mode = ti.mode || 'tournament';
+  const title = ti.title || '';
+  const preset = ti.preset || null;
+
+  if (mode === 'upset-radar') {
+    return buildUpsetRadarCaption({ tournamentInsights: ti, asOf });
+  }
+
+  if (insights.length === 0) {
+    return {
+      shortCaption: '🏀 March Madness tournament intelligence is live.\n\nFull analysis at maximussports.ai',
+      longCaption: '🏀 March Madness tournament intelligence is live.\n\nFull analysis at maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+',
+      hashtags: ['#MarchMadness', '#NCAATournament', '#Bracketology', '#CollegeBasketball', '#MaximusSports'],
+    };
+  }
+
+  const teamNames = insights.map(ins => {
+    const w = ins.winner;
+    return w?.shortName || w?.name || 'TBD';
+  });
+
+  const highConv = insights.filter(ins => ins.confidenceLabel === 'HIGH');
+  const strongestPick = highConv.length > 0 ? highConv[0] : insights[0];
+  const strongestName = strongestPick?.winner?.shortName || strongestPick?.winner?.name || '';
+  const strongestPct = strongestPick?.winProbability != null
+    ? Math.round(strongestPick.winProbability * 100)
+    : null;
+
+  const matchupSummaries = insights.slice(0, 4).map(ins => {
+    const top = ins.matchup?.topTeam?.shortName || ins.matchup?.topTeam?.name || '?';
+    const bot = ins.matchup?.bottomTeam?.shortName || ins.matchup?.bottomTeam?.name || '?';
+    const topSeed = ins.matchup?.topSeed;
+    const botSeed = ins.matchup?.bottomSeed;
+    const seedStr = topSeed != null && botSeed != null ? ` (${topSeed}v${botSeed})` : '';
+    return `${top} vs ${bot}${seedStr}`;
+  });
+
+  // Determine hook based on preset type
+  let hook = '🏀 Tournament intelligence just dropped.';
+  if (preset === '1-seeds' || title.includes('No. 1')) {
+    hook = '🏀 All four No. 1 seeds — model breakdown is live.';
+  } else if (title.includes('Region')) {
+    const regionName = title.replace('\n', ' ').trim();
+    hook = `🏀 ${regionName} — full bracket intelligence.`;
+  } else if (preset && preset.includes('seeds')) {
+    hook = `🏀 Seed-line breakdown is live. Here's what the model sees.`;
+  }
+
+  const matchupList = matchupSummaries.map(m => `• ${m}`).join('\n');
+
+  const convLine = strongestPct != null
+    ? `Strongest conviction: ${strongestName} at ${strongestPct}% win probability.`
+    : (strongestName ? `Strongest lean: ${strongestName}.` : '');
+
+  const short = [
+    hook,
+    matchupList,
+    convLine,
+    'Full analysis at maximussports.ai',
+  ].filter(Boolean).join('\n\n');
+
+  const long = [
+    hook,
+    '',
+    'Matchups:',
+    matchupList,
+    '',
+    convLine,
+    '',
+    highConv.length > 1
+      ? `${highConv.length} high-conviction picks on the board. The model likes clear edges in these seed bands.`
+      : 'Model ran each matchup through the full signal pipeline — rankings, ATS, market odds, and tournament history.',
+    '',
+    'Full intelligence at maximussports.ai',
+    '',
+    asOf ? `Data as of ${asOf}` : null,
+    'For entertainment only. Please bet responsibly. 21+',
+  ].filter(l => l != null).join('\n');
+
+  const hashtags = ['#MarchMadness', '#NCAATournament', '#Bracketology', '#CollegeBasketball', '#MaximusSports'];
+
+  return { shortCaption: short, longCaption: long, hashtags };
+}
+
+function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
+  const upsetGames = tournamentInsights?.upsetGames || [];
+
+  if (upsetGames.length === 0) {
+    return {
+      shortCaption: '🚨 Upset Radar is live for the tournament.\n\nFull analysis at maximussports.ai',
+      longCaption: '🚨 Upset Radar is live.\n\nFor entertainment only. Please bet responsibly. 21+',
+      hashtags: ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'],
+    };
+  }
+
+  const topUpsets = upsetGames.slice(0, 3);
+  const upsetLines = topUpsets.map(g => {
+    const dog = g.underdog?.shortName || g.underdog?.name || '?';
+    const fav = g.favorite?.shortName || g.favorite?.name || '?';
+    const dogSeed = g.underdog?.seed ?? '?';
+    const favSeed = g.favorite?.seed ?? '?';
+    return `• #${dogSeed} ${dog} over #${favSeed} ${fav}`;
+  });
+
+  const hook = `🚨 UPSET RADAR: ${topUpsets.length} games flagged for volatility.`;
+
+  const short = [
+    hook,
+    upsetLines.join('\n'),
+    'These are the spots bracket players need to watch.',
+    'Full analysis at maximussports.ai',
+  ].filter(Boolean).join('\n\n');
+
+  const long = [
+    hook,
+    '',
+    'Top upset spots:',
+    upsetLines.join('\n'),
+    '',
+    'The model flagged these based on seed differential, ATS trends, and historical upset frequency.',
+    '',
+    'These are the games that break brackets every year. Worth paying attention.',
+    '',
+    'Full intelligence at maximussports.ai',
+    '',
+    asOf ? `Data as of ${asOf}` : null,
+    'For entertainment only. Please bet responsibly. 21+',
+  ].filter(l => l != null).join('\n');
+
+  const hashtags = ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'];
+
+  return { shortCaption: short, longCaption: long, hashtags };
+}
+
 // ─── Game Insights ───────────────────────────────────────────────────────────
 
 function buildGameCaption({ game, picks, asOf }) {
@@ -1187,8 +1326,16 @@ function buildConferenceCaption({ conference, atsLeaders, asOf }) {
 export function buildCaption({
   template, team, game, picks, stats, atsLeaders,
   headlines, asOf, styleMode, chatDigest, nextGame,
-  teamNews, ats, conference,
+  teamNews, ats, conference, tournamentInsights,
 } = {}) {
+  // Tournament-aware captions when tournament data is present
+  if (template === 'game' && tournamentInsights?.insights?.length > 0) {
+    return buildTournamentCaption({ tournamentInsights, asOf });
+  }
+  if (template === 'game' && tournamentInsights?.mode === 'upset-radar') {
+    return buildUpsetRadarCaption({ tournamentInsights, asOf });
+  }
+
   switch (template) {
     case 'conference':
       return buildConferenceCaption({

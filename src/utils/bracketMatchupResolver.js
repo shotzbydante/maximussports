@@ -126,6 +126,41 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   scoreA += (sosA - sosB) * W_SOS;
   scoreB += (sosB - sosA) * W_SOS;
 
+  // ── Seed-based prior when enrichment is sparse ─────────────────
+  // When no real enrichment data is available, use historical seed-based
+  // win rates so obvious mismatches (1v16, 2v15) don't show 50/50.
+  if (enrichCount === 0 && teamA.seed != null && teamB.seed != null) {
+    const favSeed = Math.min(teamA.seed, teamB.seed);
+    const dogSeed = Math.max(teamA.seed, teamB.seed);
+    const seedGap = dogSeed - favSeed;
+
+    const SEED_WIN_RATE = {
+      '1_16': 0.98, '2_15': 0.92, '3_14': 0.85, '4_13': 0.78,
+      '5_12': 0.64, '6_11': 0.63, '7_10': 0.60, '8_9': 0.51,
+    };
+
+    const seedKey = `${favSeed}_${dogSeed}`;
+    let favWinRate = SEED_WIN_RATE[seedKey] ?? null;
+    if (favWinRate == null) {
+      if (seedGap >= 12) favWinRate = 0.95;
+      else if (seedGap >= 8) favWinRate = 0.82;
+      else if (seedGap >= 5) favWinRate = 0.70;
+      else if (seedGap >= 3) favWinRate = 0.62;
+      else favWinRate = 0.55;
+    }
+
+    const seedEdge = (favWinRate - 0.5) * 0.85;
+    const aIsFav = teamA.seed < teamB.seed;
+    if (aIsFav) {
+      scoreA += seedEdge;
+      scoreB -= seedEdge;
+    } else {
+      scoreB += seedEdge;
+      scoreA -= seedEdge;
+    }
+    enrichCount = 1;
+  }
+
   // ── Main model edge (before tournament prior) ──────────────────
   const mainEdge = scoreA - scoreB;
   const mainEdgeMag = Math.abs(mainEdge);
@@ -160,7 +195,14 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   else if (edgeMag >= 0.07) confidence = 1;
 
   if (enrichCount === 0) confidence = 0;
-  if (enrichCount <= 1) confidence = Math.min(confidence, 1);
+
+  // Allow HIGH confidence for large seed gaps even with seed-only enrichment,
+  // since a 1v16 is objectively a HIGH confidence pick.
+  const seedGapForConf = (teamA.seed != null && teamB.seed != null)
+    ? Math.abs(teamA.seed - teamB.seed) : 0;
+  if (enrichCount <= 1 && seedGapForConf < 8) {
+    confidence = Math.min(confidence, 1);
+  }
 
   const winner = pickA ? teamA : teamB;
   const loser = pickA ? teamB : teamA;
@@ -270,7 +312,17 @@ function buildSignals(winner, loser, ctx) {
   if (ctx.tournamentPrior?.applied) {
     signals.push('Tournament prior: historically volatile seed band');
   }
-  if (signals.length === 0) signals.push('Composite model edge');
+  if (signals.length === 0) {
+    const wSeed = winner.seed;
+    const lSeed = loser.seed;
+    if (wSeed != null && lSeed != null && Math.abs(wSeed - lSeed) >= 8) {
+      signals.push(`Significant seed advantage (#${wSeed} vs #${lSeed})`);
+    } else if (wSeed != null && lSeed != null && Math.abs(wSeed - lSeed) >= 4) {
+      signals.push(`Seed-line edge (#${wSeed} vs #${lSeed})`);
+    } else {
+      signals.push('Composite model edge');
+    }
+  }
   return signals;
 }
 
@@ -278,8 +330,11 @@ function buildRationale(winner, loser, ctx) {
   const parts = [];
   const edgePct = Math.round(ctx.edgeMag * 100);
 
+  const seedGap = (winner.seed != null && loser.seed != null) ? Math.abs(winner.seed - loser.seed) : 0;
   if (ctx.enrichCount >= 3) {
     parts.push(`Full-model composite edge of ${edgePct}pp favors ${winner.name || winner.shortName}.`);
+  } else if (ctx.enrichCount >= 1 && seedGap >= 8) {
+    parts.push(`Strong historical favorite. #${Math.min(winner.seed, loser.seed)}-seeds win this matchup ~${Math.round((0.5 + ctx.edgeMag) * 100)}% of the time.`);
   } else if (ctx.enrichCount >= 1) {
     parts.push(`Partial-model edge of ${edgePct}pp with ${ctx.enrichCount} enrichment source${ctx.enrichCount > 1 ? 's' : ''}.`);
   } else {

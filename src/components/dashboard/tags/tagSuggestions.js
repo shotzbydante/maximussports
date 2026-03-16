@@ -98,7 +98,7 @@ export const byTeamSlug = {
  * Get suggested tags for a given context (up to 12).
  * Falls back gracefully if team not mapped.
  */
-export function getTagsForContext({ template, teamSlug, conference, awaySlug, homeSlug } = {}) {
+export function getTagsForContext({ template, teamSlug, conference, awaySlug, homeSlug, gameMode } = {}) {
   const seen = new Set();
   const result = [];
 
@@ -120,6 +120,15 @@ export function getTagsForContext({ template, teamSlug, conference, awaySlug, ho
       break;
     }
     case 'game': {
+      if (gameMode === 'tournament' || gameMode === 'upset-radar') {
+        add(baseTags.slice(0, 3));
+        if (gameMode === 'upset-radar') {
+          add(['@ActionNetworkHQ', '@TheAthletic', '@SportsLine']);
+        } else {
+          add(['@ActionNetworkHQ', '@TheAthletic']);
+        }
+        break;
+      }
       if (awaySlug && byTeamSlug[awaySlug]) add(byTeamSlug[awaySlug].slice(0, 2));
       if (homeSlug && byTeamSlug[homeSlug]) add(byTeamSlug[homeSlug].slice(0, 2));
       add(baseTags);
