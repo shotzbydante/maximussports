@@ -3,6 +3,9 @@
  * of the left sidebar. Shows avatar, username, handle, and plan badge.
  * Clicking opens a context menu with profile actions (same as top-nav chip).
  * For guest users, shows default mascot with CTA menu.
+ *
+ * SocialCountsMini is rendered OUTSIDE the block button to avoid
+ * nested-button HTML invalidity and click propagation conflicts.
  */
 import { useState, useEffect, useRef } from 'react';
 import ProfileAvatar, { VerifiedBadge } from './ProfileAvatar';
@@ -66,9 +69,6 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
               {isPro && <VerifiedBadge className={styles.verifiedInline} />}
             </span>
             <span className={styles.handle}>{handle}</span>
-            {!isGuest && profile?.social && (
-              <SocialCountsMini following={profile.social.following} followers={profile.social.followers} />
-            )}
           </div>
           {isPro && <span className={styles.planPill}>PRO</span>}
           <span className={styles.menuDots} aria-hidden>
@@ -80,6 +80,16 @@ export default function SidebarProfileBlock({ profile, isGuest = false }) {
           </span>
         </div>
       </button>
+
+      {!isGuest && profile?.social && (
+        <div className={styles.socialRow}>
+          <SocialCountsMini
+            following={profile.social.following}
+            followers={profile.social.followers}
+            onBeforeOpen={() => setOpen(false)}
+          />
+        </div>
+      )}
 
       <ProfileMenu open={open} onClose={() => setOpen(false)} position="top-left" />
     </div>

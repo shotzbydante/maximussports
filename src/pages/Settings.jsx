@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
@@ -23,8 +23,9 @@ import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAv
 import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
 import ContactDiscovery from '../components/social/ContactDiscovery';
-import SocialListDropdown from '../components/profile/SocialListDropdown';
 import { useFriendGraph } from '../hooks/useFriendGraph';
+
+const SocialListDropdown = lazy(() => import('../components/profile/SocialListDropdown'));
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
  * localStorage keys written by this app (cleared on "Sign out and clear device"):
@@ -1765,7 +1766,9 @@ function SocialCountsRow({ userId }) {
         </button>
       </div>
       {openList && (
-        <SocialListDropdown type={openList} onClose={() => setOpenList(null)} />
+        <Suspense fallback={null}>
+          <SocialListDropdown type={openList} onClose={() => setOpenList(null)} />
+        </Suspense>
       )}
     </>
   );

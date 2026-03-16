@@ -105,3 +105,8 @@
   height: 13px;
   vertical-align: -1px;
 }
+
+.socialRow {
+  padding: 0 var(--space-md) var(--space-sm);
+  padding-left: calc(var(--space-md) + 50px);
+}

@@ -1,13 +1,15 @@
 /**
  * GET /api/user/followers
  *
- * Returns the authenticated user's followers list with profile summaries.
+ * Returns the authenticated user's followers list.
+ *
+ * Uses getUserClient (user-scoped JWT) for follows queries — this matches
+ * the pattern in api/social/follow.js and works reliably with RLS.
+ * Admin client is used only for cross-user profile reads.
  */
 
-import { verifyUserToken } from '../_lib/supabaseAdmin.js';
-import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { verifyUserToken, getUserClient, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
-/** Normalize a profile row + followStatus into the dropdown contract. */
 function normalizeUser(id, profile, followStatus) {
   return {
     id,
@@ -24,66 +26,72 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const token = req.headers.authorization?.slice(7);
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
   const user = await verifyUserToken(token).catch(() => null);
   if (!user) return res.status(401).json({ error: 'Invalid token' });
 
-  let admin;
   try {
-    admin = getSupabaseAdmin();
-  } catch (err) {
-    console.error('[followers] Admin client init failed:', err.message);
-    return res.status(503).json({ error: 'Service unavailable' });
-  }
+    const userSb = getUserClient(token);
 
-  try {
-    const { data: follows, error } = await admin
+    const { data: follows, error: followsErr } = await userSb
       .from('follows')
-      .select('follower_user_id, created_at')
+      .select('follower_user_id')
       .eq('following_user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(100);
 
-    if (error) {
-      console.error('[followers] follows query error:', error.message, error.code);
-      return res.status(500).json({ error: 'Failed to fetch followers' });
+    if (followsErr) {
+      console.error('[followers] follows query failed:', followsErr.message, followsErr.code);
+      return res.status(500).json({ error: 'Failed to query follows' });
     }
 
-    const followerIds = (follows || []).map(f => f.follower_user_id);
-
-    if (followerIds.length === 0) {
+    const ids = (follows || []).map(f => f.follower_user_id);
+    if (ids.length === 0) {
       return res.status(200).json({ followers: [], total: 0 });
     }
 
-    const { data: profiles, error: profileErr } = await admin
-      .from('profiles')
-      .select('id, username, display_name, plan_tier, preferences')
-      .in('id', followerIds);
-
-    if (profileErr) {
-      console.warn('[followers] profiles query error:', profileErr.message);
-    }
+    const [profilesResult, reverseResult] = await Promise.allSettled([
+      fetchProfiles(ids),
+      userSb.from('follows').select('following_user_id').eq('follower_user_id', user.id).in('following_user_id', ids),
+    ]);
 
     const profileMap = {};
-    (profiles || []).forEach(p => { profileMap[p.id] = p; });
+    if (profilesResult.status === 'fulfilled') {
+      (profilesResult.value || []).forEach(p => { profileMap[p.id] = p; });
+    }
 
-    const { data: myFollowing } = await admin
-      .from('follows')
-      .select('following_user_id')
-      .eq('follower_user_id', user.id);
+    const iFollowSet = new Set();
+    if (reverseResult.status === 'fulfilled' && reverseResult.value?.data) {
+      reverseResult.value.data.forEach(r => iFollowSet.add(r.following_user_id));
+    }
 
-    const followingSet = new Set((myFollowing || []).map(f => f.following_user_id));
-
-    const followers = followerIds.map(id => {
-      const iFollow = followingSet.has(id);
-      return normalizeUser(id, profileMap[id], iFollow ? 'friends' : 'follower');
-    });
+    const followers = ids.map(id =>
+      normalizeUser(id, profileMap[id], iFollowSet.has(id) ? 'friends' : 'follower')
+    );
 
     return res.status(200).json({ followers, total: followers.length });
   } catch (err) {
     console.error('[followers] unexpected error:', err);
-    return res.status(500).json({ error: 'Internal error fetching followers' });
+    return res.status(500).json({ error: 'Internal error' });
+  }
+}
+
+async function fetchProfiles(ids) {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from('profiles')
+      .select('id, username, display_name, plan_tier, preferences')
+      .in('id', ids);
+    if (error) {
+      console.warn('[followers] profiles query warning:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('[followers] admin client unavailable for profiles:', err.message);
+    return [];
   }
 }

@@ -2,6 +2,9 @@
  * HeaderProfileChip — profile chip for the top navigation bar.
  * Shows avatar + username with a dropdown for profile actions.
  * For guest users, shows the default mascot with a CTA menu.
+ *
+ * SocialCountsMini is rendered OUTSIDE the chip button to avoid
+ * nested-button HTML invalidity and click propagation conflicts.
  */
 import { useState, useEffect, useRef } from 'react';
 import ProfileAvatar, { VerifiedBadge } from './ProfileAvatar';
@@ -56,17 +59,22 @@ export default function HeaderProfileChip({ profile, isGuest = false }) {
         </span>
         <span className={styles.chipName}>{chipLabel}</span>
         {isPro && <VerifiedBadge />}
-        {!isGuest && profile?.social && (
-          <span className={styles.chipCounts}>
-            <SocialCountsMini following={profile.social.following} followers={profile.social.followers} />
-          </span>
-        )}
         <span className={styles.chipCaret} aria-hidden>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
             <path d="M3 4l2 2 2-2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
       </button>
+
+      {!isGuest && profile?.social && (
+        <span className={styles.chipCounts}>
+          <SocialCountsMini
+            following={profile.social.following}
+            followers={profile.social.followers}
+            onBeforeOpen={() => setOpen(false)}
+          />
+        </span>
+      )}
 
       <ProfileMenu open={open} onClose={() => setOpen(false)} position="bottom-right" />
     </div>

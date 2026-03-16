@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import RobotAvatar from '../profile/RobotAvatar';
 import { VerifiedBadge } from '../profile/ProfileAvatar';
 import { useFriendGraph } from '../../hooks/useFriendGraph';
@@ -167,7 +168,7 @@ export default function SocialListDropdown({ type, onClose }) {
 
   const isFollowers = type === 'followers';
 
-  return (
+  const modal = (
     <div className={styles.overlay}>
       <div className={styles.dropdown} ref={ref} role="dialog" aria-modal="true" aria-label={isFollowers ? 'Followers' : 'Following'}>
         <div className={styles.header}>
@@ -219,4 +220,6 @@ export default function SocialListDropdown({ type, onClose }) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
