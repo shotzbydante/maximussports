@@ -23,6 +23,7 @@ import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAv
 import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
 import ContactDiscovery from '../components/social/ContactDiscovery';
+import SocialListDropdown from '../components/profile/SocialListDropdown';
 import { useFriendGraph } from '../hooks/useFriendGraph';
 
 /* ─── App-wide localStorage / sessionStorage keys ──────────────────────────
@@ -1749,21 +1750,24 @@ function UpgradePrompt({ message, onUpgrade, onClose, upgradeLoading }) {
 /* ─── Premium Profile Page ───────────────────────────────────────────────── */
 function SocialCountsRow({ userId }) {
   const { socialCounts } = useFriendGraph();
+  const [openList, setOpenList] = useState(null);
+
   return (
-    <div className={styles.socialCountsRow} style={{ opacity: 1 }}>
-      <div className={styles.socialCountBlock}>
-        <span className={styles.socialCountNum}>{socialCounts.followers}</span>
-        <span className={styles.socialCountLabel}>Followers</span>
+    <>
+      <div className={styles.socialCountsRow} style={{ opacity: 1 }}>
+        <button type="button" className={styles.socialCountBlock} onClick={() => setOpenList('followers')}>
+          <span className={styles.socialCountNum}>{socialCounts.followers}</span>
+          <span className={styles.socialCountLabel}>Followers</span>
+        </button>
+        <button type="button" className={styles.socialCountBlock} onClick={() => setOpenList('following')}>
+          <span className={styles.socialCountNum}>{socialCounts.following}</span>
+          <span className={styles.socialCountLabel}>Following</span>
+        </button>
       </div>
-      <div className={styles.socialCountBlock}>
-        <span className={styles.socialCountNum}>{socialCounts.following}</span>
-        <span className={styles.socialCountLabel}>Following</span>
-      </div>
-      <div className={styles.socialCountBlock}>
-        <span className={styles.socialCountNum}>{socialCounts.friends}</span>
-        <span className={styles.socialCountLabel}>Friends</span>
-      </div>
-    </div>
+      {openList && (
+        <SocialListDropdown type={openList} onClose={() => setOpenList(null)} />
+      )}
+    </>
   );
 }
 

@@ -23,8 +23,7 @@ const TABS = [
 ];
 
 function computeDefaultTab(socialCounts) {
-  const hasSocialGraph = socialCounts.following > 0 || socialCounts.friends > 0;
-  return hasSocialGraph ? 'activity' : 'discover';
+  return socialCounts.following > 0 ? 'activity' : 'discover';
 }
 
 export default function Friends() {
@@ -35,7 +34,7 @@ export default function Friends() {
     () => computeDefaultTab(socialCounts),
     // Only compute on mount — socialCounts.following/friends drive the initial choice
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [socialCounts.following > 0 || socialCounts.friends > 0],
+    [socialCounts.following > 0],
   );
 
   const [activeTab, setActiveTab] = useState(null);
@@ -58,7 +57,7 @@ export default function Friends() {
         <h1 className={styles.socialPageTitle}>Friends</h1>
         <p className={styles.socialPageSubtitle}>
           {hasStats
-            ? `${socialCounts.following} following · ${socialCounts.followers} followers · ${socialCounts.friends} friends`
+            ? `${socialCounts.following} following · ${socialCounts.followers} followers`
             : 'Find friends and track picks together'}
         </p>
       </div>

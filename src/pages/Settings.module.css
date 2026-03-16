@@ -1268,14 +1268,22 @@
   display: flex;
   gap: var(--space-lg);
   padding: var(--space-sm) 0;
-  opacity: 0.4;
-  cursor: default;
 }
 
 .socialCountBlock {
   display: flex;
   align-items: baseline;
   gap: 5px;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.socialCountBlock:hover {
+  background: rgba(255,255,255,0.06);
 }
 
 .socialCountNum {

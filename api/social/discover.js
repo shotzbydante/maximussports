@@ -50,13 +50,16 @@ export default async function handler(req, res) {
   const TARGET = 10;
 
   try {
-    const { data: myFollowsRaw } = await sb
-      .from('follows')
-      .select('following_user_id')
-      .eq('follower_user_id', user.id);
+    const [{ data: myFollowsRaw }, { data: testAliasIds }] = await Promise.all([
+      sb.from('follows').select('following_user_id').eq('follower_user_id', user.id),
+      sb.rpc('get_test_alias_user_ids', { email_pattern: 'dantedicicco+%@gmail.com' })
+        .then(res => res)
+        .catch(() => ({ data: [] })),
+    ]);
 
     const myFollowingIds = (myFollowsRaw || []).map(f => f.following_user_id);
-    const excludeIds = new Set([user.id, ...myFollowingIds]);
+    const aliasIds = (testAliasIds || []).map(r => typeof r === 'string' ? r : r.id);
+    const excludeIds = new Set([user.id, ...myFollowingIds, ...aliasIds]);
 
     let suggestions = [];
 

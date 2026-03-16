@@ -1,9 +1,9 @@
 /**
- * useFriendGraph — manages follow/unfollow actions, social counts,
- * and friend relationship states.
+ * useFriendGraph — manages follow/unfollow actions and social counts.
  *
  * DB RPCs own all persistent side effects (counters, notifications).
- * This hook only: calls the API, reads resulting state, updates local UI.
+ * This hook only: calls the API, reads resulting state, updates local UI,
+ * and invalidates the shared profile cache so all surfaces stay in sync.
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -11,13 +11,13 @@ import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
 import { track } from '../analytics/index';
 import { showToast } from '../components/common/Toast';
+import { invalidateProfileCache } from './useUserProfile';
 
 export function useFriendGraph() {
   const { user, session } = useAuth();
   const [socialCounts, setSocialCounts] = useState({
     followers: 0,
     following: 0,
-    friends: 0,
   });
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +28,7 @@ export function useFriendGraph() {
       if (!sb) return;
       const { data } = await sb
         .from('profiles')
-        .select('followers_count, following_count, friends_count')
+        .select('followers_count, following_count')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -36,7 +36,6 @@ export function useFriendGraph() {
         setSocialCounts({
           followers: data.followers_count || 0,
           following: data.following_count || 0,
-          friends: data.friends_count || 0,
         });
       }
     } catch {
@@ -47,6 +46,11 @@ export function useFriendGraph() {
   useEffect(() => {
     fetchCounts();
   }, [fetchCounts]);
+
+  const refreshAllSurfaces = useCallback(() => {
+    fetchCounts();
+    if (user?.id) invalidateProfileCache(user.id);
+  }, [fetchCounts, user]);
 
   const followUser = useCallback(async (targetUserId) => {
     if (!session || !user) return null;
@@ -69,7 +73,7 @@ export function useFriendGraph() {
 
       const data = await res.json();
 
-      fetchCounts();
+      refreshAllSurfaces();
 
       track('user_followed', {
         target_id: targetUserId,
@@ -84,7 +88,7 @@ export function useFriendGraph() {
     } finally {
       setLoading(false);
     }
-  }, [session, user, fetchCounts]);
+  }, [session, user, refreshAllSurfaces]);
 
   const unfollowUser = useCallback(async (targetUserId) => {
     if (!session || !user) return null;
@@ -107,7 +111,7 @@ export function useFriendGraph() {
 
       const data = await res.json();
 
-      fetchCounts();
+      refreshAllSurfaces();
 
       track('user_unfollowed', { target_id: targetUserId });
 
@@ -119,7 +123,7 @@ export function useFriendGraph() {
     } finally {
       setLoading(false);
     }
-  }, [session, user, fetchCounts]);
+  }, [session, user, refreshAllSurfaces]);
 
   const fetchFollowers = useCallback(async () => {
     if (!session) return [];

@@ -140,7 +140,6 @@ export function buildUserProfile(authUser, profileRow) {
     social: {
       followers: p.followers_count || 0,
       following: p.following_count || 0,
-      friends:   p.friends_count   || 0,
     },
     pickStats:             { ...EMPTY_PICK_STATS },
     publicProfileEnabled:  p.public_profile_enabled ?? false,
