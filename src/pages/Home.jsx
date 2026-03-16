@@ -11,25 +11,21 @@ import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { generateChatSummary } from '../utils/chatSummary';
 import { TEAMS, getTeamBySlug } from '../data/teams';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
+import { useInView } from '../hooks/useInView';
+import { useHomeLoadTelemetry } from '../hooks/useHomeLoadTelemetry';
+import { useAuth } from '../context/AuthContext';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
+import { safeBuildPicks, EMPTY_PICKS } from '../utils/safePicksResult';
 import LiveScores from '../components/scores/LiveScores';
-import StatCard from '../components/shared/StatCard';
-import NewsFeed from '../components/dashboard/NewsFeed';
+import DynamicStats from '../components/home/DynamicStats';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
 import PinnedErrorBoundary from '../components/home/PinnedErrorBoundary';
 import SectionErrorBoundary from '../components/home/SectionErrorBoundary';
-
-const RankingsTable = lazy(() => import('../components/insights/RankingsTable'));
-import DynamicAlerts from '../components/home/DynamicAlerts';
-import DynamicStats from '../components/home/DynamicStats';
-import ATSLeaderboard from '../components/home/ATSLeaderboard';
 import FormattedSummary from '../components/shared/FormattedSummary';
-import TeamLogo from '../components/shared/TeamLogo';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
 import { getPinnedCache, setPinnedCache, hasFreshPinnedCache } from '../utils/pinnedCache';
 import { perfLog } from '../utils/perfLog';
 import WelcomeModal from '../components/marketing/WelcomeModal';
-import MaximusPicks from '../components/home/MaximusPicks';
 import { buildMaximusPicks, buildPicksSummary, buildBoardBriefing } from '../utils/maximusPicksModel';
 import { getFlag, setFlag } from '../utils/localFlags';
 import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
@@ -39,6 +35,25 @@ import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDat
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
+
+// ── Deferred below-the-fold imports ──────────────────────────────────────────
+const MaximusPicks     = lazy(() => import('../components/home/MaximusPicks'));
+const ATSLeaderboard   = lazy(() => import('../components/home/ATSLeaderboard'));
+const NewsFeed         = lazy(() => import('../components/dashboard/NewsFeed'));
+const DynamicAlerts    = lazy(() => import('../components/home/DynamicAlerts'));
+const RankingsTable    = lazy(() => import('../components/insights/RankingsTable'));
+
+/** Lightweight placeholder while lazy chunks load. */
+function SectionSkeleton({ height = 120 }) {
+  return (
+    <div
+      style={{ minHeight: height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted, #999)', fontSize: '0.8rem' }}
+      aria-busy="true"
+    >
+      Loading…
+    </div>
+  );
+}
 
 /* Module-level TTL cache for the LLM home summary (survives SPA navigation). */
 const _llmSummaryCache = { data: null, ts: 0 };
@@ -413,9 +428,8 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
   // All bullets shown by default — no "More/Less" toggle needed
   const bullets = briefingData?.bullets ?? [];
 
-  // Build a consistent atsBySlug map from leaders — passed to MaximusPicks and summary
-  // so both use the same ATS source and produce identical picks.
-  const atsBySlug = (() => {
+  // Stable atsBySlug map — memoized to avoid re-creating on every render
+  const atsBySlug = useMemo(() => {
     const all = [...(atsLeaders.best ?? []), ...(atsLeaders.worst ?? [])];
     if (all.length === 0) return null;
     const map = {};
@@ -428,32 +442,24 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
       };
     }
     return Object.keys(map).length > 0 ? map : null;
-  })();
+  }, [atsLeaders.best, atsLeaders.worst]);
 
-  // Picks derivation — memoized to avoid reprocessing ~1200 lines of model logic
-  // on every render. Wrapped in try/catch: buildMaximusPicks processes complex data
-  // that may be malformed on degraded networks; an unguarded throw would crash the page.
-  const EMPTY_PICKS = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
+  // Picks derivation — memoized, with safe internal normalization via safeBuildPicks.
   const { picksResult, picksSummary, boardBriefing } = useMemo(() => {
     if (!activeGames.length) return { picksResult: EMPTY_PICKS, picksSummary: null, boardBriefing: null };
-    try {
-      const result = buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds });
-      return {
-        picksResult: result,
-        picksSummary: buildPicksSummary(result),
-        boardBriefing: buildBoardBriefing(result),
-      };
-    } catch (_e) {
-      if (import.meta.env?.DEV) console.error('[OddsInsightsTeaser] buildMaximusPicks error:', _e);
-      return { picksResult: EMPTY_PICKS, picksSummary: null, boardBriefing: null };
-    }
+    const result = safeBuildPicks(buildMaximusPicks, { games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds });
+    let summary = null;
+    let briefing = null;
+    try { summary = buildPicksSummary(result); } catch { /* degrade */ }
+    try { briefing = buildBoardBriefing(result); } catch { /* degrade */ }
+    return { picksResult: result, picksSummary: summary, boardBriefing: briefing };
   }, [activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds]);
 
   const totalPicksCount =
-    (picksResult.pickEmPicks?.length ?? 0) +
-    (picksResult.atsPicks?.length ?? 0) +
-    (picksResult.valuePicks?.length ?? 0) +
-    (picksResult.totalsPicks?.length ?? 0);
+    picksResult.pickEmPicks.length +
+    picksResult.atsPicks.length +
+    picksResult.valuePicks.length +
+    picksResult.totalsPicks.length;
 
   // Detect whether the picks content exceeds the collapse threshold
   useEffect(() => {
@@ -552,17 +558,19 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         ref={picksContentRef}
         className={`${styles.picksCollapsible} ${!isPicksExpanded ? styles.picksCollapsiblePeek : ''}`}
       >
-        <MaximusPicks
-          games={activeGames}
-          atsLeaders={atsLeaders}
-          atsBySlug={atsBySlug}
-          rankMap={rankMap}
-          championshipOdds={championshipOdds}
-          loading={loading || slowLoading || nextSlateLoading || thinSlateLoading}
-          slateDate={slateDate}
-          slateDateSecondary={slateDateSecondary}
-          slateComplete={slateComplete}
-        />
+        <Suspense fallback={<SectionSkeleton height={200} />}>
+          <MaximusPicks
+            games={activeGames}
+            atsLeaders={atsLeaders}
+            atsBySlug={atsBySlug}
+            rankMap={rankMap}
+            championshipOdds={championshipOdds}
+            loading={loading || slowLoading || nextSlateLoading || thinSlateLoading}
+            slateDate={slateDate}
+            slateDateSecondary={slateDateSecondary}
+            slateComplete={slateComplete}
+          />
+        </Suspense>
       </div>
 
       {!isPicksExpanded ? (
@@ -592,6 +600,12 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // ── Intersection refs for deferred below-the-fold sections ──
+  const [atsRef, atsInView] = useInView({ rootMargin: '300px' });
+  const [intelRef, intelInView] = useInView({ rootMargin: '300px' });
+  const [bubbleRef, bubbleInView] = useInView({ rootMargin: '300px' });
 
   // ── Welcome modal: show on first visit or when ?welcome=1 is present ──
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
@@ -847,8 +861,13 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
-  // Fetch LLM-enhanced summary in background; replace local summary once available.
-  // Uses a module-level TTL cache so rapid SPA nav-back doesn't re-fetch within 60 s.
+  // ── Homepage load telemetry ──────────────────────────────────────────────
+  const criticalReady = !scores.loading && (scores.games.length > 0 || top25.length > 0);
+  const hasCriticalError = !!scores.error && !scores.loading;
+  useHomeLoadTelemetry({ criticalReady, hasCriticalError, user });
+
+  // Fetch LLM-enhanced summary in background AFTER a short delay to prioritize
+  // critical data. Uses a module-level TTL cache so rapid SPA nav-back skips re-fetch.
   useEffect(() => {
     const now = Date.now();
     if (_llmSummaryCache.data && now - _llmSummaryCache.ts < LLM_SUMMARY_TTL_MS) {
@@ -856,21 +875,23 @@ export default function Home() {
       return;
     }
     const controller = new AbortController();
-    perfLog('homeSummary', () =>
-      fetch('/api/chat/homeSummary', { signal: controller.signal })
-        .then((r) => r.json())
-        .then((d) => {
-          if (d?.summary) {
-            const fixed = fixPositiveOdds(d.summary);
-            _llmSummaryCache.data = fixed;
-            _llmSummaryCache.ts = Date.now();
-            setLlmSummary(fixed);
-          }
-          return d;
-        }),
-      3000,
-    ).catch(() => {});
-    return () => { controller.abort(); };
+    const delay = setTimeout(() => {
+      perfLog('homeSummary', () =>
+        fetch('/api/chat/homeSummary', { signal: controller.signal })
+          .then((r) => r.json())
+          .then((d) => {
+            if (d?.summary) {
+              const fixed = fixPositiveOdds(d.summary);
+              _llmSummaryCache.data = fixed;
+              _llmSummaryCache.ts = Date.now();
+              setLlmSummary(fixed);
+            }
+            return d;
+          }),
+        3000,
+      ).catch(() => {});
+    }, 1500);
+    return () => { clearTimeout(delay); controller.abort(); };
   }, []);
 
   const STAGGER_MS = 2500;
@@ -1074,7 +1095,7 @@ export default function Home() {
 
       {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>
-        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} loading="lazy" decoding="async" />
+        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} width={120} height={120} loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
         <div className={styles.bannerContent}>
           {/* Editorial briefing header — always visible */}
           <div className={styles.heroBriefingHeader}>
@@ -1206,9 +1227,11 @@ export default function Home() {
             mobileCap={4}
           />
           {upsetCount > 0 && (
-            <div className={styles.todayActionAlerts}>
-              <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
-            </div>
+            <Suspense fallback={null}>
+              <div className={styles.todayActionAlerts}>
+                <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+              </div>
+            </Suspense>
           )}
           <Link to="/games" className={styles.sectionCta}>
             View full schedule →
@@ -1216,79 +1239,101 @@ export default function Home() {
         </section>
       </SectionErrorBoundary>
 
-      {/* ── 7. ATS / Market Signals ──────────────────────────────────── */}
+      {/* ── 7. ATS / Market Signals (deferred until near viewport) ──── */}
       <hr className={styles.sectionDivider} />
-      <SectionErrorBoundary name="ATS Leaders">
-        <section className={styles.atsSection} aria-busy={scores.loading}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionEyebrow}>Market Signals</span>
-            <h2 className={styles.sectionHeadTitle}>Against the Spread Leaders</h2>
-          </div>
-          <ATSLeaderboard
-            atsLeaders={atsLeaders}
-            atsMeta={atsMeta}
-            loading={atsLoading}
-            atsWindow={atsWindow}
-            seasonWarming={seasonWarming}
-            onPeriodChange={atsOnPeriodChange}
-            onRetry={atsOnRetry}
-          />
-          <Link to="/insights" className={styles.sectionCta}>
-            View full market signals →
-          </Link>
-        </section>
-      </SectionErrorBoundary>
+      <div ref={atsRef}>
+        {atsInView ? (
+          <SectionErrorBoundary name="ATS Leaders">
+            <section className={styles.atsSection} aria-busy={scores.loading}>
+              <div className={styles.sectionHead}>
+                <span className={styles.sectionEyebrow}>Market Signals</span>
+                <h2 className={styles.sectionHeadTitle}>Against the Spread Leaders</h2>
+              </div>
+              <Suspense fallback={<SectionSkeleton height={180} />}>
+                <ATSLeaderboard
+                  atsLeaders={atsLeaders}
+                  atsMeta={atsMeta}
+                  loading={atsLoading}
+                  atsWindow={atsWindow}
+                  seasonWarming={seasonWarming}
+                  onPeriodChange={atsOnPeriodChange}
+                  onRetry={atsOnRetry}
+                />
+              </Suspense>
+              <Link to="/insights" className={styles.sectionCta}>
+                View full market signals →
+              </Link>
+            </section>
+          </SectionErrorBoundary>
+        ) : (
+          <SectionSkeleton height={180} />
+        )}
+      </div>
 
-      {/* ── 8. News / Videos / Intel Feed ─────────────────────────────── */}
+      {/* ── 8. News / Videos / Intel Feed (deferred) ──────────────────── */}
       <hr className={styles.sectionDivider} />
-      <SectionErrorBoundary name="Intel Feed">
-        <section className={styles.intelFeedSection}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionEyebrow}>Intel Feed</span>
-            <h2 className={styles.sectionHeadTitle}>News &amp; Highlights</h2>
-          </div>
-          <div className={styles.intelFeedGrid}>
-            <NewsFeed mode="videos" limitVideos={2} />
-            <NewsFeed
-              mode="headlines"
-              items={(newsData.newsFeed || []).slice(0, 6)}
-              source={newsSource}
-              loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
-              limitHeadlines={4}
-            />
-          </div>
-          <Link to="/news" className={styles.sectionCta}>
-            View full Intel Feed →
-          </Link>
-        </section>
-      </SectionErrorBoundary>
+      <div ref={intelRef}>
+        {intelInView ? (
+          <SectionErrorBoundary name="Intel Feed">
+            <section className={styles.intelFeedSection}>
+              <div className={styles.sectionHead}>
+                <span className={styles.sectionEyebrow}>Intel Feed</span>
+                <h2 className={styles.sectionHeadTitle}>News &amp; Highlights</h2>
+              </div>
+              <Suspense fallback={<SectionSkeleton height={160} />}>
+                <div className={styles.intelFeedGrid}>
+                  <NewsFeed mode="videos" limitVideos={2} />
+                  <NewsFeed
+                    mode="headlines"
+                    items={(newsData.newsFeed || []).slice(0, 6)}
+                    source={newsSource}
+                    loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
+                    limitHeadlines={4}
+                  />
+                </div>
+              </Suspense>
+              <Link to="/news" className={styles.sectionCta}>
+                View full Intel Feed →
+              </Link>
+            </section>
+          </SectionErrorBoundary>
+        ) : (
+          <SectionSkeleton height={160} />
+        )}
+      </div>
 
-      {/* ── 9. Rankings / Team Intel Teaser ────────────────────────────── */}
+      {/* ── 9. Rankings / Team Intel Teaser (deferred) ──────────────── */}
       <hr className={styles.sectionDivider} />
-      <SectionErrorBoundary name="Bubble Watch">
-        <section className={styles.bubbleWatchSection} aria-label="Rankings">
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
-            <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
-          </div>
-          <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted, #888)', fontSize: '0.85rem' }}>Loading rankings…</div>}>
-            <RankingsTable
-              title="Bubble Watch — Top 25"
-              badge="Deep Dive"
-              collapsible
-              capRows={10}
-              defaultSortBy="top25"
-              rankings={top25}
-              championshipOdds={championshipOdds}
-              championshipOddsMeta={championshipOddsMeta}
-              championshipOddsLoading={championshipOddsLoading}
-            />
-          </Suspense>
-          <Link to="/teams" className={styles.sectionCta}>
-            Explore full rankings →
-          </Link>
-        </section>
-      </SectionErrorBoundary>
+      <div ref={bubbleRef}>
+        {bubbleInView ? (
+          <SectionErrorBoundary name="Bubble Watch">
+            <section className={styles.bubbleWatchSection} aria-label="Rankings">
+              <div className={styles.sectionHead}>
+                <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
+                <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
+              </div>
+              <Suspense fallback={<SectionSkeleton height={200} />}>
+                <RankingsTable
+                  title="Bubble Watch — Top 25"
+                  badge="Deep Dive"
+                  collapsible
+                  capRows={10}
+                  defaultSortBy="top25"
+                  rankings={top25}
+                  championshipOdds={championshipOdds}
+                  championshipOddsMeta={championshipOddsMeta}
+                  championshipOddsLoading={championshipOddsLoading}
+                />
+              </Suspense>
+              <Link to="/teams" className={styles.sectionCta}>
+                Explore full rankings →
+              </Link>
+            </section>
+          </SectionErrorBoundary>
+        ) : (
+          <SectionSkeleton height={200} />
+        )}
+      </div>
     </div>
   );
 }
