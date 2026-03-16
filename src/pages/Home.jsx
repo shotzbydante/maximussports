@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { newsFeed as mockNewsFeed } from '../data/mockData';
 import { fetchHomeFast, fetchHomeSlow, mergeHomeData } from '../api/home';
@@ -17,7 +17,9 @@ import StatCard from '../components/shared/StatCard';
 import NewsFeed from '../components/dashboard/NewsFeed';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
 import PinnedErrorBoundary from '../components/home/PinnedErrorBoundary';
-import RankingsTable from '../components/insights/RankingsTable';
+import SectionErrorBoundary from '../components/home/SectionErrorBoundary';
+
+const RankingsTable = lazy(() => import('../components/insights/RankingsTable'));
 import DynamicAlerts from '../components/home/DynamicAlerts';
 import DynamicStats from '../components/home/DynamicStats';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
@@ -428,18 +430,30 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     return Object.keys(map).length > 0 ? map : null;
   })();
 
-  // Picks summary — derived from same data inline, no new fetch
-  const picksResult = activeGames.length
-    ? buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds })
-    : { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
-  const picksSummary = activeGames.length ? buildPicksSummary(picksResult) : null;
-  const boardBriefing = activeGames.length ? buildBoardBriefing(picksResult) : null;
+  // Picks derivation — memoized to avoid reprocessing ~1200 lines of model logic
+  // on every render. Wrapped in try/catch: buildMaximusPicks processes complex data
+  // that may be malformed on degraded networks; an unguarded throw would crash the page.
+  const EMPTY_PICKS = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
+  const { picksResult, picksSummary, boardBriefing } = useMemo(() => {
+    if (!activeGames.length) return { picksResult: EMPTY_PICKS, picksSummary: null, boardBriefing: null };
+    try {
+      const result = buildMaximusPicks({ games: activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds });
+      return {
+        picksResult: result,
+        picksSummary: buildPicksSummary(result),
+        boardBriefing: buildBoardBriefing(result),
+      };
+    } catch (_e) {
+      if (import.meta.env?.DEV) console.error('[OddsInsightsTeaser] buildMaximusPicks error:', _e);
+      return { picksResult: EMPTY_PICKS, picksSummary: null, boardBriefing: null };
+    }
+  }, [activeGames, atsLeaders, atsBySlug, rankMap, championshipOdds]);
 
   const totalPicksCount =
-    picksResult.pickEmPicks.length +
-    picksResult.atsPicks.length +
-    picksResult.valuePicks.length +
-    picksResult.totalsPicks.length;
+    (picksResult.pickEmPicks?.length ?? 0) +
+    (picksResult.atsPicks?.length ?? 0) +
+    (picksResult.valuePicks?.length ?? 0) +
+    (picksResult.totalsPicks?.length ?? 0);
 
   // Detect whether the picks content exceeds the collapse threshold
   useEffect(() => {
@@ -1060,7 +1074,7 @@ export default function Home() {
 
       {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>
-        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} />
+        <img src="/mascot.png" alt="Maximus Sports college basketball intelligence mascot" className={styles.bannerMascot} loading="lazy" decoding="async" />
         <div className={styles.bannerContent}>
           {/* Editorial briefing header — always visible */}
           <div className={styles.heroBriefingHeader}>
@@ -1097,40 +1111,41 @@ export default function Home() {
       </div>
 
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
-      <div className={styles.pulseStrip}>
-        <DynamicStats stats={dynamicStats} compact games={scores.games} rankMap={rankMap} atsLeaders={atsLeaders} championshipOdds={championshipOdds} />
-        {/* Inline news headline teasers */}
-        {(newsData.newsFeed || []).length > 0 && (
-          <div className={styles.topStories}>
-            <div className={styles.topStoriesHeader}>
-              <span className={styles.topStoriesLabel}>Top Stories</span>
-              <Link to="/news" className={styles.topStoriesCta}>
-                View full Intel Feed →
-              </Link>
+      <SectionErrorBoundary name="Today's Snapshot" silent>
+        <div className={styles.pulseStrip}>
+          <DynamicStats stats={dynamicStats} compact games={scores.games} rankMap={rankMap} atsLeaders={atsLeaders} championshipOdds={championshipOdds} />
+          {(newsData.newsFeed || []).length > 0 && (
+            <div className={styles.topStories}>
+              <div className={styles.topStoriesHeader}>
+                <span className={styles.topStoriesLabel}>Top Stories</span>
+                <Link to="/news" className={styles.topStoriesCta}>
+                  View full Intel Feed →
+                </Link>
+              </div>
+              <ul className={styles.topStoriesList}>
+                {(newsData.newsFeed || []).slice(0, 3).map((h) => {
+                  return (
+                    <li key={h.id || h.title} className={styles.topStoriesItem}>
+                      {h.source && (
+                        <span className={styles.sourceTextBadge}>
+                          {h.source}
+                        </span>
+                      )}
+                      {h.link ? (
+                        <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
+                          {decodeEntities(h.title)}
+                        </a>
+                      ) : (
+                        <span className={styles.topStoriesLink}>{decodeEntities(h.title)}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul className={styles.topStoriesList}>
-              {(newsData.newsFeed || []).slice(0, 3).map((h) => {
-                return (
-                  <li key={h.id || h.title} className={styles.topStoriesItem}>
-                    {h.source && (
-                      <span className={styles.sourceTextBadge}>
-                        {h.source}
-                      </span>
-                    )}
-                    {h.link ? (
-                      <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
-                        {decodeEntities(h.title)}
-                      </a>
-                    ) : (
-                      <span className={styles.topStoriesLink}>{decodeEntities(h.title)}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </SectionErrorBoundary>
 
       {/* ── 4. Teams You Follow ──────────────────────────────────────── */}
       <hr className={styles.sectionDivider} />
@@ -1153,115 +1168,127 @@ export default function Home() {
 
       {/* ── 5. Maximus's Picks ───────────────────────────────────────── */}
       <hr className={styles.sectionDivider} />
-      <div className={styles.picksSection}>
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Betting Intelligence</span>
-          <h2 className={styles.sectionHeadTitle}>Maximus&apos;s Picks</h2>
+      <SectionErrorBoundary name="Maximus's Picks">
+        <div className={styles.picksSection}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionEyebrow}>Betting Intelligence</span>
+            <h2 className={styles.sectionHeadTitle}>Maximus&apos;s Picks</h2>
+          </div>
+          <OddsInsightsTeaser
+            games={scores.games}
+            rankMap={rankMap}
+            atsLeaders={atsLeaders}
+            championshipOdds={championshipOdds}
+            loading={scores.loading || atsLoading}
+            slowLoading={slowLoading}
+            futureOddsGames={futureOddsGames}
+            upcomingGamesWithSpreads={upcomingGamesWithSpreads}
+          />
         </div>
-        <OddsInsightsTeaser
-          games={scores.games}
-          rankMap={rankMap}
-          atsLeaders={atsLeaders}
-          championshipOdds={championshipOdds}
-          loading={scores.loading || atsLoading}
-          slowLoading={slowLoading}
-          futureOddsGames={futureOddsGames}
-          upcomingGamesWithSpreads={upcomingGamesWithSpreads}
-        />
-      </div>
+      </SectionErrorBoundary>
 
       {/* ── 6. Today's Action / Live Scores ──────────────────────────── */}
       <hr className={styles.sectionDivider} />
-      <section className={styles.todayActionSection}>
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Live Data</span>
-          <h2 className={styles.sectionHeadTitle}>Today&apos;s Games</h2>
-        </div>
-        <LiveScores
-          games={scores.games}
-          loading={scores.loading}
-          error={scores.error}
-          oddsMessage={scores.oddsMessage}
-          compact
-          rankMap={rankMap}
-          cap={8}
-          mobileCap={4}
-        />
-        {upsetCount > 0 && (
-          <div className={styles.todayActionAlerts}>
-            <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+      <SectionErrorBoundary name="Today's Games">
+        <section className={styles.todayActionSection}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionEyebrow}>Live Data</span>
+            <h2 className={styles.sectionHeadTitle}>Today&apos;s Games</h2>
           </div>
-        )}
-        <Link to="/games" className={styles.sectionCta}>
-          View full schedule →
-        </Link>
-      </section>
+          <LiveScores
+            games={scores.games}
+            loading={scores.loading}
+            error={scores.error}
+            oddsMessage={scores.oddsMessage}
+            compact
+            rankMap={rankMap}
+            cap={8}
+            mobileCap={4}
+          />
+          {upsetCount > 0 && (
+            <div className={styles.todayActionAlerts}>
+              <DynamicAlerts games={scores.games} oddsHistory={oddsHistory.games} />
+            </div>
+          )}
+          <Link to="/games" className={styles.sectionCta}>
+            View full schedule →
+          </Link>
+        </section>
+      </SectionErrorBoundary>
 
       {/* ── 7. ATS / Market Signals ──────────────────────────────────── */}
       <hr className={styles.sectionDivider} />
-      <section className={styles.atsSection} aria-busy={scores.loading}>
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Market Signals</span>
-          <h2 className={styles.sectionHeadTitle}>Against the Spread Leaders</h2>
-        </div>
-        <ATSLeaderboard
-          atsLeaders={atsLeaders}
-          atsMeta={atsMeta}
-          loading={atsLoading}
-          atsWindow={atsWindow}
-          seasonWarming={seasonWarming}
-          onPeriodChange={atsOnPeriodChange}
-          onRetry={atsOnRetry}
-        />
-        <Link to="/insights" className={styles.sectionCta}>
-          View full market signals →
-        </Link>
-      </section>
+      <SectionErrorBoundary name="ATS Leaders">
+        <section className={styles.atsSection} aria-busy={scores.loading}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionEyebrow}>Market Signals</span>
+            <h2 className={styles.sectionHeadTitle}>Against the Spread Leaders</h2>
+          </div>
+          <ATSLeaderboard
+            atsLeaders={atsLeaders}
+            atsMeta={atsMeta}
+            loading={atsLoading}
+            atsWindow={atsWindow}
+            seasonWarming={seasonWarming}
+            onPeriodChange={atsOnPeriodChange}
+            onRetry={atsOnRetry}
+          />
+          <Link to="/insights" className={styles.sectionCta}>
+            View full market signals →
+          </Link>
+        </section>
+      </SectionErrorBoundary>
 
       {/* ── 8. News / Videos / Intel Feed ─────────────────────────────── */}
       <hr className={styles.sectionDivider} />
-      <section className={styles.intelFeedSection}>
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Intel Feed</span>
-          <h2 className={styles.sectionHeadTitle}>News &amp; Highlights</h2>
-        </div>
-        <div className={styles.intelFeedGrid}>
-          <NewsFeed mode="videos" limitVideos={2} />
-          <NewsFeed
-            mode="headlines"
-            items={(newsData.newsFeed || []).slice(0, 6)}
-            source={newsSource}
-            loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
-            limitHeadlines={4}
-          />
-        </div>
-        <Link to="/news" className={styles.sectionCta}>
-          View full Intel Feed →
-        </Link>
-      </section>
+      <SectionErrorBoundary name="Intel Feed">
+        <section className={styles.intelFeedSection}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionEyebrow}>Intel Feed</span>
+            <h2 className={styles.sectionHeadTitle}>News &amp; Highlights</h2>
+          </div>
+          <div className={styles.intelFeedGrid}>
+            <NewsFeed mode="videos" limitVideos={2} />
+            <NewsFeed
+              mode="headlines"
+              items={(newsData.newsFeed || []).slice(0, 6)}
+              source={newsSource}
+              loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
+              limitHeadlines={4}
+            />
+          </div>
+          <Link to="/news" className={styles.sectionCta}>
+            View full Intel Feed →
+          </Link>
+        </section>
+      </SectionErrorBoundary>
 
       {/* ── 9. Rankings / Team Intel Teaser ────────────────────────────── */}
       <hr className={styles.sectionDivider} />
-      <section className={styles.bubbleWatchSection} aria-label="Rankings">
-        <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
-          <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
-        </div>
-        <RankingsTable
-          title="Bubble Watch — Top 25"
-          badge="Deep Dive"
-          collapsible
-          capRows={10}
-          defaultSortBy="top25"
-          rankings={top25}
-          championshipOdds={championshipOdds}
-          championshipOddsMeta={championshipOddsMeta}
-          championshipOddsLoading={championshipOddsLoading}
-        />
-        <Link to="/teams" className={styles.sectionCta}>
-          Explore full rankings →
-        </Link>
-      </section>
+      <SectionErrorBoundary name="Bubble Watch">
+        <section className={styles.bubbleWatchSection} aria-label="Rankings">
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
+            <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
+          </div>
+          <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted, #888)', fontSize: '0.85rem' }}>Loading rankings…</div>}>
+            <RankingsTable
+              title="Bubble Watch — Top 25"
+              badge="Deep Dive"
+              collapsible
+              capRows={10}
+              defaultSortBy="top25"
+              rankings={top25}
+              championshipOdds={championshipOdds}
+              championshipOddsMeta={championshipOddsMeta}
+              championshipOddsLoading={championshipOddsLoading}
+            />
+          </Suspense>
+          <Link to="/teams" className={styles.sectionCta}>
+            Explore full rankings →
+          </Link>
+        </section>
+      </SectionErrorBoundary>
     </div>
   );
 }
