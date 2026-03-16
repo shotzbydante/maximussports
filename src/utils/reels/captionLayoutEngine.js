@@ -26,8 +26,8 @@ export const ZONES = {
 const ZONE_FALLBACK_ORDER = [
   'TOP_CENTER',
   'MID_LEFT',
-  'MID_RIGHT',
   'TOP_LEFT',
+  'MID_RIGHT',
   'TOP_RIGHT',
   'BOTTOM_CENTER',
   'BOTTOM_LEFT',
@@ -37,11 +37,11 @@ const ZONE_FALLBACK_ORDER = [
 const ZONE_ROTATION_CYCLE = [
   'TOP_CENTER',
   'MID_LEFT',
-  'MID_RIGHT',
   'TOP_RIGHT',
-  'BOTTOM_CENTER',
-  'TOP_LEFT',
   'MID_RIGHT',
+  'TOP_LEFT',
+  'BOTTOM_CENTER',
+  'MID_LEFT',
   'TOP_CENTER',
 ];
 

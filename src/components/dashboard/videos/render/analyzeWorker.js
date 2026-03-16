@@ -15,9 +15,10 @@
 const TRIM_RATIO = 0.18;
 const TRIM_MIN_S = 8;
 const TRIM_MAX_S = 24;
-const MIN_PEAK_DISTANCE = 4;
+const MIN_PEAK_DISTANCE = 5;
 const ACTIVITY_HIGH = 0.015;
 const ACTIVITY_LOW = 0.005;
+const DEAD_AIR_THRESHOLD = 0.002;
 const MIN_SEGMENT_SAMPLES = 2;
 
 function clampTrim(value) {
@@ -161,6 +162,7 @@ function findActivityPeaks(scores, sampleInterval, trimStart, trimEnd) {
   const selected = [];
   for (const peak of peaks) {
     if (selected.length >= maxBeats) break;
+    if (window[peak.idx] < DEAD_AIR_THRESHOLD) continue;
     const tooClose = selected.some(s => Math.abs(s.idx - peak.idx) < MIN_PEAK_DISTANCE);
     if (!tooClose) {
       selected.push(peak);

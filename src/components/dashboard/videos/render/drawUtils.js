@@ -13,7 +13,7 @@
 
 const W = 1080;
 const H = 1920;
-const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
 
 // ─── template glass pill gradients ───────────────────────────────
 const GLASS_GRADIENTS = {
@@ -45,14 +45,36 @@ export function loadLogo(src = '/logo.png') {
   });
 }
 
-export function loadRobotImage(src = '/assets/robot/maximus-hero.png') {
+const ROBOT_FALLBACK_PATHS = ['/mascot.png', '/assets/robot/maximus-hero.png'];
+
+export function loadRobotImage(src) {
   if (_robotCache) return Promise.resolve(_robotCache);
+  const paths = src ? [src, ...ROBOT_FALLBACK_PATHS] : [...ROBOT_FALLBACK_PATHS];
+  const unique = [...new Set(paths)];
+
   return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => { _robotCache = img; resolve(img); };
-    img.onerror = () => resolve(null);
-    img.src = src;
+    let idx = 0;
+    function tryNext() {
+      if (idx >= unique.length) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[Maximus] All mascot asset paths failed:', unique);
+        }
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { _robotCache = img; resolve(img); };
+      img.onerror = () => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(`[Maximus] Mascot asset failed: ${unique[idx]}`);
+        }
+        idx++;
+        tryNext();
+      };
+      img.src = unique[idx];
+    }
+    tryNext();
   });
 }
 
@@ -127,6 +149,47 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight, opts =
 
 const INTRO_OUTRO_BG = '#071426';
 
+// ─── bgColor → glass gradient for overlay pills ─────────────────
+function hexToRgb(hex) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  return { r: (num >> 16) & 0xFF, g: (num >> 8) & 0xFF, b: num & 0xFF };
+}
+
+function bgColorToGlassGrad(ctx, x, y, w, h, bgColor, opacity = 0.92) {
+  const isDarkNavy = bgColor === '#071426' || bgColor === '#0c1f3a';
+  if (isDarkNavy) {
+    const g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, `rgba(60,121,180,${opacity})`);
+    g.addColorStop(1, `rgba(40,80,140,${opacity})`);
+    return g;
+  }
+  const { r, g: gv, b } = hexToRgb(bgColor);
+  const lr = Math.min(255, r + 25);
+  const lg = Math.min(255, gv + 15);
+  const lb = Math.min(255, b + 15);
+  const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+  grad.addColorStop(0, `rgba(${lr},${lg},${lb},${opacity})`);
+  grad.addColorStop(1, `rgba(${r},${gv},${b},${opacity})`);
+  return grad;
+}
+
+// ─── emoji enforcement for primary headlines ─────────────────────
+const HEADLINE_EMOJI_MAP = [
+  [/sharp|lock|pick|bettor|edge/i, '🔒'],
+  [/alert|upset|trap|warning|inefficien/i, '⚠️'],
+  [/fire|hot|streak|cash|heat/i, '🔥'],
+];
+
+export function ensureHeadlineEmoji(text) {
+  if (!text) return text;
+  const emojiRe = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
+  if (emojiRe.test(text.trim())) return text;
+  for (const [pattern, emoji] of HEADLINE_EMOJI_MAP) {
+    if (pattern.test(text)) return `${emoji} ${text}`;
+  }
+  return `📊 ${text}`;
+}
+
 function drawNavyBackground(ctx) {
   const bg = ctx.createRadialGradient(W * 0.50, H * 0.38, 0, W * 0.50, H * 0.50, W * 0.95);
   bg.addColorStop(0, 'rgba(33,92,180,0.28)');
@@ -142,7 +205,7 @@ function drawNavyBackground(ctx) {
   ctx.fillRect(0, 0, W, H);
 }
 
-export function drawBrandedIntroCard(ctx, logo, { brand }, introFrame, introTotalFrames) {
+export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame, introTotalFrames) {
   const progress = introTotalFrames > 0 ? introFrame / introTotalFrames : 0;
   const alpha = introFrame < 4
     ? introFrame / 4
@@ -157,7 +220,6 @@ export function drawBrandedIntroCard(ctx, logo, { brand }, introFrame, introTota
 
   const accent = brand.accentColor || '#3C79B4';
 
-  // Faint decorative data-chip lines
   ctx.strokeStyle = `${accent}10`;
   ctx.lineWidth = 1;
   for (let i = 0; i < 5; i++) {
@@ -168,27 +230,50 @@ export function drawBrandedIntroCard(ctx, logo, { brand }, introFrame, introTota
     ctx.stroke();
   }
 
-  // Hero logo — large, centered, ~70% frame width
+  // Hero logo — large, centered
   if (logo) {
     const zoomT = Math.min(1, progress * 3.5);
     const scale = 0.88 + 0.12 * easeOutCubic(zoomT);
     const logoAlpha = Math.min(1, progress * 4);
-
     ctx.globalAlpha = alpha * logoAlpha;
     const lw = W * 0.70 * scale;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.35 - lh / 2, lw, lh);
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.32 - lh / 2, lw, lh);
   }
 
-  // Headline
+  // Hook text or default headline
+  const headText = hookText || 'Welcome to Maximus Sports';
+  const headFontSize = hookText ? 68 : 44;
   const headFadeT = Math.min(1, Math.max(0, (progress - 0.15) * 4));
   const headSlide = (1 - easeOutCubic(headFadeT)) * 18;
   ctx.globalAlpha = alpha * headFadeT;
-  ctx.font = `700 44px ${FONT}`;
+  ctx.font = `900 ${headFontSize}px ${FONT}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Welcome to Maximus Sports', W / 2, H * 0.54 + headSlide);
+
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetY = 4;
+
+  const maxW = W * 0.82;
+  const words = headText.split(' ');
+  const headLines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxW && cur) { headLines.push(cur); cur = w; }
+    else { cur = test; }
+  }
+  if (cur) headLines.push(cur);
+  const lineH = hookText ? 80 : 55;
+  const baseY = H * 0.52 + headSlide;
+  const startY = baseY - (headLines.length - 1) * lineH / 2;
+  for (let li = 0; li < headLines.length; li++) {
+    ctx.fillText(headLines[li], W / 2, startY + li * lineH);
+  }
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
 
   // Subheadline
   const subFadeT = Math.min(1, Math.max(0, (progress - 0.28) * 4));
@@ -196,7 +281,7 @@ export function drawBrandedIntroCard(ctx, logo, { brand }, introFrame, introTota
   ctx.globalAlpha = alpha * subFadeT * 0.55;
   ctx.font = `400 24px ${FONT}`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.61 + subSlide);
+  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.63 + subSlide);
 
   // Accent divider
   const divT = Math.min(1, Math.max(0, (progress - 0.35) * 5));
@@ -204,8 +289,8 @@ export function drawBrandedIntroCard(ctx, logo, { brand }, introFrame, introTota
   ctx.globalAlpha = alpha * divT;
   ctx.fillStyle = accent;
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, H * 0.66, divW, 2.5, 2);
-  else { ctx.rect((W - divW) / 2, H * 0.66, divW, 2.5); }
+  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, H * 0.68, divW, 2.5, 2);
+  else { ctx.rect((W - divW) / 2, H * 0.68, divW, 2.5); }
   ctx.fill();
 
   ctx.restore();
@@ -612,7 +697,9 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   ctx.stroke();
 
   // Robot mascot — LARGE hero visual, ~45% frame width
-  if (robotImage) {
+  // Fallback chain: robotImage → logo as large hero → wordmark text
+  const heroImage = robotImage || logo;
+  if (heroImage) {
     const robotEntryT = Math.min(1, Math.max(0, progress * 3.2));
     const bounceY = robotEntryT < 1 ? -60 * (1 - easeOutBounce(robotEntryT)) : 0;
     const floatY = robotEntryT >= 1 ? Math.sin(progress * Math.PI * 3) * -4 : 0;
@@ -620,12 +707,11 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
 
     ctx.globalAlpha = alpha * rAlpha;
 
-    const rw = W * 0.45;
-    const rh = (robotImage.naturalHeight / robotImage.naturalWidth) * rw;
+    const rw = robotImage ? W * 0.45 : W * 0.55;
+    const rh = (heroImage.naturalHeight / heroImage.naturalWidth) * rw;
     const rx = (W - rw) / 2;
     const ry = H * 0.22 + bounceY + floatY;
 
-    // Large aura glow
     const auraSize = rw * 0.8;
     const auraGlow = ctx.createRadialGradient(rx + rw / 2, ry + rh / 2, 0, rx + rw / 2, ry + rh / 2, auraSize);
     const glowPulse = 0.15 + Math.sin(progress * Math.PI * 4) * 0.06;
@@ -634,7 +720,15 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
     ctx.fillStyle = auraGlow;
     ctx.fillRect(rx - auraSize, ry - auraSize / 2, rw + auraSize * 2, rh + auraSize);
 
-    ctx.drawImage(robotImage, rx, ry, rw, rh);
+    ctx.drawImage(heroImage, rx, ry, rw, rh);
+  } else {
+    // Final fallback: render "MAXIMUS SPORTS" wordmark
+    ctx.globalAlpha = alpha;
+    ctx.font = `800 52px ${FONT}`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('MAXIMUS SPORTS', W / 2, H * 0.36);
   }
 
   // Headline below robot
@@ -789,14 +883,16 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
   const boxY = adjustedY - boxH / 2;
   const radius = 14;
 
-  const bgGrad = templateId
-    ? getGlassGradient(ctx, boxX, boxY, boxW, boxH, templateId)
-    : (() => {
-        const g = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY + boxH);
-        g.addColorStop(0, 'rgba(60,121,180,0.92)');
-        g.addColorStop(1, 'rgba(40,80,140,0.92)');
-        return g;
-      })();
+  const bgGrad = opts.bgColor
+    ? bgColorToGlassGrad(ctx, boxX, boxY, boxW, boxH, opts.bgColor)
+    : templateId
+      ? getGlassGradient(ctx, boxX, boxY, boxW, boxH, templateId)
+      : (() => {
+          const g = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY + boxH);
+          g.addColorStop(0, 'rgba(60,121,180,0.92)');
+          g.addColorStop(1, 'rgba(40,80,140,0.92)');
+          return g;
+        })();
   ctx.fillStyle = bgGrad;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
@@ -886,14 +982,16 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   const boxY = adjustedY - boxH / 2;
   const radius = 12;
 
-  const bgGrad = templateId
-    ? getGlassGradient(ctx, boxX, boxY, boxW, boxH, templateId)
-    : (() => {
-        const g = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY + boxH);
-        g.addColorStop(0, `rgba(60,121,180,${bgOpacity})`);
-        g.addColorStop(1, `rgba(40,80,140,${bgOpacity})`);
-        return g;
-      })();
+  const bgGrad = opts.bgColor
+    ? bgColorToGlassGrad(ctx, boxX, boxY, boxW, boxH, opts.bgColor, bgOpacity)
+    : templateId
+      ? getGlassGradient(ctx, boxX, boxY, boxW, boxH, templateId)
+      : (() => {
+          const g = ctx.createLinearGradient(boxX, boxY, boxX + boxW, boxY + boxH);
+          g.addColorStop(0, `rgba(60,121,180,${bgOpacity})`);
+          g.addColorStop(1, `rgba(40,80,140,${bgOpacity})`);
+          return g;
+        })();
   ctx.fillStyle = bgGrad;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
@@ -980,7 +1078,9 @@ export function drawStatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   const boxY = adjustedY - boxH / 2;
   const radius = 10;
 
-  const bgGrad = getGlassGradient(ctx, boxX, boxY, boxW, boxH, 'stats-proof');
+  const bgGrad = opts.bgColor
+    ? bgColorToGlassGrad(ctx, boxX, boxY, boxW, boxH, opts.bgColor)
+    : getGlassGradient(ctx, boxX, boxY, boxW, boxH, 'stats-proof');
   ctx.fillStyle = bgGrad;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);

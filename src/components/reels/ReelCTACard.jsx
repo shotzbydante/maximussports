@@ -6,7 +6,7 @@
 
 export default function ReelCTACard({
   accentColor = '#3C79B4',
-  robotSrc = '/assets/robot/maximus-hero.png',
+  robotSrc = '/mascot.png',
 }) {
   return (
     <div style={styles.card}>

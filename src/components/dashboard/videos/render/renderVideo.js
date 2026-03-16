@@ -4,10 +4,9 @@
  * Pipeline:  Canvas (1080×1920) → VideoEncoder (H.264) → mp4-muxer → Blob
  *
  * Render phases:
- *   1. Hook Boost (0.7s) — micro pattern-interrupt with bold hook text
- *   2. Intro card — branded template intro
- *   3. Footage — multi-segment with speed ramping + animated overlays
- *   4. Outro — CTA card with optional robot hero
+ *   1. Branded Intro (1.2s) — logo + hook text, always dark navy
+ *   2. Footage — multi-segment with speed ramping + animated overlays
+ *   3. Outro (2.2s) — CTA card with robot hero
  */
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
@@ -15,11 +14,8 @@ import { getTemplate } from '../templates/featureSpotlight';
 import {
   loadLogo,
   loadRobotImage,
-  drawHookBoostFrame,
   getHookBoostText,
-  HOOK_ANIMATION_VARIANTS,
   drawBrandedIntroCard,
-  drawIntroCard,
   drawOutroCard,
   drawVideoFrame,
   drawHeadlineOverlay,
@@ -28,6 +24,7 @@ import {
   drawWatermark,
   easeAlpha,
   computeOverlaySafeZone,
+  ensureHeadlineEmoji,
 } from './drawUtils';
 import {
   CaptionLayoutState,
@@ -116,15 +113,11 @@ export async function renderVideo(opts) {
     footageTotalFrames = frames;
   }
 
-  const hookBoostFrames = Math.round(1.2 * fps);
   const brandedIntroFrames = Math.round(1.2 * fps);
-  const introFrames = Math.round((scenes.intro.durationMs / 1000) * fps);
   const outroFrames = Math.round(2.2 * fps);
-  const totalFrames = hookBoostFrames + brandedIntroFrames + introFrames + footageTotalFrames + outroFrames;
+  const totalFrames = brandedIntroFrames + footageTotalFrames + outroFrames;
 
   const hookText = getHookBoostText(hookStyle);
-  const chosenHookVariant = hookAnimationVariant
-    || HOOK_ANIMATION_VARIANTS[Math.floor(Math.random() * HOOK_ANIMATION_VARIANTS.length)];
 
   const [logo, video, robotImage] = await Promise.all([
     loadLogo(brand.logo),
@@ -205,14 +198,13 @@ export async function renderVideo(opts) {
     });
   }
 
-  // Seek video to first segment's start for the hook boost blurred background
   const firstSeek = footageSegments[0]?.sourceStart ?? trimStart;
-  await seekVideo(video, firstSeek + 1);
+  await seekVideo(video, firstSeek);
 
-  const phaseEnd1 = hookBoostFrames;
-  const phaseEnd2 = phaseEnd1 + brandedIntroFrames;
-  const phaseEnd3 = phaseEnd2 + introFrames;
-  const phaseEnd4 = phaseEnd3 + footageTotalFrames;
+  const phaseEnd1 = brandedIntroFrames;
+  const phaseEnd2 = phaseEnd1 + footageTotalFrames;
+
+  const headlineWithEmoji = ensureHeadlineEmoji(headline);
 
   // ── render loop ──────────────────────────────────────────────
   for (let i = 0; i < totalFrames; i++) {
@@ -220,33 +212,12 @@ export async function renderVideo(opts) {
     if (encodeError) throw encodeError;
 
     if (i < phaseEnd1) {
-      // Phase 1: Hook Boost Frame (pattern interrupt 1.0–1.4s)
-      drawHookBoostFrame(ctx, video, {
-        hookText,
-        brand,
-        frameIndex: i,
-        totalFrames: hookBoostFrames,
-        fps,
-        animationVariant: chosenHookVariant,
-        textColor,
-        accentColor,
-      });
+      // Phase 1: Branded Intro Title Card (1.2s) — always dark navy, hook text integrated
+      drawBrandedIntroCard(ctx, logo, { brand, hookText }, i, brandedIntroFrames);
 
     } else if (i < phaseEnd2) {
-      // Phase 2: Branded Intro Title Card (1.2s) — always dark navy
-      const introIdx = i - phaseEnd1;
-      drawBrandedIntroCard(ctx, logo, { brand }, introIdx, brandedIntroFrames);
-
-    } else if (i < phaseEnd3) {
-      // Phase 3: Template-specific intro card
-      const introIdx = i - phaseEnd2;
-      const progress = introIdx / introFrames;
-      const alpha = easeAlpha(progress, 0.20, 0.12);
-      drawIntroCard(ctx, logo, { headline, brand, templateId }, alpha);
-
-    } else if (i < phaseEnd4) {
-      // Phase 4: Footage with safe-zone-aware overlays
-      const footageFrame = i - phaseEnd3;
+      // Phase 2: Footage with safe-zone-aware overlays
+      const footageFrame = i - phaseEnd1;
       const footageProgress = footageFrame / footageTotalFrames;
       const footageTimeS = footageFrame / fps;
 
@@ -267,8 +238,9 @@ export async function renderVideo(opts) {
       const overlayYPctOffset = safeZone ? safeZone.yPct : null;
 
       for (const ov of overlays) {
-        const text = fieldValues[ov.field];
-        if (!text) continue;
+        const rawText = fieldValues[ov.field];
+        if (!rawText) continue;
+        const text = ov.field === 'headline' ? headlineWithEmoji : rawText;
         if (footageProgress >= ov.startPct && footageProgress <= ov.endPct) {
           const ovLocal = (footageProgress - ov.startPct) / (ov.endPct - ov.startPct);
           const fadePct = ov.fadeMs / ((footageTotalFrames / fps * 1000) * (ov.endPct - ov.startPct));
@@ -280,11 +252,11 @@ export async function renderVideo(opts) {
             templateId,
             animProgress: ovLocal,
             textColor,
+            bgColor,
           });
         }
       }
 
-      // Check if any headline overlay is currently active to enforce spacing
       let headlineBottomY = 0;
       for (const ov of overlays) {
         const text = fieldValues[ov.field];
@@ -309,12 +281,14 @@ export async function renderVideo(opts) {
             drawStatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, {
               animProgress: beatLocal,
               textColor,
+              bgColor,
             });
           } else {
             const beatOpts = {
               templateId,
               animProgress: beatLocal,
               textColor,
+              bgColor,
               ...(templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {}),
             };
             drawBeatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, beatOpts);
@@ -325,8 +299,8 @@ export async function renderVideo(opts) {
       if (watermark) drawWatermark(ctx, logo);
 
     } else {
-      // Phase 5: Premium Maximus CTA Card (2.2s)
-      const outroIdx = i - phaseEnd4;
+      // Phase 3: Premium Maximus CTA Card (2.2s)
+      const outroIdx = i - phaseEnd2;
       const progress = outroIdx / outroFrames;
       const alpha = easeAlpha(progress, 0.15, 0.10);
       drawOutroCard(ctx, logo, {

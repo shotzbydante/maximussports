@@ -316,10 +316,10 @@ export default function VideosEditor() {
   }, [editMode, currentEditPlan, trimStart, trimEnd]);
 
   const totalDuration = useMemo(() => {
-    const intro = template.scenes.intro.durationMs / 1000;
-    const outro = template.scenes.outro.durationMs / 1000;
+    const intro = 1.2;
+    const outro = 2.2;
     return intro + footageDuration + outro;
-  }, [footageDuration, template]);
+  }, [footageDuration]);
 
   const handleTrimStartChange = useCallback((val) => {
     const v = Math.max(0, Math.min(val, trimEnd - 1));
@@ -633,8 +633,8 @@ export default function VideosEditor() {
 
   // ── timeline structure ─────────────────────────────────────────
   const timelineSegments = useMemo(() => {
-    const introS = template.scenes.intro.durationMs / 1000;
-    const outroS = template.scenes.outro.durationMs / 1000;
+    const introS = 1.2;
+    const outroS = 2.2;
     const total = introS + footageDuration + outroS;
     if (total <= 0) return [];
     return [
@@ -642,12 +642,12 @@ export default function VideosEditor() {
       { label: 'Demo', duration: footageDuration, pct: (footageDuration / total) * 100, color: '#2ecc71' },
       { label: 'CTA', duration: outroS, pct: (outroS / total) * 100, color: '#e74c3c' },
     ];
-  }, [footageDuration, template]);
+  }, [footageDuration, template.brand.accentColor]);
 
   const beatMarkers = useMemo(() => {
     if (!beatTimings || !footageDuration) return [];
-    const introS = template.scenes.intro.durationMs / 1000;
-    const outroS = template.scenes.outro.durationMs / 1000;
+    const introS = 1.2;
+    const outroS = 2.2;
     const total = introS + footageDuration + outroS;
     const introPct = introS / total;
     const demoPct = footageDuration / total;
@@ -657,7 +657,7 @@ export default function VideosEditor() {
       leftPct: (introPct + bt.startPct * demoPct) * 100,
       widthPct: ((bt.endPct - bt.startPct) * demoPct) * 100,
     }));
-  }, [beatTimings, footageDuration, template]);
+  }, [beatTimings, footageDuration]);
 
   const isRendering = renderState === 'rendering' || variantRenderState === 'rendering';
 
