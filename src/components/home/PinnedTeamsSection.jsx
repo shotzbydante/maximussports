@@ -2,7 +2,7 @@
  * Pinned Teams Dashboard — multi-select + search, cards with rank, next game, headlines, records.
  */
 
-import { useState, useEffect, useCallback, useRef, Component } from 'react';
+import { useState, useEffect, useCallback, useRef, Component, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { TEAMS, getTeamBySlug } from '../../data/teams';
 import { getTeamsGroupedByConference } from '../../data/teams';
@@ -27,6 +27,8 @@ import SourceBadge from '../shared/SourceBadge';
 import ExamplePinnedTeamCard from './ExamplePinnedTeamCard';
 import ShareButton from '../common/ShareButton';
 import styles from './PinnedTeamsSection.module.css';
+
+const AuthGateModal = lazy(() => import('../common/AuthGateModal'));
 
 // Popular teams to suggest to new users
 const POPULAR_PICKS = [
@@ -253,6 +255,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   const [teamSummaries, setTeamSummaries] = useState({});
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [showAuthGate, setShowAuthGate] = useState(false);
   const [showPreview, setShowPreview] = useState(() => {
     try { return localStorage.getItem('pinnedTeamsHideExample') !== '1'; } catch { return true; }
   });
@@ -267,9 +270,9 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
   }, [onPinnedChange]);
 
   const handleToggle = useCallback((slug) => {
+    if (!user) { setShowAuthGate(true); return; }
     const before = getPinnedTeams();
     const wasAdded = !pinned.includes(slug);
-    // Free-plan cap: block adding beyond limit (removing is always allowed)
     if (wasAdded && !isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
       track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
@@ -291,9 +294,10 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     });
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify, pinned, isPro]);
+  }, [user, notify, pinned, isPro]);
 
   const handleAdd = useCallback((slug) => {
+    if (!user) { setShowAuthGate(true); return; }
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
       track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
@@ -313,9 +317,10 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     setShowAdd(false);
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify, isPro, pinned.length]);
+  }, [user, notify, isPro, pinned.length]);
 
   const handleRemove = useCallback((slug) => {
+    if (!user) { setShowAuthGate(true); return; }
     const before = getPinnedTeams();
     const after = removePinnedTeam(slug);
     if (debugPinsRef.current) {
@@ -328,14 +333,15 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     track('pinned_team_remove', { team_slug: slug });
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify]);
+  }, [user, notify]);
 
   const handleClearAll = useCallback(() => {
+    if (!user) { setShowAuthGate(true); return; }
     [...pinned].forEach((slug) => removePinnedTeam(slug));
     setPinned([]);
     notifyPinnedChanged([], 'home');
     notify();
-  }, [pinned, notify]);
+  }, [user, pinned, notify]);
 
   const handlePickerDone = useCallback(() => {
     setShowAdd(false);
@@ -347,6 +353,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
    * EmptyStateCard popular picks — one tap pins immediately.
    */
   const handleDirectPin = useCallback((slug) => {
+    if (!user) { setShowAuthGate(true); return; }
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
       setShowAdd(true); // open picker so user sees the inline prompt
@@ -366,7 +373,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     track('pinned_team_add', { team_slug: slug, method: 'quick_chip' });
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [notify, isPro, pinned.length]);
+  }, [user, notify, isPro, pinned.length]);
 
   const handleDismissPreview = useCallback(() => {
     try { localStorage.setItem('pinnedTeamsHideExample', '1'); } catch { /* ignore storage errors */ }
@@ -819,6 +826,16 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
             </button>
           </div>
         </aside>
+      )}
+
+      {/* ── Auth gate modal for guest users ──────────────────────────────── */}
+      {showAuthGate && (
+        <Suspense fallback={null}>
+          <AuthGateModal
+            onClose={() => setShowAuthGate(false)}
+            message="Create a free account to pin teams, get personalized alerts, and track your watchlist."
+          />
+        </Suspense>
       )}
 
       {/* ── Pinned team cards grid ───────────────────────────────────────── */}

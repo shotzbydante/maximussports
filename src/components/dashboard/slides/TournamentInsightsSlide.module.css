@@ -1,9 +1,10 @@
-/* ── Tournament Insights Slide ──────────────────────────── */
+/* ── Tournament Insights Slide — Premium Redesign ──────── */
+
 .headerBlock {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 5px;
+  margin-bottom: 14px;
 }
 
 .marchBadge {
@@ -19,12 +20,12 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   color: #D4B87A;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -33,7 +34,7 @@
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 56px;
+  font-size: 52px;
   font-weight: 700;
   line-height: 0.95;
   color: #ffffff;
@@ -48,10 +49,10 @@
   height: 3px;
   background: linear-gradient(90deg, #4A90D9, #B7986C);
   border-radius: 3px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-/* ── Card list ──────────────────────────────────────────── */
+/* ── Card List ─────────────────────────────────────────── */
 .cardList {
   display: flex;
   flex-direction: column;
@@ -59,11 +60,12 @@
   flex: 1;
 }
 
+/* ── Individual Card ───────────────────────────────────── */
 .card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(74, 144, 217, 0.14);
-  border-radius: 12px;
-  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.030) 0%, rgba(74,144,217,0.020) 100%);
+  border: 1px solid rgba(74, 144, 217, 0.16);
+  border-radius: 14px;
+  padding: 14px 18px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -71,87 +73,42 @@
 
 .cardFeatured {
   border-left: 3px solid #4A90D9;
-  background: rgba(74, 144, 217, 0.06);
-  border-color: rgba(74, 144, 217, 0.26);
+  background: linear-gradient(135deg, rgba(74,144,217,0.07) 0%, rgba(74,144,217,0.025) 100%);
+  border-color: rgba(74, 144, 217, 0.28);
+  padding: 16px 20px 14px;
 }
 
-/* ── Card header ────────────────────────────────────────── */
-.cardHeader {
+/* ── Row 1: Matchup ────────────────────────────────────── */
+.matchupRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-}
-
-.seedMatchup {
-  display: flex;
-  align-items: center;
   gap: 6px;
-}
-
-.seedBadge {
-  font-family: 'Oswald', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: #6EB3E8;
-  background: rgba(74, 144, 217, 0.12);
-  border: 1px solid rgba(74, 144, 217, 0.26);
-  border-radius: 4px;
-  padding: 1px 7px;
-  letter-spacing: 0.02em;
-}
-
-.seedVs {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(240, 244, 248, 0.28);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.regionTag {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(240, 244, 248, 0.45);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 1px 6px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.upsetTag {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #E8845F;
-  background: rgba(232, 132, 95, 0.12);
-  border: 1px solid rgba(232, 132, 95, 0.28);
-  border-radius: 4px;
-  padding: 2px 8px;
-}
-
-/* ── Teams row ──────────────────────────────────────────── */
-.teamsRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 .teamSide {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
+  flex: 1;
 }
 
 .teamSideRight {
   justify-content: flex-end;
+}
+
+.seedBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #D4B87A;
+  background: rgba(183, 152, 108, 0.18);
+  border: 1px solid rgba(183, 152, 108, 0.32);
+  border-radius: 5px;
+  padding: 2px 7px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .teamName {
@@ -165,52 +122,100 @@
   line-height: 1.15;
 }
 
-.vsIcon {
+.vsBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.vsText {
   font-family: 'Oswald', sans-serif;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.22);
+  color: rgba(240, 244, 248, 0.24);
   letter-spacing: 0.06em;
-  flex-shrink: 0;
 }
 
-/* ── Prediction row ─────────────────────────────────────── */
-.predictionRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.regionTag {
+  font-family: 'Oswald', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.35);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.winnerBlock {
+/* ── Row 2: Game Info ──────────────────────────────────── */
+.gameInfoRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
-  min-width: 0;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  border-top: 1px solid rgba(74, 144, 217, 0.08);
+  border-bottom: 1px solid rgba(74, 144, 217, 0.08);
+}
+
+.gameInfoItem {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.40);
+  letter-spacing: 0.02em;
+}
+
+.gameInfoDot {
+  font-size: 10px;
+  color: rgba(240, 244, 248, 0.20);
+}
+
+.upsetTag {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: #E8845F;
+  background: rgba(232, 132, 95, 0.14);
+  border: 1px solid rgba(232, 132, 95, 0.28);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+
+/* ── Row 3: Prediction Block ───────────────────────────── */
+.predictionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.predictionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .pickLabel {
   font-family: 'Oswald', sans-serif;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: rgba(240, 244, 248, 0.35);
-  flex-shrink: 0;
 }
 
-.winnerName {
-  font-family: 'Oswald', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: #5FE8A8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
-.confPill {
+.convictionBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   padding: 2px 8px;
@@ -219,36 +224,129 @@
   flex-shrink: 0;
 }
 
-.probBadge {
+.upsetMeter {
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.55);
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid;
   flex-shrink: 0;
 }
 
-/* ── Signal list ────────────────────────────────────────── */
-.signalList {
+.winnerRow {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.winnerName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #5FE8A8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.winProbPct {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.70);
+  flex-shrink: 0;
+}
+
+/* ── Row 4: Probability Bar ────────────────────────────── */
+.probBarWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.probBarLabels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.probBarTeam {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.55);
+  letter-spacing: 0.02em;
+}
+
+.probBarTeam strong {
+  color: rgba(240, 244, 248, 0.80);
+  margin-left: 3px;
+}
+
+.probBarTeamSecondary {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.30);
+  letter-spacing: 0.02em;
+}
+
+.probBarTeamSecondary strong {
+  color: rgba(240, 244, 248, 0.45);
+  margin-left: 3px;
+}
+
+.probBarTrack {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.probBarFill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.6s ease;
+  box-shadow: 0 0 12px rgba(95, 232, 168, 0.15);
+}
+
+/* ── Row 5: Explanation Bullets ─────────────────────────── */
+.bulletList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(74, 144, 217, 0.06);
+}
+
+.bullet {
+  display: flex;
+  align-items: flex-start;
   gap: 6px;
 }
 
-.signal {
-  font-size: 12px;
+.bulletDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4A90D9;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.bulletText {
+  font-size: 11px;
   font-weight: 400;
-  color: rgba(240, 244, 248, 0.42);
-  font-style: italic;
+  color: rgba(240, 244, 248, 0.45);
   line-height: 1.35;
 }
 
-.signal::before {
-  content: '·';
-  margin-right: 4px;
-  color: rgba(74, 144, 217, 0.5);
-}
-
-/* ── Empty state ────────────────────────────────────────── */
+/* ── Empty State ───────────────────────────────────────── */
 .emptyState {
   flex: 1;
   display: flex;

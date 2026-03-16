@@ -331,16 +331,16 @@
   box-shadow: 0 0 0 2px rgba(60, 121, 180, 0.12);
 }
 
-/* Chip group (slide count) */
+/* Chip group — responsive grid that wraps cleanly */
 .chipGroup {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 5px;
 }
 
 .chip {
-  flex: 1;
-  padding: 6px 4px;
-  font-size: 13px;
+  padding: 7px 6px;
+  font-size: 12px;
   font-weight: 600;
   font-family: var(--font-sans);
   background: var(--color-bg);
@@ -348,8 +348,12 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
@@ -358,6 +362,7 @@
   background: var(--color-primary);
   color: #fff;
   border-color: var(--color-primary);
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.25);
 }
 
 /* Conference filter chips */

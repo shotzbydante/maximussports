@@ -30,9 +30,20 @@ function fmtTimePST(iso) {
   } catch { return null; }
 }
 
-/**
- * Build a short "why it matters" line for a game without a chatbot storyline.
- */
+const CONVICTION_COLORS = {
+  high:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)', barFill: '#5FE8A8' },
+  medium: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)', barFill: '#D4B87A' },
+  low:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)', barFill: '#8EAFC4' },
+};
+
+function getConviction(pick) {
+  if (!pick) return null;
+  const c = pick.confidence ?? 0;
+  if (c >= 2) return 'high';
+  if (c >= 1) return 'medium';
+  return 'low';
+}
+
 function buildWhyLine(game, pick) {
   const sp = game.homeSpread ?? game.spread ?? null;
   const spNum = sp != null ? Math.abs(parseFloat(sp)) : null;
@@ -52,8 +63,8 @@ function buildWhyLine(game, pick) {
 }
 
 /**
- * Single-slide "5 Key Upcoming Games" view for Game Insights.
- * Shows 5 games in compact rows with logos, spread, time, TV, and a why-it-matters line.
+ * "5 Key Upcoming Games" slide — premium redesign with
+ * prediction blocks, conviction badges, and probability indicators.
  */
 export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slideTotal, ...rest }) {
   const games = data?.odds?.games ?? [];
@@ -61,7 +72,6 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const rankingsTop25 = data?.rankingsTop25 ?? [];
 
-  // Build picks map keyed by "away|home" for quick lookup
   let picksMap = {};
   try {
     const { atsPicks = [], mlPicks = [] } = buildMaximusPicks({ games, atsLeaders });
@@ -73,7 +83,6 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
     });
   } catch { /* ignore */ }
 
-  // Rankings lookup
   function getRank(teamName) {
     if (!teamName || !rankingsTop25.length) return null;
     const key = teamName.toLowerCase().trim();
@@ -84,7 +93,6 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
     return entry?.rank ?? null;
   }
 
-  // Build enriched game list
   const seen = new Set();
   const allGames = [...games, ...upcomingWithSpreads];
   const enriched = [];
@@ -100,7 +108,6 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
     });
   }
 
-  // Prioritize games with spreads, then rank by competitive-ness (tight spreads)
   const withSpreads = enriched.filter(g => g.homeSpread != null || g.spread != null || g.awaySpread != null);
   const withoutSpreads = enriched.filter(g => g.homeSpread == null && g.spread == null && g.awaySpread == null);
   const sorted = [
@@ -145,6 +152,7 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const homeRank = getRank(homeObj?.name || g.homeTeam);
             const spreadNum = g.homeSpread ?? (g.awaySpread != null ? -g.awaySpread : null) ?? (g.spread != null ? parseFloat(g.spread) : null);
             const spreadStr = fmtSpread(spreadNum);
+            const total = g.overUnder ?? g.total ?? null;
             const pickKey = `${awayObj?.slug || ''}|${homeObj?.slug || ''}`;
             const pick = picksMap[pickKey] ?? null;
             const storyline = g.storyline || g.whyItMatters || buildWhyLine(g, pick);
@@ -153,49 +161,59 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const awaySeed = getTeamSeed(awayObj?.slug || g.awayTeam);
             const homeSeed = getTeamSeed(homeObj?.slug || g.homeTeam);
 
+            const conviction = getConviction(pick);
+            const convCfg = conviction ? CONVICTION_COLORS[conviction] : null;
+
             return (
               <div key={i} className={`${styles.gameRow} ${isTop ? styles.gameRowTop : ''}`}>
-                {/* Away team */}
-                <div className={styles.teamCell}>
-                  <TeamLogo team={awayObj} size={isTop ? 36 : 28} />
-                  <div className={styles.teamMeta}>
-                    {awaySeed != null && <span className={styles.seedBadge}>#{awaySeed}</span>}
-                    {awayRank != null && !awaySeed && <span className={styles.rankBadge}>#{awayRank}</span>}
-                    <span className={styles.teamName}>{awayObj?.name || g.awayTeam}</span>
+                {/* Teams row */}
+                <div className={styles.teamsRow}>
+                  <div className={styles.teamCell}>
+                    <TeamLogo team={awayObj} size={isTop ? 34 : 26} />
+                    <div className={styles.teamMeta}>
+                      {awaySeed != null && <span className={styles.seedBadge}>#{awaySeed}</span>}
+                      {awayRank != null && !awaySeed && <span className={styles.rankBadge}>#{awayRank}</span>}
+                      <span className={styles.teamName}>{awayObj?.name || g.awayTeam}</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.centerCell}>
+                    <span className={styles.vsLabel}>@</span>
+                  </div>
+
+                  <div className={`${styles.teamCell} ${styles.teamCellRight}`}>
+                    <div className={`${styles.teamMeta} ${styles.teamMetaRight}`}>
+                      {homeSeed != null && <span className={styles.seedBadge}>#{homeSeed}</span>}
+                      {homeRank != null && !homeSeed && <span className={styles.rankBadge}>#{homeRank}</span>}
+                      <span className={styles.teamName}>{homeObj?.name || g.homeTeam}</span>
+                    </div>
+                    <TeamLogo team={homeObj} size={isTop ? 34 : 26} />
                   </div>
                 </div>
 
-                {/* Center block: spread + vs */}
-                <div className={styles.centerCell}>
-                  <span className={styles.vsLabel}>@</span>
+                {/* Game info + betting context */}
+                <div className={styles.infoRow}>
+                  {g.time && <span className={styles.gameTime}>{g.time}</span>}
+                  {g.network && <span className={styles.networkPill}>{g.network}</span>}
                   {spreadStr
                     ? <span className={styles.spreadPill}>{spreadStr}</span>
-                    : <span className={styles.tba}>TBA</span>
+                    : <span className={styles.tba}>Line TBA</span>
                   }
-                </div>
-
-                {/* Home team */}
-                <div className={`${styles.teamCell} ${styles.teamCellRight}`}>
-                  <div className={`${styles.teamMeta} ${styles.teamMetaRight}`}>
-                    {homeSeed != null && <span className={styles.seedBadge}>#{homeSeed}</span>}
-                    {homeRank != null && !homeSeed && <span className={styles.rankBadge}>#{homeRank}</span>}
-                    <span className={styles.teamName}>{homeObj?.name || g.homeTeam}</span>
-                  </div>
-                  <TeamLogo team={homeObj} size={isTop ? 36 : 28} />
-                </div>
-
-                {/* Meta + storyline */}
-                <div className={styles.metaCell}>
-                  {(g.time || g.network) && (
-                    <div className={styles.metaRow}>
-                      {g.time && <span className={styles.gameTime}>{g.time}</span>}
-                      {g.network && <span className={styles.networkPill}>{g.network}</span>}
-                    </div>
-                  )}
-                  {storyline && (
-                    <div className={styles.storyline}>{storyline}</div>
+                  {total != null && <span className={styles.ouPill}>O/U {total}</span>}
+                  {convCfg && (
+                    <span
+                      className={styles.convictionTag}
+                      style={{ color: convCfg.text, background: convCfg.bg, borderColor: convCfg.border }}
+                    >
+                      {conviction.toUpperCase()}
+                    </span>
                   )}
                 </div>
+
+                {/* Storyline */}
+                {storyline && (
+                  <div className={styles.storyline}>{storyline}</div>
+                )}
               </div>
             );
           })}

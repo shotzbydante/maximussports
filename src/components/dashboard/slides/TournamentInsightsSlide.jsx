@@ -2,78 +2,164 @@ import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import styles from './TournamentInsightsSlide.module.css';
 
-const CONFIDENCE_COLORS = {
-  HIGH:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.28)' },
-  MEDIUM: { text: '#D4B87A', bg: 'rgba(212,184,122,0.10)', border: 'rgba(212,184,122,0.28)' },
-  LOW:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.10)', border: 'rgba(142,175,196,0.28)' },
+const CONVICTION_COLORS = {
+  HIGH:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)', barFill: '#5FE8A8' },
+  MEDIUM: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)', barFill: '#D4B87A' },
+  LOW:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)', barFill: '#8EAFC4' },
 };
 
-function ConfidencePill({ label }) {
-  const c = CONFIDENCE_COLORS[label] || CONFIDENCE_COLORS.LOW;
+const UPSET_RISK_CONFIG = {
+  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '🔴' },
+  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '🟡' },
+  LOW:      { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.24)', icon: '🟢' },
+};
+
+function computeUpsetRisk(insight) {
+  const { matchup, winProbability, historicalRate } = insight;
+  const seedDiff = Math.abs((matchup?.topSeed ?? 0) - (matchup?.bottomSeed ?? 0));
+  const modelUpsetProb = insight.isUpset
+    ? (winProbability ?? 0)
+    : (1 - (winProbability ?? 1));
+  const histRate = historicalRate ?? 0;
+
+  const composite = (modelUpsetProb * 0.5) + (histRate * 0.3) + (Math.min(seedDiff, 8) / 8 * 0.2);
+
+  if (composite >= 0.35) return 'HIGH';
+  if (composite >= 0.18) return 'MODERATE';
+  return 'LOW';
+}
+
+function ConvictionBadge({ label }) {
+  const c = CONVICTION_COLORS[label] || CONVICTION_COLORS.LOW;
   return (
-    <span className={styles.confPill} style={{ color: c.text, background: c.bg, borderColor: c.border }}>
-      {label}
+    <span className={styles.convictionBadge} style={{ color: c.text, background: c.bg, borderColor: c.border }}>
+      {label} CONVICTION
     </span>
   );
 }
 
-function InsightCard({ insight, featured = false }) {
+function UpsetMeter({ risk }) {
+  const cfg = UPSET_RISK_CONFIG[risk] || UPSET_RISK_CONFIG.LOW;
+  return (
+    <span className={styles.upsetMeter} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
+      {cfg.icon} {risk} RISK
+    </span>
+  );
+}
+
+function ProbabilityBar({ winProbability, winnerName, loserName, confidenceLabel }) {
+  const pct = Math.round((winProbability ?? 0.5) * 100);
+  const losePct = 100 - pct;
+  const c = CONVICTION_COLORS[confidenceLabel] || CONVICTION_COLORS.LOW;
+
+  return (
+    <div className={styles.probBarWrap}>
+      <div className={styles.probBarLabels}>
+        <span className={styles.probBarTeam}>{winnerName} <strong>{pct}%</strong></span>
+        <span className={styles.probBarTeamSecondary}>{loserName} <strong>{losePct}%</strong></span>
+      </div>
+      <div className={styles.probBarTrack}>
+        <div
+          className={styles.probBarFill}
+          style={{ width: `${pct}%`, background: c.barFill }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function InsightCard({ insight, featured = false, compact = false }) {
   if (!insight) return null;
   const { matchup, winner, loser, confidenceLabel, signals, isUpset, winProbability, historicalContext } = insight;
   const winnerTeam = winner || matchup?.topTeam;
   const loserTeam = loser || matchup?.bottomTeam;
+  const upsetRisk = computeUpsetRisk(insight);
 
-  const topSignal = signals?.[0] || 'Composite model edge';
-  const secondSignal = signals?.[1] || historicalContext || null;
+  const bullets = [
+    ...(signals || []).slice(0, 3),
+    ...(historicalContext && (signals || []).length < 3 ? [historicalContext] : []),
+  ].slice(0, compact ? 2 : 3);
 
   return (
     <div className={`${styles.card} ${featured ? styles.cardFeatured : ''}`}>
-      <div className={styles.cardHeader}>
-        <div className={styles.seedMatchup}>
-          <span className={styles.seedBadge}>#{matchup?.topSeed}</span>
-          <span className={styles.seedVs}>vs</span>
-          <span className={styles.seedBadge}>#{matchup?.bottomSeed}</span>
-          {matchup?.region && <span className={styles.regionTag}>{matchup.region}</span>}
-        </div>
-        {isUpset && <span className={styles.upsetTag}>UPSET WATCH</span>}
-      </div>
-
-      <div className={styles.teamsRow}>
+      {/* Row 1: Matchup */}
+      <div className={styles.matchupRow}>
         <div className={styles.teamSide}>
-          <TeamLogo team={matchup?.topTeam} size={featured ? 36 : 28} />
+          <span className={styles.seedBadge}>#{matchup?.topSeed}</span>
+          <TeamLogo team={matchup?.topTeam} size={featured ? 40 : 32} />
           <span className={styles.teamName}>{matchup?.topTeam?.shortName || matchup?.topTeam?.name}</span>
         </div>
-        <span className={styles.vsIcon}>VS</span>
+        <div className={styles.vsBlock}>
+          <span className={styles.vsText}>VS</span>
+          {matchup?.region && <span className={styles.regionTag}>{matchup.region}</span>}
+        </div>
         <div className={`${styles.teamSide} ${styles.teamSideRight}`}>
           <span className={styles.teamName}>{matchup?.bottomTeam?.shortName || matchup?.bottomTeam?.name}</span>
-          <TeamLogo team={matchup?.bottomTeam} size={featured ? 36 : 28} />
+          <TeamLogo team={matchup?.bottomTeam} size={featured ? 40 : 32} />
+          <span className={styles.seedBadge}>#{matchup?.bottomSeed}</span>
         </div>
       </div>
 
-      <div className={styles.predictionRow}>
-        <div className={styles.winnerBlock}>
-          <span className={styles.pickLabel}>PICK</span>
-          <span className={styles.winnerName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
-        </div>
-        <ConfidencePill label={confidenceLabel} />
-        {winProbability != null && (
-          <span className={styles.probBadge}>{Math.round(winProbability * 100)}%</span>
+      {/* Row 2: Game Info (tournament context) */}
+      <div className={styles.gameInfoRow}>
+        <span className={styles.gameInfoItem}>Round of 64</span>
+        <span className={styles.gameInfoDot}>·</span>
+        <span className={styles.gameInfoItem}>{matchup?.region} Region</span>
+        {isUpset && (
+          <>
+            <span className={styles.gameInfoDot}>·</span>
+            <span className={styles.upsetTag}>UPSET WATCH</span>
+          </>
         )}
       </div>
 
-      <div className={styles.signalList}>
-        <span className={styles.signal}>{topSignal}</span>
-        {secondSignal && <span className={styles.signal}>{secondSignal}</span>}
+      {/* Row 3: Prediction + Conviction + Upset Risk */}
+      <div className={styles.predictionBlock}>
+        <div className={styles.predictionHeader}>
+          <span className={styles.pickLabel}>MODEL PICK</span>
+          <div className={styles.badgeRow}>
+            <ConvictionBadge label={confidenceLabel} />
+            <UpsetMeter risk={upsetRisk} />
+          </div>
+        </div>
+        <div className={styles.winnerRow}>
+          <TeamLogo team={winnerTeam} size={28} />
+          <span className={styles.winnerName}>{winnerTeam?.shortName || winnerTeam?.name}</span>
+          {winProbability != null && (
+            <span className={styles.winProbPct}>{Math.round(winProbability * 100)}%</span>
+          )}
+        </div>
       </div>
+
+      {/* Row 4: Probability Bar */}
+      {winProbability != null && (
+        <ProbabilityBar
+          winProbability={winProbability}
+          winnerName={winnerTeam?.shortName || winnerTeam?.name}
+          loserName={loserTeam?.shortName || loserTeam?.name}
+          confidenceLabel={confidenceLabel}
+        />
+      )}
+
+      {/* Row 5: Explanation Bullets */}
+      {bullets.length > 0 && (
+        <div className={styles.bulletList}>
+          {bullets.map((b, i) => (
+            <div key={i} className={styles.bullet}>
+              <span className={styles.bulletDot} />
+              <span className={styles.bulletText}>{b}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /**
  * Tournament Insights hero slide — shows 3–5 matchup insight cards
- * for a seed-line or custom selection. 1080×1350 IG 4:5 format.
- *
- * Props.options.tournamentInsights: { title, subtitle, insights[] }
+ * with redesigned information hierarchy.
+ * 1080x1350 IG 4:5 format.
  */
 export default function TournamentInsightsSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const ti = options.tournamentInsights || {};
@@ -82,6 +168,7 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
   const insights = ti.insights || [];
 
   const displayInsights = insights.slice(0, 5);
+  const isManyCards = displayInsights.length >= 4;
 
   return (
     <SlideShell
@@ -107,7 +194,12 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
       ) : (
         <div className={styles.cardList}>
           {displayInsights.map((insight, i) => (
-            <InsightCard key={i} insight={insight} featured={i === 0} />
+            <InsightCard
+              key={i}
+              insight={insight}
+              featured={i === 0 && !isManyCards}
+              compact={isManyCards}
+            />
           ))}
         </div>
       )}
