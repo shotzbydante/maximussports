@@ -2,36 +2,51 @@
  * Bracket Matchup Resolver — adapter for Maximus Pick 'Em model logic.
  *
  * Runs bracket matchups through the same core signal pipeline used by
- * Pick 'Em predictions. Seed is explicitly NOT used as a model input —
- * it is display/context only. A 12-seed that is objectively stronger
- * will be picked over a 5-seed.
+ * Pick 'Em predictions. Uses a seed-based historical prior as the
+ * BASELINE, then adjusts with team-specific enrichment signals
+ * (rankings, championship odds, ATS, record, SOS).
  *
- * Includes an optional tournament-history prior layer that provides
- * lightweight upset-frequency calibration for known volatile seed bands.
- * The prior only activates when the main model edge is small and never
- * overrides strong model opinions.
+ * Enrichment signals differentiate teams WITHIN the same seed band —
+ * a strong 3-seed gets a higher probability than a weaker 3-seed.
  *
- * Shared with maximusPicksModel.js signal weights so improvements to
- * the core model automatically benefit bracket predictions.
+ * Includes a tournament-history prior layer for calibrating upset
+ * frequency in historically volatile seed bands.
  */
 
 import { getTournamentPrior } from './tournamentPrior';
-
-const W_RANKING     = 0.12;
-const W_CHAMP_ODDS  = 0.18;
-const W_SEASON_REC  = 0.12;
-const W_LAST10      = 0.15;
-const W_SOS         = 0.08;
-const W_ATS         = 0.10;
-const W_MARKET      = 0.25;
 
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
 
+// ── Seed-based win rates (historical Round-of-64 data) ───────────
+const SEED_WIN_RATE = {
+  '1_16': 0.98, '2_15': 0.92, '3_14': 0.85, '4_13': 0.78,
+  '5_12': 0.64, '6_11': 0.63, '7_10': 0.60, '8_9': 0.51,
+};
+
+function seedBaselineProb(seedA, seedB) {
+  if (seedA == null || seedB == null) return 0.5;
+  const fav = Math.min(seedA, seedB);
+  const dog = Math.max(seedA, seedB);
+  const key = `${fav}_${dog}`;
+  let rate = SEED_WIN_RATE[key] ?? null;
+  if (rate == null) {
+    const gap = dog - fav;
+    if (gap >= 12) rate = 0.95;
+    else if (gap >= 8) rate = 0.82;
+    else if (gap >= 5) rate = 0.70;
+    else if (gap >= 3) rate = 0.62;
+    else rate = 0.55;
+  }
+  return seedA <= seedB ? rate : 1 - rate;
+}
+
+// ── Signal extraction functions ──────────────────────────────────
+
 function rankSignal(rank) {
   if (rank == null || rank <= 0) return null;
-  return clamp(1 - (rank - 1) / 50, 0.2, 0.95);
+  return clamp(1 - (rank - 1) / 45, 0.20, 0.98);
 }
 
 function champOddsSignal(americanOdds) {
@@ -39,27 +54,38 @@ function champOddsSignal(americanOdds) {
   const implied = americanOdds > 0
     ? 100 / (americanOdds + 100)
     : Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
-  return clamp(implied * 2.5, 0.1, 0.95);
+  return clamp(implied * 2.0, 0.05, 0.90);
 }
 
-function recordSignal(coverPct) {
+function recordWinPct(record) {
+  if (!record) return null;
+  const m = record.match(/(\d+)-(\d+)/);
+  if (!m) return null;
+  const w = parseInt(m[1], 10), l = parseInt(m[2], 10);
+  return w + l > 0 ? w / (w + l) : null;
+}
+
+function coverPctSignal(coverPct) {
   if (coverPct == null) return null;
-  return clamp(coverPct / 100, 0.2, 0.8);
+  return clamp(coverPct / 100, 0.25, 0.75);
 }
 
 /**
  * Resolve a single bracket matchup between two teams.
  *
- * @param {{ name, slug, seed }} teamA
- * @param {{ name, slug, seed }} teamB
+ * Architecture: seed-based baseline + team-specific enrichment adjustments.
+ * This ensures same-seed-band matchups get DIFFERENT probabilities based
+ * on actual team quality indicators.
+ *
+ * @param {{ name, slug, seed, record?, conference? }} teamA
+ * @param {{ name, slug, seed, record?, conference? }} teamB
  * @param {object} context — enrichment data from model pipeline
  * @param {object} context.rankMap — slug → AP rank
  * @param {object} context.championshipOdds — slug → { american }
  * @param {object} context.atsBySlug — slug → { season, last30, last7 }
- * @param {object} context.marketData — slug → market win probability (optional)
  * @param {object} [matchupMeta] — optional bracket context
- * @param {number} [matchupMeta.round] — tournament round (1–6), enables tournament prior
- * @returns {{ winner, loser, confidence, confidenceLabel, signals, rationale, isUpset, tournamentPrior }}
+ * @param {number} [matchupMeta.round] — tournament round (1–6)
+ * @returns {{ winner, loser, confidence, confidenceLabel, signals, rationale, isUpset, winProbability, tournamentPrior }}
  */
 export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = {}) {
   const { rankMap = {}, championshipOdds = {}, atsBySlug = {} } = context;
@@ -78,94 +104,80 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   const slugA = teamA.slug;
   const slugB = teamB.slug;
 
+  // ── 1. Seed-based baseline ─────────────────────────────────────
+  // Historical win rate for this seed pairing, oriented as P(A wins).
+  const seedProb = seedBaselineProb(teamA.seed, teamB.seed);
+
+  // ── 2. Gather team-specific enrichment signals ─────────────────
+  // Each signal measures relative strength: positive delta = A stronger.
   const rankA = rankMap[slugA] ?? null;
   const rankB = rankMap[slugB] ?? null;
   const champA = championshipOdds[slugA]?.american ?? null;
   const champB = championshipOdds[slugB]?.american ?? null;
   const atsA = getBestCoverPct(atsBySlug[slugA]);
   const atsB = getBestCoverPct(atsBySlug[slugB]);
+  const recA = recordWinPct(teamA.record);
+  const recB = recordWinPct(teamB.record);
 
-  let scoreA = 0.5;
-  let scoreB = 0.5;
+  let enrichDelta = 0;
   let enrichCount = 0;
+  const activeSignals = [];
 
-  if (rankSignal(rankA) !== null || rankSignal(rankB) !== null) {
-    const sigA = rankSignal(rankA) ?? 0.5;
-    const sigB = rankSignal(rankB) ?? 0.5;
-    scoreA += (sigA - sigB) * W_RANKING;
-    scoreB += (sigB - sigA) * W_RANKING;
+  // Ranking signal — AP rank provides strong team-quality differentiation
+  if (rankA != null || rankB != null) {
+    const sigA = rankSignal(rankA) ?? 0.30;
+    const sigB = rankSignal(rankB) ?? 0.30;
+    enrichDelta += (sigA - sigB) * 0.30;
     enrichCount++;
+    activeSignals.push({ type: 'ranking', valA: rankA, valB: rankB, delta: sigA - sigB });
   }
 
-  if (champOddsSignal(champA) !== null || champOddsSignal(champB) !== null) {
-    const sigA = champOddsSignal(champA) ?? 0.5;
-    const sigB = champOddsSignal(champB) ?? 0.5;
-    scoreA += (sigA - sigB) * W_CHAMP_ODDS;
-    scoreB += (sigB - sigA) * W_CHAMP_ODDS;
+  // Championship odds — market-implied title strength
+  if (champA != null || champB != null) {
+    const sigA = champOddsSignal(champA) ?? 0.06;
+    const sigB = champOddsSignal(champB) ?? 0.06;
+    enrichDelta += (sigA - sigB) * 0.25;
     enrichCount++;
+    activeSignals.push({ type: 'championship', valA: champA, valB: champB, delta: sigA - sigB });
   }
 
-  if (recordSignal(atsA) !== null || recordSignal(atsB) !== null) {
-    const sigA = recordSignal(atsA) ?? 0.5;
-    const sigB = recordSignal(atsB) ?? 0.5;
-    scoreA += (sigA - sigB) * W_ATS;
-    scoreB += (sigB - sigA) * W_ATS;
-
-    const lastA = recordSignal(atsA) ?? 0.5;
-    const lastB = recordSignal(atsB) ?? 0.5;
-    scoreA += (lastA - lastB) * W_LAST10;
-    scoreB += (lastB - lastA) * W_LAST10;
-
-    scoreA += (sigA - sigB) * W_SEASON_REC;
-    scoreB += (sigB - sigA) * W_SEASON_REC;
+  // ATS performance — cover consistency and market-beating form
+  if (atsA != null || atsB != null) {
+    const sigA = coverPctSignal(atsA) ?? 0.50;
+    const sigB = coverPctSignal(atsB) ?? 0.50;
+    enrichDelta += (sigA - sigB) * 0.20;
     enrichCount++;
+    activeSignals.push({ type: 'ats', valA: atsA, valB: atsB, delta: sigA - sigB });
   }
 
-  const sosA = rankA != null && rankA <= 25 ? 0.65 : 0.5;
-  const sosB = rankB != null && rankB <= 25 ? 0.65 : 0.5;
-  scoreA += (sosA - sosB) * W_SOS;
-  scoreB += (sosB - sosA) * W_SOS;
-
-  // ── Seed-based prior when enrichment is sparse ─────────────────
-  // When no real enrichment data is available, use historical seed-based
-  // win rates so obvious mismatches (1v16, 2v15) don't show 50/50.
-  if (enrichCount === 0 && teamA.seed != null && teamB.seed != null) {
-    const favSeed = Math.min(teamA.seed, teamB.seed);
-    const dogSeed = Math.max(teamA.seed, teamB.seed);
-    const seedGap = dogSeed - favSeed;
-
-    const SEED_WIN_RATE = {
-      '1_16': 0.98, '2_15': 0.92, '3_14': 0.85, '4_13': 0.78,
-      '5_12': 0.64, '6_11': 0.63, '7_10': 0.60, '8_9': 0.51,
-    };
-
-    const seedKey = `${favSeed}_${dogSeed}`;
-    let favWinRate = SEED_WIN_RATE[seedKey] ?? null;
-    if (favWinRate == null) {
-      if (seedGap >= 12) favWinRate = 0.95;
-      else if (seedGap >= 8) favWinRate = 0.82;
-      else if (seedGap >= 5) favWinRate = 0.70;
-      else if (seedGap >= 3) favWinRate = 0.62;
-      else favWinRate = 0.55;
-    }
-
-    const seedEdge = (favWinRate - 0.5) * 0.85;
-    const aIsFav = teamA.seed < teamB.seed;
-    if (aIsFav) {
-      scoreA += seedEdge;
-      scoreB -= seedEdge;
-    } else {
-      scoreB += seedEdge;
-      scoreA -= seedEdge;
-    }
-    enrichCount = 1;
+  // Season record — overall win percentage from PROJECTED_FIELD
+  if (recA != null || recB != null) {
+    const vA = recA ?? 0.50;
+    const vB = recB ?? 0.50;
+    enrichDelta += (vA - vB) * 0.15;
+    enrichCount++;
+    activeSignals.push({ type: 'record', valA: teamA.record, valB: teamB.record, delta: vA - vB });
   }
 
-  // ── Main model edge (before tournament prior) ──────────────────
-  const mainEdge = scoreA - scoreB;
-  const mainEdgeMag = Math.abs(mainEdge);
+  // Conference strength proxy — power conference advantage
+  const POWER_CONFERENCES = new Set(['SEC', 'Big Ten', 'ACC', 'Big 12', 'Big East']);
+  const confA = POWER_CONFERENCES.has(teamA.conference) ? 0.60 : 0.42;
+  const confB = POWER_CONFERENCES.has(teamB.conference) ? 0.60 : 0.42;
+  enrichDelta += (confA - confB) * 0.10;
 
-  // ── Tournament history prior (lightweight calibration layer) ───
+  // ── 3. Blend seed baseline with enrichment ─────────────────────
+  // When enrichment is rich, team-specific signals dominate.
+  // When enrichment is absent, seed baseline anchors the output.
+  const seedEdge = seedProb - 0.5;
+  const seedWeight = enrichCount >= 3 ? 0.35
+                   : enrichCount >= 2 ? 0.50
+                   : enrichCount >= 1 ? 0.65
+                   : 0.90;
+
+  let edge = seedEdge * seedWeight + enrichDelta;
+
+  // ── 4. Tournament history prior (calibration layer) ────────────
+  const mainEdgeMag = Math.abs(edge);
   let tournamentPriorResult = null;
   if (matchupMeta.round != null && teamA.seed != null && teamB.seed != null) {
     tournamentPriorResult = getTournamentPrior(
@@ -176,43 +188,45 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
       const aIsUnderdog = teamA.seed > teamB.seed;
       const adj = tournamentPriorResult.adjustment;
       if (aIsUnderdog) {
-        scoreA += adj;
-        scoreB -= adj;
+        edge += adj;
       } else {
-        scoreB += adj;
-        scoreA -= adj;
+        edge -= adj;
       }
     }
   }
 
-  // ── Final edge (after tournament prior) ────────────────────────
-  const edge = scoreA - scoreB;
+  // ── 5. Final outputs ───────────────────────────────────────────
   const edgeMag = Math.abs(edge);
   const pickA = edge >= 0;
+  const winProb = clamp(0.5 + edge, 0.05, 0.97);
 
   let confidence = 0;
-  if (edgeMag >= 0.14) confidence = 2;
-  else if (edgeMag >= 0.07) confidence = 1;
+  if (edgeMag >= 0.20) confidence = 2;
+  else if (edgeMag >= 0.10) confidence = 1;
 
-  if (enrichCount === 0) confidence = 0;
-
-  // Allow HIGH confidence for large seed gaps even with seed-only enrichment,
-  // since a 1v16 is objectively a HIGH confidence pick.
-  const seedGapForConf = (teamA.seed != null && teamB.seed != null)
-    ? Math.abs(teamA.seed - teamB.seed) : 0;
-  if (enrichCount <= 1 && seedGapForConf < 8) {
-    confidence = Math.min(confidence, 1);
+  // Boost confidence for extreme seed mismatches even with thin data
+  if (teamA.seed != null && teamB.seed != null) {
+    const seedGap = Math.abs(teamA.seed - teamB.seed);
+    if (seedGap >= 10 && confidence < 2 && edgeMag >= 0.15) confidence = 2;
   }
+
+  if (enrichCount === 0 && edgeMag < 0.15) confidence = Math.min(confidence, 1);
 
   const winner = pickA ? teamA : teamB;
   const loser = pickA ? teamB : teamA;
-
   const isUpset = winner.seed != null && loser.seed != null && winner.seed > loser.seed;
 
   const signals = buildSignals(winner, loser, {
-    rankMap, championshipOdds, atsA: pickA ? atsA : atsB, atsB: pickA ? atsB : atsA,
+    rankMap, championshipOdds,
+    atsA: pickA ? atsA : atsB, atsB: pickA ? atsB : atsA,
     winnerRank: pickA ? rankA : rankB, loserRank: pickA ? rankB : rankA,
+    winnerChamp: pickA ? champA : champB, loserChamp: pickA ? champB : champA,
+    winnerRec: pickA ? teamA.record : teamB.record,
+    loserRec: pickA ? teamB.record : teamA.record,
+    winnerConf: pickA ? teamA.conference : teamB.conference,
+    loserConf: pickA ? teamB.conference : teamA.conference,
     tournamentPrior: tournamentPriorResult,
+    enrichCount,
   });
 
   const confLabel = confidence >= 2 ? 'HIGH' : confidence >= 1 ? 'MEDIUM' : 'LOW';
@@ -222,14 +236,19 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     winnerRank: pickA ? rankA : rankB, loserRank: pickA ? rankB : rankA,
     winnerChamp: pickA ? champA : champB,
     winnerAts: pickA ? atsA : atsB,
+    winnerRec: pickA ? teamA.record : teamB.record,
+    loserRec: pickA ? teamB.record : teamA.record,
+    winnerConf: pickA ? teamA.conference : teamB.conference,
     tournamentPrior: tournamentPriorResult,
+    activeSignals,
+    seedProb,
   });
 
   return {
     winner, loser, confidence, confidenceLabel: confLabel,
     signals, rationale, isUpset,
     edgeMagnitude: edgeMag, enrichmentCount: enrichCount,
-    winProbability: clamp(0.5 + edge, 0.1, 0.95),
+    winProbability: winProb,
     tournamentPrior: tournamentPriorResult,
   };
 }
@@ -292,26 +311,53 @@ function getBestCoverPct(atsEntry) {
 
 function buildSignals(winner, loser, ctx) {
   const signals = [];
+
   if (ctx.winnerRank != null && ctx.winnerRank <= 25) {
     if (ctx.loserRank == null || ctx.loserRank > 25) {
-      signals.push(`Ranked #${ctx.winnerRank} vs unranked`);
+      signals.push(`#${ctx.winnerRank} AP ranking vs unranked opponent`);
     } else if (ctx.winnerRank < ctx.loserRank) {
-      signals.push(`Higher ranked (#${ctx.winnerRank} vs #${ctx.loserRank})`);
+      signals.push(`Higher AP ranking (#${ctx.winnerRank} vs #${ctx.loserRank})`);
     }
   }
-  const wChamp = ctx.championshipOdds[winner.slug]?.american;
-  if (wChamp != null && wChamp < 5000) {
-    signals.push('Championship odds advantage');
+
+  if (ctx.winnerChamp != null && ctx.winnerChamp < 5000) {
+    const implied = ctx.winnerChamp > 0
+      ? Math.round(100 / (ctx.winnerChamp + 100) * 100)
+      : Math.round(Math.abs(ctx.winnerChamp) / (Math.abs(ctx.winnerChamp) + 100) * 100);
+    if (ctx.loserChamp == null || ctx.loserChamp > 10000) {
+      signals.push(`Title contender (${implied}% implied championship probability)`);
+    } else {
+      signals.push('Stronger championship odds profile');
+    }
   }
+
   if (ctx.atsA != null && ctx.atsA >= 55) {
-    signals.push(`Strong form (${Math.round(ctx.atsA)}% ATS)`);
+    if (ctx.atsB != null && ctx.atsB < 48) {
+      signals.push(`ATS edge: ${Math.round(ctx.atsA)}% cover rate vs opponent's ${Math.round(ctx.atsB)}%`);
+    } else {
+      signals.push(`Strong ATS form (${Math.round(ctx.atsA)}% cover rate)`);
+    }
   }
-  if (ctx.atsB != null && ctx.atsB < 45) {
-    signals.push(`Opponent struggling (${Math.round(ctx.atsB)}% ATS)`);
+
+  if (ctx.winnerRec && ctx.loserRec) {
+    const wPct = recordWinPct(ctx.winnerRec);
+    const lPct = recordWinPct(ctx.loserRec);
+    if (wPct != null && lPct != null && wPct - lPct >= 0.08) {
+      signals.push(`Better overall record (${ctx.winnerRec} vs ${ctx.loserRec})`);
+    }
   }
+
+  if (ctx.winnerConf && ctx.loserConf) {
+    const POWER = new Set(['SEC', 'Big Ten', 'ACC', 'Big 12', 'Big East']);
+    if (POWER.has(ctx.winnerConf) && !POWER.has(ctx.loserConf)) {
+      signals.push(`Power conference strength (${ctx.winnerConf})`);
+    }
+  }
+
   if (ctx.tournamentPrior?.applied) {
-    signals.push('Tournament prior: historically volatile seed band');
+    signals.push('Tournament history: historically volatile seed band');
   }
+
   if (signals.length === 0) {
     const wSeed = winner.seed;
     const lSeed = loser.seed;
@@ -323,22 +369,24 @@ function buildSignals(winner, loser, ctx) {
       signals.push('Composite model edge');
     }
   }
+
   return signals;
 }
 
 function buildRationale(winner, loser, ctx) {
   const parts = [];
-  const edgePct = Math.round(ctx.edgeMag * 100);
+  const seedGap = (winner.seed != null && loser.seed != null)
+    ? Math.abs(winner.seed - loser.seed) : 0;
+  const winPctStr = Math.round((0.5 + ctx.edgeMag) * 100);
 
-  const seedGap = (winner.seed != null && loser.seed != null) ? Math.abs(winner.seed - loser.seed) : 0;
   if (ctx.enrichCount >= 3) {
-    parts.push(`Full-model composite edge of ${edgePct}pp favors ${winner.name || winner.shortName}.`);
-  } else if (ctx.enrichCount >= 1 && seedGap >= 8) {
-    parts.push(`Strong historical favorite. #${Math.min(winner.seed, loser.seed)}-seeds win this matchup ~${Math.round((0.5 + ctx.edgeMag) * 100)}% of the time.`);
+    parts.push(`Full model composite gives ${winner.name || winner.shortName} a ${winPctStr}% win probability.`);
   } else if (ctx.enrichCount >= 1) {
-    parts.push(`Partial-model edge of ${edgePct}pp with ${ctx.enrichCount} enrichment source${ctx.enrichCount > 1 ? 's' : ''}.`);
+    parts.push(`Model favors ${winner.name || winner.shortName} at ${winPctStr}% based on ${ctx.enrichCount} enrichment signal${ctx.enrichCount > 1 ? 's' : ''} plus seed history.`);
+  } else if (seedGap >= 8) {
+    parts.push(`Historical favorite at ${winPctStr}%. #${Math.min(winner.seed, loser.seed)}-seeds dominate this matchup.`);
   } else {
-    parts.push(`Minimal data available — directional lean on ${winner.name || winner.shortName}.`);
+    parts.push(`Directional lean on ${winner.name || winner.shortName} at ${winPctStr}%.`);
   }
 
   if (ctx.isUpset) {
@@ -346,11 +394,19 @@ function buildRationale(winner, loser, ctx) {
   }
 
   if (ctx.winnerRank != null && ctx.winnerRank <= 25 && (ctx.loserRank == null || ctx.loserRank > 25)) {
-    parts.push(`Ranking advantage: #${ctx.winnerRank} vs unranked.`);
+    parts.push(`Ranking edge: #${ctx.winnerRank} AP.`);
   }
 
-  if (ctx.winnerAts != null && ctx.winnerAts >= 58) {
-    parts.push(`Strong recent form — ${Math.round(ctx.winnerAts)}% ATS cover rate.`);
+  if (ctx.winnerAts != null && ctx.winnerAts >= 56) {
+    parts.push(`Covering at ${Math.round(ctx.winnerAts)}% ATS — strong recent form.`);
+  }
+
+  if (ctx.winnerRec && ctx.loserRec && ctx.enrichCount >= 1) {
+    const wP = recordWinPct(ctx.winnerRec);
+    const lP = recordWinPct(ctx.loserRec);
+    if (wP != null && lP != null && wP - lP >= 0.10) {
+      parts.push(`Record advantage: ${ctx.winnerRec} vs ${ctx.loserRec}.`);
+    }
   }
 
   if (ctx.tournamentPrior?.applied && ctx.tournamentPrior.rationale) {

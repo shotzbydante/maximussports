@@ -377,7 +377,38 @@ export default function Dashboard() {
     if (activeSection !== 'game') return null;
     if (gameMode !== 'tournament' && gameMode !== 'upset-radar') return null;
 
-    const context = {};
+    // Build real enrichment context from available app data —
+    // same sources that power Maximus Picks on the Home page.
+    const rankMap = {};
+    for (const r of (dashData?.rankingsTop25 ?? [])) {
+      const name = r.teamName || r.name || r.team || '';
+      if (!name) continue;
+      const rank = r.rank ?? r.ranking ?? null;
+      if (rank == null) continue;
+      const slug = getTeamSlug(name);
+      if (slug) rankMap[slug] = rank;
+    }
+
+    const champOddsRaw = dailyChampOdds ?? {};
+    const championshipOdds = {};
+    for (const [slug, entry] of Object.entries(champOddsRaw)) {
+      if (!entry) continue;
+      const american = entry.bestChanceAmerican ?? entry.american ?? null;
+      if (american != null) championshipOdds[slug] = { american };
+    }
+
+    const atsLeadersData = dashData?.atsLeaders ?? { best: [], worst: [] };
+    const atsBySlug = {};
+    for (const row of [...(atsLeadersData.best ?? []), ...(atsLeadersData.worst ?? [])]) {
+      if (!row.slug) continue;
+      atsBySlug[row.slug] = {
+        season: row.season ?? row.rec ?? null,
+        last30: row.last30 ?? row.rec ?? null,
+        last7:  row.last7  ?? row.rec ?? null,
+      };
+    }
+
+    const context = { rankMap, championshipOdds, atsBySlug };
 
     if (gameMode === 'upset-radar') {
       const upsetGames = getUpsetRadarGames(context);
@@ -412,7 +443,7 @@ export default function Dashboard() {
 
     const insights = getBatchTournamentInsights(matchups, context);
     return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [], preset: tournamentPreset || null };
-  }, [activeSection, gameMode, tournamentPreset, tournamentRegion, tournamentSelectedMatchups]);
+  }, [activeSection, gameMode, tournamentPreset, tournamentRegion, tournamentSelectedMatchups, dashData, dailyChampOdds]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
