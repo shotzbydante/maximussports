@@ -9,7 +9,7 @@
 }
 
 .headerCompact {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .headerTop {
@@ -38,7 +38,7 @@
 }
 
 .headerCompact .heroMascot {
-  width: 130px;
+  width: 100px;
   opacity: 0.80;
 }
 
@@ -93,7 +93,7 @@
 }
 
 .cardListCompact {
-  gap: 7px;
+  gap: 5px;
 }
 
 /* ── Card ──────────────────────────────────────────────────── */

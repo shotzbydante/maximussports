@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .headerTop {
@@ -23,7 +23,7 @@
 }
 
 .heroMascot {
-  width: 140px;
+  width: 110px;
   height: auto;
   opacity: 0.85;
   flex-shrink: 0;
@@ -74,7 +74,7 @@
 .cardList {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
   flex: 1;
 }
 

@@ -54,7 +54,9 @@ export default function TeamLogo({ team, size = 28 }) {
 
   if (!team) return null;
 
-  // Tier 1: local logo
+  const imgStyle = { objectFit: 'contain', maxWidth: size, maxHeight: size };
+
+  // Tier 1: local logo (no crossOrigin for same-origin assets — avoids canvas tainting)
   if (!localError && localPath) {
     return (
       <span className={styles.wrapper} style={{ width: size, height: size }}>
@@ -65,7 +67,7 @@ export default function TeamLogo({ team, size = 28 }) {
           height={size}
           onError={() => setLocalError(true)}
           className={styles.img}
-          crossOrigin="anonymous"
+          style={imgStyle}
           data-fallback-text={initials}
         />
       </span>
@@ -83,6 +85,7 @@ export default function TeamLogo({ team, size = 28 }) {
           height={size}
           onError={() => setEspnError(true)}
           className={styles.img}
+          style={imgStyle}
           crossOrigin="anonymous"
           data-fallback-text={initials}
         />
