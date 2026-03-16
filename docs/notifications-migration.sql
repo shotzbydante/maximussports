@@ -11,14 +11,14 @@ CREATE TABLE IF NOT EXISTS notifications (
   type        text        NOT NULL,
   actor_id    uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   data        jsonb       DEFAULT '{}',
-  read        boolean     DEFAULT false,
+  is_read     boolean     DEFAULT false,
   created_at  timestamptz DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id) WHERE read = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id) WHERE is_read = false;
 
--- RLS: users can read their own notifications, service role inserts
+-- RLS: users can read/update their own notifications
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "notifications_select_own"
@@ -30,4 +30,4 @@ CREATE POLICY "notifications_update_own"
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
--- Inserts handled by service role (bypasses RLS) from API routes
+-- Inserts are handled by DB triggers (on follow) using SECURITY DEFINER functions

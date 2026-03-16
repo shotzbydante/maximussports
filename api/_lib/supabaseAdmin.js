@@ -65,6 +65,26 @@ export async function verifyUserToken(token) {
   return data.user;
 }
 
+// ── User-scoped client (for RPCs that rely on auth.uid()) ────────────────────
+
+/**
+ * Creates a Supabase client authenticated as the given user via their JWT.
+ * Use for calling DB RPCs (follow_user, unfollow_user, mark_notifications_read)
+ * that reference auth.uid() internally.
+ * NOT cached — one per request.
+ */
+export function getUserClient(jwt) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const err = new Error('Supabase URL or anon key not configured.');
+    err.code = 'AUTH_UNAVAILABLE';
+    throw err;
+  }
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+}
+
 // ── Service-role admin client (privileged operations only) ───────────────────
 let _adminClient = null;
 

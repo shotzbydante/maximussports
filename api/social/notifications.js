@@ -1,11 +1,14 @@
-import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { getSupabaseAdmin, getUserClient } from '../_lib/supabaseAdmin.js';
 
 const PROFILE_FIELDS = 'id, username, display_name, plan_tier, preferences';
 
 /**
- * GET  /api/social/notifications          — fetch recent notifications
+ * GET  /api/social/notifications                          — fetch recent notifications
  * POST /api/social/notifications?action=markRead&id=<uuid> — mark one as read
- * POST /api/social/notifications?action=markAllRead      — mark all as read
+ * POST /api/social/notifications?action=markAllRead        — mark all as read
+ *
+ * DB column is `is_read` (boolean). mark-all-read uses the
+ * mark_notifications_read RPC so auth.uid() scoping is enforced in the DB.
  */
 export default async function handler(req, res) {
   let sb;
@@ -30,14 +33,14 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { data: notifications, error } = await sb
         .from('notifications')
-        .select('id, type, actor_id, data, read, created_at')
+        .select('id, type, actor_id, data, is_read, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) {
         console.error('[notifications] fetch error:', error.message);
-        return res.status(200).json({ notifications: [], unreadCount: 0 });
+        return res.status(500).json({ error: 'Failed to load notifications' });
       }
 
       const actorIds = [...new Set((notifications || []).map(n => n.actor_id).filter(Boolean))];
@@ -60,14 +63,14 @@ export default async function handler(req, res) {
         }
       }
 
-      const unreadCount = (notifications || []).filter(n => !n.read).length;
+      const unreadCount = (notifications || []).filter(n => !n.is_read).length;
 
       const items = (notifications || []).map(n => ({
         id: n.id,
         type: n.type,
         actor: actorMap[n.actor_id] || null,
         data: n.data,
-        read: n.read,
+        isRead: n.is_read,
         createdAt: n.created_at,
       }));
 
@@ -77,24 +80,39 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const action = url.searchParams.get('action');
+      const userSb = getUserClient(token);
 
       if (action === 'markRead') {
         const id = url.searchParams.get('id');
         if (!id) return res.status(400).json({ error: 'id required' });
-        await sb
-          .from('notifications')
-          .update({ read: true })
-          .eq('id', id)
-          .eq('user_id', user.id);
+
+        const { error: rpcErr } = await userSb.rpc('mark_notifications_read', {
+          notification_ids: [id],
+        });
+        if (rpcErr) {
+          console.error('[notifications] markRead RPC error:', rpcErr.message);
+          return res.status(500).json({ error: 'Failed to mark notification as read' });
+        }
         return res.status(200).json({ ok: true });
       }
 
       if (action === 'markAllRead') {
-        await sb
+        const { data: unread } = await sb
           .from('notifications')
-          .update({ read: true })
+          .select('id')
           .eq('user_id', user.id)
-          .eq('read', false);
+          .eq('is_read', false);
+
+        const ids = (unread || []).map(n => n.id);
+        if (ids.length > 0) {
+          const { error: rpcErr } = await userSb.rpc('mark_notifications_read', {
+            notification_ids: ids,
+          });
+          if (rpcErr) {
+            console.error('[notifications] markAllRead RPC error:', rpcErr.message);
+            return res.status(500).json({ error: 'Failed to mark notifications as read' });
+          }
+        }
         return res.status(200).json({ ok: true });
       }
 

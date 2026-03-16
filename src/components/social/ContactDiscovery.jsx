@@ -86,6 +86,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
 
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -104,6 +105,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
   useEffect(() => {
     if (!session) return;
     setSuggestionsLoading(true);
+    setSuggestionsError(false);
     (async () => {
       try {
         const res = await fetch('/api/social/discover', {
@@ -112,9 +114,14 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
         if (res.ok) {
           const data = await res.json();
           setSuggestions(data.suggestions || []);
+        } else {
+          setSuggestionsError(true);
         }
-      } catch { /* silent */ }
-      finally { setSuggestionsLoading(false); }
+      } catch {
+        setSuggestionsError(true);
+      } finally {
+        setSuggestionsLoading(false);
+      }
     })();
   }, [session]);
 
@@ -454,6 +461,10 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
           <div className={styles.spinnerSmall} />
           <span>Loading suggestions...</span>
         </div>
+      )}
+
+      {suggestionsError && suggestions.length === 0 && !isSearchActive && (
+        <p className={styles.contactErrorNote}>Could not load suggestions. Pull to refresh.</p>
       )}
 
       {/* ── Privacy note ─────────────────────────────────────────── */}

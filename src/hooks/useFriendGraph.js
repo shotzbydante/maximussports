@@ -2,13 +2,15 @@
  * useFriendGraph — manages follow/unfollow actions, social counts,
  * and friend relationship states.
  *
- * Provides optimistic UI updates for follow button interactions.
+ * DB RPCs own all persistent side effects (counters, notifications).
+ * This hook only: calls the API, reads resulting state, updates local UI.
  */
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
 import { track } from '../analytics/index';
+import { showToast } from '../components/common/Toast';
 
 export function useFriendGraph() {
   const { user, session } = useAuth();
@@ -38,7 +40,7 @@ export function useFriendGraph() {
         });
       }
     } catch {
-      // silent
+      // silent — counts are non-critical display data
     }
   }, [user]);
 
@@ -60,14 +62,14 @@ export function useFriendGraph() {
         body: JSON.stringify({ targetUserId, action: 'follow' }),
       });
 
-      if (!res.ok) throw new Error('Follow failed');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Follow failed (${res.status})`);
+      }
+
       const data = await res.json();
 
-      setSocialCounts(prev => ({
-        ...prev,
-        following: prev.following + 1,
-        friends: data.followStatus === 'friends' ? prev.friends + 1 : prev.friends,
-      }));
+      fetchCounts();
 
       track('user_followed', {
         target_id: targetUserId,
@@ -77,11 +79,12 @@ export function useFriendGraph() {
       return data.followStatus;
     } catch (err) {
       console.error('[useFriendGraph] follow error:', err);
+      showToast(err.message || 'Could not follow user', { type: 'error' });
       return null;
     } finally {
       setLoading(false);
     }
-  }, [session, user]);
+  }, [session, user, fetchCounts]);
 
   const unfollowUser = useCallback(async (targetUserId) => {
     if (!session || !user) return null;
@@ -97,25 +100,26 @@ export function useFriendGraph() {
         body: JSON.stringify({ targetUserId, action: 'unfollow' }),
       });
 
-      if (!res.ok) throw new Error('Unfollow failed');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Unfollow failed (${res.status})`);
+      }
+
       const data = await res.json();
 
-      setSocialCounts(prev => ({
-        ...prev,
-        following: Math.max(0, prev.following - 1),
-        friends: data.followStatus === 'follower' ? Math.max(0, prev.friends - 1) : prev.friends,
-      }));
+      fetchCounts();
 
       track('user_unfollowed', { target_id: targetUserId });
 
       return data.followStatus;
     } catch (err) {
       console.error('[useFriendGraph] unfollow error:', err);
+      showToast(err.message || 'Could not unfollow user', { type: 'error' });
       return null;
     } finally {
       setLoading(false);
     }
-  }, [session, user]);
+  }, [session, user, fetchCounts]);
 
   const fetchFollowers = useCallback(async () => {
     if (!session) return [];

@@ -25,12 +25,24 @@ export default function ContactRow({ user: contactUser, onFollow, onUnfollow }) 
     if (busy) return;
     setBusy(true);
 
+    const prevStatus = status;
+
     if (status === 'following' || status === 'friends') {
+      setStatus(status === 'friends' ? 'follower' : 'none');
       const newStatus = await onUnfollow(contactUser.id);
-      if (newStatus !== null) setStatus(newStatus);
+      if (newStatus === null) {
+        setStatus(prevStatus);
+      } else {
+        setStatus(newStatus);
+      }
     } else {
+      setStatus(status === 'follower' ? 'friends' : 'following');
       const newStatus = await onFollow(contactUser.id);
-      if (newStatus !== null) setStatus(newStatus);
+      if (newStatus === null) {
+        setStatus(prevStatus);
+      } else {
+        setStatus(newStatus);
+      }
     }
 
     setBusy(false);
