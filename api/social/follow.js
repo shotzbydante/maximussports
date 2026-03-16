@@ -1,12 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-async function adjustCounter(userId, column, delta) {
-  const { data } = await supabaseAdmin
+async function adjustCounter(sb, userId, column, delta) {
+  const { data } = await sb
     .from('profiles')
     .select(column)
     .eq('id', userId)
@@ -15,15 +10,36 @@ async function adjustCounter(userId, column, delta) {
   const current = data?.[column] ?? 0;
   const newVal = Math.max(0, current + delta);
 
-  await supabaseAdmin
+  await sb
     .from('profiles')
     .update({ [column]: newVal, updated_at: new Date().toISOString() })
     .eq('id', userId);
 }
 
+async function createFollowNotification(sb, actorId, targetId) {
+  try {
+    await sb.from('notifications').insert({
+      user_id: targetId,
+      type: 'new_follower',
+      actor_id: actorId,
+      read: false,
+    });
+  } catch (err) {
+    console.warn('[follow] notification insert failed (table may not exist yet):', err?.message);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  let sb;
+  try {
+    sb = getSupabaseAdmin();
+  } catch (err) {
+    console.error('[follow] Admin client unavailable:', err.message);
+    return res.status(503).json({ error: 'Service unavailable' });
   }
 
   const authHeader = req.headers.authorization;
@@ -32,7 +48,7 @@ export default async function handler(req, res) {
   }
 
   const token = authHeader.slice(7);
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  const { data: { user }, error: authError } = await sb.auth.getUser(token);
   if (authError || !user) {
     return res.status(401).json({ error: 'Invalid token' });
   }
@@ -48,7 +64,7 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'follow') {
-      const { error: insertErr } = await supabaseAdmin
+      const { error: insertErr } = await sb
         .from('follows')
         .insert({
           follower_user_id: user.id,
@@ -59,14 +75,17 @@ export default async function handler(req, res) {
         throw insertErr;
       }
 
-      if (!insertErr) {
+      const isNewFollow = !insertErr;
+
+      if (isNewFollow) {
         await Promise.allSettled([
-          adjustCounter(targetUserId, 'followers_count', 1),
-          adjustCounter(user.id, 'following_count', 1),
+          adjustCounter(sb, targetUserId, 'followers_count', 1),
+          adjustCounter(sb, user.id, 'following_count', 1),
+          createFollowNotification(sb, user.id, targetUserId),
         ]);
       }
 
-      const { data: mutual } = await supabaseAdmin
+      const { data: mutual } = await sb
         .from('follows')
         .select('id')
         .eq('follower_user_id', targetUserId)
@@ -75,10 +94,10 @@ export default async function handler(req, res) {
 
       const isMutual = !!mutual;
 
-      if (isMutual && !insertErr) {
+      if (isMutual && isNewFollow) {
         await Promise.allSettled([
-          adjustCounter(user.id, 'friends_count', 1),
-          adjustCounter(targetUserId, 'friends_count', 1),
+          adjustCounter(sb, user.id, 'friends_count', 1),
+          adjustCounter(sb, targetUserId, 'friends_count', 1),
         ]);
       }
 
@@ -89,14 +108,14 @@ export default async function handler(req, res) {
     }
 
     if (action === 'unfollow') {
-      const { data: wasMutual } = await supabaseAdmin
+      const { data: wasMutual } = await sb
         .from('follows')
         .select('id')
         .eq('follower_user_id', targetUserId)
         .eq('following_user_id', user.id)
         .maybeSingle();
 
-      const { error: deleteErr, count } = await supabaseAdmin
+      const { error: deleteErr } = await sb
         .from('follows')
         .delete()
         .eq('follower_user_id', user.id)
@@ -105,14 +124,14 @@ export default async function handler(req, res) {
       if (deleteErr) throw deleteErr;
 
       await Promise.allSettled([
-        adjustCounter(targetUserId, 'followers_count', -1),
-        adjustCounter(user.id, 'following_count', -1),
+        adjustCounter(sb, targetUserId, 'followers_count', -1),
+        adjustCounter(sb, user.id, 'following_count', -1),
       ]);
 
       if (wasMutual) {
         await Promise.allSettled([
-          adjustCounter(user.id, 'friends_count', -1),
-          adjustCounter(targetUserId, 'friends_count', -1),
+          adjustCounter(sb, user.id, 'friends_count', -1),
+          adjustCounter(sb, targetUserId, 'friends_count', -1),
         ]);
       }
 

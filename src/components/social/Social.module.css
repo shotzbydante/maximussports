@@ -708,6 +708,11 @@
   text-overflow: ellipsis;
 }
 
+.mutualBadge {
+  color: var(--color-primary, #4f8cff);
+  font-weight: 500;
+}
+
 .verifiedBadge {
   flex-shrink: 0;
 }

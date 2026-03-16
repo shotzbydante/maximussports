@@ -433,27 +433,27 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
             </button>
           </div>
 
-          {/* ── 4. Suggestions ───────────────────────────────────── */}
-          {suggestions.length > 0 && (
-            <div className={styles.suggestionsSection}>
-              <h4 className={styles.sectionLabel}>Suggested for you</h4>
-              <div className={styles.contactList}>
-                {suggestions.map(s => (
-                  <ContactRow key={s.id} user={s} onFollow={handleFollow} onUnfollow={handleUnfollow} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {suggestionsLoading && suggestions.length === 0 && !hasContactResults && !isContactSyncing && (
-            <div className={styles.searchStatus}>
-              <div className={styles.spinnerSmall} />
-              <span>Loading suggestions...</span>
-            </div>
-          )}
-
           {contactError && <p className={styles.contactErrorNote}>{contactError}</p>}
         </>
+      )}
+
+      {/* ── Suggested for you (always visible) ────────────────────── */}
+      {suggestions.length > 0 && (
+        <div className={styles.suggestionsSection}>
+          <h4 className={styles.sectionLabel}>Suggested for you</h4>
+          <div className={styles.contactList}>
+            {suggestions.map(s => (
+              <ContactRow key={s.id} user={s} onFollow={handleFollow} onUnfollow={handleUnfollow} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {suggestionsLoading && suggestions.length === 0 && !isSearchActive && (
+        <div className={styles.searchStatus}>
+          <div className={styles.spinnerSmall} />
+          <span>Loading suggestions...</span>
+        </div>
       )}
 
       {/* ── Privacy note ─────────────────────────────────────────── */}

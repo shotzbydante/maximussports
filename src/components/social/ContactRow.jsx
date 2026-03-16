@@ -51,7 +51,14 @@ export default function ContactRow({ user: contactUser, onFollow, onUnfollow }) 
           {contactUser.displayName || contactUser.username}
           {contactUser.isPro && <VerifiedBadge className={styles.verifiedBadge} />}
         </span>
-        <span className={styles.contactHandle}>@{contactUser.username}</span>
+        <span className={styles.contactHandle}>
+          @{contactUser.username}
+          {contactUser.mutualCount > 0 && (
+            <span className={styles.mutualBadge}>
+              {' · '}{contactUser.mutualCount} mutual{contactUser.mutualCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </span>
       </div>
       <button
         type="button"
