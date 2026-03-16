@@ -9,11 +9,11 @@
  * from multiple source ranges, rather than a single trim window.
  */
 
+import { computeProportionalTrimLength, computeBeatCount } from '../../../../utils/reels/smartTrim';
+
 const ACTIVITY_HIGH = 0.015;
 const ACTIVITY_LOW = 0.005;
 const MIN_SEGMENT_S = 0.8;
-const DEFAULT_TARGET_S = 12;
-const MAX_TARGET_S = 15;
 
 /**
  * @param {number[]} scores       Frame-diff scores from the analysis worker
@@ -26,11 +26,16 @@ const MAX_TARGET_S = 15;
  * @returns {{ segments, totalOutputDuration, totalOutputFrames, segmentCount, beatPositions }}
  */
 export function buildEditPlan(scores, sampleInterval, duration, opts = {}) {
+  const proportionalTarget = computeProportionalTrimLength(duration);
+  const proportionalBeats = computeBeatCount(proportionalTarget);
+
   const {
-    targetDuration = DEFAULT_TARGET_S,
+    targetDuration = proportionalTarget,
     fps = 30,
-    beatCount = 3,
+    beatCount = proportionalBeats,
   } = opts;
+
+  const maxTarget = Math.min(24, targetDuration * 1.25);
 
   if (!scores || scores.length < 3) {
     return fallbackPlan(duration, targetDuration, fps);
@@ -38,7 +43,7 @@ export function buildEditPlan(scores, sampleInterval, duration, opts = {}) {
 
   const classified = classifySamples(scores);
   const raw = buildSegments(classified, sampleInterval);
-  const selected = selectSegments(raw, Math.min(targetDuration, MAX_TARGET_S), duration);
+  const selected = selectSegments(raw, Math.min(targetDuration, maxTarget), duration);
   const withSpeed = assignSpeed(selected);
   const plan = computeTimeline(withSpeed, fps);
   plan.beatPositions = findBeatPositions(plan.segments, beatCount);

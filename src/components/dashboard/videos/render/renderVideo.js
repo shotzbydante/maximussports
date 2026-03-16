@@ -17,6 +17,7 @@ import {
   loadRobotImage,
   drawHookBoostFrame,
   getHookBoostText,
+  HOOK_ANIMATION_VARIANTS,
   drawIntroCard,
   drawOutroCard,
   drawVideoFrame,
@@ -27,6 +28,17 @@ import {
   easeAlpha,
   computeOverlaySafeZone,
 } from './drawUtils';
+import {
+  CaptionLayoutState,
+  buildExclusions,
+  findSafeZone,
+  getCaptionAlpha,
+  getCaptionSlideOffset,
+  CAPTION_ROLES,
+  PREFERRED_CAPTION_GAP,
+  MIN_CAPTION_GAP,
+  MAX_ACTIVE_CAPTIONS,
+} from '../../../../utils/reels/captionLayoutEngine';
 
 // ─── capability check ────────────────────────────────────────────
 
@@ -70,6 +82,8 @@ export async function renderVideo(opts) {
     beatTimings = null,
     templateId = 'feature-spotlight',
     hookStyle = 'product',
+    hookAnimationVariant = null,
+    textColor = '#ffffff',
     onProgress,
     signal,
   } = opts;
@@ -100,12 +114,14 @@ export async function renderVideo(opts) {
     footageTotalFrames = frames;
   }
 
-  const hookBoostFrames = Math.round(0.7 * fps);
+  const hookBoostFrames = Math.round(1.2 * fps);
   const introFrames = Math.round((scenes.intro.durationMs / 1000) * fps);
-  const outroFrames = Math.round((scenes.outro.durationMs / 1000) * fps);
+  const outroFrames = Math.round(2.2 * fps);
   const totalFrames = hookBoostFrames + introFrames + footageTotalFrames + outroFrames;
 
   const hookText = getHookBoostText(hookStyle);
+  const chosenHookVariant = hookAnimationVariant
+    || HOOK_ANIMATION_VARIANTS[Math.floor(Math.random() * HOOK_ANIMATION_VARIANTS.length)];
 
   const [logo, video, robotImage] = await Promise.all([
     loadLogo(brand.logo),
@@ -148,6 +164,44 @@ export async function renderVideo(opts) {
   let safeZone = null;
   let safeZoneComputed = false;
 
+  const captionLayout = new CaptionLayoutState();
+
+  // Pre-plan overlay timing to register with layout state for collision avoidance
+  const footageDurationS = footageTotalFrames / fps;
+  for (const ov of overlays) {
+    const text = fieldValues[ov.field];
+    if (!text) continue;
+    const startS = ov.startPct * footageDurationS;
+    const endS = ov.endPct * footageDurationS;
+    captionLayout.addCaption({
+      id: `overlay_${ov.id}`,
+      startTime: startS,
+      endTime: endS,
+      x: W * 0.10,
+      y: H * (ov.yPct - 0.06),
+      width: W * 0.80,
+      height: H * 0.12,
+      priority: 8,
+      zone: 'TOP_CENTER',
+    });
+  }
+
+  for (const beat of beatConfigs) {
+    const startS = beat.startPct * footageDurationS;
+    const endS = beat.endPct * footageDurationS;
+    captionLayout.addCaption({
+      id: `beat_${beat.idx}`,
+      startTime: startS,
+      endTime: endS,
+      x: W * 0.10,
+      y: H * 0.66,
+      width: W * 0.80,
+      height: H * 0.12,
+      priority: 6,
+      zone: 'BOTTOM_CENTER',
+    });
+  }
+
   // Seek video to first segment's start for the hook boost blurred background
   const firstSeek = footageSegments[0]?.sourceStart ?? trimStart;
   await seekVideo(video, firstSeek + 1);
@@ -158,13 +212,16 @@ export async function renderVideo(opts) {
     if (encodeError) throw encodeError;
 
     if (i < hookBoostFrames) {
-      // Phase 1: Hook Boost Frame
+      // Phase 1: Hook Boost Frame (pattern interrupt 1.0–1.4s)
       drawHookBoostFrame(ctx, video, {
         hookText,
         brand,
         frameIndex: i,
         totalFrames: hookBoostFrames,
         fps,
+        animationVariant: chosenHookVariant,
+        textColor,
+        accentColor,
       });
 
     } else if (i < hookBoostFrames + introFrames) {
@@ -175,9 +232,10 @@ export async function renderVideo(opts) {
       drawIntroCard(ctx, logo, { headline, brand, templateId }, alpha);
 
     } else if (i < hookBoostFrames + introFrames + footageTotalFrames) {
-      // Phase 3: Footage with overlays
+      // Phase 3: Footage with safe-zone-aware overlays
       const footageFrame = i - hookBoostFrames - introFrames;
       const footageProgress = footageFrame / footageTotalFrames;
+      const footageTimeS = footageFrame / fps;
 
       const { segment, frameInSegment } = findActiveSegment(segRanges, footageFrame);
       const segProgress = segment.outputFrames > 0 ? frameInSegment / segment.outputFrames : 0;
@@ -195,6 +253,9 @@ export async function renderVideo(opts) {
 
       const overlayYPctOffset = safeZone ? safeZone.yPct : null;
 
+      // Enforce max 2 simultaneous captions using layout state
+      const activeCount = captionLayout.getActiveCount(footageTimeS);
+
       for (const ov of overlays) {
         const text = fieldValues[ov.field];
         if (!text) continue;
@@ -203,9 +264,12 @@ export async function renderVideo(opts) {
           const fadePct = ov.fadeMs / ((footageTotalFrames / fps * 1000) * (ov.endPct - ov.startPct));
           const alpha = easeAlpha(ovLocal, fadePct, fadePct);
           const yPct = overlayYPctOffset || ov.yPct;
-          drawHeadlineOverlay(ctx, text, H * yPct, ov.maxFontSize, ov.lineHeight, alpha, accentColor, {
+
+          const slideOffset = getCaptionSlideOffset(footageTimeS, ov.startPct * footageDurationS);
+          drawHeadlineOverlay(ctx, text, H * yPct - slideOffset, ov.maxFontSize, ov.lineHeight, alpha, accentColor, {
             templateId,
             animProgress: ovLocal,
+            textColor,
           });
         }
       }
@@ -214,17 +278,23 @@ export async function renderVideo(opts) {
         if (footageProgress >= beat.startPct && footageProgress <= beat.endPct) {
           const beatLocal = (footageProgress - beat.startPct) / (beat.endPct - beat.startPct);
           const alpha = easeAlpha(beatLocal, 0.15, 0.15);
+
+          const slideOffset = getCaptionSlideOffset(footageTimeS, beat.startPct * footageDurationS);
+          const beatY = H * 0.72 - slideOffset;
+
           if (templateId === 'stats-proof') {
-            drawStatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor, {
+            drawStatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, {
               animProgress: beatLocal,
+              textColor,
             });
           } else {
             const beatOpts = {
               templateId,
               animProgress: beatLocal,
+              textColor,
               ...(templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {}),
             };
-            drawBeatOverlay(ctx, beat.text, H * 0.72, 36, 1.3, alpha, accentColor, beatOpts);
+            drawBeatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, beatOpts);
           }
         }
       }
@@ -232,10 +302,10 @@ export async function renderVideo(opts) {
       if (watermark) drawWatermark(ctx, logo);
 
     } else {
-      // Phase 4: Outro with robot
+      // Phase 4: Premium Maximus CTA Card (2.2s)
       const outroIdx = i - hookBoostFrames - introFrames - footageTotalFrames;
       const progress = outroIdx / outroFrames;
-      const alpha = easeAlpha(progress, 0.20, 0.12);
+      const alpha = easeAlpha(progress, 0.15, 0.10);
       drawOutroCard(ctx, logo, {
         cta,
         brand,

@@ -159,8 +159,10 @@ function mainThreadFallback(frameBuffers, width, height, sampleInterval, duratio
     scores.push(diff / (pixelCount * 3 * 255));
   }
 
-  const windowSamples = Math.round(10 / sampleInterval);
-  const maxWindowSamples = Math.round(15 / sampleInterval);
+  const trimBase = Math.max(8, Math.min(24, duration * 0.18));
+  const trimMax = Math.min(24, trimBase * 1.25);
+  const windowSamples = Math.round(trimBase / sampleInterval);
+  const maxWindowSamples = Math.round(trimMax / sampleInterval);
   let bestScore = -1, bestStart = 0, bestLen = windowSamples;
   for (let wLen = windowSamples; wLen <= maxWindowSamples; wLen++) {
     for (let start = 0; start <= scores.length - wLen; start++) {

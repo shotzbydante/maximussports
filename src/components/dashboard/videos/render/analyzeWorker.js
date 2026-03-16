@@ -12,12 +12,22 @@
  *   Worker → Main:  { type: 'result', scores, trimStart, trimEnd, beatPeaks, segments, fullDuration }
  */
 
-const TARGET_MIN_S = 10;
-const TARGET_MAX_S = 15;
+const TRIM_RATIO = 0.18;
+const TRIM_MIN_S = 8;
+const TRIM_MAX_S = 24;
 const MIN_PEAK_DISTANCE = 4;
 const ACTIVITY_HIGH = 0.015;
 const ACTIVITY_LOW = 0.005;
 const MIN_SEGMENT_SAMPLES = 2;
+
+function clampTrim(value) {
+  return Math.max(TRIM_MIN_S, Math.min(TRIM_MAX_S, value));
+}
+
+function proportionalWindow(duration) {
+  const base = clampTrim(duration * TRIM_RATIO);
+  return { min: base, max: clampTrim(base * 1.25) };
+}
 
 self.onmessage = function (e) {
   const { type } = e.data;
@@ -53,8 +63,9 @@ self.onmessage = function (e) {
     let trimStart = 0;
     let trimEnd = duration;
 
-    if (duration > TARGET_MAX_S) {
-      const result = findBestWindow(scores, sampleInterval, duration);
+    const { min: winMin, max: winMax } = proportionalWindow(duration);
+    if (duration > winMin) {
+      const result = findBestWindow(scores, sampleInterval, duration, winMin, winMax);
       trimStart = result.trimStart;
       trimEnd = result.trimEnd;
     }
@@ -74,9 +85,9 @@ self.onmessage = function (e) {
   }
 };
 
-function findBestWindow(scores, sampleInterval, duration) {
-  const windowSamples = Math.round(TARGET_MIN_S / sampleInterval);
-  const maxWindowSamples = Math.round(TARGET_MAX_S / sampleInterval);
+function findBestWindow(scores, sampleInterval, duration, targetMin = 8, targetMax = 24) {
+  const windowSamples = Math.round(targetMin / sampleInterval);
+  const maxWindowSamples = Math.round(targetMax / sampleInterval);
 
   let bestScore = -1;
   let bestStart = 0;

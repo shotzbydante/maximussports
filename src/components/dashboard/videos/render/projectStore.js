@@ -50,6 +50,8 @@ export function saveProject(data) {
     templateId: data.templateId || 'feature-spotlight',
     sourceFileName: data.sourceFileName || null,
     videoDuration: data.videoDuration || 0,
+    textColor: data.textColor || '#ffffff',
+    hookAnimationVariant: data.hookAnimationVariant || null,
   };
 
   const existing = projects.findIndex(p => p.id === project.id);

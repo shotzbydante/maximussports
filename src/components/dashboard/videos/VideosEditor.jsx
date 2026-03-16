@@ -20,6 +20,9 @@ import { saveProject, loadLastProject, listProjects, deleteProject } from './ren
 import { scoreVariants, buildPostingPackage } from './render/scoreVariant';
 import { buildEditPlan, editPlanBeatTimings } from './render/editPlan';
 import { exportBundle } from './render/bundleExport';
+import { computeProportionalTrimLength } from '../../../utils/reels/smartTrim';
+import TextColorSelector from '../../reels/TextColorSelector';
+import { HOOK_ANIMATION_VARIANTS } from './render/drawUtils';
 import styles from './VideosEditor.module.css';
 
 export default function VideosEditor() {
@@ -51,6 +54,8 @@ export default function VideosEditor() {
   const [projectName, setProjectName] = useState('');
   const [watermark, setWatermark] = useState(true);
   const [overlayBeats, setOverlayBeats] = useState(['', '', '']);
+  const [textColor, setTextColor] = useState('#ffffff');
+  const [hookAnimationVariant, setHookAnimationVariant] = useState(null);
 
   // ── trim + analysis ────────────────────────────────────────────
   const [trimStart, setTrimStart] = useState(0);
@@ -96,8 +101,10 @@ export default function VideosEditor() {
   // ── edit plan from analysis ────────────────────────────────────
   const currentEditPlan = useMemo(() => {
     if (editMode !== 'smart' || !analysisResult?.scores?.length) return null;
-    return buildEditPlan(analysisResult.scores, analysisResult.sampleInterval, analysisResult.fullDuration || videoDuration, {
-      targetDuration: 12,
+    const srcDuration = analysisResult.fullDuration || videoDuration;
+    const proportionalTarget = computeProportionalTrimLength(srcDuration);
+    return buildEditPlan(analysisResult.scores, analysisResult.sampleInterval, srcDuration, {
+      targetDuration: proportionalTarget,
       fps: template.fps,
       beatCount: template.overlayBeats?.length || 3,
     });
@@ -367,10 +374,12 @@ export default function VideosEditor() {
       templateId,
       sourceFileName: sourceFile?.name || null,
       videoDuration,
+      textColor,
+      hookAnimationVariant,
     });
     setProjectId(proj.id);
     setSavedProjects(listProjects());
-  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, captionTone, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration]);
+  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, captionTone, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration, textColor, hookAnimationVariant]);
 
   const handleLoadProject = useCallback((proj) => {
     setProjectId(proj.id);
@@ -392,6 +401,8 @@ export default function VideosEditor() {
     setEditMode(proj.editMode || 'smart');
     setWatermark(proj.watermark ?? true);
     setTemplateId(proj.templateId || 'feature-spotlight');
+    setTextColor(proj.textColor || '#ffffff');
+    setHookAnimationVariant(proj.hookAnimationVariant || null);
     setShowProjectList(false);
   }, []);
 
@@ -424,6 +435,8 @@ export default function VideosEditor() {
         watermark,
         templateId,
         hookStyle,
+        hookAnimationVariant,
+        textColor,
         overlayBeats,
         beatTimings,
         onProgress: setRenderProgress,
@@ -441,7 +454,7 @@ export default function VideosEditor() {
         setRenderState('error');
       }
     }
-  }, [canRender, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, headline, subhead, cta, watermark, outputUrl, overlayBeats, beatTimings, templateId]);
+  }, [canRender, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, headline, subhead, cta, watermark, outputUrl, overlayBeats, beatTimings, templateId, hookStyle, hookAnimationVariant, textColor]);
 
   // ── multi-variant render ───────────────────────────────────────
   const handleRenderVariants = useCallback(async () => {
@@ -491,6 +504,8 @@ export default function VideosEditor() {
           watermark,
           templateId,
           hookStyle,
+          hookAnimationVariant,
+          textColor,
           overlayBeats: variantCopy.overlayBeats?.length ? variantCopy.overlayBeats : overlayBeats,
           beatTimings,
           onProgress: (p) => setVariantProgress((i + p) / hooks.length),
@@ -545,7 +560,7 @@ export default function VideosEditor() {
         setVariantRenderState('error');
       }
     }
-  }, [canRender, variantHooks, promptContext, headline, ctaType, featureType, hookStyle, messageAngle, copyIntensity, captionTone, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, cta, watermark, templateId, overlayBeats, beatTimings, analysisResult, caption]);
+  }, [canRender, variantHooks, promptContext, headline, ctaType, featureType, hookStyle, messageAngle, copyIntensity, captionTone, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, cta, watermark, templateId, overlayBeats, beatTimings, analysisResult, caption, hookAnimationVariant, textColor]);
 
   const handleCancelRender = useCallback(() => {
     abortRef.current?.abort();
@@ -1049,6 +1064,40 @@ export default function VideosEditor() {
             onChange={(e) => setCta(e.target.value)}
             readOnly={ctaType !== 'custom' && ctaType !== 'website'}
           />
+        </div>
+
+        {/* text color */}
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Text Color</div>
+          <TextColorSelector
+            value={textColor}
+            onChange={setTextColor}
+            disabled={isRendering}
+          />
+        </div>
+
+        {/* hook animation */}
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Hook Animation</div>
+          <div className={styles.chipRow}>
+            <button
+              className={`${styles.chipBtn} ${!hookAnimationVariant ? styles.chipBtnActive : ''}`}
+              onClick={() => setHookAnimationVariant(null)}
+              disabled={isRendering}
+            >
+              Auto
+            </button>
+            {HOOK_ANIMATION_VARIANTS.map(v => (
+              <button
+                key={v}
+                className={`${styles.chipBtn} ${hookAnimationVariant === v ? styles.chipBtnActive : ''}`}
+                onClick={() => setHookAnimationVariant(v)}
+                disabled={isRendering}
+              >
+                {v.replace('-', ' ')}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* options */}

@@ -121,17 +121,19 @@ function drawWrappedText(ctx, text, x, y, maxWidth, fontSize, lineHeight, opts =
   return totalHeight;
 }
 
-// ─── SECTION 1: Hook Boost Frame ─────────────────────────────────
-// Micro pattern-interrupt for the first ~0.7s of a reel.
-// Renders a bold hook text with scale animation and radial focus.
+// ─── SECTION 1: Hook Boost Frame (Pattern Interrupt) ─────────────
+// Strong early-retention hook treatment for the first 1.0–1.4s.
+// Supports 3 animation variants: punch-zoom, slam-down, glitch-flash.
 
 const HOOK_BOOST_TEXTS = {
-  product:   ['See what you\'re missing.', 'This changes everything.', 'Built different.'],
-  betting:   ['Bet smarter in 10 seconds.', 'Your edge starts here.', 'Before the line moves.'],
-  curiosity: ['Most fans miss this.', 'What smart bettors know.', 'Stop scrolling.'],
-  fans:      ['Your season starts now.', 'Never miss another game.', 'This is for real fans.'],
-  editorial: ['Sports intel. Redefined.', 'One platform. Total clarity.', 'Clean data. Clear edge.'],
+  product:   ['Stop betting blind.', 'This changes everything.', 'Built different.', 'Your smartest sports scroll.'],
+  betting:   ['This team keeps cashing.', 'Your edge starts here.', 'Before the line moves.', 'The spread says one thing.'],
+  curiosity: ['Most fans miss this.', 'What smart bettors know.', 'Stop scrolling.', 'What your sportsbook won\'t show.'],
+  fans:      ['Your season starts now.', 'Never miss another game.', 'This is for real fans.', 'Every stat. One tap.'],
+  editorial: ['Sports intel. Redefined.', 'One platform. Total clarity.', 'Clean data. Clear edge.', 'Smarter. Faster. Done.'],
 };
+
+export const HOOK_ANIMATION_VARIANTS = ['punch-zoom', 'slam-down', 'glitch-flash'];
 
 export function getHookBoostText(hookStyle) {
   const pool = HOOK_BOOST_TEXTS[hookStyle] || HOOK_BOOST_TEXTS.product;
@@ -144,21 +146,17 @@ export function drawHookBoostFrame(ctx, video, {
   frameIndex,
   totalFrames,
   fps = 30,
+  animationVariant = 'punch-zoom',
+  textColor = '#ffffff',
+  accentColor,
 }) {
   const progress = frameIndex / totalFrames;
-  const fadeInFrames = 8;
-  const fadeAlpha = Math.min(1, frameIndex / fadeInFrames);
-  const scaleT = Math.min(1, frameIndex / totalFrames);
-  const scale = 1.05 - 0.05 * scaleT;
+  const accent = accentColor || brand.accentColor || '#3C79B4';
 
   ctx.save();
 
+  // Background: video with strong dim or gradient
   if (video && video.videoWidth) {
-    ctx.save();
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(scale, scale);
-    ctx.translate(-W / 2, -H / 2);
-
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     const sourceAspect = vw / vh;
@@ -169,62 +167,126 @@ export function drawHookBoostFrame(ctx, video, {
     } else {
       dw = W; dh = W / sourceAspect; dx = 0; dy = (H - dh) / 2;
     }
-    ctx.filter = 'blur(3px) brightness(0.65)';
-    ctx.drawImage(video, dx, dy, dw, dh);
-    ctx.filter = 'none';
-    ctx.restore();
+
+    // Variant-specific background treatment
+    if (animationVariant === 'punch-zoom') {
+      const scale = 1.12 - 0.12 * Math.min(1, progress * 2.5);
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(scale, scale);
+      ctx.translate(-W / 2, -H / 2);
+      ctx.filter = 'blur(4px) brightness(0.50)';
+      ctx.drawImage(video, dx, dy, dw, dh);
+      ctx.filter = 'none';
+      ctx.restore();
+    } else if (animationVariant === 'slam-down') {
+      ctx.filter = 'blur(6px) brightness(0.40) saturate(0.7)';
+      ctx.drawImage(video, dx, dy, dw, dh);
+      ctx.filter = 'none';
+    } else {
+      const flicker = frameIndex < 3 ? 0.3 + Math.random() * 0.3 : 0.45;
+      ctx.filter = `blur(3px) brightness(${flicker})`;
+      ctx.drawImage(video, dx, dy, dw, dh);
+      ctx.filter = 'none';
+    }
   } else {
     fillGradient(ctx, brand.gradientStart, brand.gradientEnd);
   }
 
+  // Strong background dim overlay
+  const fadeInFrames = 5;
+  const fadeAlpha = Math.min(1, frameIndex / fadeInFrames);
   ctx.globalAlpha = fadeAlpha;
 
-  const radial = ctx.createRadialGradient(W / 2, H * 0.45, 0, W / 2, H * 0.45, W * 0.7);
-  radial.addColorStop(0, 'rgba(0,0,0,0)');
-  radial.addColorStop(0.6, 'rgba(0,0,0,0.15)');
-  radial.addColorStop(1, 'rgba(0,0,0,0.55)');
-  ctx.fillStyle = radial;
+  const dimGrad = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, W * 0.75);
+  dimGrad.addColorStop(0, 'rgba(0,0,0,0.10)');
+  dimGrad.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+  dimGrad.addColorStop(1, 'rgba(0,0,0,0.70)');
+  ctx.fillStyle = dimGrad;
   ctx.fillRect(0, 0, W, H);
 
-  if (hookText) {
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 4;
+  // Accent color vignette
+  const accentVig = ctx.createRadialGradient(W / 2, H * 0.42, W * 0.1, W / 2, H * 0.42, W * 0.9);
+  accentVig.addColorStop(0, `${accent}15`);
+  accentVig.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = accentVig;
+  ctx.fillRect(0, 0, W, H);
 
-    ctx.font = `800 64px ${FONT}`;
-    ctx.fillStyle = '#ffffff';
+  // Hook text with variant-specific animation
+  if (hookText) {
+    let textAlpha = fadeAlpha;
+    let textScale = 1;
+    let textOffsetY = 0;
+    const fadeOutStart = totalFrames - 6;
+
+    if (animationVariant === 'punch-zoom') {
+      const entryT = Math.min(1, progress * 4);
+      textScale = 1.3 - 0.3 * easeOutBack(entryT);
+      textAlpha = Math.min(1, progress * 5);
+    } else if (animationVariant === 'slam-down') {
+      const entryT = Math.min(1, progress * 3.5);
+      textOffsetY = -120 * (1 - easeOutBounce(entryT));
+      textAlpha = entryT;
+    } else {
+      const flashCycle = Math.sin(progress * Math.PI * 8);
+      textAlpha = frameIndex < 4 ? Math.abs(flashCycle) * 0.8 + 0.2 : fadeAlpha;
+    }
+
+    if (frameIndex >= fadeOutStart) {
+      textAlpha *= Math.max(0, 1 - (frameIndex - fadeOutStart) / 6);
+    }
+
+    ctx.save();
+    ctx.globalAlpha = textAlpha;
+
+    if (textScale !== 1) {
+      ctx.translate(W / 2, H * 0.42 + textOffsetY);
+      ctx.scale(textScale, textScale);
+      ctx.translate(-W / 2, -(H * 0.42 + textOffsetY));
+    }
+
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 6;
+
+    ctx.font = `900 72px ${FONT}`;
+    ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.letterSpacing = '0.02em';
 
     const words = hookText.split(' ');
     const lines = [];
     let cur = '';
     for (const word of words) {
       const test = cur ? `${cur} ${word}` : word;
-      if (ctx.measureText(test).width > W * 0.78 && cur) {
+      if (ctx.measureText(test).width > W * 0.82 && cur) {
         lines.push(cur); cur = word;
       } else { cur = test; }
     }
     if (cur) lines.push(cur);
 
-    const lineH = 80;
-    const startY = H * 0.45 - (lines.length * lineH) / 2;
+    const lineH = 88;
+    const baseY = H * 0.42 + textOffsetY;
+    const startY = baseY - (lines.length * lineH) / 2;
     for (let li = 0; li < lines.length; li++) {
       ctx.fillText(lines[li], W / 2, startY + li * lineH);
     }
 
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
-    ctx.letterSpacing = '0px';
+    ctx.restore();
   }
 
-  const accentY = H * 0.58;
-  ctx.fillStyle = brand.accentColor || '#3C79B4';
+  // Accent bar below text
+  const barProgress = Math.min(1, progress * 3);
+  const barWidth = W * 0.28 * barProgress;
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = fadeAlpha * 0.9;
   ctx.beginPath();
-  roundedRect(ctx, W * 0.38, accentY, W * 0.24, 3, 2);
+  roundedRect(ctx, (W - barWidth) / 2, H * 0.56, barWidth, 4, 2);
   ctx.fill();
 
+  // Fade out entire frame at the end
   const fadeOutStart = totalFrames - 5;
   if (frameIndex >= fadeOutStart) {
     const fadeOut = 1 - (frameIndex - fadeOutStart) / 5;
@@ -232,6 +294,19 @@ export function drawHookBoostFrame(ctx, video, {
   }
 
   ctx.restore();
+}
+
+function easeOutBack(t) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function easeOutBounce(t) {
+  if (t < 1 / 2.75) return 7.5625 * t * t;
+  if (t < 2 / 2.75) return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
+  if (t < 2.5 / 2.75) return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
+  return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
 }
 
 // ─── SECTION 2: Smart Overlay Safe Zone ──────────────────────────
@@ -399,111 +474,183 @@ function drawIntroStatsProof(ctx, logo, headline, brand) {
   ctx.fillText(brand.url, W / 2, H * 0.70);
 }
 
-// ─── SECTION 5: outro with robot hero ────────────────────────────
+// ─── SECTION 5: Premium Maximus-branded CTA Card ─────────────────
+// Deep navy gradient with centered robot hero, glow effects,
+// data-chip accents, and animated CTA pill.
+
 export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames }, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  fillGradient(ctx, brand.gradientStart, brand.gradientEnd);
+  const progress = outroTotalFrames > 0 ? (outroFrame || 0) / outroTotalFrames : 0;
+  const accent = brand.accentColor || '#3C79B4';
 
-  if (templateId === 'quick-walkthrough') {
-    drawOutroWalkthrough(ctx, logo, cta, brand);
-  } else if (templateId === 'stats-proof') {
-    drawOutroStatsProof(ctx, logo, cta, brand);
-  } else {
-    drawOutroSpotlight(ctx, logo, cta, brand);
+  // Premium dark gradient background
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#060a14');
+  bg.addColorStop(0.35, '#0c1425');
+  bg.addColorStop(0.65, '#101c32');
+  bg.addColorStop(1, '#060a14');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle radial glow behind robot
+  const robotGlow = ctx.createRadialGradient(W / 2, H * 0.50, 0, W / 2, H * 0.50, 320);
+  robotGlow.addColorStop(0, `${accent}22`);
+  robotGlow.addColorStop(0.5, `${accent}0a`);
+  robotGlow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = robotGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Decorative faint lines (data-chip accents)
+  ctx.strokeStyle = `${accent}18`;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const y = H * (0.15 + i * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(W * 0.08, y);
+    ctx.lineTo(W * 0.92, y);
+    ctx.stroke();
   }
 
-  if (robotImage) {
-    const floatCycle = outroTotalFrames > 0 ? (outroFrame || 0) / outroTotalFrames : 0;
-    const floatY = Math.sin(floatCycle * Math.PI * 2) * -6;
+  // Glassy side panels
+  const panelAlpha = 0.04 + Math.sin(progress * Math.PI * 2) * 0.01;
+  ctx.fillStyle = `rgba(255,255,255,${panelAlpha})`;
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.04, H * 0.20, W * 0.12, H * 0.18, 8);
+  ctx.fill();
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.84, H * 0.20, W * 0.12, H * 0.18, 8);
+  ctx.fill();
 
-    const rw = 180;
+  // Thin border accents on panels
+  ctx.strokeStyle = `${accent}20`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.04, H * 0.20, W * 0.12, H * 0.18, 8);
+  ctx.stroke();
+  ctx.beginPath();
+  roundedRect(ctx, W * 0.84, H * 0.20, W * 0.12, H * 0.18, 8);
+  ctx.stroke();
+
+  // Data chip dots inside panels
+  ctx.fillStyle = `${accent}40`;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(W * 0.10, H * 0.24 + i * 22, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(W * 0.90, H * 0.24 + i * 22, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Headline: "Explore Maximus Sports"
+  const headlineEntryT = Math.min(1, progress * 3);
+  const headlineAlpha = Math.min(1, headlineEntryT);
+  ctx.globalAlpha = alpha * headlineAlpha;
+  ctx.font = `700 42px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Explore Maximus Sports', W / 2, H * 0.26);
+
+  // Subheadline
+  ctx.font = `400 22px ${FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.31);
+
+  // Divider
+  const dividerW = 120 * Math.min(1, progress * 4);
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  roundedRect(ctx, (W - dividerW) / 2, H * 0.34, dividerW, 2.5, 2);
+  ctx.fill();
+
+  // Robot mascot with bounce/float-in animation
+  if (robotImage) {
+    const robotEntryT = Math.min(1, Math.max(0, (progress - 0.08) * 3.5));
+    const bounceY = robotEntryT < 1 ? -40 * (1 - easeOutBounce(robotEntryT)) : 0;
+    const floatY = robotEntryT >= 1 ? Math.sin(progress * Math.PI * 3) * -5 : 0;
+    const rAlpha = Math.min(1, robotEntryT);
+
+    ctx.globalAlpha = alpha * rAlpha;
+
+    const rw = 165;
     const rh = (robotImage.naturalHeight / robotImage.naturalWidth) * rw;
     const rx = (W - rw) / 2;
-    const ry = H * 0.60 + floatY;
+    const ry = H * 0.44 + bounceY + floatY;
+
+    // Aura glow behind robot
+    const auraSize = rw * 0.9;
+    const auraGlow = ctx.createRadialGradient(rx + rw / 2, ry + rh / 2, 0, rx + rw / 2, ry + rh / 2, auraSize);
+    const glowPulse = 0.12 + Math.sin(progress * Math.PI * 4) * 0.05;
+    auraGlow.addColorStop(0, `${accent}${Math.round(glowPulse * 255).toString(16).padStart(2, '0')}`);
+    auraGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = auraGlow;
+    ctx.fillRect(rx - auraSize, ry - auraSize / 2, rw + auraSize * 2, rh + auraSize);
 
     ctx.drawImage(robotImage, rx, ry, rw, rh);
+  }
+
+  // CTA pill that fades up after mascot settles
+  const ctaEntryT = Math.min(1, Math.max(0, (progress - 0.35) * 3));
+  const ctaAlpha = ctaEntryT;
+  const ctaSlide = (1 - ctaEntryT) * 16;
+
+  ctx.globalAlpha = alpha * ctaAlpha;
+
+  const ctaText = 'maximussports.ai';
+  ctx.font = `700 24px ${FONT}`;
+  const ctaMetrics = ctx.measureText(ctaText);
+  const pillW = ctaMetrics.width + 56;
+  const pillH = 52;
+  const pillX = (W - pillW) / 2;
+  const pillY = H * 0.76 + ctaSlide;
+  const pillR = 26;
+
+  // Pill background with gradient
+  const pillGrad = ctx.createLinearGradient(pillX, pillY, pillX + pillW, pillY + pillH);
+  pillGrad.addColorStop(0, accent);
+  pillGrad.addColorStop(1, shadeColor(accent, -20));
+  ctx.fillStyle = pillGrad;
+  ctx.beginPath();
+  roundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
+  ctx.fill();
+
+  // Pill glow
+  ctx.shadowColor = `${accent}55`;
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 4;
+  ctx.beginPath();
+  roundedRect(ctx, pillX, pillY, pillW, pillH, pillR);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Pill text
+  ctx.font = `700 24px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ctaText, W / 2, pillY + pillH / 2);
+
+  // Logo at bottom
+  if (logo) {
+    ctx.globalAlpha = alpha * ctaAlpha * 0.6;
+    const lw = 50;
+    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.86, lw, lh);
   }
 
   ctx.restore();
 }
 
-function drawOutroSpotlight(ctx, logo, cta, brand) {
-  if (cta) {
-    drawWrappedText(ctx, cta, W / 2, H * 0.38, W * 0.78, 54, 1.25, { weight: '700' });
-  }
-
-  drawDivider(ctx, H * 0.48, brand.accentColor);
-
-  if (logo) {
-    const lw = 80;
-    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.52, lw, lh);
-  }
-
-  ctx.font = `600 16px ${FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.textAlign = 'center';
-  ctx.letterSpacing = '0.16em';
-  ctx.fillText(brand.name, W / 2, H * 0.52 + 80);
-  ctx.letterSpacing = '0px';
-
-  drawDivider(ctx, H * 0.76, brand.accentColor);
-
-  ctx.font = `500 20px ${FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.fillText(brand.url, W / 2, H * 0.80);
-}
-
-function drawOutroWalkthrough(ctx, logo, cta, brand) {
-  const accent = brand.accentColor;
-
-  ctx.fillStyle = accent;
-  ctx.globalAlpha = 0.15;
-  ctx.beginPath();
-  ctx.arc(W * 0.85, H * 0.35, 120, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  if (cta) {
-    drawWrappedText(ctx, cta, W / 2, H * 0.38, W * 0.80, 48, 1.2, { weight: '700' });
-  }
-
-  if (logo) {
-    const lw = 60;
-    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.52, lw, lh);
-  }
-
-  ctx.font = `500 18px ${FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.textAlign = 'center';
-  ctx.fillText(brand.url, W / 2, H * 0.80);
-}
-
-function drawOutroStatsProof(ctx, logo, cta, brand) {
-  const accent = brand.accentColor;
-
-  ctx.fillStyle = accent;
-  ctx.beginPath();
-  roundedRect(ctx, W * 0.35, H * 0.30, W * 0.30, 4, 2);
-  ctx.fill();
-
-  if (cta) {
-    drawWrappedText(ctx, cta, W / 2, H * 0.38, W * 0.78, 50, 1.2, { weight: '700' });
-  }
-
-  if (logo) {
-    const lw = 70;
-    const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.52, lw, lh);
-  }
-
-  ctx.font = `600 18px ${FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.textAlign = 'center';
-  ctx.fillText(brand.url, W / 2, H * 0.80);
+function shadeColor(hex, percent) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + percent));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent));
+  const b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent));
+  return `#${(0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1)}`;
 }
 
 // ─── video frame (cover-fit into 1080×1920) ──────────────────────
@@ -535,7 +682,7 @@ export function drawVideoFrame(ctx, video) {
 export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4', opts = {}) {
   if (!text || alpha <= 0) return;
 
-  const { templateId, animProgress } = opts;
+  const { templateId, animProgress, textColor } = opts;
 
   const slideUp = animProgress != null ? (1 - Math.min(1, animProgress / 0.3)) * 12 : 0;
   const microBounce = animProgress != null && animProgress > 0.3 && animProgress < 0.6
@@ -610,7 +757,7 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
 
   ctx.font = `700 ${fontSize}px ${FONT}`;
   ctx.letterSpacing = '0.02em';
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = textColor || '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   let drawY = boxY + padding;
@@ -627,7 +774,7 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
 export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4', opts = {}) {
   if (!text || alpha <= 0) return;
 
-  const { stepNum, templateId, animProgress } = opts;
+  const { stepNum, templateId, animProgress, textColor } = opts;
 
   const slideUp = animProgress != null ? (1 - Math.min(1, animProgress / 0.25)) * 12 : 0;
   const microBounce = animProgress != null && animProgress > 0.25 && animProgress < 0.5
@@ -720,7 +867,7 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   ctx.shadowOffsetY = 2;
   ctx.font = `600 ${fontSize}px ${FONT}`;
   ctx.letterSpacing = '0.02em';
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = textColor || '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   let drawY = boxY + padding;
@@ -737,7 +884,7 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
 export function drawStatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#e67e22', opts = {}) {
   if (!text || alpha <= 0) return;
 
-  const { animProgress } = opts;
+  const { animProgress, textColor } = opts;
   const slideUp = animProgress != null ? (1 - Math.min(1, animProgress / 0.25)) * 12 : 0;
   const adjustedY = yCenter + slideUp;
 
@@ -793,9 +940,10 @@ export function drawStatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   ctx.textBaseline = 'top';
 
   let drawY = boxY + padding;
+  const baseTextColor = textColor || '#ffffff';
   for (let i = 0; i < lines.length; i++) {
     const isNumber = /^\d/.test(lines[i].trim());
-    ctx.fillStyle = isNumber ? '#fff' : '#ffffff';
+    ctx.fillStyle = baseTextColor;
     ctx.font = isNumber ? `800 ${fontSize + 4}px ${FONT}` : `700 ${fontSize}px ${FONT}`;
     ctx.fillText(lines[i], W / 2, drawY);
     drawY += fontSize * lineHeight;
