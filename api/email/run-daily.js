@@ -255,8 +255,7 @@ export default async function handler(req, res) {
     const profileMap = {};
     for (const p of profiles) profileMap[p.id] = p;
 
-    // ── 3. Filter to subscribed users
-    const usingDefaults = [];
+    // ── 3. Filter to subscribed users (profile row required — no-profile users are skipped)
     const skippedReasons = [];
 
     const subscribedUsers = authUsers.filter(u => {
@@ -270,10 +269,12 @@ export default async function handler(req, res) {
       const profile = profileMap[u.id];
       if (!profile) {
         skipCounts.no_profile++;
-        usingDefaults.push(u.id);
+        skippedReasons.push({ id: u.id, email: u.email, reason: 'no_profile_row' });
+        console.log(`[run-daily] SKIP user=${u.id} reason=no_profile_row — account not fully created`);
+        return false;
       }
 
-      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile?.preferences || {}) };
+      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile.preferences || {}) };
       const subscribed = prefs[prefKey] === true;
 
       if (!subscribed) {
@@ -284,10 +285,7 @@ export default async function handler(req, res) {
       return subscribed;
     });
 
-    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${skipCounts.opted_out} opted-out, ${skipCounts.no_profile} no-profile (using defaults), ${skipCounts.no_email} no-email, ${authUsers.length} total`);
-    if (usingDefaults.length > 0) {
-      console.log(`[run-daily] Users receiving '${type}' via default prefs (no profile row): ${usingDefaults.length} user(s)`);
-    }
+    console.log(`[run-daily] Recipient filter for '${type}' (prefKey=${prefKey}): ${subscribedUsers.length} subscribed, ${skipCounts.opted_out} opted-out, ${skipCounts.no_profile} no-profile (skipped), ${skipCounts.no_email} no-email, ${authUsers.length} total`);
 
     if (subscribedUsers.length === 0) {
       const summary = { ok: true, type, sent: 0, skipped: 0, message: 'No subscribers.' };

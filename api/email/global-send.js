@@ -197,11 +197,15 @@ export default async function handler(req, res) {
     const subscribedUsers = authUsers.filter(u => {
       if (!u.email) { skipCounts.no_email++; return false; }
       const profile = profileMap[u.id];
-      if (!profile) skipCounts.no_profile++;
+      if (!profile) {
+        skipCounts.no_profile++;
+        console.log(`[global-send] SKIP user=${u.id} reason=no_profile_row`);
+        return false;
+      }
 
       if (override) return true;
 
-      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile?.preferences || {}) };
+      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile.preferences || {}) };
       const subscribed = prefs[prefKey] === true;
       if (!subscribed) skipCounts.opted_out++;
       return subscribed;

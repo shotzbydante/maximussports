@@ -7,6 +7,18 @@
 import { verifyUserToken } from '../_lib/supabaseAdmin.js';
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 
+/** Normalize a profile row + followStatus into the dropdown contract. */
+function normalizeUser(id, profile, followStatus) {
+  return {
+    id,
+    username: profile?.username || '',
+    displayName: profile?.display_name || profile?.username || '',
+    avatarConfig: profile?.preferences?.robotConfig || null,
+    isPro: profile?.plan_tier === 'pro',
+    followStatus,
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -18,9 +30,15 @@ export default async function handler(req, res) {
   const user = await verifyUserToken(token).catch(() => null);
   if (!user) return res.status(401).json({ error: 'Invalid token' });
 
+  let admin;
   try {
-    const admin = getSupabaseAdmin();
+    admin = getSupabaseAdmin();
+  } catch (err) {
+    console.error('[followers] Admin client init failed:', err.message);
+    return res.status(503).json({ error: 'Service unavailable' });
+  }
 
+  try {
     const { data: follows, error } = await admin
       .from('follows')
       .select('follower_user_id, created_at')
@@ -28,7 +46,10 @@ export default async function handler(req, res) {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    if (error) throw error;
+    if (error) {
+      console.error('[followers] follows query error:', error.message, error.code);
+      return res.status(500).json({ error: 'Failed to fetch followers' });
+    }
 
     const followerIds = (follows || []).map(f => f.follower_user_id);
 
@@ -36,10 +57,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ followers: [], total: 0 });
     }
 
-    const { data: profiles } = await admin
+    const { data: profiles, error: profileErr } = await admin
       .from('profiles')
       .select('id, username, display_name, plan_tier, preferences')
       .in('id', followerIds);
+
+    if (profileErr) {
+      console.warn('[followers] profiles query error:', profileErr.message);
+    }
 
     const profileMap = {};
     (profiles || []).forEach(p => { profileMap[p.id] = p; });
@@ -52,21 +77,13 @@ export default async function handler(req, res) {
     const followingSet = new Set((myFollowing || []).map(f => f.following_user_id));
 
     const followers = followerIds.map(id => {
-      const p = profileMap[id] || {};
       const iFollow = followingSet.has(id);
-      return {
-        id,
-        username: p.username || '',
-        displayName: p.display_name || p.username || '',
-        avatarConfig: p.preferences?.robotConfig || null,
-        isPro: p.plan_tier === 'pro',
-        followStatus: iFollow ? 'friends' : 'follower',
-      };
+      return normalizeUser(id, profileMap[id], iFollow ? 'friends' : 'follower');
     });
 
     return res.status(200).json({ followers, total: followers.length });
   } catch (err) {
-    console.error('[followers] error:', err);
-    return res.status(200).json({ followers: [], total: 0 });
+    console.error('[followers] unexpected error:', err);
+    return res.status(500).json({ error: 'Internal error fetching followers' });
   }
 }
