@@ -1,15 +1,15 @@
-/* ── Tournament Insights Slide — Premium IG v3 ──────────── */
+/* ── Tournament Insights Slide — Premium IG v4 ──────────── */
 
 /* ── Header ──────────────────────────────────────────────── */
 .headerBlock {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .headerCompact {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .marchBadge {
@@ -21,7 +21,7 @@
   border-radius: 999px;
   padding: 3px 14px;
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.16em;
   color: #D4B87A;
@@ -30,7 +30,7 @@
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 44px;
+  font-size: 46px;
   font-weight: 700;
   line-height: 1.0;
   color: #ffffff;
@@ -40,11 +40,11 @@
   white-space: pre-line;
 }
 
-.headerCompact .title { font-size: 38px; }
+.headerCompact .title { font-size: 40px; }
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -52,7 +52,7 @@
   margin-top: 2px;
 }
 
-.headerCompact .titleSup { font-size: 11px; }
+.headerCompact .titleSup { font-size: 12px; }
 
 /* ── Card List ────────────────────────────────────────────── */
 .cardList {
@@ -63,7 +63,7 @@
 }
 
 .cardListCompact {
-  gap: 8px;
+  gap: 7px;
 }
 
 /* ── Card ──────────────────────────────────────────────────── */
@@ -76,15 +76,14 @@
   );
   border: 1.5px solid var(--card-accent-30, rgba(74,144,217,0.28));
   border-radius: 14px;
-  padding: 16px 18px 10px;
+  padding: 14px 18px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   position: relative;
   overflow: hidden;
 }
 
-/* Ambient glow from pick side */
 .card::before {
   content: '';
   position: absolute;
@@ -96,7 +95,6 @@
   pointer-events: none;
 }
 
-/* Subtle inner highlight at top edge */
 .card::after {
   content: '';
   position: absolute;
@@ -109,8 +107,8 @@
 }
 
 .cardCompact {
-  padding: 14px 16px 8px;
-  gap: 5px;
+  padding: 12px 16px 8px;
+  gap: 4px;
   border-radius: 12px;
 }
 
@@ -147,22 +145,37 @@
   pointer-events: none;
 }
 
+/* Subtle white halo for logo contrast on dark backgrounds */
+.pickLogoWrap::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.07) 30%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
 .seedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #D4B87A;
   background: rgba(183, 152, 108, 0.18);
   border: 1px solid rgba(183, 152, 108, 0.30);
   border-radius: 4px;
-  padding: 1px 7px;
+  padding: 1px 0;
   letter-spacing: 0.03em;
   margin-top: 3px;
+  min-width: 36px;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
 }
 
 .pickName {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -173,7 +186,7 @@
   margin-top: 1px;
 }
 
-.cardCompact .pickName { font-size: 21px; max-width: 160px; }
+.cardCompact .pickName { font-size: 23px; max-width: 160px; }
 
 /* "Maximus's Pick" badge */
 .maximusPick {
@@ -216,19 +229,19 @@
 .probRingPct {
   position: absolute;
   font-family: 'Oswald', sans-serif;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.cardCompact .probRingPct { font-size: 22px; }
+.cardCompact .probRingPct { font-size: 24px; }
 
 .probRingLabel {
   font-family: 'Oswald', sans-serif;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: rgba(240, 244, 248, 0.40);
+  color: rgba(240, 244, 248, 0.42);
   text-transform: uppercase;
 }
 
@@ -241,17 +254,17 @@
 
 .vsLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.20);
+  color: rgba(240, 244, 248, 0.22);
   letter-spacing: 0.08em;
 }
 
 .regionLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.32);
+  color: rgba(240, 244, 248, 0.34);
   letter-spacing: 0.10em;
   text-transform: uppercase;
 }
@@ -263,32 +276,48 @@
   align-items: center;
   gap: 2px;
   text-align: center;
-  opacity: 0.78;
+  opacity: 0.80;
 }
 
 .oppLogoWrap {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Subtle white halo for opponent logo contrast */
+.oppLogoWrap::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 30%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
 .oppSeedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: rgba(212, 184, 122, 0.60);
+  color: rgba(212, 184, 122, 0.62);
   background: rgba(183, 152, 108, 0.12);
   border: 1px solid rgba(183, 152, 108, 0.20);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 0;
   margin-top: 3px;
+  min-width: 36px;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
 }
 
 .oppName {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.72);
+  color: rgba(240, 244, 248, 0.74);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -296,7 +325,7 @@
   line-height: 1.1;
 }
 
-.cardCompact .oppName { font-size: 16px; max-width: 130px; }
+.cardCompact .oppName { font-size: 17px; max-width: 130px; }
 
 /* ── Colored Probability Bar ───────────────────────────── */
 .probBar {
@@ -315,27 +344,27 @@
 
 .probBarWinner {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.60);
+  color: rgba(240, 244, 248, 0.62);
   letter-spacing: 0.02em;
 }
 
 .probBarWinner strong {
-  color: rgba(240, 244, 248, 0.85);
+  color: rgba(240, 244, 248, 0.88);
   margin-left: 4px;
 }
 
 .probBarLoser {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.30);
+  color: rgba(240, 244, 248, 0.32);
   letter-spacing: 0.02em;
 }
 
 .probBarLoser strong {
-  color: rgba(240, 244, 248, 0.45);
+  color: rgba(240, 244, 248, 0.48);
   margin-left: 4px;
 }
 
@@ -352,6 +381,25 @@
   height: 100%;
   border-radius: 6px;
   transition: width 0.6s ease;
+}
+
+/* ── Model Rationale ───────────────────────────────────── */
+.rationale {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  position: relative;
+  z-index: 1;
+}
+
+.rationaleItem {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(240, 244, 248, 0.40);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Bottom Row: Meta + Badges ─────────────────────────── */
@@ -376,10 +424,10 @@
 
 .metaItem {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: rgba(240, 244, 248, 0.40);
+  color: rgba(240, 244, 248, 0.42);
   white-space: nowrap;
 }
 
@@ -397,10 +445,10 @@
 
 .badge {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 4px;
   border: 1px solid;
   white-space: nowrap;

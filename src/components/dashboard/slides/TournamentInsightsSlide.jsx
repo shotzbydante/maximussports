@@ -54,7 +54,7 @@ function UpsetMeter({ risk }) {
   );
 }
 
-function ProbRing({ pct, color, size = 90 }) {
+function ProbRing({ pct, color, size = 92 }) {
   const stroke = 6;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -113,7 +113,7 @@ function ProbBar({ pct, winnerName, loserName, accentColor }) {
 
 function InsightCard({ insight, compact = false }) {
   if (!insight) return null;
-  const { matchup, winner, loser, confidenceLabel, winProbability } = insight;
+  const { matchup, winner, loser, confidenceLabel, winProbability, signals } = insight;
   const winnerTeam = winner || matchup?.topTeam;
   const loserTeam = loser || matchup?.bottomTeam;
   const upsetRisk = computeUpsetRisk(insight);
@@ -126,12 +126,14 @@ function InsightCard({ insight, compact = false }) {
   const winnerSeed = winnerTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
   const loserSeed = loserTeam === matchup?.topTeam ? matchup?.topSeed : matchup?.bottomSeed;
   const logoSize = compact ? 56 : 68;
-  const ringSize = compact ? 76 : 92;
+  const ringSize = compact ? 78 : 92;
 
   const spread = matchup?.spread ?? null;
   const overUnder = matchup?.overUnder ?? matchup?.total ?? null;
   const gameTime = matchup?.gameTime ?? matchup?.time ?? null;
   const network = matchup?.network ?? matchup?.broadcast ?? null;
+
+  const displaySignals = (signals || []).slice(0, compact ? 1 : 2);
 
   return (
     <div
@@ -144,7 +146,7 @@ function InsightCard({ insight, compact = false }) {
       }}
     >
       <div className={styles.cardInner}>
-        {/* LEFT: Pick Team — visually dominant */}
+        {/* LEFT: Pick Team */}
         <div className={styles.pickZone}>
           <div className={styles.pickLogoWrap}>
             <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />
@@ -155,7 +157,7 @@ function InsightCard({ insight, compact = false }) {
           <span className={styles.maximusPick}>Maximus&#39;s Pick</span>
         </div>
 
-        {/* CENTER: Probability Ring + VS bridge */}
+        {/* CENTER: Probability Ring + VS */}
         <div className={styles.centerZone}>
           <ProbRing pct={pct} color={accentColor} size={ringSize} />
           <div className={styles.vsStrip}>
@@ -164,7 +166,7 @@ function InsightCard({ insight, compact = false }) {
           </div>
         </div>
 
-        {/* RIGHT: Opponent — balanced size, secondary emphasis */}
+        {/* RIGHT: Opponent */}
         <div className={styles.oppZone}>
           <div className={styles.oppLogoWrap}>
             <TeamLogo team={loserTeam} size={logoSize} />
@@ -182,7 +184,16 @@ function InsightCard({ insight, compact = false }) {
         accentColor={accentColor}
       />
 
-      {/* Game info + badges in one row */}
+      {/* Model rationale */}
+      {displaySignals.length > 0 && (
+        <div className={styles.rationale}>
+          {displaySignals.map((s, i) => (
+            <span key={i} className={styles.rationaleItem}>• {s}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Game info + badges */}
       <div className={styles.bottomRow}>
         <div className={styles.metaStrip}>
           <span className={styles.metaItem}>

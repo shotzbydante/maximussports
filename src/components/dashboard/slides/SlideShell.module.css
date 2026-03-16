@@ -25,23 +25,23 @@
   z-index: 0;
 }
 
-/* ── Robot mascot corner ─────────────────────────────── */
+/* ── Robot mascot corner — pinned to footer zone to never overlap cards ── */
 .mascotWrap {
   position: absolute;
-  bottom: 80px;
-  right: 48px;
-  z-index: 1;
+  bottom: 14px;
+  right: 22px;
+  z-index: 3;
   pointer-events: none;
 }
 
 .mascot {
-  width: 170px;
+  width: 150px;
   height: auto;
   display: block;
   filter:
-    drop-shadow(0 6px 22px rgba(0, 0, 0, 0.50))
-    drop-shadow(0 0 20px rgba(45, 108, 168, 0.38))
-    drop-shadow(0 0 40px rgba(74, 144, 217, 0.12));
+    drop-shadow(0 6px 22px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 20px rgba(45, 108, 168, 0.42))
+    drop-shadow(0 0 36px rgba(74, 144, 217, 0.14));
 }
 
 /* ── Header ─────────────────────────────────────────────── */

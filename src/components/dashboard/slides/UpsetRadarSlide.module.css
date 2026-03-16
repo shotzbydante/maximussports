@@ -1,10 +1,11 @@
-/* ── Upset Radar Slide — Premium Redesign ──────────────── */
+/* ── Upset Radar Slide — Premium Visual System v2 ──────── */
 
+/* ── Header ──────────────────────────────────────────────── */
 .headerBlock {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-bottom: 12px;
+  gap: 2px;
+  margin-bottom: 8px;
 }
 
 .marchBadge {
@@ -14,202 +15,307 @@
   background: rgba(232, 132, 95, 0.12);
   border: 1px solid rgba(232, 132, 95, 0.28);
   border-radius: 999px;
-  padding: 5px 16px;
+  padding: 3px 14px;
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   color: #E8845F;
   margin-bottom: 4px;
 }
 
-.titleSup {
-  font-family: 'Oswald', sans-serif;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #E8845F;
-}
-
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 56px;
+  font-size: 40px;
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 1.0;
   color: #ffffff;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
 }
 
-.divider {
-  width: 72px;
-  height: 3px;
-  background: linear-gradient(90deg, #E8845F, #D4B87A);
-  border-radius: 3px;
-  margin-top: 6px;
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #E8845F;
+  margin-top: 2px;
 }
 
-.subtitle {
-  font-size: 14px;
-  color: rgba(240, 244, 248, 0.36);
-  margin: 4px 0 0;
-  line-height: 1.4;
-}
-
-/* ── Card List ─────────────────────────────────────────── */
+/* ── Card List ────────────────────────────────────────────── */
 .cardList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   flex: 1;
 }
 
-/* ── Card ──────────────────────────────────────────────── */
+/* ── Card ──────────────────────────────────────────────────── */
 .card {
-  position: relative;
-  background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(232,132,95,0.015) 100%);
-  border: 1px solid rgba(232, 132, 95, 0.14);
+  background: linear-gradient(
+    140deg,
+    var(--card-accent-15, rgba(232,132,95,0.12)) 0%,
+    rgba(255,255,255,0.02) 50%,
+    rgba(255,255,255,0.005) 100%
+  );
+  border: 1.5px solid var(--card-accent-30, rgba(232,132,95,0.22));
   border-radius: 12px;
-  padding: 12px 16px 10px 42px;
+  padding: 10px 14px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
 }
 
-.cardTop {
-  border-left: 3px solid #E8845F;
-  background: linear-gradient(135deg, rgba(232,132,95,0.06) 0%, rgba(232,132,95,0.02) 100%);
-  border-color: rgba(232, 132, 95, 0.24);
-}
-
-.rankBadge {
+.card::before {
+  content: '';
   position: absolute;
+  top: -25%;
+  left: -6%;
+  width: 50%;
+  height: 150%;
+  background: radial-gradient(ellipse at center, var(--card-accent-08, rgba(232,132,95,0.06)) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-accent-30, rgba(232,132,95,0.18)) 50%, transparent);
+  pointer-events: none;
+}
+
+.rankTag {
+  position: absolute;
+  top: 8px;
   left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
-  color: rgba(232, 132, 95, 0.40);
-  width: 26px;
+  color: rgba(232, 132, 95, 0.30);
+  z-index: 1;
+}
+
+/* ── Card Inner: 3-zone layout ─────────────────────────── */
+.cardInner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── LEFT: Pick Zone ───────────────────────────────────── */
+.pickZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
   text-align: center;
 }
 
-/* ── Matchup Row ───────────────────────────────────────── */
-.matchupRow {
+.pickLogoWrap {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 5px;
+  justify-content: center;
 }
 
-.teamSide {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
+.pickGlow {
+  position: absolute;
+  inset: -18px;
+  border-radius: 50%;
+  pointer-events: none;
 }
 
-.teamRight {
-  justify-content: flex-end;
+.pickLogoWrap::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.07) 30%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
-.teamName {
+.seedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #D4B87A;
+  background: rgba(183, 152, 108, 0.18);
+  border: 1px solid rgba(183, 152, 108, 0.30);
+  border-radius: 4px;
+  padding: 1px 0;
+  margin-top: 2px;
+  min-width: 32px;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.pickName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 19px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.15;
+  max-width: 140px;
+  line-height: 1.1;
+  margin-top: 1px;
 }
 
-.upsetHighlight {
-  color: #E8845F;
-}
-
-.seedBadge {
+.pickBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
-  color: #6EB3E8;
-  background: rgba(74, 144, 217, 0.12);
-  border: 1px solid rgba(74, 144, 217, 0.24);
+  letter-spacing: 0.10em;
+  color: var(--card-accent, #E8845F);
+  background: var(--card-accent-08, rgba(232,132,95,0.08));
+  border: 1px solid var(--card-accent-30, rgba(232,132,95,0.22));
   border-radius: 4px;
-  padding: 1px 6px;
-  flex-shrink: 0;
+  padding: 1px 8px;
+  text-transform: uppercase;
+  margin-top: 2px;
 }
 
-.seedBadgeHot {
-  font-family: 'Oswald', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  color: #E8845F;
-  background: rgba(232, 132, 95, 0.12);
-  border: 1px solid rgba(232, 132, 95, 0.24);
-  border-radius: 4px;
-  padding: 1px 6px;
-  flex-shrink: 0;
-}
-
-.vsText {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(240, 244, 248, 0.18);
-  flex-shrink: 0;
-}
-
-/* ── Context Row ───────────────────────────────────────── */
-.contextRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 3px 0;
-  border-top: 1px solid rgba(232, 132, 95, 0.06);
-}
-
-.contextItem {
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(240, 244, 248, 0.35);
-}
-
-.contextDot {
-  font-size: 10px;
-  color: rgba(240, 244, 248, 0.18);
-}
-
-.upsetRiskTag {
-  font-family: 'Oswald', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid;
-  flex-shrink: 0;
-}
-
-.upsetPctBadge {
-  font-family: 'Oswald', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: #E8845F;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-/* ── Probability Bar ───────────────────────────────────── */
-.probBarWrap {
+/* ── CENTER: Probability Ring + VS ─────────────────────── */
+.centerZone {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.probRingWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.probRing {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.probRingPct {
+  position: absolute;
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.probRingLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(240, 244, 248, 0.38);
+  text-transform: uppercase;
+}
+
+.vsStrip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.vsLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.18);
+  letter-spacing: 0.08em;
+}
+
+.regionLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.30);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+
+/* ── RIGHT: Opponent Zone ──────────────────────────────── */
+.oppZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+  opacity: 0.78;
+}
+
+.oppLogoWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oppLogoWrap::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 30%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.oppSeedTag {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(212, 184, 122, 0.58);
+  background: rgba(183, 152, 108, 0.10);
+  border: 1px solid rgba(183, 152, 108, 0.18);
+  border-radius: 4px;
+  padding: 1px 0;
+  margin-top: 2px;
+  min-width: 32px;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.oppName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.70);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  line-height: 1.1;
+}
+
+/* ── Colored Probability Bar ───────────────────────────── */
+.probBar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  z-index: 1;
 }
 
 .probBarLabels {
@@ -218,125 +324,88 @@
   align-items: center;
 }
 
-.probBarFav {
+.probBarWinner {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
+  color: rgba(240, 244, 248, 0.58);
+}
+
+.probBarWinner strong {
+  color: rgba(240, 244, 248, 0.85);
+  margin-left: 3px;
+}
+
+.probBarLoser {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.30);
+}
+
+.probBarLoser strong {
   color: rgba(240, 244, 248, 0.45);
-}
-
-.probBarFav strong {
-  color: rgba(240, 244, 248, 0.70);
-  margin-left: 2px;
-}
-
-.probBarDog {
-  font-family: 'Oswald', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(232, 132, 95, 0.65);
-}
-
-.probBarDog strong {
-  color: #E8845F;
-  margin-left: 2px;
+  margin-left: 3px;
 }
 
 .probBarTrack {
-  display: flex;
   width: 100%;
   height: 7px;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 5px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
 }
 
-.probBarFillFav {
+.probBarFill {
   height: 100%;
-  background: rgba(110, 179, 232, 0.45);
-  border-radius: 5px 0 0 5px;
+  border-radius: 5px;
+  transition: width 0.6s ease;
 }
 
-.probBarFillDog {
-  height: 100%;
-  background: #E8845F;
-  border-radius: 0 5px 5px 0;
-  box-shadow: 0 0 10px rgba(232, 132, 95, 0.20);
-}
-
-/* ── Prediction Row ────────────────────────────────────── */
-.predictionRow {
+/* ── Bottom Row: Rationale + Badges ────────────────────── */
+.bottomRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-}
-
-.pickBlock {
-  display: flex;
-  align-items: center;
   gap: 6px;
-}
-
-.pickLabel {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  color: rgba(240, 244, 248, 0.30);
-  flex-shrink: 0;
-}
-
-.pickName {
-  font-family: 'Oswald', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: #5FE8A8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.convictionTag {
-  font-family: 'Oswald', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid;
-  flex-shrink: 0;
-}
-
-/* ── Explanation Bullets ───────────────────────────────── */
-.bulletList {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: 3px;
+  position: relative;
+  z-index: 1;
+  padding-top: 2px;
   border-top: 1px solid rgba(232, 132, 95, 0.06);
 }
 
-.bullet {
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
+.rationaleStrip {
+  flex: 1;
+  min-width: 0;
 }
 
-.bulletDot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #E8845F;
-  flex-shrink: 0;
-  margin-top: 5px;
-}
-
-.bulletText {
-  font-size: 11px;
-  font-weight: 400;
+.rationaleText {
+  font-size: 10px;
+  font-weight: 500;
   color: rgba(240, 244, 248, 0.38);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
   line-height: 1.3;
+}
+
+.badgeStrip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
 }
 
 /* ── Empty State ───────────────────────────────────────── */
