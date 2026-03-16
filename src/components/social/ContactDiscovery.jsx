@@ -92,6 +92,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchEmpty, setSearchEmpty] = useState(false);
   const debounceRef = useRef(null);
+  const abortRef = useRef(null);
   const searchInputRef = useRef(null);
 
   const [contactTab, setContactTab] = useState('matched');
@@ -119,6 +120,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
     const q = searchQuery.trim();
     if (q.length < 2) {
       setSearchResults([]);
@@ -129,10 +131,14 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
     setSearchLoading(true);
     setSearchEmpty(false);
     debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const res = await fetch(`/api/social/search?q=${encodeURIComponent(q)}`, {
           headers: { Authorization: `Bearer ${session?.access_token}` },
+          signal: controller.signal,
         });
+        if (controller.signal.aborted) return;
         if (res.ok) {
           const data = await res.json();
           setSearchResults(data.results || []);
@@ -143,14 +149,18 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
           setSearchEmpty(true);
         }
       } catch (err) {
+        if (err?.name === 'AbortError') return;
         console.warn('[search] fetch error:', err?.message);
         setSearchResults([]);
         setSearchEmpty(true);
       } finally {
-        setSearchLoading(false);
+        if (!controller.signal.aborted) setSearchLoading(false);
       }
     }, 300);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
   }, [searchQuery, session?.access_token]);
 
   const handleFollow = useCallback(async (targetId) => {
