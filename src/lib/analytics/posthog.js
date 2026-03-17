@@ -200,6 +200,73 @@ export function trackSignupStarted({ method = 'unknown' } = {}) {
   });
 }
 
+/* ── Embedded browser / OAuth intercept events ─────────────────── */
+
+/**
+ * Fire when Google OAuth is attempted (regardless of browser type).
+ * @param {{ provider: string, embedded_browser_detected: boolean, platform: string, referrer: string }} props
+ */
+export function trackOAuthAttempted(props = {}) {
+  const acq = captureAcquisitionProps();
+  dbg('trackOAuthAttempted', { ...props, ...acq });
+  track('oauth_attempted', { ...props, ...acq });
+}
+
+/**
+ * Fire when OAuth is blocked due to embedded browser detection.
+ * @param {{ provider: string, embedded_source: string, platform: string }} props
+ */
+export function trackOAuthBlockedEmbedded(props = {}) {
+  const acq = captureAcquisitionProps();
+  dbg('trackOAuthBlockedEmbedded', { ...props, ...acq });
+  track('oauth_blocked_embedded_browser', { ...props, ...acq });
+}
+
+/**
+ * Fire when the embedded browser modal is shown.
+ * @param {{ embedded_source: string, platform: string }} props
+ */
+export function trackOAuthPromptShown(props = {}) {
+  dbg('trackOAuthPromptShown', props);
+  track('oauth_prompt_shown', props);
+}
+
+/**
+ * Fire when user clicks "Open in Safari/Chrome" from the modal.
+ * @param {{ embedded_source: string, platform: string }} props
+ */
+export function trackOAuthOpenBrowserClicked(props = {}) {
+  dbg('trackOAuthOpenBrowserClicked', props);
+  track('oauth_open_browser_clicked', props);
+}
+
+/**
+ * Fire when user selects "Use email instead" from the modal.
+ * @param {{ embedded_source: string, platform: string }} props
+ */
+export function trackOAuthEmailFallback(props = {}) {
+  dbg('trackOAuthEmailFallback', props);
+  track('oauth_email_fallback_selected', props);
+}
+
+/**
+ * Fire on successful OAuth completion.
+ * @param {{ provider: string }} props
+ */
+export function trackOAuthSuccess(props = {}) {
+  dbg('trackOAuthSuccess', props);
+  track('oauth_success', props);
+}
+
+/**
+ * Fire on OAuth error.
+ * @param {{ provider: string, error: string }} props
+ */
+export function trackOAuthError(props = {}) {
+  dbg('trackOAuthError', props);
+  track('oauth_error', props);
+}
+
 /* ── Onboarding carousel events ─────────────────────────────────── */
 
 export function trackWelcomeModalViewed({ step = 1 } = {}) {

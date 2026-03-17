@@ -20,6 +20,8 @@ import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
 import { invalidateProfileCache } from '../hooks/useUserProfile';
+import { isEmbeddedBrowser, getEmbeddedSource, getPlatform } from '../utils/embeddedBrowser';
+import EmbeddedBrowserModal from '../components/auth/EmbeddedBrowserModal';
 import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
 import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
@@ -2866,8 +2868,19 @@ function UnauthenticatedPanel() {
   const [error, setError]                 = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const resendTimerRef                      = useRef(null);
+  const [showBrowserModal, setShowBrowserModal] = useState(false);
+  const [focusEmail, setFocusEmail]       = useState(false);
+  const emailInputRef                     = useRef(null);
 
   useEffect(() => { trackSignupViewed(); }, []);
+
+  // Auto-focus email input when user picks "Use email instead" from modal
+  useEffect(() => {
+    if (focusEmail && emailInputRef.current) {
+      emailInputRef.current.focus();
+      setFocusEmail(false);
+    }
+  }, [focusEmail]);
 
   // Clean up countdown on unmount
   useEffect(() => () => { if (resendTimerRef.current) clearInterval(resendTimerRef.current); }, []);
@@ -2884,6 +2897,24 @@ function UnauthenticatedPanel() {
   }
 
   const handleGoogle = async () => {
+    track('oauth_attempted', {
+      provider: 'google',
+      embedded_browser_detected: isEmbeddedBrowser(),
+      platform: getPlatform(),
+      referrer: document.referrer?.slice(0, 200) || '',
+    });
+
+    if (isEmbeddedBrowser()) {
+      track('oauth_blocked_embedded_browser', {
+        provider: 'google',
+        embedded_source: getEmbeddedSource(),
+        platform: getPlatform(),
+        referrer: document.referrer?.slice(0, 200) || '',
+      });
+      setShowBrowserModal(true);
+      return;
+    }
+
     setGoogleLoading(true); setError('');
     const sb = getSupabase();
     if (!sb) { setError('Auth service is not configured. Please contact support.'); setGoogleLoading(false); return; }
@@ -2893,7 +2924,11 @@ function UnauthenticatedPanel() {
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/settings` },
     });
-    if (oauthErr) { setError(oauthErr.message); setGoogleLoading(false); }
+    if (oauthErr) {
+      track('oauth_error', { provider: 'google', error: oauthErr.message?.slice(0, 200) });
+      setError(oauthErr.message);
+      setGoogleLoading(false);
+    }
   };
 
   const sendConfirmEmail = async (emailAddress) => {
@@ -3051,6 +3086,7 @@ function UnauthenticatedPanel() {
 
       <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
         <input
+          ref={emailInputRef}
           type="email"
           className={styles.emailInput}
           placeholder="you@example.com"
@@ -3068,6 +3104,16 @@ function UnauthenticatedPanel() {
           {emailLoading ? <SpinnerIcon /> : 'Continue with email'}
         </button>
       </form>
+
+      {showBrowserModal && (
+        <EmbeddedBrowserModal
+          onClose={() => setShowBrowserModal(false)}
+          onEmailFallback={() => {
+            setShowBrowserModal(false);
+            setFocusEmail(true);
+          }}
+        />
+      )}
     </div>
   );
 }
