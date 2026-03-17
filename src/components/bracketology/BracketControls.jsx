@@ -1,11 +1,24 @@
 import styles from './BracketControls.module.css';
 
+function getBracketSourceLabel(bracketMode) {
+  if (bracketMode === 'official') return 'Official ESPN';
+  if (bracketMode === 'official_partial') return 'Partial ESPN data';
+  return 'Projected (fallback)';
+}
+
+function getBracketSourceStyle(bracketMode) {
+  if (bracketMode === 'official') return styles.officialTag;
+  if (bracketMode === 'official_partial') return styles.partialTag;
+  return styles.projectedTag;
+}
+
 export default function BracketControls({
   saveStatus,
   lastSaved,
   totalPicks,
   totalGames,
   bracketMode,
+  bracketMeta,
   onAutoFill,
   onResetToMaximus,
   onClearBracket,
@@ -15,6 +28,14 @@ export default function BracketControls({
 }) {
   const timeStr = lastSaved
     ? lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  const sourceLabel = getBracketSourceLabel(bracketMode);
+  const sourceStyle = getBracketSourceStyle(bracketMode);
+  const teamCount = bracketMeta?.realTeamCount || bracketMeta?.teamCount;
+  const lastUpdated = bracketMeta?.lastUpdated;
+  const updatedStr = lastUpdated
+    ? new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
   return (
@@ -63,9 +84,10 @@ export default function BracketControls({
         <span className={styles.pickCount}>
           {totalPicks} / {totalGames}
         </span>
-        {bracketMode === 'projected' && (
-          <span className={styles.projectedTag}>PROJECTED</span>
-        )}
+        <span className={sourceStyle} title={`Source: ${sourceLabel}${teamCount ? ` · ${teamCount} teams` : ''}${updatedStr ? ` · Updated ${updatedStr}` : ''}`}>
+          {sourceLabel}
+          {teamCount != null && <span className={styles.sourceDetail}> · {teamCount}T</span>}
+        </span>
       </div>
     </div>
   );

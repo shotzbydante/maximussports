@@ -35,6 +35,8 @@ export async function fetchBracketData() {
     if (res.ok) {
       const data = await res.json();
       const bracket = data?.bracket;
+      const meta = data?._meta || {};
+
       if (bracket && bracket.status !== 'pre_selection' && bracket.regions?.length > 0) {
         const realTeamCount = bracket.regions.reduce((total, region) => {
           return total + (region.matchups || []).reduce((count, m) => {
@@ -43,8 +45,16 @@ export async function fetchBracketData() {
               + (m.bottomTeam && !m.bottomTeam.isPlaceholder ? 1 : 0);
           }, 0);
         }, 0);
-        if (realTeamCount >= 32) {
-          return { ...bracket, bracketMode: 'official' };
+
+        // Accept ANY ESPN data with real teams — no 32-team gate
+        if (realTeamCount >= 1) {
+          const isPartial = realTeamCount < 64;
+          const bracketMode = isPartial ? 'official_partial' : 'official';
+          return {
+            ...bracket,
+            bracketMode,
+            _meta: { ...meta, realTeamCount, isPartial },
+          };
         }
       }
     }

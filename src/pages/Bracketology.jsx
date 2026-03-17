@@ -31,7 +31,7 @@ import styles from './Bracketology.module.css';
 export default function Bracketology() {
   const { user, loading: authLoading } = useAuth();
   const {
-    bracket, loading: bracketLoading, bracketMode, isProjected, isFieldSet, refresh,
+    bracket, loading: bracketLoading, bracketMode, isProjected, isOfficial, isPartialESPN, isFieldSet, refresh,
   } = useBracketData();
   const {
     picks, pickOrigins, saveStatus, lastSaved, loaded: picksLoaded,
@@ -178,6 +178,11 @@ export default function Bracketology() {
               totalPicks={totalPicks}
               totalGames={totalGames}
               bracketMode={bracketMode}
+              bracketMeta={{
+                realTeamCount: bracket?.teamCount,
+                lastUpdated: bracket?.lastUpdated,
+                isPartial: isPartialESPN,
+              }}
               onAutoFill={handleAutoFill}
               onResetToMaximus={handleResetToMaximus}
               onClearBracket={clearBracket}

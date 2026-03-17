@@ -86,15 +86,19 @@ export function setOfficialBracketData(bracket) {
     }
   }
 
-  if (teams.length < 32) {
-    console.warn(`[tournamentHelpers] Official bracket has only ${teams.length} teams — keeping projected field`);
+  if (teams.length === 0) {
+    console.warn(`[tournamentHelpers] Official bracket has 0 teams — keeping projected field`);
     return false;
   }
 
+  if (teams.length < 32) {
+    console.warn(`[tournamentHelpers] Official bracket has only ${teams.length} teams — accepting partial data`);
+  }
+
   _activeField = teams;
-  _activeMode = 'official';
+  _activeMode = teams.length >= 64 ? 'official' : 'official_partial';
   rebuildLookups(teams);
-  console.log(`[tournamentHelpers] Switched to official bracket data (${teams.length} teams)`);
+  console.log(`[tournamentHelpers] Switched to ${_activeMode} bracket data (${teams.length} teams)`);
   return true;
 }
 

@@ -88,6 +88,10 @@ export default function BracketShareSummary({
   if (!summary) return null;
 
   const isProjected = bracketMode === 'projected';
+  const modeLabel = bracketMode === 'official' ? 'OFFICIAL'
+    : bracketMode === 'official_partial' ? 'ESPN (PARTIAL)'
+    : 'PROJECTED';
+  const modeStyle = isProjected ? styles.projected : styles.official;
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -96,8 +100,8 @@ export default function BracketShareSummary({
 
         <div className={styles.cardHeader}>
           <span className={styles.brand}>MAXIMUS SPORTS</span>
-          <span className={`${styles.modeBadge} ${isProjected ? styles.projected : styles.official}`}>
-            {isProjected ? 'PROJECTED' : 'OFFICIAL'}
+          <span className={`${styles.modeBadge} ${modeStyle}`}>
+            {modeLabel}
           </span>
         </div>
 

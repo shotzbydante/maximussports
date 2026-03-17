@@ -64,11 +64,12 @@ export function useBracketData() {
 
   const bracketMode = bracket?.bracketMode || 'projected';
   const isProjected = bracketMode === 'projected';
-  const isOfficial = bracketMode === 'official';
+  const isOfficial = bracketMode === 'official' || bracketMode === 'official_partial';
+  const isPartialESPN = bracketMode === 'official_partial';
   const isFieldSet = bracket?.status === 'projected' || bracket?.status === 'field_set' || bracket?.status === 'in_progress' || bracket?.status === 'complete';
 
   return {
     bracket, loading, error, refresh: load,
-    bracketMode, isProjected, isOfficial, isFieldSet,
+    bracketMode, isProjected, isOfficial, isPartialESPN, isFieldSet,
   };
 }
