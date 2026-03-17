@@ -4,16 +4,9 @@ import { getTeamColors } from '../../../utils/teamColors';
 import { getConfidenceTier } from '../../../utils/confidenceTier';
 import styles from './UpsetRadarSlide.module.css';
 
-const CONVICTION_COLORS = {
-  HIGH:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)' },
-  MEDIUM: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)' },
-  LOW:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)' },
-};
-
 const UPSET_RISK_CONFIG = {
-  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '\u25B2' },
-  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '\u2684' },
-  LOW:      { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.24)', icon: '\u25C6' },
+  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '\u25B2', label: 'UPSET RISK' },
+  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '\u2684', label: 'VOLATILE' },
 };
 
 function getEdgeColor(pct) {
@@ -29,20 +22,12 @@ function computeUpsetRisk(game) {
   return 'LOW';
 }
 
-function ConvictionBadge({ label }) {
-  const c = CONVICTION_COLORS[label] || CONVICTION_COLORS.LOW;
-  return (
-    <span className={styles.badge} style={{ color: c.text, background: c.bg, borderColor: c.border }}>
-      {label}
-    </span>
-  );
-}
-
-function UpsetRiskBadge({ risk }) {
-  const cfg = UPSET_RISK_CONFIG[risk] || UPSET_RISK_CONFIG.LOW;
+function UpsetRiskChip({ risk }) {
+  const cfg = UPSET_RISK_CONFIG[risk];
+  if (!cfg) return null;
   return (
     <span className={styles.badge} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
-      {cfg.icon} {risk}
+      {cfg.icon} {cfg.label}
     </span>
   );
 }
@@ -126,7 +111,6 @@ function UpsetCard({ game, rank }) {
   const pickTeam = modelResult?.winner || topTeam;
   const oppTeam = modelResult?.loser || bottomTeam;
   const isUpsetPick = modelResult?.isUpset ?? false;
-  const confLabel = modelResult?.confidenceLabel || 'LOW';
   const winProb = modelResult?.winProbability ?? 0.5;
   const pct = Math.round(winProb * 100);
   const tier = getConfidenceTier(winProb, isUpsetPick);
@@ -216,8 +200,7 @@ function UpsetCard({ game, rank }) {
         </div>
         <div className={styles.badgeStrip}>
           <TierChip tier={tier} />
-          <ConvictionBadge label={confLabel} />
-          <UpsetRiskBadge risk={upsetRisk} />
+          <UpsetRiskChip risk={upsetRisk} />
         </div>
       </div>
     </div>

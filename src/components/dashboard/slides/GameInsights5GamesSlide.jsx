@@ -31,9 +31,9 @@ function fmtTimePST(iso) {
 }
 
 const CONVICTION_COLORS = {
-  high:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)', barFill: '#5FE8A8' },
-  medium: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)', barFill: '#D4B87A' },
-  low:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)', barFill: '#8EAFC4' },
+  high:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)', barFill: '#5FE8A8', label: 'HIGH CONF' },
+  medium: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)', barFill: '#D4B87A', label: 'MOD CONF' },
+  low:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)', barFill: '#8EAFC4', label: 'LOW CONF' },
 };
 
 function getConviction(pick) {
@@ -205,7 +205,7 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
                       className={styles.convictionTag}
                       style={{ color: convCfg.text, background: convCfg.bg, borderColor: convCfg.border }}
                     >
-                      {conviction.toUpperCase()}
+                      {convCfg.label}
                     </span>
                   )}
                 </div>

@@ -5,10 +5,10 @@
  * Bracketology and IG game intel cards.
  *
  * Tiers (based on predicted-winner probability):
- *   conviction  — >= 70%  strong Maximus edge
- *   tossUp      — 60–69%  competitive, roll-of-the-dice
- *   lean        — 55–59%  low edge, could go either way
- *   upsetAlert  — isUpset  model picks the lower seed
+ *   conviction  — >= 70%  "MODEL EDGE" — strong Maximus signal
+ *   tossUp      — 60–69%  "TOSS-UP" — competitive, roll-of-the-dice
+ *   lean        — 55–59%  "SLIGHT EDGE" — low edge, could go either way
+ *   upsetAlert  — isUpset  "UPSET ALERT" — model picks the lower seed
  *
  * When winProbability < 55% and no upset flag, falls back to tossUp.
  */
@@ -16,8 +16,8 @@
 export const TIERS = {
   conviction: {
     id: 'conviction',
-    label: 'EDGE',
-    shortLabel: 'E',
+    label: 'MODEL EDGE',
+    shortLabel: '◆',
     icon: '◆',
     cssClass: 'tierConviction',
     igColor: { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)' },
@@ -32,7 +32,7 @@ export const TIERS = {
   },
   upsetAlert: {
     id: 'upsetAlert',
-    label: 'UPSET',
+    label: 'UPSET ALERT',
     shortLabel: '\u25B2',
     icon: '\u25B2',
     cssClass: 'tierUpset',
@@ -40,7 +40,7 @@ export const TIERS = {
   },
   lean: {
     id: 'lean',
-    label: 'LEAN',
+    label: 'SLIGHT EDGE',
     shortLabel: '\u2192',
     icon: '\u2192',
     cssClass: 'tierLean',
