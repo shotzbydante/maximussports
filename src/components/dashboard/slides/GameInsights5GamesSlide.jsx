@@ -2,7 +2,9 @@ import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { getTeamSeed } from '../../../utils/tournamentHelpers';
+import { getTeamColors } from '../../../utils/teamColors';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import { getConfidenceTier, TIERS } from '../../../utils/confidenceTier';
 import styles from './GameInsights5GamesSlide.module.css';
 
 function makeTeam(name) {
@@ -30,18 +32,32 @@ function fmtTimePST(iso) {
   } catch { return null; }
 }
 
-const CONVICTION_COLORS = {
-  high:   { text: '#5FE8A8', bg: 'rgba(95,232,168,0.12)', border: 'rgba(95,232,168,0.30)', barFill: '#5FE8A8', label: 'HIGH CONF' },
-  medium: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)', barFill: '#D4B87A', label: 'MOD CONF' },
-  low:    { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)', barFill: '#8EAFC4', label: 'LOW CONF' },
-};
+function getEdgeColor(pct) {
+  if (pct >= 75) return '#5FE8A8';
+  if (pct >= 62) return '#D4B87A';
+  return '#6EB3E8';
+}
 
-function getConviction(pick) {
+function pickToTier(pick) {
   if (!pick) return null;
   const c = pick.confidence ?? 0;
-  if (c >= 2) return 'high';
-  if (c >= 1) return 'medium';
-  return 'low';
+  if (c >= 2) return TIERS.conviction;
+  if (c >= 1) return TIERS.lean;
+  return TIERS.tossUp;
+}
+
+function TierChip({ tier }) {
+  if (!tier) return null;
+  const c = tier.igColor;
+  return (
+    <span
+      className={styles.convictionTag}
+      style={{ color: c.text, background: c.bg, borderColor: c.border }}
+    >
+      <span style={{ fontSize: '0.85em', lineHeight: 1, marginRight: '3px' }}>{tier.icon}</span>
+      {tier.label}
+    </span>
+  );
 }
 
 function buildWhyLine(game, pick) {
@@ -161,11 +177,23 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const awaySeed = getTeamSeed(awayObj?.slug || g.awayTeam);
             const homeSeed = getTeamSeed(homeObj?.slug || g.homeTeam);
 
-            const conviction = getConviction(pick);
-            const convCfg = conviction ? CONVICTION_COLORS[conviction] : null;
+            const tier = pickToTier(pick);
+
+            const pickSlug = pick?.pickTeamSlug || awayObj?.slug || '';
+            const tc = getTeamColors(pickSlug);
+            const accentColor = tc?.primary || '#4A90D9';
 
             return (
-              <div key={i} className={`${styles.gameRow} ${isTop ? styles.gameRowTop : ''}`}>
+              <div
+                key={i}
+                className={`${styles.gameRow} ${isTop ? styles.gameRowTop : ''}`}
+                style={{
+                  '--card-accent': accentColor,
+                  '--card-accent-30': `${accentColor}4d`,
+                  '--card-accent-15': `${accentColor}26`,
+                  '--card-accent-08': `${accentColor}14`,
+                }}
+              >
                 {/* Teams row */}
                 <div className={styles.teamsRow}>
                   <div className={styles.teamCell}>
@@ -200,14 +228,7 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
                     : <span className={styles.tba}>Line TBA</span>
                   }
                   {total != null && <span className={styles.ouPill}>O/U {total}</span>}
-                  {convCfg && (
-                    <span
-                      className={styles.convictionTag}
-                      style={{ color: convCfg.text, background: convCfg.bg, borderColor: convCfg.border }}
-                    >
-                      {convCfg.label}
-                    </span>
-                  )}
+                  <TierChip tier={tier} />
                 </div>
 
                 {/* Storyline */}

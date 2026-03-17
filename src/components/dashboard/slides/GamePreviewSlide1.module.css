@@ -57,36 +57,40 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
-.teamLogo {
-  max-width: 120px;
-  max-height: 120px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 24px rgba(60, 121, 180, 0.3));
+.logoWrap::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 30%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .seedPill {
   font-family: 'Oswald', sans-serif;
   font-size: 20px;
   font-weight: 700;
-  background: rgba(183, 152, 108, 0.16);
-  border: 1.5px solid rgba(183, 152, 108, 0.35);
+  background: rgba(183, 152, 108, 0.18);
+  border: 1.5px solid rgba(183, 152, 108, 0.30);
   color: #D4B87A;
-  border-radius: 8px;
-  padding: 4px 14px;
-  letter-spacing: 0.02em;
+  border-radius: 6px;
+  padding: 3px 14px;
+  letter-spacing: 0.03em;
 }
 
 .rankPill {
   font-family: 'Oswald', sans-serif;
   font-size: 18px;
   font-weight: 700;
-  background: rgba(183, 152, 108, 0.15);
-  border: 1px solid rgba(183, 152, 108, 0.3);
+  background: rgba(183, 152, 108, 0.14);
+  border: 1px solid rgba(183, 152, 108, 0.28);
   color: #B7986C;
-  border-radius: 8px;
-  padding: 4px 12px;
+  border-radius: 6px;
+  padding: 3px 12px;
 }
 
 .teamName {

@@ -35,20 +35,28 @@
 }
 
 .pickHighlight {
-  background: rgba(60, 121, 180, 0.1);
-  border: 1px solid rgba(60, 121, 180, 0.22);
-  border-radius: 18px;
+  background: linear-gradient(
+    140deg,
+    rgba(60,121,180,0.10) 0%,
+    rgba(255,255,255,0.02) 50%,
+    rgba(255,255,255,0.005) 100%
+  );
+  border: 1.5px solid rgba(60, 121, 180, 0.22);
+  border-radius: 14px;
   padding: 28px 32px;
   margin-top: 36px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
+  overflow: hidden;
 }
 
 .pickLabel {
+  font-family: 'Oswald', sans-serif;
   font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
   color: #3C79B4;
 }
@@ -65,4 +73,15 @@
   font-size: 20px;
   color: rgba(240, 244, 248, 0.5);
   font-weight: 500;
+}
+
+.pickConf {
+  align-self: flex-start;
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  padding: 4px 12px;
 }

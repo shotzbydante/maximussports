@@ -1,5 +1,7 @@
 import SlideShell from './SlideShell';
 import LineBlock from '../ui/LineBlock';
+import TeamLogo from '../../shared/TeamLogo';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import { getTeamSeed } from '../../../utils/tournamentHelpers';
 import styles from './GamePreviewSlide1.module.css';
 
@@ -20,8 +22,10 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
 
   const awayTeam = game.awayTeam || '—';
   const homeTeam = game.homeTeam || '—';
-  const awaySlug = game.awaySlug || game.awayTeamSlug || null;
-  const homeSlug = game.homeSlug || game.homeTeamSlug || null;
+  const awaySlug = game.awaySlug || game.awayTeamSlug || getTeamSlug(awayTeam) || null;
+  const homeSlug = game.homeSlug || game.homeTeamSlug || getTeamSlug(homeTeam) || null;
+  const awayObj = { name: awayTeam, slug: awaySlug };
+  const homeObj = { name: homeTeam, slug: homeSlug };
   const awayRank = game.awayRank ?? null;
   const homeRank = game.homeRank ?? null;
   const awaySeed = getTeamSeed(awaySlug || awayTeam);
@@ -54,16 +58,7 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
         {/* Away team */}
         <div className={styles.teamSide}>
           <div className={styles.logoWrap}>
-            {awaySlug && (
-              <img
-                src={`/logos/${awaySlug}.png`}
-                alt={awayTeam}
-                className={styles.teamLogo}
-                crossOrigin="anonymous"
-                data-fallback-text={awayTeam?.slice(0, 2)?.toUpperCase() || ''}
-                onError={e => { e.currentTarget.style.display = 'none'; }}
-              />
-            )}
+            <TeamLogo team={awayObj} size={110} />
           </div>
           {awaySeed != null && <span className={styles.seedPill}>#{awaySeed}</span>}
           {awayRank != null && !awaySeed && <span className={styles.rankPill}>#{awayRank}</span>}
@@ -85,16 +80,7 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
         {/* Home team */}
         <div className={styles.teamSide}>
           <div className={styles.logoWrap}>
-            {homeSlug && (
-              <img
-                src={`/logos/${homeSlug}.png`}
-                alt={homeTeam}
-                className={styles.teamLogo}
-                crossOrigin="anonymous"
-                data-fallback-text={homeTeam?.slice(0, 2)?.toUpperCase() || ''}
-                onError={e => { e.currentTarget.style.display = 'none'; }}
-              />
-            )}
+            <TeamLogo team={homeObj} size={110} />
           </div>
           {homeSeed != null && <span className={styles.seedPill}>#{homeSeed}</span>}
           {homeRank != null && !homeSeed && <span className={styles.rankPill}>#{homeRank}</span>}

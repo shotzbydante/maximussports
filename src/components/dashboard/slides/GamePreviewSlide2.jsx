@@ -2,6 +2,15 @@ import SlideShell from './SlideShell';
 import InsightBullets from '../ui/InsightBullets';
 import styles from './GamePreviewSlide2.module.css';
 import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { TIERS } from '../../../utils/confidenceTier';
+
+function pickToTier(pick) {
+  if (!pick) return null;
+  const c = pick.confidence ?? 0;
+  if (c >= 2) return TIERS.conviction;
+  if (c >= 1) return TIERS.lean;
+  return TIERS.tossUp;
+}
 
 export default function GamePreviewSlide2({ game, data, asOf, slideNumber, slideTotal, ...rest }) {
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
@@ -61,17 +70,31 @@ export default function GamePreviewSlide2({ game, data, asOf, slideNumber, slide
 
       <InsightBullets bullets={bullets} label="MODEL READ" />
 
-      {gamePick && (
-        <div className={styles.pickHighlight}>
-          <div className={styles.pickLabel}>VALUE EDGE DETECTED</div>
-          <div className={styles.pickLine}>{gamePick.pickLine}</div>
-          <div className={styles.pickMeta}>
-            {gamePick.type === 'ats' ? 'ATS pick' : 'ML pick'} ·{' '}
-            {confidenceLabel(gamePick.confidence)} confidence
-            {gamePick.atsEdge != null ? ` · ${(gamePick.atsEdge * 100).toFixed(0)}% edge` : ''}
+      {gamePick && (() => {
+        const tier = pickToTier(gamePick);
+        return (
+          <div className={styles.pickHighlight}>
+            <div className={styles.pickLabel}>MODEL EDGE DETECTED</div>
+            <div className={styles.pickLine}>{gamePick.pickLine}</div>
+            <div className={styles.pickMeta}>
+              {gamePick.type === 'ats' ? 'ATS pick' : 'ML pick'}
+              {gamePick.atsEdge != null ? ` · ${(gamePick.atsEdge * 100).toFixed(0)}% edge` : ''}
+            </div>
+            {tier && (
+              <div
+                className={styles.pickConf}
+                style={{
+                  background: tier.igColor.bg,
+                  border: `1px solid ${tier.igColor.border}`,
+                  color: tier.igColor.text,
+                }}
+              >
+                {tier.icon} {tier.label}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
     </SlideShell>
   );
 }

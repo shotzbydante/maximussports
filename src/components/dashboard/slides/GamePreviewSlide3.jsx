@@ -1,22 +1,15 @@
 import SlideShell from './SlideShell';
 import styles from './GamePreviewSlide3.module.css';
 import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { TIERS } from '../../../utils/confidenceTier';
 
-const CONF_BG = {
-  High:   'rgba(45,138,110,0.14)',
-  Medium: 'rgba(183,152,108,0.14)',
-  Low:    'rgba(60,121,180,0.10)',
-};
-const CONF_BORDER = {
-  High:   'rgba(45,138,110,0.3)',
-  Medium: 'rgba(183,152,108,0.28)',
-  Low:    'rgba(60,121,180,0.22)',
-};
-const CONF_COLOR = {
-  High:   '#2d8a6e',
-  Medium: '#8a6e35',
-  Low:    '#3C79B4',
-};
+function pickToTier(pick) {
+  if (!pick) return null;
+  const c = pick.confidence ?? 0;
+  if (c >= 2) return TIERS.conviction;
+  if (c >= 1) return TIERS.lean;
+  return TIERS.tossUp;
+}
 
 export default function GamePreviewSlide3({ game, data, asOf, slideNumber, slideTotal, ...rest }) {
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
@@ -36,6 +29,7 @@ export default function GamePreviewSlide3({ game, data, asOf, slideNumber, slide
   } catch { /* ignore */ }
 
   const confLabel = gamePick ? confidenceLabel(gamePick.confidence) : null;
+  const tier = pickToTier(gamePick);
 
   // Watch bullets from headlines
   const gameTerms = [game?.awayTeam, game?.homeTeam].filter(Boolean).map(t => t.toLowerCase().split(' ').pop() || '');
@@ -80,16 +74,18 @@ export default function GamePreviewSlide3({ game, data, asOf, slideNumber, slide
             {gamePick.whyValue && (
               <div className={styles.slipWhy}>{gamePick.whyValue}</div>
             )}
-            <div
-              className={styles.slipConf}
-              style={{
-                background: CONF_BG[confLabel] || CONF_BG.Low,
-                border: `1px solid ${CONF_BORDER[confLabel] || CONF_BORDER.Low}`,
-                color: CONF_COLOR[confLabel] || CONF_COLOR.Low,
-              }}
-            >
-              {confLabel} Confidence
-            </div>
+            {tier && (
+              <div
+                className={styles.slipConf}
+                style={{
+                  background: tier.igColor.bg,
+                  border: `1px solid ${tier.igColor.border}`,
+                  color: tier.igColor.text,
+                }}
+              >
+                {tier.icon} {tier.label}
+              </div>
+            )}
           </div>
         ) : (
           <div className={styles.noSlip}>No qualified lean for this matchup today.</div>
