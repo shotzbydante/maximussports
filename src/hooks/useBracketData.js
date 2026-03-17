@@ -5,11 +5,17 @@
  *
  * Safety: NEVER returns a null/empty bracket after loading completes.
  * If all fetches fail, the projected bracket is always available.
+ *
+ * When official bracket data is detected, this hook automatically pushes
+ * it to tournamentHelpers.setOfficialBracketData() so ALL downstream
+ * surfaces (Content Studio, Upset Radar, seed breakdowns, emails)
+ * use the canonical official data instead of the projected field.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchBracketData } from '../data/bracketData';
 import { generateProjectedBracket } from '../data/projectedField';
+import { setOfficialBracketData, resetToProjectedField } from '../utils/tournamentHelpers';
 
 export function useBracketData() {
   const [bracket, setBracket] = useState(null);
@@ -21,10 +27,24 @@ export function useBracketData() {
     setError(null);
     try {
       const data = await fetchBracketData();
-      setBracket(data && data.regions?.length > 0 ? data : generateProjectedBracket());
+      if (data && data.regions?.length > 0) {
+        setBracket(data);
+
+        if (data.bracketMode === 'official') {
+          setOfficialBracketData(data);
+        } else {
+          resetToProjectedField();
+        }
+      } else {
+        const projected = generateProjectedBracket();
+        setBracket(projected);
+        resetToProjectedField();
+      }
     } catch (err) {
       setError(err.message);
-      setBracket(generateProjectedBracket());
+      const projected = generateProjectedBracket();
+      setBracket(projected);
+      resetToProjectedField();
     } finally {
       setLoading(false);
     }
@@ -36,7 +56,9 @@ export function useBracketData() {
   // force the projected bracket so the UI is never blank.
   useEffect(() => {
     if (!loading && (!bracket || !bracket.regions || bracket.regions.length === 0)) {
-      setBracket(generateProjectedBracket());
+      const projected = generateProjectedBracket();
+      setBracket(projected);
+      resetToProjectedField();
     }
   }, [loading, bracket]);
 

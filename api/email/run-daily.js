@@ -370,7 +370,30 @@ export default async function handler(req, res) {
       } catch { /* non-critical */ }
 
       if (isTournamentWeek()) {
-        tournamentMeta.topSeeds = ['Houston', 'Duke', 'Auburn', 'Florida'];
+        let topSeedNames = [];
+        try {
+          const bracketRes = await fetch(new URL('/api/bracketology/data', `http://${req.headers.host || 'localhost:3000'}`).href);
+          if (bracketRes.ok) {
+            const bracketJson = await bracketRes.json();
+            const bracket = bracketJson?.bracket;
+            if (bracket?.regions?.length > 0) {
+              for (const region of bracket.regions) {
+                for (const m of (region.matchups || [])) {
+                  const top = m.topTeam;
+                  if (top && !top.isPlaceholder && top.seed === 1 && top.shortName) {
+                    topSeedNames.push(top.shortName);
+                  }
+                }
+              }
+            }
+          }
+        } catch { /* bracket fetch failed — use fallback */ }
+
+        if (topSeedNames.length === 0) {
+          topSeedNames = ['Houston', 'Duke', 'Auburn', 'Florida'];
+        }
+
+        tournamentMeta.topSeeds = topSeedNames;
         tournamentMeta.bracketTip = '8 vs 9 matchups are historically coin flips \u2014 but the model still finds slight edges based on team efficiency and conference strength of schedule.';
 
         if (isPreTournament()) {

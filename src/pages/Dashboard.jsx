@@ -29,7 +29,10 @@ import {
   getUpsetRadarGames,
   getBatchTournamentInsights,
   getTeamSeed,
+  setOfficialBracketData,
+  getTournamentDataMode,
 } from '../utils/tournamentHelpers';
+import { fetchBracketData } from '../data/bracketData';
 import { REGIONS } from '../config/bracketology';
 import styles from './Dashboard.module.css';
 
@@ -237,6 +240,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (isAuthorized) loadData();
   }, [isAuthorized, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── ensure tournament helpers use official bracket when available ──
+  useEffect(() => {
+    if (!isAuthorized) return;
+    if (getTournamentDataMode() === 'official') return;
+    fetchBracketData().then(bracket => {
+      if (bracket?.bracketMode === 'official') {
+        setOfficialBracketData(bracket);
+      }
+    }).catch(() => {});
+  }, [isAuthorized]);
 
   // ── patch dashData.atsLeaders when hook resolves late ─────
   useEffect(() => {

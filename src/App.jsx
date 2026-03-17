@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import ScrollToTop from './components/layout/ScrollToTop';
@@ -19,6 +19,7 @@ import Contact from './pages/Contact';
 import Dashboard from './pages/Dashboard';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
+import { initOfficialBracket } from './utils/bracketInit';
 
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
@@ -28,6 +29,8 @@ const Friends = lazy(() => import('./pages/Friends'));
 const Join = lazy(() => import('./pages/Join'));
 
 export default function App() {
+  useEffect(() => { initOfficialBracket(); }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>

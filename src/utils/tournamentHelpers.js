@@ -1,9 +1,16 @@
 /**
  * Tournament helpers — reusable utilities for March Madness intelligence.
  *
- * Builds on PROJECTED_FIELD and the bracket pipeline to provide seed
- * lookups, region grouping, seed-line presets, and upset detection
- * across the entire app.
+ * Supports two data modes:
+ *   1. PROJECTED — pre-Selection Sunday, uses PROJECTED_FIELD
+ *   2. OFFICIAL  — post-Selection Sunday, uses live bracket data
+ *
+ * Call `setOfficialBracketData(bracket)` once the official bracket loads
+ * to switch all downstream lookups from projected to official.
+ *
+ * All exported functions read from whichever source is active.
+ * Surfaces that consume this module (Content Studio, Upset Radar, emails,
+ * seed breakdowns) automatically get the correct data.
  */
 
 import { PROJECTED_FIELD } from '../data/projectedField';
@@ -11,25 +18,107 @@ import { REGIONS, SEED_MATCHUP_ORDER } from '../config/bracketology';
 import { resolveBracketMatchup, warnUniformBatch } from './bracketMatchupResolver';
 import { getTournamentPrior, TOURNAMENT_PRIOR_META } from './tournamentPrior';
 
-// ── Seed lookup maps (built once, cached) ─────────────────────────
-const _seedBySlug = {};
-const _seedByName = {};
-const _teamsByRegion = {};
-const _teamsBySeed = {};
-const _allTournamentSlugs = new Set();
+// ── Internal state: active tournament field ───────────────────────
+let _activeField = PROJECTED_FIELD;
+let _activeMode = 'projected';
 
-for (const t of PROJECTED_FIELD) {
-  _seedBySlug[t.slug] = t.seed;
-  _seedByName[t.name.toLowerCase()] = t.seed;
-  if (t.shortName) _seedByName[t.shortName.toLowerCase()] = t.seed;
+let _seedBySlug = {};
+let _seedByName = {};
+let _teamsByRegion = {};
+let _teamsBySeed = {};
+let _allTournamentSlugs = new Set();
 
-  if (!_teamsByRegion[t.region]) _teamsByRegion[t.region] = [];
-  _teamsByRegion[t.region].push(t);
+function rebuildLookups(field) {
+  _seedBySlug = {};
+  _seedByName = {};
+  _teamsByRegion = {};
+  _teamsBySeed = {};
+  _allTournamentSlugs = new Set();
 
-  if (!_teamsBySeed[t.seed]) _teamsBySeed[t.seed] = [];
-  _teamsBySeed[t.seed].push(t);
+  for (const t of field) {
+    _seedBySlug[t.slug] = t.seed;
+    _seedByName[t.name.toLowerCase()] = t.seed;
+    if (t.shortName) _seedByName[t.shortName.toLowerCase()] = t.seed;
 
-  _allTournamentSlugs.add(t.slug);
+    if (!_teamsByRegion[t.region]) _teamsByRegion[t.region] = [];
+    _teamsByRegion[t.region].push(t);
+
+    if (!_teamsBySeed[t.seed]) _teamsBySeed[t.seed] = [];
+    _teamsBySeed[t.seed].push(t);
+
+    _allTournamentSlugs.add(t.slug);
+  }
+}
+
+// Initialize with projected field
+rebuildLookups(PROJECTED_FIELD);
+
+/**
+ * Switch tournament helpers to use official bracket data.
+ * Call this once the official ESPN bracket is loaded.
+ *
+ * Extracts the flat team list from bracket.regions[].matchups[] and
+ * rebuilds all lookup maps so every downstream function uses official data.
+ *
+ * @param {object} bracket — official bracket with .regions[].matchups[]
+ * @returns {boolean} true if switch succeeded
+ */
+export function setOfficialBracketData(bracket) {
+  if (!bracket?.regions || bracket.regions.length === 0) return false;
+
+  const teams = [];
+  for (const region of bracket.regions) {
+    for (const matchup of (region.matchups || [])) {
+      for (const team of [matchup.topTeam, matchup.bottomTeam]) {
+        if (!team || team.isPlaceholder || !team.slug) continue;
+        teams.push({
+          slug: team.slug,
+          name: team.name || team.shortName || team.slug,
+          shortName: team.shortName || team.name || team.slug,
+          seed: team.seed,
+          region: team.region || region.name,
+          conference: team.conference || null,
+          record: team.record || null,
+          logo: team.logo || null,
+          teamId: team.teamId || null,
+        });
+      }
+    }
+  }
+
+  if (teams.length < 32) {
+    console.warn(`[tournamentHelpers] Official bracket has only ${teams.length} teams — keeping projected field`);
+    return false;
+  }
+
+  _activeField = teams;
+  _activeMode = 'official';
+  rebuildLookups(teams);
+  console.log(`[tournamentHelpers] Switched to official bracket data (${teams.length} teams)`);
+  return true;
+}
+
+/**
+ * Reset to projected field (useful for testing or pre-Selection state).
+ */
+export function resetToProjectedField() {
+  _activeField = PROJECTED_FIELD;
+  _activeMode = 'projected';
+  rebuildLookups(PROJECTED_FIELD);
+}
+
+/**
+ * Returns the current data mode: 'projected' or 'official'.
+ */
+export function getTournamentDataMode() {
+  return _activeMode;
+}
+
+/**
+ * Returns the active tournament field (flat array of team objects).
+ */
+export function getActiveTournamentField() {
+  return _activeField;
 }
 
 /**
@@ -52,11 +141,11 @@ export function getTeamSeed(slugOrName) {
  */
 export function getTournamentTeam(slug) {
   if (!slug) return null;
-  return PROJECTED_FIELD.find(t => t.slug === slug) || null;
+  return _activeField.find(t => t.slug === slug) || null;
 }
 
 /**
- * Returns true if the team is in the 64-team tournament field.
+ * Returns true if the team is in the tournament field.
  */
 export function isTournamentTeam(slugOrName) {
   return getTeamSeed(slugOrName) != null;
