@@ -12,6 +12,7 @@ import {
   trackAccountCreated,
   trackFavoriteTeamsUpdated,
   trackSignupViewed,
+  trackSignupStarted,
 } from '../lib/analytics/posthog';
 import styles from './Settings.module.css';
 import { showToast } from '../components/common/Toast';
@@ -2887,6 +2888,7 @@ function UnauthenticatedPanel() {
     const sb = getSupabase();
     if (!sb) { setError('Auth service is not configured. Please contact support.'); setGoogleLoading(false); return; }
     track('auth_start_google', {});
+    trackSignupStarted({ method: 'google' });
     const { error: oauthErr } = await sb.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/settings` },
@@ -2897,6 +2899,7 @@ function UnauthenticatedPanel() {
   const sendConfirmEmail = async (emailAddress) => {
     setEmailLoading(true); setError('');
     track('auth_start_email', {});
+    trackSignupStarted({ method: 'email' });
     try {
       const res = await fetch('/api/auth/send-confirm-signup', {
         method: 'POST',

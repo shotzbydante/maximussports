@@ -42,18 +42,46 @@ function dbg(...args) {
 }
 
 /**
+ * Read the referral code stored by /join?ref=UUID, if any.
+ */
+function getStoredReferralCode() {
+  try { return localStorage.getItem('ms_referral_code') || null; } catch { return null; }
+}
+
+/**
+ * Capture UTM params + referrer from the current page URL / document.
+ * Safe to call at any time — returns nulls for missing values.
+ */
+function captureAcquisitionProps() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      utm_source:   params.get('utm_source')   || null,
+      utm_medium:   params.get('utm_medium')    || null,
+      utm_campaign: params.get('utm_campaign')  || null,
+      referrer:     (document.referrer || '').slice(0, 200) || null,
+      referral_code: getStoredReferralCode(),
+    };
+  } catch { return {}; }
+}
+
+/**
  * Build the canonical person-property object from Supabase user + profile + teams.
+ * Includes acquisition props (UTM, referrer, referral code) for funnel analysis.
  * @param {{ id: string, email?: string, app_metadata?: object, user_metadata?: object }} user
  * @param {{ username?: string } | null} profile
  * @param {string[]} teamSlugs
  * @returns {Record<string, string | null>}
  */
 function buildPersonProps(user, profile, teamSlugs = []) {
+  const acq = captureAcquisitionProps();
   return {
     username:       profile?.username ?? user?.user_metadata?.full_name ?? null,
     email:          user?.email ?? null,
     favorite_teams: teamSlugs.length > 0 ? teamSlugs.join(',') : null,
     plan:           'free',
+    signup_source:  user?.app_metadata?.provider ?? null,
+    ...acq,
   };
 }
 
@@ -80,9 +108,10 @@ export function identifyUser(user, profile, teamSlugs = []) {
 
 /**
  * Call after the onboarding wizard is fully saved to the DB.
- * Identifies the user with full person properties, then fires account_created.
+ * Identifies the user with full person properties, then fires account_created
+ * with acquisition context for funnel analysis.
  *
- * @param {{ id: string, email?: string, user_metadata?: object }} user
+ * @param {{ id: string, email?: string, user_metadata?: object, app_metadata?: object }} user
  * @param {{ username?: string } | null} profile
  * @param {string[]} teamSlugs
  * @param {{ method?: string }} [options]
@@ -90,8 +119,15 @@ export function identifyUser(user, profile, teamSlugs = []) {
 export function trackAccountCreated(user, profile, teamSlugs = [], { method = 'google' } = {}) {
   if (!user?.id) return;
   identifyUser(user, profile, teamSlugs);
-  dbg('trackAccountCreated', { method, username: profile?.username });
-  track('account_created', { method });
+  const acq = captureAcquisitionProps();
+  dbg('trackAccountCreated', { method, username: profile?.username, ...acq });
+  track('account_created', {
+    method,
+    referral_code: acq.referral_code,
+    utm_source: acq.utm_source,
+    utm_campaign: acq.utm_campaign,
+    referrer: acq.referrer,
+  });
 }
 
 /**
@@ -143,6 +179,25 @@ export function trackFavoriteTeamsUpdated(userId, teamSlugs = []) {
 export function trackSignupViewed() {
   dbg('trackSignupViewed');
   track('signup_viewed', {});
+}
+
+/**
+ * Unified signup_started event — fires when the user initiates auth
+ * (Google OAuth or email magic link). Bridges the gap between
+ * auth_start_* and account_created for funnel analysis.
+ *
+ * @param {{ method: string }} opts — "google" | "email"
+ */
+export function trackSignupStarted({ method = 'unknown' } = {}) {
+  const acq = captureAcquisitionProps();
+  dbg('trackSignupStarted', { method, ...acq });
+  track('signup_started', {
+    method,
+    referral_code: acq.referral_code,
+    utm_source: acq.utm_source,
+    utm_campaign: acq.utm_campaign,
+    referrer: acq.referrer,
+  });
 }
 
 /* ── Onboarding carousel events ─────────────────────────────────── */

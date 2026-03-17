@@ -1,9 +1,9 @@
 /**
- * Date helpers for Daily Schedule (now → Selection Sunday).
+ * Date helpers for Daily Schedule (now → end of NCAA tournament).
  */
 
-/** Selection Sunday 2026 */
-const SELECTION_SUNDAY = new Date('2026-03-15');
+/** National Championship 2026 (end of tournament) */
+const TOURNAMENT_END = new Date('2026-04-06');
 
 /** Format YYYY-MM-DD */
 export function toDateStr(d) {
@@ -13,11 +13,11 @@ export function toDateStr(d) {
   return `${y}-${m}-${day}`;
 }
 
-/** Get dates from today through Selection Sunday, max N days */
-export function getScheduleDates(maxDays = 14) {
+/** Get dates from today through the end of the NCAA tournament, max N days */
+export function getScheduleDates(maxDays = 21) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const end = new Date(SELECTION_SUNDAY);
+  const end = new Date(TOURNAMENT_END);
   end.setHours(0, 0, 0, 0);
   if (today > end) return [];
 
