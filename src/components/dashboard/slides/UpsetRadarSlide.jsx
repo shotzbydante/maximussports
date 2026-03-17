@@ -1,6 +1,7 @@
 import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamColors } from '../../../utils/teamColors';
+import { getConfidenceTier } from '../../../utils/confidenceTier';
 import styles from './UpsetRadarSlide.module.css';
 
 const CONVICTION_COLORS = {
@@ -10,9 +11,9 @@ const CONVICTION_COLORS = {
 };
 
 const UPSET_RISK_CONFIG = {
-  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '🔴' },
-  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '🟡' },
-  LOW:      { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.24)', icon: '🟢' },
+  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '\u25B2' },
+  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '\u2684' },
+  LOW:      { text: '#5FE8A8', bg: 'rgba(95,232,168,0.10)', border: 'rgba(95,232,168,0.24)', icon: '\u25C6' },
 };
 
 function getEdgeColor(pct) {
@@ -103,6 +104,20 @@ function ProbBar({ pct, winnerName, loserName, edgeColor }) {
   );
 }
 
+function TierChip({ tier }) {
+  if (!tier) return null;
+  const c = tier.igColor;
+  return (
+    <span
+      className={styles.badge}
+      style={{ color: c.text, background: c.bg, borderColor: c.border, gap: '3px', display: 'inline-flex', alignItems: 'center' }}
+    >
+      <span style={{ fontSize: '0.85em', lineHeight: 1 }}>{tier.icon}</span>
+      {tier.label}
+    </span>
+  );
+}
+
 function UpsetCard({ game, rank }) {
   if (!game) return null;
   const { topTeam, bottomTeam, topSeed, bottomSeed, region, modelResult } = game;
@@ -114,6 +129,7 @@ function UpsetCard({ game, rank }) {
   const confLabel = modelResult?.confidenceLabel || 'LOW';
   const winProb = modelResult?.winProbability ?? 0.5;
   const pct = Math.round(winProb * 100);
+  const tier = getConfidenceTier(winProb, isUpsetPick);
   const rationaleText = modelResult?.rationale || '';
 
   // Seed ordering: higher seed (lower number) ALWAYS on left
@@ -199,6 +215,7 @@ function UpsetCard({ game, rank }) {
           {rationaleText && <span className={styles.rationaleText}>{rationaleText}</span>}
         </div>
         <div className={styles.badgeStrip}>
+          <TierChip tier={tier} />
           <ConvictionBadge label={confLabel} />
           <UpsetRiskBadge risk={upsetRisk} />
         </div>

@@ -147,7 +147,7 @@ const ESPN_ID_MAP = {
   'marquette-golden-eagles': 269, 'gonzaga-bulldogs': 2250, 'utah-state-aggies': 328,
   'saint-louis-billikens': 139, 'saint-marys-gaels': 2608, 'vcu-rams': 2670,
   'new-mexico-lobos': 167, 'san-diego-state-aztecs': 21, 'dayton-flyers': 2126,
-  'liberty-flames': 2335, 'grand-canyon-lopes': 166, 'mcneese-cowboys': 2377,
+  'liberty-flames': 2335, 'grand-canyon-lopes': 2253, 'mcneese-cowboys': 2377,
   'belmont-bruins': 2057, 'ohio-bobcats': 195, 'south-florida-bulls': 58,
   'santa-clara-broncos': 221, 'boise-state-broncos': 68, 'miami-ohio-redhawks': 193,
   'nevada-wolf-pack': 2440, 'loyola-chicago-ramblers': 2341, 'tulsa-golden-hurricane': 202,

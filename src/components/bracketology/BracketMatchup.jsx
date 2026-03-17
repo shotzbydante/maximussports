@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getConfidenceTier } from '../../utils/confidenceTier';
 import styles from './BracketMatchup.module.css';
 
 export default function BracketMatchup({
@@ -23,8 +24,10 @@ export default function BracketMatchup({
 
   const isDivergent = showCompare && maximusPick && userPick && maximusPick !== userPick;
   const confLabel = prediction?.confidenceLabel;
-  const isUpset = prediction?.isUpset;
-  const isCoinFlip = prediction && prediction.edgeMagnitude < 0.04;
+
+  const tier = prediction
+    ? getConfidenceTier(prediction.winProbability, prediction.isUpset)
+    : null;
 
   function handlePick(position) {
     if (isWaiting) return;
@@ -76,13 +79,15 @@ export default function BracketMatchup({
               <span className={styles.maximusIcon}>◆</span>
               <span className={styles.maximusBtnLabel}>Maximus</span>
             </button>
-            {confLabel && (
-              <span className={`${styles.confMicro} ${styles[`conf${confLabel}`]}`}>
-                {confLabel === 'HIGH' ? 'H' : confLabel === 'MEDIUM' ? 'M' : 'L'}
+            {tier && (
+              <span
+                className={`${styles.tierChip} ${styles[tier.cssClass]}`}
+                title={`${tier.label} — ${Math.round((prediction.winProbability ?? 0.5) * 100)}%`}
+              >
+                <span className={styles.tierIcon}>{tier.icon}</span>
+                <span className={styles.tierLabel}>{tier.label}</span>
               </span>
             )}
-            {isUpset && <span className={styles.upsetMicro} title="Upset pick">!</span>}
-            {isCoinFlip && !isUpset && <span className={styles.coinFlipMicro} title="Coin flip">~</span>}
           </div>
         )}
       </div>
@@ -102,7 +107,9 @@ export default function BracketMatchup({
         <div className={styles.tooltip}>
           <div className={styles.tooltipHeader}>
             <span className={styles.tooltipWinner}>{prediction.winner?.shortName || prediction.winner?.name}</span>
-            <span className={`${styles.tooltipConf} ${styles[`conf${confLabel}`]}`}>{confLabel}</span>
+            {tier && (
+              <span className={`${styles.tooltipConf} ${styles[tier.cssClass]}`}>{tier.label}</span>
+            )}
           </div>
           {prediction.winProbability != null && (
             <span className={styles.tooltipProb}>

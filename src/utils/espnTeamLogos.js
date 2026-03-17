@@ -103,6 +103,20 @@ const SLUG_TO_ESPN_ID = {
   'weber-state-wildcats': '2692', 'northern-arizona-lumberjacks': '2464',
   'sacramento-state-hornets': '16', 'eastern-washington-eagles': '331',
   'idaho-vandals': '70',
+  // ── 2026 tournament teams — expanded coverage ──
+  'north-dakota-state-bison': '2449',
+  'california-baptist-lancers': '2856',
+  'hawaii-rainbow-warriors': '62',
+  'hawai-i-rainbow-warriors': '62',
+  'troy-trojans': '2653',
+  'pennsylvania-quakers': '219',
+  'tennessee-state-tigers': '2634',
+  'wright-state-raiders': '2750',
+  'tcu-horned-frogs': '2628',
+  // Slug variants from ESPN displayName slugification
+  'long-island-university-sharks': '2344',
+  'queens-university-royals': '3101',
+  'prairie-view-am-panthers': '2504',
 };
 
 /**

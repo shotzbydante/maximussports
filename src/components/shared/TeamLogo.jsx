@@ -11,10 +11,17 @@ function getInitials(name) {
   if (n.startsWith('St.') || n.startsWith('Saint')) return (words[0].slice(0, 1) + (words[1]?.[0] || '')).toUpperCase();
   const first = words[0];
   const last = words[words.length - 1];
-  if (['UCLA', 'USC', 'BYU', 'UCF', 'VCU', 'LSU', 'SMU', 'NJIT', 'UMBC'].includes(first)) return first.slice(0, 2);
+  if (['UCLA', 'USC', 'BYU', 'UCF', 'VCU', 'LSU', 'SMU', 'NJIT', 'UMBC', 'LIU', 'NDSU'].includes(first)) return first.slice(0, 3);
   if (first === 'NC' && words[1] === 'State') return 'NC';
   if (first === 'Texas' && words[1] === 'A&M') return 'TA';
   if (first === 'Miami' && words[1]?.startsWith('(Ohio)')) return 'MO';
+  if (first === 'Miami' && words[1]?.startsWith('(OH)')) return 'MO';
+  if (first === 'California' && words[1] === 'Baptist') return 'CB';
+  if (first === "Hawai\u2019i" || first === 'Hawaii') return 'HI';
+  if (first === 'Long' && words[1] === 'Island') return 'LI';
+  if (first === 'North' && words[1] === 'Dakota') return 'ND';
+  if (first === 'Wright' && words[1] === 'State') return 'WS';
+  if (first === 'Tennessee' && words[1] === 'State') return 'TS';
   return (first[0] + (last?.[0] || first[1] || '')).toUpperCase();
 }
 
