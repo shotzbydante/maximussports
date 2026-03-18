@@ -60,7 +60,7 @@ function TierBadge({ tier }) {
   );
 }
 
-export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
+export default function MatchupRow({ game, rankMap = {} }) {
   const { homeTeam, awayTeam, homeScore, awayScore, gameStatus, startTime, network } = game;
   const homeSlug = getTeamSlug(homeTeam);
   const awaySlug = getTeamSlug(awayTeam);
@@ -115,9 +115,6 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
       <span className={styles.time}>{formatTimePST(startTime)}</span>
       <span className={styles.network}>
         {network ? <SourceBadge source={network} /> : '—'}
-      </span>
-      <span className={styles.badge}>
-        <SourceBadge source={source} />
       </span>
       <ESPNGamecastLink game={game} />
     </div>

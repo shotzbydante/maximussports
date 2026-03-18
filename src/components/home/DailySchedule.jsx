@@ -119,11 +119,10 @@ export default function DailySchedule() {
                         <span>Status</span>
                         <span>Time</span>
                         <span>Network</span>
-                        <span />
                         <span>Gamecast</span>
                       </div>
                       {games.map((g) => (
-                        <MatchupRow key={g.gameId} game={g} source="ESPN" rankMap={rankMap} />
+                        <MatchupRow key={g.gameId} game={g} rankMap={rankMap} />
                       ))}
                     </div>
                   )}

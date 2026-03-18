@@ -1336,11 +1336,26 @@ export default function Dashboard() {
             <CarouselComposer
               template={activeSection}
               slideCount={slideCount}
-              data={activeSection === 'daily' && dailyDigest
-                ? { ...dashData, chatDigest: dailyDigest }
-                : activeSection === 'conference' && dailyChampOdds
-                  ? { ...dashData, championshipOdds: dailyChampOdds }
-                  : dashData}
+              data={(() => {
+                let d = dashData;
+                if (!d) return d;
+                const enrichments = {};
+                if (dailyChampOdds) enrichments.championshipOdds = dailyChampOdds;
+                if (d.rankingsTop25) {
+                  const rm = {};
+                  for (const r of d.rankingsTop25) {
+                    const name = r.teamName || r.name || r.team || '';
+                    const rank = r.rank ?? r.ranking ?? null;
+                    if (name && rank != null) {
+                      const slug = getTeamSlug(name);
+                      if (slug) rm[slug] = rank;
+                    }
+                  }
+                  if (Object.keys(rm).length > 0) enrichments.rankMap = rm;
+                }
+                if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
+                return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
+              })()}
               teamData={enhancedTeamData}
               conferenceData={activeSection === 'conference' && selectedConference ? { conference: selectedConference } : null}
               selectedGame={selectedGame}

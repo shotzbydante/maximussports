@@ -132,20 +132,26 @@
 
 .nav {
   display: flex;
-  gap: var(--space-xs);
+  align-items: center;
+  gap: 2px;
 }
 
 .navItem {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
 }
 
 .link {
-  padding: var(--space-xs) var(--space-md);
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
   transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .link:hover {
@@ -156,6 +162,7 @@
 .link.active {
   color: var(--color-primary);
   background: rgba(60, 121, 180, 0.1);
+  font-weight: 600;
 }
 
 .navOverlay {

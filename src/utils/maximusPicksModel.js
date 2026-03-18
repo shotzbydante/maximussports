@@ -992,13 +992,40 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     const homeAts = getBestAtsRecord(homeSlug, atsLeaders, atsBySlug);
     const awayAts = getBestAtsRecord(awaySlug, atsLeaders, atsBySlug);
 
+    const hasAtsData = homeAts || awayAts;
     const homeCoverTot = homeAts ? (homeAts.coverPct - 50) / 100 : 0;
     const awayCoverTot = awayAts ? (awayAts.coverPct - 50) / 100 : 0;
-    const combinedTrend = (homeCoverTot + awayCoverTot) / 2;
-    const trendMag = Math.abs(combinedTrend);
 
-    // Suppress totals when the two sides disagree in direction (one over, one under)
-    const sidesConflict = homeAts && awayAts &&
+    let combinedTrend;
+    let trendMag;
+    let usedPriceFallback = false;
+
+    if (hasAtsData) {
+      combinedTrend = (homeCoverTot + awayCoverTot) / 2;
+      trendMag = Math.abs(combinedTrend);
+    } else {
+      // Fallback: derive directional edge from over/under pricing asymmetry
+      const overPriceRaw = parseNum(game.overPrice);
+      const underPriceRaw = parseNum(game.underPrice);
+      if (overPriceRaw != null && underPriceRaw != null) {
+        const overImpl = mlToImplied(overPriceRaw);
+        const underImpl = mlToImplied(underPriceRaw);
+        if (overImpl != null && underImpl != null) {
+          const skew = underImpl - overImpl;
+          combinedTrend = skew > 0.02 ? -0.06 : skew < -0.02 ? 0.06 : 0;
+          trendMag = Math.abs(combinedTrend);
+          usedPriceFallback = true;
+        } else {
+          combinedTrend = 0;
+          trendMag = 0;
+        }
+      } else {
+        combinedTrend = 0;
+        trendMag = 0;
+      }
+    }
+
+    const sidesConflict = hasAtsData && homeAts && awayAts &&
       ((homeCoverTot > 0.01 && awayCoverTot < -0.01) || (homeCoverTot < -0.01 && awayCoverTot > 0.01));
     if (sidesConflict && trendMag < TOT_OU_MED_EDGE) continue;
 
@@ -1011,15 +1038,17 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     let confidence = 0;
     if (trendMag >= TOT_OU_HIGH_EDGE) confidence = 2;
     else if (trendMag >= TOT_OU_MED_EDGE) confidence = 1;
+    if (usedPriceFallback && confidence > 0) confidence = Math.max(0, confidence - 1);
 
     const priceStr = overPrice || underPrice ? ` (O ${overPrice ?? '—'} / U ${underPrice ?? '—'})` : '';
 
     const signals = [];
     if (homeAts && homeAts.coverPct != null) signals.push(`${game.homeTeam} ATS: ${Math.round(homeAts.coverPct)}% cover rate`);
     if (awayAts && awayAts.coverPct != null) signals.push(`${game.awayTeam} ATS: ${Math.round(awayAts.coverPct)}% cover rate`);
+    if (usedPriceFallback && leanLabel) signals.push(`Line pricing skew favors ${leanLabel.toLowerCase()}`);
     if (sidesConflict) signals.push('Pace signals partially conflict — lean is weaker');
-    else if (leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
-    else signals.push('No clear directional edge');
+    else if (!usedPriceFallback && leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
+    else if (!leanLabel) signals.push('No clear directional edge');
 
     const rationale = buildTotalsRationale({ homeTeam: game.homeTeam, awayTeam: game.awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence, tourn });
 
@@ -1031,7 +1060,7 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
       pickType: 'total', itemType: 'lean', pickTeam: null,
       pickLine: leanLabel ? `${leanLabel} ${marketTotal}${priceStr}` : `O/U ${marketTotal}${priceStr}`,
       leanDirection: leanLabel ?? null, confidence, lineValue: marketTotal,
-      edgeMag: trendMag, signals, rationale, partial: false,
+      edgeMag: trendMag, signals, rationale, partial: usedPriceFallback,
     });
   }
 

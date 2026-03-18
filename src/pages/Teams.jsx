@@ -388,25 +388,49 @@ export default function Teams() {
     return list;
   }, [filteredTeams, sortBy, championshipOdds]);
 
-  /* ── Grouped by conference (FIXED: minor conferences bucket into "Others") ── */
+  const bracketIsOfficial = isBracketOfficial();
+
   const grouped = useMemo(() => {
     const byConf = {};
     for (const team of sortedTeams) {
       const conf = mapConf(team.conference);
       if (!byConf[conf]) byConf[conf] = {};
-      const tier = team.oddsTier;
-      if (!byConf[conf][tier]) byConf[conf][tier] = [];
-      byConf[conf][tier].push(team);
+      if (bracketIsOfficial) {
+        if (!byConf[conf]._flat) byConf[conf]._flat = [];
+        byConf[conf]._flat.push(team);
+      } else {
+        const tier = team.oddsTier;
+        if (!byConf[conf][tier]) byConf[conf][tier] = [];
+        byConf[conf][tier].push(team);
+      }
     }
-    for (const conf of Object.keys(byConf)) {
-      for (const tier of TIER_ORDER) {
-        if (byConf[conf][tier]) byConf[conf][tier].sort((a, b) => a.name.localeCompare(b.name));
+    if (bracketIsOfficial) {
+      for (const conf of Object.keys(byConf)) {
+        const flat = byConf[conf]._flat || [];
+        flat.sort((a, b) => {
+          const aOdds = championshipOdds[a.slug];
+          const bOdds = championshipOdds[b.slug];
+          const aAm = aOdds?.bestChanceAmerican ?? aOdds?.american;
+          const bAm = bOdds?.bestChanceAmerican ?? bOdds?.american;
+          const aProb = aAm != null ? impliedProbFromAmerican(aAm) : null;
+          const bProb = bAm != null ? impliedProbFromAmerican(bAm) : null;
+          if (aProb != null && bProb == null) return -1;
+          if (aProb == null && bProb != null) return 1;
+          if (aProb == null && bProb == null) return a.name.localeCompare(b.name);
+          return bProb - aProb;
+        });
+      }
+    } else {
+      for (const conf of Object.keys(byConf)) {
+        for (const tier of TIER_ORDER) {
+          if (byConf[conf][tier]) byConf[conf][tier].sort((a, b) => a.name.localeCompare(b.name));
+        }
       }
     }
     return CONF_ORDER
       .filter((conf) => byConf[conf] && Object.keys(byConf[conf]).length > 0)
       .map((conf) => ({ conference: conf, tiers: byConf[conf] || {} }));
-  }, [sortedTeams]);
+  }, [sortedTeams, bracketIsOfficial, championshipOdds]);
 
   const handleConfExplore = (conf) => {
     setConferenceFilter(conf);
@@ -710,41 +734,64 @@ export default function Teams() {
               {expanded[conference] && (
                 <>
                   <div className={styles.conferenceBody}>
-                    {TIER_ORDER.map((tier) => {
-                      const teams = tiers[tier];
-                      if (!teams || teams.length === 0) return null;
-                      return (
-                        <div key={tier} className={styles.tierBlock}>
-                          <span className={styles.tierLabel}>{tier}</span>
-                          <ul className={styles.teamList}>
-                            {teams.map((team) => {
-                              const bracketOfficial = isBracketOfficial();
-                              const seed = getTeamSeed(team.slug);
-                              return (
-                                <li key={team.slug}>
-                                  <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
-                                    {seed != null && <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />}
-                                    <TeamLogo team={team} size={24} />
-                                    {!bracketOfficial && rankMap[team.slug] && seed == null && (
-                                      <span className={styles.rankBadge}>#{rankMap[team.slug]}</span>
-                                    )}
-                                    <span className={styles.teamName}>{team.name}</span>
-                                    {isOthers && (
-                                      <span className={styles.confLogoInline}>
-                                        <ConferenceLogo conference={team.conference} size={16} />
-                                      </span>
-                                    )}
-                                    <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                                    {!bracketOfficial && <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>}
-                                    <span className={styles.chevron}>&rarr;</span>
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      );
-                    })}
+                    {bracketIsOfficial && tiers._flat ? (
+                      <ul className={styles.teamList}>
+                        {tiers._flat.map((team) => {
+                          const seed = getTeamSeed(team.slug);
+                          return (
+                            <li key={team.slug}>
+                              <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
+                                {seed != null && <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />}
+                                <TeamLogo team={team} size={24} />
+                                <span className={styles.teamName}>{team.name}</span>
+                                {isOthers && (
+                                  <span className={styles.confLogoInline}>
+                                    <ConferenceLogo conference={team.conference} size={16} />
+                                  </span>
+                                )}
+                                <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                                <span className={styles.chevron}>&rarr;</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      TIER_ORDER.map((tier) => {
+                        const teams = tiers[tier];
+                        if (!teams || teams.length === 0) return null;
+                        return (
+                          <div key={tier} className={styles.tierBlock}>
+                            <span className={styles.tierLabel}>{tier}</span>
+                            <ul className={styles.teamList}>
+                              {teams.map((team) => {
+                                const seed = getTeamSeed(team.slug);
+                                return (
+                                  <li key={team.slug}>
+                                    <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
+                                      {seed != null && <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />}
+                                      <TeamLogo team={team} size={24} />
+                                      {rankMap[team.slug] && seed == null && (
+                                        <span className={styles.rankBadge}>#{rankMap[team.slug]}</span>
+                                      )}
+                                      <span className={styles.teamName}>{team.name}</span>
+                                      {isOthers && (
+                                        <span className={styles.confLogoInline}>
+                                          <ConferenceLogo conference={team.conference} size={16} />
+                                        </span>
+                                      )}
+                                      <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                                      <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
+                                      <span className={styles.chevron}>&rarr;</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                   {MAJOR_CONFS.includes(conference) && (
                     <ConferenceVideos conference={conference} onSelectVideo={setActiveVideo} />
