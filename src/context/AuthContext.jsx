@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
+import { trackAuthAccountCreated } from '../lib/analytics/posthog';
 
 const AuthContext = createContext(null);
 
@@ -70,6 +71,7 @@ async function upsertProfileClient(sb, user) {
 /**
  * Server-side fallback: call /api/profile/ensure with the user's access token.
  * This uses the service role key and bypasses RLS completely.
+ * Returns { ok, isNew } — the server endpoint distinguishes created vs existed.
  */
 async function upsertProfileServer(sb, user) {
   try {
@@ -77,7 +79,7 @@ async function upsertProfileServer(sb, user) {
     const token = session?.access_token;
     if (!token) {
       dbg('server fallback: no access token available');
-      return false;
+      return { ok: false, isNew: false };
     }
     const res = await fetch('/api/profile/ensure', {
       method:  'POST',
@@ -85,10 +87,10 @@ async function upsertProfileServer(sb, user) {
     });
     const json = await res.json().catch(() => ({}));
     dbg('server fallback result:', res.status, json);
-    return res.ok && json.ok;
+    return { ok: res.ok && json.ok, isNew: !!json.created };
   } catch (err) {
     dbg('server fallback exception:', err?.message);
-    return false;
+    return { ok: false, isNew: false };
   }
 }
 
@@ -121,38 +123,67 @@ async function backfillDisplayName(sb, user) {
 
 /**
  * Ensure a minimal profiles row exists for the signed-in user.
- * Tries the client-side upsert first (fast, no round-trip).
- * Falls back to the service-role server endpoint if RLS blocks it.
- * After ensuring the row exists, backfills display_name if missing.
- * Safe to call on every sign-in — no-op when row already exists.
+ *
+ * Returns { isNew: boolean } so the caller can fire auth_account_created
+ * exactly once for brand-new users. Detection works by checking the DB
+ * for an existing profile row before attempting the insert.
+ *
+ * Safe to call on every sign-in — no-op when the row already exists.
  */
 async function ensureProfileShell(sb, user) {
-  if (!user?.id) return;
+  if (!user?.id) return { isNew: false };
   dbg('ensureProfileShell for', user.id, 'email:', user.email);
 
+  // Fast check: does a profile row already exist?
+  try {
+    const { data: existing } = await sb
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (existing) {
+      dbg('profile exists for', user.id, '— skipping insert');
+      await backfillDisplayName(sb, user);
+      return { isNew: false };
+    }
+  } catch (err) {
+    dbg('profile existence check failed:', err?.message, '— proceeding with insert');
+  }
+
+  // No profile found (or check failed) — attempt creation
   const clientOk = await upsertProfileClient(sb, user);
   if (clientOk) {
-    console.log(`[auth] Profile shell ensured for user=${user.id} via client upsert`);
+    console.log(`[auth] Profile shell created for user=${user.id} via client upsert`);
     await backfillDisplayName(sb, user);
-    return;
+    return { isNew: true };
   }
 
   dbg('client upsert failed — trying server fallback');
-  const serverOk = await upsertProfileServer(sb, user);
-  if (serverOk) {
-    console.log(`[auth] Profile shell ensured for user=${user.id} via server fallback`);
+  const serverResult = await upsertProfileServer(sb, user);
+  if (serverResult.ok) {
+    console.log(`[auth] Profile shell created for user=${user.id} via server fallback`);
   } else {
     console.warn(`[auth] ensureProfileShell: both client and server paths failed for user=${user.id} — digest enrollment may be delayed until onboarding completes`);
   }
   await backfillDisplayName(sb, user);
+  return { isNew: serverResult.isNew };
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isNewAccount, setIsNewAccount] = useState(false);
+  const newAccountTrackedRef = useRef(false);
 
   useEffect(() => {
+    // Restore tracking guard from session (protects against React remounts)
+    try {
+      if (sessionStorage.getItem('mx_auth_account_created') === '1') {
+        newAccountTrackedRef.current = true;
+      }
+    } catch { /* ignore */ }
+
     const sb = getSupabase();
 
     if (!sb) {
@@ -160,18 +191,47 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    /**
+     * Fire auth_account_created exactly once for a truly new account.
+     * Triple-guarded: ref (same render), sessionStorage (same tab),
+     * localStorage (same device). The DB profile-existence check in
+     * ensureProfileShell prevents cross-device re-fires.
+     */
+    function handleNewAccount(authUser) {
+      if (newAccountTrackedRef.current) return;
+      try {
+        if (localStorage.getItem(`mx_acct_${authUser.id}`) === '1') {
+          newAccountTrackedRef.current = true;
+          return;
+        }
+      } catch { /* ignore */ }
+      newAccountTrackedRef.current = true;
+      setIsNewAccount(true);
+      try { sessionStorage.setItem('mx_auth_account_created', '1'); } catch { /* ignore */ }
+      try { localStorage.setItem(`mx_acct_${authUser.id}`, '1'); } catch { /* ignore */ }
+      const method = authUser.app_metadata?.provider || 'email';
+      trackAuthAccountCreated(authUser, { method });
+      console.log(`[auth] auth_account_created tracked for user=${authUser.id} method=${method}`);
+    }
+
     sb.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       setLoading(false);
-      if (sess?.user) ensureProfileShell(sb, sess.user);
+      if (sess?.user) {
+        ensureProfileShell(sb, sess.user).then(({ isNew }) => {
+          if (isNew) handleNewAccount(sess.user);
+        });
+      }
     });
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && sess?.user) {
-        ensureProfileShell(sb, sess.user);
+        ensureProfileShell(sb, sess.user).then(({ isNew }) => {
+          if (isNew && event === 'SIGNED_IN') handleNewAccount(sess.user);
+        });
       }
     });
 
@@ -185,7 +245,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, signOut, loading }}>
+    <AuthContext.Provider value={{ user, session, signOut, loading, isNewAccount }}>
       {children}
     </AuthContext.Provider>
   );

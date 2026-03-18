@@ -9,7 +9,7 @@ import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import {
   identifyUser,
-  trackAccountCreated,
+  trackOnboardingCompleted,
   trackFavoriteTeamsUpdated,
   trackSignupViewed,
   trackSignupStarted,
@@ -2786,7 +2786,7 @@ function AuthenticatedSettings({ user }) {
           setProfileLoading(false);
           // Show wizard if no profile OR if profile shell exists but onboarding
           // was never completed (no username → user never finished step 2/3).
-          if (!data || !data.username) { setShowWizard(true); wasNewUserRef.current = !data; }
+          if (!data || !data.username) { setShowWizard(true); wasNewUserRef.current = !data?.username; }
         }
       } catch {
         if (!cancelled) { setProfile(null); setProfileLoading(false); setShowWizard(true); wasNewUserRef.current = true; }
@@ -2806,7 +2806,7 @@ function AuthenticatedSettings({ user }) {
   };
 
   const handleWizardComplete = ({ teamSlugs = [] } = {}) => {
-    const isNew = wasNewUserRef.current;
+    const isFirstOnboarding = wasNewUserRef.current;
     wasNewUserRef.current = false;
     setShowWizard(false);
     const sb = getSupabase();
@@ -2816,8 +2816,8 @@ function AuthenticatedSettings({ user }) {
           if (data) {
             setProfile(data);
             invalidateProfileCache(user.id);
-            if (isNew) {
-              trackAccountCreated(user, data, teamSlugs, {
+            if (isFirstOnboarding) {
+              trackOnboardingCompleted(user, data, teamSlugs, {
                 method: user.app_metadata?.provider || 'google',
               });
               // Send welcome email (best-effort, non-blocking)

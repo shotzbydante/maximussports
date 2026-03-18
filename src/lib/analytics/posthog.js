@@ -4,31 +4,44 @@
  * Thin wrapper around src/analytics/index.js providing named, type-safe
  * functions for the auth / onboarding / favorites instrumentation.
  * All functions are safe no-ops if analytics is disabled or PostHog hasn't
- * loaded yet.
+ * loaded yet. Critical events are buffered by the analytics layer until
+ * PostHog is ready, so they are never silently dropped.
  *
  * ─── EVENT SCHEMA ────────────────────────────────────────────────────────────
  *
- *  signup_viewed          — unauthenticated settings panel becomes visible
+ *  signup_viewed            — unauthenticated settings panel becomes visible
  *
- *  account_created        — new user completes the onboarding wizard
- *    props: method (string)  — "google" | "email" | "magic_link"
+ *  signup_started           — user initiates auth (Google OAuth or email link)
+ *    props: method            "google" | "email"
  *
- *  account_create_skipped — user dismisses the signup gate without signing in
- *    props: reason (string)  — e.g. "welcome_modal_skipped"
+ *  auth_account_created     — NEW: source-of-truth for real account creation
+ *    fires from: AuthContext on first-ever sign-in (before onboarding)
+ *    props: method            "google" | "email"
  *
- *  login_success          — returning user authenticates successfully
- *    props: provider (string) — "google" | "email"
+ *  account_created          — backward-compat alias (fires alongside auth_account_created)
+ *    migrate dashboards to auth_account_created
  *
- *  favorite_teams_updated — user saves a changed team list
+ *  onboarding_completed     — user finishes the onboarding wizard
+ *    props: method, username, team_count, teams
+ *
+ *  account_create_skipped   — user dismisses the signup gate
+ *    props: reason (string)
+ *
+ *  login_success            — returning user authenticates
+ *    props: provider (string)
+ *
+ *  favorite_teams_updated   — user saves a changed team list
  *    props: count (number), slugs_csv (string)
  *
  * ─── PERSON PROPERTIES (set via posthog.identify) ────────────────────────────
  *
- *  username        string   — chosen @handle, e.g. "hoops_fan"
- *  email           string   — Supabase auth email
- *  favorite_teams  string   — comma-separated team slugs, e.g. "kansas,dayton"
- *                             (CSV over array for clean PostHog breakdown UI)
- *  plan            string   — always "free" for now
+ *  username               string   — chosen @handle
+ *  email                  string   — Supabase auth email
+ *  favorite_teams         string   — comma-separated team slugs
+ *  plan                   string   — "free" for now
+ *  signup_source          string   — auth provider
+ *  onboarding_completed   boolean  — true after wizard finish
+ *  utm_source, utm_medium, utm_campaign, referrer, referral_code
  *
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -107,27 +120,66 @@ export function identifyUser(user, profile, teamSlugs = []) {
 }
 
 /**
- * Call after the onboarding wizard is fully saved to the DB.
- * Identifies the user with full person properties, then fires account_created
- * with acquisition context for funnel analysis.
+ * Fire when a brand-new authenticated account is detected (first-ever sign-in).
+ * Called from AuthContext — fires BEFORE onboarding.
+ *
+ * This is the source-of-truth event for "new account created in Supabase."
+ * Also fires legacy `account_created` so existing dashboards keep working.
+ *
+ * @param {{ id: string, email?: string, app_metadata?: object, user_metadata?: object }} user
+ * @param {{ method?: string }} [options]
+ */
+export function trackAuthAccountCreated(user, { method = 'unknown' } = {}) {
+  if (!user?.id) return;
+  identifyUser(user, null, []);
+  const acq = captureAcquisitionProps();
+  const props = {
+    method,
+    referral_code: acq.referral_code,
+    utm_source: acq.utm_source,
+    utm_medium: acq.utm_medium,
+    utm_campaign: acq.utm_campaign,
+    referrer: acq.referrer,
+  };
+  dbg('trackAuthAccountCreated', props);
+  track('auth_account_created', props);
+  track('account_created', { ...props, _source: 'auth' });
+}
+
+/**
+ * Fire when the onboarding wizard is fully completed and saved to the DB.
+ * Identifies the user with complete profile + team properties, then fires event.
+ * Also sets the onboarding_completed person property for dashboards.
  *
  * @param {{ id: string, email?: string, user_metadata?: object, app_metadata?: object }} user
  * @param {{ username?: string } | null} profile
  * @param {string[]} teamSlugs
  * @param {{ method?: string }} [options]
  */
-export function trackAccountCreated(user, profile, teamSlugs = [], { method = 'google' } = {}) {
+export function trackOnboardingCompleted(user, profile, teamSlugs = [], { method = 'google' } = {}) {
   if (!user?.id) return;
   identifyUser(user, profile, teamSlugs);
+  setUserProperties({ onboarding_completed: true });
   const acq = captureAcquisitionProps();
-  dbg('trackAccountCreated', { method, username: profile?.username, ...acq });
-  track('account_created', {
+  dbg('trackOnboardingCompleted', { method, username: profile?.username, teams: teamSlugs.length });
+  track('onboarding_completed', {
     method,
+    username: profile?.username || null,
+    team_count: teamSlugs.length,
+    teams: teamSlugs.join(',') || null,
     referral_code: acq.referral_code,
     utm_source: acq.utm_source,
     utm_campaign: acq.utm_campaign,
     referrer: acq.referrer,
   });
+}
+
+/**
+ * @deprecated Use trackOnboardingCompleted for wizard completion.
+ * auth_account_created now fires from AuthContext at auth time.
+ */
+export function trackAccountCreated(user, profile, teamSlugs = [], opts = {}) {
+  trackOnboardingCompleted(user, profile, teamSlugs, opts);
 }
 
 /**

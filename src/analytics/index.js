@@ -29,6 +29,15 @@ let _posthog    = null;   // set after dynamic import resolves
 let _ga4Ready   = false;  // set after gtag script tag added
 let _sessionId  = '';
 
+/** Events that must be captured even if PostHog hasn't loaded yet. */
+const CRITICAL_EVENTS = new Set([
+  'signup_started', 'auth_account_created', 'account_created',
+  'onboarding_completed', 'oauth_attempted', 'oauth_blocked_embedded_browser',
+]);
+
+/** Buffer for critical events / identity calls fired before PostHog is ready. */
+const _buffer = { events: [], identifies: [], aliases: [] };
+
 // ─── Session ID ───────────────────────────────────────────────────────────────
 
 function getOrCreateSessionId() {
@@ -116,11 +125,49 @@ async function loadPostHog(key, host) {
       loaded: (instance) => {
         _posthog = instance;
         if (isDebug()) console.log('[Analytics] PostHog ready');
+        _flushBuffer();
       },
     });
   } catch (e) {
     if (isDebug()) console.warn('[Analytics] PostHog load failed', e);
   }
+}
+
+// ─── Buffer flush ─────────────────────────────────────────────────────────
+
+/**
+ * Replay buffered aliases → identifies → events once PostHog is available.
+ * Ordering ensures identity is established before events are captured.
+ */
+function _flushBuffer() {
+  if (!_posthog) return;
+
+  for (const { userId } of _buffer.aliases) {
+    try {
+      const currentId = _posthog.get_distinct_id?.();
+      if (currentId && currentId !== userId) {
+        _posthog.alias?.(userId);
+        if (isDebug()) console.log(`[Analytics] flush alias → ${userId}`);
+      }
+    } catch { /* ignore */ }
+  }
+  _buffer.aliases = [];
+
+  for (const { userId, props } of _buffer.identifies) {
+    try {
+      _posthog.identify(userId, props);
+      if (isDebug()) console.log(`[Analytics] flush identify ${userId}`);
+    } catch { /* ignore */ }
+  }
+  _buffer.identifies = [];
+
+  for (const { eventName, props } of _buffer.events) {
+    try {
+      _posthog.capture(eventName, props);
+      if (isDebug()) console.log(`[Analytics] flush event: ${eventName}`);
+    } catch { /* ignore */ }
+  }
+  _buffer.events = [];
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -176,6 +223,8 @@ export function track(eventName, props = {}) {
 
     if (_posthog) {
       try { _posthog.capture(eventName, merged); } catch { /* ignore */ }
+    } else if (CRITICAL_EVENTS.has(eventName)) {
+      _buffer.events.push({ eventName, props: merged });
     }
 
     if (_ga4Ready && window.gtag) {
@@ -218,7 +267,11 @@ export function identify(userId, traits = {}) {
   try {
     const props = sanitizeProps(traits);
     if (isDebug()) console.log(`[Analytics] identify ${userId}`, Object.keys(props));
-    if (_posthog) _posthog.identify(userId, props);
+    if (_posthog) {
+      _posthog.identify(userId, props);
+    } else {
+      _buffer.identifies.push({ userId, props });
+    }
   } catch { /* ignore */ }
 }
 
@@ -233,12 +286,12 @@ export function alias(userId) {
   try {
     if (_posthog) {
       const currentId = _posthog.get_distinct_id?.();
-      // Only alias when the anonymous session ID differs from the target user ID.
-      // Skipping when they match prevents circular self-aliases.
       if (currentId && currentId !== userId) {
         _posthog.alias?.(userId);
         if (isDebug()) console.log(`[Analytics] alias ${currentId} → ${userId}`);
       }
+    } else {
+      _buffer.aliases.push({ userId });
     }
   } catch { /* ignore */ }
 }
