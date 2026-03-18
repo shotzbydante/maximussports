@@ -178,9 +178,47 @@
 }
 
 .navDropdownItem .link {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: var(--space-md);
   border-radius: var(--radius-sm);
+}
+
+.navDropdownIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  margin-right: 8px;
+}
+
+.navDropdownBadgeNew {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #3B82F6;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+.navDropdownBadgeAdmin {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #D97706;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: auto;
 }
 
 @media (max-width: 768px) {

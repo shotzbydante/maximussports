@@ -1062,7 +1062,40 @@
   .moversGrid { grid-template-columns: repeat(2, 1fr); }
   .totalsStats { grid-template-columns: repeat(3, 1fr); }
   .totalsStatVal { font-size: 1rem; }
-  /* Briefing is expanded by default on mobile; JS toggle still works */
+
+  .header {
+    padding: var(--space-md) var(--space-sm) var(--space-sm);
+  }
+
+  .section,
+  .atsSection,
+  .rankingsSection,
+  .tableSection,
+  .picksSection {
+    padding: var(--space-md) var(--space-sm) 0;
+  }
+
+  .briefingCard {
+    margin: var(--space-md) var(--space-sm) 0;
+  }
+
+  .briefingBody {
+    padding: var(--space-sm) var(--space-sm);
+  }
+
+  .adSlot {
+    margin: var(--space-md) var(--space-sm) 0;
+  }
+
+  .promoModule {
+    margin: var(--space-md) var(--space-sm) 0;
+    padding: var(--space-sm) var(--space-sm);
+  }
+
+  .pageDisclosure {
+    margin: var(--space-md) var(--space-sm) 0;
+    padding: var(--space-sm) var(--space-sm);
+  }
 }
 
 /* Ensure collapse/expand buttons meet 40px tap-target on touch devices */

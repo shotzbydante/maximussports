@@ -5,7 +5,6 @@ import { getTeamSlug } from '../utils/teamSlug';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
 import LiveScores from '../components/scores/LiveScores';
-import SourceBadge from '../components/shared/SourceBadge';
 import styles from './Games.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 
@@ -108,7 +107,6 @@ export default function Games() {
               </h2>
               <span className={styles.livePill} aria-hidden>LIVE</span>
             </div>
-            <SourceBadge source="ESPN" />
           </div>
           <LiveScores
             games={scores.games}

@@ -11,7 +11,8 @@ import { fetchHomeFast } from '../api/home';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import SeedBadge from '../components/common/SeedBadge';
-import { getTeamSeed, isBracketOfficial } from '../utils/tournamentHelpers';
+import { getTeamSeed, isBracketOfficial, getTeamRegion } from '../utils/tournamentHelpers';
+import { REGIONS } from '../config/bracketology';
 import styles from './Teams.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 
@@ -189,6 +190,7 @@ export default function Teams() {
   const [search, setSearch] = useState('');
   const [conferenceFilter, setConferenceFilter] = useState('');
   const [tierFilter, setTierFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('All');
   const [expanded, setExpanded] = useState(() => {
     const o = {};
     CONF_ORDER.forEach((c) => { o[c] = true; });
@@ -342,11 +344,19 @@ export default function Teams() {
     if (tierFilter) {
       list = list.filter((t) => t.oddsTier === tierFilter);
     }
+    if (regionFilter !== 'All') {
+      list = list.filter((t) => getTeamRegion(t.slug) === regionFilter);
+      list.sort((a, b) => {
+        const aSeed = getTeamSeed(a.slug) ?? 99;
+        const bSeed = getTeamSeed(b.slug) ?? 99;
+        return aSeed - bSeed;
+      });
+    }
     if (rankFilter) {
       list = list.filter((t) => rankMap[t.slug] != null);
     }
     return list;
-  }, [search, conferenceFilter, tierFilter, rankFilter, rankMap]);
+  }, [search, conferenceFilter, tierFilter, regionFilter, rankFilter, rankMap]);
 
   /* ── Sorted teams (FIXED: minor conferences sort into "Others" position) ── */
   const sortedTeams = useMemo(() => {
@@ -601,8 +611,8 @@ export default function Teams() {
       {/* ── 5. Team Discovery ──────────────────────────────────────── */}
       <section id="team-discovery" className={styles.discoverySection}>
         <div className={styles.sectionHead}>
-          <span className={styles.sectionEyebrow}>Team Discovery</span>
-          <h2 className={styles.sectionHeadTitle}>Browse by Conference</h2>
+          <span className={styles.sectionEyebrow}>{isBracketOfficial() ? 'Tournament Watch' : 'Team Discovery'}</span>
+          <h2 className={styles.sectionHeadTitle}>{isBracketOfficial() ? 'Tournament Watch' : 'Browse by Conference'}</h2>
         </div>
 
         <div className={styles.filters}>
@@ -625,17 +635,31 @@ export default function Teams() {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <select
-            value={tierFilter}
-            onChange={(e) => setTierFilter(e.target.value)}
-            className={styles.select}
-            aria-label="Filter by tier"
-          >
-            <option value="">All tiers</option>
-            {TIER_ORDER.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
+          {isBracketOfficial() ? (
+            <select
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
+              className={styles.select}
+              aria-label="Filter by region"
+            >
+              <option value="All">All regions</option>
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              className={styles.select}
+              aria-label="Filter by tier"
+            >
+              <option value="">All tiers</option>
+              {TIER_ORDER.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             className={`${styles.rankFilterBtn} ${rankFilter ? styles.rankFilterBtnActive : ''}`}

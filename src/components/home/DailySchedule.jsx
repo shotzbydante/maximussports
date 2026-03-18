@@ -9,7 +9,6 @@ import { TEAMS } from '../../data/teams';
 import { buildSlugToRankMap } from '../../utils/rankingsNormalize';
 import { getScheduleDates, formatDateLabel, toDateStr } from '../../utils/dates';
 import MatchupRow from '../scores/MatchupRow';
-import SourceBadge from '../shared/SourceBadge';
 import styles from './DailySchedule.module.css';
 
 export default function DailySchedule() {
@@ -98,9 +97,7 @@ export default function DailySchedule() {
                 <span className={styles.panelCount}>
                   {loading ? '…' : games.length > 0 ? `${games.length} games` : '—'}
                 </span>
-                <span className={styles.panelBadge}>
-                  <SourceBadge source="ESPN" />
-                </span>
+                <span className={styles.panelBadge} />
                 <span className={styles.chevron} aria-hidden>{isExpanded ? '▾' : '▸'}</span>
               </button>
               {isExpanded && (

@@ -132,7 +132,6 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
             )}
           </div>
           <div className={styles.sourceBadges}>
-            <SourceBadge source={source} />
             {showOdds && sortedGames.some(hasOdds) && <SourceBadge source="Odds API" />}
           </div>
         </div>

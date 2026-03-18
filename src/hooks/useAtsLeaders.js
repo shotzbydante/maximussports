@@ -9,8 +9,8 @@ import { fetchAtsLeaders, fetchAtsRefresh } from '../api/atsLeaders';
 import { getAtsLeadersCacheMaybeStale, setAtsLeadersCache } from '../utils/atsLeadersCache';
 
 const VALID_WINDOWS = ['last30', 'last7', 'season'];
-const RETRY_DELAY_MS_FIRST = 800;
-const RETRY_DELAY_MS_SECOND = 2500;
+const RETRY_DELAY_MS_FIRST = 600;
+const RETRY_DELAY_MS_SECOND = 2000;
 
 function hasAtsData(leaders) {
   return (leaders?.best?.length || 0) + (leaders?.worst?.length || 0) > 0;

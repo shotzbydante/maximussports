@@ -20,6 +20,8 @@
 
 import { getTeamSlug } from './teamSlug';
 import { getAtsCache } from './atsCache';
+import { getTeamSeed, getTeamRegion, isTournamentActive } from './tournamentHelpers';
+import { getTournamentPrior } from './tournamentPrior';
 
 // ─── tuneable constants ────────────────────────────────────────────────────────
 
@@ -66,7 +68,7 @@ const PUBLIC_TEAMS = [
 const ATS_SPREAD_SOFT_CAP     = 7;
 const ATS_SPREAD_PENALTY_RATE = 0.05;
 // Extra guard: require top-tier edge for very large spreads
-const ATS_LARGE_SPREAD_GATE   = 10;
+const ATS_LARGE_SPREAD_GATE   = 12;
 
 // ATS partial-signal thresholds — relaxed
 const ATS_PARTIAL_COVER_MIN  = 0.53;
@@ -103,6 +105,103 @@ const VL_TOURN_VALUE_BUMP    = 0.01;
 const TOT_TOURN_EDGE_BUMP    = 0.02;
 const VL_LONGSHOT_ML         = 300;
 const ATS_TOURN_CONF_SPREAD  = 8;
+
+// ── March Madness ATS adjustments ─────────────────────────────────────────────
+// When tournament is active, use seed-based upset rates and March Madness signals
+// to produce more nuanced ATS picks instead of defaulting to spread magnitude.
+function getTournamentAtsEdge(game, homeSlug, awaySlug, rankMap, championshipOdds) {
+  if (!isTournamentActive()) return null;
+
+  const homeSeed = getTeamSeed(homeSlug);
+  const awaySeed = getTeamSeed(awaySlug);
+  if (homeSeed == null && awaySeed == null) return null;
+
+  const homeSpread = parseNum(game.homeSpread ?? game.spread);
+  if (homeSpread == null) return null;
+  const spreadMag = Math.abs(homeSpread);
+
+  const homeIsFav = homeSpread < 0;
+  const favSeed = homeIsFav ? (homeSeed ?? 99) : (awaySeed ?? 99);
+  const dogSeed = homeIsFav ? (awaySeed ?? 99) : (homeSeed ?? 99);
+  const favSlug = homeIsFav ? homeSlug : awaySlug;
+  const dogSlug = homeIsFav ? awaySlug : homeSlug;
+  const favTeam = homeIsFav ? game.homeTeam : game.awayTeam;
+  const dogTeam = homeIsFav ? game.awayTeam : game.homeTeam;
+
+  const prior = getTournamentPrior(favSeed, dogSeed, 1, 0);
+  const upsetRate = prior?.historicalUpsetRate ?? 0;
+
+  // Base ATS edge from spread-upset rate tension
+  // Higher upset rates = stronger lean toward the dog covering
+  let dogCoverEdge = 0;
+
+  if (upsetRate >= 0.35) {
+    dogCoverEdge = 0.14 + (upsetRate - 0.35) * 0.3;
+  } else if (upsetRate >= 0.20) {
+    dogCoverEdge = 0.08 + (upsetRate - 0.20) * 0.4;
+  } else if (upsetRate >= 0.08) {
+    dogCoverEdge = spreadMag >= 15 ? 0.06 : 0.03;
+  } else {
+    dogCoverEdge = spreadMag >= 25 ? 0.04 : -0.02;
+  }
+
+  // Championship odds adjustment: strong contenders get less dog cover edge
+  const favOdds = championshipOdds?.[favSlug];
+  const favAmerican = favOdds?.bestChanceAmerican ?? favOdds?.american;
+  if (favAmerican != null && favAmerican <= 500) {
+    dogCoverEdge -= 0.02;
+  }
+
+  // Ranking-based adjustment
+  const favRank = rankMap?.[favSlug];
+  const dogRank = rankMap?.[dogSlug];
+  if (favRank != null && favRank <= 5 && (dogRank == null || dogRank > 20)) {
+    dogCoverEdge -= 0.015;
+  }
+
+  const leanDog = dogCoverEdge > 0.03;
+  const pickTeam = leanDog ? dogTeam : favTeam;
+  const pickSlug = leanDog ? dogSlug : favSlug;
+  const opponentTeam = leanDog ? favTeam : dogTeam;
+  const opponentSlug = leanDog ? favSlug : dogSlug;
+  const pickIsHome = pickTeam === game.homeTeam;
+  const edgeMag = Math.abs(dogCoverEdge);
+
+  const confidence = edgeMag >= 0.14 ? 2 : edgeMag >= 0.08 ? 1 : 0;
+
+  const signals = [];
+  if (favSeed && dogSeed) {
+    signals.push(`#${favSeed} vs #${dogSeed} seed matchup`);
+  }
+  if (upsetRate >= 0.20) {
+    signals.push(`Historical upset rate: ${Math.round(upsetRate * 100)}%`);
+  }
+  if (leanDog) {
+    signals.push(`Underdog cover value — ${Math.round(upsetRate * 100)}% upset history`);
+    if (spreadMag >= 10) signals.push('Large spread inflates dog cover opportunity');
+  } else {
+    signals.push(`Favorite cover supported by seed/ranking edge`);
+    if (favRank && favRank <= 10) signals.push(`${favTeam} ranked #${favRank}`);
+  }
+
+  const favRegion = getTeamRegion(favSlug);
+  if (favRegion) signals.push(`${favRegion} Region`);
+
+  return {
+    pickTeam,
+    pickSlug,
+    opponentTeam,
+    opponentSlug,
+    pickIsHome,
+    edgeMag,
+    confidence,
+    signals,
+    leanDog,
+    favSeed,
+    dogSeed,
+    upsetRate,
+  };
+}
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -555,6 +654,12 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       if (spreadMagnitude != null && spreadMagnitude > ATS_SPREAD_SOFT_CAP) {
         const excess = spreadMagnitude - ATS_SPREAD_SOFT_CAP;
         spreadDiscount = Math.max(0.50, 1 - excess * ATS_SPREAD_PENALTY_RATE);
+        // Extra penalty for extreme spreads (20+ pts) — these are not high-value ATS picks
+        if (spreadMagnitude >= 20) {
+          spreadDiscount *= 0.7;
+        } else if (spreadMagnitude >= 15) {
+          spreadDiscount *= 0.85;
+        }
       }
       let adjustedEdge = rawEdge * spreadDiscount;
       if (adjustedEdge < atsMinEdge) continue;
@@ -663,27 +768,52 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       }
     }
 
-    // ── Tier 3: no ATS data — use market + ranking signals for directional lean ──
+    // ── Tier 3: no ATS data — use tournament signals or market + ranking ──
     if (homeSpreadNum != null && spreadMagnitude != null && spreadMagnitude >= 2) {
+      // Try tournament-aware logic first
+      const tournEdge = getTournamentAtsEdge(game, homeSlug, awaySlug, rankMap, championshipOdds);
+
+      if (tournEdge && tournEdge.edgeMag >= 0.04) {
+        const { spread: teamSpreadT3 } = getTeamSpread(game, tournEdge.pickIsHome);
+        const spreadDispT3 = fmtSpread(teamSpreadT3);
+
+        picks.push({
+          ...sharedBase,
+          itemType: 'lean',
+          pickTeam: tournEdge.pickTeam,
+          opponentTeam: tournEdge.opponentTeam,
+          opponentSlug: tournEdge.opponentSlug,
+          spread: teamSpreadT3,
+          pickLine: spreadDispT3 ? `${tournEdge.pickTeam} ${spreadDispT3}` : `${tournEdge.pickTeam} ATS —`,
+          confidence: tournEdge.confidence,
+          edgeMag: tournEdge.edgeMag,
+          signals: tournEdge.signals,
+          partial: true,
+          _tier: 3,
+        });
+        continue;
+      }
+
+      // Fallback: non-tournament or insufficient tournament data
       const homeRank = rankMap?.[homeSlug] ?? null;
       const awayRank = rankMap?.[awaySlug] ?? null;
       const homeIsRanked = homeRank != null && homeRank <= 25;
       const awayIsRanked = awayRank != null && awayRank <= 25;
 
-      // Lean toward the underdog unless spread is large + ranking confirms favorite
       const homeIsFav = homeSpreadNum < 0;
       const favTeam   = homeIsFav ? game.homeTeam : game.awayTeam;
       const dogTeam   = homeIsFav ? game.awayTeam : game.homeTeam;
-      const dogIsHome = !homeIsFav;
 
-      // Default: lean dog if spread is moderate (3-8 pts), lean fav if spread is large (>8)
-      let leanFav = spreadMagnitude > 8;
-
-      // Ranking override: if one team is ranked and the other isn't, lean toward the ranked side
-      if (homeIsRanked !== awayIsRanked) {
+      // Lean dog for moderate-to-large spreads; only lean fav for truly elite matchups
+      let leanFav = false;
+      if (spreadMagnitude > 14 && homeIsRanked !== awayIsRanked) {
         const rankedIsFav = (homeIsRanked && homeIsFav) || (awayIsRanked && !homeIsFav);
-        leanFav = rankedIsFav ? (spreadMagnitude > 10) : true;
+        leanFav = rankedIsFav;
       }
+
+      // Edge magnitude: use diminishing returns instead of linear scaling
+      // Tight spreads (3-8) get meaningful edges; huge spreads (20+) get capped
+      const edgeMag = Math.min(0.08, spreadMagnitude * 0.004 * (1 - spreadMagnitude * 0.01));
 
       const pickTeamT3 = leanFav ? favTeam : dogTeam;
       const pickIsHomeT3 = pickTeamT3 === game.homeTeam;
@@ -694,8 +824,8 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       signals.push(`Spread: ${fmtSpread(homeSpreadNum)} (${game.homeTeam})`);
       if (homeIsRanked) signals.push(`${game.homeTeam} ranked #${homeRank}`);
       if (awayIsRanked) signals.push(`${game.awayTeam} ranked #${awayRank}`);
-      if (!leanFav) signals.push('Market spread creates underdog cover value');
-      else signals.push('Large spread supports favorite cover');
+      if (!leanFav) signals.push('Underdog cover value at this spread magnitude');
+      else signals.push('Ranked favorite cover supported by ranking edge');
 
       const opponentTeamT3 = pickTeamT3 === game.homeTeam ? game.awayTeam : game.homeTeam;
       const opponentSlugT3 = pickTeamT3 === game.homeTeam ? awaySlug : homeSlug;
@@ -708,7 +838,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         spread: teamSpreadT3,
         pickLine: spreadDispT3 ? `${pickTeamT3} ${spreadDispT3}` : `${pickTeamT3} ATS —`,
         confidence: 0,
-        edgeMag: spreadMagnitude * 0.005,
+        edgeMag,
         signals,
         partial: true,
         _tier: 3,

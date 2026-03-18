@@ -14,16 +14,28 @@
 }
 
 @media (max-width: 767px) {
-  .row .time,
-  .row .network {
+  .row .time {
     display: none;
   }
 
   .row {
-    grid-template-columns: 1fr 60px auto auto;
-    gap: var(--space-sm);
-    font-size: 0.8rem;
-    line-height: 1.6;
+    grid-template-columns: 1fr 55px auto auto auto;
+    gap: 6px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .row .network {
+    font-size: 0.65rem;
+  }
+
+  .tierBadge {
+    display: none;
+  }
+
+  .tierNa {
+    display: none;
   }
 }
 

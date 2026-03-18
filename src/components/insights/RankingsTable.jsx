@@ -236,7 +236,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               <tr>
                 <th className={styles.colTeam}>Team</th>
                 <th className={styles.colConf}>Conference</th>
-                <th className={styles.colTier}>Tier</th>
+                <th className={styles.colTier}>{isBracketOfficial() ? 'Region' : 'Tier'}</th>
               </tr>
             </thead>
             <tbody>
@@ -282,7 +282,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
                           <td className={styles.colTier}>
                             {bracketOfficial ? (
                               seed != null
-                                ? <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />
+                                ? <span className={styles.badge} style={{ opacity: 0.6, fontSize: '0.7rem' }}>{getTeamRegion(team.slug) || '—'}</span>
                                 : <span className={styles.badge} style={{ opacity: 0.5 }}>—</span>
                             ) : (
                               <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>

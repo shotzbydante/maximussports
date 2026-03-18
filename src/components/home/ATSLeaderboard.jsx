@@ -130,7 +130,7 @@ export default function ATSLeaderboard({
 
   return (
     <section className={styles.card}>
-      {showProgressUI && (
+      {showProgressUI && !hasData && (
         <div className={styles.progressWrap} role="progressbar" aria-valuenow={progressPercent ?? undefined} aria-valuemin={0} aria-valuemax={100} aria-label="Loading ATS Leaders">
           <div className={styles.progressTrack}>
             {progressPercent != null ? (
@@ -144,8 +144,11 @@ export default function ATSLeaderboard({
       <div className={styles.header}>
         <div>
           <h3 className={styles.title}>{headerTitle}</h3>
-          {showProgressUI && loadingStatusMsg && (
+          {showProgressUI && loadingStatusMsg && !hasData && (
             <span className={styles.loadingStatus}>Loading ATS Leaders… ({loadingStatusMsg})</span>
+          )}
+          {showProgressUI && hasData && (
+            <span className={styles.loadingStatus} style={{ opacity: 0.5 }}>Refreshing…</span>
           )}
           {showStaleBadge && !showProgressUI && (
             <span className={styles.staleBadge}>Stale</span>
