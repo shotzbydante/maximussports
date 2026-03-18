@@ -24,6 +24,8 @@ import { getCachedVideos, setCachedVideos, getStaleVideos, setStaleVideos } from
 import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import SourceBadge from '../shared/SourceBadge';
+import SeedBadge from '../common/SeedBadge';
+import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
 import ExamplePinnedTeamCard from './ExamplePinnedTeamCard';
 import ShareButton from '../common/ShareButton';
 import styles from './PinnedTeamsSection.module.css';
@@ -844,12 +846,15 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
           {validPinned.map((slug) => {
             const team = getTeamBySlug(slug);
             const rank = rankMap[slug];
+            const seed = getTeamSeed(slug);
+            const bracketOfficial = isBracketOfficial();
             const nextGame = getNextGame(slug);
             const headlines = teamNews[slug] || [];
             return (
               <article key={slug} className={`${styles.card} ${isCompact ? styles.cardCompact : ''}`}>
                 <div className={styles.cardHeader}>
                   <Link to={`/teams/${slug}`} className={styles.cardLink}>
+                    {seed != null && <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />}
                     <TeamLogo team={team} size={32} />
                     <div className={styles.cardMeta}>
                       <span className={styles.teamName}>{team.name}</span>
@@ -857,12 +862,14 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     </div>
                   </Link>
                   <div className={styles.cardBadges}>
-                    {rank != null && (
+                    {!bracketOfficial && rank != null && seed == null && (
                       <span className={styles.rank}>#{rank}</span>
                     )}
-                    <span className={`${styles.tier} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                      {team.oddsTier}
-                    </span>
+                    {!bracketOfficial && (
+                      <span className={`${styles.tier} ${TIER_CLASS[team.oddsTier] || ''}`}>
+                        {team.oddsTier}
+                      </span>
+                    )}
                     {/* Compact icon-only share button */}
                     {(() => {
                       const cached = getAtsCache(slug);
