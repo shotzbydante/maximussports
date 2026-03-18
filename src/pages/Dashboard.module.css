@@ -644,6 +644,62 @@
   margin-left: auto;
 }
 
+/* ── Slate segmented control (Upset Radar day picker) ──── */
+.slateSegmented {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 3px;
+  overflow: hidden;
+}
+
+.slateBtn {
+  flex: 1;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.slateBtn:hover {
+  color: var(--color-text);
+  background: rgba(60, 121, 180, 0.06);
+}
+
+.slateBtnActive {
+  color: #fff;
+  background: var(--color-primary);
+  box-shadow: 0 1px 4px rgba(60, 121, 180, 0.3);
+  font-weight: 700;
+}
+
+.slateBtnActive:hover {
+  color: #fff;
+  background: var(--color-primary);
+}
+
+/* Rank number in matchup list */
+.matchupRank {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-accent, #E8845F);
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 /* Status badges */
 .readyBadge {
   display: inline-flex;

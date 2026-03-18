@@ -499,6 +499,8 @@ const UPSET_RADAR_DAY_HOOKS = {
 function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
   const upsetGames = tournamentInsights?.upsetGames || [];
   const dayCards = tournamentInsights?.dayCards || [];
+  const slateDayLabel = tournamentInsights?.dayLabel || '';
+  const slateRoundLabel = tournamentInsights?.roundLabel || '';
 
   if (upsetGames.length === 0 && dayCards.length === 0) {
     return {
@@ -526,7 +528,15 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
     hookDetail = `${modelUpsetPicks.length} model-backed upset${modelUpsetPicks.length > 1 ? 's' : ''} on the board`;
   }
 
-  const hook = `🚨 UPSET RADAR: ${hookDetail} 🏀`;
+  let hook;
+  if (slateDayLabel) {
+    const dayHooks = UPSET_RADAR_DAY_HOOKS[slateDayLabel] || [
+      (n) => `🚨 UPSET RADAR — ${slateDayLabel.toUpperCase()}: ${n} games flagged 🏀`,
+    ];
+    hook = _pick(dayHooks, slateDayLabel + slateRoundLabel)(topGames.length);
+  } else {
+    hook = `🚨 UPSET RADAR: ${hookDetail} 🏀`;
+  }
 
   let volatilityNote = '⚠️ The 5/12 and 8/9 seed bands break brackets every year. Don\u2019t sleep on these.';
   if (coinFlips.length >= 3) {

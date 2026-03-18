@@ -28,11 +28,13 @@ import {
   getFirstRoundMatchupsByRegion,
   getUpsetRadarGames,
   getUpsetRadarByDay,
+  getUpsetRadarSlateOptions,
   getBatchTournamentInsights,
   getTeamSeed,
   setOfficialBracketData,
   getTournamentDataMode,
   getTournamentPhase,
+  getRoundLabel,
 } from '../utils/tournamentHelpers';
 import { fetchBracketData } from '../data/bracketData';
 import { REGIONS } from '../config/bracketology';
@@ -72,6 +74,7 @@ export default function Dashboard() {
   const [includeHeadlines, setIncludeHeadlines] = useState(true);
   const [gameAngle, setGameAngle] = useState('value');
   const [gameMode, setGameMode] = useState('tournament'); // 'standard' | '5games' | 'tournament' | 'upset-radar'
+  const [upsetRadarSlate, setUpsetRadarSlate] = useState('auto'); // 'auto' | 'thu' | 'fri' | 'day1' | 'day2'
   const [tournamentPreset, setTournamentPreset] = useState('1-seeds');
   const [tournamentRegion, setTournamentRegion] = useState(null);
   const [tournamentSelectedMatchups, setTournamentSelectedMatchups] = useState([]);
@@ -428,12 +431,34 @@ export default function Dashboard() {
 
     if (gameMode === 'upset-radar') {
       const phase = getTournamentPhase();
+      const slateOpts = getUpsetRadarSlateOptions(phase);
+      const selectedOpt = slateOpts.options.find(o => o.id === upsetRadarSlate);
+      const regionFilter = selectedOpt?.regions || null;
+
+      let upsetGames;
+      let dayLabel = '';
+      let roundLabel = slateOpts.roundLabel;
+
+      if (upsetRadarSlate === 'auto' || !selectedOpt) {
+        upsetGames = getUpsetRadarGames(context, { round: slateOpts.round, limit: 5 });
+      } else {
+        upsetGames = getUpsetRadarGames(context, {
+          round: slateOpts.round,
+          limit: 5,
+          regionFilter,
+        });
+        dayLabel = selectedOpt.label;
+      }
+
       const dayCards = getUpsetRadarByDay(context, phase);
-      const upsetGames = getUpsetRadarGames(context);
+
       return {
         mode: 'upset-radar',
         upsetGames,
         dayCards,
+        dayLabel,
+        roundLabel,
+        slateOptions: slateOpts,
         insights: [],
         title: 'Upset\nRadar',
         subtitle: 'UPSET INTELLIGENCE',
@@ -468,7 +493,7 @@ export default function Dashboard() {
 
     const insights = getBatchTournamentInsights(matchups, context);
     return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [], preset: tournamentPreset || null };
-  }, [activeSection, gameMode, tournamentPreset, tournamentRegion, tournamentSelectedMatchups, dashData, dailyChampOdds]);
+  }, [activeSection, gameMode, upsetRadarSlate, tournamentPreset, tournamentRegion, tournamentSelectedMatchups, dashData, dailyChampOdds]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
@@ -771,6 +796,9 @@ export default function Dashboard() {
     } : {}),
     ...(tournamentInsightsData?.mode === 'upset-radar' ? {
       upsetRadarGames: tournamentInsightsData.upsetGames,
+      dayLabel: tournamentInsightsData.dayLabel || '',
+      roundLabel: tournamentInsightsData.roundLabel || '',
+      dayCards: upsetRadarSlate === 'auto' ? (tournamentInsightsData.dayCards || []) : [],
     } : {}),
   };
 
@@ -1105,27 +1133,66 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* ── Upset Radar mode (auto-populated) ──────── */}
-              {gameMode === 'upset-radar' && (
-                <div className={styles.controlGroup}>
-                  <label className={styles.controlLabel}>Auto-detected upset candidates</label>
-                  <div className={styles.selectedTeamPill}>
-                    🚨 Top 5 Upset Watch Games
-                  </div>
-                  <div className={styles.matchupSelectList}>
-                    {(tournamentInsightsData?.upsetGames || []).slice(0, 5).map((g, i) => (
-                      <div key={i} className={`${styles.matchupSelectRow} ${styles.matchupSelectRowActive}`}>
-                        <SeedBadge seed={g.topSeed} size="sm" />
-                        <span className={styles.matchupTeamName}>{g.topTeam?.shortName}</span>
-                        <span className={styles.matchupVs}>vs</span>
-                        <span className={styles.matchupTeamName}>{g.bottomTeam?.shortName}</span>
-                        <SeedBadge seed={g.bottomSeed} size="sm" />
-                        <span className={styles.matchupPct}>{Math.round((g.upsetProbability ?? 0) * 100)}%</span>
+              {/* ── Upset Radar mode ──────────────────────── */}
+              {gameMode === 'upset-radar' && (() => {
+                const slateOpts = tournamentInsightsData?.slateOptions;
+                const options = slateOpts?.options || [{ id: 'auto', shortLabel: 'Auto' }];
+                const displayGames = (tournamentInsightsData?.upsetGames || []).slice(0, 5);
+                const activeDayLabel = tournamentInsightsData?.dayLabel || '';
+                const activeRoundLabel = tournamentInsightsData?.roundLabel || '';
+
+                return (
+                  <>
+                    {/* Slate / Day Selector */}
+                    <div className={styles.controlGroup}>
+                      <label className={styles.controlLabel}>
+                        {activeRoundLabel || 'Round'} · Slate
+                      </label>
+                      <div className={styles.slateSegmented}>
+                        {options.map(opt => (
+                          <button
+                            key={opt.id}
+                            className={`${styles.slateBtn} ${upsetRadarSlate === opt.id ? styles.slateBtnActive : ''}`}
+                            onClick={() => {
+                              setUpsetRadarSlate(opt.id);
+                              setAssetsReady(false);
+                            }}
+                          >
+                            {opt.shortLabel}
+                          </button>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+
+                    {/* Candidate list */}
+                    <div className={styles.controlGroup}>
+                      <label className={styles.controlLabel}>
+                        {activeDayLabel
+                          ? `${activeDayLabel} · Top 5 Upset Watch`
+                          : 'Top 5 Upset Watch Games'
+                        }
+                      </label>
+                      <div className={styles.matchupSelectList}>
+                        {displayGames.length === 0 ? (
+                          <div className={styles.emptyPicker}>No games for this slate</div>
+                        ) : (
+                          displayGames.map((g, i) => (
+                            <div key={i} className={`${styles.matchupSelectRow} ${styles.matchupSelectRowActive}`}>
+                              <span className={styles.matchupRank}>{i + 1}</span>
+                              <SeedBadge seed={g.topSeed} size="sm" />
+                              <span className={styles.matchupTeamName}>{g.topTeam?.shortName}</span>
+                              <span className={styles.matchupVs}>vs</span>
+                              <span className={styles.matchupTeamName}>{g.bottomTeam?.shortName}</span>
+                              <SeedBadge seed={g.bottomSeed} size="sm" />
+                              <span className={styles.matchupPct}>{Math.round((g.upsetProbability ?? 0) * 100)}%</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* ── Single game mode (legacy) ─────────────── */}
               {gameMode === 'standard' && (

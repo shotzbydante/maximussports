@@ -432,22 +432,57 @@ const ROUND_LABEL_MAP = {
   6: 'Championship',
 };
 
-const SLATE_DAY_CONFIG = {
+export const SLATE_DAY_CONFIG = {
   first_round: {
     round: 1,
+    roundLabel: 'Round of 64',
     days: [
-      { label: 'Thursday', dayIndex: 0, regions: ['East', 'West'] },
-      { label: 'Friday', dayIndex: 1, regions: ['South', 'Midwest'] },
+      { id: 'thu', label: 'Thursday', shortLabel: 'Thu', dayIndex: 0, regions: ['East', 'West'] },
+      { id: 'fri', label: 'Friday', shortLabel: 'Fri', dayIndex: 1, regions: ['South', 'Midwest'] },
     ],
   },
   second_round: {
     round: 2,
+    roundLabel: 'Round of 32',
     days: [
-      { label: 'Saturday', dayIndex: 0, regions: ['East', 'West'] },
-      { label: 'Sunday', dayIndex: 1, regions: ['South', 'Midwest'] },
+      { id: 'day1', label: 'Saturday', shortLabel: 'Day 1', dayIndex: 0, regions: ['East', 'West'] },
+      { id: 'day2', label: 'Sunday', shortLabel: 'Day 2', dayIndex: 1, regions: ['South', 'Midwest'] },
     ],
   },
 };
+
+/**
+ * Get available slate options for the upset radar in the current phase.
+ * Returns { round, roundLabel, options: [{ id, label, shortLabel, regions }] }
+ * where options[0] is always { id: 'auto', label: 'Auto', shortLabel: 'Auto' }.
+ */
+export function getUpsetRadarSlateOptions(phase) {
+  const effectivePhase = phase || getTournamentPhase();
+  const config = SLATE_DAY_CONFIG[effectivePhase];
+
+  if (!config) {
+    const round = getActiveRound(effectivePhase);
+    return {
+      round,
+      roundLabel: getRoundLabel(round),
+      options: [{ id: 'auto', label: 'Auto', shortLabel: 'Auto', regions: null }],
+    };
+  }
+
+  return {
+    round: config.round,
+    roundLabel: config.roundLabel,
+    options: [
+      { id: 'auto', label: 'Auto', shortLabel: 'Auto', regions: null },
+      ...config.days.map(d => ({
+        id: d.id,
+        label: d.label,
+        shortLabel: d.shortLabel,
+        regions: d.regions,
+      })),
+    ],
+  };
+}
 
 /**
  * Get the current active round number from phase.
