@@ -46,3 +46,22 @@
   background: rgba(183, 152, 108, 0.15);
   color: var(--color-beige-dune);
 }
+
+/* ── Tournament network badges ──────────────────────────────── */
+.badgeTNT {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.badgeTBS {
+  background: rgba(0, 100, 180, 0.1);
+  color: #0064b4;
+  border: 1px solid rgba(0, 100, 180, 0.2);
+}
+
+.badgeTruTV {
+  background: rgba(120, 40, 160, 0.1);
+  color: #7828a0;
+  border: 1px solid rgba(120, 40, 160, 0.2);
+}

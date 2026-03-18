@@ -6,7 +6,8 @@ import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import TeamLogo from '../shared/TeamLogo';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
 import SeedBadge from '../common/SeedBadge';
-import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
+import { getTeamSeed, getTeamRegion, isBracketOfficial, groupTeamsByRegion } from '../../utils/tournamentHelpers';
+import { REGIONS } from '../../config/bracketology';
 import styles from './RankingsTable.module.css';
 
 function ChevronIcon({ className }) {
@@ -49,9 +50,10 @@ function impliedProbFromAmerican(american) {
  * @param {string}  [props.badge]    - Optional tag shown next to the title (e.g. "Deep Dive").
  * @param {number}  [props.capRows]  - Max rows to show before "View more". No cap when omitted.
  */
-export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null, badge, capRows, defaultSortBy = 'default' }) {
+export default function RankingsTable({ rankings: rankingsProp, title, collapsible = false, championshipOdds = {}, championshipOddsLoading = false, championshipOddsMeta = null, badge, capRows, defaultSortBy = 'default', showRegionFilter = false }) {
   const [conference, setConference] = useState('All');
   const [tier, setTier] = useState('All');
+  const [region, setRegion] = useState('All');
   const [sortBy, setSortBy] = useState(defaultSortBy);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showingAll, setShowingAll] = useState(false);
@@ -71,6 +73,17 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
     }
     if (tier !== 'All') {
       list = list.filter((t) => t.oddsTier === tier);
+    }
+    if (region !== 'All') {
+      list = list.filter((t) => {
+        const teamRegion = getTeamRegion(t.slug);
+        return teamRegion === region;
+      });
+      list.sort((a, b) => {
+        const aSeed = getTeamSeed(a.slug) ?? 99;
+        const bSeed = getTeamSeed(b.slug) ?? 99;
+        return aSeed - bSeed;
+      });
     }
     const confOrder = conference === 'All' ? CONF_ORDER : [conference];
     const tierOrder = tier === 'All' ? TIER_ORDER : [tier];
@@ -113,7 +126,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
       list.sort(defaultSort);
     }
     return list;
-  }, [conference, tier, sortBy, hasTop25, slugToRank, championshipOdds]);
+  }, [conference, tier, region, sortBy, hasTop25, slugToRank, championshipOdds]);
 
   // Apply row cap when set and user hasn't expanded yet
   const visibleTeams = capRows != null && !showingAll ? filtered.slice(0, capRows) : filtered;
@@ -185,6 +198,21 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
               ))}
             </select>
           </label>
+          {showRegionFilter && isBracketOfficial() && (
+            <label className={styles.filterLabel}>
+              <span className={styles.labelText}>Region</span>
+              <select
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                className={styles.select}
+              >
+                <option value="All">All</option>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className={styles.filterLabel}>
             <span className={styles.labelText}>Sort</span>
             <select
@@ -237,7 +265,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
                             <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
                               <span className={styles.rankCell}>
                                 {seed != null ? (
-                                  <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />
+                                  <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />
                                 ) : rank != null ? (
                                   <span className={styles.top25Badge} title="AP Top 25">
                                     #{rank}
@@ -254,7 +282,7 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
                           <td className={styles.colTier}>
                             {bracketOfficial ? (
                               seed != null
-                                ? <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />
+                                ? <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />
                                 : <span className={styles.badge} style={{ opacity: 0.5 }}>—</span>
                             ) : (
                               <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>

@@ -8,7 +8,7 @@
 
 import { createCache } from '../_cache.js';
 
-const ATS_TTL_MS = 10 * 60 * 1000;  // 10 min
+const ATS_TTL_MS = 15 * 60 * 1000;  // 15 min
 const HEADLINES_TTL_MS = 5 * 60 * 1000;  // 5 min
 const ATS_UNAVAILABLE_TTL_MS = 2 * 60 * 1000;  // 2 min
 

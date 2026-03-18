@@ -181,7 +181,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
             >
               {/* Away team row */}
               <div className={`${styles.teamRow} ${awayWon ? styles.teamRowWinner : ''} ${finished && !awayWon ? styles.teamRowLoser : ''}`}>
-                {awaySeed != null && <SeedBadge seed={awaySeed} size="sm" variant={awaySeed <= 4 ? 'gold' : 'default'} />}
+                {awaySeed != null && <SeedBadge seed={awaySeed} size="sm" teamSlug={awaySlug} />}
                 <span className={styles.teamLogoWrap}>
                   <TeamLogo team={awayTeamObj} size={24} />
                 </span>
@@ -212,7 +212,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
               {/* Home team row */}
               <div className={`${styles.teamRow} ${homeWon ? styles.teamRowWinner : ''} ${finished && !homeWon ? styles.teamRowLoser : ''}`}>
-                {homeSeed != null && <SeedBadge seed={homeSeed} size="sm" variant={homeSeed <= 4 ? 'gold' : 'default'} />}
+                {homeSeed != null && <SeedBadge seed={homeSeed} size="sm" teamSlug={homeSlug} />}
                 <span className={styles.teamLogoWrap}>
                   <TeamLogo team={homeTeamObj} size={24} />
                 </span>
@@ -238,6 +238,11 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
               <div className={styles.gameFooter}>
                 {/* Non-final: status left + time. Final: FINAL already shown in finalDivider above. */}
                 {!finished && <StatusChip status={g.gameStatus} />}
+                {g.network && (
+                  <span className={styles.networkBadge}>
+                    <SourceBadge source={g.network} />
+                  </span>
+                )}
                 {!compact && !finished && g.startTime && (
                   <span className={styles.gameTime}>{formatStartTime(g.startTime)}</span>
                 )}

@@ -47,6 +47,7 @@ const BASE_NAV_LINKS = [
   { to: '/teams', end: false, label: 'Team Intel Hub' },
   { to: '/insights', end: false, label: 'Odds Insights' },
   { to: '/news', end: false, label: 'News Feed' },
+  { to: '/dashboard', end: false, label: 'Dashboard' },
 ];
 
 const BRACKETOLOGY_LINK = { to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true };

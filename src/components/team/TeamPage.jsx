@@ -23,7 +23,7 @@ import { teamPersonality } from '../../utils/teamSnapshot';
 import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import SeedBadge from '../common/SeedBadge';
-import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
+import { getTeamSeed, getTeamRegion, isBracketOfficial, isTournamentActive, getTournamentTeam } from '../../utils/tournamentHelpers';
 import SEOHead, { buildOgImageUrl } from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
@@ -347,7 +347,11 @@ export default function TeamPage() {
                   const seed = getTeamSeed(slug);
                   return (
                     <>
-                      {seed != null && <SeedBadge seed={seed} size="md" variant={seed <= 4 ? 'gold' : 'default'} />}
+                      {seed != null && <SeedBadge seed={seed} size="md" teamSlug={slug} />}
+                      {seed != null && (() => {
+                        const region = getTeamRegion(slug);
+                        return region ? <span className={styles.regionTag}>{region} Region</span> : null;
+                      })()}
                       {!bracketOfficial && rank != null && seed == null && <span className={styles.rank}>#{rank}</span>}
                     </>
                   );
@@ -451,8 +455,20 @@ export default function TeamPage() {
             {!nextLineLoading && nextLine.nextEvent && (
               <div className={styles.nextGameBody}>
                 <div className={styles.nextGameMatchup}>
-                  <span className={styles.nextGameLabel}>vs</span>
-                  <strong className={styles.nextGameOpponent}>{nextLine.nextEvent.opponent || 'TBD'}</strong>
+                  {(() => {
+                    const oppName = nextLine.nextEvent.opponent || 'TBD';
+                    const oppSlug = getTeamSlug(oppName);
+                    const oppTeam = oppSlug ? { slug: oppSlug, name: oppName } : null;
+                    const oppSeed = getTeamSeed(oppSlug || oppName);
+                    return (
+                      <>
+                        {oppSeed != null && <SeedBadge seed={oppSeed} size="sm" teamSlug={oppSlug} />}
+                        {oppTeam && <TeamLogo team={oppTeam} size={28} />}
+                        <span className={styles.nextGameLabel}>vs</span>
+                        <strong className={styles.nextGameOpponent}>{oppName}</strong>
+                      </>
+                    );
+                  })()}
                   {nextLine.nextEvent.commenceTime && (
                     <span className={styles.nextGameTime}>{formatDateTime(nextLine.nextEvent.commenceTime)}</span>
                   )}
@@ -460,7 +476,9 @@ export default function TeamPage() {
                 {!nextLine.nextEvent.opponent || nextLine.nextEvent.opponent === 'TBD' ? (
                   <div className={styles.nextGameTbd}>
                     <p className={styles.nextGameTbdContext}>
-                      {team.conference} Tournament — opponent TBD
+                      {isTournamentActive() && getTeamSeed(slug)
+                        ? `NCAA Tournament — ${getTeamRegion(slug) || ''} Region — opponent TBD`
+                        : `${team.conference} Tournament — opponent TBD`}
                     </p>
                     <p className={styles.nextGameTbdLine}>Line: pending</p>
                   </div>
@@ -528,11 +546,27 @@ export default function TeamPage() {
                 ) : nextUpcoming ? (
                   <div className={styles.nextGameTbd}>
                     <div className={styles.nextGameMatchup}>
-                      <span className={styles.nextGameLabel}>{nextUpcoming.homeAway === 'home' ? 'vs' : '@'}</span>
-                      <strong className={styles.nextGameOpponent}>{nextUpcoming.opponent || 'TBD'}</strong>
+                      {(() => {
+                        const oppName = nextUpcoming.opponent || 'TBD';
+                        const oppSlug = getTeamSlug(oppName);
+                        const oppTeam = oppSlug ? { slug: oppSlug, name: oppName } : null;
+                        const oppSeed = getTeamSeed(oppSlug || oppName);
+                        return (
+                          <>
+                            {oppSeed != null && <SeedBadge seed={oppSeed} size="sm" teamSlug={oppSlug} />}
+                            {oppTeam && <TeamLogo team={oppTeam} size={24} />}
+                            <span className={styles.nextGameLabel}>{nextUpcoming.homeAway === 'home' ? 'vs' : '@'}</span>
+                            <strong className={styles.nextGameOpponent}>{oppName}</strong>
+                          </>
+                        );
+                      })()}
                     </div>
                     {(!nextUpcoming.opponent || nextUpcoming.opponent === 'TBD') && (
-                      <p className={styles.nextGameTbdContext}>{team.conference} Tournament — opponent TBD</p>
+                      <p className={styles.nextGameTbdContext}>
+                        {isTournamentActive() && getTeamSeed(slug)
+                          ? `NCAA Tournament — ${getTeamRegion(slug) || ''} Region — opponent TBD`
+                          : `${team.conference} Tournament — opponent TBD`}
+                      </p>
                     )}
                     <p className={styles.nextGameTbdLine}>Line: pending</p>
                   </div>

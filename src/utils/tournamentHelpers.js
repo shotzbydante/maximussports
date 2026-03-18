@@ -236,6 +236,22 @@ export function getTeamSeed(slugOrName) {
 }
 
 /**
+ * Get the tournament region for a team by slug or name.
+ * Returns null for non-tournament teams.
+ */
+export function getTeamRegion(slugOrName) {
+  if (!slugOrName) return null;
+  const team = _activeField.find(t => t.slug === slugOrName);
+  if (team) return team.region || null;
+  const lower = slugOrName.toLowerCase().trim();
+  const byName = _activeField.find(t =>
+    (t.name && t.name.toLowerCase() === lower) ||
+    (t.shortName && t.shortName.toLowerCase() === lower)
+  );
+  return byName?.region || null;
+}
+
+/**
  * Get full tournament team data by slug.
  */
 export function getTournamentTeam(slug) {

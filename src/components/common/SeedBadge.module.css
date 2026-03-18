@@ -1,4 +1,4 @@
-/* ── SeedBadge — tournament seed indicator ──────────────── */
+/* ── SeedBadge — tournament seed indicator with region colors ──── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -10,9 +10,10 @@
   white-space: nowrap;
   flex-shrink: 0;
   border-radius: 4px;
+  /* Default (no region) — neutral blue */
   background: rgba(74, 144, 217, 0.12);
   border: 1px solid rgba(74, 144, 217, 0.28);
-  color: #6EB3E8;
+  color: #4A8FD9;
 }
 
 .hash {
@@ -37,7 +38,36 @@
   border-radius: 5px;
 }
 
-/* ── Gold variant (for top seeds / featured) ────────────── */
+/* ── Region color system ────────────────────────────────── */
+/* East — deep blue */
+.regionEast {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #3B82F6;
+}
+
+/* West — burnt orange / amber */
+.regionWest {
+  background: rgba(217, 119, 6, 0.13);
+  border-color: rgba(217, 119, 6, 0.35);
+  color: #D97706;
+}
+
+/* South — emerald green */
+.regionSouth {
+  background: rgba(5, 150, 105, 0.13);
+  border-color: rgba(5, 150, 105, 0.35);
+  color: #059669;
+}
+
+/* Midwest — crimson / ruby */
+.regionMidwest {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.30);
+  color: #DC2626;
+}
+
+/* ── Gold variant (fallback for top seeds when no region) ── */
 .gold {
   background: rgba(183, 152, 108, 0.14);
   border-color: rgba(183, 152, 108, 0.32);

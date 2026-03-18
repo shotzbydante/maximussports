@@ -79,7 +79,7 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
     const showTier = !bracketIsOfficial;
     return (
       <span className={styles.teamCell}>
-        {showSeed && <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />}
+        {showSeed && <SeedBadge seed={seed} size="sm" teamSlug={slug} />}
         <span className={styles.teamLogoWrap}>
           <TeamLogo team={{ slug, name }} size={18} />
         </span>
@@ -113,7 +113,9 @@ export default function MatchupRow({ game, source = 'ESPN', rankMap = {} }) {
         <StatusChip status={gameStatus} />
       </span>
       <span className={styles.time}>{formatTimePST(startTime)}</span>
-      <span className={styles.network}>{network || '—'}</span>
+      <span className={styles.network}>
+        {network ? <SourceBadge source={network} /> : '—'}
+      </span>
       <span className={styles.badge}>
         <SourceBadge source={source} />
       </span>

@@ -4,7 +4,7 @@
  * Shape: { season, last30, last7 } (each { w, l, p, total, coverPct } or null).
  */
 
-const CACHE_TTL_MS = 7 * 60 * 1000; // 7 min
+const CACHE_TTL_MS = 12 * 60 * 1000; // 12 min
 const store = new Map(); // slug -> { data, expires }
 
 export function getAtsCache(slug) {

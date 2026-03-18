@@ -156,24 +156,67 @@ async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
   }
 
   const bullets = [];
-  const best = atsLeaders?.best || [];
-  if (best.length > 0) {
-    const top = best[0];
-    const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
-    bullets.push(
-      `${top.name || top.team} leans as the top ATS cover trend right now${pct ? ` (${pct} cover rate)` : ''} — worth monitoring before tip.`
-    );
-  }
-  if (best.length > 1) {
-    bullets.push(`Watch ${best[1].name || best[1].team} as a secondary value edge — strong recent ATS form with line movement potential.`);
-  }
-  if (scoresToday.length > 0) {
-    bullets.push(`${scoresToday.length} game${scoresToday.length !== 1 ? 's' : ''} on the board today. Monitor line movement in the hour before tip for sharp action.`);
-  }
-  if (rankingsTop25.length >= 3) {
-    const t = rankingsTop25[0];
-    const name = t.teamName || t.name || t.team || '';
-    if (name) bullets.push(`${name} holds the top spot in the AP poll. Ranked teams cover at a higher rate this late in the season.`);
+  const showTournament = isTournamentWeek();
+
+  if (showTournament) {
+    const best = atsLeaders?.best || [];
+    const finalGames = scoresToday.filter(g => {
+      const s = (g.gameStatus || '').toLowerCase();
+      return s === 'final' || s.includes('final');
+    });
+    const upcomingGames = scoresToday.filter(g => {
+      const s = (g.gameStatus || '').toLowerCase();
+      return !s.includes('final') && s !== 'final';
+    });
+
+    if (finalGames.length > 0) {
+      const marquee = finalGames[0];
+      const hs = parseInt(marquee.homeScore, 10);
+      const as = parseInt(marquee.awayScore, 10);
+      if (!isNaN(hs) && !isNaN(as)) {
+        const winner = hs > as ? marquee.homeTeam : marquee.awayTeam;
+        const loser = hs > as ? marquee.awayTeam : marquee.homeTeam;
+        const winScore = Math.max(hs, as);
+        const loseScore = Math.min(hs, as);
+        bullets.push(`${winner} defeated ${loser} ${winScore}-${loseScore} in tournament action — a result that reshapes bracket projections heading into the next round.`);
+      }
+    }
+
+    if (upcomingGames.length > 0) {
+      bullets.push(`${upcomingGames.length} tournament game${upcomingGames.length !== 1 ? 's' : ''} on today's slate. The model is tracking every matchup for live edge signals as tip approaches.`);
+    } else if (scoresToday.length === 0) {
+      bullets.push('No games today — the bracket resets between rounds. The model is already scanning the next slate for the strongest edges. Preview matchups below.');
+    }
+
+    if (best.length > 0) {
+      const top = best[0];
+      const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
+      bullets.push(
+        `${top.name || top.team} has been the sharpest ATS cover trend${pct ? ` (${pct})` : ''} — tournament teams with strong cover rates historically carry momentum into March.`
+      );
+    }
+
+    bullets.push('Check the bracket below for the model\'s latest edge signals, upset picks, and tournament matchup analysis.');
+  } else {
+    const best = atsLeaders?.best || [];
+    if (best.length > 0) {
+      const top = best[0];
+      const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
+      bullets.push(
+        `${top.name || top.team} leans as the top ATS cover trend right now${pct ? ` (${pct} cover rate)` : ''} — worth monitoring before tip.`
+      );
+    }
+    if (best.length > 1) {
+      bullets.push(`Watch ${best[1].name || best[1].team} as a secondary value edge — strong recent ATS form with line movement potential.`);
+    }
+    if (scoresToday.length > 0) {
+      bullets.push(`${scoresToday.length} game${scoresToday.length !== 1 ? 's' : ''} on the board today. Monitor line movement in the hour before tip for sharp action.`);
+    }
+    if (rankingsTop25.length >= 3) {
+      const t = rankingsTop25[0];
+      const name = t.teamName || t.name || t.team || '';
+      if (name) bullets.push(`${name} holds the top spot in the AP poll. Ranked teams cover at a higher rate this late in the season.`);
+    }
   }
 
   return bullets.slice(0, 4);

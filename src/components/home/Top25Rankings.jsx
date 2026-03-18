@@ -126,7 +126,7 @@ export default function Top25Rankings({ rankings: rankingsProp }) {
                   <span className={styles.colTier}>
                     {bracketOfficial ? (
                       seed != null
-                        ? <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />
+                        ? <SeedBadge seed={seed} size="sm" teamSlug={slug} />
                         : <span className={styles.tierNa}>—</span>
                     ) : (
                       team?.oddsTier ? (

@@ -1,13 +1,16 @@
 /**
- * Small badge indicating data source for provenance.
- * ESPN | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Team Feed names
+ * Small badge indicating data source / network for provenance.
+ * ESPN | CBS | TNT | TBS | truTV | Google News | Yahoo Sports | CBS Sports | NCAA.com | Mock | Odds API
  */
 
 import styles from './SourceBadge.module.css';
 
-const KNOWN_SOURCES = ['ESPN', 'Google News', 'Yahoo Sports', 'CBS Sports', 'NCAA.com', 'Mock', 'Odds API'];
 const SOURCE_STYLES = {
   ESPN: styles.badgeESPN,
+  CBS: styles.badgeCBS,
+  TNT: styles.badgeTNT,
+  TBS: styles.badgeTBS,
+  truTV: styles.badgeTruTV,
   'Google News': styles.badgeGoogleNews,
   'Yahoo Sports': styles.badgeYahoo,
   'CBS Sports': styles.badgeCBS,

@@ -3,7 +3,7 @@
  * Show cached first; refresh in background.
  */
 
-const STALE_MS = 5 * 60 * 1000;
+const STALE_MS = 10 * 60 * 1000;
 let cached = null;
 let cachedAt = 0;
 

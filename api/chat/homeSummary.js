@@ -94,8 +94,8 @@ function buildPayload(data) {
     status: g.gameStatus || 'Upcoming',
   }));
 
-  // Tomorrow: top 3 (may be empty — ESPN doesn't always have it)
-  const tomorrowTop3 = (tomorrowGames || []).slice(0, 3).map((g) => ({
+  // Tomorrow: top 5 (expanded from 3 for better between-rounds previews)
+  const tomorrowTop3 = (tomorrowGames || []).slice(0, 5).map((g) => ({
     away: g.awayTeam || '',
     home: g.homeTeam || '',
     spread: g.spread ?? null,
@@ -240,11 +240,11 @@ function buildPrompt(data) {
       p4 = `¶4 ATS + BRACKET CHECK: ${atsInstruction}. Which teams have been covering in the tournament? Which teams are the market still sleeping on?`;
       p5 = '¶5 NEWS + BRACKET PULSE: 1–2 headlines. End with a "state of the bracket" closer — who\'s still alive, whose bracket is busted, what to watch next.';
     } else if (dayOfWeek === 'Tuesday' || dayOfWeek === 'Wednesday') {
-      p1 = '¶1 TOURNAMENT UPDATE: Recap the most recent tournament results from yesterdayGames if any. If no games were played, frame this as a transition day — the bracket resets, teams prepare for the next round.';
-      p2 = '¶2 ODDS MOVEMENT: Reference 2–3 teams from champOdds. Positive odds MUST include "+". Frame as how the market is adjusting between rounds.';
-      p3 = '¶3 UPCOMING SLATE: Preview the next set of games from todayGames/tomorrowGames. Call out the marquee matchups, seed storylines, and potential upsets to watch.';
-      p4 = `¶4 ATS + MODEL SIGNALS: ${atsInstruction}. Use bettor language to frame which teams the model likes for the upcoming games.`;
-      p5 = '¶5 NEWS + PREVIEW: 1–2 headlines. End with anticipation for the upcoming games — frame the stakes and what\'s on the line.';
+      p1 = '¶1 TOURNAMENT UPDATE: Recap the most recent tournament results from yesterdayGames if any. If no games were played, acknowledge we are between rounds but frame it with energy — the bracket resets, the next slate is loaded with marquee matchups. NEVER say "it was a quiet day" or imply nothing is happening. The tournament is LIVE.';
+      p2 = '¶2 ODDS MOVEMENT: Reference 2–3 teams from champOdds whose stock shifted after recent results. Positive odds MUST include "+". Frame as how the market is adjusting between rounds — which favorites survived, which contenders emerged.';
+      p3 = '¶3 UPCOMING SLATE PREVIEW: This is the most important paragraph on transition days. Preview the NEXT round\'s key games from todayGames/tomorrowGames. Call out the marquee matchups by seed, potential upsets the model flags, and any must-watch games. If data shows upcoming Thursday/Friday games, highlight them. Even if todayGames is empty, use tomorrowGames. Frame with urgency — these games are COMING.';
+      p4 = `¶4 ATS + MODEL EDGES: ${atsInstruction}. Frame which teams the model likes for the upcoming round. Which ATS trends are carrying into the tournament? Which underdogs have the strongest cover signals? Use bettor language.`;
+      p5 = '¶5 BRACKET CHECK + CLOSER: 1–2 headlines from headlines[]. End with a sharp "state of the bracket" closer — who\'s still standing, who\'s on upset watch, what the model is flagging for the next wave of games. Make the reader feel the tournament is alive even on a transition day.';
     } else {
       p1 = `¶1 TOURNAMENT GAME DAY: ${roundLabel} action continues! Recap yesterday's results from yesterdayGames if any — call out upsets, close finishes, and standout performances. Be specific with scores.`;
       p2 = '¶2 ODDS PULSE: Reference 2–3 teams from champOdds. Positive odds MUST include "+". Frame as live tournament market reads.';

@@ -100,7 +100,6 @@
   }
 
   .teamRow {
-    grid-template-columns: 24px 1fr auto;
     padding: 1px 0;
     gap: 5px;
   }
@@ -190,11 +189,10 @@
 
 /* Team rows */
 .teamRow {
-  display: grid;
-  grid-template-columns: 26px 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 1px 0;
+  gap: 6px;
+  padding: 2px 0;
 }
 
 .teamRowWinner .teamName {
@@ -260,6 +258,7 @@ a.teamName:hover {
   color: var(--color-text-secondary);
   text-align: right;
   min-width: 32px;
+  margin-left: auto;
 }
 
 .scoreWinner {
@@ -342,6 +341,12 @@ a.teamName:hover {
   font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--color-text-muted);
+}
+
+.networkBadge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .gameFooterRight {
@@ -466,37 +471,81 @@ a.teamName:hover {
   border-top: 1px solid var(--color-border-light);
 }
 
-/* Mobile */
+/* ── Mobile: improved spacing and hierarchy ──────────────────── */
 @media (max-width: 600px) {
   .gameCard {
-    padding: 6px var(--space-sm);
+    padding: 8px var(--space-sm) 6px;
   }
 
-  /* Settled/upcoming cards are slightly more compact but keep ≥40px tap height */
   .gameCardFinal,
   .gameCardUpcoming {
-    padding-top: 5px;
-    padding-bottom: 5px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .teamRow {
+    gap: 4px;
+    padding: 2px 0;
   }
 
   .gameFooter {
-    padding-left: 32px;
+    padding-left: 0;
+    padding-top: 4px;
+    flex-wrap: wrap;
+    gap: 5px;
   }
 
   .teamLogoWrap {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
 
   .teamName {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 500;
   }
 
   .teamScore {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    min-width: 28px;
+  }
+
+  .scoreWinner {
+    font-size: 1rem;
   }
 
   .tierBadge {
     display: none;
+  }
+
+  .rank {
+    font-size: 0.6rem;
+  }
+
+  .widgetHeader {
+    padding: 10px var(--space-sm) 8px;
+  }
+
+  .finalDivider {
+    margin: 0;
+    padding: 0 2px;
+  }
+
+  .finalLabel {
+    font-size: 0.55rem;
+  }
+
+  .oddsText {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+  }
+
+  .gameTime {
+    font-size: 0.6rem;
+  }
+
+  .viewMore {
+    padding: 8px var(--space-sm);
+    font-size: 0.75rem;
   }
 }
