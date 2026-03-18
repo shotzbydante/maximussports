@@ -116,7 +116,7 @@ export default function BracketIntelStrip({
         )}
 
         {intel.biggestUpset && (
-          <IntelCard icon="upset" label="Boldest Upset" iconClass={styles.iconUpset}>
+          <IntelCard icon="upset" label="Boldest Upset Pick" iconClass={styles.iconUpset}>
             <span className={styles.cardValue}>
               {intel.biggestUpset.winner?.seed}-seed {intel.biggestUpset.winner?.shortName || intel.biggestUpset.winner?.name}
             </span>

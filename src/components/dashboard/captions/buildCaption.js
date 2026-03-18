@@ -408,9 +408,13 @@ function buildTournamentCaption({ tournamentInsights, asOf }) {
 
   let upsetNote = '';
   if (upsetPicks.length > 0) {
-    const upName = upsetPicks[0].winner?.shortName || upsetPicks[0].winner?.name || '?';
-    const upEmoji = _teamEmoji(upsetPicks[0].winner?.slug, upsetPicks[0].winner?.name);
-    upsetNote = `\n\n🚨 Upset alert: model likes ${upEmoji} ${upName} as an underdog winner`;
+    const pick = upsetPicks[0];
+    const upName = pick.winner?.shortName || pick.winner?.name || '?';
+    const upSeed = pick.winner?.seed;
+    const upEmoji = _teamEmoji(pick.winner?.slug, pick.winner?.name);
+    upsetNote = upSeed
+      ? `\n\n🚨 Upset pick: model backs #${upSeed} ${upEmoji} ${upName} as a lower-seed winner`
+      : `\n\n🚨 Upset pick: model backs ${upEmoji} ${upName} as an underdog winner`;
   }
 
   const convLine = strongestPct != null
@@ -472,26 +476,33 @@ function _buildUpsetGameLines(games) {
       ? Math.round(g.modelResult.winProbability * 100)
       : null;
     const pctStr = pct != null ? ` (${pct}%)` : '';
-    const prefix = isUpset ? '🚨' : '📊';
-    return `${i + 1}. ${prefix} ${pickEmoji} #${pickSeed} ${pickName} over #${oppSeed} ${oppName}${pctStr}`;
+
+    if (isUpset) {
+      return `${i + 1}. 🚨 ${pickEmoji} #${pickSeed} ${pickName} upset over #${oppSeed} ${oppName}${pctStr}`;
+    }
+    const underdogPct = pct != null ? (100 - pct) : null;
+    const underdogNote = underdogPct != null && underdogPct >= 35
+      ? ` — #${oppSeed} ${oppName} has a ${underdogPct}% upset chance`
+      : '';
+    return `${i + 1}. 📊 ${pickEmoji} #${pickSeed} ${pickName} over #${oppSeed} ${oppName}${pctStr}${underdogNote}`;
   });
 }
 
 const UPSET_RADAR_DAY_HOOKS = {
   Thursday: [
-    (n) => `🚨 THURSDAY UPSET RADAR: ${n} games you need to watch today 🏀`,
-    (n) => `🚨 UPSET RADAR — THURSDAY: The model flagged ${n} danger zone matchups 🏀`,
+    (n) => `🚨 THURSDAY DANGER ZONE: ${n} matchups the model flagged today 🏀`,
+    (n) => `🚨 UPSET RADAR — THURSDAY: ${n} danger zone matchups to watch 🏀`,
   ],
   Friday: [
-    (n) => `🚨 FRIDAY UPSET RADAR: ${n} games to keep your eye on today 🏀`,
+    (n) => `🚨 FRIDAY DANGER ZONE: ${n} matchups to keep your eye on today 🏀`,
     (n) => `🚨 UPSET RADAR — FRIDAY: ${n} matchups the model says could flip 🏀`,
   ],
   Saturday: [
-    (n) => `🚨 SATURDAY UPSET RADAR: ${n} Round of 32 games on upset watch 🏀`,
+    (n) => `🚨 SATURDAY DANGER ZONE: ${n} Round of 32 matchups on watch 🏀`,
     (n) => `🚨 UPSET RADAR — SATURDAY: The model sees chaos brewing in ${n} games 🏀`,
   ],
   Sunday: [
-    (n) => `🚨 SUNDAY UPSET RADAR: ${n} Round of 32 matchups flagged for volatility 🏀`,
+    (n) => `🚨 SUNDAY DANGER ZONE: ${n} Round of 32 matchups flagged for volatility 🏀`,
     (n) => `🚨 UPSET RADAR — SUNDAY: Can the chalk hold? ${n} matchups say no 🏀`,
   ],
 };
@@ -517,15 +528,17 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
   const topGames = upsetGames.slice(0, 5);
   const gameLines = _buildUpsetGameLines(topGames);
 
-  const modelUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
-  const coinFlips = topGames.filter(g => {
+  const trueUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
+  const dangerZoneGames = topGames.filter(g => {
     const p = g.modelResult?.winProbability;
-    return p != null && p < 0.55;
+    return !g.modelResult?.isUpset && p != null && p < 0.60;
   });
 
   let hookDetail = `${topGames.length} games flagged for maximum volatility`;
-  if (modelUpsetPicks.length > 0) {
-    hookDetail = `${modelUpsetPicks.length} model-backed upset${modelUpsetPicks.length > 1 ? 's' : ''} on the board`;
+  if (trueUpsetPicks.length > 0) {
+    hookDetail = `${trueUpsetPicks.length} underdog upset pick${trueUpsetPicks.length > 1 ? 's' : ''} + ${dangerZoneGames.length} danger zone matchup${dangerZoneGames.length !== 1 ? 's' : ''}`;
+  } else if (dangerZoneGames.length > 0) {
+    hookDetail = `${dangerZoneGames.length} danger zone matchup${dangerZoneGames.length !== 1 ? 's' : ''} the model flagged`;
   }
 
   let hook;
@@ -539,8 +552,8 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
   }
 
   let volatilityNote = '⚠️ The 5/12 and 8/9 seed bands break brackets every year. Don\u2019t sleep on these.';
-  if (coinFlips.length >= 3) {
-    volatilityNote = `⚠️ ${coinFlips.length} games under 55% — this is where brackets get busted.`;
+  if (dangerZoneGames.length >= 3) {
+    volatilityNote = `⚠️ ${dangerZoneGames.length} danger zone matchups under 60% — this is where brackets get busted.`;
   }
 
   const short = [
@@ -558,7 +571,7 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
   const long = [
     hook,
     '',
-    'Top upset-watch games:',
+    'Top danger zone matchups:',
     '',
     gameLines.join('\n'),
     '',
@@ -566,9 +579,9 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
     '',
     '📊 The model ran each matchup through rankings, ATS trends, title odds, and historical upset rates.',
     '',
-    '👇 Which upset are you calling? Drop it below.',
+    '👇 Which underdog are you calling? Drop it below.',
     '',
-    'Full bracket intel + upset picks → maximussports.ai',
+    'Full bracket intel → maximussports.ai',
     '',
     asOf ? `Data as of ${asOf}` : null,
     DISCLAIMER,
@@ -592,15 +605,18 @@ function buildMultiDayUpsetRadarCaptions({ dayCards, asOf }) {
     ];
     const hook = _pick(hookTemplates, dayLabel + roundLabel)(topGames.length);
 
-    const modelUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
+    const trueUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
     const biggestUpset = topGames.find(g => g.modelResult?.isUpset);
     const biggestName = biggestUpset?.modelResult?.winner?.shortName || biggestUpset?.modelResult?.winner?.name;
+    const biggestSeed = biggestUpset?.modelResult?.winner?.seed;
 
     let colorLine = '';
-    if (modelUpsetPicks.length > 0 && biggestName) {
-      colorLine = `The model is backing ${biggestName} as an upset special. Don\u2019t sleep on it.`;
+    if (trueUpsetPicks.length > 0 && biggestName) {
+      colorLine = biggestSeed
+        ? `The model is backing #${biggestSeed} ${biggestName} as a lower-seed upset pick. Don\u2019t sleep on it.`
+        : `The model is backing ${biggestName} as an underdog upset pick. Don\u2019t sleep on it.`;
     } else if (topGames.length > 0) {
-      colorLine = `Every game on this card has volatility the model flagged. Bracket busters live here.`;
+      colorLine = `Every game on this card is a danger zone matchup the model flagged. Bracket busters live here.`;
     }
 
     const short = [

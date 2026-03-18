@@ -5,13 +5,13 @@
  *   conviction  — >= 70%  "MODEL EDGE"
  *   tossUp      — 60–69%  "TOSS-UP"
  *   lean        — 55–59%  "SLIGHT EDGE"
- *   upsetAlert  — isUpset "UPSET ALERT"
+ *   dangerZone  — matchup where underdog is live
  *
  * Bracket tiers (model-driven, used by bracketology):
  *   high_conviction — stable, low-variance prediction
  *   lean            — directional lean
  *   dice_roll       — variance-driven, outcome uncertain
- *   upset_special   — high-EV conditional upset
+ *   upset_special   — model picks the lower seed (true underdog pick)
  */
 
 export const TIERS = {
@@ -31,14 +31,6 @@ export const TIERS = {
     cssClass: 'tierTossUp',
     igColor: { text: '#8EAFC4', bg: 'rgba(142,175,196,0.12)', border: 'rgba(142,175,196,0.30)' },
   },
-  upsetAlert: {
-    id: 'upsetAlert',
-    label: 'UPSET ALERT',
-    shortLabel: '\u25B2',
-    icon: '\u25B2',
-    cssClass: 'tierUpset',
-    igColor: { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)' },
-  },
   lean: {
     id: 'lean',
     label: 'SLIGHT EDGE',
@@ -46,6 +38,22 @@ export const TIERS = {
     icon: '\u2192',
     cssClass: 'tierLean',
     igColor: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.30)' },
+  },
+  dangerZone: {
+    id: 'dangerZone',
+    label: 'DANGER ZONE',
+    shortLabel: '\u26A0',
+    icon: '\u26A0',
+    cssClass: 'tierDangerZone',
+    igColor: { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)' },
+  },
+  upsetPick: {
+    id: 'upsetPick',
+    label: 'UPSET PICK',
+    shortLabel: '\u25B2',
+    icon: '\u25B2',
+    cssClass: 'tierUpset',
+    igColor: { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)' },
   },
 };
 
@@ -88,25 +96,25 @@ export const BRACKET_TIERS = {
   },
   upset_special: {
     id: 'upset_special',
-    label: 'UPSET SPECIAL',
+    label: 'UPSET PICK',
     shortLabel: '\u26A0',
     icon: '\u26A0',
     indicator: '\u26A0',
     cssClass: 'tierUpsetSpecial',
     igColor: { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)' },
-    description: 'High-EV conditional upset — historical triggers activated.',
+    description: 'Model backs the lower seed — true underdog pick.',
     isAnchor: false,
     regenerates: true,
   },
 };
 
 /**
- * Classify a prediction into a confidence tier (legacy game intel).
+ * Classify a prediction into a confidence tier based on win probability.
+ * Always classifies by conviction level — never overrides based on isUpset.
  */
 export function getConfidenceTier(winProbability, isUpset = false) {
   const pct = (winProbability ?? 0.5) * 100;
 
-  if (isUpset) return TIERS.upsetAlert;
   if (pct >= 70) return TIERS.conviction;
   if (pct >= 60) return TIERS.tossUp;
   if (pct >= 55) return TIERS.lean;
@@ -114,8 +122,52 @@ export function getConfidenceTier(winProbability, isUpset = false) {
 }
 
 /**
+ * Get the correct upset-framing context for a matchup on Upset Radar or
+ * similar editorial surfaces. This determines the right label semantics.
+ *
+ * @param {object} params
+ * @param {boolean} params.isUpset - Whether the model's pick IS the lower seed
+ * @param {number}  params.winProbability - Model's win probability for its pick
+ * @param {number}  [params.topSeed] - Higher seed number (lower = better)
+ * @param {number}  [params.bottomSeed] - Lower seed number (higher = worse)
+ * @returns {{ pickLabel, matchupLabel, isTrueUpsetPick, underdogPct }}
+ */
+export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed }) {
+  const pct = Math.round((winProbability ?? 0.5) * 100);
+  const underdogPct = isUpset ? pct : (100 - pct);
+  const isClose = pct < 60;
+
+  if (isUpset) {
+    return {
+      pickLabel: pct >= 60 ? 'UPSET PICK' : 'UPSET SPECIAL',
+      matchupLabel: 'UPSET PICK',
+      isTrueUpsetPick: true,
+      underdogPct,
+      badgeTier: TIERS.upsetPick,
+    };
+  }
+
+  if (isClose) {
+    return {
+      pickLabel: pct >= 55 ? 'SLIGHT EDGE' : 'DICE ROLL',
+      matchupLabel: 'DANGER ZONE',
+      isTrueUpsetPick: false,
+      underdogPct,
+      badgeTier: TIERS.dangerZone,
+    };
+  }
+
+  return {
+    pickLabel: pct >= 70 ? 'MODEL EDGE' : 'SLIGHT EDGE',
+    matchupLabel: underdogPct >= 30 ? 'LIVE UNDERDOG' : null,
+    isTrueUpsetPick: false,
+    underdogPct,
+    badgeTier: getConfidenceTier(winProbability),
+  };
+}
+
+/**
  * Get the bracket-specific tier from a prediction result.
- * Uses the bracketTier string produced by bracketMatchupResolver.
  */
 export function getBracketTier(prediction) {
   if (!prediction) return BRACKET_TIERS.lean;
@@ -124,8 +176,7 @@ export function getBracketTier(prediction) {
 }
 
 /**
- * Determine if a bracket pick should be treated as an anchor
- * (fixed during regeneration).
+ * Determine if a bracket pick should be treated as an anchor.
  */
 export function isAnchorPick(prediction) {
   const tier = getBracketTier(prediction);

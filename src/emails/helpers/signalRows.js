@@ -21,13 +21,16 @@ const UPSET_COLOR    = '#c05621';
  * @param {boolean} [isLast]           — omit bottom border on last row
  * @returns {string} HTML table row
  */
-export function signalRow({ matchup, edge, isUpset = false, upsetLabel }, isLast = false) {
-  const icon = isUpset ? '&#9888;&#65039;' : '&#127936;';
-  const rightColor = isUpset ? UPSET_COLOR : ACCENT;
+export function signalRow({ matchup, edge, isUpset = false, isDangerZone = false, upsetLabel }, isLast = false) {
+  const showAlert = isUpset || isDangerZone;
+  const icon = showAlert ? '&#9888;&#65039;' : '&#127936;';
+  const rightColor = showAlert ? UPSET_COLOR : ACCENT;
   const rightText = isUpset
-    ? `Upset Radar &mdash; ${upsetLabel || 'volatility alert'}`
-    : `Model Edge: ${edge}`;
-  const rightSize = isUpset ? '12px' : '13px';
+    ? `Upset Pick &mdash; ${upsetLabel || 'underdog backed by model'}`
+    : isDangerZone
+      ? `Danger Zone &mdash; ${upsetLabel || 'volatile matchup'}`
+      : `Model Edge: ${edge}`;
+  const rightSize = showAlert ? '12px' : '13px';
   const borderStyle = isLast ? '' : `border-bottom:1px solid ${BORDER};`;
 
   return `<tr>
@@ -76,14 +79,21 @@ export function buildSignalsFromPicks(picks = [], max = 5) {
   return picks.slice(0, max).map(p => {
     const matchup = p.matchup || `${p.awayTeam || p.team1 || '?'} vs ${p.homeTeam || p.team2 || '?'}`;
     const prob = p.probability || p.winProb || p.modelProb || null;
-    const isVolatile = p.isUpset || p.volatile || p.upsetRadar || false;
     const winner = p.winner || p.pick || p.favored || '';
 
-    if (isVolatile) {
+    if (p.isUpset) {
       return {
         matchup,
         isUpset: true,
-        upsetLabel: p.upsetLabel || 'volatility alert',
+        upsetLabel: p.upsetLabel || 'underdog backed by model',
+      };
+    }
+
+    if (p.volatile || p.upsetRadar) {
+      return {
+        matchup,
+        isDangerZone: true,
+        upsetLabel: p.upsetLabel || 'volatile matchup',
       };
     }
 
@@ -102,5 +112,5 @@ export function buildSignalsFromPicks(picks = [], max = 5) {
 export const FALLBACK_SIGNALS = [
   { matchup: 'Duke vs Creighton', edge: 'Duke 97%' },
   { matchup: 'Houston vs Oklahoma', edge: 'Houston 91%' },
-  { matchup: 'UCF vs Texas', isUpset: true, upsetLabel: 'volatility alert' },
+  { matchup: 'UCF vs Texas', isDangerZone: true, upsetLabel: 'volatile matchup' },
 ];

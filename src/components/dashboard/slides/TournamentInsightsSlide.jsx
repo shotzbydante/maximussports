@@ -1,12 +1,12 @@
 import SlideShell from './SlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamColors } from '../../../utils/teamColors';
-import { getConfidenceTier } from '../../../utils/confidenceTier';
+import { getConfidenceTier, getUpsetFraming } from '../../../utils/confidenceTier';
 import styles from './TournamentInsightsSlide.module.css';
 
-const UPSET_RISK_CONFIG = {
-  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '\u25B2', label: 'UPSET RISK' },
-  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '\u2684', label: 'VOLATILE' },
+const MATCHUP_RISK_CONFIG = {
+  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '\u25B2' },
+  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '\u2684' },
 };
 
 function getEdgeColor(pct) {
@@ -36,12 +36,13 @@ function socialTitle(rawTitle, preset) {
   return rawTitle;
 }
 
-function UpsetRiskChip({ risk }) {
-  const cfg = UPSET_RISK_CONFIG[risk];
+function MatchupRiskChip({ risk, framing }) {
+  const cfg = MATCHUP_RISK_CONFIG[risk];
   if (!cfg) return null;
+  const label = framing?.matchupLabel || (risk === 'HIGH' ? 'DANGER ZONE' : 'VOLATILE');
   return (
     <span className={styles.badge} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
-      {cfg.icon} {cfg.label}
+      {cfg.icon} {label}
     </span>
   );
 }
@@ -136,7 +137,13 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
 
   const upsetRisk = computeUpsetRisk(insight);
   const pct = Math.round((winProbability ?? 0.5) * 100);
-  const tier = getConfidenceTier(winProbability, insight.isUpset);
+  const tier = getConfidenceTier(winProbability);
+  const framing = getUpsetFraming({
+    isUpset: insight.isUpset ?? false,
+    winProbability: winProbability ?? 0.5,
+    topSeed: leftSeed,
+    bottomSeed: rightSeed,
+  });
 
   const winnerSlug = winnerTeam?.slug || '';
   const tc = getTeamColors(winnerSlug);
@@ -178,7 +185,11 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           </div>
           <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
           <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
-          {isPickLeft && <span className={styles.maximusPick}>Maximus&#39;s Pick</span>}
+          {isPickLeft && (
+            <span className={styles.maximusPick}>
+              {framing.isTrueUpsetPick ? `🚨 ${framing.pickLabel}` : `◆ ${framing.pickLabel}`}
+            </span>
+          )}
         </div>
 
         {/* CENTER: Probability Ring + VS */}
@@ -198,7 +209,11 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           </div>
           <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
           <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
-          {!isPickLeft && <span className={styles.maximusPick}>Maximus&#39;s Pick</span>}
+          {!isPickLeft && (
+            <span className={styles.maximusPick}>
+              {framing.isTrueUpsetPick ? `🚨 ${framing.pickLabel}` : `◆ ${framing.pickLabel}`}
+            </span>
+          )}
         </div>
       </div>
 
@@ -239,7 +254,7 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
         </div>
         <div className={styles.badgeStrip}>
           <TierChip tier={tier} />
-          <UpsetRiskChip risk={upsetRisk} />
+          <MatchupRiskChip risk={upsetRisk} framing={framing} />
         </div>
       </div>
     </div>

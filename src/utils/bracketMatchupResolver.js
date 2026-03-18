@@ -288,7 +288,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     high_conviction: 'High Conviction',
     lean: 'Lean',
     dice_roll: 'Dice Roll',
-    upset_special: 'Upset Special',
+    upset_special: 'Upset Pick',
   };
 
   const rationale = buildRationale(winner, loser, {
@@ -483,7 +483,12 @@ function buildRationale(winner, loser, ctx) {
   }
 
   if (ctx.isUpset) {
-    parts.push(`Model-driven upset pick: ${winner.seed}-seed over ${loser.seed}-seed.`);
+    parts.push(`Lower seed upset pick: #${winner.seed} over #${loser.seed}.`);
+  } else if (winner.seed != null && loser.seed != null && winner.seed < loser.seed) {
+    const underdogPct = Math.round((1 - (0.5 + ctx.edgeMag)) * 100);
+    if (underdogPct >= 35) {
+      parts.push(`#${loser.seed}-seed has a live ${underdogPct}% upset chance.`);
+    }
   }
 
   if (ctx.winnerRank != null && ctx.winnerRank <= 25 && (ctx.loserRank == null || ctx.loserRank > 25)) {
@@ -511,7 +516,7 @@ function buildRationale(winner, loser, ctx) {
   } else if (ctx.bracketTier === 'dice_roll') {
     parts.push('Dice Roll — variance-driven, outcome less certain.');
   } else if (ctx.bracketTier === 'upset_special') {
-    parts.push('Upset Special — high-EV conditional upset trigger activated.');
+    parts.push('Upset Pick — model backs the lower seed over the chalk.');
   }
 
   if (ctx.mmSignals?.upsetTrigger?.signal) {

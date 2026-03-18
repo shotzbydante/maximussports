@@ -30,7 +30,7 @@ export default function BracketMatchup({
   const confLabel = prediction?.confidenceLabel;
 
   const tier = prediction
-    ? getConfidenceTier(prediction.winProbability, prediction.isUpset)
+    ? getConfidenceTier(prediction.winProbability)
     : null;
 
   const bracketTier = prediction ? getBracketTier(prediction) : null;
@@ -138,7 +138,7 @@ export default function BracketMatchup({
           )}
           {prediction.isUpset && (
             <span className={styles.tooltipUpset}>
-              Upset: {prediction.winner?.seed}-seed over {prediction.loser?.seed}-seed
+              Upset Pick: #{prediction.winner?.seed} over #{prediction.loser?.seed}
             </span>
           )}
           {prediction.upsetTrigger && (

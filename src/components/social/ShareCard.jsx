@@ -38,7 +38,7 @@ function buildShareText({ type, picks, bracket, upset, username }) {
   }
 
   if (type === 'upset' && upset) {
-    return `UPSET ALERT\nMaximus Model Pick\n\n${upset.matchup}\nWin probability: ${upset.probability}\n\nGet the full board:`;
+    return `UPSET PICK\nMaximus backs the underdog\n\n${upset.matchup}\nWin probability: ${upset.probability}\n\nGet the full board:`;
   }
 
   return `Check out my picks on Maximus Sports ${handle}`;
@@ -243,7 +243,7 @@ export function UpsetAlertCard({ upset = {}, onShare }) {
           <line x1="12" y1="9" x2="12" y2="13" />
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
-        UPSET ALERT — Maximus Model Pick
+        UPSET PICK — Maximus backs the underdog
       </div>
 
       <div className={styles.upsetMatchup}>{upset.matchup}</div>

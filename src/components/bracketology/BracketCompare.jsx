@@ -131,12 +131,12 @@ export default function BracketCompare({
 
         <div className={styles.card}>
           <span className={styles.cardValue}>{comparison.userUpsets}</span>
-          <span className={styles.cardLabel}>Your Upsets</span>
+          <span className={styles.cardLabel}>Your Upset Picks</span>
         </div>
 
         <div className={styles.card}>
           <span className={`${styles.cardValue} ${styles.maximusValue}`}>{comparison.maxUpsets}</span>
-          <span className={styles.cardLabel}>Maximus Upsets</span>
+          <span className={styles.cardLabel}>Maximus Upset Picks</span>
         </div>
       </div>
 
@@ -210,7 +210,7 @@ export default function BracketCompare({
               <span className={styles.divergenceYou}>{d.userTeam?.shortName || d.userTeam?.name}</span>
               <span className={styles.divergenceVs}>vs</span>
               <span className={styles.divergenceMax}>{d.maximusTeam?.shortName || d.maximusTeam?.name}</span>
-              {d.isUpset && <span className={styles.divergenceUpset}>UPSET</span>}
+              {d.isUpset && <span className={styles.divergenceUpset}>UPSET PICK</span>}
             </div>
           ))}
         </div>
