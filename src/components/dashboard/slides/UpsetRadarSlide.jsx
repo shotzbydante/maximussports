@@ -15,6 +15,12 @@ function getEdgeColor(pct) {
   return '#6EB3E8';
 }
 
+function getUpsetChanceColor(underdogPct) {
+  if (underdogPct >= 45) return '#E8845F';
+  if (underdogPct >= 35) return '#D4B87A';
+  return '#6EB3E8';
+}
+
 function computeUpsetRisk(game) {
   const upsetProb = game.upsetProbability ?? game.rateInfo?.rate ?? 0;
   if (upsetProb >= 0.35) return 'HIGH';
@@ -33,7 +39,7 @@ function MatchupRiskChip({ risk, framing }) {
   );
 }
 
-function ProbRing({ pct, color, size = 68 }) {
+function ProbRing({ pct, color, size = 68, label = 'UPSET CHANCE' }) {
   const stroke = 5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -63,25 +69,27 @@ function ProbRing({ pct, color, size = 68 }) {
         </svg>
         <span className={styles.probRingPct} style={{ color }}>{pct}%</span>
       </div>
-      <span className={styles.probRingLabel}>WIN PROB</span>
+      <span className={styles.probRingLabel}>{label}</span>
     </div>
   );
 }
 
-function ProbBar({ pct, winnerName, loserName, edgeColor }) {
-  const losePct = 100 - pct;
+function ProbBar({ favoriteName, underdogName, underdogPct, edgeColor }) {
+  const favPct = 100 - underdogPct;
   return (
     <div className={styles.probBar}>
       <div className={styles.probBarLabels}>
-        <span className={styles.probBarWinner}>{winnerName} <strong>{pct}%</strong></span>
-        <span className={styles.probBarLoser}>{loserName} <strong>{losePct}%</strong></span>
+        <span className={styles.probBarFavorite}>{favoriteName} <strong>{favPct}%</strong></span>
+        <span className={styles.probBarUnderdog}>{underdogName} <strong>{underdogPct}%</strong></span>
       </div>
       <div className={styles.probBarTrack}>
+        <div className={styles.probBarSpacer} style={{ flex: favPct }} />
         <div
           className={styles.probBarFill}
           style={{
-            width: `${pct}%`,
-            background: `linear-gradient(90deg, ${edgeColor}, ${edgeColor}cc)`,
+            flex: underdogPct,
+            minWidth: underdogPct > 0 ? `${underdogPct}%` : 0,
+            background: `linear-gradient(90deg, ${edgeColor}99, ${edgeColor})`,
             boxShadow: `0 0 12px ${edgeColor}44`,
           }}
         />
@@ -114,6 +122,7 @@ function UpsetCard({ game, rank }) {
   const isUpsetPick = modelResult?.isUpset ?? false;
   const winProb = modelResult?.winProbability ?? 0.5;
   const pct = Math.round(winProb * 100);
+  const underdogPct = isUpsetPick ? pct : (100 - pct);
   const tier = getConfidenceTier(winProb);
   const framing = getUpsetFraming({ isUpset: isUpsetPick, winProbability: winProb, topSeed, bottomSeed });
   const rationaleText = modelResult?.rationale || '';
@@ -132,7 +141,6 @@ function UpsetCard({ game, rank }) {
   const pickSlug = pickTeam?.slug || '';
   const tc = getTeamColors(pickSlug);
   const accentColor = tc?.primary || '#E8845F';
-  const edgeColor = getEdgeColor(pct);
 
   return (
     <div
@@ -162,9 +170,9 @@ function UpsetCard({ game, rank }) {
           )}
         </div>
 
-        {/* CENTER: Probability Ring + VS */}
+        {/* CENTER: Underdog upset chance (hero metric) */}
         <div className={styles.centerZone}>
-          <ProbRing pct={pct} color={edgeColor} size={66} />
+          <ProbRing pct={underdogPct} color={getUpsetChanceColor(underdogPct)} size={66} label="UPSET CHANCE" />
           <div className={styles.vsStrip}>
             <span className={styles.vsLabel}>VS</span>
             {region && <span className={styles.regionLabel}>{region.toUpperCase()}</span>}
@@ -187,12 +195,12 @@ function UpsetCard({ game, rank }) {
         </div>
       </div>
 
-      {/* Colored probability bar — winner always labeled first */}
+      {/* Bar oriented around underdog (right side) — fill flows from underdog */}
       <ProbBar
-        pct={pct}
-        winnerName={pickTeam?.shortName || pickTeam?.name}
-        loserName={oppTeam?.shortName || oppTeam?.name}
-        edgeColor={edgeColor}
+        favoriteName={leftTeam?.shortName || leftTeam?.name}
+        underdogName={rightTeam?.shortName || rightTeam?.name}
+        underdogPct={underdogPct}
+        edgeColor={getUpsetChanceColor(underdogPct)}
       />
 
       {/* Expanded rationale + Badges */}

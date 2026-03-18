@@ -138,8 +138,9 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed }
   const isClose = pct < 60;
 
   if (isUpset) {
+    const isStandout = pct >= 58;
     return {
-      pickLabel: pct >= 60 ? 'UPSET PICK' : 'UPSET SPECIAL',
+      pickLabel: isStandout ? 'UPSET SPECIAL' : 'UPSET PICK',
       matchupLabel: 'UPSET PICK',
       isTrueUpsetPick: true,
       underdogPct,
@@ -159,7 +160,7 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed }
 
   return {
     pickLabel: pct >= 70 ? 'MODEL EDGE' : 'SLIGHT EDGE',
-    matchupLabel: underdogPct >= 30 ? 'LIVE UNDERDOG' : null,
+    matchupLabel: underdogPct >= 30 ? 'DANGER ZONE' : null,
     isTrueUpsetPick: false,
     underdogPct,
     badgeTier: getConfidenceTier(winProbability),

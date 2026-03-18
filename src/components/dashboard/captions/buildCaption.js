@@ -553,7 +553,7 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
 
   let volatilityNote = '⚠️ The 5/12 and 8/9 seed bands break brackets every year. Don\u2019t sleep on these.';
   if (dangerZoneGames.length >= 3) {
-    volatilityNote = `⚠️ ${dangerZoneGames.length} danger zone matchups under 60% — this is where brackets get busted.`;
+    volatilityNote = `⚠️ The model has spoken: ${dangerZoneGames.length} danger zone matchups under 60% — this is where brackets get busted.`;
   }
 
   const short = [
@@ -577,7 +577,7 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
     '',
     volatilityNote,
     '',
-    '📊 The model ran each matchup through rankings, ATS trends, title odds, and historical upset rates.',
+    '📊 The Maximus model ran each matchup through rankings, ATS trends, title odds, and historical upset rates. The model has spoken.',
     '',
     '👇 Which underdog are you calling? Drop it below.',
     '',
@@ -613,10 +613,10 @@ function buildMultiDayUpsetRadarCaptions({ dayCards, asOf }) {
     let colorLine = '';
     if (trueUpsetPicks.length > 0 && biggestName) {
       colorLine = biggestSeed
-        ? `The model is backing #${biggestSeed} ${biggestName} as a lower-seed upset pick. Don\u2019t sleep on it.`
-        : `The model is backing ${biggestName} as an underdog upset pick. Don\u2019t sleep on it.`;
+        ? `The Maximus model has spoken: #${biggestSeed} ${biggestName} is a live upset spot. Don\u2019t sleep on it.`
+        : `The Maximus model has spoken: ${biggestName} is a live upset spot. Don\u2019t sleep on it.`;
     } else if (topGames.length > 0) {
-      colorLine = `Every game on this card is a danger zone matchup the model flagged. Bracket busters live here.`;
+      colorLine = `The model flagged every game on this card as a danger zone matchup. Bracket busters live here.`;
     }
 
     const short = [

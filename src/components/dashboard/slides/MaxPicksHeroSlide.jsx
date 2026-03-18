@@ -207,7 +207,7 @@ function IntelModule({ picks, cat }) {
         <span className={styles.modLabel}>{meta.label}</span>
       </div>
       {picks.length === 0 ? (
-        <div className={styles.modNone}>No qualified leans</div>
+        <div className={styles.modNone}>{isTotals ? 'No qualified totals' : 'No qualified leans'}</div>
       ) : isSingleTotal ? (
         <div className={styles.modRowsFeatured}>
           <FeaturedTotalRow pick={picks[0]} />
@@ -270,7 +270,7 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
         <div className={styles.heroTitleBlock}>
           <div className={styles.datePill}>{today}</div>
           <h2 className={styles.title}>MAXIMUS&apos;S PICKS</h2>
-          <div className={styles.subtitle}>Today&apos;s Top Data-Driven Leans</div>
+          <div className={styles.subtitle}>The model has spoken — today&apos;s top data-driven leans</div>
         </div>
       </div>
       <div className={styles.divider} />

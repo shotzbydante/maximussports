@@ -84,10 +84,10 @@ const VL_ATS_WEIGHT  = 0.40;
 // Bonus when recent form (last-30 ATS) aligns with the model lean
 const VL_FORM_BONUS  = 0.03;
 
-// Totals thresholds — tightened to suppress conflicting signals
-const TOT_OU_MIN_EDGE   = 0.08;
-const TOT_OU_HIGH_EDGE  = 0.16;
-const TOT_OU_MED_EDGE   = 0.12;
+// Totals thresholds — relaxed so qualified leans surface; still require meaningful signal
+const TOT_OU_MIN_EDGE   = 0.05;
+const TOT_OU_HIGH_EDGE  = 0.14;
+const TOT_OU_MED_EDGE   = 0.09;
 
 const PICKS_PER_SECTION = 5;
 const TARGET_SHOW = 4;
@@ -367,6 +367,7 @@ function resolveMoneyline(game) {
 function hasTotalLine(game) {
   return (
     game.total != null ||
+    game.overUnder != null ||
     game.totals?.points != null ||
     game.lines?.total != null ||
     game.odds?.total != null
@@ -374,7 +375,7 @@ function hasTotalLine(game) {
 }
 
 function resolveTotal(game) {
-  const raw = game.total ?? game.totals?.points ?? game.lines?.total ?? game.odds?.total ?? null;
+  const raw = game.total ?? game.overUnder ?? game.totals?.points ?? game.lines?.total ?? game.odds?.total ?? null;
   return parseNum(raw);
 }
 
@@ -983,8 +984,8 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
   const totMinEdge = tourn ? TOT_OU_MIN_EDGE + TOT_TOURN_EDGE_BUMP : TOT_OU_MIN_EDGE;
 
   for (const game of games) {
-    if (!game.total) continue;
-    const marketTotal = parseNum(game.total);
+    if (!hasTotalLine(game)) continue;
+    const marketTotal = resolveTotal(game);
     if (marketTotal == null) continue;
 
     const homeSlug = getTeamSlug(game.homeTeam);
@@ -1012,7 +1013,7 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
         const underImpl = mlToImplied(underPriceRaw);
         if (overImpl != null && underImpl != null) {
           const skew = underImpl - overImpl;
-          combinedTrend = skew > 0.02 ? -0.06 : skew < -0.02 ? 0.06 : 0;
+          combinedTrend = skew > 0.03 ? -0.08 : skew < -0.03 ? 0.08 : (skew > 0.015 ? -0.06 : skew < -0.015 ? 0.06 : 0);
           trendMag = Math.abs(combinedTrend);
           usedPriceFallback = true;
         } else {

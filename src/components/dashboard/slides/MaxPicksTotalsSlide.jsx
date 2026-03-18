@@ -128,8 +128,8 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
       <h2 className={styles.title}>{isSingle ? 'Featured Total' : 'Totals to Watch'}</h2>
       <div className={styles.subtitle}>
         {isSingle
-          ? 'One qualifying total where the model sees a clear directional edge'
-          : 'Game totals where teams\' scoring trends favor a side'}
+          ? 'The model has spoken — one qualifying total with a clear directional edge'
+          : 'The model flagged these totals — scoring trends favor a side'}
       </div>
       <div className={styles.divider} />
 
@@ -138,7 +138,7 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
           <div className={styles.emptyIcon}>📊</div>
           <div className={styles.emptyTitle}>No totals qualify</div>
           <div className={styles.emptyText}>
-            The model found no clear over/under edges today. Check back closer to tip-off as lines sharpen.
+            No totals cleared the model threshold today. Check back closer to tip-off as lines sharpen.
           </div>
         </div>
       ) : isSingle ? (
