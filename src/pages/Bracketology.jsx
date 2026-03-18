@@ -17,6 +17,7 @@ import { buildFullBracket } from '../data/bracketData';
 import { generateProjectedBracket } from '../data/projectedField';
 import { resolveBracketMatchup, resolveFullBracket } from '../utils/bracketMatchupResolver';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
+import { getSimulationStats } from '../utils/bracketSimulator';
 import BracketLoading from '../components/bracketology/BracketLoading';
 import BracketHero from '../components/bracketology/BracketHero';
 import BracketControls from '../components/bracketology/BracketControls';
@@ -36,6 +37,7 @@ export default function Bracketology() {
   const {
     picks, pickOrigins, saveStatus, lastSaved, loaded: picksLoaded,
     makePick, clearBracket, clearRound, applyMaximusPicks, resetToMaximus,
+    simulateEntire, simulateRest, regeneratePicks,
     totalPicks, totalGames, progress, manualCount, maximusCount,
   } = useBracketPicks(bracket);
 
@@ -131,6 +133,34 @@ export default function Bracketology() {
     resetToMaximus(maxPicksResult);
   }, [bracket, modelContext, resetToMaximus]);
 
+  const handleSimulateEntire = useCallback(() => {
+    if (!modelContext) return;
+    const result = simulateEntire(modelContext);
+    if (result?.predictions) {
+      setPredictions(prev => ({ ...prev, ...result.predictions }));
+    }
+  }, [modelContext, simulateEntire]);
+
+  const handleSimulateRest = useCallback(() => {
+    if (!modelContext) return;
+    const result = simulateRest(modelContext);
+    if (result?.predictions) {
+      setPredictions(prev => ({ ...prev, ...result.predictions }));
+    }
+  }, [modelContext, simulateRest]);
+
+  const handleRegeneratePicks = useCallback(() => {
+    if (!modelContext) return;
+    const result = regeneratePicks(modelContext, predictions);
+    if (result?.predictions) {
+      setPredictions(prev => ({ ...prev, ...result.predictions }));
+    }
+  }, [modelContext, predictions, regeneratePicks]);
+
+  const simStats = useMemo(() => {
+    return getSimulationStats(predictions);
+  }, [predictions]);
+
   const champion = useMemo(() => {
     const champ = allMatchups['champ'];
     if (!champ || !picks['champ']) return null;
@@ -189,6 +219,10 @@ export default function Bracketology() {
               onClearRound={clearRound}
               onToggleCompare={() => setShowCompare(s => !s)}
               showCompare={showCompare}
+              onSimulateEntire={handleSimulateEntire}
+              onSimulateRest={handleSimulateRest}
+              onRegeneratePicks={handleRegeneratePicks}
+              simStats={simStats}
             />
 
             <BracketIntelStrip
@@ -284,20 +318,28 @@ export default function Bracketology() {
 
             <div className={styles.legend}>
               <div className={styles.legendItem}>
-                <span className={styles.legendManual}>✓</span>
+                <span className={styles.legendManual}>{'\u2713'}</span>
                 <span>Manual Pick</span>
               </div>
               <div className={styles.legendItem}>
-                <span className={styles.legendMaximus}>◆</span>
+                <span className={styles.legendMaximus}>{'\u25C6'}</span>
                 <span>Maximus Pick</span>
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendHighConviction}>{'\u25C6'}</span>
+                <span>High Conviction</span>
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendDiceRoll}>{'\uD83C\uDFB2'}</span>
+                <span>Dice Roll</span>
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendUpsetSpecial}>{'\u26A0'}</span>
+                <span>Upset Special</span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendUpset}>!</span>
                 <span>Upset</span>
-              </div>
-              <div className={styles.legendItem}>
-                <span className={styles.legendCoinFlip}>~</span>
-                <span>Coin Flip</span>
               </div>
               {showCompare && (
                 <div className={styles.legendItem}>

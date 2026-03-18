@@ -104,6 +104,23 @@
   font-size: 0.65rem;
 }
 
+.legendHighConviction {
+  color: #5FE8A8;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.legendDiceRoll {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.legendUpsetSpecial {
+  color: #E8845F;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .legendDiverge {
   font-size: 0.45rem;
   font-weight: 800;

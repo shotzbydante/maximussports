@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getConfidenceTier } from '../../utils/confidenceTier';
+import { getConfidenceTier, getBracketTier } from '../../utils/confidenceTier';
 import styles from './BracketMatchup.module.css';
 
 export default function BracketMatchup({
@@ -28,6 +28,8 @@ export default function BracketMatchup({
   const tier = prediction
     ? getConfidenceTier(prediction.winProbability, prediction.isUpset)
     : null;
+
+  const bracketTier = prediction ? getBracketTier(prediction) : null;
 
   function handlePick(position) {
     if (isWaiting) return;
@@ -79,13 +81,14 @@ export default function BracketMatchup({
               <span className={styles.maximusIcon}>◆</span>
               <span className={styles.maximusBtnLabel}>Maximus</span>
             </button>
-            {tier && (
+            {bracketTier && (
               <span
-                className={`${styles.tierChip} ${styles[tier.cssClass]}`}
-                title={`${tier.label} — ${Math.round((prediction.winProbability ?? 0.5) * 100)}%`}
+                className={`${styles.tierChip} ${styles[bracketTier.cssClass]}`}
+                title={`${bracketTier.label} — ${Math.round((prediction.winProbability ?? 0.5) * 100)}%`}
               >
-                <span className={styles.tierIcon}>{tier.icon}</span>
-                <span className={styles.tierLabel}>{tier.label}</span>
+                {bracketTier.indicator && <span className={styles.tierIndicator}>{bracketTier.indicator}</span>}
+                <span className={styles.tierIcon}>{bracketTier.icon}</span>
+                <span className={styles.tierLabel}>{bracketTier.label}</span>
               </span>
             )}
           </div>
@@ -107,8 +110,8 @@ export default function BracketMatchup({
         <div className={styles.tooltip}>
           <div className={styles.tooltipHeader}>
             <span className={styles.tooltipWinner}>{prediction.winner?.shortName || prediction.winner?.name}</span>
-            {tier && (
-              <span className={`${styles.tooltipConf} ${styles[tier.cssClass]}`}>{tier.label}</span>
+            {bracketTier && (
+              <span className={`${styles.tooltipConf} ${styles[bracketTier.cssClass]}`}>{bracketTier.label}</span>
             )}
           </div>
           {prediction.winProbability != null && (
@@ -116,13 +119,24 @@ export default function BracketMatchup({
               {Math.round(prediction.winProbability * 100)}% win probability
             </span>
           )}
+          {prediction.bracketTierLabel && (
+            <span className={styles.tooltipTier}>
+              {prediction.bracketTierLabel}
+            </span>
+          )}
           {prediction.isUpset && (
             <span className={styles.tooltipUpset}>
               Upset: {prediction.winner?.seed}-seed over {prediction.loser?.seed}-seed
             </span>
           )}
+          {prediction.upsetTrigger && (
+            <span className={styles.tooltipUpsetTrigger}>{prediction.upsetTrigger.signal}</span>
+          )}
           {prediction.signals?.length > 0 && (
             <span className={styles.tooltipSignal}>{prediction.signals[0]}</span>
+          )}
+          {prediction.signals?.length > 1 && (
+            <span className={styles.tooltipSignal}>{prediction.signals[1]}</span>
           )}
           {prediction.tournamentPrior?.applied && (
             <span className={styles.tooltipSignal}>{prediction.tournamentPrior.rationale}</span>

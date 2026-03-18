@@ -1,12 +1,19 @@
 /**
  * useBracketPicks — manages user bracket picks with persistence.
  * Handles save/load, pick origin tracking (manual vs maximus),
- * downstream cascade clearing, and bracket mode metadata.
+ * downstream cascade clearing, bracket mode metadata, and
+ * simulation engine integration.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { cascadeClearDownstream, buildFullBracket } from '../data/bracketData';
+import {
+  simulateEntireBracket,
+  simulateRestOfBracket,
+  regenerateMaximusPicks,
+  getSimulationStats,
+} from '../utils/bracketSimulator';
 
 const AUTOSAVE_DELAY = 1200;
 
@@ -160,6 +167,35 @@ export function useBracketPicks(bracket) {
     scheduleSave(maximusPicks, newOrigins);
   }, [scheduleSave]);
 
+  const simulateEntire = useCallback((modelContext) => {
+    if (!bracket?.regions || !modelContext) return null;
+    const result = simulateEntireBracket(bracket, modelContext, { withRandomness: true });
+    setPicks(result.picks);
+    setPickOrigins(result.origins);
+    scheduleSave(result.picks, result.origins);
+    return result;
+  }, [bracket, scheduleSave]);
+
+  const simulateRest = useCallback((modelContext) => {
+    if (!bracket?.regions || !modelContext) return null;
+    const result = simulateRestOfBracket(bracket, modelContext, picks, pickOrigins);
+    setPicks(result.picks);
+    setPickOrigins(result.origins);
+    scheduleSave(result.picks, result.origins);
+    return result;
+  }, [bracket, picks, pickOrigins, scheduleSave]);
+
+  const regeneratePicks = useCallback((modelContext, currentPredictions) => {
+    if (!bracket?.regions || !modelContext) return null;
+    const result = regenerateMaximusPicks(
+      bracket, modelContext, picks, pickOrigins, currentPredictions,
+    );
+    setPicks(result.picks);
+    setPickOrigins(result.origins);
+    scheduleSave(result.picks, result.origins);
+    return result;
+  }, [bracket, picks, pickOrigins, scheduleSave]);
+
   const totalPicks = Object.keys(picks).length;
   const totalGames = 63;
   const progress = Math.round((totalPicks / totalGames) * 100);
@@ -169,6 +205,7 @@ export function useBracketPicks(bracket) {
   return {
     picks, pickOrigins, saveStatus, lastSaved, loaded,
     makePick, clearBracket, clearRound, applyMaximusPicks, resetToMaximus,
+    simulateEntire, simulateRest, regeneratePicks,
     totalPicks, totalGames, progress, manualCount, maximusCount,
   };
 }

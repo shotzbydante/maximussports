@@ -14,6 +14,7 @@
  */
 
 import { getTournamentPrior } from './tournamentPrior';
+import { computeMatchupSignals } from './marchMadnessSignals';
 
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
@@ -193,23 +194,24 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   enrichDelta += (confA - confB) * confWeight;
 
   // ── 3. Blend seed baseline with enrichment ─────────────────────
-  // When enrichment is rich, team-specific signals dominate.
-  // When enrichment is absent, seed baseline anchors the output.
   const seedEdge = seedProb - 0.5;
   let seedWeight = enrichCount >= 3 ? 0.35
                  : enrichCount >= 2 ? 0.50
                  : enrichCount >= 1 ? 0.65
                  : 0.90;
 
-  // Reduce seed weight for close matchups so available enrichment
-  // has a bigger voice — a 0.51 baseline adds almost no information.
   if (closeMatchup && enrichCount >= 1) {
     seedWeight = Math.min(seedWeight, 0.25);
   }
 
   let edge = seedEdge * seedWeight + enrichDelta;
 
-  // ── 4. Tournament history prior (calibration layer) ────────────
+  // ── 4. March Madness intelligence signals (weighted ensemble) ──
+  const mmSignals = computeMatchupSignals(teamA, teamB, context);
+  const MM_SIGNAL_WEIGHT = 0.60;
+  edge += mmSignals.adjustment * MM_SIGNAL_WEIGHT;
+
+  // ── 5. Tournament history prior (calibration layer) ────────────
   const mainEdgeMag = Math.abs(edge);
   let tournamentPriorResult = null;
   if (matchupMeta.round != null && teamA.seed != null && teamB.seed != null) {
@@ -228,17 +230,15 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     }
   }
 
-  // ── 5. Final outputs ───────────────────────────────────────────
+  // ── 6. Final outputs ───────────────────────────────────────────
   const edgeMag = Math.abs(edge);
   const pickA = edge >= 0;
-  // Floor at 0.51 — a "predicted winner" at 50% is contradictory.
   const winProb = clamp(0.5 + edgeMag, 0.51, 0.97);
 
   let confidence = 0;
   if (edgeMag >= 0.20) confidence = 2;
   else if (edgeMag >= 0.10) confidence = 1;
 
-  // Boost confidence for extreme seed mismatches even with thin data
   if (teamA.seed != null && teamB.seed != null) {
     const seedGap = Math.abs(teamA.seed - teamB.seed);
     if (seedGap >= 10 && confidence < 2 && edgeMag >= 0.15) confidence = 2;
@@ -249,6 +249,24 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   const winner = pickA ? teamA : teamB;
   const loser = pickA ? teamB : teamA;
   const isUpset = winner.seed != null && loser.seed != null && winner.seed > loser.seed;
+
+  // ── 7. Bracket confidence tier classification ──────────────────
+  // Maps to: high_conviction, lean, dice_roll, upset_special
+  let bracketTier = 'lean';
+  if (mmSignals.confidenceModifier) {
+    bracketTier = mmSignals.confidenceModifier;
+  } else if (isUpset && edgeMag < 0.08) {
+    bracketTier = 'upset_special';
+  } else if (confidence >= 2 && edgeMag >= 0.18 && !isUpset) {
+    bracketTier = 'high_conviction';
+  } else if (confidence >= 2) {
+    bracketTier = 'high_conviction';
+  } else if (edgeMag < 0.06 || (isUpset && edgeMag < 0.12)) {
+    bracketTier = 'dice_roll';
+  }
+
+  const spreadLean = edgeMag > 0.03 ? (pickA ? 'A' : 'B') : null;
+  const totalLean = null;
 
   const signals = buildSignals(winner, loser, {
     rankMap, championshipOdds,
@@ -261,9 +279,17 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     loserConf: pickA ? teamB.conference : teamA.conference,
     tournamentPrior: tournamentPriorResult,
     enrichCount,
+    mmSignals: mmSignals.signals,
   });
 
   const confLabel = confidence >= 2 ? 'HIGH' : confidence >= 1 ? 'MEDIUM' : 'LOW';
+
+  const BRACKET_TIER_LABELS = {
+    high_conviction: 'High Conviction',
+    lean: 'Lean',
+    dice_roll: 'Dice Roll',
+    upset_special: 'Upset Special',
+  };
 
   const rationale = buildRationale(winner, loser, {
     confidence, confLabel, edgeMag, enrichCount, isUpset,
@@ -276,6 +302,8 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     tournamentPrior: tournamentPriorResult,
     activeSignals,
     seedProb,
+    bracketTier,
+    mmSignals,
   });
 
   return {
@@ -284,6 +312,12 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     edgeMagnitude: edgeMag, enrichmentCount: enrichCount,
     winProbability: winProb,
     tournamentPrior: tournamentPriorResult,
+    bracketTier,
+    bracketTierLabel: BRACKET_TIER_LABELS[bracketTier] || 'Lean',
+    spreadLean,
+    totalLean,
+    upsetTrigger: mmSignals.upsetTrigger || null,
+    marchMadnessSignals: mmSignals,
   };
 }
 
@@ -411,6 +445,12 @@ function buildSignals(winner, loser, ctx) {
     signals.push('Tournament history: historically volatile seed band');
   }
 
+  if (ctx.mmSignals?.length > 0) {
+    for (const s of ctx.mmSignals.slice(0, 2)) {
+      if (!signals.includes(s)) signals.push(s);
+    }
+  }
+
   if (signals.length === 0) {
     const wSeed = winner.seed;
     const lSeed = loser.seed;
@@ -464,6 +504,18 @@ function buildRationale(winner, loser, ctx) {
 
   if (ctx.tournamentPrior?.applied && ctx.tournamentPrior.rationale) {
     parts.push(ctx.tournamentPrior.rationale);
+  }
+
+  if (ctx.bracketTier === 'high_conviction') {
+    parts.push('High Conviction — stable, low-variance prediction.');
+  } else if (ctx.bracketTier === 'dice_roll') {
+    parts.push('Dice Roll — variance-driven, outcome less certain.');
+  } else if (ctx.bracketTier === 'upset_special') {
+    parts.push('Upset Special — high-EV conditional upset trigger activated.');
+  }
+
+  if (ctx.mmSignals?.upsetTrigger?.signal) {
+    parts.push(ctx.mmSignals.upsetTrigger.signal);
   }
 
   return parts.join(' ');

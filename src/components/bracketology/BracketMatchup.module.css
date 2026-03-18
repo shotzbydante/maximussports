@@ -142,6 +142,46 @@
   color: #facc15;
 }
 
+/* ─── Bracket-specific tiers ─────────────────────────────────── */
+
+.tierHighConviction {
+  background: rgba(95, 232, 168, 0.12);
+  border-color: rgba(95, 232, 168, 0.30);
+  color: #5FE8A8;
+  font-weight: 800;
+}
+
+.tierDiceRoll {
+  background: rgba(142, 175, 196, 0.10);
+  border-color: rgba(142, 175, 196, 0.24);
+  color: #8eafc4;
+}
+
+.tierUpsetSpecial {
+  background: rgba(232, 132, 95, 0.12);
+  border-color: rgba(232, 132, 95, 0.30);
+  color: #E8845F;
+  font-weight: 800;
+}
+
+.tierIndicator {
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.tooltipTier {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tooltipUpsetTrigger {
+  font-size: 0.55rem;
+  color: #E8845F;
+  font-style: italic;
+}
+
 /* ─── Team slot ─────────────────────────────────────────────── */
 
 .teamSlot {

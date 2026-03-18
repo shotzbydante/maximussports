@@ -219,6 +219,112 @@
   color: rgba(255, 255, 255, 0.3);
 }
 
+/* ─── Simulation buttons ──────────────────────────────────────────── */
+
+.simulateBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(95, 232, 168, 0.18), rgba(56, 133, 224, 0.12));
+  border: 1px solid rgba(95, 232, 168, 0.35);
+  border-radius: 8px;
+  color: #5FE8A8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.simulateBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(95, 232, 168, 0.28), rgba(56, 133, 224, 0.18));
+  border-color: rgba(95, 232, 168, 0.5);
+  box-shadow: 0 0 12px rgba(95, 232, 168, 0.15);
+}
+
+.simulateBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.simulateRestBtn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(95, 232, 168, 0.06);
+  border: 1px solid rgba(95, 232, 168, 0.18);
+  border-radius: 8px;
+  color: rgba(95, 232, 168, 0.8);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.simulateRestBtn:hover:not(:disabled) {
+  background: rgba(95, 232, 168, 0.12);
+  color: #5FE8A8;
+}
+
+.simulateRestBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.regenerateBtn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(142, 175, 196, 0.08);
+  border: 1px solid rgba(142, 175, 196, 0.22);
+  border-radius: 8px;
+  color: rgba(142, 175, 196, 0.85);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.regenerateBtn:hover:not(:disabled) {
+  background: rgba(142, 175, 196, 0.15);
+  color: #8EAFC4;
+  border-color: rgba(142, 175, 196, 0.35);
+}
+
+.regenerateBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ─── Sim stats badges ────────────────────────────────────────────── */
+
+.simStats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.statHighConviction {
+  color: #5FE8A8;
+  background: rgba(95, 232, 168, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.statUpsetSpecial {
+  color: #E8845F;
+  background: rgba(232, 132, 95, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.statDiceRoll {
+  color: #8EAFC4;
+  background: rgba(142, 175, 196, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.statUpsets {
+  color: rgba(234, 179, 8, 0.8);
+  background: rgba(234, 179, 8, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
@@ -235,4 +341,5 @@
     justify-content: center;
   }
   .divider { display: none; }
+  .simStats { flex-wrap: wrap; }
 }
