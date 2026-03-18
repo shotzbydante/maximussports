@@ -116,14 +116,14 @@ function EmptyPinnedState({ onOpenAdd, onPinDuke, onDismissPreview, onShowPrevie
           <li>Your personal March Madness watchlist</li>
         </ul>
         <div className={styles.emptyCtaRow}>
-          <button type="button" className={styles.ctaBtn} onClick={onPinDuke}>
-            📌 Pin Duke
+          <button type="button" className={styles.ctaBtn} onClick={() => onPinDuke()}>
+            🚀 Pin Duke (example)
           </button>
           <button type="button" className={styles.ctaBtnSecondary} onClick={onOpenAdd}>
             + Add team
           </button>
         </div>
-        <p className={styles.ctaHint}>Search any D-I team. Try: Kansas, UConn, Houston…</p>
+        <p className={styles.ctaHint}>Search for any D-I team. Try: Kansas, UConn, Houston…</p>
         {/* Popular picks row — excludes Duke since it's surfaced above */}
         <div className={styles.popularRow}>
           <span className={styles.popularLabel}>Popular picks</span>

@@ -35,6 +35,7 @@ import { sportsDateStr, nextSportsDayStr, toApiDateStr } from '../utils/slateDat
 import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
+import { BRACKETOLOGY_ROUTE } from '../config/bracketology';
 
 // ── Deferred below-the-fold imports ──────────────────────────────────────────
 const MaximusPicks     = lazy(() => import('../components/home/MaximusPicks'));
@@ -605,7 +606,7 @@ export default function Home() {
   // ── Intersection refs for deferred below-the-fold sections ──
   const [atsRef, atsInView] = useInView({ rootMargin: '300px' });
   const [intelRef, intelInView] = useInView({ rootMargin: '300px' });
-  const [bubbleRef, bubbleInView] = useInView({ rootMargin: '300px' });
+  const [tournamentRef, tournamentInView] = useInView({ rootMargin: '300px' });
 
   // ── Welcome modal: show on first visit or when ?welcome=1 is present ──
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
@@ -656,7 +657,7 @@ export default function Home() {
       return v === null ? true : v === '1';
     } catch { return true; }
   });
-  // ATS and Bubble Watch now use teaser mode — mobile collapse state no longer needed
+  // ATS and Tournament Watch now use teaser mode — mobile collapse state no longer needed
   const pinnedSlugs = pinned.length > 0 ? pinned : ['duke-blue-devils', 'houston-cougars', 'purdue-boilermakers', 'kansas-jayhawks'];
 
   const championshipScheduledRef = useRef(false);
@@ -971,7 +972,7 @@ export default function Home() {
       rank: v.rank,
       ats: v.ats,
     })).filter((p) => p.name);
-    const bubbleWatchSlice = (top25 || []).slice(10, 15);
+    const tournamentWatchSlice = (top25 || []).slice(10, 15);
     return {
       top25: top25 || [],
       championshipOdds: championshipOdds || {},
@@ -982,7 +983,7 @@ export default function Home() {
       atsWindow: atsWindow || 'last30',
       headlines,
       pinnedTeams,
-      bubbleWatchSlice,
+      tournamentWatchSlice,
       rankedInAction: countRankedInAction(scores.games || [], rankMap),
       upsetCount: countUpsets(scores.games || []),
     };
@@ -1024,7 +1025,7 @@ export default function Home() {
     });
   }, []);
 
-  // handleToggleAts and handleToggleBubble removed — teaser mode replaces collapse
+  // handleToggleAts and handleToggleTournament removed — teaser mode replaces collapse
 
   // Badge status: ok (green), partial (amber), missing (red) — from payload counts
   const getESPNStatus = () => {
@@ -1131,40 +1132,31 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── 2b. Bracketology Promo ──────────────────────────────────── */}
+      <section className={styles.bracketPromo}>
+        <div className={styles.bracketPromoInner}>
+          <div className={styles.bracketPromoContent}>
+            <span className={styles.bracketPromoEyebrow}>March Madness 2026</span>
+            <h3 className={styles.bracketPromoTitle}>Build Your Bracket with Maximus</h3>
+            <p className={styles.bracketPromoBody}>
+              Use the Maximus model to fill your bracket — or compete against it. Region-by-region picks, upset probabilities, and data-driven predictions for every matchup.
+            </p>
+            <div className={styles.bracketPromoCtas}>
+              <Link to={BRACKETOLOGY_ROUTE} className={styles.bracketPromoPrimary}>
+                Complete Your Bracket →
+              </Link>
+              <Link to={BRACKETOLOGY_ROUTE} className={styles.bracketPromoSecondary}>
+                Beat the Model
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── 3. Pulse / Snapshot Strip ──────────────────────────────────── */}
       <SectionErrorBoundary name="Today's Snapshot" silent>
         <div className={styles.pulseStrip}>
           <DynamicStats stats={dynamicStats} compact games={scores.games} rankMap={rankMap} atsLeaders={atsLeaders} championshipOdds={championshipOdds} />
-          {(newsData.newsFeed || []).length > 0 && (
-            <div className={styles.topStories}>
-              <div className={styles.topStoriesHeader}>
-                <span className={styles.topStoriesLabel}>Top Stories</span>
-                <Link to="/news" className={styles.topStoriesCta}>
-                  View full Intel Feed →
-                </Link>
-              </div>
-              <ul className={styles.topStoriesList}>
-                {(newsData.newsFeed || []).slice(0, 3).map((h) => {
-                  return (
-                    <li key={h.id || h.title} className={styles.topStoriesItem}>
-                      {h.source && (
-                        <span className={styles.sourceTextBadge}>
-                          {h.source}
-                        </span>
-                      )}
-                      {h.link ? (
-                        <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.topStoriesLink}>
-                          {decodeEntities(h.title)}
-                        </a>
-                      ) : (
-                        <span className={styles.topStoriesLink}>{decodeEntities(h.title)}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
         </div>
       </SectionErrorBoundary>
 
@@ -1285,10 +1277,10 @@ export default function Home() {
                   <NewsFeed mode="videos" limitVideos={2} />
                   <NewsFeed
                     mode="headlines"
-                    items={(newsData.newsFeed || []).slice(0, 6)}
+                    items={(newsData.newsFeed || []).slice(0, 8)}
                     source={newsSource}
                     loading={headlinesWarming && (newsData.newsFeed || []).length === 0}
-                    limitHeadlines={4}
+                    limitHeadlines={6}
                   />
                 </div>
               </Suspense>
@@ -1304,17 +1296,17 @@ export default function Home() {
 
       {/* ── 9. Rankings / Team Intel Teaser (deferred) ──────────────── */}
       <hr className={styles.sectionDivider} />
-      <div ref={bubbleRef}>
-        {bubbleInView ? (
-          <SectionErrorBoundary name="Bubble Watch">
-            <section className={styles.bubbleWatchSection} aria-label="Rankings">
+      <div ref={tournamentRef}>
+        {tournamentInView ? (
+          <SectionErrorBoundary name="Tournament Watch">
+            <section className={styles.tournamentWatchSection} aria-label="Tournament Watch">
               <div className={styles.sectionHead}>
-                <span className={styles.sectionEyebrow}>Rankings Deep Dive</span>
-                <h2 className={styles.sectionHeadTitle}>Bubble Watch</h2>
+                <span className={styles.sectionEyebrow}>Tournament Deep Dive</span>
+                <h2 className={styles.sectionHeadTitle}>Tournament Watch</h2>
               </div>
               <Suspense fallback={<SectionSkeleton height={200} />}>
                 <RankingsTable
-                  title="Bubble Watch — Top 25"
+                  title="Tournament Watch — Top 25"
                   badge="Deep Dive"
                   collapsible
                   capRows={10}
@@ -1323,10 +1315,11 @@ export default function Home() {
                   championshipOdds={championshipOdds}
                   championshipOddsMeta={championshipOddsMeta}
                   championshipOddsLoading={championshipOddsLoading}
+                  showRegionFilter
                 />
               </Suspense>
               <Link to="/teams" className={styles.sectionCta}>
-                Explore full rankings →
+                Explore full tournament field →
               </Link>
             </section>
           </SectionErrorBoundary>
