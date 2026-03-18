@@ -66,11 +66,18 @@ function getSlides(template, slideCount, options = {}) {
       return [TeamIntelSlide4, TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 4));
     case 'conference':
       return [ConferenceIntelSlide];
-    case 'game':
+    case 'game': {
       if (options?.gameMode === 'tournament') return [TournamentInsightsSlide];
-      if (options?.gameMode === 'upset-radar') return [UpsetRadarSlide];
+      if (options?.gameMode === 'upset-radar') {
+        const dayCards = options?.dayCards;
+        if (dayCards && dayCards.length > 1) {
+          return dayCards.map(() => UpsetRadarSlide);
+        }
+        return [UpsetRadarSlide];
+      }
       if (options?.gameMode === '5games') return [GameInsights5GamesSlide];
       return [GamePreviewSlide1, GamePreviewSlide2, GamePreviewSlide3].slice(0, Math.min(slideCount, 3));
+    }
     case 'picks':
       return [
         MaxPicksHeroSlide,
@@ -141,7 +148,22 @@ export default function CarouselComposer({
   const total = slides.length;
   const dims = getTemplateDimensions(template);
 
-  const slideProps = { data, teamData, conferenceData, game: selectedGame, asOf, slideTotal: total, options };
+  const dayCards = options?.dayCards;
+  const isMultiDayUpsetRadar = options?.gameMode === 'upset-radar' && dayCards && dayCards.length > 1;
+
+  function getSlideOptions(slideIndex) {
+    if (!isMultiDayUpsetRadar) return options;
+    const dayCard = dayCards[slideIndex];
+    if (!dayCard) return options;
+    return {
+      ...options,
+      upsetRadarGames: dayCard.games,
+      dayLabel: dayCard.dayLabel,
+      roundLabel: dayCard.roundLabel,
+    };
+  }
+
+  const slideProps = { data, teamData, conferenceData, game: selectedGame, asOf, slideTotal: total };
 
   useEffect(() => {
     const t = setTimeout(() => onAssetsReady?.(), 700);
@@ -171,7 +193,7 @@ export default function CarouselComposer({
                 className={styles.previewClip}
                 style={{ transform: `scale(${previewScale})` }}
               >
-                <SlideComp {...slideProps} slideNumber={i + 1} />
+                <SlideComp {...slideProps} options={getSlideOptions(i)} slideNumber={i + 1} />
               </div>
             </div>
           </div>
@@ -184,6 +206,7 @@ export default function CarouselComposer({
           <SlideComp
             key={i}
             {...slideProps}
+            options={getSlideOptions(i)}
             slideNumber={i + 1}
             data-slide={String(i + 1)}
           />

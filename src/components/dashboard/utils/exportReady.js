@@ -10,6 +10,26 @@
  */
 
 /**
+ * Converts a cross-origin image to a data URL using a canvas approach.
+ * This avoids CORS tainting issues in html-to-image by inlining the pixel data.
+ */
+async function inlineImageAsDataUrl(img) {
+  try {
+    const resp = await fetch(img.src, { mode: 'cors' });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Wait for all <img> elements to settle (load or error), with a timeout.
  * Does NOT modify the DOM — use sanitizeImagesForExport for that.
  */
@@ -43,15 +63,31 @@ function imgIsHealthy(img) {
 }
 
 /**
- * Waits for every <img> inside `containerEl` to settle, then hides or replaces
- * any that failed so the capture tree is clean for html-to-image.
+ * Checks whether an img src is cross-origin (external CDN, etc.)
+ */
+function isCrossOrigin(img) {
+  try {
+    const imgUrl = new URL(img.src, window.location.origin);
+    return imgUrl.origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Waits for every <img> inside `containerEl` to settle, then:
+ *   1. Inlines cross-origin images as data URLs to prevent canvas tainting
+ *   2. Hides or replaces any that failed to load
+ *
+ * This robustly prevents html-to-image from encountering broken or
+ * CORS-tainted images in the capture tree.
  *
  * @param {HTMLElement} containerEl
- * @param {number} [timeoutMs=6000]
- * @returns {{ ok: number, failed: number, fixed: number, details: string[] }}
+ * @param {number} [timeoutMs=8000]
+ * @returns {{ ok: number, failed: number, fixed: number, inlined: number, details: string[] }}
  */
-export async function sanitizeImagesForExport(containerEl, timeoutMs = 6000) {
-  const report = { ok: 0, failed: 0, fixed: 0, details: [] };
+export async function sanitizeImagesForExport(containerEl, timeoutMs = 8000) {
+  const report = { ok: 0, failed: 0, fixed: 0, inlined: 0, details: [] };
   if (!containerEl) return report;
 
   const imgs = Array.from(containerEl.querySelectorAll('img'));
@@ -74,11 +110,44 @@ export async function sanitizeImagesForExport(containerEl, timeoutMs = 6000) {
     ]);
   }
 
-  // --- Phase 2: audit & fix broken images ------------------------------------
+  // small extra buffer for any race conditions between load event and naturalWidth being set
+  await new Promise(r => setTimeout(r, 100));
+
+  // --- Phase 2: inline cross-origin images + fix broken images ----------------
   for (const img of imgs) {
     if (imgIsHealthy(img)) {
+      // Even healthy cross-origin images can taint canvas — inline them
+      if (isCrossOrigin(img) && img.src && !img.src.startsWith('data:')) {
+        const dataUrl = await inlineImageAsDataUrl(img);
+        if (dataUrl) {
+          img.src = dataUrl;
+          img.removeAttribute('crossorigin');
+          img.removeAttribute('crossOrigin');
+          report.inlined++;
+        }
+      }
       report.ok++;
       continue;
+    }
+
+    // Image failed to load — try to reload once with fetch + data URL
+    if (img.src && !img.src.startsWith('data:')) {
+      const dataUrl = await inlineImageAsDataUrl(img);
+      if (dataUrl) {
+        img.src = dataUrl;
+        img.removeAttribute('crossorigin');
+        img.removeAttribute('crossOrigin');
+        // Wait briefly for the image to render from the data URL
+        await new Promise(resolve => {
+          img.addEventListener('load', resolve, { once: true });
+          setTimeout(resolve, 500);
+        });
+        if (imgIsHealthy(img)) {
+          report.ok++;
+          report.inlined++;
+          continue;
+        }
+      }
     }
 
     report.failed++;

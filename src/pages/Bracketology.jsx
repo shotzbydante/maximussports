@@ -18,6 +18,7 @@ import { generateProjectedBracket } from '../data/projectedField';
 import { resolveBracketMatchup, resolveFullBracket } from '../utils/bracketMatchupResolver';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { getSimulationStats } from '../utils/bracketSimulator';
+import { getTournamentPhase, getActiveRound } from '../utils/tournamentHelpers';
 import BracketLoading from '../components/bracketology/BracketLoading';
 import BracketHero from '../components/bracketology/BracketHero';
 import BracketControls from '../components/bracketology/BracketControls';
@@ -27,6 +28,7 @@ import BracketIntelStrip from '../components/bracketology/BracketIntelStrip';
 import BracketCompare from '../components/bracketology/BracketCompare';
 import BracketShareSummary from '../components/bracketology/BracketShareSummary';
 import ShareButton from '../components/common/ShareButton';
+import AuthGateModal from '../components/common/AuthGateModal';
 import styles from './Bracketology.module.css';
 
 export default function Bracketology() {
@@ -47,6 +49,17 @@ export default function Bracketology() {
   const [showMinLoadTime, setShowMinLoadTime] = useState(true);
   const [showCompare, setShowCompare] = useState(false);
   const [showShareSummary, setShowShareSummary] = useState(false);
+  const [showAuthGate, setShowAuthGate] = useState(false);
+
+  const isGuest = !user;
+
+  const requireAuth = useCallback((action) => {
+    if (isGuest) {
+      setShowAuthGate(true);
+      return true;
+    }
+    return false;
+  }, [isGuest]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowMinLoadTime(false), 2200);
@@ -110,52 +123,59 @@ export default function Bracketology() {
   }, [bracket, modelContext]);
 
   const handlePick = useCallback((matchupId, position) => {
+    if (requireAuth()) return;
     makePick(matchupId, position, 'manual');
-  }, [makePick]);
+  }, [makePick, requireAuth]);
 
   const handleMaximusPick = useCallback((matchupId, position) => {
+    if (requireAuth()) return;
     makePick(matchupId, position, 'maximus');
-  }, [makePick]);
+  }, [makePick, requireAuth]);
 
   const handlePopulateField = useCallback(() => {
     refresh();
   }, [refresh]);
 
   const handleAutoFill = useCallback(() => {
+    if (requireAuth()) return;
     if (!bracket || !modelContext) return;
     const { picks: maxPicksResult } = resolveFullBracket(bracket, modelContext, buildFullBracket);
     applyMaximusPicks(maxPicksResult);
-  }, [bracket, modelContext, applyMaximusPicks]);
+  }, [bracket, modelContext, applyMaximusPicks, requireAuth]);
 
   const handleResetToMaximus = useCallback(() => {
+    if (requireAuth()) return;
     if (!bracket || !modelContext) return;
     const { picks: maxPicksResult } = resolveFullBracket(bracket, modelContext, buildFullBracket);
     resetToMaximus(maxPicksResult);
-  }, [bracket, modelContext, resetToMaximus]);
+  }, [bracket, modelContext, resetToMaximus, requireAuth]);
 
   const handleSimulateEntire = useCallback(() => {
+    if (requireAuth()) return;
     if (!modelContext) return;
     const result = simulateEntire(modelContext);
     if (result?.predictions) {
       setPredictions(prev => ({ ...prev, ...result.predictions }));
     }
-  }, [modelContext, simulateEntire]);
+  }, [modelContext, simulateEntire, requireAuth]);
 
   const handleSimulateRest = useCallback(() => {
+    if (requireAuth()) return;
     if (!modelContext) return;
     const result = simulateRest(modelContext);
     if (result?.predictions) {
       setPredictions(prev => ({ ...prev, ...result.predictions }));
     }
-  }, [modelContext, simulateRest]);
+  }, [modelContext, simulateRest, requireAuth]);
 
   const handleRegeneratePicks = useCallback(() => {
+    if (requireAuth()) return;
     if (!modelContext) return;
     const result = regeneratePicks(modelContext, predictions);
     if (result?.predictions) {
       setPredictions(prev => ({ ...prev, ...result.predictions }));
     }
-  }, [modelContext, predictions, regeneratePicks]);
+  }, [modelContext, predictions, regeneratePicks, requireAuth]);
 
   const simStats = useMemo(() => {
     return getSimulationStats(predictions);
@@ -169,7 +189,12 @@ export default function Bracketology() {
 
   const championPrediction = predictions['champ'] || null;
 
-  const isLoading = authLoading || bracketLoading || showMinLoadTime;
+  const activeRound = useMemo(() => {
+    const phase = getTournamentPhase();
+    return getActiveRound(phase);
+  }, []);
+
+  const isLoading = bracketLoading || showMinLoadTime;
 
   if (isLoading) return <BracketLoading />;
 
@@ -196,6 +221,7 @@ export default function Bracketology() {
           champion={champion}
           championPrediction={championPrediction}
           hasBracket={hasBracket}
+          isGuest={isGuest}
           onPopulateField={handlePopulateField}
           onAutoFill={handleAutoFill}
         />
@@ -208,6 +234,7 @@ export default function Bracketology() {
               totalPicks={totalPicks}
               totalGames={totalGames}
               bracketMode={bracketMode}
+              isGuest={isGuest}
               bracketMeta={{
                 realTeamCount: bracket?.teamCount,
                 lastUpdated: bracket?.lastUpdated,
@@ -258,6 +285,8 @@ export default function Bracketology() {
                       onPick={handlePick}
                       onMaximusPick={handleMaximusPick}
                       showCompare={showCompare}
+                      isGuest={isGuest}
+                      activeRound={activeRound}
                       side="left"
                     />
                   ))}
@@ -273,6 +302,7 @@ export default function Bracketology() {
                     onPick={handlePick}
                     onMaximusPick={handleMaximusPick}
                     showCompare={showCompare}
+                    isGuest={isGuest}
                   />
                 </div>
 
@@ -289,6 +319,8 @@ export default function Bracketology() {
                       onPick={handlePick}
                       onMaximusPick={handleMaximusPick}
                       showCompare={showCompare}
+                      isGuest={isGuest}
+                      activeRound={activeRound}
                       side="right"
                     />
                   ))}
@@ -365,6 +397,13 @@ export default function Bracketology() {
             predictions={predictions}
             bracketMode={bracketMode}
             onClose={() => setShowShareSummary(false)}
+          />
+        )}
+
+        {showAuthGate && (
+          <AuthGateModal
+            onClose={() => setShowAuthGate(false)}
+            message="Create a free Maximus Sports account to save picks, simulate your bracket, and compete with friends."
           />
         )}
       </div>

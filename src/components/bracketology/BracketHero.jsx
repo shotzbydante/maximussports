@@ -11,6 +11,7 @@ export default function BracketHero({
   champion,
   championPrediction,
   hasBracket,
+  isGuest = false,
   onPopulateField,
   onAutoFill,
 }) {
@@ -92,7 +93,7 @@ export default function BracketHero({
           </div>
         )}
 
-        {hasBracket && totalPicks === 0 && (
+        {hasBracket && totalPicks === 0 && !isGuest && (
           <div className={styles.firstUseCta}>
             <p className={styles.firstUseText}>
               Your bracket is ready. Choose how to start:
@@ -106,6 +107,20 @@ export default function BracketHero({
               )}
               <button type="button" className={styles.firstUseSecondary} onClick={() => {}}>
                 Build Manually
+              </button>
+            </div>
+          </div>
+        )}
+
+        {hasBracket && isGuest && (
+          <div className={styles.firstUseCta}>
+            <p className={styles.firstUseText}>
+              Explore Maximus intelligence for every matchup. Create a free account to build your own bracket.
+            </p>
+            <div className={styles.firstUseActions}>
+              <button type="button" className={styles.firstUsePrimary} onClick={onAutoFill}>
+                <span className={styles.firstUseIcon}>◆</span>
+                Create Account to Start Picking
               </button>
             </div>
           </div>

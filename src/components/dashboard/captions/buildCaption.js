@@ -458,20 +458,8 @@ function buildTournamentCaption({ tournamentInsights, asOf }) {
   return { shortCaption: short, longCaption: long, hashtags };
 }
 
-function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
-  const upsetGames = tournamentInsights?.upsetGames || [];
-
-  if (upsetGames.length === 0) {
-    return {
-      shortCaption: '🚨 Upset Radar is live for the tournament.\n\nSee the full board at maximussports.ai\n\n#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
-      longCaption: '🚨 Upset Radar is live.\n\nSee the full board at maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+\n\n#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
-      hashtags: ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'],
-    };
-  }
-
-  const topGames = upsetGames.slice(0, 5);
-
-  const gameLines = topGames.map((g, i) => {
+function _buildUpsetGameLines(games) {
+  return games.map((g, i) => {
     const pickTeam = g.modelResult?.winner || g.topTeam;
     const oppTeam = g.modelResult?.loser || g.bottomTeam;
     const pickName = pickTeam?.shortName || pickTeam?.name || '?';
@@ -485,9 +473,47 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
       : null;
     const pctStr = pct != null ? ` (${pct}%)` : '';
     const prefix = isUpset ? '🚨' : '📊';
-
     return `${i + 1}. ${prefix} ${pickEmoji} #${pickSeed} ${pickName} over #${oppSeed} ${oppName}${pctStr}`;
   });
+}
+
+const UPSET_RADAR_DAY_HOOKS = {
+  Thursday: [
+    (n) => `🚨 THURSDAY UPSET RADAR: ${n} games you need to watch today 🏀`,
+    (n) => `🚨 UPSET RADAR — THURSDAY: The model flagged ${n} danger zone matchups 🏀`,
+  ],
+  Friday: [
+    (n) => `🚨 FRIDAY UPSET RADAR: ${n} games to keep your eye on today 🏀`,
+    (n) => `🚨 UPSET RADAR — FRIDAY: ${n} matchups the model says could flip 🏀`,
+  ],
+  Saturday: [
+    (n) => `🚨 SATURDAY UPSET RADAR: ${n} Round of 32 games on upset watch 🏀`,
+    (n) => `🚨 UPSET RADAR — SATURDAY: The model sees chaos brewing in ${n} games 🏀`,
+  ],
+  Sunday: [
+    (n) => `🚨 SUNDAY UPSET RADAR: ${n} Round of 32 matchups flagged for volatility 🏀`,
+    (n) => `🚨 UPSET RADAR — SUNDAY: Can the chalk hold? ${n} matchups say no 🏀`,
+  ],
+};
+
+function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
+  const upsetGames = tournamentInsights?.upsetGames || [];
+  const dayCards = tournamentInsights?.dayCards || [];
+
+  if (upsetGames.length === 0 && dayCards.length === 0) {
+    return {
+      shortCaption: '🚨 Upset Radar is live for the tournament.\n\nSee the full board at maximussports.ai\n\n#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
+      longCaption: '🚨 Upset Radar is live.\n\nSee the full board at maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+\n\n#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
+      hashtags: ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'],
+    };
+  }
+
+  if (dayCards.length > 1) {
+    return buildMultiDayUpsetRadarCaptions({ dayCards, asOf });
+  }
+
+  const topGames = upsetGames.slice(0, 5);
+  const gameLines = _buildUpsetGameLines(topGames);
 
   const modelUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
   const coinFlips = topGames.filter(g => {
@@ -543,6 +569,73 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
   const hashtags = ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'];
 
   return { shortCaption: short, longCaption: long, hashtags };
+}
+
+function buildMultiDayUpsetRadarCaptions({ dayCards, asOf }) {
+  const captions = dayCards.map((card) => {
+    const { dayLabel, roundLabel, games = [] } = card;
+    const topGames = games.slice(0, 5);
+    const gameLines = _buildUpsetGameLines(topGames);
+
+    const hookTemplates = UPSET_RADAR_DAY_HOOKS[dayLabel] || [
+      (n) => `🚨 UPSET RADAR — ${dayLabel.toUpperCase()}: ${n} games flagged 🏀`,
+    ];
+    const hook = _pick(hookTemplates, dayLabel + roundLabel)(topGames.length);
+
+    const modelUpsetPicks = topGames.filter(g => g.modelResult?.isUpset);
+    const biggestUpset = topGames.find(g => g.modelResult?.isUpset);
+    const biggestName = biggestUpset?.modelResult?.winner?.shortName || biggestUpset?.modelResult?.winner?.name;
+
+    let colorLine = '';
+    if (modelUpsetPicks.length > 0 && biggestName) {
+      colorLine = `The model is backing ${biggestName} as an upset special. Don\u2019t sleep on it.`;
+    } else if (topGames.length > 0) {
+      colorLine = `Every game on this card has volatility the model flagged. Bracket busters live here.`;
+    }
+
+    const short = [
+      hook,
+      '',
+      gameLines.join('\n'),
+      '',
+      colorLine ? `💡 ${colorLine}` : null,
+      '',
+      `Full ${roundLabel.toLowerCase()} intel → maximussports.ai`,
+      '',
+      '#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
+    ].filter(l => l != null).join('\n');
+
+    const long = [
+      hook,
+      '',
+      `${dayLabel} ${roundLabel} upset watch:`,
+      '',
+      gameLines.join('\n'),
+      '',
+      colorLine ? `💡 ${colorLine}` : null,
+      '',
+      '📊 Each matchup analyzed via rankings, ATS trends, title odds, and historical upset rates.',
+      '',
+      '👇 Which upset are you calling? Drop it below.',
+      '',
+      `Full bracket intel → maximussports.ai`,
+      '',
+      asOf ? `Data as of ${asOf}` : null,
+      DISCLAIMER,
+      '',
+      '#UpsetAlert #MarchMadness #BracketBuster #NCAATournament #MaximusSports',
+    ].filter(l => l != null).join('\n');
+
+    return { dayLabel, roundLabel, shortCaption: short, longCaption: long };
+  });
+
+  const primary = captions[0] || {};
+  return {
+    shortCaption: primary.shortCaption || '',
+    longCaption: primary.longCaption || '',
+    hashtags: ['#UpsetAlert', '#MarchMadness', '#BracketBuster', '#NCAATournament', '#MaximusSports'],
+    dayCaptions: captions,
+  };
 }
 
 // ─── Game Insights ───────────────────────────────────────────────────────────

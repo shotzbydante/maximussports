@@ -411,35 +411,123 @@ export function getHistoricalUpsetRate(highSeed, lowSeed) {
 }
 
 // ── Upset Radar ───────────────────────────────────────────────────
-const UPSET_BANDS = [
+
+const UPSET_BANDS_R64 = [
   { high: 5, low: 12 },
   { high: 6, low: 11 },
   { high: 7, low: 10 },
   { high: 4, low: 13 },
   { high: 3, low: 14 },
   { high: 8, low: 9 },
+  { high: 2, low: 15 },
+  { high: 1, low: 16 },
 ];
 
+const ROUND_LABEL_MAP = {
+  1: 'Round of 64',
+  2: 'Round of 32',
+  3: 'Sweet 16',
+  4: 'Elite 8',
+  5: 'Final Four',
+  6: 'Championship',
+};
+
+const SLATE_DAY_CONFIG = {
+  first_round: {
+    round: 1,
+    days: [
+      { label: 'Thursday', dayIndex: 0, regions: ['East', 'West'] },
+      { label: 'Friday', dayIndex: 1, regions: ['South', 'Midwest'] },
+    ],
+  },
+  second_round: {
+    round: 2,
+    days: [
+      { label: 'Saturday', dayIndex: 0, regions: ['East', 'West'] },
+      { label: 'Sunday', dayIndex: 1, regions: ['South', 'Midwest'] },
+    ],
+  },
+};
+
 /**
- * Get the top upset radar games, ranked by upset probability.
- * Uses historical priors + model context for ranking.
+ * Get the current active round number from phase.
  */
-export function getUpsetRadarGames(context = {}) {
+export function getActiveRound(phase) {
+  const map = {
+    pre_tournament: 1,
+    first_four: 1,
+    first_round: 1,
+    second_round: 2,
+    sweet_sixteen: 3,
+    elite_eight: 4,
+    final_four: 5,
+    championship: 6,
+    off: 1,
+  };
+  return map[phase] ?? 1;
+}
+
+/**
+ * Get the round label for a round number.
+ */
+export function getRoundLabel(round) {
+  return ROUND_LABEL_MAP[round] || `Round ${round}`;
+}
+
+/**
+ * Score an upset candidate using model signal strength, diversity, and
+ * shareability — not just raw upset probability. This ensures a healthy
+ * mix of different tiers and pick types, not only obvious 8/9 coin flips.
+ */
+function scoreUpsetCandidate(candidate) {
+  const { upsetProbability, modelResult, topSeed, bottomSeed } = candidate;
+
+  let score = upsetProbability;
+
+  const seedGap = bottomSeed - topSeed;
+  if (seedGap >= 8) score += 0.10;
+  else if (seedGap >= 5) score += 0.05;
+
+  if (modelResult?.isUpset) score += 0.12;
+
+  const tier = modelResult?.bracketTier;
+  if (tier === 'upset_special') score += 0.15;
+  else if (tier === 'dice_roll') score += 0.05;
+  else if (tier === 'high_conviction' && modelResult?.isUpset) score += 0.18;
+
+  if (modelResult?.signals?.length > 1) score += 0.04;
+
+  return score;
+}
+
+/**
+ * Get the top upset radar games, ranked by a composite signal score.
+ * Uses the full model engine — not limited to just coin-flip seed bands.
+ */
+export function getUpsetRadarGames(context = {}, options = {}) {
+  const {
+    round = 1,
+    limit = 10,
+    regionFilter = null,
+  } = options;
+
+  const bands = round === 1 ? UPSET_BANDS_R64 : UPSET_BANDS_R64.slice(0, 6);
   const candidates = [];
 
-  for (const band of UPSET_BANDS) {
+  for (const band of bands) {
     const matchups = getSeedPairMatchups(band.high, band.low);
     for (const m of matchups) {
       if (!m.topTeam || !m.bottomTeam) continue;
+      if (regionFilter && !regionFilter.includes(m.region)) continue;
 
-      const prior = getTournamentPrior(m.topSeed, m.bottomSeed, 1, 0);
+      const prior = getTournamentPrior(m.topSeed, m.bottomSeed, round, 0);
       const historicalRate = prior.historicalUpsetRate ?? 0;
       const rateInfo = getHistoricalUpsetRate(m.topSeed, m.bottomSeed);
 
       let modelResult = null;
       if (context.rankMap || context.championshipOdds || context.atsBySlug) {
         modelResult = resolveBracketMatchup(
-          m.topTeam, m.bottomTeam, context, { round: 1 },
+          m.topTeam, m.bottomTeam, context, { round },
         );
       }
 
@@ -447,19 +535,76 @@ export function getUpsetRadarGames(context = {}) {
         ? (modelResult.isUpset ? modelResult.winProbability : 1 - modelResult.winProbability)
         : historicalRate;
 
-      candidates.push({
+      const entry = {
         ...m,
+        round,
         historicalRate,
         rateInfo,
         upsetProbability,
         modelResult,
         isUpsetPick: modelResult?.isUpset ?? false,
-      });
+      };
+      entry._compositeScore = scoreUpsetCandidate(entry);
+      candidates.push(entry);
     }
   }
 
-  candidates.sort((a, b) => b.upsetProbability - a.upsetProbability);
-  return candidates.slice(0, 8);
+  candidates.sort((a, b) => b._compositeScore - a._compositeScore);
+
+  const selected = [];
+  const usedBands = new Set();
+
+  for (const c of candidates) {
+    if (selected.length >= limit) break;
+    selected.push(c);
+    usedBands.add(`${c.topSeed}v${c.bottomSeed}`);
+  }
+
+  if (selected.length < limit) {
+    for (const c of candidates) {
+      if (selected.length >= limit) break;
+      if (!selected.includes(c)) selected.push(c);
+    }
+  }
+
+  return selected.slice(0, limit);
+}
+
+/**
+ * Get upset radar games split by slate day for IG card generation.
+ * Returns an array of card objects: [{ dayLabel, roundLabel, games, round }]
+ */
+export function getUpsetRadarByDay(context = {}, phase) {
+  const effectivePhase = phase || getTournamentPhase();
+  const slateConfig = SLATE_DAY_CONFIG[effectivePhase];
+
+  if (!slateConfig) {
+    const round = getActiveRound(effectivePhase);
+    const games = getUpsetRadarGames(context, { round, limit: 10 });
+    return [{
+      dayLabel: getRoundLabel(round),
+      roundLabel: getRoundLabel(round),
+      round,
+      dayIndex: 0,
+      games,
+    }];
+  }
+
+  const { round, days } = slateConfig;
+  return days.map(day => {
+    const games = getUpsetRadarGames(context, {
+      round,
+      limit: 5,
+      regionFilter: day.regions,
+    });
+    return {
+      dayLabel: day.label,
+      roundLabel: getRoundLabel(round),
+      round,
+      dayIndex: day.dayIndex,
+      games,
+    };
+  });
 }
 
 /**

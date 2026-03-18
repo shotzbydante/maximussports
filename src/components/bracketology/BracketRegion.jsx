@@ -12,6 +12,8 @@ export default function BracketRegion({
   onPick,
   onMaximusPick,
   showCompare = false,
+  isGuest = false,
+  activeRound = 1,
   side = 'left',
 }) {
   const regionName = region.name;
@@ -37,8 +39,8 @@ export default function BracketRegion({
       </div>
       <div className={styles.roundsContainer}>
         {rounds.map(({ round, matchups }, ri) => (
-          <div key={round} className={styles.round}>
-            <span className={styles.roundLabel}>{roundLabels[ri]}</span>
+          <div key={round} className={`${styles.round} ${round === activeRound ? styles.activeRound : ''}`}>
+            <span className={`${styles.roundLabel} ${round === activeRound ? styles.activeRoundLabel : ''}`}>{roundLabels[ri]}</span>
             <div className={styles.matchupColumn}>
               {matchups.map((matchup) => (
                 <div
@@ -54,6 +56,7 @@ export default function BracketRegion({
                     onPick={onPick}
                     onMaximusPick={onMaximusPick}
                     showCompare={showCompare}
+                    isGuest={isGuest}
                     compact={round >= 3}
                   />
                 </div>

@@ -18,6 +18,7 @@ export default function BracketControls({
   totalPicks,
   totalGames,
   bracketMode,
+  isGuest = false,
   bracketMeta,
   onAutoFill,
   onResetToMaximus,

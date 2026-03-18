@@ -12,6 +12,7 @@ export default function BracketMatchup({
   compact = false,
   showCompare = false,
   maximusPick = null,
+  isGuest = false,
 }) {
   const { topTeam, bottomTeam, matchupId, status, winner } = matchup;
   const [showTooltip, setShowTooltip] = useState(false);
@@ -21,6 +22,9 @@ export default function BracketMatchup({
   const hasResult = winner != null;
   const isReady = status === 'ready' || status === 'final' || status === 'live';
   const isWaiting = status === 'waiting';
+
+  const predictedTop = prediction?.winner === topTeam;
+  const predictedBottom = prediction?.winner === bottomTeam;
 
   const isDivergent = showCompare && maximusPick && userPick && maximusPick !== userPick;
   const confLabel = prediction?.confidenceLabel;
@@ -67,20 +71,25 @@ export default function BracketMatchup({
         isWaiting={isWaiting}
         pickOrigin={topSelected ? pickOrigin : null}
         isMaximusPick={showCompare && maximusPick === 'top'}
+        isPredictedWinner={predictedTop}
+        prediction={predictedTop ? prediction : null}
+        isGuest={isGuest}
         onClick={() => handlePick('top')}
       />
 
       <div className={styles.divider}>
         {prediction && isReady && (
           <div className={styles.dividerActions}>
-            <button
-              className={`${styles.maximusBtn} ${pickOrigin === 'maximus' ? styles.maximusBtnActive : ''}`}
-              onClick={handleMaximus}
-              title={`Use Maximus: ${prediction.winner?.shortName || prediction.winner?.name} (${confLabel})`}
-            >
-              <span className={styles.maximusIcon}>◆</span>
-              <span className={styles.maximusBtnLabel}>Maximus</span>
-            </button>
+            {!isGuest && (
+              <button
+                className={`${styles.maximusBtn} ${pickOrigin === 'maximus' ? styles.maximusBtnActive : ''}`}
+                onClick={handleMaximus}
+                title={`Use Maximus: ${prediction.winner?.shortName || prediction.winner?.name} (${confLabel})`}
+              >
+                <span className={styles.maximusIcon}>◆</span>
+                <span className={styles.maximusBtnLabel}>Maximus</span>
+              </button>
+            )}
             {bracketTier && (
               <span
                 className={`${styles.tierChip} ${styles[bracketTier.cssClass]}`}
@@ -103,6 +112,9 @@ export default function BracketMatchup({
         isWaiting={isWaiting}
         pickOrigin={bottomSelected ? pickOrigin : null}
         isMaximusPick={showCompare && maximusPick === 'bottom'}
+        isPredictedWinner={predictedBottom}
+        prediction={predictedBottom ? prediction : null}
+        isGuest={isGuest}
         onClick={() => handlePick('bottom')}
       />
 
@@ -147,7 +159,7 @@ export default function BracketMatchup({
   );
 }
 
-function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, isMaximusPick, onClick }) {
+function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, isMaximusPick, isPredictedWinner, prediction, isGuest, onClick }) {
   const isEmpty = !team || team.isPlaceholder;
   const isClickable = !isEmpty && !isWaiting;
 
@@ -163,6 +175,7 @@ function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, 
         ${isClickable ? styles.clickable : ''}
         ${pickOrigin === 'maximus' ? styles.maximusPicked : ''}
         ${isMaximusPick && !selected ? styles.maximusWouldPick : ''}
+        ${isPredictedWinner && !selected ? styles.predictedWinner : ''}
       `}
       onClick={isClickable ? onClick : undefined}
       disabled={!isClickable}
@@ -182,6 +195,11 @@ function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, 
       {selected && (
         <span className={`${styles.pickBadge} ${pickOrigin === 'maximus' ? styles.pickBadgeMaximus : ''}`}>
           {pickOrigin === 'maximus' ? '◆' : '✓'}
+        </span>
+      )}
+      {isPredictedWinner && !selected && prediction && (
+        <span className={styles.predictedBadge} title={`Maximus pick — ${Math.round((prediction.winProbability ?? 0.5) * 100)}%`}>
+          ◆ {Math.round((prediction.winProbability ?? 0.5) * 100)}%
         </span>
       )}
     </button>

@@ -72,10 +72,13 @@ export default function TeamLogo({ team, size = 28 }) {
           alt=""
           width={size}
           height={size}
+          loading="eager"
+          decoding="sync"
           onError={() => setLocalError(true)}
           className={styles.img}
           style={imgStyle}
           data-fallback-text={initials}
+          data-team-slug={slug}
         />
       </span>
     );
@@ -90,11 +93,14 @@ export default function TeamLogo({ team, size = 28 }) {
           alt=""
           width={size}
           height={size}
+          loading="eager"
+          decoding="sync"
           onError={() => setEspnError(true)}
           className={styles.img}
           style={imgStyle}
           crossOrigin="anonymous"
           data-fallback-text={initials}
+          data-team-slug={slug}
         />
       </span>
     );

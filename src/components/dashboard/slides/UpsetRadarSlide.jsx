@@ -210,6 +210,15 @@ function UpsetCard({ game, rank }) {
 export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const games = options.upsetRadarGames || [];
   const displayGames = games.slice(0, 5);
+  const dayLabel = options.dayLabel || '';
+  const roundLabel = options.roundLabel || '';
+
+  const titleText = dayLabel
+    ? `UPSET RADAR`
+    : 'UPSET RADAR';
+  const subtitleText = dayLabel
+    ? `${dayLabel.toUpperCase()} · ${roundLabel.toUpperCase()}`
+    : 'UPSET INTELLIGENCE';
 
   return (
     <SlideShell
@@ -225,8 +234,8 @@ export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, o
         <div className={styles.headerTop}>
           <div className={styles.headerText}>
             <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
-            <h2 className={styles.title}>🚨 UPSET RADAR</h2>
-            <div className={styles.titleSup}>UPSET INTELLIGENCE</div>
+            <h2 className={styles.title}>{titleText}</h2>
+            <div className={styles.titleSup}>{subtitleText}</div>
           </div>
           <img
             src="/mascot.png"

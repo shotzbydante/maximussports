@@ -59,6 +59,26 @@
   min-height: 1.2rem;
 }
 
+.activeRound {
+  position: relative;
+}
+
+.activeRound::before {
+  content: '';
+  position: absolute;
+  inset: -4px -6px;
+  border-radius: 10px;
+  background: rgba(95, 232, 168, 0.03);
+  border: 1px solid rgba(95, 232, 168, 0.10);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.activeRoundLabel {
+  color: #5FE8A8;
+  font-weight: 700;
+}
+
 .matchupColumn {
   display: flex;
   flex-direction: column;

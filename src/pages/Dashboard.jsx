@@ -27,10 +27,12 @@ import {
   getPresetMatchups,
   getFirstRoundMatchupsByRegion,
   getUpsetRadarGames,
+  getUpsetRadarByDay,
   getBatchTournamentInsights,
   getTeamSeed,
   setOfficialBracketData,
   getTournamentDataMode,
+  getTournamentPhase,
 } from '../utils/tournamentHelpers';
 import { fetchBracketData } from '../data/bracketData';
 import { REGIONS } from '../config/bracketology';
@@ -425,8 +427,17 @@ export default function Dashboard() {
     const context = { rankMap, championshipOdds, atsBySlug };
 
     if (gameMode === 'upset-radar') {
+      const phase = getTournamentPhase();
+      const dayCards = getUpsetRadarByDay(context, phase);
       const upsetGames = getUpsetRadarGames(context);
-      return { mode: 'upset-radar', upsetGames, insights: [], title: 'Upset\nRadar', subtitle: 'UPSET INTELLIGENCE' };
+      return {
+        mode: 'upset-radar',
+        upsetGames,
+        dayCards,
+        insights: [],
+        title: 'Upset\nRadar',
+        subtitle: 'UPSET INTELLIGENCE',
+      };
     }
 
     let matchups = [];

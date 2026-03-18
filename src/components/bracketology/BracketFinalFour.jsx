@@ -10,6 +10,7 @@ export default function BracketFinalFour({
   onPick,
   onMaximusPick,
   showCompare = false,
+  isGuest = false,
 }) {
   const ff1 = allMatchups['ff-1'];
   const ff2 = allMatchups['ff-2'];
@@ -40,6 +41,7 @@ export default function BracketFinalFour({
               onPick={onPick}
               onMaximusPick={onMaximusPick}
               showCompare={showCompare}
+              isGuest={isGuest}
             />
           )}
           {ff1?.regionMatchup && (
@@ -59,6 +61,7 @@ export default function BracketFinalFour({
               onPick={onPick}
               onMaximusPick={onMaximusPick}
               showCompare={showCompare}
+              isGuest={isGuest}
             />
           )}
           {champion && (
@@ -92,6 +95,7 @@ export default function BracketFinalFour({
               onPick={onPick}
               onMaximusPick={onMaximusPick}
               showCompare={showCompare}
+              isGuest={isGuest}
             />
           )}
           {ff2?.regionMatchup && (

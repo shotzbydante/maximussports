@@ -231,6 +231,22 @@
   background: rgba(168, 85, 247, 0.05);
 }
 
+.predictedWinner {
+  background: rgba(95, 232, 168, 0.08);
+  border-color: rgba(95, 232, 168, 0.25);
+  box-shadow: inset 0 0 12px rgba(95, 232, 168, 0.06), 0 0 0 0.5px rgba(95, 232, 168, 0.15);
+}
+
+.predictedBadge {
+  font-size: 0.52rem;
+  font-weight: 700;
+  color: #5FE8A8;
+  flex-shrink: 0;
+  margin-left: auto;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
 .winner {
   background: rgba(34, 197, 94, 0.1);
   border-color: rgba(34, 197, 94, 0.3);
