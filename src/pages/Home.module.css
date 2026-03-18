@@ -1274,7 +1274,7 @@
 /* ── Peek state — shows ~1 row per column with gradient fade ───── */
 
 .picksCollapsiblePeek {
-  max-height: 360px;
+  max-height: 520px;
   overflow: hidden;
 }
 
@@ -1338,7 +1338,7 @@
   }
 
   .picksCollapsiblePeek {
-    max-height: 440px;
+    max-height: 600px;
   }
 
   .picksToggleBtn {

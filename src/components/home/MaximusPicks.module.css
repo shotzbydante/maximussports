@@ -26,6 +26,31 @@
   }
 }
 
+@media (max-width: 600px) {
+  .root {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .column {
+    border-radius: var(--radius-card, 10px);
+  }
+
+  .columnHeader {
+    padding: 10px 12px 0;
+  }
+
+  .cardList {
+    padding: 8px 6px;
+    gap: 6px;
+  }
+
+  .pickCard {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+}
+
 /* ─── column ─────────────────────────────────────────────────────── */
 
 .column {
@@ -719,6 +744,21 @@
   .pickCard { transition: none; }
   .chevron, .chevronOpen { transition: none; }
   .skeletonLine { animation: none; }
+}
+
+@media (max-width: 600px) {
+  .cardListWrapper {
+    transition: max-height 0.28s ease-out;
+  }
+
+  .cardListWrapperCollapsed {
+    max-height: 140px;
+  }
+
+  .accordionToggle {
+    padding: 6px 12px;
+    font-size: 0.62rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) and (max-width: 767px) {
