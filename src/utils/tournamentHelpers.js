@@ -452,13 +452,29 @@ export const SLATE_DAY_CONFIG = {
 };
 
 /**
- * Get available slate options for the upset radar in the current phase.
+ * Map tournament phase to the SLATE_DAY_CONFIG key.
+ * Pre-tournament and first-four phases still show first-round slates since
+ * that is the content being previewed/generated.
+ */
+function _phaseToSlateKey(phase) {
+  const map = {
+    pre_tournament: 'first_round',
+    first_four: 'first_round',
+    first_round: 'first_round',
+    second_round: 'second_round',
+  };
+  return map[phase] || null;
+}
+
+/**
+ * Get available slate options for the upset radar / 5-key-games in the current phase.
  * Returns { round, roundLabel, options: [{ id, label, shortLabel, regions }] }
  * where options[0] is always { id: 'auto', label: 'Auto', shortLabel: 'Auto' }.
  */
 export function getUpsetRadarSlateOptions(phase) {
   const effectivePhase = phase || getTournamentPhase();
-  const config = SLATE_DAY_CONFIG[effectivePhase];
+  const slateKey = _phaseToSlateKey(effectivePhase);
+  const config = slateKey ? SLATE_DAY_CONFIG[slateKey] : null;
 
   if (!config) {
     const round = getActiveRound(effectivePhase);
@@ -611,7 +627,8 @@ export function getUpsetRadarGames(context = {}, options = {}) {
  */
 export function getUpsetRadarByDay(context = {}, phase) {
   const effectivePhase = phase || getTournamentPhase();
-  const slateConfig = SLATE_DAY_CONFIG[effectivePhase];
+  const slateKey = _phaseToSlateKey(effectivePhase);
+  const slateConfig = slateKey ? SLATE_DAY_CONFIG[slateKey] : null;
 
   if (!slateConfig) {
     const round = getActiveRound(effectivePhase);

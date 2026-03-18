@@ -31,6 +31,7 @@ import {
   getUpsetRadarSlateOptions,
   getBatchTournamentInsights,
   getTeamSeed,
+  getTeamRegion,
   setOfficialBracketData,
   getTournamentDataMode,
   getTournamentPhase,
@@ -75,6 +76,7 @@ export default function Dashboard() {
   const [gameAngle, setGameAngle] = useState('value');
   const [gameMode, setGameMode] = useState('tournament'); // 'standard' | '5games' | 'tournament' | 'upset-radar'
   const [upsetRadarSlate, setUpsetRadarSlate] = useState('auto'); // 'auto' | 'thu' | 'fri' | 'day1' | 'day2'
+  const [fiveGamesSlate, setFiveGamesSlate] = useState('auto'); // 'auto' | 'thu' | 'fri' | 'day1' | 'day2'
   const [tournamentPreset, setTournamentPreset] = useState('1-seeds');
   const [tournamentRegion, setTournamentRegion] = useState(null);
   const [tournamentSelectedMatchups, setTournamentSelectedMatchups] = useState([]);
@@ -394,7 +396,7 @@ export default function Dashboard() {
   // ── tournament insights (March Madness intelligence) ──────
   const tournamentInsightsData = useMemo(() => {
     if (activeSection !== 'game') return null;
-    if (gameMode !== 'tournament' && gameMode !== 'upset-radar') return null;
+    if (gameMode !== 'tournament' && gameMode !== 'upset-radar' && gameMode !== '5games') return null;
 
     // Build real enrichment context from available app data —
     // same sources that power Maximus Picks on the Home page.
@@ -428,6 +430,53 @@ export default function Dashboard() {
     }
 
     const context = { rankMap, championshipOdds, atsBySlug };
+
+    if (gameMode === '5games') {
+      const phase = getTournamentPhase();
+      const slateOpts = getUpsetRadarSlateOptions(phase);
+      const selectedOpt = slateOpts.options.find(o => o.id === fiveGamesSlate);
+      const regionFilter = selectedOpt?.regions || null;
+
+      const games = dashData?.odds?.games ?? [];
+      const atsLeadersRaw = dashData?.atsLeaders ?? { best: [], worst: [] };
+      let allPicks = [];
+      try {
+        const res = buildMaximusPicks({
+          games,
+          atsLeaders: atsLeadersRaw,
+          atsBySlug,
+          rankMap,
+          championshipOdds,
+        });
+        allPicks = [...(res.atsPicks ?? []), ...(res.mlPicks ?? [])].filter(p => p.itemType === 'lean');
+      } catch { /* ignore */ }
+
+      let filteredPicks = allPicks;
+      if (regionFilter) {
+        filteredPicks = allPicks.filter(p => {
+          const homeRegion = getTeamRegion(p.homeSlug || '');
+          const awayRegion = getTeamRegion(p.awaySlug || '');
+          return regionFilter.includes(homeRegion) || regionFilter.includes(awayRegion);
+        });
+      }
+
+      filteredPicks.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+      const top5 = filteredPicks.slice(0, 5);
+
+      const dayLabel = selectedOpt?.id !== 'auto' ? (selectedOpt?.label || '') : '';
+      const roundLabel = slateOpts.roundLabel;
+
+      return {
+        mode: '5games',
+        fiveGamesPicks: top5,
+        dayLabel,
+        roundLabel,
+        slateOptions: slateOpts,
+        insights: [],
+        title: '5 Key\nGames',
+        subtitle: dayLabel ? `${dayLabel.toUpperCase()} · ${roundLabel.toUpperCase()}` : 'TOP ATS PICKS',
+      };
+    }
 
     if (gameMode === 'upset-radar') {
       const phase = getTournamentPhase();
@@ -493,7 +542,7 @@ export default function Dashboard() {
 
     const insights = getBatchTournamentInsights(matchups, context);
     return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [], preset: tournamentPreset || null };
-  }, [activeSection, gameMode, upsetRadarSlate, tournamentPreset, tournamentRegion, tournamentSelectedMatchups, dashData, dailyChampOdds]);
+  }, [activeSection, gameMode, upsetRadarSlate, fiveGamesSlate, tournamentPreset, tournamentRegion, tournamentSelectedMatchups, dashData, dailyChampOdds]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
@@ -799,6 +848,11 @@ export default function Dashboard() {
       dayLabel: tournamentInsightsData.dayLabel || '',
       roundLabel: tournamentInsightsData.roundLabel || '',
       dayCards: upsetRadarSlate === 'auto' ? (tournamentInsightsData.dayCards || []) : [],
+    } : {}),
+    ...(tournamentInsightsData?.mode === '5games' ? {
+      fiveGamesPicks: tournamentInsightsData.fiveGamesPicks || [],
+      dayLabel: tournamentInsightsData.dayLabel || '',
+      roundLabel: tournamentInsightsData.roundLabel || '',
     } : {}),
   };
 
@@ -1132,6 +1186,65 @@ export default function Dashboard() {
                   })()}
                 </>
               )}
+
+              {/* ── 5 Key Games mode ────────────────────── */}
+              {gameMode === '5games' && (() => {
+                const slateOpts = tournamentInsightsData?.slateOptions;
+                const options = slateOpts?.options || [{ id: 'auto', shortLabel: 'Auto' }];
+                const displayPicks = (tournamentInsightsData?.fiveGamesPicks || []).slice(0, 5);
+                const activeDayLabel = tournamentInsightsData?.dayLabel || '';
+                const activeRoundLabel = tournamentInsightsData?.roundLabel || '';
+
+                return (
+                  <>
+                    {/* Slate / Day Selector */}
+                    <div className={styles.controlGroup}>
+                      <label className={styles.controlLabel}>
+                        {activeRoundLabel || 'Round'} · Slate
+                      </label>
+                      <div className={styles.slateSegmented}>
+                        {options.map(opt => (
+                          <button
+                            key={opt.id}
+                            className={`${styles.slateBtn} ${fiveGamesSlate === opt.id ? styles.slateBtnActive : ''}`}
+                            onClick={() => {
+                              setFiveGamesSlate(opt.id);
+                              setAssetsReady(false);
+                            }}
+                          >
+                            {opt.shortLabel}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Candidate list */}
+                    <div className={styles.controlGroup}>
+                      <label className={styles.controlLabel}>
+                        {activeDayLabel
+                          ? `${activeDayLabel} · Top 5 ATS Picks`
+                          : 'Top 5 ATS Picks'
+                        }
+                      </label>
+                      <div className={styles.matchupSelectList}>
+                        {displayPicks.length === 0 ? (
+                          <div className={styles.emptyPicker}>No ATS picks for this slate</div>
+                        ) : (
+                          displayPicks.map((p, i) => (
+                            <div key={i} className={`${styles.matchupSelectRow} ${styles.matchupSelectRowActive}`}>
+                              <span className={styles.matchupRank}>{i + 1}</span>
+                              <span className={styles.matchupTeamName}>{p.awayTeam}</span>
+                              <span className={styles.matchupVs}>@</span>
+                              <span className={styles.matchupTeamName}>{p.homeTeam}</span>
+                              <span className={styles.matchupPct}>{p.pickLine}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* ── Upset Radar mode ──────────────────────── */}
               {gameMode === 'upset-radar' && (() => {

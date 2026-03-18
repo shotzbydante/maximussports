@@ -149,7 +149,7 @@ function UpsetCard({ game, rank }) {
         <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
           <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
             {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />}
-            <TeamLogo team={leftTeam} size={42} />
+            <TeamLogo team={leftTeam} size={52} />
           </div>
           <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
           <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
@@ -162,7 +162,7 @@ function UpsetCard({ game, rank }) {
 
         {/* CENTER: Probability Ring + VS */}
         <div className={styles.centerZone}>
-          <ProbRing pct={pct} color={edgeColor} size={58} />
+          <ProbRing pct={pct} color={edgeColor} size={66} />
           <div className={styles.vsStrip}>
             <span className={styles.vsLabel}>VS</span>
             {region && <span className={styles.regionLabel}>{region.toUpperCase()}</span>}
@@ -173,7 +173,7 @@ function UpsetCard({ game, rank }) {
         <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
           <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
             {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />}
-            <TeamLogo team={rightTeam} size={42} />
+            <TeamLogo team={rightTeam} size={52} />
           </div>
           <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
           <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>

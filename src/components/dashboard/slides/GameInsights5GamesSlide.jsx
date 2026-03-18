@@ -81,12 +81,17 @@ function buildWhyLine(game, pick) {
 /**
  * "5 Key Upcoming Games" slide — premium redesign with
  * prediction blocks, conviction badges, and probability indicators.
+ *
+ * When options.fiveGamesPicks is provided (tournament mode with day-split),
+ * those pre-ranked ATS picks are used instead of the legacy sorting.
  */
-export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slideTotal, ...rest }) {
+export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const games = data?.odds?.games ?? [];
   const upcomingWithSpreads = data?.upcomingGamesWithSpreads ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const rankingsTop25 = data?.rankingsTop25 ?? [];
+  const dayLabel = options.dayLabel || '';
+  const roundLabel = options.roundLabel || '';
 
   let picksMap = {};
   try {
@@ -109,37 +114,64 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
     return entry?.rank ?? null;
   }
 
-  const seen = new Set();
-  const allGames = [...games, ...upcomingWithSpreads];
-  const enriched = [];
-  for (const g of allGames) {
-    if (!g.awayTeam || !g.homeTeam) continue;
-    const key = `${getTeamSlug(g.awayTeam)}|${getTeamSlug(g.homeTeam)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    enriched.push({
-      ...g,
-      time: g.time || fmtTimePST(g.startTime) || fmtTimePST(g.commenceTime) || null,
-      network: g.network || g.broadcastName || g.broadcast || null,
+  let keyGames;
+  const preFilteredPicks = options.fiveGamesPicks || [];
+
+  if (preFilteredPicks.length > 0) {
+    keyGames = preFilteredPicks.map(p => {
+      const matchedGame = games.find(g => {
+        const aSlug = getTeamSlug(g.awayTeam || '');
+        const hSlug = getTeamSlug(g.homeTeam || '');
+        return (aSlug === p.awaySlug || aSlug === p.homeSlug) &&
+               (hSlug === p.awaySlug || hSlug === p.homeSlug);
+      });
+      return {
+        awayTeam: p.awayTeam,
+        homeTeam: p.homeTeam,
+        homeSpread: matchedGame?.homeSpread ?? matchedGame?.spread ?? null,
+        spread: matchedGame?.spread ?? null,
+        overUnder: matchedGame?.overUnder ?? matchedGame?.total ?? null,
+        total: matchedGame?.total ?? null,
+        time: matchedGame?.time || fmtTimePST(matchedGame?.startTime) || fmtTimePST(matchedGame?.commenceTime) || null,
+        network: matchedGame?.network || matchedGame?.broadcastName || matchedGame?.broadcast || null,
+        _pick: p,
+      };
     });
+  } else {
+    const seen = new Set();
+    const allGames = [...games, ...upcomingWithSpreads];
+    const enriched = [];
+    for (const g of allGames) {
+      if (!g.awayTeam || !g.homeTeam) continue;
+      const key = `${getTeamSlug(g.awayTeam)}|${getTeamSlug(g.homeTeam)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      enriched.push({
+        ...g,
+        time: g.time || fmtTimePST(g.startTime) || fmtTimePST(g.commenceTime) || null,
+        network: g.network || g.broadcastName || g.broadcast || null,
+      });
+    }
+
+    const withSpreads = enriched.filter(g => g.homeSpread != null || g.spread != null || g.awaySpread != null);
+    const withoutSpreads = enriched.filter(g => g.homeSpread == null && g.spread == null && g.awaySpread == null);
+    keyGames = [
+      ...withSpreads.sort((a, b) => {
+        const sa = Math.abs(parseFloat(a.homeSpread ?? a.spread ?? 99));
+        const sb = Math.abs(parseFloat(b.homeSpread ?? b.spread ?? 99));
+        return sa - sb;
+      }),
+      ...withoutSpreads,
+    ].slice(0, 5);
   }
-
-  const withSpreads = enriched.filter(g => g.homeSpread != null || g.spread != null || g.awaySpread != null);
-  const withoutSpreads = enriched.filter(g => g.homeSpread == null && g.spread == null && g.awaySpread == null);
-  const sorted = [
-    ...withSpreads.sort((a, b) => {
-      const sa = Math.abs(parseFloat(a.homeSpread ?? a.spread ?? 99));
-      const sb = Math.abs(parseFloat(b.homeSpread ?? b.spread ?? 99));
-      return sa - sb;
-    }),
-    ...withoutSpreads,
-  ];
-
-  const keyGames = sorted.slice(0, 5);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
   });
+
+  const subtitleText = dayLabel
+    ? `${dayLabel.toUpperCase()} · ${roundLabel.toUpperCase()}`
+    : 'GAME INSIGHTS';
 
   return (
     <SlideShell
@@ -151,7 +183,7 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
       rest={rest}
     >
       <div className={styles.datePill}>{today}</div>
-      <div className={styles.titleSup}>GAME INSIGHTS</div>
+      <div className={styles.titleSup}>{subtitleText}</div>
       <h2 className={styles.title}>5 Key<br />Games Today</h2>
       <div className={styles.divider} />
 
@@ -170,9 +202,8 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const spreadStr = fmtSpread(spreadNum);
             const total = g.overUnder ?? g.total ?? null;
             const pickKey = `${awayObj?.slug || ''}|${homeObj?.slug || ''}`;
-            const pick = picksMap[pickKey] ?? null;
+            const pick = g._pick || picksMap[pickKey] || null;
             const storyline = g.storyline || g.whyItMatters || buildWhyLine(g, pick);
-            const isTop = i === 0;
 
             const awaySeed = getTeamSeed(awayObj?.slug || g.awayTeam);
             const homeSeed = getTeamSeed(homeObj?.slug || g.homeTeam);
@@ -183,10 +214,13 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const tc = getTeamColors(pickSlug);
             const accentColor = tc?.primary || '#4A90D9';
 
+            const isPickedAway = pick && (pick.pickTeam === g.awayTeam || pick.pickTeamSlug === awayObj?.slug);
+            const isPickedHome = pick && !isPickedAway;
+
             return (
               <div
                 key={i}
-                className={`${styles.gameRow} ${isTop ? styles.gameRowTop : ''}`}
+                className={styles.gameRow}
                 style={{
                   '--card-accent': accentColor,
                   '--card-accent-30': `${accentColor}4d`,
@@ -196,12 +230,17 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
               >
                 {/* Teams row */}
                 <div className={styles.teamsRow}>
-                  <div className={styles.teamCell}>
-                    <TeamLogo team={awayObj} size={isTop ? 34 : 26} />
+                  <div className={`${styles.teamCell} ${isPickedAway ? styles.teamCellPicked : ''}`}>
+                    <div className={isPickedAway ? styles.pickedLogoWrap : styles.logoWrap}>
+                      <TeamLogo team={awayObj} size={36} />
+                    </div>
                     <div className={styles.teamMeta}>
                       {awaySeed != null && <span className={styles.seedBadge}>#{awaySeed}</span>}
                       {awayRank != null && !awaySeed && <span className={styles.rankBadge}>#{awayRank}</span>}
                       <span className={styles.teamName}>{awayObj?.name || g.awayTeam}</span>
+                      {isPickedAway && pick && (
+                        <span className={styles.modelPickBadge}>◆ MAXIMUS PICK</span>
+                      )}
                     </div>
                   </div>
 
@@ -209,20 +248,24 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
                     <span className={styles.vsLabel}>@</span>
                   </div>
 
-                  <div className={`${styles.teamCell} ${styles.teamCellRight}`}>
+                  <div className={`${styles.teamCell} ${styles.teamCellRight} ${isPickedHome ? styles.teamCellPicked : ''}`}>
                     <div className={`${styles.teamMeta} ${styles.teamMetaRight}`}>
                       {homeSeed != null && <span className={styles.seedBadge}>#{homeSeed}</span>}
                       {homeRank != null && !homeSeed && <span className={styles.rankBadge}>#{homeRank}</span>}
                       <span className={styles.teamName}>{homeObj?.name || g.homeTeam}</span>
+                      {isPickedHome && pick && (
+                        <span className={styles.modelPickBadge}>◆ MAXIMUS PICK</span>
+                      )}
                     </div>
-                    <TeamLogo team={homeObj} size={isTop ? 34 : 26} />
+                    <div className={isPickedHome ? styles.pickedLogoWrap : styles.logoWrap}>
+                      <TeamLogo team={homeObj} size={36} />
+                    </div>
                   </div>
                 </div>
 
                 {/* Game info + betting context */}
                 <div className={styles.infoRow}>
                   {g.time && <span className={styles.gameTime}>{g.time}</span>}
-                  {g.network && <span className={styles.networkPill}>{g.network}</span>}
                   {spreadStr
                     ? <span className={styles.spreadPill}>{spreadStr}</span>
                     : <span className={styles.tba}>Line TBA</span>

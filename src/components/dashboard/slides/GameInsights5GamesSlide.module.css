@@ -1,3 +1,5 @@
+/* ── 5 Key Games Slide — Premium Visual System v2 ──────── */
+
 /* ── Date pill ──────────────────────────────────────────── */
 .datePill {
   display: inline-flex;
@@ -5,29 +7,29 @@
   background: rgba(74, 144, 217, 0.12);
   border: 1px solid rgba(74, 144, 217, 0.26);
   border-radius: 999px;
-  padding: 6px 20px;
-  font-size: 18px;
+  padding: 5px 18px;
+  font-size: 17px;
   font-weight: 600;
   color: rgba(201, 236, 245, 0.8);
   letter-spacing: 0.04em;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   align-self: flex-start;
 }
 
 /* ── Title block ─────────────────────────────────────────── */
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #4A90D9;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 64px;
+  font-size: 56px;
   font-weight: 700;
   line-height: 0.94;
   color: #ffffff;
@@ -42,22 +44,22 @@
   height: 4px;
   background: linear-gradient(90deg, #4A90D9, #B7986C);
   border-radius: 4px;
-  margin-bottom: 20px;
-  margin-top: 12px;
+  margin-bottom: 14px;
+  margin-top: 10px;
 }
 
 /* ── Game list ───────────────────────────────────────────── */
 .gameList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
 }
 
 .gameRow {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   background: linear-gradient(
     140deg,
     var(--card-accent-15, rgba(74,144,217,0.12)) 0%,
@@ -66,7 +68,7 @@
   );
   border: 1.5px solid var(--card-accent-30, rgba(74,144,217,0.22));
   border-radius: 14px;
-  padding: 12px 18px;
+  padding: 12px 18px 10px;
   position: relative;
   overflow: hidden;
 }
@@ -82,11 +84,6 @@
   pointer-events: none;
 }
 
-.gameRowTop {
-  border-left: 3px solid var(--card-accent, #4A90D9);
-  border-color: var(--card-accent-30, rgba(74,144,217,0.28));
-}
-
 /* ── Teams Row ─────────────────────────────────────────── */
 .teamsRow {
   display: flex;
@@ -97,13 +94,44 @@
 .teamCell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   flex: 1;
 }
 
 .teamCellRight {
   justify-content: flex-end;
+}
+
+.teamCellPicked {
+  /* no opacity change — logos stay crisp */
+}
+
+.logoWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pickedLogoWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pickedLogoWrap::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2.5px solid var(--card-accent, rgba(74,144,217,0.45));
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 30%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .teamMeta {
@@ -119,7 +147,7 @@
 
 .teamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -130,30 +158,39 @@
 
 .seedBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #D4B87A;
   background: rgba(183, 152, 108, 0.14);
   border: 1px solid rgba(183, 152, 108, 0.30);
   border-radius: 4px;
-  padding: 1px 5px;
+  padding: 1px 6px;
   flex-shrink: 0;
   align-self: flex-start;
 }
 
 .rankBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #4A90D9;
   background: rgba(74, 144, 217, 0.14);
   border: 1px solid rgba(74, 144, 217, 0.28);
   border-radius: 4px;
-  padding: 1px 5px;
+  padding: 1px 6px;
   flex-shrink: 0;
   align-self: flex-start;
+}
+
+.modelPickBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: var(--card-accent, #4A90D9);
+  text-transform: uppercase;
 }
 
 .centerCell {
@@ -171,13 +208,13 @@
   letter-spacing: 0.04em;
 }
 
-/* ── Info Row: time, network, spread, O/U, conviction ──── */
+/* ── Info Row: time, spread, O/U, conviction ──────────── */
 .infoRow {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 4px 0;
+  padding: 3px 0 0;
   border-top: 1px solid var(--card-accent-08, rgba(74, 144, 217, 0.07));
 }
 
@@ -206,13 +243,13 @@
 .spreadPill {
   display: inline-block;
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #B7986C;
   background: rgba(183, 152, 108, 0.14);
   border: 1px solid rgba(183, 152, 108, 0.28);
   border-radius: 5px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -220,7 +257,7 @@
 .ouPill {
   display: inline-block;
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: rgba(240, 244, 248, 0.50);
   background: rgba(255, 255, 255, 0.05);
@@ -241,11 +278,11 @@
 
 .convictionTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 5px;
   border: 1px solid;
   white-space: nowrap;
   flex-shrink: 0;
@@ -258,12 +295,12 @@
 .storyline {
   font-size: 13px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.44);
+  color: rgba(240, 244, 248, 0.48);
   line-height: 1.35;
   border-top: 1px solid var(--card-accent-08, rgba(74, 144, 217, 0.06));
-  padding-top: 4px;
+  padding-top: 3px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
