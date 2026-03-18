@@ -164,7 +164,8 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ suggestions: suggestions.slice(0, TARGET) });
+    const ranked = suggestions.slice(0, TARGET).map((s, i) => ({ ...s, _rank: i }));
+    return res.status(200).json({ suggestions: ranked });
   } catch (err) {
     console.error('[discover] error:', err);
     return res.status(500).json({ error: 'Internal server error' });

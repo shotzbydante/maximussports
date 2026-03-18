@@ -86,14 +86,20 @@ function captureAcquisitionProps() {
  * @param {string[]} teamSlugs
  * @returns {Record<string, string | null>}
  */
+function isTestEmail(email) {
+  return typeof email === 'string' && /\+.*@gmail\.com$/i.test(email);
+}
+
 function buildPersonProps(user, profile, teamSlugs = []) {
   const acq = captureAcquisitionProps();
+  const email = user?.email ?? null;
   return {
     username:       profile?.username ?? user?.user_metadata?.full_name ?? null,
-    email:          user?.email ?? null,
+    email,
     favorite_teams: teamSlugs.length > 0 ? teamSlugs.join(',') : null,
     plan:           'free',
     signup_source:  user?.app_metadata?.provider ?? null,
+    is_test_user:   isTestEmail(email),
     ...acq,
   };
 }
@@ -133,8 +139,12 @@ export function trackAuthAccountCreated(user, { method = 'unknown' } = {}) {
   if (!user?.id) return;
   identifyUser(user, null, []);
   const acq = captureAcquisitionProps();
+  const email = user.email || null;
   const props = {
+    user_id: user.id,
+    email,
     method,
+    is_test_user: isTestEmail(email),
     referral_code: acq.referral_code,
     utm_source: acq.utm_source,
     utm_medium: acq.utm_medium,

@@ -1,6 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import RobotAvatar from '../profile/RobotAvatar';
 import { VerifiedBadge } from '../profile/ProfileAvatar';
+import { observeImpression } from '../../analytics/impressions';
+import { track } from '../../analytics/index';
 import styles from './Social.module.css';
 
 const STATUS_LABELS = {
@@ -20,6 +22,24 @@ const STATUS_CLASSES = {
 export default function ContactRow({ user: contactUser, onFollow, onUnfollow }) {
   const [status, setStatus] = useState(contactUser.followStatus || 'none');
   const [busy, setBusy] = useState(false);
+  const rowRef = useRef(null);
+
+  useEffect(() => {
+    if (!contactUser?.id || !contactUser.reason) return;
+    return observeImpression(
+      rowRef.current,
+      `sf_${contactUser.id}`,
+      () => {
+        track('suggested_friend_impression', {
+          candidate_user_id: contactUser.id,
+          candidate_username: contactUser.username || null,
+          candidate_rank: contactUser._rank ?? null,
+          reason: contactUser.reason,
+          source: 'suggested_friends',
+        });
+      }
+    );
+  }, [contactUser?.id, contactUser?.reason, contactUser?.username, contactUser?._rank]);
 
   const handleClick = useCallback(async () => {
     if (busy) return;
@@ -49,7 +69,7 @@ export default function ContactRow({ user: contactUser, onFollow, onUnfollow }) 
   }, [busy, status, contactUser.id, onFollow, onUnfollow]);
 
   return (
-    <div className={styles.contactRow}>
+    <div ref={rowRef} className={styles.contactRow}>
       <div className={styles.contactAvatar}>
         <RobotAvatar
           jerseyNumber={contactUser.avatarConfig?.jerseyNumber || ''}

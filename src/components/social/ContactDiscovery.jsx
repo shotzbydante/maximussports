@@ -117,7 +117,15 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
         });
         if (res.ok) {
           const data = await res.json();
-          setSuggestions(data.suggestions || []);
+          const list = data.suggestions || [];
+          setSuggestions(list);
+          if (list.length > 0) {
+            track('suggested_friends_list_viewed', {
+              viewer_user_id: user?.id || null,
+              candidate_count: list.length,
+              source_mix: [...new Set(list.map(s => s.reason))].join(','),
+            });
+          }
         } else {
           setSuggestionsError(true);
         }
@@ -127,7 +135,7 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
         setSuggestionsLoading(false);
       }
     })();
-  }, [session]);
+  }, [session, user?.id]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -175,14 +183,26 @@ export default function ContactDiscovery({ onDone, showDoneButton = true, compac
   }, [searchQuery, session?.access_token]);
 
   const handleFollow = useCallback(async (targetId) => {
-    const newStatus = await followUser(targetId);
+    const candidate = suggestions.find(s => s.id === targetId);
+    if (candidate?.reason) {
+      track('suggested_friend_follow_clicked', {
+        viewer_user_id: user?.id || null,
+        candidate_user_id: targetId,
+        candidate_username: candidate.username || null,
+        candidate_rank: candidate._rank ?? null,
+        reason: candidate.reason,
+        source: 'suggested_friends',
+      });
+    }
+    const source = candidate?.reason ? 'suggested_friends' : 'search';
+    const newStatus = await followUser(targetId, { source });
     const update = (list) => list.map(s =>
       s.id === targetId ? { ...s, followStatus: newStatus || 'following' } : s
     );
     setSuggestions(update);
     setSearchResults(update);
     return newStatus;
-  }, [followUser]);
+  }, [followUser, suggestions, user?.id]);
 
   const handleUnfollow = useCallback(async (targetId) => {
     const newStatus = await unfollowUser(targetId);

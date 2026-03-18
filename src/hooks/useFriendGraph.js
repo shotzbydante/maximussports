@@ -52,7 +52,7 @@ export function useFriendGraph() {
     if (user?.id) invalidateProfileCache(user.id);
   }, [fetchCounts, user]);
 
-  const followUser = useCallback(async (targetUserId) => {
+  const followUser = useCallback(async (targetUserId, { source = 'unknown' } = {}) => {
     if (!session || !user) return null;
     setLoading(true);
 
@@ -78,6 +78,7 @@ export function useFriendGraph() {
       track('user_followed', {
         target_id: targetUserId,
         result_status: data.followStatus,
+        source_surface: source,
       });
 
       return data.followStatus;
