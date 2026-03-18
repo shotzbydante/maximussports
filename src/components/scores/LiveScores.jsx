@@ -14,7 +14,9 @@ import { Link } from 'react-router-dom';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
 import StatusChip from '../shared/StatusChip';
+import SeedBadge from '../common/SeedBadge';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
+import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { track } from '../../analytics/index';
 import styles from './LiveScores.module.css';
@@ -156,6 +158,9 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
           const awayTier = getOddsTier(g.awayTeam);
           const homeTier = getOddsTier(g.homeTeam);
+          const bracketOfficial = isBracketOfficial();
+          const awaySeed = getTeamSeed(awaySlug || g.awayTeam);
+          const homeSeed = getTeamSeed(homeSlug || g.homeTeam);
 
           // Mobile cap: hide via CSS when mobileCap is set and not expanded
           const hiddenOnMobile = !expanded && mobileCap != null && i >= mobileCap;
@@ -176,17 +181,18 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
             >
               {/* Away team row */}
               <div className={`${styles.teamRow} ${awayWon ? styles.teamRowWinner : ''} ${finished && !awayWon ? styles.teamRowLoser : ''}`}>
+                {awaySeed != null && <SeedBadge seed={awaySeed} size="sm" variant={awaySeed <= 4 ? 'gold' : 'default'} />}
                 <span className={styles.teamLogoWrap}>
                   <TeamLogo team={awayTeamObj} size={24} />
                 </span>
                 <span className={styles.teamInfo}>
-                  {awayRank != null && <span className={styles.rank}>#{awayRank}</span>}
+                  {!bracketOfficial && awayRank != null && awaySeed == null && <span className={styles.rank}>#{awayRank}</span>}
                   {awaySlug ? (
                     <Link to={`/teams/${awaySlug}`} className={styles.teamName}>{g.awayTeam}</Link>
                   ) : (
                     <span className={styles.teamName}>{g.awayTeam}</span>
                   )}
-                  {awayTier && (
+                  {!bracketOfficial && awayTier && (
                     <span className={`${styles.tierBadge} ${styles[`tier--${awayTier.replace(/\s/g, '')}`]}`}>
                       {awayTier}
                     </span>
@@ -206,17 +212,18 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
               {/* Home team row */}
               <div className={`${styles.teamRow} ${homeWon ? styles.teamRowWinner : ''} ${finished && !homeWon ? styles.teamRowLoser : ''}`}>
+                {homeSeed != null && <SeedBadge seed={homeSeed} size="sm" variant={homeSeed <= 4 ? 'gold' : 'default'} />}
                 <span className={styles.teamLogoWrap}>
                   <TeamLogo team={homeTeamObj} size={24} />
                 </span>
                 <span className={styles.teamInfo}>
-                  {homeRank != null && <span className={styles.rank}>#{homeRank}</span>}
+                  {!bracketOfficial && homeRank != null && homeSeed == null && <span className={styles.rank}>#{homeRank}</span>}
                   {homeSlug ? (
                     <Link to={`/teams/${homeSlug}`} className={styles.teamName}>{g.homeTeam}</Link>
                   ) : (
                     <span className={styles.teamName}>{g.homeTeam}</span>
                   )}
-                  {homeTier && (
+                  {!bracketOfficial && homeTier && (
                     <span className={`${styles.tierBadge} ${styles[`tier--${homeTier.replace(/\s/g, '')}`]}`}>
                       {homeTier}
                     </span>

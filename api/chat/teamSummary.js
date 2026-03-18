@@ -90,6 +90,37 @@ function buildPayload(data) {
   };
 }
 
+// ── Tournament calendar (2026) ───────────────────────────────────────────────
+const T_SELECTION_SUNDAY  = '2026-03-15';
+const T_FIRST_FOUR_START  = '2026-03-17';
+const T_FIRST_ROUND_START = '2026-03-19';
+const T_SECOND_ROUND_END  = '2026-03-22';
+const T_SWEET_16_START    = '2026-03-26';
+const T_ELITE_EIGHT_END   = '2026-03-29';
+const T_FINAL_FOUR        = '2026-04-04';
+const T_CHAMPIONSHIP      = '2026-04-06';
+const T_TOURNAMENT_END    = '2026-04-07';
+
+function _toDateNum(s) { return Number(s.replace(/-/g, '')); }
+
+function _isInTournamentWindow() {
+  const d = new Date().toISOString().slice(0, 10);
+  const n = _toDateNum(d);
+  return n >= _toDateNum(T_SELECTION_SUNDAY) && n <= _toDateNum(T_TOURNAMENT_END);
+}
+
+function _getTournamentPhaseLabel() {
+  const d = new Date().toISOString().slice(0, 10);
+  const n = _toDateNum(d);
+  if (n >= _toDateNum(T_SELECTION_SUNDAY) && n < _toDateNum(T_FIRST_FOUR_START)) return 'pre-tournament (bracket set)';
+  if (n >= _toDateNum(T_FIRST_FOUR_START) && n < _toDateNum(T_FIRST_ROUND_START)) return 'First Four';
+  if (n >= _toDateNum(T_FIRST_ROUND_START) && n <= _toDateNum(T_SECOND_ROUND_END)) return 'First/Second Round';
+  if (n >= _toDateNum(T_SWEET_16_START) && n <= _toDateNum(T_ELITE_EIGHT_END)) return 'Sweet 16 / Elite Eight';
+  if (n === _toDateNum(T_FINAL_FOUR)) return 'Final Four';
+  if (n >= _toDateNum(T_CHAMPIONSHIP) && n <= _toDateNum(T_TOURNAMENT_END)) return 'National Championship';
+  return null;
+}
+
 function buildPrompt(data) {
   const payload = buildPayload(data);
   const hasAts = payload.atsSummary != null;
@@ -97,17 +128,36 @@ function buildPrompt(data) {
     ? `ATS record: ${payload.atsSummary.wl}${payload.atsSummary.coverPct != null ? ` (${payload.atsSummary.coverPct}% cover)` : ''}. Use bettor language.`
     : 'ATS data is not yet available for this team — mention it briefly.';
 
-  const systemPrompt = `You are a sharp, witty college basketball analyst for Maximus Sports. Write a concise team insight using ONLY the JSON data provided. DO NOT invent facts.
+  const isTournament = _isInTournamentWindow();
+  const tournamentPhaseLabel = _getTournamentPhaseLabel();
+
+  const tournamentContext = isTournament
+    ? `\n\nIMPORTANT: We are in the ${tournamentPhaseLabel} phase of the NCAA tournament. Frame this team's insight with March Madness awareness. If the team made the tournament, reference their seed and tournament matchup context. If they were eliminated, note it. If they didn't make the tournament, frame them around NIT/off-season context. Do NOT use regular-season filler language — use tournament framing.`
+    : '';
+
+  const p1 = isTournament
+    ? '¶1 TOURNAMENT STATUS: Team name, tournament seed (if applicable from bracketTier), conference, and recent form. Frame in tournament context — are they a contender, Cinderella, or early exit risk? Include ONE approved quote if natural.'
+    : '¶1 IDENTITY + FORM: Team name, ranking, conference, bracket tier, and recent results (trend from recentResults). Include ONE quote from the approved list if it fits naturally.';
+
+  const p3 = isTournament
+    ? '¶3 TOURNAMENT MATCHUP: First opponent from upcomingGames. Frame as a tournament betting setup — seed matchup, historical upset rates for this seed line, spread/line context. If eliminated or no tournament game, note their season is over or discuss NIT/offseason outlook.'
+    : '¶3 NEXT GAME: First opponent from upcomingGames. Frame it as a betting setup (spread/line context if known, otherwise note line is TBD).';
+
+  const p4 = isTournament
+    ? '¶4 TOURNAMENT CLOSER: 1–3 headlines from headlines[]. End with a tournament-aware hook — bracket implications, upset potential, or what this team needs to do to advance.'
+    : '¶4 NEWS + CLOSER: 1–3 headlines from headlines[]. Punchy closing hook.';
+
+  const systemPrompt = `You are a sharp, witty college basketball analyst for Maximus Sports. Write a concise team insight using ONLY the JSON data provided. DO NOT invent facts.${tournamentContext}
 
 FORMAT — exactly 4 short paragraphs (no headers):
 
-¶1 IDENTITY + FORM: Team name, ranking, conference, bracket tier, and recent results (trend from recentResults). Include ONE quote from the approved list if it fits naturally.
+${p1}
 
 ¶2 ATS ANALYSIS: ${atsInstruction}. Use bettor language: "covering the number", "market hasn't caught up", "priced aggressively", "sharp money has noticed". Include cover % if available.
 
-¶3 NEXT GAME: First opponent from upcomingGames. Frame it as a betting setup (spread/line context if known, otherwise note line is TBD).
+${p3}
 
-¶4 NEWS + CLOSER: 1–3 headlines from headlines[]. Punchy closing hook.
+${p4}
 
 STYLE RULES:
 - Target 140–200 words (hard limit: 220 words).
@@ -115,7 +165,7 @@ STYLE RULES:
 - Max 1 emoji per paragraph from: 🔥 😬 👀 🚨 🏆
 - Conversational, confident, bettor-friendly. Zero profanity.
 - APPROVED QUOTES (at most ONE total): ${APPROVED_QUOTES}
-- NEVER use: "Stay humble. Stay hungry." or anything not in the approved list.`;
+- NEVER use: "Stay humble. Stay hungry." or anything not in the approved list.${isTournament ? '\n- Use tournament language: "seed", "bracket", "upset", "advancing", "eliminated", "March Madness", "Cinderella".\n- NEVER use regular-season filler like "quiet day on the hardwood".' : ''}`;
 
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the team insight now. Exactly 4 paragraphs, no headers.`;
   return { systemPrompt, userPrompt };

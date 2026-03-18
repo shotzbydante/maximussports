@@ -1,5 +1,6 @@
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
+import { getTeamSeed, isBracketOfficial } from '../../../utils/tournamentHelpers';
 import styles from './DailyBriefingSlide3.module.css';
 import SlideShell from './SlideShell';
 
@@ -180,31 +181,40 @@ export default function DailyBriefingSlide3({ data, asOf, options = {}, ...rest 
                 )}
 
                 {/* Matchup: away @ home */}
-                <div className={styles.matchupRow}>
-                  <div className={styles.teamCol}>
-                    <TeamLogo team={awayTeam} size={logoSize} />
-                    <div className={styles.teamNameWrap}>
-                      {awayRank != null && <span className={styles.rankBadge}>#{awayRank}</span>}
-                      <span className={styles.teamName}>{awayTeam?.name || g.away || '—'}</span>
-                    </div>
-                  </div>
+                {(() => {
+                  const bracketOfficial = isBracketOfficial();
+                  const awaySeed = getTeamSeed(awayTeam?.slug || awayTeam?.name);
+                  const homeSeed = getTeamSeed(homeTeam?.slug || homeTeam?.name);
+                  return (
+                    <div className={styles.matchupRow}>
+                      <div className={styles.teamCol}>
+                        <TeamLogo team={awayTeam} size={logoSize} />
+                        <div className={styles.teamNameWrap}>
+                          {awaySeed != null && <span className={styles.rankBadge}>#{awaySeed}</span>}
+                          {!bracketOfficial && awayRank != null && awaySeed == null && <span className={styles.rankBadge}>#{awayRank}</span>}
+                          <span className={styles.teamName}>{awayTeam?.name || g.away || '—'}</span>
+                        </div>
+                      </div>
 
-                  <div className={styles.vsBlock}>
-                    <span className={styles.vsAt}>@</span>
-                    {g.spread
-                      ? <SpreadPill spread={g.spread} />
-                      : <span className={styles.lineTba}>TBA</span>
-                    }
-                  </div>
+                      <div className={styles.vsBlock}>
+                        <span className={styles.vsAt}>@</span>
+                        {g.spread
+                          ? <SpreadPill spread={g.spread} />
+                          : <span className={styles.lineTba}>TBA</span>
+                        }
+                      </div>
 
-                  <div className={`${styles.teamCol} ${styles.teamColRight}`}>
-                    <div className={`${styles.teamNameWrap} ${styles.teamNameWrapRight}`}>
-                      {homeRank != null && <span className={styles.rankBadge}>#{homeRank}</span>}
-                      <span className={styles.teamName}>{homeTeam?.name || g.home || '—'}</span>
+                      <div className={`${styles.teamCol} ${styles.teamColRight}`}>
+                        <div className={`${styles.teamNameWrap} ${styles.teamNameWrapRight}`}>
+                          {homeSeed != null && <span className={styles.rankBadge}>#{homeSeed}</span>}
+                          {!bracketOfficial && homeRank != null && homeSeed == null && <span className={styles.rankBadge}>#{homeRank}</span>}
+                          <span className={styles.teamName}>{homeTeam?.name || g.home || '—'}</span>
+                        </div>
+                        <TeamLogo team={homeTeam} size={logoSize} />
+                      </div>
                     </div>
-                    <TeamLogo team={homeTeam} size={logoSize} />
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Time + Network meta row */}
                 {(g.time || g.network) && (

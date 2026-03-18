@@ -10,6 +10,8 @@ import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { parseMatchupSlug, buildMatchupSlug, shortTeamName } from '../utils/matchupSlug';
 import { getPinnedTeams } from '../utils/pinnedTeams';
 import TeamLogo from '../components/shared/TeamLogo';
+import SeedBadge from '../components/common/SeedBadge';
+import { getTeamSeed, isBracketOfficial } from '../utils/tournamentHelpers';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import styles from './GameMatchup.module.css';
 
@@ -249,28 +251,39 @@ export default function GameMatchup() {
       {/* ── Matchup Header Card ── */}
       <section className={styles.matchupCard} aria-label="Matchup overview">
         <div className={styles.matchupTeams}>
-          <Link to={`/teams/${homeSlug}`} className={styles.matchupTeamBlock}>
-            <TeamLogo team={homeTeam} size={40} />
-            <span className={styles.matchupTeamName}>
-              {homeRank != null && <span className={styles.rankBadge}>#{homeRank}</span>}
-              {homeTeam.name}
-            </span>
-            <span className={styles.matchupConf}>{homeTeam.conference}</span>
-          </Link>
-          <div className={styles.matchupVs}>
-            <span>VS</span>
-            {gameStatus && gameStatus !== 'Scheduled' && (
-              <span className={styles.matchupStatus}>{gameStatus}</span>
-            )}
-          </div>
-          <Link to={`/teams/${awaySlug}`} className={styles.matchupTeamBlock}>
-            <TeamLogo team={awayTeam} size={40} />
-            <span className={styles.matchupTeamName}>
-              {awayRank != null && <span className={styles.rankBadge}>#{awayRank}</span>}
-              {awayTeam.name}
-            </span>
-            <span className={styles.matchupConf}>{awayTeam.conference}</span>
-          </Link>
+          {(() => {
+            const bracketOfficial = isBracketOfficial();
+            const homeSeed = getTeamSeed(homeSlug);
+            const awaySeed = getTeamSeed(awaySlug);
+            return (
+              <>
+                <Link to={`/teams/${homeSlug}`} className={styles.matchupTeamBlock}>
+                  {homeSeed != null && <SeedBadge seed={homeSeed} size="md" variant={homeSeed <= 4 ? 'gold' : 'default'} />}
+                  <TeamLogo team={homeTeam} size={40} />
+                  <span className={styles.matchupTeamName}>
+                    {!bracketOfficial && homeRank != null && homeSeed == null && <span className={styles.rankBadge}>#{homeRank}</span>}
+                    {homeTeam.name}
+                  </span>
+                  <span className={styles.matchupConf}>{homeTeam.conference}</span>
+                </Link>
+                <div className={styles.matchupVs}>
+                  <span>VS</span>
+                  {gameStatus && gameStatus !== 'Scheduled' && (
+                    <span className={styles.matchupStatus}>{gameStatus}</span>
+                  )}
+                </div>
+                <Link to={`/teams/${awaySlug}`} className={styles.matchupTeamBlock}>
+                  {awaySeed != null && <SeedBadge seed={awaySeed} size="md" variant={awaySeed <= 4 ? 'gold' : 'default'} />}
+                  <TeamLogo team={awayTeam} size={40} />
+                  <span className={styles.matchupTeamName}>
+                    {!bracketOfficial && awayRank != null && awaySeed == null && <span className={styles.rankBadge}>#{awayRank}</span>}
+                    {awayTeam.name}
+                  </span>
+                  <span className={styles.matchupConf}>{awayTeam.conference}</span>
+                </Link>
+              </>
+            );
+          })()}
         </div>
 
         {(spread != null || total != null || moneyline != null) && (

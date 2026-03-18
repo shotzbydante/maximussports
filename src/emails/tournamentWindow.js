@@ -35,7 +35,8 @@ export function getTournamentPhase(now = new Date()) {
   const d = now.toISOString().slice(0, 10);
   const n = toDateNum(d);
 
-  if (n >= toDateNum(SELECTION_SUNDAY) && n < toDateNum(FIRST_ROUND_START)) return 'pre_tournament';
+  if (n >= toDateNum(SELECTION_SUNDAY) && n < toDateNum(FIRST_FOUR_START)) return 'pre_tournament';
+  if (n >= toDateNum(FIRST_FOUR_START) && n < toDateNum(FIRST_ROUND_START)) return 'first_round';
   if (n >= toDateNum(FIRST_ROUND_START) && n <= toDateNum(SECOND_ROUND_END)) return 'first_round';
   if (n >= toDateNum(SWEET_16_START) && n <= toDateNum(ELITE_EIGHT_END)) return 'sweet_sixteen';
   if (n >= toDateNum(FINAL_FOUR) && n <= toDateNum(TOURNAMENT_END)) return 'final_four';

@@ -11,6 +11,8 @@ import { getTeamBySlug } from '../../data/teams';
 import { TEAMS } from '../../data/teams';
 import SourceBadge from '../shared/SourceBadge';
 import TeamLogo from '../shared/TeamLogo';
+import SeedBadge from '../common/SeedBadge';
+import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
 import styles from './Top25Rankings.module.css';
 
 const TIER_CLASS = {
@@ -83,52 +85,65 @@ export default function Top25Rankings({ rankings: rankingsProp }) {
         <div className={styles.error}>Rankings unavailable</div>
       )}
 
-      {!loading && !error && rankings.length > 0 && isExpanded && (
-        <div className={styles.table}>
-          <div className={`${styles.row} ${styles.rowHeader}`}>
-            <span className={styles.colRank}>#</span>
-            <span className={styles.colTeam}>Team</span>
-            <span className={styles.colConf}>Conference</span>
-            <span className={styles.colTier}>Tier</span>
-          </div>
-          {rankings.map((r) => {
-            const slug = getSlug(r.teamName);
-            const team = slug ? getTeamBySlug(slug) : null;
-            const teamForLogo = team || (slug ? { slug, name: r.teamName, logo: `/logos/${slug}.svg` } : null);
-            const linkTo = slug ? `/teams/${slug}` : '/teams';
+      {!loading && !error && rankings.length > 0 && isExpanded && (() => {
+        const bracketOfficial = isBracketOfficial();
+        return (
+          <div className={styles.table}>
+            <div className={`${styles.row} ${styles.rowHeader}`}>
+              <span className={styles.colRank}>#</span>
+              <span className={styles.colTeam}>Team</span>
+              <span className={styles.colConf}>Conference</span>
+              {bracketOfficial
+                ? <span className={styles.colTier}>Seed</span>
+                : <span className={styles.colTier}>Tier</span>
+              }
+            </div>
+            {rankings.map((r) => {
+              const slug = getSlug(r.teamName);
+              const team = slug ? getTeamBySlug(slug) : null;
+              const teamForLogo = team || (slug ? { slug, name: r.teamName, logo: `/logos/${slug}.svg` } : null);
+              const linkTo = slug ? `/teams/${slug}` : '/teams';
+              const seed = getTeamSeed(slug || r.teamName);
 
-            return (
-              <Link
-                key={r.rank}
-                to={linkTo}
-                className={`${styles.row} ${styles.rowLink}`}
-              >
-                <span className={styles.colRank}>{r.rank}</span>
-                <span className={styles.colTeam}>
-                  {teamForLogo && (
-                    <span className={styles.colLogo}>
-                      <TeamLogo team={teamForLogo} size={24} />
-                    </span>
-                  )}
-                  <span className={styles.teamName}>{r.teamName}</span>
-                </span>
-                <span className={styles.colConf}>
-                  {team?.conference ?? '—'}
-                </span>
-                <span className={styles.colTier}>
-                  {team?.oddsTier ? (
-                    <span className={`${styles.tier} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                      {team.oddsTier}
-                    </span>
-                  ) : (
-                    <span className={styles.tierNa}>—</span>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+              return (
+                <Link
+                  key={r.rank}
+                  to={linkTo}
+                  className={`${styles.row} ${styles.rowLink}`}
+                >
+                  <span className={styles.colRank}>{r.rank}</span>
+                  <span className={styles.colTeam}>
+                    {teamForLogo && (
+                      <span className={styles.colLogo}>
+                        <TeamLogo team={teamForLogo} size={24} />
+                      </span>
+                    )}
+                    <span className={styles.teamName}>{r.teamName}</span>
+                  </span>
+                  <span className={styles.colConf}>
+                    {team?.conference ?? '—'}
+                  </span>
+                  <span className={styles.colTier}>
+                    {bracketOfficial ? (
+                      seed != null
+                        ? <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />
+                        : <span className={styles.tierNa}>—</span>
+                    ) : (
+                      team?.oddsTier ? (
+                        <span className={`${styles.tier} ${TIER_CLASS[team.oddsTier] || ''}`}>
+                          {team.oddsTier}
+                        </span>
+                      ) : (
+                        <span className={styles.tierNa}>—</span>
+                      )
+                    )}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {!loading && !error && rankings.length === 0 && (
         <div className={styles.empty}>No rankings available</div>

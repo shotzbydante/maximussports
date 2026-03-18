@@ -10,6 +10,8 @@ import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { fetchHomeFast } from '../api/home';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
+import SeedBadge from '../components/common/SeedBadge';
+import { getTeamSeed, isBracketOfficial } from '../utils/tournamentHelpers';
 import styles from './Teams.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 
@@ -691,25 +693,30 @@ export default function Teams() {
                         <div key={tier} className={styles.tierBlock}>
                           <span className={styles.tierLabel}>{tier}</span>
                           <ul className={styles.teamList}>
-                            {teams.map((team) => (
-                              <li key={team.slug}>
-                                <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
-                                  <TeamLogo team={team} size={24} />
-                                  {rankMap[team.slug] && (
-                                    <span className={styles.rankBadge}>#{rankMap[team.slug]}</span>
-                                  )}
-                                  <span className={styles.teamName}>{team.name}</span>
-                                  {isOthers && (
-                                    <span className={styles.confLogoInline}>
-                                      <ConferenceLogo conference={team.conference} size={16} />
-                                    </span>
-                                  )}
-                                  <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                                  <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
-                                  <span className={styles.chevron}>&rarr;</span>
-                                </Link>
-                              </li>
-                            ))}
+                            {teams.map((team) => {
+                              const bracketOfficial = isBracketOfficial();
+                              const seed = getTeamSeed(team.slug);
+                              return (
+                                <li key={team.slug}>
+                                  <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
+                                    {seed != null && <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />}
+                                    <TeamLogo team={team} size={24} />
+                                    {!bracketOfficial && rankMap[team.slug] && seed == null && (
+                                      <span className={styles.rankBadge}>#{rankMap[team.slug]}</span>
+                                    )}
+                                    <span className={styles.teamName}>{team.name}</span>
+                                    {isOthers && (
+                                      <span className={styles.confLogoInline}>
+                                        <ConferenceLogo conference={team.conference} size={16} />
+                                      </span>
+                                    )}
+                                    <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                                    {!bracketOfficial && <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>}
+                                    <span className={styles.chevron}>&rarr;</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       );

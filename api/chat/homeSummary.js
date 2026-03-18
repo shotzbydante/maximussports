@@ -164,9 +164,41 @@ function buildPayload(data) {
   };
 }
 
+// ── Tournament calendar (2026) ───────────────────────────────────────────────
+const T_SELECTION_SUNDAY  = '2026-03-15';
+const T_FIRST_FOUR_START  = '2026-03-17';
+const T_FIRST_ROUND_START = '2026-03-19';
+const T_SECOND_ROUND_END  = '2026-03-22';
+const T_SWEET_16_START    = '2026-03-26';
+const T_ELITE_EIGHT_END   = '2026-03-29';
+const T_FINAL_FOUR        = '2026-04-04';
+const T_CHAMPIONSHIP      = '2026-04-06';
+const T_TOURNAMENT_END    = '2026-04-07';
+
+function _toDateNum(s) { return Number(s.replace(/-/g, '')); }
+
+function _getTournamentPhase() {
+  const d = new Date().toISOString().slice(0, 10);
+  const n = _toDateNum(d);
+  if (n >= _toDateNum(T_SELECTION_SUNDAY) && n < _toDateNum(T_FIRST_FOUR_START)) return 'pre_tournament';
+  if (n >= _toDateNum(T_FIRST_FOUR_START) && n < _toDateNum(T_FIRST_ROUND_START)) return 'first_four';
+  if (n >= _toDateNum(T_FIRST_ROUND_START) && n <= _toDateNum(T_SECOND_ROUND_END)) return 'first_round';
+  if (n >= _toDateNum(T_SWEET_16_START) && n <= _toDateNum(T_ELITE_EIGHT_END)) return 'sweet_sixteen';
+  if (n === _toDateNum(T_FINAL_FOUR)) return 'final_four';
+  if (n >= _toDateNum(T_CHAMPIONSHIP) && n <= _toDateNum(T_TOURNAMENT_END)) return 'championship';
+  return 'off';
+}
+
+function _getDayOfWeek() {
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' });
+}
+
 function buildPrompt(data) {
   const { payload, meta } = buildPayload(data);
   const { hasAts, atsStatus, atsConfidence, atsWindowPhrase } = meta;
+  const tournamentPhase = _getTournamentPhase();
+  const dayOfWeek = _getDayOfWeek();
+  const isTournament = tournamentPhase !== 'off';
 
   const atsInstruction = !hasAts
     ? 'ATS data is not yet available — briefly note it is loading; skip ATS details.'
@@ -176,21 +208,85 @@ function buildPrompt(data) {
         ? `ATS data is partial (medium confidence). Mention leading covers for "${atsWindowPhrase}" with a note it's partial data.`
         : `ATS data is an early signal (low confidence). Frame it as "early read" on the number for "${atsWindowPhrase}".`;
 
-  const systemPrompt = `You are a witty, energetic college basketball host for Maximus Sports — think SportsCenter energy meets sharp bettor intel.
+  // Build tournament-aware paragraph instructions
+  let p1, p2, p3, p4, p5;
+
+  if (!isTournament) {
+    // Regular season prompt (unchanged)
+    p1 = '¶1 YESTERDAY RECAP: Mention 3–5 completed games from yesterdayGames. State the winner, loser, and final score for each. Be specific and punchy.';
+    p2 = '¶2 ODDS PULSE: Reference 2–3 teams from yesterday + their championship odds from champOdds (impliedPct shows probability). ALWAYS preserve the exact odds format from the data — positive odds MUST include the leading "+" sign (e.g. write "+320", never just "320"). Include ONE quote from the approved list only if it fits naturally — no forced quotes.';
+    p3 = '¶3 TODAY + TOMORROW: Cover 1–3 matchups each from todayGames and tomorrowGames. Mention spreads when present.';
+    p4 = `¶4 ATS SPOTLIGHT: ${atsInstruction}. Use bettor language: "covering the number", "beating the spread", "market hasn't caught up", "sharp money". Include cover % when available.`;
+    p5 = '¶5 NEWS PULSE + CLOSER: 2–3 headlines from headlines[]. Light humor, personality. End with a punchy "what to watch" closer.';
+  } else if (tournamentPhase === 'pre_tournament') {
+    p1 = '¶1 BRACKET IS SET: The official NCAA tournament bracket is live. Frame this as a pivotal moment — the field is finalized. If yesterdayGames has conference tournament finals, recap the biggest 1–2 results. Otherwise, note the bracket is locked and the tournament begins soon.';
+    p2 = '¶2 CHAMPIONSHIP ODDS: Reference 2–3 top championship contenders from champOdds. ALWAYS preserve the exact odds format (positive odds MUST include "+" sign). Frame as "who the market likes heading into March Madness." Include ONE approved quote if natural.';
+    p3 = '¶3 TOURNAMENT PREVIEW: Preview the upcoming First Four or first-round games from todayGames/tomorrowGames. Call out seed matchups, potential upsets, and marquee games. If no games today, frame this as the calm before the storm — bracket prep time.';
+    p4 = `¶4 ATS + MODEL EDGES: ${atsInstruction}. Frame ATS trends in tournament context — which teams have been covering consistently and might carry that into March? Use bettor language.`;
+    p5 = '¶5 BRACKET INTEL + CLOSER: 1–2 headlines from headlines[]. Add a tournament anticipation angle. End with a sharp "what to watch for" closer that builds excitement for the tournament.';
+  } else if (tournamentPhase === 'first_four') {
+    p1 = '¶1 FIRST FOUR: The NCAA tournament officially tips off with the First Four. If yesterdayGames has results, recap them. Otherwise, build excitement for tonight\'s games — these are play-in games where bubble teams earn their spot.';
+    p2 = '¶2 CHAMPIONSHIP ODDS: Reference 2–3 top favorites from champOdds with exact odds format (positive odds MUST include "+"). Frame as pre-tournament market positioning.';
+    p3 = '¶3 TODAY\'S SLATE: Cover today\'s First Four matchups from todayGames. Mention seeds, spreads, and what\'s at stake for each team. Preview the upcoming first round if data is available.';
+    p4 = `¶4 ATS + UPSET RADAR: ${atsInstruction}. Which teams have been sharp against the spread heading into the tournament? Frame any ATS trends as potential upset or cover signals for the bracket.`;
+    p5 = '¶5 NEWS + MARCH MADNESS OPENER: 1–2 headlines from headlines[]. End with a punchy tournament-opening closer — bracket season is HERE.';
+  } else if (tournamentPhase === 'first_round' || tournamentPhase === 'sweet_sixteen') {
+    const roundLabel = tournamentPhase === 'first_round' ? 'First/Second Round' : 'Sweet 16 / Elite Eight';
+
+    if (dayOfWeek === 'Monday') {
+      p1 = `¶1 WEEKEND RECAP: The ${roundLabel} weekend is in the books. Recap the biggest 3–5 results from yesterdayGames — call out upsets, dominant wins, and any bracket-busting outcomes. Be specific with scores.`;
+      p2 = '¶2 CHAMPIONSHIP ODDS SHIFT: How have the odds moved? Reference 2–3 teams from champOdds whose stock rose or fell over the weekend. Positive odds MUST include "+".';
+      p3 = '¶3 WHAT\'S NEXT: Preview the upcoming round or next set of games from todayGames/tomorrowGames. If no games today, frame this as a rest/prep day — the bracket narrows from here.';
+      p4 = `¶4 ATS + BRACKET CHECK: ${atsInstruction}. Which teams have been covering in the tournament? Which teams are the market still sleeping on?`;
+      p5 = '¶5 NEWS + BRACKET PULSE: 1–2 headlines. End with a "state of the bracket" closer — who\'s still alive, whose bracket is busted, what to watch next.';
+    } else if (dayOfWeek === 'Tuesday' || dayOfWeek === 'Wednesday') {
+      p1 = '¶1 TOURNAMENT UPDATE: Recap the most recent tournament results from yesterdayGames if any. If no games were played, frame this as a transition day — the bracket resets, teams prepare for the next round.';
+      p2 = '¶2 ODDS MOVEMENT: Reference 2–3 teams from champOdds. Positive odds MUST include "+". Frame as how the market is adjusting between rounds.';
+      p3 = '¶3 UPCOMING SLATE: Preview the next set of games from todayGames/tomorrowGames. Call out the marquee matchups, seed storylines, and potential upsets to watch.';
+      p4 = `¶4 ATS + MODEL SIGNALS: ${atsInstruction}. Use bettor language to frame which teams the model likes for the upcoming games.`;
+      p5 = '¶5 NEWS + PREVIEW: 1–2 headlines. End with anticipation for the upcoming games — frame the stakes and what\'s on the line.';
+    } else {
+      p1 = `¶1 TOURNAMENT GAME DAY: ${roundLabel} action continues! Recap yesterday's results from yesterdayGames if any — call out upsets, close finishes, and standout performances. Be specific with scores.`;
+      p2 = '¶2 ODDS PULSE: Reference 2–3 teams from champOdds. Positive odds MUST include "+". Frame as live tournament market reads.';
+      p3 = '¶3 TODAY\'S GAMES: Preview today\'s tournament matchups from todayGames. Highlight seeds, spreads, and the matchups most likely to produce drama or upsets.';
+      p4 = `¶4 ATS + UPSET WATCH: ${atsInstruction}. Which of today's games have the strongest model edge? Which underdogs are worth watching against the spread?`;
+      p5 = '¶5 NEWS + GAME DAY CLOSER: 1–2 headlines. End with a punchy game-day hook — who to watch, what to bet, what could bust the bracket today.';
+    }
+  } else if (tournamentPhase === 'final_four' || tournamentPhase === 'championship') {
+    const label = tournamentPhase === 'final_four' ? 'Final Four' : 'National Championship';
+    p1 = `¶1 ${label.toUpperCase()}: We're at the ${label}. Recap the most recent results from yesterdayGames. Call out the dominant performances, clutch moments, and what got these teams here.`;
+    p2 = `¶2 TITLE ODDS: Reference 2–3 remaining contenders from champOdds. Positive odds MUST include "+". Frame as the final market read before the ${label}.`;
+    p3 = `¶3 TODAY'S ${label.toUpperCase()}: Preview today's ${label} matchup(s) from todayGames. Seeds, spreads, key storylines. This is the biggest stage in college basketball.`;
+    p4 = `¶4 ATS + EDGE: ${atsInstruction}. What does the model say about today's ${label} matchup(s)? Any sharp-money signals or ATS trends to watch?`;
+    p5 = `¶5 NEWS + ${label.toUpperCase()} CLOSER: 1–2 headlines. End with an epic closer worthy of the ${label} — one shining moment.`;
+  } else {
+    // Fallback generic
+    p1 = '¶1 YESTERDAY RECAP: Mention 3–5 completed games from yesterdayGames. State the winner, loser, and final score for each.';
+    p2 = '¶2 ODDS PULSE: Reference 2–3 teams from champOdds. Positive odds MUST include "+".';
+    p3 = '¶3 TODAY + TOMORROW: Cover matchups from todayGames and tomorrowGames.';
+    p4 = `¶4 ATS SPOTLIGHT: ${atsInstruction}. Use bettor language.`;
+    p5 = '¶5 NEWS + CLOSER: 2–3 headlines from headlines[]. End with a punchy closer.';
+  }
+
+  const tournamentContext = isTournament
+    ? `\n\nIMPORTANT TOURNAMENT CONTEXT: We are currently in the ${tournamentPhase.replace(/_/g, ' ')} phase of the NCAA tournament. Today is ${dayOfWeek}. Frame ALL copy with March Madness awareness. Do NOT use regular-season language like "quiet day on the hardwood" — instead, use tournament-specific framing (bracket impact, upset watch, advancing/eliminated, seed storylines, March Madness rhythm). If there are no games today, frame it as a transition day between rounds, NOT as a slow day.`
+    : '';
+
+  const systemPrompt = `You are a witty, energetic college basketball host for Maximus Sports — think SportsCenter energy meets sharp bettor intel.${tournamentContext}
 
 Write a home-page daily briefing using ONLY the JSON data provided. DO NOT invent any scores, teams, odds, players, or facts not present in the data.
 
 FORMAT — exactly 5 short paragraphs (no headers, no bullet lists, no numbered sections):
 
-¶1 YESTERDAY RECAP: Mention 3–5 completed games from yesterdayGames. State the winner, loser, and final score for each. Be specific and punchy.
+${p1}
 
-¶2 ODDS PULSE: Reference 2–3 teams from yesterday + their championship odds from champOdds (impliedPct shows probability). ALWAYS preserve the exact odds format from the data — positive odds MUST include the leading "+" sign (e.g. write "+320", never just "320"). Include ONE quote from the approved list only if it fits naturally — no forced quotes.
+${p2}
 
-¶3 TODAY + TOMORROW: Cover 1–3 matchups each from todayGames and tomorrowGames. Mention spreads when present.
+${p3}
 
-¶4 ATS SPOTLIGHT: ${atsInstruction}. Use bettor language: "covering the number", "beating the spread", "market hasn't caught up", "sharp money". Include cover % when available.
+${p4}
 
-¶5 NEWS PULSE + CLOSER: 2–3 headlines from headlines[]. Light humor, personality. End with a punchy "what to watch" closer.
+${p5}
 
 STYLE RULES:
 - Target 200–300 words total (hard limit: 320 words).
@@ -199,7 +295,7 @@ STYLE RULES:
 - Zero profanity. Clean humor only.
 - APPROVED QUOTES (use at most ONE total, only if it fits): ${APPROVED_QUOTES}
 - NEVER use: "Stay humble. Stay hungry." or anything not in the approved list.
-- If a data section is empty, acknowledge it briefly and move on.`;
+- If a data section is empty, acknowledge it briefly and move on.${isTournament ? '\n- NEVER say "quiet day on the hardwood" or similar regular-season filler during tournament time.\n- Use tournament language: "bracket", "seed", "upset", "advancing", "eliminated", "Cinderella", "March Madness".' : ''}`;
 
   const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 paragraphs, no headers.`;
 

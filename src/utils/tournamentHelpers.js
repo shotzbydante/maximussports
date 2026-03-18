@@ -119,6 +119,101 @@ export function getTournamentDataMode() {
 }
 
 /**
+ * Returns true when the official bracket is loaded (full or partial).
+ * Use this to gate pre-tournament UI (tier badges, bubble labels) vs
+ * post-selection UI (seed badges, tournament-aware narratives).
+ */
+export function isBracketOfficial() {
+  return _activeMode === 'official' || _activeMode === 'official_partial';
+}
+
+// ── Tournament calendar constants (2026) ──────────────────────────
+const SELECTION_SUNDAY    = '2026-03-15';
+const FIRST_FOUR_START    = '2026-03-17';
+const FIRST_ROUND_START   = '2026-03-19';
+const SECOND_ROUND_END    = '2026-03-22';
+const SWEET_16_START      = '2026-03-26';
+const ELITE_EIGHT_END     = '2026-03-29';
+const FINAL_FOUR_DATE     = '2026-04-04';
+const CHAMPIONSHIP_DATE   = '2026-04-06';
+const TOURNAMENT_END      = '2026-04-07';
+
+function _toDateNum(str) {
+  return Number(str.replace(/-/g, ''));
+}
+
+/**
+ * Get the current tournament phase.
+ * Mirrors the email tournamentWindow logic but available in the frontend.
+ * @param {Date} [now]
+ * @returns {'pre_tournament'|'first_four'|'first_round'|'second_round'|'sweet_sixteen'|'elite_eight'|'final_four'|'championship'|'off'}
+ */
+export function getTournamentPhase(now = new Date()) {
+  const d = now.toISOString().slice(0, 10);
+  const n = _toDateNum(d);
+
+  if (n >= _toDateNum(SELECTION_SUNDAY) && n < _toDateNum(FIRST_FOUR_START)) return 'pre_tournament';
+  if (n >= _toDateNum(FIRST_FOUR_START) && n < _toDateNum(FIRST_ROUND_START)) return 'first_four';
+  if (n >= _toDateNum(FIRST_ROUND_START) && n <= _toDateNum(SECOND_ROUND_END)) return 'first_round';
+  if (n >= _toDateNum(SWEET_16_START) && n <= _toDateNum(ELITE_EIGHT_END)) return 'sweet_sixteen';
+  if (n === _toDateNum(FINAL_FOUR_DATE)) return 'final_four';
+  if (n >= _toDateNum(CHAMPIONSHIP_DATE) && n <= _toDateNum(TOURNAMENT_END)) return 'championship';
+  return 'off';
+}
+
+/**
+ * Whether the tournament bracket is set (post-Selection Sunday).
+ * True from Selection Sunday through the entire tournament.
+ */
+export function isPostSelection(now = new Date()) {
+  const phase = getTournamentPhase(now);
+  return phase !== 'off';
+}
+
+/**
+ * Whether tournament games are actively being played or about to be.
+ * True from First Four onward.
+ */
+export function isTournamentActive(now = new Date()) {
+  const phase = getTournamentPhase(now);
+  return phase !== 'off' && phase !== 'pre_tournament';
+}
+
+/**
+ * Get the tournament day context for narrative generation.
+ * Returns a descriptor of what kind of day it is for briefing copy.
+ */
+export function getTournamentDayContext(now = new Date()) {
+  const phase = getTournamentPhase(now);
+  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' });
+
+  if (phase === 'off') return { phase, dayType: 'off_season', dayOfWeek };
+  if (phase === 'pre_tournament') return { phase, dayType: 'bracket_set', dayOfWeek };
+
+  if (phase === 'first_four') {
+    return { phase, dayType: 'first_four_games', dayOfWeek };
+  }
+
+  if (phase === 'first_round') {
+    if (dayOfWeek === 'Monday') return { phase, dayType: 'weekend_recap', dayOfWeek };
+    if (dayOfWeek === 'Tuesday' || dayOfWeek === 'Wednesday') return { phase, dayType: 'between_rounds', dayOfWeek };
+    return { phase, dayType: 'game_day', dayOfWeek };
+  }
+
+  if (phase === 'sweet_sixteen') {
+    if (dayOfWeek === 'Monday' || dayOfWeek === 'Tuesday') return { phase, dayType: 'weekend_recap', dayOfWeek };
+    if (dayOfWeek === 'Wednesday') return { phase, dayType: 'preview_day', dayOfWeek };
+    return { phase, dayType: 'game_day', dayOfWeek };
+  }
+
+  if (phase === 'final_four' || phase === 'championship') {
+    return { phase, dayType: 'game_day', dayOfWeek };
+  }
+
+  return { phase, dayType: 'transition', dayOfWeek };
+}
+
+/**
  * Returns the active tournament field (flat array of team objects).
  */
 export function getActiveTournamentField() {

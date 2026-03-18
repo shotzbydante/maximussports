@@ -10,6 +10,7 @@
 import { getTeamEmoji } from '../../../utils/getTeamEmoji';
 import { getConfidenceLabel, getMaximusTake } from '../../../utils/confidenceSystem';
 import { TEAMS } from '../../../data/teams';
+import { isPostSelection } from '../../../utils/tournamentHelpers';
 
 // ─── Phrase Variation ─────────────────────────────────────────────────────────
 
@@ -108,15 +109,18 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
         hookLine = chatDigest.recapLeadLine?.slice(0, 120) || 'Daily Briefing: the title race is heating up.';
       }
     } else {
-      hookLine = chatDigest.recapLeadLine?.slice(0, 120) || 'Daily Briefing: the title race is heating up.';
+      hookLine = chatDigest.recapLeadLine?.slice(0, 120) || (isPostSelection() ? 'Daily Briefing: March Madness intel is live.' : 'Daily Briefing: the title race is heating up.');
     }
   } else {
     const picksCount = picks?.length ?? 0;
+    const inTournament = isPostSelection();
     hookLine = isRobot
-      ? 'The model scanned the slate. Here\u2019s what it found. \uD83E\uDD16'
+      ? (inTournament ? 'The model scanned the tournament bracket. Here\u2019s what it found. \uD83E\uDD16' : 'The model scanned the slate. Here\u2019s what it found. \uD83E\uDD16')
       : (picksCount > 0
-          ? `${picksCount} value edge${picksCount > 1 ? 's' : ''} surfaced today. \uD83C\uDFC0`
-          : `Daily CBB briefing is up.\uD83C\uDFC0${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`);
+          ? `${picksCount} ${inTournament ? 'tournament' : 'value'} edge${picksCount > 1 ? 's' : ''} surfaced today. ${inTournament ? '\uD83C\uDFC6' : '\uD83C\uDFC0'}`
+          : (inTournament
+            ? `March Madness Daily Briefing 🏆${gamesCount != null ? ` ${gamesCount} tournament games today.` : ''}`
+            : `Daily CBB briefing is up.\uD83C\uDFC0${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`));
   }
 
   // ── 2. Recap of major results — punchy one-liners ─────────────────────

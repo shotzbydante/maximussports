@@ -79,13 +79,33 @@ export function renderHTML(data = {}) {
   const showPreTournament = isPreTournament();
   const phase = getTournamentPhase();
 
-  // ── Headline + intro ──
+  // ── Headline + intro (tournament-aware) ──
+  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   let heroLine, introParagraph;
   if (showPreTournament) {
     heroLine = 'March Madness Bracket Is Set';
     introParagraph = `Good morning, ${greetingName}. The NCAA tournament field is finalized and early model signals are already surfacing edges. Here\u2019s your intel.`;
+  } else if (showTournament && phase === 'first_round') {
+    if (dayOfWeek === 'Monday') {
+      heroLine = 'Tournament Weekend Recap \u2014 Bracket Update';
+      introParagraph = `Good morning, ${greetingName}. What a weekend in the NCAA tournament. Here\u2019s a recap of the biggest results, bracket shakeups, and what\u2019s next.`;
+    } else if (dayOfWeek === 'Tuesday' || dayOfWeek === 'Wednesday') {
+      heroLine = 'Between Rounds \u2014 Next Slate Preview';
+      introParagraph = `Good morning, ${greetingName}. The bracket resets. Teams are preparing for the next round and the model is already flagging edges. Here\u2019s what to know.`;
+    } else {
+      heroLine = `Tournament Game Day \u2014 ${gameCount > 0 ? `${gameCount} Games` : 'March Madness Continues'}`;
+      introParagraph = `Good morning, ${greetingName}. Tournament action continues today. Maximus is tracking every game and updating edges in real time.`;
+    }
+  } else if (showTournament && (phase === 'sweet_sixteen')) {
+    heroLine = gameCount > 0
+      ? `Sweet 16 / Elite Eight \u2014 ${gameCount} Games Today`
+      : 'Sweet 16 / Elite Eight \u2014 Tournament Intel';
+    introParagraph = `Good morning, ${greetingName}. We\u2019re deep in the tournament now. Every game matters for the bracket. Here\u2019s your intel.`;
+  } else if (showTournament && phase === 'final_four') {
+    heroLine = 'Final Four \u2014 The Stage Is Set';
+    introParagraph = `Good morning, ${greetingName}. The Final Four is here. The model has its edge. Let\u2019s break down the biggest games in college basketball.`;
   } else if (showTournament) {
-    heroLine = 'Tournament Day — Model Signals Active';
+    heroLine = 'Tournament Day \u2014 Model Signals Active';
     introParagraph = `Good morning, ${greetingName}. The tournament is live. Maximus is tracking every game and updating edges in real time.`;
   } else if (gameCount > 0 && bestAts.length > 0) {
     heroLine = 'What you need to know before tonight\u2019s games.';
@@ -93,6 +113,9 @@ export function renderHTML(data = {}) {
   } else if (gameCount > 0) {
     heroLine = 'What you need to know before tonight\u2019s games.';
     introParagraph = `Good morning, ${greetingName}. ${gameCount} game${gameCount !== 1 ? 's' : ''} on today\u2019s slate. Here\u2019s what Maximus Sports is watching.`;
+  } else if (showTournament) {
+    heroLine = 'Tournament Transition \u2014 What\u2019s Next';
+    introParagraph = `Good morning, ${greetingName}. No games today, but the bracket doesn\u2019t sleep. Here\u2019s what Maximus is watching ahead of the next round.`;
   } else {
     heroLine = 'Your daily hoops intel.';
     introParagraph = `Good morning, ${greetingName}. Light slate today \u2014 Maximus Sports is staying disciplined. Here\u2019s the intel that matters.`;
@@ -101,19 +124,40 @@ export function renderHTML(data = {}) {
   // ── Tournament storyline section (tournament window only) ──
   let tournamentStoryline = '';
   if (showTournament) {
-    const storyTitle = showPreTournament ? 'TOURNAMENT PREVIEW' : 'TOURNAMENT UPDATE';
-    const storyBody = tournamentMeta.storyline
-      || (showPreTournament
-        ? 'The bracket is locked in. The model has scanned every region and is flagging edges across all four quadrants. Below are the key signals heading into the tournament.'
-        : 'Games are underway. Maximus is tracking results and adjusting model edges after every game.');
+    let storyTitle, storyHeadline, storyDefault;
+    if (showPreTournament) {
+      storyTitle = 'TOURNAMENT PREVIEW';
+      storyHeadline = 'Bracket Intel';
+      storyDefault = 'The bracket is locked in. The model has scanned every region and is flagging edges across all four quadrants. Below are the key signals heading into the tournament.';
+    } else if (phase === 'first_round') {
+      storyTitle = dayOfWeek === 'Monday' ? 'WEEKEND RECAP' : 'TOURNAMENT UPDATE';
+      storyHeadline = dayOfWeek === 'Monday' ? 'Weekend Tournament Recap' : 'Live Tournament Intel';
+      storyDefault = dayOfWeek === 'Monday'
+        ? 'The opening weekend of March Madness is complete. The model is recalibrating based on results and flagging edges for the next round.'
+        : (dayOfWeek === 'Tuesday' || dayOfWeek === 'Wednesday')
+          ? 'Between rounds \u2014 the bracket resets and teams prepare for the next slate. The model is already identifying the strongest edges.'
+          : 'Tournament games are live. Maximus is tracking results and adjusting model edges after every game.';
+    } else if (phase === 'sweet_sixteen') {
+      storyTitle = 'SWEET 16 / ELITE EIGHT';
+      storyHeadline = 'Deep Tournament Intel';
+      storyDefault = 'The field has narrowed significantly. Every remaining game has bracket-defining stakes. The model\u2019s edge signals are sharpening.';
+    } else if (phase === 'final_four') {
+      storyTitle = 'FINAL FOUR';
+      storyHeadline = 'Final Four Intel';
+      storyDefault = 'Four teams remain. The model has its final reads. This is the biggest stage in college basketball.';
+    } else {
+      storyTitle = 'TOURNAMENT UPDATE';
+      storyHeadline = 'Tournament Intel';
+      storyDefault = 'The NCAA tournament continues. Maximus is tracking every game and updating edges in real time.';
+    }
 
     tournamentStoryline = `
 ${divider()}
 ${sectionCard({
   pillLabel: storyTitle,
   pillType: 'intel',
-  headline: showPreTournament ? 'Early Tournament Intel' : 'Live Tournament Intel',
-  body: storyBody,
+  headline: storyHeadline,
+  body: tournamentMeta.storyline || storyDefault,
 })}`;
   }
 

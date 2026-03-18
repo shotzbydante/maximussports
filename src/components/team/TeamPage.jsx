@@ -22,6 +22,8 @@ import { getTeamColors } from '../../utils/teamColors';
 import { teamPersonality } from '../../utils/teamSnapshot';
 import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
+import SeedBadge from '../common/SeedBadge';
+import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
 import SEOHead, { buildOgImageUrl } from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
@@ -340,7 +342,16 @@ export default function TeamPage() {
             <div className={styles.heroText}>
               <h1 className={styles.teamName}>{team.name}</h1>
               <div className={styles.heroMeta}>
-                {rank != null && <span className={styles.rank}>#{rank}</span>}
+                {(() => {
+                  const bracketOfficial = isBracketOfficial();
+                  const seed = getTeamSeed(slug);
+                  return (
+                    <>
+                      {seed != null && <SeedBadge seed={seed} size="md" variant={seed <= 4 ? 'gold' : 'default'} />}
+                      {!bracketOfficial && rank != null && seed == null && <span className={styles.rank}>#{rank}</span>}
+                    </>
+                  );
+                })()}
                 <span className={styles.conference}>{team.conference}</span>
                 {record && <span className={styles.record}>{record}</span>}
                 {streak && (
@@ -348,9 +359,11 @@ export default function TeamPage() {
                     {streak}
                   </span>
                 )}
-                <span className={`${styles.tierBadge} ${styles[tierInfo.cls] || ''}`} title={team.oddsTier}>
-                  {team.oddsTier}
-                </span>
+                {!isBracketOfficial() && (
+                  <span className={`${styles.tierBadge} ${styles[tierInfo.cls] || ''}`} title={team.oddsTier}>
+                    {team.oddsTier}
+                  </span>
+                )}
               </div>
               {!championshipOddsLoading && (() => {
                 const entry = championshipOdds?.[slug];

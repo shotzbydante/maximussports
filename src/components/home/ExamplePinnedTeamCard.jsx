@@ -224,9 +224,6 @@ export default function ExamplePinnedTeamCard({ slug, gamesForToday, onDismiss, 
             </div>
             <div className={styles.cardBadges}>
               {rank != null && <span className={styles.rank}>#{rank}</span>}
-              <span className={`${styles.tier} ${TIER_CLASS[team?.oddsTier ?? 'Lock'] ?? ''}`}>
-                {team?.oddsTier ?? 'Lock'}
-              </span>
             </div>
           </div>
 

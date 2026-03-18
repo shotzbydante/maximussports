@@ -1,5 +1,6 @@
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
+import { getTeamSeed, isBracketOfficial } from '../../../utils/tournamentHelpers';
 import styles from './DailyBriefingSlide2.module.css';
 import SlideShell from './SlideShell';
 
@@ -144,9 +145,13 @@ export default function DailyBriefingSlide2({ data, asOf, options = {}, ...rest 
                 <div className={styles.leaderInfo}>
                   <div className={styles.leaderTeamRow}>
                     <span className={styles.leaderTeam}>{teamObj?.name || entry.team}</span>
-                    {entry.rank != null && (
-                      <span className={styles.rankBadge}>#{entry.rank}</span>
-                    )}
+                    {(() => {
+                      const seed = getTeamSeed(teamObj?.slug || entry.team);
+                      const bracketOfficial = isBracketOfficial();
+                      if (seed != null) return <span className={styles.rankBadge}>#{seed}</span>;
+                      if (!bracketOfficial && entry.rank != null) return <span className={styles.rankBadge}>#{entry.rank}</span>;
+                      return null;
+                    })()}
                   </div>
                   {entry.impliedProbability != null && (
                     <div className={styles.probBarRow}>

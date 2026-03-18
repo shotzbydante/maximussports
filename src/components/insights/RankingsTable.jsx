@@ -5,6 +5,8 @@ import { getTeamSlug } from '../../utils/teamSlug';
 import { getSlugFromRankingsName } from '../../utils/rankingsNormalize';
 import TeamLogo from '../shared/TeamLogo';
 import ChampionshipBadge from '../shared/ChampionshipBadge';
+import SeedBadge from '../common/SeedBadge';
+import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
 import styles from './RankingsTable.module.css';
 
 function ChevronIcon({ className }) {
@@ -226,29 +228,43 @@ export default function RankingsTable({ rankings: rankingsProp, title, collapsib
                         </td>
                       </tr>
                     )}
-                    <tr className={[isNew ? styles.trNew : '', rank != null ? styles.trRanked : ''].filter(Boolean).join(' ') || undefined}>
-                      <td className={styles.colTeam}>
-                        <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
-                          <span className={styles.rankCell}>
-                            {rank != null && (
-                              <span className={styles.top25Badge} title="AP Top 25">
-                                #{rank}
+                    {(() => {
+                      const bracketOfficial = isBracketOfficial();
+                      const seed = getTeamSeed(team.slug);
+                      return (
+                        <tr className={[isNew ? styles.trNew : '', rank != null ? styles.trRanked : ''].filter(Boolean).join(' ') || undefined}>
+                          <td className={styles.colTeam}>
+                            <Link to={`/teams/${team.slug}`} className={styles.teamLink}>
+                              <span className={styles.rankCell}>
+                                {seed != null ? (
+                                  <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />
+                                ) : rank != null ? (
+                                  <span className={styles.top25Badge} title="AP Top 25">
+                                    #{rank}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <TeamLogo team={team} size={22} />
+                              <span>{team.name}</span>
+                              <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
+                              <span className={styles.rowChevron}>→</span>
+                            </Link>
+                          </td>
+                          <td className={styles.colConf}>{team.conference}</td>
+                          <td className={styles.colTier}>
+                            {bracketOfficial ? (
+                              seed != null
+                                ? <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />
+                                : <span className={styles.badge} style={{ opacity: 0.5 }}>—</span>
+                            ) : (
+                              <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
+                                {team.oddsTier}
                               </span>
                             )}
-                          </span>
-                          <TeamLogo team={team} size={22} />
-                          <span>{team.name}</span>
-                          <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                          <span className={styles.rowChevron}>→</span>
-                        </Link>
-                      </td>
-                      <td className={styles.colConf}>{team.conference}</td>
-                      <td className={styles.colTier}>
-                        <span className={`${styles.badge} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                          {team.oddsTier}
-                        </span>
-                      </td>
-                    </tr>
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </Fragment>
                 );
               })}
