@@ -50,6 +50,7 @@ export default function Bracketology() {
   const [showCompare, setShowCompare] = useState(false);
   const [showShareSummary, setShowShareSummary] = useState(false);
   const [showAuthGate, setShowAuthGate] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   const isGuest = !user;
 
@@ -152,12 +153,19 @@ export default function Bracketology() {
 
   const handleSimulateEntire = useCallback(() => {
     if (requireAuth()) return;
-    if (!modelContext) return;
-    const result = simulateEntire(modelContext);
-    if (result?.predictions) {
-      setPredictions(prev => ({ ...prev, ...result.predictions }));
-    }
-  }, [modelContext, simulateEntire, requireAuth]);
+    if (!modelContext || isSimulating) return;
+    setIsSimulating(true);
+    const start = performance.now();
+    requestAnimationFrame(() => {
+      const result = simulateEntire(modelContext);
+      if (result?.predictions) {
+        setPredictions(prev => ({ ...prev, ...result.predictions }));
+      }
+      const elapsed = performance.now() - start;
+      const remaining = Math.max(0, 600 - elapsed);
+      setTimeout(() => setIsSimulating(false), remaining);
+    });
+  }, [modelContext, simulateEntire, requireAuth, isSimulating]);
 
   const handleSimulateRest = useCallback(() => {
     if (requireAuth()) return;
@@ -247,6 +255,7 @@ export default function Bracketology() {
               onToggleCompare={() => setShowCompare(s => !s)}
               showCompare={showCompare}
               onSimulateEntire={handleSimulateEntire}
+              isSimulating={isSimulating}
               onSimulateRest={handleSimulateRest}
               onRegeneratePicks={handleRegeneratePicks}
               simStats={simStats}

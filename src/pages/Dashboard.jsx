@@ -9,6 +9,8 @@ import { fetchAtsLeaders, fetchAtsRefresh } from '../api/atsLeaders';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { buildMaximusPicks } from '../utils/maximusPicksModel';
+import { mergeGamesWithOdds } from '../api/odds';
+import { buildActivePicksGames } from '../utils/activePicksGames';
 import { buildCaption, formatCaptionFile } from '../components/dashboard/captions/buildCaption';
 import { buildDailyBriefingDigest } from '../utils/chatbotDigest';
 import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
@@ -1545,10 +1547,13 @@ export default function Dashboard() {
                   if (Object.keys(rm).length > 0) enrichments.rankMap = rm;
                 }
                 if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
-                const upcoming = d.upcomingGamesWithSpreads ?? [];
-                if (upcoming.length > 0) {
-                  enrichments.picksGames = [...(d.odds?.games ?? []), ...upcoming];
-                }
+                enrichments.picksGames = buildActivePicksGames({
+                  todayScores: d.scores ?? [],
+                  oddsGames: d.odds?.games ?? [],
+                  upcomingGamesWithSpreads: d.upcomingGamesWithSpreads ?? [],
+                  getSlug: getTeamSlug,
+                  mergeWithOdds: mergeGamesWithOdds,
+                });
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
               teamData={enhancedTeamData}

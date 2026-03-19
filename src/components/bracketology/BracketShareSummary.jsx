@@ -193,6 +193,14 @@ export default function BracketShareSummary({
       <div className={styles.card} ref={cardRef} onClick={e => e.stopPropagation()}>
         <button type="button" className={styles.closeBtn} data-close-btn onClick={onClose} aria-label="Close">×</button>
 
+        <img
+          src="/mascot.png"
+          alt=""
+          className={styles.mascot}
+          crossOrigin="anonymous"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+
         <div className={styles.cardHeader}>
           <span className={styles.brand}>MAXIMUS SPORTS</span>
           <span className={`${styles.modeBadge} ${modeStyle}`}>

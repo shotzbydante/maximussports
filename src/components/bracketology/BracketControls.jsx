@@ -27,6 +27,7 @@ export default function BracketControls({
   onToggleCompare,
   showCompare,
   onSimulateEntire,
+  isSimulating = false,
   onSimulateRest,
   onRegeneratePicks,
   simStats,
@@ -47,12 +48,22 @@ export default function BracketControls({
     <div className={styles.controls}>
       <div className={styles.left}>
         <button
-          className={styles.simulateBtn}
+          className={`${styles.simulateBtn} ${isSimulating ? styles.simulatingActive : ''}`}
           onClick={onSimulateEntire}
+          disabled={isSimulating}
           title="Simulate entire bracket — AI fills all 63 games with controlled randomness"
         >
-          <span className={styles.btnIcon}>{'\u26A1'}</span>
-          Simulate Entire Bracket
+          {isSimulating ? (
+            <>
+              <span className={styles.diceRoll}>{'\uD83C\uDFB2'}</span>
+              Simulating…
+            </>
+          ) : (
+            <>
+              <span className={styles.btnIcon}>{'\u26A1'}</span>
+              Simulate Entire Bracket
+            </>
+          )}
         </button>
         <button
           className={styles.simulateRestBtn}
