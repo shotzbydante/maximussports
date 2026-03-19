@@ -417,9 +417,18 @@ function buildTournamentCaption({ tournamentInsights, asOf }) {
       : `\n\n🚨 Upset pick: model backs ${upEmoji} ${upName} as an underdog winner`;
   }
 
-  const convLine = strongestPct != null
-    ? `🔥 Strongest pick: ${strongestEmoji} ${strongestName} at ${strongestPct}% win probability`
-    : '';
+  // Surface championship profile signal for the strongest pick when relevant
+  const strongestHeuristics = strongestPick?.heuristics?.championshipOverlay;
+  const winnerOverlay = strongestPick?.winner === strongestPick?.heuristics?.championshipOverlay?.a
+    ? strongestHeuristics?.a : strongestHeuristics?.b;
+  const hasChampProfile = winnerOverlay?.championshipFlags?.includes('fullChampionshipProfile');
+
+  let convLine = '';
+  if (strongestPct != null && hasChampProfile) {
+    convLine = `🔥 Strongest pick: ${strongestEmoji} ${strongestName} at ${strongestPct}% — title profile checks key boxes`;
+  } else if (strongestPct != null) {
+    convLine = `🔥 Strongest pick: ${strongestEmoji} ${strongestName} at ${strongestPct}% win probability`;
+  }
 
   const short = [
     hook,
@@ -477,14 +486,23 @@ function _buildUpsetGameLines(games) {
       : null;
     const pctStr = pct != null ? ` (${pct}%)` : '';
 
+    // Surface the single most relevant heuristic signal when it adds editorial value
+    const refineFlags = g.matchupRefinements?.matchupFlags || g.modelResult?.heuristics?.matchupRefinements?.matchupFlags || [];
+    let heuristicNote = '';
+    if (refineFlags.includes('eightNineSmallFav')) {
+      heuristicNote = ' ⚠️ 8-seeds in this spot have struggled';
+    } else if (refineFlags.some(f => f.includes('overachiever'))) {
+      heuristicNote = ' 📈 Overachiever profile gives this underdog life';
+    }
+
     if (isUpset) {
-      return `${i + 1}. 🚨 ${pickEmoji} #${pickSeed} ${pickName} upset over #${oppSeed} ${oppName}${pctStr}`;
+      return `${i + 1}. 🚨 ${pickEmoji} #${pickSeed} ${pickName} upset over #${oppSeed} ${oppName}${pctStr}${heuristicNote}`;
     }
     const underdogPct = pct != null ? (100 - pct) : null;
     const underdogNote = underdogPct != null && underdogPct >= 35
       ? ` — #${oppSeed} ${oppName} has a ${underdogPct}% upset chance`
       : '';
-    return `${i + 1}. 📊 ${pickEmoji} #${pickSeed} ${pickName} over #${oppSeed} ${oppName}${pctStr}${underdogNote}`;
+    return `${i + 1}. 📊 ${pickEmoji} #${pickSeed} ${pickName} over #${oppSeed} ${oppName}${pctStr}${underdogNote}${heuristicNote}`;
   });
 }
 
@@ -551,9 +569,21 @@ function buildUpsetRadarCaption({ tournamentInsights, asOf }) {
     hook = `🚨 UPSET RADAR: ${hookDetail} 🏀`;
   }
 
+  const hasEightNineHeuristic = topGames.some(g =>
+    (g.matchupRefinements?.matchupFlags || g.modelResult?.heuristics?.matchupRefinements?.matchupFlags || []).includes('eightNineSmallFav')
+  );
+  const hasOverachieverUnderdog = topGames.some(g =>
+    (g.matchupRefinements?.matchupFlags || g.modelResult?.heuristics?.matchupRefinements?.matchupFlags || []).some(f => f.includes('overachiever'))
+  );
+
   let volatilityNote = '⚠️ The 5/12 and 8/9 seed bands break brackets every year. Don\u2019t sleep on these.';
   if (dangerZoneGames.length >= 3) {
     volatilityNote = `⚠️ The model has spoken: ${dangerZoneGames.length} danger zone matchups under 60% — this is where brackets get busted.`;
+  }
+  if (hasEightNineHeuristic) {
+    volatilityNote += '\n💡 Model sees danger: 8-seeds favored by small margins have struggled in this spot.';
+  } else if (hasOverachieverUnderdog) {
+    volatilityNote += '\n💡 Overachiever profile detected — at least one underdog is outperforming expectations.';
   }
 
   const short = [

@@ -130,12 +130,20 @@ export function getConfidenceTier(winProbability, isUpset = false) {
  * @param {number}  params.winProbability - Model's win probability for its pick
  * @param {number}  [params.topSeed] - Higher seed number (lower = better)
  * @param {number}  [params.bottomSeed] - Lower seed number (higher = worse)
- * @returns {{ pickLabel, matchupLabel, isTrueUpsetPick, underdogPct }}
+ * @param {object}  [params.heuristics] - Optional heuristic data from tournamentHeuristics
+ * @returns {{ pickLabel, matchupLabel, isTrueUpsetPick, underdogPct, heuristicFlags }}
  */
-export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed }) {
+export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, heuristics }) {
   const pct = Math.round((winProbability ?? 0.5) * 100);
   const underdogPct = isUpset ? pct : (100 - pct);
   const isClose = pct < 60;
+
+  const refineFlags = heuristics?.matchupRefinements?.matchupFlags || [];
+  const hasEightNineFlag = refineFlags.includes('eightNineSmallFav');
+  const hasOverachieverUnderdog = refineFlags.some(f => f.includes('overachiever') && !f.includes('underachiever'));
+
+  // Widen danger zone threshold when heuristic signals suggest elevated upset risk
+  const dangerZoneThreshold = (hasEightNineFlag || hasOverachieverUnderdog) ? 63 : 60;
 
   if (isUpset) {
     const isStandout = pct >= 58;
@@ -145,16 +153,18 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed }
       isTrueUpsetPick: true,
       underdogPct,
       badgeTier: TIERS.upsetPick,
+      heuristicFlags: refineFlags,
     };
   }
 
-  if (isClose) {
+  if (isClose || (pct < dangerZoneThreshold && (hasEightNineFlag || hasOverachieverUnderdog))) {
     return {
       pickLabel: pct >= 55 ? 'SLIGHT EDGE' : 'DICE ROLL',
       matchupLabel: 'DANGER ZONE',
       isTrueUpsetPick: false,
       underdogPct,
       badgeTier: TIERS.dangerZone,
+      heuristicFlags: refineFlags,
     };
   }
 
@@ -164,6 +174,7 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed }
     isTrueUpsetPick: false,
     underdogPct,
     badgeTier: getConfidenceTier(winProbability),
+    heuristicFlags: refineFlags,
   };
 }
 

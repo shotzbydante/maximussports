@@ -320,6 +320,21 @@ export function getSimulationStats(predictions) {
   }
 
   const entries = Object.values(predictions);
+
+  let champProfileWinners = 0;
+  let heuristicInfluenced = 0;
+  for (const p of entries) {
+    const wOverlay = p.winner === p.heuristics?.championshipOverlay?.a
+      ? p.heuristics?.championshipOverlay?.a
+      : p.heuristics?.championshipOverlay?.b;
+    if (wOverlay?.championshipFlags?.includes('fullChampionshipProfile')) {
+      champProfileWinners++;
+    }
+    if (p.heuristics?.matchupRefinements?.matchupFlags?.length > 0) {
+      heuristicInfluenced++;
+    }
+  }
+
   return {
     totalGames: entries.length,
     upsets: entries.filter(p => p.isUpset).length,
@@ -328,5 +343,7 @@ export function getSimulationStats(predictions) {
     upsetSpecials: entries.filter(p => p.bracketTier === 'upset_special').length,
     leans: entries.filter(p => p.bracketTier === 'lean').length,
     avgConfidence: entries.reduce((sum, p) => sum + (p.winProbability ?? 0.5), 0) / entries.length,
+    champProfileWinners,
+    heuristicInfluenced,
   };
 }

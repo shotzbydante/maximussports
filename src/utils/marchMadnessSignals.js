@@ -514,7 +514,7 @@ export function enforceUpsetCap(roundResults, maxUpsets = MAX_UPSET_COUNT_R1) {
 }
 
 export const MARCH_MADNESS_SIGNALS_META = {
-  version: '1.0.0',
+  version: '1.1.0',
   signalCategories: [
     'Championship Profile',
     'KenPom Efficiency',
@@ -523,7 +523,13 @@ export const MARCH_MADNESS_SIGNALS_META = {
     'Tournament Record',
     'Conditional Upset Heuristics',
   ],
-  philosophy: 'Weighted ensemble — signals adjust probabilities, never override core model.',
+  additionalLayers: [
+    'Championship Viability Overlay (tournamentHeuristics.js)',
+    'Matchup Refinement Features (tournamentHeuristics.js)',
+  ],
+  philosophy: 'Weighted ensemble — signals adjust probabilities, never override core model. ' +
+    'Additional heuristic layers provide additive priors separated into macro (championship) ' +
+    'and micro (matchup) levels.',
   maxSingleSignalImpact: 0.07,
   maxTotalImpact: 0.15,
 };

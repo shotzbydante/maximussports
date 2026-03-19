@@ -22,6 +22,7 @@ import { getTeamSlug } from './teamSlug';
 import { getAtsCache } from './atsCache';
 import { getTeamSeed, getTeamRegion, isTournamentActive } from './tournamentHelpers';
 import { getTournamentPrior } from './tournamentPrior';
+import { computeMatchupRefinements } from './tournamentHeuristics';
 
 // ─── tuneable constants ────────────────────────────────────────────────────────
 
@@ -187,19 +188,46 @@ function getTournamentAtsEdge(game, homeSlug, awaySlug, rankMap, championshipOdd
   const favRegion = getTeamRegion(favSlug);
   if (favRegion) signals.push(`${favRegion} Region`);
 
+  // Layer 2 matchup refinements — additive nudges for tournament ATS
+  const favTeamObj = { slug: favSlug, seed: favSeed };
+  const dogTeamObj = { slug: dogSlug, seed: dogSeed };
+  const refinements = computeMatchupRefinements(favTeamObj, dogTeamObj, {
+    ...( rankMap ? { rankMap } : {}),
+    ...( championshipOdds ? { championshipOdds } : {}),
+    spreads: { [favSlug]: homeIsFav ? homeSpread : -homeSpread, [dogSlug]: homeIsFav ? -homeSpread : homeSpread },
+  }, { round: 1 });
+
+  if (refinements.totalAdjustment !== 0) {
+    const refineNudge = refinements.totalAdjustment * 0.3;
+    dogCoverEdge += refineNudge;
+    for (const sig of refinements.signals.slice(0, 1)) {
+      signals.push(sig);
+    }
+  }
+
+  const finalLeanDog = dogCoverEdge > 0.03;
+  const finalPickTeam = finalLeanDog ? dogTeam : favTeam;
+  const finalPickSlug = finalLeanDog ? dogSlug : favSlug;
+  const finalOpponentTeam = finalLeanDog ? favTeam : dogTeam;
+  const finalOpponentSlug = finalLeanDog ? favSlug : dogSlug;
+  const finalPickIsHome = finalPickTeam === game.homeTeam;
+  const finalEdgeMag = Math.abs(dogCoverEdge);
+  const finalConfidence = finalEdgeMag >= 0.14 ? 2 : finalEdgeMag >= 0.08 ? 1 : 0;
+
   return {
-    pickTeam,
-    pickSlug,
-    opponentTeam,
-    opponentSlug,
-    pickIsHome,
-    edgeMag,
-    confidence,
+    pickTeam: finalPickTeam,
+    pickSlug: finalPickSlug,
+    opponentTeam: finalOpponentTeam,
+    opponentSlug: finalOpponentSlug,
+    pickIsHome: finalPickIsHome,
+    edgeMag: finalEdgeMag,
+    confidence: finalConfidence,
     signals,
-    leanDog,
+    leanDog: finalLeanDog,
     favSeed,
     dogSeed,
     upsetRate,
+    matchupRefinements: refinements,
   };
 }
 
@@ -526,7 +554,24 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       continue;
     }
 
-    const edge = homeScore - awayScore;
+    let edge = homeScore - awayScore;
+
+    // Tournament matchup refinements — light nudge for Pick 'Ems during March
+    let peRefinements = null;
+    if (tourn && isTournamentActive()) {
+      const homeSeed = getTeamSeed(homeSlug);
+      const awaySeed = getTeamSeed(awaySlug);
+      if (homeSeed != null && awaySeed != null) {
+        peRefinements = computeMatchupRefinements(
+          { slug: homeSlug, seed: homeSeed },
+          { slug: awaySlug, seed: awaySeed },
+          { rankMap, championshipOdds },
+          { round: 1 },
+        );
+        edge += peRefinements.totalAdjustment * 0.20;
+      }
+    }
+
     if (Math.abs(edge) < minEdge) continue;
 
     const pickHome = edge > 0;
@@ -564,6 +609,11 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       if (favPct >= 55) signals.push(`Market implied ${favPct}% win probability`);
     }
     if (pickHome) signals.push('Home court advantage');
+    if (peRefinements?.signals?.length > 0) {
+      for (const s of peRefinements.signals.slice(0, 1)) {
+        if (!signals.includes(s)) signals.push(s);
+      }
+    }
     if (signals.length === 0) signals.push('Composite model edge');
 
     const { homeML: peHomeML, awayML: peAwayML } = parseMoneylinePair(game);

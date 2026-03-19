@@ -15,6 +15,7 @@
 
 import { getTournamentPrior } from './tournamentPrior';
 import { computeMatchupSignals } from './marchMadnessSignals';
+import { computeChampionshipOverlay, computeMatchupRefinements } from './tournamentHeuristics';
 
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
@@ -211,6 +212,22 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
   const MM_SIGNAL_WEIGHT = 0.60;
   edge += mmSignals.adjustment * MM_SIGNAL_WEIGHT;
 
+  // ── 4b. Tournament heuristics (additive priors) ────────────────
+  const champOverlayA = computeChampionshipOverlay(teamA, context);
+  const champOverlayB = computeChampionshipOverlay(teamB, context);
+  const matchupRefine = computeMatchupRefinements(teamA, teamB, context, matchupMeta);
+
+  // Championship overlay: affects bracket simulation / title path more heavily
+  // in later rounds; light touch in early rounds
+  const round = matchupMeta.round ?? 1;
+  const champWeight = round >= 5 ? 0.80 : round >= 3 ? 0.50 : 0.25;
+  const champDelta = (champOverlayA.championshipScoreAdjustment - champOverlayB.championshipScoreAdjustment) * champWeight;
+  edge += champDelta;
+
+  // Matchup refinements: light nudges, especially valuable when edge is small
+  const refineWeight = Math.abs(edge) < 0.08 ? 0.50 : 0.25;
+  edge += matchupRefine.totalAdjustment * refineWeight;
+
   // ── 5. Tournament history prior (calibration layer) ────────────
   const mainEdgeMag = Math.abs(edge);
   let tournamentPriorResult = null;
@@ -280,6 +297,11 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     tournamentPrior: tournamentPriorResult,
     enrichCount,
     mmSignals: mmSignals.signals,
+    heuristicSignals: matchupRefine.signals,
+    champSignals: [
+      ...(pickA ? champOverlayA.signals : champOverlayB.signals),
+      ...(pickA ? champOverlayB.signals : champOverlayA.signals).map(s => `(Opp) ${s}`),
+    ],
   });
 
   const confLabel = confidence >= 2 ? 'HIGH' : confidence >= 1 ? 'MEDIUM' : 'LOW';
@@ -304,6 +326,7 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     seedProb,
     bracketTier,
     mmSignals,
+    heuristics: { champOverlayA, champOverlayB, matchupRefine },
   });
 
   return {
@@ -318,6 +341,10 @@ export function resolveBracketMatchup(teamA, teamB, context = {}, matchupMeta = 
     totalLean,
     upsetTrigger: mmSignals.upsetTrigger || null,
     marchMadnessSignals: mmSignals,
+    heuristics: {
+      championshipOverlay: { a: champOverlayA, b: champOverlayB },
+      matchupRefinements: matchupRefine,
+    },
   };
 }
 
@@ -451,6 +478,18 @@ function buildSignals(winner, loser, ctx) {
     }
   }
 
+  if (ctx.heuristicSignals?.length > 0) {
+    for (const s of ctx.heuristicSignals.slice(0, 2)) {
+      if (!signals.includes(s)) signals.push(s);
+    }
+  }
+
+  if (ctx.champSignals?.length > 0) {
+    for (const s of ctx.champSignals.slice(0, 1)) {
+      if (!signals.includes(s)) signals.push(s);
+    }
+  }
+
   if (signals.length === 0) {
     const wSeed = winner.seed;
     const lSeed = loser.seed;
@@ -521,6 +560,18 @@ function buildRationale(winner, loser, ctx) {
 
   if (ctx.mmSignals?.upsetTrigger?.signal) {
     parts.push(ctx.mmSignals.upsetTrigger.signal);
+  }
+
+  if (ctx.heuristics?.matchupRefine?.signals?.length > 0) {
+    const topRefine = ctx.heuristics.matchupRefine.signals[0];
+    if (topRefine && !parts.some(p => p.includes(topRefine))) {
+      parts.push(topRefine);
+    }
+  }
+
+  const winnerChampOverlay = ctx.heuristics?.champOverlayA ?? ctx.heuristics?.champOverlayB;
+  if (winnerChampOverlay?.championshipFlags?.includes('fullChampionshipProfile')) {
+    parts.push('Title profile checks all key boxes: conference semis + elite net rating.');
   }
 
   return parts.join(' ');

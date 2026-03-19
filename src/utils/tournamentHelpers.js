@@ -17,6 +17,7 @@ import { PROJECTED_FIELD } from '../data/projectedField';
 import { REGIONS, SEED_MATCHUP_ORDER } from '../config/bracketology';
 import { resolveBracketMatchup, warnUniformBatch } from './bracketMatchupResolver';
 import { getTournamentPrior, TOURNAMENT_PRIOR_META } from './tournamentPrior';
+import { computeMatchupRefinements } from './tournamentHeuristics';
 
 // ── Internal state: active tournament field ───────────────────────
 let _activeField = PROJECTED_FIELD;
@@ -548,6 +549,27 @@ function scoreUpsetCandidate(candidate) {
 
   if (modelResult?.signals?.length > 1) score += 0.04;
 
+  // Heuristic refinement boosts for upset radar
+  const refinements = modelResult?.heuristics?.matchupRefinements;
+  if (refinements) {
+    // 8v9 small-spread penalty increases danger zone weight
+    if (refinements.matchupFlags?.includes('eightNineSmallFav')) {
+      score += 0.08;
+    }
+    // Overachiever underdog gets slight boost
+    if (refinements.overachieverProfileB === 'overachiever' || refinements.overachieverProfileA === 'overachiever') {
+      const isUnderdogOverachiever = (bottomSeed > topSeed)
+        ? refinements.overachieverProfileB === 'overachiever' || refinements.overachieverProfileB === 'mild_overachiever'
+        : refinements.overachieverProfileA === 'overachiever' || refinements.overachieverProfileA === 'mild_overachiever';
+      if (isUnderdogOverachiever) score += 0.06;
+    }
+    // Underachiever favorite increases upset risk
+    const isFavUnderachiever = (topSeed < bottomSeed)
+      ? refinements.overachieverProfileA === 'underachiever' || refinements.overachieverProfileA === 'mild_underachiever'
+      : refinements.overachieverProfileB === 'underachiever' || refinements.overachieverProfileB === 'mild_underachiever';
+    if (isFavUnderachiever) score += 0.05;
+  }
+
   return score;
 }
 
@@ -586,6 +608,11 @@ export function getUpsetRadarGames(context = {}, options = {}) {
         ? (modelResult.isUpset ? modelResult.winProbability : 1 - modelResult.winProbability)
         : historicalRate;
 
+      let refinements = null;
+      if (m.topTeam && m.bottomTeam) {
+        refinements = computeMatchupRefinements(m.topTeam, m.bottomTeam, context, { round });
+      }
+
       const entry = {
         ...m,
         round,
@@ -594,6 +621,7 @@ export function getUpsetRadarGames(context = {}, options = {}) {
         upsetProbability,
         modelResult,
         isUpsetPick: modelResult?.isUpset ?? false,
+        matchupRefinements: refinements,
       };
       entry._compositeScore = scoreUpsetCandidate(entry);
       candidates.push(entry);
