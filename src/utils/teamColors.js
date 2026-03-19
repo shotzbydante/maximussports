@@ -43,7 +43,7 @@ const TEAM_COLORS = {
   'missouri-tigers':            { primary: '#F1B82D', secondary: '#160d00' },
   'oklahoma-sooners':           { primary: '#C8102E', secondary: '#841617' },
   'lsu-tigers':                 { primary: '#FDD023', secondary: '#461D7C' },
-  'mississippi-ole-miss-rebels':{ primary: '#CE1126', secondary: '#14213D' },
+  'ole-miss-rebels':            { primary: '#CE1126', secondary: '#14213D' },
   'mississippi-state-bulldogs': { primary: '#660000', secondary: '#5D1725' },
   'south-carolina-gamecocks':   { primary: '#73000A', secondary: '#1a0003' },
 

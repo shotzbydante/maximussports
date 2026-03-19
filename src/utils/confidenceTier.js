@@ -131,9 +131,10 @@ export function getConfidenceTier(winProbability, isUpset = false) {
  * @param {number}  [params.topSeed] - Higher seed number (lower = better)
  * @param {number}  [params.bottomSeed] - Lower seed number (higher = worse)
  * @param {object}  [params.heuristics] - Optional heuristic data from tournamentHeuristics
- * @returns {{ pickLabel, matchupLabel, isTrueUpsetPick, underdogPct, heuristicFlags }}
+ * @param {object}  [params.scoreBreakdown] - Optional composite score breakdown from getUpsetRadarScore
+ * @returns {{ pickLabel, matchupLabel, isTrueUpsetPick, underdogPct, heuristicFlags, compositeScore }}
  */
-export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, heuristics }) {
+export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, heuristics, scoreBreakdown }) {
   const pct = Math.round((winProbability ?? 0.5) * 100);
   const underdogPct = isUpset ? pct : (100 - pct);
   const isClose = pct < 60;
@@ -142,8 +143,13 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, 
   const hasEightNineFlag = refineFlags.includes('eightNineSmallFav');
   const hasOverachieverUnderdog = refineFlags.some(f => f.includes('overachiever') && !f.includes('underachiever'));
 
-  // Widen danger zone threshold when heuristic signals suggest elevated upset risk
-  const dangerZoneThreshold = (hasEightNineFlag || hasOverachieverUnderdog) ? 63 : 60;
+  // Composite score from the shared Upset Radar scorer (when available)
+  const compositeScore = scoreBreakdown?.compositeScore ?? null;
+  const hasStrongComposite = compositeScore != null && compositeScore >= 0.40;
+
+  // Widen danger zone threshold when heuristic signals or composite score elevate risk
+  const dangerZoneThreshold =
+    (hasEightNineFlag || hasOverachieverUnderdog || hasStrongComposite) ? 63 : 60;
 
   if (isUpset) {
     const isStandout = pct >= 58;
@@ -154,10 +160,11 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, 
       underdogPct,
       badgeTier: TIERS.upsetPick,
       heuristicFlags: refineFlags,
+      compositeScore,
     };
   }
 
-  if (isClose || (pct < dangerZoneThreshold && (hasEightNineFlag || hasOverachieverUnderdog))) {
+  if (isClose || (pct < dangerZoneThreshold && (hasEightNineFlag || hasOverachieverUnderdog || hasStrongComposite))) {
     return {
       pickLabel: pct >= 55 ? 'SLIGHT EDGE' : 'DICE ROLL',
       matchupLabel: 'DANGER ZONE',
@@ -165,6 +172,7 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, 
       underdogPct,
       badgeTier: TIERS.dangerZone,
       heuristicFlags: refineFlags,
+      compositeScore,
     };
   }
 
@@ -175,6 +183,7 @@ export function getUpsetFraming({ isUpset, winProbability, topSeed, bottomSeed, 
     underdogPct,
     badgeTier: getConfidenceTier(winProbability),
     heuristicFlags: refineFlags,
+    compositeScore,
   };
 }
 

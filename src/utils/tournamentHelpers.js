@@ -526,51 +526,112 @@ export function getRoundLabel(round) {
   return ROUND_LABEL_MAP[round] || `Round ${round}`;
 }
 
+// ── Upset Radar composite scoring ─────────────────────────────────
+// Weights for the three-component composite formula
+const UPSET_SCORE_WEIGHTS = { underdogProb: 0.55, volatility: 0.25, refinement: 0.20 };
+const SIGNAL_STACK_MAX_BONUS = 0.02;
+
 /**
- * Score an upset candidate using model signal strength, diversity, and
- * shareability — not just raw upset probability. This ensures a healthy
- * mix of different tiers and pick types, not only obvious 8/9 coin flips.
+ * Compute the composite Upset Radar score for a candidate matchup.
+ * Exported for direct reuse by any surface that needs the same ranking.
+ *
+ * Three components:
+ *   1. underdogProb  — anchor (the probability the underdog wins)
+ *   2. volatility    — proximity to 50 % (closer = more swingable)
+ *   3. refinement    — normalized heuristic signal strength [0,1]
+ *
+ * Plus a tiny signal-stacking bonus when multiple heuristic signals align.
  */
-function scoreUpsetCandidate(candidate) {
+export function getUpsetRadarScore(candidate, _context = {}) {
   const { upsetProbability, modelResult, topSeed, bottomSeed } = candidate;
 
-  let score = upsetProbability;
+  // ── 1. Underdog probability (PRIMARY) ──
+  const underdogProb = Math.max(0, Math.min(1, upsetProbability ?? 0));
 
-  const seedGap = bottomSeed - topSeed;
-  if (seedGap >= 8) score += 0.10;
-  else if (seedGap >= 5) score += 0.05;
+  // ── 2. Matchup volatility (MEDIUM) ──
+  // 50 % → 1.0 (max), 100 %/0 % → 0.0 (min)
+  const volatility = 1 - Math.abs(underdogProb - 0.5) * 2;
 
-  if (modelResult?.isUpset) score += 0.12;
+  // ── 3. Heuristic refinement score (MEDIUM-LOW) ──
+  const refinements =
+    candidate.matchupRefinements ||
+    modelResult?.heuristics?.matchupRefinements;
+  let refinementScore = 0;
+  let signalCount = 0;
 
-  const tier = modelResult?.bracketTier;
-  if (tier === 'upset_special') score += 0.15;
-  else if (tier === 'dice_roll') score += 0.05;
-  else if (tier === 'high_conviction' && modelResult?.isUpset) score += 0.18;
-
-  if (modelResult?.signals?.length > 1) score += 0.04;
-
-  // Heuristic refinement boosts for upset radar
-  const refinements = modelResult?.heuristics?.matchupRefinements;
   if (refinements) {
-    // 8v9 small-spread penalty increases danger zone weight
-    if (refinements.matchupFlags?.includes('eightNineSmallFav')) {
-      score += 0.08;
-    }
-    // Overachiever underdog gets slight boost
-    if (refinements.overachieverProfileB === 'overachiever' || refinements.overachieverProfileA === 'overachiever') {
-      const isUnderdogOverachiever = (bottomSeed > topSeed)
-        ? refinements.overachieverProfileB === 'overachiever' || refinements.overachieverProfileB === 'mild_overachiever'
-        : refinements.overachieverProfileA === 'overachiever' || refinements.overachieverProfileA === 'mild_overachiever';
-      if (isUnderdogOverachiever) score += 0.06;
-    }
-    // Underachiever favorite increases upset risk
+    const flags = refinements.matchupFlags || [];
+
+    if (flags.includes('eightNineSmallFav'))  { refinementScore += 0.35; signalCount++; }
+    if (flags.includes('fourSeedR64Boost'))   { refinementScore += 0.20; signalCount++; }
+
+    // Overachiever underdog
+    const isUnderdogOverachiever = (bottomSeed > topSeed)
+      ? ['overachiever', 'mild_overachiever'].includes(refinements.overachieverProfileB)
+      : ['overachiever', 'mild_overachiever'].includes(refinements.overachieverProfileA);
+    if (isUnderdogOverachiever) { refinementScore += 0.25; signalCount++; }
+
+    // Underachiever favorite
     const isFavUnderachiever = (topSeed < bottomSeed)
-      ? refinements.overachieverProfileA === 'underachiever' || refinements.overachieverProfileA === 'mild_underachiever'
-      : refinements.overachieverProfileB === 'underachiever' || refinements.overachieverProfileB === 'mild_underachiever';
-    if (isFavUnderachiever) score += 0.05;
+      ? ['underachiever', 'mild_underachiever'].includes(refinements.overachieverProfileA)
+      : ['underachiever', 'mild_underachiever'].includes(refinements.overachieverProfileB);
+    if (isFavUnderachiever) { refinementScore += 0.20; signalCount++; }
   }
 
-  return score;
+  // Model-based signals add a small contribution
+  if (modelResult?.isUpset) refinementScore += 0.15;
+  const tier = modelResult?.bracketTier;
+  if (tier === 'upset_special') { refinementScore += 0.10; signalCount++; }
+  else if (tier === 'dice_roll') refinementScore += 0.05;
+
+  if (modelResult?.signals?.length > 1) refinementScore += 0.05;
+
+  refinementScore = Math.min(1, refinementScore);
+
+  // ── 4. Signal stacking bonus (tiny) ──
+  const stackBonus = signalCount >= 3 ? SIGNAL_STACK_MAX_BONUS
+    : signalCount >= 2 ? 0.01
+    : 0;
+
+  // ── 5. Narrative/seed-gap micro-boost (extremely light) ──
+  const seedGap = Math.abs(bottomSeed - topSeed);
+  const narrativeBoost = seedGap >= 8 ? 0.01 : seedGap >= 5 ? 0.005 : 0;
+
+  // ── Underdog-centric guard: suppress noise games ──
+  // When underdogProb < 0.30 and there's no strong refinement stack or
+  // elevated volatility, dampen the score to prevent low-probability noise.
+  let lowProbPenalty = 0;
+  if (underdogProb < 0.30 && signalCount < 2 && volatility < 0.60) {
+    lowProbPenalty = (0.30 - underdogProb) * 0.40;
+  }
+
+  // ── Composite ──
+  const raw =
+    (underdogProb * UPSET_SCORE_WEIGHTS.underdogProb) +
+    (volatility * UPSET_SCORE_WEIGHTS.volatility) +
+    (refinementScore * UPSET_SCORE_WEIGHTS.refinement) +
+    stackBonus +
+    narrativeBoost -
+    lowProbPenalty;
+
+  return {
+    compositeScore: Math.max(0, raw),
+    underdogProb,
+    volatility,
+    refinementScore,
+    stackBonus,
+    narrativeBoost,
+    lowProbPenalty,
+    signalCount,
+  };
+}
+
+/**
+ * Legacy wrapper — returns a single numeric score for backward compat.
+ */
+function scoreUpsetCandidate(candidate) {
+  const result = getUpsetRadarScore(candidate);
+  return result.compositeScore;
 }
 
 /**
@@ -623,7 +684,9 @@ export function getUpsetRadarGames(context = {}, options = {}) {
         isUpsetPick: modelResult?.isUpset ?? false,
         matchupRefinements: refinements,
       };
-      entry._compositeScore = scoreUpsetCandidate(entry);
+      const scoreResult = getUpsetRadarScore(entry);
+      entry._compositeScore = scoreResult.compositeScore;
+      entry._scoreBreakdown = scoreResult;
       candidates.push(entry);
     }
   }

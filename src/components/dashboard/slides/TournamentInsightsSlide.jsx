@@ -143,6 +143,8 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
     winProbability: winProbability ?? 0.5,
     topSeed: leftSeed,
     bottomSeed: rightSeed,
+    heuristics: insight.heuristics,
+    scoreBreakdown: insight._scoreBreakdown,
   });
 
   const winnerSlug = winnerTeam?.slug || '';

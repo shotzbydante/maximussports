@@ -246,6 +246,12 @@ const SLUG_EMOJI = {
   // UNLV Rebels
   'unlv':              '🏴‍☠️',
 
+  // Ole Miss Rebels
+  'ole-miss':          '🏴‍☠️',
+
+  // Mississippi State Bulldogs
+  'mississippi-state': '🐶',
+
   // San Diego State Aztecs
   'san-diego-state':   '🌵',
 

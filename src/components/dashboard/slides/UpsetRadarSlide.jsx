@@ -124,7 +124,14 @@ function UpsetCard({ game, rank }) {
   const pct = Math.round(winProb * 100);
   const underdogPct = isUpsetPick ? pct : (100 - pct);
   const tier = getConfidenceTier(winProb);
-  const framing = getUpsetFraming({ isUpset: isUpsetPick, winProbability: winProb, topSeed, bottomSeed });
+  const framing = getUpsetFraming({
+    isUpset: isUpsetPick,
+    winProbability: winProb,
+    topSeed,
+    bottomSeed,
+    heuristics: modelResult?.heuristics,
+    scoreBreakdown: game._scoreBreakdown,
+  });
   const rationaleText = modelResult?.rationale || '';
 
   // Seed ordering: higher seed (lower number) ALWAYS on left
