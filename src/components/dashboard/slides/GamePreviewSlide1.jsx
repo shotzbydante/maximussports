@@ -3,6 +3,7 @@ import LineBlock from '../ui/LineBlock';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { getTeamSeed } from '../../../utils/tournamentHelpers';
+import { getTeamColors } from '../../../utils/teamColors';
 import styles from './GamePreviewSlide1.module.css';
 
 function fmtSpread(v) {
@@ -14,14 +15,14 @@ function fmtSpread(v) {
 export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal, ...rest }) {
   if (!game) {
     return (
-      <SlideShell asOf={asOf} brandMode="standard" category="game" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
+      <SlideShell asOf={asOf} theme="single_game" brandMode="standard" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
         <div className={styles.noGame}>Select a game to preview.</div>
       </SlideShell>
     );
   }
 
-  const awayTeam = game.awayTeam || '—';
-  const homeTeam = game.homeTeam || '—';
+  const awayTeam = game.awayTeam || '\u2014';
+  const homeTeam = game.homeTeam || '\u2014';
   const awaySlug = game.awaySlug || game.awayTeamSlug || getTeamSlug(awayTeam) || null;
   const homeSlug = game.homeSlug || game.homeTeamSlug || getTeamSlug(homeTeam) || null;
   const awayObj = { name: awayTeam, slug: awaySlug };
@@ -39,53 +40,61 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
 
   const spreadStr = fmtSpread(spread);
 
+  const awayTC = getTeamColors(awaySlug);
+  const homeTC = getTeamColors(homeSlug);
+  const awayAccent = awayTC?.primary || '#6EB3E8';
+  const homeAccent = homeTC?.primary || '#6EB3E8';
+
   return (
     <SlideShell
       asOf={asOf}
-      accentColor="#3C79B4"
+      theme="single_game"
       brandMode="standard"
-      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
     >
-      <div className={styles.titleSup}>GAME PREVIEW</div>
+      {/* Spotlight top label */}
+      <div className={styles.spotlightLabel}>GAME PREVIEW</div>
       <h2 className={styles.title}>Matchup<br />Breakdown</h2>
-      <div className={styles.divider} />
 
-      {/* Teams vs block */}
-      <div className={styles.matchupRow}>
-        {/* Away team */}
-        <div className={styles.teamSide}>
-          <div className={styles.logoWrap}>
-            <TeamLogo team={awayObj} size={110} />
+      {/* Hero matchup composition */}
+      <div className={styles.heroMatchup}>
+        {/* Away team — left spotlight */}
+        <div className={styles.heroSide}>
+          <div className={styles.heroLogoWrap}>
+            <div className={styles.heroGlow} style={{ background: `radial-gradient(circle, ${awayAccent}25 0%, transparent 65%)` }} />
+            <TeamLogo team={awayObj} size={130} />
           </div>
-          {awaySeed != null && <span className={styles.seedPill}>#{awaySeed}</span>}
-          {awayRank != null && !awaySeed && <span className={styles.rankPill}>#{awayRank}</span>}
-          <div className={styles.teamName}>{awayTeam}</div>
-          <div className={styles.sideLabel}>AWAY</div>
+          {awaySeed != null && <span className={styles.heroSeedPill}>#{awaySeed}</span>}
+          {awayRank != null && !awaySeed && <span className={styles.heroRankPill}>#{awayRank}</span>}
+          <div className={styles.heroTeamName}>{awayTeam}</div>
+          <div className={styles.heroSideLabel}>AWAY</div>
         </div>
 
-        {/* VS divider */}
-        <div className={styles.vsBlock}>
-          <div className={styles.vsText}>VS</div>
+        {/* Center spotlight — VS + spread */}
+        <div className={styles.heroCenter}>
+          <div className={styles.heroVsRing}>
+            <span className={styles.heroVsText}>VS</span>
+          </div>
           {spreadStr && (
-            <div className={styles.spreadCenter}>
-              <span className={styles.spreadVal}>{spreadStr}</span>
-              <span className={styles.spreadKey}>SPREAD</span>
+            <div className={styles.heroSpreadBlock}>
+              <span className={styles.heroSpreadVal}>{spreadStr}</span>
+              <span className={styles.heroSpreadKey}>SPREAD</span>
             </div>
           )}
         </div>
 
-        {/* Home team */}
-        <div className={styles.teamSide}>
-          <div className={styles.logoWrap}>
-            <TeamLogo team={homeObj} size={110} />
+        {/* Home team — right spotlight */}
+        <div className={styles.heroSide}>
+          <div className={styles.heroLogoWrap}>
+            <div className={styles.heroGlow} style={{ background: `radial-gradient(circle, ${homeAccent}25 0%, transparent 65%)` }} />
+            <TeamLogo team={homeObj} size={130} />
           </div>
-          {homeSeed != null && <span className={styles.seedPill}>#{homeSeed}</span>}
-          {homeRank != null && !homeSeed && <span className={styles.rankPill}>#{homeRank}</span>}
-          <div className={styles.teamName}>{homeTeam}</div>
-          <div className={styles.sideLabel}>HOME</div>
+          {homeSeed != null && <span className={styles.heroSeedPill}>#{homeSeed}</span>}
+          {homeRank != null && !homeSeed && <span className={styles.heroRankPill}>#{homeRank}</span>}
+          <div className={styles.heroTeamName}>{homeTeam}</div>
+          <div className={styles.heroSideLabel}>HOME</div>
         </div>
       </div>
 
@@ -93,13 +102,15 @@ export default function GamePreviewSlide1({ game, asOf, slideNumber, slideTotal,
       {(gameTime || venue) && (
         <div className={styles.gameMeta}>
           {gameTime && <span>{gameTime}</span>}
-          {gameTime && venue && <span className={styles.metaDot}>·</span>}
+          {gameTime && venue && <span className={styles.metaDot}>\u00b7</span>}
           {venue && <span>{venue}</span>}
         </div>
       )}
 
-      {/* Full line block */}
-      <LineBlock spread={spread} ml={ml} total={total} label="FULL LINE" />
+      {/* Glass-panel line block */}
+      <div className={styles.lineBlockWrap}>
+        <LineBlock spread={spread} ml={ml} total={total} label="FULL LINE" />
+      </div>
     </SlideShell>
   );
 }

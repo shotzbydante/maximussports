@@ -31,8 +31,8 @@ function computeUpsetRisk(insight) {
 function socialTitle(rawTitle, preset) {
   if (!preset) return rawTitle;
   const m = preset.match(/^(\d+)-seeds?$/);
-  if (m) return `🔒 SEED INTEL: #${m[1]} SEEDS`;
-  if (preset === '8v9') return '🔒 SEED INTEL: #8 VS #9';
+  if (m) return `NO. ${m[1]} SEEDS\nBREAKDOWN`;
+  if (preset === '8v9') return '8 VS 9\nMATCHUPS';
   return rawTitle;
 }
 
@@ -48,7 +48,7 @@ function MatchupRiskChip({ risk, framing }) {
 }
 
 function ProbRing({ pct, color, size = 92 }) {
-  const stroke = 6;
+  const stroke = 7;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
@@ -60,7 +60,7 @@ function ProbRing({ pct, color, size = 92 }) {
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(183,152,108,0.12)"
             strokeWidth={stroke}
           />
           <circle
@@ -72,12 +72,13 @@ function ProbRing({ pct, color, size = 92 }) {
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            style={{ filter: `drop-shadow(0 0 10px ${color}66)` }}
+            style={{ filter: `drop-shadow(0 0 12px ${color}55)` }}
           />
         </svg>
         <span className={styles.probRingPct} style={{ color }}>{pct}%</span>
       </div>
       <span className={styles.probRingLabel}>WIN PROB</span>
+      {/* Region tag under ring */}
     </div>
   );
 }
@@ -149,11 +150,11 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
 
   const winnerSlug = winnerTeam?.slug || '';
   const tc = getTeamColors(winnerSlug);
-  const accentColor = tc?.primary || '#4A90D9';
+  const accentColor = tc?.primary || '#D4B87A';
   const edgeColor = getEdgeColor(pct);
 
-  const logoSize = ultraCompact ? 38 : compact ? 56 : 68;
-  const ringSize = ultraCompact ? 56 : compact ? 78 : 92;
+  const logoSize = ultraCompact ? 42 : compact ? 60 : 72;
+  const ringSize = ultraCompact ? 58 : compact ? 82 : 96;
 
   const spread = matchup?.spread ?? null;
   const overUnder = matchup?.overUnder ?? matchup?.total ?? null;
@@ -179,7 +180,7 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
       }}
     >
       <div className={styles.cardInner}>
-        {/* LEFT: Higher seed (always) */}
+        {/* LEFT: Higher seed */}
         <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
           <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
             {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />}
@@ -189,7 +190,7 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
           {isPickLeft && (
             <span className={styles.maximusPick}>
-              {framing.isTrueUpsetPick ? `🚨 ${framing.pickLabel}` : `◆ ${framing.pickLabel}`}
+              {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
             </span>
           )}
         </div>
@@ -203,7 +204,7 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           </div>
         </div>
 
-        {/* RIGHT: Lower seed (always) */}
+        {/* RIGHT: Lower seed */}
         <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
           <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
             {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}40 0%, transparent 70%)` }} />}
@@ -213,13 +214,12 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
           {!isPickLeft && (
             <span className={styles.maximusPick}>
-              {framing.isTrueUpsetPick ? `🚨 ${framing.pickLabel}` : `◆ ${framing.pickLabel}`}
+              {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
             </span>
           )}
         </div>
       </div>
 
-      {/* Colored probability bar */}
       <ProbBar
         pct={pct}
         winnerName={winnerTeam?.shortName || winnerTeam?.name}
@@ -227,31 +227,29 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
         edgeColor={edgeColor}
       />
 
-      {/* Rationale — hidden in ultra-compact mode */}
       {displayRationale && (
         <div className={styles.rationale}>
           <p className={styles.rationaleText}>{displayRationale}</p>
         </div>
       )}
 
-      {/* Game info + badges */}
       <div className={styles.bottomRow}>
         <div className={styles.metaStrip}>
           <span className={styles.metaItem}>
-            Rd 1{matchup?.region ? ` · ${matchup.region}` : ''}
+            Rd 1{matchup?.region ? ` \u00b7 ${matchup.region}` : ''}
           </span>
           {!ultraCompact && (
             <>
-              <span className={styles.metaDot}>·</span>
+              <span className={styles.metaDot}>\u00b7</span>
               <span className={styles.metaItem}>
-                {gameTime && network ? `${gameTime} · ${network}` : 'Schedule TBA'}
+                {gameTime && network ? `${gameTime} \u00b7 ${network}` : 'Schedule TBA'}
               </span>
             </>
           )}
-          <span className={styles.metaDot}>·</span>
+          <span className={styles.metaDot}>\u00b7</span>
           <span className={styles.metaItem}>
             {spread != null ? `${spread}` : 'Line TBA'}
-            {overUnder != null ? ` · O/U ${overUnder}` : ''}
+            {overUnder != null ? ` \u00b7 O/U ${overUnder}` : ''}
           </span>
         </div>
         <div className={styles.badgeStrip}>
@@ -266,10 +264,9 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
 export default function TournamentInsightsSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const ti = options.tournamentInsights || {};
   const rawTitle = ti.title || 'March Madness\nInsights';
-  const subtitle = ti.subtitle || 'TOURNAMENT INTELLIGENCE';
+  const subtitle = ti.subtitle || 'ALL {SEED} SEEDS \u00b7 TOURNAMENT INTELLIGENCE';
   const insights = ti.insights || [];
 
-  // Support up to 8 cards for full region views
   const displayInsights = insights.slice(0, 8);
   const isUltraCompact = displayInsights.length >= 6;
   const isManyCards = displayInsights.length >= 4;
@@ -288,9 +285,8 @@ export default function TournamentInsightsSlide({ data, asOf, slideNumber, slide
   return (
     <SlideShell
       asOf={asOf}
-      accentColor="#4A90D9"
+      theme="tournament"
       brandMode="light"
-      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}

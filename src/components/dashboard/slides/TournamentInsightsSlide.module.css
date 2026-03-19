@@ -1,11 +1,14 @@
-/* ── Tournament Insights Slide — Premium IG v4 ──────────── */
+/* ── Tournament Insights — Premium Broadcast Command Center ─────
+   Gold + navy base, brushed-metal highlights, stadium-lighting.
+   Distinct from Upset Radar (charcoal/ember) and Key Games (cyan/flat).
+   ─────────────────────────────────────────────────────────────── */
 
 /* ── Header ──────────────────────────────────────────────── */
 .headerBlock {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .headerCompact {
@@ -34,7 +37,7 @@
 .headerText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
@@ -47,7 +50,7 @@
   margin-left: 16px;
   filter:
     drop-shadow(0 4px 16px rgba(0, 0, 0, 0.50))
-    drop-shadow(0 0 14px rgba(45, 108, 168, 0.32));
+    drop-shadow(0 0 14px rgba(183, 152, 108, 0.28));
 }
 
 .headerCompact .heroMascot {
@@ -55,12 +58,13 @@
   opacity: 0.80;
 }
 
+/* Gold-tinted March Madness pill */
 .marchBadge {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  background: rgba(183, 152, 108, 0.14);
-  border: 1px solid rgba(183, 152, 108, 0.30);
+  background: rgba(183, 152, 108, 0.16);
+  border: 1px solid rgba(183, 152, 108, 0.35);
   border-radius: 999px;
   padding: 3px 14px;
   font-family: 'Oswald', sans-serif;
@@ -81,21 +85,23 @@
   letter-spacing: -0.01em;
   text-transform: uppercase;
   white-space: pre-line;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.40);
 }
 
 .headerCompact .title { font-size: 40px; }
 
+/* Gold subtitle — brand anchor color */
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #4A90D9;
+  color: #D4B87A;
   margin-top: 2px;
 }
 
-.headerCompact .titleSup { font-size: 14px; }
+.headerCompact .titleSup { font-size: 13px; }
 
 /* ── Card List ────────────────────────────────────────────── */
 .cardList {
@@ -106,56 +112,57 @@
 }
 
 .cardListCompact {
-  gap: 3px;
+  gap: 4px;
 }
 
 .cardListUltraCompact {
-  gap: 2px;
+  gap: 3px;
 }
 
-/* ── Card ──────────────────────────────────────────────────── */
+/* ── Card — brushed-metal premium panel ───────────────────── */
 .card {
-  background: linear-gradient(
-    140deg,
-    var(--card-accent-15, rgba(74,144,217,0.15)) 0%,
-    rgba(255,255,255,0.02) 50%,
-    rgba(255,255,255,0.005) 100%
-  );
-  border: 1.5px solid var(--card-accent-30, rgba(74,144,217,0.28));
+  background:
+    linear-gradient(145deg,
+      rgba(183,152,108,0.10) 0%,
+      rgba(255,255,255,0.025) 40%,
+      rgba(10,26,46,0.55) 100%);
+  border: 1.5px solid rgba(183,152,108,0.26);
   border-radius: 14px;
   padding: 14px 18px 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   position: relative;
   overflow: hidden;
 }
 
+/* Top-edge gold highlight — "brushed metal" signature */
 .card::before {
   content: '';
   position: absolute;
-  top: -25%;
-  left: -6%;
-  width: 50%;
-  height: 150%;
-  background: radial-gradient(ellipse at center, var(--card-accent-08, rgba(74,144,217,0.08)) 0%, transparent 70%);
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,184,122,0.30) 30%, rgba(212,184,122,0.40) 50%, rgba(212,184,122,0.30) 70%, transparent);
   pointer-events: none;
 }
 
+/* Warm ambient glow — left side */
 .card::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--card-accent-30, rgba(74,144,217,0.20)) 50%, transparent);
+  top: -20%;
+  left: -5%;
+  width: 45%;
+  height: 140%;
+  background: radial-gradient(ellipse at center, rgba(183,152,108,0.06) 0%, transparent 65%);
   pointer-events: none;
 }
 
 .cardCompact {
-  padding: 9px 16px 6px;
-  gap: 2px;
+  padding: 10px 16px 7px;
+  gap: 3px;
   border-radius: 12px;
 }
 
@@ -165,20 +172,20 @@
   border-radius: 10px;
 }
 
-.cardUltraCompact .pickName { font-size: 20px; max-width: 130px; }
-.cardUltraCompact .oppName { font-size: 15px; max-width: 110px; }
-.cardUltraCompact .seedTag { font-size: 12px; min-width: 28px; padding: 0; }
-.cardUltraCompact .oppSeedTag { font-size: 11px; min-width: 28px; padding: 0; }
-.cardUltraCompact .probRingPct { font-size: 20px; }
-.cardUltraCompact .probRingLabel { font-size: 8px; }
-.cardUltraCompact .maximusPick { font-size: 8px; padding: 1px 6px; margin-top: 1px; }
-.cardUltraCompact .probBarWinner { font-size: 11px; }
-.cardUltraCompact .probBarLoser { font-size: 11px; }
-.cardUltraCompact .probBarTrack { height: 5px; }
+.cardUltraCompact .pickName { font-size: 22px; max-width: 130px; }
+.cardUltraCompact .oppName { font-size: 16px; max-width: 110px; }
+.cardUltraCompact .seedTag { font-size: 13px; min-width: 28px; padding: 0; }
+.cardUltraCompact .oppSeedTag { font-size: 12px; min-width: 28px; padding: 0; }
+.cardUltraCompact .probRingPct { font-size: 22px; }
+.cardUltraCompact .probRingLabel { font-size: 9px; }
+.cardUltraCompact .maximusPick { font-size: 9px; padding: 2px 7px; margin-top: 1px; }
+.cardUltraCompact .probBarWinner { font-size: 12px; }
+.cardUltraCompact .probBarLoser { font-size: 12px; }
+.cardUltraCompact .probBarTrack { height: 6px; }
 .cardUltraCompact .metaItem { font-size: 10px; }
-.cardUltraCompact .badge { font-size: 9px; padding: 1px 6px; }
+.cardUltraCompact .badge { font-size: 10px; padding: 2px 7px; }
 .cardUltraCompact .vsLabel { font-size: 11px; }
-.cardUltraCompact .regionLabel { font-size: 9px; }
+.cardUltraCompact .regionLabel { font-size: 10px; }
 .cardUltraCompact .bottomRow { gap: 4px; padding-top: 1px; }
 .cardUltraCompact .cardInner { gap: 4px; }
 
@@ -187,17 +194,17 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   position: relative;
   z-index: 1;
 }
 
-/* ── LEFT: Pick Zone ───────────────────────────────────── */
+/* ── Pick Zone ───────────────────────────────────────────── */
 .pickZone {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   text-align: center;
 }
 
@@ -215,37 +222,38 @@
   pointer-events: none;
 }
 
-/* Subtle white halo for logo contrast on dark backgrounds */
 .pickLogoWrap::after {
   content: '';
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,0.07) 30%, transparent 70%);
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 30%, transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
 
+/* Gold seed tag — tournament signature */
 .seedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #D4B87A;
-  background: rgba(183, 152, 108, 0.18);
-  border: 1px solid rgba(183, 152, 108, 0.30);
+  background: rgba(183, 152, 108, 0.20);
+  border: 1px solid rgba(183, 152, 108, 0.35);
   border-radius: 4px;
   padding: 1px 0;
   letter-spacing: 0.03em;
   margin-top: 3px;
-  min-width: 36px;
+  min-width: 38px;
   text-align: center;
   display: inline-flex;
   justify-content: center;
 }
 
+/* Enlarged team name for mobile readability */
 .pickName {
   font-family: 'Oswald', sans-serif;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -254,26 +262,27 @@
   max-width: 200px;
   line-height: 1.1;
   margin-top: 1px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.35);
 }
 
-.cardCompact .pickName { font-size: 25px; max-width: 160px; }
+.cardCompact .pickName { font-size: 26px; max-width: 165px; }
 
-/* "Maximus's Pick" badge */
+/* Model edge badge — gold-tinted */
 .maximusPick {
   font-family: 'Oswald', sans-serif;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.10em;
-  color: var(--card-accent, #4A90D9);
-  background: var(--card-accent-08, rgba(74,144,217,0.08));
-  border: 1px solid var(--card-accent-30, rgba(74,144,217,0.25));
+  color: #D4B87A;
+  background: rgba(183,152,108,0.12);
+  border: 1px solid rgba(183,152,108,0.28);
   border-radius: 4px;
   padding: 2px 10px;
   text-transform: uppercase;
   margin-top: 3px;
 }
 
-/* ── CENTER: Probability Ring + VS ─────────────────────── */
+/* ── CENTER: Probability Ring ─────────────────────────────── */
 .centerZone {
   display: flex;
   flex-direction: column;
@@ -299,19 +308,19 @@
 .probRingPct {
   position: absolute;
   font-family: 'Oswald', sans-serif;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.cardCompact .probRingPct { font-size: 26px; }
+.cardCompact .probRingPct { font-size: 28px; }
 
 .probRingLabel {
   font-family: 'Oswald', sans-serif;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: rgba(240, 244, 248, 0.42);
+  color: rgba(212, 184, 122, 0.50);
   text-transform: uppercase;
 }
 
@@ -332,21 +341,21 @@
 
 .regionLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.34);
+  color: rgba(212, 184, 122, 0.45);
   letter-spacing: 0.10em;
   text-transform: uppercase;
 }
 
-/* ── RIGHT: Opponent Zone ──────────────────────────────── */
+/* ── Opponent Zone ───────────────────────────────────────── */
 .oppZone {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   text-align: center;
-  opacity: 0.80;
+  opacity: 0.82;
 }
 
 .oppLogoWrap {
@@ -356,7 +365,6 @@
   justify-content: center;
 }
 
-/* Subtle white halo for opponent logo contrast */
 .oppLogoWrap::after {
   content: '';
   position: absolute;
@@ -369,11 +377,11 @@
 
 .oppSeedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  color: rgba(212, 184, 122, 0.62);
+  color: rgba(212, 184, 122, 0.60);
   background: rgba(183, 152, 108, 0.12);
-  border: 1px solid rgba(183, 152, 108, 0.20);
+  border: 1px solid rgba(183, 152, 108, 0.22);
   border-radius: 4px;
   padding: 1px 0;
   margin-top: 3px;
@@ -385,19 +393,19 @@
 
 .oppName {
   font-family: 'Oswald', sans-serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   color: rgba(240, 244, 248, 0.74);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: 165px;
   line-height: 1.1;
 }
 
-.cardCompact .oppName { font-size: 19px; max-width: 130px; }
+.cardCompact .oppName { font-size: 20px; max-width: 135px; }
 
-/* ── Colored Probability Bar ───────────────────────────── */
+/* ── Probability Bar ──────────────────────────────────────── */
 .probBar {
   display: flex;
   flex-direction: column;
@@ -414,34 +422,34 @@
 
 .probBarWinner {
   font-family: 'Oswald', sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.62);
+  color: rgba(240, 244, 248, 0.65);
   letter-spacing: 0.02em;
 }
 
 .probBarWinner strong {
-  color: rgba(240, 244, 248, 0.88);
+  color: rgba(240, 244, 248, 0.92);
   margin-left: 4px;
 }
 
 .probBarLoser {
   font-family: 'Oswald', sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.32);
+  color: rgba(240, 244, 248, 0.35);
   letter-spacing: 0.02em;
 }
 
 .probBarLoser strong {
-  color: rgba(240, 244, 248, 0.48);
+  color: rgba(240, 244, 248, 0.52);
   margin-left: 4px;
 }
 
 .probBarTrack {
   width: 100%;
   height: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(183, 152, 108, 0.08);
   border-radius: 6px;
   overflow: hidden;
   position: relative;
@@ -453,16 +461,16 @@
   transition: width 0.6s ease;
 }
 
-/* ── Model Rationale ───────────────────────────────────── */
+/* ── Rationale ────────────────────────────────────────────── */
 .rationale {
   position: relative;
   z-index: 1;
 }
 
 .rationaleText {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.44);
+  color: rgba(240, 244, 248, 0.48);
   line-height: 1.35;
   margin: 0;
   display: -webkit-box;
@@ -472,14 +480,14 @@
 }
 
 .cardCompact .rationaleText {
-  font-size: 11px;
+  font-size: 12px;
   -webkit-line-clamp: 1;
 }
 
 .cardCompact .probBar { gap: 1px; }
 .cardCompact .bottomRow { padding-top: 1px; }
 
-/* ── Bottom Row: Meta + Badges ─────────────────────────── */
+/* ── Bottom Row: Meta + Badges ───────────────────────────── */
 .bottomRow {
   display: flex;
   align-items: center;
@@ -487,8 +495,8 @@
   gap: 8px;
   position: relative;
   z-index: 1;
-  padding-top: 2px;
-  border-top: 1px solid rgba(74, 144, 217, 0.06);
+  padding-top: 3px;
+  border-top: 1px solid rgba(183, 152, 108, 0.10);
 }
 
 .metaStrip {
@@ -501,10 +509,10 @@
 
 .metaItem {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: rgba(240, 244, 248, 0.42);
+  color: rgba(240, 244, 248, 0.45);
   white-space: nowrap;
 }
 
@@ -516,7 +524,7 @@
 .badgeStrip {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -525,13 +533,13 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  padding: 2px 9px;
+  padding: 3px 10px;
   border-radius: 4px;
   border: 1px solid;
   white-space: nowrap;
 }
 
-/* ── Empty State ───────────────────────────────────────── */
+/* ── Empty State ──────────────────────────────────────────── */
 .emptyState {
   flex: 1;
   display: flex;

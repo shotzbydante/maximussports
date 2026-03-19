@@ -32,12 +32,6 @@ function fmtTimePST(iso) {
   } catch { return null; }
 }
 
-function getEdgeColor(pct) {
-  if (pct >= 75) return '#5FE8A8';
-  if (pct >= 62) return '#D4B87A';
-  return '#6EB3E8';
-}
-
 function pickToTier(pick) {
   if (!pick) return null;
   const c = pick.confidence ?? 0;
@@ -65,26 +59,19 @@ function buildWhyLine(game, pick) {
   const spNum = sp != null ? Math.abs(parseFloat(sp)) : null;
   if (pick) {
     const conf = pick.confidence === 2 ? 'strong' : pick.confidence === 1 ? 'moderate' : 'slight';
-    return `Model shows a ${conf} edge — worth watching the line.`;
+    return `Model shows a ${conf} edge \u2014 worth watching the line.`;
   }
   if (game.awayRank != null && game.homeRank != null) {
-    return `Ranked vs. ranked — high-stakes battle with seeding implications.`;
+    return `Ranked vs. ranked \u2014 high-stakes battle with seeding implications.`;
   }
   if (game.awayRank != null || game.homeRank != null) {
     return `Ranked team in action. Momentum and ATS profile both in play.`;
   }
-  if (spNum != null && spNum <= 2.5) return 'Pick-em territory — razor-thin line, could go either way.';
-  if (spNum != null && spNum >= 14) return `Heavy favorite expected to control — ${spNum}-point line.`;
+  if (spNum != null && spNum <= 2.5) return 'Pick-em territory \u2014 razor-thin line, could go either way.';
+  if (spNum != null && spNum >= 14) return `Heavy favorite expected to control \u2014 ${spNum}-point line.`;
   return 'Competitive matchup on the slate today.';
 }
 
-/**
- * "5 Key Upcoming Games" slide — premium redesign with
- * prediction blocks, conviction badges, and probability indicators.
- *
- * When options.fiveGamesPicks is provided (tournament mode with day-split),
- * those pre-ranked ATS picks are used instead of the legacy sorting.
- */
 export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const games = data?.odds?.games ?? [];
   const upcomingWithSpreads = data?.upcomingGamesWithSpreads ?? [];
@@ -170,21 +157,24 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
   });
 
   const subtitleText = dayLabel
-    ? `${dayLabel.toUpperCase()} · ${roundLabel.toUpperCase()}`
+    ? `${dayLabel.toUpperCase()} \u00b7 ${roundLabel.toUpperCase()}`
     : 'GAME INSIGHTS';
 
   return (
     <SlideShell
       asOf={asOf}
-      accentColor="#4A90D9"
+      theme="key_games"
       brandMode="standard"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
     >
-      <div className={styles.datePill}>{today}</div>
-      <div className={styles.titleSup}>{subtitleText}</div>
-      <h2 className={styles.title}>5 Key<br />Games Today</h2>
+      {/* Compact modular header */}
+      <div className={styles.headerStrip}>
+        <div className={styles.datePill}>{today}</div>
+        <span className={styles.titleSup}>{subtitleText}</span>
+      </div>
+      <h2 className={styles.title}>5 Key Games Today</h2>
       <div className={styles.divider} />
 
       {keyGames.length === 0 ? (
@@ -212,7 +202,7 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
 
             const pickSlug = pick?.pickTeamSlug || awayObj?.slug || '';
             const tc = getTeamColors(pickSlug);
-            const accentColor = tc?.primary || '#4A90D9';
+            const accentColor = tc?.primary || '#38BDF8';
 
             const isPickedAway = pick && (pick.pickTeam === g.awayTeam || pick.pickTeamSlug === awayObj?.slug);
             const isPickedHome = pick && !isPickedAway;
@@ -228,56 +218,62 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
                   '--card-accent-08': `${accentColor}14`,
                 }}
               >
-                {/* Teams row */}
-                <div className={styles.teamsRow}>
-                  <div className={`${styles.teamCell} ${isPickedAway ? styles.teamCellPicked : ''}`}>
-                    <div className={isPickedAway ? styles.pickedLogoWrap : styles.logoWrap}>
-                      <TeamLogo team={awayObj} size={36} />
+                {/* Row number */}
+                <div className={styles.rowIndex}>{i + 1}</div>
+
+                {/* Content module */}
+                <div className={styles.rowContent}>
+                  {/* Teams row */}
+                  <div className={styles.teamsRow}>
+                    <div className={`${styles.teamCell} ${isPickedAway ? styles.teamCellPicked : ''}`}>
+                      <div className={isPickedAway ? styles.pickedLogoWrap : styles.logoWrap}>
+                        <TeamLogo team={awayObj} size={38} />
+                      </div>
+                      <div className={styles.teamMeta}>
+                        {awaySeed != null && <span className={styles.seedBadge}>#{awaySeed}</span>}
+                        {awayRank != null && !awaySeed && <span className={styles.rankBadge}>#{awayRank}</span>}
+                        <span className={styles.teamName}>{awayObj?.name || g.awayTeam}</span>
+                        {isPickedAway && pick && (
+                          <span className={styles.modelPickBadge}>MAXIMUS PICK</span>
+                        )}
+                      </div>
                     </div>
-                    <div className={styles.teamMeta}>
-                      {awaySeed != null && <span className={styles.seedBadge}>#{awaySeed}</span>}
-                      {awayRank != null && !awaySeed && <span className={styles.rankBadge}>#{awayRank}</span>}
-                      <span className={styles.teamName}>{awayObj?.name || g.awayTeam}</span>
-                      {isPickedAway && pick && (
-                        <span className={styles.modelPickBadge}>◆ MAXIMUS PICK</span>
-                      )}
+
+                    <div className={styles.centerCell}>
+                      <span className={styles.vsLabel}>@</span>
+                    </div>
+
+                    <div className={`${styles.teamCell} ${styles.teamCellRight} ${isPickedHome ? styles.teamCellPicked : ''}`}>
+                      <div className={`${styles.teamMeta} ${styles.teamMetaRight}`}>
+                        {homeSeed != null && <span className={styles.seedBadge}>#{homeSeed}</span>}
+                        {homeRank != null && !homeSeed && <span className={styles.rankBadge}>#{homeRank}</span>}
+                        <span className={styles.teamName}>{homeObj?.name || g.homeTeam}</span>
+                        {isPickedHome && pick && (
+                          <span className={styles.modelPickBadge}>MAXIMUS PICK</span>
+                        )}
+                      </div>
+                      <div className={isPickedHome ? styles.pickedLogoWrap : styles.logoWrap}>
+                        <TeamLogo team={homeObj} size={38} />
+                      </div>
                     </div>
                   </div>
 
-                  <div className={styles.centerCell}>
-                    <span className={styles.vsLabel}>@</span>
+                  {/* Data strip — time, spread, O/U, conviction */}
+                  <div className={styles.dataStrip}>
+                    {g.time && <span className={styles.gameTime}>{g.time}</span>}
+                    {spreadStr
+                      ? <span className={styles.spreadPill}>{spreadStr}</span>
+                      : <span className={styles.tba}>Line TBA</span>
+                    }
+                    {total != null && <span className={styles.ouPill}>O/U {total}</span>}
+                    <TierChip tier={tier} />
                   </div>
 
-                  <div className={`${styles.teamCell} ${styles.teamCellRight} ${isPickedHome ? styles.teamCellPicked : ''}`}>
-                    <div className={`${styles.teamMeta} ${styles.teamMetaRight}`}>
-                      {homeSeed != null && <span className={styles.seedBadge}>#{homeSeed}</span>}
-                      {homeRank != null && !homeSeed && <span className={styles.rankBadge}>#{homeRank}</span>}
-                      <span className={styles.teamName}>{homeObj?.name || g.homeTeam}</span>
-                      {isPickedHome && pick && (
-                        <span className={styles.modelPickBadge}>◆ MAXIMUS PICK</span>
-                      )}
-                    </div>
-                    <div className={isPickedHome ? styles.pickedLogoWrap : styles.logoWrap}>
-                      <TeamLogo team={homeObj} size={36} />
-                    </div>
-                  </div>
+                  {/* Storyline */}
+                  {storyline && (
+                    <div className={styles.storyline}>{storyline}</div>
+                  )}
                 </div>
-
-                {/* Game info + betting context */}
-                <div className={styles.infoRow}>
-                  {g.time && <span className={styles.gameTime}>{g.time}</span>}
-                  {spreadStr
-                    ? <span className={styles.spreadPill}>{spreadStr}</span>
-                    : <span className={styles.tba}>Line TBA</span>
-                  }
-                  {total != null && <span className={styles.ouPill}>O/U {total}</span>}
-                  <TierChip tier={tier} />
-                </div>
-
-                {/* Storyline */}
-                {storyline && (
-                  <div className={styles.storyline}>{storyline}</div>
-                )}
               </div>
             );
           })}

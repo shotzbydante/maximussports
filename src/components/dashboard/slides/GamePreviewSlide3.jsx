@@ -53,9 +53,8 @@ export default function GamePreviewSlide3({ game, data, asOf, slideNumber, slide
   return (
     <SlideShell
       asOf={asOf}
-      accentColor="#3C79B4"
+      theme="single_game"
       brandMode="light"
-      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}

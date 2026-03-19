@@ -5,20 +5,14 @@ import { getConfidenceTier, getUpsetFraming } from '../../../utils/confidenceTie
 import styles from './UpsetRadarSlide.module.css';
 
 const MATCHUP_RISK_CONFIG = {
-  HIGH:     { text: '#E8845F', bg: 'rgba(232,132,95,0.14)', border: 'rgba(232,132,95,0.30)', icon: '\u25B2' },
-  MODERATE: { text: '#D4B87A', bg: 'rgba(212,184,122,0.12)', border: 'rgba(212,184,122,0.28)', icon: '\u2684' },
+  HIGH:     { text: '#FF6B4A', bg: 'rgba(255,107,74,0.16)', border: 'rgba(255,107,74,0.35)', icon: '\u25B2' },
+  MODERATE: { text: '#E8A84F', bg: 'rgba(232,168,79,0.14)', border: 'rgba(232,168,79,0.30)', icon: '\u2684' },
 };
 
-function getEdgeColor(pct) {
-  if (pct >= 75) return '#5FE8A8';
-  if (pct >= 62) return '#D4B87A';
-  return '#6EB3E8';
-}
-
 function getUpsetChanceColor(underdogPct) {
-  if (underdogPct >= 45) return '#E8845F';
-  if (underdogPct >= 35) return '#D4B87A';
-  return '#6EB3E8';
+  if (underdogPct >= 45) return '#FF6B4A';
+  if (underdogPct >= 35) return '#E8A84F';
+  return '#E8845F';
 }
 
 function computeUpsetRisk(game) {
@@ -33,26 +27,26 @@ function MatchupRiskChip({ risk, framing }) {
   if (!cfg) return null;
   const label = framing?.matchupLabel || (risk === 'HIGH' ? 'DANGER ZONE' : 'VOLATILE');
   return (
-    <span className={styles.badge} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
+    <span className={styles.dangerBadge} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
       {cfg.icon} {label}
     </span>
   );
 }
 
-function ProbRing({ pct, color, size = 68, label = 'UPSET CHANCE' }) {
-  const stroke = 5;
+function UpsetRing({ pct, color, size = 72 }) {
+  const stroke = 6;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
 
   return (
-    <div className={styles.probRingWrap}>
-      <div className={styles.probRing} style={{ width: size, height: size }}>
+    <div className={styles.upsetRingWrap}>
+      <div className={styles.upsetRing} style={{ width: size, height: size }}>
         <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(200,60,40,0.12)"
             strokeWidth={stroke}
           />
           <circle
@@ -64,33 +58,33 @@ function ProbRing({ pct, color, size = 68, label = 'UPSET CHANCE' }) {
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            style={{ filter: `drop-shadow(0 0 8px ${color}66)` }}
+            style={{ filter: `drop-shadow(0 0 10px ${color}66)` }}
           />
         </svg>
-        <span className={styles.probRingPct} style={{ color }}>{pct}%</span>
+        <span className={styles.upsetRingPct} style={{ color }}>{pct}%</span>
       </div>
-      <span className={styles.probRingLabel}>{label}</span>
+      <span className={styles.upsetRingLabel}>UPSET CHANCE</span>
     </div>
   );
 }
 
-function ProbBar({ favoriteName, underdogName, underdogPct, edgeColor }) {
+function PressureBar({ favoriteName, underdogName, underdogPct, edgeColor }) {
   const favPct = 100 - underdogPct;
   return (
-    <div className={styles.probBar}>
-      <div className={styles.probBarLabels}>
-        <span className={styles.probBarFavorite}>{favoriteName} <strong>{favPct}%</strong></span>
-        <span className={styles.probBarUnderdog}>{underdogName} <strong>{underdogPct}%</strong></span>
+    <div className={styles.pressureBar}>
+      <div className={styles.pressureBarLabels}>
+        <span className={styles.pressureBarFav}>{favoriteName} <strong>{favPct}%</strong></span>
+        <span className={styles.pressureBarDog}>{underdogName} <strong>{underdogPct}%</strong></span>
       </div>
-      <div className={styles.probBarTrack}>
-        <div className={styles.probBarSpacer} style={{ flex: favPct }} />
+      <div className={styles.pressureBarTrack}>
+        <div className={styles.pressureBarSpacer} style={{ flex: favPct }} />
         <div
-          className={styles.probBarFill}
+          className={styles.pressureBarFill}
           style={{
             flex: underdogPct,
             minWidth: underdogPct > 0 ? `${underdogPct}%` : 0,
-            background: `linear-gradient(90deg, ${edgeColor}99, ${edgeColor})`,
-            boxShadow: `0 0 12px ${edgeColor}44`,
+            background: `linear-gradient(90deg, ${edgeColor}88, ${edgeColor})`,
+            boxShadow: `0 0 14px ${edgeColor}55`,
           }}
         />
       </div>
@@ -134,7 +128,6 @@ function UpsetCard({ game, rank }) {
   });
   const rationaleText = modelResult?.rationale || '';
 
-  // Seed ordering: higher seed (lower number) ALWAYS on left
   const leftTeam = topTeam;
   const rightTeam = bottomTeam;
   const leftSeed = topSeed;
@@ -159,65 +152,68 @@ function UpsetCard({ game, rank }) {
         '--card-accent-08': `${accentColor}14`,
       }}
     >
-      <div className={styles.rankTag}>{rank}</div>
-
-      <div className={styles.cardInner}>
-        {/* LEFT: Higher seed (always) */}
-        <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
-          <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
-            {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />}
-            <TeamLogo team={leftTeam} size={52} />
-          </div>
-          <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
-          <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
-          {isPickLeft && (
-            <span className={styles.pickBadge}>
-              {framing.isTrueUpsetPick ? `🚨 ${framing.pickLabel}` : `◆ ${framing.pickLabel}`}
-            </span>
-          )}
-        </div>
-
-        {/* CENTER: Underdog upset chance (hero metric) */}
-        <div className={styles.centerZone}>
-          <ProbRing pct={underdogPct} color={getUpsetChanceColor(underdogPct)} size={66} label="UPSET CHANCE" />
-          <div className={styles.vsStrip}>
-            <span className={styles.vsLabel}>VS</span>
-            {region && <span className={styles.regionLabel}>{region.toUpperCase()}</span>}
-          </div>
-        </div>
-
-        {/* RIGHT: Lower seed (always) */}
-        <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
-          <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
-            {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}35 0%, transparent 70%)` }} />}
-            <TeamLogo team={rightTeam} size={52} />
-          </div>
-          <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
-          <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
-          {!isPickLeft && (
-            <span className={styles.pickBadge}>
-              {framing.isTrueUpsetPick ? `🚨 ${framing.pickLabel}` : `◆ ${framing.pickLabel}`}
-            </span>
-          )}
-        </div>
+      {/* Danger rank indicator — left edge */}
+      <div className={styles.rankStripe}>
+        <span className={styles.rankNum}>{rank}</span>
       </div>
 
-      {/* Bar oriented around underdog (right side) — fill flows from underdog */}
-      <ProbBar
-        favoriteName={leftTeam?.shortName || leftTeam?.name}
-        underdogName={rightTeam?.shortName || rightTeam?.name}
-        underdogPct={underdogPct}
-        edgeColor={getUpsetChanceColor(underdogPct)}
-      />
+      <div className={styles.cardBody}>
+        <div className={styles.cardInner}>
+          {/* LEFT: Higher seed */}
+          <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
+            <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
+              {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}30 0%, transparent 70%)` }} />}
+              <TeamLogo team={leftTeam} size={54} />
+            </div>
+            <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
+            <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
+            {isPickLeft && (
+              <span className={styles.pickBadge}>
+                {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
+              </span>
+            )}
+          </div>
 
-      {/* Expanded rationale + Badges */}
-      <div className={styles.bottomRow}>
-        <div className={styles.rationaleStrip}>
-          {rationaleText && <span className={styles.rationaleText}>{rationaleText}</span>}
+          {/* CENTER: Underdog upset chance */}
+          <div className={styles.centerZone}>
+            <UpsetRing pct={underdogPct} color={getUpsetChanceColor(underdogPct)} size={70} />
+            <div className={styles.vsStrip}>
+              <span className={styles.vsLabel}>VS</span>
+              {region && <span className={styles.regionLabel}>{region.toUpperCase()}</span>}
+            </div>
+          </div>
+
+          {/* RIGHT: Lower seed */}
+          <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
+            <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
+              {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}30 0%, transparent 70%)` }} />}
+              <TeamLogo team={rightTeam} size={54} />
+            </div>
+            <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
+            <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
+            {!isPickLeft && (
+              <span className={styles.pickBadge}>
+                {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
+              </span>
+            )}
+          </div>
         </div>
-        <div className={styles.badgeStrip}>
-          <TierChip tier={tier} />
-          <MatchupRiskChip risk={upsetRisk} framing={framing} />
+
+        <PressureBar
+          favoriteName={leftTeam?.shortName || leftTeam?.name}
+          underdogName={rightTeam?.shortName || rightTeam?.name}
+          underdogPct={underdogPct}
+          edgeColor={getUpsetChanceColor(underdogPct)}
+        />
+
+        <div className={styles.bottomRow}>
+          <div className={styles.rationaleStrip}>
+            {rationaleText && <span className={styles.rationaleText}>{rationaleText}</span>}
+          </div>
+          <div className={styles.badgeStrip}>
+            <TierChip tier={tier} />
+            <MatchupRiskChip risk={upsetRisk} framing={framing} />
+          </div>
         </div>
       </div>
     </div>
@@ -230,19 +226,16 @@ export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, o
   const dayLabel = options.dayLabel || '';
   const roundLabel = options.roundLabel || '';
 
-  const titleText = dayLabel
-    ? `UPSET RADAR`
-    : 'UPSET RADAR';
+  const titleText = 'UPSET RADAR';
   const subtitleText = dayLabel
-    ? `${dayLabel.toUpperCase()} · ${roundLabel.toUpperCase()}`
+    ? `${dayLabel.toUpperCase()} \u00b7 ${roundLabel.toUpperCase()}`
     : 'UPSET INTELLIGENCE';
 
   return (
     <SlideShell
       asOf={asOf}
-      accentColor="#E8845F"
+      theme="upset_radar"
       brandMode="light"
-      category="game"
       slideNumber={slideNumber}
       slideTotal={slideTotal}
       rest={rest}
@@ -250,7 +243,10 @@ export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, o
       <div className={styles.headerBlock}>
         <div className={styles.headerTop}>
           <div className={styles.headerText}>
-            <div className={styles.marchBadge}>MARCH MADNESS 2026</div>
+            <div className={styles.alertBadge}>
+              <span className={styles.alertPulse} />
+              MARCH MADNESS 2026
+            </div>
             <h2 className={styles.title}>{titleText}</h2>
             <div className={styles.titleSup}>{subtitleText}</div>
           </div>

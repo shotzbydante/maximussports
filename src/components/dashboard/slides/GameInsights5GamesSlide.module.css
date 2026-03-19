@@ -1,87 +1,104 @@
-/* ── 5 Key Games Slide — Premium Visual System v2 ──────── */
+/* ── 5 Key Games — App-Like Data Dashboard ──────────────────
+   Cool cyan-blue, flat/sharp modular rows, numbered index,
+   scannable and efficient. Distinct from Tournament (gold/premium)
+   and Upset Radar (charcoal/danger).
+   ──────────────────────────────────────────────────────────── */
 
-/* ── Date pill ──────────────────────────────────────────── */
+/* ── Header strip — compact horizontal layout ────────────── */
+.headerStrip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
 .datePill {
   display: inline-flex;
   align-items: center;
-  background: rgba(74, 144, 217, 0.12);
-  border: 1px solid rgba(74, 144, 217, 0.26);
+  background: rgba(56, 189, 248, 0.10);
+  border: 1px solid rgba(56, 189, 248, 0.22);
   border-radius: 999px;
-  padding: 5px 18px;
-  font-size: 17px;
-  font-weight: 600;
-  color: rgba(201, 236, 245, 0.8);
-  letter-spacing: 0.04em;
-  margin-bottom: 10px;
-  align-self: flex-start;
-}
-
-/* ── Title block ─────────────────────────────────────────── */
-.titleSup {
-  font-family: 'Oswald', sans-serif;
+  padding: 4px 16px;
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  color: rgba(201, 236, 245, 0.80);
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.titleSup {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #4A90D9;
-  margin-bottom: 4px;
+  color: #38BDF8;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 56px;
+  font-size: 50px;
   font-weight: 700;
-  line-height: 0.94;
+  line-height: 0.96;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
-/* ── Gradient rule ───────────────────────────────────────── */
+/* Cyan gradient rule — brand accent */
 .divider {
-  width: 80px;
-  height: 4px;
-  background: linear-gradient(90deg, #4A90D9, #B7986C);
-  border-radius: 4px;
-  margin-bottom: 14px;
-  margin-top: 10px;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #38BDF8, #22D3EE);
+  border-radius: 3px;
+  margin-bottom: 12px;
+  margin-top: 8px;
 }
 
 /* ── Game list ───────────────────────────────────────────── */
 .gameList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
 }
 
+/* ── Game Row — numbered module with flat border ─────────── */
 .gameRow {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  background: linear-gradient(
-    140deg,
-    var(--card-accent-15, rgba(74,144,217,0.12)) 0%,
-    rgba(255,255,255,0.02) 50%,
-    rgba(255,255,255,0.005) 100%
-  );
-  border: 1.5px solid var(--card-accent-30, rgba(74,144,217,0.22));
-  border-radius: 14px;
-  padding: 12px 18px 10px;
-  position: relative;
+  flex-direction: row;
+  gap: 0;
+  border: 1px solid rgba(56,189,248,0.16);
+  border-radius: 10px;
   overflow: hidden;
+  position: relative;
+  background: rgba(56,189,248,0.03);
 }
 
-.gameRow::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--card-accent-30, rgba(74,144,217,0.18)) 50%, transparent);
-  pointer-events: none;
+/* Left index number column */
+.rowIndex {
+  width: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(56, 189, 248, 0.30);
+  background: rgba(56,189,248,0.04);
+  border-right: 1px solid rgba(56,189,248,0.10);
+}
+
+/* Content area */
+.rowContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px 8px;
+  min-width: 0;
 }
 
 /* ── Teams Row ─────────────────────────────────────────── */
@@ -103,9 +120,7 @@
   justify-content: flex-end;
 }
 
-.teamCellPicked {
-  /* no opacity change — logos stay crisp */
-}
+.teamCellPicked {}
 
 .logoWrap {
   position: relative;
@@ -123,13 +138,14 @@
   flex-shrink: 0;
 }
 
+/* Cyan ring for picked team */
 .pickedLogoWrap::after {
   content: '';
   position: absolute;
-  inset: -5px;
+  inset: -4px;
   border-radius: 50%;
-  border: 2.5px solid var(--card-accent, rgba(74,144,217,0.45));
-  background: radial-gradient(circle, rgba(255,255,255,0.06) 30%, transparent 70%);
+  border: 2px solid rgba(56,189,248,0.35);
+  background: radial-gradient(circle, rgba(56,189,248,0.06) 30%, transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
@@ -147,7 +163,7 @@
 
 .teamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -161,9 +177,9 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #D4B87A;
-  background: rgba(183, 152, 108, 0.14);
-  border: 1px solid rgba(183, 152, 108, 0.30);
+  color: #22D3EE;
+  background: rgba(34, 211, 238, 0.10);
+  border: 1px solid rgba(34, 211, 238, 0.24);
   border-radius: 4px;
   padding: 1px 6px;
   flex-shrink: 0;
@@ -175,9 +191,9 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #4A90D9;
-  background: rgba(74, 144, 217, 0.14);
-  border: 1px solid rgba(74, 144, 217, 0.28);
+  color: #38BDF8;
+  background: rgba(56, 189, 248, 0.10);
+  border: 1px solid rgba(56, 189, 248, 0.22);
   border-radius: 4px;
   padding: 1px 6px;
   flex-shrink: 0;
@@ -186,10 +202,10 @@
 
 .modelPickBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.10em;
-  color: var(--card-accent, #4A90D9);
+  color: #38BDF8;
   text-transform: uppercase;
 }
 
@@ -204,40 +220,25 @@
   font-family: 'Oswald', sans-serif;
   font-size: 14px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.28);
+  color: rgba(240, 244, 248, 0.24);
   letter-spacing: 0.04em;
 }
 
-/* ── Info Row: time, spread, O/U, conviction ──────────── */
-.infoRow {
+/* ── Data Strip — flat, scannable metrics ─────────────────── */
+.dataStrip {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   padding: 3px 0 0;
-  border-top: 1px solid var(--card-accent-08, rgba(74, 144, 217, 0.07));
+  border-top: 1px solid rgba(56, 189, 248, 0.08);
 }
 
 .gameTime {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.40);
+  color: rgba(240, 244, 248, 0.42);
   letter-spacing: 0.02em;
-}
-
-.networkPill {
-  display: inline-flex;
-  align-items: center;
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(240, 244, 248, 0.55);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 5px;
-  padding: 1px 7px;
-  white-space: nowrap;
 }
 
 .spreadPill {
@@ -245,9 +246,9 @@
   font-family: 'Oswald', sans-serif;
   font-size: 14px;
   font-weight: 700;
-  color: #B7986C;
-  background: rgba(183, 152, 108, 0.14);
-  border: 1px solid rgba(183, 152, 108, 0.28);
+  color: #22D3EE;
+  background: rgba(34, 211, 238, 0.10);
+  border: 1px solid rgba(34, 211, 238, 0.22);
   border-radius: 5px;
   padding: 1px 8px;
   letter-spacing: 0.04em;
@@ -259,9 +260,9 @@
   font-family: 'Oswald', sans-serif;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.50);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(240, 244, 248, 0.48);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 5px;
   padding: 1px 7px;
   letter-spacing: 0.04em;
@@ -295,9 +296,9 @@
 .storyline {
   font-size: 13px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.48);
+  color: rgba(240, 244, 248, 0.44);
   line-height: 1.35;
-  border-top: 1px solid var(--card-accent-08, rgba(74, 144, 217, 0.06));
+  border-top: 1px solid rgba(56, 189, 248, 0.06);
   padding-top: 3px;
   display: -webkit-box;
   -webkit-line-clamp: 1;

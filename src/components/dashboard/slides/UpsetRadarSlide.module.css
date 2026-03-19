@@ -1,12 +1,14 @@
-/* ── Upset Radar Slide — Premium Visual System v5 ──────── */
-/* Maximizes readability within 1080×1350 IG artboard */
+/* ── Upset Radar — Danger / Alert System ──────────────────────
+   Deep charcoal + ember red. Pressure energy, directional glow.
+   Visually distinct from Tournament (gold/navy) and Key Games (cyan/flat).
+   ──────────────────────────────────────────────────────────── */
 
 /* ── Header ──────────────────────────────────────────────── */
 .headerBlock {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
 
@@ -19,7 +21,7 @@
 .headerText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
@@ -27,44 +29,57 @@
 .heroMascot {
   width: 100px;
   height: auto;
-  opacity: 0.90;
+  opacity: 0.88;
   flex-shrink: 0;
   margin-left: 10px;
   filter:
-    drop-shadow(0 4px 16px rgba(0, 0, 0, 0.50))
-    drop-shadow(0 0 12px rgba(232, 132, 95, 0.28));
+    drop-shadow(0 4px 16px rgba(0, 0, 0, 0.60))
+    drop-shadow(0 0 12px rgba(232, 132, 95, 0.30));
 }
 
-.marchBadge {
+/* Red-tinted alert pill with pulse indicator */
+.alertBadge {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  background: rgba(232, 132, 95, 0.12);
-  border: 1px solid rgba(232, 132, 95, 0.28);
+  gap: 8px;
+  background: rgba(200, 60, 40, 0.16);
+  border: 1px solid rgba(200, 60, 40, 0.35);
   border-radius: 999px;
   padding: 3px 14px;
   font-family: 'Oswald', sans-serif;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.16em;
-  color: #E8845F;
+  color: #FF6B4A;
   margin-bottom: 2px;
+}
+
+.alertPulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FF6B4A;
+  box-shadow: 0 0 6px #FF6B4A88;
+  flex-shrink: 0;
 }
 
 .title {
   font-family: 'Oswald', sans-serif;
-  font-size: 46px;
+  font-size: 48px;
   font-weight: 700;
   line-height: 1.0;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.01em;
   text-transform: uppercase;
+  text-shadow: 0 2px 16px rgba(200,60,40,0.25);
 }
 
+/* Ember-colored subtitle */
 .titleSup {
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -80,55 +95,58 @@
   flex: 1;
 }
 
-/* ── Card ──────────────────────────────────────────────────── */
+/* ── Card — danger panel with left edge stripe ────────────── */
 .card {
-  background: linear-gradient(
-    140deg,
-    var(--card-accent-15, rgba(232,132,95,0.12)) 0%,
-    rgba(255,255,255,0.03) 50%,
-    rgba(255,255,255,0.005) 100%
-  );
-  border: 1.5px solid var(--card-accent-30, rgba(232,132,95,0.22));
-  border-radius: 14px;
-  padding: 10px 16px 8px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
+  flex-direction: row;
+  border-radius: 14px;
   overflow: hidden;
+  position: relative;
+  border: 1.5px solid rgba(200,60,40,0.24);
+  background:
+    linear-gradient(150deg,
+      rgba(200,60,40,0.10) 0%,
+      rgba(255,255,255,0.02) 40%,
+      rgba(18,11,11,0.60) 100%);
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  top: -25%;
-  left: -6%;
-  width: 50%;
-  height: 150%;
-  background: radial-gradient(ellipse at center, var(--card-accent-08, rgba(232,132,95,0.06)) 0%, transparent 70%);
-  pointer-events: none;
-}
-
+/* Horizontal danger line across top */
 .card::after {
   content: '';
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
+  left: 0;
+  right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--card-accent-30, rgba(232,132,95,0.18)) 50%, transparent);
+  background: linear-gradient(90deg, rgba(255,107,74,0.35) 0%, rgba(200,60,40,0.15) 50%, transparent 100%);
   pointer-events: none;
 }
 
-.rankTag {
-  position: absolute;
-  top: 7px;
-  left: 10px;
+/* Left edge rank stripe — danger zone indicator */
+.rankStripe {
+  width: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(200,60,40,0.18) 0%, rgba(200,60,40,0.06) 100%);
+  border-right: 1px solid rgba(200,60,40,0.18);
+}
+
+.rankNum {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  color: rgba(232, 132, 95, 0.30);
-  z-index: 1;
+  color: rgba(255, 107, 74, 0.50);
+}
+
+.cardBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px 8px;
+  min-width: 0;
 }
 
 /* ── Card Inner: 3-zone layout ─────────────────────────── */
@@ -141,7 +159,7 @@
   z-index: 1;
 }
 
-/* ── Pick Zone (selected winner) ──────────────────────── */
+/* ── Pick Zone ───────────────────────────────────────────── */
 .pickZone {
   display: flex;
   flex-direction: column;
@@ -164,26 +182,27 @@
   pointer-events: none;
 }
 
+/* Ember ring around picked logo */
 .pickLogoWrap::after {
   content: '';
   position: absolute;
   inset: -7px;
   border-radius: 50%;
   border: 2.5px solid var(--card-accent, rgba(232,132,95,0.45));
-  background: radial-gradient(circle, rgba(255,255,255,0.08) 30%, transparent 70%);
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 30%, transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
 
 .seedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  color: #D4B87A;
-  background: rgba(183, 152, 108, 0.18);
-  border: 1px solid rgba(183, 152, 108, 0.30);
+  color: #E8A84F;
+  background: rgba(232,168,79,0.16);
+  border: 1px solid rgba(232,168,79,0.30);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 7px;
   margin-top: 2px;
   min-width: 32px;
   text-align: center;
@@ -193,7 +212,7 @@
 
 .pickName {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -202,7 +221,7 @@
   max-width: 180px;
   line-height: 1.1;
   margin-top: 1px;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.40);
 }
 
 .pickBadge {
@@ -210,16 +229,16 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.10em;
-  color: var(--card-accent, #E8845F);
-  background: var(--card-accent-08, rgba(232,132,95,0.08));
-  border: 1px solid var(--card-accent-30, rgba(232,132,95,0.22));
+  color: #FF6B4A;
+  background: rgba(255,107,74,0.10);
+  border: 1px solid rgba(255,107,74,0.25);
   border-radius: 4px;
   padding: 2px 8px;
   text-transform: uppercase;
   margin-top: 2px;
 }
 
-/* ── CENTER: Probability Ring + VS ─────────────────────── */
+/* ── CENTER: Upset Ring + VS ──────────────────────────────── */
 .centerZone {
   display: flex;
   flex-direction: column;
@@ -228,34 +247,34 @@
   padding: 0 4px;
 }
 
-.probRingWrap {
+.upsetRingWrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
+  gap: 1px;
 }
 
-.probRing {
+.upsetRing {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.probRingPct {
+.upsetRingPct {
   position: absolute;
   font-family: 'Oswald', sans-serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.probRingLabel {
+.upsetRingLabel {
   font-family: 'Oswald', sans-serif;
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  color: rgba(240, 244, 248, 0.38);
+  letter-spacing: 0.12em;
+  color: rgba(255, 107, 74, 0.50);
   text-transform: uppercase;
 }
 
@@ -276,14 +295,14 @@
 
 .regionLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.30);
+  color: rgba(232, 132, 95, 0.45);
   letter-spacing: 0.10em;
   text-transform: uppercase;
 }
 
-/* ── Opponent Zone — FULL OPACITY LOGOS ────────────────── */
+/* ── Opponent Zone ───────────────────────────────────────── */
 .oppZone {
   display: flex;
   flex-direction: column;
@@ -312,13 +331,13 @@
 
 .oppSeedTag {
   font-family: 'Oswald', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: rgba(212, 184, 122, 0.65);
-  background: rgba(183, 152, 108, 0.10);
-  border: 1px solid rgba(183, 152, 108, 0.18);
+  color: rgba(232, 168, 79, 0.60);
+  background: rgba(232,168,79,0.10);
+  border: 1px solid rgba(232,168,79,0.20);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 7px;
   margin-top: 2px;
   min-width: 32px;
   text-align: center;
@@ -328,18 +347,18 @@
 
 .oppName {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.75);
+  color: rgba(240, 244, 248, 0.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: 165px;
   line-height: 1.1;
 }
 
-/* ── Colored Probability Bar ───────────────────────────── */
-.probBar {
+/* ── Pressure Bar — directional energy ────────────────────── */
+.pressureBar {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -347,52 +366,52 @@
   z-index: 1;
 }
 
-.probBarLabels {
+.pressureBarLabels {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.probBarFavorite {
+.pressureBarFav {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.58);
+  color: rgba(240, 244, 248, 0.55);
 }
 
-.probBarFavorite strong {
-  color: rgba(240, 244, 248, 0.85);
+.pressureBarFav strong {
+  color: rgba(240, 244, 248, 0.82);
   margin-left: 3px;
 }
 
-.probBarUnderdog {
+.pressureBarDog {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: rgba(240, 244, 248, 0.75);
+  color: rgba(240, 244, 248, 0.78);
 }
 
-.probBarUnderdog strong {
+.pressureBarDog strong {
   color: rgba(240, 244, 248, 0.95);
   margin-left: 3px;
 }
 
-.probBarTrack {
+.pressureBarTrack {
   width: 100%;
   height: 7px;
   display: flex;
   flex-direction: row;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(200, 60, 40, 0.08);
   border-radius: 4px;
   overflow: hidden;
 }
 
-.probBarSpacer {
+.pressureBarSpacer {
   min-width: 0;
   transition: flex 0.6s ease;
 }
 
-.probBarFill {
+.pressureBarFill {
   height: 100%;
   border-radius: 0 4px 4px 0;
   transition: flex 0.6s ease;
@@ -407,7 +426,7 @@
   position: relative;
   z-index: 1;
   padding-top: 3px;
-  border-top: 1px solid rgba(232, 132, 95, 0.08);
+  border-top: 1px solid rgba(200, 60, 40, 0.10);
 }
 
 .rationaleStrip {
@@ -416,7 +435,7 @@
 }
 
 .rationaleText {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: rgba(240, 244, 248, 0.48);
   display: -webkit-box;
@@ -438,13 +457,26 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 5px;
   border: 1px solid;
   white-space: nowrap;
 }
 
-/* ── Empty State ───────────────────────────────────────── */
+/* Danger badge — stronger treatment */
+.dangerBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid;
+  white-space: nowrap;
+  text-shadow: 0 0 8px currentColor;
+}
+
+/* ── Empty State ──────────────────────────────────────────── */
 .emptyState {
   flex: 1;
   display: flex;

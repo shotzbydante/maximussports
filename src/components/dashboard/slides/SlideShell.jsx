@@ -1,17 +1,12 @@
 import styles from './SlideShell.module.css';
+import { getSlideTheme, themeToCSS } from './slideThemes';
 
 /**
- * Shared 1080×1350 IG 4:5 artboard wrapper.
- * Props:
- *   children      – slide body content
- *   asOf          – "10:30 AM PT" string
- *   accentColor   – CSS override for gradient glow (default: brand blue)
- *   brandMode     – "standard" (logo + robot) | "light" (logo only)
- *   styleMode     – "generic" (default) | "robot" (more prominent mascot + robot indicator)
- *   category      – optional 'daily'|'team'|'game'|'odds' for subtle category chip
- *   slideNumber   – optional 1-based index
- *   slideTotal    – optional total slides count
- *   rest          – spread onto root div (needed for data-slide attr used by exporter)
+ * Shared 1080x1350 IG 4:5 artboard wrapper.
+ *
+ * Now theme-aware: pass `theme` key (tournament | upset_radar | single_game | key_games)
+ * to drive background, chrome, and accent treatment from the theme token system.
+ * Falls back to legacy `accentColor` / `category` behavior when no theme is provided.
  */
 
 const CATEGORY_CONFIG = {
@@ -28,21 +23,43 @@ export default function SlideShell({
   brandMode = 'standard',
   styleMode = 'generic',
   category,
+  theme: themeKey,
   slideNumber,
   slideTotal,
   rest = {},
 }) {
   const isRobot = styleMode === 'robot';
-  const catConfig = category ? CATEGORY_CONFIG[category] : null;
+  const theme = themeKey ? getSlideTheme(themeKey) : null;
+
+  const catConfig = theme
+    ? { label: theme.categoryLabel, color: theme.categoryColor, bg: theme.categoryBg, border: theme.categoryBorder }
+    : category ? CATEGORY_CONFIG[category] : null;
+
+  const resolvedAccent = theme ? theme.accent : accentColor;
+
+  const rootStyle = {
+    '--slide-accent': resolvedAccent,
+    ...(theme ? themeToCSS(theme) : {}),
+  };
+
+  const artboardClass = [
+    styles.artboard,
+    theme ? styles[`theme_${theme.key}`] : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <div
-      className={styles.artboard}
-      style={{ '--slide-accent': accentColor }}
+      className={artboardClass}
+      style={rootStyle}
       {...rest}
     >
-      {/* Background gradient */}
-      <div className={styles.bgLayer} />
+      {/* Background — theme-driven or legacy */}
+      <div
+        className={styles.bgLayer}
+        style={theme ? {
+          background: `${theme.bgGradient}`,
+        } : undefined}
+      />
 
       {/* Robot mascot — top-right branded accent */}
       {brandMode !== 'light' && (
@@ -54,13 +71,17 @@ export default function SlideShell({
             src="/mascot.png"
             alt=""
             className={styles.mascot}
+            style={theme ? { filter: theme.mascotFilter } : undefined}
             crossOrigin="anonymous"
           />
         </div>
       )}
 
-      {/* Header: text logo left, mode indicator + timestamp right */}
-      <header className={styles.header}>
+      {/* Header */}
+      <header
+        className={styles.header}
+        style={theme ? { borderBottomColor: theme.headerBorder } : undefined}
+      >
         <div className={styles.logoRow}>
           <img
             src="/logo.png"
@@ -94,9 +115,17 @@ export default function SlideShell({
         {children}
       </main>
 
-      {/* Footer — raised to avoid IG overlay zone */}
-      <footer className={styles.footer}>
-        <span className={styles.footerUrl}>maximussports.ai</span>
+      {/* Footer */}
+      <footer
+        className={styles.footer}
+        style={theme ? { borderTopColor: theme.footerBorder } : undefined}
+      >
+        <span
+          className={styles.footerUrl}
+          style={theme ? { color: theme.footerUrlColor } : undefined}
+        >
+          maximussports.ai
+        </span>
         <span className={styles.footerDisclaimer}>
           For entertainment only. Please bet responsibly.
         </span>

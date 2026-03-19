@@ -1,5 +1,6 @@
 /* ─────────────────────────────────────────────────────────
    SlideShell — 1080 × 1350 IG 4:5 artboard
+   Theme-aware: per-category base color via .theme_* classes
    ───────────────────────────────────────────────────────── */
 
 .artboard {
@@ -14,7 +15,13 @@
   color: #f0f4f8;
 }
 
-/* Radial accent glow from top */
+/* Per-theme base colors */
+.theme_tournament  { background: var(--theme-bg-base, #0a1a2e); }
+.theme_upset_radar { background: var(--theme-bg-base, #120b0b); }
+.theme_single_game { background: var(--theme-bg-base, #060e18); }
+.theme_key_games   { background: var(--theme-bg-base, #0b1822); }
+
+/* Radial accent glow — legacy default */
 .bgLayer {
   position: absolute;
   inset: 0;
@@ -25,7 +32,7 @@
   z-index: 0;
 }
 
-/* ── Robot mascot — top-right safe zone, never overlaps cards ── */
+/* ── Robot mascot — top-right safe zone ── */
 .mascotWrap {
   position: absolute;
   top: 16px;
@@ -66,7 +73,6 @@
   gap: 5px;
 }
 
-/* Subtle per-category chip shown below brand name */
 .categoryChip {
   font-family: 'Oswald', sans-serif;
   font-size: 11px;
