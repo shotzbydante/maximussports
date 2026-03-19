@@ -2,6 +2,10 @@ import PicksSlideShell from './PicksSlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
+import {
+  getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText,
+  getEditorialLine,
+} from '../../../utils/confidenceSystem';
 import styles from './MaxPicksTotalsSlide.module.css';
 
 function makeTeamObj(name) {
@@ -10,7 +14,32 @@ function makeTeamObj(name) {
   return { name: cleaned, slug: getTeamSlug(cleaned) };
 }
 
+function MiniEdge({ pick }) {
+  const filled = getBarBlocks(pick);
+  const cs = getSlideColors(pick.confidence);
+  const h = cs.barHeight ?? 6;
+  return (
+    <div className={styles.miniEdge}>
+      <div className={styles.miniBar}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span
+            key={i}
+            className={`${styles.miniBlock} ${i < filled ? styles.miniOn : ''}`}
+            style={
+              i < filled
+                ? { height: h, background: cs.barFill, boxShadow: `0 0 4px ${cs.barGlow}` }
+                : { height: h }
+            }
+          />
+        ))}
+      </div>
+      <span className={styles.miniVal} style={{ color: cs.text }}>{getEdgeText(pick)}</span>
+    </div>
+  );
+}
+
 function TotalCard({ pick }) {
+  const cs = getSlideColors(pick.confidence);
   const dir = pick.leanDirection;
   const isOver = dir === 'OVER';
   const isUnder = dir === 'UNDER';
@@ -19,35 +48,46 @@ function TotalCard({ pick }) {
 
   return (
     <div className={styles.card}>
-      <div className={styles.cardLeft}>
-        <div className={styles.matchupLogos}>
-          {awayObj && <TeamLogo team={awayObj} size={28} />}
-          <span className={styles.vsText}>@</span>
-          {homeObj && <TeamLogo team={homeObj} size={28} />}
-        </div>
-        <div className={styles.matchupNames}>
-          <span className={styles.teamName}>{pick.awayTeam}</span>
-          <span className={styles.teamNameDim}>vs {pick.homeTeam}</span>
-        </div>
-      </div>
-      <div className={styles.cardRight}>
-        {pick.lineValue != null && (
-          <div className={styles.lineBlock}>
-            <span className={styles.lineLabel}>O/U</span>
-            <span className={styles.lineValue}>{pick.lineValue}</span>
+      <div className={styles.cardInner}>
+        <div className={styles.cardLeft}>
+          <div className={styles.matchupLogos}>
+            {awayObj && <TeamLogo team={awayObj} size={28} />}
+            <span className={styles.vsText}>@</span>
+            {homeObj && <TeamLogo team={homeObj} size={28} />}
           </div>
-        )}
-        <span className={`${styles.pickBadge} ${isOver ? styles.pickBadgeOver : isUnder ? styles.pickBadgeUnder : styles.pickBadgeNeutral}`}>
-          {isOver && <span className={styles.arrow}>▲</span>}
-          {isUnder && <span className={styles.arrow}>▼</span>}
-          {dir ?? 'O/U'}
-        </span>
+          <div className={styles.matchupNames}>
+            <span className={styles.teamName}>{pick.awayTeam}</span>
+            <span className={styles.teamNameDim}>vs {pick.homeTeam}</span>
+          </div>
+        </div>
+        <div className={styles.cardRight}>
+          {pick.lineValue != null && (
+            <div className={styles.lineBlock}>
+              <span className={styles.lineLabel}>O/U</span>
+              <span className={styles.lineValue}>{pick.lineValue}</span>
+            </div>
+          )}
+          <span className={`${styles.pickBadge} ${isOver ? styles.pickBadgeOver : isUnder ? styles.pickBadgeUnder : styles.pickBadgeNeutral}`}>
+            {isOver && <span className={styles.arrow}>▲</span>}
+            {isUnder && <span className={styles.arrow}>▼</span>}
+            {dir ?? 'O/U'}
+          </span>
+          <span
+            className={styles.confBadge}
+            style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
+          >
+            {getConfidenceLabel(pick.confidence)}
+          </span>
+          <MiniEdge pick={pick} />
+        </div>
       </div>
+      <div className={styles.cardEditorial}>{getEditorialLine(pick)}</div>
     </div>
   );
 }
 
 function FeaturedTotalCard({ pick }) {
+  const cs = getSlideColors(pick.confidence);
   const dir = pick.leanDirection;
   const isOver = dir === 'OVER';
   const isUnder = dir === 'UNDER';
@@ -79,7 +119,15 @@ function FeaturedTotalCard({ pick }) {
           {isUnder && <span className={styles.arrow}>▼</span>}
           {dir ?? 'O/U'}
         </span>
+        <span
+          className={`${styles.confBadge} ${styles.confBadgeLg}`}
+          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
+        >
+          {getConfidenceLabel(pick.confidence)}
+        </span>
+        <MiniEdge pick={pick} />
       </div>
+      <div className={styles.featuredEditorial}>{getEditorialLine(pick)}</div>
     </div>
   );
 }

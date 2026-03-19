@@ -1083,8 +1083,9 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     const overPrice  = game.overPrice  ? fmtPrice(parseNum(game.overPrice))  : null;
     const underPrice = game.underPrice ? fmtPrice(parseNum(game.underPrice)) : null;
 
+    if (combinedTrend === 0) continue;
     const isOver = combinedTrend > 0;
-    const leanLabel = trendMag >= totMinEdge ? (isOver ? 'OVER' : 'UNDER') : null;
+    const leanLabel = isOver ? 'OVER' : 'UNDER';
 
     let confidence = 0;
     if (trendMag >= TOT_OU_HIGH_EDGE) confidence = 2;

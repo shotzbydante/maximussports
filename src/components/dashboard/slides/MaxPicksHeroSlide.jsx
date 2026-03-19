@@ -121,9 +121,17 @@ function PickRow({ pick, rank }) {
             <span className={styles.featuredTotalLineVal}>{pick.lineValue}</span>
           )}
           <span className={`${styles.ouBadgeSm} ${isOver ? styles.ouBadgeSmOver : isUnder ? styles.ouBadgeSmUnder : styles.ouBadgeSmNeutral}`}>
-            {dir ?? 'O/U'}
+            {dir ? (isOver ? '▲ OVER' : '▼ UNDER') : 'O/U'}
           </span>
+          <span
+            className={styles.pickConf}
+            style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
+          >
+            {getConfidenceLabel(pick.confidence)}
+          </span>
+          <MiniEdge pick={pick} />
         </div>
+        <div className={styles.pickExplain}>{getEditorialLine(pick)}</div>
       </div>
     );
   }
@@ -168,6 +176,7 @@ function PickRow({ pick, rank }) {
 /* ── Featured totals play — clean pick-focused row ── */
 
 function FeaturedTotalRow({ pick }) {
+  const cs = getSlideColors(pick.confidence);
   const homeObj = makeTeamObj(pick.homeTeam);
   const awayObj = makeTeamObj(pick.awayTeam);
   const dir = pick.leanDirection;
@@ -190,9 +199,17 @@ function FeaturedTotalRow({ pick }) {
           <span className={styles.featuredTotalLineVal}>{pick.lineValue}</span>
         )}
         <span className={`${styles.ouBadgeSm} ${isOver ? styles.ouBadgeSmOver : isUnder ? styles.ouBadgeSmUnder : styles.ouBadgeSmNeutral}`}>
-          {dir ?? 'O/U'}
+          {dir ? (isOver ? '▲ OVER' : '▼ UNDER') : 'O/U'}
         </span>
+        <span
+          className={styles.pickConf}
+          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
+        >
+          {getConfidenceLabel(pick.confidence)}
+        </span>
+        <MiniEdge pick={pick} />
       </div>
+      <div className={styles.pickExplain}>{getEditorialLine(pick)}</div>
     </div>
   );
 }
