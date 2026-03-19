@@ -158,6 +158,8 @@ export function mergeGamesWithOdds(scoreGames, oddsGames, getSlug) {
       homeSpread: odds.homeSpread ?? null,
       awaySpread: odds.awaySpread ?? null,
       total: odds.total,
+      overPrice: odds.overPrice ?? null,
+      underPrice: odds.underPrice ?? null,
       moneyline: odds.moneyline,
       oddsSource: odds.sportsbook || 'Odds API',
     };

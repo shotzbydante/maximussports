@@ -150,6 +150,8 @@ function extractOdds(bookmakers, homeTeamName, awayTeamName) {
   let homeSpread = null;
   let awaySpread = null;
   let total = null;
+  let overPrice = null;
+  let underPrice = null;
   let moneyline = null;
   let sportsbook = null;
   for (const bm of bookmakers || []) {
@@ -176,8 +178,11 @@ function extractOdds(bookmakers, homeTeamName, awayTeamName) {
       }
       if (mkt.key === 'totals' && mkt.outcomes?.length >= 2) {
         const over = mkt.outcomes.find((o) => o.name === 'Over');
+        const under = mkt.outcomes.find((o) => o.name === 'Under');
         if (over?.point != null) {
           total = over.point;
+          overPrice = over.price ?? null;
+          underPrice = under?.price ?? null;
           sportsbook = sportsbook || bm.title;
         }
       }
@@ -196,7 +201,7 @@ function extractOdds(bookmakers, homeTeamName, awayTeamName) {
   const spread = homeSpread != null
     ? (homeSpread > 0 ? `+${homeSpread}` : String(homeSpread))
     : null;
-  return { spread, homeSpread, awaySpread, total, moneyline, sportsbook };
+  return { spread, homeSpread, awaySpread, total, overPrice, underPrice, moneyline, sportsbook };
 }
 
 export async function fetchOddsSource(params = {}) {
@@ -235,7 +240,7 @@ export async function fetchOddsSource(params = {}) {
       if (raw.length > 0) break;
     }
     const games = raw.map((ev) => {
-      const { spread, homeSpread, awaySpread, total, moneyline, sportsbook } =
+      const { spread, homeSpread, awaySpread, total, overPrice, underPrice, moneyline, sportsbook } =
         extractOdds(ev.bookmakers, ev.home_team, ev.away_team);
       return {
         gameId: ev.id,
@@ -246,6 +251,8 @@ export async function fetchOddsSource(params = {}) {
         homeSpread: homeSpread ?? null,
         awaySpread: awaySpread ?? null,
         total: total != null ? String(total) : null,
+        overPrice: overPrice ?? null,
+        underPrice: underPrice ?? null,
         moneyline,
         sportsbook: sportsbook || 'Odds API',
       };
