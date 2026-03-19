@@ -1,4 +1,4 @@
-/* MaxPicksTotalsSlide — Slide 5 · Totals to Watch */
+/* MaxPicksTotalsSlide — Clean Pick UI */
 
 .titleSup {
   font-family: 'Oswald', sans-serif;
@@ -17,13 +17,7 @@
   line-height: 1.0;
   text-transform: uppercase;
   color: #ffffff;
-  margin: 0 0 4px;
-}
-
-.subtitle {
-  font-size: 15px;
-  color: rgba(240, 244, 248, 0.48);
-  margin-bottom: 12px;
+  margin: 0 0 8px;
 }
 
 .divider {
@@ -31,36 +25,46 @@
   height: 2px;
   background: linear-gradient(90deg, transparent 0%, rgba(183, 152, 108, 0.45) 20%, #B7986C 50%, rgba(183, 152, 108, 0.45) 80%, transparent 100%);
   border-radius: 2px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
-/* ── Card list ───────────────────────────────────────────────────── */
+/* ── Card list ────────────────────────────────────────────── */
 
 .cardList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
   min-height: 0;
 }
 
+/* ── Card: horizontal row layout ─────────────────────────── */
+
 .card {
   background: rgba(0, 0, 0, 0.24);
   border: 1px solid rgba(183, 152, 108, 0.16);
-  border-radius: 10px;
-  padding: 16px 20px 14px;
+  border-radius: 12px;
+  padding: 16px 20px;
   backdrop-filter: blur(4px);
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.cardMatchup {
+.cardLeft {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: rgba(240, 244, 248, 0.50);
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.matchupLogos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .vsText {
@@ -68,94 +72,211 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.10em;
-  color: rgba(240, 244, 248, 0.30);
+  color: rgba(240, 244, 248, 0.25);
   flex-shrink: 0;
 }
 
-.matchupTeam {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.matchupNames {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-.cardPickRow {
+.teamName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.teamNameDim {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.40);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.cardRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* ── Gold line treatment ─────────────────────────────────── */
+
+.lineBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.lineLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(183, 152, 108, 0.50);
+  text-transform: uppercase;
+}
+
+.lineValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #D4B87A;
+  letter-spacing: -0.01em;
+  line-height: 1.0;
+  text-shadow: 0 0 12px rgba(183, 152, 108, 0.25);
+}
+
+/* ── Pick badge (OVER / UNDER / O/U) ────────────────────── */
+
+.pickBadge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.pickBadgeOver {
+  color: #5FE8A8;
+  background: rgba(95, 232, 168, 0.12);
+  border-color: rgba(95, 232, 168, 0.35);
+}
+
+.pickBadgeUnder {
+  color: #E87B6B;
+  background: rgba(232, 123, 107, 0.12);
+  border-color: rgba(232, 123, 107, 0.30);
+}
+
+.pickBadgeNeutral {
+  color: rgba(183, 152, 108, 0.70);
+  background: rgba(183, 152, 108, 0.08);
+  border-color: rgba(183, 152, 108, 0.22);
+}
+
+.pickBadgeLg {
+  font-size: 18px;
+  padding: 8px 22px;
+  border-radius: 8px;
+}
+
+.arrow {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.pickBadgeLg .arrow {
+  font-size: 13px;
+}
+
+/* ── Featured total (single qualifying play) ─────────────── */
+
+.featuredWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.featuredCard {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(183, 152, 108, 0.22);
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.featuredMatchup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.featuredTeam {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.ouBadge {
+.featuredTeamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-  padding: 3px 10px;
-  border-radius: 4px;
-  border: 1px solid;
-}
-
-.ouBadgeOver {
-  color: #6BD69E;
-  background: rgba(107, 214, 158, 0.14);
-  border-color: rgba(107, 214, 158, 0.30);
-}
-
-.ouBadgeUnder {
-  color: #5BA3D4;
-  background: rgba(91, 163, 212, 0.12);
-  border-color: rgba(91, 163, 212, 0.25);
-}
-
-.ouBadgeNeutral {
-  color: rgba(183, 152, 108, 0.85);
-  background: rgba(183, 152, 108, 0.10);
-  border-color: rgba(183, 152, 108, 0.25);
-}
-
-.ouLine {
-  font-family: 'Oswald', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  color: #f0f4f8;
-  flex-shrink: 0;
-}
-
-.confBadge {
-  font-family: 'Oswald', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid;
+  color: rgba(240, 244, 248, 0.80);
   white-space: nowrap;
-  flex-shrink: 0;
-  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ── Signals ─────────────────────────────────────────────────────── */
+.featuredVs {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.25);
+  letter-spacing: 0.10em;
+}
 
-.signalsList {
+.featuredPickRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.featuredLineBlock {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-left: 4px;
+  align-items: center;
+  gap: 0;
 }
 
-.signalItem {
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.50);
-  line-height: 1.35;
+.featuredLineLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(183, 152, 108, 0.50);
+  text-transform: uppercase;
 }
 
-.signalItem::before {
-  content: '✔ ';
-  color: rgba(183, 152, 108, 0.60);
+.featuredLineValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  color: #D4B87A;
+  letter-spacing: -0.01em;
+  line-height: 1.0;
+  text-shadow: 0 0 16px rgba(183, 152, 108, 0.30);
 }
+
+/* ── Empty state ─────────────────────────────────────────── */
 
 .empty {
   flex: 1;
@@ -183,99 +304,6 @@
   color: rgba(240, 244, 248, 0.32);
   text-align: center;
   max-width: 420px;
-  line-height: 1.5;
-}
-
-/* ── Featured total (single qualifying play) ──────────────────── */
-
-.featuredWrap {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 0;
-}
-
-.featuredCard {
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(183, 152, 108, 0.22);
-  border-radius: 12px;
-  padding: 22px 24px 20px;
-  backdrop-filter: blur(4px);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.featuredPickRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.ouBadgeLg {
-  font-size: 13px;
-  padding: 4px 14px;
-}
-
-.ouLineLg {
-  font-family: 'Oswald', sans-serif;
-  font-size: 38px;
-  font-weight: 700;
-  color: #f0f4f8;
-  flex-shrink: 0;
-}
-
-.featuredMatchup {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  color: rgba(240, 244, 248, 0.60);
-  padding: 4px 0;
-}
-
-.featuredTeamName {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.featuredEdgeBar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-}
-
-.edgeBlocks {
-  display: flex;
-  gap: 3px;
-}
-
-.edgeBlock {
-  width: 22px;
-  height: 8px;
-  border-radius: 2px;
-  background: rgba(240, 244, 248, 0.08);
-}
-
-.edgeBlockOn {
-  /* color set via inline style */
-}
-
-.edgeLabel {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.featuredRationale {
-  font-size: 14px;
-  color: rgba(240, 244, 248, 0.42);
-  font-style: italic;
   line-height: 1.5;
 }
 

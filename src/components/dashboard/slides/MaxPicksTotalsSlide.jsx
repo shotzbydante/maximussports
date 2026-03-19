@@ -2,7 +2,6 @@ import PicksSlideShell from './PicksSlideShell';
 import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
-import { getSlideColors, getConfidenceLabel, getBarBlocks, getEdgeText } from '../../../utils/confidenceSystem';
 import styles from './MaxPicksTotalsSlide.module.css';
 
 function makeTeamObj(name) {
@@ -12,97 +11,75 @@ function makeTeamObj(name) {
 }
 
 function TotalCard({ pick }) {
-  const cs = getSlideColors(pick.confidence);
   const dir = pick.leanDirection;
   const isOver = dir === 'OVER';
+  const isUnder = dir === 'UNDER';
   const homeObj = makeTeamObj(pick.homeTeam);
   const awayObj = makeTeamObj(pick.awayTeam);
-  const signals = (pick.signals ?? []).slice(0, 3);
 
   return (
     <div className={styles.card}>
-      <div className={styles.cardPickRow}>
-        <span className={`${styles.ouBadge} ${dir ? (isOver ? styles.ouBadgeOver : styles.ouBadgeUnder) : styles.ouBadgeNeutral}`}>
+      <div className={styles.cardLeft}>
+        <div className={styles.matchupLogos}>
+          {awayObj && <TeamLogo team={awayObj} size={28} />}
+          <span className={styles.vsText}>@</span>
+          {homeObj && <TeamLogo team={homeObj} size={28} />}
+        </div>
+        <div className={styles.matchupNames}>
+          <span className={styles.teamName}>{pick.awayTeam}</span>
+          <span className={styles.teamNameDim}>vs {pick.homeTeam}</span>
+        </div>
+      </div>
+      <div className={styles.cardRight}>
+        {pick.lineValue != null && (
+          <div className={styles.lineBlock}>
+            <span className={styles.lineLabel}>O/U</span>
+            <span className={styles.lineValue}>{pick.lineValue}</span>
+          </div>
+        )}
+        <span className={`${styles.pickBadge} ${isOver ? styles.pickBadgeOver : isUnder ? styles.pickBadgeUnder : styles.pickBadgeNeutral}`}>
+          {isOver && <span className={styles.arrow}>▲</span>}
+          {isUnder && <span className={styles.arrow}>▼</span>}
           {dir ?? 'O/U'}
         </span>
-        {pick.lineValue != null && <span className={styles.ouLine}>{pick.lineValue}</span>}
-        <span
-          className={styles.confBadge}
-          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
-        >
-          {getConfidenceLabel(pick.confidence)}
-        </span>
       </div>
-      <div className={styles.cardMatchup}>
-        {awayObj && <TeamLogo team={awayObj} size={22} />}
-        <span className={styles.matchupTeam}>{pick.awayTeam}</span>
-        <span className={styles.vsText}>vs</span>
-        {homeObj && <TeamLogo team={homeObj} size={22} />}
-        <span className={styles.matchupTeam}>{pick.homeTeam}</span>
-      </div>
-      {signals.length > 0 && (
-        <div className={styles.signalsList}>
-          {signals.map((s, j) => (
-            <div key={j} className={styles.signalItem}>{s}</div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
 function FeaturedTotalCard({ pick }) {
-  const cs = getSlideColors(pick.confidence);
   const dir = pick.leanDirection;
   const isOver = dir === 'OVER';
+  const isUnder = dir === 'UNDER';
   const homeObj = makeTeamObj(pick.homeTeam);
   const awayObj = makeTeamObj(pick.awayTeam);
-  const signals = (pick.signals ?? []).slice(0, 4);
-  const filled = getBarBlocks(pick);
 
   return (
     <div className={styles.featuredCard}>
+      <div className={styles.featuredMatchup}>
+        <div className={styles.featuredTeam}>
+          {awayObj && <TeamLogo team={awayObj} size={38} />}
+          <span className={styles.featuredTeamName}>{pick.awayTeam}</span>
+        </div>
+        <span className={styles.featuredVs}>vs</span>
+        <div className={styles.featuredTeam}>
+          {homeObj && <TeamLogo team={homeObj} size={38} />}
+          <span className={styles.featuredTeamName}>{pick.homeTeam}</span>
+        </div>
+      </div>
       <div className={styles.featuredPickRow}>
-        <span className={`${styles.ouBadge} ${styles.ouBadgeLg} ${dir ? (isOver ? styles.ouBadgeOver : styles.ouBadgeUnder) : styles.ouBadgeNeutral}`}>
+        {pick.lineValue != null && (
+          <div className={styles.featuredLineBlock}>
+            <span className={styles.featuredLineLabel}>O/U</span>
+            <span className={styles.featuredLineValue}>{pick.lineValue}</span>
+          </div>
+        )}
+        <span className={`${styles.pickBadge} ${styles.pickBadgeLg} ${isOver ? styles.pickBadgeOver : isUnder ? styles.pickBadgeUnder : styles.pickBadgeNeutral}`}>
+          {isOver && <span className={styles.arrow}>▲</span>}
+          {isUnder && <span className={styles.arrow}>▼</span>}
           {dir ?? 'O/U'}
         </span>
-        {pick.lineValue != null && <span className={styles.ouLineLg}>{pick.lineValue}</span>}
-        <span
-          className={styles.confBadge}
-          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
-        >
-          {getConfidenceLabel(pick.confidence)}
-        </span>
       </div>
-      <div className={styles.featuredMatchup}>
-        {awayObj && <TeamLogo team={awayObj} size={28} />}
-        <span className={styles.featuredTeamName}>{pick.awayTeam}</span>
-        <span className={styles.vsText}>vs</span>
-        {homeObj && <TeamLogo team={homeObj} size={28} />}
-        <span className={styles.featuredTeamName}>{pick.homeTeam}</span>
-      </div>
-      <div className={styles.featuredEdgeBar}>
-        <div className={styles.edgeBlocks}>
-          {Array.from({ length: 6 }, (_, i) => (
-            <span
-              key={i}
-              className={`${styles.edgeBlock} ${i < filled ? styles.edgeBlockOn : ''}`}
-              style={i < filled ? { background: cs.barFill, boxShadow: `0 0 4px ${cs.barGlow}` } : undefined}
-            />
-          ))}
-        </div>
-        <span className={styles.edgeLabel} style={{ color: cs.text }}>{getEdgeText(pick)}</span>
-      </div>
-      {pick.rationale && (
-        <div className={styles.featuredRationale}>{pick.rationale}</div>
-      )}
-      {signals.length > 0 && (
-        <div className={styles.signalsList}>
-          {signals.map((s, j) => (
-            <div key={j} className={styles.signalItem}>{s}</div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -117,18 +94,12 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
   try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
 
   const totalsPicks = (picks.totalsPicks ?? []).slice(0, 4);
-
   const isSingle = totalsPicks.length === 1;
 
   return (
     <PicksSlideShell asOf={asOf} slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
       <div className={styles.titleSup}>MAXIMUS&apos;S PICKS · SLIDE {slideNumber}</div>
-      <h2 className={styles.title}>{isSingle ? 'Featured Total' : 'Totals to Watch'}</h2>
-      <div className={styles.subtitle}>
-        {isSingle
-          ? 'The model has spoken — one qualifying total with a clear directional edge'
-          : 'The model flagged these totals — scoring trends favor a side'}
-      </div>
+      <h2 className={styles.title}>{isSingle ? 'Featured Total' : 'Game Totals'}</h2>
       <div className={styles.divider} />
 
       {totalsPicks.length === 0 ? (

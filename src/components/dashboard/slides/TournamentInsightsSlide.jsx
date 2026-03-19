@@ -153,8 +153,8 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
   const accentColor = tc?.primary || '#D4B87A';
   const edgeColor = getEdgeColor(pct);
 
-  const logoSize = ultraCompact ? 42 : compact ? 60 : 72;
-  const ringSize = ultraCompact ? 58 : compact ? 82 : 96;
+  const logoSize = ultraCompact ? 34 : compact ? 60 : 72;
+  const ringSize = ultraCompact ? 48 : compact ? 82 : 96;
 
   const spread = matchup?.spread ?? null;
   const overUnder = matchup?.overUnder ?? matchup?.total ?? null;
@@ -188,9 +188,9 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           </div>
           <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
           <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
-          {isPickLeft && (
+          {isPickLeft && !ultraCompact && (
             <span className={styles.maximusPick}>
-              {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
+              {framing.pickLabel}
             </span>
           )}
         </div>
@@ -212,20 +212,22 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           </div>
           <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
           <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
-          {!isPickLeft && (
+          {!isPickLeft && !ultraCompact && (
             <span className={styles.maximusPick}>
-              {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
+              {framing.pickLabel}
             </span>
           )}
         </div>
       </div>
 
-      <ProbBar
-        pct={pct}
-        winnerName={winnerTeam?.shortName || winnerTeam?.name}
-        loserName={loserTeam?.shortName || loserTeam?.name}
-        edgeColor={edgeColor}
-      />
+      {!ultraCompact && (
+        <ProbBar
+          pct={pct}
+          winnerName={winnerTeam?.shortName || winnerTeam?.name}
+          loserName={loserTeam?.shortName || loserTeam?.name}
+          edgeColor={edgeColor}
+        />
+      )}
 
       {displayRationale && (
         <div className={styles.rationale}>
@@ -238,24 +240,24 @@ function InsightCard({ insight, compact = false, ultraCompact = false }) {
           <span className={styles.metaItem}>
             Rd 1{matchup?.region ? ` \u00b7 ${matchup.region}` : ''}
           </span>
-          {!ultraCompact && (
-            <>
-              <span className={styles.metaDot}>\u00b7</span>
-              <span className={styles.metaItem}>
-                {gameTime && network ? `${gameTime} \u00b7 ${network}` : 'Schedule TBA'}
-              </span>
-            </>
-          )}
           <span className={styles.metaDot}>\u00b7</span>
           <span className={styles.metaItem}>
             {spread != null ? `${spread}` : 'Line TBA'}
             {overUnder != null ? ` \u00b7 O/U ${overUnder}` : ''}
           </span>
+          {!ultraCompact && gameTime && network && (
+            <>
+              <span className={styles.metaDot}>\u00b7</span>
+              <span className={styles.metaItem}>{gameTime} \u00b7 {network}</span>
+            </>
+          )}
         </div>
-        <div className={styles.badgeStrip}>
-          <TierChip tier={tier} />
-          <MatchupRiskChip risk={upsetRisk} framing={framing} />
-        </div>
+        {!ultraCompact && (
+          <div className={styles.badgeStrip}>
+            <TierChip tier={tier} />
+            <MatchupRiskChip risk={upsetRisk} framing={framing} />
+          </div>
+        )}
       </div>
     </div>
   );
