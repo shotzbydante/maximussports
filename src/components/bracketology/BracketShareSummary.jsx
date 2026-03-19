@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef, useState } from 'react';
 import styles from './BracketShareSummary.module.css';
 
 function teamName(t) {
@@ -135,6 +135,51 @@ export default function BracketShareSummary({
     } catch { /* user cancelled */ }
   }, [summary]);
 
+  const cardRef = useRef(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveImage = useCallback(async () => {
+    if (!cardRef.current || saving) return;
+    setSaving(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const node = cardRef.current;
+
+      const actionsEl = node.querySelector('[data-share-actions]');
+      const closeEl = node.querySelector('[data-close-btn]');
+      if (actionsEl) actionsEl.style.display = 'none';
+      if (closeEl) closeEl.style.display = 'none';
+
+      const dataUrl = await toPng(node, {
+        pixelRatio: 3,
+        backgroundColor: '#0a1222',
+        cacheBust: true,
+      });
+
+      if (actionsEl) actionsEl.style.display = '';
+      if (closeEl) closeEl.style.display = '';
+
+      if (typeof navigator !== 'undefined' && navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'maximus-bracket.png', { type: 'image/png' });
+        try {
+          await navigator.share({ files: [file], title: 'My March Madness Bracket' });
+          return;
+        } catch { /* user cancelled or share failed — fall through to download */ }
+      }
+
+      const link = document.createElement('a');
+      link.download = 'maximus-bracket.png';
+      link.href = dataUrl;
+      link.click();
+    } catch {
+      /* degrade gracefully */
+    } finally {
+      setSaving(false);
+    }
+  }, [saving]);
+
   if (!summary) return null;
 
   const isProjected = bracketMode === 'projected';
@@ -145,8 +190,8 @@ export default function BracketShareSummary({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.card} onClick={e => e.stopPropagation()}>
-        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">×</button>
+      <div className={styles.card} ref={cardRef} onClick={e => e.stopPropagation()}>
+        <button type="button" className={styles.closeBtn} data-close-btn onClick={onClose} aria-label="Close">×</button>
 
         <div className={styles.cardHeader}>
           <span className={styles.brand}>MAXIMUS SPORTS</span>
@@ -233,14 +278,17 @@ export default function BracketShareSummary({
           ) : null}
         </div>
 
-        <div className={styles.actions}>
+        <div className={styles.actions} data-share-actions>
+          <button type="button" className={styles.saveBtn} onClick={handleSaveImage} disabled={saving}>
+            {saving ? 'Saving…' : 'Save Image'}
+          </button>
           {typeof navigator !== 'undefined' && navigator.share && (
             <button type="button" className={styles.shareBtn} onClick={handleShareNative}>
-              Share My Bracket
+              Share
             </button>
           )}
           <button type="button" className={styles.copyBtn} onClick={handleCopyText}>
-            Copy Summary
+            Copy Text
           </button>
         </div>
 

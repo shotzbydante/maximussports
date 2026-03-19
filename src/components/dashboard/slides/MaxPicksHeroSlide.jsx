@@ -226,7 +226,7 @@ function IntelModule({ picks, cat }) {
 /* ── Main slide export ────────────────────────────────────────── */
 
 export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.odds?.games ?? [];
+  const games      = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const rankMap    = data?.rankMap ?? {};
   const champOdds  = data?.championshipOdds ?? {};
@@ -237,7 +237,7 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const pe  = picks.pickEmPicks  ?? [];
   const ats = picks.atsPicks     ?? [];
   const val = picks.valuePicks   ?? [];
-  const tot = (picks.totalsPicks ?? []).filter(p => p.leanDirection);
+  const tot = picks.totalsPicks  ?? [];
 
   const topLeans = (arr, n = 3) =>
     arr.filter(p => p.itemType === 'lean')

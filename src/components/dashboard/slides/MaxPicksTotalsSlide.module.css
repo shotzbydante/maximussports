@@ -109,6 +109,12 @@
   border-color: rgba(91, 163, 212, 0.25);
 }
 
+.ouBadgeNeutral {
+  color: rgba(183, 152, 108, 0.85);
+  background: rgba(183, 152, 108, 0.10);
+  border-color: rgba(183, 152, 108, 0.25);
+}
+
 .ouLine {
   font-family: 'Oswald', sans-serif;
   font-size: 28px;

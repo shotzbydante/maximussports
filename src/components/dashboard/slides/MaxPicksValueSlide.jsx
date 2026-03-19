@@ -12,7 +12,7 @@ function makeTeamObj(name) {
 }
 
 export default function MaxPicksValueSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.odds?.games ?? [];
+  const games      = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const rankMap    = data?.rankMap ?? {};
   const champOdds  = data?.championshipOdds ?? {};

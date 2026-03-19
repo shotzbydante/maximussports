@@ -18,7 +18,7 @@ function fmtSpread(n) {
 }
 
 export default function MaxPicksATSSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.odds?.games ?? [];
+  const games      = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const rankMap    = data?.rankMap ?? {};
   const champOdds  = data?.championshipOdds ?? {};

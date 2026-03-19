@@ -1545,6 +1545,10 @@ export default function Dashboard() {
                   if (Object.keys(rm).length > 0) enrichments.rankMap = rm;
                 }
                 if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
+                const upcoming = d.upcomingGamesWithSpreads ?? [];
+                if (upcoming.length > 0) {
+                  enrichments.picksGames = [...(d.odds?.games ?? []), ...upcoming];
+                }
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
               teamData={enhancedTeamData}

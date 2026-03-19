@@ -13,7 +13,7 @@ function makeTeamObj(name) {
 
 function TotalCard({ pick }) {
   const cs = getSlideColors(pick.confidence);
-  const dir = pick.leanDirection ?? 'OVER';
+  const dir = pick.leanDirection;
   const isOver = dir === 'OVER';
   const homeObj = makeTeamObj(pick.homeTeam);
   const awayObj = makeTeamObj(pick.awayTeam);
@@ -22,8 +22,8 @@ function TotalCard({ pick }) {
   return (
     <div className={styles.card}>
       <div className={styles.cardPickRow}>
-        <span className={`${styles.ouBadge} ${isOver ? styles.ouBadgeOver : styles.ouBadgeUnder}`}>
-          {dir}
+        <span className={`${styles.ouBadge} ${dir ? (isOver ? styles.ouBadgeOver : styles.ouBadgeUnder) : styles.ouBadgeNeutral}`}>
+          {dir ?? 'O/U'}
         </span>
         {pick.lineValue != null && <span className={styles.ouLine}>{pick.lineValue}</span>}
         <span
@@ -53,7 +53,7 @@ function TotalCard({ pick }) {
 
 function FeaturedTotalCard({ pick }) {
   const cs = getSlideColors(pick.confidence);
-  const dir = pick.leanDirection ?? 'OVER';
+  const dir = pick.leanDirection;
   const isOver = dir === 'OVER';
   const homeObj = makeTeamObj(pick.homeTeam);
   const awayObj = makeTeamObj(pick.awayTeam);
@@ -63,8 +63,8 @@ function FeaturedTotalCard({ pick }) {
   return (
     <div className={styles.featuredCard}>
       <div className={styles.featuredPickRow}>
-        <span className={`${styles.ouBadge} ${styles.ouBadgeLg} ${isOver ? styles.ouBadgeOver : styles.ouBadgeUnder}`}>
-          {dir}
+        <span className={`${styles.ouBadge} ${styles.ouBadgeLg} ${dir ? (isOver ? styles.ouBadgeOver : styles.ouBadgeUnder) : styles.ouBadgeNeutral}`}>
+          {dir ?? 'O/U'}
         </span>
         {pick.lineValue != null && <span className={styles.ouLineLg}>{pick.lineValue}</span>}
         <span
@@ -108,7 +108,7 @@ function FeaturedTotalCard({ pick }) {
 }
 
 export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.odds?.games ?? [];
+  const games      = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const rankMap    = data?.rankMap ?? {};
   const champOdds  = data?.championshipOdds ?? {};
@@ -116,9 +116,7 @@ export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTota
   let picks = { totalsPicks: [] };
   try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
 
-  const totalsPicks = (picks.totalsPicks ?? [])
-    .filter(p => p.leanDirection)
-    .slice(0, 4);
+  const totalsPicks = (picks.totalsPicks ?? []).slice(0, 4);
 
   const isSingle = totalsPicks.length === 1;
 
