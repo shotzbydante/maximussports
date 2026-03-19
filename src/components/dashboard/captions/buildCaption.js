@@ -62,11 +62,14 @@ function fmtDate() {
 // ─── Daily Briefing ──────────────────────────────────────────────────────────
 
 /**
- * Build an editorial-voice daily caption from the digest structure.
+ * Build a viral-ready daily caption DIRECTLY from the Daily Intel digest.
  *
- * Target tone: confident, fun, sharp, sports-betting aware.
- * Action Network meets Morning Brew — punchy, no filler.
- * Max 5 hashtags.
+ * Synced with the Home Page Intelligence Briefing (source of truth).
+ * Every fact, team, and narrative comes from the same underlying data.
+ *
+ * Format: 2–4 punchy paragraphs, sports media energy, tasteful emojis.
+ * Tone: SportsCenter meets Morning Brew — confident, sharp, no filler.
+ * Max 5 high-reach hashtags.
  */
 function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDigest }) {
   const gamesCount = stats?.gamesWithOdds ?? null;
@@ -94,22 +97,24 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
     } catch { return ''; }
   }
 
-  // ── 1. Opening hook — first line must grab attention ───────────────────
+  // ── 1. Opening hook — MUST stop the scroll ────────────────────────────
   let hookLine = '';
   if (hasChatContent) {
     const highlights = chatDigest.lastNightHighlights ?? [];
     if (highlights.length >= 3) {
-      hookLine = 'Daily Briefing: college hoops delivered another wild night. 🔥';
+      hookLine = '\uD83D\uDD25 College hoops delivered last night. Here\u2019s the intel.';
     } else if (highlights.length >= 1) {
       const h = highlights[0];
       if (h.teamA && h.score) {
         const e = teamE(h.teamA);
-        hookLine = `Daily Briefing: ${e ? e + ' ' : ''}${h.teamA} ${resultVerb(h.score)} ${h.teamB || 'the opposition'} ${h.score}.`;
+        hookLine = `${e ? e + ' ' : ''}${h.teamA} ${resultVerb(h.score)} ${h.teamB || 'the opposition'}, ${h.score}. The board is shifting.`;
       } else {
-        hookLine = chatDigest.recapLeadLine?.slice(0, 120) || 'Daily Briefing: the title race is heating up.';
+        hookLine = chatDigest.recapLeadLine?.slice(0, 120) || '\uD83C\uDFC0 The title race is heating up. Daily intel is live.';
       }
     } else {
-      hookLine = chatDigest.recapLeadLine?.slice(0, 120) || (isPostSelection() ? 'Daily Briefing: March Madness intel is live.' : 'Daily Briefing: the title race is heating up.');
+      hookLine = chatDigest.recapLeadLine?.slice(0, 120) || (isPostSelection()
+        ? '\uD83C\uDFC6 March Madness intel just dropped.'
+        : '\uD83C\uDFC0 The title race is heating up. Daily intel is live.');
     }
   } else {
     const picksCount = picks?.length ?? 0;
@@ -119,79 +124,77 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
       : (picksCount > 0
           ? `${picksCount} ${inTournament ? 'tournament' : 'value'} edge${picksCount > 1 ? 's' : ''} surfaced today. ${inTournament ? '\uD83C\uDFC6' : '\uD83C\uDFC0'}`
           : (inTournament
-            ? `March Madness Daily Briefing 🏆${gamesCount != null ? ` ${gamesCount} tournament games today.` : ''}`
-            : `Daily CBB briefing is up.\uD83C\uDFC0${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`));
+            ? `\uD83C\uDFC6 March Madness Daily Briefing.${gamesCount != null ? ` ${gamesCount} tournament games today.` : ''}`
+            : `\uD83C\uDFC0 Daily CBB briefing is live.${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`));
   }
 
-  // ── 2. Recap of major results — punchy one-liners ─────────────────────
+  // ── 2. Results recap — punchy one-liners from the intel ───────────────
   const recapLines = [];
   if (hasChatContent) {
     for (const h of (chatDigest.lastNightHighlights ?? []).slice(0, 3)) {
       if (!h.teamA) continue;
       const e = teamE(h.teamA);
       if (h.teamB && h.score) {
-        recapLines.push(`${e ? e + ' ' : ''}${h.teamA} ${resultVerb(h.score)} ${h.teamB} ${h.score}.`);
+        recapLines.push(`${e ? e + ' ' : ''}${h.teamA} ${resultVerb(h.score)} ${h.teamB}, ${h.score}`);
       } else if (h.summaryLine) {
         recapLines.push(h.summaryLine);
       }
     }
   }
 
-  // ── 3. ATS edge callout ───────────────────────────────────────────────
+  // ── 3. Title board snapshot — from odds paragraph (¶2) ────────────────
+  let titleLine = '';
+  if (hasChatContent && chatDigest.titleRace?.length >= 2) {
+    const top2 = chatDigest.titleRace.slice(0, 2);
+    titleLine = `\uD83C\uDFC6 Title board: ${top2.map(t => `${t.team} (${t.americanOdds})`).join(', ')}`;
+  } else if (hasChatContent && chatDigest.titleRace?.length === 1) {
+    const leader = chatDigest.titleRace[0];
+    titleLine = `\uD83C\uDFC6 ${leader.team} leads the title market at ${leader.americanOdds}`;
+  }
+
+  // ── 4. ATS edge — from spotlight paragraph (¶4) ──────────────────────
   let atsLine = '';
   if (hasChatContent && chatDigest.atsEdges?.length > 0) {
     const top = chatDigest.atsEdges[0];
     const e = teamE(top.team);
     const wl = top.wl ? ` (${top.wl})` : '';
-    atsLine = `${e ? e + ' ' : ''}${top.team} keeps cashing tickets ATS at ${top.atsRate}%${wl}.`;
+    atsLine = `\uD83D\uDCCA ${e ? e + ' ' : ''}${top.team} cashing ATS at ${top.atsRate}%${wl}`;
   }
 
-  // ── 4. Title race ─────────────────────────────────────────────────────
-  let titleLine = '';
-  if (hasChatContent && chatDigest.titleRace?.length >= 2) {
-    const top2 = chatDigest.titleRace.slice(0, 2);
-    titleLine = `Title race: ${top2.map(t => `${t.team} (${t.americanOdds})`).join(' and ')} lead the board.`;
-  } else if (hasChatContent && chatDigest.titleRace?.length === 1) {
-    const leader = chatDigest.titleRace[0];
-    titleLine = `${leader.team} leads the title market at ${leader.americanOdds}.`;
-  }
-
-  // ── 5. Upcoming game tease ────────────────────────────────────────────
+  // ── 5. Game tease — from today/tomorrow paragraph (¶3) ───────────────
   let teaseLine = '';
   if (hasChatContent && chatDigest.gamesToWatch?.length > 0) {
     const game = chatDigest.gamesToWatch[0];
-    teaseLine = `Next radar game: ${game.matchup}${game.spread ? ` (${game.spread})` : ''}.`;
+    teaseLine = `\uD83D\uDC40 On the radar: ${game.matchup}${game.spread ? ` (${game.spread})` : ''}`;
   }
 
-  // ── 6. Closer ─────────────────────────────────────────────────────────
+  // ── 6. Closer — editorial voice from the intel ────────────────────────
   const closerLine = voiceLine || '';
 
-  // ── Assemble short caption ─────────────────────────────────────────────
-  const shortParts = [
-    hookLine,
-    recapLines.length > 0 ? recapLines.join('\n') : null,
-    atsLine || null,
-    titleLine || null,
-    teaseLine || null,
-    'Full intelligence at maximussports.ai',
-  ].filter(l => l != null && l !== '');
-  const short = shortParts.join('\n');
+  // ── Assemble SHORT caption (compact, for IG post) ─────────────────────
+  const shortParts = [hookLine];
+  if (recapLines.length > 0) shortParts.push(recapLines.join('\n'));
+  if (titleLine) shortParts.push(titleLine);
+  if (atsLine) shortParts.push(atsLine);
+  if (teaseLine) shortParts.push(teaseLine);
+  shortParts.push('\uD83D\uDCF1 Full intel \u2192 maximussports.ai');
+  const short = shortParts.join('\n\n');
 
-  // ── Assemble long caption ──────────────────────────────────────────────
+  // ── Assemble LONG caption (detailed, for IG caption field) ────────────
   const longParts = [
     hookLine,
     '',
     recapLines.length > 0 ? recapLines.join('\n') : null,
     '',
-    atsLine || null,
-    '',
     titleLine || null,
+    '',
+    atsLine || null,
     '',
     teaseLine || null,
     '',
     closerLine || null,
     '',
-    'Full intelligence at maximussports.ai',
+    '\uD83D\uDCF1 Full intelligence \u2192 maximussports.ai',
     '',
     asOf ? `Data as of ${asOf}` : null,
     DISCLAIMER,
@@ -205,14 +208,14 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
     .join('\n')
     .trim();
 
-  // ── Hashtags: max 5 ────────────────────────────────────────────────────
+  // ── Hashtags: exactly 5, high-reach sports + March Madness ────────────
   const hashtags = [
-    '#CollegeBasketball',
     '#MarchMadness',
+    '#CollegeBasketball',
     '#CBB',
     '#NCAAB',
     '#MaximusSports',
-  ].slice(0, 5);
+  ];
 
   return { shortCaption: short, longCaption: long, hashtags };
 }

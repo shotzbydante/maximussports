@@ -1,12 +1,11 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   DailyBriefingHeroSlide — Instagram Hero · Daily Briefing
-   1080 × 1350 · IG 4:5 · Cinematic editorial card
-   Visually aligned with TeamIntelSlide4 / ConferenceIntelSlide family.
+   DailyBriefingHeroSlide — ESPN-Level Broadcast Graphic
+   1080 × 1350 · IG 4:5 · Premium editorial card
    ───────────────────────────────────────────────────────────────────────── */
 
 @keyframes bgGlowBreath {
-  0%, 100% { opacity: 0.78; }
-  50%       { opacity: 1.0;  }
+  0%, 100% { opacity: 0.72; }
+  50%      { opacity: 1.0;  }
 }
 
 @keyframes shimmerSweep {
@@ -15,8 +14,13 @@
 }
 
 @keyframes scanFade {
-  0%, 100% { opacity: 0.04; }
-  50%       { opacity: 0.07; }
+  0%, 100% { opacity: 0.03; }
+  50%      { opacity: 0.06; }
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1.0; }
+  50%      { opacity: 0.4; }
 }
 
 /* ── Root artboard ─────────────────────────────────────────────────────── */
@@ -32,193 +36,266 @@
   color: #f0f4f8;
 }
 
-/* ── Background layers ────────────────────────────────────────────────── */
+/* ── Background layers — cinematic depth ─────────────────────────────── */
 
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
-  background: linear-gradient(165deg,
-    #0c1a2e 0%,
-    #061222 45%,
-    #02060c 100%);
+  background: linear-gradient(168deg,
+    #0d1e35 0%,
+    #07152a 30%,
+    #040d1a 60%,
+    #020811 100%);
   pointer-events: none;
 }
 
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
-  background: radial-gradient(ellipse 860px 580px at 50% 18%,
-    rgba(60, 121, 180, 0.35) 0%,
-    rgba(60, 121, 180, 0.10) 45%,
-    transparent 72%);
-  animation: bgGlowBreath 5.5s ease-in-out infinite;
+  background:
+    radial-gradient(ellipse 900px 550px at 50% 14%,
+      rgba(56, 120, 190, 0.32) 0%,
+      rgba(56, 120, 190, 0.08) 50%,
+      transparent 75%),
+    radial-gradient(ellipse 400px 300px at 80% 85%,
+      rgba(107, 214, 158, 0.06) 0%,
+      transparent 70%);
+  animation: bgGlowBreath 6s ease-in-out infinite;
   pointer-events: none;
 }
 
 .bgRay {
   position: absolute; inset: 0; z-index: 2;
   background: linear-gradient(180deg,
-    rgba(60, 121, 180, 0.06) 0%,
-    transparent 55%);
+    rgba(56, 120, 190, 0.05) 0%,
+    transparent 45%);
+  pointer-events: none;
+}
+
+.bgScanlines {
+  position: absolute; inset: 0; z-index: 3;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 3px,
+    rgba(0, 0, 0, 0.03) 3px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
   pointer-events: none;
 }
 
 .bgNoise {
-  position: absolute; inset: 0; z-index: 3;
-  opacity: 0.04;
+  position: absolute; inset: 0; z-index: 4;
+  opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-size: 220px 220px;
   animation: scanFade 9s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* ── Header ────────────────────────────────────────────────────────────── */
+/* ── Broadcast header ─────────────────────────────────────────────────── */
 
 .header {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 36px 80px 18px;
+  padding: 34px 72px 16px;
   flex-shrink: 0;
 }
 
-.logoRow { display: flex; align-items: center; gap: 14px; }
-.brandLogo { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; }
-.logoMeta { display: flex; flex-direction: column; gap: 5px; }
+.logoRow {
+  display: flex; align-items: center; gap: 14px;
+}
+
+.brandLogo {
+  width: 40px; height: 40px;
+  object-fit: contain; border-radius: 7px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.logoMeta {
+  display: flex; flex-direction: column; gap: 6px;
+}
+
 .brandName {
-  font-family: 'Oswald', sans-serif; font-size: 23px; font-weight: 700;
-  letter-spacing: 0.07em; color: #ffffff;
+  font-family: 'Oswald', sans-serif;
+  font-size: 24px; font-weight: 700;
+  letter-spacing: 0.08em; color: #ffffff;
 }
 
 .intelChip {
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 3px 12px;
-  border-radius: 4px;
-  border: 1px solid rgba(60, 121, 180, 0.55);
-  background: rgba(60, 121, 180, 0.16);
-  color: rgba(120, 175, 230, 1.0);
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 4px 14px; border-radius: 4px;
+  border: 1px solid rgba(56, 120, 190, 0.50);
+  background: rgba(56, 120, 190, 0.14);
+  color: rgba(130, 185, 240, 1.0);
   display: inline-block;
 }
 
-.headerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.asOf { font-size: 17px; color: rgba(240, 244, 248, 0.42); font-weight: 400; }
-.maxIntel {
-  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
-  letter-spacing: 0.16em; text-transform: uppercase;
-  color: rgba(120, 175, 230, 0.50);
+.headerRight {
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 5px;
 }
 
-/* ── Program strip divider — editorial segment separator ─────────────── */
+.asOf {
+  font-size: 16px; font-weight: 400;
+  color: rgba(240, 244, 248, 0.38);
+}
+
+.maxIntel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(130, 185, 240, 0.45);
+}
+
+/* ── Program strip divider ────────────────────────────────────────────── */
 
 .programStrip {
   position: relative; z-index: 10;
-  height: 1px; flex-shrink: 0;
-  margin: 0 64px;
+  height: 2px; flex-shrink: 0;
+  margin: 0 56px;
   background: linear-gradient(90deg,
     transparent 0%,
-    rgba(60,121,180,0.30) 15%,
-    rgba(60,121,180,0.50) 50%,
-    rgba(60,121,180,0.30) 85%,
+    rgba(56, 120, 190, 0.25) 10%,
+    rgba(56, 120, 190, 0.60) 50%,
+    rgba(56, 120, 190, 0.25) 90%,
     transparent 100%);
 }
 
-/* ── NCAA logo zone ─────────────────────────────────────────────────────── */
+/* ── NCAA logo zone ───────────────────────────────────────────────────── */
 
 .ncaaLogoZone {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  padding: 14px 0 0; flex-shrink: 0;
+  padding: 16px 0 0; flex-shrink: 0;
 }
 
 .ncaaLogo {
-  width: 56px; height: 56px; object-fit: contain;
-  opacity: 0.82;
+  width: 52px; height: 52px;
+  object-fit: contain; opacity: 0.85;
   border-radius: 50%;
-  filter: drop-shadow(0 0 18px rgba(60, 121, 180, 0.22))
-          drop-shadow(0 2px 5px rgba(0,0,0,0.30));
+  filter: drop-shadow(0 0 20px rgba(56, 120, 190, 0.25))
+          drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
-/* ── Date zone ─────────────────────────────────────────────────────────── */
+/* ── Date zone ────────────────────────────────────────────────────────── */
 
 .dateZone {
   position: relative; z-index: 10;
   display: flex; flex-direction: column; align-items: center;
-  padding: 8px 64px 2px; flex-shrink: 0;
+  padding: 10px 56px 4px; flex-shrink: 0;
 }
 
 .dateLabel {
-  font-family: 'Oswald', sans-serif; font-size: 32px; font-weight: 700;
-  letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff;
-  text-shadow: 0 0 40px rgba(60, 121, 180, 0.35), 0 2px 6px rgba(0,0,0,0.6);
+  font-family: 'Oswald', sans-serif;
+  font-size: 34px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: #ffffff;
+  text-shadow:
+    0 0 44px rgba(56, 120, 190, 0.30),
+    0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
 .dateSub {
-  font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 500;
-  color: rgba(240, 244, 248, 0.42); letter-spacing: 0.06em; margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; font-weight: 500;
+  color: rgba(240, 244, 248, 0.38);
+  letter-spacing: 0.08em; margin-top: 2px;
 }
 
-/* ── Headline zone ─────────────────────────────────────────────────────── */
+/* ── Headline zone — dominant, cinematic ──────────────────────────────── */
 
 .headlineZone {
   position: relative; z-index: 10;
-  padding: 6px 64px 4px; text-align: center;
-  margin-top: 0; flex-shrink: 0;
+  padding: 8px 56px 6px; text-align: center;
+  margin-top: 2px; flex-shrink: 0;
 }
 
 .headlineDivider {
-  width: 100%; height: 2px;
-  background: linear-gradient(90deg, transparent 0%, rgba(60,121,180,0.55) 20%, rgba(60,121,180,1) 50%, rgba(60,121,180,0.55) 80%, transparent 100%);
-  margin-bottom: 10px; border-radius: 2px;
+  width: 100%; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(56, 120, 190, 0.50) 15%,
+    rgba(56, 120, 190, 1) 50%,
+    rgba(56, 120, 190, 0.50) 85%,
+    transparent 100%);
+  margin-bottom: 12px;
+  box-shadow: 0 0 16px rgba(56, 120, 190, 0.25);
 }
 
 .headline {
-  font-family: 'Oswald', sans-serif; font-size: 78px; font-weight: 800;
-  line-height: 1.0; letter-spacing: -0.01em; text-transform: uppercase; margin: 0;
-  display: flex; flex-direction: column; gap: 0;
-  background: linear-gradient(105deg, rgba(255,255,255,1) 35%, rgba(120,175,230,0.25) 50%, rgba(255,255,255,1) 65%);
-  background-size: 260% auto;
+  font-family: 'Oswald', sans-serif;
+  font-size: 86px; font-weight: 800;
+  line-height: 0.98; letter-spacing: -0.01em;
+  text-transform: uppercase; margin: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  background: linear-gradient(108deg,
+    rgba(255, 255, 255, 1) 30%,
+    rgba(130, 185, 240, 0.30) 50%,
+    rgba(255, 255, 255, 1) 70%);
+  background-size: 280% auto;
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmerSweep 6s ease-in-out infinite;
+  animation: shimmerSweep 7s ease-in-out infinite;
   text-shadow: none;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
 }
 
-.headlineLine { display: block; color: inherit; }
+.headlineLine {
+  display: block; color: inherit;
+}
 
 .headlineDividerBottom {
-  width: 60%; margin: 6px auto 0; height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(60,121,180,0.28) 30%, rgba(60,121,180,0.45) 50%, rgba(60,121,180,0.28) 70%, transparent 100%);
+  width: 50%; margin: 8px auto 0; height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(56, 120, 190, 0.22) 25%,
+    rgba(56, 120, 190, 0.40) 50%,
+    rgba(56, 120, 190, 0.22) 75%,
+    transparent 100%);
 }
 
-/* ── Quick intel line ─────────────────────────────────────────────────── */
+/* ── Quick intel / subheadline ────────────────────────────────────────── */
 
 .quickIntel {
   position: relative; z-index: 10;
-  margin: 4px 80px 0; font-size: 18px; font-style: italic;
-  font-weight: 400; color: rgba(240, 244, 248, 0.72);
+  margin: 6px 72px 0;
+  font-size: 19px; font-style: italic; font-weight: 400;
+  color: rgba(240, 244, 248, 0.68);
   text-align: center; line-height: 1.35; letter-spacing: 0.01em;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 28px rgba(60,121,180,0.15);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 28px rgba(56, 120, 190, 0.12);
   flex-shrink: 0;
 }
 
-/* ── Intel bullets (recap panel) ─────────────────────────────────────── */
+/* ── Intel panel ──────────────────────────────────────────────────────── */
 
 .bulletModule {
   position: relative; z-index: 10;
-  margin: 12px 64px 0; flex-shrink: 0;
-  border: 1px solid rgba(60,121,180,0.22);
-  border-radius: 12px; overflow: hidden;
-  background: rgba(6,14,28,0.55);
-  backdrop-filter: blur(6px);
+  margin: 14px 56px 0; flex-shrink: 0;
+  border: 1px solid rgba(56, 120, 190, 0.20);
+  border-radius: 14px; overflow: hidden;
+  background: rgba(4, 12, 24, 0.60);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(56, 120, 190, 0.08);
 }
 
 .bulletModuleHeader {
   font-family: 'Oswald', sans-serif;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(120, 175, 230, 0.60);
-  padding: 10px 22px 0;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.20em; text-transform: uppercase;
+  color: rgba(130, 185, 240, 0.65);
+  padding: 12px 24px 0;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.bulletHeaderDot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #6BD69E;
+  box-shadow: 0 0 6px rgba(107, 214, 158, 0.5);
+  animation: dotPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 .bulletList {
@@ -227,117 +304,186 @@
 }
 
 .bulletItem {
-  position: relative; font-size: 17px; font-weight: 400;
-  color: rgba(240,244,248,0.85); line-height: 1.42;
-  padding: 9px 22px 9px 22px;
-  border-bottom: 1px solid rgba(60,121,180,0.10);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  position: relative;
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: 17px; font-weight: 400;
+  color: rgba(240, 244, 248, 0.88);
+  line-height: 1.42;
+  padding: 10px 24px;
+  border-bottom: 1px solid rgba(56, 120, 190, 0.08);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s;
 }
 
 .bulletItem:last-child { border-bottom: none; }
 
-/* ── Title race module ─────────────────────────────────────────────────── */
+.bulletIcon {
+  flex-shrink: 0; font-size: 16px;
+  width: 22px; text-align: center;
+  line-height: 1.42;
+}
+
+.bulletText {
+  flex: 1; min-width: 0;
+}
+
+/* ── Title leaderboard — scoreboard / ticker ──────────────────────────── */
 
 .titleRaceSection {
   position: relative; z-index: 10;
-  margin: 12px 64px 0; flex-shrink: 0;
+  margin: 14px 56px 0; flex-shrink: 0;
 }
 
 .titleRaceHeader {
-  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(240,244,248,0.45); margin-bottom: 6px;
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.20em; text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.42);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.sectionHeaderDot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(130, 185, 240, 0.50);
+  flex-shrink: 0;
 }
 
 .titleRaceGrid {
-  display: flex; flex-direction: column; gap: 5px;
+  display: flex; flex-direction: column; gap: 4px;
 }
 
 .titleRaceChip {
-  display: flex; align-items: center; gap: 12px;
-  background: rgba(0,0,0,0.30); backdrop-filter: blur(4px);
-  border: 1px solid rgba(60,121,180,0.20);
-  border-radius: 10px; padding: 9px 18px;
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(4, 12, 24, 0.50);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(56, 120, 190, 0.15);
+  border-radius: 10px; padding: 10px 18px;
+  transition: background 0.2s;
+}
+
+.titleRaceChipTop {
+  background: rgba(56, 120, 190, 0.08);
+  border-color: rgba(56, 120, 190, 0.28);
 }
 
 .titleRaceRank {
-  font-family: 'Oswald', sans-serif; font-size: 17px; font-weight: 700;
-  background: rgba(60, 121, 180, 0.18);
-  border: 1px solid rgba(60, 121, 180, 0.40);
-  color: rgba(120, 175, 230, 0.90);
-  border-radius: 6px; padding: 3px 10px; white-space: nowrap;
-  flex-shrink: 0; min-width: 38px; text-align: center;
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px; font-weight: 700;
+  background: rgba(56, 120, 190, 0.15);
+  border: 1px solid rgba(56, 120, 190, 0.35);
+  color: rgba(130, 185, 240, 0.90);
+  border-radius: 6px; padding: 4px 10px;
+  white-space: nowrap; flex-shrink: 0;
+  min-width: 40px; text-align: center;
+}
+
+.titleRaceChipTop .titleRaceRank {
+  background: rgba(56, 120, 190, 0.22);
+  border-color: rgba(56, 120, 190, 0.50);
+  color: rgba(160, 205, 255, 1);
 }
 
 .titleRaceLogo {
-  width: 36px; height: 36px; object-fit: contain; flex-shrink: 0;
+  width: 34px; height: 34px;
+  object-fit: contain; flex-shrink: 0;
 }
 
 .titleRaceMeta {
-  display: flex; flex-direction: column; gap: 1px; min-width: 0;
-  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 1px; min-width: 0; flex: 1;
 }
 
 .titleRaceName {
-  font-family: 'Oswald', sans-serif; font-size: 21px; font-weight: 600;
-  color: rgba(240,244,248,0.92); white-space: nowrap;
-  line-height: 1.1;
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px; font-weight: 600;
+  color: rgba(240, 244, 248, 0.93);
+  white-space: nowrap; line-height: 1.1;
 }
 
 .titleRaceOdds {
-  font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700;
-  background: rgba(107, 214, 158, 0.13);
-  border: 1px solid rgba(107, 214, 158, 0.30);
-  color: #6BD69E; border-radius: 6px; padding: 3px 12px; white-space: nowrap;
-  margin-left: auto; flex-shrink: 0;
+  font-family: 'JetBrains Mono', 'Oswald', sans-serif;
+  font-size: 15px; font-weight: 700;
+  background: rgba(107, 214, 158, 0.12);
+  border: 1px solid rgba(107, 214, 158, 0.28);
+  color: #6BD69E;
+  border-radius: 6px; padding: 4px 14px;
+  white-space: nowrap; margin-left: auto;
+  flex-shrink: 0; letter-spacing: 0.02em;
 }
 
-/* ── Recent results module ─────────────────────────────────────────────── */
+.titleRaceChipTop .titleRaceOdds {
+  background: rgba(107, 214, 158, 0.18);
+  border-color: rgba(107, 214, 158, 0.40);
+  color: #7AE6AE;
+  box-shadow: 0 0 8px rgba(107, 214, 158, 0.12);
+}
+
+/* ── Recent results — editorial recap ─────────────────────────────────── */
 
 .recentResultsSection {
   position: relative; z-index: 10;
-  margin: 10px 64px 0; flex-shrink: 0;
+  margin: 12px 56px 0; flex-shrink: 0;
 }
 
 .recentResultsHeader {
-  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(240,244,248,0.45); margin-bottom: 6px;
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.20em; text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.42);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
 }
 
 .recentResultsList {
   display: flex; flex-direction: column; gap: 0;
-  border: 1px solid rgba(60,121,180,0.15);
+  border: 1px solid rgba(56, 120, 190, 0.12);
   border-radius: 10px; overflow: hidden;
-  background: rgba(0,0,0,0.20); backdrop-filter: blur(4px);
+  background: rgba(4, 12, 24, 0.40);
+  backdrop-filter: blur(4px);
 }
 
 .recentResultItem {
+  display: flex; align-items: center; gap: 10px;
   font-size: 16px; font-weight: 400;
-  color: rgba(240,244,248,0.82); line-height: 1.42;
-  padding: 9px 20px;
-  border-bottom: 1px solid rgba(60,121,180,0.08);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  color: rgba(240, 244, 248, 0.82);
+  line-height: 1.42;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(56, 120, 190, 0.06);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .recentResultItem:last-child { border-bottom: none; }
 
-/* ── Footer ────────────────────────────────────────────────────────────── */
+.resultEmoji {
+  flex-shrink: 0; font-size: 16px;
+  width: 20px; text-align: center;
+}
+
+.resultText {
+  flex: 1; min-width: 0;
+}
+
+/* ── Broadcast footer ─────────────────────────────────────────────────── */
 
 .footer {
-  position: relative; z-index: 10; margin-top: auto;
+  position: relative; z-index: 10;
+  margin-top: auto;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 80px 32px;
-  border-top: 1px solid rgba(60,121,180,0.11);
+  padding: 16px 72px 30px;
+  border-top: 1px solid rgba(56, 120, 190, 0.10);
   gap: 16px; flex-shrink: 0;
 }
 
 .footerUrl {
-  font-family: 'Oswald', sans-serif; font-size: 19px; font-weight: 600;
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px; font-weight: 600;
   letter-spacing: 0.06em;
-  color: rgba(120,175,230,0.82);
+  color: rgba(130, 185, 240, 0.80);
 }
 
 .footerDisclaimer {
-  font-size: 14px; color: rgba(240,244,248,0.30); font-style: italic;
+  font-size: 14px;
+  color: rgba(240, 244, 248, 0.25);
+  font-style: italic;
 }
