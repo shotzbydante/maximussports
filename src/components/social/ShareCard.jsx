@@ -30,9 +30,15 @@ function buildShareText({ type, picks, bracket, upset, username }) {
 
   if (type === 'bracket' && bracket) {
     let text = `My March Madness bracket on Maximus Sports ${handle}\n\n`;
-    if (bracket.champion) text += `Champion: ${bracket.champion}\n`;
-    if (bracket.finalFour?.length) text += `Final Four: ${bracket.finalFour.join(', ')}\n`;
-    if (bracket.biggestUpset) text += `Boldest upset: ${bracket.biggestUpset}\n`;
+    if (bracket.champion) text += `🏆 Champion: ${bracket.champion}\n`;
+    if (bracket.titleGame) text += `🏀 ${bracket.titleGame}\n`;
+    if (bracket.finalFour?.length) text += `Final Four: ${bracket.finalFour.join(' · ')}\n`;
+    if (bracket.diceRolls?.length) {
+      text += '\n🎲 Dice Rolls:\n';
+      for (const roll of bracket.diceRolls) text += `  ${roll}\n`;
+    } else if (bracket.biggestUpset) {
+      text += `🎲 Boldest call: ${bracket.biggestUpset}\n`;
+    }
     text += '\nBuild your bracket here:';
     return text;
   }

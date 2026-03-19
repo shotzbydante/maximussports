@@ -207,6 +207,53 @@
   color: #c084fc;
 }
 
+.diceRollColor {
+  color: #8eafc4;
+}
+
+/* ─── Dice Rolls ─────────────────────────────────── */
+
+.diceSection {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.diceSectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(142, 175, 196, 0.75);
+  margin-bottom: 0.4rem;
+}
+
+.diceIcon {
+  font-size: 0.65rem;
+}
+
+.diceItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+}
+
+.diceItemIcon {
+  font-size: 0.6rem;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.diceItemText {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.3;
+}
+
 /* ─── Actions ─────────────────────────────────────── */
 
 .actions {

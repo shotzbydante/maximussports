@@ -1,6 +1,10 @@
 import { useMemo, useCallback } from 'react';
 import styles from './BracketShareSummary.module.css';
 
+function teamName(t) {
+  return t?.shortName || t?.name || '';
+}
+
 export default function BracketShareSummary({
   picks,
   maximusPicks,
@@ -12,54 +16,91 @@ export default function BracketShareSummary({
   const summary = useMemo(() => {
     if (!picks || Object.keys(picks).length === 0) return null;
 
-    const champion = allMatchups?.['champ']
-      ? (picks['champ'] === 'top' ? allMatchups['champ'].topTeam : allMatchups['champ'].bottomTeam)
+    const champMatchup = allMatchups?.['champ'];
+    const champion = champMatchup && picks['champ']
+      ? (picks['champ'] === 'top' ? champMatchup.topTeam : champMatchup.bottomTeam)
       : null;
 
-    const finalFour = [];
+    const championshipMatchup = champMatchup && picks['champ'] ? {
+      winner: picks['champ'] === 'top' ? champMatchup.topTeam : champMatchup.bottomTeam,
+      loser: picks['champ'] === 'top' ? champMatchup.bottomTeam : champMatchup.topTeam,
+    } : null;
+
+    const finalFourTeams = [];
     for (const mId of ['ff-1', 'ff-2']) {
       const m = allMatchups[mId];
-      if (!m || !picks[mId]) continue;
-      finalFour.push(picks[mId] === 'top' ? m.topTeam : m.bottomTeam);
+      if (!m) continue;
+      if (m.topTeam) finalFourTeams.push(m.topTeam);
+      if (m.bottomTeam) finalFourTeams.push(m.bottomTeam);
     }
 
-    let biggestUpset = null;
+    const allUpsets = [];
     let upsetCount = 0;
+    let diceRollCount = 0;
+
     for (const [id, pick] of Object.entries(picks)) {
       const m = allMatchups[id];
       if (!m) continue;
       const picked = pick === 'top' ? m.topTeam : m.bottomTeam;
       const other = pick === 'top' ? m.bottomTeam : m.topTeam;
+
+      const tier = predictions?.[id]?.bracketTier;
+      if (tier === 'dice_roll' || tier === 'upset_special') diceRollCount++;
+
       if (picked?.seed > (other?.seed || 0)) {
         upsetCount++;
-        const diff = picked.seed - other.seed;
-        if (!biggestUpset || diff > (biggestUpset.seedDiff || 0)) {
-          biggestUpset = { team: picked, opponent: other, seedDiff: diff };
-        }
+        allUpsets.push({
+          team: picked,
+          opponent: other,
+          seedDiff: picked.seed - other.seed,
+          round: m.round,
+          tier,
+        });
       }
     }
+
+    allUpsets.sort((a, b) => b.seedDiff - a.seedDiff || (b.round || 0) - (a.round || 0));
+    const notableUpsets = allUpsets.slice(0, 3);
 
     const divergenceCount = maximusPicks
       ? Object.keys(picks).filter(id => maximusPicks[id] && picks[id] !== maximusPicks[id]).length
       : 0;
 
-    return { champion, finalFour, biggestUpset, upsetCount, divergenceCount, totalPicks: Object.keys(picks).length };
+    return {
+      champion,
+      championshipMatchup,
+      finalFourTeams,
+      notableUpsets,
+      diceRollCount,
+      upsetCount,
+      divergenceCount,
+      totalPicks: Object.keys(picks).length,
+    };
   }, [picks, maximusPicks, allMatchups, predictions]);
 
   const handleCopyText = useCallback(async () => {
     if (!summary) return;
-    const lines = ['My March Madness Bracket — Maximus Sports'];
-    if (summary.champion) lines.push(`Champion: ${summary.champion.shortName || summary.champion.name}`);
-    if (summary.finalFour.length > 0) {
-      lines.push(`Final Four: ${summary.finalFour.map(t => t.shortName || t.name).join(', ')}`);
+    const lines = ['My March Madness Bracket — Maximus Sports', ''];
+    if (summary.championshipMatchup) {
+      lines.push(`🏆 Champion: ${teamName(summary.championshipMatchup.winner)}`);
+      lines.push(`🏀 Title Game: ${teamName(summary.championshipMatchup.winner)} over ${teamName(summary.championshipMatchup.loser)}`);
+    } else if (summary.champion) {
+      lines.push(`🏆 Champion: ${teamName(summary.champion)}`);
     }
-    if (summary.biggestUpset) {
-      lines.push(`Boldest Upset: ${summary.biggestUpset.team.seed}-seed ${summary.biggestUpset.team.shortName}`);
+    if (summary.finalFourTeams.length > 0) {
+      lines.push(`Final Four: ${summary.finalFourTeams.map(teamName).join(' · ')}`);
     }
-    lines.push(`${summary.totalPicks} picks made`);
-    if (summary.divergenceCount > 0) lines.push(`${summary.divergenceCount} games where I disagree with Maximus`);
+    if (summary.notableUpsets.length > 0) {
+      lines.push('');
+      lines.push('🎲 Dice Rolls:');
+      for (const u of summary.notableUpsets) {
+        lines.push(`  ${u.team.seed}-seed ${teamName(u.team)} over ${u.opponent.seed}-seed ${teamName(u.opponent)}`);
+      }
+    }
     lines.push('');
-    lines.push('Build yours at maximussports.ai/bracketology');
+    lines.push(`${summary.totalPicks} picks · ${summary.upsetCount} upsets${summary.diceRollCount > 0 ? ` · ${summary.diceRollCount} dice rolls` : ''}`);
+    lines.push('');
+    lines.push('Build yours → maximussports.ai/bracketology');
 
     try {
       await navigator.clipboard.writeText(lines.join('\n'));
@@ -69,12 +110,21 @@ export default function BracketShareSummary({
   const handleShareNative = useCallback(async () => {
     if (!summary || !navigator.share) return;
     const lines = [];
-    if (summary.champion) lines.push(`My champion: ${summary.champion.shortName || summary.champion.name}`);
-    if (summary.biggestUpset) {
-      lines.push(`Boldest upset: ${summary.biggestUpset.team.seed}-seed ${summary.biggestUpset.team.shortName}`);
+    if (summary.championshipMatchup) {
+      lines.push(`🏆 ${teamName(summary.championshipMatchup.winner)} wins it all`);
+      lines.push(`🏀 ${teamName(summary.championshipMatchup.winner)} over ${teamName(summary.championshipMatchup.loser)} in the title game`);
+    } else if (summary.champion) {
+      lines.push(`🏆 My champion: ${teamName(summary.champion)}`);
+    }
+    if (summary.finalFourTeams.length > 0) {
+      lines.push(`Final Four: ${summary.finalFourTeams.map(teamName).join(' · ')}`);
+    }
+    if (summary.notableUpsets.length > 0) {
+      const top = summary.notableUpsets[0];
+      lines.push(`🎲 Boldest call: ${top.team.seed}-seed ${teamName(top.team)} over ${top.opponent.seed}-seed ${teamName(top.opponent)}`);
     }
     lines.push(`${summary.totalPicks} picks locked in.`);
-    lines.push('Build yours at maximussports.ai/bracketology');
+    lines.push('Build yours → maximussports.ai/bracketology');
 
     try {
       await navigator.share({
@@ -119,31 +169,45 @@ export default function BracketShareSummary({
             )}
             <div className={styles.champInfo}>
               <span className={styles.champLabel}>Champion</span>
-              <span className={styles.champName}>{summary.champion.shortName || summary.champion.name}</span>
+              <span className={styles.champName}>{teamName(summary.champion)}</span>
               {summary.champion.seed && (
-                <span className={styles.champSeed}>{summary.champion.seed}-seed · {summary.champion.conference}</span>
+                <span className={styles.champSeed}>{summary.champion.seed}-seed{summary.champion.conference ? ` · ${summary.champion.conference}` : ''}</span>
               )}
             </div>
           </div>
         )}
 
-        {summary.finalFour.length > 0 && (
+        {summary.championshipMatchup && (
           <div className={styles.statRow}>
-            <span className={styles.statLabel}>Final Four</span>
+            <span className={styles.statLabel}>National Championship</span>
             <span className={styles.statValue}>
-              {summary.finalFour.map(t => t.shortName || t.name).join(' · ')}
+              {teamName(summary.championshipMatchup.winner)} over {teamName(summary.championshipMatchup.loser)}
             </span>
           </div>
         )}
 
-        {summary.biggestUpset && (
+        {summary.finalFourTeams.length > 0 && (
           <div className={styles.statRow}>
-            <span className={styles.statLabel}>Boldest Upset</span>
+            <span className={styles.statLabel}>Final Four</span>
             <span className={styles.statValue}>
-              {summary.biggestUpset.team.seed}-seed {summary.biggestUpset.team.shortName || summary.biggestUpset.team.name}
-              {' over '}
-              {summary.biggestUpset.opponent.seed}-seed {summary.biggestUpset.opponent.shortName || summary.biggestUpset.opponent.name}
+              {summary.finalFourTeams.map(teamName).join(' · ')}
             </span>
+          </div>
+        )}
+
+        {summary.notableUpsets.length > 0 && (
+          <div className={styles.diceSection}>
+            <span className={styles.diceSectionLabel}>
+              <span className={styles.diceIcon}>🎲</span> Dice Rolls
+            </span>
+            {summary.notableUpsets.map((u, i) => (
+              <div key={i} className={styles.diceItem}>
+                <span className={styles.diceItemIcon}>🎲</span>
+                <span className={styles.diceItemText}>
+                  {u.team.seed}-seed {teamName(u.team)} over {u.opponent.seed}-seed {teamName(u.opponent)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -156,12 +220,17 @@ export default function BracketShareSummary({
             <span className={styles.statBlockValue}>{summary.upsetCount}</span>
             <span className={styles.statBlockLabel}>Upsets</span>
           </div>
-          {summary.divergenceCount > 0 && (
+          {summary.diceRollCount > 0 ? (
+            <div className={styles.statBlock}>
+              <span className={`${styles.statBlockValue} ${styles.diceRollColor}`}>{summary.diceRollCount}</span>
+              <span className={styles.statBlockLabel}>🎲 Rolls</span>
+            </div>
+          ) : summary.divergenceCount > 0 ? (
             <div className={styles.statBlock}>
               <span className={`${styles.statBlockValue} ${styles.divergeColor}`}>{summary.divergenceCount}</span>
               <span className={styles.statBlockLabel}>vs Maximus</span>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className={styles.actions}>
