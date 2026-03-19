@@ -54,42 +54,43 @@ const THEMES = {
   },
 
   /* ────────────────────────────────────────────────────────────────────
-   * UPSET RADAR — danger / volatility / alert system
-   * Deep charcoal + ember red, pressure energy, pulse glow
+   * UPSET RADAR — risk dashboard / volatility terminal
+   * Deep green-charcoal base, cool slate neutrals.
+   * Green = signal/edge, Red reserved for danger states only.
    * ──────────────────────────────────────────────────────────────────── */
   upset_radar: {
     key: 'upset_radar',
 
-    bgBase: '#120b0b',
+    bgBase: '#0a1210',
     bgGradient:
-      'radial-gradient(ellipse 900px 550px at 50% -30px, rgba(200,60,40,0.22) 0%, transparent 60%),' +
-      'radial-gradient(ellipse 600px 400px at 20% 70%, rgba(232,132,95,0.08) 0%, transparent 50%),' +
-      'linear-gradient(175deg, #1a0e0e 0%, #0d0808 100%)',
+      'radial-gradient(ellipse 900px 520px at 50% -30px, rgba(45,120,80,0.16) 0%, transparent 58%),' +
+      'radial-gradient(ellipse 500px 350px at 80% 80%, rgba(45,120,80,0.05) 0%, transparent 50%),' +
+      'linear-gradient(175deg, #0c1612 0%, #080e0c 100%)',
 
-    headerBorder: 'rgba(200,60,40,0.22)',
-    footerBorder: 'rgba(200,60,40,0.14)',
-    footerUrlColor: '#E8845F',
+    headerBorder: 'rgba(45,120,80,0.22)',
+    footerBorder: 'rgba(45,120,80,0.14)',
+    footerUrlColor: '#3DA87A',
 
     cardBg:
-      'linear-gradient(145deg, rgba(200,60,40,0.10) 0%, rgba(255,255,255,0.02) 45%, rgba(18,11,11,0.65) 100%)',
-    cardBorder: 'rgba(200,60,40,0.28)',
-    cardGlow: 'rgba(232,132,95,0.08)',
-    cardTopEdge: 'rgba(232,132,95,0.24)',
+      'linear-gradient(150deg, rgba(45,120,80,0.07) 0%, rgba(255,255,255,0.015) 45%, rgba(10,18,16,0.60) 100%)',
+    cardBorder: 'rgba(45,120,80,0.22)',
+    cardGlow: 'rgba(45,120,80,0.06)',
+    cardTopEdge: 'rgba(61,168,122,0.18)',
 
-    accent: '#E8845F',
+    accent: '#3DA87A',
     accentAlt: '#C74545',
-    accentGlow: 'rgba(232,132,95,0.20)',
+    accentGlow: 'rgba(61,168,122,0.16)',
 
     categoryLabel: 'UPSET RADAR',
-    categoryColor: '#E8845F',
-    categoryBg: 'rgba(232,132,95,0.14)',
-    categoryBorder: 'rgba(232,132,95,0.30)',
+    categoryColor: '#3DA87A',
+    categoryBg: 'rgba(61,168,122,0.12)',
+    categoryBorder: 'rgba(61,168,122,0.28)',
 
-    ringTrack: 'rgba(232,132,95,0.12)',
-    ringGlow: 0.5,
+    ringTrack: 'rgba(61,168,122,0.10)',
+    ringGlow: 0.4,
 
     mascotFilter:
-      'drop-shadow(0 4px 16px rgba(0,0,0,0.60)) drop-shadow(0 0 12px rgba(232,132,95,0.30))',
+      'drop-shadow(0 4px 16px rgba(0,0,0,0.60)) drop-shadow(0 0 10px rgba(61,168,122,0.22))',
   },
 
   /* ────────────────────────────────────────────────────────────────────

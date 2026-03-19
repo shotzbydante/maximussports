@@ -17,7 +17,7 @@
 
 /* Per-theme base colors */
 .theme_tournament  { background: var(--theme-bg-base, #0a1a2e); }
-.theme_upset_radar { background: var(--theme-bg-base, #120b0b); }
+.theme_upset_radar { background: var(--theme-bg-base, #0a1210); }
 .theme_single_game { background: var(--theme-bg-base, #060e18); }
 .theme_key_games   { background: var(--theme-bg-base, #0b1822); }
 

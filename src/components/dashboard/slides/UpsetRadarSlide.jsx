@@ -4,15 +4,28 @@ import { getTeamColors } from '../../../utils/teamColors';
 import { getConfidenceTier, getUpsetFraming } from '../../../utils/confidenceTier';
 import styles from './UpsetRadarSlide.module.css';
 
+/*
+ * Semantic color system for Upset Radar:
+ *   green  (#3DA87A) = model edge / confidence / live signal
+ *   slate  (#8A9BAE) = neutral / toss-up / secondary
+ *   amber  (#D4A84F) = borderline / transitional
+ *   red    (#D14545) = danger / high upset threat / alert
+ */
+
 const MATCHUP_RISK_CONFIG = {
-  HIGH:     { text: '#FF6B4A', bg: 'rgba(255,107,74,0.16)', border: 'rgba(255,107,74,0.35)', icon: '\u25B2' },
-  MODERATE: { text: '#E8A84F', bg: 'rgba(232,168,79,0.14)', border: 'rgba(232,168,79,0.30)', icon: '\u2684' },
+  HIGH:     { text: '#D14545', bg: 'rgba(209,69,69,0.14)', border: 'rgba(209,69,69,0.32)', icon: '\u25B2' },
+  MODERATE: { text: '#8A9BAE', bg: 'rgba(138,155,174,0.10)', border: 'rgba(138,155,174,0.24)', icon: '\u2684' },
 };
 
 function getUpsetChanceColor(underdogPct) {
-  if (underdogPct >= 45) return '#FF6B4A';
-  if (underdogPct >= 35) return '#E8A84F';
-  return '#E8845F';
+  if (underdogPct >= 45) return '#D14545';
+  if (underdogPct >= 35) return '#D4A84F';
+  return '#3DA87A';
+}
+
+function getRankStripeStyle(upsetRisk) {
+  if (upsetRisk === 'HIGH') return 'danger';
+  return 'default';
 }
 
 function computeUpsetRisk(game) {
@@ -25,16 +38,16 @@ function computeUpsetRisk(game) {
 function MatchupRiskChip({ risk, framing }) {
   const cfg = MATCHUP_RISK_CONFIG[risk];
   if (!cfg) return null;
-  const label = framing?.matchupLabel || (risk === 'HIGH' ? 'DANGER ZONE' : 'VOLATILE');
+  const label = framing?.matchupLabel || (risk === 'HIGH' ? 'DANGER ZONE' : 'TOSS-UP');
   return (
-    <span className={styles.dangerBadge} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
+    <span className={risk === 'HIGH' ? styles.dangerBadge : styles.badge} style={{ color: cfg.text, background: cfg.bg, borderColor: cfg.border }}>
       {cfg.icon} {label}
     </span>
   );
 }
 
-function UpsetRing({ pct, color, size = 72 }) {
-  const stroke = 6;
+function UpsetRing({ pct, color, size = 62 }) {
+  const stroke = 5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
@@ -46,7 +59,7 @@ function UpsetRing({ pct, color, size = 72 }) {
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none"
-            stroke="rgba(200,60,40,0.12)"
+            stroke="rgba(61,168,122,0.10)"
             strokeWidth={stroke}
           />
           <circle
@@ -58,7 +71,7 @@ function UpsetRing({ pct, color, size = 72 }) {
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            style={{ filter: `drop-shadow(0 0 10px ${color}66)` }}
+            style={{ filter: `drop-shadow(0 0 8px ${color}55)` }}
           />
         </svg>
         <span className={styles.upsetRingPct} style={{ color }}>{pct}%</span>
@@ -84,7 +97,7 @@ function PressureBar({ favoriteName, underdogName, underdogPct, edgeColor }) {
             flex: underdogPct,
             minWidth: underdogPct > 0 ? `${underdogPct}%` : 0,
             background: `linear-gradient(90deg, ${edgeColor}88, ${edgeColor})`,
-            boxShadow: `0 0 14px ${edgeColor}55`,
+            boxShadow: `0 0 12px ${edgeColor}44`,
           }}
         />
       </div>
@@ -110,9 +123,9 @@ function UpsetCard({ game, rank }) {
   if (!game) return null;
   const { topTeam, bottomTeam, topSeed, bottomSeed, region, modelResult } = game;
   const upsetRisk = computeUpsetRisk(game);
+  const stripeStyle = getRankStripeStyle(upsetRisk);
 
   const pickTeam = modelResult?.winner || topTeam;
-  const oppTeam = modelResult?.loser || bottomTeam;
   const isUpsetPick = modelResult?.isUpset ?? false;
   const winProb = modelResult?.winProbability ?? 0.5;
   const pct = Math.round(winProb * 100);
@@ -140,7 +153,9 @@ function UpsetCard({ game, rank }) {
 
   const pickSlug = pickTeam?.slug || '';
   const tc = getTeamColors(pickSlug);
-  const accentColor = tc?.primary || '#E8845F';
+  const accentColor = tc?.primary || '#3DA87A';
+
+  const stripeClass = stripeStyle === 'danger' ? styles.rankStripeDanger : styles.rankStripe;
 
   return (
     <div
@@ -152,8 +167,7 @@ function UpsetCard({ game, rank }) {
         '--card-accent-08': `${accentColor}14`,
       }}
     >
-      {/* Danger rank indicator — left edge */}
-      <div className={styles.rankStripe}>
+      <div className={stripeClass}>
         <span className={styles.rankNum}>{rank}</span>
       </div>
 
@@ -162,21 +176,21 @@ function UpsetCard({ game, rank }) {
           {/* LEFT: Higher seed */}
           <div className={isPickLeft ? styles.pickZone : styles.oppZone}>
             <div className={isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
-              {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}30 0%, transparent 70%)` }} />}
-              <TeamLogo team={leftTeam} size={54} />
+              {isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}25 0%, transparent 70%)` }} />}
+              <TeamLogo team={leftTeam} size={48} />
             </div>
             <span className={isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{leftSeed}</span>
             <span className={isPickLeft ? styles.pickName : styles.oppName}>{leftTeam?.shortName || leftTeam?.name}</span>
             {isPickLeft && (
               <span className={styles.pickBadge}>
-                {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
+                {framing.pickLabel}
               </span>
             )}
           </div>
 
           {/* CENTER: Underdog upset chance */}
           <div className={styles.centerZone}>
-            <UpsetRing pct={underdogPct} color={getUpsetChanceColor(underdogPct)} size={70} />
+            <UpsetRing pct={underdogPct} color={getUpsetChanceColor(underdogPct)} size={62} />
             <div className={styles.vsStrip}>
               <span className={styles.vsLabel}>VS</span>
               {region && <span className={styles.regionLabel}>{region.toUpperCase()}</span>}
@@ -186,14 +200,14 @@ function UpsetCard({ game, rank }) {
           {/* RIGHT: Lower seed */}
           <div className={!isPickLeft ? styles.pickZone : styles.oppZone}>
             <div className={!isPickLeft ? styles.pickLogoWrap : styles.oppLogoWrap}>
-              {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}30 0%, transparent 70%)` }} />}
-              <TeamLogo team={rightTeam} size={54} />
+              {!isPickLeft && <div className={styles.pickGlow} style={{ background: `radial-gradient(circle, ${accentColor}25 0%, transparent 70%)` }} />}
+              <TeamLogo team={rightTeam} size={48} />
             </div>
             <span className={!isPickLeft ? styles.seedTag : styles.oppSeedTag}>#{rightSeed}</span>
             <span className={!isPickLeft ? styles.pickName : styles.oppName}>{rightTeam?.shortName || rightTeam?.name}</span>
             {!isPickLeft && (
               <span className={styles.pickBadge}>
-                {framing.isTrueUpsetPick ? `${framing.pickLabel}` : `${framing.pickLabel}`}
+                {framing.pickLabel}
               </span>
             )}
           </div>
@@ -243,8 +257,8 @@ export default function UpsetRadarSlide({ data, asOf, slideNumber, slideTotal, o
       <div className={styles.headerBlock}>
         <div className={styles.headerTop}>
           <div className={styles.headerText}>
-            <div className={styles.alertBadge}>
-              <span className={styles.alertPulse} />
+            <div className={styles.signalBadge}>
+              <span className={styles.signalDot} />
               MARCH MADNESS 2026
             </div>
             <h2 className={styles.title}>{titleText}</h2>
