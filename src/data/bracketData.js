@@ -14,7 +14,7 @@
  *   bracket.year — tournament year
  */
 
-import { REGIONS, SEED_MATCHUP_ORDER, TOURNAMENT_YEAR } from '../config/bracketology';
+import { REGIONS, SEED_MATCHUP_ORDER, TOURNAMENT_YEAR, FINAL_FOUR_MATCHUPS } from '../config/bracketology';
 import { generateProjectedBracket } from './projectedField';
 
 /**
@@ -106,29 +106,27 @@ export function buildFullBracket(regions, userPicks = {}) {
     }
   }
 
-  const regionWinners = REGIONS.map(regionName => {
+  const regionWinnerMap = {};
+  for (const regionName of REGIONS) {
     const eliteEight = Object.values(allMatchups)
       .find(m => m.round === 4 && m.region === regionName);
-    return eliteEight ? getWinnerTeam(eliteEight, userPicks) : null;
-  });
+    regionWinnerMap[regionName] = eliteEight ? getWinnerTeam(eliteEight, userPicks) : null;
+  }
 
-  const ff1Id = 'ff-1';
-  const ff2Id = 'ff-2';
-  allMatchups[ff1Id] = {
-    matchupId: ff1Id, round: 5,
-    topTeam: regionWinners[0], bottomTeam: regionWinners[1],
-    winner: userPicks[ff1Id] || null,
-    status: regionWinners[0] && regionWinners[1] ? 'ready' : 'waiting',
-    regionMatchup: `${REGIONS[0]} vs ${REGIONS[1]}`,
-  };
-  allMatchups[ff2Id] = {
-    matchupId: ff2Id, round: 5,
-    topTeam: regionWinners[2], bottomTeam: regionWinners[3],
-    winner: userPicks[ff2Id] || null,
-    status: regionWinners[2] && regionWinners[3] ? 'ready' : 'waiting',
-    regionMatchup: `${REGIONS[2]} vs ${REGIONS[3]}`,
-  };
+  for (const { matchupId, topRegion, bottomRegion } of FINAL_FOUR_MATCHUPS) {
+    const topTeam = regionWinnerMap[topRegion];
+    const bottomTeam = regionWinnerMap[bottomRegion];
+    allMatchups[matchupId] = {
+      matchupId, round: 5,
+      topTeam, bottomTeam,
+      winner: userPicks[matchupId] || null,
+      status: topTeam && bottomTeam ? 'ready' : 'waiting',
+      regionMatchup: `${topRegion} vs ${bottomRegion}`,
+    };
+  }
 
+  const ff1Id = FINAL_FOUR_MATCHUPS[0].matchupId;
+  const ff2Id = FINAL_FOUR_MATCHUPS[1].matchupId;
   const champTeamTop = allMatchups[ff1Id].winner
     ? getTeamByPickId(allMatchups[ff1Id], userPicks[ff1Id])
     : null;

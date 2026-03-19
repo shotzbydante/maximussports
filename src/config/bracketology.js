@@ -21,6 +21,18 @@ export const TOURNAMENT_YEAR = 2026;
 export const TOURNAMENT_NAME = '2026 NCAA March Madness';
 
 export const REGIONS = ['East', 'West', 'South', 'Midwest'];
+
+/**
+ * Canonical Final Four cross-region pairings (NCAA bracket structure).
+ * Each entry maps a semifinal matchup ID to the two regions whose
+ * champions meet. All downstream code must reference this constant
+ * instead of deriving pairings from REGIONS array order.
+ */
+export const FINAL_FOUR_MATCHUPS = [
+  { matchupId: 'ff-1', topRegion: 'South', bottomRegion: 'East' },
+  { matchupId: 'ff-2', topRegion: 'West',  bottomRegion: 'Midwest' },
+];
+
 export const ROUNDS = [
   { id: 1, name: 'Round of 64', shortName: 'R64', gamesPerRegion: 8 },
   { id: 2, name: 'Round of 32', shortName: 'R32', gamesPerRegion: 4 },

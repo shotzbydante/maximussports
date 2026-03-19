@@ -21,6 +21,10 @@ const SEED_MATCHUP_ORDER = [
   [1, 16], [8, 9], [5, 12], [4, 13],
   [6, 11], [3, 14], [7, 10], [2, 15],
 ];
+const FINAL_FOUR_MATCHUPS = [
+  { matchupId: 'ff-1', topRegion: 'South', bottomRegion: 'East' },
+  { matchupId: 'ff-2', topRegion: 'West',  bottomRegion: 'Midwest' },
+];
 
 let _bypassCache = true;
 
@@ -51,10 +55,11 @@ function generateBlankBracket() {
 
   return {
     year: 2026, status: 'pre_selection', regions,
-    finalFour: [
-      { matchupId: 'ff-1', round: 5, topTeam: null, bottomTeam: null, winner: null, status: 'pending', regionMatchup: `${REGIONS[0]} vs ${REGIONS[1]}` },
-      { matchupId: 'ff-2', round: 5, topTeam: null, bottomTeam: null, winner: null, status: 'pending', regionMatchup: `${REGIONS[2]} vs ${REGIONS[3]}` },
-    ],
+    finalFour: FINAL_FOUR_MATCHUPS.map(({ matchupId, topRegion, bottomRegion }) => ({
+      matchupId, round: 5, topTeam: null, bottomTeam: null,
+      winner: null, status: 'pending',
+      regionMatchup: `${topRegion} vs ${bottomRegion}`,
+    })),
     championship: { matchupId: 'champ', round: 6, topTeam: null, bottomTeam: null, winner: null, status: 'pending' },
     lastUpdated: new Date().toISOString(),
   };

@@ -12,7 +12,7 @@
  * NOT official NCAA committee selections.
  */
 
-import { REGIONS, SEED_MATCHUP_ORDER } from '../config/bracketology';
+import { REGIONS, SEED_MATCHUP_ORDER, FINAL_FOUR_MATCHUPS } from '../config/bracketology';
 
 const PROJECTED_FIELD = [
   // ─── 1 seeds ───────────────────────────────────────────────────
@@ -195,10 +195,11 @@ export function generateProjectedBracket() {
     status: 'projected',
     bracketMode: 'projected',
     regions,
-    finalFour: [
-      { matchupId: 'ff-1', round: 5, topTeam: null, bottomTeam: null, winner: null, status: 'pending', regionMatchup: 'East vs West' },
-      { matchupId: 'ff-2', round: 5, topTeam: null, bottomTeam: null, winner: null, status: 'pending', regionMatchup: 'South vs Midwest' },
-    ],
+    finalFour: FINAL_FOUR_MATCHUPS.map(({ matchupId, topRegion, bottomRegion }) => ({
+      matchupId, round: 5, topTeam: null, bottomTeam: null,
+      winner: null, status: 'pending',
+      regionMatchup: `${topRegion} vs ${bottomRegion}`,
+    })),
     championship: { matchupId: 'champ', round: 6, topTeam: null, bottomTeam: null, winner: null, status: 'pending' },
     lastUpdated: new Date().toISOString(),
   };
