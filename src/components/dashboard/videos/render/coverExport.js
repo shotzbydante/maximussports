@@ -39,6 +39,7 @@ export async function generateFrameCover({
   seekTime = 0,
   headline = '',
   templateId = 'feature-spotlight',
+  headlineYPct = 0.50,
 }) {
   const tpl = getTemplate(templateId);
   const { width, height, brand } = tpl;
@@ -54,7 +55,7 @@ export async function generateFrameCover({
   drawVideoFrame(ctx, video);
 
   if (headline) {
-    drawHeadlineOverlay(ctx, headline, height * 0.50, 52, 1.25, 0.95, accentColor);
+    drawHeadlineOverlay(ctx, headline, height * headlineYPct, 52, 1.25, 0.95, accentColor);
   }
 
   const logo = await loadLogo(brand.logo);
@@ -73,13 +74,14 @@ export async function generateCoverSet({
   sourceUrl,
   seekTime,
   templateId = 'feature-spotlight',
+  headlineYPct,
 }) {
   const introCover = await generateCoverImage({ headline, templateId });
 
   let frameCover = null;
   if (sourceUrl && seekTime != null) {
     try {
-      frameCover = await generateFrameCover({ sourceUrl, seekTime, headline, templateId });
+      frameCover = await generateFrameCover({ sourceUrl, seekTime, headline, templateId, headlineYPct });
     } catch {
       // frame cover generation failed — not critical
     }

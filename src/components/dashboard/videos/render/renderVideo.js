@@ -83,6 +83,7 @@ export async function renderVideo(opts) {
     hookAnimationVariant = null,
     textColor = '#ffffff',
     bgColor = '#071426',
+    overlayYPositions = null,
     onProgress,
     signal,
   } = opts;
@@ -245,7 +246,8 @@ export async function renderVideo(opts) {
           const ovLocal = (footageProgress - ov.startPct) / (ov.endPct - ov.startPct);
           const fadePct = ov.fadeMs / ((footageTotalFrames / fps * 1000) * (ov.endPct - ov.startPct));
           const alpha = easeAlpha(ovLocal, fadePct, fadePct);
-          const yPct = overlayYPctOffset || ov.yPct;
+          const customY = overlayYPositions?.[ov.field];
+          const yPct = customY ?? overlayYPctOffset ?? ov.yPct;
 
           const slideOffset = getCaptionSlideOffset(footageTimeS, ov.startPct * footageDurationS);
           drawHeadlineOverlay(ctx, text, H * yPct - slideOffset, ov.maxFontSize, ov.lineHeight, alpha, accentColor, {

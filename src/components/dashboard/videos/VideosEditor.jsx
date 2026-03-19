@@ -68,10 +68,17 @@ export default function VideosEditor() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [editMode, setEditMode] = useState('smart');
 
+  // ── overlay text positions ────────────────────────────────────
+  const [overlayYPositions, setOverlayYPositions] = useState({ headline: 0.20, subhead: 0.32 });
+
   // ── render state ───────────────────────────────────────────────
   const [renderState, setRenderState] = useState('idle');
   const [renderProgress, setRenderProgress] = useState(0);
   const [outputUrl, setOutputUrl] = useState(null);
+  const [outputBlob, setOutputBlob] = useState(null);
+  const [mainCoverBlob, setMainCoverBlob] = useState(null);
+  const [mainAltCoverBlob, setMainAltCoverBlob] = useState(null);
+  const [mainCoverType, setMainCoverType] = useState('intro');
   const [error, setError] = useState(null);
   const abortRef = useRef(null);
 
@@ -193,6 +200,9 @@ export default function VideosEditor() {
     setTrimStart(0);
     setTrimEnd(10);
     setOutputUrl(null);
+    setOutputBlob(null);
+    setMainCoverBlob(null);
+    setMainAltCoverBlob(null);
     setRenderState('idle');
     setError(null);
     setTrimSuggested(false);
@@ -378,10 +388,11 @@ export default function VideosEditor() {
       videoDuration,
       bgColor,
       hookAnimationVariant,
+      overlayYPositions,
     });
     setProjectId(proj.id);
     setSavedProjects(listProjects());
-  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, captionTone, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration, bgColor, hookAnimationVariant]);
+  }, [projectId, projectName, promptContext, featureType, hookStyle, messageAngle, copyIntensity, captionTone, headline, subhead, overlayBeats, cta, ctaType, caption, trimStart, trimEnd, editMode, watermark, templateId, sourceFile, videoDuration, bgColor, hookAnimationVariant, overlayYPositions]);
 
   const handleLoadProject = useCallback((proj) => {
     setProjectId(proj.id);
@@ -405,6 +416,7 @@ export default function VideosEditor() {
     setTemplateId(proj.templateId || 'feature-spotlight');
     setBgColor(proj.bgColor || DEFAULT_BG_COLOR);
     setHookAnimationVariant(proj.hookAnimationVariant || null);
+    setOverlayYPositions(proj.overlayYPositions || { headline: 0.20, subhead: 0.32 });
     setShowProjectList(false);
   }, []);
 
@@ -421,6 +433,9 @@ export default function VideosEditor() {
     setRenderProgress(0);
     setError(null);
     if (outputUrl) { URL.revokeObjectURL(outputUrl); setOutputUrl(null); }
+    setOutputBlob(null);
+    setMainCoverBlob(null);
+    setMainAltCoverBlob(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -442,13 +457,32 @@ export default function VideosEditor() {
         bgColor,
         overlayBeats,
         beatTimings,
+        overlayYPositions,
         onProgress: setRenderProgress,
         signal: controller.signal,
       });
 
       const url = URL.createObjectURL(blob);
       setOutputUrl(url);
+      setOutputBlob(blob);
       setRenderState('complete');
+
+      try {
+        const coverSet = await generateCoverSet({
+          headline: headline.trim(),
+          sourceUrl,
+          seekTime: analysisResult?.beatPeaks?.[0]?.time ?? trimStart + 2,
+          templateId,
+          headlineYPct: overlayYPositions?.headline,
+        });
+        setMainCoverBlob(coverSet.frameCover || coverSet.introCover);
+        setMainAltCoverBlob(coverSet.frameCover && coverSet.introCover
+          ? (coverSet.recommended === 'frame' ? coverSet.introCover : coverSet.frameCover)
+          : null);
+        setMainCoverType(coverSet.recommended || 'intro');
+      } catch {
+        // cover generation is non-critical
+      }
     } catch (err) {
       if (err.name === 'AbortError') {
         setRenderState('idle');
@@ -457,7 +491,7 @@ export default function VideosEditor() {
         setRenderState('error');
       }
     }
-  }, [canRender, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, headline, subhead, cta, watermark, outputUrl, overlayBeats, beatTimings, templateId, hookStyle, hookAnimationVariant, textColor, bgColor]);
+  }, [canRender, sourceUrl, trimStart, trimEnd, editMode, currentEditPlan, headline, subhead, cta, watermark, outputUrl, overlayBeats, beatTimings, templateId, hookStyle, hookAnimationVariant, textColor, bgColor, overlayYPositions, analysisResult]);
 
   // ── multi-variant render ───────────────────────────────────────
   const handleRenderVariants = useCallback(async () => {
@@ -512,6 +546,7 @@ export default function VideosEditor() {
           bgColor,
           overlayBeats: variantCopy.overlayBeats?.length ? variantCopy.overlayBeats : overlayBeats,
           beatTimings,
+          overlayYPositions,
           onProgress: (p) => setVariantProgress((i + p) / hooks.length),
           signal: controller.signal,
         });
@@ -526,6 +561,7 @@ export default function VideosEditor() {
             sourceUrl,
             seekTime: analysisResult?.beatPeaks?.[0]?.time ?? trimStart + 2,
             templateId,
+            headlineYPct: overlayYPositions?.headline,
           });
           coverBlob = coverSet.frameCover || coverSet.introCover;
         } catch {
@@ -622,6 +658,9 @@ export default function VideosEditor() {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     variantOutputs.forEach(v => v.url && URL.revokeObjectURL(v.url));
     setOutputUrl(null);
+    setOutputBlob(null);
+    setMainCoverBlob(null);
+    setMainAltCoverBlob(null);
     setVariantOutputs([]);
     setRenderState('idle');
     setVariantRenderState('idle');
@@ -684,6 +723,29 @@ export default function VideosEditor() {
       hasRamps,
     };
   }, [currentEditPlan, videoDuration]);
+
+  // ── main version score (reuses variant scoring system) ────────
+  const mainVersionScore = useMemo(() => {
+    if (!headline.trim()) return null;
+    const scored = scoreVariants(
+      [{ id: 'main', headline: headline.trim(), tone: hookStyle }],
+      { cta, featureType }
+    );
+    return scored[0] || null;
+  }, [headline, cta, featureType, hookStyle]);
+
+  // ── overlay position change handler ──────────────────────────
+  const handleOverlayPositionChange = useCallback((field, yPct) => {
+    setOverlayYPositions(prev => ({ ...prev, [field]: yPct }));
+  }, []);
+
+  const TEXT_POSITION_PRESETS = useMemo(() => [
+    { label: 'Top', headline: 0.17, subhead: 0.29 },
+    { label: 'Upper Third', headline: 0.22, subhead: 0.34 },
+    { label: 'Center', headline: 0.40, subhead: 0.52 },
+    { label: 'Lower Third', headline: 0.56, subhead: 0.66 },
+    { label: 'Bottom', headline: 0.62, subhead: 0.72 },
+  ], []);
 
   // ── render UI ──────────────────────────────────────────────────
   return (
@@ -1104,6 +1166,35 @@ export default function VideosEditor() {
           </div>
         </div>
 
+        {/* text position presets */}
+        {sourceUrl && (headline.trim() || subhead.trim()) && (
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>Text Position</div>
+            <div className={styles.positionHint}>
+              Drag text in preview or use presets
+            </div>
+            <div className={styles.chipRow}>
+              {TEXT_POSITION_PRESETS.map((preset) => {
+                const isActive = Math.abs(overlayYPositions.headline - preset.headline) < 0.02
+                  && Math.abs(overlayYPositions.subhead - preset.subhead) < 0.02;
+                return (
+                  <button
+                    key={preset.label}
+                    className={`${styles.chipBtn} ${isActive ? styles.chipBtnActive : ''}`}
+                    onClick={() => setOverlayYPositions({ headline: preset.headline, subhead: preset.subhead })}
+                    disabled={isRendering}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={styles.positionReadout}>
+              headline {Math.round(overlayYPositions.headline * 100)}% · subhead {Math.round(overlayYPositions.subhead * 100)}%
+            </div>
+          </div>
+        )}
+
         {/* options */}
         <div className={styles.section}>
           <div className={styles.sectionTitle}>Options</div>
@@ -1217,6 +1308,8 @@ export default function VideosEditor() {
           overlayBeats={overlayBeats}
           beatTimings={beatTimings}
           editPlan={editMode === 'smart' ? currentEditPlan : null}
+          overlayYPositions={overlayYPositions}
+          onOverlayPositionChange={handleOverlayPositionChange}
         />
 
         <div className={styles.previewMeta}>
@@ -1272,11 +1365,67 @@ export default function VideosEditor() {
           </div>
         )}
 
-        {/* single output preview */}
-        {outputUrl && variantRenderState !== 'complete' && (
-          <div className={styles.outputWrap}>
-            <video src={outputUrl} controls playsInline muted className={styles.outputVideo} />
-            <div className={styles.outputLabel}>RENDERED OUTPUT</div>
+        {/* main reel card — appears after render completes */}
+        {renderState === 'complete' && outputUrl && (
+          <div className={styles.mainReelSection}>
+            <div className={styles.mainReelTitle}>Your Main Reel</div>
+            <div className={styles.mainReelCard}>
+              <div className={styles.mainReelVideoWrap}>
+                <video src={outputUrl} controls playsInline muted className={styles.variantVideo} />
+                <div className={styles.mainReelBadge}>Editable Main Version</div>
+              </div>
+              <div className={styles.mainReelInfo}>
+                <div className={styles.variantLabel}>Primary Reel</div>
+                <div className={styles.variantHookPreview}>{headline}</div>
+                {mainVersionScore && (
+                  <>
+                    <div className={styles.variantExplanation}>{mainVersionScore.explanation}</div>
+                    <div className={styles.variantScore}>
+                      Score: {(mainVersionScore.score * 100).toFixed(0)}/100
+                    </div>
+                  </>
+                )}
+                <div className={styles.variantBtnRow}>
+                  <button
+                    className={styles.btnSmall}
+                    onClick={() => handleDownload(outputUrl)}
+                  >
+                    ⬇ MP4
+                  </button>
+                  {mainCoverBlob && (
+                    <button
+                      className={styles.btnSmall}
+                      onClick={() => handleDownloadCover(mainCoverBlob, '_main')}
+                    >
+                      🖼 Cover
+                    </button>
+                  )}
+                  {mainAltCoverBlob && (
+                    <button
+                      className={styles.btnSmall}
+                      onClick={() => handleDownloadCover(mainAltCoverBlob, '_main_alt')}
+                    >
+                      🖼 Alt Cover
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* main reel score preview (before render, when copy exists) */}
+        {renderState !== 'complete' && mainVersionScore && sourceUrl && (
+          <div className={styles.mainReelScorePreview}>
+            <div className={styles.mainReelScoreTitle}>Main Reel Score Preview</div>
+            <div className={styles.mainReelScoreRow}>
+              <span className={styles.mainReelScoreValue}>
+                {(mainVersionScore.score * 100).toFixed(0)}/100
+              </span>
+              <span className={styles.mainReelScoreExplanation}>
+                {mainVersionScore.explanation}
+              </span>
+            </div>
           </div>
         )}
 

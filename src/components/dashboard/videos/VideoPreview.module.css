@@ -106,7 +106,36 @@
   background: rgba(10, 14, 26, 0.72);
   border: 1px solid rgba(60, 121, 180, 0.2);
   z-index: 3;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.overlayDraggable {
+  cursor: grab;
+  user-select: none;
+  border: 1px dashed rgba(60, 121, 180, 0.4);
+}
+
+.overlayDraggable:hover {
+  border-color: rgba(60, 121, 180, 0.7);
+  box-shadow: 0 0 0 2px rgba(60, 121, 180, 0.12), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.overlayDragging {
+  cursor: grabbing;
+  border-color: #3C79B4;
+  box-shadow: 0 0 0 2px rgba(60, 121, 180, 0.25), 0 4px 16px rgba(0, 0, 0, 0.2);
+  opacity: 0.92 !important;
+}
+
+.dragHandle {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: rgba(60, 121, 180, 0.5);
+  line-height: 1;
+  pointer-events: none;
 }
 
 .overlayText {

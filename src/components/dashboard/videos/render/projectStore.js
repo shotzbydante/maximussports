@@ -52,6 +52,7 @@ export function saveProject(data) {
     videoDuration: data.videoDuration || 0,
     bgColor: data.bgColor || '#071426',
     hookAnimationVariant: data.hookAnimationVariant || null,
+    overlayYPositions: data.overlayYPositions || null,
   };
 
   const existing = projects.findIndex(p => p.id === project.id);

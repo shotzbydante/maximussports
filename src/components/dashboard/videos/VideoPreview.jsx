@@ -1,6 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import styles from './VideoPreview.module.css';
 
+const SAFE_TOP = 0.16;
+const SAFE_BOTTOM = 0.76;
+const MIN_GAP = 0.10;
+
 /**
  * 9:16 video preview with IG Reels safe-zone guides and overlay zones.
  *
@@ -18,13 +22,17 @@ export default function VideoPreview({
   beatTimings = null,
   editPlan = null,
   showSafeZones = true,
+  overlayYPositions = null,
+  onOverlayPositionChange = null,
 }) {
   const videoRef = useRef(null);
+  const innerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [currentScene, setCurrentScene] = useState('empty');
   const [footageProgress, setFootageProgress] = useState(0);
   const segIdxRef = useRef(0);
   const rafRef = useRef(null);
+  const [dragging, setDragging] = useState(null);
 
   const useEditPlan = editPlan && editPlan.segments?.length > 0;
 
@@ -147,9 +155,55 @@ export default function VideoPreview({
     return footageProgress >= timing.startPct && footageProgress <= timing.endPct;
   });
 
+  const headlineY = overlayYPositions?.headline ?? 0.20;
+  const subheadY = overlayYPositions?.subhead ?? 0.32;
+  const canDrag = !playing && onOverlayPositionChange && sourceUrl;
+
+  const handleDragStart = useCallback((field, e) => {
+    if (!canDrag || !innerRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = innerRef.current.getBoundingClientRect();
+    const startClientY = e.clientY ?? e.touches?.[0]?.clientY;
+    const startPct = field === 'headline' ? headlineY : subheadY;
+    setDragging(field);
+
+    const handleMove = (moveE) => {
+      const clientY = moveE.clientY ?? moveE.touches?.[0]?.clientY;
+      const dy = (clientY - startClientY) / rect.height;
+      let newY = startPct + dy;
+
+      if (field === 'headline') {
+        newY = Math.max(SAFE_TOP, Math.min(SAFE_BOTTOM - MIN_GAP, newY));
+        onOverlayPositionChange('headline', parseFloat(newY.toFixed(3)));
+        const currentSubY = overlayYPositions?.subhead ?? 0.32;
+        if (currentSubY < newY + MIN_GAP) {
+          onOverlayPositionChange('subhead', parseFloat(Math.min(SAFE_BOTTOM, newY + MIN_GAP).toFixed(3)));
+        }
+      } else {
+        const currentHeadY = overlayYPositions?.headline ?? 0.20;
+        newY = Math.max(currentHeadY + MIN_GAP, Math.min(SAFE_BOTTOM, newY));
+        onOverlayPositionChange('subhead', parseFloat(newY.toFixed(3)));
+      }
+    };
+
+    const handleUp = () => {
+      setDragging(null);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleUp);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleUp);
+  }, [canDrag, headlineY, subheadY, onOverlayPositionChange, overlayYPositions]);
+
   return (
     <div className={styles.previewWrap}>
-      <div className={styles.inner}>
+      <div className={styles.inner} ref={innerRef}>
         {sourceUrl ? (
           <>
             <video
@@ -195,12 +249,24 @@ export default function VideoPreview({
         )}
 
         {sourceUrl && headlineVisible && !playing && (
-          <div className={styles.overlayZone} style={{ top: '20%' }}>
+          <div
+            className={`${styles.overlayZone} ${canDrag ? styles.overlayDraggable : ''} ${dragging === 'headline' ? styles.overlayDragging : ''}`}
+            style={{ top: `${headlineY * 100}%` }}
+            onMouseDown={canDrag ? (e) => handleDragStart('headline', e) : undefined}
+            onTouchStart={canDrag ? (e) => handleDragStart('headline', e) : undefined}
+          >
+            {canDrag && <span className={styles.dragHandle}>⠿</span>}
             <span className={styles.overlayText}>{headline}</span>
           </div>
         )}
         {sourceUrl && subheadVisible && !playing && (
-          <div className={styles.overlayZone} style={{ top: '32%', opacity: 0.55 }}>
+          <div
+            className={`${styles.overlayZone} ${canDrag ? styles.overlayDraggable : ''} ${dragging === 'subhead' ? styles.overlayDragging : ''}`}
+            style={{ top: `${subheadY * 100}%`, opacity: 0.55 }}
+            onMouseDown={canDrag ? (e) => handleDragStart('subhead', e) : undefined}
+            onTouchStart={canDrag ? (e) => handleDragStart('subhead', e) : undefined}
+          >
+            {canDrag && <span className={styles.dragHandle}>⠿</span>}
             <span className={`${styles.overlayText} ${styles.overlaySmall}`}>{subhead}</span>
           </div>
         )}
