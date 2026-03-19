@@ -117,36 +117,28 @@ export default function DailyBriefingHeroSlide({ data, asOf, ...rest }) {
         </div>
       )}
 
-      {/* Title leaderboard */}
+      {/* Compact title market callout — single top mover instead of full leaderboard */}
       {vm.titleBoard.length > 0 && (
-        <div className={styles.titleRaceSection}>
-          <div className={styles.titleRaceHeader}>
+        <div className={styles.titleCallout}>
+          <span className={styles.titleCalloutLabel}>
             <span className={styles.sectionHeaderDot} />
-            LIVE TITLE BOARD
-          </div>
-          <div className={styles.titleRaceGrid}>
-            {vm.titleBoard.map((t, i) => (
-              <div
-                key={i}
-                className={`${styles.titleRaceChip} ${i === 0 ? styles.titleRaceChipTop : ''}`}
-              >
-                <span className={styles.titleRaceRank}>#{t.rank}</span>
-                {t.slug && (
-                  <img
-                    src={`/logos/${t.slug}.png`}
-                    alt=""
-                    className={styles.titleRaceLogo}
-                    crossOrigin="anonymous"
-                    data-fallback-text={t.name?.slice(0, 2)?.toUpperCase() || ''}
-                    onError={e => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-                <div className={styles.titleRaceMeta}>
-                  <span className={styles.titleRaceName}>{t.name}</span>
-                </div>
-                <span className={styles.titleRaceOdds}>{t.odds}</span>
-              </div>
-            ))}
+            TITLE MARKET
+          </span>
+          <div className={styles.titleCalloutChip}>
+            {vm.titleBoard[0].slug && (
+              <img
+                src={`/logos/${vm.titleBoard[0].slug}.png`}
+                alt=""
+                className={styles.titleCalloutLogo}
+                crossOrigin="anonymous"
+                onError={e => { e.currentTarget.style.display = 'none'; }}
+              />
+            )}
+            <span className={styles.titleCalloutName}>{vm.titleBoard[0].name}</span>
+            <span className={styles.titleCalloutOdds}>{vm.titleBoard[0].odds}</span>
+            {vm.titleBoard.length > 1 && (
+              <span className={styles.titleCalloutMore}>+{vm.titleBoard.length - 1} more</span>
+            )}
           </div>
         </div>
       )}

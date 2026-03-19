@@ -327,21 +327,7 @@
   flex: 1; min-width: 0;
 }
 
-/* ── Title leaderboard — scoreboard / ticker ──────────────────────────── */
-
-.titleRaceSection {
-  position: relative; z-index: 10;
-  margin: 14px 56px 0; flex-shrink: 0;
-}
-
-.titleRaceHeader {
-  font-family: 'Oswald', sans-serif;
-  font-size: 13px; font-weight: 700;
-  letter-spacing: 0.20em; text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.42);
-  margin-bottom: 8px;
-  display: flex; align-items: center; gap: 8px;
-}
+/* ── Title market callout — compact single-chip ──────────────────────── */
 
 .sectionHeaderDot {
   width: 5px; height: 5px; border-radius: 50%;
@@ -349,74 +335,55 @@
   flex-shrink: 0;
 }
 
-.titleRaceGrid {
-  display: flex; flex-direction: column; gap: 4px;
+.titleCallout {
+  position: relative; z-index: 10;
+  margin: 14px 56px 0; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
 }
 
-.titleRaceChip {
-  display: flex; align-items: center; gap: 14px;
-  background: rgba(4, 12, 24, 0.50);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(56, 120, 190, 0.15);
-  border-radius: 10px; padding: 10px 18px;
-  transition: background 0.2s;
-}
-
-.titleRaceChipTop {
-  background: rgba(56, 120, 190, 0.08);
-  border-color: rgba(56, 120, 190, 0.28);
-}
-
-.titleRaceRank {
+.titleCalloutLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 16px; font-weight: 700;
-  background: rgba(56, 120, 190, 0.15);
-  border: 1px solid rgba(56, 120, 190, 0.35);
-  color: rgba(130, 185, 240, 0.90);
-  border-radius: 6px; padding: 4px 10px;
-  white-space: nowrap; flex-shrink: 0;
-  min-width: 40px; text-align: center;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.20em; text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.42);
+  display: flex; align-items: center; gap: 8px;
 }
 
-.titleRaceChipTop .titleRaceRank {
-  background: rgba(56, 120, 190, 0.22);
-  border-color: rgba(56, 120, 190, 0.50);
-  color: rgba(160, 205, 255, 1);
+.titleCalloutChip {
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(56, 120, 190, 0.08);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(56, 120, 190, 0.22);
+  border-radius: 10px; padding: 12px 20px;
 }
 
-.titleRaceLogo {
+.titleCalloutLogo {
   width: 34px; height: 34px;
   object-fit: contain; flex-shrink: 0;
 }
 
-.titleRaceMeta {
-  display: flex; flex-direction: column;
-  gap: 1px; min-width: 0; flex: 1;
-}
-
-.titleRaceName {
+.titleCalloutName {
   font-family: 'Oswald', sans-serif;
-  font-size: 22px; font-weight: 600;
+  font-size: 24px; font-weight: 700;
   color: rgba(240, 244, 248, 0.93);
   white-space: nowrap; line-height: 1.1;
 }
 
-.titleRaceOdds {
+.titleCalloutOdds {
   font-family: 'JetBrains Mono', 'Oswald', sans-serif;
-  font-size: 15px; font-weight: 700;
-  background: rgba(107, 214, 158, 0.12);
-  border: 1px solid rgba(107, 214, 158, 0.28);
+  font-size: 16px; font-weight: 700;
+  background: rgba(107, 214, 158, 0.14);
+  border: 1px solid rgba(107, 214, 158, 0.32);
   color: #6BD69E;
   border-radius: 6px; padding: 4px 14px;
   white-space: nowrap; margin-left: auto;
   flex-shrink: 0; letter-spacing: 0.02em;
 }
 
-.titleRaceChipTop .titleRaceOdds {
-  background: rgba(107, 214, 158, 0.18);
-  border-color: rgba(107, 214, 158, 0.40);
-  color: #7AE6AE;
-  box-shadow: 0 0 8px rgba(107, 214, 158, 0.12);
+.titleCalloutMore {
+  font-size: 14px; font-weight: 500;
+  color: rgba(240, 244, 248, 0.35);
+  white-space: nowrap; flex-shrink: 0;
 }
 
 /* ── Recent results — editorial recap ─────────────────────────────────── */

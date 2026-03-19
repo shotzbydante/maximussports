@@ -207,7 +207,7 @@
   justify-content: center;
 }
 
-/* ── Featured total play (single qualifying total) ───────────── */
+/* ── Featured total play — clean pick-focused ────────────────── */
 
 .featuredTotal {
   display: flex;
@@ -222,7 +222,7 @@
 .featuredTotalMain {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .featuredTotalLogos {
@@ -232,12 +232,12 @@
   flex-shrink: 0;
 }
 
-.featuredTotalLine {
+.featuredTotalMatchup {
   font-family: 'Oswald', sans-serif;
-  font-size: 19px;
-  font-weight: 700;
-  color: #f0f4f8;
-  line-height: 1.18;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.60);
+  line-height: 1.2;
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -245,20 +245,53 @@
   text-overflow: ellipsis;
 }
 
-.featuredTotalMatchup {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(240, 244, 248, 0.48);
-  line-height: 1.25;
-  padding-left: 2px;
+.featuredTotalPick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
-.featuredTotalRationale {
+.featuredTotalLineVal {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #D4B87A;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+/* ── Compact O/U badge for hero totals rows ──────────────────── */
+
+.ouBadgeSm {
+  font-family: 'Oswald', sans-serif;
   font-size: 11px;
-  color: rgba(240, 244, 248, 0.34);
-  font-style: italic;
-  line-height: 1.4;
-  padding-left: 2px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ouBadgeSmOver {
+  color: #5FE8A8;
+  background: rgba(95, 232, 168, 0.12);
+  border-color: rgba(95, 232, 168, 0.30);
+}
+
+.ouBadgeSmUnder {
+  color: #E87B6B;
+  background: rgba(232, 123, 107, 0.12);
+  border-color: rgba(232, 123, 107, 0.28);
+}
+
+.ouBadgeSmNeutral {
+  color: rgba(183, 152, 108, 0.70);
+  background: rgba(183, 152, 108, 0.08);
+  border-color: rgba(183, 152, 108, 0.22);
 }
 
 /* ── Pick row — frosted strip per row ────────────────────────── */

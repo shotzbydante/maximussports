@@ -99,21 +99,45 @@ function PickRow({ pick, rank }) {
   const cs = getSlideColors(pick.confidence);
   const isTot = pick.pickType === 'total';
   const isAts = pick.pickType === 'ats';
-  const teamObj = !isTot ? makeTeamObj(pick.pickTeam) : null;
-  const homeObj = isTot ? makeTeamObj(pick.homeTeam) : null;
-  const awayObj = isTot ? makeTeamObj(pick.awayTeam) : null;
 
-  const teamDisplay = !isTot ? heroDisplayName(pick.pickTeam) : null;
+  if (isTot) {
+    const homeObj = makeTeamObj(pick.homeTeam);
+    const awayObj = makeTeamObj(pick.awayTeam);
+    const dir = pick.leanDirection;
+    const isOver = dir === 'OVER';
+    const isUnder = dir === 'UNDER';
+    return (
+      <div className={styles.pickRow}>
+        <div className={styles.pickMain}>
+          <span className={styles.pickRank}>#{rank}</span>
+          <div className={styles.pickLogos}>
+            {awayObj && <TeamLogo team={awayObj} size={24} />}
+            {homeObj && <TeamLogo team={homeObj} size={24} />}
+          </div>
+          <span className={styles.pickLine}>
+            {heroDisplayName(pick.awayTeam)} vs {heroDisplayName(pick.homeTeam)}
+          </span>
+          {pick.lineValue != null && (
+            <span className={styles.featuredTotalLineVal}>{pick.lineValue}</span>
+          )}
+          <span className={`${styles.ouBadgeSm} ${isOver ? styles.ouBadgeSmOver : isUnder ? styles.ouBadgeSmUnder : styles.ouBadgeSmNeutral}`}>
+            {dir ?? 'O/U'}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
+  const teamObj = makeTeamObj(pick.pickTeam);
+  const teamDisplay = heroDisplayName(pick.pickTeam);
   const spreadLabel = isAts && pick.spread != null ? fmtSpread(pick.spread) : null;
-  const pricePart = !isTot && !spreadLabel && pick.pickLine && pick.pickTeam && pick.pickLine.length > pick.pickTeam.length
+  const pricePart = !spreadLabel && pick.pickLine && pick.pickTeam && pick.pickLine.length > pick.pickTeam.length
     ? pick.pickLine.slice(pick.pickTeam.length).trim()
     : null;
   const inlineTag = spreadLabel || pricePart;
-
-  const opponentLabel = !isTot && pick.opponentTeam
+  const opponentLabel = pick.opponentTeam
     ? `vs ${heroDisplayName(pick.opponentTeam)}`
-    : (isTot ? `${heroDisplayName(pick.awayTeam)} vs ${heroDisplayName(pick.homeTeam)}` : null);
+    : null;
 
   return (
     <div className={`${styles.pickRow} ${pick.isTopSignal ? styles.topSignalRow : ''}`}>
@@ -123,23 +147,10 @@ function PickRow({ pick, rank }) {
       <div className={styles.pickMain}>
         <span className={styles.pickRank}>#{rank}</span>
         <div className={styles.pickLogos}>
-          {isTot ? (
-            <>
-              {awayObj && <TeamLogo team={awayObj} size={24} />}
-              {homeObj && <TeamLogo team={homeObj} size={24} />}
-            </>
-          ) : (
-            teamObj && <TeamLogo team={teamObj} size={26} />
-          )}
+          {teamObj && <TeamLogo team={teamObj} size={26} />}
         </div>
-        {isTot ? (
-          <span className={styles.pickLine}>{pick.pickLine || '—'}</span>
-        ) : (
-          <>
-            <span className={styles.pickLine}>{teamDisplay || '—'}</span>
-            {inlineTag && <span className={styles.pickPrice}>{inlineTag}</span>}
-          </>
-        )}
+        <span className={styles.pickLine}>{teamDisplay || '—'}</span>
+        {inlineTag && <span className={styles.pickPrice}>{inlineTag}</span>}
         <span
           className={styles.pickConf}
           style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
@@ -154,13 +165,14 @@ function PickRow({ pick, rank }) {
   );
 }
 
-/* ── Featured totals play — expanded treatment when only 1 total qualifies */
+/* ── Featured totals play — clean pick-focused row ── */
 
 function FeaturedTotalRow({ pick }) {
-  const cs = getSlideColors(pick.confidence);
   const homeObj = makeTeamObj(pick.homeTeam);
   const awayObj = makeTeamObj(pick.awayTeam);
-  const dir = pick.leanDirection ?? 'OVER';
+  const dir = pick.leanDirection;
+  const isOver = dir === 'OVER';
+  const isUnder = dir === 'UNDER';
 
   return (
     <div className={styles.featuredTotal}>
@@ -169,26 +181,18 @@ function FeaturedTotalRow({ pick }) {
           {awayObj && <TeamLogo team={awayObj} size={24} />}
           {homeObj && <TeamLogo team={homeObj} size={24} />}
         </div>
-        <span className={styles.featuredTotalLine}>{pick.pickLine || '—'}</span>
-        <span
-          className={styles.pickConf}
-          style={{ background: cs.bg, color: cs.text, borderColor: cs.border }}
-        >
-          {getConfidenceLabel(pick.confidence)}
+        <span className={styles.featuredTotalMatchup}>
+          {heroDisplayName(pick.awayTeam)} vs {heroDisplayName(pick.homeTeam)}
         </span>
-        <MiniEdge pick={pick} />
       </div>
-      <div className={styles.featuredTotalMatchup}>
-        {heroDisplayName(pick.awayTeam)} vs {heroDisplayName(pick.homeTeam)}
+      <div className={styles.featuredTotalPick}>
+        {pick.lineValue != null && (
+          <span className={styles.featuredTotalLineVal}>{pick.lineValue}</span>
+        )}
+        <span className={`${styles.ouBadgeSm} ${isOver ? styles.ouBadgeSmOver : isUnder ? styles.ouBadgeSmUnder : styles.ouBadgeSmNeutral}`}>
+          {dir ?? 'O/U'}
+        </span>
       </div>
-      {pick.rationale && (
-        <div className={styles.featuredTotalRationale}>{pick.rationale}</div>
-      )}
-      {!pick.rationale && pick.signals?.length > 0 && (
-        <div className={styles.featuredTotalRationale}>
-          {pick.signals.slice(0, 2).join(' · ')}
-        </div>
-      )}
     </div>
   );
 }
