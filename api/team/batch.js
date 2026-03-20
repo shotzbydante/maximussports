@@ -28,9 +28,11 @@ function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
 
+const NCAA_TOURNEY_DATE = '2026-03-17';
+
 function computeAts(schedule, oddsHistory, teamName) {
   const past = (schedule?.events || []).filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
-  if (past.length === 0) return { season: null, last30: null, last7: null };
+  if (past.length === 0) return { season: null, last30: null, last7: null, preNcaaLast10: null };
   const oddsGames = oddsHistory?.games ?? [];
   const thirtyAgo = new Date();
   thirtyAgo.setDate(thirtyAgo.getDate() - 30);
@@ -53,10 +55,16 @@ function computeAts(schedule, oddsHistory, teamName) {
     .filter(({ date }) => date && new Date(date) >= sevenAgo)
     .map(({ outcome }) => outcome)
     .filter(Boolean);
+  const preNcaaLast10Out = withDate
+    .filter(({ date }) => date && date.slice(0, 10) < NCAA_TOURNEY_DATE)
+    .slice(0, 10)
+    .map(({ outcome }) => outcome)
+    .filter(Boolean);
   return {
     season: aggregateATS(seasonOut),
     last30: aggregateATS(last30Out),
     last7: aggregateATS(last7Out),
+    preNcaaLast10: aggregateATS(preNcaaLast10Out),
   };
 }
 

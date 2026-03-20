@@ -997,6 +997,26 @@
   color: var(--color-text-secondary);
 }
 
+.gameOppLogo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.gamecastLink {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.gamecastLink:hover {
+  text-decoration: underline;
+}
+
 .gameScore {
   font-family: var(--font-mono);
   font-weight: 600;

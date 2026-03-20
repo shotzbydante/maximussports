@@ -571,6 +571,57 @@ function _espnSeasonYear() {
   return now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
 }
 
+function _shapeScheduleEvents(rawEvents, teamId) {
+  return rawEvents.map((ev) => {
+    const comp = ev?.competitions?.[0];
+    const competitors = comp?.competitors || [];
+    const home = competitors.find((c) => c.homeAway === 'home');
+    const away = competitors.find((c) => c.homeAway === 'away');
+    const status = comp?.status || ev?.status;
+    const statusType = status?.type?.name || '';
+    const isFinal = statusType === 'STATUS_FINAL' || statusType === 'STATUS_POSTPONED';
+    const homeTeam = home?.team?.displayName || home?.team?.shortDisplayName || 'TBD';
+    const awayTeam = away?.team?.displayName || away?.team?.shortDisplayName || 'TBD';
+    const homeScore = toScore(home?.score);
+    const awayScore = toScore(away?.score);
+    const homeId = home?.team?.id;
+    const homeAway = homeId === String(teamId) ? 'home' : 'away';
+    const opponent = homeAway === 'home' ? awayTeam : homeTeam;
+    const ourScore = homeAway === 'home' ? homeScore : awayScore;
+    const oppScore = homeAway === 'home' ? awayScore : homeScore;
+    const seasonType = ev?.season?.type ?? ev?.seasonType ?? null;
+    const evName = ev?.name || ev?.shortName || '';
+    const compNotes = (comp?.notes || []).map((n) => n.headline || n.text || '').filter(Boolean);
+    const oppTeam = homeAway === 'home' ? away : home;
+    const broadcast = getNetwork(comp) || null;
+    const evLinks = ev?.links || [];
+    const gcLink = evLinks.find((l) => Array.isArray(l.rel) && l.rel.some((r) => r === 'summary' || r === 'gamecast'));
+    return {
+      id: ev.id,
+      date: ev.date || comp?.date || null,
+      homeTeam,
+      awayTeam,
+      homeScore,
+      awayScore,
+      status: status?.type?.description || status?.type?.shortDetail || 'Scheduled',
+      statusType,
+      isFinal,
+      venue: comp?.venue?.fullName || comp?.venue?.name || null,
+      homeAway,
+      opponent,
+      ourScore,
+      oppScore,
+      seasonType,
+      eventName: evName,
+      notes: compNotes,
+      broadcast,
+      gamecastUrl: gcLink?.href || null,
+      opponentLogo: oppTeam?.team?.logo || null,
+      opponentId: oppTeam?.team?.id ? String(oppTeam.team.id) : null,
+    };
+  });
+}
+
 export async function fetchScheduleSource(teamId) {
   const cacheKey = `schedule:${teamId}`;
   const cached = scheduleCache.get(cacheKey);
@@ -578,51 +629,33 @@ export async function fetchScheduleSource(teamId) {
 
   const result = await coalesce(cacheKey, async () => {
     const seasonYear = _espnSeasonYear();
-    const res = await fetch(`${ESPN_SCHEDULE_BASE}/${teamId}/schedule?season=${seasonYear}`);
+    const baseUrl = `${ESPN_SCHEDULE_BASE}/${teamId}/schedule`;
+
+    const res = await fetch(`${baseUrl}?season=${seasonYear}`);
     if (!res.ok) throw new Error(`ESPN schedule: ${res.status}`);
     const data = await res.json();
-    const rawEvents = data?.events || [];
-    const events = rawEvents.map((ev) => {
-      const comp = ev?.competitions?.[0];
-      const competitors = comp?.competitors || [];
-      const home = competitors.find((c) => c.homeAway === 'home');
-      const away = competitors.find((c) => c.homeAway === 'away');
-      const status = comp?.status || ev?.status;
-      const statusType = status?.type?.name || '';
-      const isFinal = statusType === 'STATUS_FINAL' || statusType === 'STATUS_POSTPONED';
-      const homeTeam = home?.team?.displayName || home?.team?.shortDisplayName || 'TBD';
-      const awayTeam = away?.team?.displayName || away?.team?.shortDisplayName || 'TBD';
-      const homeScore = toScore(home?.score);
-      const awayScore = toScore(away?.score);
-      const homeId = home?.team?.id;
-      const homeAway = homeId === String(teamId) ? 'home' : 'away';
-      const opponent = homeAway === 'home' ? awayTeam : homeTeam;
-      const ourScore = homeAway === 'home' ? homeScore : awayScore;
-      const oppScore = homeAway === 'home' ? awayScore : homeScore;
-      const seasonType = ev?.season?.type ?? ev?.seasonType ?? null;
-      const evName = ev?.name || ev?.shortName || '';
-      const compNotes = (comp?.notes || []).map((n) => n.headline || n.text || '').filter(Boolean);
-      return {
-        id: ev.id,
-        date: ev.date || comp?.date || null,
-        homeTeam,
-        awayTeam,
-        homeScore,
-        awayScore,
-        status: status?.type?.description || status?.type?.shortDetail || 'Scheduled',
-        statusType,
-        isFinal,
-        venue: comp?.venue?.fullName || comp?.venue?.name || null,
-        homeAway,
-        opponent,
-        ourScore,
-        oppScore,
-        seasonType,
-        eventName: evName,
-        notes: compNotes,
-      };
-    });
-    return { events };
+
+    const teamRecord = data?.team?.recordSummary || null;
+    const standingSummary = data?.team?.standingSummary || null;
+
+    let rawEvents = data?.events || [];
+    let events = _shapeScheduleEvents(rawEvents, teamId);
+
+    const preMarchCount = events.filter((e) => e.date && e.date.slice(0, 10) < '2026-03-01').length;
+    if (preMarchCount < 10 && events.length < 20) {
+      try {
+        const regRes = await fetch(`${baseUrl}?season=${seasonYear}&seasontype=2`);
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          const regRaw = regData?.events || [];
+          const existingIds = new Set(events.map((e) => e.id));
+          const regShaped = _shapeScheduleEvents(regRaw, teamId);
+          events = [...events, ...regShaped.filter((e) => !existingIds.has(e.id))];
+        }
+      } catch { /* non-fatal: continue with existing events */ }
+    }
+
+    return { events, teamRecord, standingSummary };
   });
 
   scheduleCache.set(cacheKey, result);

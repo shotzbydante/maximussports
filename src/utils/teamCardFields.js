@@ -9,21 +9,10 @@
 import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers';
 import { getTeamBySlug } from '../data/teams';
 
-// ── NCAA tournament date boundary (2026) ───────────────────────────
-// Games on or after this date are in the NCAA tournament window.
-// Conference tournaments finish before this date.
 const NCAA_TOURNEY_START = '2026-03-17';
 
-/**
- * Classify an event as an NCAA tournament game.
- *
- * Uses multiple signals because ESPN's seasonType field is not always
- * populated (especially when the schedule endpoint returns only the
- * current season segment):
- *   1. seasonType === 3 AND date >= NCAA start → high confidence
- *   2. seasonType is null AND date >= NCAA start → likely NCAA for seeded teams
- *   3. Event name/notes containing NCAA indicators → high confidence
- */
+// ── NCAA tournament event detection ────────────────────────────────
+
 function isLikelyNcaaTournamentEvent(ev) {
   if (!ev.date) return false;
   const dateStr = ev.date.slice(0, 10);
@@ -35,7 +24,6 @@ function isLikelyNcaaTournamentEvent(ev) {
   if (/\bncaa\b|march madness|round of \d+|sweet 16|elite 8|final four/.test(combined)) return true;
 
   if (ev.seasonType == null) return true;
-
   return false;
 }
 
@@ -74,15 +62,24 @@ function extractRoundLabel(ev) {
   return null;
 }
 
-// ── Season record (pre-NCAA tournament, date-based) ────────────────
+// ── Season record ──────────────────────────────────────────────────
 
 /**
- * Count W-L from completed games BEFORE the NCAA tournament window.
- * This includes regular season + conference tournament games.
- * Date-based cutoff is the most reliable filter because seasonType
- * may not be populated in partial schedule responses.
+ * Parse a "W-L" record string from ESPN's recordSummary field.
+ * Returns { w, l } or null.
  */
-function computeSeasonRecord(events) {
+function parseRecordSummary(str) {
+  if (!str) return null;
+  const m = str.match(/^(\d+)-(\d+)/);
+  if (!m) return null;
+  return { w: Number(m[1]), l: Number(m[2]) };
+}
+
+/**
+ * Compute season record from events before NCAA tournament.
+ * Fallback when ESPN recordSummary is unavailable.
+ */
+function computeSeasonRecordFromEvents(events) {
   const past = (events || []).filter(
     (e) => e.isFinal && e.ourScore != null && e.oppScore != null &&
       e.date && e.date.slice(0, 10) < NCAA_TOURNEY_START
@@ -96,27 +93,22 @@ function computeSeasonRecord(events) {
 // ── ATS resolution ─────────────────────────────────────────────────
 
 /**
- * Resolve ATS from batch data. Batch API computes ATS from full
- * schedule + odds history: { season: {w,l,p,total,coverPct}, last30: ..., last7: ... }
- *
- * For the "ATS (L10)" card field, prefer:
- *   1. last30 data (most recent window that reliably has events)
- *   2. season data (capped at 10)
- *   3. cache ATS
+ * Resolve ATS (Last 10 pre-NCAA games).
+ * Batch API provides `preNcaaLast10` computed on the server from
+ * full schedule + odds history. Falls back to last30 or season.
  */
 function resolveAtsLast10(batchAts, cacheAts) {
+  const pn = batchAts?.preNcaaLast10;
+  if (pn && pn.total > 0) return { w: pn.w, l: pn.l, total: pn.total };
+
   const l30 = batchAts?.last30;
-  if (l30 && l30.total > 0) {
-    return { w: l30.w, l: l30.l, total: l30.total };
-  }
+  if (l30 && l30.total > 0) return { w: l30.w, l: l30.l, total: l30.total };
+
   const season = batchAts?.season;
-  if (season && season.total > 0) {
-    return { w: season.w, l: season.l, total: season.total };
-  }
+  if (season && season.total > 0) return { w: season.w, l: season.l, total: season.total };
+
   const c = cacheAts;
-  if (c && c.total > 0) {
-    return { w: c.w ?? c.wins ?? 0, l: c.l ?? c.losses ?? 0, total: c.total };
-  }
+  if (c && c.total > 0) return { w: c.w ?? c.wins ?? 0, l: c.l ?? c.losses ?? 0, total: c.total };
   return null;
 }
 
@@ -172,14 +164,6 @@ function deriveConferenceFinish(events, team) {
 
 // ── Tournament status ──────────────────────────────────────────────
 
-/**
- * Derive tournament status from NCAA tournament events.
- *
- * The round number is inferred from the count of completed tournament
- * games rather than the calendar phase. This correctly handles teams
- * at different stages (e.g., a team with 1 win is heading to Round 2
- * regardless of what day it is).
- */
 function deriveTournamentStatus(slug, events) {
   const seed = getTeamSeed(slug);
   const isInField = seed != null;
@@ -212,8 +196,7 @@ function deriveTournamentStatus(slug, events) {
     const gamesBeforeLoss = completedNcaa.filter(
       (e) => new Date(e.date) <= new Date(lostGame.date)
     ).length;
-    const lossRound = gamesBeforeLoss;
-    const roundName = getRoundLabel(lossRound);
+    const roundName = getRoundLabel(gamesBeforeLoss);
     return {
       label: `Lost in ${roundName}`,
       status: 'eliminated',
@@ -233,12 +216,16 @@ function deriveTournamentStatus(slug, events) {
   const nextRoundNum = wins + 1;
   const nextRoundLabel = getRoundLabel(nextRoundNum);
 
-  const nextScheduled = scheduledNcaa[0] || null;
-  const nextNcaaGame = nextScheduled ? {
-    opponent: nextScheduled.opponent || 'TBD',
-    date: nextScheduled.date,
-    status: nextScheduled.status || 'Scheduled',
-    homeAway: nextScheduled.homeAway,
+  const nextSched = scheduledNcaa[0] || null;
+  const nextNcaaGame = nextSched ? {
+    opponent: nextSched.opponent || 'TBD',
+    date: nextSched.date,
+    status: nextSched.status || 'Scheduled',
+    homeAway: nextSched.homeAway,
+    broadcast: nextSched.broadcast || null,
+    gamecastUrl: nextSched.gamecastUrl || null,
+    opponentLogo: nextSched.opponentLogo || null,
+    opponentId: nextSched.opponentId || null,
   } : null;
 
   const lastWin = completedNcaa[0] || null;
@@ -264,7 +251,10 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
   const team = getTeamBySlug(slug);
   const events = batchSlot?.schedule?.events || [];
 
-  const seasonRecord = computeSeasonRecord(events);
+  const espnRecord = parseRecordSummary(batchSlot?.schedule?.teamRecord);
+  const computedRecord = computeSeasonRecordFromEvents(events);
+  const seasonRecord = espnRecord || computedRecord;
+
   const confFinish = deriveConferenceFinish(events, team);
 
   const batchAts = batchSlot?.ats || {};
