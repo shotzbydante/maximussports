@@ -24,6 +24,7 @@ import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, getTeamRegion, isBracketOfficial, isTournamentActive, getTournamentTeam } from '../../utils/tournamentHelpers';
+import { normalizeTeamCardFields, fmtRecord, fmtAts } from '../../utils/teamCardFields';
 import SEOHead, { buildOgImageUrl } from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
@@ -315,6 +316,11 @@ export default function TeamPage() {
     );
   }
 
+  const cardFields = useMemo(() => {
+    if (!batch) return null;
+    return normalizeTeamCardFields(slug, batch, atsForSummary?.season ?? null);
+  }, [slug, batch, atsForSummary]);
+
   const currentYear = new Date().getFullYear();
   const teamSeoTitle = `${team.name} Team Intel`;
   const teamSeoDesc = `ATS trends, next-game intel, rankings, and betting signals for ${team.name}. ${team.conference} conference intelligence powered by Maximus Sports.`;
@@ -358,9 +364,17 @@ export default function TeamPage() {
                 })()}
                 <span className={styles.conference}>{team.conference}</span>
                 {record && <span className={styles.record}>{record}</span>}
+                {cardFields?.atsRecord && (
+                  <span className={styles.record} title="Full-season ATS">ATS: {fmtAts(cardFields.atsRecord)}</span>
+                )}
                 {streak && (
                   <span className={`${styles.streak} ${streak.startsWith('W') ? styles.streakWin : styles.streakLoss}`}>
                     {streak}
+                  </span>
+                )}
+                {cardFields?.tournamentLabel && (
+                  <span className={`${styles.tournamentChip} ${cardFields.tournamentStatus === 'active' ? styles.tournamentActive : ''} ${cardFields.tournamentStatus === 'eliminated' ? styles.tournamentElim : ''}`}>
+                    {cardFields.tournamentLabel}
                   </span>
                 )}
                 {!isBracketOfficial() && (

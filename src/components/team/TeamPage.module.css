@@ -118,6 +118,30 @@
 .tierWork { background: rgba(183, 152, 108, 0.15); color: var(--color-beige-dune); }
 .tierLong { background: rgba(196, 92, 74, 0.12); color: var(--color-down); }
 
+.tournamentChip {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(60, 121, 180, 0.14);
+}
+
+.tournamentActive {
+  background: rgba(45, 138, 110, 0.1);
+  color: var(--color-up);
+  border-color: rgba(45, 138, 110, 0.2);
+}
+
+.tournamentElim {
+  background: rgba(196, 92, 74, 0.08);
+  color: var(--color-down);
+  border-color: rgba(196, 92, 74, 0.15);
+}
+
 .champChip {
   display: inline-flex;
   align-items: center;

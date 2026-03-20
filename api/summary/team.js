@@ -88,12 +88,15 @@ export default async function handler(req, res) {
   const teamName = typeof body.teamName === 'string' ? body.teamName.trim() : (slug && slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')) || 'Team';
   const tier = typeof body.tier === 'string' ? body.tier.trim() : (body.tier != null ? String(body.tier) : '');
   const seed = body.seed != null ? Number(body.seed) : null;
+  const seasonRecord = typeof body.seasonRecord === 'string' ? body.seasonRecord : null;
+  const conferenceFinish = typeof body.conferenceFinish === 'string' ? body.conferenceFinish : null;
+  const tournamentStatus = typeof body.tournamentStatus === 'string' ? body.tournamentStatus : null;
   const upcomingGames = Array.isArray(body.upcomingGames) ? body.upcomingGames : [];
   const lastWeek = Array.isArray(body.lastWeek) ? body.lastWeek : [];
   const atsSummary = body.atsSummary != null ? body.atsSummary : {};
   const headlines = Array.isArray(body.headlines) ? body.headlines : [];
 
-  const payload = { teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines };
+  const payload = { teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines };
   const key = cacheKey(slug || 'team', hashPayload(payload));
   const cached = teamCache[key];
 
@@ -106,7 +109,7 @@ export default async function handler(req, res) {
     if (!apiKey || apiKey.trim() === '') {
       return res.status(200).json({ summary: null, updatedAt: null, message: 'Summary unavailable.' });
     }
-    const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines });
+    const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines });
     try {
       const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -117,7 +120,7 @@ export default async function handler(req, res) {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          max_tokens: 380,
+          max_tokens: 480,
           temperature: 0.3,
         }),
       });
@@ -157,7 +160,7 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines });
+  const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines });
 
   try {
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -169,7 +172,7 @@ export default async function handler(req, res) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 380,
+        max_tokens: 480,
         temperature: 0.3,
         stream: true,
       }),
@@ -231,39 +234,46 @@ function _isInTournamentWindow() {
   return n >= 20260315 && n <= 20260407;
 }
 
-function buildPrompts({ teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines }) {
+function buildPrompts({ teamName, tier, seed, seasonRecord, conferenceFinish, tournamentStatus, upcomingGames, lastWeek, atsSummary, headlines }) {
   const isTournament = _isInTournamentWindow();
 
   const systemPrompt = isTournament
-    ? `You are a concise March Madness analyst for Maximus Sports. Write a tournament-focused insight in 2–3 sentences. Use ONLY the data provided.
+    ? `You are a concise March Madness analyst for Maximus Sports. Write a tournament-focused insight in 2–3 sentences that feels like genuine intel. Use ONLY the data provided.
 
 Priority order:
-1) Tournament status: seed, whether they are still alive or eliminated, current round.
-2) Next opponent or most recent tournament result (with score if available).
-3) ATS performance or betting angle if data exists.
-4) One sentence of relevant news context from headlines.
+1) Tournament status: seed, whether they are still alive or eliminated, current round, and next opponent.
+2) Season record and conference finish for context on who this team is.
+3) ATS record and betting angle — reference their full-season ATS if available.
+4) One sentence of relevant news context from headlines if useful.
 
-Frame everything as March Madness intel. Mention seed number when available. Be specific and current. Do NOT write generic season summaries — this is tournament time. Keep it concise and card-friendly.`
+Frame everything as March Madness intel. Mention seed number when available. Reference season record (e.g., "27-4") and ATS record when provided. Be specific and current. Do NOT write generic filler. Keep it concise and card-friendly but pack in real data.`
     : `You are a concise sports analyst for Maximus Sports. Write a short, friendly team insight in 2–3 sentences. Use ONLY the data provided.
 
 Include when data exists:
-1) Upcoming games (mention opponents).
+1) Season record and conference standing for context.
 2) NCAA bracket tier/tournament prospects (use the team's tier: Lock, Should be in, Work to do, Long shot).
-3) Recent results and ATS performance.
-4) One sentence of relevant news from headlines.
+3) ATS record and recent results.
+4) Upcoming games (mention opponents).
+5) One sentence of relevant news from headlines.
 
 Avoid bullet points. Keep it conversational and card-friendly. If a section has no data, skip it.`;
 
   const seedLine = seed != null ? `Tournament seed: No. ${seed}` : '';
+  const recordLine = seasonRecord ? `Season record: ${seasonRecord}` : '';
+  const confLine = conferenceFinish ? `Conference finish: ${conferenceFinish}` : '';
+  const tourneyLine = tournamentStatus ? `Tournament status: ${tournamentStatus}` : '';
   const userPrompt = `Team: ${teamName}
 ${seedLine}
+${recordLine}
+${confLine}
+${tourneyLine}
 Tier (NCAA prospects): ${tier || 'Not specified'}
 Upcoming games: ${JSON.stringify(upcomingGames)}
 Recent results: ${JSON.stringify(lastWeek)}
 ATS summary: ${JSON.stringify(atsSummary)}
 Headlines: ${JSON.stringify(headlines)}
 
-Write the team insight using only the data above.`;
+Write the team insight using only the data above. Be specific — reference record numbers, ATS numbers, and tournament round when available.`;
 
   return { systemPrompt, userPrompt };
 }
