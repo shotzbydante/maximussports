@@ -23,9 +23,9 @@ import { fetchTeamSummary } from '../../api/summary';
 import { getCachedVideos, setCachedVideos, getStaleVideos, setStaleVideos } from '../../utils/ytClientCache';
 import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
-import SourceBadge from '../shared/SourceBadge';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
+import { normalizeTeamCardFields, fmtRecord, fmtAts } from '../../utils/teamCardFields';
 import ExamplePinnedTeamCard from './ExamplePinnedTeamCard';
 import ShareButton from '../common/ShareButton';
 import styles from './PinnedTeamsSection.module.css';
@@ -470,11 +470,18 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       const rec = teamRecords[slug];
       const cached = getAtsCache(slug);
       const atsData = rec?.ats ?? (cached?.season?.total > 0 ? cached.season : null);
+
+      const cacheAts = cached?.season?.total > 0 ? cached.season : null;
+      const fields = slot ? normalizeTeamCardFields(slug, slot, cacheAts) : null;
+
       fetchTeamSummary({
         slug,
         teamName: team?.name,
         tier: team?.oddsTier ?? '',
         seed: seed ?? null,
+        seasonRecord: fields?.seasonRecord ? `${fields.seasonRecord.w}-${fields.seasonRecord.l}` : null,
+        conferenceFinish: fields?.conferenceFinish ?? null,
+        tournamentStatus: fields?.tournamentLabel ?? null,
         upcomingGames: upcoming.slice(0, 3).map((e) => ({ opponent: e.opponent, date: e.date, homeAway: e.homeAway })),
         lastWeek: past.slice(0, 5).map((e) => ({ opponent: e.opponent, ourScore: e.ourScore, oppScore: e.oppScore, date: e.date })),
         atsSummary: atsData ?? {},
@@ -861,15 +868,23 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
           {validPinned.map((slug) => {
             const team = getTeamBySlug(slug);
             const rank = rankMap[slug];
-            const seed = getTeamSeed(slug);
             const bracketOfficial = isBracketOfficial();
             const nextGame = getNextGame(slug);
             const headlines = teamNews[slug] || [];
+            const isLoading = !loadedSlugs.has(slug);
+            const batchSlot = pinnedTeamDataBySlug[slug];
+            const cached = getAtsCache(slug);
+            const cacheAts = cached?.season?.total > 0 ? cached.season : null;
+            const fields = !isLoading && batchSlot
+              ? normalizeTeamCardFields(slug, batchSlot, cacheAts)
+              : null;
+
             return (
               <article key={slug} className={`${styles.card} ${isCompact ? styles.cardCompact : ''}`}>
+                {/* ── Zone 1: Header ── */}
                 <div className={styles.cardHeader}>
                   <Link to={`/teams/${slug}`} className={styles.cardLink}>
-                    {seed != null && <SeedBadge seed={seed} size="sm" variant={seed <= 4 ? 'gold' : 'default'} />}
+                    {fields?.seed != null && <SeedBadge seed={fields.seed} size="sm" variant={fields.seed <= 4 ? 'gold' : 'default'} />}
                     <TeamLogo team={team} size={32} />
                     <div className={styles.cardMeta}>
                       <span className={styles.teamName}>{team.name}</span>
@@ -877,22 +892,14 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     </div>
                   </Link>
                   <div className={styles.cardBadges}>
-                    {!bracketOfficial && rank != null && seed == null && (
+                    {!bracketOfficial && rank != null && fields?.seed == null && (
                       <span className={styles.rank}>#{rank}</span>
                     )}
-                    {!bracketOfficial && (
-                      <span className={`${styles.tier} ${TIER_CLASS[team.oddsTier] || ''}`}>
-                        {team.oddsTier}
-                      </span>
-                    )}
-                    {/* Compact icon-only share button */}
                     {(() => {
-                      const cached = getAtsCache(slug);
-                      const ats = cached?.season?.total > 0 ? cached.season : null;
-                      // Use ats.w / ats.l / ats.coverPct (correct cache field names)
+                      const ats = fields?.atsRecord;
                       const atsSubtitle = ats && ats.w != null && ats.l != null
                         ? `ATS ${ats.w}–${ats.l}${ats.coverPct != null ? ` (${Math.round(ats.coverPct)}%)` : ''}`
-                        : `${team.conference} · ${team.oddsTier}`;
+                        : `${team.conference}`;
                       return (
                         <ShareButton
                           shareType="team_card"
@@ -919,37 +926,13 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     </button>
                   </div>
                 </div>
-                {nextGame && (
-                  <div className={styles.nextGame}>
-                    <span className={styles.nextLabel}>Next:</span>
-                    <span>
-                      vs {nextGame.vs} — {nextGame.status}
-                      {nextGame.time && ` · ${nextGame.time} PST`}
-                      {nextGame.network && ` · ${nextGame.network}`}
-                    </span>
-                    <ESPNGamecastLink game={nextGame} />
-                  </div>
-                )}
-                {(() => {
-                  const isLoading = !loadedSlugs.has(slug);
-                  const rec = teamRecords[slug];
-                  const cached = getAtsCache(slug);
-                  const season = rec?.season;
-                  const last10 = rec?.last10;
-                  const batchAts = rec?.ats;
-                  const cacheAts = cached?.season?.total > 0 ? cached.season : null;
-                  const ats = (batchAts?.total > 0 && (!cacheAts || batchAts.total >= cacheAts.total))
-                    ? batchAts
-                    : (cacheAts ?? batchAts);
-                  const seasonStr = season?.w != null && season?.l != null ? `${season.w}–${season.l}` : '—';
-                  const l10Str = last10?.w != null && last10?.l != null ? `${last10.w}–${last10.l}` : '—';
-                  const atsStr = ats?.total > 0 ? `${ats.w}–${ats.l}${ats.p > 0 ? `–${ats.p}` : ''}` : '—';
-                  const hasData = seasonStr !== '—' || l10Str !== '—' || atsStr !== '—';
 
-                  if (isLoading && !hasData) {
+                {/* ── Zone 2: Stat strip ── */}
+                {(() => {
+                  if (isLoading && !fields) {
                     return (
                       <div className={styles.recordsSkeletonRow} aria-label="Loading records">
-                        {['Season', 'L10', 'ATS'].map((lbl) => (
+                        {['Record', 'Conference', 'ATS', 'Tourney'].map((lbl) => (
                           <div key={lbl} className={styles.recordSkeleton}>
                             <div className={styles.recordSkeletonLabel} />
                             <div className={styles.recordSkeletonValue} />
@@ -959,46 +942,62 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     );
                   }
                   return (
-                    <>
-                      <div className={styles.recordsRow}>
-                        <span className={styles.recordCell}>
-                          <span className={styles.recordLabel}>Season</span>
-                          <span className={styles.recordValue}>{seasonStr}</span>
+                    <div className={styles.statStrip}>
+                      <span className={styles.statCell}>
+                        <span className={styles.statLabel}>Record</span>
+                        <span className={styles.statValue}>{fields ? fmtRecord(fields.seasonRecord) : '—'}</span>
+                      </span>
+                      <span className={styles.statCell}>
+                        <span className={styles.statLabel}>Conference</span>
+                        <span className={styles.statValue}>{fields?.conferenceFinish || team.conference}</span>
+                      </span>
+                      <span className={styles.statCell}>
+                        <span className={styles.statLabel}>ATS</span>
+                        <span className={styles.statValue}>{fields ? fmtAts(fields.atsRecord) : '—'}</span>
+                      </span>
+                      {fields?.tournamentLabel && (
+                        <span className={`${styles.statCell} ${fields.tournamentStatus === 'active' ? styles.statCellActive : ''} ${fields.tournamentStatus === 'eliminated' ? styles.statCellElim : ''}`}>
+                          <span className={styles.statLabel}>Tournament</span>
+                          <span className={styles.statValue}>{fields.tournamentLabel}</span>
                         </span>
-                        <span className={styles.recordCell}>
-                          <span className={styles.recordLabel}>L10</span>
-                          <span className={styles.recordValue}>{l10Str}</span>
-                        </span>
-                        <span className={styles.recordCell}>
-                          <span className={styles.recordLabel}>ATS</span>
-                          <span className={styles.recordValue}>{atsStr}</span>
-                        </span>
-                      </div>
-                      {hasData && (
-                        <div className={styles.recordsSource}>
-                          <SourceBadge source="ESPN" />
-                          <SourceBadge source="Odds API" />
-                        </div>
                       )}
-                    </>
+                    </div>
                   );
                 })()}
+
+                {/* ── Zone 3: Next game / tournament round ── */}
+                {nextGame && (
+                  <div className={styles.nextGame}>
+                    <span className={styles.nextLabel}>Next:</span>
+                    <span>
+                      vs {nextGame.vs} — {nextGame.status}
+                      {nextGame.time && ` · ${nextGame.time} PST`}
+                      {nextGame.network && ` · ${nextGame.network}`}
+                    </span>
+                    {nextGame.gameId && <ESPNGamecastLink game={nextGame} />}
+                  </div>
+                )}
+
+                {/* ── Zone 4: Summary ── */}
                 <div className={styles.teamSummary}>
-                  {!loadedSlugs.has(slug) ? (
+                  {isLoading ? (
                     <div className={styles.summarySkeletonLines} aria-label="Loading summary">
                       <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
-                      <div className={styles.summarySkeletonLine} style={{ width: '82%' }} />
+                      <div className={styles.summarySkeletonLine} style={{ width: '90%' }} />
+                      <div className={styles.summarySkeletonLine} style={{ width: '72%' }} />
                     </div>
                   ) : headlines.length > 0 ? (
                     (teamSummaries[slug] != null && teamSummaries[slug] !== '') ? (
-                      <p className={`${styles.teamSummaryText} ${compact ? styles.teamSummaryClamped : ''} ${isCompact ? styles.teamSummaryCompact : ''}`}>
+                      <p className={`${styles.teamSummaryText} ${isCompact ? styles.teamSummaryCompact : ''}`}>
                         {teamSummaries[slug]}
                       </p>
                     ) : (
-                      <p className={styles.teamSummaryGenerating}>Generating summary…</p>
+                      <p className={styles.teamSummaryGenerating}>Generating intel…</p>
                     )
                   ) : null}
                 </div>
+
+                {/* ── Zone 5: Media / headlines ── */}
                 {compact && (teamVideos[slug] ?? []).length > 0 && (
                   <Link to={`/teams/${slug}`} className={styles.videoTeaser}>
                     <div className={styles.videoThumb}>
@@ -1039,8 +1038,10 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                     )}
                   </ul>
                 )}
-                <Link to={`/teams/${slug}`} className={compact ? styles.teamLinkCompact : styles.teamLink}>
-                  {compact ? 'View Team Intel →' : 'View team →'}
+
+                {/* ── Zone 6: CTA (anchored to bottom) ── */}
+                <Link to={`/teams/${slug}`} className={styles.cardCta}>
+                  View Team Intel →
                 </Link>
               </article>
             );
