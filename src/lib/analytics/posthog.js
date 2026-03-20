@@ -129,13 +129,17 @@ export function identifyUser(user, profile, teamSlugs = []) {
  * Fire when a brand-new authenticated account is detected (first-ever sign-in).
  * Called from AuthContext — fires BEFORE onboarding.
  *
- * This is the source-of-truth event for "new account created in Supabase."
- * Also fires legacy `account_created` so existing dashboards keep working.
+ * Always fires `auth_account_created` (client-side supplementary event with
+ * UTM / referrer context the server doesn't have).
+ *
+ * Only fires `account_created` if the server did NOT already fire it
+ * (posthogTracked=false). The canonical `account_created` is now fired
+ * server-side in /api/profile/ensure for reliability.
  *
  * @param {{ id: string, email?: string, app_metadata?: object, user_metadata?: object }} user
- * @param {{ method?: string }} [options]
+ * @param {{ method?: string, posthogTracked?: boolean }} [options]
  */
-export function trackAuthAccountCreated(user, { method = 'unknown' } = {}) {
+export function trackAuthAccountCreated(user, { method = 'unknown', posthogTracked = false } = {}) {
   if (!user?.id) return;
   identifyUser(user, null, []);
   const acq = captureAcquisitionProps();
@@ -151,9 +155,12 @@ export function trackAuthAccountCreated(user, { method = 'unknown' } = {}) {
     utm_campaign: acq.utm_campaign,
     referrer: acq.referrer,
   };
-  dbg('trackAuthAccountCreated', props);
+  dbg('trackAuthAccountCreated', { ...props, posthogTracked });
   track('auth_account_created', props);
-  track('account_created', { ...props, _source: 'auth' });
+
+  if (!posthogTracked) {
+    track('account_created', { ...props, source_path: 'frontend_signup' });
+  }
 }
 
 /**

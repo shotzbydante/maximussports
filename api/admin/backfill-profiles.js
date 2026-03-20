@@ -11,6 +11,7 @@
  */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
+import { captureAccountCreated } from '../_lib/posthogServer.js';
 
 function extractDisplayName(authUser) {
   const meta = authUser.user_metadata || {};
@@ -50,6 +51,7 @@ export default async function handler(req, res) {
     profilesExisted: 0,
     profilesCreated: 0,
     displayNamesBackfilled: 0,
+    posthogEventsTracked: 0,
     errors: [],
     details: [],
   };
@@ -118,6 +120,15 @@ export default async function handler(req, res) {
 
           if (!insertErr || insertErr.code === '23505') {
             report.profilesCreated++;
+
+            // Fire server-side PostHog account_created for the newly backfilled profile
+            try {
+              const tracked = await captureAccountCreated(authUser, {
+                sourcePath: 'backend_backfill',
+              });
+              if (tracked) report.posthogEventsTracked++;
+            } catch { /* non-critical */ }
+
             report.details.push({
               id: authUser.id.slice(0, 8),
               email: authUser.email,
@@ -136,6 +147,6 @@ export default async function handler(req, res) {
     report.errors.push(`fatal: ${err.message}`);
   }
 
-  console.log(`[backfill-profiles] scanned=${report.authUsersScanned} created=${report.profilesCreated} backfilled=${report.displayNamesBackfilled} errors=${report.errors.length}`);
+  console.log(`[backfill-profiles] scanned=${report.authUsersScanned} created=${report.profilesCreated} backfilled=${report.displayNamesBackfilled} posthog=${report.posthogEventsTracked} errors=${report.errors.length}`);
   return res.status(200).json(report);
 }

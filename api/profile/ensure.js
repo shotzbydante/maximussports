@@ -20,6 +20,7 @@
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
+import { captureAccountCreated } from '../_lib/posthogServer.js';
 
 function extractDisplayName(authUser) {
   const meta = authUser.user_metadata || {};
@@ -112,6 +113,17 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, existed: true });
   }
 
-  console.log(`[profile/ensure] Created profile for user=${caller.id} display_name="${derivedName || '(none)'}"`);
-  return res.status(200).json({ ok: true, created: true });
+  // Fire server-side PostHog account_created (canonical, guaranteed event).
+  // Awaited so the event is sent before the Vercel function terminates.
+  let posthogTracked = false;
+  try {
+    posthogTracked = await captureAccountCreated(caller, {
+      sourcePath: 'server_ensure',
+    });
+  } catch (err) {
+    console.warn(`[profile/ensure] PostHog capture failed for user=${caller.id}:`, err?.message);
+  }
+
+  console.log(`[profile/ensure] Created profile for user=${caller.id} display_name="${derivedName || '(none)'}" posthog=${posthogTracked}`);
+  return res.status(200).json({ ok: true, created: true, posthog_tracked: posthogTracked });
 }

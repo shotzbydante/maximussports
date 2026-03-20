@@ -79,18 +79,22 @@ async function upsertProfileServer(sb, user) {
     const token = session?.access_token;
     if (!token) {
       dbg('server fallback: no access token available');
-      return { ok: false, isNew: false };
+      return { ok: false, isNew: false, posthogTracked: false };
     }
     const res = await fetch('/api/profile/ensure', {
       method:  'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
     const json = await res.json().catch(() => ({}));
-    dbg('server fallback result:', res.status, json);
-    return { ok: res.ok && json.ok, isNew: !!json.created };
+    dbg('server result:', res.status, json);
+    return {
+      ok: res.ok && json.ok,
+      isNew: !!json.created,
+      posthogTracked: !!json.posthog_tracked,
+    };
   } catch (err) {
-    dbg('server fallback exception:', err?.message);
-    return { ok: false, isNew: false };
+    dbg('server exception:', err?.message);
+    return { ok: false, isNew: false, posthogTracked: false };
   }
 }
 
@@ -124,14 +128,18 @@ async function backfillDisplayName(sb, user) {
 /**
  * Ensure a minimal profiles row exists for the signed-in user.
  *
- * Returns { isNew: boolean } so the caller can fire auth_account_created
- * exactly once for brand-new users. Detection works by checking the DB
- * for an existing profile row before attempting the insert.
+ * Returns { isNew, posthogTracked } so the caller can fire
+ * auth_account_created exactly once for brand-new users and avoid
+ * double-firing account_created when the server already handled it.
+ *
+ * Server-first: new profiles go through /api/profile/ensure which fires
+ * the canonical server-side PostHog account_created event. Client-side
+ * insert is the fallback if the server is unreachable.
  *
  * Safe to call on every sign-in — no-op when the row already exists.
  */
 async function ensureProfileShell(sb, user) {
-  if (!user?.id) return { isNew: false };
+  if (!user?.id) return { isNew: false, posthogTracked: false };
   dbg('ensureProfileShell for', user.id, 'email:', user.email);
 
   // Fast check: does a profile row already exist?
@@ -144,29 +152,32 @@ async function ensureProfileShell(sb, user) {
     if (existing) {
       dbg('profile exists for', user.id, '— skipping insert');
       await backfillDisplayName(sb, user);
-      return { isNew: false };
+      return { isNew: false, posthogTracked: false };
     }
   } catch (err) {
     dbg('profile existence check failed:', err?.message, '— proceeding with insert');
   }
 
-  // No profile found (or check failed) — attempt creation
-  const clientOk = await upsertProfileClient(sb, user);
-  if (clientOk) {
-    console.log(`[auth] Profile shell created for user=${user.id} via client upsert`);
-    await backfillDisplayName(sb, user);
-    return { isNew: true };
-  }
-
-  dbg('client upsert failed — trying server fallback');
+  // Server-first: /api/profile/ensure fires PostHog account_created
   const serverResult = await upsertProfileServer(sb, user);
   if (serverResult.ok) {
-    console.log(`[auth] Profile shell created for user=${user.id} via server fallback`);
-  } else {
-    console.warn(`[auth] ensureProfileShell: both client and server paths failed for user=${user.id} — digest enrollment may be delayed until onboarding completes`);
+    console.log(`[auth] Profile shell created for user=${user.id} via server (posthog=${serverResult.posthogTracked})`);
+    await backfillDisplayName(sb, user);
+    return { isNew: serverResult.isNew, posthogTracked: serverResult.posthogTracked };
   }
+
+  // Client fallback if server is unreachable
+  dbg('server path failed — trying client-side insert');
+  const clientOk = await upsertProfileClient(sb, user);
+  if (clientOk) {
+    console.log(`[auth] Profile shell created for user=${user.id} via client upsert (posthog not tracked server-side)`);
+    await backfillDisplayName(sb, user);
+    return { isNew: true, posthogTracked: false };
+  }
+
+  console.warn(`[auth] ensureProfileShell: both server and client paths failed for user=${user.id} — digest enrollment may be delayed until onboarding completes`);
   await backfillDisplayName(sb, user);
-  return { isNew: serverResult.isNew };
+  return { isNew: false, posthogTracked: false };
 }
 
 export function AuthProvider({ children }) {
@@ -196,8 +207,12 @@ export function AuthProvider({ children }) {
      * Triple-guarded: ref (same render), sessionStorage (same tab),
      * localStorage (same device). The DB profile-existence check in
      * ensureProfileShell prevents cross-device re-fires.
+     *
+     * If posthogTracked is true, the server already fired the canonical
+     * account_created event — the client only fires auth_account_created
+     * (supplementary, carries UTM/referrer context).
      */
-    function handleNewAccount(authUser) {
+    function handleNewAccount(authUser, { posthogTracked = false } = {}) {
       if (newAccountTrackedRef.current) return;
       try {
         if (localStorage.getItem(`mx_acct_${authUser.id}`) === '1') {
@@ -210,8 +225,8 @@ export function AuthProvider({ children }) {
       try { sessionStorage.setItem('mx_auth_account_created', '1'); } catch { /* ignore */ }
       try { localStorage.setItem(`mx_acct_${authUser.id}`, '1'); } catch { /* ignore */ }
       const method = authUser.app_metadata?.provider || 'email';
-      trackAuthAccountCreated(authUser, { method });
-      console.log(`[auth] auth_account_created tracked for user=${authUser.id} method=${method}`);
+      trackAuthAccountCreated(authUser, { method, posthogTracked });
+      console.log(`[auth] auth_account_created tracked for user=${authUser.id} method=${method} serverTracked=${posthogTracked}`);
     }
 
     sb.auth.getSession().then(({ data: { session: sess } }) => {
@@ -219,8 +234,8 @@ export function AuthProvider({ children }) {
       setUser(sess?.user ?? null);
       setLoading(false);
       if (sess?.user) {
-        ensureProfileShell(sb, sess.user).then(({ isNew }) => {
-          if (isNew) handleNewAccount(sess.user);
+        ensureProfileShell(sb, sess.user).then(({ isNew, posthogTracked }) => {
+          if (isNew) handleNewAccount(sess.user, { posthogTracked });
         });
       }
     });
@@ -229,8 +244,8 @@ export function AuthProvider({ children }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && sess?.user) {
-        ensureProfileShell(sb, sess.user).then(({ isNew }) => {
-          if (isNew && event === 'SIGNED_IN') handleNewAccount(sess.user);
+        ensureProfileShell(sb, sess.user).then(({ isNew, posthogTracked }) => {
+          if (isNew && event === 'SIGNED_IN') handleNewAccount(sess.user, { posthogTracked });
         });
       }
     });
