@@ -87,6 +87,8 @@ export async function fetchScoresSource(dateStr = null) {
         startTime: event.date || comp?.date || null,
         network: getNetwork(comp),
         venue: getVenue(comp),
+        homeLogo: home?.team?.logo || null,
+        awayLogo: away?.team?.logo || null,
       };
     });
   });
