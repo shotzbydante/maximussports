@@ -947,10 +947,12 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                         <span className={styles.statLabel}>Record</span>
                         <span className={styles.statValue}>{fields ? fmtRecord(fields.seasonRecord) : '—'}</span>
                       </span>
-                      <span className={styles.statCell}>
-                        <span className={styles.statLabel}>Conference</span>
-                        <span className={styles.statValue}>{fields?.conferenceFinish || team.conference}</span>
-                      </span>
+                      {fields?.conferenceFinish && (
+                        <span className={styles.statCell}>
+                          <span className={styles.statLabel}>Conf. Finish</span>
+                          <span className={styles.statValue}>{fields.conferenceFinish}</span>
+                        </span>
+                      )}
                       <span className={styles.statCell}>
                         <span className={styles.statLabel}>ATS</span>
                         <span className={styles.statValue}>{fields ? fmtAts(fields.atsRecord) : '—'}</span>
