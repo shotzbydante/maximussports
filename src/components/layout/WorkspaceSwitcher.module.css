@@ -1,0 +1,162 @@
+.root {
+  position: relative;
+  padding: 0 var(--space-md) var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+/* ── Trigger button ────────────────────────────────────────── */
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(60, 121, 180, 0.06) 0%,
+    rgba(60, 121, 180, 0.02) 100%
+  );
+  border: 1px solid rgba(60, 121, 180, 0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.trigger:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(60, 121, 180, 0.10) 0%,
+    rgba(60, 121, 180, 0.04) 100%
+  );
+  border-color: rgba(60, 121, 180, 0.22);
+  box-shadow: 0 1px 6px rgba(60, 121, 180, 0.08);
+}
+
+.activeIcon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.activeLabel {
+  flex: 1;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.01em;
+}
+
+.chevron {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+}
+
+.trigger[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown ──────────────────────────────────────────────── */
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: var(--space-md);
+  right: var(--space-md);
+  z-index: 200;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: wsDropIn 0.12s ease-out;
+}
+
+@keyframes wsDropIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownHeader {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: 6px 10px 4px;
+}
+
+/* ── Options ───────────────────────────────────────────────── */
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+
+.option:hover {
+  background: rgba(60, 121, 180, 0.07);
+}
+
+.optionActive {
+  background: rgba(60, 121, 180, 0.05);
+}
+
+.optionIcon {
+  font-size: 1.15rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.optionContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
+
+.optionLabel {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sandboxBadge {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(217, 119, 6, 0.10);
+  color: #D97706;
+  border: 1px solid rgba(217, 119, 6, 0.20);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
