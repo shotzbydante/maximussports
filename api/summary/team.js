@@ -23,6 +23,7 @@ function hashPayload(payload) {
   const str = JSON.stringify({
     teamName: payload.teamName,
     tier: payload.tier,
+    seed: payload.seed,
     upcomingGames: payload.upcomingGames,
     lastWeek: payload.lastWeek,
     atsSummary: payload.atsSummary,
@@ -86,12 +87,13 @@ export default async function handler(req, res) {
   const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
   const teamName = typeof body.teamName === 'string' ? body.teamName.trim() : (slug && slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')) || 'Team';
   const tier = typeof body.tier === 'string' ? body.tier.trim() : (body.tier != null ? String(body.tier) : '');
+  const seed = body.seed != null ? Number(body.seed) : null;
   const upcomingGames = Array.isArray(body.upcomingGames) ? body.upcomingGames : [];
   const lastWeek = Array.isArray(body.lastWeek) ? body.lastWeek : [];
   const atsSummary = body.atsSummary != null ? body.atsSummary : {};
   const headlines = Array.isArray(body.headlines) ? body.headlines : [];
 
-  const payload = { teamName, tier, upcomingGames, lastWeek, atsSummary, headlines };
+  const payload = { teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines };
   const key = cacheKey(slug || 'team', hashPayload(payload));
   const cached = teamCache[key];
 
@@ -104,7 +106,7 @@ export default async function handler(req, res) {
     if (!apiKey || apiKey.trim() === '') {
       return res.status(200).json({ summary: null, updatedAt: null, message: 'Summary unavailable.' });
     }
-    const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, upcomingGames, lastWeek, atsSummary, headlines });
+    const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines });
     try {
       const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -155,7 +157,7 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, upcomingGames, lastWeek, atsSummary, headlines });
+  const { systemPrompt, userPrompt } = buildPrompts({ teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines });
 
   try {
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -223,21 +225,41 @@ export default async function handler(req, res) {
   res.end();
 }
 
-function buildPrompts({ teamName, tier, upcomingGames, lastWeek, atsSummary, headlines }) {
-  const systemPrompt = `You are a concise sports analyst for Maximus Sports. Write a short, friendly team insight in 2–4 sentences. Use ONLY the data provided.
+function _isInTournamentWindow() {
+  const d = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const n = Number(d);
+  return n >= 20260315 && n <= 20260407;
+}
+
+function buildPrompts({ teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines }) {
+  const isTournament = _isInTournamentWindow();
+
+  const systemPrompt = isTournament
+    ? `You are a concise March Madness analyst for Maximus Sports. Write a tournament-focused insight in 2–3 sentences. Use ONLY the data provided.
+
+Priority order:
+1) Tournament status: seed, whether they are still alive or eliminated, current round.
+2) Next opponent or most recent tournament result (with score if available).
+3) ATS performance or betting angle if data exists.
+4) One sentence of relevant news context from headlines.
+
+Frame everything as March Madness intel. Mention seed number when available. Be specific and current. Do NOT write generic season summaries — this is tournament time. Keep it concise and card-friendly.`
+    : `You are a concise sports analyst for Maximus Sports. Write a short, friendly team insight in 2–3 sentences. Use ONLY the data provided.
 
 Include when data exists:
-1) Upcoming games with spreads (mention opponents and spread lines).
+1) Upcoming games (mention opponents).
 2) NCAA bracket tier/tournament prospects (use the team's tier: Lock, Should be in, Work to do, Long shot).
-3) Latest record and ATS performance (recent W–L and ATS trends from last week / season).
-4) 2–3 sentences summarizing the latest team-specific news from the headlines.
+3) Recent results and ATS performance.
+4) One sentence of relevant news from headlines.
 
-Avoid bullet points. Keep it conversational. If a section has no data, skip it or say it's unavailable.`;
+Avoid bullet points. Keep it conversational and card-friendly. If a section has no data, skip it.`;
 
+  const seedLine = seed != null ? `Tournament seed: No. ${seed}` : '';
   const userPrompt = `Team: ${teamName}
+${seedLine}
 Tier (NCAA prospects): ${tier || 'Not specified'}
 Upcoming games: ${JSON.stringify(upcomingGames)}
-Last week (recent results): ${JSON.stringify(lastWeek)}
+Recent results: ${JSON.stringify(lastWeek)}
 ATS summary: ${JSON.stringify(atsSummary)}
 Headlines: ${JSON.stringify(headlines)}
 

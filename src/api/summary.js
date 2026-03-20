@@ -149,7 +149,7 @@ export async function fetchTeamSummaryFromPayload({ slug, payload }) {
  * @param {{ slug: string, headlines: Array<{ title: string, source?: string }> }} params
  * @returns {Promise<{ summary: string | null, message?: string }>}
  */
-export async function fetchTeamSummary({ slug, headlines }) {
+export async function fetchTeamSummary({ slug, teamName, tier, seed, upcomingGames, lastWeek, atsSummary, headlines }) {
   if (!slug || !Array.isArray(headlines) || headlines.length === 0) {
     return { summary: null, message: 'Summary unavailable — no headlines.' };
   }
@@ -158,11 +158,12 @@ export async function fetchTeamSummary({ slug, headlines }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       slug,
-      teamName: slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-      tier: '',
-      upcomingGames: [],
-      lastWeek: [],
-      atsSummary: {},
+      teamName: teamName || slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      tier: tier || '',
+      seed: seed ?? null,
+      upcomingGames: upcomingGames || [],
+      lastWeek: lastWeek || [],
+      atsSummary: atsSummary || {},
       headlines: headlines.map((h) => ({ title: h.title, source: h.source })),
     }),
   });

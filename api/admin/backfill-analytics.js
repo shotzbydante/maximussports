@@ -47,8 +47,9 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'DB unavailable' });
   }
 
-  const dryRun = req.query?.dry_run === 'true';
-  const limitParam = parseInt(req.query?.limit, 10);
+  const _url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const dryRun = _url.searchParams.get('dry_run') === 'true';
+  const limitParam = parseInt(_url.searchParams.get('limit'), 10);
   const maxUsers = isFinite(limitParam) && limitParam > 0 ? limitParam : Infinity;
 
   const report = {

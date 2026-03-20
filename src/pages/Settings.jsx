@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
 import TeamLogo from '../components/shared/TeamLogo';
-import { addPinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
+import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import {
@@ -2329,8 +2329,11 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       } else {
         setUserTeams(remaining);
       }
+      const remainingSlugs = remaining.map(t => t.team_slug);
+      removePinnedTeam(slug);
+      notifyPinnedChanged(remainingSlugs, 'settings');
       track('team_unpinned', { team_slug: slug });
-      trackFavoriteTeamsUpdated(user.id, remaining.map(t => t.team_slug));
+      trackFavoriteTeamsUpdated(user.id, remainingSlugs);
     } catch (err) {
       setTeamsError(friendlyDbError(err));
     }

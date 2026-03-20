@@ -330,35 +330,48 @@ async function generateWithOpenAI(systemPrompt, userPrompt) {
   }
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
-  try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(t);
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      console.error('[chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
+  let attempt = 0;
+  const maxAttempts = 2;
+
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: MAX_TOKENS,
+          temperature: TEMPERATURE,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      if (!r.ok) {
+        const body = await r.text().catch(() => '');
+        console.error('[chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
+        return null;
+      }
+      const json = await r.json();
+      const raw = json?.choices?.[0]?.message?.content?.trim() || null;
+      return raw ? fixPositiveOdds(raw) : null;
+    } catch (err) {
+      clearTimeout(t);
+      const isAbort = err?.name === 'AbortError' || err?.message?.includes('aborted');
+      if (isAbort && attempt < maxAttempts) {
+        if (isDev) console.log('[chat/homeSummary] OpenAI request aborted, retrying');
+        continue;
+      }
+      const level = isAbort ? 'warn' : 'error';
+      console[level](`[chat/homeSummary] OpenAI fetch ${isAbort ? 'timeout' : 'error'}`, err?.message);
       return null;
     }
-    const json = await r.json();
-    const raw = json?.choices?.[0]?.message?.content?.trim() || null;
-    return raw ? fixPositiveOdds(raw) : null;
-  } catch (err) {
-    clearTimeout(t);
-    console.error('[chat/homeSummary] OpenAI fetch error', err?.message);
-    return null;
   }
+  return null;
 }
 
 async function readCached() {

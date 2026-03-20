@@ -73,6 +73,36 @@ function toDateStr(d) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Sports-day date in Eastern time with a 4 AM rollover (same logic as client).
+ * Before 4 AM ET, "today" is still the previous calendar day.
+ * Returns YYYYMMDD (ESPN format).
+ */
+function sportsDateEastern() {
+  const etStr = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const et = new Date(etStr);
+  if (et.getHours() < 4) {
+    et.setDate(et.getDate() - 1);
+  }
+  const y = et.getFullYear();
+  const m = String(et.getMonth() + 1).padStart(2, '0');
+  const d = String(et.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+
+function yesterdayDateEastern() {
+  const etStr = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const et = new Date(etStr);
+  if (et.getHours() < 4) {
+    et.setDate(et.getDate() - 1);
+  }
+  et.setDate(et.getDate() - 1);
+  const y = et.getFullYear();
+  const m = String(et.getMonth() + 1).padStart(2, '0');
+  const d = String(et.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+
 function cacheKey(pinnedSlugs) {
   const slugPart = Array.isArray(pinnedSlugs) && pinnedSlugs.length > 0
     ? pinnedSlugs.slice(0, 20).join(',')
@@ -84,7 +114,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -125,16 +155,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const today = toDateStr(new Date());
-    const yesterday = (() => {
-      const d = new Date();
-      d.setDate(d.getDate() - 1);
-      return toDateStr(d);
-    })();
+    const todayEspn = sportsDateEastern();
+    const yesterdayEspn = yesterdayDateEastern();
 
     const [scoresTodayRaw, scoresYesterdayRaw, rankingsData, atsResult] = await Promise.all([
-      fetchScoresSource(),
-      fetchScoresSource(yesterday.replace(/-/g, '')),
+      fetchScoresSource(todayEspn),
+      fetchScoresSource(yesterdayEspn),
       fetchRankingsSource(),
       getAtsLeadersPipeline({ pinnedSlugs, atsWindow }),
     ]);

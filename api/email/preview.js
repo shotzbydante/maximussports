@@ -77,7 +77,8 @@ export default async function handler(req, res) {
   // ── Auth gate ──────────────────────────────────────────────────────────────
   const isDev = process.env.NODE_ENV !== 'production';
   const previewSecret = process.env.PREVIEW_SECRET || process.env.CRON_SECRET;
-  const providedSecret = req.query?.secret;
+  const _url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const providedSecret = _url.searchParams.get('secret');
 
   let authorized = false;
   let adminUserId = null;
@@ -105,7 +106,7 @@ export default async function handler(req, res) {
   }
 
   // ── Type param ─────────────────────────────────────────────────────────────
-  const type = req.query?.type;
+  const type = _url.searchParams.get('type');
   if (!type || !VALID_TYPES.includes(type)) {
     return res.status(400).send(`
       <html><body style="font-family:monospace;padding:24px;background:#090d18;color:#f0f4f8;">

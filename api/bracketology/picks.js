@@ -5,6 +5,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { getQueryParam } from '../_requestUrl.js';
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
 
 async function handleGet(req, res, sb, user) {
   try {
-    const bracketId = req.query?.bracketId;
+    const bracketId = getQueryParam(req, 'bracketId');
 
     let query = sb
       .from('user_brackets')

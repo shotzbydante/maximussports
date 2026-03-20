@@ -5,6 +5,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { getQueryParam } from '../_requestUrl.js';
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -130,7 +131,7 @@ async function handleRename(req, res, sb, user) {
 
 async function handleDelete(req, res, sb, user) {
   try {
-    const bracketId = req.query?.bracketId || req.body?.bracketId;
+    const bracketId = getQueryParam(req, 'bracketId') || req.body?.bracketId;
     if (!bracketId) {
       return res.status(400).json({ error: 'Missing bracketId' });
     }

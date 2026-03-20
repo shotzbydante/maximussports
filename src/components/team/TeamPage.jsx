@@ -298,9 +298,9 @@ export default function TeamPage() {
   const nextMatchupLink = nextOpponentSlug ? `/games/${buildMatchupSlug(slug, nextOpponentSlug)}` : null;
 
   const handleTogglePin = () => {
-    togglePinnedTeam(slug);
+    const after = togglePinnedTeam(slug);
     setIsPinned(!isPinned);
-    notifyPinnedChanged();
+    notifyPinnedChanged(after, 'home');
     track(isPinned ? 'team_unpin' : 'team_pin', { team_slug: slug });
   };
 

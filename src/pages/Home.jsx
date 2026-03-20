@@ -766,18 +766,13 @@ export default function Home() {
             setPinnedTeamDataBySlug((prev) => ({ ...prev, ...fromCache }));
           }
           if (uncachedSlugs.length > 0) {
-            const scheduleBatch = typeof requestIdleCallback !== 'undefined'
-              ? (cb) => requestIdleCallback(cb, { timeout: 500 })
-              : (cb) => setTimeout(cb, 100);
-            scheduleBatch(() => {
-              fetchTeamBatch(uncachedSlugs)
-                .then(({ teams }) => {
-                  const t = teams || {};
-                  Object.entries(t).forEach(([slug, data]) => setPinnedCache(slug, data));
-                  setPinnedTeamDataBySlug((prev) => ({ ...prev, ...t }));
-                })
-                .catch(() => {});
-            });
+            fetchTeamBatch(uncachedSlugs)
+              .then(({ teams }) => {
+                const t = teams || {};
+                Object.entries(t).forEach(([slug, data]) => setPinnedCache(slug, data));
+                setPinnedTeamDataBySlug((prev) => ({ ...prev, ...t }));
+              })
+              .catch(() => {});
           }
         }
 

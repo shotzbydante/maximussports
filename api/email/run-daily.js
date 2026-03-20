@@ -239,7 +239,8 @@ export default async function handler(req, res) {
     }
   }
 
-  const type = req.query?.type;
+  const _url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const type = _url.searchParams.get('type');
   if (!type || !VALID_TYPES.includes(type)) {
     return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
   }
