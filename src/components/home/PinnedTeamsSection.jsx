@@ -581,13 +581,15 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       const homeSlug = getTeamSlug(g.homeTeam);
       const awaySlug = getTeamSlug(g.awayTeam);
       if (homeSlug === slug || awaySlug === slug) {
+        const isHome = homeSlug === slug;
         const time = formatTimePST(g.startTime);
         return {
-          vs: homeSlug === slug ? g.awayTeam : g.homeTeam,
+          vs: isHome ? g.awayTeam : g.homeTeam,
           status: g.gameStatus,
           time,
           network: g.network,
           gameId: g.gameId,
+          opponentLogo: isHome ? (g.awayLogo || null) : (g.homeLogo || null),
         };
       }
     }
@@ -948,7 +950,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                         <span className={styles.statValue}>{fields ? fmtRecord(fields.seasonRecord) : '—'}</span>
                       </span>
                       {fields?.conferenceFinish && (
-                        <span className={styles.statCell}>
+                        <span className={`${styles.statCell} ${styles.statCellWide}`}>
                           <span className={styles.statLabel}>Conf. Finish</span>
                           <span className={`${styles.statValue} ${styles.statValueWrap}`}>{fields.conferenceFinish}</span>
                         </span>
@@ -958,7 +960,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                         <span className={styles.statValue}>{fields?.atsLast10 ? fmtAtsLast10(fields.atsLast10) : (fields ? fmtAts(fields.atsRecord) : '—')}</span>
                       </span>
                       {fields?.tournamentLabel && (
-                        <span className={`${styles.statCell} ${styles.statCellTourney} ${fields.tournamentStatus === 'active' ? styles.statCellActive : ''} ${fields.tournamentStatus === 'eliminated' ? styles.statCellElim : ''}`}>
+                        <span className={`${styles.statCell} ${styles.statCellWide} ${fields.tournamentStatus === 'active' ? styles.statCellActive : ''} ${fields.tournamentStatus === 'eliminated' ? styles.statCellElim : ''}`}>
                           <span className={styles.statLabel}>Tournament</span>
                           <span className={`${styles.statValue} ${styles.statValueWrap}`}>{fields.tournamentLabel}</span>
                         </span>
@@ -975,15 +977,18 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       <div className={styles.gameModule}>
                         <span className={styles.gameModuleTag}>Next Game</span>
                         <div className={styles.gameModuleBody}>
-                          <span className={styles.gameMatchup}>
-                            vs {nextGame.vs}
-                          </span>
-                          <span className={styles.gameDetail}>
-                            {nextGame.status}
-                            {nextGame.time && ` · ${nextGame.time} PST`}
-                            {nextGame.network && ` · ${nextGame.network}`}
-                          </span>
-                          {nextGame.gameId && <ESPNGamecastLink game={nextGame} />}
+                          {nextGame.opponentLogo && (
+                            <img src={nextGame.opponentLogo} alt="" className={styles.gameOppLogo} loading="lazy" />
+                          )}
+                          <div className={styles.gameModuleInfo}>
+                            <span className={styles.gameMatchup}>vs {nextGame.vs}</span>
+                            <span className={styles.gameDetail}>
+                              {nextGame.status}
+                              {nextGame.time && ` · ${nextGame.time} PST`}
+                              {nextGame.network && ` · ${nextGame.network}`}
+                            </span>
+                            {nextGame.gameId && <ESPNGamecastLink game={nextGame} />}
+                          </div>
                         </div>
                       </div>
                     );
@@ -999,24 +1004,24 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                           {ng.opponentLogo && (
                             <img src={ng.opponentLogo} alt="" className={styles.gameOppLogo} loading="lazy" />
                           )}
-                          <span className={styles.gameMatchup}>
-                            vs {ng.opponent}
-                          </span>
-                          <span className={styles.gameDetail}>
-                            {ng.status}
-                            {gameTime && ` · ${gameTime} PST`}
-                            {ng.broadcast && ` · ${ng.broadcast}`}
-                          </span>
-                          {ng.gamecastUrl && (
-                            <a
-                              href={ng.gamecastUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.gamecastLink}
-                            >
-                              Gamecast ↗
-                            </a>
-                          )}
+                          <div className={styles.gameModuleInfo}>
+                            <span className={styles.gameMatchup}>vs {ng.opponent}</span>
+                            <span className={styles.gameDetail}>
+                              {ng.status}
+                              {gameTime && ` · ${gameTime} PST`}
+                              {ng.broadcast && ` · ${ng.broadcast}`}
+                            </span>
+                            {ng.gamecastUrl && (
+                              <a
+                                href={ng.gamecastUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.gamecastLink}
+                              >
+                                Gamecast ↗
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1027,12 +1032,10 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       <div className={styles.gameModule}>
                         <span className={styles.gameModuleTag}>{fields.tournamentRoundLabel || 'Next Round'}</span>
                         <div className={styles.gameModuleBody}>
-                          <span className={styles.gameMatchup}>
-                            vs TBD
-                          </span>
-                          <span className={styles.gameDetail}>
-                            Opponent not yet determined
-                          </span>
+                          <div className={styles.gameModuleInfo}>
+                            <span className={styles.gameMatchup}>vs TBD</span>
+                            <span className={styles.gameDetail}>Opponent not yet determined</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1044,12 +1047,10 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       <div className={`${styles.gameModule} ${styles.gameModuleElim}`}>
                         <span className={styles.gameModuleTag}>Tournament Result — Loss</span>
                         <div className={styles.gameModuleBody}>
-                          <span className={styles.gameMatchup}>
-                            vs {g.opponent}
-                          </span>
-                          <span className={styles.gameScore}>
-                            {g.ourScore}–{g.oppScore}
-                          </span>
+                          <div className={styles.gameModuleInfo}>
+                            <span className={styles.gameMatchup}>vs {g.opponent}</span>
+                            <span className={styles.gameScore}>{g.ourScore}–{g.oppScore}</span>
+                          </div>
                         </div>
                       </div>
                     );
