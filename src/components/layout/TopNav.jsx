@@ -57,16 +57,22 @@ const NavSettingsIcon = () => (
   </svg>
 );
 
-const NAV_ICON_MAP = {
-  '/': NavHomeIcon,
-  '/games': NavGamesIcon,
-  '/teams': NavTeamsIcon,
-  '/insights': NavTrendIcon,
-  '/news': NavNewsIcon,
-  '/dashboard': NavDashboardIcon,
-  '/bracketology': NavBracketIcon,
-  '/settings': NavSettingsIcon,
+const ICON_COMPONENTS = {
+  home: NavHomeIcon,
+  games: NavGamesIcon,
+  teams: NavTeamsIcon,
+  insights: NavTrendIcon,
+  news: NavNewsIcon,
+  dashboard: NavDashboardIcon,
+  bracketology: NavBracketIcon,
+  settings: NavSettingsIcon,
 };
+
+const CheckIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden>
+    <path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 /**
  * PlanBadge — shows PRO / FREE / ··· depending on plan state.
@@ -103,28 +109,28 @@ function PlanBadge({ tier, isLoading, isSyncing }) {
   );
 }
 
-const SETTINGS_LINK = { to: '/settings', end: false, label: 'Settings', testId: 'nav-settings' };
-
 export default function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
   const { planTier, isLoading, isSyncing } = usePlan();
   const { profile } = useUserProfile();
-  const { workspace, buildPath, hasCapability } = useWorkspace();
+  const { workspace, workspaceId, visibleWorkspaces, switchWorkspace, buildPath, hasCapability } = useWorkspace();
+
+  const showWorkspaceSwitcher = visibleWorkspaces.length > 1;
 
   const NAV_LINKS = useMemo(() => {
     const links = [
-      { to: buildPath('/'), end: true, label: 'Home' },
-      { to: buildPath('/games'), end: false, label: workspace.labels.games },
-      { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel },
-      { to: buildPath('/insights'), end: false, label: workspace.labels.picks },
-      { to: buildPath('/news'), end: false, label: workspace.labels.news },
-      { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true },
+      { to: buildPath('/'), end: true, label: 'Home', iconKey: 'home' },
+      { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
+      { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
+      { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
+      { to: buildPath('/news'), end: false, label: workspace.labels.news, iconKey: 'news' },
+      { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true, iconKey: 'dashboard' },
     ];
     if (hasCapability('bracketology')) {
-      links.push({ to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true });
+      links.push({ to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true, iconKey: 'bracketology' });
     }
-    links.push(SETTINGS_LINK);
+    links.push({ to: '/settings', end: false, label: 'Settings', testId: 'nav-settings', iconKey: 'settings' });
     return links;
   }, [workspace, buildPath, hasCapability]);
 
@@ -144,7 +150,7 @@ export default function TopNav() {
   return (
     <header className={styles.topnav}>
       <div className={styles.brand}>
-        <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
+        <Link to={buildPath('/')} className={styles.brandLink} aria-label="Maximus Sports Home">
           <img
             src="/maximus-logo.png"
             alt="Maximus Sports"
@@ -155,6 +161,11 @@ export default function TopNav() {
         <div className={styles.brandTaglineCluster}>
           <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>
           <PlanBadge tier={planTier} isLoading={isLoading} isSyncing={isSyncing} />
+          {showWorkspaceSwitcher && (
+            <span className={styles.workspaceBadge} aria-label={`Workspace: ${workspace.shortLabel}`}>
+              {workspace.emoji} {workspace.shortLabel}
+            </span>
+          )}
         </div>
       </div>
       <nav className={styles.nav} aria-hidden={menuOpen ? false : undefined}>
@@ -190,8 +201,31 @@ export default function TopNav() {
       {menuOpen && (
         <div className={styles.navOverlay} aria-hidden>
           <nav className={styles.navDropdown} onClick={(e) => e.stopPropagation()}>
-            {NAV_LINKS.map(({ to, end, label, testId, isBracketology, isDashboard }) => {
-              const IconComp = NAV_ICON_MAP[to] || null;
+            {showWorkspaceSwitcher && (
+              <div className={styles.mobileWsSwitcher}>
+                <span className={styles.mobileWsHeader}>Workspace</span>
+                <div className={styles.mobileWsOptions}>
+                  {visibleWorkspaces.map((ws) => (
+                    <button
+                      key={ws.id}
+                      type="button"
+                      className={`${styles.mobileWsOption} ${ws.id === workspaceId ? styles.mobileWsOptionActive : ''}`}
+                      onClick={() => {
+                        switchWorkspace(ws.id);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <span className={styles.mobileWsEmoji}>{ws.emoji}</span>
+                      <span className={styles.mobileWsLabel}>{ws.shortLabel}</span>
+                      {!ws.access.public && <span className={styles.mobileWsSandbox}>SANDBOX</span>}
+                      {ws.id === workspaceId && <span className={styles.mobileWsCheck}><CheckIcon /></span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {NAV_LINKS.map(({ to, end, label, testId, isBracketology, isDashboard, iconKey }) => {
+              const IconComp = ICON_COMPONENTS[iconKey] || null;
               return (
                 <span key={to} className={styles.navDropdownItem}>
                   {end ? (
