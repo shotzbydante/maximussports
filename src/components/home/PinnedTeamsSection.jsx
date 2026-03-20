@@ -988,20 +988,34 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       </div>
                     );
                   }
-                  // Priority 2: Alive in tournament — show next round game from schedule
+                  // Priority 2: Alive in tournament — show rich next round game
                   if (fields?.tournamentStatus === 'active' && fields?.nextNcaaGame) {
                     const ng = fields.nextNcaaGame;
+                    const gameTime = formatTimePST(ng.date);
                     return (
                       <div className={styles.gameModule}>
                         <span className={styles.gameModuleTag}>{fields.tournamentRoundLabel || 'Next Round'}</span>
                         <div className={styles.gameModuleBody}>
+                          {ng.opponentLogo && (
+                            <img src={ng.opponentLogo} alt="" className={styles.gameOppLogo} loading="lazy" />
+                          )}
                           <span className={styles.gameMatchup}>
                             vs {ng.opponent}
                           </span>
-                          {ng.date && (
-                            <span className={styles.gameDetail}>
-                              {ng.status}
-                            </span>
+                          <span className={styles.gameDetail}>
+                            {ng.status}
+                            {gameTime && ` · ${gameTime} PST`}
+                            {ng.broadcast && ` · ${ng.broadcast}`}
+                          </span>
+                          {ng.gamecastUrl && (
+                            <a
+                              href={ng.gamecastUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.gamecastLink}
+                            >
+                              Gamecast ↗
+                            </a>
                           )}
                         </div>
                       </div>
