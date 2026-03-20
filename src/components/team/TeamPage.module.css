@@ -118,6 +118,17 @@
 .tierWork { background: rgba(183, 152, 108, 0.15); color: var(--color-beige-dune); }
 .tierLong { background: rgba(196, 92, 74, 0.12); color: var(--color-down); }
 
+.confFinishChip {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(183, 152, 108, 0.1);
+  color: var(--color-beige-dune, #b7986c);
+  border: 1px solid rgba(183, 152, 108, 0.18);
+  white-space: nowrap;
+}
+
 .tournamentChip {
   font-size: 0.62rem;
   font-weight: 700;

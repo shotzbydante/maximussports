@@ -593,6 +593,9 @@ export async function fetchScheduleSource(teamId) {
       const opponent = homeAway === 'home' ? awayTeam : homeTeam;
       const ourScore = homeAway === 'home' ? homeScore : awayScore;
       const oppScore = homeAway === 'home' ? awayScore : homeScore;
+      const seasonType = ev?.season?.type ?? ev?.seasonType ?? null;
+      const evName = ev?.name || ev?.shortName || '';
+      const compNotes = (comp?.notes || []).map((n) => n.headline || n.text || '').filter(Boolean);
       return {
         id: ev.id,
         date: ev.date || comp?.date || null,
@@ -608,6 +611,9 @@ export async function fetchScheduleSource(teamId) {
         opponent,
         ourScore,
         oppScore,
+        seasonType,
+        eventName: evName,
+        notes: compNotes,
       };
     });
     return { events };

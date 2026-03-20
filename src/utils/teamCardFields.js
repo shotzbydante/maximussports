@@ -22,33 +22,111 @@ function computeSeasonRecord(events) {
 }
 
 /**
- * Derive conference finish context from schedule events.
- * Looks for conference tournament games (typically late-season neutral-site
- * events with conference opponents). Returns a short label like
- * "Conf. Tourney Champ" or "Conf. Semis" when detectable, otherwise
- * falls back to the team's conference standing if available.
+ * Detect whether an event is a conference tournament game from ESPN metadata.
+ *
+ * Uses enriched fields from `fetchScheduleSource`: eventName, seasonType, notes.
+ * ESPN conference tournament games typically have:
+ *   - seasonType 3 (postseason) with a date before NCAA tournament
+ *   - eventName containing "{Conference} Tournament" (e.g., "SEC Tournament - Semifinal")
+ *   - notes containing the conference tournament name
+ */
+const CONF_TOURNEY_RE = /\b(tournament|tourney|conf\.\s*tourn)/i;
+const CHAMPIONSHIP_RE = /\b(championship|final(?:s)?)\b/i;
+const ROUND_PATTERNS = [
+  { re: /\bchampionship\b/i, label: 'Championship' },
+  { re: /\bfinals?\b/i, label: 'Final' },
+  { re: /\bsemifinals?\b/i, label: 'Semifinals' },
+  { re: /\bquarterfinals?\b/i, label: 'Quarterfinals' },
+  { re: /\bsecond\s*round\b/i, label: 'Second Round' },
+  { re: /\bfirst\s*round\b/i, label: 'First Round' },
+];
+
+function isConfTourneyEvent(ev, confName) {
+  const name = (ev.eventName || '').toLowerCase();
+  const notesStr = (ev.notes || []).join(' ').toLowerCase();
+  const combined = `${name} ${notesStr}`;
+  const conf = (confName || '').toLowerCase();
+
+  if (conf && combined.includes(conf) && CONF_TOURNEY_RE.test(combined)) return true;
+  if (CONF_TOURNEY_RE.test(name) && ev.seasonType === 3) return true;
+  if (CONF_TOURNEY_RE.test(notesStr)) return true;
+  return false;
+}
+
+function extractRoundLabel(ev) {
+  const combined = `${ev.eventName || ''} ${(ev.notes || []).join(' ')}`;
+  for (const { re, label } of ROUND_PATTERNS) {
+    if (re.test(combined)) return label;
+  }
+  return null;
+}
+
+/**
+ * Derive conference finish from schedule events.
+ *
+ * Priority:
+ *   1. Conference tournament finish (from enriched ESPN event metadata)
+ *   2. Regular-season conference placement (from conference record if detectable)
+ *   3. Non-qualification signal (team had no conf tourney games despite season ending)
+ *   4. null — no confident data
+ *
+ * @returns {{ label: string|null, source: string|null, confidence: string|null }}
  */
 function deriveConferenceFinish(events, team) {
-  if (!events?.length || !team) return null;
+  if (!events?.length || !team) return { label: null, source: null, confidence: null };
 
-  const confGames = events
-    .filter((e) => e.isFinal && e.isConferenceTournament)
+  const confName = team.conference || '';
+
+  // ── 1. Conference tournament finish ──────────────────────────────
+  const confTourneyGames = events
+    .filter((e) => e.isFinal && isConfTourneyEvent(e, confName))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  if (confGames.length > 0) {
-    const lastConfGame = confGames[0];
-    const won = Number(lastConfGame.ourScore) > Number(lastConfGame.oppScore);
-    if (lastConfGame.isChampionship && won) return 'Conf. Tourney Champ';
-    if (lastConfGame.isChampionship && !won) return 'Conf. Tourney Runner-Up';
-    const roundNames = ['Final', 'Semifinal', 'Quarterfinal'];
-    for (const rn of roundNames) {
-      if (lastConfGame.round?.includes(rn) || lastConfGame.shortName?.includes(rn)) {
-        return `Conf. ${rn}`;
-      }
+  if (confTourneyGames.length > 0) {
+    const lastGame = confTourneyGames[0];
+    const won = Number(lastGame.ourScore) > Number(lastGame.oppScore);
+    const roundLabel = extractRoundLabel(lastGame);
+    const isChampionship = CHAMPIONSHIP_RE.test(lastGame.eventName || '') ||
+                           CHAMPIONSHIP_RE.test((lastGame.notes || []).join(' '));
+
+    if (isChampionship && won) {
+      return { label: `Won ${confName} Tournament`, source: 'conference_tournament', confidence: 'high' };
     }
+    if (isChampionship && !won) {
+      return { label: `${confName} Tournament Runner-Up`, source: 'conference_tournament', confidence: 'high' };
+    }
+    if (roundLabel) {
+      return { label: `Reached ${confName} ${roundLabel}`, source: 'conference_tournament', confidence: 'high' };
+    }
+    return { label: `${confName} Tournament`, source: 'conference_tournament', confidence: 'medium' };
   }
 
-  return team.conference || null;
+  // ── 2. Regular-season conference placement ───────────────────────
+  // ESPN schedule events don't directly expose standings rank, but if the
+  // season is over (has a significant number of finals) and we can compute
+  // conference W-L from events where both teams are conference opponents,
+  // we still can't derive placement without the full conference standings.
+  // Leave as null — only claim what we can confidently prove.
+
+  // ── 3. Non-qualification ─────────────────────────────────────────
+  // If the season appears to have ended (late in the year with many finals)
+  // and no conference tournament games were found, the team may not have
+  // qualified. Only assert this with high confidence when:
+  //   - We're past conference tournament season (mid-March+)
+  //   - The team has a substantial number of completed games
+  //   - No conf tourney events were detected
+  const now = new Date();
+  const isMarchPlus = now.getMonth() >= 2 && now.getDate() >= 10;
+  const finishedGames = events.filter((e) => e.isFinal);
+  const hasSubstantialSeason = finishedGames.length >= 20;
+  const hasPostseasonEvents = events.some((e) => e.seasonType === 3 && e.isFinal);
+
+  if (isMarchPlus && hasSubstantialSeason && !hasPostseasonEvents) {
+    return { label: `Did not qualify for ${confName || 'conference'} tournament`, source: 'non_qualifier', confidence: 'medium' };
+  }
+
+  // ── 4. No confident data ─────────────────────────────────────────
+  return { label: null, source: null, confidence: null };
 }
 
 /**
@@ -119,7 +197,7 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
   const events = batchSlot?.schedule?.events || [];
 
   const seasonRecord = computeSeasonRecord(events);
-  const conferenceFinish = deriveConferenceFinish(events, team);
+  const confFinish = deriveConferenceFinish(events, team);
 
   const batchAts = batchSlot?.ats?.season || null;
   const ats = resolveAts(batchAts, cacheAts);
@@ -134,7 +212,9 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
 
   return {
     seasonRecord,
-    conferenceFinish,
+    conferenceFinish: confFinish.label,
+    conferenceFinishSource: confFinish.source,
+    conferenceFinishConfidence: confFinish.confidence,
     atsRecord,
     tournamentStatus: tournament.status,
     tournamentLabel: tournament.label,

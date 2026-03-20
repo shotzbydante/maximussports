@@ -364,6 +364,9 @@ export default function TeamPage() {
                 })()}
                 <span className={styles.conference}>{team.conference}</span>
                 {record && <span className={styles.record}>{record}</span>}
+                {cardFields?.conferenceFinish && (
+                  <span className={styles.confFinishChip} title="Conference finish">{cardFields.conferenceFinish}</span>
+                )}
                 {cardFields?.atsRecord && (
                   <span className={styles.record} title="Full-season ATS">ATS: {fmtAts(cardFields.atsRecord)}</span>
                 )}
