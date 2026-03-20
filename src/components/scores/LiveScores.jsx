@@ -16,7 +16,7 @@ import TeamLogo from '../shared/TeamLogo';
 import StatusChip from '../shared/StatusChip';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSlug, getOddsTier } from '../../utils/teamSlug';
-import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
+import { getTeamSeed, isBracketOfficial, getMatchupRegionContext } from '../../utils/tournamentHelpers';
 import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { track } from '../../analytics/index';
 import styles from './LiveScores.module.css';
@@ -161,6 +161,10 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
           const awaySeed = getTeamSeed(awaySlug || g.awayTeam);
           const homeSeed = getTeamSeed(homeSlug || g.homeTeam);
 
+          const regionCtx = (awaySeed != null || homeSeed != null)
+            ? getMatchupRegionContext({ ...g, awaySlug, homeSlug })
+            : { awayRegion: null, homeRegion: null };
+
           // Mobile cap: hide via CSS when mobileCap is set and not expanded
           const hiddenOnMobile = !expanded && mobileCap != null && i >= mobileCap;
           // Fade-in animation for games that were previously hidden by the cap
@@ -180,7 +184,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
             >
               {/* Away team row */}
               <div className={`${styles.teamRow} ${awayWon ? styles.teamRowWinner : ''} ${finished && !awayWon ? styles.teamRowLoser : ''}`}>
-                {awaySeed != null && <SeedBadge seed={awaySeed} size="sm" teamSlug={awaySlug} />}
+                {awaySeed != null && <SeedBadge seed={awaySeed} size="sm" region={regionCtx.awayRegion} teamSlug={awaySlug} />}
                 <span className={styles.teamLogoWrap}>
                   <TeamLogo team={awayTeamObj} size={24} />
                 </span>
@@ -211,7 +215,7 @@ export default function LiveScores({ games = [], loading, error, oddsMessage, co
 
               {/* Home team row */}
               <div className={`${styles.teamRow} ${homeWon ? styles.teamRowWinner : ''} ${finished && !homeWon ? styles.teamRowLoser : ''}`}>
-                {homeSeed != null && <SeedBadge seed={homeSeed} size="sm" teamSlug={homeSlug} />}
+                {homeSeed != null && <SeedBadge seed={homeSeed} size="sm" region={regionCtx.homeRegion} teamSlug={homeSlug} />}
                 <span className={styles.teamLogoWrap}>
                   <TeamLogo team={homeTeamObj} size={24} />
                 </span>

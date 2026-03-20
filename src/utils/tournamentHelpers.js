@@ -261,6 +261,60 @@ export function getTournamentTeam(slug) {
 }
 
 /**
+ * Determine the region context for a game matchup.
+ *
+ * For intra-region games (all rounds before Final Four), both teams should
+ * share the same region color. This helper resolves a single "shared" region
+ * when both teams belong to the same region, preventing mismatched badge
+ * colors caused by one team's region data being missing or stale.
+ *
+ * @param {object} game  – game object with away/home slug and team name fields
+ * @param {object} [opts]
+ * @param {string} [opts.phase] – tournament phase override (auto-detected if omitted)
+ * @returns {{ isCrossRegion: boolean, sharedRegion: string|null, awayRegion: string|null, homeRegion: string|null }}
+ */
+export function getMatchupRegionContext(game, opts = {}) {
+  if (!game) return { isCrossRegion: false, sharedRegion: null, awayRegion: null, homeRegion: null };
+
+  const awaySlug = game.awaySlug || game.awayTeamSlug || null;
+  const homeSlug = game.homeSlug || game.homeTeamSlug || null;
+  const awayName = game.awayTeam || '';
+  const homeName = game.homeTeam || '';
+
+  const awayRegion = getTeamRegion(awaySlug || awayName);
+  const homeRegion = getTeamRegion(homeSlug || homeName);
+
+  const phase = opts.phase || getTournamentPhase();
+  const isFinalFourOrLater = phase === 'final_four' || phase === 'championship';
+
+  const normalize = (r) => r ? r.trim().toLowerCase() : null;
+  const awayNorm = normalize(awayRegion);
+  const homeNorm = normalize(homeRegion);
+
+  const regionsMatch = awayNorm && homeNorm && awayNorm === homeNorm;
+  const oneResolved = awayRegion || homeRegion;
+
+  if (isFinalFourOrLater) {
+    return {
+      isCrossRegion: !!(awayRegion && homeRegion && awayNorm !== homeNorm),
+      sharedRegion: regionsMatch ? awayRegion : null,
+      awayRegion,
+      homeRegion,
+    };
+  }
+
+  // Pre-Final-Four: teams are playing within their region.
+  // Use the shared region for both badges, falling back to whichever side resolved.
+  const sharedRegion = regionsMatch ? awayRegion : (oneResolved || null);
+  return {
+    isCrossRegion: false,
+    sharedRegion,
+    awayRegion: sharedRegion,
+    homeRegion: sharedRegion,
+  };
+}
+
+/**
  * Returns true if the team is in the tournament field.
  */
 export function isTournamentTeam(slugOrName) {

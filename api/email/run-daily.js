@@ -138,56 +138,68 @@ async function probeJobRunsTable(sb) {
 
 // resolvePinnedTeams replaced by shared resolveTeamRows from getUserPinnedTeams.js
 
-async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
+/**
+ * Classify a game status string as final, live, or scheduled.
+ */
+function classifyGameStatus(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'final' || s.includes('final')) return 'final';
+  if (s.startsWith('q') || s.includes('halftime') || s.includes('progress')) return 'live';
+  return 'scheduled';
+}
+
+/**
+ * Build the full email briefing context — narrative, prior-day results,
+ * today's key matchups, Maximus Picks summary, and bot intel bullets.
+ *
+ * Pulls from the same KV cache as the Home page briefing when available,
+ * falling back to structured data-driven generation.
+ */
+async function buildEmailBriefingContext(atsLeaders, rankingsTop25, scoresToday, modelSignals) {
+  const showTournament = isTournamentWeek();
+  const best = atsLeaders?.best || [];
+
+  // Separate prior-day finals from today's upcoming/live games
+  const priorDayResults = scoresToday
+    .filter(g => classifyGameStatus(g.gameStatus) === 'final')
+    .map(g => {
+      const hs = parseInt(g.homeScore, 10);
+      const as = parseInt(g.awayScore, 10);
+      const hasScore = !isNaN(hs) && !isNaN(as);
+      const winner = hasScore ? (hs > as ? g.homeTeam : g.awayTeam) : null;
+      const loser = hasScore ? (hs > as ? g.awayTeam : g.homeTeam) : null;
+      const winScore = hasScore ? Math.max(hs, as) : null;
+      const loseScore = hasScore ? Math.min(hs, as) : null;
+      const margin = hasScore ? Math.abs(hs - as) : 0;
+      const spread = g.spread != null ? parseFloat(g.spread) : null;
+      const isCoverUpset = spread != null && hasScore && winner
+        ? (winner === g.homeTeam ? (spread < 0 && margin < Math.abs(spread)) : (spread > 0 && margin < Math.abs(spread)))
+        : false;
+      return { ...g, winner, loser, winScore, loseScore, margin, isCoverUpset, hasScore };
+    })
+    .sort((a, b) => (b.margin || 0) - (a.margin || 0));
+
+  const todayUpcoming = scoresToday.filter(g => {
+    const kind = classifyGameStatus(g.gameStatus);
+    return kind === 'scheduled' || kind === 'live';
+  });
+
+  // Try to pull narrative from KV cache (same source as Home page)
+  let narrativeParagraph = '';
   try {
     const kvSummary = await getJson('chat:home:summary:v1');
     if (kvSummary?.text || kvSummary?.summary) {
-      const text = kvSummary.text || kvSummary.summary || '';
-      const rawLines = text
-        .split(/[-\n•*]+/)
-        .map(l => l.replace(/^\d+\.\s*/, '').trim())
-        .filter(l => l.length > 20 && l.length < 200);
-      if (rawLines.length >= 2) {
-        return rawLines.slice(0, 4);
-      }
+      narrativeParagraph = (kvSummary.text || kvSummary.summary || '').trim();
     }
-  } catch {
-    // KV unavailable — fall through
-  }
+  } catch { /* KV unavailable */ }
 
+  // Build bot intel bullets (concise key insights)
   const bullets = [];
-  const showTournament = isTournamentWeek();
-
   if (showTournament) {
-    const best = atsLeaders?.best || [];
-    const finalGames = scoresToday.filter(g => {
-      const s = (g.gameStatus || '').toLowerCase();
-      return s === 'final' || s.includes('final');
-    });
-    const upcomingGames = scoresToday.filter(g => {
-      const s = (g.gameStatus || '').toLowerCase();
-      return !s.includes('final') && s !== 'final';
-    });
-
-    if (finalGames.length > 0) {
-      const marquee = finalGames[0];
-      const hs = parseInt(marquee.homeScore, 10);
-      const as = parseInt(marquee.awayScore, 10);
-      if (!isNaN(hs) && !isNaN(as)) {
-        const winner = hs > as ? marquee.homeTeam : marquee.awayTeam;
-        const loser = hs > as ? marquee.awayTeam : marquee.homeTeam;
-        const winScore = Math.max(hs, as);
-        const loseScore = Math.min(hs, as);
-        bullets.push(`${winner} defeated ${loser} ${winScore}-${loseScore} in tournament action — a result that reshapes bracket projections heading into the next round.`);
-      }
+    if (priorDayResults.length > 0 && priorDayResults[0].hasScore) {
+      const m = priorDayResults[0];
+      bullets.push(`${m.winner} defeated ${m.loser} ${m.winScore}-${m.loseScore} in tournament action — a result that reshapes bracket projections heading into the next round.`);
     }
-
-    if (upcomingGames.length > 0) {
-      bullets.push(`${upcomingGames.length} tournament game${upcomingGames.length !== 1 ? 's' : ''} on today's slate. The model is tracking every matchup for live edge signals as tip approaches.`);
-    } else if (scoresToday.length === 0) {
-      bullets.push('No games today — the bracket resets between rounds. The model is already scanning the next slate for the strongest edges. Preview matchups below.');
-    }
-
     if (best.length > 0) {
       const top = best[0];
       const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
@@ -195,31 +207,47 @@ async function getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday) {
         `${top.name || top.team} has been the sharpest ATS cover trend${pct ? ` (${pct})` : ''} — tournament teams with strong cover rates historically carry momentum into March.`
       );
     }
-
     bullets.push('Check the bracket below for the model\'s latest edge signals, upset picks, and tournament matchup analysis.');
   } else {
-    const best = atsLeaders?.best || [];
     if (best.length > 0) {
       const top = best[0];
       const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : null;
-      bullets.push(
-        `${top.name || top.team} leans as the top ATS cover trend right now${pct ? ` (${pct} cover rate)` : ''} — worth monitoring before tip.`
-      );
-    }
-    if (best.length > 1) {
-      bullets.push(`Watch ${best[1].name || best[1].team} as a secondary value edge — strong recent ATS form with line movement potential.`);
+      bullets.push(`${top.name || top.team} leans as the top ATS cover trend${pct ? ` (${pct} cover rate)` : ''} — worth monitoring before tip.`);
     }
     if (scoresToday.length > 0) {
-      bullets.push(`${scoresToday.length} game${scoresToday.length !== 1 ? 's' : ''} on the board today. Monitor line movement in the hour before tip for sharp action.`);
+      bullets.push(`${scoresToday.length} game${scoresToday.length !== 1 ? 's' : ''} on the board today.`);
     }
     if (rankingsTop25.length >= 3) {
       const t = rankingsTop25[0];
       const name = t.teamName || t.name || t.team || '';
-      if (name) bullets.push(`${name} holds the top spot in the AP poll. Ranked teams cover at a higher rate this late in the season.`);
+      if (name) bullets.push(`${name} holds the top spot in the AP poll.`);
     }
   }
 
-  return bullets.slice(0, 4);
+  // Build picks summary (aligned with IG card summary logic)
+  let picksSummary = '';
+  if (Array.isArray(modelSignals) && modelSignals.length > 0) {
+    const topPicks = modelSignals.slice(0, 3);
+    const parts = topPicks.map(p => {
+      const matchup = p.matchup || `${p.awayTeam || '?'} vs ${p.homeTeam || '?'}`;
+      if (p.isUpset) return `${matchup} (upset pick)`;
+      const prob = p.probability || p.winProb || p.modelProb || null;
+      const winner = p.winner || p.pick || p.favored || '';
+      const pctStr = prob != null ? `${Math.round(prob * 100)}%` : '';
+      return winner && pctStr ? `${winner} ${pctStr}` : matchup;
+    }).filter(Boolean);
+    if (parts.length > 0) {
+      picksSummary = `Today's strongest model signals: ${parts.join(' · ')}.`;
+    }
+  }
+
+  return {
+    narrativeParagraph,
+    priorDayResults: priorDayResults.slice(0, 6),
+    todayUpcoming,
+    botIntelBullets: bullets.slice(0, 4),
+    picksSummary,
+  };
 }
 
 export default async function handler(req, res) {
@@ -392,13 +420,16 @@ export default async function handler(req, res) {
         }))
       : [];
 
-    // ── 7. Bot intel bullets
+    // ── 7. Email briefing context (narrative, results, matchups, picks)
     let botIntelBullets = [];
+    let briefingContext = {};
     if (type === 'daily' || type === 'pinned') {
       try {
-        botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday);
+        briefingContext = await buildEmailBriefingContext(atsLeaders, rankingsTop25, scoresToday, []);
+        botIntelBullets = briefingContext.botIntelBullets || [];
       } catch {
         botIntelBullets = [];
+        briefingContext = {};
       }
     }
 
@@ -454,7 +485,23 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 7c. Pre-load team data (used by all team-related emails)
+    // ── 7c. Rebuild picks summary now that modelSignals are loaded
+    if (type === 'daily' && modelSignals.length > 0 && briefingContext) {
+      const topPicks = modelSignals.slice(0, 3);
+      const parts = topPicks.map(p => {
+        const matchup = p.matchup || `${p.awayTeam || '?'} vs ${p.homeTeam || '?'}`;
+        if (p.isUpset) return `${matchup} (upset pick)`;
+        const prob = p.probability || p.winProb || p.modelProb || null;
+        const winner = p.winner || p.pick || p.favored || '';
+        const pctStr = prob != null ? `${Math.round(prob * 100)}%` : '';
+        return winner && pctStr ? `${winner} ${pctStr}` : matchup;
+      }).filter(Boolean);
+      if (parts.length > 0) {
+        briefingContext.picksSummary = `Today's strongest model signals: ${parts.join(' · ')}.`;
+      }
+    }
+
+    // ── 7d. Pre-load team data (used by all team-related emails)
     let getTeamBySlugFn = null;
     try {
       const teamsModule = await import('../../src/data/teams.js');
@@ -509,6 +556,11 @@ export default async function handler(req, res) {
         oddsGames,
         modelSignals,
         tournamentMeta,
+        // Enhanced briefing context for upgraded email
+        narrativeParagraph: briefingContext.narrativeParagraph || '',
+        priorDayResults: briefingContext.priorDayResults || [],
+        todayUpcoming: briefingContext.todayUpcoming || [],
+        picksSummary: briefingContext.picksSummary || '',
       };
 
       let subject, html, text;
