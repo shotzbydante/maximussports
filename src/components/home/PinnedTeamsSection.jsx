@@ -25,7 +25,7 @@ import { track } from '../../analytics/index';
 import TeamLogo from '../shared/TeamLogo';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
-import { normalizeTeamCardFields, fmtRecord, fmtAts } from '../../utils/teamCardFields';
+import { normalizeTeamCardFields, fmtRecord, fmtAts, fmtAtsLast10 } from '../../utils/teamCardFields';
 import ExamplePinnedTeamCard from './ExamplePinnedTeamCard';
 import ShareButton from '../common/ShareButton';
 import styles from './PinnedTeamsSection.module.css';
@@ -932,7 +932,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                   if (isLoading && !fields) {
                     return (
                       <div className={styles.recordsSkeletonRow} aria-label="Loading records">
-                        {['Record', 'Conference', 'ATS', 'Tourney'].map((lbl) => (
+                        {['Record', 'Conf.', 'ATS', 'Tourney'].map((lbl) => (
                           <div key={lbl} className={styles.recordSkeleton}>
                             <div className={styles.recordSkeletonLabel} />
                             <div className={styles.recordSkeletonValue} />
@@ -950,38 +950,65 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       {fields?.conferenceFinish && (
                         <span className={styles.statCell}>
                           <span className={styles.statLabel}>Conf. Finish</span>
-                          <span className={styles.statValue}>{fields.conferenceFinish}</span>
+                          <span className={`${styles.statValue} ${styles.statValueWrap}`}>{fields.conferenceFinish}</span>
                         </span>
                       )}
                       <span className={styles.statCell}>
-                        <span className={styles.statLabel}>ATS</span>
-                        <span className={styles.statValue}>{fields ? fmtAts(fields.atsRecord) : '—'}</span>
+                        <span className={styles.statLabel}>ATS (L10)</span>
+                        <span className={styles.statValue}>{fields?.atsLast10 ? fmtAtsLast10(fields.atsLast10) : (fields ? fmtAts(fields.atsRecord) : '—')}</span>
                       </span>
                       {fields?.tournamentLabel && (
-                        <span className={`${styles.statCell} ${fields.tournamentStatus === 'active' ? styles.statCellActive : ''} ${fields.tournamentStatus === 'eliminated' ? styles.statCellElim : ''}`}>
+                        <span className={`${styles.statCell} ${styles.statCellTourney} ${fields.tournamentStatus === 'active' ? styles.statCellActive : ''} ${fields.tournamentStatus === 'eliminated' ? styles.statCellElim : ''}`}>
                           <span className={styles.statLabel}>Tournament</span>
-                          <span className={styles.statValue}>{fields.tournamentLabel}</span>
+                          <span className={`${styles.statValue} ${styles.statValueWrap}`}>{fields.tournamentLabel}</span>
                         </span>
                       )}
                     </div>
                   );
                 })()}
 
-                {/* ── Zone 3: Next game / tournament round ── */}
-                {nextGame && (
-                  <div className={styles.nextGame}>
-                    <span className={styles.nextLabel}>Next:</span>
-                    <span>
-                      vs {nextGame.vs} — {nextGame.status}
-                      {nextGame.time && ` · ${nextGame.time} PST`}
-                      {nextGame.network && ` · ${nextGame.network}`}
-                    </span>
-                    {nextGame.gameId && <ESPNGamecastLink game={nextGame} />}
-                  </div>
-                )}
+                {/* ── Zone 3: Game module ── */}
+                {(() => {
+                  if (nextGame) {
+                    return (
+                      <div className={styles.gameModule}>
+                        <span className={styles.gameModuleTag}>Next Game</span>
+                        <div className={styles.gameModuleBody}>
+                          <span className={styles.gameMatchup}>
+                            vs {nextGame.vs}
+                          </span>
+                          <span className={styles.gameDetail}>
+                            {nextGame.status}
+                            {nextGame.time && ` · ${nextGame.time} PST`}
+                            {nextGame.network && ` · ${nextGame.network}`}
+                          </span>
+                          {nextGame.gameId && <ESPNGamecastLink game={nextGame} />}
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (fields?.tournamentLastGame) {
+                    const g = fields.tournamentLastGame;
+                    const tagText = g.won ? 'Last Result — Won' : 'Tournament Result — Loss';
+                    return (
+                      <div className={`${styles.gameModule} ${!g.won ? styles.gameModuleElim : ''}`}>
+                        <span className={styles.gameModuleTag}>{tagText}</span>
+                        <div className={styles.gameModuleBody}>
+                          <span className={styles.gameMatchup}>
+                            vs {g.opponent}
+                          </span>
+                          <span className={styles.gameScore}>
+                            {g.ourScore}–{g.oppScore}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
-                {/* ── Zone 4: Summary ── */}
-                <div className={styles.teamSummary}>
+                {/* ── Zone 4: Intel summary ── */}
+                <div className={styles.intelModule}>
                   {isLoading ? (
                     <div className={styles.summarySkeletonLines} aria-label="Loading summary">
                       <div className={styles.summarySkeletonLine} style={{ width: '100%' }} />
