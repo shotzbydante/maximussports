@@ -1,0 +1,65 @@
+.container {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(180deg, rgba(10, 22, 40, 0.98) 0%, rgba(10, 22, 40, 0.92) 100%);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.5rem 0.75rem;
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.nav::-webkit-scrollbar { display: none; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 100px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tabActive {
+  background: rgba(56, 133, 224, 0.15);
+  border-color: rgba(56, 133, 224, 0.35);
+  color: #6aabe8;
+}
+
+.tabIcon {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.tabLabel {
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 1024px) {
+  .container {
+    display: block;
+  }
+}
