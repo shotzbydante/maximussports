@@ -969,6 +969,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
 
                 {/* ── Zone 3: Game module ── */}
                 {(() => {
+                  // Priority 1: Live/today scoreboard game
                   if (nextGame) {
                     return (
                       <div className={styles.gameModule}>
@@ -987,12 +988,47 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       </div>
                     );
                   }
-                  if (fields?.tournamentLastGame) {
-                    const g = fields.tournamentLastGame;
-                    const tagText = g.won ? 'Last Result — Won' : 'Tournament Result — Loss';
+                  // Priority 2: Alive in tournament — show next round game from schedule
+                  if (fields?.tournamentStatus === 'active' && fields?.nextNcaaGame) {
+                    const ng = fields.nextNcaaGame;
                     return (
-                      <div className={`${styles.gameModule} ${!g.won ? styles.gameModuleElim : ''}`}>
-                        <span className={styles.gameModuleTag}>{tagText}</span>
+                      <div className={styles.gameModule}>
+                        <span className={styles.gameModuleTag}>{fields.tournamentRoundLabel || 'Next Round'}</span>
+                        <div className={styles.gameModuleBody}>
+                          <span className={styles.gameMatchup}>
+                            vs {ng.opponent}
+                          </span>
+                          {ng.date && (
+                            <span className={styles.gameDetail}>
+                              {ng.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Priority 3: Alive but no scheduled next game yet
+                  if (fields?.tournamentStatus === 'active' && fields?.tournamentLastGame?.won) {
+                    return (
+                      <div className={styles.gameModule}>
+                        <span className={styles.gameModuleTag}>{fields.tournamentRoundLabel || 'Next Round'}</span>
+                        <div className={styles.gameModuleBody}>
+                          <span className={styles.gameMatchup}>
+                            vs TBD
+                          </span>
+                          <span className={styles.gameDetail}>
+                            Opponent not yet determined
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Priority 4: Eliminated — show last tournament result
+                  if (fields?.tournamentLastGame && !fields.tournamentLastGame.won) {
+                    const g = fields.tournamentLastGame;
+                    return (
+                      <div className={`${styles.gameModule} ${styles.gameModuleElim}`}>
+                        <span className={styles.gameModuleTag}>Tournament Result — Loss</span>
                         <div className={styles.gameModuleBody}>
                           <span className={styles.gameMatchup}>
                             vs {g.opponent}
