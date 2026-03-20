@@ -29,7 +29,7 @@ function isLikelyNcaaTournamentEvent(ev) {
 
 // ── Conference tournament detection ────────────────────────────────
 
-const CONF_TOURNEY_RE = /\b(tournament|tourney)\b/i;
+const CONF_TOURNEY_RE = /\b(tournament|tourney|championship)\b/i;
 const CHAMPIONSHIP_RE = /\bchampionship\b/i;
 const FINAL_RE = /\bfinals?\b/i;
 const ROUND_PATTERNS = [
@@ -42,6 +42,11 @@ const ROUND_PATTERNS = [
 
 function isConfTourneyEvent(ev, confName) {
   if (isLikelyNcaaTournamentEvent(ev)) return false;
+
+  if ((ev.seasonType === 3 || ev.seasonType === '3') && ev.date && ev.date.slice(0, 10) < NCAA_TOURNEY_START) {
+    return true;
+  }
+
   const name = (ev.eventName || '').toLowerCase();
   const notesStr = (ev.notes || []).join(' ').toLowerCase();
   const combined = `${name} ${notesStr}`;
