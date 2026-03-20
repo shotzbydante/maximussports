@@ -82,7 +82,7 @@ export function isItemAllowlisted(item) {
  * @param {{ q: string, maxResults?: number, debug?: boolean }} params
  * @returns {Promise<Array<{ videoId, title, channelTitle, publishedAt, thumbUrl }>>}
  */
-export async function ytSearch({ q, maxResults = 6, debug = false }) {
+export async function ytSearch({ q, maxResults = 6, publishedAfter, debug = false }) {
   if (!q || typeof q !== 'string' || !q.trim()) {
     throw new Error('ytSearch: q is required');
   }
@@ -100,6 +100,8 @@ export async function ytSearch({ q, maxResults = 6, debug = false }) {
     maxResults: String(clamped),
     key:        apiKey,
   });
+
+  if (publishedAfter) params.set('publishedAfter', publishedAfter);
 
   const t0 = debug ? Date.now() : 0;
   const res = await fetch(`${YT_SEARCH_URL}?${params}`);

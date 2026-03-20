@@ -862,6 +862,23 @@ export default function Home() {
     loadHomeBatch();
   }, [loadHomeBatch]);
 
+  // ── Periodic score refresh (silent — no loading spinner) ──────────────────
+  useEffect(() => {
+    const id = setInterval(() => {
+      const currentPinnedSlugs = pinnedSlugsRef.current;
+      fetchHomeFast({ pinnedSlugs: currentPinnedSlugs, atsWindow })
+        .then((fastData) => {
+          const scoresToday = fastData.scoresToday ?? [];
+          setScores((s) => ({
+            ...s,
+            games: scoresToday.length > 0 ? scoresToday : s.games,
+          }));
+        })
+        .catch(() => {});
+    }, SCORES_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [atsWindow]);
+
   // ── Homepage load telemetry ──────────────────────────────────────────────
   const criticalReady = !scores.loading && (scores.games.length > 0 || top25.length > 0);
   const hasCriticalError = !!scores.error && !scores.loading;

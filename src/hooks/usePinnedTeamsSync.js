@@ -48,9 +48,12 @@ export function usePinnedTeamsSync(user) {
 
       track('pins_sync_start', {});
       try {
-        // 1. Fetch server pins
+        // 1. Fetch server pins from user_teams (canonical source shared with
+        //    Settings and email digests). Previously this read from user_pins,
+        //    which was never updated by pin/unpin actions, causing removed teams
+        //    to reappear after refresh.
         const { data, error } = await sb
-          .from('user_pins')
+          .from('user_teams')
           .select('team_slug')
           .eq('user_id', user.id);
 
@@ -61,27 +64,29 @@ export function usePinnedTeamsSync(user) {
 
         const serverSlugs = (data ?? []).map((r) => r.team_slug).filter(Boolean);
 
-        // 2. Read local pins
+        // 2. Server is canonical — replace localStorage with server truth.
+        //    This ensures removes from Home (written through to user_teams)
+        //    are respected on refresh instead of being re-merged from stale data.
         const localSlugs = getPinnedTeams();
+        const merged = serverSlugs.length > 0 ? serverSlugs : localSlugs;
 
-        // 3. Merge: local order first, then server-only additions
-        const serverSet = new Set(serverSlugs);
-        const localSet  = new Set(localSlugs);
-        const merged = [
-          ...localSlugs,
-          ...serverSlugs.filter((s) => !localSet.has(s)),
-        ];
-
-        // 4. Persist merged to localStorage
+        // 3. Persist to localStorage
         setPinnedTeams(merged);
 
-        // 5. Upsert local-only pins to server (best-effort, fire-and-forget)
+        // 4. If user has local-only pins (e.g. added while signed out),
+        //    upsert them to user_teams so they're not lost.
+        const serverSet = new Set(serverSlugs);
         const localOnly = localSlugs.filter((s) => !serverSet.has(s));
-        if (localOnly.length > 0) {
-          const rows = localOnly.map((slug) => ({ user_id: user.id, team_slug: slug }));
+        if (localOnly.length > 0 && serverSlugs.length > 0) {
+          const rows = localOnly.map((slug) => ({
+            user_id: user.id,
+            team_slug: slug,
+            is_primary: false,
+            created_at: new Date().toISOString(),
+          }));
           sb
-            .from('user_pins')
-            .upsert(rows, { onConflict: 'user_id,team_slug' })
+            .from('user_teams')
+            .upsert(rows, { onConflict: 'user_id,team_slug', ignoreDuplicates: true })
             .then(({ error: upsertErr }) => {
               if (upsertErr) track('pins_sync_error', { code: upsertErr.code ?? 'upsert_failed' });
             });
