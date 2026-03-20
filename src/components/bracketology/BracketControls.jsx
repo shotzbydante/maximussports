@@ -20,6 +20,7 @@ export default function BracketControls({
   bracketMode,
   isGuest = false,
   bracketMeta,
+  bracketName,
   onAutoFill,
   onResetToMaximus,
   onClearBracket,
@@ -31,6 +32,9 @@ export default function BracketControls({
   onSimulateRest,
   onRegeneratePicks,
   simStats,
+  onOpenMyBrackets,
+  onRenameBracket,
+  onSaveAsNew,
 }) {
   const timeStr = lastSaved
     ? lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -47,6 +51,19 @@ export default function BracketControls({
   return (
     <div className={styles.controls}>
       <div className={styles.left}>
+        {!isGuest && (
+          <>
+            <button
+              className={styles.myBracketsBtn}
+              onClick={onOpenMyBrackets}
+              type="button"
+              title="My Brackets"
+            >
+              📋 My Brackets
+            </button>
+            <div className={styles.divider} />
+          </>
+        )}
         <button
           className={`${styles.simulateBtn} ${isSimulating ? styles.simulatingActive : ''}`}
           onClick={onSimulateEntire}
@@ -122,6 +139,13 @@ export default function BracketControls({
         </button>
       </div>
       <div className={styles.right}>
+        {!isGuest && bracketName && (
+          <BracketNameChip
+            name={bracketName}
+            onRename={onRenameBracket}
+            onSaveAs={onSaveAsNew}
+          />
+        )}
         {simStats && simStats.totalGames > 0 && (
           <SimStats stats={simStats} />
         )}
@@ -134,6 +158,30 @@ export default function BracketControls({
           {teamCount != null && <span className={styles.sourceDetail}> · {teamCount}T</span>}
         </span>
       </div>
+    </div>
+  );
+}
+
+function BracketNameChip({ name, onRename, onSaveAs }) {
+  return (
+    <div className={styles.bracketNameChip}>
+      <span className={styles.bracketNameText} title={name}>{name}</span>
+      <button
+        className={styles.bracketNameEdit}
+        onClick={onRename}
+        type="button"
+        title="Rename bracket"
+      >
+        ✎
+      </button>
+      <button
+        className={styles.bracketNameSaveAs}
+        onClick={onSaveAs}
+        type="button"
+        title="Save as new bracket"
+      >
+        +
+      </button>
     </div>
   );
 }

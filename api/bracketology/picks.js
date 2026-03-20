@@ -53,14 +53,21 @@ export default async function handler(req, res) {
 
 async function handleGet(req, res, sb, user) {
   try {
-    const { data, error } = await sb
+    const bracketId = req.query?.bracketId;
+
+    let query = sb
       .from('user_brackets')
       .select('*')
       .eq('user_id', user.id)
-      .eq('year', 2026)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single();
+      .eq('year', 2026);
+
+    if (bracketId) {
+      query = query.eq('id', bracketId);
+    } else {
+      query = query.order('updated_at', { ascending: false }).limit(1);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -87,20 +94,24 @@ async function handleGet(req, res, sb, user) {
 
 async function handlePost(req, res, sb, user) {
   try {
-    const { picks, pickOrigins, bracketName } = req.body || {};
+    const { picks, pickOrigins, bracketName, bracketId } = req.body || {};
 
     if (!picks || typeof picks !== 'object') {
       return res.status(400).json({ error: 'Missing picks data' });
     }
 
-    const { data: existing } = await sb
-      .from('user_brackets')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('year', 2026)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single();
+    let existingId = bracketId;
+    if (!existingId) {
+      const { data: existing } = await sb
+        .from('user_brackets')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('year', 2026)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      existingId = existing?.id;
+    }
 
     const payload = {
       user_id: user.id,
@@ -112,11 +123,11 @@ async function handlePost(req, res, sb, user) {
     };
 
     let result;
-    if (existing?.id) {
+    if (existingId) {
       result = await sb
         .from('user_brackets')
         .update(payload)
-        .eq('id', existing.id)
+        .eq('id', existingId)
         .select()
         .single();
     } else {

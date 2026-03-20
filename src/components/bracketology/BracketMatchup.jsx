@@ -20,8 +20,17 @@ export default function BracketMatchup({
   const topSelected = userPick === 'top' || userPick === topTeam?.slug || userPick === topTeam?.teamId;
   const bottomSelected = userPick === 'bottom' || userPick === bottomTeam?.slug || userPick === bottomTeam?.teamId;
   const hasResult = winner != null;
+  const isFinal = status === 'final';
   const isReady = status === 'ready' || status === 'final' || status === 'live';
   const isWaiting = status === 'waiting';
+
+  const topIsActualWinner = hasResult && winner === topTeam?.slug;
+  const bottomIsActualWinner = hasResult && winner === bottomTeam?.slug;
+
+  const topPickCorrect = isFinal && topSelected && topIsActualWinner;
+  const topPickIncorrect = isFinal && topSelected && !topIsActualWinner;
+  const bottomPickCorrect = isFinal && bottomSelected && bottomIsActualWinner;
+  const bottomPickIncorrect = isFinal && bottomSelected && !bottomIsActualWinner;
 
   const predictedTop = prediction?.winner === topTeam;
   const predictedBottom = prediction?.winner === bottomTeam;
@@ -67,7 +76,10 @@ export default function BracketMatchup({
         team={topTeam}
         selected={topSelected}
         hasResult={hasResult}
-        isWinner={winner === topTeam?.slug}
+        isFinal={isFinal}
+        isWinner={topIsActualWinner}
+        isPickCorrect={topPickCorrect}
+        isPickIncorrect={topPickIncorrect}
         isWaiting={isWaiting}
         pickOrigin={topSelected ? pickOrigin : null}
         isMaximusPick={showCompare && maximusPick === 'top'}
@@ -108,7 +120,10 @@ export default function BracketMatchup({
         team={bottomTeam}
         selected={bottomSelected}
         hasResult={hasResult}
-        isWinner={winner === bottomTeam?.slug}
+        isFinal={isFinal}
+        isWinner={bottomIsActualWinner}
+        isPickCorrect={bottomPickCorrect}
+        isPickIncorrect={bottomPickIncorrect}
         isWaiting={isWaiting}
         pickOrigin={bottomSelected ? pickOrigin : null}
         isMaximusPick={showCompare && maximusPick === 'bottom'}
@@ -159,7 +174,10 @@ export default function BracketMatchup({
   );
 }
 
-function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, isMaximusPick, isPredictedWinner, prediction, isGuest, onClick }) {
+function TeamSlot({
+  team, selected, hasResult, isFinal, isWinner, isPickCorrect, isPickIncorrect,
+  isWaiting, pickOrigin, isMaximusPick, isPredictedWinner, prediction, isGuest, onClick,
+}) {
   const isEmpty = !team || team.isPlaceholder;
   const isClickable = !isEmpty && !isWaiting;
 
@@ -171,6 +189,8 @@ function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, 
         ${selected ? styles.selected : ''}
         ${isWinner ? styles.winner : ''}
         ${hasResult && !isWinner ? styles.eliminated : ''}
+        ${isPickCorrect ? styles.pickCorrect : ''}
+        ${isPickIncorrect ? styles.pickIncorrect : ''}
         ${isEmpty ? styles.empty : ''}
         ${isClickable ? styles.clickable : ''}
         ${pickOrigin === 'maximus' ? styles.maximusPicked : ''}
@@ -192,7 +212,13 @@ function TeamSlot({ team, selected, hasResult, isWinner, isWaiting, pickOrigin, 
       <span className={styles.teamName}>
         {isEmpty ? (isWaiting ? '...' : 'TBD') : (team.shortName || team.name)}
       </span>
-      {selected && (
+      {isPickCorrect && (
+        <span className={styles.resultBadge + ' ' + styles.resultCorrect} title="Correct pick">✓</span>
+      )}
+      {isPickIncorrect && (
+        <span className={styles.resultBadge + ' ' + styles.resultIncorrect} title="Incorrect pick">✗</span>
+      )}
+      {selected && !isFinal && (
         <span className={`${styles.pickBadge} ${pickOrigin === 'maximus' ? styles.pickBadgeMaximus : ''}`}>
           {pickOrigin === 'maximus' ? '◆' : '✓'}
         </span>

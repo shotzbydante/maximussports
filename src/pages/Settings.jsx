@@ -1149,6 +1149,101 @@ function deriveRunStatus(run) {
 }
 
 /* ─── Admin QA Email Panel ───────────────────────────────────────────────── */
+function MyBracketsSettingsSection() {
+  const { session } = useAuth();
+  const navigate = useNavigate();
+  const [brackets, setBrackets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!session?.access_token) return;
+    fetch('/api/bracketology/brackets', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(r => r.json())
+      .then(data => setBrackets(data.brackets || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [session?.access_token]);
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffHrs = Math.floor(diffMs / 3600000);
+    if (diffHrs < 1) return 'just now';
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  return (
+    <div className={styles.profileSection}>
+      <div className={styles.sectionHeader}>
+        <h3 className={styles.sectionTitle}>My Brackets</h3>
+        <button
+          type="button"
+          className={styles.btnAddTeam}
+          onClick={() => navigate('/bracketology')}
+        >
+          Open Bracketology
+        </button>
+      </div>
+      {loading ? (
+        <div className={styles.loadingRow}><span>Loading brackets…</span></div>
+      ) : brackets.length === 0 ? (
+        <div className={styles.emptyTeams}>
+          <p className={styles.emptyState}>No saved brackets yet.</p>
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+            Head to Bracketology to build your first bracket.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {brackets.map((b) => {
+            const pickCount = b.picks ? Object.keys(b.picks).length : 0;
+            const progress = Math.round((pickCount / 63) * 100);
+            return (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => navigate(`/bracketology?bracketId=${b.id}`)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.65rem 0.85rem',
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontFamily: 'inherit',
+                  color: 'rgba(255,255,255,0.85)',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minWidth: 0 }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {b.bracket_name || 'Untitled Bracket'}
+                  </span>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.38)' }}>
+                    {pickCount}/63 picks · {progress}% complete · {formatDate(b.updated_at)}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.65rem', color: 'rgba(56,133,224,0.75)', fontWeight: 600, flexShrink: 0, marginLeft: '0.5rem' }}>
+                  Open →
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminQAPanel() {
   const { user } = useAuth();
   const [sending, setSending] = useState(null);
@@ -2676,6 +2771,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
               {resetError && <div className={styles.accountRowError}>{resetError}</div>}
             </div>
           </div>
+
+          {/* ── My Brackets ── */}
+          <MyBracketsSettingsSection />
 
           {isAdminUser(user.email) && <AdminQAPanel />}
         </>

@@ -1,8 +1,8 @@
 /**
  * useBracketPicks — manages user bracket picks with persistence.
  * Handles save/load, pick origin tracking (manual vs maximus),
- * downstream cascade clearing, bracket mode metadata, and
- * simulation engine integration.
+ * downstream cascade clearing, bracket mode metadata, multi-bracket
+ * support with naming, and simulation engine integration.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -24,18 +24,24 @@ export function useBracketPicks(bracket) {
   const [saveStatus, setSaveStatus] = useState('idle');
   const [lastSaved, setLastSaved] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [activeBracketId, setActiveBracketId] = useState(null);
+  const [bracketName, setBracketName] = useState('My Bracket');
+  const [savedBrackets, setSavedBrackets] = useState([]);
+  const [bracketsLoaded, setBracketsLoaded] = useState(false);
   const saveTimer = useRef(null);
 
   useEffect(() => {
     if (!user || !session) return;
     loadPicks();
+    loadBracketList();
   }, [user?.id, session?.access_token]);
 
-  async function loadPicks() {
+  async function loadPicks(targetBracketId) {
     try {
       const token = session?.access_token;
       if (!token) return;
-      const res = await fetch('/api/bracketology/picks', {
+      const params = targetBracketId ? `?bracketId=${targetBracketId}` : '';
+      const res = await fetch(`/api/bracketology/picks${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { setLoaded(true); return; }
@@ -43,6 +49,8 @@ export function useBracketPicks(bracket) {
       if (data.bracket?.picks) {
         setPicks(data.bracket.picks);
         setPickOrigins(data.bracket.pick_origins || {});
+        setActiveBracketId(data.bracket.id || null);
+        setBracketName(data.bracket.bracket_name || 'My Bracket');
         if (data.bracket.updated_at) setLastSaved(new Date(data.bracket.updated_at));
       }
     } catch {
@@ -52,7 +60,24 @@ export function useBracketPicks(bracket) {
     }
   }
 
-  const savePicks = useCallback(async (newPicks, newOrigins) => {
+  async function loadBracketList() {
+    try {
+      const token = session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/bracketology/brackets', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSavedBrackets(data.brackets || []);
+    } catch {
+      // silent
+    } finally {
+      setBracketsLoaded(true);
+    }
+  }
+
+  const savePicks = useCallback(async (newPicks, newOrigins, name) => {
     if (!session?.access_token) return;
     setSaveStatus('saving');
     try {
@@ -66,6 +91,8 @@ export function useBracketPicks(bracket) {
           picks: newPicks,
           pickOrigins: newOrigins,
           bracketMode: bracket?.bracketMode || 'projected',
+          bracketId: activeBracketId || undefined,
+          bracketName: name || bracketName,
         }),
       });
       if (res.ok) {
@@ -75,7 +102,11 @@ export function useBracketPicks(bracket) {
         } else {
           setSaveStatus('saved');
           setLastSaved(new Date());
+          if (data.bracket?.id && !activeBracketId) {
+            setActiveBracketId(data.bracket.id);
+          }
           setTimeout(() => setSaveStatus('idle'), 2500);
+          loadBracketList();
         }
       } else {
         setSaveStatus('local');
@@ -83,7 +114,7 @@ export function useBracketPicks(bracket) {
     } catch {
       setSaveStatus('local');
     }
-  }, [session?.access_token, bracket?.bracketMode]);
+  }, [session?.access_token, bracket?.bracketMode, activeBracketId, bracketName]);
 
   const scheduleSave = useCallback((newPicks, newOrigins) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -196,6 +227,71 @@ export function useBracketPicks(bracket) {
     return result;
   }, [bracket, picks, pickOrigins, scheduleSave]);
 
+  const renameBracket = useCallback(async (name) => {
+    setBracketName(name);
+    if (!session?.access_token || !activeBracketId) return;
+    try {
+      await fetch('/api/bracketology/brackets', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ bracketId: activeBracketId, bracketName: name }),
+      });
+      loadBracketList();
+    } catch { /* silent */ }
+  }, [session?.access_token, activeBracketId]);
+
+  const saveAsNewBracket = useCallback(async (name) => {
+    if (!session?.access_token) return null;
+    try {
+      const res = await fetch('/api/bracketology/brackets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          bracketName: name,
+          picks,
+          pickOrigins,
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.bracket?.id) {
+        setActiveBracketId(data.bracket.id);
+        setBracketName(name);
+        loadBracketList();
+        return data.bracket;
+      }
+    } catch { /* silent */ }
+    return null;
+  }, [session?.access_token, picks, pickOrigins]);
+
+  const loadSavedBracket = useCallback(async (bracketId) => {
+    setLoaded(false);
+    await loadPicks(bracketId);
+  }, [session?.access_token]);
+
+  const deleteBracket = useCallback(async (bracketId) => {
+    if (!session?.access_token) return;
+    try {
+      await fetch(`/api/bracketology/brackets?bracketId=${bracketId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (bracketId === activeBracketId) {
+        setActiveBracketId(null);
+        setBracketName('My Bracket');
+        setPicks({});
+        setPickOrigins({});
+      }
+      loadBracketList();
+    } catch { /* silent */ }
+  }, [session?.access_token, activeBracketId]);
+
   const totalPicks = Object.keys(picks).length;
   const totalGames = 63;
   const progress = Math.round((totalPicks / totalGames) * 100);
@@ -207,5 +303,8 @@ export function useBracketPicks(bracket) {
     makePick, clearBracket, clearRound, applyMaximusPicks, resetToMaximus,
     simulateEntire, simulateRest, regeneratePicks,
     totalPicks, totalGames, progress, manualCount, maximusCount,
+    activeBracketId, bracketName, savedBrackets, bracketsLoaded,
+    renameBracket, saveAsNewBracket, loadSavedBracket, deleteBracket,
+    loadBracketList,
   };
 }

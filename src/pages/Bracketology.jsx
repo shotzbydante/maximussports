@@ -27,9 +27,15 @@ import BracketFinalFour from '../components/bracketology/BracketFinalFour';
 import BracketIntelStrip from '../components/bracketology/BracketIntelStrip';
 import BracketCompare from '../components/bracketology/BracketCompare';
 import BracketShareSummary from '../components/bracketology/BracketShareSummary';
+import MyBrackets from '../components/bracketology/MyBrackets';
+import SaveBracketModal from '../components/bracketology/SaveBracketModal';
+import MobileBracketNav from '../components/bracketology/MobileBracketNav';
 import ShareButton from '../components/common/ShareButton';
 import AuthGateModal from '../components/common/AuthGateModal';
 import styles from './Bracketology.module.css';
+
+const STANDARD_LEFT_REGIONS = ['East', 'South'];
+const STANDARD_RIGHT_REGIONS = ['West', 'Midwest'];
 
 export default function Bracketology() {
   const { user, loading: authLoading } = useAuth();
@@ -41,6 +47,8 @@ export default function Bracketology() {
     makePick, clearBracket, clearRound, applyMaximusPicks, resetToMaximus,
     simulateEntire, simulateRest, regeneratePicks,
     totalPicks, totalGames, progress, manualCount, maximusCount,
+    activeBracketId, bracketName, savedBrackets, bracketsLoaded,
+    renameBracket, saveAsNewBracket, loadSavedBracket, deleteBracket,
   } = useBracketPicks(bracket);
 
   const [modelContext, setModelContext] = useState(null);
@@ -51,6 +59,9 @@ export default function Bracketology() {
   const [showShareSummary, setShowShareSummary] = useState(false);
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [showMyBrackets, setShowMyBrackets] = useState(false);
+  const [saveModal, setSaveModal] = useState(null);
+  const [mobileView, setMobileView] = useState('overview');
 
   const isGuest = !user;
 
@@ -202,6 +213,62 @@ export default function Bracketology() {
     return getActiveRound(phase);
   }, []);
 
+  // Standard region layout: East/South on left, West/Midwest on right
+  const leftRegions = useMemo(() => {
+    if (!bracket?.regions) return [];
+    return bracket.regions
+      .filter(r => STANDARD_LEFT_REGIONS.includes(r.name))
+      .sort((a, b) => STANDARD_LEFT_REGIONS.indexOf(a.name) - STANDARD_LEFT_REGIONS.indexOf(b.name));
+  }, [bracket?.regions]);
+
+  const rightRegions = useMemo(() => {
+    if (!bracket?.regions) return [];
+    return bracket.regions
+      .filter(r => STANDARD_RIGHT_REGIONS.includes(r.name))
+      .sort((a, b) => STANDARD_RIGHT_REGIONS.indexOf(a.name) - STANDARD_RIGHT_REGIONS.indexOf(b.name));
+  }, [bracket?.regions]);
+
+  const handleRenameBracket = useCallback(() => {
+    setSaveModal({ mode: 'rename', name: bracketName });
+  }, [bracketName]);
+
+  const handleSaveAsNew = useCallback(() => {
+    if (requireAuth()) return;
+    setSaveModal({ mode: 'saveAs', name: bracketName });
+  }, [bracketName, requireAuth]);
+
+  const handleSaveModalConfirm = useCallback(async (name) => {
+    if (saveModal?.mode === 'rename') {
+      renameBracket(name);
+    } else {
+      await saveAsNewBracket(name);
+    }
+    setSaveModal(null);
+  }, [saveModal, renameBracket, saveAsNewBracket]);
+
+  const handleCreateNewBracket = useCallback(async () => {
+    if (requireAuth()) return;
+    setSaveModal({ mode: 'saveAs', name: '' });
+  }, [requireAuth]);
+
+  const handleLoadBracket = useCallback(async (bracketId) => {
+    await loadSavedBracket(bracketId);
+    setShowMyBrackets(false);
+  }, [loadSavedBracket]);
+
+  const handleDeleteBracket = useCallback(async (bracketId) => {
+    await deleteBracket(bracketId);
+  }, [deleteBracket]);
+
+  // Mobile view filtering
+  const shouldShowRegion = useCallback((regionName) => {
+    if (mobileView === 'overview') return true;
+    if (mobileView === 'finalfour') return false;
+    return mobileView === regionName;
+  }, [mobileView]);
+
+  const showFinalFour = mobileView === 'overview' || mobileView === 'finalfour';
+
   const isLoading = bracketLoading || showMinLoadTime;
 
   if (isLoading) return <BracketLoading />;
@@ -243,6 +310,7 @@ export default function Bracketology() {
               totalGames={totalGames}
               bracketMode={bracketMode}
               isGuest={isGuest}
+              bracketName={bracketName}
               bracketMeta={{
                 realTeamCount: bracket?.teamCount,
                 lastUpdated: bracket?.lastUpdated,
@@ -259,6 +327,9 @@ export default function Bracketology() {
               onSimulateRest={handleSimulateRest}
               onRegeneratePicks={handleRegeneratePicks}
               simStats={simStats}
+              onOpenMyBrackets={() => setShowMyBrackets(true)}
+              onRenameBracket={handleRenameBracket}
+              onSaveAsNew={handleSaveAsNew}
             />
 
             <BracketIntelStrip
@@ -279,10 +350,15 @@ export default function Bracketology() {
               />
             )}
 
-            <div className={styles.bracketContainer}>
+            <MobileBracketNav
+              activeView={mobileView}
+              onChangeView={setMobileView}
+            />
+
+            <div className={`${styles.bracketContainer} ${mobileView !== 'overview' ? styles.bracketFocused : ''}`}>
               <div className={styles.bracketGrid}>
                 <div className={styles.leftBracket}>
-                  {bracket.regions.slice(0, 2).map((region) => (
+                  {leftRegions.filter(r => shouldShowRegion(r.name)).map((region) => (
                     <BracketRegion
                       key={region.name}
                       region={region}
@@ -301,22 +377,24 @@ export default function Bracketology() {
                   ))}
                 </div>
 
-                <div className={styles.centerBracket}>
-                  <BracketFinalFour
-                    allMatchups={allMatchups}
-                    picks={picks}
-                    pickOrigins={pickOrigins}
-                    predictions={predictions}
-                    maximusPicks={maximusPicks}
-                    onPick={handlePick}
-                    onMaximusPick={handleMaximusPick}
-                    showCompare={showCompare}
-                    isGuest={isGuest}
-                  />
-                </div>
+                {showFinalFour && (
+                  <div className={styles.centerBracket}>
+                    <BracketFinalFour
+                      allMatchups={allMatchups}
+                      picks={picks}
+                      pickOrigins={pickOrigins}
+                      predictions={predictions}
+                      maximusPicks={maximusPicks}
+                      onPick={handlePick}
+                      onMaximusPick={handleMaximusPick}
+                      showCompare={showCompare}
+                      isGuest={isGuest}
+                    />
+                  </div>
+                )}
 
                 <div className={styles.rightBracket}>
-                  {bracket.regions.slice(2, 4).map((region) => (
+                  {rightRegions.filter(r => shouldShowRegion(r.name)).map((region) => (
                     <BracketRegion
                       key={region.name}
                       region={region}
@@ -382,6 +460,14 @@ export default function Bracketology() {
                 <span className={styles.legendUpset}>!</span>
                 <span>Upset</span>
               </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendCorrect}>{'\u2713'}</span>
+                <span>Correct Pick</span>
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendIncorrect}>{'\u2717'}</span>
+                <span>Incorrect Pick</span>
+              </div>
               {showCompare && (
                 <div className={styles.legendItem}>
                   <span className={styles.legendDiverge}>DIFF</span>
@@ -413,6 +499,27 @@ export default function Bracketology() {
           <AuthGateModal
             onClose={() => setShowAuthGate(false)}
             message="Create a free Maximus Sports account to save picks, simulate your bracket, and compete with friends."
+          />
+        )}
+
+        {showMyBrackets && (
+          <MyBrackets
+            brackets={savedBrackets}
+            activeBracketId={activeBracketId}
+            onLoad={handleLoadBracket}
+            onDelete={handleDeleteBracket}
+            onRename={(id, name) => renameBracket(name)}
+            onCreateNew={handleCreateNewBracket}
+            onClose={() => setShowMyBrackets(false)}
+          />
+        )}
+
+        {saveModal && (
+          <SaveBracketModal
+            currentName={saveModal.name}
+            mode={saveModal.mode}
+            onSave={handleSaveModalConfirm}
+            onClose={() => setSaveModal(null)}
           />
         )}
       </div>
