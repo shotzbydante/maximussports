@@ -566,13 +566,19 @@ function toScore(val) {
   return null;
 }
 
+function _espnSeasonYear() {
+  const now = new Date();
+  return now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
+}
+
 export async function fetchScheduleSource(teamId) {
   const cacheKey = `schedule:${teamId}`;
   const cached = scheduleCache.get(cacheKey);
   if (cached) return cached;
 
   const result = await coalesce(cacheKey, async () => {
-    const res = await fetch(`${ESPN_SCHEDULE_BASE}/${teamId}/schedule`);
+    const seasonYear = _espnSeasonYear();
+    const res = await fetch(`${ESPN_SCHEDULE_BASE}/${teamId}/schedule?season=${seasonYear}`);
     if (!res.ok) throw new Error(`ESPN schedule: ${res.status}`);
     const data = await res.json();
     const rawEvents = data?.events || [];

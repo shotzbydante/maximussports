@@ -9,13 +9,34 @@
 import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers';
 import { getTeamBySlug } from '../data/teams';
 
-// NCAA tournament window (2026): games on or after March 17 with seasonType 3
+// ── NCAA tournament date boundary (2026) ───────────────────────────
+// Games on or after this date are in the NCAA tournament window.
+// Conference tournaments finish before this date.
 const NCAA_TOURNEY_START = '2026-03-17';
 
-function isNcaaTournamentEvent(ev) {
-  if (ev.seasonType !== 3) return false;
+/**
+ * Classify an event as an NCAA tournament game.
+ *
+ * Uses multiple signals because ESPN's seasonType field is not always
+ * populated (especially when the schedule endpoint returns only the
+ * current season segment):
+ *   1. seasonType === 3 AND date >= NCAA start → high confidence
+ *   2. seasonType is null AND date >= NCAA start → likely NCAA for seeded teams
+ *   3. Event name/notes containing NCAA indicators → high confidence
+ */
+function isLikelyNcaaTournamentEvent(ev) {
   if (!ev.date) return false;
-  return ev.date.slice(0, 10) >= NCAA_TOURNEY_START;
+  const dateStr = ev.date.slice(0, 10);
+  if (dateStr < NCAA_TOURNEY_START) return false;
+
+  if (ev.seasonType === 3 || ev.seasonType === '3') return true;
+
+  const combined = `${ev.eventName || ''} ${(ev.notes || []).join(' ')}`.toLowerCase();
+  if (/\bncaa\b|march madness|round of \d+|sweet 16|elite 8|final four/.test(combined)) return true;
+
+  if (ev.seasonType == null) return true;
+
+  return false;
 }
 
 // ── Conference tournament detection ────────────────────────────────
@@ -32,14 +53,14 @@ const ROUND_PATTERNS = [
 ];
 
 function isConfTourneyEvent(ev, confName) {
-  if (isNcaaTournamentEvent(ev)) return false;
+  if (isLikelyNcaaTournamentEvent(ev)) return false;
   const name = (ev.eventName || '').toLowerCase();
   const notesStr = (ev.notes || []).join(' ').toLowerCase();
   const combined = `${name} ${notesStr}`;
   const conf = (confName || '').toLowerCase();
 
   if (conf && combined.includes(conf) && CONF_TOURNEY_RE.test(combined)) return true;
-  if (CONF_TOURNEY_RE.test(name) && ev.seasonType === 3) return true;
+  if (CONF_TOURNEY_RE.test(name) && (ev.seasonType === 3 || ev.seasonType === '3')) return true;
   if (CONF_TOURNEY_RE.test(notesStr)) return true;
   return false;
 }
@@ -53,11 +74,18 @@ function extractRoundLabel(ev) {
   return null;
 }
 
-// ── Season record (excludes NCAA tournament) ───────────────────────
+// ── Season record (pre-NCAA tournament, date-based) ────────────────
 
+/**
+ * Count W-L from completed games BEFORE the NCAA tournament window.
+ * This includes regular season + conference tournament games.
+ * Date-based cutoff is the most reliable filter because seasonType
+ * may not be populated in partial schedule responses.
+ */
 function computeSeasonRecord(events) {
   const past = (events || []).filter(
-    (e) => e.isFinal && e.ourScore != null && e.oppScore != null && !isNcaaTournamentEvent(e)
+    (e) => e.isFinal && e.ourScore != null && e.oppScore != null &&
+      e.date && e.date.slice(0, 10) < NCAA_TOURNEY_START
   );
   if (past.length === 0) return null;
   let w = 0, l = 0;
@@ -65,23 +93,38 @@ function computeSeasonRecord(events) {
   return { w, l };
 }
 
-// ── ATS trend (last 10 non-tournament games) ───────────────────────
+// ── ATS resolution ─────────────────────────────────────────────────
 
-function computeAtsLast10(events, batchAts) {
-  const past = (events || [])
-    .filter((e) => e.isFinal && e.ourScore != null && e.oppScore != null && !isNcaaTournamentEvent(e))
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 10);
-  if (past.length === 0) return null;
-
-  const last30 = batchAts?.last30;
+/**
+ * Resolve ATS from batch data. Batch API computes ATS from full
+ * schedule + odds history: { season: {w,l,p,total,coverPct}, last30: ..., last7: ... }
+ *
+ * For the "ATS (L10)" card field, prefer:
+ *   1. last30 data (most recent window that reliably has events)
+ *   2. season data (capped at 10)
+ *   3. cache ATS
+ */
+function resolveAtsLast10(batchAts, cacheAts) {
+  const l30 = batchAts?.last30;
+  if (l30 && l30.total > 0) {
+    return { w: l30.w, l: l30.l, total: l30.total };
+  }
   const season = batchAts?.season;
-  if (last30?.total > 0) return { w: last30.w ?? last30.wins ?? 0, l: last30.l ?? last30.losses ?? 0, total: last30.total };
-  if (season?.total > 0) {
-    const t = Math.min(season.total, 10);
-    return { w: Math.min(season.w ?? season.wins ?? 0, t), l: Math.min(season.l ?? season.losses ?? 0, t), total: t };
+  if (season && season.total > 0) {
+    return { w: season.w, l: season.l, total: season.total };
+  }
+  const c = cacheAts;
+  if (c && c.total > 0) {
+    return { w: c.w ?? c.wins ?? 0, l: c.l ?? c.losses ?? 0, total: c.total };
   }
   return null;
+}
+
+function resolveAtsFull(batchAts, cacheAts) {
+  const b = batchAts?.total > 0 ? batchAts : null;
+  const c = cacheAts?.total > 0 ? cacheAts : null;
+  if (b && c) return b.total >= c.total ? b : c;
+  return b || c || null;
 }
 
 // ── Conference finish ──────────────────────────────────────────────
@@ -117,11 +160,10 @@ function deriveConferenceFinish(events, team) {
   const now = new Date();
   const isMarchPlus = now.getMonth() >= 2 && now.getDate() >= 10;
   const finishedGames = events.filter((e) => e.isFinal);
-  const hasSubstantialSeason = finishedGames.length >= 20;
-  const hasNcaaGames = events.some((e) => isNcaaTournamentEvent(e) && e.isFinal);
-  const hasConfTourneyGames = confTourneyGames.length > 0;
+  const hasSubstantialSeason = finishedGames.length >= 15;
+  const hasNcaaGames = events.some((e) => e.isFinal && isLikelyNcaaTournamentEvent(e));
 
-  if (isMarchPlus && hasSubstantialSeason && !hasConfTourneyGames && !hasNcaaGames) {
+  if (isMarchPlus && hasSubstantialSeason && confTourneyGames.length === 0 && !hasNcaaGames) {
     return { label: `Did not qualify for ${confName || 'conf.'} tournament`, source: 'non_qualifier', confidence: 'medium' };
   }
 
@@ -130,35 +172,48 @@ function deriveConferenceFinish(events, team) {
 
 // ── Tournament status ──────────────────────────────────────────────
 
+/**
+ * Derive tournament status from NCAA tournament events.
+ *
+ * The round number is inferred from the count of completed tournament
+ * games rather than the calendar phase. This correctly handles teams
+ * at different stages (e.g., a team with 1 win is heading to Round 2
+ * regardless of what day it is).
+ */
 function deriveTournamentStatus(slug, events) {
   const seed = getTeamSeed(slug);
   const isInField = seed != null;
-  const phase = getTournamentPhase();
   const bracketOfficial = isBracketOfficial();
 
   if (!bracketOfficial) {
-    if (isInField) return { label: `Projected ${seed}-seed`, status: 'projected', roundLabel: null, lastGame: null };
-    return { label: null, status: 'pre_selection', roundLabel: null, lastGame: null };
+    if (isInField) return { label: `Projected ${seed}-seed`, status: 'projected', roundLabel: null, lastGame: null, nextNcaaGame: null };
+    return { label: null, status: 'pre_selection', roundLabel: null, lastGame: null, nextNcaaGame: null };
   }
 
   if (!isInField) {
-    return { label: 'Did not make tournament', status: 'not_in_field', roundLabel: null, lastGame: null };
+    return { label: 'Did not make tournament', status: 'not_in_field', roundLabel: null, lastGame: null, nextNcaaGame: null };
   }
 
-  const tourneyGames = (events || [])
-    .filter((e) => e.isFinal && isNcaaTournamentEvent(e))
+  const allNcaa = (events || []).filter((e) => isLikelyNcaaTournamentEvent(e));
+
+  const completedNcaa = allNcaa
+    .filter((e) => e.isFinal && e.ourScore != null && e.oppScore != null)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const lostGame = tourneyGames.find(
-    (e) => e.ourScore != null && e.oppScore != null && Number(e.ourScore) < Number(e.oppScore)
+  const scheduledNcaa = allNcaa
+    .filter((e) => !e.isFinal)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const lostGame = completedNcaa.find(
+    (e) => Number(e.ourScore) < Number(e.oppScore)
   );
 
   if (lostGame) {
-    const activeRound = getActiveRound(phase);
-    const roundFromPhase = activeRound > 1 ? activeRound - 1 : 1;
-    const gamesPlayed = tourneyGames.length;
-    const inferredRound = gamesPlayed >= 1 ? gamesPlayed : roundFromPhase;
-    const roundName = getRoundLabel(inferredRound);
+    const gamesBeforeLoss = completedNcaa.filter(
+      (e) => new Date(e.date) <= new Date(lostGame.date)
+    ).length;
+    const lossRound = gamesBeforeLoss;
+    const roundName = getRoundLabel(lossRound);
     return {
       label: `Lost in ${roundName}`,
       status: 'eliminated',
@@ -170,39 +225,37 @@ function deriveTournamentStatus(slug, events) {
         date: lostGame.date,
         won: false,
       },
+      nextNcaaGame: null,
     };
   }
 
-  if (tourneyGames.length > 0) {
-    const lastWin = tourneyGames[0];
-    const activeRound = getActiveRound(phase);
-    const nextRoundLabel = getRoundLabel(activeRound);
-    return {
-      label: `Next: ${nextRoundLabel}`,
-      status: 'active',
-      roundLabel: nextRoundLabel,
-      lastGame: {
-        opponent: lastWin.opponent,
-        ourScore: lastWin.ourScore,
-        oppScore: lastWin.oppScore,
-        date: lastWin.date,
-        won: true,
-      },
-    };
-  }
+  const wins = completedNcaa.length;
+  const nextRoundNum = wins + 1;
+  const nextRoundLabel = getRoundLabel(nextRoundNum);
 
-  const activeRound = getActiveRound(phase);
-  const nextRoundLabel = getRoundLabel(activeRound);
-  return { label: `Next: ${nextRoundLabel}`, status: 'active', roundLabel: nextRoundLabel, lastGame: null };
-}
+  const nextScheduled = scheduledNcaa[0] || null;
+  const nextNcaaGame = nextScheduled ? {
+    opponent: nextScheduled.opponent || 'TBD',
+    date: nextScheduled.date,
+    status: nextScheduled.status || 'Scheduled',
+    homeAway: nextScheduled.homeAway,
+  } : null;
 
-// ── ATS resolution ─────────────────────────────────────────────────
+  const lastWin = completedNcaa[0] || null;
 
-function resolveAts(batchAts, cacheAts) {
-  const b = batchAts?.total > 0 ? batchAts : null;
-  const c = cacheAts?.total > 0 ? cacheAts : null;
-  if (b && c) return b.total >= c.total ? b : c;
-  return b || c || null;
+  return {
+    label: `Next: ${nextRoundLabel}`,
+    status: 'active',
+    roundLabel: nextRoundLabel,
+    lastGame: lastWin ? {
+      opponent: lastWin.opponent,
+      ourScore: lastWin.ourScore,
+      oppScore: lastWin.oppScore,
+      date: lastWin.date,
+      won: true,
+    } : null,
+    nextNcaaGame,
+  };
 }
 
 // ── Main normalizer ────────────────────────────────────────────────
@@ -214,13 +267,14 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
   const seasonRecord = computeSeasonRecord(events);
   const confFinish = deriveConferenceFinish(events, team);
 
-  const batchAts = batchSlot?.ats?.season || null;
-  const ats = resolveAts(batchAts, cacheAts);
-  const atsRecord = ats
-    ? { w: ats.w ?? ats.wins ?? 0, l: ats.l ?? ats.losses ?? 0, p: ats.p ?? ats.pushes ?? 0, total: ats.total ?? 0, coverPct: ats.coverPct ?? null }
+  const batchAts = batchSlot?.ats || {};
+  const seasonAts = batchAts.season || null;
+  const fullAts = resolveAtsFull(seasonAts, cacheAts);
+  const atsRecord = fullAts
+    ? { w: fullAts.w ?? fullAts.wins ?? 0, l: fullAts.l ?? fullAts.losses ?? 0, p: fullAts.p ?? fullAts.pushes ?? 0, total: fullAts.total ?? 0, coverPct: fullAts.coverPct ?? null }
     : null;
 
-  const atsLast10 = computeAtsLast10(events, batchSlot?.ats);
+  const atsLast10 = resolveAtsLast10(batchAts, cacheAts);
 
   const tournament = deriveTournamentStatus(slug, events);
 
@@ -238,6 +292,7 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
     tournamentLabel: tournament.label,
     tournamentRoundLabel: tournament.roundLabel,
     tournamentLastGame: tournament.lastGame,
+    nextNcaaGame: tournament.nextNcaaGame,
     seed,
     region,
   };
