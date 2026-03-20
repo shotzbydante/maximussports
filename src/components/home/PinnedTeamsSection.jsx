@@ -461,8 +461,23 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
         setTeamSummaries((prev) => ({ ...prev, [slug]: null }));
         return;
       }
+      const team = getTeamBySlug(slug);
+      const slot = pinnedTeamDataBySlug[slug];
+      const events = slot?.schedule?.events || [];
+      const past = events.filter((e) => e.isFinal).sort((a, b) => new Date(b.date) - new Date(a.date));
+      const upcoming = events.filter((e) => !e.isFinal && new Date(e.date) >= new Date()).sort((a, b) => new Date(a.date) - new Date(b.date));
+      const seed = getTeamSeed(slug);
+      const rec = teamRecords[slug];
+      const cached = getAtsCache(slug);
+      const atsData = rec?.ats ?? (cached?.season?.total > 0 ? cached.season : null);
       fetchTeamSummary({
         slug,
+        teamName: team?.name,
+        tier: team?.oddsTier ?? '',
+        seed: seed ?? null,
+        upcomingGames: upcoming.slice(0, 3).map((e) => ({ opponent: e.opponent, date: e.date, homeAway: e.homeAway })),
+        lastWeek: past.slice(0, 5).map((e) => ({ opponent: e.opponent, ourScore: e.ourScore, oppScore: e.oppScore, date: e.date })),
+        atsSummary: atsData ?? {},
         headlines: headlines.map((h) => ({ title: h.title, source: h.source })),
       }).then(({ summary }) => {
         setTeamSummaries((prev) => ({ ...prev, [slug]: summary }));
@@ -470,7 +485,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
         setTeamSummaries((prev) => ({ ...prev, [slug]: null }));
       });
     });
-  }, [pinned.join(','), teamNews]);
+  }, [pinned.join(','), teamNews, pinnedTeamDataBySlug, teamRecords]);
 
   // ?debugPins=1 — log every time React pinned state changes
   useEffect(() => {
@@ -921,14 +936,17 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                   const cached = getAtsCache(slug);
                   const season = rec?.season;
                   const last10 = rec?.last10;
-                  const ats = rec?.ats ?? (cached?.season?.total > 0 ? cached.season : null);
+                  const batchAts = rec?.ats;
+                  const cacheAts = cached?.season?.total > 0 ? cached.season : null;
+                  const ats = (batchAts?.total > 0 && (!cacheAts || batchAts.total >= cacheAts.total))
+                    ? batchAts
+                    : (cacheAts ?? batchAts);
                   const seasonStr = season?.w != null && season?.l != null ? `${season.w}–${season.l}` : '—';
                   const l10Str = last10?.w != null && last10?.l != null ? `${last10.w}–${last10.l}` : '—';
                   const atsStr = ats?.total > 0 ? `${ats.w}–${ats.l}${ats.p > 0 ? `–${ats.p}` : ''}` : '—';
                   const hasData = seasonStr !== '—' || l10Str !== '—' || atsStr !== '—';
-                  const isWarming = !isLoading && !hasData;
 
-                  if (isLoading) {
+                  if (isLoading && !hasData) {
                     return (
                       <div className={styles.recordsSkeletonRow} aria-label="Loading records">
                         {['Season', 'L10', 'ATS'].map((lbl) => (
@@ -937,16 +955,6 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                             <div className={styles.recordSkeletonValue} />
                           </div>
                         ))}
-                      </div>
-                    );
-                  }
-                  if (isWarming) {
-                    return (
-                      <div className={styles.warmingRow}>
-                        <span className={styles.warmingPill} role="status" aria-live="polite">
-                          <span className={styles.warmingSpinner} aria-hidden />
-                          Warming data
-                        </span>
                       </div>
                     );
                   }

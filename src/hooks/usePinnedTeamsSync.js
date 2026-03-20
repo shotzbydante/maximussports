@@ -64,20 +64,28 @@ export function usePinnedTeamsSync(user) {
 
         const serverSlugs = (data ?? []).map((r) => r.team_slug).filter(Boolean);
 
-        // 2. Server is canonical — replace localStorage with server truth.
-        //    This ensures removes from Home (written through to user_teams)
-        //    are respected on refresh instead of being re-merged from stale data.
+        // 2. Server (user_teams) is the canonical source of truth.
+        //    Always replace localStorage with server data when available.
+        //    When server is empty, push local pins up to user_teams so they
+        //    are not lost (first-time authenticated session).
         const localSlugs = getPinnedTeams();
-        const merged = serverSlugs.length > 0 ? serverSlugs : localSlugs;
+        const serverSet = new Set(serverSlugs);
+        const localOnly = localSlugs.filter((s) => !serverSet.has(s));
+
+        let merged;
+        if (serverSlugs.length > 0) {
+          // Server has data — it wins. Local-only pins are also pushed up.
+          merged = [...serverSlugs, ...localOnly];
+        } else {
+          // Server empty — keep local pins and push them up.
+          merged = localSlugs;
+        }
 
         // 3. Persist to localStorage
         setPinnedTeams(merged);
 
-        // 4. If user has local-only pins (e.g. added while signed out),
-        //    upsert them to user_teams so they're not lost.
-        const serverSet = new Set(serverSlugs);
-        const localOnly = localSlugs.filter((s) => !serverSet.has(s));
-        if (localOnly.length > 0 && serverSlugs.length > 0) {
+        // 4. Upsert any local-only pins to user_teams so server stays canonical.
+        if (localOnly.length > 0) {
           const rows = localOnly.map((slug) => ({
             user_id: user.id,
             team_slug: slug,
@@ -114,8 +122,8 @@ export function usePinnedTeamsSync(user) {
     if (!sb) return;
     try {
       await sb
-        .from('user_pins')
-        .upsert({ user_id: user.id, team_slug: slug }, { onConflict: 'user_id,team_slug' });
+        .from('user_teams')
+        .upsert({ user_id: user.id, team_slug: slug, is_primary: false, created_at: new Date().toISOString() }, { onConflict: 'user_id,team_slug', ignoreDuplicates: true });
     } catch { /* swallow */ }
   }, [user]);
 
@@ -126,7 +134,7 @@ export function usePinnedTeamsSync(user) {
     if (!sb) return;
     try {
       await sb
-        .from('user_pins')
+        .from('user_teams')
         .delete()
         .eq('user_id', user.id)
         .eq('team_slug', slug);

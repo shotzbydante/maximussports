@@ -35,7 +35,9 @@ export default async function handler(req, res) {
   }
 
   // ── Parameter parsing & validation ──────────────────────────────────────────
-  const { q: rawQ, maxResults: rawMax } = req.query ?? {};
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const rawQ = url.searchParams.get('q');
+  const rawMax = url.searchParams.get('maxResults');
 
   const q = typeof rawQ === 'string' ? rawQ.trim() : '';
   if (!q) {

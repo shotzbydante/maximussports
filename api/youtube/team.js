@@ -190,14 +190,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ status: 'error', message: 'Method not allowed' });
   }
 
-  const {
-    teamSlug,
-    opponentSlug,
-    mode = 'recent',
-    maxResults: rawMax,
-    debugYT,
-    debugVideos,
-  } = req.query ?? {};
+  const _url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const teamSlug = _url.searchParams.get('teamSlug');
+  const opponentSlug = _url.searchParams.get('opponentSlug');
+  const mode = _url.searchParams.get('mode') || 'recent';
+  const rawMax = _url.searchParams.get('maxResults');
+  const debugYT = _url.searchParams.get('debugYT');
+  const debugVideos = _url.searchParams.get('debugVideos');
 
   const debug = debugYT === '1' || debugVideos === '1';
   const t0    = debug ? Date.now() : 0;
