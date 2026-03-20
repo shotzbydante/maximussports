@@ -4,6 +4,9 @@ import { getTeamsGroupedByConference } from '../../data/teams';
 import { useAuth } from '../../context/AuthContext';
 import { isAdminUser } from '../../config/admin';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { useWorkspace } from '../../workspaces/WorkspaceContext';
+import { WorkspaceId } from '../../workspaces/config';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 import SidebarProfileBlock from '../profile/SidebarProfileBlock';
 import styles from './Sidebar.module.css';
 
@@ -62,6 +65,7 @@ const BracketIcon = () => (
 export default function Sidebar() {
   const { user } = useAuth();
   const { profile } = useUserProfile();
+  const { workspace, workspaceId, buildPath, hasCapability } = useWorkspace();
   const isAdmin = isAdminUser(user?.email);
   const [teamsOpen, setTeamsOpen] = useState(false);
   const [expandedConfs, setExpandedConfs] = useState({});
@@ -72,15 +76,17 @@ export default function Sidebar() {
   };
 
   const isGuest = !user;
+  const isCbb = workspaceId === WorkspaceId.CBB;
 
   return (
     <aside className={styles.sidebar}>
       <div className={styles.navArea}>
+        <WorkspaceSwitcher />
         <div className={styles.section}>
           <span className={styles.sectionTitle}>Navigate</span>
           <nav className={styles.nav}>
             <NavLink
-              to="/"
+              to={buildPath('/')}
               end
               className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
             >
@@ -88,33 +94,35 @@ export default function Sidebar() {
               <span>Home</span>
             </NavLink>
             <NavLink
-              to="/games"
+              to={buildPath('/games')}
               className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
             >
               <span className={styles.icon}><GamesIcon /></span>
-              <span>Games</span>
+              <span>{workspace.labels.games}</span>
             </NavLink>
             <div className={styles.teamsBlock}>
               <div className={styles.teamsRow}>
                 <NavLink
-                  to="/teams"
+                  to={buildPath('/teams')}
                   end
                   className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
                 >
                   <span className={styles.icon}><TeamsIcon /></span>
-                  <span>Team Intel Hub</span>
+                  <span>{workspace.labels.teamIntel}</span>
                 </NavLink>
-                <button
-                  type="button"
-                  className={styles.caretBtn}
-                  onClick={(e) => { e.preventDefault(); setTeamsOpen((o) => !o); }}
-                  aria-expanded={teamsOpen}
-                  aria-label={teamsOpen ? 'Collapse conferences' : 'Expand conferences'}
-                >
-                  <span className={styles.caret} aria-hidden>{teamsOpen ? '▾' : '▸'}</span>
-                </button>
+                {isCbb && (
+                  <button
+                    type="button"
+                    className={styles.caretBtn}
+                    onClick={(e) => { e.preventDefault(); setTeamsOpen((o) => !o); }}
+                    aria-expanded={teamsOpen}
+                    aria-label={teamsOpen ? 'Collapse conferences' : 'Expand conferences'}
+                  >
+                    <span className={styles.caret} aria-hidden>{teamsOpen ? '▾' : '▸'}</span>
+                  </button>
+                )}
               </div>
-              {teamsOpen && (
+              {isCbb && teamsOpen && (
                 <div className={styles.teamDropdown}>
                   {grouped.map(({ conference, tiers }) => {
                     const teams = Object.values(tiers).flat();
@@ -152,29 +160,31 @@ export default function Sidebar() {
               )}
             </div>
             <NavLink
-              to="/insights"
+              to={buildPath('/insights')}
               className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
             >
               <span className={styles.icon}><TrendIcon /></span>
-              <span>Odds Insights</span>
+              <span>{workspace.labels.picks}</span>
             </NavLink>
             <NavLink
-              to="/news"
+              to={buildPath('/news')}
               className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
             >
               <span className={styles.icon}><NewsIcon /></span>
-              <span>News Feed</span>
+              <span>{workspace.labels.news}</span>
             </NavLink>
-            <NavLink
-              to="/bracketology"
-              className={({ isActive }) =>
-                `${styles.link} ${styles.bracketLink}${isActive ? ` ${styles.active}` : ''}`
-              }
-            >
-              <span className={styles.icon}><BracketIcon /></span>
-              <span>Bracketology</span>
-              <span className={styles.bracketBadge}>NEW</span>
-            </NavLink>
+            {hasCapability('bracketology') && (
+              <NavLink
+                to="/bracketology"
+                className={({ isActive }) =>
+                  `${styles.link} ${styles.bracketLink}${isActive ? ` ${styles.active}` : ''}`
+                }
+              >
+                <span className={styles.icon}><BracketIcon /></span>
+                <span>Bracketology</span>
+                <span className={styles.bracketBadge}>NEW</span>
+              </NavLink>
+            )}
             <NavLink
               to="/settings"
               data-testid="nav-settings"

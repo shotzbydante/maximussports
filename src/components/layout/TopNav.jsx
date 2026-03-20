@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import HeaderProfileChip from '../profile/HeaderProfileChip';
 import styles from './TopNav.module.css';
 
@@ -102,16 +103,6 @@ function PlanBadge({ tier, isLoading, isSyncing }) {
   );
 }
 
-const BASE_NAV_LINKS = [
-  { to: '/', end: true, label: 'Home' },
-  { to: '/games', end: false, label: 'Games' },
-  { to: '/teams', end: false, label: 'Team Intel Hub' },
-  { to: '/insights', end: false, label: 'Odds Insights' },
-  { to: '/news', end: false, label: 'News Feed' },
-  { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true },
-];
-
-const BRACKETOLOGY_LINK = { to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true };
 const SETTINGS_LINK = { to: '/settings', end: false, label: 'Settings', testId: 'nav-settings' };
 
 export default function TopNav() {
@@ -119,11 +110,23 @@ export default function TopNav() {
   const { user } = useAuth();
   const { planTier, isLoading, isSyncing } = usePlan();
   const { profile } = useUserProfile();
-  const NAV_LINKS = useMemo(() => [
-    ...BASE_NAV_LINKS,
-    BRACKETOLOGY_LINK,
-    SETTINGS_LINK,
-  ], []);
+  const { workspace, buildPath, hasCapability } = useWorkspace();
+
+  const NAV_LINKS = useMemo(() => {
+    const links = [
+      { to: buildPath('/'), end: true, label: 'Home' },
+      { to: buildPath('/games'), end: false, label: workspace.labels.games },
+      { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel },
+      { to: buildPath('/insights'), end: false, label: workspace.labels.picks },
+      { to: buildPath('/news'), end: false, label: workspace.labels.news },
+      { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true },
+    ];
+    if (hasCapability('bracketology')) {
+      links.push({ to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true });
+    }
+    links.push(SETTINGS_LINK);
+    return links;
+  }, [workspace, buildPath, hasCapability]);
 
   useEffect(() => {
     if (!menuOpen) return;

@@ -106,6 +106,41 @@
   border-radius: 999px;
 }
 
+/* ── Workspace pills (Content Studio switcher) ────────── */
+.workspacePills {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.workspacePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid var(--color-border-light);
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.workspacePill:hover {
+  background: rgba(60, 121, 180, 0.06);
+  border-color: rgba(60, 121, 180, 0.18);
+  color: var(--color-text);
+}
+
+.workspacePillActive {
+  background: rgba(60, 121, 180, 0.10);
+  border-color: rgba(60, 121, 180, 0.30);
+  color: var(--color-primary);
+}
+
 .authStatus {
   display: flex;
   align-items: center;

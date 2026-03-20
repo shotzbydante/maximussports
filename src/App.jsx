@@ -20,6 +20,15 @@ import Dashboard from './pages/Dashboard';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 import { initOfficialBracket } from './utils/bracketInit';
+import { WorkspaceProvider } from './workspaces/WorkspaceContext';
+import WorkspaceGate from './workspaces/WorkspaceGate';
+import { WorkspaceId } from './workspaces/config';
+
+import MlbHome from './pages/mlb/MlbHome';
+import MlbGames from './pages/mlb/MlbGames';
+import MlbTeams from './pages/mlb/MlbTeams';
+import MlbNewsFeed from './pages/mlb/MlbNewsFeed';
+import MlbPicks from './pages/mlb/MlbPicks';
 
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
@@ -38,32 +47,43 @@ export default function App() {
         <AnalyticsRouteListener />
         <ToastContainer />
         <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="teams" element={<Teams />} />
-              <Route path="teams/:slug" element={<TeamPage />} />
-              <Route path="games" element={<Games />} />
-              <Route path="insights" element={<Insights />} />
-              {/* Redirect legacy /odds-insights to canonical /insights */}
-              <Route path="odds-insights" element={<Navigate to="/insights" replace />} />
-              <Route path="news" element={<NewsFeed />} />
-              <Route path="alerts" element={<Alerts />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="privacy" element={<Privacy />} />
-              <Route path="terms" element={<Terms />} />
-              <Route path="contact" element={<Contact />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="college-basketball-picks-today" element={<Suspense fallback={null}><CollegeBasketballPicksToday /></Suspense>} />
-              <Route path="march-madness-betting-intelligence" element={<Suspense fallback={null}><MarchMadnessHub /></Suspense>} />
-              <Route path="bracketology" element={<Suspense fallback={null}><Bracketology /></Suspense>} />
-              <Route path="friends" element={<Suspense fallback={null}><Friends /></Suspense>} />
-              <Route path="join" element={<Suspense fallback={null}><Join /></Suspense>} />
-              <Route path="games/:matchupSlug" element={<Suspense fallback={null}><GameMatchup /></Suspense>} />
-            </Route>
-            {/* Share pages: handled by /api/share/render in prod; SPA fallback in dev */}
-            <Route path="share/:id" element={<SharePage />} />
-          </Routes>
+          <WorkspaceProvider>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                {/* ── CBB routes (default workspace, existing paths) ── */}
+                <Route index element={<Home />} />
+                <Route path="teams" element={<Teams />} />
+                <Route path="teams/:slug" element={<TeamPage />} />
+                <Route path="games" element={<Games />} />
+                <Route path="insights" element={<Insights />} />
+                <Route path="odds-insights" element={<Navigate to="/insights" replace />} />
+                <Route path="news" element={<NewsFeed />} />
+                <Route path="alerts" element={<Alerts />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="privacy" element={<Privacy />} />
+                <Route path="terms" element={<Terms />} />
+                <Route path="contact" element={<Contact />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="college-basketball-picks-today" element={<Suspense fallback={null}><CollegeBasketballPicksToday /></Suspense>} />
+                <Route path="march-madness-betting-intelligence" element={<Suspense fallback={null}><MarchMadnessHub /></Suspense>} />
+                <Route path="bracketology" element={<Suspense fallback={null}><Bracketology /></Suspense>} />
+                <Route path="friends" element={<Suspense fallback={null}><Friends /></Suspense>} />
+                <Route path="join" element={<Suspense fallback={null}><Join /></Suspense>} />
+                <Route path="games/:matchupSlug" element={<Suspense fallback={null}><GameMatchup /></Suspense>} />
+
+                {/* ── MLB routes (gated workspace) ── */}
+                <Route path="mlb" element={<WorkspaceGate workspaceId={WorkspaceId.MLB} />}>
+                  <Route index element={<MlbHome />} />
+                  <Route path="games" element={<MlbGames />} />
+                  <Route path="teams" element={<MlbTeams />} />
+                  <Route path="teams/:slug" element={<MlbTeams />} />
+                  <Route path="news" element={<MlbNewsFeed />} />
+                  <Route path="insights" element={<MlbPicks />} />
+                </Route>
+              </Route>
+              <Route path="share/:id" element={<SharePage />} />
+            </Routes>
+          </WorkspaceProvider>
         </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>

@@ -41,20 +41,29 @@ import {
 } from '../utils/tournamentHelpers';
 import { fetchBracketData } from '../data/bracketData';
 import { REGIONS } from '../config/bracketology';
+import { useWorkspace } from '../workspaces/WorkspaceContext';
+import { WorkspaceId, WORKSPACES } from '../workspaces/config';
+import { getVisibleWorkspaces } from '../workspaces/access';
 import styles from './Dashboard.module.css';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 
-const SECTIONS = [
-  { id: 'daily',      label: 'Daily Briefing',    icon: '📅' },
-  { id: 'team',       label: 'Team Intel',         icon: '🏀' },
-  { id: 'conference', label: 'Conference Intel',    icon: '🏟️' },
-  { id: 'game',       label: 'Game Insights',      icon: '📊' },
-  { id: 'picks',      label: "Maximus's Picks",    icon: '📈' },
-  { id: 'videos',     label: 'Videos',             icon: '🎬' },
+const ALL_SECTIONS = [
+  { id: 'daily',      label: 'Daily Briefing',    icon: '📅',  requiredCap: null },
+  { id: 'team',       label: 'Team Intel',         icon: '🏀',  requiredCap: 'teamIntel' },
+  { id: 'conference', label: 'Conference Intel',    icon: '🏟️', requiredCap: 'conferenceIntel' },
+  { id: 'game',       label: 'Game Insights',      icon: '📊',  requiredCap: 'games' },
+  { id: 'picks',      label: "Maximus's Picks",    icon: '📈',  requiredCap: 'picks' },
+  { id: 'videos',     label: 'Videos',             icon: '🎬',  requiredCap: null },
 ];
+
+function getSectionsForWorkspace(workspaceConfig) {
+  return ALL_SECTIONS.filter(sec =>
+    sec.requiredCap === null || workspaceConfig.capabilities[sec.requiredCap],
+  );
+}
 
 function gameLabel(g) {
   if (!g) return '';
@@ -68,6 +77,15 @@ export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const isAuthorized = !authLoading && isAdminUser(user?.email);
   const isUnauthorized = !authLoading && !isAdminUser(user?.email);
+
+  // ── workspace scoping for Content Studio ───────────────
+  const [studioWorkspaceId, setStudioWorkspaceId] = useState(WorkspaceId.CBB);
+  const studioWorkspace = WORKSPACES[studioWorkspaceId] ?? WORKSPACES[WorkspaceId.CBB];
+  const availableStudioWorkspaces = useMemo(
+    () => (user ? getVisibleWorkspaces(user) : []),
+    [user],
+  );
+  const isCbbStudio = studioWorkspaceId === WorkspaceId.CBB;
 
   // ── section / template state ────────────────────────────
   const [activeSection, setActiveSection] = useState('daily');
@@ -119,9 +137,9 @@ export default function Dashboard() {
   // ── post history refresh key ──────────────────────────────
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
-  // ── preview size ──────────────────────────────────────────
+  // ── preview size (workspace-scoped via local storage) ─────
   const [previewSize, setPreviewSize] = useState(() => {
-    try { return localStorage.getItem('maximus_preview_size') || 'medium'; } catch { return 'medium'; }
+    try { return localStorage.getItem(`workspace:${studioWorkspaceId}:preview_size`) || localStorage.getItem('maximus_preview_size') || 'medium'; } catch { return 'medium'; }
   });
 
   // ── caption state ────────────────────────────────────────
@@ -865,6 +883,23 @@ export default function Dashboard() {
         <div className={styles.pageHeaderLeft}>
           <h1 className={styles.pageTitle}>Social Content Studio</h1>
           <span className={styles.adminBadge}>Admin Only</span>
+          {availableStudioWorkspaces.length > 1 && (
+            <div className={styles.workspacePills}>
+              {availableStudioWorkspaces.map(ws => (
+                <button
+                  key={ws.id}
+                  className={`${styles.workspacePill} ${ws.id === studioWorkspaceId ? styles.workspacePillActive : ''}`}
+                  onClick={() => {
+                    setStudioWorkspaceId(ws.id);
+                    setAssetsReady(false);
+                    setActiveSection('daily');
+                  }}
+                >
+                  {ws.emoji} {ws.shortLabel}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className={styles.authStatus}>
           <span className={styles.authDot} />
@@ -880,7 +915,7 @@ export default function Dashboard() {
 
           {/* Section tabs */}
           <div className={styles.sectionTabs}>
-            {SECTIONS.map(sec => (
+            {getSectionsForWorkspace(studioWorkspace).map(sec => (
               <button
                 key={sec.id}
                 className={`${styles.sectionTab} ${activeSection === sec.id ? styles.sectionTabActive : ''}`}
