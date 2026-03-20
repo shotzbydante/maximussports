@@ -19,8 +19,8 @@ export default function BracketMatchup({
 
   const topSelected = userPick === 'top' || userPick === topTeam?.slug || userPick === topTeam?.teamId;
   const bottomSelected = userPick === 'bottom' || userPick === bottomTeam?.slug || userPick === bottomTeam?.teamId;
-  const hasResult = winner != null;
   const isFinal = status === 'final';
+  const hasResult = isFinal && winner != null;
   const isReady = status === 'ready' || status === 'final' || status === 'live';
   const isWaiting = status === 'waiting';
 

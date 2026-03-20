@@ -74,27 +74,41 @@ function scoreBettingItem(item) {
   let score = 0;
   const title = (item.title ?? '').toLowerCase();
 
-  if (isBettingAllowlisted(item)) score += 40;
+  if (isBettingAllowlisted(item)) score += 25;
 
   if (/\bbet(s|ting)?\b/i.test(title)) score += 15;
   if (/\bpick(s)?\b/i.test(title)) score += 15;
   if (/\bspread|over\/?under|odds|line|parlay/i.test(title)) score += 10;
-  if (/\bcollege\s*basketball|ncaab|ncaam|cbb/i.test(title)) score += 10;
-  if (/\bmarch\s*madness|final\s*four|tournament/i.test(title)) score += 8;
+  if (/\bcollege\s*basketball|ncaab|ncaam|cbb/i.test(title)) score += 12;
+  if (/\bmarch\s*madness|final\s*four|tournament/i.test(title)) score += 15;
+  if (/\bbracket/i.test(title)) score += 8;
 
   if (item.publishedAt) {
     const ageDays = (Date.now() - new Date(item.publishedAt).getTime()) / 86_400_000;
-    if      (ageDays <= 1)  score += 25;
-    else if (ageDays <= 3)  score += 18;
-    else if (ageDays <= 7)  score += 10;
-    else if (ageDays <= 14) score += 4;
+    if      (ageDays <= 1)  score += 35;
+    else if (ageDays <= 2)  score += 28;
+    else if (ageDays <= 3)  score += 22;
+    else if (ageDays <= 7)  score += 12;
+    else if (ageDays <= 14) score += 2;
+    else                    score -= 15;
   }
 
   if (/\breaction\b/i.test(title)) score -= 10;
   if (/\bfull\s*game\b/i.test(title)) score -= 20;
   if (/\blive\s*stream\b/i.test(title) && !isBettingAllowlisted(item)) score -= 15;
+  if (/\bpromo(tion)?s?\b/i.test(title)) score -= 15;
+  if (/\bsign\s*up\b/i.test(title)) score -= 15;
 
   return score;
+}
+
+function diversityPass(scored, maxPerChannel = 3) {
+  const counts = {};
+  return scored.filter((item) => {
+    const ch = (item.channelTitle ?? '').toLowerCase();
+    counts[ch] = (counts[ch] || 0) + 1;
+    return counts[ch] <= maxPerChannel;
+  });
 }
 
 function processItems(allItems, debug) {
@@ -114,20 +128,23 @@ function processItems(allItems, debug) {
     score:        scoreBettingItem(item),
   }));
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 15);
+  const diverse = diversityPass(scored);
+  return diverse.slice(0, 15);
 }
 
 async function fetchFromDataApi(debug) {
   const year = new Date().getFullYear();
+  const publishedAfter = new Date(Date.now() - 14 * 86_400_000).toISOString();
   const queries = [
-    { q: `college basketball betting picks ${year}`, maxResults: 10 },
-    { q: `NCAAB odds best bets today ${year}`, maxResults: 10 },
-    { q: `college basketball spread picks analysis`, maxResults: 8 },
+    { q: `March Madness betting picks ${year}`, maxResults: 10 },
+    { q: `NCAA tournament odds best bets today ${year}`, maxResults: 10 },
+    { q: `college basketball March Madness spread picks`, maxResults: 8 },
+    { q: `NCAAB March Madness bracket betting analysis ${year}`, maxResults: 8 },
   ];
 
   const results = await Promise.allSettled(
     queries.map(async ({ q, maxResults }) => {
-      const items = await ytSearch({ q, maxResults, debug });
+      const items = await ytSearch({ q, maxResults, publishedAfter, debug });
       return items;
     })
   );
@@ -143,7 +160,7 @@ async function fetchFromDataApi(debug) {
 }
 
 async function fetchFromRss(debug) {
-  const q = safeRssQuery('college basketball betting picks');
+  const q = safeRssQuery('March Madness NCAA basketball betting picks');
   if (debug) console.log(`[bettingFeed] trying RSS fallback q="${q}"`);
   const items = await ytRssSearch({ q, debug });
   if (debug) console.log(`[bettingFeed] RSS raw count: ${items.length}`);
