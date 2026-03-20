@@ -24,7 +24,7 @@ import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, getTeamRegion, isBracketOfficial, isTournamentActive, getTournamentTeam } from '../../utils/tournamentHelpers';
-import { normalizeTeamCardFields, fmtRecord, fmtAts } from '../../utils/teamCardFields';
+import { normalizeTeamCardFields, fmtRecord, fmtAts, fmtAtsLast10 } from '../../utils/teamCardFields';
 import SEOHead, { buildOgImageUrl } from '../seo/SEOHead';
 import styles from './TeamPage.module.css';
 
@@ -367,7 +367,10 @@ export default function TeamPage() {
                 {cardFields?.conferenceFinish && (
                   <span className={styles.confFinishChip} title="Conference finish">{cardFields.conferenceFinish}</span>
                 )}
-                {cardFields?.atsRecord && (
+                {cardFields?.atsLast10 && (
+                  <span className={styles.record} title="ATS last 10 games">ATS (L10): {fmtAtsLast10(cardFields.atsLast10)}</span>
+                )}
+                {!cardFields?.atsLast10 && cardFields?.atsRecord && (
                   <span className={styles.record} title="Full-season ATS">ATS: {fmtAts(cardFields.atsRecord)}</span>
                 )}
                 {streak && (

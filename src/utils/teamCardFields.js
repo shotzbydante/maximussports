@@ -6,35 +6,25 @@
  * duplicating transformation logic.
  */
 
-import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound, getTournamentTeam } from './tournamentHelpers';
+import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers';
 import { getTeamBySlug } from '../data/teams';
 
-/**
- * Compute season W–L from schedule events.
- * @returns {{ w: number, l: number } | null}
- */
-function computeSeasonRecord(events) {
-  const past = (events || []).filter((e) => e.isFinal && e.ourScore != null && e.oppScore != null);
-  if (past.length === 0) return null;
-  let w = 0, l = 0;
-  past.forEach((e) => { if (Number(e.ourScore) > Number(e.oppScore)) w++; else l++; });
-  return { w, l };
+// NCAA tournament window (2026): games on or after March 17 with seasonType 3
+const NCAA_TOURNEY_START = '2026-03-17';
+
+function isNcaaTournamentEvent(ev) {
+  if (ev.seasonType !== 3) return false;
+  if (!ev.date) return false;
+  return ev.date.slice(0, 10) >= NCAA_TOURNEY_START;
 }
 
-/**
- * Detect whether an event is a conference tournament game from ESPN metadata.
- *
- * Uses enriched fields from `fetchScheduleSource`: eventName, seasonType, notes.
- * ESPN conference tournament games typically have:
- *   - seasonType 3 (postseason) with a date before NCAA tournament
- *   - eventName containing "{Conference} Tournament" (e.g., "SEC Tournament - Semifinal")
- *   - notes containing the conference tournament name
- */
-const CONF_TOURNEY_RE = /\b(tournament|tourney|conf\.\s*tourn)/i;
-const CHAMPIONSHIP_RE = /\b(championship|final(?:s)?)\b/i;
+// ── Conference tournament detection ────────────────────────────────
+
+const CONF_TOURNEY_RE = /\b(tournament|tourney)\b/i;
+const CHAMPIONSHIP_RE = /\bchampionship\b/i;
+const FINAL_RE = /\bfinals?\b/i;
 const ROUND_PATTERNS = [
   { re: /\bchampionship\b/i, label: 'Championship' },
-  { re: /\bfinals?\b/i, label: 'Final' },
   { re: /\bsemifinals?\b/i, label: 'Semifinals' },
   { re: /\bquarterfinals?\b/i, label: 'Quarterfinals' },
   { re: /\bsecond\s*round\b/i, label: 'Second Round' },
@@ -42,6 +32,7 @@ const ROUND_PATTERNS = [
 ];
 
 function isConfTourneyEvent(ev, confName) {
+  if (isNcaaTournamentEvent(ev)) return false;
   const name = (ev.eventName || '').toLowerCase();
   const notesStr = (ev.notes || []).join(' ').toLowerCase();
   const combined = `${name} ${notesStr}`;
@@ -58,26 +49,47 @@ function extractRoundLabel(ev) {
   for (const { re, label } of ROUND_PATTERNS) {
     if (re.test(combined)) return label;
   }
+  if (FINAL_RE.test(combined)) return 'Final';
   return null;
 }
 
-/**
- * Derive conference finish from schedule events.
- *
- * Priority:
- *   1. Conference tournament finish (from enriched ESPN event metadata)
- *   2. Regular-season conference placement (from conference record if detectable)
- *   3. Non-qualification signal (team had no conf tourney games despite season ending)
- *   4. null — no confident data
- *
- * @returns {{ label: string|null, source: string|null, confidence: string|null }}
- */
+// ── Season record (excludes NCAA tournament) ───────────────────────
+
+function computeSeasonRecord(events) {
+  const past = (events || []).filter(
+    (e) => e.isFinal && e.ourScore != null && e.oppScore != null && !isNcaaTournamentEvent(e)
+  );
+  if (past.length === 0) return null;
+  let w = 0, l = 0;
+  past.forEach((e) => { if (Number(e.ourScore) > Number(e.oppScore)) w++; else l++; });
+  return { w, l };
+}
+
+// ── ATS trend (last 10 non-tournament games) ───────────────────────
+
+function computeAtsLast10(events, batchAts) {
+  const past = (events || [])
+    .filter((e) => e.isFinal && e.ourScore != null && e.oppScore != null && !isNcaaTournamentEvent(e))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
+  if (past.length === 0) return null;
+
+  const last30 = batchAts?.last30;
+  const season = batchAts?.season;
+  if (last30?.total > 0) return { w: last30.w ?? last30.wins ?? 0, l: last30.l ?? last30.losses ?? 0, total: last30.total };
+  if (season?.total > 0) {
+    const t = Math.min(season.total, 10);
+    return { w: Math.min(season.w ?? season.wins ?? 0, t), l: Math.min(season.l ?? season.losses ?? 0, t), total: t };
+  }
+  return null;
+}
+
+// ── Conference finish ──────────────────────────────────────────────
+
 function deriveConferenceFinish(events, team) {
   if (!events?.length || !team) return { label: null, source: null, confidence: null };
-
   const confName = team.conference || '';
 
-  // ── 1. Conference tournament finish ──────────────────────────────
   const confTourneyGames = events
     .filter((e) => e.isFinal && isConfTourneyEvent(e, confName))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -86,59 +98,38 @@ function deriveConferenceFinish(events, team) {
     const lastGame = confTourneyGames[0];
     const won = Number(lastGame.ourScore) > Number(lastGame.oppScore);
     const roundLabel = extractRoundLabel(lastGame);
-    const isChampionship = CHAMPIONSHIP_RE.test(lastGame.eventName || '') ||
-                           CHAMPIONSHIP_RE.test((lastGame.notes || []).join(' '));
+    const combined = `${lastGame.eventName || ''} ${(lastGame.notes || []).join(' ')}`;
+    const isChampGame = CHAMPIONSHIP_RE.test(combined) || FINAL_RE.test(combined);
 
-    if (isChampionship && won) {
+    if (isChampGame && won) {
       return { label: `Won ${confName} Tournament`, source: 'conference_tournament', confidence: 'high' };
     }
-    if (isChampionship && !won) {
+    if (isChampGame && !won) {
       return { label: `${confName} Tournament Runner-Up`, source: 'conference_tournament', confidence: 'high' };
     }
     if (roundLabel) {
-      return { label: `Reached ${confName} ${roundLabel}`, source: 'conference_tournament', confidence: 'high' };
+      const verb = won ? 'Won' : 'Lost in';
+      return { label: `${verb} ${confName} ${roundLabel}`, source: 'conference_tournament', confidence: 'high' };
     }
     return { label: `${confName} Tournament`, source: 'conference_tournament', confidence: 'medium' };
   }
 
-  // ── 2. Regular-season conference placement ───────────────────────
-  // ESPN schedule events don't directly expose standings rank, but if the
-  // season is over (has a significant number of finals) and we can compute
-  // conference W-L from events where both teams are conference opponents,
-  // we still can't derive placement without the full conference standings.
-  // Leave as null — only claim what we can confidently prove.
-
-  // ── 3. Non-qualification ─────────────────────────────────────────
-  // If the season appears to have ended (late in the year with many finals)
-  // and no conference tournament games were found, the team may not have
-  // qualified. Only assert this with high confidence when:
-  //   - We're past conference tournament season (mid-March+)
-  //   - The team has a substantial number of completed games
-  //   - No conf tourney events were detected
   const now = new Date();
   const isMarchPlus = now.getMonth() >= 2 && now.getDate() >= 10;
   const finishedGames = events.filter((e) => e.isFinal);
   const hasSubstantialSeason = finishedGames.length >= 20;
-  const hasPostseasonEvents = events.some((e) => e.seasonType === 3 && e.isFinal);
+  const hasNcaaGames = events.some((e) => isNcaaTournamentEvent(e) && e.isFinal);
+  const hasConfTourneyGames = confTourneyGames.length > 0;
 
-  if (isMarchPlus && hasSubstantialSeason && !hasPostseasonEvents) {
-    return { label: `Did not qualify for ${confName || 'conference'} tournament`, source: 'non_qualifier', confidence: 'medium' };
+  if (isMarchPlus && hasSubstantialSeason && !hasConfTourneyGames && !hasNcaaGames) {
+    return { label: `Did not qualify for ${confName || 'conf.'} tournament`, source: 'non_qualifier', confidence: 'medium' };
   }
 
-  // ── 4. No confident data ─────────────────────────────────────────
   return { label: null, source: null, confidence: null };
 }
 
-/**
- * Build a human-readable tournament round / status label.
- *
- * Active tournament teams → "Next: Round of 32", "Next: Sweet 16"
- * Eliminated teams        → "Eliminated: Round of 64"
- * Non-tournament teams    → "Did not make tournament"
- *
- * When we can't determine elimination round from schedule data,
- * we fall back to the current tournament phase context.
- */
+// ── Tournament status ──────────────────────────────────────────────
+
 function deriveTournamentStatus(slug, events) {
   const seed = getTeamSeed(slug);
   const isInField = seed != null;
@@ -146,37 +137,67 @@ function deriveTournamentStatus(slug, events) {
   const bracketOfficial = isBracketOfficial();
 
   if (!bracketOfficial) {
-    if (isInField) return { label: `Projected ${seed}-seed`, status: 'projected', roundLabel: null };
-    return { label: null, status: 'pre_selection', roundLabel: null };
+    if (isInField) return { label: `Projected ${seed}-seed`, status: 'projected', roundLabel: null, lastGame: null };
+    return { label: null, status: 'pre_selection', roundLabel: null, lastGame: null };
   }
 
   if (!isInField) {
-    return { label: 'Did not make tournament', status: 'not_in_field', roundLabel: null };
+    return { label: 'Did not make tournament', status: 'not_in_field', roundLabel: null, lastGame: null };
   }
 
   const tourneyGames = (events || [])
-    .filter((e) => e.isFinal && e.isTournament)
+    .filter((e) => e.isFinal && isNcaaTournamentEvent(e))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const lostTourneyGame = tourneyGames.find(
+  const lostGame = tourneyGames.find(
     (e) => e.ourScore != null && e.oppScore != null && Number(e.ourScore) < Number(e.oppScore)
   );
 
-  if (lostTourneyGame) {
-    const roundNum = lostTourneyGame.tournamentRound || null;
-    const roundName = roundNum ? getRoundLabel(roundNum) : 'Tournament';
-    return { label: `Eliminated: ${roundName}`, status: 'eliminated', roundLabel: roundName };
+  if (lostGame) {
+    const activeRound = getActiveRound(phase);
+    const roundFromPhase = activeRound > 1 ? activeRound - 1 : 1;
+    const gamesPlayed = tourneyGames.length;
+    const inferredRound = gamesPlayed >= 1 ? gamesPlayed : roundFromPhase;
+    const roundName = getRoundLabel(inferredRound);
+    return {
+      label: `Lost in ${roundName}`,
+      status: 'eliminated',
+      roundLabel: roundName,
+      lastGame: {
+        opponent: lostGame.opponent,
+        ourScore: lostGame.ourScore,
+        oppScore: lostGame.oppScore,
+        date: lostGame.date,
+        won: false,
+      },
+    };
+  }
+
+  if (tourneyGames.length > 0) {
+    const lastWin = tourneyGames[0];
+    const activeRound = getActiveRound(phase);
+    const nextRoundLabel = getRoundLabel(activeRound);
+    return {
+      label: `Next: ${nextRoundLabel}`,
+      status: 'active',
+      roundLabel: nextRoundLabel,
+      lastGame: {
+        opponent: lastWin.opponent,
+        ourScore: lastWin.ourScore,
+        oppScore: lastWin.oppScore,
+        date: lastWin.date,
+        won: true,
+      },
+    };
   }
 
   const activeRound = getActiveRound(phase);
   const nextRoundLabel = getRoundLabel(activeRound);
-  return { label: `Next: ${nextRoundLabel}`, status: 'active', roundLabel: nextRoundLabel };
+  return { label: `Next: ${nextRoundLabel}`, status: 'active', roundLabel: nextRoundLabel, lastGame: null };
 }
 
-/**
- * Format ATS record from batch or cache data.
- * Prefers batch data when richer; falls back to cache.
- */
+// ── ATS resolution ─────────────────────────────────────────────────
+
 function resolveAts(batchAts, cacheAts) {
   const b = batchAts?.total > 0 ? batchAts : null;
   const c = cacheAts?.total > 0 ? cacheAts : null;
@@ -184,14 +205,8 @@ function resolveAts(batchAts, cacheAts) {
   return b || c || null;
 }
 
-/**
- * Build a normalized team card model.
- *
- * @param {string} slug
- * @param {object} batchSlot  — from pinnedTeamDataBySlug[slug] or team page batch
- * @param {object} [cacheAts] — from getAtsCache(slug)?.season
- * @returns {object} normalized fields
- */
+// ── Main normalizer ────────────────────────────────────────────────
+
 export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
   const team = getTeamBySlug(slug);
   const events = batchSlot?.schedule?.events || [];
@@ -205,6 +220,8 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
     ? { w: ats.w ?? ats.wins ?? 0, l: ats.l ?? ats.losses ?? 0, p: ats.p ?? ats.pushes ?? 0, total: ats.total ?? 0, coverPct: ats.coverPct ?? null }
     : null;
 
+  const atsLast10 = computeAtsLast10(events, batchSlot?.ats);
+
   const tournament = deriveTournamentStatus(slug, events);
 
   const seed = getTeamSeed(slug);
@@ -216,27 +233,28 @@ export function normalizeTeamCardFields(slug, batchSlot, cacheAts = null) {
     conferenceFinishSource: confFinish.source,
     conferenceFinishConfidence: confFinish.confidence,
     atsRecord,
+    atsLast10,
     tournamentStatus: tournament.status,
     tournamentLabel: tournament.label,
     tournamentRoundLabel: tournament.roundLabel,
+    tournamentLastGame: tournament.lastGame,
     seed,
     region,
   };
 }
 
-/**
- * Format a record pair as "W–L" or fallback.
- */
 export function fmtRecord(rec, fallback = '—') {
   if (!rec || rec.w == null || rec.l == null) return fallback;
   return `${rec.w}–${rec.l}`;
 }
 
-/**
- * Format ATS record as "W–L–P" or "W–L" (omitting pushes if zero).
- */
 export function fmtAts(ats, fallback = '—') {
   if (!ats || ats.total === 0) return fallback;
   const base = `${ats.w}–${ats.l}`;
   return ats.p > 0 ? `${base}–${ats.p}` : base;
+}
+
+export function fmtAtsLast10(ats, fallback = '—') {
+  if (!ats || ats.total === 0) return fallback;
+  return `${ats.w}–${ats.l}`;
 }

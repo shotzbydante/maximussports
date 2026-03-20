@@ -950,6 +950,70 @@
   flex-shrink: 0;
 }
 
+/* ── Game module ─────────────────────────────────────────────────── */
+
+.gameModule {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: rgba(60, 121, 180, 0.04);
+  border: 1px solid rgba(60, 121, 180, 0.10);
+  border-radius: 8px;
+}
+
+.gameModuleElim {
+  background: rgba(196, 92, 74, 0.04);
+  border-color: rgba(196, 92, 74, 0.10);
+}
+
+.gameModuleTag {
+  display: block;
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.gameModuleElim .gameModuleTag {
+  color: var(--color-text-muted);
+}
+
+.gameModuleBody {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+}
+
+.gameMatchup {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.gameDetail {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.gameScore {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* ── Intel summary module ────────────────────────────────────────── */
+
+.intelModule {
+  padding: 8px 10px;
+  margin-bottom: var(--space-sm);
+  background: rgba(183, 152, 108, 0.03);
+  border: 1px solid rgba(183, 152, 108, 0.08);
+  border-radius: 8px;
+  min-height: 0;
+}
 
 .teamSummary {
   margin-bottom: var(--space-sm);
@@ -1115,6 +1179,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.statValueWrap {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
+  font-size: 0.66rem;
+}
+
+.statCellTourney {
+  flex: 1.4;
+  min-width: 72px;
 }
 
 .statCellActive .statValue {
