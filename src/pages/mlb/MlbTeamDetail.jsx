@@ -12,6 +12,7 @@ import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
 import { fetchMlbHeadlines } from '../../api/mlbNews';
 import AffiliateCta from '../../components/common/AffiliateCta';
 import MlbTeamIntelFeed from '../../components/mlb/MlbTeamIntelFeed';
+import LiveGameCard from '../../components/mlb/LiveGameCard';
 import styles from './MlbTeamDetail.module.css';
 
 function formatOdds(american) {
@@ -197,6 +198,23 @@ export default function MlbTeamDetail() {
   const [teamRecord, setTeamRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [liveGame, setLiveGame] = useState(null);
+
+  useEffect(() => {
+    if (!team) return;
+    let cancelled = false;
+    async function loadLive() {
+      try {
+        const r = await fetch(`/api/mlb/live/team?slug=${team.slug}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled && d.game) setLiveGame(d.game);
+      } catch { /* network error */ }
+    }
+    loadLive();
+    const iv = setInterval(loadLive, 60_000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [team]);
 
   useEffect(() => {
     Promise.allSettled([
@@ -325,6 +343,16 @@ export default function MlbTeamDetail() {
       </nav>
 
       <div className={styles.content}>
+        {/* ── Today's Game Intel ── */}
+        {liveGame && (
+          <section className={styles.todayGameSection}>
+            <h3 className={styles.sectionTitle}>
+              {liveGame.gameState?.isLive ? 'Live Now' : 'Today\'s Game'}
+            </h3>
+            <LiveGameCard game={liveGame} />
+          </section>
+        )}
+
         {/* ── Intel Briefing ── */}
         <section id="intel" className={styles.briefingCard}>
           <div className={styles.briefingHeader}>

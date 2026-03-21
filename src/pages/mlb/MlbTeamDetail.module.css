@@ -195,6 +195,15 @@
   gap: var(--space-lg);
 }
 
+/* ── Today's Game Intel ── */
+.todayGameSection {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}
+
 /* ── Intel Briefing ── */
 .briefingCard {
   background: var(--color-bg-elevated);

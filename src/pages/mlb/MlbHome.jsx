@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import MlbLoading from '../../components/mlb/MlbLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
+import LiveNowRail from '../../components/mlb/LiveNowRail';
 import PennantWatch from '../../components/mlb/PennantWatch';
 import MlbIntelFeed from '../../components/mlb/MlbIntelFeed';
 import styles from './MlbHome.module.css';
@@ -162,6 +163,7 @@ export default function MlbHome() {
         </div>
       </section>
 
+      <LiveNowRail />
       <PennantWatch />
       <MlbIntelFeed />
     </div>

@@ -1,0 +1,143 @@
+/* LiveGameCard — premium compact game intel card */
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  min-width: 220px;
+}
+.card:hover {
+  box-shadow: var(--shadow-card-hover, 0 4px 16px rgba(0,0,0,0.08));
+  border-color: rgba(60, 121, 180, 0.18);
+}
+.cardLive {
+  border-left: 3px solid #228b22;
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.03) 0%, transparent 60%);
+}
+.cardCompact { padding: 10px 12px; gap: 6px; min-width: 180px; }
+
+/* Matchup */
+.matchup { display: flex; flex-direction: column; gap: 4px; }
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo { width: 24px; height: 24px; object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+.teamName { flex: 1; font-size: 0.82rem; font-weight: 600; color: var(--color-text); }
+.score {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Meta row */
+.meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* Status pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.pillLive {
+  color: #228b22;
+  background: rgba(34, 139, 34, 0.1);
+  border: 1px solid rgba(34, 139, 34, 0.2);
+}
+.pillFinal {
+  color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--color-border-light);
+}
+.pillUpcoming {
+  color: var(--color-primary, #3c79b4);
+  background: rgba(60, 121, 180, 0.08);
+  border: 1px solid rgba(60, 121, 180, 0.15);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #228b22;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.networkBadge {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Signal badges */
+.signalRow { display: flex; gap: 4px; flex-wrap: wrap; }
+.signalBadge {
+  font-size: 0.52rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.signalHot { color: #b8293d; background: rgba(184, 41, 61, 0.08); }
+.signalEdge { color: #228b22; background: rgba(34, 139, 34, 0.08); }
+.signalWatch { color: var(--color-primary, #3c79b4); background: rgba(60, 121, 180, 0.08); }
+
+/* Betting */
+.bettingRow {
+  display: flex;
+  gap: 8px;
+}
+.bettingItem {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Insight */
+.insight {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Gamecast CTA */
+.gamecastCta {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #CC0000;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transition: opacity 0.12s;
+}
+.gamecastCta:hover { opacity: 0.7; }
