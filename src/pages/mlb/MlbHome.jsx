@@ -62,7 +62,8 @@ export default function MlbHome() {
   useEffect(() => {
     if (llmSummary) return;
     let cancelled = false;
-    const delay = setTimeout(() => {
+
+    function attempt(retries) {
       fetchWithTimeout('/api/mlb/chat/homeSummary')
         .then((r) => r.json())
         .then((d) => {
@@ -72,6 +73,8 @@ export default function MlbHome() {
             _llmCache.data = fixed;
             _llmCache.ts = Date.now();
             setLlmSummary(fixed);
+          } else if (retries > 0 && d?.status === 'missing') {
+            setTimeout(() => { if (!cancelled) attempt(retries - 1); }, 4000);
           } else {
             setSummaryFailed(true);
           }
@@ -79,7 +82,9 @@ export default function MlbHome() {
         .catch(() => {
           if (!cancelled) setSummaryFailed(true);
         });
-    }, 800);
+    }
+
+    const delay = setTimeout(() => attempt(1), 800);
     return () => { cancelled = true; clearTimeout(delay); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

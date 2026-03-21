@@ -36,7 +36,7 @@
   z-index: 1;
   animation: float 4s ease-in-out infinite;
   filter: drop-shadow(0 0 36px rgba(184, 41, 61, 0.3));
-  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
 }
 
 .loadingText {

@@ -376,12 +376,23 @@ export default async function handler(req, res) {
 
   const lastKnown = await getJson(LASTKNOWN_KEY).catch(() => null);
 
-  tryAcquireLock(GEN_LOCK_KEY, GEN_LOCK_TTL_SEC).then((acquired) => {
-    if (acquired) generateAndCache().catch(() => {});
-  }).catch(() => {});
-
   if (lastKnown?.summary) {
+    tryAcquireLock(GEN_LOCK_KEY, GEN_LOCK_TTL_SEC).then((acquired) => {
+      if (acquired) generateAndCache().catch(() => {});
+    }).catch(() => {});
     return res.status(200).json({ summary: lastKnown.summary, status: 'stale', generatedAt: lastKnown.generatedAt });
+  }
+
+  const gotLock = await tryAcquireLock(GEN_LOCK_KEY, GEN_LOCK_TTL_SEC);
+  if (gotLock) {
+    try {
+      const summary = await generateAndCache();
+      if (summary) {
+        return res.status(200).json({ summary, status: 'fresh', generatedAt: new Date().toISOString() });
+      }
+    } catch (err) {
+      console.error('[mlb/chat/homeSummary] inline gen error', err?.message);
+    }
   }
 
   return res.status(200).json({ summary: null, status: 'missing' });

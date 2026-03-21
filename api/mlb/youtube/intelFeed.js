@@ -1,21 +1,25 @@
 /**
  * GET /api/mlb/youtube/intelFeed?maxResults=8
- * MLB video feed — curated MLB/baseball videos via YouTube RSS (zero quota).
- * Mirrors the NCAAM intelFeed architecture but uses MLB-specific queries.
+ * MLB video feed — curated MLB/baseball videos.
+ * Uses YouTube Data API v3 as primary, RSS as fallback (mirrors NCAAM architecture).
  */
 
-import { createCache } from '../../_cache.js';
+import { ytSearch, isQuotaExhausted } from '../../youtube/_yt.js';
+import { ytRssSearch, safeRssQuery } from '../../youtube/_ytRss.js';
 import { getJson, setJson } from '../../_globalCache.js';
 
-const cache = createCache(30 * 60 * 1000);
-const CACHE_KEY = 'mlb:yt:intelFeed';
-
-const KV_FRESH_KEY     = 'yt:mlb:intelFeed:fresh:v1';
-const KV_LASTKNOWN_KEY = 'yt:mlb:intelFeed:lastKnown:v1';
+const KV_FRESH_KEY     = 'yt:mlb:intelFeed:fresh:v2';
+const KV_LASTKNOWN_KEY = 'yt:mlb:intelFeed:lastKnown:v2';
 const KV_FRESH_TTL_SEC     = 60 * 60;
 const KV_LASTKNOWN_TTL_SEC = 7 * 24 * 60 * 60;
 
-const MLB_QUERIES = [
+const MLB_QUERIES_API = [
+  { q: 'MLB highlights today 2026', maxResults: 8 },
+  { q: 'MLB baseball recap top plays 2026', maxResults: 8 },
+  { q: 'ESPN MLB highlights', maxResults: 6 },
+];
+
+const MLB_QUERIES_RSS = [
   'MLB highlights today',
   'MLB baseball recap',
   'ESPN MLB highlights',
@@ -28,6 +32,8 @@ const TRUSTED_CHANNELS = [
   'mlb network', 'pitching ninja', 'baseball america', 'foul territory',
 ];
 
+const REJECT_RE = /\bnba\b|\bnfl\b|\bnhl\b|\bsoccer\b|\bncaa\b|\bcollege basketball\b|\bncaab\b/i;
+
 function scoreItem(item) {
   let s = 0;
   const t = (item.title || '').toLowerCase();
@@ -37,36 +43,8 @@ function scoreItem(item) {
   if (TRUSTED_CHANNELS.some((tc) => ch.includes(tc))) s += 4;
   if (/espn|mlb/i.test(ch)) s += 2;
   if (/watch live|subscribe|podcast|ad\b/i.test(t)) s -= 4;
-  if (/nba|nfl|nhl|soccer|ncaa|college basketball/i.test(t)) s -= 5;
+  if (REJECT_RE.test(t)) s -= 5;
   return s;
-}
-
-async function fetchYouTubeRSS(query) {
-  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=CAISBAgBEAE%253D`;
-  const rssUrl = `https://www.youtube.com/feeds/videos.xml?search_query=${encodeURIComponent(query)}`;
-
-  try {
-    const r = await fetch(rssUrl, {
-      headers: { 'User-Agent': 'MaximusSports/1.0' },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!r.ok) return [];
-    const text = await r.text();
-    const items = [];
-    const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
-    let match;
-    while ((match = entryRegex.exec(text)) !== null && items.length < 12) {
-      const block = match[1];
-      const videoId = (block.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || '';
-      const title = (block.match(/<title>(.*?)<\/title>/) || [])[1] || '';
-      const channelTitle = (block.match(/<name>(.*?)<\/name>/) || [])[1] || '';
-      const published = (block.match(/<published>(.*?)<\/published>/) || [])[1] || '';
-      if (!videoId || !title) continue;
-      const thumbUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-      items.push({ videoId, title, channelTitle, publishedAt: published, thumbUrl });
-    }
-    return items;
-  } catch { return []; }
 }
 
 function dedup(items) {
@@ -78,48 +56,98 @@ function dedup(items) {
   });
 }
 
+function processItems(allItems) {
+  const filtered = allItems.filter((it) => {
+    const t = (it.title || '').toLowerCase();
+    return !REJECT_RE.test(t);
+  });
+  const deduped = dedup(filtered);
+  const scored = deduped.map((it) => ({
+    videoId:      it.videoId,
+    title:        it.title,
+    channelTitle: it.channelTitle,
+    publishedAt:  it.publishedAt,
+    thumbUrl:     it.thumbUrl || `https://i.ytimg.com/vi/${it.videoId}/mqdefault.jpg`,
+    _score:       scoreItem(it),
+  }));
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, 18).map(({ _score, ...rest }) => rest);
+}
+
+async function fetchFromDataApi() {
+  const results = await Promise.allSettled(
+    MLB_QUERIES_API.map(({ q, maxResults }) => ytSearch({ q, maxResults }))
+  );
+  const allItems = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  if (allItems.length === 0) throw new Error('data-api returned empty results');
+  return processItems(allItems);
+}
+
+async function fetchFromRss() {
+  const results = await Promise.allSettled(
+    MLB_QUERIES_RSS.map((q) => ytRssSearch({ q: safeRssQuery(q) }))
+  );
+  const allItems = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  if (allItems.length === 0) throw new Error('RSS returned empty results');
+  return processItems(allItems);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const maxResults = Math.min(Math.max(parseInt(new URL(req.url, 'http://localhost').searchParams.get('maxResults') || '8', 10), 1), 18);
 
-  const mem = cache.get(CACHE_KEY);
-  if (mem) return res.status(200).json({ ...mem, items: mem.items.slice(0, maxResults) });
-
-  const kvFresh = await getJson(KV_FRESH_KEY).catch(() => null);
-  if (kvFresh?.items) {
-    cache.set(CACHE_KEY, kvFresh);
-    return res.status(200).json({ ...kvFresh, items: kvFresh.items.slice(0, maxResults) });
-  }
-
   try {
-    const results = await Promise.allSettled(MLB_QUERIES.map(fetchYouTubeRSS));
-    let all = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
-    all = dedup(all);
+    const kvFresh = await getJson(KV_FRESH_KEY);
+    if (kvFresh?.items?.length > 0) {
+      return res.status(200).json({ ...kvFresh, items: kvFresh.items.slice(0, maxResults) });
+    }
+  } catch {}
 
-    all = all.filter((it) => {
-      const t = (it.title || '').toLowerCase();
-      return !/nba|nfl|nhl|soccer|ncaa|college basketball/i.test(t);
-    });
+  const quotaActive = await isQuotaExhausted();
 
-    const scored = all.map((it) => ({ ...it, _score: scoreItem(it) }));
-    scored.sort((a, b) => b._score - a._score);
-
-    const items = scored.slice(0, 18).map(({ _score, ...rest }) => rest);
-    const payload = { status: 'ok', updatedAt: new Date().toISOString(), items };
-
-    cache.set(CACHE_KEY, payload);
-    await Promise.all([
-      setJson(KV_FRESH_KEY, payload, { exSeconds: KV_FRESH_TTL_SEC }),
-      setJson(KV_LASTKNOWN_KEY, payload, { exSeconds: KV_LASTKNOWN_TTL_SEC }),
-    ]).catch(() => {});
-
-    return res.status(200).json({ ...payload, items: items.slice(0, maxResults) });
-  } catch (err) {
-    const stale = await getJson(KV_LASTKNOWN_KEY).catch(() => null);
-    if (stale?.items) return res.status(200).json({ ...stale, status: 'ok_stale', items: stale.items.slice(0, maxResults) });
-    return res.status(200).json({ status: 'error', items: [], error: err?.message });
+  if (quotaActive) {
+    try {
+      const lastKnown = await getJson(KV_LASTKNOWN_KEY);
+      if (lastKnown?.items?.length > 0) {
+        return res.status(200).json({ ...lastKnown, status: 'ok_stale', items: lastKnown.items.slice(0, maxResults) });
+      }
+    } catch {}
   }
+
+  let items = null;
+
+  if (quotaActive) {
+    try { items = await fetchFromRss(); } catch {}
+  } else {
+    try {
+      items = await fetchFromDataApi();
+    } catch {
+      try { items = await fetchFromRss(); } catch {}
+    }
+  }
+
+  if (items && items.length > 0) {
+    const payload = { status: 'ok', updatedAt: new Date().toISOString(), items };
+    setJson(KV_FRESH_KEY, payload, { exSeconds: KV_FRESH_TTL_SEC }).catch(() => {});
+    setJson(KV_LASTKNOWN_KEY, payload, { exSeconds: KV_LASTKNOWN_TTL_SEC }).catch(() => {});
+    return res.status(200).json({ ...payload, items: items.slice(0, maxResults) });
+  }
+
+  if (!quotaActive) {
+    try {
+      const lastKnown = await getJson(KV_LASTKNOWN_KEY);
+      if (lastKnown?.items?.length > 0) {
+        return res.status(200).json({ ...lastKnown, status: 'ok_stale', items: lastKnown.items.slice(0, maxResults) });
+      }
+    } catch {}
+  }
+
+  return res.status(200).json({ status: 'error', updatedAt: new Date().toISOString(), items: [] });
 }
