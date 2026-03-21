@@ -1,5 +1,12 @@
+/**
+ * MLB Home — the primary landing page for the MLB workspace.
+ * Mirrors the editorial composition philosophy of CBB Home.
+ */
+
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
-import styles from './MlbShared.module.css';
+import PennantWatch from '../../components/mlb/PennantWatch';
+import MlbNewsFeedWidget from '../../components/mlb/MlbNewsFeedWidget';
+import styles from './MlbHome.module.css';
 
 export default function MlbHome() {
   const { workspace } = useWorkspace();
@@ -19,36 +26,17 @@ export default function MlbHome() {
       </header>
 
       <section className={styles.heroCard}>
-        <h2 className={styles.heroTitle}>{workspace.emoji} Today's MLB Intelligence Briefing</h2>
+        <div className={styles.heroEyebrow}>Today's Intelligence Briefing</div>
         <p className={styles.heroBody}>
-          Welcome to the MLB workspace. This is your hub for Major League Baseball
-          intelligence — scores, matchups, odds, and data-driven insights powered
-          by the Maximus model. Content will populate as the season gets underway
-          and data sources come online.
+          Welcome to the MLB workspace — your hub for Major League Baseball intelligence.
+          Track World Series futures, follow your teams, and stay ahead of the game
+          with data-driven insights powered by the Maximus model. Scores, matchups, and
+          picks will populate as the season gets underway and data sources come online.
         </p>
       </section>
 
-      <section className={styles.comingSoon}>
-        <h3 className={styles.comingSoonTitle}>Coming Soon</h3>
-        <div className={styles.featureGrid}>
-          <div className={styles.featureCard}>
-            <span className={styles.featureIcon}>{workspace.emoji}</span>
-            <span className={styles.featureLabel}>Live Scores</span>
-          </div>
-          <div className={styles.featureCard}>
-            <span className={styles.featureIcon}>📊</span>
-            <span className={styles.featureLabel}>Maximus Picks</span>
-          </div>
-          <div className={styles.featureCard}>
-            <span className={styles.featureIcon}>📰</span>
-            <span className={styles.featureLabel}>News Feed</span>
-          </div>
-          <div className={styles.featureCard}>
-            <span className={styles.featureIcon}>🏟️</span>
-            <span className={styles.featureLabel}>Team Intel</span>
-          </div>
-        </div>
-      </section>
+      <PennantWatch />
+      <MlbNewsFeedWidget />
     </div>
   );
 }

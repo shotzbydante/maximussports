@@ -27,6 +27,7 @@ import { WorkspaceId } from './workspaces/config';
 import MlbHome from './pages/mlb/MlbHome';
 import MlbGames from './pages/mlb/MlbGames';
 import MlbTeams from './pages/mlb/MlbTeams';
+import MlbTeamDetail from './pages/mlb/MlbTeamDetail';
 import MlbNewsFeed from './pages/mlb/MlbNewsFeed';
 import MlbPicks from './pages/mlb/MlbPicks';
 
@@ -76,7 +77,7 @@ export default function App() {
                   <Route index element={<MlbHome />} />
                   <Route path="games" element={<MlbGames />} />
                   <Route path="teams" element={<MlbTeams />} />
-                  <Route path="teams/:slug" element={<MlbTeams />} />
+                  <Route path="teams/:slug" element={<MlbTeamDetail />} />
                   <Route path="news" element={<MlbNewsFeed />} />
                   <Route path="insights" element={<MlbPicks />} />
                 </Route>

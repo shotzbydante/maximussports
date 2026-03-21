@@ -5,6 +5,7 @@ import { usePlan } from '../../hooks/usePlan';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import HeaderProfileChip from '../profile/HeaderProfileChip';
+import WorkspaceLogo from './WorkspaceLogo';
 import styles from './TopNav.module.css';
 
 const NavHomeIcon = () => (
@@ -163,7 +164,7 @@ export default function TopNav() {
           <PlanBadge tier={planTier} isLoading={isLoading} isSyncing={isSyncing} />
           {showWorkspaceSwitcher && (
             <span className={styles.workspaceBadge} aria-label={`Workspace: ${workspace.shortLabel}`}>
-              {workspace.emoji} {workspace.shortLabel}
+              <WorkspaceLogo workspace={workspace} size={14} /> {workspace.shortLabel}
             </span>
           )}
         </div>
@@ -215,7 +216,7 @@ export default function TopNav() {
                         setMenuOpen(false);
                       }}
                     >
-                      <span className={styles.mobileWsEmoji}>{ws.emoji}</span>
+                      <span className={styles.mobileWsEmoji}><WorkspaceLogo workspace={ws} size={20} /></span>
                       <span className={styles.mobileWsLabel}>{ws.shortLabel}</span>
                       {!ws.access.public && <span className={styles.mobileWsSandbox}>SANDBOX</span>}
                       {ws.id === workspaceId && <span className={styles.mobileWsCheck}><CheckIcon /></span>}

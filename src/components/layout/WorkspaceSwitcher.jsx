@@ -6,6 +6,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
+import WorkspaceLogo from './WorkspaceLogo';
 import styles from './WorkspaceSwitcher.module.css';
 
 const CheckIcon = () => (
@@ -45,7 +46,7 @@ export default function WorkspaceSwitcher() {
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span className={styles.activeIcon}>{workspace.emoji}</span>
+        <span className={styles.activeIcon}><WorkspaceLogo workspace={workspace} size={18} /></span>
         <span className={styles.activeLabel}>{workspace.shortLabel}</span>
         <span className={styles.chevron}><ChevronIcon /></span>
       </button>
@@ -65,7 +66,7 @@ export default function WorkspaceSwitcher() {
                 setOpen(false);
               }}
             >
-              <span className={styles.optionIcon}>{ws.emoji}</span>
+              <span className={styles.optionIcon}><WorkspaceLogo workspace={ws} size={20} /></span>
               <span className={styles.optionContent}>
                 <span className={styles.optionLabel}>{ws.label}</span>
                 {!ws.access.public && (

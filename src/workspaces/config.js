@@ -46,6 +46,7 @@ export const WORKSPACES = {
     shortLabel: 'CBB',
     routeBase: '',
     emoji: '\u{1F3C0}',
+    logo: '/ncaa-logo.png',
     sportKey: 'basketball_ncaab',
     capabilities: {
       bracketology: true,
@@ -76,6 +77,7 @@ export const WORKSPACES = {
     shortLabel: 'MLB',
     routeBase: '/mlb',
     emoji: '\u{26BE}',
+    logo: '/mlb-logo.png',
     sportKey: 'baseball_mlb',
     capabilities: {
       bracketology: false,
