@@ -1,6 +1,7 @@
 /**
  * LiveGameCard — compact game intelligence card for MLB live/upcoming games.
  * Used in LiveNowRail, Games page, and Team page.
+ * Shows real odds, edge signals, and insights when available.
  */
 
 import styles from './LiveGameCard.module.css';
@@ -28,10 +29,24 @@ function SignalBadge({ label, value, variant }) {
   );
 }
 
+function EdgeBadge({ model }) {
+  if (!model?.pregameEdge) return null;
+  const edge = Math.abs(model.pregameEdge);
+  if (edge < 0.5) return null;
+  const label = edge >= 2.0 ? 'Strong Edge' : edge >= 1.0 ? 'Edge' : 'Lean';
+  const variant = edge >= 2.0 ? 'edgeStrong' : edge >= 1.0 ? 'edgeMod' : 'edgeSlight';
+  return (
+    <span className={`${styles.edgeBadge} ${styles[variant] || ''}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function LiveGameCard({ game, compact = false }) {
   if (!game) return null;
-  const { teams, gameState, broadcast, signals, insight, links, betting } = game;
+  const { teams, gameState, broadcast, signals, insight, links, betting, market, model } = game;
   const isLive = gameState?.isLive;
+  const hasRealOdds = market?.pregameSpread != null || market?.pregameTotal != null;
 
   return (
     <div className={`${styles.card} ${isLive ? styles.cardLive : ''} ${compact ? styles.cardCompact : ''}`}>
@@ -53,22 +68,27 @@ export default function LiveGameCard({ game, compact = false }) {
       <div className={styles.meta}>
         <StatusPill game={game} />
         {broadcast?.network && <span className={styles.networkBadge}>{broadcast.network}</span>}
+        {!compact && <EdgeBadge model={model} />}
       </div>
 
       {/* Signals */}
       {signals && !compact && (
         <div className={styles.signalRow}>
           {signals.importanceScore >= 60 && <SignalBadge label="IMP" value={signals.importanceScore} variant="Hot" />}
-          {signals.marketDislocationScore >= 30 && <SignalBadge label="EDGE" value={signals.marketDislocationScore} variant="Edge" />}
+          {signals.marketDislocationScore >= 20 && <SignalBadge label="EDGE" value={signals.marketDislocationScore} variant="Edge" />}
           {signals.watchabilityScore >= 60 && <SignalBadge label="WATCH" value={signals.watchabilityScore} variant="Watch" />}
         </div>
       )}
 
-      {/* Betting */}
+      {/* Betting — show real values or muted placeholders */}
       {!compact && (
         <div className={styles.bettingRow}>
-          <span className={styles.bettingItem}>{betting?.spreadDisplay || '—'}</span>
-          <span className={styles.bettingItem}>{betting?.totalDisplay || '—'}</span>
+          <span className={`${styles.bettingItem} ${hasRealOdds ? styles.bettingReal : ''}`}>
+            {betting?.spreadDisplay || '—'}
+          </span>
+          <span className={`${styles.bettingItem} ${hasRealOdds ? styles.bettingReal : ''}`}>
+            {betting?.totalDisplay || '—'}
+          </span>
         </div>
       )}
 

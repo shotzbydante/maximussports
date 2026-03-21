@@ -1,6 +1,7 @@
 /**
  * Deterministic scoring + insight generation for MLB live games.
  * No external dependencies — pure logic from canonical game objects.
+ * Enhanced to leverage real market + model data when available.
  */
 
 const MARQUEE_TEAMS = new Set([
@@ -42,8 +43,12 @@ export function computeImportanceScore(game) {
   // National TV
   if (game.broadcast?.network && NATIONAL_NETWORKS.has(game.broadcast.network)) s += 8;
 
-  // Model edge
+  // Model edge — now uses real data when available
   if (game.model?.pregameEdge != null && Math.abs(game.model.pregameEdge) >= 1.5) s += 6;
+  else if (game.model?.pregameEdge != null && Math.abs(game.model.pregameEdge) >= 0.5) s += 3;
+
+  // Market available — games with lines are inherently more interesting
+  if (game.market?.pregameSpread != null) s += 2;
 
   // Marquee teams
   const slugs = [game.teams?.home?.slug, game.teams?.away?.slug].filter(Boolean);
@@ -60,18 +65,27 @@ export function computeMarketDislocationScore(game) {
   const mkt = game.market;
   if (!m || !mkt) return 0;
 
+  // Spread dislocation — primary signal
   if (m.fairSpread != null && mkt.pregameSpread != null) {
     const gap = Math.abs(m.fairSpread - mkt.pregameSpread);
     s += Math.min(gap * 10, 50);
   }
 
+  // Total dislocation — secondary signal
   if (m.fairTotal != null && mkt.pregameTotal != null) {
     const gap = Math.abs(m.fairTotal - mkt.pregameTotal);
     s += Math.min(gap * 8, 30);
   }
 
+  // Confidence boost — real bookmaker consensus strength
   if (m.confidence != null && m.confidence > 0.7) s += 15;
   else if (m.confidence != null && m.confidence > 0.5) s += 8;
+  else if (m.confidence != null && m.confidence > 0.3) s += 4;
+
+  // If we have edge but incomplete dislocation data, give a floor
+  if (s === 0 && m.pregameEdge != null && Math.abs(m.pregameEdge) >= 1.0) {
+    s = Math.min(Math.abs(m.pregameEdge) * 8, 35);
+  }
 
   return clamp(s);
 }
@@ -104,8 +118,9 @@ export function computeWatchabilityScore(game) {
   if (marqueeCount >= 2) s += 8;
   else if (marqueeCount === 1) s += 4;
 
-  // Model edge
-  if (game.model?.pregameEdge != null) s += 3;
+  // Model edge exists — game is more interesting to bettors
+  if (game.model?.pregameEdge != null && Math.abs(game.model.pregameEdge) >= 1.0) s += 5;
+  else if (game.model?.pregameEdge != null) s += 3;
 
   return clamp(s);
 }
@@ -124,6 +139,9 @@ export function computeVolatilityScore(game) {
   const inning = parseInning(game.gameState?.periodLabel);
   if (game.gameState?.isLive && inning >= 7) s += 20;
   if (game.gameState?.isLive && inning >= 9) s += 10;
+
+  // Tight line = more volatile outcome
+  if (game.market?.pregameSpread != null && Math.abs(game.market.pregameSpread) <= 1.5) s += 8;
 
   return clamp(s);
 }
@@ -161,14 +179,17 @@ export function rankLiveGames(games, sortMode = 'importance') {
   return scored.map((g) => ({ ...g, insight: buildGameInsight(g) }));
 }
 
-// ─── Insight generation ─────────────────────────────────────────────────────
+// ─── Insight generation (enhanced with real data) ───────────────────────────
 
 export function buildGameInsight(game) {
   const parts = [];
   const s = game.signals || {};
   const gs = game.gameState || {};
   const inning = parseInning(gs.periodLabel);
+  const mkt = game.market || {};
+  const mdl = game.model || {};
 
+  // Game state insight (always first)
   if (gs.isLive) {
     const diff = Math.abs((game.teams?.home?.score ?? 0) - (game.teams?.away?.score ?? 0));
     if (diff <= 1 && inning >= 7) parts.push('One-run game in the late innings.');
@@ -186,14 +207,25 @@ export function buildGameInsight(game) {
     else parts.push('Final score is in.');
   }
 
+  // Broadcast
   if (game.broadcast?.network && NATIONAL_NETWORKS.has(game.broadcast.network)) {
     parts.push(`Nationally televised on ${game.broadcast.network}.`);
   }
 
-  if (s.marketDislocationScore > 40) {
+  // Market / model insights — only when real data exists
+  if (s.marketDislocationScore > 40 && mdl.pregameEdge != null) {
     parts.push('Model sees value against the current line.');
-  } else if (game.model?.pregameEdge != null) {
+  } else if (s.marketDislocationScore > 25 && mdl.pregameEdge != null) {
+    parts.push('Model detects a slight pricing gap.');
+  } else if (mdl.pregameEdge != null && Math.abs(mdl.pregameEdge) >= 1.5) {
+    parts.push('Model has a notable lean on this matchup.');
+  } else if (mdl.pregameEdge != null) {
     parts.push('Model has a slight lean on this matchup.');
+  }
+
+  // Tight spread insight
+  if (mkt.pregameSpread != null && Math.abs(mkt.pregameSpread) <= 1.5 && game.status !== 'final') {
+    parts.push('Market prices this as a coin-flip game.');
   }
 
   const headline = parts[0] || 'Game intelligence loading.';

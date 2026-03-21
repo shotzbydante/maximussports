@@ -70,7 +70,9 @@ function GameStatusBadge({ ev }) {
 }
 
 function ScheduleSection({ events }) {
-  const [collapsed, setCollapsed] = useState({});
+  // Determine current month key for auto-expand
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const grouped = useMemo(() => {
     const spring = events.filter((e) => e.seasonTypeName === 'preseason');
@@ -96,6 +98,18 @@ function ScheduleSection({ events }) {
     return sections;
   }, [events]);
 
+  // Auto-collapse: only current month expanded by default
+  const [collapsed, setCollapsed] = useState(() => {
+    const initial = {};
+    for (const section of grouped) {
+      for (const month of section.months || []) {
+        // Expand current month, collapse all others
+        initial[month.key] = month.key !== currentMonthKey;
+      }
+    }
+    return initial;
+  });
+
   const toggle = (key) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   if (events.length === 0) return <p className={styles.muted}>No schedule data available yet.</p>;
@@ -106,12 +120,19 @@ function ScheduleSection({ events }) {
         <div key={section.id} className={styles.scheduleSection}>
           <h4 className={styles.scheduleSectionTitle}>{section.title}</h4>
           {section.months.map((month) => {
-            const isCollapsed = collapsed[month.key];
+            const isCollapsed = collapsed[month.key] ?? month.key !== currentMonthKey;
             return (
               <div key={month.key} className={styles.monthBlock}>
                 <button type="button" className={styles.monthHeader} onClick={() => toggle(month.key)}>
                   <span>{month.label}</span>
-                  <span className={styles.monthCount}>{month.events.length} games</span>
+                  <span className={styles.monthCount}>
+                    {(() => {
+                      const finals = month.events.filter((e) => e.isFinal && e.ourScore != null && e.oppScore != null);
+                      const w = finals.filter((e) => e.ourScore > e.oppScore).length;
+                      const l = finals.filter((e) => e.ourScore < e.oppScore).length;
+                      return finals.length > 0 ? `${w}-${l} · ${month.events.length} games` : `${month.events.length} games`;
+                    })()}
+                  </span>
                   <span className={styles.monthChevron} aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                 </button>
                 {!isCollapsed && (
