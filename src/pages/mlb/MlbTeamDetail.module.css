@@ -229,7 +229,7 @@
 @media (max-width: 640px) { .twoCol { grid-template-columns: 1fr; } }
 
 /* ── Odds Card ── */
-.oddsCard, .atsCard, .nextGameCard, .resultsSection, .newsSection, .scheduleOuter {
+.oddsCard, .atsCard, .nextGameCard, .resultsSection, .newsSection, .intelFeedSection, .scheduleOuter {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);

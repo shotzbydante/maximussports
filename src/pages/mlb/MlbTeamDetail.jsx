@@ -6,11 +6,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
-import { getMLBTeamBySlug, getMLBEspnId, MLB_TEAMS } from '../../sports/mlb/teams';
+import { getMLBTeamBySlug, getMLBEspnId } from '../../sports/mlb/teams';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
 import { fetchMlbHeadlines } from '../../api/mlbNews';
 import AffiliateCta from '../../components/common/AffiliateCta';
+import MlbTeamIntelFeed from '../../components/mlb/MlbTeamIntelFeed';
 import styles from './MlbTeamDetail.module.css';
 
 function formatOdds(american) {
@@ -156,7 +157,6 @@ export default function MlbTeamDetail() {
   const [teamRecord, setTeamRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scheduleLoading, setScheduleLoading] = useState(true);
-  const [newsExpanded, setNewsExpanded] = useState(false);
 
   useEffect(() => {
     Promise.allSettled([
@@ -276,7 +276,7 @@ export default function MlbTeamDetail() {
 
       {/* ── Section Nav ── */}
       <nav className={styles.sectionNav}>
-        {['Intel', 'Odds', 'Schedule', 'News'].map((s) => (
+        {['Intel', 'Odds', 'News', 'Schedule'].map((s) => (
           <a key={s} href={`#${s.toLowerCase()}`} className={styles.navPill}
             onClick={(e) => { e.preventDefault(); document.getElementById(s.toLowerCase())?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
             {s}
@@ -288,7 +288,7 @@ export default function MlbTeamDetail() {
         {/* ── Intel Briefing ── */}
         <section id="intel" className={styles.briefingCard}>
           <div className={styles.briefingHeader}>
-            <img src="/mascot.png" alt="" className={styles.briefingMascot} aria-hidden />
+            <img src="/mascot-mlb.png" alt="" className={styles.briefingMascot} aria-hidden />
             <h2 className={styles.briefingTitle}>Intel Briefing</h2>
           </div>
           <div className={styles.briefingBody}>
@@ -426,35 +426,13 @@ export default function MlbTeamDetail() {
           </section>
         )}
 
-        {/* ── News ── */}
-        <section id="news" className={styles.newsSection}>
-          <h3 className={styles.sectionTitle}>{team.name} News</h3>
-          {loading && <p className={styles.muted}>Loading…</p>}
-          {!loading && teamHeadlines.length === 0 && headlines.length > 0 && (
-            <p className={styles.muted}>No team-specific headlines found. Check the <Link to={buildPath('/news')}>MLB News Feed</Link>.</p>
-          )}
-          {!loading && teamHeadlines.length > 0 && (
-            <>
-              <ul className={styles.newsList}>
-                {(newsExpanded ? teamHeadlines : teamHeadlines.slice(0, 5)).map((h) => (
-                  <li key={h.id} className={styles.newsItem}>
-                    <a href={h.link} target="_blank" rel="noopener noreferrer" className={styles.newsLink}>
-                      <span className={styles.newsTitle}>{h.title}</span>
-                      <span className={styles.newsMeta}>
-                        <span className={styles.newsSource}>{h.source}</span>
-                        {h.time && <span className={styles.newsTime}>{h.time}</span>}
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              {teamHeadlines.length > 5 && (
-                <button type="button" className={styles.expandBtn} onClick={() => setNewsExpanded(!newsExpanded)}>
-                  {newsExpanded ? 'Show less' : `View all ${teamHeadlines.length} headlines`}
-                </button>
-              )}
-            </>
-          )}
+        {/* ── Intel Feed: News + Videos ── */}
+        <section id="news" className={styles.intelFeedSection}>
+          <MlbTeamIntelFeed
+            teamSlug={team.slug}
+            teamName={team.name}
+            headlines={teamHeadlines}
+          />
         </section>
 
         {/* ── Full Schedule ── */}

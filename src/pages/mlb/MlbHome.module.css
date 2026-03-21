@@ -23,18 +23,38 @@
   margin-top: var(--space-xs);
 }
 
-/* ── Hero card ─────────────────────────────────────────────── */
+/* ── Intelligence Briefing ─────────────────────────────────── */
 
-.heroCard {
+.briefingSection {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   margin-bottom: var(--space-sm);
   box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
 }
 
-.heroEyebrow {
+.briefingSection::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #b8293d 0%, #1a2a4a 100%);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.briefingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.briefingEyebrow {
   display: inline-block;
   font-size: 0.62rem;
   font-weight: 700;
@@ -44,11 +64,78 @@
   background: rgba(60, 121, 180, 0.08);
   padding: 3px 10px;
   border-radius: 999px;
-  margin-bottom: var(--space-md);
 }
 
-.heroBody {
+.refreshBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-light);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 0.15s;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: rgba(60, 121, 180, 0.06);
+  color: var(--color-primary);
+  border-color: rgba(60, 121, 180, 0.2);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.briefingContent {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.briefingMascot {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 12px rgba(184, 41, 61, 0.15));
+}
+
+.briefingBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.briefingText {
   font-size: 0.88rem;
   line-height: 1.65;
   color: var(--color-text-secondary);
+  margin-bottom: 0.75em;
+}
+
+.briefingText:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .briefingContent {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .briefingMascot {
+    width: 80px;
+    height: 80px;
+  }
 }
