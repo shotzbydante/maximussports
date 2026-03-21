@@ -3,18 +3,15 @@ import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { getTeamSeed, getTournamentPhase } from '../../../utils/tournamentHelpers';
 import { getTeamColors } from '../../../utils/teamColors';
+import { getTeamBySlug } from '../../../data/teams';
 import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import { TIERS } from '../../../utils/confidenceTier';
 import { getAtsCache } from '../../../utils/atsCache';
 import styles from './GamePreviewSlide1.module.css';
 
-function fmtSpread(v) {
-  if (v == null) return '—';
-  const n = parseFloat(v);
-  return isNaN(n) ? '—' : n > 0 ? `+${n}` : String(n);
-}
+/* ── formatters ───────────────────────────────────────────────────────── */
 
-function fmtML(v) {
+function fmtLine(v) {
   if (v == null) return '—';
   const n = parseFloat(v);
   return isNaN(n) ? '—' : n > 0 ? `+${n}` : String(n);
@@ -33,6 +30,64 @@ function pickToTier(pick) {
   return TIERS.tossUp;
 }
 
+/* ── Tournament round inference from seeds ────────────────────────────── */
+
+const R64_PAIRS = [[1,16],[2,15],[3,14],[4,13],[5,12],[6,11],[7,10],[8,9]];
+
+function inferRoundLabel(awaySeedVal, homeSeedVal) {
+  // If both seeds exist, infer round from pairing
+  if (awaySeedVal != null && homeSeedVal != null) {
+    const lo = Math.min(awaySeedVal, homeSeedVal);
+    const hi = Math.max(awaySeedVal, homeSeedVal);
+    // R64: pairs sum to 17
+    if (R64_PAIRS.some(([a, b]) => a === lo && b === hi)) return 'Round of 64';
+    // R32: winner of 1v16 plays winner of 8v9 → possible combos are seeds 1-16 vs 8-9
+    // But in practice, after R64, the higher seed plays a lower seed from the other half.
+    // Best heuristic: if both seeds ≤ 8, it's at least R32. Use calendar for specificity.
+    const phase = getTournamentPhase();
+    const PHASE_MAP = {
+      second_round: 'Round of 32',
+      sweet_sixteen: 'Sweet 16',
+      elite_eight: 'Elite Eight',
+      final_four: 'Final Four',
+      championship: 'National Championship',
+    };
+    return PHASE_MAP[phase] || 'Round of 32';
+  }
+  // No seeds — fall back to calendar
+  const phase = getTournamentPhase();
+  const PHASE_LABELS = {
+    first_four: 'First Four',
+    first_round: 'Round of 64',
+    second_round: 'Round of 32',
+    sweet_sixteen: 'Sweet 16',
+    elite_eight: 'Elite Eight',
+    final_four: 'Final Four',
+    championship: 'National Championship',
+    pre_tournament: 'NCAA Tournament',
+  };
+  return PHASE_LABELS[phase] || null;
+}
+
+/* ── ATS helper ───────────────────────────────────────────────────────── */
+
+function getTeamAtsDisplay(slug) {
+  try {
+    const cache = getAtsCache?.();
+    if (!cache) return null;
+    const rec = cache?.bySlug?.[slug];
+    if (!rec) return null;
+    const w = rec.atsWins ?? rec.wins ?? null;
+    const l = rec.atsLosses ?? rec.losses ?? null;
+    if (w != null && l != null) return `${w}–${l}`;
+    const pct = rec.atsPct ?? rec.coverRate ?? null;
+    if (pct != null) return `${Math.round(pct * 100)}%`;
+    return null;
+  } catch { return null; }
+}
+
+/* ── Sub-components ───────────────────────────────────────────────────── */
+
 function ConvictionPill({ tier }) {
   if (!tier) return <span className={styles.convNone}>—</span>;
   return (
@@ -49,31 +104,7 @@ function ConvictionPill({ tier }) {
   );
 }
 
-const PHASE_LABELS = {
-  first_four: 'First Four',
-  first_round: 'Round of 64',
-  second_round: 'Round of 32',
-  sweet_sixteen: 'Sweet 16',
-  elite_eight: 'Elite Eight',
-  final_four: 'Final Four',
-  championship: 'National Championship',
-  pre_tournament: 'NCAA Tournament',
-};
-
-function getTeamAtsStr(slug) {
-  try {
-    const cache = getAtsCache?.();
-    if (!cache) return null;
-    const rec = cache?.bySlug?.[slug];
-    if (!rec) return null;
-    const w = rec.atsWins ?? rec.wins ?? null;
-    const l = rec.atsLosses ?? rec.losses ?? null;
-    if (w != null && l != null) return `${w}-${l}`;
-    const pct = rec.atsPct ?? rec.coverRate ?? null;
-    if (pct != null) return `${Math.round(pct * 100)}%`;
-    return null;
-  } catch { return null; }
-}
+/* ── Main component ───────────────────────────────────────────────────── */
 
 export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slideTotal, ...rest }) {
   if (!game) {
@@ -84,6 +115,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
     );
   }
 
+  // ── Team identity ──
   const awayTeam = game.awayTeam || '—';
   const homeTeam = game.homeTeam || '—';
   const awaySlug = game.awaySlug || game.awayTeamSlug || getTeamSlug(awayTeam) || null;
@@ -92,82 +124,68 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const homeObj = { name: homeTeam, slug: homeSlug };
   const awaySeed = getTeamSeed(awaySlug || awayTeam);
   const homeSeed = getTeamSeed(homeSlug || homeTeam);
-  const awayRank = game.awayRank ?? null;
-  const homeRank = game.homeRank ?? null;
 
+  // ── Team metadata from registry ──
+  const awayMeta = getTeamBySlug(awaySlug);
+  const homeMeta = getTeamBySlug(homeSlug);
+  const awayConf = game.awayConference || game.awayConf || awayMeta?.conference || null;
+  const homeConf = game.homeConference || game.homeConf || homeMeta?.conference || null;
+
+  // ── Game data ──
   const spread = game.homeSpread ?? game.spread ?? null;
   const ml = game.moneyline ?? game.ml ?? null;
   const total = game.total ?? game.overUnder ?? null;
   const gameTime = game.time || game.startTime || null;
   const network = game.network || game.broadcast || null;
+  const venue = game.venue || game.location || null;
 
-
+  // ── Team colors for gradient atmospherics ──
   const awayTC = getTeamColors(awaySlug);
   const homeTC = getTeamColors(homeSlug);
-  const awayAccent = awayTC?.primary || '#6EB3E8';
-  const homeAccent = homeTC?.primary || '#6EB3E8';
+  const awayColor = awayTC?.primary || '#6EB3E8';
+  const homeColor = homeTC?.primary || '#E86E6E';
 
-  // Tournament round
-  const phase = getTournamentPhase();
-  const roundLabel = PHASE_LABELS[phase] || null;
+  // ── Tournament round (seed-inferred, not just calendar) ──
+  const roundLabel = inferRoundLabel(awaySeed, homeSeed);
 
-  // ATS records
-  const awayAts = getTeamAtsStr(awaySlug);
-  const homeAts = getTeamAtsStr(homeSlug);
+  // ── ATS records ──
+  const awayAts = getTeamAtsDisplay(awaySlug);
+  const homeAts = getTeamAtsDisplay(homeSlug);
 
-  // Conference (from team slug — extract from data if available)
-  const awayConf = game.awayConference || game.awayConf || null;
-  const homeConf = game.homeConference || game.homeConf || null;
-
-  // Records
-  const awayRecord = game.awayRecord || null;
-  const homeRecord = game.homeRecord || null;
+  // ── Format date / time ──
+  let dateStr = null;
+  let timeStr = null;
+  if (gameTime) {
+    try {
+      const d = new Date(gameTime);
+      dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }) + ' PT';
+    } catch { /* ignore */ }
+  }
 
   // ── Maximus Picks ──
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const games = data?.odds?.games ?? [];
-
   let pickEmPick = null;
   let atsPick = null;
   let totalsPick = null;
 
   try {
     const picks = buildMaximusPicks({ games, atsLeaders });
-
     const matchFn = (p) => {
       const line = (p.pickLine || p.matchup || '').toLowerCase();
       const awayLower = (awayTeam || '').toLowerCase().split(' ').pop() || '';
       const homeLower = (homeTeam || '').toLowerCase().split(' ').pop() || '';
       return (awayLower && line.includes(awayLower)) || (homeLower && line.includes(homeLower));
     };
-
     pickEmPick = (picks.pickEmPicks ?? []).find(matchFn) ?? null;
     atsPick = (picks.atsPicks ?? []).find(matchFn) ?? null;
     totalsPick = (picks.totalsPicks ?? []).find(matchFn) ?? null;
-  } catch { /* ignore — graceful degradation */ }
+  } catch { /* graceful degradation */ }
 
   const pickEmTier = pickToTier(pickEmPick);
   const atsTier = pickToTier(atsPick);
   const totalsTier = pickToTier(totalsPick);
-
-  // Format date for display
-  let dateStr = null;
-  if (gameTime) {
-    try {
-      const d = new Date(gameTime);
-      dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    } catch { dateStr = null; }
-  }
-
-  let timeStr = null;
-  if (gameTime) {
-    try {
-      const d = new Date(gameTime);
-      timeStr = d.toLocaleTimeString('en-US', {
-        hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
-      }) + ' PST';
-    } catch { timeStr = null; }
-  }
 
   return (
     <SlideShell
@@ -178,103 +196,110 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       slideTotal={slideTotal}
       rest={rest}
     >
-      {/* ── Header area: round badge + meta ── */}
-      <div className={styles.headerArea}>
-        <div className={styles.spotlightLabel}>MATCHUP INTEL</div>
-        {roundLabel && (
-          <div className={styles.roundBadge}>{roundLabel}</div>
-        )}
-        <div className={styles.metaChips}>
-          {dateStr && <span className={styles.metaChip}>{dateStr}</span>}
-          {timeStr && <span className={styles.metaChip}>{timeStr}</span>}
-          {network && <span className={styles.metaChip}>{network}</span>}
-        </div>
+      {/* ── Team-color gradient overlays ── */}
+      <div className={styles.gradientAway} style={{ background: `radial-gradient(ellipse at 0% 40%, ${awayColor}18 0%, transparent 55%)` }} />
+      <div className={styles.gradientHome} style={{ background: `radial-gradient(ellipse at 100% 40%, ${homeColor}18 0%, transparent 55%)` }} />
+
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <div className={styles.eyebrow}>MATCHUP INTEL</div>
+        {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
       </div>
 
-      {/* ── Team panels — head-to-head ── */}
-      <div className={styles.teamsArea}>
-        {/* Away team panel */}
-        <div className={styles.teamPanel}>
-          <div className={styles.teamLogoWrap}>
-            <div className={styles.teamGlow} style={{ background: `radial-gradient(circle, ${awayAccent}30 0%, transparent 65%)` }} />
-            <TeamLogo team={awayObj} size={90} />
+      {/* ── Game Info Card ── */}
+      <div className={styles.gameInfoCard}>
+        {dateStr && <span className={styles.infoItem}>{dateStr}</span>}
+        {timeStr && <><span className={styles.infoDot}>·</span><span className={styles.infoItem}>{timeStr}</span></>}
+        {venue && <><span className={styles.infoDot}>·</span><span className={styles.infoItem}>{venue}</span></>}
+        {network && <span className={styles.networkChip}>{network}</span>}
+      </div>
+
+      {/* ── Head-to-head zone ── */}
+      <div className={styles.h2h}>
+        {/* Away side */}
+        <div className={styles.side}>
+          <div className={styles.logoWrap}>
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}35 0%, transparent 60%)` }} />
+            <TeamLogo team={awayObj} size={100} />
           </div>
           {awaySeed != null && <span className={styles.seedPill}>#{awaySeed}</span>}
-          {awayRank != null && !awaySeed && <span className={styles.rankPill}>#{awayRank}</span>}
           <div className={styles.teamName}>{awayTeam}</div>
-          {awayConf && <div className={styles.teamConf}>{awayConf}</div>}
-          <div className={styles.teamStats}>
-            {awayRecord && <span className={styles.statChip}>{awayRecord}</span>}
-            {awayAts && <span className={styles.statChip}>ATS {awayAts}</span>}
+          {awayConf && <div className={styles.confLabel}>{awayConf}</div>}
+
+          {/* Profile stats */}
+          <div className={styles.profileBox}>
+            {awayAts && (
+              <div className={styles.profileRow}>
+                <span className={styles.profileKey}>ATS</span>
+                <span className={styles.profileVal}>{awayAts}</span>
+              </div>
+            )}
           </div>
-          <div className={styles.sideLabel}>AWAY</div>
+          <div className={styles.sideTag}>AWAY</div>
         </div>
 
-        {/* Center spine */}
-        <div className={styles.centerSpine}>
-          <div className={styles.vsCircle}>VS</div>
-          <div className={styles.lineStack}>
-            <div className={styles.lineItem}>
-              <span className={styles.lineVal}>{fmtSpread(spread)}</span>
-              <span className={styles.lineKey}>SPREAD</span>
+        {/* Center matchup spine */}
+        <div className={styles.spine}>
+          <div className={styles.vsRing}>VS</div>
+          <div className={styles.linesCard}>
+            <div className={styles.lineRow}>
+              <span className={styles.lineVal}>{fmtLine(spread)}</span>
+              <span className={styles.lineLabel}>SPREAD</span>
             </div>
-            <div className={styles.lineDivider} />
-            <div className={styles.lineItem}>
-              <span className={styles.lineVal}>{fmtML(ml)}</span>
-              <span className={styles.lineKey}>ML</span>
+            <div className={styles.lineDiv} />
+            <div className={styles.lineRow}>
+              <span className={styles.lineVal}>{fmtLine(ml)}</span>
+              <span className={styles.lineLabel}>ML</span>
             </div>
-            <div className={styles.lineDivider} />
-            <div className={styles.lineItem}>
+            <div className={styles.lineDiv} />
+            <div className={styles.lineRow}>
               <span className={styles.lineVal}>{fmtTotal(total)}</span>
-              <span className={styles.lineKey}>TOTAL</span>
+              <span className={styles.lineLabel}>TOTAL</span>
             </div>
           </div>
         </div>
 
-        {/* Home team panel */}
-        <div className={styles.teamPanel}>
-          <div className={styles.teamLogoWrap}>
-            <div className={styles.teamGlow} style={{ background: `radial-gradient(circle, ${homeAccent}30 0%, transparent 65%)` }} />
-            <TeamLogo team={homeObj} size={90} />
+        {/* Home side */}
+        <div className={styles.side}>
+          <div className={styles.logoWrap}>
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}35 0%, transparent 60%)` }} />
+            <TeamLogo team={homeObj} size={100} />
           </div>
           {homeSeed != null && <span className={styles.seedPill}>#{homeSeed}</span>}
-          {homeRank != null && !homeSeed && <span className={styles.rankPill}>#{homeRank}</span>}
           <div className={styles.teamName}>{homeTeam}</div>
-          {homeConf && <div className={styles.teamConf}>{homeConf}</div>}
-          <div className={styles.teamStats}>
-            {homeRecord && <span className={styles.statChip}>{homeRecord}</span>}
-            {homeAts && <span className={styles.statChip}>ATS {homeAts}</span>}
+          {homeConf && <div className={styles.confLabel}>{homeConf}</div>}
+
+          <div className={styles.profileBox}>
+            {homeAts && (
+              <div className={styles.profileRow}>
+                <span className={styles.profileKey}>ATS</span>
+                <span className={styles.profileVal}>{homeAts}</span>
+              </div>
+            )}
           </div>
-          <div className={styles.sideLabel}>HOME</div>
+          <div className={styles.sideTag}>HOME</div>
         </div>
       </div>
 
-      {/* ── Maximus Pick section ── */}
-      <div className={styles.picksArea}>
-        <div className={styles.picksLabel}>MAXIMUS PICK</div>
-        <div className={styles.picksGrid}>
-          {/* Pick Em */}
-          <div className={styles.pickCol}>
+      {/* ── Maximus Pick ── */}
+      <div className={styles.picksPanel}>
+        <div className={styles.picksTitle}>MAXIMUS PICK</div>
+        <div className={styles.picksCols}>
+          <div className={styles.pickCell}>
             <div className={styles.pickType}>PICK EM</div>
-            <div className={styles.pickValue}>
-              {pickEmPick?.pickTeam || 'No lean'}
-            </div>
+            <div className={styles.pickVal}>{pickEmPick?.pickTeam || 'No lean'}</div>
             <ConvictionPill tier={pickEmTier} />
           </div>
-
-          {/* ATS */}
-          <div className={styles.pickCol}>
+          <div className={styles.pickDivider} />
+          <div className={styles.pickCell}>
             <div className={styles.pickType}>ATS</div>
-            <div className={styles.pickValue}>
-              {atsPick?.pickLine || 'No lean'}
-            </div>
+            <div className={styles.pickVal}>{atsPick?.pickLine || 'No lean'}</div>
             <ConvictionPill tier={atsTier} />
           </div>
-
-          {/* Totals */}
-          <div className={styles.pickCol}>
+          <div className={styles.pickDivider} />
+          <div className={styles.pickCell}>
             <div className={styles.pickType}>O/U</div>
-            <div className={styles.pickValue}>
+            <div className={styles.pickVal}>
               {totalsPick?.leanDirection
                 ? `${totalsPick.leanDirection === 'over' ? 'Over' : 'Under'} ${fmtTotal(total)}`
                 : totalsPick?.pickLine || 'No lean'}
