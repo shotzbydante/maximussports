@@ -43,22 +43,23 @@ export function safeRssQuery(q) {
  *
  * attempt 0 → safeRssQuery(original)
  * attempt 1 → first 4 words of safe query
- * attempt 2 → first 2 words + "basketball"
+ * attempt 2 → first 2 words + sport fallback
  *
  * @param {string} original
  * @param {number} attempt  0-based
+ * @param {string} [sport='basketball']  sport keyword for last-resort simplification
  * @returns {string}
  */
-export function simplifyRssQuery(original, attempt) {
+export function simplifyRssQuery(original, attempt, sport = 'basketball') {
   const safe  = safeRssQuery(original);
   const words = safe.split(/\s+/).filter(Boolean);
 
   if (attempt === 0) return safe;
   if (attempt === 1) return words.slice(0, 4).join(' ') || safe;
 
-  // attempt 2+: first two words + "basketball" (always usable, almost never 400)
+  // attempt 2+: first two words + sport (always usable, almost never 400)
   const prefix = words.slice(0, 2).join(' ');
-  return prefix ? `${prefix} basketball` : 'college basketball highlights';
+  return prefix ? `${prefix} ${sport}` : `${sport} highlights`;
 }
 
 // Minimal HTML entity decoding for the subset YouTube uses in titles/names
@@ -161,10 +162,10 @@ async function fetchRssOnce(safeQ, debug) {
  * Attempts up to 3 queries on HTTP 400; succeeds on the first non-empty response.
  * Consumes zero API quota.
  *
- * @param {{ q: string, debug?: boolean }} params
+ * @param {{ q: string, debug?: boolean, sport?: string }} params
  * @returns {Promise<Array<{ videoId, title, channelTitle, channelId, description, publishedAt, thumbUrl }>>}
  */
-export async function ytRssSearch({ q, debug = false }) {
+export async function ytRssSearch({ q, debug = false, sport = 'basketball' }) {
   if (!q || typeof q !== 'string' || !q.trim()) {
     throw new Error('ytRssSearch: q is required');
   }
@@ -173,7 +174,7 @@ export async function ytRssSearch({ q, debug = false }) {
   let lastError = null;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const queryForAttempt = simplifyRssQuery(q, attempt);
+    const queryForAttempt = simplifyRssQuery(q, attempt, sport);
 
     if (!queryForAttempt) {
       if (debug) console.log(`[ytRss] attempt ${attempt} produced empty query — stopping`);

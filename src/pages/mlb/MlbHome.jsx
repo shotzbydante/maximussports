@@ -46,7 +46,7 @@ export default function MlbHome() {
 
   const alreadyShown = sessionStorage.getItem(SPLASH_KEY) === '1';
   const [showSplash, setShowSplash] = useState(!alreadyShown);
-  const [llmSummary, setLlmSummary] = useState(_llmCache.data && (Date.now() - _llmCache.ts < LLM_TTL_MS) ? _llmCache.data : null);
+  const [llmSummary, setLlmSummary] = useState(() => _llmCache.data && (Date.now() - _llmCache.ts < LLM_TTL_MS) ? _llmCache.data : null);
   const [summaryRefreshing, setSummaryRefreshing] = useState(false);
   const [summaryFailed, setSummaryFailed] = useState(false);
 
@@ -144,7 +144,6 @@ export default function MlbHome() {
             src="/mascot-mlb.png"
             alt="Maximus Sports MLB intelligence mascot"
             className={styles.briefingMascot}
-            width={110}
             height={110}
             loading="eager"
             decoding="async"

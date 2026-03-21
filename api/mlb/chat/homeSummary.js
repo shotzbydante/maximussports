@@ -8,6 +8,7 @@
 import { getJson, setJson, tryAcquireLock } from '../../_globalCache.js';
 import { getQueryParam } from '../../_requestUrl.js';
 import { createCache } from '../../_cache.js';
+import { MLB_TEAMS } from '../../../src/sports/mlb/teams.js';
 
 const FRESH_KEY      = 'chat:mlb:home:summary:v2';
 const LASTKNOWN_KEY  = 'chat:mlb:home:lastKnown:v2';
@@ -129,12 +130,14 @@ function getMlbSeasonPhase() {
 function buildPayload(data) {
   const { headlines, championshipOdds } = data;
 
+  const slugToName = Object.fromEntries(MLB_TEAMS.map((t) => [t.slug, t.name]));
+
   const champEntries = Object.entries(championshipOdds)
     .filter(([, v]) => v?.bestChanceAmerican != null)
     .map(([slug, v]) => {
       const o = v.bestChanceAmerican;
       return {
-        team: slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' '),
+        team: slugToName[slug] || slug,
         slug,
         odds: typeof o === 'number' && o > 0 ? '+' + o : o,
         impliedPct: impliedPct(o),
@@ -161,24 +164,25 @@ function buildPayload(data) {
 }
 
 const TEAM_EMOJIS = {
-  'los-angeles-dodgers': '🔵', 'new-york-yankees': '🗽', 'houston-astros': '🚀',
-  'atlanta-braves': '🪓', 'philadelphia-phillies': '🔔', 'new-york-mets': '🍎',
-  'san-diego-padres': '🟤', 'seattle-mariners': '⚓', 'baltimore-orioles': '🐦',
-  'texas-rangers': '⭐', 'chicago-cubs': '🐻', 'minnesota-twins': '🎯',
-  'milwaukee-brewers': '🍺', 'cleveland-guardians': '🛡️', 'detroit-tigers': '🐯',
-  'tampa-bay-rays': '☀️', 'toronto-blue-jays': '🇨🇦', 'boston-red-sox': '🧦',
-  'san-francisco-giants': '🌉', 'st-louis-cardinals': '🐦‍🔥', 'arizona-diamondbacks': '🐍',
-  'chicago-white-sox': '🖤', 'cincinnati-reds': '🔴', 'kansas-city-royals': '👑',
-  'los-angeles-angels': '😇', 'miami-marlins': '🐟', 'oakland-athletics': '🟢',
-  'pittsburgh-pirates': '🏴‍☠️', 'colorado-rockies': '⛰️', 'washington-nationals': '🇺🇸',
+  lad: '🔵', nyy: '🗽', hou: '🚀',
+  atl: '🪓', phi: '🔔', nym: '🍎',
+  sd:  '🟤', sea: '⚓', bal: '🐦',
+  tex: '⭐', chc: '🐻', min: '🎯',
+  mil: '🍺', cle: '🛡️', det: '🐯',
+  tb:  '☀️', tor: '🇨🇦', bos: '🧦',
+  sf:  '🌉', stl: '🐦‍🔥', ari: '🐍',
+  cws: '🖤', cin: '🔴', kc:  '👑',
+  laa: '😇', mia: '🐟', oak: '🟢',
+  pit: '🏴‍☠️', col: '⛰️', wsh: '🇺🇸',
 };
 
 function buildPrompt(data) {
   const payload = buildPayload(data);
   const phase = payload.seasonPhase;
 
+  const slugToName = Object.fromEntries(MLB_TEAMS.map((t) => [t.slug, t.name]));
   const emojiMap = Object.entries(TEAM_EMOJIS)
-    .map(([slug, emoji]) => `${slug.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')}: ${emoji}`)
+    .map(([slug, emoji]) => `${slugToName[slug] || slug}: ${emoji}`)
     .join(', ');
 
   let p1, p2, p3, p4, p5;

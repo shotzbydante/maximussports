@@ -85,7 +85,7 @@ async function fetchFromDataApi() {
 
 async function fetchFromRss() {
   const results = await Promise.allSettled(
-    MLB_QUERIES_RSS.map((q) => ytRssSearch({ q: safeRssQuery(q) }))
+    MLB_QUERIES_RSS.map((q) => ytRssSearch({ q: safeRssQuery(q), sport: 'baseball' }))
   );
   const allItems = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
   if (allItems.length === 0) throw new Error('RSS returned empty results');
