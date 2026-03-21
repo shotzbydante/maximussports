@@ -425,10 +425,10 @@
 
 .scheduleHeaderRow {
   display: grid;
-  grid-template-columns: 70px 1fr 80px 140px;
-  gap: var(--space-sm);
-  padding: 4px var(--space-md);
-  font-size: 0.58rem;
+  grid-template-columns: 60px minmax(120px, 1fr) 65px 80px 50px 45px auto;
+  gap: 6px;
+  padding: 5px var(--space-md);
+  font-size: 0.56rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -438,9 +438,9 @@
 
 .scheduleRow {
   display: grid;
-  grid-template-columns: 70px 1fr 80px 140px;
-  gap: var(--space-sm);
-  padding: 6px var(--space-md);
+  grid-template-columns: 60px minmax(120px, 1fr) 65px 80px 50px 45px auto;
+  gap: 6px;
+  padding: 7px var(--space-md);
   font-size: 0.78rem;
   align-items: center;
   border-bottom: 1px solid rgba(0, 0, 0, 0.03);
@@ -449,10 +449,45 @@
 .scheduleRow:last-child { border-bottom: none; }
 .scheduleRow:hover { background: var(--mlb-navy-soft); }
 
-.scheduleColDate { font-variant-numeric: tabular-nums; color: var(--color-text-muted); font-size: 0.72rem; }
-.scheduleColOpp { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.scheduleColResult { font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; }
-.scheduleColStatus { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; color: var(--color-text-muted); }
+.scheduleRowLive {
+  border-left: 3px solid #228b22;
+  background: rgba(34, 139, 34, 0.04);
+}
+
+.schedColDate { font-variant-numeric: tabular-nums; color: var(--color-text-muted); font-size: 0.72rem; }
+.schedColOpp { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.schedOppText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedHomeAway { color: var(--color-text-muted); font-size: 0.68rem; margin-right: 2px; }
+.schedColResult { font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; }
+.schedColStatus { font-size: 0.68rem; }
+.schedColNetwork { font-size: 0.62rem; }
+.schedColBetting { font-size: 0.62rem; text-align: center; }
+.schedColLink { display: flex; align-items: center; }
+.schedDash { color: var(--color-text-muted); font-weight: 400; }
+.schedMuted { color: var(--color-text-muted); }
+
+.statusFinal { color: var(--color-text-muted); font-weight: 500; }
+.statusLive { color: #228b22; font-weight: 700; }
+.statusScheduled { color: var(--color-text-secondary); font-weight: 400; font-size: 0.66rem; }
+
+.networkBadge {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.bettingPlaceholder {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  font-size: 0.62rem;
+}
 
 .wlBadge {
   display: inline-flex;
@@ -489,8 +524,9 @@
   .teamName { font-size: 1.15rem; }
   .scheduleHeaderRow,
   .scheduleRow {
-    grid-template-columns: 55px 1fr 65px 90px;
-    font-size: 0.7rem;
+    grid-template-columns: 50px 1fr 55px 70px auto;
+    font-size: 0.68rem;
   }
+  .schedColNetwork, .schedColBetting { display: none; }
   .sectionNav { overflow-x: auto; flex-wrap: nowrap; }
 }

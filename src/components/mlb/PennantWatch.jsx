@@ -137,6 +137,9 @@ function LeagueColumnWithFilter({ league, divisions, odds, mode, onFilter }) {
     <div className={styles.league}>
       <div className={styles.leagueHeader}>
         <img src={logoSrc} alt={leagueFull} className={styles.leagueLogo} loading="lazy" decoding="async" />
+        <span className={`${styles.leagueBadge} ${isAL ? styles.leagueBadgeAL : styles.leagueBadgeNL}`}>
+          {leagueFull}
+        </span>
       </div>
 
       <div className={styles.filterRow}>

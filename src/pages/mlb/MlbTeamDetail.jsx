@@ -53,6 +53,21 @@ function GamecastLink({ url }) {
   );
 }
 
+function GameStatusBadge({ ev }) {
+  if (ev.gameStatus === 'final' || ev.isFinal) {
+    return <span className={styles.statusFinal}>Final</span>;
+  }
+  if (ev.gameStatus === 'in_progress') {
+    return <span className={styles.statusLive}>Live</span>;
+  }
+  // Future game — show time, never "Final"
+  const timeStr = ev.date ? (() => {
+    try { return new Date(ev.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }); }
+    catch { return ''; }
+  })() : '';
+  return <span className={styles.statusScheduled}>{timeStr || 'Scheduled'}</span>;
+}
+
 function ScheduleSection({ events }) {
   const [collapsed, setCollapsed] = useState({});
 
@@ -101,29 +116,54 @@ function ScheduleSection({ events }) {
                 {!isCollapsed && (
                   <div className={styles.monthEvents}>
                     <div className={styles.scheduleHeaderRow}>
-                      <span className={styles.scheduleColDate}>Date</span>
-                      <span className={styles.scheduleColOpp}>Opponent</span>
-                      <span className={styles.scheduleColResult}>Result</span>
-                      <span className={styles.scheduleColStatus}>Status</span>
+                      <span className={styles.schedColDate}>Date</span>
+                      <span className={styles.schedColOpp}>Matchup</span>
+                      <span className={styles.schedColResult}>Score</span>
+                      <span className={styles.schedColStatus}>Status</span>
+                      <span className={styles.schedColNetwork}>TV</span>
+                      <span className={styles.schedColBetting}>Line</span>
+                      <span className={styles.schedColLink}></span>
                     </div>
                     {month.events.map((ev) => {
                       const won = ev.isFinal && ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore;
                       const lost = ev.isFinal && ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore;
-                      const scoreStr = ev.ourScore != null && ev.oppScore != null ? `${ev.ourScore}-${ev.oppScore}` : '—';
+                      const scoreStr = ev.ourScore != null && ev.oppScore != null ? `${ev.ourScore}-${ev.oppScore}` : '';
+                      const isLive = ev.gameStatus === 'in_progress';
                       return (
-                        <div key={ev.id} className={styles.scheduleRow}>
-                          <span className={styles.scheduleColDate}>{formatDate(ev.date)}</span>
-                          <span className={styles.scheduleColOpp}>
-                            <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={20} />
-                            <span>{ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}</span>
+                        <div key={ev.id} className={`${styles.scheduleRow} ${isLive ? styles.scheduleRowLive : ''}`}>
+                          <span className={styles.schedColDate}>{formatDate(ev.date)}</span>
+                          <span className={styles.schedColOpp}>
+                            <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={22} />
+                            <span className={styles.schedOppText}>
+                              <span className={styles.schedHomeAway}>{ev.homeAway === 'home' ? 'vs' : '@'}</span>
+                              {ev.opponent}
+                            </span>
                           </span>
-                          <span className={`${styles.scheduleColResult} ${won ? styles.resultWin : ''} ${lost ? styles.resultLoss : ''}`}>
-                            {ev.isFinal ? scoreStr : '—'}
-                            {won && <span className={styles.wlBadge}>W</span>}
-                            {lost && <span className={`${styles.wlBadge} ${styles.wlLoss}`}>L</span>}
+                          <span className={`${styles.schedColResult} ${won ? styles.resultWin : ''} ${lost ? styles.resultLoss : ''}`}>
+                            {ev.isFinal && scoreStr ? (
+                              <>
+                                {scoreStr}
+                                {won && <span className={styles.wlBadge}>W</span>}
+                                {lost && <span className={`${styles.wlBadge} ${styles.wlLoss}`}>L</span>}
+                              </>
+                            ) : (
+                              <span className={styles.schedDash}>—</span>
+                            )}
                           </span>
-                          <span className={styles.scheduleColStatus}>
-                            {ev.isFinal ? 'Final' : ev.gameStatus === 'in_progress' ? 'Live' : formatDateTime(ev.date)}
+                          <span className={styles.schedColStatus}>
+                            <GameStatusBadge ev={ev} />
+                          </span>
+                          <span className={styles.schedColNetwork}>
+                            {ev.network ? (
+                              <span className={styles.networkBadge}>{ev.network}</span>
+                            ) : (
+                              <span className={styles.schedMuted}>—</span>
+                            )}
+                          </span>
+                          <span className={styles.schedColBetting}>
+                            <span className={styles.bettingPlaceholder}>—</span>
+                          </span>
+                          <span className={styles.schedColLink}>
                             {ev.gamecastUrl && (
                               <a href={ev.gamecastUrl} target="_blank" rel="noopener noreferrer" className={styles.scheduleEspn} title="ESPN Gamecast">
                                 <ESPNBadge />
