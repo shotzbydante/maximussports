@@ -26,7 +26,21 @@ export async function getSubscriptionState(userId) {
     .eq('id', userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    if (error.message?.includes('cancel_at_period_end')) {
+      const { data: fallback, error: fallbackErr } = await sb
+        .from('profiles')
+        .select(
+          'plan_tier, stripe_customer_id, stripe_subscription_id, subscription_status, ' +
+          'current_period_end, payment_method_last4, payment_method_brand'
+        )
+        .eq('id', userId)
+        .maybeSingle();
+      if (fallbackErr) throw fallbackErr;
+      return fallback ? { ...fallback, cancel_at_period_end: false } : null;
+    }
+    throw error;
+  }
   return data;
 }
 

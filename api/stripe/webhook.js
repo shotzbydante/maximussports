@@ -42,11 +42,24 @@ async function getRawBody(req) {
 async function updateProfile(userId, fields) {
   if (!userId) return;
   const sb = getSupabaseAdmin();
+  const payload = { ...fields, updated_at: new Date().toISOString() };
   const { error } = await sb
     .from('profiles')
-    .update({ ...fields, updated_at: new Date().toISOString() })
+    .update(payload)
     .eq('id', userId);
-  if (error) console.error('[webhook] updateProfile error:', error.message);
+  if (error) {
+    if (error.message?.includes('cancel_at_period_end')) {
+      console.warn('[webhook] cancel_at_period_end column missing, retrying without it');
+      delete payload.cancel_at_period_end;
+      const { error: retryErr } = await sb
+        .from('profiles')
+        .update(payload)
+        .eq('id', userId);
+      if (retryErr) console.error('[webhook] updateProfile retry error:', retryErr.message);
+    } else {
+      console.error('[webhook] updateProfile error:', error.message);
+    }
+  }
 }
 
 // ── Helper: find profile by stripe customer id ────────────────────────────

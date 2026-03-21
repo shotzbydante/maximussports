@@ -799,7 +799,8 @@ export default function Dashboard() {
 
   // ── Instagram publish metadata ────────────────────────────
   const publishMetadata = useMemo(() => {
-    const section = SECTIONS.find(s => s.id === activeSection);
+    const sections = getSectionsForWorkspace(studioWorkspace);
+    const section = sections.find(s => s.id === activeSection);
     return {
       title:                 section?.label ?? activeSection,
       templateType:          activeSection,
@@ -808,7 +809,7 @@ export default function Dashboard() {
       teamSlug:              selectedTeam?.slug  ?? null,
       teamName:              selectedTeam?.name  ?? null,
     };
-  }, [activeSection, selectedTeam]);
+  }, [activeSection, selectedTeam, studioWorkspace]);
 
   const handlePublishSuccess = useCallback(() => {
     setHistoryRefreshKey(k => k + 1);

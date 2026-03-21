@@ -239,37 +239,45 @@ async function generateWithOpenAI(systemPrompt, userPrompt) {
     if (isDev) console.warn('[mlb/chat/homeSummary] OPENAI_API_KEY not set');
     return null;
   }
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
-  try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(t);
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      console.error('[mlb/chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
+    try {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: MAX_TOKENS,
+          temperature: TEMPERATURE,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      if (!r.ok) {
+        const body = await r.text().catch(() => '');
+        console.error('[mlb/chat/homeSummary] OpenAI error', r.status, body.slice(0, 200));
+        return null;
+      }
+      const json = await r.json();
+      const raw = json?.choices?.[0]?.message?.content?.trim() || null;
+      return raw ? fixPositiveOdds(raw) : null;
+    } catch (err) {
+      clearTimeout(t);
+      if (err?.name === 'AbortError' && attempt < maxAttempts) {
+        console.warn(`[mlb/chat/homeSummary] timeout attempt ${attempt}, retrying…`);
+        continue;
+      }
+      console[err?.name === 'AbortError' ? 'warn' : 'error']('[mlb/chat/homeSummary]', err?.message);
       return null;
     }
-    const json = await r.json();
-    const raw = json?.choices?.[0]?.message?.content?.trim() || null;
-    return raw ? fixPositiveOdds(raw) : null;
-  } catch (err) {
-    clearTimeout(t);
-    console[err?.name === 'AbortError' ? 'warn' : 'error']('[mlb/chat/homeSummary]', err?.message);
-    return null;
   }
+  return null;
 }
 
 async function readCached() {

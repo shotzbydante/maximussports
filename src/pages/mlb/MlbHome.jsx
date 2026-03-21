@@ -4,7 +4,7 @@
  * Order: Intelligence Briefing → Pennant Watch → Intel Feed (News & Highlights)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import MlbLoading from '../../components/mlb/MlbLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
@@ -16,6 +16,10 @@ const SPLASH_KEY = '__maximus_mlb_splash_shown';
 
 const _llmCache = { data: null, ts: 0 };
 const LLM_TTL_MS = 60_000;
+const CLIENT_TIMEOUT_MS = 15_000;
+
+const FALLBACK_BRIEFING =
+  'Welcome to MLB Intelligence. Our briefing is being prepared — check back shortly for today\u2019s freshest odds movement, headlines, and storylines across Major League Baseball.';
 
 function fixPositiveOdds(text) {
   if (!text) return text;
@@ -30,13 +34,21 @@ function fixPositiveOdds(text) {
     });
 }
 
+function fetchWithTimeout(url, opts = {}, timeoutMs = CLIENT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const merged = { ...opts, signal: controller.signal };
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, merged).finally(() => clearTimeout(timer));
+}
+
 export default function MlbHome() {
   const { workspace } = useWorkspace();
 
   const alreadyShown = sessionStorage.getItem(SPLASH_KEY) === '1';
   const [showSplash, setShowSplash] = useState(!alreadyShown);
-  const [llmSummary, setLlmSummary] = useState(null);
+  const [llmSummary, setLlmSummary] = useState(_llmCache.data && (Date.now() - _llmCache.ts < LLM_TTL_MS) ? _llmCache.data : null);
   const [summaryRefreshing, setSummaryRefreshing] = useState(false);
+  const [summaryFailed, setSummaryFailed] = useState(false);
 
   useEffect(() => {
     if (!showSplash) return;
@@ -48,32 +60,34 @@ export default function MlbHome() {
   }, [showSplash]);
 
   useEffect(() => {
-    const now = Date.now();
-    if (_llmCache.data && now - _llmCache.ts < LLM_TTL_MS) {
-      setLlmSummary(fixPositiveOdds(_llmCache.data));
-      return;
-    }
-    const controller = new AbortController();
+    if (llmSummary) return;
+    let cancelled = false;
     const delay = setTimeout(() => {
-      fetch('/api/mlb/chat/homeSummary', { signal: controller.signal })
+      fetchWithTimeout('/api/mlb/chat/homeSummary')
         .then((r) => r.json())
         .then((d) => {
+          if (cancelled) return;
           if (d?.summary) {
             const fixed = fixPositiveOdds(d.summary);
             _llmCache.data = fixed;
             _llmCache.ts = Date.now();
             setLlmSummary(fixed);
+          } else {
+            setSummaryFailed(true);
           }
         })
-        .catch(() => {});
-    }, 1000);
-    return () => { clearTimeout(delay); controller.abort(); };
-  }, []);
+        .catch(() => {
+          if (!cancelled) setSummaryFailed(true);
+        });
+    }, 800);
+    return () => { cancelled = true; clearTimeout(delay); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     if (summaryRefreshing) return;
     setSummaryRefreshing(true);
-    fetch('/api/mlb/chat/homeSummary?force=1')
+    setSummaryFailed(false);
+    fetchWithTimeout('/api/mlb/chat/homeSummary?force=1')
       .then((r) => r.json())
       .then((d) => {
         setSummaryRefreshing(false);
@@ -82,25 +96,28 @@ export default function MlbHome() {
           _llmCache.data = fixed;
           _llmCache.ts = Date.now();
           setLlmSummary(fixed);
+        } else {
+          setSummaryFailed(true);
         }
       })
-      .catch(() => setSummaryRefreshing(false));
-  };
+      .catch(() => { setSummaryRefreshing(false); setSummaryFailed(true); });
+  }, [summaryRefreshing]);
 
   if (showSplash) return <MlbLoading />;
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <span className={styles.date}>
+      <header className={styles.pageIntro}>
+        <span className={styles.pageIntroDate}>
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long',
-            year: 'numeric',
             month: 'long',
             day: 'numeric',
-          }).toUpperCase()}
+            year: 'numeric',
+          })}
         </span>
-        <span className={styles.subtitle}>{workspace.labels.intelligence}</span>
+        <span className={styles.pageIntroDivider}>·</span>
+        <span className={styles.pageIntroSub}>{workspace.labels.intelligence}</span>
       </header>
 
       {/* ── Intelligence Briefing ── */}
@@ -120,13 +137,19 @@ export default function MlbHome() {
         <div className={styles.briefingContent}>
           <img
             src="/mascot-mlb.png"
-            alt="Maximus"
+            alt="Maximus Sports MLB intelligence mascot"
             className={styles.briefingMascot}
+            width={120}
+            height={120}
+            loading="eager"
+            decoding="async"
             onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
           />
           <div className={styles.briefingBody}>
             {llmSummary ? (
               <FormattedSummary text={llmSummary} className={styles.briefingText} />
+            ) : summaryFailed ? (
+              <FormattedSummary text={FALLBACK_BRIEFING} className={styles.briefingText} />
             ) : (
               <p className={styles.briefingText}>Loading today&apos;s MLB intelligence…</p>
             )}

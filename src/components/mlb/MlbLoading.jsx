@@ -13,6 +13,9 @@ export default function MlbLoading() {
           src="/mascot-mlb.png"
           alt="Maximus"
           className={styles.robot}
+          width={200}
+          height={200}
+          decoding="async"
           onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
         />
         <div className={styles.loadingText}>
