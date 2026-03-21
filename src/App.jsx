@@ -51,7 +51,7 @@ export default function App() {
           <WorkspaceProvider>
             <Routes>
               <Route path="/" element={<Layout />}>
-                {/* ── CBB routes (default workspace, existing paths) ── */}
+                {/* ── NCAAM routes (default workspace, existing paths) ── */}
                 <Route index element={<Home />} />
                 <Route path="teams" element={<Teams />} />
                 <Route path="teams/:slug" element={<TeamPage />} />

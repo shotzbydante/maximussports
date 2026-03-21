@@ -125,7 +125,7 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
           ? `${picksCount} ${inTournament ? 'tournament' : 'value'} edge${picksCount > 1 ? 's' : ''} surfaced today. ${inTournament ? '\uD83C\uDFC6' : '\uD83C\uDFC0'}`
           : (inTournament
             ? `\uD83C\uDFC6 March Madness Daily Briefing.${gamesCount != null ? ` ${gamesCount} tournament games today.` : ''}`
-            : `\uD83C\uDFC0 Daily CBB briefing is live.${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`));
+            : `\uD83C\uDFC0 Daily NCAAM briefing is live.${gamesCount != null ? ` ${gamesCount} games on the radar.` : ''}`));
   }
 
   // ── 2. Results recap — punchy one-liners from the intel ───────────────
@@ -212,7 +212,7 @@ function buildDailyCaption({ stats, picks, headlines, asOf, styleMode, chatDiges
   const hashtags = [
     '#MarchMadness',
     '#CollegeBasketball',
-    '#CBB',
+    '#NCAAM',
     '#NCAAB',
     '#MaximusSports',
   ];
@@ -1529,7 +1529,7 @@ function buildConferenceCaption({ conference, atsLeaders, asOf }) {
   };
   const confTag = confTagMap[confName] ?? null;
   const hashtags = [
-    '#CollegeBasketball', '#MarchMadness', confTag, '#CBB', '#MaximusSports',
+    '#CollegeBasketball', '#MarchMadness', confTag, '#NCAAM', '#MaximusSports',
   ].filter(Boolean).slice(0, 5);
 
   return { shortCaption, longCaption, hashtags };

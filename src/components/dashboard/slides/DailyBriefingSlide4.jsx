@@ -168,7 +168,7 @@ export default function DailyBriefingSlide4({ data, asOf, options = {}, ...rest 
       <div className={styles.footNote}>
         {isRobot
           ? 'Cover % signals. Not financial advice.'
-          : 'Against the spread cover % over last 30 days — one of the strongest persistent edges in CBB.'}
+          : 'Against the spread cover % over last 30 days — one of the strongest persistent edges in NCAAM.'}
       </div>
     </SlideShell>
   );

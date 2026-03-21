@@ -1,15 +1,33 @@
 /**
  * MLB Home — the primary landing page for the MLB workspace.
- * Mirrors the editorial composition philosophy of CBB Home.
+ * Shows a premium launch splash on first entry, then the full home view.
  */
 
+import { useState, useEffect } from 'react';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
+import MlbLoading from '../../components/mlb/MlbLoading';
 import PennantWatch from '../../components/mlb/PennantWatch';
 import MlbNewsFeedWidget from '../../components/mlb/MlbNewsFeedWidget';
 import styles from './MlbHome.module.css';
 
+const SPLASH_KEY = '__maximus_mlb_splash_shown';
+
 export default function MlbHome() {
   const { workspace } = useWorkspace();
+
+  const alreadyShown = sessionStorage.getItem(SPLASH_KEY) === '1';
+  const [showSplash, setShowSplash] = useState(!alreadyShown);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+      sessionStorage.setItem(SPLASH_KEY, '1');
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [showSplash]);
+
+  if (showSplash) return <MlbLoading />;
 
   return (
     <div className={styles.page}>

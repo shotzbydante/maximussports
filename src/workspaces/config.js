@@ -43,7 +43,7 @@ export const WORKSPACES = {
   [WorkspaceId.CBB]: {
     id: WorkspaceId.CBB,
     label: 'NCAA College Basketball',
-    shortLabel: 'CBB',
+    shortLabel: 'NCAAM',
     routeBase: '',
     emoji: '\u{1F3C0}',
     logo: '/ncaa-logo.png',

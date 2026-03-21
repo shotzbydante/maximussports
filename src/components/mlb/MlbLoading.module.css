@@ -1,0 +1,93 @@
+/* MLB workspace launch splash — dark red/navy palette */
+.loadingContainer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #1a0a10 0%, #0e0610 60%, #060208 100%);
+}
+
+.loadingInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  position: relative;
+}
+
+.robotGlow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  top: -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(184, 41, 61, 0.22) 0%, transparent 70%);
+  filter: blur(50px);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.robot {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+  animation: float 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 36px rgba(184, 41, 61, 0.25));
+}
+
+.loadingText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.loadingTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.loadingBar {
+  width: 200px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.loadingBarFill {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #b8293d, transparent);
+  border-radius: 2px;
+  animation: slide 1.8s ease-in-out infinite;
+}
+
+.loadingSubtext {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.03em;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes slide {
+  0% { transform: translateX(-200%); }
+  100% { transform: translateX(600%); }
+}

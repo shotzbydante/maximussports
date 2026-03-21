@@ -976,7 +976,7 @@ export function buildDailyBriefingDigest({
     const tf     = leader.timeframe || 'last 30';
     const wl     = leader.wl ? ` (${leader.wl})` : '';
     if (pct != null) {
-      return `ATS SPOTLIGHT: ${leader.team} is covering ${pct}%${wl} ${tf} — one of the strongest persistent edges in CBB right now.`;
+      return `ATS SPOTLIGHT: ${leader.team} is covering ${pct}%${wl} ${tf} — one of the strongest persistent edges in NCAAM right now.`;
     }
     return `ATS SPOTLIGHT: ${leader.team} leads the conference in ATS performance ${tf}.`;
   }
