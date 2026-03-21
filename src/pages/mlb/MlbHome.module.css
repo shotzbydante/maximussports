@@ -1,0 +1,54 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-lg) 0;
+}
+
+.header {
+  margin-bottom: var(--space-lg);
+}
+
+.date {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.subtitle {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+}
+
+/* ── Hero card ─────────────────────────────────────────────── */
+
+.heroCard {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.heroEyebrow {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: var(--space-md);
+}
+
+.heroBody {
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}

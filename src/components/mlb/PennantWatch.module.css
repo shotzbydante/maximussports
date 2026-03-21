@@ -1,0 +1,161 @@
+.root {
+  margin-top: var(--space-xl);
+}
+
+.header {
+  margin-bottom: var(--space-lg);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: var(--space-sm);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: var(--space-sm);
+}
+
+.leagueGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+@media (max-width: 700px) {
+  .leagueGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.league {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.leagueTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding-bottom: var(--space-xs);
+  border-bottom: 2px solid rgba(60, 121, 180, 0.12);
+}
+
+.divisionBlock {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.divisionTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(60, 121, 180, 0.03);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.divisionTeams {
+  display: flex;
+  flex-direction: column;
+}
+
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px var(--space-md);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: background 0.12s, color 0.12s;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+}
+
+.teamRow:last-child {
+  border-bottom: none;
+}
+
+.teamRow:hover {
+  background: rgba(60, 121, 180, 0.05);
+  color: var(--color-primary);
+}
+
+.teamLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.teamLogo img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+
+.teamAbbrevFallback {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.teamName {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trophy {
+  font-size: 0.72rem;
+  opacity: 0.5;
+}
+
+.teamOdds {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.loadingNote {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-md);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}

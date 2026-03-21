@@ -1,0 +1,252 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-lg) 0;
+}
+
+.backLink {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  margin-bottom: var(--space-md);
+  text-decoration: none;
+  transition: opacity 0.12s;
+}
+
+.backLink:hover {
+  opacity: 0.8;
+}
+
+.notFound {
+  text-align: center;
+  padding: var(--space-xxl) var(--space-lg);
+}
+
+.notFound h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.notFound p {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-sm);
+}
+
+/* Header */
+.header {
+  margin-bottom: var(--space-xl);
+}
+
+.teamIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.logoFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  background: rgba(60, 121, 180, 0.06);
+  border-radius: 6px;
+  border: 1px solid var(--color-border-light);
+}
+
+.teamName {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.teamMeta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  display: block;
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+
+/* Odds */
+.oddsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.oddsStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.oddsLabel {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.oddsValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.oddsLoading {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.oddsEmpty {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+/* Info */
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.infoRow:last-child {
+  border-bottom: none;
+}
+
+.infoLabel {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.infoValue {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* News section */
+.newsSection {
+  margin-top: var(--space-xl);
+}
+
+.sectionTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+
+.newsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.newsItem {
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.12s;
+}
+
+.newsItem:last-child {
+  border-bottom: none;
+}
+
+.newsItem:hover {
+  background: rgba(60, 121, 180, 0.03);
+}
+
+.newsMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 3px;
+}
+
+.newsSource {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.newsTime {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.newsLink {
+  font-size: 0.84rem;
+  color: var(--color-text);
+  text-decoration: none;
+  line-height: 1.45;
+  transition: color 0.12s;
+}
+
+.newsLink:hover {
+  color: var(--color-primary);
+}
