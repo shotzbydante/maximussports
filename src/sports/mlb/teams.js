@@ -56,6 +56,19 @@ export const MLB_TEAMS = [
   { slug: 'col', name: 'Colorado Rockies', division: NL_WEST, league: 'NL', abbrev: 'COL' },
 ];
 
+export const MLB_ESPN_IDS = {
+  'nyy': '10', 'bos': '2', 'tor': '14', 'tb': '30', 'bal': '1',
+  'cle': '5', 'min': '9', 'det': '6', 'cws': '4', 'kc': '7',
+  'hou': '18', 'sea': '12', 'tex': '13', 'laa': '3', 'oak': '11',
+  'atl': '15', 'nym': '21', 'phi': '22', 'mia': '28', 'wsh': '20',
+  'chc': '16', 'mil': '8', 'stl': '24', 'pit': '23', 'cin': '17',
+  'lad': '19', 'sd': '25', 'sf': '26', 'ari': '29', 'col': '27',
+};
+
+export function getMLBEspnId(slug) {
+  return MLB_ESPN_IDS[slug] || null;
+}
+
 export function getMLBTeamBySlug(slug) {
   return MLB_TEAMS.find((t) => t.slug === slug);
 }
