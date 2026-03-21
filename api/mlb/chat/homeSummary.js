@@ -23,8 +23,8 @@ const FORCE_LOCK_TTL_SEC = 45;
 const OPENAI_MODEL    = 'gpt-4o-mini';
 const MAX_TOKENS      = 1200;
 const TEMPERATURE     = 0.5;
-const OPENAI_TIMEOUT  = 22000;
-const NEWS_FETCH_TIMEOUT_MS = 6000;
+const OPENAI_TIMEOUT  = 18000;
+const NEWS_FETCH_TIMEOUT_MS = 5000;
 
 const isDev = process.env.NODE_ENV !== 'production';
 

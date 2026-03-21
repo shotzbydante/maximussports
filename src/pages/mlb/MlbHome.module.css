@@ -142,7 +142,7 @@
   height: 110px;
   width: auto;
   object-fit: contain;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15)) contrast(1.12) saturate(1.2);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
   align-self: center;
   image-rendering: auto;
   -webkit-image-rendering: auto;
