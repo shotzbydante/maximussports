@@ -1,7 +1,6 @@
-/* ── Single Game — Hero Spotlight Poster ─────────────────────
-   Dramatic spotlight composition, glass-panel line block,
-   oversized team logos, minimal dashboard chrome.
-   Distinct from Tournament (gold panels) and Upset Radar (danger).
+/* ── Single Game — Premium Matchup Intelligence Card ─────────
+   Full head-to-head intelligence layout for IG (1080×1350).
+   Structured: header → team panels → center spine → picks section.
    ──────────────────────────────────────────────────────────── */
 
 .noGame {
@@ -13,198 +12,311 @@
   color: rgba(240, 244, 248, 0.4);
 }
 
-/* ── Spotlight label + title ─────────────────────────────── */
+/* ── Header area ─────────────────────────────────────────── */
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
 .spotlightLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #6EB3E8;
-  margin-bottom: 6px;
 }
 
-.title {
+.roundBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 78px;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 0.95;
-  color: #ffffff;
-  margin: 0 0 24px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  text-shadow: 0 4px 24px rgba(110,179,232,0.12);
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(110,179,232,0.18) 0%, rgba(110,179,232,0.06) 100%);
+  border: 1.5px solid rgba(110,179,232,0.28);
+  border-radius: 10px;
+  padding: 6px 28px;
+  text-shadow: 0 2px 12px rgba(110,179,232,0.15);
 }
 
-/* ── Hero Matchup — poster-style 3-column ────────────────── */
-.heroMatchup {
+.metaChips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.metaChip {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.55);
+  background: rgba(110,179,232,0.06);
+  border: 1px solid rgba(110,179,232,0.12);
+  border-radius: 6px;
+  padding: 3px 12px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Teams area — 3-column layout ────────────────────────── */
+.teamsArea {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 28px;
+  align-items: start;
+  gap: 10px;
   flex: 1;
   align-content: center;
+  margin-bottom: 16px;
 }
 
-.heroSide {
+/* ── Team panel ──────────────────────────────────────────── */
+.teamPanel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  padding: 16px 8px;
+  background: rgba(110,179,232,0.04);
+  border: 1px solid rgba(110,179,232,0.10);
+  border-radius: 14px;
 }
 
-.heroLogoWrap {
+.teamLogoWrap {
   position: relative;
-  width: 150px;
-  height: 150px;
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Subtle spotlight behind logos */
-.heroGlow {
+.teamGlow {
   position: absolute;
-  inset: -30px;
+  inset: -20px;
   border-radius: 50%;
   pointer-events: none;
 }
 
 /* Glass ring around logo */
-.heroLogoWrap::after {
+.teamLogoWrap::after {
   content: '';
   position: absolute;
-  inset: -10px;
+  inset: -6px;
   border-radius: 50%;
-  border: 2px solid rgba(168,208,240,0.12);
-  background: radial-gradient(circle, rgba(255,255,255,0.04) 40%, transparent 70%);
+  border: 1.5px solid rgba(168,208,240,0.10);
+  background: radial-gradient(circle, rgba(255,255,255,0.03) 40%, transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
 
-.heroSeedPill {
+.seedPill {
   font-family: 'Oswald', sans-serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
-  background: rgba(110,179,232,0.12);
-  border: 1.5px solid rgba(110,179,232,0.25);
+  background: rgba(110,179,232,0.14);
+  border: 1.5px solid rgba(110,179,232,0.28);
   color: #A8D0F0;
   border-radius: 6px;
-  padding: 3px 16px;
+  padding: 2px 14px;
   letter-spacing: 0.03em;
 }
 
-.heroRankPill {
+.rankPill {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   background: rgba(110,179,232,0.10);
   border: 1px solid rgba(110,179,232,0.22);
   color: #6EB3E8;
   border-radius: 6px;
-  padding: 3px 14px;
+  padding: 2px 12px;
 }
 
-.heroTeamName {
+.teamName {
   font-family: 'Oswald', sans-serif;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 700;
   color: #ffffff;
   text-align: center;
   line-height: 1.15;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.40);
-  max-width: 280px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.heroSideLabel {
-  font-size: 16px;
+.teamConf {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(168, 208, 240, 0.45);
+}
+
+.teamStats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.statChip {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(240, 244, 248, 0.65);
+  background: rgba(110,179,232,0.06);
+  border: 1px solid rgba(110,179,232,0.10);
+  border-radius: 5px;
+  padding: 2px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sideLabel {
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(168, 208, 240, 0.28);
+  color: rgba(168, 208, 240, 0.22);
+  margin-top: 2px;
 }
 
-/* ── Center spotlight — VS ring ──────────────────────────── */
-.heroCenter {
+/* ── Center spine ────────────────────────────────────────── */
+.centerSpine {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 0 10px;
+  gap: 14px;
+  padding: 16px 6px;
+  align-self: center;
 }
 
-.heroVsRing {
-  width: 80px;
-  height: 80px;
+.vsCircle {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: 2px solid rgba(168,208,240,0.15);
   background: rgba(110,179,232,0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 30px rgba(110,179,232,0.08);
-}
-
-.heroVsText {
   font-family: 'Oswald', sans-serif;
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 700;
-  color: rgba(240, 244, 248, 0.30);
+  color: rgba(240, 244, 248, 0.28);
   letter-spacing: 0.05em;
+  box-shadow: 0 0 20px rgba(110,179,232,0.06);
 }
 
-/* Glass-panel spread block */
-.heroSpreadBlock {
+.lineStack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: rgba(110,179,232,0.08);
-  border: 1px solid rgba(110,179,232,0.18);
-  border-radius: 12px;
-  padding: 12px 20px;
-  backdrop-filter: blur(2px);
+  gap: 6px;
+  background: rgba(110,179,232,0.06);
+  border: 1px solid rgba(110,179,232,0.14);
+  border-radius: 10px;
+  padding: 12px 14px;
 }
 
-.heroSpreadVal {
+.lineItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.lineVal {
   font-family: 'Oswald', sans-serif;
-  font-size: 36px;
+  font-size: 26px;
   font-weight: 700;
   color: #ffffff;
-  text-shadow: 0 0 12px rgba(110,179,232,0.20);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px rgba(110,179,232,0.12);
 }
 
-.heroSpreadKey {
-  font-size: 14px;
+.lineKey {
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(168, 208, 240, 0.38);
+}
+
+.lineDivider {
+  width: 36px;
+  height: 1px;
+  background: rgba(110,179,232,0.12);
+}
+
+/* ── Maximus Pick section ────────────────────────────────── */
+.picksArea {
+  background: rgba(110,179,232,0.05);
+  border: 1px solid rgba(110,179,232,0.14);
+  border-radius: 14px;
+  padding: 16px 20px 14px;
+}
+
+.picksLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6EB3E8;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.picksGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.pickCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.pickType {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(168, 208, 240, 0.40);
 }
 
-/* ── Game meta ───────────────────────────────────────────── */
-.gameMeta {
+.pickValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-size: 22px;
-  color: rgba(240, 244, 248, 0.45);
-  margin-bottom: 20px;
-  font-weight: 500;
 }
 
-.metaDot {
-  color: rgba(240, 244, 248, 0.2);
+.convPill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
-/* Glass wrapper for LineBlock */
-.lineBlockWrap {
-  background: rgba(110,179,232,0.04);
-  border: 1px solid rgba(110,179,232,0.12);
-  border-radius: 14px;
-  padding: 4px;
+.convNone {
+  font-size: 13px;
+  color: rgba(168, 208, 240, 0.30);
 }
