@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { teamId } = req.query;
+  const teamId = new URL(req.url, 'http://localhost').searchParams.get('teamId');
   if (!teamId) return res.status(400).json({ error: 'teamId required' });
 
   const cacheKey = `mlb:schedule:${teamId}`;

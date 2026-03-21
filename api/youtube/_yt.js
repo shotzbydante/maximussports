@@ -16,6 +16,7 @@ const YT_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
 const YT_VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos';
 const MIN_MAX = 1;
 const MAX_MAX = 10;
+const YT_FETCH_TIMEOUT_MS = 8000;
 
 // ─── Quota circuit breaker ────────────────────────────────────────────────────
 //
@@ -104,7 +105,14 @@ export async function ytSearch({ q, maxResults = 6, publishedAfter, debug = fals
   if (publishedAfter) params.set('publishedAfter', publishedAfter);
 
   const t0 = debug ? Date.now() : 0;
-  const res = await fetch(`${YT_SEARCH_URL}?${params}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), YT_FETCH_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${YT_SEARCH_URL}?${params}`, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     if (res.status === 403 || res.status === 429) {

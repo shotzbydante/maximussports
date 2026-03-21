@@ -1,9 +1,10 @@
 /**
  * GET /api/mlb/youtube/team?teamSlug=nyy&maxResults=6
- * Team-specific MLB video feed via YouTube RSS.
- * Mirrors the NCAAM team video architecture.
+ * Team-specific MLB video feed.
+ * Uses YouTube Data API v3 as primary, RSS as fallback.
  */
 
+import { ytSearch, isQuotaExhausted } from '../../youtube/_yt.js';
 import { createCache } from '../../_cache.js';
 import { getJson, setJson } from '../../_globalCache.js';
 
@@ -12,6 +13,7 @@ const kvFreshKey     = (slug) => `yt:mlb:team:${slug}:fresh:v1`;
 const kvLastKnownKey = (slug) => `yt:mlb:team:${slug}:lastKnown:v1`;
 const KV_FRESH_TTL_SEC     = 60 * 60;
 const KV_LASTKNOWN_TTL_SEC = 7 * 24 * 60 * 60;
+const RSS_TIMEOUT_MS       = 8000;
 
 const MLB_TEAMS_SEARCH = {
   nyy: 'New York Yankees', bos: 'Boston Red Sox', tor: 'Toronto Blue Jays',
@@ -26,12 +28,21 @@ const MLB_TEAMS_SEARCH = {
   sf: 'San Francisco Giants', ari: 'Arizona Diamondbacks', col: 'Colorado Rockies',
 };
 
+function decodeEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"');
+}
+
 async function fetchYouTubeRSS(query) {
   const rssUrl = `https://www.youtube.com/feeds/videos.xml?search_query=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
   try {
     const r = await fetch(rssUrl, {
       headers: { 'User-Agent': 'MaximusSports/1.0' },
-      signal: AbortSignal.timeout(8000),
+      signal: controller.signal,
     });
     if (!r.ok) return [];
     const text = await r.text();
@@ -41,8 +52,8 @@ async function fetchYouTubeRSS(query) {
     while ((match = entryRegex.exec(text)) !== null && items.length < 12) {
       const block = match[1];
       const videoId = (block.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || '';
-      const title = (block.match(/<title>(.*?)<\/title>/) || [])[1] || '';
-      const channelTitle = (block.match(/<name>(.*?)<\/name>/) || [])[1] || '';
+      const title = decodeEntities((block.match(/<title>(.*?)<\/title>/) || [])[1] || '');
+      const channelTitle = decodeEntities((block.match(/<name>(.*?)<\/name>/) || [])[1] || '');
       const published = (block.match(/<published>(.*?)<\/published>/) || [])[1] || '';
       if (!videoId || !title) continue;
       const thumbUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
@@ -50,6 +61,7 @@ async function fetchYouTubeRSS(query) {
     }
     return items;
   } catch { return []; }
+  finally { clearTimeout(timer); }
 }
 
 function scoreTeamItem(item, teamName) {
@@ -73,6 +85,41 @@ function dedup(items) {
   });
 }
 
+function processTeamItems(allItems, teamName) {
+  const deduped = dedup(allItems);
+  const scored = deduped.map((it) => ({ ...it, _score: scoreTeamItem(it, teamName) }));
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, 12).map(({ _score, ...rest }) => rest);
+}
+
+async function fetchFromDataApi(teamName) {
+  const mascot = teamName.split(' ').slice(-1)[0]; // e.g. "Yankees"
+  const results = await Promise.allSettled([
+    ytSearch({ q: `${teamName} highlights`, maxResults: 6 }),
+    ytSearch({ q: `${mascot} MLB baseball`, maxResults: 4 }),
+  ]);
+  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+}
+
+async function fetchFromRss(teamName) {
+  const mascot = teamName.split(' ').slice(-1)[0];
+  const results = await Promise.allSettled([
+    fetchYouTubeRSS(`${teamName} highlights`),
+    fetchYouTubeRSS(`${mascot} MLB baseball`),
+  ]);
+  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+}
+
+async function tryStaleCache(teamSlug, maxResults) {
+  try {
+    const stale = await getJson(kvLastKnownKey(teamSlug));
+    if (stale?.items?.length > 0) {
+      return { ...stale, status: 'ok_stale', items: stale.items.slice(0, maxResults) };
+    }
+  } catch {}
+  return null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
@@ -85,31 +132,42 @@ export default async function handler(req, res) {
   const teamName = MLB_TEAMS_SEARCH[teamSlug];
   if (!teamName) return res.status(400).json({ error: 'Unknown teamSlug' });
 
+  // Memory cache
   const memKey = `mlb:yt:team:${teamSlug}`;
   const mem = cache.get(memKey);
-  if (mem) return res.status(200).json({ ...mem, items: mem.items.slice(0, maxResults) });
+  if (mem?.items?.length > 0) return res.status(200).json({ ...mem, items: mem.items.slice(0, maxResults) });
 
+  // KV fresh cache
   const kvFresh = await getJson(kvFreshKey(teamSlug)).catch(() => null);
-  if (kvFresh?.items) {
+  if (kvFresh?.items?.length > 0) {
     cache.set(memKey, kvFresh);
     return res.status(200).json({ ...kvFresh, items: kvFresh.items.slice(0, maxResults) });
   }
 
   try {
-    const queries = [
-      `${teamName} highlights`,
-      `${teamName} baseball`,
-    ];
-    const results = await Promise.allSettled(queries.map(fetchYouTubeRSS));
-    let all = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
-    all = dedup(all);
+    let allItems = [];
+    const quotaActive = await isQuotaExhausted();
 
-    const scored = all.map((it) => ({ ...it, _score: scoreTeamItem(it, teamName) }));
-    scored.sort((a, b) => b._score - a._score);
+    if (!quotaActive) {
+      try {
+        allItems = await fetchFromDataApi(teamName);
+      } catch {
+        allItems = await fetchFromRss(teamName);
+      }
+    } else {
+      allItems = await fetchFromRss(teamName);
+    }
 
-    const items = scored.slice(0, 12).map(({ _score, ...rest }) => rest);
+    const items = processTeamItems(allItems, teamName);
+
+    // Don't cache empty results — fall through to stale cache instead
+    if (items.length === 0) {
+      const stale = await tryStaleCache(teamSlug, maxResults);
+      if (stale) return res.status(200).json(stale);
+      return res.status(200).json({ status: 'ok', teamSlug, teamName, updatedAt: new Date().toISOString(), items: [] });
+    }
+
     const payload = { status: 'ok', teamSlug, teamName, updatedAt: new Date().toISOString(), items };
-
     cache.set(memKey, payload);
     await Promise.all([
       setJson(kvFreshKey(teamSlug), payload, { exSeconds: KV_FRESH_TTL_SEC }),
@@ -118,8 +176,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ...payload, items: items.slice(0, maxResults) });
   } catch (err) {
-    const stale = await getJson(kvLastKnownKey(teamSlug)).catch(() => null);
-    if (stale?.items) return res.status(200).json({ ...stale, status: 'ok_stale', items: stale.items.slice(0, maxResults) });
+    const stale = await tryStaleCache(teamSlug, maxResults);
+    if (stale) return res.status(200).json(stale);
     return res.status(200).json({ status: 'error', teamSlug, items: [], error: err?.message });
   }
 }

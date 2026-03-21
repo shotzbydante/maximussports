@@ -12,10 +12,10 @@ const KV_FRESH_KEY     = 'yt:mlb:intelFeed:fresh:v2';
 const KV_LASTKNOWN_KEY = 'yt:mlb:intelFeed:lastKnown:v2';
 const KV_FRESH_TTL_SEC     = 60 * 60;
 const KV_LASTKNOWN_TTL_SEC = 7 * 24 * 60 * 60;
+const ROUTE_TIMEOUT_MS     = 22000;
 
 const MLB_QUERIES_API = [
-  { q: 'MLB highlights today 2026', maxResults: 8 },
-  { q: 'MLB baseball recap top plays 2026', maxResults: 8 },
+  { q: 'MLB highlights today', maxResults: 8 },
   { q: 'ESPN MLB highlights', maxResults: 6 },
 ];
 
@@ -23,7 +23,6 @@ const MLB_QUERIES_RSS = [
   'MLB highlights today',
   'MLB baseball recap',
   'ESPN MLB highlights',
-  'MLB top plays',
 ];
 
 const TRUSTED_CHANNELS = [
@@ -79,7 +78,6 @@ async function fetchFromDataApi() {
     MLB_QUERIES_API.map(({ q, maxResults }) => ytSearch({ q, maxResults }))
   );
   const allItems = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
-  if (allItems.length === 0) throw new Error('data-api returned empty results');
   return processItems(allItems);
 }
 
@@ -88,8 +86,17 @@ async function fetchFromRss() {
     MLB_QUERIES_RSS.map((q) => ytRssSearch({ q: safeRssQuery(q), sport: 'baseball' }))
   );
   const allItems = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
-  if (allItems.length === 0) throw new Error('RSS returned empty results');
   return processItems(allItems);
+}
+
+async function tryStaleCache(maxResults) {
+  try {
+    const lastKnown = await getJson(KV_LASTKNOWN_KEY);
+    if (lastKnown?.items?.length > 0) {
+      return { ...lastKnown, status: 'ok_stale', items: lastKnown.items.slice(0, maxResults) };
+    }
+  } catch {}
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -103,6 +110,9 @@ export default async function handler(req, res) {
 
   const maxResults = Math.min(Math.max(parseInt(new URL(req.url, 'http://localhost').searchParams.get('maxResults') || '8', 10), 1), 18);
 
+  // Route-level timeout guard — always return before Vercel kills us
+  const deadline = Date.now() + ROUTE_TIMEOUT_MS;
+
   try {
     const kvFresh = await getJson(KV_FRESH_KEY);
     if (kvFresh?.items?.length > 0) {
@@ -113,12 +123,14 @@ export default async function handler(req, res) {
   const quotaActive = await isQuotaExhausted();
 
   if (quotaActive) {
-    try {
-      const lastKnown = await getJson(KV_LASTKNOWN_KEY);
-      if (lastKnown?.items?.length > 0) {
-        return res.status(200).json({ ...lastKnown, status: 'ok_stale', items: lastKnown.items.slice(0, maxResults) });
-      }
-    } catch {}
+    const stale = await tryStaleCache(maxResults);
+    if (stale) return res.status(200).json(stale);
+  }
+
+  // Guard: bail to stale cache if we're already running low on time
+  if (Date.now() > deadline - 4000) {
+    const stale = await tryStaleCache(maxResults);
+    if (stale) return res.status(200).json(stale);
   }
 
   let items = null;
@@ -129,7 +141,9 @@ export default async function handler(req, res) {
     try {
       items = await fetchFromDataApi();
     } catch {
-      try { items = await fetchFromRss(); } catch {}
+      if (Date.now() < deadline - 4000) {
+        try { items = await fetchFromRss(); } catch {}
+      }
     }
   }
 
@@ -140,14 +154,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ ...payload, items: items.slice(0, maxResults) });
   }
 
-  if (!quotaActive) {
-    try {
-      const lastKnown = await getJson(KV_LASTKNOWN_KEY);
-      if (lastKnown?.items?.length > 0) {
-        return res.status(200).json({ ...lastKnown, status: 'ok_stale', items: lastKnown.items.slice(0, maxResults) });
-      }
-    } catch {}
-  }
+  // All live fetches returned empty or failed — try stale cache
+  const stale = await tryStaleCache(maxResults);
+  if (stale) return res.status(200).json(stale);
 
   return res.status(200).json({ status: 'error', updatedAt: new Date().toISOString(), items: [] });
 }

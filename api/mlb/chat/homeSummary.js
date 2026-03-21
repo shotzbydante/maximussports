@@ -23,18 +23,16 @@ const FORCE_LOCK_TTL_SEC = 45;
 const OPENAI_MODEL    = 'gpt-4o-mini';
 const MAX_TOKENS      = 1200;
 const TEMPERATURE     = 0.5;
-const OPENAI_TIMEOUT  = 28000;
+const OPENAI_TIMEOUT  = 22000;
+const NEWS_FETCH_TIMEOUT_MS = 6000;
 
 const isDev = process.env.NODE_ENV !== 'production';
 
 const MLB_QUERIES = [
   'MLB baseball',
-  'Major League Baseball',
   'MLB trade rumors',
-  'MLB spring training results',
   'MLB injuries roster moves',
-  'MLB free agent signings',
-  'MLB standings 2026',
+  'MLB standings',
 ];
 
 const newsCache = createCache(15 * 60 * 1000);
@@ -66,7 +64,14 @@ function impliedPct(american) {
 
 async function fetchGoogleNewsRSS(query) {
   const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(`"${query}" when:3d`)}&hl=en-US&gl=US&ceid=US:en`;
-  const r = await fetch(rssUrl, { headers: { 'User-Agent': 'MaximusSports/1.0' } });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT_MS);
+  let r;
+  try {
+    r = await fetch(rssUrl, { headers: { 'User-Agent': 'MaximusSports/1.0' }, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!r.ok) return [];
   const text = await r.text();
   const items = [];
