@@ -9,8 +9,8 @@ import { getJson, setJson, tryAcquireLock } from '../../_globalCache.js';
 import { getQueryParam } from '../../_requestUrl.js';
 import { createCache } from '../../_cache.js';
 
-const FRESH_KEY      = 'chat:mlb:home:summary:v1';
-const LASTKNOWN_KEY  = 'chat:mlb:home:lastKnown:v1';
+const FRESH_KEY      = 'chat:mlb:home:summary:v2';
+const LASTKNOWN_KEY  = 'chat:mlb:home:lastKnown:v2';
 const GEN_LOCK_KEY   = 'chat:mlb:home:genLock';
 const FORCE_LOCK_KEY = 'chat:mlb:home:forceLock';
 
@@ -20,7 +20,7 @@ const GEN_LOCK_TTL_SEC   = 90;
 const FORCE_LOCK_TTL_SEC = 45;
 
 const OPENAI_MODEL    = 'gpt-4o-mini';
-const MAX_TOKENS      = 850;
+const MAX_TOKENS      = 1200;
 const TEMPERATURE     = 0.5;
 const OPENAI_TIMEOUT  = 28000;
 
@@ -30,8 +30,10 @@ const MLB_QUERIES = [
   'MLB baseball',
   'Major League Baseball',
   'MLB trade rumors',
-  'MLB standings',
-  'MLB spring training',
+  'MLB spring training results',
+  'MLB injuries roster moves',
+  'MLB free agent signings',
+  'MLB standings 2026',
 ];
 
 const newsCache = createCache(15 * 60 * 1000);
@@ -91,7 +93,7 @@ async function fetchMlbHeadlines() {
       seen.add(key);
       return true;
     });
-    const headlines = deduped.slice(0, 10).map((it) => ({ title: it.title, source: it.source }));
+    const headlines = deduped.slice(0, 15).map((it) => ({ title: it.title, source: it.source }));
     newsCache.set('mlb:headlines:brief', headlines);
     return headlines;
   } catch { return []; }
@@ -133,14 +135,17 @@ function buildPayload(data) {
       const o = v.bestChanceAmerican;
       return {
         team: slug.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' '),
+        slug,
         odds: typeof o === 'number' && o > 0 ? '+' + o : o,
         impliedPct: impliedPct(o),
       };
     })
-    .sort((a, b) => (b.impliedPct ?? 0) - (a.impliedPct ?? 0))
-    .slice(0, 8);
+    .sort((a, b) => (b.impliedPct ?? 0) - (a.impliedPct ?? 0));
 
-  const headlinesTop = headlines.slice(0, 8).map((h) => ({
+  const champTop = champEntries.slice(0, 10);
+  const champSleepers = champEntries.slice(10, 16);
+
+  const headlinesTop = headlines.slice(0, 12).map((h) => ({
     title: h.title || '',
     source: h.source || 'News',
   }));
@@ -148,49 +153,70 @@ function buildPayload(data) {
   return {
     dateNow: getPstDate(),
     timezone: 'America/Los_Angeles',
-    champOdds: champEntries,
+    champOdds: champTop,
+    champSleepers,
     headlines: headlinesTop,
     seasonPhase: getMlbSeasonPhase(),
   };
 }
 
+const TEAM_EMOJIS = {
+  'los-angeles-dodgers': '🔵', 'new-york-yankees': '🗽', 'houston-astros': '🚀',
+  'atlanta-braves': '🪓', 'philadelphia-phillies': '🔔', 'new-york-mets': '🍎',
+  'san-diego-padres': '🟤', 'seattle-mariners': '⚓', 'baltimore-orioles': '🐦',
+  'texas-rangers': '⭐', 'chicago-cubs': '🐻', 'minnesota-twins': '🎯',
+  'milwaukee-brewers': '🍺', 'cleveland-guardians': '🛡️', 'detroit-tigers': '🐯',
+  'tampa-bay-rays': '☀️', 'toronto-blue-jays': '🇨🇦', 'boston-red-sox': '🧦',
+  'san-francisco-giants': '🌉', 'st-louis-cardinals': '🐦‍🔥', 'arizona-diamondbacks': '🐍',
+  'chicago-white-sox': '🖤', 'cincinnati-reds': '🔴', 'kansas-city-royals': '👑',
+  'los-angeles-angels': '😇', 'miami-marlins': '🐟', 'oakland-athletics': '🟢',
+  'pittsburgh-pirates': '🏴‍☠️', 'colorado-rockies': '⛰️', 'washington-nationals': '🇺🇸',
+};
+
 function buildPrompt(data) {
   const payload = buildPayload(data);
   const phase = payload.seasonPhase;
 
+  const emojiMap = Object.entries(TEAM_EMOJIS)
+    .map(([slug, emoji]) => `${slug.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')}: ${emoji}`)
+    .join(', ');
+
   let p1, p2, p3, p4, p5;
 
   if (phase === 'spring_training') {
-    p1 = '¶1 SPRING TRAINING PULSE: Open with where we are in spring training. Reference 2–3 headlines from headlines[]. Set the scene for the upcoming MLB season with energy.';
-    p2 = '¶2 WORLD SERIES FUTURES: Reference 3–4 top contenders from champOdds (use their exact odds format — positive odds MUST include "+"). Frame as pre-season market reads. Call out favorites and value picks.';
-    p3 = '¶3 STORYLINES + SLEEPERS: Call out 1–2 interesting storylines from headlines[] — trade rumors, roster shakeups, breakout candidates. Mention 1–2 sleeper teams from champOdds with longer odds that could surprise.';
-    p4 = '¶4 DIVISION WATCH: Reference 2–3 divisions with the tightest projected races. Which rivals should we watch? Frame with odds context from champOdds where relevant.';
-    p5 = '¶5 NEWS + CLOSER: 1–2 remaining headlines from headlines[]. End with a punchy "what to watch" closer building anticipation for Opening Day and the season ahead.';
+    p1 = '¶1 SPRING TRAINING INTEL: Open with 3–4 of the most compelling headlines from headlines[]. Set the scene — where are we in spring training? Reference specific stories: pitching duels, roster battles, prospect call-ups, trade rumors, or injury updates. Name the teams involved with their emoji. Be specific with details from the headlines, not generic.';
+    p2 = '¶2 WORLD SERIES FUTURES & CONTENDER PULSE: Reference 4–5 top contenders from champOdds with their exact odds (positive odds MUST include "+") and their team emoji. Frame as pre-season market positioning — who the sharp money likes, how Grapefruit/Cactus League performance is (or isn\'t) shifting the market. Call out which favorites look locked in and which have questions to answer. Be analytical, not just a list.';
+    p3 = '¶3 ROSTER MOVES, INJURIES & STORYLINES: Synthesize 2–3 headlines about player news — signings, injuries, trades, breakout performances, position battles. Use team emojis. Connect the dots: how does a key injury or signing shift a club\'s outlook? Reference champOdds or champSleepers if a team\'s stock should move. This should feel like inside intel, not a wire recap.';
+    p4 = '¶4 SLEEPERS & VALUE PLAYS: Call out 2–3 teams from champSleepers with longer odds that could surprise. Use their emojis. Reference any headlines that support the case — a prospect arriving, a rotation upgrade, a new manager. Frame with bettor language: "value on the board", "line hasn\'t moved yet", "sharp money creeping in". Also flag 1–2 division races that look tighter than the odds suggest.';
+    p5 = '¶5 DIAMOND DISPATCH & CLOSER: 2–3 remaining headlines from headlines[]. Surface any buzzy storylines — home run chases, clubhouse drama, schedule notes, Opening Day countdown. End with a punchy, energetic closer that builds anticipation for the season. Make the reader feel the season is coming. Use a baseball metaphor or call-to-action.';
   } else if (phase === 'regular_season') {
-    p1 = '¶1 AROUND THE LEAGUE: Open with 2–3 top headlines from headlines[]. Set the scene — where are we in the season? Call out interesting games, trades, or storylines.';
-    p2 = '¶2 WORLD SERIES ODDS PULSE: Reference 3–4 teams from champOdds whose stock is moving. Positive odds MUST include "+". Frame as market reads — who\'s rising, who\'s fading.';
-    p3 = '¶3 PENNANT RACE: Discuss 1–2 tight division or wild-card races. Use champOdds context. Mention any teams making a push or falling back.';
-    p4 = '¶4 VALUE + SLEEPERS: Call out 1–2 teams with longer champOdds that are overperforming. Frame as betting value or Cinderella stories.';
-    p5 = '¶5 NEWS + CLOSER: 1–2 remaining headlines from headlines[]. End with a sharp, punchy closer — what to watch tonight or this week.';
+    p1 = '¶1 AROUND THE LEAGUE: Open with 3–4 top headlines from headlines[] with team emojis. Set the scene — where are we in the season? Reference specific results, trades, milestones, or breakout performances. Name teams and be specific.';
+    p2 = '¶2 WORLD SERIES ODDS PULSE: Reference 4–5 teams from champOdds whose stock is moving with exact odds (positive odds MUST include "+") and team emojis. Frame as market reads — who\'s rising, who\'s fading, and why. Connect to headlines where possible.';
+    p3 = '¶3 PENNANT RACE & DIVISION WATCH: Discuss 2–3 tight division or wild-card races. Use champOdds context and team emojis. Which teams are making a push? Which rivals should we watch? Frame with bettor urgency.';
+    p4 = '¶4 SLEEPERS, INJURIES & VALUE: Call out 1–2 teams from champSleepers overperforming, plus any major injury/roster news from headlines[]. Frame as betting value or dark horse stories. Use team emojis.';
+    p5 = '¶5 DIAMOND DISPATCH + CLOSER: 2–3 remaining headlines. Surface buzzy storylines. End with a sharp, punchy closer — what to watch tonight or this week. Make it feel urgent and premium.';
   } else if (phase === 'postseason') {
-    p1 = '¶1 POSTSEASON: We\'re in October baseball. Recap any recent headlines from headlines[]. Frame the bracket/series matchups with urgency.';
-    p2 = '¶2 WORLD SERIES ODDS: Reference 3–4 remaining contenders from champOdds with exact odds. Positive odds MUST include "+". Who does the market like?';
-    p3 = '¶3 SERIES WATCH: Break down the key matchup storylines. Who has the edge? What\'s the narrative?';
-    p4 = '¶4 VALUE + UPSET WATCH: Any underdogs with live odds? Frame with champOdds context.';
-    p5 = '¶5 NEWS + CLOSER: 1–2 headlines. End with October baseball energy.';
+    p1 = '¶1 OCTOBER BASEBALL: We\'re in the postseason. Recap the most compelling headlines from headlines[] with team emojis. Frame the active series and elimination games with urgency and drama.';
+    p2 = '¶2 WORLD SERIES ODDS: Reference 3–4 remaining contenders from champOdds with exact odds (positive MUST include "+") and team emojis. Who does the market like? How have the odds shifted?';
+    p3 = '¶3 SERIES WATCH: Break down the key matchup storylines — pitching advantages, lineup depth, bullpen edges, home-field factors. Use team emojis. Frame with analytical bettor intel.';
+    p4 = '¶4 UPSET WATCH & VALUE: Any underdogs with live odds from champOdds? Which series could flip? Frame as sharp-money angles with team emojis.';
+    p5 = '¶5 OCTOBER CLOSER: 1–2 headlines. End with maximum October baseball energy. This is the biggest stage in baseball — make it feel like it.';
   } else {
-    p1 = '¶1 OFFSEASON INTEL: Open with 2–3 headlines from headlines[]. What\'s happening in the MLB offseason? Trades, free agency, signings.';
-    p2 = '¶2 WORLD SERIES FUTURES: Reference 3–4 early championship favorites from champOdds. Positive odds MUST include "+".';
-    p3 = '¶3 STORYLINES: Key offseason moves, managerial changes, or surprises from headlines[].';
-    p4 = '¶4 EARLY VALUE: 1–2 sleeper teams from champOdds with longer odds worth watching.';
-    p5 = '¶5 CLOSER: Build anticipation for the upcoming season.';
+    p1 = '¶1 OFFSEASON INTEL: Open with 3–4 headlines from headlines[] with team emojis. What\'s moving in the MLB offseason? Trades, free agency, signings, managerial changes.';
+    p2 = '¶2 WORLD SERIES FUTURES: Reference 4–5 early championship favorites from champOdds with exact odds (positive MUST include "+") and team emojis. Who\'s the early market favorite and why?';
+    p3 = '¶3 HOT STOVE STORYLINES: Key offseason moves and surprises from headlines[] with team emojis. Connect the dots between signings and team outlook.';
+    p4 = '¶4 EARLY VALUE & SLEEPERS: 2–3 teams from champSleepers with longer odds worth tracking, with team emojis. What makes them interesting?';
+    p5 = '¶5 CLOSER: Build anticipation for the upcoming season with energy and personality.';
   }
 
-  const systemPrompt = `You are a sharp, energetic MLB baseball host for Maximus Sports — think Baseball Tonight energy meets sharp bettor intel.
+  const systemPrompt = `You are a sharp, energetic MLB baseball intelligence host for Maximus Sports — think Baseball Tonight meets sharp bettor insight meets premium editorial sports journalism.
 
 Write a home-page daily briefing using ONLY the JSON data provided. DO NOT invent any scores, teams, odds, players, or facts not present in the data.
 
-FORMAT — exactly 5 short paragraphs (no headers, no bullet lists, no numbered sections):
+TEAM EMOJIS (use the matching emoji when mentioning a team by name):
+${emojiMap}
+
+FORMAT — exactly 5 substantive paragraphs (no headers, no bullet lists, no numbered sections):
 
 ${p1}
 
@@ -203,17 +229,20 @@ ${p4}
 ${p5}
 
 STYLE RULES:
-- Target 200–300 words total (hard limit: 320 words).
-- Bold (**text**) ONLY 1–2 team names OR one key phrase per paragraph — never full sentences.
-- Max 1 emoji per paragraph from: 🔥 😬 👀 🚨 🏆 ⚾
+- Target 350–450 words total (hard limit: 500 words). This should feel substantive, not thin.
+- Bold (**text**) team names or 1–2 key phrases per paragraph — never full sentences.
+- Use the team emoji AFTER the bolded team name when first mentioned (e.g. "**Los Angeles Dodgers** 🔵").
+- Max 1 additional decorative emoji per paragraph from: 🔥 😬 👀 🚨 🏆 ⚾
 - Zero profanity. Clean humor only.
-- APPROVED QUOTES (use at most ONE total, only if it fits): ${APPROVED_QUOTES}
+- APPROVED QUOTES (use at most ONE total, only if it fits naturally): ${APPROVED_QUOTES}
 - NEVER use quotes not in the approved list.
-- If a data section is empty, acknowledge it briefly and move on.
-- Use baseball language: "pennant race", "arm", "bat", "bullpen", "lineup", "rotation", "slugger", "aces", "on the mound", "diamond".
-- Do NOT use college basketball terminology (bracket, seed, March Madness, etc.).`;
+- If a data section is empty, acknowledge it briefly and move on — do NOT skip the paragraph.
+- Use baseball language: "pennant race", "rotation", "bullpen", "lineup", "slugger", "ace", "on the mound", "diamond", "Grapefruit League", "Cactus League", "spring training", "clubhouse", "farm system", "prospect".
+- Do NOT use college basketball terminology (bracket, seed, March Madness, tournament path, bubble).
+- Each paragraph should have narrative flow and editorial opinion — not just a list of facts. Connect dots, draw conclusions, frame storylines.
+- Write like a premium sports intelligence product, not a wire service recap.`;
 
-  const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 paragraphs, no headers.`;
+  const userPrompt = `DATA:\n${JSON.stringify(payload, null, 2)}\n\nWrite the briefing now. Exactly 5 substantive paragraphs, no headers. Use team emojis from the mapping above.`;
 
   return { systemPrompt, userPrompt };
 }

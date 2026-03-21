@@ -56,11 +56,11 @@
 }
 
 .leagueLogo {
-  height: 22px;
+  height: 32px;
   width: auto;
   object-fit: contain;
-  border-radius: 3px;
   flex-shrink: 0;
+  mix-blend-mode: multiply;
 }
 
 .leagueLabel {

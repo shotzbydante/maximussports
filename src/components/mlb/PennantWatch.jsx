@@ -121,7 +121,7 @@ export default function PennantWatch() {
 
 function LeagueColumnWithFilter({ league, divisions, odds, mode, onFilter }) {
   const isAL = league === 'AL';
-  const logoSrc = isAL ? '/al-logo.svg' : '/nl-logo.svg';
+  const logoSrc = isAL ? '/al-logo.png' : '/nl-logo.png';
   const leagueFull = isAL ? 'American League' : 'National League';
 
   const flatSorted = useMemo(() => {
@@ -136,7 +136,7 @@ function LeagueColumnWithFilter({ league, divisions, odds, mode, onFilter }) {
   return (
     <div className={styles.league}>
       <div className={styles.leagueHeader}>
-        <img src={logoSrc} alt={leagueFull} className={styles.leagueLogo} />
+        <img src={logoSrc} alt={leagueFull} className={styles.leagueLogo} width={32} height={32} loading="lazy" decoding="async" />
         <span className={styles.leagueLabel}>{leagueFull}</span>
       </div>
 

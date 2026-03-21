@@ -139,10 +139,11 @@ export default function MlbHome() {
             src="/mascot-mlb.png"
             alt="Maximus Sports MLB intelligence mascot"
             className={styles.briefingMascot}
-            width={120}
-            height={120}
+            width={110}
+            height={110}
             loading="eager"
             decoding="async"
+            fetchPriority="high"
             onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
           />
           <div className={styles.briefingBody}>
