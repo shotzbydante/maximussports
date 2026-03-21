@@ -6,11 +6,15 @@
   padding: var(--space-md) 0 0;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    var(--shadow-sm),
+    1px 0 0 rgba(255, 255, 255, 0.04) inset;
   position: sticky;
   top: var(--topnav-height, 56px);
   height: calc(100vh - var(--topnav-height, 56px));
   overflow-y: auto;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .navArea {
@@ -20,47 +24,55 @@
 
 .profileDivider {
   height: 1px;
-  background: var(--divider-color, rgba(60, 121, 180, 0.08));
-  margin: 0 var(--space-md);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(60, 121, 180, 0.10) 20%,
+    rgba(60, 121, 180, 0.10) 80%,
+    transparent 100%
+  );
+  margin: var(--space-sm) var(--space-md);
   flex-shrink: 0;
 }
 
 .section {
-  padding: 0 var(--space-md);
+  padding: var(--space-xs) var(--space-md) 0;
 }
 
 .sectionTitle {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.62rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.10em;
   color: var(--color-text-muted);
   display: block;
   margin-bottom: var(--space-sm);
   padding: 0 var(--space-sm);
+  opacity: 0.7;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 1px;
 }
 
 .link {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  font-size: 0.9rem;
+  padding: 7px var(--space-md);
+  font-size: 0.84rem;
   color: var(--color-text-secondary);
-  border-radius: var(--radius-md);
-  transition: background 0.15s, color 0.15s;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   width: 100%;
   text-align: left;
   border: none;
   background: none;
   cursor: pointer;
   font-family: inherit;
+  letter-spacing: 0.005em;
 }
 
 .link.expanded {
@@ -68,14 +80,16 @@
 }
 
 .link:hover {
-  background: var(--color-bg-muted);
+  background: rgba(60, 121, 180, 0.06);
   color: var(--color-primary);
 }
 
 .link.active {
-  background: rgba(60, 121, 180, 0.1);
+  background: rgba(60, 121, 180, 0.10);
   color: var(--color-primary);
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-primary);
+  border-radius: 0 8px 8px 0;
 }
 
 .icon {
@@ -83,7 +97,13 @@
   align-items: center;
   flex-shrink: 0;
   color: inherit;
-  opacity: 0.85;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.link:hover .icon,
+.link.active .icon {
+  opacity: 1;
 }
 
 .teamsBlock {
@@ -115,6 +135,7 @@
   cursor: pointer;
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
+  transition: background 0.12s, color 0.12s;
 }
 
 .caretBtn:hover {
@@ -135,8 +156,8 @@
   padding-left: 8px;
   max-height: 360px;
   overflow-y: auto;
-  border-left: 1px solid var(--divider-color, #e6eef5);
-  margin-left: var(--space-md);
+  border-left: 2px solid rgba(60, 121, 180, 0.10);
+  margin-left: calc(var(--space-md) + 4px);
 }
 
 .confGroup {
@@ -152,8 +173,8 @@
   width: 100%;
   padding: var(--space-xs) var(--space-sm);
   margin-top: var(--space-xs);
-  font-size: var(--header-font-size, 12px);
-  font-weight: 600;
+  font-size: var(--header-font-size, 11px);
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--header-letter-spacing, 0.08em);
   color: var(--color-text-muted);
@@ -163,11 +184,12 @@
   text-align: left;
   font-family: inherit;
   border-radius: var(--radius-sm);
+  transition: color 0.12s, background 0.12s;
 }
 
 .confRow:hover {
   color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.06);
+  background: rgba(60, 121, 180, 0.05);
 }
 
 .confGroup:first-child .confRow {
@@ -188,11 +210,12 @@
 }
 
 .teamLink {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   padding: 3px var(--space-sm);
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
   display: block;
+  transition: color 0.12s;
 }
 
 .teamLink:hover,
@@ -207,25 +230,26 @@
 }
 
 .bracketLink:hover {
-  background: rgba(56, 133, 224, 0.08);
+  background: rgba(56, 133, 224, 0.07);
   color: #7ab5f0 !important;
 }
 
 .bracketLink.active {
-  background: rgba(56, 133, 224, 0.12);
+  background: rgba(56, 133, 224, 0.10);
   color: #5a9ee6 !important;
+  box-shadow: inset 3px 0 0 #5a9ee6;
 }
 
 .bracketBadge {
-  font-size: 0.5rem;
+  font-size: 0.48rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: rgba(56, 133, 224, 0.15);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(56, 133, 224, 0.12);
   color: #5a9ee6;
-  border: 1px solid rgba(56, 133, 224, 0.25);
+  border: 1px solid rgba(56, 133, 224, 0.22);
   margin-left: auto;
 }
 
@@ -236,25 +260,26 @@
 }
 
 .adminLink:hover {
-  background: rgba(183, 152, 108, 0.08);
+  background: rgba(183, 152, 108, 0.06);
   color: #B7986C;
 }
 
 .adminLink.active {
-  background: rgba(183, 152, 108, 0.12);
+  background: rgba(183, 152, 108, 0.10);
   color: #B7986C;
+  box-shadow: inset 3px 0 0 #B7986C;
 }
 
 .adminBadge {
-  font-size: 0.55rem;
+  font-size: 0.48rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: rgba(183, 152, 108, 0.15);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(183, 152, 108, 0.12);
   color: #B7986C;
-  border: 1px solid rgba(183, 152, 108, 0.25);
+  border: 1px solid rgba(183, 152, 108, 0.22);
   margin-left: auto;
 }
 
