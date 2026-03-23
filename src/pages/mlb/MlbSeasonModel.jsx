@@ -1,21 +1,21 @@
 /**
- * MLB Season Model — v6 premium intelligence dashboard.
+ * MLB Season Model — v7 premium intelligence dashboard.
  *
- * v6 upgrades:
- *   - Glassy methodology module with custom stage icons + % grid
- *   - AL/NL two-column filtering framework (League View / Division View)
- *   - Dark red / navy / white baseball palette (no light blue accents)
- *   - Better mobile real-estate in methodology expanded state
- *   - Preserved all model substance and expanded detail
+ * v7 upgrades:
+ *   - Removed redundant summary rail (concepts folded into Model Insights)
+ *   - Clickable insight cards → scroll to team + expand
+ *   - Expanded rows restructured as mini research briefs
+ *   - Value-framing tags on insight cards
+ *   - 7 insight types including Top Projection + Highest Confidence
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import MaximusModelIcon from '../../components/mlb/MaximusModelIcon';
 import ModelStageIcon from '../../components/mlb/ModelStageIcon';
-import { MODEL_META } from '../../data/mlb/seasonModelMeta';
 import ModelInsights from '../../components/mlb/ModelInsights';
+import { MODEL_META } from '../../data/mlb/seasonModelMeta';
 import {
   getSeasonProjections, sortTeams, filterTeams,
   SORT_OPTIONS,
@@ -38,29 +38,7 @@ function LeagueLogo({ league, size = 28 }) {
     return <img src={src} alt={league === 'AL' ? 'American League' : 'National League'}
       width={size} height={size} style={{ objectFit: 'contain' }} loading="lazy" />;
   }
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
-      <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.6" opacity="0.55" />
-      <text x="10" y="14.5" textAnchor="middle" fontSize="8.5" fontWeight="800"
-        fill="currentColor" fontFamily="system-ui">{league}</text>
-    </svg>
-  );
-}
-
-function deriveSummary(teams) {
-  if (!teams.length) return [];
-  const sorted = [...teams].sort((a, b) => b.projectedWins - a.projectedWins);
-  const byDelta = [...teams].sort((a, b) => (b.marketDelta || 0) - (a.marketDelta || 0));
-  const byRange = [...teams].sort((a, b) => (b.ceiling - b.floor) - (a.ceiling - a.floor));
-  const byFloor = [...teams].sort((a, b) => b.floor - a.floor);
-  const byConf = [...teams].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-  return [
-    { label: 'Top Projection', team: sorted[0].name, value: `${sorted[0].projectedWins}W`, color: 'accent' },
-    { label: 'Best Value Gap', team: byDelta[0].name, value: `+${byDelta[0].marketDelta}`, color: 'green' },
-    { label: 'Most Volatile', team: byRange[0].name, value: `${byRange[0].floor}–${byRange[0].ceiling}`, color: 'amber' },
-    { label: 'Strongest Floor', team: byFloor[0].name, value: `${byFloor[0].floor}W floor`, color: 'green' },
-    { label: 'Highest Confidence', team: byConf[0].name, value: byConf[0].confidenceTier, color: 'accent' },
-  ];
+  return null;
 }
 
 function getDriverPreview(decomp) {
@@ -71,15 +49,18 @@ function getDriverPreview(decomp) {
     .slice(0, 2);
 }
 
-/** Render a single team row. */
-function TeamRow({ team, idx, open, toggle, buildPath }) {
+/** Render a single team row with research-drawer expansion. */
+function TeamRow({ team, idx, open, toggle, buildPath, highlight }) {
   const logo = getMlbEspnLogoUrl(team.slug);
   const dCls = team.marketDelta > 0 ? styles.up : team.marketDelta < 0 ? styles.dn : '';
   const tk = team.takeaways || {};
   const drivers = getDriverPreview(team.decomposition);
 
   return (
-    <article className={`${styles.card} ${open ? styles.cardOpen : ''}`}>
+    <article
+      className={`${styles.card} ${open ? styles.cardOpen : ''} ${highlight ? styles.cardHighlight : ''}`}
+      data-team-slug={team.slug}
+    >
       <div className={styles.row}>
         <span className={styles.rank}>{idx + 1}</span>
         <div className={styles.ident}>
@@ -135,28 +116,38 @@ function TeamRow({ team, idx, open, toggle, buildPath }) {
         </button>
       </div>
 
+      {/* ── Research Drawer ── */}
       {open && (
         <div className={styles.detail}>
-          <div className={styles.detailTop}>
+          {/* Outlook */}
+          <div className={styles.detailSection}>
+            <h5 className={styles.detailSectionTitle}>Outlook</h5>
+            <div className={styles.detailStats}>
+              <div className={styles.dCell}><span className={styles.dLbl}>Market Line</span><span className={styles.dVal}>{team.marketWinTotal ?? '—'}</span></div>
+              <div className={styles.dCell}><span className={styles.dLbl}>Division</span><span className={styles.dVal}>{team.divOutlook}</span></div>
+              <div className={styles.dCell}><span className={styles.dLbl}>Confidence</span><span className={styles.dVal}>{team.confidenceTier} ({team.confidenceScore}%)</span></div>
+              <div className={styles.dCell}><span className={styles.dLbl}>Manager</span><span className={styles.dVal}>{team.manager}</span></div>
+            </div>
+          </div>
+
+          {/* Key Drivers */}
+          <div className={styles.detailSection}>
+            <h5 className={styles.detailSectionTitle}>Key Drivers</h5>
             <div className={styles.tkRow}>
-              <span className={styles.tkItem}><b>Driver:</b> {tk.strongestDriver}</span>
+              <span className={styles.tkItem}><b>Strongest:</b> {tk.strongestDriver}</span>
               <span className={styles.tkItem}><b>Drag:</b> {tk.biggestDrag}</span>
               <span className={styles.tkItem}><b>Depth:</b> {tk.depthProfile}</span>
               <span className={styles.tkItem}><b>Risk:</b> {tk.riskProfile}</span>
               <span className={styles.tkItem}><b>Market:</b> {tk.marketStance}</span>
             </div>
-            <div className={styles.detailStats}>
-              <div className={styles.dCell}><span className={styles.dLbl}>Market Line</span><span className={styles.dVal}>{team.marketWinTotal ?? '—'}</span></div>
-              <div className={styles.dCell}><span className={styles.dLbl}>Outlook</span><span className={styles.dVal}>{team.divOutlook}</span></div>
-              <div className={styles.dCell}><span className={styles.dLbl}>Confidence</span><span className={styles.dVal}>{team.confidenceTier} ({team.confidenceScore}%)</span></div>
-              <div className={styles.dCell}><span className={styles.dLbl}>Manager</span><span className={styles.dVal}>{team.manager}</span></div>
-            </div>
           </div>
+
+          {/* Projection Breakdown */}
           {team.decomposition?.length > 0 && (
-            <div className={styles.decomp}>
-              <h4 className={styles.decompTitle}>
-                <MaximusModelIcon size={12} /> Projection Breakdown
-              </h4>
+            <div className={styles.detailSection}>
+              <h5 className={styles.detailSectionTitle}>
+                <MaximusModelIcon size={11} /> Projection Breakdown
+              </h5>
               <div className={styles.decompGrid}>
                 {team.decomposition.map(d => (
                   <div key={d.label} className={styles.decompItem}>
@@ -169,9 +160,15 @@ function TeamRow({ team, idx, open, toggle, buildPath }) {
               </div>
             </div>
           )}
-          <p className={styles.rationale}>{team.rationale}</p>
+
+          {/* Analyst Note */}
+          <div className={styles.detailSection}>
+            <h5 className={styles.detailSectionTitle}>Analyst Note</h5>
+            <p className={styles.rationale}>{team.rationale}</p>
+          </div>
+
           <Link to={buildPath(`/teams/${team.slug}`)} className={styles.teamCta}>
-            View Team Intel &rarr;
+            View Full Team Intel &rarr;
           </Link>
         </div>
       )}
@@ -183,28 +180,44 @@ export default function MlbSeasonModel() {
   const { buildPath } = useWorkspace();
   const allTeams = useMemo(() => getSeasonProjections(), []);
   const [sort, setSort] = useState('wins-desc');
-  const [viewMode, setViewMode] = useState('league'); // 'league' | 'division'
+  const [viewMode, setViewMode] = useState('league');
   const [expanded, setExpanded] = useState(new Set());
   const [methExpanded, setMethExpanded] = useState(false);
+  const [highlightSlug, setHighlightSlug] = useState(null);
+  const boardRef = useRef(null);
 
   const toggle = (slug) => setExpanded(prev => {
     const n = new Set(prev); n.has(slug) ? n.delete(slug) : n.add(slug); return n;
   });
 
-  const summaryItems = useMemo(() => deriveSummary(allTeams), [allTeams]);
+  const handleInsightClick = useCallback((slug) => {
+    // Expand the team row
+    setExpanded(prev => {
+      const n = new Set(prev);
+      n.add(slug);
+      return n;
+    });
+    // Highlight briefly
+    setHighlightSlug(slug);
+    setTimeout(() => setHighlightSlug(null), 2000);
+    // Scroll to team after a tick (to allow expansion to render)
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-team-slug="${slug}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }, []);
 
-  // Split teams into AL and NL, sorted
   const alTeams = useMemo(() => sortTeams(filterTeams(allTeams, { league: 'AL' }), sort), [allTeams, sort]);
   const nlTeams = useMemo(() => sortTeams(filterTeams(allTeams, { league: 'NL' }), sort), [allTeams, sort]);
 
-  // For division view, group by division within each league
   const groupByDiv = (teams) => {
     const divs = {};
     teams.forEach(t => {
       if (!divs[t.division]) divs[t.division] = [];
       divs[t.division].push(t);
     });
-    // Sort divisions: East, Central, West
     const order = ['East', 'Central', 'West'];
     return Object.entries(divs)
       .sort(([a], [b]) => {
@@ -218,13 +231,18 @@ export default function MlbSeasonModel() {
   const alDivisions = useMemo(() => groupByDiv(alTeams), [alTeams, sort]);
   const nlDivisions = useMemo(() => groupByDiv(nlTeams), [nlTeams, sort]);
 
-  // Global ranking for numbering
   const allSorted = useMemo(() => sortTeams(allTeams, sort), [allTeams, sort]);
   const rankMap = useMemo(() => {
     const m = {};
     allSorted.forEach((t, i) => { m[t.slug] = i + 1; });
     return m;
   }, [allSorted]);
+
+  const renderTeam = (team) => (
+    <TeamRow key={team.slug} team={team} idx={rankMap[team.slug] - 1}
+      open={expanded.has(team.slug)} toggle={toggle} buildPath={buildPath}
+      highlight={highlightSlug === team.slug} />
+  );
 
   return (
     <div className={styles.page}>
@@ -252,8 +270,6 @@ export default function MlbSeasonModel() {
             <span className={styles.methTitle}>How the Maximus Model Works</span>
           </div>
           <p className={styles.methSummary}>{MODEL_META.objective}</p>
-
-          {/* Stage icon + % grid */}
           <div className={styles.stageGrid}>
             {MODEL_META.stages.map(s => (
               <div key={s.name} className={styles.stageCard}>
@@ -265,7 +281,6 @@ export default function MlbSeasonModel() {
               </div>
             ))}
           </div>
-
           <div className={styles.methSourceRow}>
             {MODEL_META.sources.slice(0, 4).map(s => (
               <span key={s.name} className={styles.methSourceChip}>{s.name}</span>
@@ -282,7 +297,6 @@ export default function MlbSeasonModel() {
             </button>
           </div>
         </div>
-
         {methExpanded && (
           <div className={styles.methFull}>
             <div className={styles.methStages}>
@@ -302,7 +316,6 @@ export default function MlbSeasonModel() {
                 ))}
               </div>
             </div>
-
             <div className={styles.methInputs}>
               <h3 className={styles.methH3}>Input Groups</h3>
               <div className={styles.methInputGrid}>
@@ -316,7 +329,6 @@ export default function MlbSeasonModel() {
                 ))}
               </div>
             </div>
-
             <div className={styles.methAllSources}>
               <h3 className={styles.methH3}>Data Sources</h3>
               <div className={styles.methSourceRow}>
@@ -340,14 +352,10 @@ export default function MlbSeasonModel() {
           <div className={styles.pillRow}>
             <button type="button"
               className={`${styles.pill} ${viewMode === 'league' ? styles.pillActive : ''}`}
-              onClick={() => setViewMode('league')}>
-              League
-            </button>
+              onClick={() => setViewMode('league')}>League</button>
             <button type="button"
               className={`${styles.pill} ${viewMode === 'division' ? styles.pillActive : ''}`}
-              onClick={() => setViewMode('division')}>
-              Division
-            </button>
+              onClick={() => setViewMode('division')}>Division</button>
           </div>
         </div>
         <div className={styles.controlGroup}>
@@ -359,25 +367,13 @@ export default function MlbSeasonModel() {
         </div>
       </div>
 
-      {/* ── Summary Rail ── */}
-      <div className={styles.summaryRail}>
-        {summaryItems.map(item => (
-          <div key={item.label} className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>{item.label}</span>
-            <span className={`${styles.summaryValue} ${styles[`sc_${item.color}`] || ''}`}>{item.value}</span>
-            <span className={styles.summaryTeam}>{item.team}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Model Insights ── */}
-      <ModelInsights teams={allTeams} />
+      {/* ── Model Insights (replaces old summary rail) ── */}
+      <ModelInsights teams={allTeams} onTeamClick={handleInsightClick} />
 
       <p className={styles.resultCount}>30 teams</p>
 
       {/* ── Team Board: AL / NL split ── */}
-      <div className={styles.leagueBoard}>
-        {/* AL Column */}
+      <div className={styles.leagueBoard} ref={boardRef}>
         <div className={styles.leagueCol}>
           <div className={styles.leagueHeader}>
             <LeagueLogo league="AL" size={30} />
@@ -385,28 +381,16 @@ export default function MlbSeasonModel() {
             <span className={styles.leagueCount}>{alTeams.length} teams</span>
           </div>
           {viewMode === 'league' ? (
-            <div className={styles.board}>
-              {alTeams.map(team => (
-                <TeamRow key={team.slug} team={team} idx={rankMap[team.slug] - 1}
-                  open={expanded.has(team.slug)} toggle={toggle} buildPath={buildPath} />
-              ))}
-            </div>
+            <div className={styles.board}>{alTeams.map(renderTeam)}</div>
           ) : (
             alDivisions.map(dg => (
               <div key={dg.division} className={styles.divGroup}>
                 <h4 className={styles.divGroupTitle}>{dg.division}</h4>
-                <div className={styles.board}>
-                  {dg.teams.map(team => (
-                    <TeamRow key={team.slug} team={team} idx={rankMap[team.slug] - 1}
-                      open={expanded.has(team.slug)} toggle={toggle} buildPath={buildPath} />
-                  ))}
-                </div>
+                <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
               </div>
             ))
           )}
         </div>
-
-        {/* NL Column */}
         <div className={styles.leagueCol}>
           <div className={styles.leagueHeader}>
             <LeagueLogo league="NL" size={30} />
@@ -414,22 +398,12 @@ export default function MlbSeasonModel() {
             <span className={styles.leagueCount}>{nlTeams.length} teams</span>
           </div>
           {viewMode === 'league' ? (
-            <div className={styles.board}>
-              {nlTeams.map(team => (
-                <TeamRow key={team.slug} team={team} idx={rankMap[team.slug] - 1}
-                  open={expanded.has(team.slug)} toggle={toggle} buildPath={buildPath} />
-              ))}
-            </div>
+            <div className={styles.board}>{nlTeams.map(renderTeam)}</div>
           ) : (
             nlDivisions.map(dg => (
               <div key={dg.division} className={styles.divGroup}>
                 <h4 className={styles.divGroupTitle}>{dg.division}</h4>
-                <div className={styles.board}>
-                  {dg.teams.map(team => (
-                    <TeamRow key={team.slug} team={team} idx={rankMap[team.slug] - 1}
-                      open={expanded.has(team.slug)} toggle={toggle} buildPath={buildPath} />
-                  ))}
-                </div>
+                <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
               </div>
             ))
           )}

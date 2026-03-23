@@ -151,24 +151,7 @@
   background-repeat:no-repeat; background-position:right 8px center; padding-right:24px; }
 .resultCount { font-size:0.62rem; color:var(--color-text-muted); margin:0 0 6px; }
 
-/* ── Summary Rail ─────────────────────────────────────────── */
-.summaryRail { display:flex; gap:8px; margin-bottom:16px; overflow-x:auto;
-  scrollbar-width:none; -ms-overflow-style:none; }
-.summaryRail::-webkit-scrollbar { display:none; }
-.summaryCard { flex:1; min-width:120px; padding:12px 14px;
-  background:var(--color-bg-elevated); border:1px solid rgba(0,0,0,0.06);
-  border-radius:10px; display:flex; flex-direction:column; gap:3px;
-  box-shadow:0 1px 3px rgba(0,0,0,0.03);
-  transition:border-color 0.12s, box-shadow 0.12s; }
-.summaryCard:hover { border-color:rgba(184,41,61,0.15); box-shadow:0 2px 6px rgba(0,0,0,0.05); }
-.summaryLabel { font-size:0.50rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.08em; color:var(--color-text-muted); }
-.summaryValue { font-size:0.90rem; font-weight:800; color:var(--color-text); line-height:1; }
-.summaryTeam { font-size:0.60rem; color:var(--color-text-muted); white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; }
-.sc_accent { color:#b8293d; }
-.sc_green { color:#1b6b4a; }
-.sc_amber { color:#a07020; }
+/* (Summary rail removed — folded into Model Insights) */
 
 /* ── AL / NL Two-Column Board ─────────────────────────────── */
 .leagueBoard {
@@ -232,6 +215,11 @@
   box-shadow:0 1px 2px rgba(0,0,0,0.03); }
 .card:hover { border-color:rgba(184,41,61,0.18); box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .cardOpen { border-color:rgba(184,41,61,0.28); box-shadow:0 2px 12px rgba(184,41,61,0.06); }
+.cardHighlight { animation: highlightPulse 2s ease-out; }
+@keyframes highlightPulse {
+  0% { box-shadow: 0 0 0 3px rgba(184,41,61,0.25); }
+  100% { box-shadow: 0 2px 12px rgba(184,41,61,0.06); }
+}
 
 /* Row — in AL/NL columns we need a more compact grid */
 .row {
@@ -293,7 +281,22 @@
 
 /* ── Expanded detail ──────────────────────────────────────── */
 .detail { padding:16px 16px 18px; border-top:1px solid rgba(0,0,0,0.05);
-  background:rgba(0,0,0,0.008); }
+  background:rgba(0,0,0,0.008);
+  animation: detailFadeIn 0.15s ease-out; }
+@keyframes detailFadeIn { from { opacity:0; } to { opacity:1; } }
+.detailSection { margin-bottom: 12px; }
+.detailSection:last-of-type { margin-bottom: 8px; }
+.detailSectionTitle {
+  font-size: 0.50rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--color-text-muted);
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .detailTop { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
 .tkRow { display:flex; flex-wrap:wrap; gap:6px 14px; }
 .tkItem { font-size:0.62rem; color:var(--color-text-secondary); }
@@ -341,8 +344,6 @@
   .detail { padding:12px 10px 14px; }
   .decompGrid { grid-template-columns:repeat(2, 1fr); }
   .methInputGrid { grid-template-columns:repeat(2, 1fr); }
-  .summaryRail { gap:5px; }
-  .summaryCard { min-width:100px; padding:10px 12px; }
 }
 
 @media (max-width:480px) {

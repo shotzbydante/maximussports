@@ -16,15 +16,15 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
   gap: 8px;
 }
 
 .card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 14px 12px;
+  gap: 5px;
+  padding: 12px 12px 10px;
   background: var(--color-bg-elevated);
   border: 1px solid rgba(0,0,0,0.06);
   border-radius: 10px;
@@ -32,6 +32,10 @@
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
 }
 
 .card::before {
@@ -45,19 +49,23 @@
 }
 
 .card:hover {
-  border-color: rgba(0,0,0,0.10);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
-  transform: translateY(-1px);
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
 }
 
-/* Color variants — top accent bar */
+.card:active { transform: translateY(0); }
+
+/* Color variants */
+.c_accent::before { background: linear-gradient(90deg, #b8293d, #d4606a); }
 .c_green::before { background: linear-gradient(90deg, #1b6b4a, #2d8a6e); }
 .c_red::before { background: linear-gradient(90deg, #b8293d, #d4606a); }
 .c_amber::before { background: linear-gradient(90deg, #a07020, #c49030); }
 .c_teal::before { background: linear-gradient(90deg, #1a8a7a, #2aaa9a); }
+.c_navy::before { background: linear-gradient(90deg, #002D72, #1a5a9a); }
 
 .cardLabel {
-  font-size: 0.52rem;
+  font-size: 0.50rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -67,13 +75,13 @@
 .cardTeam {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.cardLogo { width: 22px; height: 22px; object-fit: contain; border-radius: 2px; }
+.cardLogo { width: 20px; height: 20px; object-fit: contain; border-radius: 2px; }
 
 .cardName {
-  font-size: 0.74rem;
+  font-size: 0.70rem;
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
@@ -88,20 +96,22 @@
 }
 
 .cardMetricVal {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--color-text);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
+.c_accent .cardMetricVal { color: #b8293d; }
 .c_green .cardMetricVal { color: #1b6b4a; }
 .c_red .cardMetricVal { color: #b8293d; }
 .c_amber .cardMetricVal { color: #a07020; }
 .c_teal .cardMetricVal { color: #1a8a7a; }
+.c_navy .cardMetricVal { color: #002D72; }
 
 .cardMetricLbl {
-  font-size: 0.50rem;
+  font-size: 0.46rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -109,33 +119,34 @@
 }
 
 .cardDetail {
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   color: var(--color-text-secondary);
   line-height: 1.35;
 }
 
+.cardValueLean {
+  font-size: 0.46rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #002D72;
+  background: rgba(0,45,114,0.06);
+  padding: 2px 6px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
 .cardTag {
-  font-size: 0.48rem;
+  font-size: 0.44rem;
   font-weight: 600;
   color: var(--color-text-muted);
   font-style: italic;
 }
 
 /* ── Responsive ── */
-@media (max-width: 1000px) {
-  .grid { grid-template-columns: repeat(3, 1fr); }
-}
-
 @media (max-width: 600px) {
-  .grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
+  .grid { gap: 6px; }
   .card { padding: 10px 10px 8px; gap: 4px; }
-  .cardMetricVal { font-size: 0.95rem; }
-  .cardName { font-size: 0.66rem; }
-}
-
-@media (max-width: 400px) {
-  .grid { grid-template-columns: 1fr; }
+  .cardMetricVal { font-size: 0.90rem; }
+  .cardName { font-size: 0.64rem; }
 }
