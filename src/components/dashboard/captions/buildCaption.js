@@ -8,6 +8,7 @@
  */
 
 import { getTeamEmoji } from '../../../utils/getTeamEmoji';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import { getConfidenceLabel, getMaximusTake } from '../../../utils/confidenceSystem';
 import { TEAMS } from '../../../data/teams';
 import { isPostSelection } from '../../../utils/tournamentHelpers';
@@ -721,17 +722,21 @@ function buildGameCaption({ game, picks, asOf }) {
   const awayLabel = awayEmoji ? `${awayEmoji} ${awayShort}` : awayShort;
   const homeLabel = homeEmoji ? `${homeEmoji} ${homeShort}` : homeShort;
 
-  // Find picks ONLY for this specific game — prevents cross-game contamination
-  const gameAwaySlug = game?.awaySlug || game?.awayTeamSlug || null;
-  const gameHomeSlug = game?.homeSlug || game?.homeTeamSlug || null;
+  // Find picks ONLY for this specific game — strict slug + mascot matching
+  // This uses the same logic as GamePreviewSlide1's matchPickToGame
+  const gameAwaySlug = game?.awaySlug || game?.awayTeamSlug || getTeamSlug(away) || null;
+  const gameHomeSlug = game?.homeSlug || game?.homeTeamSlug || getTeamSlug(home) || null;
 
   const isPickForThisGame = (p) => {
     if (!p) return false;
+    // Method 1: Slug field match (most reliable)
+    if (gameAwaySlug && (p.homeSlug === gameAwaySlug || p.awaySlug === gameAwaySlug)) return true;
+    if (gameHomeSlug && (p.homeSlug === gameHomeSlug || p.awaySlug === gameHomeSlug)) return true;
+    // Method 2: Canonical slug from pickTeam
+    const pSlug = getTeamSlug(p.pickTeam || '');
+    if (pSlug && (pSlug === gameAwaySlug || pSlug === gameHomeSlug)) return true;
+    // Method 3: Mascot only (last word, 5+ chars — prevents Michigan/Michigan State collision)
     const pLine = (p.pickLine || p.matchup || p.pickTeam || '').toLowerCase();
-    // Slug match
-    if (gameAwaySlug && (p.homeSlug === gameAwaySlug || p.awaySlug === gameAwaySlug || p.homeTeamSlug === gameAwaySlug || p.awayTeamSlug === gameAwaySlug)) return true;
-    if (gameHomeSlug && (p.homeSlug === gameHomeSlug || p.awaySlug === gameHomeSlug || p.homeTeamSlug === gameHomeSlug || p.awayTeamSlug === gameHomeSlug)) return true;
-    // Strict mascot match (last word, 5+ chars)
     for (const name of [away, home]) {
       const words = name.toLowerCase().split(/\s+/);
       const mascot = words.length > 1 ? words[words.length - 1] : null;
@@ -740,8 +745,19 @@ function buildGameCaption({ game, picks, asOf }) {
     return false;
   };
 
-  const pe = picks?.find(p => (p.pickType === 'pe' || p.type === 'pe') && isPickForThisGame(p));
-  const ats = picks?.find(p => (p.pickType === 'ats' || p.type === 'ats') && isPickForThisGame(p));
+  // Use ALL pick types from buildMaximusPicks, not just the pre-sliced Dashboard array
+  let pe = picks?.find(p => (p.pickType === 'pe' || p.type === 'pe') && isPickForThisGame(p)) ?? null;
+  let ats = picks?.find(p => (p.pickType === 'ats' || p.type === 'ats') && isPickForThisGame(p)) ?? null;
+
+  // If no ATS found, derive from spread (same logic as slide's deriveAtsLean)
+  if (!ats && spreadNum != null && !isNaN(spreadNum)) {
+    const abs = Math.abs(spreadNum);
+    if (abs >= 2 && abs <= 12) {
+      const dog = spreadNum < 0 ? awayShort : homeShort;
+      const dogSpread = spreadNum < 0 ? ((-spreadNum) > 0 ? `+${-spreadNum}` : String(-spreadNum)) : (spreadNum > 0 ? `+${spreadNum}` : String(spreadNum));
+      ats = { pickLine: `${dog} ${dogSpread}`, _derived: true };
+    }
+  }
 
   // Dynamic hook — opens with "Matchup Intel" then team emojis
   let hook;
