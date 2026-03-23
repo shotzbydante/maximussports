@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════
-   WelcomeModal — 3-step onboarding carousel.
-   Air Force One design system (tokens.css + index.css).
+   WelcomeModal — 4-step product-led onboarding carousel.
+   Premium, mobile-first, conversion-optimized.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── Backdrop ───────────────────────────────────────────────────── */
@@ -60,10 +60,7 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
-
-.scroller::-webkit-scrollbar {
-  display: none;
-}
+.scroller::-webkit-scrollbar { display: none; }
 
 /* ─── Close button ───────────────────────────────────────────────── */
 
@@ -85,15 +82,8 @@
   transition: background var(--transition-fast, 0.12s ease);
   flex-shrink: 0;
 }
-
-.closeBtn:hover {
-  background: rgba(10, 18, 28, 0.82);
-}
-
-.closeBtn:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+.closeBtn:hover { background: rgba(10, 18, 28, 0.82); }
+.closeBtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ─── Step content wrapper ───────────────────────────────────────── */
 
@@ -106,50 +96,26 @@
   to   { opacity: 1; transform: translateY(0);   }
 }
 
-/* ─── Step 1: Video ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   Step 1: Hero
+   ═══════════════════════════════════════════════════════════════════ */
 
-.videoWrap {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: min(260px, 38vh);
-  background: #0d1a26;
-  overflow: hidden;
-  flex-shrink: 0;
-  position: relative;
+.heroVisual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(60, 121, 180, 0.08) 0%, transparent 60%);
+  padding: 28px 20px 16px;
 }
 
-.video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  opacity: 0;
-  transition: opacity 0.4s ease;
+.heroMascot {
+  width: 140px;
+  height: auto;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.25));
 }
-
-.videoLoaded .video {
-  opacity: 1;
-}
-
-.videoPoster {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 1;
-  transition: opacity 0.4s ease;
-}
-
-.videoLoaded .videoPoster {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ─── Step 1: Body ───────────────────────────────────────────────── */
 
 .body {
-  padding: 24px 28px 8px;
+  padding: 20px 28px 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -167,105 +133,149 @@
 
 .subtitle {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
-/* ─── Step 2: Showcase ───────────────────────────────────────────── */
+.subtitleSmall {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  font-style: italic;
+}
 
-.showcaseBody {
+/* ═══════════════════════════════════════════════════════════════════
+   Steps 2 & 3: Feature slides
+   ═══════════════════════════════════════════════════════════════════ */
+
+.featureBody {
   padding: 24px 24px 8px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.showcaseHeader {
+.featureHeader {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.showcaseEyebrow {
+.featureHeadline {
   margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.12;
+  letter-spacing: -0.005em;
 }
 
-.showcaseSubtitle {
+.featureSubtitle {
   margin: 0;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  line-height: 1.5;
+  font-size: 0.84rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
 }
 
-.featureCards {
+/* Product previews — 2-column grid */
+.featurePreviews {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
-.featureCard {
+.previewCard {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.featurePreviewWrap {
+.previewFrame {
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
-  transform: perspective(800px) rotateY(-2deg);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  border-top: 2px solid var(--color-primary);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(60, 121, 180, 0.10);
+  transition: box-shadow 0.2s;
+}
+.previewCard:hover .previewFrame {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
 }
 
-.featureCard:nth-child(2) .featurePreviewWrap {
-  transform: perspective(800px) rotateY(0deg);
-  border-top-color: var(--color-accent);
-}
-
-.featureCard:nth-child(3) .featurePreviewWrap {
-  transform: perspective(800px) rotateY(2deg);
-  border-top-color: var(--color-up, #2d8a6e);
-}
-
-.featureCard:hover .featurePreviewWrap {
-  transform: perspective(800px) rotateY(0deg) scale(1.02);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-}
-
-.featureLabel {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
+.previewLabel {
+  font-size: 0.76rem;
   font-weight: 600;
-  color: var(--color-text);
-  line-height: 1.2;
-}
-
-.featureSublabel {
-  margin: 0;
-  font-size: 0.72rem;
   color: var(--color-text-muted);
-  line-height: 1.45;
+  text-align: center;
 }
 
-/* ─── Step 3: Conversion ─────────────────────────────────────────── */
+/* Bullet list */
+.bulletList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-.conversionBody {
+.bullet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.bullet svg {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  opacity: 0.7;
+}
+
+/* Bracketology placeholder visual */
+.bracketVisual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.bracketPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(60, 121, 180, 0.06) 0%, rgba(60, 121, 180, 0.02) 100%);
+  border: 1.5px dashed rgba(60, 121, 180, 0.18);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.bracketPlaceholder svg {
+  width: 40px;
+  height: 40px;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Step 4: Conversion CTA
+   ═══════════════════════════════════════════════════════════════════ */
+
+.ctaBody {
   padding: 28px 28px 8px;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-.conversionHeadline {
+.ctaHeadline {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.6rem;
@@ -275,10 +285,17 @@
   letter-spacing: -0.005em;
 }
 
+.ctaSubtitle {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
 .valueProps {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .valueProp {
@@ -316,7 +333,7 @@
 
 .valuePropDesc {
   margin: 2px 0 0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
@@ -332,64 +349,43 @@
 
 .ctaPrimary {
   width: 100%;
-  padding: 13px 20px;
+  padding: 14px 20px;
   background: var(--color-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
   font-family: var(--font-sans);
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.3;
   cursor: pointer;
   transition: background var(--transition-fast, 0.12s ease), transform 0.1s;
 }
-
-.ctaPrimary:hover {
-  background: var(--color-primary-hover);
-}
-
-.ctaPrimary:active {
-  transform: scale(0.99);
-}
-
-.ctaPrimary:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 3px;
-}
+.ctaPrimary:hover { background: var(--color-primary-hover); }
+.ctaPrimary:active { transform: scale(0.99); }
+.ctaPrimary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
 
 .ctaSecondary {
   width: 100%;
   padding: 10px 20px;
   background: transparent;
   color: var(--color-text-muted);
-  border: 1px solid var(--color-border-light);
+  border: none;
   border-radius: 8px;
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
-  transition:
-    border-color var(--transition-fast, 0.12s ease),
-    color var(--transition-fast, 0.12s ease);
+  transition: color var(--transition-fast, 0.12s ease);
 }
-
-.ctaSecondary:hover {
-  border-color: var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.ctaSecondary:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+.ctaSecondary:hover { color: var(--color-text-secondary); }
+.ctaSecondary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .footerNote {
   margin: 0;
   font-size: 0.73rem;
   color: var(--color-text-muted);
   text-align: center;
-  font-style: italic;
   letter-spacing: 0.01em;
 }
 
@@ -404,16 +400,8 @@
   border-top: 1px solid var(--color-border-light);
 }
 
-.dotsWrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.dots {
-  display: flex;
-  gap: 8px;
-}
+.dotsWrap { display: flex; align-items: center; gap: 10px; }
+.dots { display: flex; gap: 8px; }
 
 .dot {
   width: 8px;
@@ -425,24 +413,10 @@
   cursor: pointer;
   transition: background var(--transition-fast, 0.12s ease), transform 0.15s;
 }
-
-.dot:hover {
-  background: var(--color-text-muted);
-}
-
-.dotActive {
-  background: var(--color-primary);
-  transform: scale(1.25);
-}
-
-.dotActive:hover {
-  background: var(--color-primary);
-}
-
-.dot:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+.dot:hover { background: var(--color-text-muted); }
+.dotActive { background: var(--color-primary); transform: scale(1.25); }
+.dotActive:hover { background: var(--color-primary); }
+.dot:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .stepCounter {
   font-family: var(--font-mono);
@@ -453,11 +427,7 @@
   opacity: 0.7;
 }
 
-.navActions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
+.navActions { display: flex; align-items: center; gap: 16px; }
 
 .navNext {
   padding: 8px 18px;
@@ -471,15 +441,8 @@
   cursor: pointer;
   transition: background var(--transition-fast, 0.12s ease);
 }
-
-.navNext:hover {
-  background: var(--color-primary-hover);
-}
-
-.navNext:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+.navNext:hover { background: var(--color-primary-hover); }
+.navNext:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .navSkip {
   padding: 0;
@@ -492,23 +455,13 @@
   cursor: pointer;
   transition: color var(--transition-fast, 0.12s ease);
 }
-
-.navSkip:hover {
-  color: var(--color-text-secondary);
-}
-
-.navSkip:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+.navSkip:hover { color: var(--color-text-secondary); }
+.navSkip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ─── Mobile — bottom sheet ──────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  .backdrop {
-    padding: 0;
-    align-items: flex-end;
-  }
+  .backdrop { padding: 0; align-items: flex-end; }
 
   .panel {
     border-radius: 20px 20px 0 0;
@@ -517,173 +470,42 @@
     max-height: 96dvh;
   }
 
-  .videoWrap {
-    max-height: min(200px, 30dvh);
-    border-radius: 0;
-  }
+  .heroVisual { padding: 20px 16px 12px; }
+  .heroMascot { width: 110px; }
 
-  .body {
-    padding: 16px 20px 6px;
-    gap: 8px;
-  }
+  .body { padding: 16px 20px 6px; gap: 8px; }
+  .headline { font-size: 1.4rem; }
+  .subtitle { font-size: 0.82rem; }
 
-  .headline {
-    font-size: 1.4rem;
-  }
+  .featureBody { padding: 18px 16px 6px; gap: 14px; }
+  .featureHeadline { font-size: 1.25rem; }
+  .featureSubtitle { font-size: 0.8rem; }
 
-  .subtitle {
-    font-size: 0.8rem;
-  }
+  .featurePreviews { grid-template-columns: 1fr; gap: 12px; }
+  .previewFrame { border-radius: 8px; }
 
-  /* ── Step 2: Vertical card stack on mobile ── */
+  .bracketVisual { padding: 14px; }
+  .bracketPlaceholder { padding: 24px 32px; }
 
-  .showcaseBody {
-    padding: 18px 16px 6px;
-    gap: 14px;
-  }
+  .ctaBody { padding: 20px 20px 6px; gap: 14px; }
+  .ctaHeadline { font-size: 1.35rem; }
 
-  .showcaseSubtitle {
-    font-size: 0.78rem;
-  }
-
-  .featureCards {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    overflow: visible;
-    scroll-snap-type: none;
-    padding-bottom: 0;
-  }
-
-  .featureCard {
-    display: grid;
-    grid-template-columns: 110px 1fr;
-    grid-template-rows: auto auto;
-    gap: 2px 14px;
-    min-width: unset;
-    scroll-snap-align: unset;
-    flex-shrink: unset;
-    align-items: center;
-    padding: 10px 12px;
-    background: var(--color-bg);
-    border: 1px solid rgba(60, 121, 180, 0.08);
-    border-radius: 10px;
-  }
-
-  .featurePreviewWrap {
-    grid-row: 1 / -1;
-    border-radius: 8px;
-    transform: none;
-    border-top: none;
-    border-left: 2px solid var(--color-primary);
-    min-height: 76px;
-  }
-
-  .featureCard:nth-child(2) .featurePreviewWrap {
-    transform: none;
-    border-top: none;
-    border-left-color: var(--color-accent);
-  }
-
-  .featureCard:nth-child(3) .featurePreviewWrap {
-    transform: none;
-    border-top: none;
-    border-left-color: var(--color-up, #2d8a6e);
-  }
-
-  .featureCard:hover .featurePreviewWrap {
-    transform: none;
-  }
-
-  .featureLabel {
-    align-self: end;
-    font-size: 0.86rem;
-    line-height: 1.25;
-  }
-
-  .featureSublabel {
-    align-self: start;
-    font-size: 0.73rem;
-    line-height: 1.45;
-  }
-
-  /* ── Step 3 mobile ── */
-
-  .conversionBody {
-    padding: 20px 20px 6px;
-    gap: 14px;
-  }
-
-  .conversionHeadline {
-    font-size: 1.35rem;
-  }
-
-  .valueProps {
-    gap: 12px;
-  }
-
-  .valuePropIcon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-  }
-
-  .valuePropTitle {
-    font-size: 0.84rem;
-  }
-
-  .valuePropDesc {
-    font-size: 0.76rem;
-  }
-
-  /* ── Nav footer mobile ── */
+  .valueProps { gap: 12px; }
+  .valuePropIcon { width: 32px; height: 32px; border-radius: 8px; }
+  .valuePropTitle { font-size: 0.84rem; }
+  .valuePropDesc { font-size: 0.76rem; }
 
   .navFooter {
     padding: 10px 20px 12px;
     padding-bottom: max(12px, calc(8px + env(safe-area-inset-bottom, 0px)));
   }
-
-  .dot {
-    width: 10px;
-    height: 10px;
-  }
-
-  .closeBtn {
-    top: 10px;
-    right: 10px;
-  }
+  .dot { width: 10px; height: 10px; }
+  .closeBtn { top: 10px; right: 10px; }
 }
 
 /* ─── Reduced motion ─────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .backdrop,
-  .panel,
-  .stepContent {
-    animation: none;
-  }
-
-  .closeBtn,
-  .ctaPrimary,
-  .ctaSecondary,
-  .video,
-  .videoPoster,
-  .dot,
-  .navNext,
-  .navSkip,
-  .featurePreviewWrap {
-    transition: none;
-  }
-
-  .video {
-    opacity: 1;
-  }
-
-  .featurePreviewWrap {
-    transform: none;
-  }
-
-  .featureCard:hover .featurePreviewWrap {
-    transform: none;
-  }
+  .backdrop, .panel, .stepContent { animation: none; }
+  .closeBtn, .ctaPrimary, .ctaSecondary, .dot, .navNext, .navSkip, .previewFrame { transition: none; }
 }
