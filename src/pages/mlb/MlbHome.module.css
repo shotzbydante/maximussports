@@ -220,8 +220,27 @@
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.68);
   line-height: 1.55;
-  margin: 0 0 20px;
+  margin: 0 0 14px;
   max-width: 540px;
+}
+
+.seasonPromoChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e8806b;
+  background: rgba(184, 41, 61, 0.14);
+  border: 1px solid rgba(184, 41, 61, 0.22);
+  padding: 4px 10px;
+  border-radius: 999px;
 }
 
 .seasonPromoCtas {
@@ -247,14 +266,9 @@
   letter-spacing: 0.01em;
 }
 
-.seasonPromoPrimary:hover:not(:disabled) {
+.seasonPromoPrimary:hover {
   background: #cc3349;
   transform: translateY(-1px);
-}
-
-.seasonPromoPrimary:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 .seasonPromoSecondary {
@@ -272,13 +286,8 @@
   transition: background 0.15s;
 }
 
-.seasonPromoSecondary:hover:not(:disabled) {
+.seasonPromoSecondary:hover {
   background: rgba(184, 41, 61, 0.25);
-}
-
-.seasonPromoSecondary:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 @media (max-width: 767px) {

@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import MlbLoading from '../../components/mlb/MlbLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
@@ -43,7 +44,7 @@ function fetchWithTimeout(url, opts = {}, timeoutMs = CLIENT_TIMEOUT_MS) {
 }
 
 export default function MlbHome() {
-  const { workspace } = useWorkspace();
+  const { workspace, buildPath } = useWorkspace();
 
   const alreadyShown = sessionStorage.getItem(SPLASH_KEY) === '1';
   const [showSplash, setShowSplash] = useState(!alreadyShown);
@@ -172,13 +173,19 @@ export default function MlbHome() {
             <p className={styles.seasonPromoBody}>
               Championship odds, projected wins, division outlooks, and postseason paths &mdash; powered by the Maximus model across all 30 teams.
             </p>
+            <div className={styles.seasonPromoChips}>
+              <span className={styles.chip}>Championship Odds</span>
+              <span className={styles.chip}>Projected Wins</span>
+              <span className={styles.chip}>Division Outlooks</span>
+              <span className={styles.chip}>Postseason Paths</span>
+            </div>
             <div className={styles.seasonPromoCtas}>
-              <button type="button" className={styles.seasonPromoPrimary} disabled>
+              <Link to={buildPath('/season-model')} className={styles.seasonPromoPrimary}>
                 View Season Model &rarr;
-              </button>
-              <button type="button" className={styles.seasonPromoSecondary} disabled>
+              </Link>
+              <Link to={buildPath('/compare')} className={styles.seasonPromoSecondary}>
                 Compare Teams
-              </button>
+              </Link>
             </div>
           </div>
         </div>

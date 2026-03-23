@@ -30,7 +30,9 @@ const MlbGames      = lazy(() => import('./pages/mlb/MlbGames'));
 const MlbTeams      = lazy(() => import('./pages/mlb/MlbTeams'));
 const MlbTeamDetail = lazy(() => import('./pages/mlb/MlbTeamDetail'));
 const MlbNewsFeed   = lazy(() => import('./pages/mlb/MlbNewsFeed'));
-const MlbPicks      = lazy(() => import('./pages/mlb/MlbPicks'));
+const MlbPicks        = lazy(() => import('./pages/mlb/MlbPicks'));
+const MlbSeasonModel  = lazy(() => import('./pages/mlb/MlbSeasonModel'));
+const MlbCompare      = lazy(() => import('./pages/mlb/MlbCompare'));
 
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
@@ -82,6 +84,8 @@ export default function App() {
                     <Route path="teams/:slug" element={<MlbTeamDetail />} />
                     <Route path="news" element={<MlbNewsFeed />} />
                     <Route path="insights" element={<MlbPicks />} />
+                    <Route path="season-model" element={<MlbSeasonModel />} />
+                    <Route path="compare" element={<MlbCompare />} />
                   </Route>
                 </Route>
                 <Route path="share/:id" element={<SharePage />} />
