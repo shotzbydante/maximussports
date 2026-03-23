@@ -6,9 +6,7 @@
 
 /* ── Hero ─────────────────────────────────────────────────── */
 
-.hero {
-  margin-bottom: var(--space-lg);
-}
+.hero { margin-bottom: var(--space-lg); }
 
 .heroInner {
   background: linear-gradient(135deg, #1a0a10 0%, #3d1520 50%, #2a1018 100%);
@@ -24,10 +22,8 @@
 .heroInner::before {
   content: '';
   position: absolute;
-  top: -40%;
-  right: -20%;
-  width: 60%;
-  height: 160%;
+  top: -40%; right: -20%;
+  width: 60%; height: 160%;
   background: radial-gradient(ellipse at center, rgba(184, 41, 61, 0.10) 0%, transparent 70%);
   pointer-events: none;
 }
@@ -40,202 +36,329 @@
   text-transform: uppercase;
   color: #e8806b;
   margin-bottom: 8px;
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 1;
 }
 
 .heroTitle {
-  font-size: clamp(1.4rem, 3.5vw, 1.8rem);
+  font-size: clamp(1.3rem, 3.5vw, 1.7rem);
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 10px;
   line-height: 1.2;
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 1;
 }
 
 .heroBody {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.62);
   line-height: 1.55;
-  margin: 0 0 18px;
-  max-width: 540px;
-  position: relative;
-  z-index: 1;
+  margin: 0;
+  max-width: 600px;
+  position: relative; z-index: 1;
 }
 
-.heroLink {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #e8806b;
-  text-decoration: none;
-  position: relative;
-  z-index: 1;
-  transition: color 0.15s;
+/* ── Controls ─────────────────────────────────────────────── */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 12px;
 }
 
-.heroLink:hover {
-  color: #f0a090;
-}
-
-/* ── Stat Cards ───────────────────────────────────────────── */
-
-.statGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: var(--space-lg);
-}
-
-.statCard {
+.controlGroup {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 4px;
+}
+
+.controlLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.pillRow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border-light);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.pill:hover {
+  border-color: rgba(184, 41, 61, 0.3);
+  color: var(--color-text);
+}
+
+.pillActive {
+  background: rgba(184, 41, 61, 0.12);
+  border-color: rgba(184, 41, 61, 0.35);
+  color: #b8293d;
+}
+
+.sortSelect {
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+.resultCount {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  margin: 0 0 8px;
+}
+
+/* ── Team List ────────────────────────────────────────────── */
+
+.teamList {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 24px 16px;
-  background: linear-gradient(160deg, #1a0f14 0%, #140a0e 100%);
-  border: 1px solid rgba(184, 41, 61, 0.18);
-  border-radius: var(--radius-card, 12px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12),
-              0 0 0 1px rgba(184, 41, 61, 0.06) inset;
-  position: relative;
+}
+
+.teamRow {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card, 10px);
   overflow: hidden;
+  transition: border-color 0.12s;
+}
+
+.teamRow:hover {
+  border-color: rgba(184, 41, 61, 0.22);
+}
+
+.teamMain {
+  display: grid;
+  grid-template-columns: 28px 1fr repeat(4, 72px) 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rank {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
-.statCard::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(184, 41, 61, 0.35), transparent);
-}
-
-.statLabel {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #e8806b;
-}
-
-.statValue {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.88);
-  line-height: 1;
-}
-
-.statSub {
-  font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.38);
-  letter-spacing: 0.02em;
-}
-
-/* ── Outlook Section ──────────────────────────────────────── */
-
-.outlookSection {
-  margin-bottom: var(--space-lg);
-}
-
-.outlookTitle {
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text);
-  margin: 0 0 14px;
-}
-
-.outlookGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-
-.outlookCard {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-card, 12px);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-}
-
-.outlookCardTitle {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #b8293d;
-  margin: 0 0 12px;
-}
-
-.outlookList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.outlookItem {
+.teamIdent {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
+  gap: 10px;
+  min-width: 0;
 }
 
-.outlookRank {
-  width: 20px;
-  height: 20px;
+.teamLogo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.teamLogoFallback {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.65rem;
   font-weight: 700;
-  color: rgba(184, 41, 61, 0.7);
-  background: rgba(184, 41, 61, 0.08);
-  border-radius: 50%;
+  color: var(--color-text-muted);
+  background: var(--color-bg-muted);
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
-.outlookName {
-  flex: 1;
-  color: var(--color-text-secondary);
-  font-weight: 500;
+.teamMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.outlookPlaceholder {
-  font-size: 0.75rem;
+.teamName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.12s;
+}
+
+.teamName:hover {
+  color: #b8293d;
+}
+
+.teamDiv {
+  font-size: 0.62rem;
   color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ── Stat blocks ──────────────────────────────────────────── */
+
+.statBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.statHero {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.statVal {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  line-height: 1;
+}
+
+.statCaption {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.deltaPos { color: #2d8a6e; }
+.deltaNeg { color: #c45c4a; }
+
+.expandIcon {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  transition: transform 0.2s;
+  text-align: center;
+}
+
+.expandOpen {
+  transform: rotate(180deg);
+}
+
+/* ── Expanded Detail ──────────────────────────────────────── */
+
+.teamDetail {
+  padding: 0 18px 16px;
+  border-top: 1px solid var(--color-border-light);
+  animation: slideDown 0.2s ease-out;
+}
+
+.detailStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.detailStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detailLabel {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.detailValue {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.rationale {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 0;
+  padding-top: 4px;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 600px; }
 }
 
 /* ── Responsive ───────────────────────────────────────────── */
 
-@media (max-width: 767px) {
-  .statGrid {
-    grid-template-columns: repeat(2, 1fr);
+.hideOnMobile {}
+
+@media (max-width: 700px) {
+  .teamMain {
+    grid-template-columns: 24px 1fr repeat(2, 60px) 20px;
+    padding: 12px 14px;
   }
-  .outlookGrid {
-    grid-template-columns: 1fr;
+  .hideOnMobile {
+    display: none;
+  }
+  .teamLogo {
+    width: 30px;
+    height: 30px;
+  }
+  .teamName {
+    font-size: 0.78rem;
+  }
+  .statHero {
+    font-size: 1.1rem;
+  }
+  .controls {
+    gap: 10px;
+  }
+  .detailStats {
+    gap: 10px;
   }
 }
 
 @media (max-width: 480px) {
-  .statGrid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+  .teamMain {
+    grid-template-columns: 20px 1fr 52px 52px 18px;
+    gap: 6px;
+    padding: 10px 12px;
   }
-  .statCard {
-    padding: 18px 12px;
-  }
-  .statValue {
-    font-size: 1.4rem;
+  .pill {
+    padding: 4px 8px;
+    font-size: 0.65rem;
   }
 }
