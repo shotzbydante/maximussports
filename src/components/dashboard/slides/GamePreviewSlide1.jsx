@@ -26,7 +26,7 @@ function pickToTier(pick) {
   return TIERS.tossUp;
 }
 
-/* ── Tournament round — uses GAME DATE ────────────────────────────────── */
+/* ── Tournament round ─────────────────────────────────────────────────── */
 
 function inferGameRound(gameTime, awaySeedVal, homeSeedVal) {
   if (gameTime) {
@@ -57,6 +57,43 @@ function getTeamAtsDisplay(slug) {
   } catch { return null; }
 }
 
+/* ── Robust pick matching — uses slug comparison, not substring ───────── */
+
+function matchPickToGame(pick, awaySlug, homeSlug, awayTeam, homeTeam) {
+  if (!pick) return false;
+  const line = (pick.pickLine || pick.matchup || '').toLowerCase();
+  const pickTeamField = (pick.pickTeam || '').toLowerCase();
+  const homeSlugField = (pick.homeSlug || pick.homeTeamSlug || '').toLowerCase();
+  const awaySlugField = (pick.awaySlug || pick.awayTeamSlug || '').toLowerCase();
+
+  // Method 1: slug match on pick's team fields
+  if (awaySlug && (awaySlugField === awaySlug || homeSlugField === awaySlug)) return true;
+  if (homeSlug && (awaySlugField === homeSlug || homeSlugField === homeSlug)) return true;
+
+  // Method 2: slug match via getTeamSlug on pickLine text
+  if (awaySlug) {
+    const lineSlug = getTeamSlug(pick.pickTeam || pick.homeTeam || pick.awayTeam || '');
+    if (lineSlug === awaySlug || lineSlug === homeSlug) return true;
+  }
+
+  // Method 3: substring match — try multiple fragments, not just last word
+  const fragments = [];
+  for (const name of [awayTeam, homeTeam]) {
+    if (!name) continue;
+    const words = name.toLowerCase().split(/\s+/);
+    // Add last word (mascot), first word (city/school), and 2-word combos
+    if (words.length > 0) fragments.push(words[words.length - 1]);
+    if (words.length > 1) fragments.push(words[0]);
+    if (words.length >= 2) fragments.push(words.slice(0, 2).join(' '));
+  }
+
+  for (const frag of fragments) {
+    if (frag.length >= 4 && (line.includes(frag) || pickTeamField.includes(frag))) return true;
+  }
+
+  return false;
+}
+
 /* ── Force O/U lean ───────────────────────────────────────────────────── */
 
 function deriveOuLean(totalsPick, game, spreadNum) {
@@ -66,15 +103,15 @@ function deriveOuLean(totalsPick, game, spreadNum) {
   const total = game?.total ?? game?.overUnder ?? null;
   if (total == null || isNaN(parseFloat(total))) return null;
   if (spreadNum != null && !isNaN(spreadNum)) {
-    if (Math.abs(spreadNum) >= 8) return { direction: 'Over', confidence: 0, reason: 'Large spread suggests the favorite pushes pace.' };
-    if (Math.abs(spreadNum) <= 2.5) return { direction: 'Under', confidence: 0, reason: 'Tight spread signals a grinding, defensive game.' };
+    if (Math.abs(spreadNum) >= 8) return { direction: 'Over', confidence: 0, reason: 'Large spread suggests the favorite pushes pace and runs up the score.' };
+    if (Math.abs(spreadNum) <= 2.5) return { direction: 'Under', confidence: 0, reason: 'Tight spread and slower-game indicators point to fewer clean scoring runs.' };
   }
-  return { direction: 'Under', confidence: 0, reason: 'Tournament pace and pressure lean toward the under.' };
+  return { direction: 'Under', confidence: 0, reason: 'Tournament pressure and half-court pace lean slightly toward the under.' };
 }
 
 /* ── Force ATS lean ───────────────────────────────────────────────────── */
 
-function deriveAtsLean(atsPick, game, homeSpreadNum, homeTeam, awayTeam) {
+function deriveAtsLean(atsPick, homeSpreadNum, homeTeam, awayTeam) {
   if (atsPick?.pickLine) return atsPick;
   if (homeSpreadNum == null || isNaN(homeSpreadNum)) return null;
   const abs = Math.abs(homeSpreadNum);
@@ -88,66 +125,86 @@ function deriveAtsLean(atsPick, game, homeSpreadNum, homeTeam, awayTeam) {
   return null;
 }
 
-/* ── Per-column micro-intel ───────────────────────────────────────────── */
+/* ── Per-column micro-intel — DEEPER rationale ────────────────────────── */
 
 function buildMicroIntel({ pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam, homeTeam }) {
   const awayShort = awayTeam?.split(' ').pop() || 'Away';
   const homeShort = homeTeam?.split(' ').pop() || 'Home';
+  const abs = homeSpreadNum != null ? Math.abs(homeSpreadNum) : null;
+  const fav = homeSpreadNum != null ? (homeSpreadNum < 0 ? homeShort : awayShort) : null;
 
+  // Pick Em — deeper reasoning
   let peIntel = null;
   if (pickEmPick?.pickTeam) {
     const ps = pickEmPick.pickTeam.split(' ').pop() || pickEmPick.pickTeam;
-    if (pickEmPick.confidence >= 2) peIntel = `Strong composite signal favors ${ps}.`;
-    else if (pickEmPick.confidence >= 1) peIntel = `Efficiency + market inputs lean ${ps}.`;
-    else peIntel = `Thin edge toward ${ps}. Proceed cautiously.`;
-  } else if (homeSpreadNum != null) {
-    peIntel = `${homeSpreadNum < 0 ? homeShort : awayShort} favored by market. No model separation.`;
+    if (pickEmPick.confidence >= 2) {
+      peIntel = `Model and market align on ${ps}. High composite signal across ranking, efficiency, and ATS profile.`;
+    } else if (pickEmPick.confidence >= 1) {
+      peIntel = `Efficiency + market inputs lean ${ps}. Moderate edge above model threshold.`;
+    } else {
+      peIntel = `Thin edge toward ${ps}. Win probability sits near model fair value.`;
+    }
+  } else if (fav) {
+    peIntel = `Model and market both lean ${fav}, with no meaningful separation in win probability.`;
   }
 
+  // ATS — deeper reasoning
   let atsIntel = null;
   if (atsPick?.pickLine) {
-    if (atsPick._derived) atsIntel = 'Tournament underdog cover tendency. Low-conviction lean.';
-    else {
+    if (atsPick._derived) {
+      atsIntel = 'Spread sits near model fair value, with no clear cover edge after price adjustment.';
+    } else {
       const edge = atsPick.atsEdge != null ? (Math.abs(atsPick.atsEdge) * 100).toFixed(0) : null;
-      atsIntel = (edge && parseInt(edge) > 10) ? `${edge}% model edge vs market number.` : 'Spread analysis and cover profile support this lean.';
+      if (edge && parseInt(edge) > 12) {
+        atsIntel = `${edge}% ATS edge — well above qualified threshold. Cover profile and market price both support.`;
+      } else if (edge && parseInt(edge) > 8) {
+        atsIntel = `Moderate ${edge}% edge. Spread analysis and historical cover profile favor this side.`;
+      } else {
+        atsIntel = 'Spread analysis and cover profile offer a marginal lean. Proceed with standard sizing.';
+      }
     }
-  } else if (homeSpreadNum != null) {
-    const abs = Math.abs(homeSpreadNum);
-    if (abs >= 10) atsIntel = 'Double-digit spread — hard to cover either side.';
-    else if (abs <= 3) atsIntel = 'Pick-em range. No reliable cover direction.';
-    else atsIntel = 'Mid-range spread. Insufficient edge for a qualified lean.';
+  } else if (abs != null) {
+    if (abs >= 10) atsIntel = 'Double-digit spread compresses cover value on both sides. No qualified edge.';
+    else if (abs <= 3) atsIntel = 'Pick-em range. No reliable cover direction after price adjustment.';
+    else atsIntel = 'Spread sits near model fair value, with no clear cover edge after price adjustment.';
   }
 
-  return { peIntel, atsIntel, ouIntel: ouLean?.reason || null };
+  // O/U — deeper reasoning
+  let ouIntel = null;
+  if (ouLean?.reason) {
+    ouIntel = ouLean.reason;
+  }
+
+  return { peIntel, atsIntel, ouIntel };
 }
 
-/* ── Icons — premium glass circles ────────────────────────────────────── */
+/* ── Icons ────────────────────────────────────────────────────────────── */
 
 function PickEmIcon() {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" className={styles.pickIcon}>
-      <circle cx="18" cy="18" r="16" stroke="rgba(168,208,240,0.35)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
-      <path d="M11 18.5L15.5 23L25 13" stroke="rgba(168,208,240,0.75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" className={styles.pickIcon}>
+      <circle cx="19" cy="19" r="17" stroke="rgba(168,208,240,0.38)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
+      <path d="M12 19.5L16 23.5L26 13" stroke="rgba(168,208,240,0.78)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function AtsIcon() {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" className={styles.pickIcon}>
-      <circle cx="18" cy="18" r="16" stroke="rgba(168,208,240,0.35)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
-      <path d="M9 23L15 14L20 19L27 11" stroke="rgba(168,208,240,0.75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" className={styles.pickIcon}>
+      <circle cx="19" cy="19" r="17" stroke="rgba(168,208,240,0.38)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
+      <path d="M9 24L15 15L21 20L29 12" stroke="rgba(168,208,240,0.78)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function OuIcon() {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" className={styles.pickIcon}>
-      <circle cx="18" cy="18" r="16" stroke="rgba(168,208,240,0.35)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
-      <rect x="11" y="20" width="4" height="5" rx="1" fill="rgba(168,208,240,0.50)" />
-      <rect x="16" y="15" width="4" height="10" rx="1" fill="rgba(168,208,240,0.60)" />
-      <rect x="21" y="11" width="4" height="14" rx="1" fill="rgba(168,208,240,0.75)" />
+    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" className={styles.pickIcon}>
+      <circle cx="19" cy="19" r="17" stroke="rgba(168,208,240,0.38)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
+      <rect x="11" y="21" width="4.5" height="6" rx="1" fill="rgba(168,208,240,0.50)" />
+      <rect x="16.75" y="16" width="4.5" height="11" rx="1" fill="rgba(168,208,240,0.62)" />
+      <rect x="22.5" y="11" width="4.5" height="16" rx="1" fill="rgba(168,208,240,0.78)" />
     </svg>
   );
 }
@@ -194,7 +251,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const ml = game.moneyline ?? game.ml ?? null;
   const total = game.total ?? game.overUnder ?? null;
   const gameTime = game.time || game.startTime || game.commenceTime || null;
-  const network = game.network || game.broadcast || null;
 
   let awayML = null;
   let homeML = null;
@@ -219,16 +275,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const awayAts = getTeamAtsDisplay(awaySlug);
   const homeAts = getTeamAtsDisplay(homeSlug);
 
-  let dateStr = null;
-  let timeStr = null;
-  if (gameTime) {
-    try {
-      const d = new Date(gameTime);
-      dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }) + ' PT';
-    } catch { /* ignore */ }
-  }
-
+  // Picks — using robust slug-based matching
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const games = data?.odds?.games ?? [];
   let pickEmPick = null;
@@ -236,18 +283,13 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   let totalsPick = null;
   try {
     const picks = buildMaximusPicks({ games, atsLeaders });
-    const matchFn = (p) => {
-      const line = (p.pickLine || p.matchup || '').toLowerCase();
-      const aw = (awayTeam || '').toLowerCase().split(' ').pop() || '';
-      const hm = (homeTeam || '').toLowerCase().split(' ').pop() || '';
-      return (aw && line.includes(aw)) || (hm && line.includes(hm));
-    };
+    const matchFn = (p) => matchPickToGame(p, awaySlug, homeSlug, awayTeam, homeTeam);
     pickEmPick = (picks.pickEmPicks ?? []).find(matchFn) ?? null;
     rawAtsPick = (picks.atsPicks ?? []).find(matchFn) ?? null;
     totalsPick = (picks.totalsPicks ?? []).find(matchFn) ?? null;
   } catch { /* graceful */ }
 
-  const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, game, homeSpreadNum, homeTeam, awayTeam);
+  const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, homeSpreadNum, homeTeam, awayTeam);
   const pickEmTier = pickToTier(pickEmPick);
   const atsTier = atsPick ? (pickToTier(atsPick) || TIERS.tossUp) : null;
   const ouLean = deriveOuLean(totalsPick, game, homeSpreadNum);
@@ -262,23 +304,17 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       <div className={styles.glowAway} style={{ background: `radial-gradient(ellipse at 0% 38%, ${awayColor}30 0%, transparent 55%)` }} />
       <div className={styles.glowHome} style={{ background: `radial-gradient(ellipse at 100% 38%, ${homeColor}30 0%, transparent 55%)` }} />
 
-      {/* Header — MATCHUP INTEL as hero title */}
+      {/* Hero header — MATCHUP INTEL + mascot, then round badge */}
       <div className={styles.header}>
-        <h2 className={styles.heroTitle}>MATCHUP INTEL</h2>
-        <div className={styles.roundRow}>
-          {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
+        <div className={styles.heroRow}>
+          <h2 className={styles.heroTitle}>MATCHUP INTEL</h2>
           <img src="/mascot.png" alt="" className={styles.heroMascot} crossOrigin="anonymous" />
         </div>
-        <div className={styles.metaRow}>
-          {dateStr && <span className={styles.metaItem}>{dateStr}</span>}
-          {timeStr && <><span className={styles.metaDot}>·</span><span className={styles.metaItem}>{timeStr}</span></>}
-          {network && <span className={styles.netChip}>{network}</span>}
-        </div>
+        {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
       </div>
 
       {/* H2H */}
       <div className={styles.h2h}>
-        {/* Away panel */}
         <div className={styles.panel} style={{ borderColor: `${awayColor}48`, background: `linear-gradient(155deg, ${awayColor}1E 0%, ${awayColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0C, 0 0 28px ${awayColor}12` }}>
           <div className={styles.logoWrap}>
             <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}5C 0%, transparent 55%)` }} />
@@ -307,7 +343,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           <div className={styles.sideTag}>AWAY</div>
         </div>
 
-        {/* Center VS + Total */}
         <div className={styles.center}>
           <div className={styles.vsRing}>VS</div>
           <div className={styles.totalCard}>
@@ -316,7 +351,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           </div>
         </div>
 
-        {/* Home panel */}
         <div className={styles.panel} style={{ borderColor: `${homeColor}48`, background: `linear-gradient(205deg, ${homeColor}1E 0%, ${homeColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0C, 0 0 28px ${homeColor}12` }}>
           <div className={styles.logoWrap}>
             <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}5C 0%, transparent 55%)` }} />
@@ -346,7 +380,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
         </div>
       </div>
 
-      {/* MAXIMUS'S PICKS — enlarged intelligence panel */}
+      {/* MAXIMUS'S PICKS */}
       <div className={styles.intel}>
         <div className={styles.intelTitle}>MAXIMUS&apos;S PICKS</div>
         <div className={styles.picksCols}>
