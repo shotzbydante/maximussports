@@ -180,6 +180,14 @@
   line-height: 1.55;
 }
 
+.featureSupport {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  font-style: italic;
+}
+
 /* Product previews — 2-column grid */
 .featurePreviews {
   display: grid;
@@ -209,6 +217,14 @@
   font-weight: 600;
   color: var(--color-text-muted);
   text-align: center;
+}
+
+/* Product screenshot image — fits within preview frames */
+.productImg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
 }
 
 /* Bullet list */
@@ -380,6 +396,15 @@
 }
 .ctaSecondary:hover { color: var(--color-text-secondary); }
 .ctaSecondary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.ctaMicro {
+  margin: -4px 0 0;
+  font-size: 0.76rem;
+  color: var(--color-primary);
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.4;
+}
 
 .footerNote {
   margin: 0;

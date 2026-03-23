@@ -1,20 +1,16 @@
 /**
  * WelcomeModal — 4-step product-led onboarding for first-time visitors.
+ * v2: conversion-optimized copy, real product screenshots, stronger CTAs.
  *
  * Step 1: Hero — "Own the Board" + product positioning
- * Step 2: Team Intel + Picks showcase
- * Step 3: Bracketology showcase
+ * Step 2: Team Intel + Picks showcase (product screenshots)
+ * Step 3: Bracketology showcase (product screenshot)
  * Step 4: Personalization + conversion CTA
  *
- * Preserves:
- *   - Portal rendering (bypasses ancestor stacking contexts)
- *   - Focus management with restore-on-close
- *   - Escape key close
- *   - ARIA dialog attributes
- *   - Reduced motion handling
- *   - iOS-safe scroll locking
- *   - Mobile bottom-sheet layout
- *   - Swipe gestures + arrow key nav
+ * Image strategy:
+ *   - Each slide references a product screenshot in /onboarding/
+ *   - Falls back to preview components or placeholders if images not yet placed
+ *   - Easy to swap: just drop new PNGs into public/onboarding/
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -33,11 +29,16 @@ import styles from './WelcomeModal.module.css';
 const TOTAL_STEPS = 4;
 const SWIPE_THRESHOLD = 50;
 
-/* ── Icons ─────────────────────────────────────────────────────────────── */
+/* ── Product screenshot paths (easy to swap) ───────────────────────── */
+const HERO_TEAM_INTEL = '/onboarding/team-intel.png';
+const HERO_PICKS = '/onboarding/picks.png';
+const HERO_BRACKET = '/onboarding/bracketology.png';
+
+/* ── Icons ─────────────────────────────────────────────────────────── */
 
 function TargetIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
     </svg>
   );
@@ -45,7 +46,7 @@ function TargetIcon() {
 
 function ChartIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 3v18h18" /><path d="M7 16l4-8 4 4 5-9" />
     </svg>
   );
@@ -53,7 +54,7 @@ function ChartIcon() {
 
 function BracketIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 4v4h4" /><path d="M4 8l4 4" /><path d="M4 20v-4h4" /><path d="M4 16l4-4" /><path d="M12 12h4" /><path d="M20 4v16" />
     </svg>
   );
@@ -61,7 +62,7 @@ function BracketIcon() {
 
 function PersonIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
     </svg>
   );
@@ -69,7 +70,7 @@ function PersonIcon() {
 
 function MailIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="2" y="4" width="20" height="16" rx="2" /><path d="M22 7l-10 7L2 7" />
     </svg>
   );
@@ -77,13 +78,29 @@ function MailIcon() {
 
 function StarIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
     </svg>
   );
 }
 
-/* ── Component ─────────────────────────────────────────────────────────── */
+/* ── ProductImage: shows screenshot or falls back to children ─────── */
+
+function ProductImage({ src, alt, children }) {
+  const [failed, setFailed] = useState(false);
+  if (failed && children) return children;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={styles.productImg}
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/* ── Main component ────────────────────────────────────────────────── */
 
 export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
   const closeBtnRef  = useRef(null);
@@ -127,7 +144,6 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     onClose?.();
   }, [step, onClose]);
 
-  // Track step views (fire once per step per modal open)
   useEffect(() => {
     if (!open) return;
     if (trackedStepsRef.current.has(step)) return;
@@ -135,7 +151,6 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     trackWelcomeModalViewed({ step });
   }, [open, step]);
 
-  // Focus management
   useEffect(() => {
     if (open) {
       prevFocusRef.current = document.activeElement;
@@ -147,40 +162,30 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     }
   }, [open]);
 
-  // Keyboard: Escape + Arrow keys
   const handleKeyDown = useCallback(
     (e) => {
-      if (e.key === 'Escape') {
-        trackWelcomeModalClosed({ step, method: 'escape' });
-        onClose?.();
-      }
+      if (e.key === 'Escape') { trackWelcomeModalClosed({ step, method: 'escape' }); onClose?.(); }
       if (e.key === 'ArrowRight' && step < TOTAL_STEPS) goTo(step + 1, step);
       if (e.key === 'ArrowLeft' && step > 1) goTo(step - 1, step);
     },
     [onClose, step, goTo],
   );
 
-  // Scroll lock + keyboard listener
   useEffect(() => {
     if (!open) return;
     document.addEventListener('keydown', handleKeyDown);
     const scrollY = window.scrollY;
     const { body } = document;
-    body.style.overflow  = 'hidden';
-    body.style.position  = 'fixed';
-    body.style.top       = `-${scrollY}px`;
-    body.style.width     = '100%';
+    body.style.overflow = 'hidden'; body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`; body.style.width = '100%';
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      body.style.overflow  = '';
-      body.style.position  = '';
-      body.style.top       = '';
-      body.style.width     = '';
+      body.style.overflow = ''; body.style.position = '';
+      body.style.top = ''; body.style.width = '';
       window.scrollTo(0, scrollY);
     };
   }, [open, handleKeyDown]);
 
-  // Reset state on open — use requestAnimationFrame to avoid sync setState in effect body
   useEffect(() => {
     if (open) {
       const id = requestAnimationFrame(() => {
@@ -191,21 +196,14 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
     }
   }, [open]);
 
-  // Touch / swipe
-  const handleTouchStart = useCallback((e) => {
-    touchXRef.current    = e.targetTouches[0].clientX;
-    touchEndXRef.current = null;
-  }, []);
-  const handleTouchMove = useCallback((e) => {
-    touchEndXRef.current = e.targetTouches[0].clientX;
-  }, []);
+  const handleTouchStart = useCallback((e) => { touchXRef.current = e.targetTouches[0].clientX; touchEndXRef.current = null; }, []);
+  const handleTouchMove = useCallback((e) => { touchEndXRef.current = e.targetTouches[0].clientX; }, []);
   const handleTouchEnd = useCallback(() => {
     if (touchXRef.current == null || touchEndXRef.current == null) return;
     const diff = touchXRef.current - touchEndXRef.current;
     if (diff > SWIPE_THRESHOLD && step < TOTAL_STEPS) goTo(step + 1, step);
     else if (diff < -SWIPE_THRESHOLD && step > 1) goTo(step - 1, step);
-    touchXRef.current    = null;
-    touchEndXRef.current = null;
+    touchXRef.current = null; touchEndXRef.current = null;
   }, [step, goTo]);
 
   if (!open) return null;
@@ -218,19 +216,8 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
       aria-label="Welcome to Maximus Sports"
       onClick={(e) => { if (e.target === e.currentTarget) handleBackdropClose(); }}
     >
-      <div
-        className={styles.panel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <button
-          ref={closeBtnRef}
-          type="button"
-          className={styles.closeBtn}
-          aria-label="Close welcome modal"
-          onClick={handleCloseBtn}
-        >
+      <div className={styles.panel} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+        <button ref={closeBtnRef} type="button" className={styles.closeBtn} aria-label="Close" onClick={handleCloseBtn}>
           <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
@@ -238,21 +225,16 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
 
         <div className={styles.scroller}>
 
-          {/* ── Step 1: Hero ── */}
+          {/* ════ Step 1: Hero ════ */}
           {step === 1 && (
-            <div className={styles.stepContent} aria-label="Step 1 of 4: Product introduction">
+            <div className={styles.stepContent} aria-label="Step 1 of 4">
               <div className={styles.heroVisual}>
-                <img
-                  src="/mascot.png"
-                  alt="Maximus Sports mascot"
-                  className={styles.heroMascot}
-                  loading="eager"
-                />
+                <img src="/mascot.png" alt="" className={styles.heroMascot} loading="eager" />
               </div>
               <div className={styles.body}>
                 <h2 className={styles.headline}>Own the Board</h2>
                 <p className={styles.subtitle}>
-                  Real-time college basketball intelligence — picks, team trends, and matchup edges, all in one place.
+                  Picks, team intel, and matchup edges — all in one place.
                 </p>
                 <p className={styles.subtitleSmall}>
                   Built for fans who want more than scores.
@@ -261,56 +243,68 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             </div>
           )}
 
-          {/* ── Step 2: Team Intel + Picks ── */}
+          {/* ════ Step 2: Team Intel + Picks ════ */}
           {step === 2 && (
-            <div className={styles.stepContent} aria-label="Step 2 of 4: Team Intel and Picks">
+            <div className={styles.stepContent} aria-label="Step 2 of 4">
               <div className={styles.featureBody}>
                 <div className={styles.featureHeader}>
                   <h2 className={styles.featureHeadline}>See the Game Before It Happens</h2>
                   <p className={styles.featureSubtitle}>
-                    Track every matchup with Team Intel, ATS trends, and Maximus&#8217;s AI-powered picks.
+                    Track every matchup with Team Intel, ATS trends, and AI-powered picks.
+                  </p>
+                  <p className={styles.featureSupport}>
+                    Know who&#8217;s trending, who&#8217;s overvalued, and where the edge is before tip-off.
                   </p>
                 </div>
 
                 <div className={styles.featurePreviews}>
                   <div className={styles.previewCard}>
                     <div className={styles.previewFrame}>
-                      <TeamIntelPreview />
+                      <ProductImage src={HERO_TEAM_INTEL} alt="Team Intel Hub">
+                        <TeamIntelPreview />
+                      </ProductImage>
                     </div>
                     <span className={styles.previewLabel}>Team Intel Hub</span>
                   </div>
                   <div className={styles.previewCard}>
                     <div className={styles.previewFrame}>
-                      <AIPicksPreview />
+                      <ProductImage src={HERO_PICKS} alt="Maximus's Picks">
+                        <AIPicksPreview />
+                      </ProductImage>
                     </div>
-                    <span className={styles.previewLabel}>AI-Powered Picks</span>
+                    <span className={styles.previewLabel}>Maximus&#8217;s Picks</span>
                   </div>
                 </div>
 
                 <ul className={styles.bulletList}>
                   <li className={styles.bullet}><TargetIcon /><span>Matchup breakdowns and edge signals</span></li>
-                  <li className={styles.bullet}><ChartIcon /><span>Pick Em, ATS, and totals — all in one view</span></li>
+                  <li className={styles.bullet}><ChartIcon /><span>Pick Em, ATS, and totals in one view</span></li>
                 </ul>
               </div>
             </div>
           )}
 
-          {/* ── Step 3: Bracketology ── */}
+          {/* ════ Step 3: Bracketology ════ */}
           {step === 3 && (
-            <div className={styles.stepContent} aria-label="Step 3 of 4: Bracketology">
+            <div className={styles.stepContent} aria-label="Step 3 of 4">
               <div className={styles.featureBody}>
                 <div className={styles.featureHeader}>
                   <h2 className={styles.featureHeadline}>Build Smarter Brackets</h2>
                   <p className={styles.featureSubtitle}>
                     Use Maximus projections to build, compare, and stress-test your bracket.
                   </p>
+                  <p className={styles.featureSupport}>
+                    Spot upset opportunities early and see how your bracket stacks up before lock.
+                  </p>
                 </div>
 
                 <div className={styles.bracketVisual}>
-                  <div className={styles.bracketPlaceholder}>
-                    <BracketIcon />
-                    <span>Bracketology</span>
-                  </div>
+                  <ProductImage src={HERO_BRACKET} alt="Bracketology">
+                    <div className={styles.bracketPlaceholder}>
+                      <BracketIcon />
+                      <span>Bracketology</span>
+                    </div>
+                  </ProductImage>
                 </div>
 
                 <ul className={styles.bulletList}>
@@ -322,9 +316,9 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             </div>
           )}
 
-          {/* ── Step 4: Personalization + CTA ── */}
+          {/* ════ Step 4: Personalization + CTA ════ */}
           {step === 4 && (
-            <div className={styles.stepContent} aria-label="Step 4 of 4: Get started">
+            <div className={styles.stepContent} aria-label="Step 4 of 4">
               <div className={styles.ctaBody}>
                 <h2 className={styles.ctaHeadline}>Make It Yours</h2>
                 <p className={styles.ctaSubtitle}>
@@ -359,11 +353,14 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                   <button type="button" className={styles.ctaPrimary} onClick={handleSignup}>
                     Create Free Account
                   </button>
+                  <p className={styles.ctaMicro}>
+                    Your edge starts the moment you sign up.
+                  </p>
                   <button type="button" className={styles.ctaSecondary} onClick={handleExplore}>
                     Skip for now
                   </button>
                 </div>
-                <p className={styles.footerNote}>Free to start. Takes less than 30 seconds.</p>
+                <p className={styles.footerNote}>Free to start. No spam. Just smarter sports intel.</p>
               </div>
             </div>
           )}
@@ -375,15 +372,8 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
           <div className={styles.dotsWrap}>
             <div className={styles.dots} role="tablist" aria-label="Onboarding steps">
               {[1, 2, 3, 4].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  role="tab"
-                  className={`${styles.dot} ${step === n ? styles.dotActive : ''}`}
-                  onClick={() => goTo(n, step)}
-                  aria-label={`Step ${n}`}
-                  aria-selected={step === n}
-                />
+                <button key={n} type="button" role="tab" className={`${styles.dot} ${step === n ? styles.dotActive : ''}`}
+                  onClick={() => goTo(n, step)} aria-label={`Step ${n}`} aria-selected={step === n} />
               ))}
             </div>
             <span className={styles.stepCounter}>{step}/{TOTAL_STEPS}</span>
