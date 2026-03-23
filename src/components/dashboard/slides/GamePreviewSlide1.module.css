@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
-   GamePreviewSlide1 — NCAAM Matchup Intelligence Card v10
-   1080×1350 IG. Hero MATCHUP INTEL. Slug-matched picks.
+   GamePreviewSlide1 — NCAAM Matchup Intelligence v11
+   1080×1350 IG. Export-safe ESPN logos. Light-blue hero title.
    ══════════════════════════════════════════════════════════════ */
 
 .noGame {
@@ -9,47 +9,46 @@
 }
 
 .glowAway, .glowHome {
-  position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  border-radius: inherit;
+  position: absolute; inset: 0; pointer-events: none; z-index: 0; border-radius: inherit;
 }
 
 /* ── Header ──────────────────────────────────────────── */
 .header {
   position: relative; z-index: 1;
   display: flex; flex-direction: column; align-items: center;
-  gap: 6px; margin-bottom: 0;
+  gap: 8px; margin-bottom: 0;
 }
 
-/* Hero row: MATCHUP INTEL + mascot side-by-side */
 .heroRow {
-  display: flex; align-items: center; gap: 14px; justify-content: center;
+  display: flex; align-items: center; gap: 16px; justify-content: center;
 }
 
+/* MATCHUP INTEL — light-blue premium hero title */
 .heroTitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 42px; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; color: #fff; margin: 0;
-  text-shadow: 0 2px 20px rgba(110,179,232,0.22);
+  font-size: 48px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; margin: 0;
+  color: #6EB3E8;
+  text-shadow: 0 2px 24px rgba(110,179,232,0.30), 0 0 40px rgba(110,179,232,0.10);
 }
 
+/* Robot hero — larger */
 .heroMascot {
-  width: 68px; height: auto; display: block;
-  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.50)) drop-shadow(0 0 12px rgba(110,179,232,0.30));
+  width: 88px; height: auto; display: block;
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,0.55)) drop-shadow(0 0 16px rgba(110,179,232,0.35));
 }
 
-/* Round badge — subheader beneath hero */
+/* Round badge — premium glassy subheader */
 .roundBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 34px; font-weight: 700; letter-spacing: 0.05em;
-  text-transform: uppercase; color: rgba(240,244,248,0.92);
-  background: linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
-  border: 2px solid rgba(255,255,255,0.18);
-  border-radius: 12px; padding: 6px 36px;
-  text-shadow: 0 2px 16px rgba(110,179,232,0.18);
-  box-shadow: 0 4px 22px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+  font-size: 36px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: rgba(240,244,248,0.94);
+  background: linear-gradient(145deg, rgba(110,179,232,0.16) 0%, rgba(255,255,255,0.06) 50%, rgba(110,179,232,0.10) 100%);
+  border: 2px solid rgba(110,179,232,0.28);
+  border-radius: 14px; padding: 8px 42px;
+  text-shadow: 0 2px 16px rgba(110,179,232,0.20);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.08);
 }
-
-/* No metaRow — timestamp removed from this section */
 
 /* ── H2H ─────────────────────────────────────────────── */
 .h2h {
@@ -89,6 +88,16 @@
   border: 2px solid rgba(255,255,255,0.08); pointer-events: none; z-index: -1;
 }
 
+.logoImg {
+  display: block; border-radius: 2px;
+}
+.logoFallback {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.50);
+  background: rgba(255,255,255,0.06); border-radius: 6px;
+  text-transform: uppercase;
+}
+
 .seedPill {
   font-family: 'Oswald', sans-serif; font-size: 24px; font-weight: 700;
   border: 2px solid; color: rgba(240,244,248,0.94); border-radius: 8px;
@@ -126,18 +135,9 @@
   display: flex; align-items: center; gap: 8px; padding: 4px 14px;
   background: rgba(255,255,255,0.05); border-radius: 6px;
 }
-.statKey {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(168,208,240,0.40);
-}
-.statVal {
-  font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 700;
-  color: rgba(240,244,248,0.82); font-variant-numeric: tabular-nums;
-}
-.sideTag {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(168,208,240,0.18);
-}
+.statKey { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(168,208,240,0.40); }
+.statVal { font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 700; color: rgba(240,244,248,0.82); font-variant-numeric: tabular-nums; }
+.sideTag { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(168,208,240,0.18); }
 
 /* ── Center VS ───────────────────────────────────────── */
 .center {
@@ -157,29 +157,21 @@
     inset 0 2px 0 rgba(255,255,255,0.14), inset 0 -2px 4px rgba(0,0,0,0.12);
   text-shadow: 0 1px 8px rgba(110,179,232,0.22);
 }
-
 .totalCard {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   background: linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%);
-  border: 1.5px solid rgba(255,255,255,0.18);
-  border-radius: 12px; padding: 12px 20px;
+  border: 1.5px solid rgba(255,255,255,0.18); border-radius: 12px; padding: 12px 20px;
   box-shadow: 0 4px 18px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.09);
 }
-.totalVal {
-  font-family: 'Oswald', sans-serif; font-size: 32px; font-weight: 700; color: #fff;
-  font-variant-numeric: tabular-nums;
-}
-.totalKey {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(168,208,240,0.35);
-}
+.totalVal { font-family: 'Oswald', sans-serif; font-size: 32px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.totalKey { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(168,208,240,0.35); }
 
-/* ── Intel section — TALLER picks panel ──────────────── */
+/* ── MAXIMUS'S PICKS — enlarged intelligence panel ───── */
 .intel {
   position: relative; z-index: 1;
   background: linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.07) 100%);
   border: 2px solid rgba(255,255,255,0.18); border-radius: 20px;
-  padding: 28px 22px 24px;
+  padding: 30px 24px 26px;
   box-shadow: 0 8px 36px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.06);
 }
 .intel::after {
@@ -190,9 +182,9 @@
 
 .intelTitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px; font-weight: 700; letter-spacing: 0.14em;
+  font-size: 26px; font-weight: 700; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(110,179,232,0.85);
-  text-align: center; margin-bottom: 18px;
+  text-align: center; margin-bottom: 20px;
 }
 
 .picksCols { display: flex; align-items: stretch; }
@@ -208,32 +200,31 @@
   align-self: stretch; flex-shrink: 0;
 }
 
-.pickIcon { width: 38px; height: 38px; flex-shrink: 0; }
+.pickIcon { width: 40px; height: 40px; flex-shrink: 0; }
 
 .pickType {
-  font-size: 15px; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(168,208,240,0.48);
+  font-size: 16px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(168,208,240,0.50);
 }
 
 .pickVal {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px; font-weight: 700; color: #fff; line-height: 1.2;
-  min-height: 50px; display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 700; color: #fff; line-height: 1.2;
+  min-height: 52px; display: flex; align-items: center; justify-content: center;
 }
 
 .convPill {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; padding: 3px 14px; border-radius: 5px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 4px 14px; border-radius: 5px;
   white-space: nowrap;
 }
 .convNone { font-size: 14px; color: rgba(168,208,240,0.22); }
 
-/* ── Micro-intel — taller rationale zone ─────────────── */
 .microIntel {
-  font-size: 15px; font-weight: 500;
-  color: rgba(240,244,248,0.50); line-height: 1.38;
-  text-align: center; max-width: 290px;
+  font-size: 16px; font-weight: 500;
+  color: rgba(240,244,248,0.52); line-height: 1.40;
+  text-align: center; max-width: 300px;
   margin-top: 8px; padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  min-height: 40px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  min-height: 44px;
 }
