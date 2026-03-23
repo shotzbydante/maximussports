@@ -725,16 +725,16 @@ function buildGameCaption({ game, picks, asOf }) {
   const pe = picks?.find(p => p.pickType === 'pe' || p.type === 'pe');
   const ats = picks?.find(p => p.pickType === 'ats' || p.type === 'ats');
 
-  // Dynamic hook — with team emojis
+  // Dynamic hook — opens with "Matchup Intel" then team emojis
   let hook;
   if (spreadNum != null && Math.abs(spreadNum) <= 2.5) {
-    hook = `🔥 ${awayLabel} vs ${homeLabel} is a coin flip. The model has a take.`;
+    hook = `💡 Matchup Intel: ${awayLabel} vs ${homeLabel} is a coin flip. The model has a take.`;
   } else if (spreadNum != null && Math.abs(spreadNum) >= 10) {
-    hook = `📊 ${awayLabel} vs ${homeLabel} — ${Math.abs(spreadNum)}-point spread. Is the market right?`;
+    hook = `💡 Matchup Intel: ${awayLabel} vs ${homeLabel} — ${Math.abs(spreadNum)}-point spread. Is the market right?`;
   } else if (spreadStr) {
-    hook = `🏀 ${awayLabel} vs ${homeLabel} (${spreadStr}) — Maximus matchup intel is live.`;
+    hook = `💡 Matchup Intel: ${awayLabel} vs ${homeLabel} (${spreadStr})`;
   } else {
-    hook = `🏀 ${awayLabel} vs ${homeLabel} — Maximus matchup breakdown.`;
+    hook = `💡 Matchup Intel: ${awayLabel} vs ${homeLabel}`;
   }
 
   // Spread context

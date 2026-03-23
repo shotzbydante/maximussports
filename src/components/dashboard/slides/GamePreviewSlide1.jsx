@@ -34,18 +34,11 @@ function inferGameRound(gameTime, awaySeedVal, homeSeedVal) {
       const gameDate = new Date(gameTime);
       if (!isNaN(gameDate.getTime())) {
         const phase = getTournamentPhase(gameDate);
-        if (phase && phase !== 'off') {
-          const round = getActiveRound(phase);
-          return getRoundLabel(round);
-        }
+        if (phase && phase !== 'off') return getRoundLabel(getActiveRound(phase));
       }
     } catch { /* fall through */ }
   }
-  if (awaySeedVal != null && homeSeedVal != null) {
-    const lo = Math.min(awaySeedVal, homeSeedVal);
-    const hi = Math.max(awaySeedVal, homeSeedVal);
-    if (lo + hi === 17) return 'Round of 64';
-  }
+  if (awaySeedVal != null && homeSeedVal != null && awaySeedVal + homeSeedVal === 17) return 'Round of 64';
   const phase = getTournamentPhase();
   if (phase && phase !== 'off') return getRoundLabel(getActiveRound(phase));
   return null;
@@ -56,13 +49,11 @@ function inferGameRound(gameTime, awaySeedVal, homeSeedVal) {
 function getTeamAtsDisplay(slug) {
   try {
     const cache = getAtsCache?.();
-    if (!cache) return null;
     const rec = cache?.bySlug?.[slug];
     if (!rec) return null;
     const w = rec.atsWins ?? rec.wins ?? null;
     const l = rec.atsLosses ?? rec.losses ?? null;
-    if (w != null && l != null) return `${w}–${l}`;
-    return null;
+    return (w != null && l != null) ? `${w}–${l}` : null;
   } catch { return null; }
 }
 
@@ -70,35 +61,26 @@ function getTeamAtsDisplay(slug) {
 
 function deriveOuLean(totalsPick, game, spreadNum) {
   if (totalsPick?.leanDirection) {
-    return {
-      direction: totalsPick.leanDirection === 'over' ? 'Over' : 'Under',
-      confidence: totalsPick.confidence ?? 0,
-      reason: totalsPick.whyValue || totalsPick.rationale || null,
-    };
+    return { direction: totalsPick.leanDirection === 'over' ? 'Over' : 'Under', confidence: totalsPick.confidence ?? 0, reason: totalsPick.whyValue || totalsPick.rationale || null };
   }
   const total = game?.total ?? game?.overUnder ?? null;
-  if (total == null) return null;
-  if (isNaN(parseFloat(total))) return null;
-
+  if (total == null || isNaN(parseFloat(total))) return null;
   if (spreadNum != null && !isNaN(spreadNum)) {
-    const abs = Math.abs(spreadNum);
-    if (abs >= 8) return { direction: 'Over', confidence: 0, reason: 'Large spread suggests the favorite pushes pace.' };
-    if (abs <= 2.5) return { direction: 'Under', confidence: 0, reason: 'Tight spread signals a grinding, defensive game.' };
+    if (Math.abs(spreadNum) >= 8) return { direction: 'Over', confidence: 0, reason: 'Large spread suggests the favorite pushes pace.' };
+    if (Math.abs(spreadNum) <= 2.5) return { direction: 'Under', confidence: 0, reason: 'Tight spread signals a grinding, defensive game.' };
   }
   return { direction: 'Under', confidence: 0, reason: 'Tournament pace and pressure lean toward the under.' };
 }
 
-/* ── Force ATS lean — derive when model pick missing ──────────────────── */
+/* ── Force ATS lean ───────────────────────────────────────────────────── */
 
 function deriveAtsLean(atsPick, game, homeSpreadNum, homeTeam, awayTeam) {
   if (atsPick?.pickLine) return atsPick;
-  // If spread exists, derive a lean from spread magnitude
   if (homeSpreadNum == null || isNaN(homeSpreadNum)) return null;
   const abs = Math.abs(homeSpreadNum);
-  const homeShort = homeTeam?.split(' ').pop() || 'Home';
-  const awayShort = awayTeam?.split(' ').pop() || 'Away';
-  // Favor the underdog in tournament play for mid-range spreads
   if (abs >= 3 && abs <= 9) {
+    const homeShort = homeTeam?.split(' ').pop() || 'Home';
+    const awayShort = awayTeam?.split(' ').pop() || 'Away';
     const dog = homeSpreadNum < 0 ? awayShort : homeShort;
     const dogSpread = homeSpreadNum < 0 ? fmtLine(-homeSpreadNum) : fmtLine(homeSpreadNum);
     return { pickLine: `${dog} ${dogSpread}`, confidence: 0, atsEdge: null, _derived: true };
@@ -112,28 +94,22 @@ function buildMicroIntel({ pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam,
   const awayShort = awayTeam?.split(' ').pop() || 'Away';
   const homeShort = homeTeam?.split(' ').pop() || 'Home';
 
-  // Pick Em
   let peIntel = null;
   if (pickEmPick?.pickTeam) {
-    const pickShort = pickEmPick.pickTeam.split(' ').pop() || pickEmPick.pickTeam;
-    if (pickEmPick.confidence >= 2) peIntel = `Strong composite signal favors ${pickShort}.`;
-    else if (pickEmPick.confidence >= 1) peIntel = `Efficiency + market inputs lean ${pickShort}.`;
-    else peIntel = `Thin edge toward ${pickShort}. Proceed cautiously.`;
+    const ps = pickEmPick.pickTeam.split(' ').pop() || pickEmPick.pickTeam;
+    if (pickEmPick.confidence >= 2) peIntel = `Strong composite signal favors ${ps}.`;
+    else if (pickEmPick.confidence >= 1) peIntel = `Efficiency + market inputs lean ${ps}.`;
+    else peIntel = `Thin edge toward ${ps}. Proceed cautiously.`;
   } else if (homeSpreadNum != null) {
-    const fav = homeSpreadNum < 0 ? homeShort : awayShort;
-    peIntel = `${fav} favored by market. No model separation.`;
+    peIntel = `${homeSpreadNum < 0 ? homeShort : awayShort} favored by market. No model separation.`;
   }
 
-  // ATS
   let atsIntel = null;
   if (atsPick?.pickLine) {
-    const edge = atsPick.atsEdge != null ? (Math.abs(atsPick.atsEdge) * 100).toFixed(0) : null;
-    if (atsPick._derived) {
-      atsIntel = 'Tournament underdog cover tendency. Low-conviction lean.';
-    } else if (edge && parseInt(edge) > 10) {
-      atsIntel = `${edge}% model edge vs market number.`;
-    } else {
-      atsIntel = 'Spread analysis and cover profile support this lean.';
+    if (atsPick._derived) atsIntel = 'Tournament underdog cover tendency. Low-conviction lean.';
+    else {
+      const edge = atsPick.atsEdge != null ? (Math.abs(atsPick.atsEdge) * 100).toFixed(0) : null;
+      atsIntel = (edge && parseInt(edge) > 10) ? `${edge}% model edge vs market number.` : 'Spread analysis and cover profile support this lean.';
     }
   } else if (homeSpreadNum != null) {
     const abs = Math.abs(homeSpreadNum);
@@ -142,39 +118,36 @@ function buildMicroIntel({ pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam,
     else atsIntel = 'Mid-range spread. Insufficient edge for a qualified lean.';
   }
 
-  // O/U
-  let ouIntel = ouLean?.reason || null;
-
-  return { peIntel, atsIntel, ouIntel };
+  return { peIntel, atsIntel, ouIntel: ouLean?.reason || null };
 }
 
-/* ── Icons ────────────────────────────────────────────────────────────── */
+/* ── Icons — premium glass circles ────────────────────────────────────── */
 
 function PickEmIcon() {
   return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className={styles.pickIcon}>
-      <circle cx="16" cy="16" r="14" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
-      <path d="M10 16.5L14 20.5L22 12" stroke="rgba(168,208,240,0.65)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" className={styles.pickIcon}>
+      <circle cx="18" cy="18" r="16" stroke="rgba(168,208,240,0.35)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
+      <path d="M11 18.5L15.5 23L25 13" stroke="rgba(168,208,240,0.75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function AtsIcon() {
   return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className={styles.pickIcon}>
-      <circle cx="16" cy="16" r="14" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
-      <path d="M8 20L13 12L18 17L24 10" stroke="rgba(168,208,240,0.65)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" className={styles.pickIcon}>
+      <circle cx="18" cy="18" r="16" stroke="rgba(168,208,240,0.35)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
+      <path d="M9 23L15 14L20 19L27 11" stroke="rgba(168,208,240,0.75)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function OuIcon() {
   return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className={styles.pickIcon}>
-      <circle cx="16" cy="16" r="14" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
-      <rect x="10" y="18" width="3.5" height="5" rx="0.5" fill="rgba(168,208,240,0.45)" />
-      <rect x="14.25" y="14" width="3.5" height="9" rx="0.5" fill="rgba(168,208,240,0.55)" />
-      <rect x="18.5" y="10" width="3.5" height="13" rx="0.5" fill="rgba(168,208,240,0.65)" />
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" className={styles.pickIcon}>
+      <circle cx="18" cy="18" r="16" stroke="rgba(168,208,240,0.35)" strokeWidth="1.5" fill="rgba(168,208,240,0.08)" />
+      <rect x="11" y="20" width="4" height="5" rx="1" fill="rgba(168,208,240,0.50)" />
+      <rect x="16" y="15" width="4" height="10" rx="1" fill="rgba(168,208,240,0.60)" />
+      <rect x="21" y="11" width="4" height="14" rx="1" fill="rgba(168,208,240,0.75)" />
     </svg>
   );
 }
@@ -256,7 +229,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
     } catch { /* ignore */ }
   }
 
-  // Picks
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const games = data?.odds?.games ?? [];
   let pickEmPick = null;
@@ -275,36 +247,27 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
     totalsPick = (picks.totalsPicks ?? []).find(matchFn) ?? null;
   } catch { /* graceful */ }
 
-  // Force ATS lean
   const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, game, homeSpreadNum, homeTeam, awayTeam);
-
   const pickEmTier = pickToTier(pickEmPick);
   const atsTier = atsPick ? (pickToTier(atsPick) || TIERS.tossUp) : null;
   const ouLean = deriveOuLean(totalsPick, game, homeSpreadNum);
   const totalsTier = ouLean ? pickToTier(totalsPick) || TIERS.tossUp : null;
 
-  // Per-column micro-intel
   const { peIntel, atsIntel, ouIntel } = buildMicroIntel({
     pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam, homeTeam,
   });
 
   return (
     <SlideShell asOf={asOf} theme="single_game" brandMode="standard" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
-      {/* Atmospheric overlays */}
       <div className={styles.glowAway} style={{ background: `radial-gradient(ellipse at 0% 38%, ${awayColor}30 0%, transparent 55%)` }} />
       <div className={styles.glowHome} style={{ background: `radial-gradient(ellipse at 100% 38%, ${homeColor}30 0%, transparent 55%)` }} />
 
-      {/* Header with inline mascot */}
+      {/* Header — MATCHUP INTEL as hero title */}
       <div className={styles.header}>
-        <div className={styles.eyebrow}>MATCHUP INTEL</div>
+        <h2 className={styles.heroTitle}>MATCHUP INTEL</h2>
         <div className={styles.roundRow}>
           {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
-          <img
-            src="/mascot.png"
-            alt=""
-            className={styles.heroMascot}
-            crossOrigin="anonymous"
-          />
+          <img src="/mascot.png" alt="" className={styles.heroMascot} crossOrigin="anonymous" />
         </div>
         <div className={styles.metaRow}>
           {dateStr && <span className={styles.metaItem}>{dateStr}</span>}
@@ -315,12 +278,17 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
 
       {/* H2H */}
       <div className={styles.h2h}>
-        <div className={styles.panel} style={{ borderColor: `${awayColor}45`, background: `linear-gradient(155deg, ${awayColor}1C 0%, ${awayColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0C, 0 0 24px ${awayColor}10` }}>
+        {/* Away panel */}
+        <div className={styles.panel} style={{ borderColor: `${awayColor}48`, background: `linear-gradient(155deg, ${awayColor}1E 0%, ${awayColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0C, 0 0 28px ${awayColor}12` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}58 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}5C 0%, transparent 55%)` }} />
             <TeamLogo team={awayObj} size={115} />
           </div>
-          {awaySeed != null && <span className={styles.seedPill}>#{awaySeed}</span>}
+          {awaySeed != null && (
+            <span className={styles.seedPill} style={{ borderColor: `${awayColor}40`, background: `linear-gradient(135deg, ${awayColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>
+              #{awaySeed}
+            </span>
+          )}
           <div className={styles.teamName}>{awayTeam}</div>
           {awayConf && <div className={styles.conf}>{awayConf}</div>}
           <div className={styles.teamLine}>
@@ -339,6 +307,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           <div className={styles.sideTag}>AWAY</div>
         </div>
 
+        {/* Center VS + Total */}
         <div className={styles.center}>
           <div className={styles.vsRing}>VS</div>
           <div className={styles.totalCard}>
@@ -347,12 +316,17 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           </div>
         </div>
 
-        <div className={styles.panel} style={{ borderColor: `${homeColor}45`, background: `linear-gradient(205deg, ${homeColor}1C 0%, ${homeColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0C, 0 0 24px ${homeColor}10` }}>
+        {/* Home panel */}
+        <div className={styles.panel} style={{ borderColor: `${homeColor}48`, background: `linear-gradient(205deg, ${homeColor}1E 0%, ${homeColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0C, 0 0 28px ${homeColor}12` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}58 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}5C 0%, transparent 55%)` }} />
             <TeamLogo team={homeObj} size={115} />
           </div>
-          {homeSeed != null && <span className={styles.seedPill}>#{homeSeed}</span>}
+          {homeSeed != null && (
+            <span className={styles.seedPill} style={{ borderColor: `${homeColor}40`, background: `linear-gradient(135deg, ${homeColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>
+              #{homeSeed}
+            </span>
+          )}
           <div className={styles.teamName}>{homeTeam}</div>
           {homeConf && <div className={styles.conf}>{homeConf}</div>}
           <div className={styles.teamLine}>
@@ -372,9 +346,9 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
         </div>
       </div>
 
-      {/* Intel section — per-column micro-intel */}
+      {/* MAXIMUS'S PICKS — enlarged intelligence panel */}
       <div className={styles.intel}>
-        <div className={styles.intelTitle}>MAXIMUS&apos;S PICK</div>
+        <div className={styles.intelTitle}>MAXIMUS&apos;S PICKS</div>
         <div className={styles.picksCols}>
           <div className={styles.pickCell}>
             <PickEmIcon />
@@ -395,9 +369,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           <div className={styles.pickCell}>
             <OuIcon />
             <div className={styles.pickType}>O/U</div>
-            <div className={styles.pickVal}>
-              {ouLean ? `${ouLean.direction} ${fmtTotal(total)}` : 'No lean'}
-            </div>
+            <div className={styles.pickVal}>{ouLean ? `${ouLean.direction} ${fmtTotal(total)}` : 'No lean'}</div>
             <ConvictionPill tier={totalsTier} />
             {ouIntel && <div className={styles.microIntel}>{ouIntel}</div>}
           </div>

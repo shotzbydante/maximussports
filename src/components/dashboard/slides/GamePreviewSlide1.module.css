@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
-   GamePreviewSlide1 — Premium Matchup Intelligence Card v6
-   1080×1350 IG. Gemini-benchmark team-color glass. Final polish.
+   GamePreviewSlide1 — NCAAM Matchup Intelligence Card v9
+   1080×1350 IG. MATCHUP INTEL hero title. Team-tinted seed badges.
    ══════════════════════════════════════════════════════════════ */
 
 .noGame {
@@ -8,75 +8,56 @@
   font-size: 30px; color: rgba(240,244,248,0.4);
 }
 
-/* ── Atmospheric team-color overlays ─────────────────── */
 .glowAway, .glowHome {
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
   border-radius: inherit;
 }
 
-/* ── Header ──────────────────────────────────────────── */
+/* ── Header — MATCHUP INTEL as hero title ────────────── */
 .header {
   position: relative; z-index: 1;
   display: flex; flex-direction: column; align-items: center;
   gap: 4px; margin-bottom: 0;
 }
 
-.eyebrow {
+.heroTitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 15px; font-weight: 600; letter-spacing: 0.20em;
-  text-transform: uppercase;
-  color: rgba(110,179,232,0.70);
-  background: rgba(110,179,232,0.06);
-  border: 1px solid rgba(110,179,232,0.12);
-  border-radius: 6px;
-  padding: 2px 16px;
+  font-size: 32px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: #fff;
+  margin: 0;
+  text-shadow: 0 2px 16px rgba(110,179,232,0.18);
 }
 
-/* Round badge + mascot row */
 .roundRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  justify-content: center;
+  display: flex; align-items: center; gap: 14px; justify-content: center;
 }
 
 .heroMascot {
-  width: 80px;
-  height: auto;
-  display: block;
-  filter:
-    drop-shadow(0 3px 12px rgba(0,0,0,0.50))
-    drop-shadow(0 0 14px rgba(110,179,232,0.30));
+  width: 72px; height: auto; display: block;
+  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.50)) drop-shadow(0 0 12px rgba(110,179,232,0.28));
 }
 
 .roundBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 36px; font-weight: 700; letter-spacing: 0.05em;
-  text-transform: uppercase; color: #fff;
-  background: linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 100%);
-  border: 2px solid rgba(255,255,255,0.20);
-  border-radius: 14px; padding: 7px 40px;
-  text-shadow: 0 2px 18px rgba(110,179,232,0.22);
-  box-shadow:
-    0 6px 30px rgba(0,0,0,0.30),
-    inset 0 1px 0 rgba(255,255,255,0.14),
-    inset 0 -1px 0 rgba(0,0,0,0.10);
+  font-size: 28px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(240,244,248,0.88);
+  background: linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  border: 1.5px solid rgba(255,255,255,0.16);
+  border-radius: 10px; padding: 4px 24px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.10);
 }
 
 .metaRow {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  justify-content: center;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
 }
-
-.metaItem { font-size: 17px; font-weight: 500; color: rgba(240,244,248,0.50); }
-.metaDot { color: rgba(240,244,248,0.18); font-size: 17px; }
+.metaItem { font-size: 16px; font-weight: 500; color: rgba(240,244,248,0.48); }
+.metaDot { color: rgba(240,244,248,0.18); font-size: 16px; }
 
 .netChip {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: rgba(240,244,248,0.82);
-  background: rgba(110,179,232,0.14);
-  border: 1px solid rgba(110,179,232,0.26);
-  border-radius: 5px; padding: 3px 12px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(240,244,248,0.78);
+  background: rgba(110,179,232,0.12); border: 1px solid rgba(110,179,232,0.22);
+  border-radius: 5px; padding: 2px 10px;
 }
 
 /* ── H2H ─────────────────────────────────────────────── */
@@ -88,28 +69,21 @@
   margin-bottom: 6px;
 }
 
-/* ── Team panel — strong team-color glass ────────────── */
+/* ── Team panel ──────────────────────────────────────── */
 .panel {
   display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 22px 8px 14px;
-  border: 2.5px solid;
-  border-radius: 22px;
-  position: relative;
-  overflow: hidden;
+  gap: 8px; padding: 20px 8px 14px;
+  border: 2.5px solid; border-radius: 22px;
+  position: relative; overflow: hidden;
 }
 
-/* Inner glass highlight */
 .panel::before {
-  content: ''; position: absolute; inset: 0;
-  border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.07);
-  pointer-events: none;
+  content: ''; position: absolute; inset: 0; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.07); pointer-events: none;
 }
-
-/* Top-edge shimmer */
 .panel::after {
   content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
   pointer-events: none;
 }
 
@@ -117,33 +91,29 @@
   position: relative; width: 130px; height: 130px;
   display: flex; align-items: center; justify-content: center;
 }
-
 .logoGlow {
   position: absolute; inset: -30px; border-radius: 50%; pointer-events: none;
 }
-
 .logoWrap::after {
   content: ''; position: absolute; inset: -10px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.08);
-  pointer-events: none; z-index: -1;
+  border: 2px solid rgba(255,255,255,0.08); pointer-events: none; z-index: -1;
 }
 
+/* Seed pill — team-color tinted glass */
 .seedPill {
   font-family: 'Oswald', sans-serif;
   font-size: 24px; font-weight: 700;
-  background: rgba(255,255,255,0.10);
-  border: 2px solid rgba(255,255,255,0.22);
-  color: rgba(240,244,248,0.92); border-radius: 8px;
+  border: 2px solid; /* color set inline */
+  color: rgba(240,244,248,0.94); border-radius: 8px;
   padding: 3px 18px; letter-spacing: 0.03em;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.10);
 }
 
 .teamName {
   font-family: 'Oswald', sans-serif;
   font-size: 26px; font-weight: 700; color: #fff;
   text-align: center; line-height: 1.10;
-  text-shadow: 0 2px 14px rgba(0,0,0,0.50);
-  max-width: 300px;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.50); max-width: 300px;
 }
 
 .conf {
@@ -151,47 +121,34 @@
   text-transform: uppercase; color: rgba(168,208,240,0.48);
 }
 
-/* Per-team spread + ML */
-.teamLine {
-  display: flex; gap: 8px; margin-top: 4px;
-}
+.teamLine { display: flex; gap: 8px; margin-top: 4px; }
 
 .teamLineItem {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
-  background: rgba(255,255,255,0.08);
-  border: 1.5px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.14);
   border-radius: 10px; padding: 8px 16px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
-
 .teamLineVal {
-  font-family: 'Oswald', sans-serif;
-  font-size: 26px; font-weight: 700; color: #fff;
+  font-family: 'Oswald', sans-serif; font-size: 26px; font-weight: 700; color: #fff;
   font-variant-numeric: tabular-nums;
 }
-
 .teamLineKey {
   font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(168,208,240,0.32);
 }
 
 .statRow {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 14px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 6px;
+  display: flex; align-items: center; gap: 8px; padding: 4px 14px;
+  background: rgba(255,255,255,0.05); border-radius: 6px;
 }
-
 .statKey {
   font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: rgba(168,208,240,0.40);
 }
-
 .statVal {
-  font-family: 'Oswald', sans-serif;
-  font-size: 18px; font-weight: 700;
-  color: rgba(240,244,248,0.82);
-  font-variant-numeric: tabular-nums;
+  font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 700;
+  color: rgba(240,244,248,0.82); font-variant-numeric: tabular-nums;
 }
 
 .sideTag {
@@ -202,63 +159,50 @@
 /* ── Center VS — premium glass sphere ────────────────── */
 .center {
   display: flex; flex-direction: column; align-items: center;
-  gap: 16px; padding: 22px 6px; align-self: center;
+  gap: 16px; padding: 20px 6px; align-self: center;
 }
 
 .vsRing {
-  width: 68px; height: 68px; border-radius: 50%;
-  border: 2.5px solid rgba(255,255,255,0.18);
+  width: 70px; height: 70px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.20);
   background:
-    radial-gradient(circle at 40% 35%, rgba(255,255,255,0.12) 0%, transparent 50%),
-    linear-gradient(135deg, rgba(110,179,232,0.12) 0%, rgba(255,255,255,0.04) 100%);
+    radial-gradient(circle at 38% 32%, rgba(255,255,255,0.14) 0%, transparent 45%),
+    linear-gradient(145deg, rgba(110,179,232,0.14) 0%, rgba(255,255,255,0.05) 100%);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Oswald', sans-serif;
-  font-size: 28px; font-weight: 700;
-  color: rgba(240,244,248,0.40);
+  font-family: 'Oswald', sans-serif; font-size: 30px; font-weight: 700;
+  color: rgba(240,244,248,0.45);
   box-shadow:
-    0 4px 20px rgba(0,0,0,0.25),
-    0 0 24px rgba(110,179,232,0.10),
-    inset 0 2px 0 rgba(255,255,255,0.12),
-    inset 0 -2px 4px rgba(0,0,0,0.10);
-  text-shadow: 0 1px 8px rgba(110,179,232,0.20);
+    0 6px 24px rgba(0,0,0,0.28),
+    0 0 28px rgba(110,179,232,0.10),
+    inset 0 2px 0 rgba(255,255,255,0.14),
+    inset 0 -2px 4px rgba(0,0,0,0.12);
+  text-shadow: 0 1px 8px rgba(110,179,232,0.22);
 }
 
 .totalCard {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
-  border: 1.5px solid rgba(255,255,255,0.16);
+  background: linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%);
+  border: 1.5px solid rgba(255,255,255,0.18);
   border-radius: 12px; padding: 12px 20px;
-  box-shadow:
-    0 4px 16px rgba(0,0,0,0.15),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.09);
 }
-
 .totalVal {
-  font-family: 'Oswald', sans-serif;
-  font-size: 32px; font-weight: 700; color: #fff;
+  font-family: 'Oswald', sans-serif; font-size: 32px; font-weight: 700; color: #fff;
   font-variant-numeric: tabular-nums;
 }
-
 .totalKey {
   font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(168,208,240,0.35);
 }
 
-/* ── Intel section — DOMINANT lower module ────────────── */
+/* ── Intel section — MAXIMUS'S PICKS ─────────────────── */
 .intel {
   position: relative; z-index: 1;
-  background:
-    linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.07) 100%);
+  background: linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.07) 100%);
   border: 2px solid rgba(255,255,255,0.18);
-  border-radius: 20px; padding: 28px 24px 22px;
-  box-shadow:
-    0 8px 36px rgba(0,0,0,0.28),
-    inset 0 1px 0 rgba(255,255,255,0.12),
-    inset 0 -1px 0 rgba(0,0,0,0.06);
+  border-radius: 20px; padding: 24px 20px 20px;
+  box-shadow: 0 8px 36px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.06);
 }
-
-/* Top-edge shimmer */
 .intel::after {
   content: ''; position: absolute; top: 0; left: 18%; right: 18%; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
@@ -268,17 +212,15 @@
 .intelTitle {
   font-family: 'Oswald', sans-serif;
   font-size: 22px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(110,179,232,0.80);
-  text-align: center; margin-bottom: 20px;
+  text-transform: uppercase; color: rgba(110,179,232,0.82);
+  text-align: center; margin-bottom: 16px;
 }
 
-.picksCols {
-  display: flex; align-items: stretch;
-}
+.picksCols { display: flex; align-items: stretch; }
 
 .pickCell {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; gap: 7px; text-align: center; padding: 0 10px;
+  align-items: center; gap: 5px; text-align: center; padding: 0 8px;
 }
 
 .pickDiv {
@@ -287,43 +229,30 @@
   align-self: stretch; flex-shrink: 0;
 }
 
+.pickIcon { width: 36px; height: 36px; flex-shrink: 0; }
+
 .pickType {
   font-size: 14px; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(168,208,240,0.42);
+  text-transform: uppercase; color: rgba(168,208,240,0.45);
 }
-
 .pickVal {
   font-family: 'Oswald', sans-serif;
-  font-size: 24px; font-weight: 700; color: #fff; line-height: 1.2;
-  min-height: 54px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: #fff; line-height: 1.2;
+  min-height: 48px; display: flex; align-items: center; justify-content: center;
 }
 
 .convPill {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; padding: 3px 14px; border-radius: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 12px; border-radius: 5px;
   white-space: nowrap;
 }
+.convNone { font-size: 14px; color: rgba(168,208,240,0.22); }
 
-.convNone {
-  font-size: 14px; color: rgba(168,208,240,0.22);
-}
-
-/* ── Icons ────────────────────────────────────────────── */
-.pickIcon {
-  width: 32px; height: 32px;
-  flex-shrink: 0;
-  margin-bottom: 2px;
-}
-
-/* ── Per-column micro-intel ──────────────────────────── */
+/* ── Micro-intel rationale ───────────────────────────── */
 .microIntel {
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(240,244,248,0.45);
-  line-height: 1.32;
-  text-align: center;
-  max-width: 280px;
-  margin-top: 6px;
-  padding-top: 6px;
+  font-size: 14px; font-weight: 500;
+  color: rgba(240,244,248,0.48); line-height: 1.35;
+  text-align: center; max-width: 280px;
+  margin-top: 6px; padding-top: 6px;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
