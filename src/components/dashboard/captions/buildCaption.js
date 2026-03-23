@@ -711,63 +711,80 @@ function buildGameCaption({ game, picks, asOf }) {
   const awayShort = away.split(' ').pop() || away;
   const homeShort = home.split(' ').pop() || home;
 
-  // Dynamic hook — more entertaining, varies by context
-  const hookLines = [];
-  if (spreadNum != null && Math.abs(spreadNum) <= 2.5) {
-    hookLines.push(`🔥 ${awayShort} vs ${homeShort} is a coin flip. The model has a take.`);
-  } else if (spreadNum != null && Math.abs(spreadNum) >= 10) {
-    hookLines.push(`📊 ${awayShort} vs ${homeShort} — ${Math.abs(spreadNum)}-point spread. Is the market right?`);
-  } else if (spreadStr) {
-    hookLines.push(`🏀 ${away} @ ${home} (${spreadStr}) — Maximus matchup intel is live.`);
-  } else {
-    hookLines.push(`🏀 ${away} @ ${home} — Maximus matchup breakdown.`);
-  }
-
-  // Pick context
-  const pickParts = [];
+  // Find picks for this game
   const pe = picks?.find(p => p.pickType === 'pe' || p.type === 'pe');
   const ats = picks?.find(p => p.pickType === 'ats' || p.type === 'ats');
-  if (pe?.pickTeam) pickParts.push(`Pick Em → ${pe.pickTeam}`);
-  if (ats?.pickLine) pickParts.push(`ATS → ${ats.pickLine}`);
-  if (total) pickParts.push(`O/U ${total}`);
 
-  const pickSummary = pickParts.length > 0
-    ? pickParts.join(' · ')
-    : picks?.length ? `Model leans ${picks[0]?.pickLine}.` : null;
+  // Dynamic hook
+  let hook;
+  if (spreadNum != null && Math.abs(spreadNum) <= 2.5) {
+    hook = `🔥 ${awayShort} vs ${homeShort} is a coin flip. The model has a take.`;
+  } else if (spreadNum != null && Math.abs(spreadNum) >= 10) {
+    hook = `📊 ${awayShort} vs ${homeShort} — ${Math.abs(spreadNum)}-point spread. Is the market right?`;
+  } else if (spreadStr) {
+    hook = `🏀 ${away} @ ${home} (${spreadStr}) — Maximus matchup intel is live.`;
+  } else {
+    hook = `🏀 ${away} @ ${home} — Maximus matchup breakdown.`;
+  }
 
-  // Unified caption — short and long are the same for IG posting
-  const spreadNarrative = spreadNum != null
-    ? (Math.abs(spreadNum) <= 3.5
-        ? `This is a razor-thin line. The market is saying: don't blink.`
-        : Math.abs(spreadNum) >= 10
-          ? `A double-digit spread. Maximus checks if the number is backed by real edges.`
-          : `Spread sits at ${spreadStr}. Both sides have a path to cover.`)
+  // Spread context
+  const spreadLine = spreadStr
+    ? `📊 Spread: ${home} ${spreadStr}`
     : null;
 
+  const spreadNarrative = spreadNum != null
+    ? (Math.abs(spreadNum) <= 3.5
+        ? 'This line suggests a pick-em — both sides have viable paths depending on game flow and efficiency edges.'
+        : Math.abs(spreadNum) >= 10
+          ? 'This line suggests a clear favorite, but double-digit spreads are notoriously hard to cover in tournament play.'
+          : 'Both sides have a path to cover. Game flow and matchup specifics will decide this one.')
+    : null;
+
+  // Picks block
+  const picksLines = [];
+  if (pe?.pickTeam) picksLines.push(`🎯 Pick Em: ${pe.pickTeam}`);
+  if (ats?.pickLine) picksLines.push(`📈 ATS: ${ats.pickLine}`);
+  if (total) picksLines.push(`📊 Total: O/U ${total}`);
+
+  // Intel bullets
+  const intelLines = [];
+  if (pe?.pickTeam) {
+    const pickShort = pe.pickTeam.split(' ').pop() || pe.pickTeam;
+    intelLines.push(`${pickShort}'s efficiency profile creates separation potential`);
+  }
+  if (spreadNum != null && Math.abs(spreadNum) <= 3.5) {
+    intelLines.push('Tight spread means tempo control is the x-factor');
+  } else if (spreadNum != null && Math.abs(spreadNum) >= 7) {
+    intelLines.push('Tournament pressure + underdog variance keep this interesting');
+  }
+  if (total) {
+    intelLines.push('Half-court pace and shot selection lean slightly toward the under');
+  }
+
   const unified = [
-    hookLines[0],
+    hook,
     '',
-    spreadNarrative || 'Line data pending — check back closer to tip.',
+    spreadLine,
+    spreadNarrative,
     '',
-    pe?.pickTeam ? `🎯 Pick Em: ${pe.pickTeam}` : null,
-    ats?.pickLine ? `📈 ATS: ${ats.pickLine}` : null,
-    total ? `📊 Total: O/U ${total}` : null,
+    picksLines.length > 0 ? '🎯 Model lean:' : null,
+    ...picksLines,
     '',
-    pickSummary || 'Model analysis inside.',
+    intelLines.length > 0 ? '🔥 High-level intel:' : null,
+    ...intelLines.map(l => `- ${l}`),
     '',
-    CTA,
+    `👉 Full breakdown, picks, and model insights:`,
+    'maximussports.ai',
+    '',
     DISCLAIMER,
   ].filter(Boolean).join('\n');
 
   const short = unified;
   const long = unified;
 
-  const awayTag = `#${awayShort}`;
-  const homeTag = `#${homeShort}`;
-
   const hashtags = [
     '#MarchMadness', '#CollegeBasketball',
-    awayTag, homeTag,
+    `#${awayShort}`, `#${homeShort}`,
     '#MaximusSports',
   ].filter(Boolean).slice(0, 5);
 

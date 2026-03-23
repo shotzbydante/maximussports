@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
-   GamePreviewSlide1 — Premium Matchup Intelligence Card v5
-   1080×1350 IG. Strong team-color glass. Gemini-inspired density.
+   GamePreviewSlide1 — Premium Matchup Intelligence Card v6
+   1080×1350 IG. Gemini-benchmark team-color glass. Final polish.
    ══════════════════════════════════════════════════════════════ */
 
 .noGame {
@@ -8,17 +8,17 @@
   font-size: 30px; color: rgba(240,244,248,0.4);
 }
 
-/* ── Atmospheric team-color gradient overlays ─────────── */
+/* ── Atmospheric team-color overlays ─────────────────── */
 .glowAway, .glowHome {
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
   border-radius: inherit;
 }
 
-/* ── Header — compact, leaves space for content ──────── */
+/* ── Header ──────────────────────────────────────────── */
 .header {
   position: relative; z-index: 1;
   display: flex; flex-direction: column; align-items: center;
-  gap: 6px; margin-bottom: 4px;
+  gap: 6px; margin-bottom: 2px;
 }
 
 .eyebrow {
@@ -29,13 +29,16 @@
 
 .roundBadge {
   font-family: 'Oswald', sans-serif;
-  font-size: 34px; font-weight: 700; letter-spacing: 0.04em;
+  font-size: 36px; font-weight: 700; letter-spacing: 0.05em;
   text-transform: uppercase; color: #fff;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%);
-  border: 1.5px solid rgba(255,255,255,0.18);
-  border-radius: 12px; padding: 6px 36px;
-  text-shadow: 0 2px 16px rgba(110,179,232,0.20);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10);
+  background: linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 100%);
+  border: 2px solid rgba(255,255,255,0.20);
+  border-radius: 14px; padding: 7px 40px;
+  text-shadow: 0 2px 18px rgba(110,179,232,0.22);
+  box-shadow:
+    0 6px 30px rgba(0,0,0,0.30),
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    inset 0 -1px 0 rgba(0,0,0,0.10);
 }
 
 .metaRow {
@@ -48,53 +51,53 @@
 
 .netChip {
   font-size: 14px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: rgba(240,244,248,0.80);
-  background: rgba(110,179,232,0.12);
-  border: 1px solid rgba(110,179,232,0.24);
+  text-transform: uppercase; color: rgba(240,244,248,0.82);
+  background: rgba(110,179,232,0.14);
+  border: 1px solid rgba(110,179,232,0.26);
   border-radius: 5px; padding: 3px 12px;
 }
 
-/* ── H2H — fills available space ─────────────────────── */
+/* ── H2H ─────────────────────────────────────────────── */
 .h2h {
   position: relative; z-index: 1;
   display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: stretch; gap: 6px;
+  align-items: stretch; gap: 5px;
   flex: 1; align-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-/* ── Team panel — STRONG team-color glass (Gemini-level) ── */
+/* ── Team panel — strong team-color glass ────────────── */
 .panel {
   display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 20px 8px 14px;
-  border: 2px solid; /* color set inline */
-  border-radius: 20px;
+  gap: 8px; padding: 22px 8px 14px;
+  border: 2.5px solid;
+  border-radius: 22px;
   position: relative;
   overflow: hidden;
 }
 
-/* Inner edge highlight for glass depth */
+/* Inner glass highlight */
 .panel::before {
   content: ''; position: absolute; inset: 0;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.07);
   pointer-events: none;
 }
 
-/* Top edge shimmer */
+/* Top-edge shimmer */
 .panel::after {
-  content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent);
   pointer-events: none;
 }
 
 .logoWrap {
-  position: relative; width: 120px; height: 120px;
+  position: relative; width: 130px; height: 130px;
   display: flex; align-items: center; justify-content: center;
 }
 
 .logoGlow {
-  position: absolute; inset: -28px; border-radius: 50%; pointer-events: none;
+  position: absolute; inset: -30px; border-radius: 50%; pointer-events: none;
 }
 
 .logoWrap::after {
@@ -107,8 +110,8 @@
   font-family: 'Oswald', sans-serif;
   font-size: 24px; font-weight: 700;
   background: rgba(255,255,255,0.10);
-  border: 2px solid rgba(255,255,255,0.20);
-  color: rgba(240,244,248,0.90); border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.22);
+  color: rgba(240,244,248,0.92); border-radius: 8px;
   padding: 3px 18px; letter-spacing: 0.03em;
   box-shadow: 0 2px 10px rgba(0,0,0,0.15);
 }
@@ -116,27 +119,27 @@
 .teamName {
   font-family: 'Oswald', sans-serif;
   font-size: 26px; font-weight: 700; color: #fff;
-  text-align: center; line-height: 1.12;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.45);
+  text-align: center; line-height: 1.10;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.50);
   max-width: 300px;
 }
 
 .conf {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(168,208,240,0.45);
+  font-size: 14px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(168,208,240,0.48);
 }
 
-/* Per-team line chips */
+/* Per-team spread + ML */
 .teamLine {
-  display: flex; gap: 8px; margin-top: 2px;
+  display: flex; gap: 8px; margin-top: 4px;
 }
 
 .teamLineItem {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px; padding: 7px 14px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.14);
+  border-radius: 10px; padding: 8px 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .teamLineVal {
@@ -146,26 +149,26 @@
 }
 
 .teamLineKey {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(168,208,240,0.32);
 }
 
 .statRow {
   display: flex; align-items: center; gap: 8px;
   padding: 4px 14px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.05);
   border-radius: 6px;
 }
 
 .statKey {
   font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(168,208,240,0.38);
+  text-transform: uppercase; color: rgba(168,208,240,0.40);
 }
 
 .statVal {
   font-family: 'Oswald', sans-serif;
   font-size: 18px; font-weight: 700;
-  color: rgba(240,244,248,0.80);
+  color: rgba(240,244,248,0.82);
   font-variant-numeric: tabular-nums;
 }
 
@@ -174,57 +177,77 @@
   text-transform: uppercase; color: rgba(168,208,240,0.18);
 }
 
-/* ── Center — VS + total ─────────────────────────────── */
+/* ── Center VS — premium glass sphere ────────────────── */
 .center {
   display: flex; flex-direction: column; align-items: center;
-  gap: 16px; padding: 20px 6px; align-self: center;
+  gap: 16px; padding: 22px 6px; align-self: center;
 }
 
 .vsRing {
-  width: 62px; height: 62px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
+  width: 68px; height: 68px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.18);
+  background:
+    radial-gradient(circle at 40% 35%, rgba(255,255,255,0.12) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(110,179,232,0.12) 0%, rgba(255,255,255,0.04) 100%);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Oswald', sans-serif;
   font-size: 28px; font-weight: 700;
-  color: rgba(240,244,248,0.25);
-  box-shadow: 0 0 24px rgba(110,179,232,0.08), inset 0 1px 0 rgba(255,255,255,0.08);
+  color: rgba(240,244,248,0.40);
+  box-shadow:
+    0 4px 20px rgba(0,0,0,0.25),
+    0 0 24px rgba(110,179,232,0.10),
+    inset 0 2px 0 rgba(255,255,255,0.12),
+    inset 0 -2px 4px rgba(0,0,0,0.10);
+  text-shadow: 0 1px 8px rgba(110,179,232,0.20);
 }
 
 .totalCard {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: rgba(255,255,255,0.06);
-  border: 1.5px solid rgba(255,255,255,0.14);
-  border-radius: 10px; padding: 12px 18px;
-  box-shadow: 0 2px 14px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+  border: 1.5px solid rgba(255,255,255,0.16);
+  border-radius: 12px; padding: 12px 20px;
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.15),
+    inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 .totalVal {
   font-family: 'Oswald', sans-serif;
-  font-size: 30px; font-weight: 700; color: #fff;
+  font-size: 32px; font-weight: 700; color: #fff;
   font-variant-numeric: tabular-nums;
 }
 
 .totalKey {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(168,208,240,0.32);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(168,208,240,0.35);
 }
 
-/* ── Intel section — LARGER, more prominent ──────────── */
+/* ── Intel section — premium glass intelligence module ─── */
 .intel {
   position: relative; z-index: 1;
-  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
-  border: 1.5px solid rgba(255,255,255,0.14);
-  border-radius: 16px; padding: 20px 20px 16px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 6px 28px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.08);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.06) 100%);
+  border: 2px solid rgba(255,255,255,0.16);
+  border-radius: 18px; padding: 22px 22px 18px;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(0,0,0,0.06);
+}
+
+/* Top-edge shimmer */
+.intel::after {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
+  pointer-events: none;
 }
 
 .intelTitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 18px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(110,179,232,0.75);
-  text-align: center; margin-bottom: 16px;
+  font-size: 20px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(110,179,232,0.78);
+  text-align: center; margin-bottom: 18px;
 }
 
 .picksCols {
@@ -237,19 +260,20 @@
 }
 
 .pickDiv {
-  width: 1px; background: rgba(255,255,255,0.08);
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,0.10), transparent);
   align-self: stretch; flex-shrink: 0;
 }
 
 .pickType {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(168,208,240,0.35);
+  font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(168,208,240,0.38);
 }
 
 .pickVal {
   font-family: 'Oswald', sans-serif;
   font-size: 22px; font-weight: 700; color: #fff; line-height: 1.2;
-  min-height: 50px; display: flex; align-items: center; justify-content: center;
+  min-height: 52px; display: flex; align-items: center; justify-content: center;
 }
 
 .convPill {
@@ -262,9 +286,9 @@
   font-size: 13px; color: rgba(168,208,240,0.22);
 }
 
-/* ── Reasoning — more spacious ───────────────────────── */
+/* ── Reasoning ───────────────────────────────────────── */
 .reasoning {
-  margin-top: 14px; padding-top: 14px;
+  margin-top: 16px; padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,0.08);
   display: flex; flex-direction: column; gap: 7px;
 }
