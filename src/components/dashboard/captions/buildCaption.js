@@ -721,9 +721,27 @@ function buildGameCaption({ game, picks, asOf }) {
   const awayLabel = awayEmoji ? `${awayEmoji} ${awayShort}` : awayShort;
   const homeLabel = homeEmoji ? `${homeEmoji} ${homeShort}` : homeShort;
 
-  // Find picks for this game
-  const pe = picks?.find(p => p.pickType === 'pe' || p.type === 'pe');
-  const ats = picks?.find(p => p.pickType === 'ats' || p.type === 'ats');
+  // Find picks ONLY for this specific game — prevents cross-game contamination
+  const gameAwaySlug = game?.awaySlug || game?.awayTeamSlug || null;
+  const gameHomeSlug = game?.homeSlug || game?.homeTeamSlug || null;
+
+  const isPickForThisGame = (p) => {
+    if (!p) return false;
+    const pLine = (p.pickLine || p.matchup || p.pickTeam || '').toLowerCase();
+    // Slug match
+    if (gameAwaySlug && (p.homeSlug === gameAwaySlug || p.awaySlug === gameAwaySlug || p.homeTeamSlug === gameAwaySlug || p.awayTeamSlug === gameAwaySlug)) return true;
+    if (gameHomeSlug && (p.homeSlug === gameHomeSlug || p.awaySlug === gameHomeSlug || p.homeTeamSlug === gameHomeSlug || p.awayTeamSlug === gameHomeSlug)) return true;
+    // Strict mascot match (last word, 5+ chars)
+    for (const name of [away, home]) {
+      const words = name.toLowerCase().split(/\s+/);
+      const mascot = words.length > 1 ? words[words.length - 1] : null;
+      if (mascot && mascot.length >= 5 && pLine.includes(mascot)) return true;
+    }
+    return false;
+  };
+
+  const pe = picks?.find(p => (p.pickType === 'pe' || p.type === 'pe') && isPickForThisGame(p));
+  const ats = picks?.find(p => (p.pickType === 'ats' || p.type === 'ats') && isPickForThisGame(p));
 
   // Dynamic hook — opens with "Matchup Intel" then team emojis
   let hook;

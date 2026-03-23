@@ -57,57 +57,51 @@ function getTeamAtsDisplay(slug) {
   } catch { return null; }
 }
 
-/* ── Reliable logo URL for export — prefers ESPN CDN (no canvas taint) ── */
+/* ── Export-safe logo URL ─────────────────────────────────────────────── */
 
 function getExportSafeLogoUrl(slug) {
   if (!slug) return null;
-  // ESPN CDN is the most reliable for html-to-image export
-  // The export sanitizer inlines these as data URLs before capture
   const espnUrl = getEspnLogoUrl(slug);
   if (espnUrl) return espnUrl;
-  // Fallback to local (same-origin, should work but may have timing issues)
   return `/logos/${slug}.png`;
 }
 
-/* ── Robust pick matching ─────────────────────────────────────────────── */
+/* ── STRICT pick matching — prevents Michigan/Michigan State collisions ── */
 
 function matchPickToGame(pick, awaySlug, homeSlug, awayTeam, homeTeam) {
   if (!pick) return false;
-  const line = (pick.pickLine || pick.matchup || '').toLowerCase();
-  const pickTeamField = (pick.pickTeam || '').toLowerCase();
+
+  // Resolve the pick's team identity to a canonical slug
+  const pickSlug = getTeamSlug(pick.pickTeam || '') || getTeamSlug(pick.homeTeam || '') || getTeamSlug(pick.awayTeam || '');
+
+  // Method 1: Direct slug comparison (most reliable)
   const homeSlugField = (pick.homeSlug || pick.homeTeamSlug || '').toLowerCase();
   const awaySlugField = (pick.awaySlug || pick.awayTeamSlug || '').toLowerCase();
-
-  // Slug match
   if (awaySlug && (awaySlugField === awaySlug || homeSlugField === awaySlug)) return true;
   if (homeSlug && (awaySlugField === homeSlug || homeSlugField === homeSlug)) return true;
 
-  // getTeamSlug on pick fields
-  const lineSlug = getTeamSlug(pick.pickTeam || pick.homeTeam || pick.awayTeam || '');
-  if (lineSlug && (lineSlug === awaySlug || lineSlug === homeSlug)) return true;
+  // Method 2: Canonical slug from pick's team name
+  if (pickSlug && (pickSlug === awaySlug || pickSlug === homeSlug)) return true;
 
-  // Multi-fragment substring
+  // Method 3: Matchup field slug comparison
+  const matchupStr = (pick.matchup || '').toLowerCase();
+  if (matchupStr && awaySlug && homeSlug) {
+    const matchupSlugs = matchupStr.split(/\s+(?:@|vs\.?|v)\s+/i).map(s => getTeamSlug(s.trim()));
+    if (matchupSlugs.some(s => s === awaySlug) && matchupSlugs.some(s => s === homeSlug)) return true;
+  }
+
+  // Method 4: STRICT name matching — mascot only (last word, 5+ chars to avoid collisions)
+  // This avoids "michigan" matching both Michigan and Michigan State
+  const line = (pick.pickLine || pick.matchup || '').toLowerCase();
+  const pickTeamField = (pick.pickTeam || '').toLowerCase();
   for (const name of [awayTeam, homeTeam]) {
     if (!name) continue;
     const words = name.toLowerCase().split(/\s+/);
-    const fragments = [];
-    if (words.length > 0) fragments.push(words[words.length - 1]);
-    if (words.length > 1) fragments.push(words[0]);
-    if (words.length >= 2) fragments.push(words.slice(0, 2).join(' '));
-    // Also try the canonical team name
-    const slug = getTeamSlug(name);
-    if (slug) {
-      const canonical = getTeamBySlug(slug);
-      if (canonical?.name) {
-        const cwords = canonical.name.toLowerCase().split(/\s+/);
-        if (cwords.length > 0) fragments.push(cwords[cwords.length - 1]);
-        if (cwords.length > 1) fragments.push(cwords[0]);
-      }
-    }
-    for (const frag of fragments) {
-      if (frag.length >= 4 && (line.includes(frag) || pickTeamField.includes(frag))) return true;
-    }
+    // Only use mascot (last word) if it's 5+ chars and distinct
+    const mascot = words.length > 1 ? words[words.length - 1] : null;
+    if (mascot && mascot.length >= 5 && (line.includes(mascot) || pickTeamField.includes(mascot))) return true;
   }
+
   return false;
 }
 
@@ -178,7 +172,7 @@ function buildMicroIntel({ pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam,
   return { peIntel, atsIntel, ouIntel: ouLean?.reason || null };
 }
 
-/* ── Icons — 40px premium glass ───────────────────────────────────────── */
+/* ── Icons ────────────────────────────────────────────────────────────── */
 
 function PickEmIcon() {
   return (
@@ -220,34 +214,17 @@ function ConvictionPill({ tier }) {
   );
 }
 
-/* ── Export-safe team logo — uses ESPN CDN for reliability ─────────────── */
-
 function SlideTeamLogo({ slug, name, size }) {
   const url = getExportSafeLogoUrl(slug);
   const initials = name ? name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() : '??';
-
   if (!url) {
-    return (
-      <span className={styles.logoFallback} style={{ width: size, height: size, fontSize: size * 0.3 }}>
-        {initials}
-      </span>
-    );
+    return <span className={styles.logoFallback} style={{ width: size, height: size, fontSize: size * 0.3 }}>{initials}</span>;
   }
-
   return (
-    <img
-      src={url}
-      alt=""
-      width={size}
-      height={size}
-      loading="eager"
-      decoding="sync"
-      crossOrigin="anonymous"
-      className={styles.logoImg}
+    <img src={url} alt="" width={size} height={size} loading="eager" decoding="sync"
+      crossOrigin="anonymous" className={styles.logoImg}
       style={{ objectFit: 'contain', maxWidth: size, maxHeight: size }}
-      data-fallback-text={initials}
-      data-team-slug={slug}
-    />
+      data-fallback-text={initials} data-team-slug={slug} />
   );
 }
 
@@ -304,7 +281,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const awayAts = getTeamAtsDisplay(awaySlug);
   const homeAts = getTeamAtsDisplay(homeSlug);
 
-  // Picks
+  // Picks — strict game-scoped matching
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const games = data?.odds?.games ?? [];
   let pickEmPick = null;
@@ -333,7 +310,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       <div className={styles.glowAway} style={{ background: `radial-gradient(ellipse at 0% 38%, ${awayColor}30 0%, transparent 55%)` }} />
       <div className={styles.glowHome} style={{ background: `radial-gradient(ellipse at 100% 38%, ${homeColor}30 0%, transparent 55%)` }} />
 
-      {/* Hero header */}
       <div className={styles.header}>
         <div className={styles.heroRow}>
           <h2 className={styles.heroTitle}>MATCHUP INTEL</h2>
@@ -342,31 +318,18 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
         {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
       </div>
 
-      {/* H2H */}
       <div className={styles.h2h}>
         <div className={styles.panel} style={{ borderColor: `${awayColor}48`, background: `linear-gradient(155deg, ${awayColor}1E 0%, ${awayColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0C, 0 0 28px ${awayColor}12` }}>
           <div className={styles.logoWrap}>
             <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}5C 0%, transparent 55%)` }} />
             <SlideTeamLogo slug={awaySlug} name={awayTeam} size={115} />
           </div>
-          {awaySeed != null && (
-            <span className={styles.seedPill} style={{ borderColor: `${awayColor}40`, background: `linear-gradient(135deg, ${awayColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>
-              #{awaySeed}
-            </span>
-          )}
+          {awaySeed != null && <span className={styles.seedPill} style={{ borderColor: `${awayColor}40`, background: `linear-gradient(135deg, ${awayColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>#{awaySeed}</span>}
           <div className={styles.teamName}>{awayTeam}</div>
           {awayConf && <div className={styles.conf}>{awayConf}</div>}
           <div className={styles.teamLine}>
-            <div className={styles.teamLineItem}>
-              <span className={styles.teamLineVal}>{awaySpreadNum != null ? fmtLine(awaySpreadNum) : '—'}</span>
-              <span className={styles.teamLineKey}>SPREAD</span>
-            </div>
-            {awayML != null && (
-              <div className={styles.teamLineItem}>
-                <span className={styles.teamLineVal}>{fmtLine(awayML)}</span>
-                <span className={styles.teamLineKey}>ML</span>
-              </div>
-            )}
+            <div className={styles.teamLineItem}><span className={styles.teamLineVal}>{awaySpreadNum != null ? fmtLine(awaySpreadNum) : '—'}</span><span className={styles.teamLineKey}>SPREAD</span></div>
+            {awayML != null && <div className={styles.teamLineItem}><span className={styles.teamLineVal}>{fmtLine(awayML)}</span><span className={styles.teamLineKey}>ML</span></div>}
           </div>
           {awayAts && <div className={styles.statRow}><span className={styles.statKey}>ATS</span><span className={styles.statVal}>{awayAts}</span></div>}
           <div className={styles.sideTag}>AWAY</div>
@@ -374,10 +337,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
 
         <div className={styles.center}>
           <div className={styles.vsRing}>VS</div>
-          <div className={styles.totalCard}>
-            <span className={styles.totalVal}>{fmtTotal(total)}</span>
-            <span className={styles.totalKey}>O/U TOTAL</span>
-          </div>
+          <div className={styles.totalCard}><span className={styles.totalVal}>{fmtTotal(total)}</span><span className={styles.totalKey}>O/U TOTAL</span></div>
         </div>
 
         <div className={styles.panel} style={{ borderColor: `${homeColor}48`, background: `linear-gradient(205deg, ${homeColor}1E 0%, ${homeColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0C, 0 0 28px ${homeColor}12` }}>
@@ -385,57 +345,26 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
             <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}5C 0%, transparent 55%)` }} />
             <SlideTeamLogo slug={homeSlug} name={homeTeam} size={115} />
           </div>
-          {homeSeed != null && (
-            <span className={styles.seedPill} style={{ borderColor: `${homeColor}40`, background: `linear-gradient(135deg, ${homeColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>
-              #{homeSeed}
-            </span>
-          )}
+          {homeSeed != null && <span className={styles.seedPill} style={{ borderColor: `${homeColor}40`, background: `linear-gradient(135deg, ${homeColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>#{homeSeed}</span>}
           <div className={styles.teamName}>{homeTeam}</div>
           {homeConf && <div className={styles.conf}>{homeConf}</div>}
           <div className={styles.teamLine}>
-            <div className={styles.teamLineItem}>
-              <span className={styles.teamLineVal}>{homeSpreadNum != null ? fmtLine(homeSpreadNum) : '—'}</span>
-              <span className={styles.teamLineKey}>SPREAD</span>
-            </div>
-            {homeML != null && (
-              <div className={styles.teamLineItem}>
-                <span className={styles.teamLineVal}>{fmtLine(homeML)}</span>
-                <span className={styles.teamLineKey}>ML</span>
-              </div>
-            )}
+            <div className={styles.teamLineItem}><span className={styles.teamLineVal}>{homeSpreadNum != null ? fmtLine(homeSpreadNum) : '—'}</span><span className={styles.teamLineKey}>SPREAD</span></div>
+            {homeML != null && <div className={styles.teamLineItem}><span className={styles.teamLineVal}>{fmtLine(homeML)}</span><span className={styles.teamLineKey}>ML</span></div>}
           </div>
           {homeAts && <div className={styles.statRow}><span className={styles.statKey}>ATS</span><span className={styles.statVal}>{homeAts}</span></div>}
           <div className={styles.sideTag}>HOME</div>
         </div>
       </div>
 
-      {/* MAXIMUS'S PICKS */}
       <div className={styles.intel}>
         <div className={styles.intelTitle}>MAXIMUS&apos;S PICKS</div>
         <div className={styles.picksCols}>
-          <div className={styles.pickCell}>
-            <PickEmIcon />
-            <div className={styles.pickType}>PICK EM</div>
-            <div className={styles.pickVal}>{pickEmPick?.pickTeam || 'No lean'}</div>
-            <ConvictionPill tier={pickEmTier} />
-            {peIntel && <div className={styles.microIntel}>{peIntel}</div>}
-          </div>
+          <div className={styles.pickCell}><PickEmIcon /><div className={styles.pickType}>PICK EM</div><div className={styles.pickVal}>{pickEmPick?.pickTeam || 'No lean'}</div><ConvictionPill tier={pickEmTier} />{peIntel && <div className={styles.microIntel}>{peIntel}</div>}</div>
           <div className={styles.pickDiv} />
-          <div className={styles.pickCell}>
-            <AtsIcon />
-            <div className={styles.pickType}>ATS</div>
-            <div className={styles.pickVal}>{atsPick?.pickLine || 'No lean'}</div>
-            <ConvictionPill tier={atsTier} />
-            {atsIntel && <div className={styles.microIntel}>{atsIntel}</div>}
-          </div>
+          <div className={styles.pickCell}><AtsIcon /><div className={styles.pickType}>ATS</div><div className={styles.pickVal}>{atsPick?.pickLine || 'No lean'}</div><ConvictionPill tier={atsTier} />{atsIntel && <div className={styles.microIntel}>{atsIntel}</div>}</div>
           <div className={styles.pickDiv} />
-          <div className={styles.pickCell}>
-            <OuIcon />
-            <div className={styles.pickType}>O/U</div>
-            <div className={styles.pickVal}>{ouLean ? `${ouLean.direction} ${fmtTotal(total)}` : 'No lean'}</div>
-            <ConvictionPill tier={totalsTier} />
-            {ouIntel && <div className={styles.microIntel}>{ouIntel}</div>}
-          </div>
+          <div className={styles.pickCell}><OuIcon /><div className={styles.pickType}>O/U</div><div className={styles.pickVal}>{ouLean ? `${ouLean.direction} ${fmtTotal(total)}` : 'No lean'}</div><ConvictionPill tier={totalsTier} />{ouIntel && <div className={styles.microIntel}>{ouIntel}</div>}</div>
         </div>
       </div>
     </SlideShell>
