@@ -173,6 +173,17 @@ export default function Sidebar() {
               <span className={styles.icon}><NewsIcon /></span>
               <span>{workspace.labels.news}</span>
             </NavLink>
+            {hasCapability('seasonIntel') && (
+              <NavLink
+                to={buildPath('/season-model')}
+                className={({ isActive }) =>
+                  `${styles.link} ${styles.seasonIntelLink}${isActive ? ` ${styles.active}` : ''}`
+                }
+              >
+                <span className={styles.icon}><TrendIcon /></span>
+                <span>Season Intelligence</span>
+              </NavLink>
+            )}
             {hasCapability('bracketology') && (
               <NavLink
                 to="/bracketology"

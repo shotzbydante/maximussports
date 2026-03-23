@@ -126,8 +126,13 @@ export default function TopNav() {
       { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
       { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
       { to: buildPath('/news'), end: false, label: workspace.labels.news, iconKey: 'news' },
-      { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true, iconKey: 'dashboard' },
     ];
+    if (hasCapability('seasonIntel')) {
+      links.push({ to: buildPath('/season-model'), end: false, label: 'Season Intelligence', iconKey: 'insights' });
+    }
+    links.push(
+      { to: '/dashboard', end: false, label: 'Dashboard', isDashboard: true, iconKey: 'dashboard' },
+    );
     if (hasCapability('bracketology')) {
       links.push({ to: '/bracketology', end: false, label: 'Bracketology', isBracketology: true, iconKey: 'bracketology' });
     }

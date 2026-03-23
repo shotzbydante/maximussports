@@ -91,6 +91,7 @@ export const WORKSPACES = {
     sportKey: 'baseball_mlb',
     capabilities: {
       bracketology: false,
+      seasonIntel: true,
       contentStudio: true,
       champOdds: true,
       atsLeaders: false,
