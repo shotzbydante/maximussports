@@ -711,20 +711,30 @@ function buildGameCaption({ game, picks, asOf }) {
   const awayShort = away.split(' ').pop() || away;
   const homeShort = home.split(' ').pop() || home;
 
+  // Team emojis
+  const awaySlug = game?.awaySlug || game?.awayTeamSlug || null;
+  const homeSlug = game?.homeSlug || game?.homeTeamSlug || null;
+  let awayEmoji = '';
+  let homeEmoji = '';
+  try { awayEmoji = getTeamEmoji(awaySlug, away) || ''; } catch { /* ignore */ }
+  try { homeEmoji = getTeamEmoji(homeSlug, home) || ''; } catch { /* ignore */ }
+  const awayLabel = awayEmoji ? `${awayEmoji} ${awayShort}` : awayShort;
+  const homeLabel = homeEmoji ? `${homeEmoji} ${homeShort}` : homeShort;
+
   // Find picks for this game
   const pe = picks?.find(p => p.pickType === 'pe' || p.type === 'pe');
   const ats = picks?.find(p => p.pickType === 'ats' || p.type === 'ats');
 
-  // Dynamic hook
+  // Dynamic hook — with team emojis
   let hook;
   if (spreadNum != null && Math.abs(spreadNum) <= 2.5) {
-    hook = `🔥 ${awayShort} vs ${homeShort} is a coin flip. The model has a take.`;
+    hook = `🔥 ${awayLabel} vs ${homeLabel} is a coin flip. The model has a take.`;
   } else if (spreadNum != null && Math.abs(spreadNum) >= 10) {
-    hook = `📊 ${awayShort} vs ${homeShort} — ${Math.abs(spreadNum)}-point spread. Is the market right?`;
+    hook = `📊 ${awayLabel} vs ${homeLabel} — ${Math.abs(spreadNum)}-point spread. Is the market right?`;
   } else if (spreadStr) {
-    hook = `🏀 ${away} @ ${home} (${spreadStr}) — Maximus matchup intel is live.`;
+    hook = `🏀 ${awayLabel} vs ${homeLabel} (${spreadStr}) — Maximus matchup intel is live.`;
   } else {
-    hook = `🏀 ${away} @ ${home} — Maximus matchup breakdown.`;
+    hook = `🏀 ${awayLabel} vs ${homeLabel} — Maximus matchup breakdown.`;
   }
 
   // Spread context

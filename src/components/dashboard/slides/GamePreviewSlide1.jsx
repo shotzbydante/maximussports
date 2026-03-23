@@ -152,29 +152,29 @@ function buildMicroIntel({ pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam,
 
 function PickEmIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className={styles.pickIcon}>
-      <circle cx="14" cy="14" r="12" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
-      <path d="M9 14.5L12.5 18L19 11" stroke="rgba(168,208,240,0.65)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className={styles.pickIcon}>
+      <circle cx="16" cy="16" r="14" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
+      <path d="M10 16.5L14 20.5L22 12" stroke="rgba(168,208,240,0.65)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function AtsIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className={styles.pickIcon}>
-      <circle cx="14" cy="14" r="12" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
-      <path d="M8 17L12 11L16 15L20 9" stroke="rgba(168,208,240,0.65)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className={styles.pickIcon}>
+      <circle cx="16" cy="16" r="14" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
+      <path d="M8 20L13 12L18 17L24 10" stroke="rgba(168,208,240,0.65)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function OuIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className={styles.pickIcon}>
-      <circle cx="14" cy="14" r="12" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
-      <rect x="9" y="16" width="3" height="4" rx="0.5" fill="rgba(168,208,240,0.45)" />
-      <rect x="12.5" y="12" width="3" height="8" rx="0.5" fill="rgba(168,208,240,0.55)" />
-      <rect x="16" y="9" width="3" height="11" rx="0.5" fill="rgba(168,208,240,0.65)" />
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className={styles.pickIcon}>
+      <circle cx="16" cy="16" r="14" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
+      <rect x="10" y="18" width="3.5" height="5" rx="0.5" fill="rgba(168,208,240,0.45)" />
+      <rect x="14.25" y="14" width="3.5" height="9" rx="0.5" fill="rgba(168,208,240,0.55)" />
+      <rect x="18.5" y="10" width="3.5" height="13" rx="0.5" fill="rgba(168,208,240,0.65)" />
     </svg>
   );
 }
@@ -294,10 +294,18 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       <div className={styles.glowAway} style={{ background: `radial-gradient(ellipse at 0% 38%, ${awayColor}30 0%, transparent 55%)` }} />
       <div className={styles.glowHome} style={{ background: `radial-gradient(ellipse at 100% 38%, ${homeColor}30 0%, transparent 55%)` }} />
 
-      {/* Header */}
+      {/* Header with inline mascot */}
       <div className={styles.header}>
         <div className={styles.eyebrow}>MATCHUP INTEL</div>
-        {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
+        <div className={styles.roundRow}>
+          {roundLabel && <div className={styles.roundBadge}>{roundLabel}</div>}
+          <img
+            src="/mascot.png"
+            alt=""
+            className={styles.heroMascot}
+            crossOrigin="anonymous"
+          />
+        </div>
         <div className={styles.metaRow}>
           {dateStr && <span className={styles.metaItem}>{dateStr}</span>}
           {timeStr && <><span className={styles.metaDot}>·</span><span className={styles.metaItem}>{timeStr}</span></>}
