@@ -370,8 +370,6 @@ export default function MlbSeasonModel() {
       {/* ── Model Insights (replaces old summary rail) ── */}
       <ModelInsights teams={allTeams} onTeamClick={handleInsightClick} />
 
-      <p className={styles.resultCount}>30 teams</p>
-
       {/* ── Team Board: AL / NL split ── */}
       <div className={styles.leagueBoard} ref={boardRef}>
         <div className={styles.leagueCol}>

@@ -144,9 +144,25 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
-  .grid { gap: 6px; }
-  .card { padding: 10px 10px 8px; gap: 4px; }
+@media (max-width: 700px) {
+  .grid {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 4px;
+  }
+  .grid::-webkit-scrollbar { display: none; }
+  .card {
+    min-width: 140px;
+    max-width: 160px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    padding: 10px 10px 8px;
+    gap: 4px;
+  }
   .cardMetricVal { font-size: 0.90rem; }
   .cardName { font-size: 0.64rem; }
 }
