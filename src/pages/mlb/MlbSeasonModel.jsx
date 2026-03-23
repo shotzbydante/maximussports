@@ -15,6 +15,7 @@ import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import MaximusModelIcon from '../../components/mlb/MaximusModelIcon';
 import ModelStageIcon from '../../components/mlb/ModelStageIcon';
 import { MODEL_META } from '../../data/mlb/seasonModelMeta';
+import ModelInsights from '../../components/mlb/ModelInsights';
 import {
   getSeasonProjections, sortTeams, filterTeams,
   SORT_OPTIONS,
@@ -256,7 +257,9 @@ export default function MlbSeasonModel() {
           <div className={styles.stageGrid}>
             {MODEL_META.stages.map(s => (
               <div key={s.name} className={styles.stageCard}>
-                <ModelStageIcon stage={s.name} size={20} className={styles.stageIcon} />
+                <span className={styles.stageIconWrap}>
+                  <ModelStageIcon stage={s.name} size={16} className={styles.stageIcon} />
+                </span>
                 <span className={styles.stageName}>{s.name}</span>
                 <span className={styles.stagePct}>{Math.round(s.weight * 100)}%</span>
               </div>
@@ -288,7 +291,9 @@ export default function MlbSeasonModel() {
                 {MODEL_META.stages.map(s => (
                   <div key={s.name} className={styles.methStageCard}>
                     <div className={styles.methStageHead}>
-                      <ModelStageIcon stage={s.name} size={16} className={styles.methStageIco} />
+                      <span className={styles.stageIconWrap}>
+                        <ModelStageIcon stage={s.name} size={14} className={styles.methStageIco} />
+                      </span>
                       <span className={styles.methStageLabel}>{s.name}</span>
                       <span className={styles.methStagePct}>{Math.round(s.weight * 100)}%</span>
                     </div>
@@ -364,6 +369,9 @@ export default function MlbSeasonModel() {
           </div>
         ))}
       </div>
+
+      {/* ── Model Insights ── */}
+      <ModelInsights teams={allTeams} />
 
       <p className={styles.resultCount}>30 teams</p>
 
