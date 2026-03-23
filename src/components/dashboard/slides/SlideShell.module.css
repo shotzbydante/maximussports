@@ -50,6 +50,18 @@
     drop-shadow(0 0 14px rgba(45, 108, 168, 0.32));
 }
 
+/* Larger, bolder mascot for single-game hero slides */
+.theme_single_game .mascotWrap {
+  top: 10px;
+  right: 10px;
+}
+.theme_single_game .mascot {
+  width: 140px;
+  filter:
+    drop-shadow(0 4px 20px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 18px rgba(110, 179, 232, 0.30));
+}
+
 /* ── Header ─────────────────────────────────────────────── */
 .header {
   position: relative;

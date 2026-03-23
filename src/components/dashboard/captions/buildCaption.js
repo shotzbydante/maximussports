@@ -707,46 +707,72 @@ function buildGameCaption({ game, picks, asOf }) {
   const spreadStr = spreadNum != null
     ? (spreadNum > 0 ? `+${spreadNum}` : String(spreadNum))
     : null;
+  const total = game?.total ?? game?.overUnder ?? null;
+  const awayShort = away.split(' ').pop() || away;
+  const homeShort = home.split(' ').pop() || home;
 
-  const hook = spreadStr
-    ? `👀 ${away} @ ${home} — spread: ${spreadStr}. Here's the model read.`
-    : `👀 ${away} @ ${home} — game preview is live.`;
+  // Dynamic hook — more entertaining, varies by context
+  const hookLines = [];
+  if (spreadNum != null && Math.abs(spreadNum) <= 2.5) {
+    hookLines.push(`🔥 ${awayShort} vs ${homeShort} is a coin flip. The model has a take.`);
+  } else if (spreadNum != null && Math.abs(spreadNum) >= 10) {
+    hookLines.push(`📊 ${awayShort} vs ${homeShort} — ${Math.abs(spreadNum)}-point spread. Is the market right?`);
+  } else if (spreadStr) {
+    hookLines.push(`🏀 ${away} @ ${home} (${spreadStr}) — Maximus matchup intel is live.`);
+  } else {
+    hookLines.push(`🏀 ${away} @ ${home} — Maximus matchup breakdown.`);
+  }
 
-  const pickLine = picks?.length
-    ? `Model leans ${picks[0]?.pickLine}. Swipe for the full breakdown.`
-    : `No lean posted for this matchup.`;
+  // Pick context
+  const pickParts = [];
+  const pe = picks?.find(p => p.pickType === 'pe' || p.type === 'pe');
+  const ats = picks?.find(p => p.pickType === 'ats' || p.type === 'ats');
+  if (pe?.pickTeam) pickParts.push(`Pick Em → ${pe.pickTeam}`);
+  if (ats?.pickLine) pickParts.push(`ATS → ${ats.pickLine}`);
+  if (total) pickParts.push(`O/U ${total}`);
 
-  const short = [hook, pickLine, CTA].join('\n\n');
+  const pickSummary = pickParts.length > 0
+    ? pickParts.join(' · ')
+    : picks?.length ? `Model leans ${picks[0]?.pickLine}.` : null;
 
-  const spreadContext = spreadNum != null
+  const short = [
+    hookLines[0],
+    pickSummary || 'Model analysis inside.',
+    CTA,
+  ].filter(Boolean).join('\n\n');
+
+  // Long caption — richer narrative
+  const spreadNarrative = spreadNum != null
     ? (Math.abs(spreadNum) <= 3.5
-        ? `Pick-em range — competitive cover battle.`
-        : Math.abs(spreadNum) >= 12
-          ? `Heavy line. Model checks if the number is justified by ATS data.`
-          : `Mid-range spread — both sides have cover paths.`)
+        ? `This is a razor-thin line. The market is saying: don't blink.`
+        : Math.abs(spreadNum) >= 10
+          ? `A double-digit spread. Maximus checks if the number is backed by real edges.`
+          : `Spread sits at ${spreadStr}. Both sides have a path to cover.`)
     : null;
 
   const long = [
-    `👀 Game Preview: ${away} @ ${home}`,
+    `🏀 Matchup Intel: ${away} @ ${home}`,
     '',
-    spreadStr
-      ? `${home} is ${spreadNum < 0 ? `favored at ${spreadStr}` : `an underdog at ${spreadStr}`}. ${spreadContext || ''}`
-      : `Line data pending.`,
+    spreadNarrative || 'Line data pending — check back closer to tip.',
+    '',
+    pe?.pickTeam ? `🎯 Pick Em: ${pe.pickTeam}` : null,
+    ats?.pickLine ? `📈 ATS: ${ats.pickLine}` : null,
+    total ? `📊 Total: O/U ${total}` : null,
     '',
     picks?.length
-      ? `Value edge: ${picks[0]?.pickLine} (${picks[0]?.pickType === 'ats' ? 'ATS' : 'ML'}). ATS differential + implied probability analysis.`
-      : `No qualified lean. Value threshold not met.`,
+      ? `Full model read + conviction levels on the slide. Swipe for ATS deep-dive and what to watch.`
+      : `No qualified lean for this matchup. Model value threshold not met.`,
     '',
     asOf ? `Data as of ${asOf}` : null,
     CTA,
     DISCLAIMER,
   ].filter(Boolean).join('\n');
 
-  const awayTag = away.split(' ').slice(-1)[0] ? `#${away.split(' ').slice(-1)[0]}` : null;
-  const homeTag = home.split(' ').slice(-1)[0] ? `#${home.split(' ').slice(-1)[0]}` : null;
+  const awayTag = `#${awayShort}`;
+  const homeTag = `#${homeShort}`;
 
   const hashtags = [
-    '#CollegeBasketball', '#NCAABB',
+    '#MarchMadness', '#CollegeBasketball',
     awayTag, homeTag,
     '#MaximusSports',
   ].filter(Boolean).slice(0, 5);
