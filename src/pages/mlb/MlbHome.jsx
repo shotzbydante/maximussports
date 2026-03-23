@@ -51,6 +51,7 @@ export default function MlbHome() {
   const [llmSummary, setLlmSummary] = useState(() => _llmCache.data && (Date.now() - _llmCache.ts < LLM_TTL_MS) ? _llmCache.data : null);
   const [summaryRefreshing, setSummaryRefreshing] = useState(false);
   const [summaryFailed, setSummaryFailed] = useState(false);
+  const [briefingExpanded, setBriefingExpanded] = useState(false);
 
   useEffect(() => {
     if (!showSplash) return;
@@ -152,7 +153,7 @@ export default function MlbHome() {
             fetchPriority="high"
             onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
           />
-          <div className={styles.briefingBody}>
+          <div className={`${styles.briefingBody} ${!briefingExpanded ? styles.briefingCollapsed : ''}`}>
             {llmSummary ? (
               <FormattedSummary text={llmSummary} className={styles.briefingText} />
             ) : summaryFailed ? (
@@ -161,6 +162,16 @@ export default function MlbHome() {
               <p className={styles.briefingText}>Loading today&apos;s MLB intelligence…</p>
             )}
           </div>
+        </div>
+        <div className={styles.briefingFooter}>
+          <button
+            type="button"
+            className={styles.briefingToggle}
+            onClick={() => setBriefingExpanded(v => !v)}
+          >
+            {briefingExpanded ? 'Collapse briefing' : 'Read full briefing'}
+            <span className={`${styles.briefingToggleCaret} ${briefingExpanded ? styles.briefingToggleCaretOpen : ''}`}>&#9662;</span>
+          </button>
         </div>
       </section>
 

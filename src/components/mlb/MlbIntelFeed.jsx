@@ -46,28 +46,29 @@ function getPublisherBadge(source) {
   return { label: source || 'NEWS', color: '#555' };
 }
 
-function VideoCard({ video, hero }) {
+function VideoCard({ video, hero, small }) {
   const badge = getChannelBadge(video.channelTitle);
   const ago = video.publishedAt ? formatTimeAgo(video.publishedAt) : '';
+  const cls = small ? styles.videoCardSmall : hero ? styles.videoCardHero : styles.videoCard;
   return (
     <a
       href={`https://www.youtube.com/watch?v=${video.videoId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className={hero ? styles.videoCardHero : styles.videoCard}
+      className={cls}
     >
       <div className={styles.videoThumb}>
         <img src={video.thumbUrl} alt={video.title} loading="lazy" />
         <span className={styles.playIcon}>▶</span>
       </div>
-      <div className={styles.videoInfo}>
+      <div className={small ? styles.videoInfoSmall : styles.videoInfo}>
         {badge && (
-          <span className={styles.channelBadge} style={{ '--badge-color': badge.color }}>
+          <span className={small ? styles.channelBadgeSmall : styles.channelBadge} style={{ '--badge-color': badge.color }}>
             {badge.label}
           </span>
         )}
-        <span className={styles.videoTitle}>{video.title}</span>
-        <span className={styles.videoMeta}>
+        <span className={small ? styles.videoTitleSmall : styles.videoTitle}>{video.title}</span>
+        <span className={small ? styles.videoMetaSmall : styles.videoMeta}>
           {video.channelTitle}{ago ? ` · ${ago}` : ''}
         </span>
       </div>
@@ -95,7 +96,7 @@ export default function MlbIntelFeed() {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    fetch('/api/mlb/youtube/intelFeed?maxResults=6')
+    fetch('/api/mlb/youtube/intelFeed?maxResults=10')
       .then((r) => r.json())
       .then((d) => setVideos(d.items ?? []))
       .catch(() => {})
@@ -129,10 +130,15 @@ export default function MlbIntelFeed() {
             <p className={styles.muted}>No videos available yet.</p>
           ) : (
             <div className={styles.videosList}>
-              {videos.slice(0, 2).map((v) => (
+              {videos.slice(0, 1).map((v) => (
                 <VideoCard key={v.videoId} video={v} hero />
               ))}
-              {videos.length > 2 && (
+              <div className={styles.videosGrid}>
+                {videos.slice(1, 4).map((v) => (
+                  <VideoCard key={v.videoId} video={v} small />
+                ))}
+              </div>
+              {videos.length > 4 && (
                 <Link to="/mlb/news" className={styles.viewMore}>View more videos →</Link>
               )}
             </div>

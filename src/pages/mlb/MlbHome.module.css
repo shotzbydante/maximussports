@@ -155,6 +155,14 @@
   min-width: 0;
 }
 
+.briefingCollapsed {
+  max-height: 7.5em;
+  overflow: hidden;
+  position: relative;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+
 .briefingText {
   font-size: 0.88rem;
   line-height: 1.65;
@@ -164,6 +172,41 @@
 
 .briefingText:last-child {
   margin-bottom: 0;
+}
+
+.briefingFooter {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.briefingToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #b8293d;
+  background: none;
+  border: 1px solid rgba(184, 41, 61, 0.20);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.briefingToggle:hover {
+  background: rgba(184, 41, 61, 0.06);
+  border-color: rgba(184, 41, 61, 0.35);
+}
+
+.briefingToggleCaret {
+  font-size: 0.52rem;
+  transition: transform 0.2s;
+}
+
+.briefingToggleCaretOpen {
+  transform: rotate(180deg);
 }
 
 /* ── Season Intelligence Hero ─────────────────────────────── */
