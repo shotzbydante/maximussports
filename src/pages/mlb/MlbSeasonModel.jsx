@@ -112,15 +112,8 @@ export default function MlbSeasonModel() {
         {/* Preview always visible */}
         <div className={styles.methPreview}>
           <div className={styles.methPreviewHead}>
-            <div className={styles.methPreviewTitle}>
-              <MaximusModelIcon size={14} className={styles.methIconAccent} />
-              <span>How the Maximus Model Works</span>
-            </div>
-            <button type="button" className={styles.methExpandBtn}
-              onClick={() => setMethExpanded(v => !v)}>
-              {methExpanded ? 'Collapse' : 'Full methodology'}
-              <span className={`${styles.methCaret} ${methExpanded ? styles.methCaretOpen : ''}`}>&#9662;</span>
-            </button>
+            <MaximusModelIcon size={14} className={styles.methIconAccent} />
+            <span className={styles.methPreviewTitle}>How the Maximus Model Works</span>
           </div>
           <p className={styles.methSummary}>{MODEL_META.objective}</p>
           {/* Mini weight preview */}
@@ -143,6 +136,14 @@ export default function MlbSeasonModel() {
             {MODEL_META.sources.length > 4 && (
               <span className={styles.methSourceChip}>+{MODEL_META.sources.length - 4} more</span>
             )}
+          </div>
+          {/* CTA at bottom-right of preview */}
+          <div className={styles.methFooter}>
+            <button type="button" className={styles.methExpandBtn}
+              onClick={() => setMethExpanded(v => !v)}>
+              {methExpanded ? 'Collapse methodology' : 'View full methodology'}
+              <span className={`${styles.methCaret} ${methExpanded ? styles.methCaretOpen : ''}`}>&#9662;</span>
+            </button>
           </div>
         </div>
 

@@ -13,6 +13,7 @@ import { fetchMlbHeadlines } from '../../api/mlbNews';
 import AffiliateCta from '../../components/common/AffiliateCta';
 import MlbTeamIntelFeed from '../../components/mlb/MlbTeamIntelFeed';
 import LiveGameCard from '../../components/mlb/LiveGameCard';
+import MlbModelOutlook from '../../components/mlb/MlbModelOutlook';
 import styles from './MlbTeamDetail.module.css';
 
 function formatOdds(american) {
@@ -355,7 +356,7 @@ export default function MlbTeamDetail() {
 
       {/* ── Section Nav ── */}
       <nav className={styles.sectionNav}>
-        {['Intel', 'Odds', 'News', 'Schedule'].map((s) => (
+        {['Intel', 'Model', 'Odds', 'News', 'Schedule'].map((s) => (
           <a key={s} href={`#${s.toLowerCase()}`} className={styles.navPill}
             onClick={(e) => { e.preventDefault(); document.getElementById(s.toLowerCase())?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
             {s}
@@ -390,6 +391,11 @@ export default function MlbTeamDetail() {
             </p>
           </div>
         </section>
+
+        {/* ── Maximus Model Outlook ── */}
+        <div id="model">
+          <MlbModelOutlook teamSlug={team.slug} />
+        </div>
 
         {/* ── Odds + ATS row ── */}
         <div id="odds" className={styles.twoCol}>

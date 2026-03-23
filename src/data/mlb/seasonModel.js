@@ -406,6 +406,12 @@ export const DIVISION_FILTERS = [
   'All', 'AL East', 'AL Central', 'AL West', 'NL East', 'NL Central', 'NL West',
 ];
 
+/** Get a single team's projection by slug. */
+export function getTeamProjection(slug) {
+  const all = getSeasonProjections();
+  return all.find((t) => t.slug === slug) || null;
+}
+
 export function filterTeams(teams, { league = 'All', division = 'All' } = {}) {
   return teams.filter((t) => {
     if (league !== 'All' && t.league !== league) return false;

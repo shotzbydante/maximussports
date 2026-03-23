@@ -29,11 +29,10 @@
 }
 
 /* Preview (always visible) */
-.methPreview { padding: 14px 18px; }
-.methPreviewHead { display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:8px; }
-.methPreviewTitle { display:flex; align-items:center; gap:6px;
-  font-size:0.78rem; font-weight:700; color:var(--color-text); }
+.methPreview { padding: 16px 20px; }
+.methPreviewHead { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+.methPreviewTitle { font-size:0.78rem; font-weight:700; color:var(--color-text); }
+.methFooter { display:flex; justify-content:flex-end; margin-top:12px; }
 .methIconAccent { color:#b8293d; }
 .methExpandBtn { display:flex; align-items:center; gap:5px;
   font-size:0.66rem; font-weight:600; color:var(--color-text-muted);
@@ -129,15 +128,15 @@
 .sc_amber { color:#a07020; }
 
 /* ── Board ────────────────────────────────────────────────── */
-.board { display:flex; flex-direction:column; gap:3px; }
+.board { display:flex; flex-direction:column; gap:5px; }
 .card { background:var(--color-bg-elevated); border:1px solid var(--color-border-light);
   border-radius:var(--radius-card,10px); overflow:hidden; transition:border-color 0.12s; }
 .card:hover { border-color:rgba(184,41,61,0.16); }
 .cardOpen { border-color:rgba(184,41,61,0.25); }
 
 /* ── Main row ─────────────────────────────────────────────── */
-.row { display:grid; grid-template-columns:22px 1fr 120px auto 28px;
-  align-items:center; gap:6px; padding:9px 14px; }
+.row { display:grid; grid-template-columns:22px 1fr 130px auto 28px;
+  align-items:center; gap:8px; padding:12px 16px; }
 .rank { font-size:0.62rem; font-weight:700; color:var(--color-text-muted); text-align:center; }
 
 .ident { display:flex; align-items:center; gap:8px; min-width:0; }
@@ -162,9 +161,9 @@
 
 /* Right cluster */
 .right { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
-.badges { display:flex; gap:3px; }
-.badge { font-size:0.50rem; font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
-  padding:2px 6px; border-radius:999px; white-space:nowrap; }
+.badges { display:flex; gap:4px; flex-wrap:wrap; }
+.badge { font-size:0.52rem; font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
+  padding:3px 7px; border-radius:999px; white-space:nowrap; }
 .bDefault { color:var(--color-text-muted); background:var(--color-bg-muted); }
 .bGreen  { color:#1b6b4a; background:rgba(45,138,110,0.10); }
 .bBlue   { color:#3C79B4; background:rgba(60,121,180,0.10); }
@@ -189,7 +188,7 @@
 .caretOpen { transform:rotate(180deg); }
 
 /* ── Expanded detail ──────────────────────────────────────── */
-.detail { padding:6px 14px 12px; border-top:1px solid var(--color-border-light); }
+.detail { padding:10px 16px 14px; border-top:1px solid var(--color-border-light); }
 .detailTop { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
 .tkRow { display:flex; flex-wrap:wrap; gap:6px 12px; }
 .tkItem { font-size:0.62rem; color:var(--color-text-secondary); }
