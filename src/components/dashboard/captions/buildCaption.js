@@ -735,13 +735,7 @@ function buildGameCaption({ game, picks, asOf }) {
     ? pickParts.join(' · ')
     : picks?.length ? `Model leans ${picks[0]?.pickLine}.` : null;
 
-  const short = [
-    hookLines[0],
-    pickSummary || 'Model analysis inside.',
-    CTA,
-  ].filter(Boolean).join('\n\n');
-
-  // Long caption — richer narrative
+  // Unified caption — short and long are the same for IG posting
   const spreadNarrative = spreadNum != null
     ? (Math.abs(spreadNum) <= 3.5
         ? `This is a razor-thin line. The market is saying: don't blink.`
@@ -750,8 +744,8 @@ function buildGameCaption({ game, picks, asOf }) {
           : `Spread sits at ${spreadStr}. Both sides have a path to cover.`)
     : null;
 
-  const long = [
-    `🏀 Matchup Intel: ${away} @ ${home}`,
+  const unified = [
+    hookLines[0],
     '',
     spreadNarrative || 'Line data pending — check back closer to tip.',
     '',
@@ -759,14 +753,14 @@ function buildGameCaption({ game, picks, asOf }) {
     ats?.pickLine ? `📈 ATS: ${ats.pickLine}` : null,
     total ? `📊 Total: O/U ${total}` : null,
     '',
-    picks?.length
-      ? `Full model read + conviction levels on the slide. Swipe for ATS deep-dive and what to watch.`
-      : `No qualified lean for this matchup. Model value threshold not met.`,
+    pickSummary || 'Model analysis inside.',
     '',
-    asOf ? `Data as of ${asOf}` : null,
     CTA,
     DISCLAIMER,
   ].filter(Boolean).join('\n');
+
+  const short = unified;
+  const long = unified;
 
   const awayTag = `#${awayShort}`;
   const homeTag = `#${homeShort}`;
