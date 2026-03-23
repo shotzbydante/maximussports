@@ -26,10 +26,9 @@ function pickToTier(pick) {
   return TIERS.tossUp;
 }
 
-/* ── Tournament round — uses GAME DATE, not today's date ──────────────── */
+/* ── Tournament round — uses GAME DATE ────────────────────────────────── */
 
 function inferGameRound(gameTime, awaySeedVal, homeSeedVal) {
-  // Priority 1: Use the game's actual date to determine tournament phase
   if (gameTime) {
     try {
       const gameDate = new Date(gameTime);
@@ -42,21 +41,13 @@ function inferGameRound(gameTime, awaySeedVal, homeSeedVal) {
       }
     } catch { /* fall through */ }
   }
-
-  // Priority 2: Seed pairing as sanity check
   if (awaySeedVal != null && homeSeedVal != null) {
     const lo = Math.min(awaySeedVal, homeSeedVal);
     const hi = Math.max(awaySeedVal, homeSeedVal);
     if (lo + hi === 17) return 'Round of 64';
   }
-
-  // Priority 3: Today's calendar phase
   const phase = getTournamentPhase();
-  if (phase && phase !== 'off') {
-    const round = getActiveRound(phase);
-    return getRoundLabel(round);
-  }
-
+  if (phase && phase !== 'off') return getRoundLabel(getActiveRound(phase));
   return null;
 }
 
@@ -75,10 +66,9 @@ function getTeamAtsDisplay(slug) {
   } catch { return null; }
 }
 
-/* ── Force O/U lean — generate even at low conviction ─────────────────── */
+/* ── Force O/U lean ───────────────────────────────────────────────────── */
 
 function deriveOuLean(totalsPick, game, spreadNum) {
-  // If the model already has a lean, use it
   if (totalsPick?.leanDirection) {
     return {
       direction: totalsPick.leanDirection === 'over' ? 'Over' : 'Under',
@@ -86,80 +76,107 @@ function deriveOuLean(totalsPick, game, spreadNum) {
       reason: totalsPick.whyValue || totalsPick.rationale || null,
     };
   }
-
-  // Force derive: use spread magnitude as a heuristic for total lean
   const total = game?.total ?? game?.overUnder ?? null;
   if (total == null) return null;
-  const totalNum = parseFloat(total);
-  if (isNaN(totalNum)) return null;
+  if (isNaN(parseFloat(total))) return null;
 
-  // Heuristic: large spreads correlate with higher-scoring games (favorites run up)
-  // Small spreads suggest competitive, potentially lower-scoring games
   if (spreadNum != null && !isNaN(spreadNum)) {
-    const absSpread = Math.abs(spreadNum);
-    if (absSpread >= 8) {
-      return { direction: 'Over', confidence: 0, reason: 'Large spread suggests the favorite may push pace.' };
-    }
-    if (absSpread <= 2.5) {
-      return { direction: 'Under', confidence: 0, reason: 'Tight spread signals a grind-it-out game.' };
-    }
+    const abs = Math.abs(spreadNum);
+    if (abs >= 8) return { direction: 'Over', confidence: 0, reason: 'Large spread suggests the favorite pushes pace.' };
+    if (abs <= 2.5) return { direction: 'Under', confidence: 0, reason: 'Tight spread signals a grinding, defensive game.' };
   }
-
-  return { direction: 'Under', confidence: 0, reason: 'Default lean toward Under in tournament play.' };
+  return { direction: 'Under', confidence: 0, reason: 'Tournament pace and pressure lean toward the under.' };
 }
 
-/* ── Reasoning engine — matchup-specific bullets ──────────────────────── */
+/* ── Force ATS lean — derive when model pick missing ──────────────────── */
 
-function buildMatchupReasoning({ spreadNum, awaySeed, homeSeed, awayTeam, homeTeam, pickEmPick, atsPick, ouLean }) {
-  const bullets = [];
+function deriveAtsLean(atsPick, game, homeSpreadNum, homeTeam, awayTeam) {
+  if (atsPick?.pickLine) return atsPick;
+  // If spread exists, derive a lean from spread magnitude
+  if (homeSpreadNum == null || isNaN(homeSpreadNum)) return null;
+  const abs = Math.abs(homeSpreadNum);
+  const homeShort = homeTeam?.split(' ').pop() || 'Home';
+  const awayShort = awayTeam?.split(' ').pop() || 'Away';
+  // Favor the underdog in tournament play for mid-range spreads
+  if (abs >= 3 && abs <= 9) {
+    const dog = homeSpreadNum < 0 ? awayShort : homeShort;
+    const dogSpread = homeSpreadNum < 0 ? fmtLine(-homeSpreadNum) : fmtLine(homeSpreadNum);
+    return { pickLine: `${dog} ${dogSpread}`, confidence: 0, atsEdge: null, _derived: true };
+  }
+  return null;
+}
+
+/* ── Per-column micro-intel ───────────────────────────────────────────── */
+
+function buildMicroIntel({ pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam, homeTeam }) {
   const awayShort = awayTeam?.split(' ').pop() || 'Away';
   const homeShort = homeTeam?.split(' ').pop() || 'Home';
 
-  // Pick Em reasoning
+  // Pick Em
+  let peIntel = null;
   if (pickEmPick?.pickTeam) {
     const pickShort = pickEmPick.pickTeam.split(' ').pop() || pickEmPick.pickTeam;
-    if (pickEmPick.confidence >= 2) {
-      bullets.push(`Pick Em: Model favors ${pickShort} straight up with high composite signal strength.`);
-    } else if (pickEmPick.confidence >= 1) {
-      bullets.push(`Pick Em: Directional lean toward ${pickShort} based on efficiency and market inputs.`);
-    } else {
-      bullets.push(`Pick Em: Slight lean toward ${pickShort} — thin edge, proceed cautiously.`);
-    }
-  } else if (spreadNum != null) {
-    const fav = spreadNum < 0 ? homeShort : awayShort;
-    bullets.push(`Pick Em: ${fav} is the market favorite but model sees no clear edge beyond the line.`);
+    if (pickEmPick.confidence >= 2) peIntel = `Strong composite signal favors ${pickShort}.`;
+    else if (pickEmPick.confidence >= 1) peIntel = `Efficiency + market inputs lean ${pickShort}.`;
+    else peIntel = `Thin edge toward ${pickShort}. Proceed cautiously.`;
+  } else if (homeSpreadNum != null) {
+    const fav = homeSpreadNum < 0 ? homeShort : awayShort;
+    peIntel = `${fav} favored by market. No model separation.`;
   }
 
-  // ATS reasoning
+  // ATS
+  let atsIntel = null;
   if (atsPick?.pickLine) {
     const edge = atsPick.atsEdge != null ? (Math.abs(atsPick.atsEdge) * 100).toFixed(0) : null;
-    if (edge && parseInt(edge) > 10) {
-      bullets.push(`ATS: ${atsPick.pickLine} — ${edge}% model edge vs market number.`);
+    if (atsPick._derived) {
+      atsIntel = 'Tournament underdog cover tendency. Low-conviction lean.';
+    } else if (edge && parseInt(edge) > 10) {
+      atsIntel = `${edge}% model edge vs market number.`;
     } else {
-      bullets.push(`ATS: Lean ${atsPick.pickLine} based on spread analysis and cover profile.`);
+      atsIntel = 'Spread analysis and cover profile support this lean.';
     }
-  } else if (spreadNum != null) {
-    const abs = Math.abs(spreadNum);
-    if (abs >= 10) bullets.push(`ATS: Double-digit spread makes covering difficult — no qualified ATS lean.`);
-    else if (abs <= 3) bullets.push(`ATS: Tight line — model sees no reliable cover direction.`);
-    else bullets.push(`ATS: Mid-range spread but insufficient edge for a qualified ATS lean.`);
+  } else if (homeSpreadNum != null) {
+    const abs = Math.abs(homeSpreadNum);
+    if (abs >= 10) atsIntel = 'Double-digit spread — hard to cover either side.';
+    else if (abs <= 3) atsIntel = 'Pick-em range. No reliable cover direction.';
+    else atsIntel = 'Mid-range spread. Insufficient edge for a qualified lean.';
   }
 
-  // O/U reasoning
-  if (ouLean?.reason) {
-    bullets.push(`O/U: ${ouLean.reason}`);
-  }
+  // O/U
+  let ouIntel = ouLean?.reason || null;
 
-  // Seed gap context (tournament flavor)
-  if (awaySeed != null && homeSeed != null) {
-    const gap = Math.abs(awaySeed - homeSeed);
-    if (gap >= 5) {
-      const underdog = awaySeed > homeSeed ? awayShort : homeShort;
-      bullets.push(`Tournament edge: ${gap}-seed gap — ${underdog} needs a ceiling game to survive.`);
-    }
-  }
+  return { peIntel, atsIntel, ouIntel };
+}
 
-  return bullets.slice(0, 4);
+/* ── Icons ────────────────────────────────────────────────────────────── */
+
+function PickEmIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className={styles.pickIcon}>
+      <circle cx="14" cy="14" r="12" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
+      <path d="M9 14.5L12.5 18L19 11" stroke="rgba(168,208,240,0.65)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function AtsIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className={styles.pickIcon}>
+      <circle cx="14" cy="14" r="12" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
+      <path d="M8 17L12 11L16 15L20 9" stroke="rgba(168,208,240,0.65)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function OuIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className={styles.pickIcon}>
+      <circle cx="14" cy="14" r="12" stroke="rgba(168,208,240,0.30)" strokeWidth="1.5" fill="rgba(168,208,240,0.06)" />
+      <rect x="9" y="16" width="3" height="4" rx="0.5" fill="rgba(168,208,240,0.45)" />
+      <rect x="12.5" y="12" width="3" height="8" rx="0.5" fill="rgba(168,208,240,0.55)" />
+      <rect x="16" y="9" width="3" height="11" rx="0.5" fill="rgba(168,208,240,0.65)" />
+    </svg>
+  );
 }
 
 /* ── Sub-components ───────────────────────────────────────────────────── */
@@ -206,7 +223,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const gameTime = game.time || game.startTime || game.commenceTime || null;
   const network = game.network || game.broadcast || null;
 
-  // Parse both moneylines
   let awayML = null;
   let homeML = null;
   if (typeof ml === 'string' && ml.includes('/')) {
@@ -226,13 +242,10 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const awayColor = awayTC?.primary || '#6EB3E8';
   const homeColor = homeTC?.primary || '#E8A96E';
 
-  // Tournament round — GAME DATE AWARE
   const roundLabel = inferGameRound(gameTime, awaySeed, homeSeed);
-
   const awayAts = getTeamAtsDisplay(awaySlug);
   const homeAts = getTeamAtsDisplay(homeSlug);
 
-  // Date/time formatting
   let dateStr = null;
   let timeStr = null;
   if (gameTime) {
@@ -247,7 +260,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
   const games = data?.odds?.games ?? [];
   let pickEmPick = null;
-  let atsPick = null;
+  let rawAtsPick = null;
   let totalsPick = null;
   try {
     const picks = buildMaximusPicks({ games, atsLeaders });
@@ -258,26 +271,26 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       return (aw && line.includes(aw)) || (hm && line.includes(hm));
     };
     pickEmPick = (picks.pickEmPicks ?? []).find(matchFn) ?? null;
-    atsPick = (picks.atsPicks ?? []).find(matchFn) ?? null;
+    rawAtsPick = (picks.atsPicks ?? []).find(matchFn) ?? null;
     totalsPick = (picks.totalsPicks ?? []).find(matchFn) ?? null;
   } catch { /* graceful */ }
 
-  const pickEmTier = pickToTier(pickEmPick);
-  const atsTier = pickToTier(atsPick);
+  // Force ATS lean
+  const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, game, homeSpreadNum, homeTeam, awayTeam);
 
-  // Force O/U lean
+  const pickEmTier = pickToTier(pickEmPick);
+  const atsTier = atsPick ? (pickToTier(atsPick) || TIERS.tossUp) : null;
   const ouLean = deriveOuLean(totalsPick, game, homeSpreadNum);
   const totalsTier = ouLean ? pickToTier(totalsPick) || TIERS.tossUp : null;
 
-  // Build reasoning
-  const reasoning = buildMatchupReasoning({
-    spreadNum: homeSpreadNum, awaySeed, homeSeed, awayTeam, homeTeam,
-    pickEmPick, atsPick, ouLean,
+  // Per-column micro-intel
+  const { peIntel, atsIntel, ouIntel } = buildMicroIntel({
+    pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam, homeTeam,
   });
 
   return (
     <SlideShell asOf={asOf} theme="single_game" brandMode="standard" slideNumber={slideNumber} slideTotal={slideTotal} rest={rest}>
-      {/* Atmospheric team-color overlays */}
+      {/* Atmospheric overlays */}
       <div className={styles.glowAway} style={{ background: `radial-gradient(ellipse at 0% 38%, ${awayColor}30 0%, transparent 55%)` }} />
       <div className={styles.glowHome} style={{ background: `radial-gradient(ellipse at 100% 38%, ${homeColor}30 0%, transparent 55%)` }} />
 
@@ -294,10 +307,9 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
 
       {/* H2H */}
       <div className={styles.h2h}>
-        {/* Away */}
-        <div className={styles.panel} style={{ borderColor: `${awayColor}40`, background: `linear-gradient(155deg, ${awayColor}18 0%, ${awayColor}0A 40%, transparent 75%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0A, 0 0 20px ${awayColor}0C` }}>
+        <div className={styles.panel} style={{ borderColor: `${awayColor}45`, background: `linear-gradient(155deg, ${awayColor}1C 0%, ${awayColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0C, 0 0 24px ${awayColor}10` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}55 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}58 0%, transparent 55%)` }} />
             <TeamLogo team={awayObj} size={115} />
           </div>
           {awaySeed != null && <span className={styles.seedPill}>#{awaySeed}</span>}
@@ -319,7 +331,6 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           <div className={styles.sideTag}>AWAY</div>
         </div>
 
-        {/* Center */}
         <div className={styles.center}>
           <div className={styles.vsRing}>VS</div>
           <div className={styles.totalCard}>
@@ -328,10 +339,9 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           </div>
         </div>
 
-        {/* Home */}
-        <div className={styles.panel} style={{ borderColor: `${homeColor}40`, background: `linear-gradient(205deg, ${homeColor}18 0%, ${homeColor}0A 40%, transparent 75%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0A, 0 0 20px ${homeColor}0C` }}>
+        <div className={styles.panel} style={{ borderColor: `${homeColor}45`, background: `linear-gradient(205deg, ${homeColor}1C 0%, ${homeColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0C, 0 0 24px ${homeColor}10` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}55 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}58 0%, transparent 55%)` }} />
             <TeamLogo team={homeObj} size={115} />
           </div>
           {homeSeed != null && <span className={styles.seedPill}>#{homeSeed}</span>}
@@ -354,41 +364,36 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
         </div>
       </div>
 
-      {/* Intel section */}
+      {/* Intel section — per-column micro-intel */}
       <div className={styles.intel}>
-        <div className={styles.intelTitle}>MAXIMUS PICK</div>
+        <div className={styles.intelTitle}>MAXIMUS&apos;S PICK</div>
         <div className={styles.picksCols}>
           <div className={styles.pickCell}>
+            <PickEmIcon />
             <div className={styles.pickType}>PICK EM</div>
             <div className={styles.pickVal}>{pickEmPick?.pickTeam || 'No lean'}</div>
             <ConvictionPill tier={pickEmTier} />
+            {peIntel && <div className={styles.microIntel}>{peIntel}</div>}
           </div>
           <div className={styles.pickDiv} />
           <div className={styles.pickCell}>
+            <AtsIcon />
             <div className={styles.pickType}>ATS</div>
             <div className={styles.pickVal}>{atsPick?.pickLine || 'No lean'}</div>
             <ConvictionPill tier={atsTier} />
+            {atsIntel && <div className={styles.microIntel}>{atsIntel}</div>}
           </div>
           <div className={styles.pickDiv} />
           <div className={styles.pickCell}>
+            <OuIcon />
             <div className={styles.pickType}>O/U</div>
             <div className={styles.pickVal}>
               {ouLean ? `${ouLean.direction} ${fmtTotal(total)}` : 'No lean'}
             </div>
             <ConvictionPill tier={totalsTier} />
+            {ouIntel && <div className={styles.microIntel}>{ouIntel}</div>}
           </div>
         </div>
-
-        {reasoning.length > 0 && (
-          <div className={styles.reasoning}>
-            {reasoning.map((b, i) => (
-              <div key={i} className={styles.reasonRow}>
-                <span className={styles.reasonBullet}>→</span>
-                <span className={styles.reasonText}>{b}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </SlideShell>
   );
