@@ -29,13 +29,22 @@ const BADGE_CLS = {
   'Prospect Rich': 'bTeal', 'Rebuild Watch': 'bRed', 'Developing': 'bDefault',
 };
 
-const LeagueLogo = ({ league, size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
-    <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.6" opacity="0.55" />
-    <text x="10" y="14.5" textAnchor="middle" fontSize="8.5" fontWeight="800"
-      fill="currentColor" fontFamily="system-ui">{league}</text>
-  </svg>
-);
+const LEAGUE_LOGOS = { AL: '/al-logo.png', NL: '/nl-logo.png' };
+
+function LeagueLogo({ league, size = 28 }) {
+  const src = LEAGUE_LOGOS[league];
+  if (src) {
+    return <img src={src} alt={league === 'AL' ? 'American League' : 'National League'}
+      width={size} height={size} style={{ objectFit: 'contain' }} loading="lazy" />;
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
+      <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.6" opacity="0.55" />
+      <text x="10" y="14.5" textAnchor="middle" fontSize="8.5" fontWeight="800"
+        fill="currentColor" fontFamily="system-ui">{league}</text>
+    </svg>
+  );
+}
 
 function deriveSummary(teams) {
   if (!teams.length) return [];
@@ -363,7 +372,7 @@ export default function MlbSeasonModel() {
         {/* AL Column */}
         <div className={styles.leagueCol}>
           <div className={styles.leagueHeader}>
-            <LeagueLogo league="AL" size={22} />
+            <LeagueLogo league="AL" size={30} />
             <span className={styles.leagueTitle}>American League</span>
             <span className={styles.leagueCount}>{alTeams.length} teams</span>
           </div>
@@ -392,7 +401,7 @@ export default function MlbSeasonModel() {
         {/* NL Column */}
         <div className={styles.leagueCol}>
           <div className={styles.leagueHeader}>
-            <LeagueLogo league="NL" size={22} />
+            <LeagueLogo league="NL" size={30} />
             <span className={styles.leagueTitle}>National League</span>
             <span className={styles.leagueCount}>{nlTeams.length} teams</span>
           </div>

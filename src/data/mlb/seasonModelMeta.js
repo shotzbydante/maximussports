@@ -15,18 +15,18 @@ export const MODEL_META = {
   stages: [
     {
       name: 'Historical Baseline',
-      description: 'Start from Pythagorean expected wins (run-differential-based) rather than raw win-loss record, then regress 18% toward league average (81 wins) to account for natural reversion.',
-      weight: 0.36,
+      description: 'Start from Pythagorean expected wins (run-differential-based) rather than raw win-loss record, then regress toward league average to account for natural reversion.',
+      weight: 0.32,
     },
     {
       name: 'Multi-Year Trend',
       description: 'Blend with a three-year weighted trend (55/30/15 weighting, most recent heaviest) to capture sustained organizational trajectories beyond single-season noise.',
-      weight: 0.24,
+      weight: 0.22,
     },
     {
       name: 'Roster Quality',
       description: 'Evaluate offensive quality (top-of-lineup star power + lineup depth), rotation quality (frontline aces + pitching depth), bullpen quality, aging curves, injury risk, and prospect upside — each scored separately.',
-      weight: 0.18,
+      weight: 0.16,
     },
     {
       name: 'Manager & Continuity',
@@ -40,8 +40,8 @@ export const MODEL_META = {
     },
     {
       name: 'Market Prior Blend',
-      description: 'Anchor output 24% toward the consensus market win total to incorporate collective-intelligence pricing. Championship odds serve as a secondary contextual signal.',
-      weight: 0.24,
+      description: 'Anchor output toward the consensus market win total to incorporate collective-intelligence pricing. Championship odds serve as a secondary contextual signal.',
+      weight: 0.22,
     },
   ],
 
