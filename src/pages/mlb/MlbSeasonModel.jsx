@@ -1,14 +1,13 @@
 /**
- * MLB Season Model — v4 premium intelligence dashboard.
+ * MLB Season Model — v5 premium intelligence dashboard.
  *
- * v4 upgrades:
- *   - Methodology preview state (shows weight bars + sources by default)
- *   - Summary intelligence rail above team board
- *   - Collapsed-row driver preview (top 2 drivers shown without expanding)
- *   - Clearer click targets (explicit expand button vs team name link)
- *   - AL/NL inline logos in filter pills
- *   - Premium neutral/graphite methodology styling
- *   - Tighter, denser board with consistent alignment
+ * v5 upgrades:
+ *   - Robinhood-inspired column-disciplined row layout
+ *   - Clear "Maximus Projection" labeling on hero stat
+ *   - Stable-width stat cells for cross-team comparison
+ *   - Taller cards with better breathing room
+ *   - Consistent badge/driver zones
+ *   - Premium expanded detail panel
  */
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -47,14 +46,13 @@ function deriveSummary(teams) {
   const byFloor = [...teams].sort((a, b) => b.floor - a.floor);
   const byConf = [...teams].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
 
-  const items = [
+  return [
     { label: 'Top Projection', team: sorted[0].name, value: `${sorted[0].projectedWins}W`, color: 'accent' },
     { label: 'Best Value Gap', team: byDelta[0].name, value: `+${byDelta[0].marketDelta}`, color: 'green' },
     { label: 'Most Volatile', team: byRange[0].name, value: `${byRange[0].floor}–${byRange[0].ceiling}`, color: 'amber' },
     { label: 'Strongest Floor', team: byFloor[0].name, value: `${byFloor[0].floor}W floor`, color: 'green' },
     { label: 'Highest Confidence', team: byConf[0].name, value: byConf[0].confidenceTier, color: 'accent' },
   ];
-  return items;
 }
 
 /** Get top 2 decomposition drivers (biggest absolute values, exclude Baseline/Market). */
@@ -109,14 +107,12 @@ export default function MlbSeasonModel() {
 
       {/* ── Methodology ── */}
       <section className={styles.meth}>
-        {/* Preview always visible */}
         <div className={styles.methPreview}>
           <div className={styles.methPreviewHead}>
             <MaximusModelIcon size={14} className={styles.methIconAccent} />
             <span className={styles.methPreviewTitle}>How the Maximus Model Works</span>
           </div>
           <p className={styles.methSummary}>{MODEL_META.objective}</p>
-          {/* Mini weight preview */}
           <div className={styles.methMiniWeights}>
             {MODEL_META.stages.map(s => (
               <div key={s.name} className={styles.methMiniRow}>
@@ -128,7 +124,6 @@ export default function MlbSeasonModel() {
               </div>
             ))}
           </div>
-          {/* Source chips preview */}
           <div className={styles.methSourceRow}>
             {MODEL_META.sources.slice(0, 4).map(s => (
               <span key={s.name} className={styles.methSourceChip}>{s.name}</span>
@@ -137,7 +132,6 @@ export default function MlbSeasonModel() {
               <span className={styles.methSourceChip}>+{MODEL_META.sources.length - 4} more</span>
             )}
           </div>
-          {/* CTA at bottom-right of preview */}
           <div className={styles.methFooter}>
             <button type="button" className={styles.methExpandBtn}
               onClick={() => setMethExpanded(v => !v)}>
@@ -147,10 +141,8 @@ export default function MlbSeasonModel() {
           </div>
         </div>
 
-        {/* Expanded full methodology */}
         {methExpanded && (
           <div className={styles.methFull}>
-            {/* Stages detail */}
             <div className={styles.methStages}>
               <h3 className={styles.methH3}>Model Stages</h3>
               {MODEL_META.stages.map(s => (
@@ -164,7 +156,6 @@ export default function MlbSeasonModel() {
               ))}
             </div>
 
-            {/* Input groups */}
             <div className={styles.methInputs}>
               <h3 className={styles.methH3}>Input Groups</h3>
               <div className={styles.methInputGrid}>
@@ -179,7 +170,6 @@ export default function MlbSeasonModel() {
               </div>
             </div>
 
-            {/* All sources */}
             <div className={styles.methAllSources}>
               <h3 className={styles.methH3}>Data Sources</h3>
               <div className={styles.methSourceRow}>
@@ -246,6 +236,19 @@ export default function MlbSeasonModel() {
 
       <p className={styles.resultCount}>{filtered.length} team{filtered.length !== 1 ? 's' : ''}</p>
 
+      {/* ── Column header row ── */}
+      <div className={styles.colHeader}>
+        <span className={styles.colH}>#</span>
+        <span className={styles.colH}>Team</span>
+        <span className={`${styles.colH} ${styles.colHCenter}`}>Projection</span>
+        <span className={styles.colH}>Range</span>
+        <span className={styles.colH}>Odds</span>
+        <span className={styles.colH}>Playoff</span>
+        <span className={`${styles.colH} ${styles.colHCenter}`}>vs Mkt</span>
+        <span className={styles.colH}>Signals</span>
+        <span className={styles.colH}></span>
+      </div>
+
       {/* ── Team Board ── */}
       <div className={styles.board}>
         {filtered.map((team, idx) => {
@@ -257,13 +260,13 @@ export default function MlbSeasonModel() {
 
           return (
             <article key={team.slug} className={`${styles.card} ${open ? styles.cardOpen : ''}`}>
-              {/* ── Main row ── */}
+              {/* ── Main row — column-aligned ── */}
               <div className={styles.row}>
-                {/* Left: rank + identity */}
                 <span className={styles.rank}>{idx + 1}</span>
+
                 <div className={styles.ident}>
                   {logo
-                    ? <img src={logo} alt="" className={styles.logo} width={32} height={32} loading="lazy" />
+                    ? <img src={logo} alt="" className={styles.logo} width={34} height={34} loading="lazy" />
                     : <span className={styles.logoFb}>{team.abbrev}</span>}
                   <div className={styles.identText}>
                     <Link to={buildPath(`/teams/${team.slug}`)} className={styles.name}>
@@ -273,24 +276,34 @@ export default function MlbSeasonModel() {
                   </div>
                 </div>
 
-                {/* Center: hero wins + inline stats */}
-                <div className={styles.center}>
-                  <div className={styles.heroStat}>
-                    <span className={styles.heroNum}>{team.projectedWins}</span>
-                    <span className={styles.heroLbl}>W</span>
-                  </div>
-                  <div className={styles.miniStats}>
-                    <span className={styles.ms}>{team.floor}–{team.ceiling}</span>
-                    <span className={styles.ms}>{team.champOdds}</span>
-                    <span className={`${styles.ms} ${dCls}`}>
-                      {team.marketDelta > 0 ? '+' : ''}{team.marketDelta}
-                    </span>
-                    <span className={styles.ms}>{team.playoffProb ?? '—'}%</span>
-                  </div>
+                <div className={styles.projCol}>
+                  <span className={styles.projNum}>{team.projectedWins}</span>
+                  <span className={styles.projLabel}>proj. wins</span>
                 </div>
 
-                {/* Right: badges + drivers + expand */}
-                <div className={styles.right}>
+                <div className={styles.statCol}>
+                  <span className={styles.statVal}>{team.floor}–{team.ceiling}</span>
+                  <span className={styles.statLbl}>range</span>
+                </div>
+
+                <div className={styles.statCol}>
+                  <span className={styles.statVal}>{team.champOdds}</span>
+                  <span className={styles.statLbl}>WS odds</span>
+                </div>
+
+                <div className={styles.statCol}>
+                  <span className={styles.statVal}>{team.playoffProb ?? '—'}%</span>
+                  <span className={styles.statLbl}>playoff</span>
+                </div>
+
+                <div className={styles.statCol}>
+                  <span className={`${styles.statVal} ${dCls}`}>
+                    {team.marketDelta > 0 ? '+' : ''}{team.marketDelta}
+                  </span>
+                  <span className={styles.statLbl}>vs mkt</span>
+                </div>
+
+                <div className={styles.signalCol}>
                   <div className={styles.badges}>
                     {team.signals?.map(s => (
                       <span key={s} className={`${styles.badge} ${styles[BADGE_CLS[s]] || styles.bDefault}`}>{s}</span>
