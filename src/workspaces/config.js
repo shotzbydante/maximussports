@@ -69,6 +69,16 @@ export const WORKSPACES = {
       games: 'Games',
       news: 'News Feed',
     },
+    /** Sport-aware theme — colors, mascot, loading copy */
+    theme: {
+      mascot: '/mascot.png',
+      accent: '#3885e0',
+      accentRgb: '56, 133, 224',
+      gradientBg: 'radial-gradient(ellipse at center, #0a1628 0%, #060d1a 60%, #020408 100%)',
+      loadingTitle: 'Initializing Tournament Intelligence',
+      loadingSubtext: 'Loading Bracketology\u2026',
+      splashKey: '__maximus_cbb_splash_shown',
+    },
   },
 
   [WorkspaceId.MLB]: {
@@ -102,6 +112,16 @@ export const WORKSPACES = {
       picks: 'Maximus Picks',
       games: 'Games',
       news: 'News Feed',
+    },
+    /** Sport-aware theme — colors, mascot, loading copy */
+    theme: {
+      mascot: '/mascot-mlb.png',
+      accent: '#b8293d',
+      accentRgb: '184, 41, 61',
+      gradientBg: 'radial-gradient(ellipse at center, #1a0a10 0%, #0e0610 60%, #060208 100%)',
+      loadingTitle: 'Initializing MLB Intelligence',
+      loadingSubtext: 'Calibrating projections\u2026',
+      splashKey: '__maximus_mlb_splash_shown',
     },
   },
 };

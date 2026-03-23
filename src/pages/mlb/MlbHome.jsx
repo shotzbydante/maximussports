@@ -163,6 +163,33 @@ export default function MlbHome() {
         </div>
       </section>
 
+      {/* ── Season Intelligence ── */}
+      <section className={styles.seasonSection}>
+        <div className={styles.seasonHeader}>
+          <h2 className={styles.seasonTitle}>MLB Season Intelligence</h2>
+          <span className={styles.seasonBadge}>2026</span>
+        </div>
+        <div className={styles.seasonBody}>
+          <img
+            src="/mascot-mlb.png"
+            alt="Maximus MLB"
+            className={styles.seasonMascot}
+            width={96}
+            height={96}
+            decoding="async"
+            onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+          />
+          <div className={styles.seasonContent}>
+            <p className={styles.seasonText}>Building season projections&hellip;</p>
+            <div className={styles.seasonShimmer}>
+              <div className={styles.shimmerLine} style={{ width: '85%' }} />
+              <div className={styles.shimmerLine} style={{ width: '70%' }} />
+              <div className={styles.shimmerLine} style={{ width: '60%' }} />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <LiveNowRail />
       <PennantWatch />
       <MlbIntelFeed />

@@ -11,6 +11,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   WORKSPACES,
+  WORKSPACE_LIST,
   DEFAULT_WORKSPACE_ID,
   getWorkspace,
   WorkspaceId,
@@ -65,6 +66,14 @@ export function WorkspaceProvider({ children }) {
     (targetId) => {
       if (targetId === activeId) return;
       if (!canAccessWorkspace(targetId, user)) return;
+
+      // Clear splash flags for the target workspace so the
+      // loading screen re-triggers on every sport switch.
+      WORKSPACE_LIST.forEach((ws) => {
+        if (ws.theme?.splashKey) {
+          try { sessionStorage.removeItem(ws.theme.splashKey); } catch { /* noop */ }
+        }
+      });
 
       const target = getWorkspace(targetId);
       const localPath = stripWorkspacePrefix(location.pathname, activeId);
