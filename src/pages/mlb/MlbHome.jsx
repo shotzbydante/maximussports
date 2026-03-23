@@ -163,28 +163,22 @@ export default function MlbHome() {
         </div>
       </section>
 
-      {/* ── Season Intelligence ── */}
-      <section className={styles.seasonSection}>
-        <div className={styles.seasonHeader}>
-          <h2 className={styles.seasonTitle}>MLB Season Intelligence</h2>
-          <span className={styles.seasonBadge}>2026</span>
-        </div>
-        <div className={styles.seasonBody}>
-          <img
-            src="/mascot-mlb.png"
-            alt="Maximus MLB"
-            className={styles.seasonMascot}
-            width={96}
-            height={96}
-            decoding="async"
-            onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
-          />
-          <div className={styles.seasonContent}>
-            <p className={styles.seasonText}>Building season projections&hellip;</p>
-            <div className={styles.seasonShimmer}>
-              <div className={styles.shimmerLine} style={{ width: '85%' }} />
-              <div className={styles.shimmerLine} style={{ width: '70%' }} />
-              <div className={styles.shimmerLine} style={{ width: '60%' }} />
+      {/* ── Season Intelligence Hero ── */}
+      <section className={styles.seasonPromo}>
+        <div className={styles.seasonPromoInner}>
+          <div className={styles.seasonPromoContent}>
+            <span className={styles.seasonPromoEyebrow}>2026 Season Model</span>
+            <h3 className={styles.seasonPromoTitle}>Explore MLB Season Intelligence</h3>
+            <p className={styles.seasonPromoBody}>
+              Championship odds, projected wins, division outlooks, and postseason paths &mdash; powered by the Maximus model across all 30 teams.
+            </p>
+            <div className={styles.seasonPromoCtas}>
+              <button type="button" className={styles.seasonPromoPrimary} disabled>
+                View Season Model &rarr;
+              </button>
+              <button type="button" className={styles.seasonPromoSecondary} disabled>
+                Compare Teams
+              </button>
             </div>
           </div>
         </div>

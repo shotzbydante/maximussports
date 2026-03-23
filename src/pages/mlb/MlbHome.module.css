@@ -166,133 +166,119 @@
   margin-bottom: 0;
 }
 
-/* ── Season Intelligence ──────────────────────────────────── */
+/* ── Season Intelligence Hero ─────────────────────────────── */
 
-.seasonSection {
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg-elevated);
-  background-image: linear-gradient(
-    145deg,
-    rgba(184, 41, 61, 0.04) 0%,
-    transparent 50%
-  );
-  border: 1px solid rgba(184, 41, 61, 0.12);
-  border-radius: var(--radius-card, var(--radius-lg));
-  box-shadow: var(--shadow-hero, var(--shadow-sm));
-  padding: 28px 32px;
-  margin-bottom: var(--section-gap, var(--space-sm));
-  position: relative;
-  overflow: hidden;
-  animation: sectionFadeIn 0.5s ease-out;
+.seasonPromo {
+  margin: var(--space-lg) 0;
 }
 
-.seasonSection::before {
+.seasonPromoInner {
+  background: linear-gradient(135deg, #1a0a10 0%, #3d1520 50%, #2a1018 100%);
+  border-radius: var(--radius-card);
+  border: 1px solid rgba(184, 41, 61, 0.28);
+  padding: clamp(24px, 5vw, 40px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(184, 41, 61, 0.12) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.seasonPromoInner::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(
-    ellipse at 90% 20%,
-    rgba(184, 41, 61, 0.035) 0%,
-    transparent 60%
-  );
+  top: -40%;
+  right: -20%;
+  width: 60%;
+  height: 160%;
+  background: radial-gradient(ellipse at center, rgba(184, 41, 61, 0.10) 0%, transparent 70%);
   pointer-events: none;
 }
 
-.seasonHeader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: var(--space-md);
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(184, 41, 61, 0.10);
+.seasonPromoContent {
+  position: relative;
+  z-index: 1;
 }
 
-.seasonTitle {
-  font-size: 0.82rem;
+.seasonPromoEyebrow {
+  display: inline-block;
+  font-size: 0.65rem;
   font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text);
-  margin: 0;
+  color: #e8806b;
+  margin-bottom: 8px;
 }
 
-.seasonBadge {
-  font-size: 0.58rem;
+.seasonPromoTitle {
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #b8293d;
-  background: rgba(184, 41, 61, 0.08);
-  padding: 2px 8px;
-  border-radius: 999px;
+  color: #ffffff;
+  margin: 0 0 10px;
+  line-height: 1.2;
 }
 
-.seasonBody {
+.seasonPromoBody {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.55;
+  margin: 0 0 20px;
+  max-width: 540px;
+}
+
+.seasonPromoCtas {
   display: flex;
-  gap: var(--space-lg);
   align-items: center;
-}
-
-.seasonMascot {
-  flex-shrink: 0;
-  width: 96px;
-  height: 96px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 12px rgba(184, 41, 61, 0.18));
-  opacity: 0.85;
-  animation: subtleFloat 5s ease-in-out infinite;
-}
-
-.seasonContent {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
-.seasonText {
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  margin: 0;
+.seasonPromoPrimary {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 22px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #b8293d;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.1s;
   letter-spacing: 0.01em;
 }
 
-.seasonShimmer {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.seasonPromoPrimary:hover:not(:disabled) {
+  background: #cc3349;
+  transform: translateY(-1px);
 }
 
-.shimmerLine {
-  height: 10px;
-  border-radius: 5px;
-  background: linear-gradient(
-    90deg,
-    rgba(184, 41, 61, 0.06) 0%,
-    rgba(184, 41, 61, 0.12) 50%,
-    rgba(184, 41, 61, 0.06) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 2.4s ease-in-out infinite;
+.seasonPromoPrimary:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
-@keyframes sectionFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+.seasonPromoSecondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 22px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e8806b;
+  background: rgba(184, 41, 61, 0.14);
+  border: 1px solid rgba(184, 41, 61, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
 }
 
-@keyframes subtleFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
+.seasonPromoSecondary:hover:not(:disabled) {
+  background: rgba(184, 41, 61, 0.25);
 }
 
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.seasonPromoSecondary:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 @media (max-width: 767px) {
@@ -303,8 +289,7 @@
   .pageIntroSub {
     font-size: 0.62rem;
   }
-  .briefingSection,
-  .seasonSection {
+  .briefingSection {
     padding: 20px 18px;
   }
 }
@@ -319,14 +304,13 @@
     height: 88px;
   }
 
-  .seasonBody {
+  .seasonPromoCtas {
     flex-direction: column;
-    align-items: center;
-    text-align: center;
+    align-items: stretch;
   }
-
-  .seasonMascot {
-    width: 72px;
-    height: 72px;
+  .seasonPromoPrimary,
+  .seasonPromoSecondary {
+    justify-content: center;
+    text-align: center;
   }
 }
