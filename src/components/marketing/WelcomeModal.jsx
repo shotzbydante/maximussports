@@ -1,16 +1,12 @@
 /**
- * WelcomeModal — 4-step product-led onboarding for first-time visitors.
- * v2: conversion-optimized copy, real product screenshots, stronger CTAs.
+ * WelcomeModal — 3-step product-led onboarding for first-time visitors.
+ * v3: identity creation moved post-auth, faster path to conversion.
  *
- * Step 1: Hero — "Own the Board" + product positioning
+ * Step 1: Hero — multi-sport positioning with mascots
  * Step 2: Team Intel + Picks showcase (product screenshots)
- * Step 3: Bracketology showcase (product screenshot)
- * Step 4: Personalization + conversion CTA
+ * Step 3: Features (Bracketology + MLB) + conversion CTA
  *
- * Image strategy:
- *   - Each slide references a product screenshot in /onboarding/
- *   - Falls back to preview components or placeholders if images not yet placed
- *   - Easy to swap: just drop new PNGs into public/onboarding/
+ * Identity/avatar creation is now in the post-signup wizard (Settings.jsx).
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -24,10 +20,9 @@ import {
 } from '../../lib/analytics/posthog';
 import TeamIntelPreview from '../onboarding/previews/TeamIntelPreview';
 import AIPicksPreview from '../onboarding/previews/AIPicksPreview';
-import RobotAvatar, { JERSEY_COLORS, ROBOT_COLORS, DEFAULT_ROBOT_CONFIG } from '../profile/RobotAvatar';
 import styles from './WelcomeModal.module.css';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 3;
 const SWIPE_THRESHOLD = 50;
 
 /* ── Product screenshot paths (easy to swap) ───────────────────────── */
@@ -61,29 +56,6 @@ function BracketIcon() {
   );
 }
 
-function PersonIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="4" width="20" height="16" rx="2" /><path d="M22 7l-10 7L2 7" />
-    </svg>
-  );
-}
-
-function StarIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
-    </svg>
-  );
-}
 
 /* ── ProductImage: shows screenshot or falls back to children ─────── */
 
@@ -98,100 +70,6 @@ function ProductImage({ src, alt, children }) {
       loading="lazy"
       onError={() => setFailed(true)}
     />
-  );
-}
-
-/* ── Step 4: Identity customization ─────────────────────────────────── */
-
-function Step4Identity({ onSignup, onExplore }) {
-  const [mascotType, setMascotType] = useState('basketball');
-  const [jerseyColor, setJerseyColor] = useState(DEFAULT_ROBOT_CONFIG.jerseyColor);
-  const [robotColor, setRobotColor] = useState(DEFAULT_ROBOT_CONFIG.robotColor);
-  const [jerseyNumber, setJerseyNumber] = useState('');
-
-  return (
-    <div className={styles.stepContent} aria-label="Step 4 of 4">
-      <div className={styles.identityBody}>
-        <h2 className={styles.identityHeadline}>Create Your Identity</h2>
-        <p className={styles.identitySubtitle}>Choose your mascot and make it yours.</p>
-
-        {/* Live preview */}
-        <div className={styles.identityPreview}>
-          <RobotAvatar
-            mascotType={mascotType}
-            jerseyNumber={jerseyNumber}
-            jerseyColor={jerseyColor}
-            robotColor={robotColor}
-            size={100}
-            glow
-          />
-        </div>
-
-        {/* Mascot type toggle */}
-        <div className={styles.identityToggle}>
-          <button type="button"
-            className={`${styles.identityToggleBtn} ${mascotType === 'basketball' ? styles.identityToggleBtnActive : ''}`}
-            onClick={() => setMascotType('basketball')}>
-            🏀 Basketball
-          </button>
-          <button type="button"
-            className={`${styles.identityToggleBtn} ${mascotType === 'baseball' ? styles.identityToggleBtnActive : ''}`}
-            onClick={() => setMascotType('baseball')}>
-            ⚾ Baseball
-          </button>
-        </div>
-
-        {/* Jersey number */}
-        <div className={styles.identityField}>
-          <label className={styles.identityLabel}>Jersey Number</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="23"
-            className={styles.identityInput}
-            value={jerseyNumber}
-            onChange={(e) => setJerseyNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
-          />
-        </div>
-
-        {/* Color pickers */}
-        <div className={styles.identityColors}>
-          <div className={styles.identityColorGroup}>
-            <span className={styles.identityLabel}>Jersey Color</span>
-            <div className={styles.identitySwatches}>
-              {JERSEY_COLORS.map(c => (
-                <button key={c.id} type="button" title={c.label}
-                  className={`${styles.identitySwatch} ${jerseyColor === c.hex ? styles.identitySwatchActive : ''}`}
-                  style={{ background: c.hex }}
-                  onClick={() => setJerseyColor(c.hex)} />
-              ))}
-            </div>
-          </div>
-          <div className={styles.identityColorGroup}>
-            <span className={styles.identityLabel}>Robot Color</span>
-            <div className={styles.identitySwatches}>
-              {ROBOT_COLORS.map(c => (
-                <button key={c.id} type="button" title={c.label}
-                  className={`${styles.identitySwatch} ${robotColor === c.hex ? styles.identitySwatchActive : ''}`}
-                  style={{ background: c.hex }}
-                  onClick={() => setRobotColor(c.hex)} />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className={styles.ctaGroup}>
-          <button type="button" className={styles.ctaPrimary} onClick={onSignup}>
-            Create Free Account
-          </button>
-          <button type="button" className={styles.ctaSecondary} onClick={onExplore}>
-            Skip for now
-          </button>
-        </div>
-        <p className={styles.footerNote}>Your board. Your signals. Your edge.</p>
-      </div>
-    </div>
   );
 }
 
@@ -322,7 +200,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
 
           {/* ════ Step 1: Hero — multi-sport positioning ════ */}
           {step === 1 && (
-            <div className={styles.stepContent} aria-label="Step 1 of 4">
+            <div className={styles.stepContent} aria-label="Step 1 of 3">
               <div className={styles.heroVisual}>
                 <div className={styles.heroDualMascot}>
                   <img src="/mascot.png" alt="Basketball Maximus" className={styles.heroMascotLeft} loading="eager" />
@@ -345,7 +223,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
 
           {/* ════ Step 2: Team Intel + Picks ════ */}
           {step === 2 && (
-            <div className={styles.stepContent} aria-label="Step 2 of 4">
+            <div className={styles.stepContent} aria-label="Step 2 of 3">
               <div className={styles.featureBody}>
                 <div className={styles.featureHeader}>
                   <h2 className={styles.featureHeadline}>See the Game Before It Happens</h2>
@@ -384,9 +262,9 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             </div>
           )}
 
-          {/* ════ Step 3: Bracketology + MLB Season Intelligence ════ */}
+          {/* ════ Step 3: Features + CTA ════ */}
           {step === 3 && (
-            <div className={styles.stepContent} aria-label="Step 3 of 4">
+            <div className={styles.stepContent} aria-label="Step 3 of 3">
               <div className={styles.featureBody}>
                 <div className={styles.featureHeader}>
                   <h2 className={styles.featureHeadline}>Stay Ahead of the Curve</h2>
@@ -411,16 +289,18 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                     </p>
                   </div>
                 </div>
+
+                <div className={styles.ctaGroup}>
+                  <button type="button" className={styles.ctaPrimary} onClick={handleSignup}>
+                    Create Free Account
+                  </button>
+                  <button type="button" className={styles.ctaSecondary} onClick={handleExplore}>
+                    Explore first
+                  </button>
+                </div>
+                <p className={styles.footerNote}>Your board. Your signals. Your edge.</p>
               </div>
             </div>
-          )}
-
-          {/* ════ Step 4: Identity + CTA ════ */}
-          {step === 4 && (
-            <Step4Identity
-              onSignup={handleSignup}
-              onExplore={handleExplore}
-            />
           )}
 
         </div>
@@ -429,14 +309,14 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
         <div className={styles.navFooter}>
           <div className={styles.dotsWrap}>
             <div className={styles.dots} role="tablist" aria-label="Onboarding steps">
-              {[1, 2, 3, 4].map((n) => (
+              {[1, 2, 3].map((n) => (
                 <button key={n} type="button" role="tab" className={`${styles.dot} ${step === n ? styles.dotActive : ''}`}
                   onClick={() => goTo(n, step)} aria-label={`Step ${n}`} aria-selected={step === n} />
               ))}
             </div>
             <span className={styles.stepCounter}>{step}/{TOTAL_STEPS}</span>
           </div>
-          {step < TOTAL_STEPS && (
+          {step < TOTAL_STEPS ? (
             <div className={styles.navActions}>
               <button type="button" className={styles.navNext} onClick={handleNext}>
                 {step === 1 ? 'Get Started' : 'Next'}
@@ -444,6 +324,12 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
               </button>
               <button type="button" className={styles.navSkip} onClick={handleSkip}>
                 Skip intro
+              </button>
+            </div>
+          ) : (
+            <div className={styles.navActions}>
+              <button type="button" className={styles.navSkip} onClick={handleSkip}>
+                Close
               </button>
             </div>
           )}

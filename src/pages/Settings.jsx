@@ -585,8 +585,8 @@ function StepProfile({ onNext, defaultName = '', userId }) {
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.stepTitle}>Create your Maximus profile</h2>
-      <p className={styles.stepSubtitle}>Choose your username and customize your Maximus robot.</p>
+      <h2 className={styles.stepTitle}>Create Your Maximus Profile</h2>
+      <p className={styles.stepSubtitle}>Make it yours. Your board. Your signals. Your Maximus.</p>
 
       <div className={styles.identityLayout}>
         {/* Left: Live robot preview */}
@@ -682,7 +682,14 @@ function StepProfile({ onNext, defaultName = '', userId }) {
       {error && <p className={styles.errorMsg}>{error}</p>}
 
       <button className={styles.btnPrimary} onClick={handleNext} disabled={usernameStatus === 'checking'}>
-        Continue
+        Finish setup
+      </button>
+      <button type="button" className={styles.btnSkip} onClick={() => onNext({
+        username: username.trim() || `maximus_${Math.random().toString(36).slice(2, 7)}`,
+        favoriteNumber: null,
+        robotConfig: { ...DEFAULT_ROBOT_CONFIG, mascotType: 'basketball' },
+      })}>
+        Skip for now
       </button>
     </div>
   );
