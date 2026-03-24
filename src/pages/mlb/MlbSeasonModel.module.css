@@ -286,8 +286,8 @@
 .projCol { display:flex; flex-direction:column; align-items:center; }
 .projNum { font-size:1.3rem; font-weight:800; color:var(--color-text); line-height:1;
   letter-spacing:-0.02em; }
-.projLabel { font-size:0.40rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.07em; color:#b8293d; margin-top:1px; }
+.projLabel { font-size:0.42rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; color:#b8293d; margin-top:3px; white-space:nowrap; }
 
 .statCol { display:flex; flex-direction:column; align-items:center; gap:1px; }
 .statVal { font-size:0.68rem; font-weight:700; color:var(--color-text); line-height:1;
@@ -398,9 +398,9 @@
   .ident { flex:1; min-width:0; gap:8px; }
   .logo { width:28px; height:28px; }
   .name { font-size:0.76rem; }
-  .projCol { flex-shrink:0; align-items:flex-end; }
+  .projCol { flex-shrink:0; align-items:flex-end; gap:2px; }
   .projNum { font-size:1.15rem; }
-  .projLabel { display:block; font-size:0.38rem; }
+  .projLabel { display:block; font-size:0.40rem; margin-top:0; }
 
   /* Layer 2: Stats row */
   .rowStats {

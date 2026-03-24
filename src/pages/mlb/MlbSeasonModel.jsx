@@ -87,7 +87,7 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
           </div>
           <div className={styles.projCol}>
             <span className={styles.projNum}>{team.projectedWins}</span>
-            <span className={styles.projLabel}>proj. wins</span>
+            <span className={styles.projLabel}>Projected wins</span>
           </div>
         </div>
 
