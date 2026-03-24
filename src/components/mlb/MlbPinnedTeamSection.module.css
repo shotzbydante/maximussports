@@ -51,7 +51,7 @@
 .addTeamBtn {
   padding: 8px 18px; font-size: 0.78rem; font-weight: 600;
   background: none; color: var(--color-text); border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 6px; text-decoration: none; transition: all 0.12s;
+  border-radius: 6px; cursor: pointer; transition: all 0.12s; font-family: inherit;
 }
 .addTeamBtn:hover { border-color: rgba(184,41,61,0.25); color: #b8293d; }
 .explainerHelper { font-size: 0.66rem; color: var(--color-text-muted); margin: 0 0 8px; }
@@ -104,9 +104,9 @@
 }
 .addTeamCta {
   font-size: 0.70rem; font-weight: 600; color: #b8293d;
-  text-decoration: none; padding: 4px 12px;
+  background: none; padding: 4px 12px; cursor: pointer;
   border: 1px solid rgba(184,41,61,0.18); border-radius: 6px;
-  transition: all 0.12s;
+  transition: all 0.12s; font-family: inherit;
 }
 .addTeamCta:hover { background: rgba(184,41,61,0.06); border-color: rgba(184,41,61,0.30); }
 

@@ -18,6 +18,7 @@ import usePinnedTeams from '../../hooks/usePinnedTeams';
 import { usePlan } from '../../hooks/usePlan';
 import { MLB_TEAMS, getMLBEspnId } from '../../sports/mlb/teams';
 import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
+import MlbTeamPickerModal from './MlbTeamPickerModal';
 import styles from './MlbPinnedTeamSection.module.css';
 
 const FREE_PIN_LIMIT = 3;
@@ -257,6 +258,7 @@ export default function MlbPinnedTeamSection() {
   const [odds, setOdds] = useState(null);
   const [schedules, setSchedules] = useState({});
   const [limitHit, setLimitHit] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     fetchMlbChampionshipOdds().then(d => setOdds(d.odds ?? {})).catch(() => {});
@@ -312,9 +314,12 @@ export default function MlbPinnedTeamSection() {
               <button type="button" className={styles.pinBtnPrimary} onClick={() => handlePin(DEFAULT_SLUG)}>
                 📌 Pin Yankees (example)
               </button>
-              <Link to={buildPath('/teams')} className={styles.addTeamBtn}>
+              <button type="button" className={styles.addTeamBtn} onClick={() => {
+                if (!user) { navigate('/settings'); return; }
+                setPickerOpen(true);
+              }}>
                 + Add team
-              </Link>
+              </button>
             </div>
             <p className={styles.explainerHelper}>
               Search for any MLB team. Try: Dodgers, Braves, Mets…
@@ -337,7 +342,10 @@ export default function MlbPinnedTeamSection() {
         <>
           <div className={styles.pinnedHeader}>
             <span className={styles.pinnedLabel}>Pinned Teams</span>
-            <Link to={buildPath('/teams')} className={styles.addTeamCta}>+ Add Team</Link>
+            <button type="button" className={styles.addTeamCta} onClick={() => {
+              if (!user) { navigate('/settings'); return; }
+              setPickerOpen(true);
+            }}>+ Add Team</button>
           </div>
           {limitHit && (
             <div className={styles.limitMsg}>
@@ -353,6 +361,16 @@ export default function MlbPinnedTeamSection() {
           </div>
         </>
       )}
+      {/* Team picker modal */}
+      <MlbTeamPickerModal
+        isOpen={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        pinnedTeams={pinned}
+        addTeam={addTeam}
+        removeTeam={removeTeam}
+        isPinned={(slug) => pinned.includes(slug)}
+        isPro={isPro}
+      />
     </section>
   );
 }
