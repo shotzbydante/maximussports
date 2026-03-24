@@ -364,7 +364,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                     Skip for now
                   </button>
                 </div>
-                <p className={styles.footerNote}>Free to start. No spam. Just smarter sports intel.</p>
+                <p className={styles.footerNote}>Your board. Your signals. Your edge.</p>
               </div>
             </div>
           )}

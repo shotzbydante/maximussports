@@ -1,11 +1,13 @@
 /**
- * RobotAvatar — Maximus Sports mascot: a fun-loving basketball-playing toddler
- * robot with big expressive eyes, a wide grin, a headband, and a basketball
- * jersey. Left hand spins a basketball, right hand waves.
+ * RobotAvatar — Maximus Sports mascot renderer.
+ * Supports two variants:
+ *   - 'basketball' (default): headband, basketball jersey, basketball
+ *   - 'baseball': cap, button-up jersey, baseball + glove
  *
- * Customizable: jerseyColor, robotColor, jerseyNumber.
+ * Customizable: jerseyColor, robotColor, jerseyNumber, mascotType.
  */
 import styles from './RobotAvatar.module.css';
+import BaseballRobotAvatar from './BaseballRobotAvatar';
 
 const DEFAULT_JERSEY_COLOR = '#1a2d3d';
 const DEFAULT_ROBOT_COLOR = '#4a90c4';
@@ -48,10 +50,23 @@ export default function RobotAvatar({
   jerseyNumber = '',
   jerseyColor = DEFAULT_JERSEY_COLOR,
   robotColor = DEFAULT_ROBOT_COLOR,
+  mascotType = 'basketball',
   size = 120,
   className = '',
   glow = false,
 }) {
+  if (mascotType === 'baseball') {
+    return (
+      <BaseballRobotAvatar
+        jerseyNumber={jerseyNumber}
+        jerseyColor={jerseyColor}
+        robotColor={robotColor}
+        size={size}
+        className={`${styles.robotWrap} ${glow ? styles.glow : ''} ${className}`}
+        glow={glow}
+      />
+    );
+  }
   const displayText = jerseyNumber || 'M';
   const fontSize = displayText.length > 1 ? 16 : 20;
   const isLightJersey = isLight(jerseyColor);

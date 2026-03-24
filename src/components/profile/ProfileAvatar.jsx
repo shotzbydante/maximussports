@@ -30,6 +30,7 @@ export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarC
   const jerseyNumber = cfg.jerseyNumber || favoriteNumber || '';
   const jerseyColor = cfg.jerseyColor || DEFAULT_ROBOT_CONFIG.jerseyColor;
   const robotColor = cfg.robotColor || DEFAULT_ROBOT_CONFIG.robotColor;
+  const mascotType = cfg.mascotType || 'basketball';
 
   return (
     <span
@@ -41,6 +42,7 @@ export default function ProfileAvatar({ username, favoriteNumber, isPro, avatarC
         jerseyNumber={jerseyNumber}
         jerseyColor={jerseyColor}
         robotColor={robotColor}
+        mascotType={mascotType}
         size={px}
       />
       {isPro && <span className={styles.proBadge}>PRO</span>}

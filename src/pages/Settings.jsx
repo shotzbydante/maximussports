@@ -748,6 +748,7 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
   const existingCfg = resolveAvatarConfig(profile);
   const [jerseyColor, setJerseyColor]     = useState(existingCfg?.jerseyColor || DEFAULT_ROBOT_CONFIG.jerseyColor);
   const [robotColor, setRobotColor]       = useState(existingCfg?.robotColor || DEFAULT_ROBOT_CONFIG.robotColor);
+  const [mascotType, setMascotType]       = useState(existingCfg?.mascotType || 'basketball');
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [suggestions, setSuggestions]     = useState([]);
   const [saving, setSaving]               = useState(false);
@@ -792,6 +793,7 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
       if (!sb) throw new Error('Auth service is not configured.');
       const avatarConfig = {
         type: 'maximus_robot',
+        mascotType,
         jerseyNumber: number,
         jerseyColor,
         robotColor,
@@ -897,8 +899,24 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
               jerseyNumber={number}
               jerseyColor={jerseyColor}
               robotColor={robotColor}
+              mascotType={mascotType}
               size={80}
             />
+          </div>
+          <div className={styles.mascotTypeRow}>
+            <span className={styles.mascotTypeLabel}>Mascot Type</span>
+            <div className={styles.mascotTypeToggle}>
+              <button type="button"
+                className={`${styles.mascotTypeBtn} ${mascotType === 'basketball' ? styles.mascotTypeBtnActive : ''}`}
+                onClick={() => setMascotType('basketball')}>
+                🏀 Basketball
+              </button>
+              <button type="button"
+                className={`${styles.mascotTypeBtn} ${mascotType === 'baseball' ? styles.mascotTypeBtnActive : ''}`}
+                onClick={() => setMascotType('baseball')}>
+                ⚾ Baseball
+              </button>
+            </div>
           </div>
           <RobotCustomizer
             jerseyColor={jerseyColor}

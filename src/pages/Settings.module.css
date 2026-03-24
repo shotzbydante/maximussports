@@ -3249,7 +3249,7 @@
 /* ─── Edit form robot section ────────────────────────────────────────────── */
 .editRobotSection {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--space-md);
   padding: var(--space-md) 0;
   border-top: 1px solid var(--color-border-light);
@@ -3265,4 +3265,49 @@
   border-radius: var(--radius-md);
   background: rgba(60, 121, 180, 0.04);
   border: 1px solid var(--color-border-light);
+  align-self: center;
+}
+
+.mascotTypeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mascotTypeLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mascotTypeToggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.mascotTypeBtn {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+}
+
+.mascotTypeBtn:hover { color: var(--color-text); }
+
+.mascotTypeBtnActive {
+  color: var(--color-text);
+  background: var(--color-bg-elevated);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
