@@ -41,6 +41,14 @@ const Bracketology = lazy(() => import('./pages/Bracketology'));
 const Friends = lazy(() => import('./pages/Friends'));
 const Join = lazy(() => import('./pages/Join'));
 
+/**
+ * LegacyRedirect — redirects old root NCAAM paths to /ncaam/...
+ * Preserves search params and hash.
+ */
+function LegacyRedirect({ to }) {
+  return <Navigate to={to} replace />;
+}
+
 export default function App() {
   useEffect(() => { initOfficialBracket(); }, []);
 
@@ -55,28 +63,43 @@ export default function App() {
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Layout />}>
-                  {/* ── NCAAM routes (default workspace, existing paths) ── */}
-                  <Route index element={<Home />} />
-                  <Route path="teams" element={<Teams />} />
-                  <Route path="teams/:slug" element={<TeamPage />} />
-                  <Route path="games" element={<Games />} />
-                  <Route path="insights" element={<Insights />} />
-                  <Route path="odds-insights" element={<Navigate to="/insights" replace />} />
-                  <Route path="news" element={<NewsFeed />} />
-                  <Route path="alerts" element={<Alerts />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="privacy" element={<Privacy />} />
-                  <Route path="terms" element={<Terms />} />
-                  <Route path="contact" element={<Contact />} />
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="college-basketball-picks-today" element={<CollegeBasketballPicksToday />} />
-                  <Route path="march-madness-betting-intelligence" element={<MarchMadnessHub />} />
-                  <Route path="bracketology" element={<Bracketology />} />
-                  <Route path="friends" element={<Friends />} />
-                  <Route path="join" element={<Join />} />
-                  <Route path="games/:matchupSlug" element={<GameMatchup />} />
+                  {/* ══ Root redirect → NCAAM ══ */}
+                  <Route index element={<Navigate to="/ncaam" replace />} />
 
-                  {/* ── MLB routes (gated workspace) ── */}
+                  {/* ══ NCAAM routes (canonical: /ncaam/...) ══ */}
+                  <Route path="ncaam">
+                    <Route index element={<Home />} />
+                    <Route path="teams" element={<Teams />} />
+                    <Route path="teams/:slug" element={<TeamPage />} />
+                    <Route path="games" element={<Games />} />
+                    <Route path="insights" element={<Insights />} />
+                    <Route path="odds-insights" element={<Navigate to="/ncaam/insights" replace />} />
+                    <Route path="news" element={<NewsFeed />} />
+                    <Route path="alerts" element={<Alerts />} />
+                    <Route path="bracketology" element={<Bracketology />} />
+                    <Route path="friends" element={<Friends />} />
+                    <Route path="join" element={<Join />} />
+                    <Route path="games/:matchupSlug" element={<GameMatchup />} />
+                    <Route path="college-basketball-picks-today" element={<CollegeBasketballPicksToday />} />
+                    <Route path="march-madness-betting-intelligence" element={<MarchMadnessHub />} />
+                  </Route>
+
+                  {/* ══ Legacy root NCAAM redirects → /ncaam/... ══ */}
+                  <Route path="teams" element={<LegacyRedirect to="/ncaam/teams" />} />
+                  <Route path="teams/:slug" element={<LegacyRedirect to="/ncaam/teams" />} />
+                  <Route path="games" element={<LegacyRedirect to="/ncaam/games" />} />
+                  <Route path="insights" element={<LegacyRedirect to="/ncaam/insights" />} />
+                  <Route path="odds-insights" element={<LegacyRedirect to="/ncaam/insights" />} />
+                  <Route path="news" element={<LegacyRedirect to="/ncaam/news" />} />
+                  <Route path="alerts" element={<LegacyRedirect to="/ncaam/alerts" />} />
+                  <Route path="bracketology" element={<LegacyRedirect to="/ncaam/bracketology" />} />
+                  <Route path="friends" element={<LegacyRedirect to="/ncaam/friends" />} />
+                  <Route path="join" element={<LegacyRedirect to="/ncaam/join" />} />
+                  <Route path="games/:matchupSlug" element={<LegacyRedirect to="/ncaam/games" />} />
+                  <Route path="college-basketball-picks-today" element={<LegacyRedirect to="/ncaam/college-basketball-picks-today" />} />
+                  <Route path="march-madness-betting-intelligence" element={<LegacyRedirect to="/ncaam/march-madness-betting-intelligence" />} />
+
+                  {/* ══ MLB routes (gated workspace: /mlb/...) ══ */}
                   <Route path="mlb" element={<WorkspaceGate workspaceId={WorkspaceId.MLB} />}>
                     <Route index element={<MlbHome />} />
                     <Route path="games" element={<MlbGames />} />
@@ -87,6 +110,13 @@ export default function App() {
                     <Route path="season-model" element={<MlbSeasonModel />} />
                     <Route path="compare" element={<MlbCompare />} />
                   </Route>
+
+                  {/* ══ Global / shared routes (no sport prefix) ══ */}
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="privacy" element={<Privacy />} />
+                  <Route path="terms" element={<Terms />} />
+                  <Route path="contact" element={<Contact />} />
                 </Route>
                 <Route path="share/:id" element={<SharePage />} />
               </Routes>

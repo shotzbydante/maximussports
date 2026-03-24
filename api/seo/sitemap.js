@@ -2,9 +2,8 @@
  * GET /sitemap.xml — Dynamic sitemap.
  * Rewritten from vercel.json: /sitemap.xml → /api/seo/sitemap
  *
- * Includes: fixed landing pages, team pages, team odds pages,
- *           and dynamically generated matchup prediction pages.
- * Teams data is imported directly — no external API calls needed.
+ * Routes use canonical /ncaam/... prefix for sport-specific pages.
+ * Global pages (settings, privacy, terms) at root.
  */
 
 import { TEAMS } from '../../src/data/teams.js';
@@ -36,22 +35,19 @@ export default function handler(req, res) {
   const today = new Date().toISOString().slice(0, 10);
 
   const staticUrls = [
-    urlEntry('/', { changefreq: 'hourly', priority: '1.0', lastmod: today }),
-    urlEntry('/insights', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
-    urlEntry('/teams', { changefreq: 'daily', priority: '0.9', lastmod: today }),
-    urlEntry('/news', { changefreq: 'hourly', priority: '0.85', lastmod: today }),
-    urlEntry('/games', { changefreq: 'hourly', priority: '0.8', lastmod: today }),
-    urlEntry('/alerts', { changefreq: 'hourly', priority: '0.75', lastmod: today }),
-    urlEntry('/college-basketball-picks-today', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
-    urlEntry('/march-madness-betting-intelligence', { changefreq: 'daily', priority: '0.92', lastmod: today }),
-    urlEntry('/march-madness-odds', { changefreq: 'daily', priority: '0.9', lastmod: today }),
-    urlEntry('/upset-picks', { changefreq: 'daily', priority: '0.88', lastmod: today }),
-    urlEntry('/best-bracket-picks', { changefreq: 'daily', priority: '0.88', lastmod: today }),
+    // Root → canonical NCAAM home
+    urlEntry('/ncaam', { changefreq: 'hourly', priority: '1.0', lastmod: today }),
+    urlEntry('/ncaam/insights', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
+    urlEntry('/ncaam/teams', { changefreq: 'daily', priority: '0.9', lastmod: today }),
+    urlEntry('/ncaam/news', { changefreq: 'hourly', priority: '0.85', lastmod: today }),
+    urlEntry('/ncaam/games', { changefreq: 'hourly', priority: '0.8', lastmod: today }),
+    urlEntry('/ncaam/bracketology', { changefreq: 'daily', priority: '0.9', lastmod: today }),
+    urlEntry('/ncaam/college-basketball-picks-today', { changefreq: 'hourly', priority: '0.95', lastmod: today }),
+    urlEntry('/ncaam/march-madness-betting-intelligence', { changefreq: 'daily', priority: '0.92', lastmod: today }),
   ].join('\n');
 
   const teamUrls = TEAMS.map((t) => [
-    urlEntry(`/teams/${t.slug}`, { changefreq: 'daily', priority: '0.75', lastmod: today }),
-    urlEntry(`/teams/${t.slug}/odds`, { changefreq: 'daily', priority: '0.7', lastmod: today }),
+    urlEntry(`/ncaam/teams/${t.slug}`, { changefreq: 'daily', priority: '0.75', lastmod: today }),
   ].join('\n')).join('\n');
 
   const topTeams = TEAMS.filter(
@@ -66,7 +62,7 @@ export default function handler(req, res) {
       if (matchupSeen.has(mSlug)) continue;
       matchupSeen.add(mSlug);
       matchupUrls.push(
-        urlEntry(`/games/${mSlug}`, { changefreq: 'daily', priority: '0.68', lastmod: today })
+        urlEntry(`/ncaam/games/${mSlug}`, { changefreq: 'daily', priority: '0.68', lastmod: today })
       );
     }
   }

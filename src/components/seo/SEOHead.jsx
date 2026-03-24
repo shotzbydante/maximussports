@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { useLocation } from 'react-router-dom';
 
 export const ORIGIN = 'https://maximussports.ai';
 const DEFAULT_OG_IMAGE = `${ORIGIN}/og.png`;
@@ -26,14 +27,19 @@ export function buildOgImageUrl({ title, subtitle, meta, team, type } = {}) {
 export default function SEOHead({
   title,
   description,
-  canonicalPath = '/',
+  canonicalPath,
   ogType = 'website',
   ogImage = DEFAULT_OG_IMAGE,
   noindex = false,
   jsonLd = null,
 }) {
+  const location = useLocation();
+  // Use current URL pathname as canonical if not explicitly provided.
+  // This ensures sport-prefixed routes (/ncaam/teams) get correct canonical URLs
+  // without requiring every page to know its workspace prefix.
+  const resolvedCanonical = canonicalPath ?? location.pathname;
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} | College Basketball Betting Intelligence & March Madness Picks`;
-  const canonicalUrl = `${ORIGIN}${canonicalPath}`;
+  const canonicalUrl = `${ORIGIN}${resolvedCanonical}`;
 
   return (
     <Helmet>

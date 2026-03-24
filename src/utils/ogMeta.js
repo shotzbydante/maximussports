@@ -37,7 +37,7 @@ export const PAGE_META = {
       title: `College Basketball Betting Intelligence & March Madness Picks (${CURRENT_YEAR})`,
       description: `AI-powered college basketball betting intelligence for the ${CURRENT_YEAR} season — ATS picks, model-driven predictions, and March Madness insights across every major NCAAB matchup.`,
       ogImage: DEFAULT_OG_IMAGE,
-      canonicalPath: '/',
+      canonicalPath: '/ncaam',
     };
   },
 
@@ -50,7 +50,7 @@ export const PAGE_META = {
         subtitle: 'ATS trends, championship odds & conference intelligence',
         type: 'Team Intel',
       }),
-      canonicalPath: '/teams',
+      canonicalPath: '/ncaam/teams',
     };
   },
 
@@ -68,7 +68,7 @@ export const PAGE_META = {
         team: teamName,
         type: 'Team Intel',
       }),
-      canonicalPath: `/teams/${slug}`,
+      canonicalPath: `/ncaam/teams/${slug}`,
     };
   },
 
@@ -81,7 +81,7 @@ export const PAGE_META = {
         subtitle: 'Live spreads, ATS trends & market intelligence',
         type: 'Odds Insight',
       }),
-      canonicalPath: '/insights',
+      canonicalPath: '/ncaam/insights',
     };
   },
 
@@ -94,7 +94,7 @@ export const PAGE_META = {
         subtitle: 'ATS picks, value leans & game totals',
         type: 'Odds Insight',
       }),
-      canonicalPath: '/college-basketball-picks-today',
+      canonicalPath: '/ncaam/college-basketball-picks-today',
     };
   },
 
@@ -109,7 +109,7 @@ export const PAGE_META = {
         subtitle: [spread && `Spread: ${spread}`, total && `O/U: ${total}`].filter(Boolean).join(' · ') || 'Matchup analysis & predictions',
         type: 'Matchup Intel',
       }),
-      canonicalPath: `/games/${slug}`,
+      canonicalPath: `/ncaam/games/${slug}`,
     };
   },
 
@@ -122,7 +122,7 @@ export const PAGE_META = {
         subtitle: 'Live scores, spreads & daily schedule',
         type: 'Odds Insight',
       }),
-      canonicalPath: '/games',
+      canonicalPath: '/ncaam/games',
     };
   },
 
@@ -135,7 +135,7 @@ export const PAGE_META = {
         subtitle: 'Headlines, analysis & betting intel',
         type: 'Team Intel',
       }),
-      canonicalPath: '/news',
+      canonicalPath: '/ncaam/news',
     };
   },
 
@@ -148,7 +148,7 @@ export const PAGE_META = {
         subtitle: 'Tournament picks, trends & bracket analysis',
         type: 'Bracket Bust',
       }),
-      canonicalPath: '/march-madness-betting-intelligence',
+      canonicalPath: '/ncaam/march-madness-betting-intelligence',
     };
   },
 };

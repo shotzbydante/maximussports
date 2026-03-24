@@ -44,7 +44,7 @@ export const WORKSPACES = {
     id: WorkspaceId.CBB,
     label: 'NCAA College Basketball',
     shortLabel: 'NCAAM',
-    routeBase: '',
+    routeBase: '/ncaam',
     emoji: '\u{1F3C0}',
     logo: '/ncaa-logo.png',
     sportKey: 'basketball_ncaab',

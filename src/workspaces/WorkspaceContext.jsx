@@ -6,9 +6,10 @@
  * workspace from the URL path prefix.
  */
 
-import { createContext, useContext, useMemo, useCallback } from 'react';
+import { createContext, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { track } from '../analytics/index';
 import {
   WORKSPACES,
   WORKSPACE_LIST,
@@ -22,13 +23,13 @@ const WorkspaceContext = createContext(null);
 
 /**
  * Derive workspace id from the current URL pathname.
- * `/mlb/...` → 'mlb'; everything else → 'cbb' (default).
+ * `/ncaam/...` → 'cbb'; `/mlb/...` → 'mlb'; everything else → 'cbb' (default).
  */
+const PREFIX_TO_WORKSPACE = { ncaam: WorkspaceId.CBB, mlb: WorkspaceId.MLB };
+
 function deriveWorkspaceFromPath(pathname) {
   const segment = pathname.split('/').filter(Boolean)[0]?.toLowerCase();
-  if (segment && WORKSPACES[segment] && segment !== DEFAULT_WORKSPACE_ID) {
-    return segment;
-  }
+  if (segment && PREFIX_TO_WORKSPACE[segment]) return PREFIX_TO_WORKSPACE[segment];
   return DEFAULT_WORKSPACE_ID;
 }
 
@@ -62,10 +63,20 @@ export function WorkspaceProvider({ children }) {
     [user],
   );
 
+  // Track workspace entry (fires once per workspace per session)
+  const trackedEntryRef = useRef(new Set());
+  useEffect(() => {
+    if (trackedEntryRef.current.has(activeId)) return;
+    trackedEntryRef.current.add(activeId);
+    track(`enter_${activeId}_workspace`, { workspace: activeId, path: location.pathname });
+  }, [activeId, location.pathname]);
+
   const switchWorkspace = useCallback(
     (targetId) => {
       if (targetId === activeId) return;
       if (!canAccessWorkspace(targetId, user)) return;
+
+      track('workspace_switch', { from: activeId, to: targetId });
 
       // Clear splash flags for the target workspace so the
       // loading screen re-triggers on every sport switch.
