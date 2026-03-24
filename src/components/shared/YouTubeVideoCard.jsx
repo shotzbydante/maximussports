@@ -4,6 +4,7 @@
  */
 import { useState } from 'react';
 import { track } from '../../analytics/index';
+import { decodeDisplayText } from '../../utils/decodeEntities';
 import styles from './YouTubeVideoCard.module.css';
 
 function formatRelTime(iso) {
@@ -147,7 +148,7 @@ export default function YouTubeVideoCard({ video, onSelect, compact = false, her
       </div>
 
       <div className={styles.body}>
-        <p className={styles.title}>{title}</p>
+        <p className={styles.title}>{decodeDisplayText(title)}</p>
         <div className={styles.meta}>
           {channelTitle && (
             <span className={styles.channel}>{channelTitle}</span>

@@ -376,22 +376,25 @@ export function classifyBasketballItem(item) {
   // Step 3 — check for positive men's signal anywhere in metadata
   const hasMensSignal = MENS_SIGNALS.some((re) => re.test(withSnippet));
   const isTourney = isTournamentVideo(title);
+  const isTrusted = isItemAllowlisted(item) || isConfNetworkChannel(item);
 
-  // Step 4 — tournament ambiguity gate (runs BEFORE any allowlist/network accept)
-  // If content looks like tournament coverage and has NO men's signal → reject.
-  // This catches ESPN/conference networks titling men's and women's games identically.
-  if (isTourney && !hasMensSignal) {
-    return 'no_bball'; // ambiguous tournament content = unsafe
+  // Step 4 — tournament ambiguity gate
+  // Trusted channels (ESPN, CBS, conference networks): women's hard-reject already caught
+  // explicit women's content above. Remaining tournament content from these channels is
+  // overwhelmingly men's — allow it through.
+  // Non-trusted channels with ambiguous tournament content: reject to be safe.
+  if (isTourney && !hasMensSignal && !isTrusted) {
+    return 'no_bball'; // ambiguous tournament content from unknown source
   }
 
   // Step 5 — conference network: allow if passed all prior checks
   if (isConfNetworkChannel(item)) return 'accept';
 
-  // Step 6 — allowlisted channels: require men's signal OR non-tournament basketball content
+  // Step 6 — allowlisted channels: require basketball term in title
   if (isItemAllowlisted(item)) {
     const hasBballTerm = BBALL_OR_HIGHLIGHTS.some((re) => re.test(title));
-    if (hasBballTerm && (hasMensSignal || !isTourney)) return 'accept';
-    // No basketball term, or tournament without men's signal → fall through
+    if (hasBballTerm) return 'accept';
+    // No basketball signal at all → fall through
   }
 
   // Step 6 — non-allowlisted: require strong basketball signal (not just "highlights" alone)

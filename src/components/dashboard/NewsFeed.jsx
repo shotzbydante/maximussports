@@ -22,6 +22,7 @@ import {
   getCached, setCached,
   getStaleHomeFeedVideos, setStaleHomeFeedVideos,
 } from '../../utils/ytClientCache';
+import { decodeDisplayText } from '../../utils/decodeEntities';
 import styles from './NewsFeed.module.css';
 
 const VIDEO_CACHE_KEY   = 'yt:home:topVideos';
@@ -32,20 +33,16 @@ const DEFAULT_COMPACT   = 2;
 const DEFAULT_HEADLINES = 5;
 
 /**
- * Client-side defense filter: reject videos that look like women's basketball.
- * This catches stale cached results that predate server-side filter updates.
- * Lightweight — checks title only since that's all we have client-side.
+ * Client-side defense filter: reject videos with EXPLICIT women's basketball signals.
+ * Server-side classifier handles the nuanced tournament ambiguity logic.
+ * Client-side only catches clear women's content from stale caches.
  */
 const WOMEN_CLIENT_RE = /\bwomen'?s?\b|\bwomens\b|\bwbb\b|\bncaaw\b|\blady\b|\bwnba\b/i;
-const TOURNAMENT_CLIENT_RE = /\btournament\b|\bmarch\s*madness\b|\bround\s+of\s+\d+\b|\bsweet\s*(?:16|sixteen)\b|\belite\s*(?:8|eight)\b|\bfinal\s*four\b|\bfirst\s*round\b|\bsecond\s*round\b|\bregional\b/i;
-const MENS_CLIENT_RE = /\bmen'?s?\b|\bmens\b|\bmbb\b|\bncaam\b|\bncaab\b|\bcollege\s+basketball\b/i;
 
 function isLikelyMensVideo(video) {
-  const title = (video.title || '').replace(/&#39;/g, "'");
-  // Explicit women's signal → reject
+  const title = (video.title || '').replace(/&#39;/g, "'").replace(/[\u2018\u2019]/g, "'");
+  // Only reject if there's an explicit women's signal — leave tournament ambiguity to server
   if (WOMEN_CLIENT_RE.test(title)) return false;
-  // Tournament content without men's signal → reject (ambiguous)
-  if (TOURNAMENT_CLIENT_RE.test(title) && !MENS_CLIENT_RE.test(title)) return false;
   return true;
 }
 
@@ -243,7 +240,7 @@ export default function NewsFeed({
                             rel="noopener noreferrer"
                             className={styles.link}
                           >
-                            {item.title}
+                            {decodeDisplayText(item.title)}
                           </a>
                         ) : (
                           item.title
@@ -358,7 +355,7 @@ export default function NewsFeed({
                           rel="noopener noreferrer"
                           className={styles.link}
                         >
-                          {item.title}
+                          {decodeDisplayText(item.title)}
                         </a>
                       ) : (
                         item.title

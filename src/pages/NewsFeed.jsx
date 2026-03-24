@@ -7,6 +7,7 @@ import YouTubeVideoCard from '../components/shared/YouTubeVideoCard';
 import YouTubeVideoModal from '../components/shared/YouTubeVideoModal';
 import { getCached, setCached, getStaleIntelFeed, setStaleIntelFeed, getStaleIntelFeedAge } from '../utils/ytClientCache';
 import { track } from '../analytics/index';
+import { decodeDisplayText } from '../utils/decodeEntities';
 import { getPublicationLogoUrl, getSourceBrandLogo } from '../utils/publicationLogos';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import styles from './NewsFeed.module.css';
@@ -237,7 +238,7 @@ function FeaturedArticleCard({ item, onOpen }) {
           {item.time && <span className={styles.streamTime}>{item.time}</span>}
           {item.conference && <ConfPill conference={item.conference} />}
         </div>
-        <p className={styles.featuredArticleTitle}>{item.title}</p>
+        <p className={styles.featuredArticleTitle}>{decodeDisplayText(item.title)}</p>
         {item.excerpt && <p className={styles.featuredArticleExcerpt}>{item.excerpt}</p>}
         {item.signal && <SignalTag signal={item.signal} />}
       </div>
@@ -689,7 +690,7 @@ export default function NewsFeed() {
                         <SourceBadge source={item.source} />
                         {item.time && <span className={styles.streamTime}>{item.time}</span>}
                       </div>
-                      <p className={styles.headlineCardTitle}>{item.title}</p>
+                      <p className={styles.headlineCardTitle}>{decodeDisplayText(item.title)}</p>
                       <div className={styles.headlineCardFooter}>
                         {item.conference && <ConfPill conference={item.conference} />}
                         {item.signal && <SignalTag signal={item.signal} />}
@@ -729,7 +730,7 @@ export default function NewsFeed() {
                         {item.conference && <ConfPill conference={item.conference} />}
                         {item.signal && <SignalTag signal={item.signal} />}
                       </div>
-                      <p className={styles.streamHeadline}>{item.title}</p>
+                      <p className={styles.streamHeadline}>{decodeDisplayText(item.title)}</p>
                       {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
                     </div>
                   </a>
@@ -833,7 +834,7 @@ export default function NewsFeed() {
                             {item.time && <span className={styles.metaDot} aria-hidden>·</span>}
                             {item.time && <span className={styles.streamTime}>{item.time}</span>}
                           </div>
-                          <p className={styles.streamHeadline}>{item.title}</p>
+                          <p className={styles.streamHeadline}>{decodeDisplayText(item.title)}</p>
                           {item.excerpt && <p className={styles.streamExcerpt}>{item.excerpt}</p>}
                         </div>
                       </a>
