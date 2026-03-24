@@ -31,6 +31,24 @@ const HERO_TILE_COUNT   = 2;
 const DEFAULT_COMPACT   = 2;
 const DEFAULT_HEADLINES = 5;
 
+/**
+ * Client-side defense filter: reject videos that look like women's basketball.
+ * This catches stale cached results that predate server-side filter updates.
+ * Lightweight — checks title only since that's all we have client-side.
+ */
+const WOMEN_CLIENT_RE = /\bwomen'?s?\b|\bwomens\b|\bwbb\b|\bncaaw\b|\blady\b|\bwnba\b/i;
+const TOURNAMENT_CLIENT_RE = /\btournament\b|\bmarch\s*madness\b|\bround\s+of\s+\d+\b|\bsweet\s*(?:16|sixteen)\b|\belite\s*(?:8|eight)\b|\bfinal\s*four\b|\bfirst\s*round\b|\bsecond\s*round\b|\bregional\b/i;
+const MENS_CLIENT_RE = /\bmen'?s?\b|\bmens\b|\bmbb\b|\bncaam\b|\bncaab\b|\bcollege\s+basketball\b/i;
+
+function isLikelyMensVideo(video) {
+  const title = (video.title || '').replace(/&#39;/g, "'");
+  // Explicit women's signal → reject
+  if (WOMEN_CLIENT_RE.test(title)) return false;
+  // Tournament content without men's signal → reject (ambiguous)
+  if (TOURNAMENT_CLIENT_RE.test(title) && !MENS_CLIENT_RE.test(title)) return false;
+  return true;
+}
+
 // Only treat non-empty cached arrays as valid — avoids serving a stale empty result.
 function getValidCache(key) {
   const cached = getCached(key);
@@ -62,9 +80,9 @@ export default function NewsFeed({
 }) {
   const [videoItems, setVideoItems] = useState(() => {
     const live = getValidCache(VIDEO_CACHE_KEY);
-    if (live) return live;
+    if (live) return live.filter(isLikelyMensVideo);
     const stale = getStaleHomeFeedVideos();
-    return Array.isArray(stale) && stale.length > 0 ? stale : [];
+    return Array.isArray(stale) && stale.length > 0 ? stale.filter(isLikelyMensVideo) : [];
   });
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState(false);
@@ -95,7 +113,7 @@ export default function NewsFeed({
       })
       .then((data) => {
         setVideoApiStatus(data.status ?? 'ok');
-        const fetched = data.items ?? [];
+        const fetched = (data.items ?? []).filter(isLikelyMensVideo);
         // Only cache non-empty successful results — prevents serving a stale empty state
         if (fetched.length > 0) {
           setCached(VIDEO_CACHE_KEY, fetched, VIDEO_CACHE_TTL);

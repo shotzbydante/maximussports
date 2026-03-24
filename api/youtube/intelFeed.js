@@ -22,8 +22,8 @@ import { CONF_NETWORK_MAP } from './_conferenceNetworks.js';
 
 const LOCK_TEAMS = TEAMS.filter((t) => t.oddsTier === 'Lock');
 
-const KV_FRESH_KEY     = 'yt:intelFeed:fresh:v2';
-const KV_LASTKNOWN_KEY = 'yt:intelFeed:lastKnown:v2';
+const KV_FRESH_KEY     = 'yt:intelFeed:fresh:v3';
+const KV_LASTKNOWN_KEY = 'yt:intelFeed:lastKnown:v3';
 const KV_FRESH_TTL_SEC     = 60 * 60;
 const KV_LASTKNOWN_TTL_SEC = 7 * 24 * 60 * 60;
 
