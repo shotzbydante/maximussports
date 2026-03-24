@@ -215,12 +215,14 @@ export async function ytRssSearch({ q, debug = false, sport = 'basketball' }) {
 
 /* ── Channel-based RSS feeds (ALWAYS work, zero quota) ──────────────────── */
 
+// Verified channel IDs — tested 2026-03-24, all return valid RSS XML
 const MBB_CHANNELS = [
-  { id: 'UCVZiLs2NFJE0KbZ40pbJyiQ', name: 'MandyAndTaska' },      // CBB highlights
-  { id: 'UCIALMKvObZNtJ68-rmLjb3A', name: 'Bleacher Report' },
-  { id: 'UCPDis9pjXuqyI7RYLJ-TTSA', name: 'CBS Sports' },
-  { id: 'UCsLQnRP1I-EG8lZxSaIjJQA', name: 'FOX Sports' },
-  { id: 'UC0vouNVdefSO0gTO-JB3dzQ', name: 'The Athletic' },
+  { id: 'UCiWLfSweyRNmLpgEHekhoAg', name: 'ESPN' },
+  { id: 'UCja8sZ2T4ylIqjggA1Zuukg', name: 'CBS Sports' },
+  { id: 'UCwNqHDsnBCKT-olwJwIFyfg', name: 'FOX Sports' },
+  { id: 'UC0nOdMq78X8ifkIxnIoqfHQ', name: 'NCAA' },
+  { id: 'UC9-OpMMVoNP5o10_Iyq7Ndw', name: 'Bleacher Report' },
+  { id: 'UCCl9GMgbh3IbMwyMcU3YLjA', name: 'The Athletic' },
 ];
 
 /**

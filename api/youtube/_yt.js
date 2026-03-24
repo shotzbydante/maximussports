@@ -301,6 +301,14 @@ const BBALL_OR_HIGHLIGHTS = [
   /\bbasketball\b/i,
   /\bhoops\b/i,
   /\bhighlights\b/i,
+  /\bmarch\s*madness\b/i,
+  /\bncaa\s*tournament\b/i,
+  /\bsweet\s*(?:16|sixteen)\b/i,
+  /\belite\s*(?:8|eight)\b/i,
+  /\bfinal\s*four\b/i,
+  /\bround\s+of\s+\d+\b/i,
+  /\bbracket\b/i,
+  /\bncaab?\b/i,
 ];
 
 /**
