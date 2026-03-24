@@ -10,6 +10,8 @@ import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import MaximusModelIcon from './MaximusModelIcon';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
+import { getTeamMeta } from '../../data/mlb/teamMeta';
+import { buildMlbTeamIntelSummary } from '../../data/mlb/teamIntelSummary';
 import styles from './MlbModelOutlook.module.css';
 
 const BADGE_CLS = {
@@ -23,6 +25,13 @@ const BADGE_CLS = {
 export default function MlbModelOutlook({ teamSlug }) {
   const { buildPath } = useWorkspace();
   const proj = useMemo(() => getTeamProjection(teamSlug), [teamSlug]);
+  const meta = useMemo(() => getTeamMeta(teamSlug), [teamSlug]);
+  const intelSummary = useMemo(() => {
+    if (!proj) return '';
+    // Find team info from projection
+    const teamInfo = { slug: teamSlug, name: proj.name, division: proj.division, league: proj.league, abbrev: proj.abbrev };
+    return buildMlbTeamIntelSummary({ team: teamInfo, projection: proj, meta });
+  }, [proj, meta, teamSlug]);
 
   if (!proj) return null;
 
@@ -98,8 +107,8 @@ export default function MlbModelOutlook({ teamSlug }) {
           <span className={styles.tk}><b>Risk:</b> {tk.riskProfile}</span>
         </div>
 
-        {/* Rationale */}
-        <p className={styles.rationale}>{proj.rationale}</p>
+        {/* Intel Summary */}
+        <p className={styles.rationale}>{intelSummary || proj.rationale}</p>
       </div>
     </section>
   );

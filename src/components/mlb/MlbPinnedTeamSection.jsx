@@ -14,6 +14,7 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
 import { getTeamMeta } from '../../data/mlb/teamMeta';
+import { buildMlbTeamIntelSummary } from '../../data/mlb/teamIntelSummary';
 import usePinnedTeams from '../../hooks/usePinnedTeams';
 import { usePlan } from '../../hooks/usePlan';
 import { MLB_TEAMS, getMLBEspnId } from '../../sports/mlb/teams';
@@ -99,35 +100,45 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
 
   useEffect(() => {
     if (!team) return;
-    fetch(`/api/mlb/youtube/intelFeed?maxResults=12`)
+    fetch(`/api/mlb/youtube/intelFeed?maxResults=16`)
       .then(r => r.json())
       .then(d => {
         const items = d.items ?? [];
         const teamName = team.name.toLowerCase();
-        // City name for broader matching (e.g. "New York" for Yankees)
-        const cityParts = teamName.split(' ').slice(0, -1).join(' ');
-        const mascot = teamName.split(' ').pop();
+        const nameParts = teamName.split(' ');
+        const mascot = nameParts[nameParts.length - 1]; // e.g. "giants"
+        const city = nameParts.slice(0, -1).join(' '); // e.g. "san francisco"
+        const abbrev = (team.abbrev || '').toLowerCase(); // e.g. "sf"
 
-        // STRICT: title MUST contain team name, city, or mascot (>3 chars)
-        const teamVids = items.filter(v => {
+        // Score each video for team relevance
+        const scored = items.map(v => {
           const t = (v.title || '').toLowerCase();
-          if (t.includes(teamName)) return true;
-          if (mascot.length > 3 && t.includes(mascot)) return true;
-          if (cityParts.length > 3 && t.includes(cityParts)) return true;
-          return false;
+          const desc = (v.description || '').toLowerCase();
+          let score = 0;
+          // Tier 1: full team name in title
+          if (t.includes(teamName)) score += 10;
+          // Tier 2: mascot in title (>3 chars to avoid false positives)
+          else if (mascot.length > 3 && t.includes(mascot)) score += 6;
+          // Tier 2b: city in title (>3 chars)
+          if (city.length > 3 && t.includes(city)) score += 4;
+          // Tier 3: abbrev in title context (e.g. "SF" surrounded by non-alpha)
+          if (abbrev.length >= 2) {
+            const abbrRe = new RegExp(`\\b${abbrev}\\b`, 'i');
+            if (abbrRe.test(v.title || '')) score += 3;
+          }
+          // Tier 3b: team name in description
+          if (desc.includes(teamName) || (mascot.length > 3 && desc.includes(mascot))) score += 2;
+          return { ...v, _score: score };
         });
 
-        // Rank: prefer full name match > recency
-        teamVids.sort((a, b) => {
-          const aTitle = (a.title || '').toLowerCase();
-          const bTitle = (b.title || '').toLowerCase();
-          const aFull = aTitle.includes(teamName) ? 2 : 0;
-          const bFull = bTitle.includes(teamName) ? 2 : 0;
-          if (aFull !== bFull) return bFull - aFull;
-          return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
-        });
+        // Filter: must have score > 0 (some team relevance)
+        const teamVids = scored
+          .filter(v => v._score > 0)
+          .sort((a, b) => {
+            if (a._score !== b._score) return b._score - a._score;
+            return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
+          });
 
-        // Only show team-specific videos — NO generic fallback
         setVideos(teamVids.slice(0, 1));
       })
       .catch(() => {});
@@ -135,20 +146,19 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
 
   if (!team) return null;
 
-  // Generate intel writeup
-  const intel = useMemo(() => {
-    if (!proj) return `Follow ${team.name} for projected wins, odds, and season outlook.`;
-    const tk = proj.takeaways || {};
-    let s = `Projected at ${proj.projectedWins} wins (${proj.floor}–${proj.ceiling} range).`;
-    if (tk.strongestDriver) s += ` Strongest driver: ${tk.strongestDriver.toLowerCase()}.`;
-    if (proj.marketDelta > 0) s += ` Model is ${proj.marketDelta} wins above market.`;
-    else if (proj.marketDelta < 0) s += ` Market has them ${Math.abs(proj.marketDelta)} higher.`;
-    return s;
-  }, [proj, team]);
+  // Generate premium intel writeup
+  const intel = useMemo(() => buildMlbTeamIntelSummary({
+    team, projection: proj, meta, odds: odds?.[slug] ? { bestChanceAmerican: odds[slug].bestChanceAmerican } : null,
+    currentRecord: (() => {
+      if (!Array.isArray(schedule) || !schedule.length) return '0-0';
+      const f = schedule.filter(e => e.isFinal && e.ourScore != null && e.oppScore != null);
+      return `${f.filter(e => e.ourScore > e.oppScore).length}-${f.filter(e => e.ourScore < e.oppScore).length}`;
+    })(),
+  }), [team, proj, meta, odds, slug, schedule]);
 
-  // Find next game from schedule
+  // Find next game from schedule (null = loading, [] = no data)
   const nextGame = useMemo(() => {
-    if (!schedule?.length) return null;
+    if (!Array.isArray(schedule) || schedule.length === 0) return null;
     const upcoming = schedule.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
     return upcoming[0] || null;
   }, [schedule]);
@@ -264,18 +274,23 @@ export default function MlbPinnedTeamSection() {
     fetchMlbChampionshipOdds().then(d => setOdds(d.odds ?? {})).catch(() => {});
   }, []);
 
+  // Fetch schedules — use functional state check to avoid stale closure
   useEffect(() => {
     if (pinned.length === 0) return;
     pinned.forEach(slug => {
-      if (schedules[slug]) return;
-      const espnId = getMLBEspnId(slug);
-      if (!espnId) return;
-      fetch(`/api/mlb/team/schedule?teamId=${espnId}`)
-        .then(r => r.json())
-        .then(d => setSchedules(prev => ({ ...prev, [slug]: d.events ?? [] })))
-        .catch(() => {});
+      setSchedules(prev => {
+        if (prev[slug]) return prev; // already fetched
+        const espnId = getMLBEspnId(slug);
+        if (!espnId) return prev;
+        // Fire fetch, update state when done
+        fetch(`/api/mlb/team/schedule?teamId=${espnId}`)
+          .then(r => r.json())
+          .then(d => setSchedules(p => ({ ...p, [slug]: d.events ?? [] })))
+          .catch(() => {});
+        return { ...prev, [slug]: null }; // mark as loading to prevent re-fetch
+      });
     });
-  }, [pinned]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pinned]);
 
   const handlePin = (slug) => {
     if (!user) { navigate('/settings'); return; }
