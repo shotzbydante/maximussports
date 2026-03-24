@@ -335,24 +335,75 @@
 @media (max-width:700px) {
   .stageGrid { grid-template-columns:repeat(2, 1fr); }
   .methStageGrid { grid-template-columns:1fr; }
-  .row { grid-template-columns:20px 1fr auto auto 24px; gap:6px; padding:12px 10px; min-height:auto; }
-  .statCol:nth-child(n+6) { display:none; }
-  .signalCol { display:none; }
-  .projLabel { display:none; }
-  .projNum { font-size:1.2rem; }
-  .logo { width:26px; height:26px; }
-  .detail { padding:12px 10px 14px; }
+
+  /* Mobile: 2-row card layout with expand on right */
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 14px 12px;
+    min-height: auto;
+    position: relative;
+  }
+
+  /* Rank */
+  .rank { font-size:0.56rem; flex-shrink:0; width:18px; text-align:center; }
+
+  /* Identity */
+  .ident { flex: 1; min-width: 0; gap: 6px; }
+  .logo { width:28px; height:28px; }
+  .name { font-size:0.74rem; }
+
+  /* Projected wins — stays inline right of ident */
+  .projCol { flex-shrink:0; align-items:flex-end; margin-left:auto; margin-right:34px; }
+  .projNum { font-size:1.15rem; }
+  .projLabel { display:block; font-size:0.38rem; }
+
+  /* Stat columns — show as a compact row on second line */
+  .statCol { flex-shrink:0; align-items:center; gap:1px; }
+  .statVal { font-size:0.62rem; }
+  .statLbl { font-size:0.36rem; }
+
+  /* Signals — show on second line as a compact strip */
+  .signalCol { display:flex; flex-direction:row; align-items:center;
+    gap:3px; min-height:auto; flex-wrap:wrap; }
+  .badges { max-height:none; overflow:visible; }
+  .badge { font-size:0.42rem; padding:2px 5px; }
+
+  /* Driver preview — hide on mobile for cleanliness */
+  .driverPreview { display:none; }
+
+  /* Expand button — fixed to right side */
+  .expandBtn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+  }
+  .caret { font-size:0.58rem; }
+
+  .detail { padding:14px 12px 16px; }
   .decompGrid { grid-template-columns:repeat(2, 1fr); }
   .methInputGrid { grid-template-columns:repeat(2, 1fr); }
+
+  /* Expanded drawer mobile polish */
+  .detailStats { gap: 10px; }
+  .tkRow { gap: 4px 10px; }
+  .rationale { font-size: 0.72rem; line-height: 1.55; }
 }
 
 @media (max-width:480px) {
   .stageGrid { grid-template-columns:1fr 1fr; gap:6px; }
   .stageCard { padding:8px 10px; }
   .stageName { font-size:0.56rem; }
-  .row { padding:10px 8px; }
+  .row { padding:12px 10px; }
   .pill { padding:4px 10px; font-size:0.62rem; }
-  .badge { font-size:0.42rem; padding:2px 5px; }
   .methInputGrid { grid-template-columns:1fr; }
   .methPreview { padding:16px 16px 14px; }
+  .projNum { font-size:1.05rem; }
+  .statCol:nth-child(n+7) { display:none; }
 }
