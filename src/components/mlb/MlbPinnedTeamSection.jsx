@@ -1,14 +1,11 @@
 /**
- * MlbPinnedTeamSection — "Pin a team" for MLB Home.
+ * MlbPinnedTeamSection — NCAAM-style "Pin a team" for MLB Home.
  *
- * Mirrors the NCAAM PinnedTeamsSection pattern:
- * - Shows a default example team (Yankees) when nothing pinned
- * - Auth-gates pin actions
- * - Renders a compact team intel card with:
- *   - logo, name, championship odds, projected wins
- *   - team summary from Season Intelligence
- *   - 1–2 YouTube video tiles
- *   - CTA to Team Intel
+ * Two states:
+ * 1. Empty: left explainer panel + right Yankees preview card
+ * 2. Filled: grid of MLB pinned team cards (NCAAM card structure)
+ *
+ * Mirrors NCAAM PinnedTeamsSection pattern with MLB-specific data.
  */
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,171 +13,307 @@ import { useAuth } from '../../context/AuthContext';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
+import { getTeamMeta } from '../../data/mlb/teamMeta';
 import { getMlbPinnedTeams, addMlbPinnedTeam, removeMlbPinnedTeam } from '../../utils/mlbPinnedTeams';
-import { MLB_TEAMS } from '../../sports/mlb/teams';
+import { MLB_TEAMS, getMLBEspnId } from '../../sports/mlb/teams';
 import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
 import styles from './MlbPinnedTeamSection.module.css';
 
-const DEFAULT_TEAM_SLUG = 'nyy';
-const DEFAULT_TEAM_NAME = 'New York Yankees';
+const DEFAULT_SLUG = 'nyy';
 
-function formatOdds(american) {
-  if (american == null) return '—';
-  return american > 0 ? `+${american}` : `${american}`;
+function formatOdds(v) { return v == null ? '—' : v > 0 ? `+${v}` : `${v}`; }
+
+function formatRelTime(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    });
+  } catch { return ''; }
 }
 
-function VideoTile({ video }) {
-  if (!video) return null;
+/* ─── Preview Card (empty state right side) ─── */
+function PreviewCard({ slug, odds, onPin, buildPath }) {
+  const team = MLB_TEAMS.find(t => t.slug === slug);
+  const proj = getTeamProjection(slug);
+  const meta = getTeamMeta(slug);
+  const logo = team ? getMlbEspnLogoUrl(team.slug) : null;
+  const teamOdds = odds?.[slug];
+  if (!team) return null;
+
   return (
-    <a href={`https://www.youtube.com/watch?v=${video.videoId}`}
-      target="_blank" rel="noopener noreferrer" className={styles.videoTile}>
-      <div className={styles.videoThumb}>
-        <img src={video.thumbUrl} alt={video.title} loading="lazy" />
-        <span className={styles.playIcon}>▶</span>
+    <div className={styles.previewCard}>
+      <div className={styles.previewHeader}>
+        <span className={styles.previewLabel}>Preview</span>
+        <button type="button" className={styles.previewClose} aria-label="Dismiss preview">×</button>
       </div>
-      <span className={styles.videoTitle}>{video.title}</span>
-    </a>
+      <div className={styles.previewIdentity}>
+        {logo && <img src={logo} alt="" className={styles.previewLogo} width={36} height={36} />}
+        <div>
+          <span className={styles.previewName}>{team.name}</span>
+          <span className={styles.previewDiv}>{team.division}</span>
+        </div>
+      </div>
+      {proj && (
+        <div className={styles.previewStats}>
+          <div className={styles.previewStat}>
+            <span className={styles.previewStatLabel}>Projected</span>
+            <span className={styles.previewStatValue}>{proj.projectedWins}W</span>
+          </div>
+          {teamOdds && (
+            <div className={styles.previewStat}>
+              <span className={styles.previewStatLabel}>WS Odds</span>
+              <span className={styles.previewStatValue}>{formatOdds(teamOdds.bestChanceAmerican)}</span>
+            </div>
+          )}
+          <div className={styles.previewStat}>
+            <span className={styles.previewStatLabel}>2025</span>
+            <span className={styles.previewStatValue}>{meta.record2025}</span>
+          </div>
+        </div>
+      )}
+      <div className={styles.previewActions}>
+        <button type="button" className={styles.pinBtnPrimary} onClick={() => onPin(slug)}>
+          📌 Pin {team.name.split(' ').pop()}
+        </button>
+        <Link to={buildPath(`/teams/${slug}`)} className={styles.viewProfileLink}>
+          View Team Intel →
+        </Link>
+      </div>
+    </div>
   );
 }
 
-export default function MlbPinnedTeamSection() {
-  const { user } = useAuth();
-  const { buildPath } = useWorkspace();
-  const navigate = useNavigate();
-
-  const [pinned, setPinned] = useState(() => getMlbPinnedTeams());
-  const [odds, setOdds] = useState(null);
+/* ─── Pinned Team Card (filled state) ─── */
+function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
+  const team = MLB_TEAMS.find(t => t.slug === slug);
+  const proj = getTeamProjection(slug);
+  const meta = getTeamMeta(slug);
+  const logo = team ? getMlbEspnLogoUrl(team.slug) : null;
+  const teamOdds = odds?.[slug];
   const [videos, setVideos] = useState([]);
 
-  const activeSlug = pinned.length > 0 ? pinned[0] : DEFAULT_TEAM_SLUG;
-  const isExample = pinned.length === 0;
-
-  const team = useMemo(() => MLB_TEAMS.find(t => t.slug === activeSlug), [activeSlug]);
-  const projection = useMemo(() => getTeamProjection(activeSlug), [activeSlug]);
-  const logo = team ? getMlbEspnLogoUrl(team.slug) : null;
-
-  // Fetch odds
   useEffect(() => {
-    fetchMlbChampionshipOdds()
-      .then(d => setOdds(d.odds ?? {}))
-      .catch(() => {});
-  }, []);
-
-  // Fetch team videos
-  useEffect(() => {
-    const teamName = team?.name || DEFAULT_TEAM_NAME;
+    if (!team) return;
     fetch(`/api/mlb/youtube/intelFeed?maxResults=4`)
       .then(r => r.json())
       .then(d => {
         const items = d.items ?? [];
-        // Filter for team-relevant videos
-        const teamVideos = items.filter(v => {
+        const teamVids = items.filter(v => {
           const t = (v.title || '').toLowerCase();
-          const parts = teamName.toLowerCase().split(' ');
+          const parts = team.name.toLowerCase().split(' ');
           return parts.some(p => p.length > 3 && t.includes(p));
         });
-        setVideos(teamVideos.length > 0 ? teamVideos.slice(0, 2) : items.slice(0, 2));
+        setVideos(teamVids.length > 0 ? teamVids.slice(0, 1) : items.slice(0, 1));
       })
       .catch(() => {});
   }, [team]);
 
-  const teamOdds = odds?.[activeSlug];
+  if (!team) return null;
 
-  // Generate summary from projection
-  const summary = useMemo(() => {
-    if (!projection) return team ? `Follow ${team.name} for the latest intelligence, projected performance, and market positioning.` : '';
-    const tk = projection.takeaways || {};
-    const parts = [];
-    parts.push(`Projected at ${projection.projectedWins} wins with a ${projection.floor}–${projection.ceiling} range.`);
-    if (tk.strongestDriver) parts.push(`Strongest driver: ${tk.strongestDriver.toLowerCase()}.`);
-    if (projection.marketDelta > 0) parts.push(`Model is ${projection.marketDelta} wins above market.`);
-    else if (projection.marketDelta < 0) parts.push(`Market has them ${Math.abs(projection.marketDelta)} wins higher than our model.`);
-    return parts.join(' ');
-  }, [projection, team]);
+  // Generate intel writeup
+  const intel = useMemo(() => {
+    if (!proj) return `Follow ${team.name} for projected wins, odds, and season outlook.`;
+    const tk = proj.takeaways || {};
+    let s = `Projected at ${proj.projectedWins} wins (${proj.floor}–${proj.ceiling} range).`;
+    if (tk.strongestDriver) s += ` Strongest driver: ${tk.strongestDriver.toLowerCase()}.`;
+    if (proj.marketDelta > 0) s += ` Model is ${proj.marketDelta} wins above market.`;
+    else if (proj.marketDelta < 0) s += ` Market has them ${Math.abs(proj.marketDelta)} higher.`;
+    return s;
+  }, [proj, team]);
 
-  const handlePin = () => {
-    if (!user) {
-      navigate('/settings');
-      return;
-    }
-    if (isExample) {
-      const next = addMlbPinnedTeam(activeSlug);
-      setPinned(next);
-    }
+  // Find next game from schedule
+  const nextGame = useMemo(() => {
+    if (!schedule?.length) return null;
+    const upcoming = schedule.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
+    return upcoming[0] || null;
+  }, [schedule]);
+
+  // Current record from schedule
+  const currentRecord = useMemo(() => {
+    if (!schedule?.length) return '0-0';
+    const finals = schedule.filter(e => e.isFinal && e.ourScore != null && e.oppScore != null);
+    const w = finals.filter(e => e.ourScore > e.oppScore).length;
+    const l = finals.filter(e => e.ourScore < e.oppScore).length;
+    return `${w}-${l}`;
+  }, [schedule]);
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/mlb/teams/${slug}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
   };
 
-  const handleUnpin = () => {
-    const next = removeMlbPinnedTeam(activeSlug);
+  return (
+    <div className={styles.pinnedCard}>
+      {/* Header */}
+      <div className={styles.cardHeader}>
+        <div className={styles.cardIdentity}>
+          {logo && <img src={logo} alt="" className={styles.cardLogo} width={32} height={32} />}
+          <div>
+            <Link to={buildPath(`/teams/${slug}`)} className={styles.cardName}>{team.name}</Link>
+            <span className={styles.cardDiv}>{team.division}</span>
+          </div>
+        </div>
+        <div className={styles.cardActions}>
+          <button type="button" className={styles.cardActionBtn} onClick={handleShare} title="Share">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </button>
+          <button type="button" className={styles.cardActionBtn} onClick={() => onRemove(slug)} title="Remove">×</button>
+        </div>
+      </div>
+
+      {/* 4 stat boxes */}
+      <div className={styles.statBoxes}>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>2025 Record</span>
+          <span className={styles.statBoxValue}>{meta.record2025}</span>
+        </div>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>Finish</span>
+          <span className={styles.statBoxValue}>{meta.finish}</span>
+        </div>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>Proj. Wins</span>
+          <span className={styles.statBoxValue}>{proj?.projectedWins ?? '—'}</span>
+        </div>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>Current</span>
+          <span className={styles.statBoxValue}>{currentRecord}</span>
+        </div>
+      </div>
+
+      {/* Next matchup */}
+      {nextGame && (
+        <div className={styles.nextGame}>
+          <span className={styles.nextGameLabel}>
+            {nextGame.seasonTypeName === 'preseason' ? 'Spring Training' : 'Next Game'}
+          </span>
+          <div className={styles.nextGameInfo}>
+            <span>{nextGame.homeAway === 'home' ? 'vs' : '@'} {nextGame.opponent}</span>
+            <span className={styles.nextGameTime}>{formatRelTime(nextGame.date)}</span>
+            {nextGame.network && <span className={styles.nextGameNetwork}>{nextGame.network}</span>}
+          </div>
+          {nextGame.gamecastUrl && (
+            <a href={nextGame.gamecastUrl} target="_blank" rel="noopener noreferrer" className={styles.gamecastLink}>
+              Gamecast ↗
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Intel writeup */}
+      <p className={styles.intelText}>{intel}</p>
+
+      {/* Hero video */}
+      {videos[0] && (
+        <a href={`https://www.youtube.com/watch?v=${videos[0].videoId}`}
+          target="_blank" rel="noopener noreferrer" className={styles.heroVideo}>
+          <div className={styles.heroVideoThumb}>
+            <img src={videos[0].thumbUrl} alt={videos[0].title} loading="lazy" />
+            <span className={styles.playIcon}>▶</span>
+          </div>
+          <span className={styles.heroVideoTitle}>{videos[0].title}</span>
+        </a>
+      )}
+
+      {/* CTA */}
+      <Link to={buildPath(`/teams/${slug}`)} className={styles.viewTeamCta}>
+        View Team Intel →
+      </Link>
+    </div>
+  );
+}
+
+/* ─── Main Section ─── */
+export default function MlbPinnedTeamSection() {
+  const { user } = useAuth();
+  const { buildPath } = useWorkspace();
+  const navigate = useNavigate();
+  const [pinned, setPinned] = useState(() => getMlbPinnedTeams());
+  const [odds, setOdds] = useState(null);
+  const [schedules, setSchedules] = useState({});
+
+  useEffect(() => {
+    fetchMlbChampionshipOdds().then(d => setOdds(d.odds ?? {})).catch(() => {});
+  }, []);
+
+  // Fetch schedules for pinned teams
+  useEffect(() => {
+    if (pinned.length === 0) return;
+    pinned.forEach(slug => {
+      const team = MLB_TEAMS.find(t => t.slug === slug);
+      if (!team || schedules[slug]) return;
+      const espnId = getMLBEspnId(slug);
+      if (!espnId) return;
+      fetch(`/api/mlb/team/schedule?teamId=${espnId}`)
+        .then(r => r.json())
+        .then(d => setSchedules(prev => ({ ...prev, [slug]: d.events ?? [] })))
+        .catch(() => {});
+    });
+  }, [pinned]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handlePin = (slug) => {
+    if (!user) { navigate('/settings'); return; }
+    const next = addMlbPinnedTeam(slug);
     setPinned(next);
   };
 
-  if (!team) return null;
+  const handleRemove = (slug) => {
+    const next = removeMlbPinnedTeam(slug);
+    setPinned(next);
+  };
+
+  const isEmpty = pinned.length === 0;
 
   return (
     <section className={styles.section}>
-      <div className={styles.header}>
-        <h2 className={styles.sectionTitle}>
-          {isExample ? 'Pin a Team' : 'Your Team'}
-        </h2>
-        {isExample && (
-          <span className={styles.exampleTag}>Example</span>
-        )}
-      </div>
+      <div className={styles.eyebrow}>Following</div>
+      <h2 className={styles.heading}>Teams You Follow</h2>
 
-      <div className={styles.card}>
-        {/* Team identity row */}
-        <div className={styles.teamRow}>
-          <div className={styles.teamIdentity}>
-            {logo && <img src={logo} alt="" className={styles.teamLogo} width={40} height={40} loading="lazy" />}
-            <div className={styles.teamInfo}>
-              <Link to={buildPath(`/teams/${team.slug}`)} className={styles.teamName}>
-                {team.name}
+      {isEmpty ? (
+        /* ── Empty state: two-column layout ── */
+        <div className={styles.emptyLayout}>
+          <div className={styles.explainer}>
+            <h3 className={styles.explainerTitle}>Pin teams to track them faster</h3>
+            <ul className={styles.explainerList}>
+              <li>Faster home dashboard tailored to you</li>
+              <li>Instant access to projected wins, odds, and team intel</li>
+              <li>Keep tabs on current form and next matchup</li>
+              <li>Your personal MLB watchlist</li>
+            </ul>
+            <div className={styles.explainerActions}>
+              <button type="button" className={styles.pinBtnPrimary} onClick={() => handlePin(DEFAULT_SLUG)}>
+                📌 Pin Yankees (example)
+              </button>
+              <Link to={buildPath('/teams')} className={styles.addTeamBtn}>
+                + Add team
               </Link>
-              <span className={styles.teamDiv}>{team.division}</span>
+            </div>
+            <p className={styles.explainerHelper}>
+              Search for any MLB team. Try: Dodgers, Braves, Mets…
+            </p>
+            <div className={styles.popularChips}>
+              <span className={styles.popularLabel}>Popular:</span>
+              {['lad', 'atl', 'phi', 'hou'].map(s => {
+                const t = MLB_TEAMS.find(x => x.slug === s);
+                return t ? (
+                  <button key={s} type="button" className={styles.popularChip}
+                    onClick={() => handlePin(s)}>{t.name.split(' ').pop()}</button>
+                ) : null;
+              })}
             </div>
           </div>
-          <div className={styles.teamStats}>
-            {teamOdds && (
-              <div className={styles.statChip}>
-                <span className={styles.statIcon}>🏆</span>
-                <span className={styles.statValue}>{formatOdds(teamOdds.bestChanceAmerican)}</span>
-              </div>
-            )}
-            {projection && (
-              <div className={styles.statChip}>
-                <span className={styles.statLabel}>Proj.</span>
-                <span className={styles.statValue}>{projection.projectedWins}W</span>
-              </div>
-            )}
-          </div>
+          <PreviewCard slug={DEFAULT_SLUG} odds={odds} onPin={handlePin} buildPath={buildPath} />
         </div>
-
-        {/* Summary */}
-        <p className={styles.summary}>{summary}</p>
-
-        {/* Videos */}
-        {videos.length > 0 && (
-          <div className={styles.videosRow}>
-            {videos.map(v => <VideoTile key={v.videoId} video={v} />)}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className={styles.actions}>
-          <Link to={buildPath(`/teams/${team.slug}`)} className={styles.ctaPrimary}>
-            Go to Team Intel →
-          </Link>
-          {isExample ? (
-            <button type="button" className={styles.pinBtn} onClick={handlePin}>
-              📌 Pin {team.name.split(' ').pop()}
-            </button>
-          ) : (
-            <button type="button" className={styles.unpinBtn} onClick={handleUnpin}>
-              Unpin
-            </button>
-          )}
+      ) : (
+        /* ── Filled state: pinned cards grid ── */
+        <div className={styles.pinnedGrid}>
+          {pinned.map(slug => (
+            <PinnedCard key={slug} slug={slug} odds={odds}
+              schedule={schedules[slug]} onRemove={handleRemove} buildPath={buildPath} />
+          ))}
         </div>
-      </div>
+      )}
     </section>
   );
 }
