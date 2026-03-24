@@ -98,49 +98,12 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
   const teamOdds = odds?.[slug];
   const [videos, setVideos] = useState([]);
 
+  // Use dedicated team-specific video endpoint (server-side ranking + caching)
   useEffect(() => {
     if (!team) return;
-    fetch(`/api/mlb/youtube/intelFeed?maxResults=16`)
+    fetch(`/api/mlb/youtube/team?teamSlug=${team.slug}&maxResults=2`)
       .then(r => r.json())
-      .then(d => {
-        const items = d.items ?? [];
-        const teamName = team.name.toLowerCase();
-        const nameParts = teamName.split(' ');
-        const mascot = nameParts[nameParts.length - 1]; // e.g. "giants"
-        const city = nameParts.slice(0, -1).join(' '); // e.g. "san francisco"
-        const abbrev = (team.abbrev || '').toLowerCase(); // e.g. "sf"
-
-        // Score each video for team relevance
-        const scored = items.map(v => {
-          const t = (v.title || '').toLowerCase();
-          const desc = (v.description || '').toLowerCase();
-          let score = 0;
-          // Tier 1: full team name in title
-          if (t.includes(teamName)) score += 10;
-          // Tier 2: mascot in title (>3 chars to avoid false positives)
-          else if (mascot.length > 3 && t.includes(mascot)) score += 6;
-          // Tier 2b: city in title (>3 chars)
-          if (city.length > 3 && t.includes(city)) score += 4;
-          // Tier 3: abbrev in title context (e.g. "SF" surrounded by non-alpha)
-          if (abbrev.length >= 2) {
-            const abbrRe = new RegExp(`\\b${abbrev}\\b`, 'i');
-            if (abbrRe.test(v.title || '')) score += 3;
-          }
-          // Tier 3b: team name in description
-          if (desc.includes(teamName) || (mascot.length > 3 && desc.includes(mascot))) score += 2;
-          return { ...v, _score: score };
-        });
-
-        // Filter: must have score > 0 (some team relevance)
-        const teamVids = scored
-          .filter(v => v._score > 0)
-          .sort((a, b) => {
-            if (a._score !== b._score) return b._score - a._score;
-            return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
-          });
-
-        setVideos(teamVids.slice(0, 1));
-      })
+      .then(d => setVideos((d.items ?? []).slice(0, 1)))
       .catch(() => {});
   }, [team]);
 
