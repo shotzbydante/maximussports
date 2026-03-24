@@ -65,17 +65,19 @@ export function usePinnedTeamsSync(user) {
         const serverSlugs = (data ?? []).map((r) => r.team_slug).filter(Boolean);
 
         // 2. Server (user_teams) is the canonical source of truth.
-        //    Always replace localStorage with server data when available.
-        //    When server is empty, push local pins up to user_teams so they
-        //    are not lost (first-time authenticated session).
+        //    When server has data, it wins completely — local-only pins are
+        //    NOT merged back because they may have been explicitly removed
+        //    from another device/session. This prevents the "Stanford bug"
+        //    where a removed team reappears from stale localStorage.
+        //    When server is empty (first-time auth), keep local pins and push up.
         const localSlugs = getPinnedTeams();
-        const serverSet = new Set(serverSlugs);
-        const localOnly = localSlugs.filter((s) => !serverSet.has(s));
+        const localOnly = localSlugs.filter((s) => !new Set(serverSlugs).has(s));
 
         let merged;
         if (serverSlugs.length > 0) {
-          // Server has data — it wins. Local-only pins are also pushed up.
-          merged = [...serverSlugs, ...localOnly];
+          // Server has data — it is the canonical set. Do NOT append local-only
+          // pins because they may have been removed on another device.
+          merged = [...serverSlugs];
         } else {
           // Server empty — keep local pins and push them up.
           merged = localSlugs;
@@ -84,8 +86,16 @@ export function usePinnedTeamsSync(user) {
         // 3. Persist to localStorage
         setPinnedTeams(merged);
 
-        // 4. Upsert any local-only pins to user_teams so server stays canonical.
-        if (localOnly.length > 0) {
+        // 3b. Seed prevSlugsRef so the write-through listener knows the current
+        //     baseline. Without this, prevSlugsRef starts at [] and the first
+        //     'home' event sees ALL merged slugs as "added", re-upserting teams
+        //     that should have been removed from user_teams.
+        prevSlugsRef.current = merged;
+
+        // 4. Upsert local-only pins to user_teams ONLY when server was empty
+        //    (first-time authenticated session). When server has data, it is
+        //    canonical and local-only pins should not be pushed back.
+        if (localOnly.length > 0 && serverSlugs.length === 0) {
           const rows = localOnly.map((slug) => ({
             user_id: user.id,
             team_slug: slug,
