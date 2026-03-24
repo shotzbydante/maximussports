@@ -73,7 +73,7 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
       style={accentColor ? { '--team-accent': accentColor } : undefined}
     >
       <div className={styles.row}>
-        {/* Layer 1: Identity */}
+        {/* Layer 1: Identity + Projection */}
         <div className={styles.rowHeader}>
           <span className={styles.rank}>{idx + 1}</span>
           <div className={styles.ident}>
@@ -87,16 +87,11 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
               <span className={styles.divLabel}>{team.division}</span>
             </div>
           </div>
-          {/* Right stack: expand + projection */}
-          <div className={styles.rightStack}>
-            <button type="button" className={styles.expandBtn}
-              onClick={() => toggle(team.slug)} aria-label={open ? 'Collapse detail' : 'Expand detail'}>
-              <span className={`${styles.caret} ${open ? styles.caretOpen : ''}`}>&#9662;</span>
-            </button>
-            <div className={styles.projCol}>
+          <div className={styles.projCol}>
+            <div className={styles.projWrap}>
               <span className={styles.projNum}>{team.projectedWins}</span>
-              <span className={styles.projLabel}>Projected wins</span>
             </div>
+            <span className={styles.projLabel}>Projected wins</span>
           </div>
         </div>
 
@@ -122,8 +117,8 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
           </div>
         </div>
 
-        {/* Layer 3: Signals + Badges */}
-        <div className={styles.rowSignals}>
+        {/* Layer 3: Signals + Action */}
+        <div className={styles.rowFooter}>
           <div className={styles.signalCol}>
             <div className={styles.badges}>
               {team.signals?.map(s => (
@@ -140,6 +135,11 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
               </div>
             )}
           </div>
+          <button type="button" className={styles.expandBtn}
+            onClick={() => toggle(team.slug)}>
+            <span>{open ? 'Collapse' : 'Expand'}</span>
+            <span className={`${styles.caret} ${open ? styles.caretOpen : ''}`}>&#9662;</span>
+          </button>
         </div>
       </div>
 
