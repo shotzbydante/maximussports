@@ -24,6 +24,7 @@ import {
 } from '../../lib/analytics/posthog';
 import TeamIntelPreview from '../onboarding/previews/TeamIntelPreview';
 import AIPicksPreview from '../onboarding/previews/AIPicksPreview';
+import RobotAvatar, { JERSEY_COLORS, ROBOT_COLORS, DEFAULT_ROBOT_CONFIG } from '../profile/RobotAvatar';
 import styles from './WelcomeModal.module.css';
 
 const TOTAL_STEPS = 4;
@@ -97,6 +98,100 @@ function ProductImage({ src, alt, children }) {
       loading="lazy"
       onError={() => setFailed(true)}
     />
+  );
+}
+
+/* ── Step 4: Identity customization ─────────────────────────────────── */
+
+function Step4Identity({ onSignup, onExplore }) {
+  const [mascotType, setMascotType] = useState('basketball');
+  const [jerseyColor, setJerseyColor] = useState(DEFAULT_ROBOT_CONFIG.jerseyColor);
+  const [robotColor, setRobotColor] = useState(DEFAULT_ROBOT_CONFIG.robotColor);
+  const [jerseyNumber, setJerseyNumber] = useState('');
+
+  return (
+    <div className={styles.stepContent} aria-label="Step 4 of 4">
+      <div className={styles.identityBody}>
+        <h2 className={styles.identityHeadline}>Create Your Identity</h2>
+        <p className={styles.identitySubtitle}>Choose your mascot and make it yours.</p>
+
+        {/* Live preview */}
+        <div className={styles.identityPreview}>
+          <RobotAvatar
+            mascotType={mascotType}
+            jerseyNumber={jerseyNumber}
+            jerseyColor={jerseyColor}
+            robotColor={robotColor}
+            size={100}
+            glow
+          />
+        </div>
+
+        {/* Mascot type toggle */}
+        <div className={styles.identityToggle}>
+          <button type="button"
+            className={`${styles.identityToggleBtn} ${mascotType === 'basketball' ? styles.identityToggleBtnActive : ''}`}
+            onClick={() => setMascotType('basketball')}>
+            🏀 Basketball
+          </button>
+          <button type="button"
+            className={`${styles.identityToggleBtn} ${mascotType === 'baseball' ? styles.identityToggleBtnActive : ''}`}
+            onClick={() => setMascotType('baseball')}>
+            ⚾ Baseball
+          </button>
+        </div>
+
+        {/* Jersey number */}
+        <div className={styles.identityField}>
+          <label className={styles.identityLabel}>Jersey Number</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="23"
+            className={styles.identityInput}
+            value={jerseyNumber}
+            onChange={(e) => setJerseyNumber(e.target.value.replace(/\D/g, '').slice(0, 2))}
+          />
+        </div>
+
+        {/* Color pickers */}
+        <div className={styles.identityColors}>
+          <div className={styles.identityColorGroup}>
+            <span className={styles.identityLabel}>Jersey Color</span>
+            <div className={styles.identitySwatches}>
+              {JERSEY_COLORS.map(c => (
+                <button key={c.id} type="button" title={c.label}
+                  className={`${styles.identitySwatch} ${jerseyColor === c.hex ? styles.identitySwatchActive : ''}`}
+                  style={{ background: c.hex }}
+                  onClick={() => setJerseyColor(c.hex)} />
+              ))}
+            </div>
+          </div>
+          <div className={styles.identityColorGroup}>
+            <span className={styles.identityLabel}>Robot Color</span>
+            <div className={styles.identitySwatches}>
+              {ROBOT_COLORS.map(c => (
+                <button key={c.id} type="button" title={c.label}
+                  className={`${styles.identitySwatch} ${robotColor === c.hex ? styles.identitySwatchActive : ''}`}
+                  style={{ background: c.hex }}
+                  onClick={() => setRobotColor(c.hex)} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className={styles.ctaGroup}>
+          <button type="button" className={styles.ctaPrimary} onClick={onSignup}>
+            Create Free Account
+          </button>
+          <button type="button" className={styles.ctaSecondary} onClick={onExplore}>
+            Skip for now
+          </button>
+        </div>
+        <p className={styles.footerNote}>Your board. Your signals. Your edge.</p>
+      </div>
+    </div>
   );
 }
 
@@ -320,53 +415,12 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             </div>
           )}
 
-          {/* ════ Step 4: Personalization + CTA ════ */}
+          {/* ════ Step 4: Identity + CTA ════ */}
           {step === 4 && (
-            <div className={styles.stepContent} aria-label="Step 4 of 4">
-              <div className={styles.ctaBody}>
-                <h2 className={styles.ctaHeadline}>Make It Yours</h2>
-                <p className={styles.ctaSubtitle}>
-                  Follow your teams, customize alerts, and get intelligence tailored to you — from March Madness to the MLB season.
-                </p>
-
-                <div className={styles.valueProps}>
-                  <div className={styles.valueProp}>
-                    <span className={styles.valuePropIcon}><PersonIcon /></span>
-                    <div>
-                      <h3 className={styles.valuePropTitle}>Personalized feeds and alerts</h3>
-                      <p className={styles.valuePropDesc}>Pin your teams and build a custom command center.</p>
-                    </div>
-                  </div>
-                  <div className={styles.valueProp}>
-                    <span className={styles.valuePropIcon}><MailIcon /></span>
-                    <div>
-                      <h3 className={styles.valuePropTitle}>Custom email digests</h3>
-                      <p className={styles.valuePropDesc}>AI briefings, ATS trends, and odds movement hit your inbox.</p>
-                    </div>
-                  </div>
-                  <div className={styles.valueProp}>
-                    <span className={`${styles.valuePropIcon} ${styles.valuePropIconPro}`}><StarIcon /></span>
-                    <div>
-                      <h3 className={styles.valuePropTitle}>Go deeper with Pro</h3>
-                      <p className={styles.valuePropDesc}>Upgrade anytime for deeper coverage and unlimited tracking.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.ctaGroup}>
-                  <button type="button" className={styles.ctaPrimary} onClick={handleSignup}>
-                    Create Free Account
-                  </button>
-                  <p className={styles.ctaMicro}>
-                    Your edge starts the moment you sign up.
-                  </p>
-                  <button type="button" className={styles.ctaSecondary} onClick={handleExplore}>
-                    Skip for now
-                  </button>
-                </div>
-                <p className={styles.footerNote}>Your board. Your signals. Your edge.</p>
-              </div>
-            </div>
+            <Step4Identity
+              onSignup={handleSignup}
+              onExplore={handleExplore}
+            />
           )}
 
         </div>

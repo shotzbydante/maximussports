@@ -92,38 +92,50 @@ export default function RobotAvatar({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
+        <defs>
+          <radialGradient id="bkHeadGrad" cx="0.4" cy="0.35" r="0.6">
+            <stop offset="0%" stopColor={bodyShine} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={bodyMain} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
         {/* Antenna */}
         <path d="M63 16 Q61 10 63 6" stroke={outlineColor} strokeWidth="2" fill="none" strokeLinecap="round" />
         <circle cx="63" cy="4" r="3.5" fill={bodyShine} stroke={outlineColor} strokeWidth="1.2" />
 
-        {/* Head — large round toddler dome */}
+        {/* Head — large round toddler dome with gradient shine */}
         <ellipse cx="63" cy="36" rx="33" ry="27" fill={bodyMain} stroke={outlineColor} strokeWidth="1.8" />
-        <ellipse cx="55" cy="26" rx="18" ry="10" fill={bodyShine} opacity="0.20" />
+        <ellipse cx="63" cy="36" rx="33" ry="27" fill="url(#bkHeadGrad)" />
 
         {/* Headband */}
         <path d="M30 31 Q63 23 96 31 Q96 37 63 33 Q30 37 30 31Z" fill="#ffffff" opacity="0.90" stroke={outlineColor} strokeWidth="0.8" />
         <circle cx="63" cy="31" r="3.5" fill={bodyLight} stroke={outlineColor} strokeWidth="0.7" />
         <text x="63" y="32.5" textAnchor="middle" dominantBaseline="middle" fontSize="4.5" fontWeight="900" fill={outlineColor} fontFamily="'Oswald',sans-serif">M</text>
 
-        {/* Eye sockets */}
-        <path d="M41 36 L51 32 L59 36 L59 44 L51 47 L41 44Z" fill={bodyDark} stroke={outlineColor} strokeWidth="0.8" />
-        <path d="M67 36 L75 32 L85 36 L85 44 L75 47 L67 44Z" fill={bodyDark} stroke={outlineColor} strokeWidth="0.8" />
+        {/* Eye sockets — rounder, softer */}
+        <ellipse cx="50" cy="40" rx="10" ry="8" fill={bodyDark} stroke={outlineColor} strokeWidth="0.7" />
+        <ellipse cx="76" cy="40" rx="10" ry="8" fill={bodyDark} stroke={outlineColor} strokeWidth="0.7" />
 
-        {/* Eyes */}
-        <ellipse cx="50" cy="40" rx="6" ry="5" fill="#c0e8ff" />
-        <ellipse cx="76" cy="40" rx="6" ry="5" fill="#c0e8ff" />
-        <ellipse cx="52" cy="38" rx="2.5" ry="2" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="78" cy="38" rx="2.5" ry="2" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="49" cy="41" rx="2.2" ry="2" fill={outlineColor} opacity="0.55" />
-        <ellipse cx="75" cy="41" rx="2.2" ry="2" fill={outlineColor} opacity="0.55" />
+        {/* Eyes — larger, more expressive */}
+        <ellipse cx="50" cy="40" rx="7" ry="6" fill="#d0f0ff" />
+        <ellipse cx="76" cy="40" rx="7" ry="6" fill="#d0f0ff" />
+        {/* Eye highlights */}
+        <ellipse cx="52" cy="38" rx="3" ry="2.5" fill="#ffffff" opacity="0.9" />
+        <ellipse cx="78" cy="38" rx="3" ry="2.5" fill="#ffffff" opacity="0.9" />
+        {/* Pupils */}
+        <ellipse cx="49" cy="41" rx="2.8" ry="2.5" fill={outlineColor} opacity="0.6" />
+        <ellipse cx="75" cy="41" rx="2.8" ry="2.5" fill={outlineColor} opacity="0.6" />
+        {/* Catchlights */}
+        <circle cx="51" cy="38" r="1" fill="#ffffff" opacity="0.7" />
+        <circle cx="77" cy="38" r="1" fill="#ffffff" opacity="0.7" />
 
-        {/* Eyebrows */}
-        <path d="M43 33 Q50 30 57 33" stroke={outlineColor} strokeWidth="1.2" fill="none" strokeLinecap="round" />
-        <path d="M69 33 Q76 30 83 33" stroke={outlineColor} strokeWidth="1.2" fill="none" strokeLinecap="round" />
+        {/* Eyebrows — confident */}
+        <path d="M42 33 Q50 30 58 33" stroke={outlineColor} strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        <path d="M68 33 Q76 30 84 33" stroke={outlineColor} strokeWidth="1.4" fill="none" strokeLinecap="round" />
 
-        {/* Blush cheeks */}
-        <ellipse cx="41" cy="47" rx="4" ry="2.5" fill={cheekColor} opacity="0.3" />
-        <ellipse cx="85" cy="47" rx="4" ry="2.5" fill={cheekColor} opacity="0.3" />
+        {/* Blush cheeks — warmer */}
+        <ellipse cx="40" cy="48" rx="5" ry="3" fill={cheekColor} opacity="0.25" />
+        <ellipse cx="86" cy="48" rx="5" ry="3" fill={cheekColor} opacity="0.25" />
 
         {/* Nose hint */}
         <path d="M61 46 L63 48 L65 46" stroke={outlineColor} strokeWidth="0.9" fill="none" strokeLinecap="round" />

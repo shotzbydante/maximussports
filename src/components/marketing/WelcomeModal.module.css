@@ -341,6 +341,119 @@
    Step 4: Conversion CTA
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── Step 4: Identity ────────────────────────────────────────── */
+.identityBody {
+  padding: 20px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.identityHeadline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: center;
+}
+.identitySubtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.identityPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+.identityToggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 3px;
+  width: 100%;
+  max-width: 280px;
+}
+.identityToggleBtn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: inherit;
+}
+.identityToggleBtn:hover { color: var(--color-text); }
+.identityToggleBtnActive {
+  color: var(--color-text);
+  background: var(--color-bg-elevated, #fff);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.identityField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 280px;
+}
+.identityLabel {
+  font-size: 0.60rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.identityInput {
+  width: 80px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border-light, rgba(0,0,0,0.10));
+  border-radius: 6px;
+  background: var(--color-bg-elevated, #fff);
+  color: var(--color-text);
+  font-family: inherit;
+}
+.identityColors {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+}
+.identityColorGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.identitySwatches {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.identitySwatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.1s;
+  padding: 0;
+}
+.identitySwatch:hover { transform: scale(1.15); }
+.identitySwatchActive {
+  border-color: var(--color-text, #1a2d3d);
+  box-shadow: 0 0 0 1px var(--color-bg-elevated, #fff);
+}
+
 .ctaBody {
   padding: 28px 28px 8px;
   display: flex;
