@@ -1286,7 +1286,7 @@ export default function Home() {
               </div>
               <Suspense fallback={<SectionSkeleton height={160} />}>
                 <div className={styles.intelFeedGrid}>
-                  <NewsFeed mode="videos" limitVideos={2} />
+                  <NewsFeed mode="videos" limitVideos={4} />
                   <NewsFeed
                     mode="headlines"
                     items={(newsData.newsFeed || []).slice(0, 8)}

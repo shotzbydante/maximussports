@@ -847,20 +847,20 @@
 }
 
 .intelFeedSection {
-  margin-bottom: var(--section-gap);
+  margin-bottom: var(--space-lg, 24px);
 }
 
 .intelFeedGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-lg);
-  align-items: start;
+  gap: var(--space-md, 14px);
+  align-items: stretch;
 }
 
 @media (max-width: 767px) {
   .intelFeedGrid {
     grid-template-columns: 1fr;
-    gap: var(--space-md);
+    gap: var(--space-sm, 10px);
   }
 }
 
