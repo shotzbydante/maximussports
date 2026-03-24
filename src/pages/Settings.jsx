@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
+import { MLB_TEAMS } from '../sports/mlb/teams';
+import { getMlbEspnLogoUrl } from '../utils/espnMlbLogos';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
@@ -23,6 +25,7 @@ import { invalidateProfileCache } from '../hooks/useUserProfile';
 import { isEmbeddedBrowser, getEmbeddedSource, getPlatform } from '../utils/embeddedBrowser';
 import EmbeddedBrowserModal from '../components/auth/EmbeddedBrowserModal';
 import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
+import BaseballRobotAvatar from '../components/profile/BaseballRobotAvatar';
 import { VerifiedBadge } from '../components/profile/ProfileAvatar';
 import RobotCustomizer from '../components/profile/RobotCustomizer';
 import ContactDiscovery from '../components/social/ContactDiscovery';
@@ -302,17 +305,26 @@ function StepTeams({ onNext, initialSelected = [] }) {
   const [selected, setSelected]       = useState(initialSelected);
   const [conference, setConference]   = useState('All');
   const [topTierOnly, setTopTierOnly] = useState(false);
+  const [sportTab, setSportTab]       = useState('ncaam');
   const [error, setError]             = useState('');
 
   useEffect(() => { track('onboarding_step_view', { step: 1 }); }, []);
 
-  const filtered = TEAMS.filter((t) => {
+  // NCAAM teams
+  const filteredNcaam = TEAMS.filter((t) => {
     const matchesConf  = conference === 'All' || t.conference === conference;
     const matchesTier  = !topTierOnly || t.oddsTier === 'Lock' || t.oddsTier === 'Should be in';
     const matchesQuery = !query ||
       t.name.toLowerCase().includes(query.toLowerCase()) ||
       t.conference.toLowerCase().includes(query.toLowerCase());
     return matchesConf && matchesTier && matchesQuery;
+  });
+
+  // MLB teams
+  const filteredMlb = MLB_TEAMS.filter((t) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return t.name.toLowerCase().includes(q) || t.division.toLowerCase().includes(q) || t.abbrev.toLowerCase().includes(q);
   });
 
   const toggleTeam = (slug) => {
@@ -327,15 +339,30 @@ function StepTeams({ onNext, initialSelected = [] }) {
   };
 
   const canContinue = selected.length > 0;
-  const primaryTeam = canContinue ? TEAMS.find((t) => t.slug === selected[0]) : null;
+  const allTeamsList = [...TEAMS, ...MLB_TEAMS.map(t => ({ ...t, conference: t.division }))];
+  const primaryTeam = canContinue ? allTeamsList.find((t) => t.slug === selected[0]) : null;
 
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Pick your teams</h2>
       <p className={styles.stepSubtitle}>
-        Select at least 1 team to personalize your daily intel.
+        Select at least 1 team to personalize your daily intel across college basketball and baseball.
         Your first pick becomes your primary team.
       </p>
+
+      {/* Sport tabs */}
+      <div className={styles.sportTabs}>
+        <button type="button"
+          className={`${styles.sportTab} ${sportTab === 'ncaam' ? styles.sportTabActive : ''}`}
+          onClick={() => { setSportTab('ncaam'); setConference('All'); }}>
+          🏀 NCAAM
+        </button>
+        <button type="button"
+          className={`${styles.sportTab} ${sportTab === 'mlb' ? styles.sportTabActive : ''}`}
+          onClick={() => { setSportTab('mlb'); setConference('All'); }}>
+          ⚾ MLB
+        </button>
+      </div>
 
       <div className={styles.teamFilters}>
         <div className={styles.searchWrap}>
@@ -348,68 +375,113 @@ function StepTeams({ onNext, initialSelected = [] }) {
           <input
             className={styles.searchInput}
             type="search"
-            placeholder="Search by school name or conference…"
+            placeholder={sportTab === 'ncaam' ? 'Search by school name or conference…' : 'Search MLB teams…'}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
           />
         </div>
-        <div className={styles.filterRow}>
-          <select
-            className={styles.confSelect}
-            value={conference}
-            onChange={(e) => setConference(e.target.value)}
-            aria-label="Filter by conference"
-          >
-            {CONFERENCES.map(c => <option key={c} value={c}>{c === 'All' ? 'All Conferences' : c}</option>)}
-          </select>
-          <button
-            type="button"
-            className={`${styles.filterChip} ${topTierOnly ? styles.filterChipActive : ''}`}
-            onClick={() => setTopTierOnly(v => !v)}
-            title="Show only tournament-caliber teams"
-          >
-            {topTierOnly ? '✓ ' : ''}Top tier only
-          </button>
-        </div>
+        {sportTab === 'ncaam' && (
+          <div className={styles.filterRow}>
+            <select
+              className={styles.confSelect}
+              value={conference}
+              onChange={(e) => setConference(e.target.value)}
+              aria-label="Filter by conference"
+            >
+              {CONFERENCES.map(c => <option key={c} value={c}>{c === 'All' ? 'All Conferences' : c}</option>)}
+            </select>
+            <button
+              type="button"
+              className={`${styles.filterChip} ${topTierOnly ? styles.filterChipActive : ''}`}
+              onClick={() => setTopTierOnly(v => !v)}
+              title="Show only tournament-caliber teams"
+            >
+              {topTierOnly ? '✓ ' : ''}Top tier only
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={styles.teamPickList}>
-        {filtered.map((team) => {
-          const idx        = selected.indexOf(team.slug);
-          const isSelected = idx !== -1;
-          const isPrimary  = idx === 0;
-          return (
-            <button
-              key={team.slug}
-              type="button"
-              className={`${styles.teamPickRow} ${isSelected ? styles.teamPickRowSelected : ''} ${isPrimary ? styles.teamPickRowPrimary : ''}`}
-              onClick={() => toggleTeam(team.slug)}
-            >
-              <span className={styles.teamPickLogo}><TeamLogo team={team} size={26} /></span>
-              <span className={styles.teamPickInfo}>
-                <span className={styles.teamPickName}>{team.name}</span>
-                <span className={styles.teamPickConf}>{team.conference}</span>
-              </span>
-              <span className={`${styles.teamPickTierBadge} ${TIER_STYLE[team.oddsTier] || ''}`}>
-                {team.oddsTier}
-              </span>
-              <span className={styles.teamPickCheck}>
-                {isSelected
-                  ? isPrimary
-                    ? <span className={styles.primaryBadge}>★ PRIMARY</span>
-                    : <CheckIcon />
-                  : <span className={styles.teamPickAdd}>+</span>
-                }
-              </span>
-            </button>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className={styles.emptyState}>
-            <p className={styles.emptyStateTitle}>No teams match your search</p>
-            <p className={styles.emptyStateSub}>Try a different school name or clear your filters.</p>
-          </div>
+        {sportTab === 'ncaam' ? (
+          <>
+            {filteredNcaam.map((team) => {
+              const idx        = selected.indexOf(team.slug);
+              const isSelected = idx !== -1;
+              const isPrimary  = idx === 0;
+              return (
+                <button
+                  key={team.slug}
+                  type="button"
+                  className={`${styles.teamPickRow} ${isSelected ? styles.teamPickRowSelected : ''} ${isPrimary ? styles.teamPickRowPrimary : ''}`}
+                  onClick={() => toggleTeam(team.slug)}
+                >
+                  <span className={styles.teamPickLogo}><TeamLogo team={team} size={26} /></span>
+                  <span className={styles.teamPickInfo}>
+                    <span className={styles.teamPickName}>{team.name}</span>
+                    <span className={styles.teamPickConf}>{team.conference}</span>
+                  </span>
+                  <span className={`${styles.teamPickTierBadge} ${TIER_STYLE[team.oddsTier] || ''}`}>
+                    {team.oddsTier}
+                  </span>
+                  <span className={styles.teamPickCheck}>
+                    {isSelected
+                      ? isPrimary
+                        ? <span className={styles.primaryBadge}>★ PRIMARY</span>
+                        : <CheckIcon />
+                      : <span className={styles.teamPickAdd}>+</span>
+                    }
+                  </span>
+                </button>
+              );
+            })}
+            {filteredNcaam.length === 0 && (
+              <div className={styles.emptyState}>
+                <p className={styles.emptyStateTitle}>No teams match your search</p>
+                <p className={styles.emptyStateSub}>Try a different school name or clear your filters.</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {filteredMlb.map((team) => {
+              const idx        = selected.indexOf(team.slug);
+              const isSelected = idx !== -1;
+              const isPrimary  = idx === 0;
+              const logo = getMlbEspnLogoUrl(team.slug);
+              return (
+                <button
+                  key={team.slug}
+                  type="button"
+                  className={`${styles.teamPickRow} ${isSelected ? styles.teamPickRowSelected : ''} ${isPrimary ? styles.teamPickRowPrimary : ''}`}
+                  onClick={() => toggleTeam(team.slug)}
+                >
+                  <span className={styles.teamPickLogo}>
+                    {logo ? <img src={logo} alt="" width={26} height={26} style={{ objectFit: 'contain', borderRadius: 3 }} /> : <span style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: 'var(--color-text-muted)', background: 'var(--color-bg-muted)', borderRadius: 3 }}>{team.abbrev}</span>}
+                  </span>
+                  <span className={styles.teamPickInfo}>
+                    <span className={styles.teamPickName}>{team.name}</span>
+                    <span className={styles.teamPickConf}>{team.division}</span>
+                  </span>
+                  <span className={styles.teamPickCheck}>
+                    {isSelected
+                      ? isPrimary
+                        ? <span className={styles.primaryBadge}>★ PRIMARY</span>
+                        : <CheckIcon />
+                      : <span className={styles.teamPickAdd}>+</span>
+                    }
+                  </span>
+                </button>
+              );
+            })}
+            {filteredMlb.length === 0 && (
+              <div className={styles.emptyState}>
+                <p className={styles.emptyStateTitle}>No teams match your search</p>
+                <p className={styles.emptyStateSub}>Try a different team name.</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -446,6 +518,7 @@ function StepProfile({ onNext, defaultName = '', userId }) {
   const [number, setNumber]               = useState('');
   const [jerseyColor, setJerseyColor]     = useState(DEFAULT_ROBOT_CONFIG.jerseyColor);
   const [robotColor, setRobotColor]       = useState(DEFAULT_ROBOT_CONFIG.robotColor);
+  const [mascotType, setMascotType]       = useState('basketball');
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [suggestions, setSuggestions]     = useState([]);
   const [error, setError]                 = useState('');
@@ -495,7 +568,7 @@ function StepProfile({ onNext, defaultName = '', userId }) {
     onNext({
       username: username.trim(),
       favoriteNumber: number !== '' ? number : null,
-      robotConfig: { jerseyNumber: number, jerseyColor, robotColor },
+      robotConfig: { jerseyNumber: number, jerseyColor, robotColor, mascotType },
     });
   };
 
@@ -519,13 +592,22 @@ function StepProfile({ onNext, defaultName = '', userId }) {
         {/* Left: Live robot preview */}
         <div className={styles.robotPreviewContainer}>
           <div className={styles.robotPreviewGlow}>
-            <RobotAvatar
-              jerseyNumber={number}
-              jerseyColor={jerseyColor}
-              robotColor={robotColor}
-              size={160}
-              glow
-            />
+            {mascotType === 'baseball' ? (
+              <BaseballRobotAvatar
+                jerseyNumber={number}
+                jerseyColor={jerseyColor}
+                robotColor={robotColor}
+                size={160}
+              />
+            ) : (
+              <RobotAvatar
+                jerseyNumber={number}
+                jerseyColor={jerseyColor}
+                robotColor={robotColor}
+                size={160}
+                glow
+              />
+            )}
           </div>
           {username.trim() && (
             <span className={styles.robotPreviewName}>@{username.trim()}</span>
@@ -534,6 +616,22 @@ function StepProfile({ onNext, defaultName = '', userId }) {
 
         {/* Right: Form + customization */}
         <div className={styles.identityForm}>
+          {/* Mascot type selector */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>Choose your Maximus</label>
+            <div className={styles.sportTabs} style={{ marginBottom: 0 }}>
+              <button type="button"
+                className={`${styles.sportTab} ${mascotType === 'basketball' ? styles.sportTabActive : ''}`}
+                onClick={() => setMascotType('basketball')}>
+                🏀 Basketball
+              </button>
+              <button type="button"
+                className={`${styles.sportTab} ${mascotType === 'baseball' ? styles.sportTabActive : ''}`}
+                onClick={() => setMascotType('baseball')}>
+                ⚾ Baseball
+              </button>
+            </div>
+          </div>
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="username">Username</label>
             <div className={styles.inputWrap}>
@@ -594,31 +692,65 @@ function StepProfile({ onNext, defaultName = '', userId }) {
 function StepPreferences({ onNext, loading }) {
   const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS });
 
-  useEffect(() => { track('onboarding_step_view', { step: 3 }); }, []);
+  useEffect(() => { track('onboarding_step_view', { step: 2 }); }, []);
 
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Personalize your feed</h2>
-      <p className={styles.stepSubtitle}>Choose what matters to you. Change anytime.</p>
-      <div className={styles.prefList}>
-        {PREFERENCES.map(({ key, label, description }) => (
-          <button
-            key={key} type="button"
-            className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
-            onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
-          >
-            <div className={styles.prefText}>
-              <span className={styles.prefLabel}>{label}</span>
-              <span className={styles.prefDesc}>{description}</span>
-            </div>
-            <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
-              <div className={styles.toggleThumb} />
-            </div>
-          </button>
-        ))}
+      <p className={styles.stepSubtitle}>Choose what matters to you across college basketball and baseball. Change anytime.</p>
+
+      {/* NCAAM Section */}
+      <div className={styles.prefSection}>
+        <div className={styles.prefSectionHeader}>
+          <span className={styles.prefSectionIcon}>🏀</span>
+          <span className={styles.prefSectionLabel}>College Basketball</span>
+        </div>
+        <div className={styles.prefList}>
+          {PREFERENCES.filter(p => ['briefing', 'teamAlerts', 'oddsIntel'].includes(p.key)).map(({ key, label, description }) => (
+            <button
+              key={key} type="button"
+              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+              onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+            >
+              <div className={styles.prefText}>
+                <span className={styles.prefLabel}>{label}</span>
+                <span className={styles.prefDesc}>{description}</span>
+              </div>
+              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                <div className={styles.toggleThumb} />
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* MLB Section */}
+      <div className={styles.prefSection}>
+        <div className={styles.prefSectionHeader}>
+          <span className={styles.prefSectionIcon}>⚾</span>
+          <span className={styles.prefSectionLabel}>MLB Baseball</span>
+        </div>
+        <div className={styles.prefList}>
+          {PREFERENCES.filter(p => ['newsDigest', 'teamDigest'].includes(p.key)).map(({ key, label, description }) => (
+            <button
+              key={key} type="button"
+              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+              onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+            >
+              <div className={styles.prefText}>
+                <span className={styles.prefLabel}>{label}</span>
+                <span className={styles.prefDesc}>{description}</span>
+              </div>
+              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                <div className={styles.toggleThumb} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button className={styles.btnPrimary} onClick={() => onNext(prefs)} disabled={loading}>
-        {loading ? <><SpinnerIcon /> Saving…</> : 'Finish setup'}
+        {loading ? <><SpinnerIcon /> Saving…</> : 'Continue'}
       </button>
     </div>
   );
@@ -629,20 +761,30 @@ function StepDone({ robotConfig }) {
   const navigate = useNavigate();
   useEffect(() => { track('onboarding_complete', {}); }, []);
   const rc = robotConfig || DEFAULT_ROBOT_CONFIG;
+  const isBb = rc.mascotType === 'baseball';
   return (
     <div className={`${styles.step} ${styles.stepCenter}`}>
       <div className={styles.doneRobotWrap}>
-        <RobotAvatar
-          jerseyNumber={rc.jerseyNumber}
-          jerseyColor={rc.jerseyColor}
-          robotColor={rc.robotColor}
-          size={180}
-          glow
-        />
+        {isBb ? (
+          <BaseballRobotAvatar
+            jerseyNumber={rc.jerseyNumber}
+            jerseyColor={rc.jerseyColor}
+            robotColor={rc.robotColor}
+            size={180}
+          />
+        ) : (
+          <RobotAvatar
+            jerseyNumber={rc.jerseyNumber}
+            jerseyColor={rc.jerseyColor}
+            robotColor={rc.robotColor}
+            size={180}
+            glow
+          />
+        )}
       </div>
       <h2 className={styles.stepTitle}>Meet your Maximus Robot</h2>
       <p className={styles.stepSubtitle}>Your Maximus profile is ready.</p>
-      <p className={styles.doneDesc}>You now have a personalized AI-powered college basketball command center.</p>
+      <p className={styles.doneDesc}>You now have a personalized AI-powered sports intelligence command center — across college basketball and Major League Baseball.</p>
       <p className={styles.doneDigestNote}>
         Your daily intel is on. Expect your first briefing around 6&nbsp;AM&nbsp;PT.
         Manage subscriptions anytime in Settings.
@@ -667,10 +809,10 @@ function OnboardingWizard({ user, onComplete }) {
   const handleTeams = (slugs) => {
     setTeamSlugs(slugs);
     if (slugs.length > 0) { try { addPinnedTeam(slugs[0]); } catch { /* ignore */ } }
-    setStep(2);
+    setStep(2); // → Preferences
   };
 
-  const handlePreferences = useCallback(async (prefs) => {
+  const handleProfileComplete = useCallback(async (allData) => {
     setSaving(true);
     setWizardError('');
     try {
@@ -678,18 +820,19 @@ function OnboardingWizard({ user, onComplete }) {
       if (!sb) throw new Error('Auth service is not configured.');
       const userId = user.id;
 
-      const avatarConfig = profileData.robotConfig
-        ? { type: 'maximus_robot', ...profileData.robotConfig }
+      const avatarConfig = allData.robotConfig
+        ? { type: 'maximus_robot', ...allData.robotConfig }
         : null;
 
-      // Store robotConfig inside preferences for durable fallback
-      const mergedPrefs = { ...prefs, robotConfig: avatarConfig };
+      // Merge saved preferences from step 2 with avatar config
+      const savedPrefs = allData.prefs || profileData.prefs || { ...DEFAULT_PREFS };
+      const mergedPrefs = { ...savedPrefs, robotConfig: avatarConfig };
 
       const coreRow = {
         id:               userId,
-        username:         profileData.username,
-        display_name:     profileData.username,
-        favorite_number:  profileData.favoriteNumber,
+        username:         allData.username,
+        display_name:     allData.username,
+        favorite_number:  allData.favoriteNumber,
         preferences:      mergedPrefs,
         updated_at:       new Date().toISOString(),
       };
@@ -699,7 +842,6 @@ function OnboardingWizard({ user, onComplete }) {
         if (coreErr.code === '23505') throw new Error('That username was just taken. Go back and choose another.');
         throw new Error(friendlyDbError(coreErr));
       }
-      const profileSaved = true;
 
       // Idempotently replace user_teams
       await sb.from('user_teams').delete().eq('user_id', userId);
@@ -709,7 +851,7 @@ function OnboardingWizard({ user, onComplete }) {
       const { error: teamsErr } = await sb.from('user_teams').insert(teamRows);
       if (teamsErr) throw new Error(friendlyDbError(teamsErr));
 
-      identifyUser(user, { username: profileData.username }, teamSlugs);
+      identifyUser(user, { username: allData.username }, teamSlugs);
       track('onboarding_step_submit', { step: 3, success: true });
 
       setStep(4); // Find Friends (optional)
@@ -729,8 +871,8 @@ function OnboardingWizard({ user, onComplete }) {
       <ProgressBar step={step} />
       {wizardError && <div className={styles.wizardError}>{wizardError}</div>}
       {step === 1 && <StepTeams onNext={handleTeams} />}
-      {step === 2 && <StepProfile onNext={(d) => { setProfileData(d); setStep(3); }} defaultName={defaultName} userId={user.id} />}
-      {step === 3 && <StepPreferences onNext={handlePreferences} loading={saving} />}
+      {step === 2 && <StepPreferences onNext={(prefs) => { setProfileData(prev => ({ ...prev, prefs })); setStep(3); }} loading={false} />}
+      {step === 3 && <StepProfile onNext={(d) => { setProfileData(prev => ({ ...prev, ...d })); handleProfileComplete({ ...profileData, ...d }); }} defaultName={defaultName} userId={user.id} />}
       {step === 4 && (
         <div className={styles.step}>
           <ContactDiscovery onDone={() => setStep(5)} showDoneButton={true} compact />
