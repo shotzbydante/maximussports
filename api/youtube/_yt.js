@@ -318,6 +318,27 @@ const STRONG_BBALL_SIGNALS = [
 ];
 
 /**
+ * Detect tournament-style titles that are ambiguous between men's and women's.
+ * These are the videos most likely to cause gender misclassification.
+ */
+const TOURNAMENT_TITLE_PATTERNS = [
+  /\bncaa\s*tournament\b/i,
+  /\bmarch\s*madness\b/i,
+  /\bround\s+of\s+\d+\b/i,
+  /\bsweet\s*(?:16|sixteen)\b/i,
+  /\belite\s*(?:8|eight)\b/i,
+  /\bfinal\s*four\b/i,
+  /\bfirst\s*(?:round|four)\b/i,
+  /\bsecond\s*round\b/i,
+  /\bregional\b/i,
+  /\bnational\s*championship\b/i,
+];
+
+function isTournamentVideo(title) {
+  return TOURNAMENT_TITLE_PATTERNS.some((re) => re.test(title));
+}
+
+/**
  * Normalize text for filtering: decode HTML entities + normalize smart quotes.
  * Ensures "women&#39;s" and "women\u2019s" match the same patterns as "women's".
  */
@@ -352,16 +373,32 @@ export function classifyBasketballItem(item) {
   if (WOMEN_HARD.some((re) => re.test(withSnippet))) return 'women';
   if (WOMEN_SOFT.some((re) => re.test(withSnippet)) && BBALL_CONTEXT_RE.test(withSnippet)) return 'women';
 
-  // Step 3 — conference network: allow if no football/women's (already checked)
+  // Step 3 — check for positive men's signal anywhere in metadata
+  const hasMensSignal = MENS_SIGNALS.some((re) => re.test(withSnippet));
+
+  // Step 4 — conference network: allow if no football/women's (already checked)
   if (isConfNetworkChannel(item)) return 'accept';
 
-  // Step 4 — allowlisted channels: allow only if title has basketball/highlights (no explicit "men's" required)
+  // Step 5 — allowlisted channels
   if (isItemAllowlisted(item)) {
     const hasBballTerm = BBALL_OR_HIGHLIGHTS.some((re) => re.test(title));
-    if (hasBballTerm) return 'accept';
+    if (!hasBballTerm) {
+      // No basketball signal at all → not relevant
+    } else if (hasMensSignal) {
+      // Explicit men's signal → accept
+      return 'accept';
+    } else if (isTournamentVideo(title)) {
+      // Ambiguous tournament content without men's signal → reject to be safe.
+      // During March Madness, ESPN titles men's and women's games identically.
+      // Better to miss a men's clip than show a women's game.
+      return 'no_bball';
+    } else {
+      // Non-tournament basketball content from allowlisted channel → accept
+      return 'accept';
+    }
   }
 
-  // Step 5 — non-allowlisted: require strong basketball signal (not just "highlights" alone)
+  // Step 6 — non-allowlisted: require strong basketball signal (not just "highlights" alone)
   if (STRONG_BBALL_SIGNALS.some((re) => re.test(combined))) return 'accept';
 
   return 'no_bball';
