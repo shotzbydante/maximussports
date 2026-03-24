@@ -486,7 +486,7 @@ export default function NewsFeed() {
       <SEOHead
         title="College Basketball Intel — NCAAB Videos, Headlines & Betting Analysis"
         description="Your college basketball command center. Curated videos, headlines, analysis, and betting intel across every major conference. Powered by Maximus Sports."
-        canonicalPath="/news"
+        canonicalPath="/ncaam/news"
         ogImage={buildOgImageUrl({ title: 'Intel Feed', subtitle: 'Headlines, analysis & betting intel', type: 'Team Intel' })}
       />
 

@@ -134,7 +134,7 @@ export default function GameMatchup() {
         <SEOHead
           title="Matchup Not Found"
           description="The requested college basketball matchup was not found."
-          canonicalPath={`/games/${matchupSlug}`}
+          canonicalPath={`/ncaam/games/${matchupSlug}`}
           noindex
         />
         <h1>Matchup Not Found</h1>
@@ -224,7 +224,7 @@ export default function GameMatchup() {
       <SEOHead
         title={seoTitle}
         description={seoDesc}
-        canonicalPath={`/games/${canonicalSlug}`}
+        canonicalPath={`/ncaam/games/${canonicalSlug}`}
         ogImage={matchupOgImage}
         jsonLd={jsonLd}
       />

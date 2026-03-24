@@ -84,7 +84,7 @@ export default function Games() {
       <SEOHead
         title={`College Basketball Games Today — Live Scores, Spreads & Schedule (${new Date().getFullYear()})`}
         description={`Live college basketball scores, spreads, and the full NCAAB daily schedule for ${new Date().getFullYear()}. Track every game with real-time odds and betting lines powered by Maximus Sports.`}
-        canonicalPath="/games"
+        canonicalPath="/ncaam/games"
         ogImage={buildOgImageUrl({ title: "Today's Games", subtitle: 'Live scores, spreads & daily schedule', type: 'Odds Insight' })}
       />
       <header className={styles.header}>

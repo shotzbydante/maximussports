@@ -592,7 +592,7 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
         </button>
       )}
 
-      <Link to="/insights" className={styles.oddsTeaserCta}>
+      <Link to="/ncaam/insights" className={styles.oddsTeaserCta}>
         Open Full Odds Insights →
       </Link>
     </div>
@@ -1237,7 +1237,7 @@ export default function Home() {
               </div>
             </Suspense>
           )}
-          <Link to="/games" className={styles.sectionCta}>
+          <Link to="/ncaam/games" className={styles.sectionCta}>
             View full schedule →
           </Link>
         </section>
@@ -1264,7 +1264,7 @@ export default function Home() {
                   onRetry={atsOnRetry}
                 />
               </Suspense>
-              <Link to="/insights" className={styles.sectionCta}>
+              <Link to="/ncaam/insights" className={styles.sectionCta}>
                 View full market signals →
               </Link>
             </section>
@@ -1296,7 +1296,7 @@ export default function Home() {
                   />
                 </div>
               </Suspense>
-              <Link to="/news" className={styles.sectionCta}>
+              <Link to="/ncaam/news" className={styles.sectionCta}>
                 View full Intel Feed →
               </Link>
             </section>
@@ -1330,7 +1330,7 @@ export default function Home() {
                   showRegionFilter
                 />
               </Suspense>
-              <Link to="/teams" className={styles.sectionCta}>
+              <Link to="/ncaam/teams" className={styles.sectionCta}>
                 Explore full tournament field →
               </Link>
             </section>
@@ -1339,6 +1339,42 @@ export default function Home() {
           <SectionSkeleton height={200} />
         )}
       </div>
+
+      {/* ── 10. How Maximus Works (SEO + conversion) ─────────────── */}
+      <hr className={styles.sectionDivider} />
+      <section className={styles.howItWorks}>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionEyebrow}>The Edge</span>
+          <h2 className={styles.sectionHeadTitle}>How Maximus Works</h2>
+        </div>
+        <div className={styles.howGrid}>
+          <div className={styles.howCard}>
+            <span className={styles.howStep}>1</span>
+            <h3 className={styles.howCardTitle}>Ingest</h3>
+            <p className={styles.howCardBody}>We pull odds, trends, rankings, and performance data from across college basketball in real time.</p>
+          </div>
+          <div className={styles.howCard}>
+            <span className={styles.howStep}>2</span>
+            <h3 className={styles.howCardTitle}>Analyze</h3>
+            <p className={styles.howCardBody}>Our AI models generate picks, matchup edges, and market signals for every major game.</p>
+          </div>
+          <div className={styles.howCard}>
+            <span className={styles.howStep}>3</span>
+            <h3 className={styles.howCardTitle}>Deliver</h3>
+            <p className={styles.howCardBody}>You get clear, actionable intelligence — ATS picks, team intel, and bracket insights — updated daily.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 11. Final CTA ──────────────────────────────────────────── */}
+      <section className={styles.finalCta}>
+        <div className={styles.finalCtaInner}>
+          <h2 className={styles.finalCtaTitle}>Get Your Edge</h2>
+          <p className={styles.finalCtaBody}>Track teams, follow picks, and stay ahead all season.</p>
+          <Link to="/signup" className={styles.finalCtaBtn}>Create Free Account</Link>
+          <span className={styles.finalCtaMicro}>Free to start. No spam.</span>
+        </div>
+      </section>
     </div>
   );
 }

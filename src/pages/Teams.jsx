@@ -447,7 +447,7 @@ export default function Teams() {
       <SEOHead
         title={`College Basketball Team Intel Hub \u2014 Conference Betting Intelligence (${new Date().getFullYear()})`}
         description={`The Team Intel Hub: explore ${new Date().getFullYear()} college basketball intelligence by conference. ATS trends, championship odds, tournament projections, and betting signals for every tracked NCAAB program.`}
-        canonicalPath="/teams"
+        canonicalPath="/ncaam/teams"
         ogImage={buildOgImageUrl({ title: 'Team Intel Hub', subtitle: 'ATS trends, championship odds & conference intelligence', type: 'Team Intel' })}
         jsonLd={{
           '@context': 'https://schema.org',
