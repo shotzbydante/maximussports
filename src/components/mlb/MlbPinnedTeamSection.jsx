@@ -14,10 +14,13 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
 import { getTeamMeta } from '../../data/mlb/teamMeta';
-import { getMlbPinnedTeams, addMlbPinnedTeam, removeMlbPinnedTeam } from '../../utils/mlbPinnedTeams';
+import usePinnedTeams from '../../hooks/usePinnedTeams';
+import { usePlan } from '../../hooks/usePlan';
 import { MLB_TEAMS, getMLBEspnId } from '../../sports/mlb/teams';
 import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
 import styles from './MlbPinnedTeamSection.module.css';
+
+const FREE_PIN_LIMIT = 3;
 
 const DEFAULT_SLUG = 'nyy';
 
@@ -95,16 +98,36 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
 
   useEffect(() => {
     if (!team) return;
-    fetch(`/api/mlb/youtube/intelFeed?maxResults=4`)
+    fetch(`/api/mlb/youtube/intelFeed?maxResults=12`)
       .then(r => r.json())
       .then(d => {
         const items = d.items ?? [];
+        const teamName = team.name.toLowerCase();
+        // City name for broader matching (e.g. "New York" for Yankees)
+        const cityParts = teamName.split(' ').slice(0, -1).join(' ');
+        const mascot = teamName.split(' ').pop();
+
+        // STRICT: title MUST contain team name, city, or mascot (>3 chars)
         const teamVids = items.filter(v => {
           const t = (v.title || '').toLowerCase();
-          const parts = team.name.toLowerCase().split(' ');
-          return parts.some(p => p.length > 3 && t.includes(p));
+          if (t.includes(teamName)) return true;
+          if (mascot.length > 3 && t.includes(mascot)) return true;
+          if (cityParts.length > 3 && t.includes(cityParts)) return true;
+          return false;
         });
-        setVideos(teamVids.length > 0 ? teamVids.slice(0, 1) : items.slice(0, 1));
+
+        // Rank: prefer full name match > recency
+        teamVids.sort((a, b) => {
+          const aTitle = (a.title || '').toLowerCase();
+          const bTitle = (b.title || '').toLowerCase();
+          const aFull = aTitle.includes(teamName) ? 2 : 0;
+          const bFull = bTitle.includes(teamName) ? 2 : 0;
+          if (aFull !== bFull) return bFull - aFull;
+          return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
+        });
+
+        // Only show team-specific videos — NO generic fallback
+        setVideos(teamVids.slice(0, 1));
       })
       .catch(() => {});
   }, [team]);
@@ -229,20 +252,20 @@ export default function MlbPinnedTeamSection() {
   const { user } = useAuth();
   const { buildPath } = useWorkspace();
   const navigate = useNavigate();
-  const [pinned, setPinned] = useState(() => getMlbPinnedTeams());
+  const { pinnedTeams: pinned, addTeam, removeTeam } = usePinnedTeams({ sport: 'mlb' });
+  const { isPro } = usePlan();
   const [odds, setOdds] = useState(null);
   const [schedules, setSchedules] = useState({});
+  const [limitHit, setLimitHit] = useState(false);
 
   useEffect(() => {
     fetchMlbChampionshipOdds().then(d => setOdds(d.odds ?? {})).catch(() => {});
   }, []);
 
-  // Fetch schedules for pinned teams
   useEffect(() => {
     if (pinned.length === 0) return;
     pinned.forEach(slug => {
-      const team = MLB_TEAMS.find(t => t.slug === slug);
-      if (!team || schedules[slug]) return;
+      if (schedules[slug]) return;
       const espnId = getMLBEspnId(slug);
       if (!espnId) return;
       fetch(`/api/mlb/team/schedule?teamId=${espnId}`)
@@ -254,13 +277,17 @@ export default function MlbPinnedTeamSection() {
 
   const handlePin = (slug) => {
     if (!user) { navigate('/settings'); return; }
-    const next = addMlbPinnedTeam(slug);
-    setPinned(next);
+    if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
+      setLimitHit(true);
+      return;
+    }
+    addTeam(slug);
+    setLimitHit(false);
   };
 
   const handleRemove = (slug) => {
-    const next = removeMlbPinnedTeam(slug);
-    setPinned(next);
+    removeTeam(slug);
+    setLimitHit(false);
   };
 
   const isEmpty = pinned.length === 0;
@@ -306,13 +333,25 @@ export default function MlbPinnedTeamSection() {
           <PreviewCard slug={DEFAULT_SLUG} odds={odds} onPin={handlePin} buildPath={buildPath} />
         </div>
       ) : (
-        /* ── Filled state: pinned cards grid ── */
-        <div className={styles.pinnedGrid}>
-          {pinned.map(slug => (
-            <PinnedCard key={slug} slug={slug} odds={odds}
-              schedule={schedules[slug]} onRemove={handleRemove} buildPath={buildPath} />
-          ))}
-        </div>
+        /* ── Filled state: pinned cards grid + Add Team ── */
+        <>
+          <div className={styles.pinnedHeader}>
+            <span className={styles.pinnedLabel}>Pinned Teams</span>
+            <Link to={buildPath('/teams')} className={styles.addTeamCta}>+ Add Team</Link>
+          </div>
+          {limitHit && (
+            <div className={styles.limitMsg}>
+              <span>You&apos;ve reached the free limit of {FREE_PIN_LIMIT} teams.</span>
+              <Link to="/settings" className={styles.upgradeLink}>Upgrade to Pro →</Link>
+            </div>
+          )}
+          <div className={styles.pinnedGrid}>
+            {pinned.map(slug => (
+              <PinnedCard key={slug} slug={slug} odds={odds}
+                schedule={schedules[slug]} onRemove={handleRemove} buildPath={buildPath} />
+            ))}
+          </div>
+        </>
       )}
     </section>
   );

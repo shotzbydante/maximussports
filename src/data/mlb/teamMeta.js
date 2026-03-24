@@ -6,7 +6,7 @@
  */
 
 export const MLB_TEAM_META = {
-  nyy: { record2025: '94-68', finish: 'Lost in World Series', priorWins: 94 },
+  nyy: { record2025: '94-68', finish: 'Lost in ALDS (3-1)', priorWins: 94 },
   bos: { record2025: '81-81', finish: 'Missed Playoffs', priorWins: 81 },
   tor: { record2025: '74-88', finish: 'Missed Playoffs', priorWins: 74 },
   tb:  { record2025: '80-82', finish: 'Missed Playoffs', priorWins: 80 },

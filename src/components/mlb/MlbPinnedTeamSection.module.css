@@ -93,6 +93,35 @@
   text-decoration: none; }
 .viewProfileLink:hover { color: #d44058; }
 
+/* ── Filled state header ── */
+.pinnedHeader {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.pinnedLabel {
+  font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: var(--color-text-muted);
+}
+.addTeamCta {
+  font-size: 0.70rem; font-weight: 600; color: #b8293d;
+  text-decoration: none; padding: 4px 12px;
+  border: 1px solid rgba(184,41,61,0.18); border-radius: 6px;
+  transition: all 0.12s;
+}
+.addTeamCta:hover { background: rgba(184,41,61,0.06); border-color: rgba(184,41,61,0.30); }
+
+.limitMsg {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 14px; margin-bottom: 10px;
+  background: rgba(184,41,61,0.04); border: 1px solid rgba(184,41,61,0.10);
+  border-radius: 6px; font-size: 0.72rem; color: var(--color-text-secondary);
+}
+.upgradeLink {
+  font-size: 0.68rem; font-weight: 700; color: #b8293d;
+  text-decoration: none;
+}
+.upgradeLink:hover { color: #d44058; }
+
 /* ── Pinned cards grid (filled state) ── */
 .pinnedGrid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
