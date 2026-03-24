@@ -7,6 +7,7 @@ import { MLB_TEAMS } from '../sports/mlb/teams';
 import { getMlbEspnLogoUrl } from '../utils/espnMlbLogos';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
+import { addPinnedForSport } from '../hooks/usePinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import {
@@ -815,7 +816,18 @@ function OnboardingWizard({ user, onComplete }) {
 
   const handleTeams = (slugs) => {
     setTeamSlugs(slugs);
-    if (slugs.length > 0) { try { addPinnedTeam(slugs[0]); } catch { /* ignore */ } }
+    // Write to both sport-specific unified stores
+    const mlbSlugSet = new Set(MLB_TEAMS.map(t => t.slug));
+    slugs.forEach(slug => {
+      try {
+        if (mlbSlugSet.has(slug)) {
+          addPinnedForSport('mlb', slug);
+        } else {
+          addPinnedTeam(slug); // NCAAM legacy store
+          addPinnedForSport('ncaam', slug); // unified v2 store
+        }
+      } catch { /* ignore */ }
+    });
     setStep(2); // → Preferences
   };
 

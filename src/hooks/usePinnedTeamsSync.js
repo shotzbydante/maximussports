@@ -28,8 +28,12 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { getPinnedTeams, setPinnedTeams } from '../utils/pinnedTeams';
+import { addPinnedForSport, getPinnedForSport } from './usePinnedTeams';
 import { onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track } from '../analytics/index';
+import { MLB_TEAMS } from '../sports/mlb/teams';
+
+const _mlbSlugSet = new Set(MLB_TEAMS.map(t => t.slug));
 
 export function usePinnedTeamsSync(user) {
   // Ensure we only run the initial full sync once per user session
@@ -83,8 +87,18 @@ export function usePinnedTeamsSync(user) {
           merged = localSlugs;
         }
 
-        // 3. Persist to localStorage
+        // 3. Persist to localStorage (NCAAM legacy key)
         setPinnedTeams(merged);
+
+        // 3a. Also hydrate unified v2 store for both sports
+        // Split server slugs by sport so MLB home hydrates correctly
+        merged.forEach(slug => {
+          if (_mlbSlugSet.has(slug)) {
+            addPinnedForSport('mlb', slug);
+          } else {
+            addPinnedForSport('ncaam', slug);
+          }
+        });
 
         // 3b. Seed prevSlugsRef so the write-through listener knows the current
         //     baseline. Without this, prevSlugsRef starts at [] and the first
