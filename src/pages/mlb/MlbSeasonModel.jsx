@@ -73,54 +73,67 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
       style={accentColor ? { '--team-accent': accentColor } : undefined}
     >
       <div className={styles.row}>
-        <span className={styles.rank}>{idx + 1}</span>
-        <div className={styles.ident}>
-          {logo
-            ? <img src={logo} alt="" className={styles.logo} width={34} height={34} loading="lazy" />
-            : <span className={styles.logoFb}>{team.abbrev}</span>}
-          <div className={styles.identText}>
-            <Link to={buildPath(`/teams/${team.slug}`)} className={styles.name}>{team.name}</Link>
-            <span className={styles.divLabel}>{team.division}</span>
+        {/* Layer 1: Identity + Projection */}
+        <div className={styles.rowHeader}>
+          <span className={styles.rank}>{idx + 1}</span>
+          <div className={styles.ident}>
+            {logo
+              ? <img src={logo} alt="" className={styles.logo} width={34} height={34} loading="lazy" />
+              : <span className={styles.logoFb}>{team.abbrev}</span>}
+            <div className={styles.identText}>
+              <Link to={buildPath(`/teams/${team.slug}`)} className={styles.name}>{team.name}</Link>
+              <span className={styles.divLabel}>{team.division}</span>
+            </div>
+          </div>
+          <div className={styles.projCol}>
+            <span className={styles.projNum}>{team.projectedWins}</span>
+            <span className={styles.projLabel}>proj. wins</span>
           </div>
         </div>
-        <div className={styles.projCol}>
-          <span className={styles.projNum}>{team.projectedWins}</span>
-          <span className={styles.projLabel}>proj. wins</span>
-        </div>
-        <div className={styles.statCol}>
-          <span className={styles.statVal}>{team.floor}–{team.ceiling}</span>
-          <span className={styles.statLbl}>range</span>
-        </div>
-        <div className={styles.statCol}>
-          <span className={styles.statVal}>{team.champOdds}</span>
-          <span className={styles.statLbl}>WS odds</span>
-        </div>
-        <div className={styles.statCol}>
-          <span className={styles.statVal}>{team.playoffProb ?? '—'}%</span>
-          <span className={styles.statLbl}>playoff</span>
-        </div>
-        <div className={styles.statCol}>
-          <span className={`${styles.statVal} ${dCls}`}>
-            {team.marketDelta > 0 ? '+' : ''}{team.marketDelta}
-          </span>
-          <span className={styles.statLbl}>vs mkt</span>
-        </div>
-        <div className={styles.signalCol}>
-          <div className={styles.badges}>
-            {team.signals?.map(s => (
-              <span key={s} className={`${styles.badge} ${styles[BADGE_CLS[s]] || styles.bDefault}`}>{s}</span>
-            ))}
+
+        {/* Layer 2: Supporting Stats */}
+        <div className={styles.rowStats}>
+          <div className={styles.statCol}>
+            <span className={styles.statVal}>{team.floor}–{team.ceiling}</span>
+            <span className={styles.statLbl}>range</span>
           </div>
-          {drivers.length > 0 && (
-            <div className={styles.driverPreview}>
-              {drivers.map(d => (
-                <span key={d.label} className={`${styles.driver} ${d.value > 0 ? styles.up : styles.dn}`}>
-                  {d.label} {d.value > 0 ? '+' : ''}{d.value}
-                </span>
+          <div className={styles.statCol}>
+            <span className={styles.statVal}>{team.champOdds}</span>
+            <span className={styles.statLbl}>WS odds</span>
+          </div>
+          <div className={styles.statCol}>
+            <span className={styles.statVal}>{team.playoffProb ?? '—'}%</span>
+            <span className={styles.statLbl}>playoff</span>
+          </div>
+          <div className={styles.statCol}>
+            <span className={`${styles.statVal} ${dCls}`}>
+              {team.marketDelta > 0 ? '+' : ''}{team.marketDelta}
+            </span>
+            <span className={styles.statLbl}>vs mkt</span>
+          </div>
+        </div>
+
+        {/* Layer 3: Signals + Badges */}
+        <div className={styles.rowSignals}>
+          <div className={styles.signalCol}>
+            <div className={styles.badges}>
+              {team.signals?.map(s => (
+                <span key={s} className={`${styles.badge} ${styles[BADGE_CLS[s]] || styles.bDefault}`}>{s}</span>
               ))}
             </div>
-          )}
+            {drivers.length > 0 && (
+              <div className={styles.driverPreview}>
+                {drivers.map(d => (
+                  <span key={d.label} className={`${styles.driver} ${d.value > 0 ? styles.up : styles.dn}`}>
+                    {d.label} {d.value > 0 ? '+' : ''}{d.value}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Expand control */}
         <button type="button" className={styles.expandBtn}
           onClick={() => toggle(team.slug)} aria-label="Expand detail">
           <span className={`${styles.caret} ${open ? styles.caretOpen : ''}`}>&#9662;</span>
