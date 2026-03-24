@@ -185,15 +185,17 @@ export default async function handler(req, res) {
     return res.status(200).json({ ...payload, _path: debug ? apiPath : undefined });
   }
 
-  if (!quotaActive) {
-    try {
-      const lastKnown = await getJson(lastKnownKey);
-      if (lastKnown?.items?.length > 0) {
-        return res.status(200).json({ ...lastKnown, status: 'ok_stale', _path: debug ? 'kv_stale_rescue' : undefined });
-      }
-    } catch {}
-  }
+  // Rescue: always try lastKnown before returning empty (regardless of quota state)
+  try {
+    const lastKnown = await getJson(lastKnownKey);
+    if (lastKnown?.items?.length > 0) {
+      if (debug) console.log(`[intelFeed] rescue from lastKnown — ${lastKnown.items.length} items`);
+      return res.status(200).json({ ...lastKnown, status: 'ok_stale', _path: debug ? 'kv_stale_rescue' : undefined });
+    }
+  } catch {}
 
+  // Truly no data anywhere — set short cache so ISR retries soon
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
   return res.status(200).json({
     status: 'error', updatedAt: new Date().toISOString(), items: [],
     _path: debug ? 'exhausted' : undefined,

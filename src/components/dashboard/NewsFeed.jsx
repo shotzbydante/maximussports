@@ -94,10 +94,9 @@ export default function NewsFeed({
     if (mode === 'headlines') return;
     if (fetchInitiatedRef.current) return;
     fetchInitiatedRef.current = true;
-    // Only skip if we have a valid non-empty cache entry
-    if (getValidCache(VIDEO_CACHE_KEY) != null) return;
-
-    setVideosLoading(true);
+    // If we already have cached data, keep it displayed but still refresh in background
+    const hasCachedData = videoItems.length > 0;
+    if (!hasCachedData) setVideosLoading(true);
     const controller = new AbortController();
     // Use intelFeed (circuit breaker + KV + RSS) instead of raw search proxy
     fetch(`/api/youtube/intelFeed`, { signal: controller.signal })
