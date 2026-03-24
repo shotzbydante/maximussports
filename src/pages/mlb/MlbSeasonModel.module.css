@@ -251,12 +251,9 @@
   align-items: center;
   gap: 8px;
 }
-.rowStats {
-  display: contents;
-}
-.rowSignals {
-  display: contents;
-}
+.rightStack { display: contents; }
+.rowStats { display: contents; }
+.rowSignals { display: contents; }
 
 /* Desktop: flatten everything into one grid row */
 @media (min-width: 701px) {
@@ -267,8 +264,10 @@
     gap: 8px;
   }
   .rowHeader { display: contents; }
+  .rightStack { display: contents; }
   .rowStats { display: contents; }
   .rowSignals { display: contents; }
+  .nameArrow { display:none; }
 }
 
 .rank { font-size:0.60rem; font-weight:700; color:var(--color-text-muted); text-align:center; }
@@ -281,6 +280,9 @@
 .name { font-size:0.76rem; font-weight:600; color:var(--color-text); text-decoration:none;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color 0.12s; }
 .name:hover { color:#b8293d; }
+.nameArrow { font-size:0.60rem; color:var(--color-text-muted); opacity:0; transition:opacity 0.12s;
+  margin-left:2px; }
+.name:hover .nameArrow { opacity:1; }
 .divLabel { font-size:0.48rem; color:var(--color-text-muted); }
 
 .projCol { display:flex; flex-direction:column; align-items:center; }
@@ -383,22 +385,48 @@
     flex-direction: column;
     gap: 8px;
     padding: 14px 12px 12px;
-    padding-right: 44px; /* room for expand button */
+    /* expand button is now inside rightStack, no absolute padding needed */
     min-height: auto;
     position: relative;
   }
 
-  /* Layer 1: Header — rank + ident + projection */
+  /* Layer 1: Header — rank + ident + right stack */
   .rowHeader {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
   }
-  .rank { font-size:0.56rem; flex-shrink:0; width:18px; text-align:center; }
-  .ident { flex:1; min-width:0; gap:8px; }
+  .rank { font-size:0.56rem; flex-shrink:0; width:18px; text-align:center; padding-top:4px; }
+  .ident { flex:1; min-width:0; gap:8px; padding-top:2px; }
   .logo { width:28px; height:28px; }
   .name { font-size:0.76rem; }
-  .projCol { flex-shrink:0; align-items:flex-end; gap:2px; }
+  .nameArrow { opacity:0.4; font-size:0.56rem; }
+
+  /* Right stack: chevron on top, projection below */
+  .rightStack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .expandBtn {
+    position: static;
+    width: 30px;
+    height: 26px;
+    border-radius: 7px;
+    background: rgba(184,41,61,0.04);
+    border: 1px solid rgba(184,41,61,0.12);
+  }
+  .expandBtn:hover,
+  .expandBtn:active {
+    background: rgba(184,41,61,0.08);
+    border-color: rgba(184,41,61,0.25);
+  }
+  .caret { font-size:0.56rem; color:#b8293d; }
+
+  .projCol { flex-shrink:0; align-items:flex-end; gap:3px; }
   .projNum { font-size:1.15rem; }
   .projLabel { display:block; font-size:0.40rem; margin-top:0; }
 
@@ -429,16 +457,7 @@
   .badge { font-size:0.44rem; padding:2px 6px; }
   .driverPreview { display:none; }
 
-  /* Expand button — pinned right */
-  .expandBtn {
-    position: absolute;
-    right: 10px;
-    top: 14px;
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-  }
-  .caret { font-size:0.58rem; }
+  /* (expandBtn styles now in rightStack above) */
 
   .detail { padding:14px 12px 16px; }
   .decompGrid { grid-template-columns:repeat(2, 1fr); }

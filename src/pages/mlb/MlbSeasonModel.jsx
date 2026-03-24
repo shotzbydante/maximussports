@@ -73,7 +73,7 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
       style={accentColor ? { '--team-accent': accentColor } : undefined}
     >
       <div className={styles.row}>
-        {/* Layer 1: Identity + Projection */}
+        {/* Layer 1: Identity */}
         <div className={styles.rowHeader}>
           <span className={styles.rank}>{idx + 1}</span>
           <div className={styles.ident}>
@@ -81,13 +81,22 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
               ? <img src={logo} alt="" className={styles.logo} width={34} height={34} loading="lazy" />
               : <span className={styles.logoFb}>{team.abbrev}</span>}
             <div className={styles.identText}>
-              <Link to={buildPath(`/teams/${team.slug}`)} className={styles.name}>{team.name}</Link>
+              <Link to={buildPath(`/teams/${team.slug}`)} className={styles.name}>
+                {team.name} <span className={styles.nameArrow}>›</span>
+              </Link>
               <span className={styles.divLabel}>{team.division}</span>
             </div>
           </div>
-          <div className={styles.projCol}>
-            <span className={styles.projNum}>{team.projectedWins}</span>
-            <span className={styles.projLabel}>Projected wins</span>
+          {/* Right stack: expand + projection */}
+          <div className={styles.rightStack}>
+            <button type="button" className={styles.expandBtn}
+              onClick={() => toggle(team.slug)} aria-label={open ? 'Collapse detail' : 'Expand detail'}>
+              <span className={`${styles.caret} ${open ? styles.caretOpen : ''}`}>&#9662;</span>
+            </button>
+            <div className={styles.projCol}>
+              <span className={styles.projNum}>{team.projectedWins}</span>
+              <span className={styles.projLabel}>Projected wins</span>
+            </div>
           </div>
         </div>
 
@@ -132,12 +141,6 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
             )}
           </div>
         </div>
-
-        {/* Expand control */}
-        <button type="button" className={styles.expandBtn}
-          onClick={() => toggle(team.slug)} aria-label="Expand detail">
-          <span className={`${styles.caret} ${open ? styles.caretOpen : ''}`}>&#9662;</span>
-        </button>
       </div>
 
       {/* ── Research Drawer ── */}
