@@ -75,6 +75,7 @@ export default function FriendsLeaderboard({ type = 'friends' }) {
                   jerseyNumber={entry.avatarConfig?.jerseyNumber || ''}
                   jerseyColor={entry.avatarConfig?.jerseyColor}
                   robotColor={entry.avatarConfig?.robotColor}
+                  mascotType={entry.avatarConfig?.mascotType || 'basketball'}
                   size={32}
                 />
               </div>

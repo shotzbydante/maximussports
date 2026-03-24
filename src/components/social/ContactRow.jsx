@@ -75,6 +75,7 @@ export default function ContactRow({ user: contactUser, onFollow, onUnfollow }) 
           jerseyNumber={contactUser.avatarConfig?.jerseyNumber || ''}
           jerseyColor={contactUser.avatarConfig?.jerseyColor}
           robotColor={contactUser.avatarConfig?.robotColor}
+          mascotType={contactUser.avatarConfig?.mascotType || 'basketball'}
           size={44}
         />
       </div>

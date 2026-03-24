@@ -86,6 +86,7 @@ export function PicksShareCard({ picks = [], user: cardUser, avatarConfig }) {
             jerseyNumber={avatarConfig?.jerseyNumber || ''}
             jerseyColor={avatarConfig?.jerseyColor}
             robotColor={avatarConfig?.robotColor}
+            mascotType={avatarConfig?.mascotType || 'basketball'}
             size={28}
           />
           <div className={styles.shareCardUserInfo}>
@@ -168,6 +169,7 @@ export function BracketShareCard({ bracket = {}, user: cardUser, avatarConfig })
             jerseyNumber={avatarConfig?.jerseyNumber || ''}
             jerseyColor={avatarConfig?.jerseyColor}
             robotColor={avatarConfig?.robotColor}
+            mascotType={avatarConfig?.mascotType || 'basketball'}
             size={28}
           />
           <div className={styles.shareCardUserInfo}>

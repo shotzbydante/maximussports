@@ -2659,6 +2659,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                 jerseyNumber={resolveAvatarConfig(profile)?.jerseyNumber || jerseyDisplay}
                 jerseyColor={resolveAvatarConfig(profile)?.jerseyColor}
                 robotColor={resolveAvatarConfig(profile)?.robotColor}
+                mascotType={resolveAvatarConfig(profile)?.mascotType || 'basketball'}
                 size={72}
               />
             </div>

@@ -94,6 +94,7 @@ export default function FriendActivityFeed({ limit = 20 }) {
               jerseyNumber={activity.user?.avatarConfig?.jerseyNumber || ''}
               jerseyColor={activity.user?.avatarConfig?.jerseyColor}
               robotColor={activity.user?.avatarConfig?.robotColor}
+              mascotType={activity.user?.avatarConfig?.mascotType || 'basketball'}
               size={36}
             />
           </div>
