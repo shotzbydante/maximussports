@@ -62,8 +62,8 @@ function PreviewCard({ slug, odds, onPin, buildPath }) {
       {proj && (
         <div className={styles.previewStats}>
           <div className={styles.previewStat}>
-            <span className={styles.previewStatLabel}>Projected</span>
-            <span className={styles.previewStatValue}>{proj.projectedWins}W</span>
+            <span className={styles.previewStatLabel}>Projected wins</span>
+            <span className={styles.previewStatValue}>{proj.projectedWins}</span>
           </div>
           {teamOdds && (
             <div className={styles.previewStat}>
@@ -207,7 +207,7 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
           <span className={styles.statBoxValue}>{meta.finish}</span>
         </div>
         <div className={styles.statBox}>
-          <span className={styles.statBoxLabel}>Proj. Wins</span>
+          <span className={styles.statBoxLabel}>Projected wins</span>
           <span className={styles.statBoxValue}>{proj?.projectedWins ?? '—'}</span>
         </div>
         <div className={styles.statBox}>
