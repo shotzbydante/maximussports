@@ -172,13 +172,27 @@
   border: 1px solid rgba(0,0,0,0.07);
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: background 0.12s;
 }
+.leagueHeader:hover { background: linear-gradient(135deg, rgba(0,45,114,0.07) 0%, rgba(184,41,61,0.04) 100%); }
+
+.leagueCaret {
+  font-size: 0.58rem;
+  color: var(--color-text-muted);
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+.leagueCaretOpen { transform: rotate(180deg); }
 
 .leagueTitle {
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-text);
-  flex: 1;
   letter-spacing: 0.01em;
 }
 
@@ -211,7 +225,8 @@
 .card { background:var(--color-bg-elevated); border:1px solid rgba(0,0,0,0.06);
   border-radius:var(--radius-card,10px); overflow:hidden;
   transition:border-color 0.15s, box-shadow 0.15s;
-  box-shadow:0 1px 2px rgba(0,0,0,0.03); }
+  box-shadow:0 1px 2px rgba(0,0,0,0.03);
+  border-left:3px solid var(--team-accent, rgba(0,0,0,0.06)); }
 .card:hover { border-color:rgba(184,41,61,0.18); box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .cardOpen { border-color:rgba(184,41,61,0.28); box-shadow:0 2px 12px rgba(184,41,61,0.06); }
 .cardHighlight { animation: highlightPulse 2s ease-out; }
@@ -225,9 +240,9 @@
   display: grid;
   grid-template-columns: 22px 1fr 60px 48px 48px 40px 38px minmax(80px,0.8fr) 26px;
   align-items: center;
-  gap: 6px;
-  padding: 18px 14px;
-  min-height: 72px;
+  gap: 8px;
+  padding: 20px 16px;
+  min-height: 78px;
 }
 
 .rank { font-size:0.60rem; font-weight:700; color:var(--color-text-muted); text-align:center; }

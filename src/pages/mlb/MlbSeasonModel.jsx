@@ -32,6 +32,16 @@ const BADGE_CLS = {
 
 const LEAGUE_LOGOS = { AL: '/al-logo.png', NL: '/nl-logo.png' };
 
+/** Team primary colors for left-accent treatment. */
+const TEAM_COLORS = {
+  nyy: '#003087', bos: '#BD3039', tor: '#134A8E', tb: '#092C5C', bal: '#DF4601',
+  cle: '#00385D', min: '#002B5C', det: '#0C2340', cws: '#27251F', kc: '#004687',
+  hou: '#002D62', laa: '#BA0021', sea: '#0C2C56', tex: '#003278', oak: '#003831',
+  lad: '#005A9C', sd: '#2F241D', sf: '#FD5A1E', ari: '#A71930', col: '#33006F',
+  atl: '#CE1141', nym: '#002D72', phi: '#E81828', was: '#AB0003', mia: '#00A3E0',
+  mil: '#FFC52F', chc: '#0E3386', stl: '#C41E3A', cin: '#C6011F', pit: '#FDB827',
+};
+
 function LeagueLogo({ league, size = 28 }) {
   const src = LEAGUE_LOGOS[league];
   if (src) {
@@ -50,7 +60,7 @@ function getDriverPreview(decomp) {
 }
 
 /** Render a single team row with research-drawer expansion. */
-function TeamRow({ team, idx, open, toggle, buildPath, highlight }) {
+function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor }) {
   const logo = getMlbEspnLogoUrl(team.slug);
   const dCls = team.marketDelta > 0 ? styles.up : team.marketDelta < 0 ? styles.dn : '';
   const tk = team.takeaways || {};
@@ -60,6 +70,7 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight }) {
     <article
       className={`${styles.card} ${open ? styles.cardOpen : ''} ${highlight ? styles.cardHighlight : ''}`}
       data-team-slug={team.slug}
+      style={accentColor ? { '--team-accent': accentColor } : undefined}
     >
       <div className={styles.row}>
         <span className={styles.rank}>{idx + 1}</span>
@@ -184,7 +195,12 @@ export default function MlbSeasonModel() {
   const [expanded, setExpanded] = useState(new Set());
   const [methExpanded, setMethExpanded] = useState(false);
   const [highlightSlug, setHighlightSlug] = useState(null);
+  const [leagueCollapsed, setLeagueCollapsed] = useState({});
   const boardRef = useRef(null);
+
+  const toggleLeague = (league) => setLeagueCollapsed(prev => ({
+    ...prev, [league]: !prev[league],
+  }));
 
   const toggle = (slug) => setExpanded(prev => {
     const n = new Set(prev); n.has(slug) ? n.delete(slug) : n.add(slug); return n;
@@ -241,7 +257,8 @@ export default function MlbSeasonModel() {
   const renderTeam = (team) => (
     <TeamRow key={team.slug} team={team} idx={rankMap[team.slug] - 1}
       open={expanded.has(team.slug)} toggle={toggle} buildPath={buildPath}
-      highlight={highlightSlug === team.slug} />
+      highlight={highlightSlug === team.slug}
+      accentColor={TEAM_COLORS[team.slug]} />
   );
 
   return (
@@ -372,40 +389,35 @@ export default function MlbSeasonModel() {
 
       {/* ── Team Board: AL / NL split ── */}
       <div className={styles.leagueBoard} ref={boardRef}>
-        <div className={styles.leagueCol}>
-          <div className={styles.leagueHeader}>
-            <LeagueLogo league="AL" size={30} />
-            <span className={styles.leagueTitle}>American League</span>
-            <span className={styles.leagueCount}>{alTeams.length} teams</span>
-          </div>
-          {viewMode === 'league' ? (
-            <div className={styles.board}>{alTeams.map(renderTeam)}</div>
-          ) : (
-            alDivisions.map(dg => (
-              <div key={dg.division} className={styles.divGroup}>
-                <h4 className={styles.divGroupTitle}>{dg.division}</h4>
-                <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
-              </div>
-            ))
-          )}
-        </div>
-        <div className={styles.leagueCol}>
-          <div className={styles.leagueHeader}>
-            <LeagueLogo league="NL" size={30} />
-            <span className={styles.leagueTitle}>National League</span>
-            <span className={styles.leagueCount}>{nlTeams.length} teams</span>
-          </div>
-          {viewMode === 'league' ? (
-            <div className={styles.board}>{nlTeams.map(renderTeam)}</div>
-          ) : (
-            nlDivisions.map(dg => (
-              <div key={dg.division} className={styles.divGroup}>
-                <h4 className={styles.divGroupTitle}>{dg.division}</h4>
-                <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
-              </div>
-            ))
-          )}
-        </div>
+        {[
+          { key: 'AL', label: 'American League', teams: alTeams, divs: alDivisions },
+          { key: 'NL', label: 'National League', teams: nlTeams, divs: nlDivisions },
+        ].map(lg => {
+          const collapsed = !!leagueCollapsed[lg.key];
+          return (
+            <div key={lg.key} className={styles.leagueCol}>
+              <button type="button" className={styles.leagueHeader}
+                onClick={() => toggleLeague(lg.key)}>
+                <LeagueLogo league={lg.key} size={30} />
+                <span className={styles.leagueTitle}>{lg.label}</span>
+                <span className={styles.leagueCount}>{lg.teams.length} teams</span>
+                <span className={`${styles.leagueCaret} ${collapsed ? '' : styles.leagueCaretOpen}`}>&#9662;</span>
+              </button>
+              {!collapsed && (
+                viewMode === 'league' ? (
+                  <div className={styles.board}>{lg.teams.map(renderTeam)}</div>
+                ) : (
+                  lg.divs.map(dg => (
+                    <div key={dg.division} className={styles.divGroup}>
+                      <h4 className={styles.divGroupTitle}>{dg.division}</h4>
+                      <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
