@@ -1,89 +1,101 @@
 /**
- * localStorage helpers for pinned teams (slugs array).
- * Key: maximus-pinned-teams
+ * pinnedTeams.js — NCAAM pinned-team helpers.
  *
- * Schema: JSON array of slug strings, e.g. ["duke-blue-devils","kansas-jayhawks"]
+ * MIGRATED: now reads/writes through the unified v2 store
+ * (maximus-pinned-teams-v2 → ncaam array) instead of the legacy
+ * flat key (maximus-pinned-teams).
  *
- * Migration: handles legacy shapes:
- *   - comma-separated string  → split to array
- *   - array of objects {slug} → extract slugs
- *   - anything unrecognised   → return []  (preserve prev state, log error)
+ * On first access, migrates any legacy data into the v2 structure.
+ * After migration, the legacy key is no longer the active source of truth.
+ *
+ * This file is kept as a stable API surface so all existing NCAAM consumers
+ * (PinnedTeamsSection, Home, TeamPage, Settings, etc.) continue working
+ * without import changes.
  */
 
-const STORAGE_KEY = 'maximus-pinned-teams';
+import {
+  getPinnedForSport,
+  addPinnedForSport,
+  removePinnedForSport,
+} from '../hooks/usePinnedTeams';
 
-/** Normalise any stored value into a clean string[]. Returns null on unrecoverable error. */
-function normalise(raw) {
-  if (!raw) return [];
-  // Already an array of strings (happy path)
-  let parsed;
-  try { parsed = JSON.parse(raw); } catch { return null; }
+// ─── Legacy migration (runs once) ─────────────────────────────────────────
 
-  if (Array.isArray(parsed)) {
-    // Array of objects ({slug, …}) — extract slug strings
-    if (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null) {
-      return parsed.map((item) => item?.slug ?? '').filter(Boolean);
+const LEGACY_KEY = 'maximus-pinned-teams';
+let _legacyMigrated = false;
+
+function ensureLegacyMigrated() {
+  if (_legacyMigrated) return;
+  _legacyMigrated = true;
+
+  // Check if unified v2 already has NCAAM data
+  const existing = getPinnedForSport('ncaam');
+  if (existing.length > 0) return; // already migrated or has data
+
+  // Read legacy flat array
+  try {
+    const raw = localStorage.getItem(LEGACY_KEY);
+    if (!raw) return;
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { return; }
+
+    let slugs = [];
+    if (Array.isArray(parsed)) {
+      if (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null) {
+        slugs = parsed.map(item => item?.slug ?? '').filter(Boolean);
+      } else {
+        slugs = parsed.filter(s => typeof s === 'string' && s.length > 0);
+      }
+    } else if (typeof parsed === 'string') {
+      slugs = parsed.split(',').map(s => s.trim()).filter(Boolean);
     }
-    // Array of strings — return as-is (filter out non-strings)
-    return parsed.filter((s) => typeof s === 'string' && s.length > 0);
-  }
-  // Legacy: comma-separated string
-  if (typeof parsed === 'string') {
-    return parsed.split(',').map((s) => s.trim()).filter(Boolean);
-  }
-  return null; // unrecognised — caller will preserve previous state
+
+    // Write each slug into unified v2 ncaam array
+    slugs.forEach(slug => addPinnedForSport('ncaam', slug));
+  } catch { /* migration failed — safe to continue without legacy data */ }
 }
 
+// ─── Public API (unchanged signatures) ─────────────────────────────────────
+
 export function getPinnedTeams() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const result = normalise(raw);
-    if (result === null) {
-      // Parsing failed or unrecognised schema — preserve storage as-is, return []
-      console.warn('[pinnedTeams] unrecognised schema in storage; returning []', raw);
-      return [];
-    }
-    return result;
-  } catch {
-    return [];
-  }
+  ensureLegacyMigrated();
+  return getPinnedForSport('ncaam');
 }
 
 export function setPinnedTeams(slugs) {
+  ensureLegacyMigrated();
+  const arr = Array.isArray(slugs) ? slugs.filter(s => typeof s === 'string') : [];
+  // Write to unified v2 by replacing the ncaam array
+  // Use the raw unified write to do a full replace
   try {
-    const arr = Array.isArray(slugs) ? slugs.filter((s) => typeof s === 'string') : [];
-    const serialised = JSON.stringify(arr);
-    localStorage.setItem(STORAGE_KEY, serialised);
-    // Verify write succeeded (handles private-mode storage quota exceeded)
-    const readBack = localStorage.getItem(STORAGE_KEY);
-    if (readBack !== serialised) {
-      console.warn('[pinnedTeams] write verification failed — storage may be full or restricted');
-    }
-    return arr;
-  } catch {
-    return getPinnedTeams();
-  }
+    const UNIFIED_KEY = 'maximus-pinned-teams-v2';
+    const raw = localStorage.getItem(UNIFIED_KEY);
+    const data = raw ? JSON.parse(raw) : { mlb: [], ncaam: [] };
+    data.ncaam = arr;
+    localStorage.setItem(UNIFIED_KEY, JSON.stringify(data));
+  } catch { /* quota exceeded */ }
+  // Also update legacy key for any remaining direct localStorage reads
+  try { localStorage.setItem(LEGACY_KEY, JSON.stringify(arr)); } catch {}
+  return arr;
 }
 
-/** Atomic add: deduplicates and preserves existing order. */
 export function addPinnedTeam(slug) {
-  const current = getPinnedTeams();
-  if (current.includes(slug)) return current;
-  const next = [...current, slug];
-  return setPinnedTeams(next);
+  ensureLegacyMigrated();
+  return addPinnedForSport('ncaam', slug);
 }
 
-/** Atomic remove. */
 export function removePinnedTeam(slug) {
-  const current = getPinnedTeams();
-  const next = current.filter((s) => s !== slug);
-  return setPinnedTeams(next);
+  ensureLegacyMigrated();
+  return removePinnedForSport('ncaam', slug);
 }
 
-/** Atomic toggle. */
 export function togglePinnedTeam(slug) {
-  const current = getPinnedTeams();
+  ensureLegacyMigrated();
+  const current = getPinnedForSport('ncaam');
   const has = current.includes(slug);
-  const next = has ? current.filter((s) => s !== slug) : [...current, slug];
-  return setPinnedTeams(next);
+  if (has) {
+    return removePinnedForSport('ncaam', slug);
+  } else {
+    return addPinnedForSport('ncaam', slug);
+  }
 }

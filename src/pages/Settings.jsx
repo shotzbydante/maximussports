@@ -816,15 +816,14 @@ function OnboardingWizard({ user, onComplete }) {
 
   const handleTeams = (slugs) => {
     setTeamSlugs(slugs);
-    // Write to both sport-specific unified stores
+    // Write to unified v2 store, split by sport
     const mlbSlugSet = new Set(MLB_TEAMS.map(t => t.slug));
     slugs.forEach(slug => {
       try {
         if (mlbSlugSet.has(slug)) {
           addPinnedForSport('mlb', slug);
         } else {
-          addPinnedTeam(slug); // NCAAM legacy store
-          addPinnedForSport('ncaam', slug); // unified v2 store
+          addPinnedTeam(slug); // routes to unified v2 ncaam via migrated utility
         }
       } catch { /* ignore */ }
     });
