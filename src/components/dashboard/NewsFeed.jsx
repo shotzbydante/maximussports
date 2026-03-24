@@ -170,24 +170,13 @@ export default function NewsFeed({
           {videosLoading ? (
             <VideoSkeletons />
           ) : (
-            <>
-              <div className={styles.videoHeroGrid}>
-                {heroVideos.map((video) => (
-                  <div key={video.videoId} className={styles.videoHeroTile}>
-                    <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact={false} />
-                  </div>
-                ))}
-              </div>
-              {compactVideos.length > 0 && (
-                <div className={styles.videoCompactList}>
-                  {compactVideos.map((video) => (
-                    <div key={video.videoId} className={styles.videoCompactItem}>
-                      <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact />
-                    </div>
-                  ))}
+            <div className={styles.videoUniformGrid}>
+              {cappedVideos.map((video) => (
+                <div key={video.videoId} className={styles.videoUniformTile}>
+                  <YouTubeVideoCard video={video} onSelect={setActiveVideo} compact={false} />
                 </div>
-              )}
-            </>
+              ))}
+            </div>
           )}
         </div>
         <Link to="/news" className={styles.cardCta}>View more videos →</Link>

@@ -177,6 +177,31 @@
   box-shadow: none;
 }
 
+/* Uniform 2x2 equal-size video grid (mode="videos" with 4 items) */
+.videoUniformGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--color-border-light);
+}
+
+.videoUniformTile {
+  background: var(--color-bg-elevated);
+}
+
+.videoUniformTile > * {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  height: 100%;
+}
+
+@media (max-width: 600px) {
+  .videoUniformGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Loading skeletons */
 .videoSkeletons {
   padding: var(--space-sm) 0;

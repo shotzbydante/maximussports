@@ -271,9 +271,9 @@ const WOMEN_HARD = [
   /\bbig\s*(?:12|twelve)\s*women'?s?\b/i,
   /\bwnba\b/i,
 ];
-/** Soft: "women/women's/womens" alone — only reject when paired with basketball context */
-const WOMEN_SOFT = [/\bwomen\b/i, /\bwomen's\b/i, /\bwomens\b/i];
-const BBALL_CONTEXT_RE = /\b(?:basketball|hoops|wbb|ncaaw)\b/i;
+/** Soft: "women/women's/womens" alone — only reject when paired with sports context */
+const WOMEN_SOFT = [/\bwomen\b/i, /\bwomen's\b/i, /\bwomens\b/i, /\bwomen&#39;s\b/i, /\bwomen\u2019s\b/i];
+const BBALL_CONTEXT_RE = /\b(?:basketball|hoops|wbb|ncaaw|tournament|ncaa|march\s*madness|final\s*four|sweet\s*(?:16|sixteen)|elite\s*(?:8|eight)|highlights|round\s+of\s+\d+)\b/i;
 
 /**
  * Positive MEN'S basketball signals (title or channel).
@@ -318,6 +318,19 @@ const STRONG_BBALL_SIGNALS = [
 ];
 
 /**
+ * Normalize text for filtering: decode HTML entities + normalize smart quotes.
+ * Ensures "women&#39;s" and "women\u2019s" match the same patterns as "women's".
+ */
+function normalizeForFilter(text) {
+  return (text ?? '')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // smart single quotes
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"');  // smart double quotes
+}
+
+/**
  * Classify a YouTube item for men's basketball filtering.
  * Rejects when description/snippet contains women's/WBB signals even if title doesn't.
  * For non-allowlisted channels, requires a strong basketball signal (not just "highlights").
@@ -326,9 +339,9 @@ const STRONG_BBALL_SIGNALS = [
  * @returns {'accept'|'football'|'women'|'no_bball'}
  */
 export function classifyBasketballItem(item) {
-  const title = (item.title ?? '').trim();
-  const channel = (item.channelTitle ?? '').trim();
-  const description = (item.description ?? '').trim();
+  const title = normalizeForFilter(item.title ?? '').trim();
+  const channel = normalizeForFilter(item.channelTitle ?? '').trim();
+  const description = normalizeForFilter(item.description ?? '').trim();
   const combined = `${title} ${channel}`;
   const withSnippet = `${title} ${channel} ${description}`;
 
