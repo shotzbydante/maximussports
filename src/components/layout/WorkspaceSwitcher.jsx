@@ -69,8 +69,8 @@ export default function WorkspaceSwitcher() {
               <span className={styles.optionIcon}><WorkspaceLogo workspace={ws} size={20} /></span>
               <span className={styles.optionContent}>
                 <span className={styles.optionLabel}>{ws.label}</span>
-                {!ws.access.public && (
-                  <span className={styles.sandboxBadge}>SANDBOX</span>
+                {ws.badge && (
+                  <span className={styles.betaBadge}>{ws.badge}</span>
                 )}
               </span>
               {ws.id === workspaceId && (

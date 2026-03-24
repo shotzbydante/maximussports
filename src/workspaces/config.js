@@ -103,9 +103,9 @@ export const WORKSPACES = {
       picks: true,
     },
     access: {
-      public: false,
-      allowedEmails: ['dantedicicco@gmail.com'],
+      public: true,
     },
+    badge: 'BETA',
     labels: {
       sportName: 'Major League Baseball',
       intelligence: 'MLB Intelligence',

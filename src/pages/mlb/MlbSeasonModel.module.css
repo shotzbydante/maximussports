@@ -378,6 +378,51 @@
   transition:color 0.12s; }
 .teamCta:hover { color:#d44058; }
 
+/* ── Auth Gate ─────────────────────────────────────────────── */
+.authGate {
+  display: flex;
+  justify-content: center;
+  padding: 40px 16px 60px;
+}
+.authGateInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 400px;
+  padding: 36px 32px;
+  background: var(--color-bg-elevated);
+  border: 1px solid rgba(184,41,61,0.12);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  gap: 14px;
+}
+.authGateIcon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(184,41,61,0.08) 0%, rgba(0,45,114,0.05) 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #b8293d;
+}
+.authGateTitle {
+  font-size: 1.15rem; font-weight: 700; color: var(--color-text); margin: 0;
+}
+.authGateDesc {
+  font-size: 0.85rem; color: var(--color-text-muted); line-height: 1.55; margin: 0;
+}
+.authGatePrimary {
+  width: 100%; height: 44px; border: none; border-radius: 8px;
+  background: #b8293d; color: #fff;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: background 0.12s;
+}
+.authGatePrimary:hover { background: #cc3349; }
+.authGateSecondary {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.78rem; font-weight: 500; color: var(--color-text-muted);
+  font-family: inherit; padding: 4px 0;
+}
+.authGateSecondary:hover { color: #b8293d; }
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width:1000px) {
   .leagueBoard { grid-template-columns:1fr; gap:24px; }

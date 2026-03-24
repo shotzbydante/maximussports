@@ -9,7 +9,8 @@
  *   - 7 insight types including Top Projection + Highest Confidence
  */
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import MaximusModelIcon from '../../components/mlb/MaximusModelIcon';
@@ -203,8 +204,38 @@ function TeamRow({ team, idx, open, toggle, buildPath, highlight, accentColor })
   );
 }
 
+function AuthGateInline() {
+  const navigate = useNavigate();
+  return (
+    <div className={styles.authGate}>
+      <div className={styles.authGateInner}>
+        <div className={styles.authGateIcon}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h3 className={styles.authGateTitle}>Unlock Season Intelligence</h3>
+        <p className={styles.authGateDesc}>
+          Create a free account to access projected wins, model insights, and team outlooks for all 30 MLB teams.
+        </p>
+        <button type="button" className={styles.authGatePrimary}
+          onClick={() => navigate('/settings')}>
+          Create Free Account
+        </button>
+        <button type="button" className={styles.authGateSecondary}
+          onClick={() => navigate('/settings')}>
+          Already have an account? Sign in
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function MlbSeasonModel() {
   const { buildPath } = useWorkspace();
+  const { user, loading: authLoading } = useAuth();
+  const isAuthenticated = !!user;
   const allTeams = useMemo(() => getSeasonProjections(), []);
   const [sort, setSort] = useState('wins-desc');
   const [viewMode, setViewMode] = useState('league');
@@ -378,63 +409,70 @@ export default function MlbSeasonModel() {
         )}
       </section>
 
-      {/* ── Controls ── */}
-      <div className={styles.controls}>
-        <div className={styles.controlGroup}>
-          <label className={styles.controlLabel}>View</label>
-          <div className={styles.pillRow}>
-            <button type="button"
-              className={`${styles.pill} ${viewMode === 'league' ? styles.pillActive : ''}`}
-              onClick={() => setViewMode('league')}>League</button>
-            <button type="button"
-              className={`${styles.pill} ${viewMode === 'division' ? styles.pillActive : ''}`}
-              onClick={() => setViewMode('division')}>Division</button>
-          </div>
-        </div>
-        <div className={styles.controlGroup}>
-          <label className={styles.controlLabel}>Sort</label>
-          <select className={styles.sortSelect} value={sort}
-            onChange={e => setSort(e.target.value)}>
-            {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* ── Model Insights (replaces old summary rail) ── */}
-      <ModelInsights teams={allTeams} onTeamClick={handleInsightClick} />
-
-      {/* ── Team Board: AL / NL split ── */}
-      <div className={styles.leagueBoard} ref={boardRef}>
-        {[
-          { key: 'AL', label: 'American League', teams: alTeams, divs: alDivisions },
-          { key: 'NL', label: 'National League', teams: nlTeams, divs: nlDivisions },
-        ].map(lg => {
-          const collapsed = !!leagueCollapsed[lg.key];
-          return (
-            <div key={lg.key} className={styles.leagueCol}>
-              <button type="button" className={styles.leagueHeader}
-                onClick={() => toggleLeague(lg.key)}>
-                <LeagueLogo league={lg.key} size={30} />
-                <span className={styles.leagueTitle}>{lg.label}</span>
-                <span className={styles.leagueCount}>{lg.teams.length} teams</span>
-                <span className={`${styles.leagueCaret} ${collapsed ? '' : styles.leagueCaretOpen}`}>&#9662;</span>
-              </button>
-              {!collapsed && (
-                viewMode === 'league' ? (
-                  <div className={styles.board}>{lg.teams.map(renderTeam)}</div>
-                ) : (
-                  lg.divs.map(dg => (
-                    <div key={dg.division} className={styles.divGroup}>
-                      <h4 className={styles.divGroupTitle}>{dg.division}</h4>
-                      <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
-                    </div>
-                  ))
-                )
-              )}
+      {/* ── Auth Gate or Full Board ── */}
+      {!authLoading && !isAuthenticated ? (
+        <AuthGateInline />
+      ) : (
+        <>
+          {/* ── Controls ── */}
+          <div className={styles.controls}>
+            <div className={styles.controlGroup}>
+              <label className={styles.controlLabel}>View</label>
+              <div className={styles.pillRow}>
+                <button type="button"
+                  className={`${styles.pill} ${viewMode === 'league' ? styles.pillActive : ''}`}
+                  onClick={() => setViewMode('league')}>League</button>
+                <button type="button"
+                  className={`${styles.pill} ${viewMode === 'division' ? styles.pillActive : ''}`}
+                  onClick={() => setViewMode('division')}>Division</button>
+              </div>
             </div>
-          );
-        })}
-      </div>
+            <div className={styles.controlGroup}>
+              <label className={styles.controlLabel}>Sort</label>
+              <select className={styles.sortSelect} value={sort}
+                onChange={e => setSort(e.target.value)}>
+                {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* ── Model Insights ── */}
+          <ModelInsights teams={allTeams} onTeamClick={handleInsightClick} />
+
+          {/* ── Team Board: AL / NL split ── */}
+          <div className={styles.leagueBoard} ref={boardRef}>
+            {[
+              { key: 'AL', label: 'American League', teams: alTeams, divs: alDivisions },
+              { key: 'NL', label: 'National League', teams: nlTeams, divs: nlDivisions },
+            ].map(lg => {
+              const collapsed = !!leagueCollapsed[lg.key];
+              return (
+                <div key={lg.key} className={styles.leagueCol}>
+                  <button type="button" className={styles.leagueHeader}
+                    onClick={() => toggleLeague(lg.key)}>
+                    <LeagueLogo league={lg.key} size={30} />
+                    <span className={styles.leagueTitle}>{lg.label}</span>
+                    <span className={styles.leagueCount}>{lg.teams.length} teams</span>
+                    <span className={`${styles.leagueCaret} ${collapsed ? '' : styles.leagueCaretOpen}`}>&#9662;</span>
+                  </button>
+                  {!collapsed && (
+                    viewMode === 'league' ? (
+                      <div className={styles.board}>{lg.teams.map(renderTeam)}</div>
+                    ) : (
+                      lg.divs.map(dg => (
+                        <div key={dg.division} className={styles.divGroup}>
+                          <h4 className={styles.divGroupTitle}>{dg.division}</h4>
+                          <div className={styles.board}>{dg.teams.map(renderTeam)}</div>
+                        </div>
+                      ))
+                    )
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
