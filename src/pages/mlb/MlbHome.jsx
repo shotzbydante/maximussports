@@ -10,6 +10,7 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import MlbLoading from '../../components/mlb/MlbLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
 import LiveNowRail from '../../components/mlb/LiveNowRail';
+import MlbPinnedTeamSection from '../../components/mlb/MlbPinnedTeamSection';
 import PennantWatch from '../../components/mlb/PennantWatch';
 import MlbIntelFeed from '../../components/mlb/MlbIntelFeed';
 import styles from './MlbHome.module.css';
@@ -202,6 +203,7 @@ export default function MlbHome() {
         </div>
       </section>
 
+      <MlbPinnedTeamSection />
       <LiveNowRail />
       <PennantWatch />
       <MlbIntelFeed />
