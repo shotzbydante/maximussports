@@ -7,7 +7,7 @@ import { MLB_TEAMS } from '../sports/mlb/teams';
 import { getMlbEspnLogoUrl } from '../utils/espnMlbLogos';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
-import { addPinnedForSport } from '../hooks/usePinnedTeams';
+import { addPinnedForSport, removePinnedForSport } from '../hooks/usePinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import {
@@ -2455,7 +2455,12 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   }
 
   const enrichedTeams = userTeams
-    .map(ut => ({ ...ut, teamData: TEAMS.find(t => t.slug === ut.team_slug) }))
+    .map(ut => {
+      const ncaamTeam = TEAMS.find(t => t.slug === ut.team_slug);
+      const mlbTeam = !ncaamTeam ? MLB_TEAMS.find(t => t.slug === ut.team_slug) : null;
+      const teamData = ncaamTeam || (mlbTeam ? { ...mlbTeam, conference: mlbTeam.division, sport: 'mlb' } : null);
+      return { ...ut, teamData, sport: mlbTeam ? 'mlb' : 'ncaam' };
+    })
     .filter(ut => ut.teamData);
 
   const primaryTeam = enrichedTeams.find(t => t.is_primary)?.teamData || enrichedTeams[0]?.teamData;
@@ -2508,7 +2513,13 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         setUserTeams(remaining);
       }
       const remainingSlugs = remaining.map(t => t.team_slug);
-      removePinnedTeam(slug);
+      // Remove from correct sport store
+      const isMlbSlug = MLB_TEAMS.some(t => t.slug === slug);
+      if (isMlbSlug) {
+        try { removePinnedForSport('mlb', slug); } catch {}
+      } else {
+        removePinnedTeam(slug);
+      }
       notifyPinnedChanged(remainingSlugs, 'settings');
       track('team_unpinned', { team_slug: slug });
       trackFavoriteTeamsUpdated(user.id, remainingSlugs);
@@ -2537,7 +2548,12 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     if (error) throw new Error(friendlyDbError(error));
     setUserTeams(prev => [...prev, { user_id: user.id, team_slug: slug, is_primary: isPrimary, created_at: new Date().toISOString() }]);
     setShowTeamPicker(false);
-    try { addPinnedTeam(slug); } catch { /* ignore */ }
+    // Add to correct sport store
+    const isMlbSlug = MLB_TEAMS.some(t => t.slug === slug);
+    try {
+      if (isMlbSlug) { addPinnedForSport('mlb', slug); }
+      else { addPinnedTeam(slug); }
+    } catch { /* ignore */ }
     track('team_pinned', { team_slug: slug });
     trackFavoriteTeamsUpdated(user.id, [...userTeams.map(t => t.team_slug), slug]);
   }
@@ -2782,14 +2798,29 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
               </div>
             ) : (
               <div className={styles.teamsList}>
-                {enrichedTeams.map(({ team_slug, is_primary, teamData }) => (
+                {enrichedTeams.map(({ team_slug, is_primary, teamData, sport }) => {
+                  const isMlb = sport === 'mlb';
+                  const logoUrl = isMlb ? getMlbEspnLogoUrl(team_slug) : null;
+                  return (
                   <div key={team_slug} className={`${styles.teamsRow} ${is_primary ? styles.teamsRowPrimary : ''}`}>
-                    <span className={styles.teamsRowLogo}><TeamLogo team={teamData} size={26} /></span>
+                    <span className={styles.teamsRowLogo}>
+                      {isMlb && logoUrl ? (
+                        <img src={logoUrl} alt="" width={26} height={26} style={{ objectFit: 'contain', borderRadius: 3 }} />
+                      ) : (
+                        <TeamLogo team={teamData} size={26} />
+                      )}
+                    </span>
                     <span className={styles.teamsRowInfo}>
                       <span className={styles.teamsRowName}>{teamData.name}</span>
-                      <span className={styles.teamsRowConf}>{teamData.conference}</span>
+                      <span className={styles.teamsRowConf}>
+                        {isMlb ? `⚾ ${teamData.conference}` : teamData.conference}
+                      </span>
                     </span>
-                    <span className={`${styles.tierBadge} ${TIER_STYLE[teamData.oddsTier] || ''}`}>{teamData.oddsTier}</span>
+                    {teamData.oddsTier ? (
+                      <span className={`${styles.tierBadge} ${TIER_STYLE[teamData.oddsTier] || ''}`}>{teamData.oddsTier}</span>
+                    ) : isMlb ? (
+                      <span className={styles.tierBadge} style={{ color: '#b8293d', background: 'rgba(184,41,61,0.08)' }}>MLB</span>
+                    ) : null}
                     {is_primary ? (
                       <span className={styles.primaryStar} title="Primary team" aria-label="Primary team">★</span>
                     ) : (
@@ -2814,7 +2845,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                       title={`Remove ${teamData.name}`}
                     >×</button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
