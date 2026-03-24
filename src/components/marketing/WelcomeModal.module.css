@@ -114,6 +114,63 @@
   filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.25));
 }
 
+/* Dual mascot layout for multi-sport hero */
+.heroDualMascot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.heroMascotLeft,
+.heroMascotRight {
+  width: 100px;
+  height: auto;
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.20));
+}
+.heroMascotLeft { transform: scaleX(-1); }
+.heroLogoCenter {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.85;
+}
+
+/* Dual feature cards (Step 3) */
+.dualFeatureCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.dualCard {
+  padding: 16px 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dualCardIcon {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: rgba(60, 121, 180, 0.08);
+  color: var(--color-primary, #3c79b4);
+}
+.dualCardTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+.dualCardDesc {
+  font-size: 0.70rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
 .body {
   padding: 20px 28px 8px;
   display: flex;
@@ -497,6 +554,13 @@
 
   .heroVisual { padding: 20px 16px 12px; }
   .heroMascot { width: 110px; }
+  .heroMascotLeft, .heroMascotRight { width: 75px; }
+  .heroLogoCenter { height: 28px; }
+  .heroDualMascot { gap: 8px; }
+  .dualFeatureCards { grid-template-columns: 1fr; gap: 8px; }
+  .dualCard { padding: 12px 12px; }
+  .dualCardTitle { font-size: 0.74rem; }
+  .dualCardDesc { font-size: 0.66rem; }
 
   .body { padding: 16px 20px 6px; gap: 8px; }
   .headline { font-size: 1.4rem; }

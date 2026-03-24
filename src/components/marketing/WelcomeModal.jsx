@@ -225,19 +225,24 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
 
         <div className={styles.scroller}>
 
-          {/* ════ Step 1: Hero ════ */}
+          {/* ════ Step 1: Hero — multi-sport positioning ════ */}
           {step === 1 && (
             <div className={styles.stepContent} aria-label="Step 1 of 4">
               <div className={styles.heroVisual}>
-                <img src="/mascot.png" alt="" className={styles.heroMascot} loading="eager" />
+                <div className={styles.heroDualMascot}>
+                  <img src="/mascot.png" alt="Basketball Maximus" className={styles.heroMascotLeft} loading="eager" />
+                  <img src="/maximus-logo.png" alt="Maximus Sports" className={styles.heroLogoCenter}
+                    onError={(e) => { e.target.style.display = 'none'; }} />
+                  <img src="/mascot-mlb.png" alt="Baseball Maximus" className={styles.heroMascotRight} loading="eager" />
+                </div>
               </div>
               <div className={styles.body}>
-                <h2 className={styles.headline}>Own the Board</h2>
+                <h2 className={styles.headline}>Your new favorite sports intelligence app</h2>
                 <p className={styles.subtitle}>
-                  Picks, team intel, and matchup edges — all in one place.
+                  Real-time team intel, model-driven picks, and market edges — all in one place.
                 </p>
                 <p className={styles.subtitleSmall}>
-                  Built for fans who want more than scores.
+                  Track your teams. Spot value early. Stay ahead of the game.
                 </p>
               </div>
             </div>
@@ -250,7 +255,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
                 <div className={styles.featureHeader}>
                   <h2 className={styles.featureHeadline}>See the Game Before It Happens</h2>
                   <p className={styles.featureSubtitle}>
-                    Track every matchup with Team Intel, ATS trends, and AI-powered picks.
+                    Predict outcomes with model-backed signals, matchup intel, and real-time data.
                   </p>
                   <p className={styles.featureSupport}>
                     Know who&#8217;s trending, who&#8217;s overvalued, and where the edge is before tip-off.
@@ -284,34 +289,33 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
             </div>
           )}
 
-          {/* ════ Step 3: Bracketology ════ */}
+          {/* ════ Step 3: Bracketology + MLB Season Intelligence ════ */}
           {step === 3 && (
             <div className={styles.stepContent} aria-label="Step 3 of 4">
               <div className={styles.featureBody}>
                 <div className={styles.featureHeader}>
-                  <h2 className={styles.featureHeadline}>Build Smarter Brackets</h2>
+                  <h2 className={styles.featureHeadline}>Stay Ahead of the Curve</h2>
                   <p className={styles.featureSubtitle}>
-                    Use Maximus projections to build, compare, and stress-test your bracket.
-                  </p>
-                  <p className={styles.featureSupport}>
-                    Spot upset opportunities early and see how your bracket stacks up before lock.
+                    Deep intelligence layers across college basketball and MLB.
                   </p>
                 </div>
 
-                <div className={styles.bracketVisual}>
-                  <ProductImage src={HERO_BRACKET} alt="Bracketology">
-                    <div className={styles.bracketPlaceholder}>
-                      <BracketIcon />
-                      <span>Bracketology</span>
-                    </div>
-                  </ProductImage>
+                <div className={styles.dualFeatureCards}>
+                  <div className={styles.dualCard}>
+                    <div className={styles.dualCardIcon}><BracketIcon /></div>
+                    <h3 className={styles.dualCardTitle}>Bracketology</h3>
+                    <p className={styles.dualCardDesc}>
+                      Simulate the tournament, compare picks vs Maximus, and find edges before tip-off.
+                    </p>
+                  </div>
+                  <div className={styles.dualCard}>
+                    <div className={styles.dualCardIcon}><ChartIcon /></div>
+                    <h3 className={styles.dualCardTitle}>MLB Season Intelligence</h3>
+                    <p className={styles.dualCardDesc}>
+                      Projected wins, team outlooks, and betting edges across all 30 teams.
+                    </p>
+                  </div>
                 </div>
-
-                <ul className={styles.bulletList}>
-                  <li className={styles.bullet}><TargetIcon /><span>Model-driven picks for every round</span></li>
-                  <li className={styles.bullet}><ChartIcon /><span>Compare your bracket vs Maximus</span></li>
-                  <li className={styles.bullet}><BracketIcon /><span>Spot upset opportunities early</span></li>
-                </ul>
               </div>
             </div>
           )}
@@ -322,7 +326,7 @@ export default function WelcomeModal({ open, onClose, onSignup, onExplore }) {
               <div className={styles.ctaBody}>
                 <h2 className={styles.ctaHeadline}>Make It Yours</h2>
                 <p className={styles.ctaSubtitle}>
-                  Follow your teams, get custom intel, and stay ahead all season long.
+                  Follow your teams, customize alerts, and get intelligence tailored to you — from March Madness to the MLB season.
                 </p>
 
                 <div className={styles.valueProps}>
