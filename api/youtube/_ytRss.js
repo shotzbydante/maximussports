@@ -212,3 +212,54 @@ export async function ytRssSearch({ q, debug = false, sport = 'basketball' }) {
   // All attempts exhausted (only via HTTP 400 on all simplified queries)
   throw lastError ?? new Error(`ytRssSearch: all attempts exhausted for q="${q}"`);
 }
+
+/* ── Channel-based RSS feeds (ALWAYS work, zero quota) ──────────────────── */
+
+const MBB_CHANNELS = [
+  { id: 'UCVZiLs2NFJE0KbZ40pbJyiQ', name: 'MandyAndTaska' },      // CBB highlights
+  { id: 'UCIALMKvObZNtJ68-rmLjb3A', name: 'Bleacher Report' },
+  { id: 'UCPDis9pjXuqyI7RYLJ-TTSA', name: 'CBS Sports' },
+  { id: 'UCsLQnRP1I-EG8lZxSaIjJQA', name: 'FOX Sports' },
+  { id: 'UC0vouNVdefSO0gTO-JB3dzQ', name: 'The Athletic' },
+];
+
+/**
+ * Fetch latest videos from known men's basketball YouTube channels via RSS.
+ * Channel feeds NEVER return 400 — they always serve XML for public channels.
+ * Returns items in the same normalized shape as ytRssSearch.
+ *
+ * @param {{ debug?: boolean, limit?: number }} opts
+ * @returns {Promise<Array>}
+ */
+export async function fetchChannelRssFeeds({ debug = false, limit = 20 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
+
+  try {
+    const results = await Promise.allSettled(
+      MBB_CHANNELS.map(async (ch) => {
+        const url = `${YT_RSS_BASE}?channel_id=${ch.id}`;
+        if (debug) console.log(`[ytRss] channel feed: ${ch.name} (${ch.id})`);
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'MaximusSports/1.0 (+https://maximussports.ai)' },
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          if (debug) console.log(`[ytRss] channel ${ch.name} HTTP ${res.status}`);
+          return [];
+        }
+        const xml = await res.text();
+        return parseYtRssXml(xml);
+      })
+    );
+
+    const allItems = results
+      .filter((r) => r.status === 'fulfilled')
+      .flatMap((r) => r.value);
+
+    if (debug) console.log(`[ytRss] channel feeds total: ${allItems.length} items from ${MBB_CHANNELS.length} channels`);
+    return allItems.slice(0, limit);
+  } finally {
+    clearTimeout(timer);
+  }
+}

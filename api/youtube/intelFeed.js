@@ -16,7 +16,7 @@
 
 import { TEAMS } from '../../data/teams.js';
 import { ytSearch, ytVideosDetails, scoreItem, classifyBasketballItem, isQuotaExhausted, parseISO8601Duration } from './_yt.js';
-import { ytRssSearch, safeRssQuery } from './_ytRss.js';
+import { ytRssSearch, safeRssQuery, fetchChannelRssFeeds } from './_ytRss.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { CONF_NETWORK_MAP } from './_conferenceNetworks.js';
 
@@ -163,7 +163,7 @@ export default async function handler(req, res) {
       items = await fetchFromRss(debug, conference);
       apiPath = 'rss_fallback_breaker';
     } catch (rssErr) {
-      if (debug) console.log(`[intelFeed] RSS fallback FAILED (breaker): ${rssErr.message}`);
+      if (debug) console.log(`[intelFeed] RSS search FAILED (breaker): ${rssErr.message}`);
     }
   } else {
     try {
@@ -174,7 +174,24 @@ export default async function handler(req, res) {
       try {
         items = await fetchFromRss(debug, conference);
         apiPath = 'rss_fallback';
-      } catch {}
+      } catch (rssErr) {
+        if (debug) console.log(`[intelFeed] RSS search FAILED: ${rssErr.message}`);
+      }
+    }
+  }
+
+  // Channel-based RSS fallback — always works, never returns 400
+  if (!items || items.length === 0) {
+    try {
+      if (debug) console.log('[intelFeed] trying channel RSS feeds (reliable fallback)');
+      const channelItems = await fetchChannelRssFeeds({ debug });
+      const channelProcessed = processItems(channelItems, debug);
+      if (channelProcessed.length > 0) {
+        items = channelProcessed;
+        apiPath = 'channel_rss';
+      }
+    } catch (chErr) {
+      if (debug) console.log(`[intelFeed] channel RSS FAILED: ${chErr.message}`);
     }
   }
 
