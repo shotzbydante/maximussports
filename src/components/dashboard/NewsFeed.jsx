@@ -81,7 +81,14 @@ export default function NewsFeed({
     const stale = getStaleHomeFeedVideos();
     return Array.isArray(stale) && stale.length > 0 ? stale.filter(isLikelyMensVideo) : [];
   });
-  const [videosLoading, setVideosLoading] = useState(false);
+  const [videosLoading, setVideosLoading] = useState(() => {
+    // Start in loading state if we have no cached videos — prevents flash of "No videos"
+    if (mode === 'headlines') return false;
+    const live = getValidCache(VIDEO_CACHE_KEY);
+    if (live?.length > 0) return false;
+    const stale = getStaleHomeFeedVideos();
+    return !(Array.isArray(stale) && stale.length > 0);
+  });
   const [videosError, setVideosError] = useState(false);
   const [videoApiStatus, setVideoApiStatus] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
@@ -94,9 +101,8 @@ export default function NewsFeed({
     if (mode === 'headlines') return;
     if (fetchInitiatedRef.current) return;
     fetchInitiatedRef.current = true;
-    // If we already have cached data, keep it displayed but still refresh in background
-    const hasCachedData = videoItems.length > 0;
-    if (!hasCachedData) setVideosLoading(true);
+    // videosLoading is already initialized correctly in useState —
+    // true when no cache, false when cache exists
     const controller = new AbortController();
     // Use intelFeed (circuit breaker + KV + RSS) instead of raw search proxy
     fetch(`/api/youtube/intelFeed`, { signal: controller.signal })
