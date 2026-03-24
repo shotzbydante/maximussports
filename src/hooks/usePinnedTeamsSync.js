@@ -75,7 +75,6 @@ export function usePinnedTeamsSync(user) {
         //    where a removed team reappears from stale localStorage.
         //    When server is empty (first-time auth), keep local pins and push up.
         const localSlugs = getPinnedTeams();
-        const localOnly = localSlugs.filter((s) => !new Set(serverSlugs).has(s));
 
         let merged;
         if (serverSlugs.length > 0) {
@@ -83,19 +82,27 @@ export function usePinnedTeamsSync(user) {
           // pins because they may have been removed on another device.
           merged = [...serverSlugs];
         } else {
-          // Server empty — keep local pins and push them up.
-          merged = localSlugs;
+          // Server empty — this is a new user or a user with no teams.
+          // Do NOT carry over stale local pins from a previous user session.
+          // Onboarding writes teams directly to user_teams in Supabase, so
+          // server-empty truly means no pinned teams for this user.
+          merged = [];
         }
 
-        // 3. Split by sport and hydrate unified v2 store
+        // 3. Split by sport and REPLACE unified v2 store
+        //    Full replace ensures stale pins from prior users are cleared.
         const ncaamSlugs = merged.filter(s => !_mlbSlugSet.has(s));
         const mlbSlugs = merged.filter(s => _mlbSlugSet.has(s));
 
-        // Write NCAAM to unified v2 (setPinnedTeams now routes through v2)
-        setPinnedTeams(ncaamSlugs);
+        // Write both sports to unified v2 (full replace, not additive)
+        try {
+          const UNIFIED_KEY = 'maximus-pinned-teams-v2';
+          const v2 = { ncaam: ncaamSlugs, mlb: mlbSlugs };
+          localStorage.setItem(UNIFIED_KEY, JSON.stringify(v2));
+        } catch { /* quota */ }
 
-        // Write MLB to unified v2
-        mlbSlugs.forEach(slug => addPinnedForSport('mlb', slug));
+        // Also update legacy NCAAM key for backward compat
+        setPinnedTeams(ncaamSlugs);
 
         // 3b. Seed prevSlugsRef so the write-through listener knows the current
         //     baseline. Without this, prevSlugsRef starts at [] and the first
@@ -103,23 +110,9 @@ export function usePinnedTeamsSync(user) {
         //     that should have been removed from user_teams.
         prevSlugsRef.current = merged;
 
-        // 4. Upsert local-only pins to user_teams ONLY when server was empty
-        //    (first-time authenticated session). When server has data, it is
-        //    canonical and local-only pins should not be pushed back.
-        if (localOnly.length > 0 && serverSlugs.length === 0) {
-          const rows = localOnly.map((slug) => ({
-            user_id: user.id,
-            team_slug: slug,
-            is_primary: false,
-            created_at: new Date().toISOString(),
-          }));
-          sb
-            .from('user_teams')
-            .upsert(rows, { onConflict: 'user_id,team_slug', ignoreDuplicates: true })
-            .then(({ error: upsertErr }) => {
-              if (upsertErr) track('pins_sync_error', { code: upsertErr.code ?? 'upsert_failed' });
-            });
-        }
+        // 4. Local-to-server push removed — onboarding writes directly to
+        //    user_teams via Supabase. Stale local pins from prior users should
+        //    never be pushed to a new user's server state.
 
         track('pins_sync_complete', {
           mergedCount: merged.length,
