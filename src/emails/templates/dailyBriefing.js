@@ -1,37 +1,25 @@
 /**
- * Daily Tournament Intel — premium editorial email template.
- * Sent at 6:00 AM PT.
+ * Daily NCAA Men's Basketball Briefing — premium editorial email.
+ * Sent at 6:00 AM PT via Vercel cron.
  *
- * Redesigned structure (matches Home page briefing quality):
- *   A. Top narrative briefing (shared intel source with Home)
- *   B. Prior day results recap (curated, upset-focused)
- *   C. Today's key matchups (forward-looking setup)
- *   D. Maximus Picks summary (aligned with IG picks card)
- *   E. User's pinned teams
- *   F. Bracketology CTA
+ * Redesigned structure:
+ *   1. Hero Header
+ *   2. Opening Narrative (round-aware, editorial)
+ *   3. Tournament Pulse (bracket snapshot)
+ *   4. Market & ATS Intelligence
+ *   5. Maximus's Picks (4-column: PE, ATS, Value, Totals)
+ *   6. Game Spotlights (2–3 key matchups)
+ *   7. News Digest ("What's Moving the Needle")
+ *   8. CTA
  *   Footer (via EmailShell)
  *
- * @param {object} data
- * @param {string}  [data.displayName]
- * @param {Array}   [data.scoresToday]
- * @param {Array}   [data.rankingsTop25]
- * @param {object}  [data.atsLeaders]
- * @param {Array}   [data.headlines]
- * @param {Array}   [data.pinnedTeams]
- * @param {Array}   [data.botIntelBullets]
- * @param {Array}   [data.modelSignals]
- * @param {object}  [data.tournamentMeta]
- * @param {string}  [data.narrativeParagraph]
- * @param {Array}   [data.priorDayResults]
- * @param {Array}   [data.todayUpcoming]
- * @param {string}  [data.picksSummary]
+ * Gmail iOS compatible: table layout, inline styles, no flex/grid.
  */
 
-import { EmailShell, heroBlock, sectionCard, sectionLabel, teamLogoImg } from '../EmailShell.js';
-import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
+import { EmailShell, heroBlock, sectionLabel } from '../EmailShell.js';
 import { renderEmailGameList } from '../../../api/_lib/emailGameCards.js';
 import { signalCard, buildSignalsFromPicks } from '../helpers/signalRows.js';
-import { isTournamentWeek, isPreTournament, getTournamentPhase } from '../tournamentWindow.js';
+import { isTournamentWeek, getTournamentPhase } from '../tournamentWindow.js';
 
 const TEXT_PRIMARY   = '#1a1a2e';
 const TEXT_SECONDARY = '#4a5568';
@@ -39,26 +27,52 @@ const TEXT_MUTED     = '#8a94a6';
 const ACCENT         = '#2d6ca8';
 const BORDER         = '#e8ecf0';
 const BRAND_DARK     = '#0f2440';
+const GREEN          = '#2d8a4e';
+const RED_ACCENT     = '#c05621';
+const FONT           = "'DM Sans',Arial,Helvetica,sans-serif";
+
+/* ═══════════════════════════════════════════════════════════════
+   SUBJECT LINE
+   ═══════════════════════════════════════════════════════════════ */
 
 export function getSubject(data = {}) {
   const name = data.displayName ? data.displayName.split(' ')[0] : null;
-  const dow = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  if (isTournamentWeek()) {
-    if (name) return `${name}, tournament intel for ${dow}`;
-    return `March Madness briefing — ${dow}`;
+  const phase = getTournamentPhase();
+  const phaseLabel = PHASE_LABELS[phase] || null;
+
+  if (phaseLabel) {
+    if (name) return `${name}, your ${phaseLabel} briefing is ready`;
+    return `${phaseLabel} Briefing — NCAA Men's Basketball`;
   }
-  if (name) return `${name}, here\u2019s your ${dow} hoops briefing`;
-  return `Your ${dow} college hoops briefing`;
+  const dow = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  if (name) return `${name}, your ${dow} hoops intel`;
+  return `Daily NCAA Men's Basketball Briefing`;
 }
+
+export function getPreviewText() {
+  const phase = getTournamentPhase();
+  if (phase === 'sweet_sixteen') return 'Sweet 16 tips today. The model has edges. Here\'s your briefing.';
+  if (phase === 'final_four') return 'Final Four is set. Model picks, bracket intel, and everything you need.';
+  if (isTournamentWeek()) return 'Tournament intel, model picks, and bracket edges — updated for today.';
+  return 'Picks, ATS trends, and matchup intel for today\'s college basketball slate.';
+}
+
+const PHASE_LABELS = {
+  pre_tournament: 'Selection Sunday',
+  first_round: 'NCAA Tournament',
+  sweet_sixteen: 'Sweet 16',
+  final_four: 'Final Four',
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER HTML
+   ═══════════════════════════════════════════════════════════════ */
 
 export function renderHTML(data = {}) {
   const {
     displayName,
-    scoresToday = [],
-    rankingsTop25 = [],
     atsLeaders = {},
     headlines = [],
-    pinnedTeams = [],
     botIntelBullets = [],
     modelSignals = [],
     tournamentMeta = {},
@@ -68,374 +82,126 @@ export function renderHTML(data = {}) {
     picksSummary = '',
   } = data;
 
-  const firstName = displayName ? displayName.split(' ')[0] : null;
+  const firstName = displayName ? displayName.split(' ')[0] : 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const greetingName = firstName || 'there';
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-
-  const gameCount = scoresToday.length;
   const upcomingCount = todayUpcoming.length;
   const bestAts = atsLeaders.best || [];
+  const worstAts = atsLeaders.worst || [];
 
   const showTournament = isTournamentWeek();
-  const showPreTournament = isPreTournament();
   const phase = getTournamentPhase();
 
-  // ── A. HERO + NARRATIVE BRIEFING ───────────────────────────
-  let heroLine, introParagraph;
-  if (showPreTournament) {
-    heroLine = 'March Madness Bracket Is Set';
-    introParagraph = `Good morning, ${greetingName}. The NCAA tournament field is finalized and early model signals are already surfacing edges. Here\u2019s your intel.`;
-  } else if (showTournament && phase === 'first_round') {
-    if (dayOfWeek === 'Monday') {
-      heroLine = 'Tournament Weekend Recap \u2014 Bracket Update';
-      introParagraph = `Good morning, ${greetingName}. What a weekend in the NCAA tournament. Here\u2019s a recap of the biggest results, bracket shakeups, and what\u2019s next.`;
-    } else if (dayOfWeek === 'Tuesday' || dayOfWeek === 'Wednesday') {
-      heroLine = 'Between Rounds \u2014 Next Slate Preview';
-      introParagraph = `Good morning, ${greetingName}. The bracket resets. Teams are preparing for the next round and the model is already flagging edges. Here\u2019s what to know.`;
-    } else {
-      heroLine = `Tournament Game Day \u2014 ${upcomingCount > 0 ? `${upcomingCount} Games` : (gameCount > 0 ? `${gameCount} Games` : 'March Madness Continues')}`;
-      introParagraph = `Good morning, ${greetingName}. Tournament action continues today. Maximus is tracking every game and updating edges in real time.`;
-    }
-  } else if (showTournament && phase === 'sweet_sixteen') {
-    heroLine = upcomingCount > 0
-      ? `Sweet 16 / Elite Eight \u2014 ${upcomingCount} Games Today`
-      : 'Sweet 16 / Elite Eight \u2014 Tournament Intel';
-    introParagraph = `Good morning, ${greetingName}. We\u2019re deep in the tournament now. Every game matters for the bracket. Here\u2019s your intel.`;
-  } else if (showTournament && phase === 'final_four') {
-    heroLine = 'Final Four \u2014 The Stage Is Set';
-    introParagraph = `Good morning, ${greetingName}. The Final Four is here. The model has its edge. Let\u2019s break down the biggest games in college basketball.`;
-  } else if (showTournament) {
-    heroLine = 'Tournament Day \u2014 Model Signals Active';
-    introParagraph = `Good morning, ${greetingName}. The tournament is live. Maximus is tracking every game and updating edges in real time.`;
-  } else if (gameCount > 0) {
-    heroLine = 'What you need to know before tonight\u2019s games.';
-    introParagraph = `Good morning, ${greetingName}. ${gameCount} game${gameCount !== 1 ? 's' : ''} on today\u2019s slate. Here\u2019s what Maximus Sports is watching.`;
+  /* ── 1. HERO HEADER ────────────────────────────────────────── */
+  const heroLine = 'Daily NCAA Men\u2019s Basketball Briefing';
+
+  /* ── 2. OPENING NARRATIVE ──────────────────────────────────── */
+  let openingParagraph;
+  if (narrativeParagraph && narrativeParagraph.length > 80) {
+    // Use the KV-cached LLM narrative from the Home briefing
+    openingParagraph = narrativeParagraph;
   } else {
-    heroLine = 'Your daily hoops intel.';
-    introParagraph = `Good morning, ${greetingName}. Light slate today \u2014 Maximus Sports is staying disciplined. Here\u2019s the intel that matters.`;
+    openingParagraph = buildDynamicOpening(firstName, phase, dayOfWeek, upcomingCount, priorDayResults);
   }
 
-  // Extended narrative from Home page briefing source (KV cache)
-  let narrativeBlock = '';
-  if (narrativeParagraph && narrativeParagraph.length > 50) {
-    const cleaned = narrativeParagraph
-      .replace(/\n{2,}/g, '</p><p style="margin:0 0 10px;font-size:14px;color:#4a5568;line-height:1.65;font-family:\'DM Sans\',Arial,sans-serif;">')
-      .replace(/\n/g, '<br/>');
-    narrativeBlock = `
+  const openingHtml = `
 <tr>
-  <td style="padding:0 24px 16px;" class="section-td">
-    <p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.65;font-family:'DM Sans',Arial,sans-serif;">
-      ${cleaned}
+  <td style="padding:14px 24px 18px;" class="intro-td">
+    <p style="margin:0;font-size:15px;color:${TEXT_PRIMARY};line-height:1.72;font-weight:400;font-family:${FONT};">
+      ${openingParagraph}
     </p>
   </td>
 </tr>`;
+
+  /* ── 3. TOURNAMENT PULSE ───────────────────────────────────── */
+  let tournamentPulseHtml = '';
+  if (showTournament) {
+    tournamentPulseHtml = buildTournamentPulse(tournamentMeta, priorDayResults);
   }
 
-  // Tournament storyline card (when no full narrative available)
-  let tournamentStoryline = '';
-  if (showTournament && !narrativeBlock) {
-    let storyTitle, storyHeadline, storyDefault;
-    if (showPreTournament) {
-      storyTitle = 'TOURNAMENT PREVIEW';
-      storyHeadline = 'Bracket Intel';
-      storyDefault = 'The bracket is locked in. The model has scanned every region and is flagging edges across all four quadrants.';
-    } else if (phase === 'first_round') {
-      storyTitle = dayOfWeek === 'Monday' ? 'WEEKEND RECAP' : 'TOURNAMENT UPDATE';
-      storyHeadline = dayOfWeek === 'Monday' ? 'Weekend Tournament Recap' : 'Live Tournament Intel';
-      storyDefault = 'Tournament games are live. Maximus is tracking results and adjusting model edges after every game.';
-    } else if (phase === 'sweet_sixteen') {
-      storyTitle = 'SWEET 16 / ELITE EIGHT';
-      storyHeadline = 'Deep Tournament Intel';
-      storyDefault = 'The field has narrowed significantly. Every remaining game has bracket-defining stakes.';
-    } else if (phase === 'final_four') {
-      storyTitle = 'FINAL FOUR';
-      storyHeadline = 'Final Four Intel';
-      storyDefault = 'Four teams remain. The model has its final reads. This is the biggest stage in college basketball.';
-    } else {
-      storyTitle = 'TOURNAMENT UPDATE';
-      storyHeadline = 'Tournament Intel';
-      storyDefault = 'The NCAA tournament continues. Maximus is tracking every game and updating edges in real time.';
-    }
+  /* ── 4. MARKET & ATS INTELLIGENCE ──────────────────────────── */
+  const marketIntelHtml = buildMarketIntel(bestAts, worstAts, botIntelBullets);
 
-    tournamentStoryline = sectionCard({
-      pillLabel: storyTitle,
-      pillType: 'intel',
-      headline: storyHeadline,
-      body: tournamentMeta.storyline || storyDefault,
-    });
-  }
+  /* ── 5. MAXIMUS'S PICKS ────────────────────────────────────── */
+  const picksHtml = buildPicksSection(modelSignals, picksSummary);
 
-  // Maximus Says (bot intel bullets)
-  let botIntelSection = '';
-  if (botIntelBullets.length > 0) {
-    const bullets = botIntelBullets.slice(0, 4).map(b =>
-      `<tr>
-        <td valign="top" style="width:18px;color:${ACCENT};font-size:14px;padding-top:1px;font-family:'DM Sans',Arial,sans-serif;">&bull;</td>
-        <td valign="top" style="font-size:14px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,sans-serif;padding-bottom:8px;">${b}</td>
-      </tr>`
-    ).join('');
-    botIntelSection = `
-<tr>
-  <td style="padding:0 24px 14px;" class="section-td">
-    <div style="margin-bottom:10px;">${sectionLabel('MAXIMUS SAYS')}</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      ${bullets}
-    </table>
-  </td>
-</tr>`;
-  }
-
-  // ── B. PRIOR DAY RESULTS RECAP ─────────────────────────────
-  let resultsRecapSection = '';
-  if (priorDayResults.length > 0) {
-    const meaningful = priorDayResults.filter(g => g.hasScore).slice(0, 6);
-    if (meaningful.length > 0) {
-      const resultsHtml = renderEmailGameList(meaningful, { max: 6, compact: true });
-      const recapIntro = meaningful.length === 1
-        ? 'Here\u2019s the key result from yesterday\u2019s action:'
-        : `${meaningful.length} results from yesterday that shaped the bracket:`;
-
-      resultsRecapSection = `
-${divider()}
-<tr>
-  <td style="padding:0 24px 4px;" class="section-td">
-    <div style="margin-bottom:4px;">${sectionLabel('RESULTS')}</div>
-    <p style="margin:0 0 8px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${recapIntro}</p>
-  </td>
-</tr>
-${resultsHtml}
-${spacer(4)}`;
-    }
-  }
-
-  // ── C. TODAY'S KEY MATCHUPS ────────────────────────────────
-  let todayMatchupsSection = '';
+  /* ── 6. GAME SPOTLIGHTS ────────────────────────────────────── */
+  let spotlightsHtml = '';
   if (todayUpcoming.length > 0) {
-    const upcomingHtml = renderEmailGameList(todayUpcoming, { max: 6, compact: true });
-    const matchupIntro = todayUpcoming.length === 1
-      ? '1 game on today\u2019s slate:'
-      : `${todayUpcoming.length} games on today\u2019s slate. Here are the matchups to watch:`;
-
-    todayMatchupsSection = `
-${divider()}
-<tr>
-  <td style="padding:0 24px 4px;" class="section-td">
-    <div style="margin-bottom:4px;">${sectionLabel('TODAY\u2019S GAMES')}</div>
-    <p style="margin:0 0 8px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${matchupIntro}</p>
-  </td>
-</tr>
-${upcomingHtml}
-${spacer(4)}`;
-  } else if (gameCount > 0 && priorDayResults.length === 0) {
-    const gameCardsHtml = renderEmailGameList(scoresToday, { max: 6, compact: true });
-    todayMatchupsSection = `
-${divider()}
-<tr>
-  <td style="padding:0 24px 4px;" class="section-td">
-    <div style="margin-bottom:4px;">${sectionLabel('TODAY\u2019S GAMES')}</div>
-    <p style="margin:0 0 8px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${gameCount} game${gameCount !== 1 ? 's' : ''} on the slate.</p>
-  </td>
-</tr>
-${gameCardsHtml}
-${spacer(4)}`;
+    spotlightsHtml = buildGameSpotlights(todayUpcoming.slice(0, 3));
+  } else if (priorDayResults.length > 0) {
+    const meaningful = priorDayResults.filter(g => g.hasScore).slice(0, 3);
+    if (meaningful.length > 0) {
+      spotlightsHtml = buildResultsRecap(meaningful);
+    }
   }
 
-  // ── D. MAXIMUS PICKS SUMMARY ───────────────────────────────
-  let picksSection = '';
-  const signals = modelSignals.length > 0
-    ? buildSignalsFromPicks(modelSignals, 5)
-    : [];
+  /* ── 7. NEWS DIGEST ────────────────────────────────────────── */
+  const newsHtml = buildNewsDigest(headlines);
 
-  if (signals.length > 0 || picksSummary) {
-    const signalCardHtml = signals.length > 0 ? signalCard(signals) : '';
-    const summaryHtml = picksSummary && !signalCardHtml
-      ? `<p style="margin:0;font-size:14px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,sans-serif;">${picksSummary}</p>`
-      : '';
-
-    picksSection = `
-${divider()}
-<tr>
-  <td style="padding:0 24px 4px;" class="section-td">
-    <div style="margin-bottom:10px;">${sectionLabel('MAXIMUS PICKS')}</div>
-    ${picksSummary ? `<p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">${picksSummary}</p>` : `<p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:'DM Sans',Arial,sans-serif;">Today\u2019s strongest signals:</p>`}
-  </td>
-</tr>
-${signalCardHtml ? `<tr><td style="padding:0 24px 14px;" class="section-td">${signalCardHtml}</td></tr>` : ''}
-${summaryHtml ? `<tr><td style="padding:0 24px 14px;" class="section-td">${summaryHtml}</td></tr>` : ''}`;
-  }
-
-  // ── ATS + Rankings (compact inline cards) ──────────────────
-  let atsBody = '';
-  if (bestAts.length > 0) {
-    const top = bestAts[0];
-    const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : '';
-    atsBody = `<strong style="color:${TEXT_PRIMARY};">${top.name || top.team || 'A team'}</strong> is the top ATS performer right now.${pct ? ` Covering at ${pct}.` : ''}`;
-  } else {
-    atsBody = 'No major ATS edges detected today. Patience is a strategy.';
-  }
-
-  let rankBody = '';
-  if (rankingsTop25.length > 0) {
-    const top3 = rankingsTop25.slice(0, 3).map((r, i) => `#${i + 1} ${r.teamName || r.name || r.team || 'Unknown'}`).join(', ');
-    rankBody = `Current top 3: ${top3}. The bubble is tightening.`;
-  } else {
-    rankBody = 'Rankings data is refreshing. Check the app for the latest AP Top 25.';
-  }
-
-  // ── E. PINNED TEAMS ────────────────────────────────────────
-  let pinnedSection = '';
-  if (pinnedTeams.length > 0) {
-    const pinnedRows = pinnedTeams.slice(0, 5).map(team => {
-      const teamSlug = team.slug || '';
-      const teamUrl = teamSlug ? `https://maximussports.ai/teams/${teamSlug}` : 'https://maximussports.ai';
-      const { gameInfo } = getTeamTodaySummary(team, scoresToday);
-      const logoHtml = teamLogoImg(team, 20);
-      return `<tr>
-  <td style="padding:8px 0;border-bottom:1px solid ${BORDER};">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      <tr>
-        <td valign="middle" style="width:26px;padding-right:8px;">${logoHtml}</td>
-        <td valign="middle">
-          <a href="${teamUrl}" style="font-size:14px;font-weight:600;color:${TEXT_PRIMARY};text-decoration:none;font-family:'DM Sans',Arial,sans-serif;">${team.name}</a>
-          <div style="margin-top:2px;font-size:12px;color:${TEXT_MUTED};">${gameInfo}</div>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>`;
-    }).join('');
-
-    pinnedSection = `
-${divider()}
-<tr>
-  <td style="padding:0 24px 14px;" class="section-td">
-    <div style="margin-bottom:8px;">${sectionLabel('YOUR TEAMS')}</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      ${pinnedRows}
-    </table>
-    <div style="margin-top:8px;">
-      <a href="https://maximussports.ai/teams" style="font-size:12px;color:${ACCENT};text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All team intel &rarr;</a>
-    </div>
-  </td>
-</tr>`;
-  }
-
-  // ── Headlines (compact, below pinned teams) ────────────────
-  let headlineSection = '';
-  if (headlines.length > 0) {
-    const headlineItems = headlines.slice(0, 4).map(h => {
-      const title = h.title || 'Breaking';
-      const source = h.source || '';
-      const link = h.link || 'https://maximussports.ai';
-      const pubDate = h.pubDate
-        ? new Date(h.pubDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-        : '';
-      return `<tr>
-  <td style="padding:8px 0;border-bottom:1px solid ${BORDER};">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      <tr>
-        <td>
-          <a href="${link}" style="font-size:14px;font-weight:600;color:${TEXT_PRIMARY};text-decoration:none;line-height:1.4;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${title}</a>
-          <div style="margin-top:3px;">
-            ${source ? `<span style="font-size:11px;color:${TEXT_MUTED};font-family:'DM Sans',Arial,sans-serif;">${source}</span>` : ''}
-            ${pubDate ? `<span style="font-size:11px;color:#b0b8c4;font-family:'DM Sans',Arial,sans-serif;"> &middot; ${pubDate}</span>` : ''}
-          </div>
-        </td>
-        <td align="right" valign="top" style="padding-left:12px;white-space:nowrap;">
-          <a href="${link}" style="font-size:12px;color:${ACCENT};text-decoration:none;font-weight:600;" target="_blank">Read &rarr;</a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>`;
-    }).join('');
-    headlineSection = `
-${divider()}
-<tr>
-  <td style="padding:0 24px 14px;" class="section-td">
-    <div style="margin-bottom:8px;">${sectionLabel('HEADLINES')}</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      ${headlineItems}
-    </table>
-  </td>
-</tr>`;
-  }
-
-  // ── F. BRACKETOLOGY CTA ────────────────────────────────────
+  /* ── 8. BRACKETOLOGY CTA ───────────────────────────────────── */
   const bracketCta = showTournament ? buildBracketologyCta() : '';
 
-  // ── ASSEMBLE ───────────────────────────────────────────────
-  const content = `
-${heroBlock({
-  line: heroLine,
-  sublabel: today,
-})}
-
-<tr>
-  <td style="padding:10px 24px 16px;" class="intro-td">
-    <p style="margin:0;font-size:15px;color:${TEXT_SECONDARY};line-height:1.65;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
-      ${introParagraph}
-    </p>
-  </td>
-</tr>
-
+  /* ── FINAL CTA ─────────────────────────────────────────────── */
+  const closingCtaHtml = `
 ${divider()}
-${spacer(6)}
+<tr>
+  <td style="padding:24px 24px 28px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:${BRAND_DARK};border-radius:10px;border-collapse:collapse;">
+      <tr>
+        <td style="padding:26px 24px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:20px;font-weight:800;color:#ffffff;font-family:${FONT};line-height:1.3;">
+            See full intel, live picks, and team breakdowns
+          </p>
+          <p style="margin:0 0 18px;font-size:13px;color:rgba(255,255,255,0.62);font-family:${FONT};">
+            Updated in real time throughout the day
+          </p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 auto;">
+            <tr>
+              <td align="center" bgcolor="#3C79B4" style="border-radius:6px;">
+                <a href="https://maximussports.ai"
+                   style="display:inline-block;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;font-family:${FONT};border-radius:6px;">
+                  Open Maximus Sports &rarr;
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
 
-${tournamentStoryline}
-
-${narrativeBlock}
-
-${botIntelSection}
-
-${resultsRecapSection}
-
-${todayMatchupsSection}
-
-${picksSection}
-
-${sectionCard({
-  pillLabel: 'ATS EDGE',
-  pillType: 'ats',
-  headline: 'Against the Spread',
-  body: atsBody,
-})}
-
-${sectionCard({
-  pillLabel: 'RANKINGS',
-  pillType: 'intel',
-  headline: 'AP Top 25',
-  body: rankBody,
-})}
-
-${pinnedSection}
-
-${headlineSection}
-
-${bracketCta}`;
-
-  const ctaLabel = showTournament
-    ? 'Explore tournament insights &rarr;'
-    : 'Explore full insights &rarr;';
+  /* ── ASSEMBLE ──────────────────────────────────────────────── */
+  const content = `
+${heroBlock({ line: heroLine, sublabel: today })}
+${openingHtml}
+${tournamentPulseHtml}
+${marketIntelHtml}
+${picksHtml}
+${spotlightsHtml}
+${newsHtml}
+${bracketCta}
+${closingCtaHtml}`;
 
   return EmailShell({
     content,
-    previewText: `Your Maximus Sports briefing for ${today} \u2014 ${showTournament ? 'tournament intel, model signals, and bracket edges.' : 'games, ATS leaders, and intel in one read.'}`,
-    ctaLabel,
+    previewText: getPreviewText(data),
+    ctaLabel: showTournament ? 'See tournament intel &rarr;' : 'See full intel &rarr;',
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER PLAIN TEXT
+   ═══════════════════════════════════════════════════════════════ */
 
 export function renderText(data = {}) {
   const {
     displayName,
-    scoresToday = [],
     atsLeaders = {},
     headlines = [],
-    botIntelBullets = [],
-    pinnedTeams = [],
     modelSignals = [],
-    tournamentMeta = {},
     narrativeParagraph = '',
     priorDayResults = [],
     todayUpcoming = [],
@@ -443,95 +209,42 @@ export function renderText(data = {}) {
   } = data;
   const name = displayName ? displayName.split(' ')[0] : 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const showTournament = isTournamentWeek();
-  const showPreTournament = isPreTournament();
 
   const lines = [
-    'MAXIMUS SPORTS \u2014 Daily Briefing',
+    'DAILY NCAA MEN\'S BASKETBALL BRIEFING',
     today,
     '',
-    `Good morning, ${name}. Here\u2019s your edge today.`,
+    `Good morning, ${name}. Here's your edge for today.`,
     '',
   ];
 
-  if (narrativeParagraph) {
-    lines.push(narrativeParagraph, '');
-  } else if (showTournament) {
-    lines.push(
-      showPreTournament ? 'TOURNAMENT PREVIEW' : 'TOURNAMENT UPDATE',
-      showPreTournament
-        ? 'The NCAA tournament bracket is set. Early model signals are surfacing.'
-        : 'Tournament games are underway. Model edges updating in real time.',
-      '',
-    );
-  }
-
-  if (botIntelBullets.length > 0) {
-    lines.push('MAXIMUS SAYS', ...botIntelBullets.slice(0, 4).map(b => `- ${b}`), '');
-  }
+  if (narrativeParagraph) lines.push(narrativeParagraph, '');
 
   if (priorDayResults.length > 0) {
     lines.push('RESULTS');
     for (const g of priorDayResults.slice(0, 6)) {
-      if (g.hasScore) {
-        lines.push(`- ${g.winner} ${g.winScore}, ${g.loser} ${g.loseScore}`);
-      }
+      if (g.hasScore) lines.push(`- ${g.winner} ${g.winScore}, ${g.loser} ${g.loseScore}`);
     }
     lines.push('');
   }
 
   if (todayUpcoming.length > 0) {
-    lines.push(`TODAY'S GAMES — ${todayUpcoming.length} game${todayUpcoming.length !== 1 ? 's' : ''}`);
-    for (const g of todayUpcoming.slice(0, 6)) {
-      lines.push(`- ${g.awayTeam || 'Away'} vs ${g.homeTeam || 'Home'}`);
-    }
+    lines.push(`TODAY'S GAMES — ${todayUpcoming.length} games`);
+    for (const g of todayUpcoming.slice(0, 6)) lines.push(`- ${g.awayTeam || 'Away'} vs ${g.homeTeam || 'Home'}`);
     lines.push('');
-  } else {
-    lines.push('WHAT TO WATCH', scoresToday.length > 0 ? `${scoresToday.length} games on the slate today.` : 'Light slate today.', '');
   }
 
-  if (picksSummary) {
-    lines.push('MAXIMUS PICKS', picksSummary, '');
-  } else if (modelSignals.length > 0) {
-    lines.push('MODEL PICKS', ...modelSignals.slice(0, 5).map(s =>
-      `- ${s.matchup || '?'}: ${s.edge || 'model edge'}`
-    ), '');
+  if (picksSummary) lines.push('MAXIMUS\'S PICKS', picksSummary, '');
+  else if (modelSignals.length > 0) {
+    lines.push('MAXIMUS\'S PICKS', ...modelSignals.slice(0, 5).map(s => `- ${s.matchup || '?'}: ${s.edge || 'model edge'}`), '');
   }
 
-  lines.push(
-    'ATS EDGE',
-    atsLeaders.best?.length > 0
-      ? `Top ATS performer: ${atsLeaders.best[0].name || atsLeaders.best[0].team}`
-      : 'No major ATS edges today.',
-    '',
-  );
-
-  if (pinnedTeams.length > 0) {
-    lines.push(
-      'YOUR TEAMS',
-      ...pinnedTeams.slice(0, 5).map(t => {
-        const { gameInfoText } = getTeamTodaySummary(t, scoresToday);
-        return `${t.name}: ${gameInfoText}`;
-      }),
-      '',
-    );
+  const bestAts = atsLeaders.best || [];
+  if (bestAts.length > 0) {
+    lines.push('MARKET & ATS', `Top ATS: ${bestAts[0].name || bestAts[0].team}`, '');
   }
 
-  if (headlines.length > 0) {
-    lines.push(
-      'HEADLINES',
-      ...headlines.slice(0, 4).map(h => `- ${h.title || 'No title'}`),
-      '',
-    );
-  }
-
-  if (showTournament) {
-    lines.push(
-      'BRACKETOLOGY',
-      'Build your bracket with Maximus -> https://maximussports.ai/bracketology',
-      '',
-    );
-  }
+  if (headlines.length > 0) lines.push('WHAT\'S MOVING THE NEEDLE', ...headlines.slice(0, 5).map(h => `- ${h.title || 'No title'}`), '');
 
   lines.push(
     'Open Maximus Sports -> https://maximussports.ai',
@@ -542,55 +255,301 @@ export function renderText(data = {}) {
   return lines.join('\n');
 }
 
-// ── Helpers ──
+/* ═══════════════════════════════════════════════════════════════
+   SECTION BUILDERS
+   ═══════════════════════════════════════════════════════════════ */
 
-function divider() {
+function buildDynamicOpening(firstName, phase, dayOfWeek, upcomingCount, priorDayResults) {
+  const upsets = priorDayResults.filter(g => g.isUpset || g.seedDiff >= 4).slice(0, 2);
+  const greeting = `Good morning, ${firstName}.`;
+
+  if (phase === 'sweet_sixteen') {
+    const base = `${greeting} The Sweet 16 tips off today, and the field is starting to separate into real contenders and chaos candidates.`;
+    if (upsets.length > 0) return `${base} We\u2019ve already seen top seeds fall. Here\u2019s what actually matters now.`;
+    return `${base} Every game from here is bracket-defining. Here\u2019s your edge.`;
+  }
+  if (phase === 'final_four') {
+    return `${greeting} The Final Four is set. Four teams, two games, and the model has its reads. This is the biggest weekend in college basketball \u2014 here\u2019s your briefing.`;
+  }
+  if (phase === 'first_round') {
+    if (dayOfWeek === 'Monday' || dayOfWeek === 'Tuesday') {
+      return `${greeting} The bracket resets after a wild weekend. Teams are preparing for the next round and the model is already flagging edges. Here\u2019s what to know before the next tip.`;
+    }
+    if (upcomingCount > 0) {
+      return `${greeting} ${upcomingCount} games on today\u2019s tournament slate. The model is tracking every line and surfacing edges in real time. Here\u2019s your intel.`;
+    }
+    return `${greeting} Tournament action continues. Maximus is updating edges after every game. Here\u2019s what matters.`;
+  }
+  if (phase === 'pre_tournament') {
+    return `${greeting} The bracket is set. Selection Sunday delivered, and the model has already scanned every region. Early edges are forming. Here\u2019s your briefing.`;
+  }
+  // Non-tournament
+  if (upcomingCount > 0) {
+    return `${greeting} ${upcomingCount} game${upcomingCount !== 1 ? 's' : ''} on today\u2019s slate. Here\u2019s what Maximus is watching and where the model sees value.`;
+  }
+  return `${greeting} Light slate today. Maximus is staying disciplined \u2014 here\u2019s the intel that matters.`;
+}
+
+/* ── 3. TOURNAMENT PULSE ─────────────────────────────────────── */
+
+function buildTournamentPulse(tournamentMeta, priorDayResults) {
+  const topSeeds = tournamentMeta.topSeeds || [];
+  const eliminated = tournamentMeta.eliminatedSeeds || [];
+  const cinderellas = tournamentMeta.cinderellas || [];
+  const bigUpset = priorDayResults.find(g => g.isUpset || g.seedDiff >= 6);
+
+  let pulseRows = '';
+
+  if (topSeeds.length > 0) {
+    pulseRows += pulseRow('\uD83C\uDFC6', 'Top Seeds Alive', topSeeds.slice(0, 4).join(', '));
+  }
+  if (eliminated.length > 0) {
+    pulseRows += pulseRow('\uD83D\uDEA8', 'Eliminated', eliminated.slice(0, 3).join(', '));
+  }
+  if (cinderellas.length > 0) {
+    pulseRows += pulseRow('\uD83D\uDD25', 'Cinderellas Still Dancing', cinderellas.join(', '));
+  }
+  if (bigUpset) {
+    const upsetText = bigUpset.winner
+      ? `${bigUpset.winner} over ${bigUpset.loser} ${bigUpset.winScore}\u2013${bigUpset.loseScore}`
+      : 'Major upset shook the bracket';
+    pulseRows += pulseRow('\u26A1', 'Biggest Upset', upsetText);
+  }
+
+  if (!pulseRows) return '';
+
+  return `
+${divider()}
+<tr>
+  <td style="padding:0 24px 6px;" class="section-td">
+    <div style="margin-bottom:12px;">${sectionLabel('TOURNAMENT PULSE')}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:#f9fafb;border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
+      ${pulseRows}
+    </table>
+  </td>
+</tr>
+${spacer(6)}`;
+}
+
+function pulseRow(emoji, label, value) {
   return `<tr>
-  <td style="padding:4px 24px;" class="divider-td">
-    <div style="height:1px;background-color:#e8ecf0;font-size:0;line-height:0;">&nbsp;</div>
+  <td style="padding:12px 16px;border-bottom:1px solid ${BORDER};">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td valign="top" style="width:28px;font-size:16px;padding-top:1px;">${emoji}</td>
+        <td>
+          <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${TEXT_MUTED};font-family:${FONT};">${label}</span>
+          <div style="font-size:14px;font-weight:600;color:${TEXT_PRIMARY};font-family:${FONT};margin-top:2px;">${value}</div>
+        </td>
+      </tr>
+    </table>
   </td>
 </tr>`;
 }
 
-function spacer(px = 8) {
-  return `<tr><td style="height:${px}px;font-size:0;line-height:0;" aria-hidden="true">&nbsp;</td></tr>`;
+/* ── 4. MARKET & ATS INTELLIGENCE ────────────────────────────── */
+
+function buildMarketIntel(bestAts, worstAts, botIntelBullets) {
+  const trends = [];
+
+  // ATS heaters
+  if (bestAts.length > 0) {
+    const top = bestAts[0];
+    const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : '';
+    trends.push({
+      emoji: '\uD83D\uDD25',
+      title: `${top.name || top.team} is on an ATS heater`,
+      body: pct ? `Covering at ${pct}. The market may not have caught up yet.` : 'Covering consistently. Worth monitoring in upcoming matchups.',
+    });
+  }
+
+  // ATS cold teams
+  if (worstAts.length > 0) {
+    const bottom = worstAts[0];
+    const pct = bottom.pct != null ? `${Math.round(bottom.pct * 100)}%` : '';
+    trends.push({
+      emoji: '\u26A0\uFE0F',
+      title: `${bottom.name || bottom.team} is overvalued`,
+      body: pct ? `Covering at only ${pct}. The public may be inflating this line.` : 'Struggling to cover. Bettors should proceed with caution.',
+    });
+  }
+
+  // Bot intel bullets as additional trends
+  if (botIntelBullets.length > 0 && trends.length < 4) {
+    for (const bullet of botIntelBullets.slice(0, 4 - trends.length)) {
+      trends.push({ emoji: '\uD83D\uDCCA', title: bullet, body: '' });
+    }
+  }
+
+  if (trends.length === 0) return '';
+
+  const rows = trends.map(t => `
+<tr>
+  <td style="padding:12px 16px;border-bottom:1px solid ${BORDER};">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td valign="top" style="width:28px;font-size:16px;padding-top:1px;">${t.emoji}</td>
+        <td>
+          <span style="font-size:14px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">${t.title}</span>
+          ${t.body ? `<div style="font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};margin-top:3px;line-height:1.5;">${t.body}</div>` : ''}
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`).join('');
+
+  return `
+${divider()}
+<tr>
+  <td style="padding:0 24px 6px;" class="section-td">
+    <div style="margin-bottom:12px;">${sectionLabel('MARKET & ATS TRENDS')}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:#f9fafb;border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
+      ${rows}
+    </table>
+  </td>
+</tr>
+${spacer(6)}`;
 }
 
-/**
- * Bracketology CTA block — premium email-safe version of the
- * in-app bracketology promo card. Uses the same dark brand treatment
- * (dark navy background, white text, accent CTA button).
- */
+/* ── 5. MAXIMUS'S PICKS ──────────────────────────────────────── */
+
+function buildPicksSection(modelSignals, picksSummary) {
+  const signals = modelSignals.length > 0 ? buildSignalsFromPicks(modelSignals, 6) : [];
+
+  if (signals.length === 0 && !picksSummary) return '';
+
+  const signalHtml = signals.length > 0 ? signalCard(signals) : '';
+
+  return `
+${divider()}
+<tr>
+  <td style="padding:0 24px 6px;" class="section-td">
+    <div style="margin-bottom:10px;">${sectionLabel("MAXIMUS'S PICKS")}</div>
+    ${picksSummary ? `<p style="margin:0 0 12px;font-size:14px;font-weight:500;color:${TEXT_SECONDARY};line-height:1.6;font-family:${FONT};">${picksSummary}</p>` : ''}
+  </td>
+</tr>
+${signalHtml ? `<tr><td style="padding:0 24px 14px;" class="section-td">${signalHtml}</td></tr>` : ''}
+${spacer(4)}`;
+}
+
+/* ── 6. GAME SPOTLIGHTS ──────────────────────────────────────── */
+
+function buildGameSpotlights(games) {
+  if (games.length === 0) return '';
+
+  const gamesHtml = renderEmailGameList(games, { max: 3, compact: true });
+
+  return `
+${divider()}
+<tr>
+  <td style="padding:0 24px 6px;" class="section-td">
+    <div style="margin-bottom:8px;">${sectionLabel("TODAY'S KEY MATCHUPS")}</div>
+    <p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:${FONT};">
+      ${games.length} game${games.length !== 1 ? 's' : ''} on today\u2019s slate. Here are the matchups Maximus is watching:
+    </p>
+  </td>
+</tr>
+${gamesHtml}
+${spacer(6)}`;
+}
+
+function buildResultsRecap(results) {
+  if (results.length === 0) return '';
+
+  const resultsHtml = renderEmailGameList(results, { max: 4, compact: true });
+
+  return `
+${divider()}
+<tr>
+  <td style="padding:0 24px 6px;" class="section-td">
+    <div style="margin-bottom:8px;">${sectionLabel('RESULTS')}</div>
+    <p style="margin:0 0 10px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;font-family:${FONT};">
+      ${results.length} result${results.length !== 1 ? 's' : ''} that shaped the bracket:
+    </p>
+  </td>
+</tr>
+${resultsHtml}
+${spacer(6)}`;
+}
+
+/* ── 7. NEWS DIGEST ──────────────────────────────────────────── */
+
+function buildNewsDigest(headlines) {
+  if (headlines.length === 0) return '';
+
+  const items = headlines.slice(0, 5).map((h, i) => {
+    const title = h.title || 'Breaking';
+    const source = h.source || '';
+    const link = h.link || 'https://maximussports.ai';
+    const isLast = i === Math.min(headlines.length, 5) - 1;
+
+    return `<tr>
+  <td style="padding:12px 16px;${isLast ? '' : `border-bottom:1px solid ${BORDER};`}">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td>
+          <a href="${link}" style="font-size:14px;font-weight:600;color:${TEXT_PRIMARY};text-decoration:none;line-height:1.45;font-family:${FONT};display:block;" target="_blank">${title}</a>
+          <div style="margin-top:4px;">
+            ${source ? `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${ACCENT};background:#eef4fb;border-radius:3px;padding:2px 6px;font-family:${FONT};">${source}</span>` : ''}
+          </div>
+        </td>
+        <td align="right" valign="top" style="padding-left:12px;white-space:nowrap;">
+          <a href="${link}" style="font-size:12px;color:${ACCENT};text-decoration:none;font-weight:600;font-family:${FONT};" target="_blank">Read &rarr;</a>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+  }).join('');
+
+  return `
+${divider()}
+<tr>
+  <td style="padding:0 24px 6px;" class="section-td">
+    <div style="margin-bottom:12px;">${sectionLabel("WHAT'S MOVING THE NEEDLE")}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:#f9fafb;border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
+      ${items}
+    </table>
+  </td>
+</tr>
+${spacer(6)}`;
+}
+
+/* ── BRACKETOLOGY CTA ────────────────────────────────────────── */
+
 function buildBracketologyCta() {
   return `
 ${divider()}
 <tr>
-  <td style="padding:12px 24px 16px;" class="section-td">
+  <td style="padding:16px 24px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background-color:${BRAND_DARK};border-radius:8px;border-collapse:collapse;overflow:hidden;">
+           style="background-color:${BRAND_DARK};border-radius:10px;border-collapse:collapse;">
       <tr>
         <td style="padding:24px 22px;">
-          <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6EB3E8;font-family:'DM Sans',Arial,sans-serif;line-height:1.4;">
+          <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6EB3E8;font-family:${FONT};">
             March Madness 2026
           </p>
-          <p style="margin:0 0 8px;font-size:18px;font-weight:800;color:#ffffff;line-height:1.25;letter-spacing:-0.01em;font-family:'DM Sans',Arial,sans-serif;">
+          <p style="margin:0 0 8px;font-size:18px;font-weight:800;color:#ffffff;line-height:1.28;font-family:${FONT};">
             Build Your Bracket with Maximus
           </p>
-          <p style="margin:0 0 18px;font-size:13px;color:rgba(255,255,255,0.72);line-height:1.55;font-family:'DM Sans',Arial,sans-serif;">
-            Region-by-region picks, upset probabilities, and data-driven predictions for every matchup. Use the model or compete against it.
+          <p style="margin:0 0 18px;font-size:13px;color:rgba(255,255,255,0.68);line-height:1.55;font-family:${FONT};">
+            Region-by-region picks, upset probabilities, and data-driven predictions. Use the model or compete against it.
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
             <tr>
-              <td align="center" bgcolor="#3C79B4" style="border-radius:6px;background-color:#3C79B4;">
+              <td align="center" bgcolor="#3C79B4" style="border-radius:6px;">
                 <a href="https://maximussports.ai/bracketology"
-                   style="display:inline-block;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:10px 22px;letter-spacing:0.02em;font-family:'DM Sans',Arial,sans-serif;border-radius:6px;line-height:1.3;">
+                   style="display:inline-block;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:10px 22px;font-family:${FONT};border-radius:6px;">
                   Complete Your Bracket &rarr;
                 </a>
               </td>
               <td style="width:10px;">&nbsp;</td>
               <td align="center" style="border-radius:6px;border:1px solid rgba(74,144,217,0.4);">
                 <a href="https://maximussports.ai/bracketology"
-                   style="display:inline-block;color:#6EB3E8;font-size:13px;font-weight:600;text-decoration:none;padding:9px 18px;letter-spacing:0.01em;font-family:'DM Sans',Arial,sans-serif;border-radius:6px;line-height:1.3;">
+                   style="display:inline-block;color:#6EB3E8;font-size:13px;font-weight:600;text-decoration:none;padding:9px 18px;font-family:${FONT};border-radius:6px;">
                   Beat the Model
                 </a>
               </td>
@@ -601,4 +560,18 @@ ${divider()}
     </table>
   </td>
 </tr>`;
+}
+
+/* ── LAYOUT HELPERS ──────────────────────────────────────────── */
+
+function divider() {
+  return `<tr>
+  <td style="padding:6px 24px;" class="divider-td">
+    <div style="height:1px;background-color:${BORDER};font-size:0;line-height:0;">&nbsp;</div>
+  </td>
+</tr>`;
+}
+
+function spacer(px = 8) {
+  return `<tr><td style="height:${px}px;font-size:0;line-height:0;" aria-hidden="true">&nbsp;</td></tr>`;
 }
