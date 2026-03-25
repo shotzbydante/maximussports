@@ -115,16 +115,18 @@ export async function renderVideo(opts) {
     footageTotalFrames = frames;
   }
 
-  const brandedIntroFrames = Math.round(1.2 * fps);
+  const brandedIntroFrames = Math.round(1.7 * fps); // extended from 1.2s for headline readability
   const outroFrames = Math.round(2.2 * fps);
   const totalFrames = brandedIntroFrames + footageTotalFrames + outroFrames;
 
   const hookText = getHookBoostText(hookStyle);
 
+  // Load sport-specific mascot: MLB uses baseball mascot, NCAAM uses basketball
+  const mascotSrc = sportContext === 'mlb' ? '/mascot-mlb.png' : '/mascot.png';
   const [logo, video, robotImage] = await Promise.all([
     loadLogo(brand.logo),
     loadSourceVideo(sourceUrl),
-    loadRobotImage(),
+    loadRobotImage(mascotSrc),
   ]);
 
   const canvas = document.createElement('canvas');
@@ -294,6 +296,8 @@ export async function renderVideo(opts) {
               textColor,
               bgColor,
               isHero: beat.isHero,
+              xDrift: beat.xDrift || 0,
+              sportContext,
               ...(templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {}),
             };
             drawBeatOverlay(ctx, beat.text, beatY, baseFontSize, 1.3, alpha, accentColor, beatOpts);
@@ -349,7 +353,11 @@ export async function renderVideo(opts) {
 
 const NARRATIVE_ANCHORS = [0.15, 0.50, 0.80];
 const BEAT_DISPLAY_DURATION = 0.22; // each beat visible for ~22% of its slot
-const MIN_BEAT_GAP_PCT = 0.12; // minimum spacing between beat centers
+const HERO_HOLD_BOOST = 0.04; // hero beat gets ~18% more visibility
+const BEAT_OVERLAP_PCT = 0.05; // allow 5% overlap for smooth cross-fade
+
+// Horizontal drift per beat index: slight left, slight right, centered (hero)
+const BEAT_X_DRIFT = [-0.03, 0.03, 0]; // fraction of canvas width
 
 function buildBeatConfigs(beats, tpl, dynamicTimings) {
   if (!beats || beats.length === 0) return [];
@@ -358,20 +366,25 @@ function buildBeatConfigs(beats, tpl, dynamicTimings) {
   return beats
     .map((text, i) => {
       if (!text) return null;
+      const isHero = i === beatCount - 1;
 
-      // Priority 1: dynamic timings from activity peaks (already good)
+      // Priority 1: dynamic timings from activity peaks
       if (dynamicTimings?.[i]) {
         const t = dynamicTimings[i];
-        return { text, startPct: t.startPct, endPct: t.endPct, idx: i, isHero: i === beatCount - 1 };
+        // Extend hero beat hold time
+        const endPct = isHero ? Math.min(0.96, t.endPct + HERO_HOLD_BOOST) : t.endPct;
+        // Add overlap: start slightly before previous beat ends
+        const startPct = i > 0 ? Math.max(0.02, t.startPct - BEAT_OVERLAP_PCT) : t.startPct;
+        return { text, startPct, endPct, idx: i, isHero, xDrift: BEAT_X_DRIFT[i] ?? 0 };
       }
 
-      // Priority 2: narrative anchors — distribute beats at 15/50/80%
+      // Priority 2: narrative anchors at 15/50/80%
       const anchor = NARRATIVE_ANCHORS[i] ?? (0.15 + i * 0.30);
-      const halfDur = BEAT_DISPLAY_DURATION / 2;
-      const startPct = Math.max(0.02, anchor - halfDur);
-      const endPct = Math.min(0.98, anchor + halfDur);
+      const halfDur = (BEAT_DISPLAY_DURATION + (isHero ? HERO_HOLD_BOOST : 0)) / 2;
+      const startPct = Math.max(0.02, anchor - halfDur - (i > 0 ? BEAT_OVERLAP_PCT : 0));
+      const endPct = Math.min(0.96, anchor + halfDur);
 
-      return { text, startPct, endPct, idx: i, isHero: i === beatCount - 1 };
+      return { text, startPct, endPct, idx: i, isHero, xDrift: BEAT_X_DRIFT[i] ?? 0 };
     })
     .filter(Boolean);
 }

@@ -46,9 +46,13 @@ export function loadLogo(src = '/logo.png') {
 }
 
 const ROBOT_FALLBACK_PATHS = ['/mascot.png', '/assets/robot/maximus-hero.png'];
+let _robotCacheSrc = null; // track which src is cached
 
 export function loadRobotImage(src) {
-  if (_robotCache) return Promise.resolve(_robotCache);
+  // Return cached if same source; bust cache if sport changed
+  if (_robotCache && _robotCacheSrc === (src || null)) return Promise.resolve(_robotCache);
+  _robotCache = null;
+  _robotCacheSrc = src || null;
   const paths = src ? [src, ...ROBOT_FALLBACK_PATHS] : [...ROBOT_FALLBACK_PATHS];
   const unique = [...new Set(paths)];
 
@@ -263,8 +267,9 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText, headline, sub
   }
 
   // Hero headline — use Generated Copy headline if available, else hookText
+  // Sizes bumped ~18% for better readability at 1.7s intro duration
   const headText = headline || hookText || 'Explore Maximus Sports';
-  const headFontSize = headText.length > 30 ? 56 : 68;
+  const headFontSize = headText.length > 30 ? 66 : 80;
   const headFadeT = Math.min(1, Math.max(0, (progress - 0.15) * 4));
   const headSlide = (1 - easeOutCubic(headFadeT)) * 18;
   ctx.globalAlpha = alpha * headFadeT;
@@ -300,8 +305,8 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText, headline, sub
   const subText = subhead || (sportContext === 'mlb' ? 'Model-driven baseball intelligence' : 'Model-driven college basketball intelligence');
   const subFadeT = Math.min(1, Math.max(0, (progress - 0.28) * 4));
   const subSlide = (1 - easeOutCubic(subFadeT)) * 12;
-  ctx.globalAlpha = alpha * subFadeT * 0.55;
-  ctx.font = `400 26px ${FONT}`;
+  ctx.globalAlpha = alpha * subFadeT * 0.60;
+  ctx.font = `400 30px ${FONT}`;
   ctx.fillStyle = '#ffffff';
   const subBaseY = startY + (headLines.length - 1) * lineH + lineH * 0.8 + subSlide;
   ctx.fillText(subText, W / 2, subBaseY);
@@ -758,27 +763,33 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
     ctx.fillText('MAXIMUS SPORTS', W / 2, H * 0.36);
   }
 
-  // Headline below robot
+  // Headline below robot — larger + sport-aware
   const headlineEntryT = Math.min(1, Math.max(0, (progress - 0.18) * 4));
   const headSlide = (1 - headlineEntryT) * 12;
   ctx.globalAlpha = alpha * headlineEntryT;
-  ctx.font = `700 44px ${FONT}`;
+  ctx.font = `700 52px ${FONT}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('Explore Maximus Sports', W / 2, H * 0.60 + headSlide);
 
-  // Subheadline
-  ctx.font = `400 22px ${FONT}`;
+  // Subheadline — sport-aware
+  const outroSubText = sportContext === 'mlb'
+    ? 'Model-driven baseball intelligence'
+    : 'Model-driven college basketball intelligence';
+  ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillText('Model-driven college basketball intelligence', W / 2, H * 0.65 + headSlide);
+  ctx.fillText(outroSubText, W / 2, H * 0.66 + headSlide);
 
-  // Microcopy
+  // Microcopy — sport-aware
   const microT = Math.min(1, Math.max(0, (progress - 0.30) * 4));
   ctx.globalAlpha = alpha * microT * 0.4;
-  ctx.font = `400 18px ${FONT}`;
+  const outroMicro = sportContext === 'mlb'
+    ? 'Smarter picks, team intel, and daily signals'
+    : 'Smarter picks, bracket intel, and daily signals';
+  ctx.font = `400 20px ${FONT}`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('Smarter picks, bracket intel, and daily signals', W / 2, H * 0.70 + headSlide);
+  ctx.fillText(outroMicro, W / 2, H * 0.72 + headSlide);
 
   // CTA pill — prominent, clear
   const ctaEntryT = Math.min(1, Math.max(0, (progress - 0.38) * 3));
@@ -960,7 +971,7 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
 export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4', opts = {}) {
   if (!text || alpha <= 0) return;
 
-  const { stepNum, templateId, animProgress, textColor, isHero } = opts;
+  const { stepNum, templateId, animProgress, textColor, isHero, xDrift, sportContext: beatSport } = opts;
   const p = animProgress ?? 0;
 
   // Hero beat: larger, bolder, higher opacity
@@ -1024,14 +1035,19 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   const boxH = textH + padding * 2;
   const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
   const boxW = Math.min(maxWidth, textW + padding * 2.5);
-  const boxX = Math.max(EDGE_PAD, (W - boxW) / 2);
+  // Horizontal drift: slight left/right bias per beat, clamped within safe area
+  const driftPx = (xDrift || 0) * W;
+  const boxX = Math.max(EDGE_PAD, Math.min(W - EDGE_PAD - boxW, (W - boxW) / 2 + driftPx));
   // Clamp Y within safe vertical margins
   const clampedY = Math.max(EDGE_PAD + boxH / 2, Math.min(H - EDGE_PAD - boxH / 2, adjustedY));
   const boxY = clampedY - boxH / 2;
   const radius = 12;
 
-  // ── Draw background (fades in first via stagger) ──
+  // ── Depth shadow — stronger for separation from footage ──
   ctx.globalAlpha = bgAlpha;
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 6;
 
   const bgGrad = opts.bgColor
     ? bgColorToGlassGrad(ctx, boxX, boxY, boxW, boxH, opts.bgColor, bgOpacity)
@@ -1048,11 +1064,28 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.fill();
 
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
   ctx.strokeStyle = `rgba(255,255,255,${isHero ? 0.18 : 0.12})`;
   ctx.lineWidth = isHero ? 1.5 : 1;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.stroke();
+
+  // Sport-aware hero glow: subtle accent halo
+  if (isHero) {
+    const heroAccent = beatSport === 'mlb' ? '#C41E3A' : '#3C79B4';
+    ctx.shadowColor = `${heroAccent}44`;
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = `${heroAccent}30`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
 
   // ── Draw text (fades in slightly after background) ──
   ctx.globalAlpha = textAlpha;
