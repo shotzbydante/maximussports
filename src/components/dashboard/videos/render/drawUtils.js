@@ -960,11 +960,13 @@ export function drawHeadlineOverlay(ctx, text, yCenter, fontSize, lineHeight, al
 export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha = 1, accentColor = '#3C79B4', opts = {}) {
   if (!text || alpha <= 0) return;
 
-  const { stepNum, templateId, animProgress, textColor } = opts;
+  const { stepNum, templateId, animProgress, textColor, isHero } = opts;
 
-  const chipFontSize = stepNum != null ? fontSize : Math.round(fontSize * 0.88);
-  const chipWeight = stepNum != null ? '600' : '500';
-  const bgOpacity = stepNum != null ? 0.92 : 0.82;
+  // Hero beat: slightly larger, bolder, higher opacity for emphasis
+  const heroBoost = isHero ? 1.12 : 1;
+  const chipFontSize = stepNum != null ? fontSize : Math.round(fontSize * 0.88 * heroBoost);
+  const chipWeight = stepNum != null ? '600' : (isHero ? '700' : '500');
+  const bgOpacity = stepNum != null ? 0.92 : (isHero ? 0.88 : 0.82);
 
   const slideUp = animProgress != null ? (1 - Math.min(1, animProgress / 0.25)) * 12 : 0;
   const microBounce = animProgress != null && animProgress > 0.25 && animProgress < 0.5

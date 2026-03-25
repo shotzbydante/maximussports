@@ -264,18 +264,25 @@ export async function renderVideo(opts) {
 
       let headlineBottomY = 0;
 
+      // Beat Intelligence Layer v2: safe zones + narrative spacing + hero beat
+      const activeBeatCount = beatConfigs.length;
       for (const beat of beatConfigs) {
         if (footageProgress >= beat.startPct && footageProgress <= beat.endPct) {
           const beatLocal = (footageProgress - beat.startPct) / (beat.endPct - beat.startPct);
           const alpha = easeAlpha(beatLocal, 0.15, 0.15);
 
           const slideOffset = getCaptionSlideOffset(footageTimeS, beat.startPct * footageDurationS);
-          const defaultBeatY = H * 0.74;
-          const minBeatY = headlineBottomY + 28;
-          const beatY = Math.max(defaultBeatY, minBeatY) - slideOffset;
+
+          // Safe-area Y: distribute beats across upper-mid / center / lower-mid
+          // Avoids scoreboard (top) and nav/UI (bottom)
+          const safeYPct = getBeatSafeY(beat.idx, activeBeatCount);
+          const beatY = H * safeYPct - slideOffset;
+
+          // Hero beat (last beat): slightly larger font
+          const baseFontSize = beat.isHero ? 42 : 36;
 
           if (templateId === 'stats-proof') {
-            drawStatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, {
+            drawStatOverlay(ctx, beat.text, beatY, baseFontSize, 1.3, alpha, accentColor, {
               animProgress: beatLocal,
               textColor,
               bgColor,
@@ -286,9 +293,10 @@ export async function renderVideo(opts) {
               animProgress: beatLocal,
               textColor,
               bgColor,
+              isHero: beat.isHero,
               ...(templateId === 'quick-walkthrough' ? { stepNum: beat.idx + 1 } : {}),
             };
-            drawBeatOverlay(ctx, beat.text, beatY, 36, 1.3, alpha, accentColor, beatOpts);
+            drawBeatOverlay(ctx, beat.text, beatY, baseFontSize, 1.3, alpha, accentColor, beatOpts);
           }
         }
       }
@@ -334,16 +342,54 @@ export async function renderVideo(opts) {
 
 // ─── helpers ─────────────────────────────────────────────────────
 
+// ── Beat Intelligence Layer v2 ──────────────────────────────────
+// Narrative timing anchors: beats land at 15%, 50%, 80% of footage,
+// snapped to nearest activity peak if available.
+// Final beat is flagged as "hero" for larger/bolder rendering.
+
+const NARRATIVE_ANCHORS = [0.15, 0.50, 0.80];
+const BEAT_DISPLAY_DURATION = 0.22; // each beat visible for ~22% of its slot
+const MIN_BEAT_GAP_PCT = 0.12; // minimum spacing between beat centers
+
 function buildBeatConfigs(beats, tpl, dynamicTimings) {
   if (!beats || beats.length === 0) return [];
-  const beatDefs = tpl.overlayBeats || [];
+  const beatCount = beats.filter(Boolean).length;
+
   return beats
     .map((text, i) => {
       if (!text) return null;
-      const timing = dynamicTimings?.[i] || beatDefs[i] || { startPct: i * 0.33, endPct: i * 0.33 + 0.28 };
-      return { text, startPct: timing.startPct, endPct: timing.endPct, idx: i };
+
+      // Priority 1: dynamic timings from activity peaks (already good)
+      if (dynamicTimings?.[i]) {
+        const t = dynamicTimings[i];
+        return { text, startPct: t.startPct, endPct: t.endPct, idx: i, isHero: i === beatCount - 1 };
+      }
+
+      // Priority 2: narrative anchors — distribute beats at 15/50/80%
+      const anchor = NARRATIVE_ANCHORS[i] ?? (0.15 + i * 0.30);
+      const halfDur = BEAT_DISPLAY_DURATION / 2;
+      const startPct = Math.max(0.02, anchor - halfDur);
+      const endPct = Math.min(0.98, anchor + halfDur);
+
+      return { text, startPct, endPct, idx: i, isHero: i === beatCount - 1 };
     })
     .filter(Boolean);
+}
+
+// Safe-area Y zones — avoids scoreboard (top-left) and UI/nav (bottom)
+const SAFE_BEAT_ZONES = [
+  { yPct: 0.28, label: 'upper-mid' },   // below scoreboard area
+  { yPct: 0.52, label: 'center' },       // true center
+  { yPct: 0.72, label: 'lower-mid' },    // above nav/UI area
+];
+
+function getBeatSafeY(beatIdx, beatCount) {
+  // Distribute beats across safe zones to avoid collision
+  // 1 beat → center, 2 beats → upper + lower, 3 beats → upper + center + lower
+  if (beatCount === 1) return SAFE_BEAT_ZONES[1].yPct;
+  if (beatCount === 2) return SAFE_BEAT_ZONES[beatIdx === 0 ? 0 : 2].yPct;
+  // 3+ beats: cycle through zones
+  return SAFE_BEAT_ZONES[Math.min(beatIdx, SAFE_BEAT_ZONES.length - 1)].yPct;
 }
 
 function buildSegmentRanges(segments) {
