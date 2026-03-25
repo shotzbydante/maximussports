@@ -274,8 +274,8 @@ export async function renderVideo(opts) {
           const slideOffset = getCaptionSlideOffset(footageTimeS, beat.startPct * footageDurationS);
 
           // Safe-area Y: distribute beats across upper-mid / center / lower-mid
-          // Avoids scoreboard (top) and nav/UI (bottom)
-          const safeYPct = getBeatSafeY(beat.idx, activeBeatCount);
+          // Hero beat gets center bias for visual impact
+          const safeYPct = getBeatSafeY(beat.idx, activeBeatCount, beat.isHero);
           const beatY = H * safeYPct - slideOffset;
 
           // Hero beat (last beat): slightly larger font
@@ -383,13 +383,18 @@ const SAFE_BEAT_ZONES = [
   { yPct: 0.72, label: 'lower-mid' },    // above nav/UI area
 ];
 
-function getBeatSafeY(beatIdx, beatCount) {
+function getBeatSafeY(beatIdx, beatCount, isHero) {
+  // Hero beat positional bias: final beat centers at ~50% for visual impact
+  if (isHero && beatCount >= 3) return 0.50;
+
   // Distribute beats across safe zones to avoid collision
-  // 1 beat → center, 2 beats → upper + lower, 3 beats → upper + center + lower
+  // 1 beat → center, 2 beats → upper + lower, 3 → upper + lower-mid + center(hero)
   if (beatCount === 1) return SAFE_BEAT_ZONES[1].yPct;
   if (beatCount === 2) return SAFE_BEAT_ZONES[beatIdx === 0 ? 0 : 2].yPct;
-  // 3+ beats: cycle through zones
-  return SAFE_BEAT_ZONES[Math.min(beatIdx, SAFE_BEAT_ZONES.length - 1)].yPct;
+  // 3+ beats: first two get upper and lower-mid, hero goes center
+  if (beatIdx === 0) return SAFE_BEAT_ZONES[0].yPct;
+  if (beatIdx === 1) return SAFE_BEAT_ZONES[2].yPct;
+  return SAFE_BEAT_ZONES[1].yPct;
 }
 
 function buildSegmentRanges(segments) {

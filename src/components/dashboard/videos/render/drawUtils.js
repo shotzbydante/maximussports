@@ -961,30 +961,47 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   if (!text || alpha <= 0) return;
 
   const { stepNum, templateId, animProgress, textColor, isHero } = opts;
+  const p = animProgress ?? 0;
 
-  // Hero beat: slightly larger, bolder, higher opacity for emphasis
+  // Hero beat: larger, bolder, higher opacity
   const heroBoost = isHero ? 1.12 : 1;
   const chipFontSize = stepNum != null ? fontSize : Math.round(fontSize * 0.88 * heroBoost);
   const chipWeight = stepNum != null ? '600' : (isHero ? '700' : '500');
   const bgOpacity = stepNum != null ? 0.92 : (isHero ? 0.88 : 0.82);
 
-  const slideUp = animProgress != null ? (1 - Math.min(1, animProgress / 0.25)) * 12 : 0;
-  const microBounce = animProgress != null && animProgress > 0.25 && animProgress < 0.5
-    ? Math.sin((animProgress - 0.25) / 0.25 * Math.PI) * 0.025
-    : 0;
-  const effectiveScale = 1 + microBounce;
+  // ── Cinematic motion: entry slide-up + fade, exit fade-only ──
+  // Entry: first 20% of animation — slide up 10px + fade in
+  const entryT = Math.min(1, p / 0.20);
+  const entryEased = 1 - Math.pow(1 - entryT, 3); // ease-out-cubic
+  const slideUp = (1 - entryEased) * 10;
+
+  // Exit: last 12% — fade out only (no motion)
+  const exitT = p > 0.88 ? (p - 0.88) / 0.12 : 0;
+  const exitAlpha = 1 - exitT;
+
+  // Hero beat: scale-in from 0.95 → 1.0 during entry
+  const heroScale = isHero ? (0.95 + 0.05 * entryEased) : 1;
+
+  // Micro-stagger: background appears ~3 frames before text
+  const bgStaggerT = Math.min(1, p / 0.15); // bg fades in over first 15%
+  const textStaggerT = Math.min(1, Math.max(0, (p - 0.04) / 0.18)); // text starts 4% later
+  const bgAlpha = alpha * exitAlpha * bgStaggerT;
+  const textAlpha = alpha * exitAlpha * textStaggerT;
+
   const adjustedY = yCenter + slideUp;
 
   ctx.save();
-  ctx.globalAlpha = alpha;
 
-  if (effectiveScale !== 1) {
+  // Hero scale transform
+  if (heroScale !== 1) {
     ctx.translate(W / 2, adjustedY);
-    ctx.scale(effectiveScale, effectiveScale);
+    ctx.scale(heroScale, heroScale);
     ctx.translate(-W / 2, -adjustedY);
   }
 
-  const maxWidth = W * 0.78;
+  // ── Edge padding: clamp box within safe margins ──
+  const EDGE_PAD = 36;
+  const maxWidth = W - EDGE_PAD * 2;
   const padding = stepNum != null ? 20 : 16;
 
   ctx.font = `${chipWeight} ${chipFontSize}px ${FONT}`;
@@ -1007,9 +1024,14 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   const boxH = textH + padding * 2;
   const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
   const boxW = Math.min(maxWidth, textW + padding * 2.5);
-  const boxX = (W - boxW) / 2;
-  const boxY = adjustedY - boxH / 2;
+  const boxX = Math.max(EDGE_PAD, (W - boxW) / 2);
+  // Clamp Y within safe vertical margins
+  const clampedY = Math.max(EDGE_PAD + boxH / 2, Math.min(H - EDGE_PAD - boxH / 2, adjustedY));
+  const boxY = clampedY - boxH / 2;
   const radius = 12;
+
+  // ── Draw background (fades in first via stagger) ──
+  ctx.globalAlpha = bgAlpha;
 
   const bgGrad = opts.bgColor
     ? bgColorToGlassGrad(ctx, boxX, boxY, boxW, boxH, opts.bgColor, bgOpacity)
@@ -1026,21 +1048,24 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = `rgba(255,255,255,${isHero ? 0.18 : 0.12})`;
+  ctx.lineWidth = isHero ? 1.5 : 1;
   ctx.beginPath();
   roundedRect(ctx, boxX, boxY, boxW, boxH, radius);
   ctx.stroke();
+
+  // ── Draw text (fades in slightly after background) ──
+  ctx.globalAlpha = textAlpha;
 
   ctx.shadowColor = 'rgba(0,0,0,0.30)';
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 2;
 
-  // Step number for walkthrough mode only — no bullet dots otherwise
+  // Step number for walkthrough mode only
   if (stepNum != null) {
     const dotR = 5;
     ctx.beginPath();
-    ctx.arc(boxX + padding, adjustedY, dotR + 3, 0, Math.PI * 2);
+    ctx.arc(boxX + padding, clampedY, dotR + 3, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.shadowBlur = 0;
@@ -1048,7 +1073,7 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
     ctx.fillStyle = accentColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(stepNum), boxX + padding, adjustedY);
+    ctx.fillText(String(stepNum), boxX + padding, clampedY);
   }
 
   ctx.shadowColor = 'rgba(0,0,0,0.30)';
