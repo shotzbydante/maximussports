@@ -12,7 +12,7 @@
  * NOT official NCAA committee selections.
  */
 
-import { REGIONS, SEED_MATCHUP_ORDER, FINAL_FOUR_MATCHUPS } from '../config/bracketology';
+import { REGIONS, SEED_MATCHUP_ORDER, FINAL_FOUR_MATCHUPS } from '../config/bracketology.js';
 
 const PROJECTED_FIELD = [
   // ─── 1 seeds ───────────────────────────────────────────────────

@@ -13,11 +13,11 @@
  * seed breakdowns) automatically get the correct data.
  */
 
-import { PROJECTED_FIELD } from '../data/projectedField';
-import { REGIONS, SEED_MATCHUP_ORDER } from '../config/bracketology';
-import { resolveBracketMatchup, warnUniformBatch } from './bracketMatchupResolver';
-import { getTournamentPrior, TOURNAMENT_PRIOR_META } from './tournamentPrior';
-import { computeMatchupRefinements } from './tournamentHeuristics';
+import { PROJECTED_FIELD } from '../data/projectedField.js';
+import { REGIONS, SEED_MATCHUP_ORDER } from '../config/bracketology.js';
+import { resolveBracketMatchup, warnUniformBatch } from './bracketMatchupResolver.js';
+import { getTournamentPrior, TOURNAMENT_PRIOR_META } from './tournamentPrior.js';
+import { computeMatchupRefinements } from './tournamentHeuristics.js';
 
 // ── Internal state: active tournament field ───────────────────────
 let _activeField = PROJECTED_FIELD;
