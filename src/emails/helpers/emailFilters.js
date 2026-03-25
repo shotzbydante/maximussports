@@ -8,7 +8,8 @@
  * Uses tournamentHelpers as the source of truth for eligible teams.
  */
 
-import { isTournamentTeam, isTournamentWeek } from '../../utils/tournamentHelpers.js';
+import { isTournamentTeam } from '../../utils/tournamentHelpers.js';
+import { isTournamentWeek } from '../tournamentWindow.js';
 import { getTeamSlug } from '../../utils/teamSlug.js';
 
 /* ── Women's / non-men's rejection ──────────────────────────── */
