@@ -503,6 +503,7 @@ export default function VideosEditor() {
         overlayBeats,
         beatTimings,
         overlayYPositions,
+        sportContext,
         onProgress: setRenderProgress,
         signal: controller.signal,
       });
@@ -592,6 +593,7 @@ export default function VideosEditor() {
           overlayBeats: variantCopy.overlayBeats?.length ? variantCopy.overlayBeats : overlayBeats,
           beatTimings,
           overlayYPositions,
+          sportContext,
           onProgress: (p) => setVariantProgress((i + p) / hooks.length),
           signal: controller.signal,
         });

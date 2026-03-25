@@ -84,6 +84,7 @@ export async function renderVideo(opts) {
     textColor = '#ffffff',
     bgColor = '#071426',
     overlayYPositions = null,
+    sportContext = 'ncaam',
     onProgress,
     signal,
   } = opts;
@@ -213,8 +214,8 @@ export async function renderVideo(opts) {
     if (encodeError) throw encodeError;
 
     if (i < phaseEnd1) {
-      // Phase 1: Branded Intro Title Card (1.2s) — always dark navy, hook text integrated
-      drawBrandedIntroCard(ctx, logo, { brand, hookText }, i, brandedIntroFrames);
+      // Phase 1: Branded Intro Title Card (1.2s) — sport-aware, headline/subhead as hero text
+      drawBrandedIntroCard(ctx, logo, { brand, hookText, headline, subhead, sportContext }, i, brandedIntroFrames);
 
     } else if (i < phaseEnd2) {
       // Phase 2: Footage with safe-zone-aware overlays
@@ -238,10 +239,12 @@ export async function renderVideo(opts) {
 
       const overlayYPctOffset = safeZone ? safeZone.yPct : null;
 
-      for (const ov of overlays) {
+      // Headline/subhead now live on intro card only — skip them during body footage.
+      // Only render non-headline/subhead overlays (e.g. stat overlays) if any exist.
+      const bodyOverlays = overlays.filter(ov => ov.field !== 'headline' && ov.field !== 'subhead');
+      for (const ov of bodyOverlays) {
         const rawText = fieldValues[ov.field];
         if (!rawText) continue;
-        const text = ov.field === 'headline' ? headlineWithEmoji : rawText;
         if (footageProgress >= ov.startPct && footageProgress <= ov.endPct) {
           const ovLocal = (footageProgress - ov.startPct) / (ov.endPct - ov.startPct);
           const fadePct = ov.fadeMs / ((footageTotalFrames / fps * 1000) * (ov.endPct - ov.startPct));
@@ -250,7 +253,7 @@ export async function renderVideo(opts) {
           const yPct = customY ?? overlayYPctOffset ?? ov.yPct;
 
           const slideOffset = getCaptionSlideOffset(footageTimeS, ov.startPct * footageDurationS);
-          drawHeadlineOverlay(ctx, text, H * yPct - slideOffset, ov.maxFontSize, ov.lineHeight, alpha, accentColor, {
+          drawHeadlineOverlay(ctx, rawText, H * yPct - slideOffset, ov.maxFontSize, ov.lineHeight, alpha, accentColor, {
             templateId,
             animProgress: ovLocal,
             textColor,
@@ -260,14 +263,6 @@ export async function renderVideo(opts) {
       }
 
       let headlineBottomY = 0;
-      for (const ov of overlays) {
-        const text = fieldValues[ov.field];
-        if (!text) continue;
-        if (footageProgress >= ov.startPct && footageProgress <= ov.endPct) {
-          const yPct = overlayYPctOffset || ov.yPct;
-          headlineBottomY = Math.max(headlineBottomY, H * yPct + H * 0.08);
-        }
-      }
 
       for (const beat of beatConfigs) {
         if (footageProgress >= beat.startPct && footageProgress <= beat.endPct) {
@@ -312,6 +307,7 @@ export async function renderVideo(opts) {
         robotImage,
         outroFrame: outroIdx,
         outroTotalFrames: outroFrames,
+        sportContext,
       }, alpha);
     }
 

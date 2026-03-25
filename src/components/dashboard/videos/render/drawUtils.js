@@ -205,7 +205,23 @@ function drawNavyBackground(ctx) {
   ctx.fillRect(0, 0, W, H);
 }
 
-export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame, introTotalFrames) {
+function drawMlbBackground(ctx) {
+  // MLB dark red gradient — deeper and richer than NCAAM navy
+  const bg = ctx.createRadialGradient(W * 0.50, H * 0.38, 0, W * 0.50, H * 0.50, W * 0.95);
+  bg.addColorStop(0, 'rgba(196,30,58,0.22)');
+  bg.addColorStop(0.26, 'rgba(60,12,18,0.16)');
+  bg.addColorStop(0.78, '#0A0810');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const edge = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 1.1);
+  edge.addColorStop(0, 'rgba(0,0,0,0)');
+  edge.addColorStop(1, 'rgba(0,0,0,0.40)');
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, W, H);
+}
+
+export function drawBrandedIntroCard(ctx, logo, { brand, hookText, headline, subhead, sportContext }, introFrame, introTotalFrames) {
   const progress = introTotalFrames > 0 ? introFrame / introTotalFrames : 0;
   const alpha = introFrame < 4
     ? introFrame / 4
@@ -216,9 +232,14 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame,
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  drawNavyBackground(ctx);
+  // Sport-aware background
+  if (sportContext === 'mlb') {
+    drawMlbBackground(ctx);
+  } else {
+    drawNavyBackground(ctx);
+  }
 
-  const accent = brand.accentColor || '#3C79B4';
+  const accent = sportContext === 'mlb' ? '#C41E3A' : (brand.accentColor || '#3C79B4');
 
   ctx.strokeStyle = `${accent}10`;
   ctx.lineWidth = 1;
@@ -238,12 +259,12 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame,
     ctx.globalAlpha = alpha * logoAlpha;
     const lw = W * 0.70 * scale;
     const lh = (logo.naturalHeight / logo.naturalWidth) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, H * 0.32 - lh / 2, lw, lh);
+    ctx.drawImage(logo, (W - lw) / 2, H * 0.28 - lh / 2, lw, lh);
   }
 
-  // Hook text or default headline
-  const headText = hookText || 'Welcome to Maximus Sports';
-  const headFontSize = hookText ? 68 : 44;
+  // Hero headline — use Generated Copy headline if available, else hookText
+  const headText = headline || hookText || 'Explore Maximus Sports';
+  const headFontSize = headText.length > 30 ? 56 : 68;
   const headFadeT = Math.min(1, Math.max(0, (progress - 0.15) * 4));
   const headSlide = (1 - easeOutCubic(headFadeT)) * 18;
   ctx.globalAlpha = alpha * headFadeT;
@@ -266,8 +287,8 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame,
     else { cur = test; }
   }
   if (cur) headLines.push(cur);
-  const lineH = hookText ? 80 : 55;
-  const baseY = H * 0.52 + headSlide;
+  const lineH = headFontSize > 56 ? 80 : 66;
+  const baseY = H * 0.48 + headSlide;
   const startY = baseY - (headLines.length - 1) * lineH / 2;
   for (let li = 0; li < headLines.length; li++) {
     ctx.fillText(headLines[li], W / 2, startY + li * lineH);
@@ -275,13 +296,15 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame,
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  // Subheadline
+  // Subhead — use Generated Copy subhead if available
+  const subText = subhead || (sportContext === 'mlb' ? 'Model-driven baseball intelligence' : 'Model-driven college basketball intelligence');
   const subFadeT = Math.min(1, Math.max(0, (progress - 0.28) * 4));
   const subSlide = (1 - easeOutCubic(subFadeT)) * 12;
   ctx.globalAlpha = alpha * subFadeT * 0.55;
-  ctx.font = `400 24px ${FONT}`;
+  ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('Smarter college basketball intelligence', W / 2, H * 0.63 + subSlide);
+  const subBaseY = startY + (headLines.length - 1) * lineH + lineH * 0.8 + subSlide;
+  ctx.fillText(subText, W / 2, subBaseY);
 
   // Accent divider
   const divT = Math.min(1, Math.max(0, (progress - 0.35) * 5));
@@ -289,8 +312,8 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText }, introFrame,
   ctx.globalAlpha = alpha * divT;
   ctx.fillStyle = accent;
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, H * 0.68, divW, 2.5, 2);
-  else { ctx.rect((W - divW) / 2, H * 0.68, divW, 2.5); }
+  if (ctx.roundRect) ctx.roundRect((W - divW) / 2, subBaseY + 40, divW, 2.5, 2);
+  else { ctx.rect((W - divW) / 2, subBaseY + 40, divW, 2.5); }
   ctx.fill();
 
   ctx.restore();
@@ -657,15 +680,19 @@ function drawIntroStatsProof(ctx, logo, headline, brand) {
 // Deep navy gradient with centered robot hero, glow effects,
 // data-chip accents, and animated CTA pill.
 
-export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames }, alpha = 1) {
+export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, outroFrame, outroTotalFrames, sportContext }, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
   const progress = outroTotalFrames > 0 ? (outroFrame || 0) / outroTotalFrames : 0;
-  const accent = brand.accentColor || '#3C79B4';
+  const accent = sportContext === 'mlb' ? '#C41E3A' : (brand.accentColor || '#3C79B4');
 
-  // ALWAYS dark navy — ignores user bgColor
-  drawNavyBackground(ctx);
+  // Sport-aware background
+  if (sportContext === 'mlb') {
+    drawMlbBackground(ctx);
+  } else {
+    drawNavyBackground(ctx);
+  }
 
   // Decorative faint lines
   ctx.strokeStyle = `${accent}12`;
