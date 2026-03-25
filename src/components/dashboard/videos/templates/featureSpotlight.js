@@ -237,7 +237,14 @@ export const SPORT_CONTEXTS = {
     label: '⚾ MLB',
     defaultFeatureType: 'generalDemo',
     tone: 'baseball intelligence',
-    hooks: ['Baseball intelligence, live.', 'Every game. Every matchup.', 'Own the diamond.'],
+    defaultHeadline: 'Baseball is back.',
+    defaultSubhead: 'And now you have the edge.',
+    defaultBeats: [
+      'AI-powered daily briefings',
+      'Team-by-team season forecasts',
+      'Your unfair advantage this MLB season',
+    ],
+    hooks: ['Baseball is back.', 'Your unfair advantage.', 'Own the diamond.'],
   },
 };
 

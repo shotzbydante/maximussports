@@ -210,18 +210,12 @@ function drawNavyBackground(ctx) {
 }
 
 function drawMlbBackground(ctx) {
-  // MLB dark red gradient — deeper and richer than NCAAM navy
-  const bg = ctx.createRadialGradient(W * 0.50, H * 0.38, 0, W * 0.50, H * 0.50, W * 0.95);
-  bg.addColorStop(0, 'rgba(196,30,58,0.22)');
-  bg.addColorStop(0.26, 'rgba(60,12,18,0.16)');
-  bg.addColorStop(0.78, '#0A0810');
+  // MLB cinematic red gradient — rich, deep, premium
+  const bg = ctx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.5, W);
+  bg.addColorStop(0, '#C41E3A');    // primary red center
+  bg.addColorStop(0.4, '#7A1324');  // deep red mid
+  bg.addColorStop(1, '#0A0810');    // near-black edge
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
-
-  const edge = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 1.1);
-  edge.addColorStop(0, 'rgba(0,0,0,0)');
-  edge.addColorStop(1, 'rgba(0,0,0,0.40)');
-  ctx.fillStyle = edge;
   ctx.fillRect(0, 0, W, H);
 }
 
@@ -302,7 +296,7 @@ export function drawBrandedIntroCard(ctx, logo, { brand, hookText, headline, sub
   ctx.shadowOffsetY = 0;
 
   // Subhead — use Generated Copy subhead if available
-  const subText = subhead || (sportContext === 'mlb' ? 'Model-driven baseball intelligence' : 'Model-driven college basketball intelligence');
+  const subText = subhead || (sportContext === 'mlb' ? 'And now you have the edge.' : 'Model-driven college basketball intelligence');
   const subFadeT = Math.min(1, Math.max(0, (progress - 0.28) * 4));
   const subSlide = (1 - easeOutCubic(subFadeT)) * 12;
   ctx.globalAlpha = alpha * subFadeT * 0.60;
@@ -775,7 +769,7 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
 
   // Subheadline — sport-aware
   const outroSubText = sportContext === 'mlb'
-    ? 'Model-driven baseball intelligence'
+    ? 'And now you have the edge.'
     : 'Model-driven college basketball intelligence';
   ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -785,7 +779,7 @@ export function drawOutroCard(ctx, logo, { cta, brand, templateId, robotImage, o
   const microT = Math.min(1, Math.max(0, (progress - 0.30) * 4));
   ctx.globalAlpha = alpha * microT * 0.4;
   const outroMicro = sportContext === 'mlb'
-    ? 'Smarter picks, team intel, and daily signals'
+    ? 'AI-powered briefings, forecasts, and daily signals'
     : 'Smarter picks, bracket intel, and daily signals';
   ctx.font = `400 20px ${FONT}`;
   ctx.fillStyle = '#ffffff';
@@ -1010,19 +1004,23 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
     ctx.translate(-W / 2, -adjustedY);
   }
 
-  // ── Edge padding: clamp box within safe margins ──
+  // ── Edge padding + text wrapping ──
   const EDGE_PAD = 36;
-  const maxWidth = W - EDGE_PAD * 2;
-  const padding = stepNum != null ? 20 : 16;
+  const MAX_PILL_W = W * 0.78; // max pill width = 78% of canvas
+  const hPad = 24; // horizontal padding inside pill
+  const vPad = 16; // vertical padding inside pill
+  const wrapWidth = MAX_PILL_W - hPad * 2; // available text width
 
   ctx.font = `${chipWeight} ${chipFontSize}px ${FONT}`;
   ctx.letterSpacing = '0.02em';
+
+  // Word-wrap into lines that fit within pill
   const words = text.split(' ');
   const lines = [];
   let cur = '';
   for (const w of words) {
     const test = cur ? `${cur} ${w}` : w;
-    if (ctx.measureText(test).width > maxWidth - padding * 2 && cur) {
+    if (ctx.measureText(test).width > wrapWidth && cur) {
       lines.push(cur);
       cur = w;
     } else {
@@ -1031,16 +1029,20 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   }
   if (cur) lines.push(cur);
 
-  const textH = lines.length * chipFontSize * lineHeight;
-  const boxH = textH + padding * 2;
+  // Compute pill dimensions from wrapped text
+  const lineH = chipFontSize * lineHeight;
+  const textH = lines.length * lineH;
+  const boxH = textH + vPad * 2;
   const textW = Math.max(...lines.map(l => ctx.measureText(l).width));
-  const boxW = Math.min(maxWidth, textW + padding * 2.5);
+  const boxW = Math.min(MAX_PILL_W, textW + hPad * 2);
+
   // Horizontal drift: slight left/right bias per beat, clamped within safe area
   const driftPx = (xDrift || 0) * W;
   const boxX = Math.max(EDGE_PAD, Math.min(W - EDGE_PAD - boxW, (W - boxW) / 2 + driftPx));
   // Clamp Y within safe vertical margins
   const clampedY = Math.max(EDGE_PAD + boxH / 2, Math.min(H - EDGE_PAD - boxH / 2, adjustedY));
   const boxY = clampedY - boxH / 2;
+  const boxCenterX = boxX + boxW / 2; // text centers within pill, not canvas
   const radius = 12;
 
   // ── Depth shadow — stronger for separation from footage ──
@@ -1098,7 +1100,7 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   if (stepNum != null) {
     const dotR = 5;
     ctx.beginPath();
-    ctx.arc(boxX + padding, clampedY, dotR + 3, 0, Math.PI * 2);
+    ctx.arc(boxX + hPad, clampedY, dotR + 3, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.shadowBlur = 0;
@@ -1106,7 +1108,7 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
     ctx.fillStyle = accentColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(stepNum), boxX + padding, clampedY);
+    ctx.fillText(String(stepNum), boxX + hPad, clampedY);
   }
 
   ctx.shadowColor = 'rgba(0,0,0,0.30)';
@@ -1117,10 +1119,11 @@ export function drawBeatOverlay(ctx, text, yCenter, fontSize, lineHeight, alpha 
   ctx.fillStyle = textColor || '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  let drawY = boxY + padding;
+  // Center text within pill (not canvas) — prevents drift-caused overflow
+  let drawY = boxY + vPad;
   for (const line of lines) {
-    ctx.fillText(line, W / 2, drawY);
-    drawY += chipFontSize * lineHeight;
+    ctx.fillText(line, boxCenterX, drawY);
+    drawY += lineH;
   }
 
   ctx.letterSpacing = '0px';
