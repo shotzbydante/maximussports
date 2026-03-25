@@ -10,19 +10,11 @@
  */
 
 import { EmailShell, heroBlock, sectionLabel, teamLogoImg } from '../EmailShell.js';
-import { plainTextSubject, truncate } from '../../../api/_lib/text.js';
+import { filterTournamentHeadlines } from '../helpers/emailFilters.js';
+import { breakingNewsSubject } from '../helpers/subjectGenerator.js';
 
 export function getSubject(data = {}) {
-  const name = data.displayName ? data.displayName.split(' ')[0] : null;
-  const { headlines = [] } = data;
-  if (headlines.length > 0 && headlines[0].title) {
-    const clean = plainTextSubject(headlines[0].title);
-    const short = truncate(clean, 50);
-    if (name) return `${name}: ${short}`;
-    return short;
-  }
-  if (name) return `${name}, today\u2019s top stories`;
-  return 'Today\u2019s top stories';
+  return breakingNewsSubject(data);
 }
 
 export function renderHTML(data = {}) {
@@ -39,8 +31,8 @@ export function renderHTML(data = {}) {
   const hour = new Date().getHours();
   const partOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 
-  // Main headlines
-  const topHeadlines = headlines.slice(0, 6);
+  // Main headlines — tournament-filtered to exclude women's/NIT content
+  const topHeadlines = filterTournamentHeadlines(headlines).slice(0, 6);
   let headlineRows = '';
   if (topHeadlines.length > 0) {
     headlineRows = topHeadlines.map((h, i) => {

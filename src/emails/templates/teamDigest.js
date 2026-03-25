@@ -13,21 +13,10 @@ import { renderEmailGameCard } from '../../../api/_lib/emailGameCards.js';
 import { renderEmailVideoList } from '../../../api/_lib/videoCards.js';
 import { TEAM_DIGEST_MAX_TEAMS } from '../../../api/_lib/teamDigest.js';
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
+import { teamDigestSubject } from '../helpers/subjectGenerator.js';
 
 export function getSubject(data = {}) {
-  const name = data.displayName ? data.displayName.split(' ')[0] : null;
-  const { teamDigests = [] } = data;
-  if (teamDigests.length === 0) {
-    return name ? `${name}, your team digest` : 'Your team digest';
-  }
-  if (teamDigests.length === 1) {
-    const short = teamDigests[0].team.name.split(' ')[0];
-    return name ? `${name}: ${short} full digest` : `${short} \u2014 full digest`;
-  }
-  const first = teamDigests[0].team.name.split(' ')[0];
-  return name
-    ? `${name}: ${first} + ${teamDigests.length - 1} more teams`
-    : `${first} + ${teamDigests.length - 1} more \u2014 digest`;
+  return teamDigestSubject(data);
 }
 
 export function getPreviewText(data = {}) {

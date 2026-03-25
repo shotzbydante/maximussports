@@ -14,20 +14,10 @@ import { EmailShell, heroBlock, sectionCard, sectionLabel, teamLogoImg } from '.
 import { getTeamTodaySummary } from '../../../api/_lib/teamSchedule.js';
 import { renderEmailGameCard } from '../../../api/_lib/emailGameCards.js';
 import { getTeamAts } from '../../../api/_lib/teamDigest.js';
+import { pinnedTeamsSubject } from '../helpers/subjectGenerator.js';
 
 export function getSubject(data = {}) {
-  const name = data.displayName ? data.displayName.split(' ')[0] : null;
-  const { pinnedTeams = [] } = data;
-  const firstTeam = pinnedTeams[0]?.name?.split(' ')[0];
-  if (pinnedTeams.length === 1 && firstTeam) {
-    return name ? `${name}: ${firstTeam} update today` : `${firstTeam} update today`;
-  }
-  if (pinnedTeams.length > 1 && firstTeam) {
-    return name
-      ? `${name}: ${firstTeam} + ${pinnedTeams.length - 1} other teams`
-      : `${firstTeam} + ${pinnedTeams.length - 1} other teams today`;
-  }
-  return name ? `${name}, your team alerts` : 'Your team alerts';
+  return pinnedTeamsSubject(data);
 }
 
 export function getPreviewText(data = {}) {

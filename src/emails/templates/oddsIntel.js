@@ -12,15 +12,11 @@
 
 import { EmailShell, heroBlock, sectionCard, sectionLabel, teamLogoImg } from '../EmailShell.js';
 import { renderEmailGameList } from '../../../api/_lib/emailGameCards.js';
+import { filterTournamentTeams } from '../helpers/emailFilters.js';
+import { oddsIntelSubject } from '../helpers/subjectGenerator.js';
 
 export function getSubject(data = {}) {
-  const name = data.displayName ? data.displayName.split(' ')[0] : null;
-  const { atsLeaders = {} } = data;
-  const top = (atsLeaders.best || [])[0];
-  if (top && name) return `${name}: ${top.name || top.team} is the ATS edge today`;
-  if (top) return `${top.name || top.team} is the ATS edge today`;
-  if (name) return `${name}, today\u2019s lines and edges`;
-  return 'Today\u2019s lines and ATS edges';
+  return oddsIntelSubject(data);
 }
 
 export function renderHTML(data = {}) {
@@ -37,8 +33,8 @@ export function renderHTML(data = {}) {
   const greetingName = firstName || 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const bestAts = atsLeaders.best || [];
-  const worstAts = atsLeaders.worst || [];
+  const bestAts = filterTournamentTeams(atsLeaders.best || []);
+  const worstAts = filterTournamentTeams(atsLeaders.worst || []);
 
   // ATS Leaders
   let atsTableRows = '';

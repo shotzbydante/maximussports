@@ -20,6 +20,10 @@ import { EmailShell, heroBlock, sectionLabel } from '../EmailShell.js';
 import { renderEmailGameList } from '../../../api/_lib/emailGameCards.js';
 import { signalCard, buildSignalsFromPicks } from '../helpers/signalRows.js';
 import { isTournamentWeek, getTournamentPhase } from '../tournamentWindow.js';
+import { filterTournamentTeams, filterTournamentGames, filterTournamentHeadlines, filterTournamentSignals } from '../helpers/emailFilters.js';
+import { dailyBriefingSubject } from '../helpers/subjectGenerator.js';
+import { emojiForRow } from '../helpers/emojiRotation.js';
+import { proPlugCard } from '../helpers/proPlug.js';
 
 const TEXT_PRIMARY   = '#1a1a2e';
 const TEXT_SECONDARY = '#4a5568';
@@ -36,17 +40,7 @@ const FONT           = "'DM Sans',Arial,Helvetica,sans-serif";
    ═══════════════════════════════════════════════════════════════ */
 
 export function getSubject(data = {}) {
-  const name = data.displayName ? data.displayName.split(' ')[0] : null;
-  const phase = getTournamentPhase();
-  const phaseLabel = PHASE_LABELS[phase] || null;
-
-  if (phaseLabel) {
-    if (name) return `${name}, your ${phaseLabel} briefing is ready`;
-    return `${phaseLabel} Briefing — NCAA Men's Basketball`;
-  }
-  const dow = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  if (name) return `${name}, your ${dow} hoops intel`;
-  return `Daily NCAA Men's Basketball Briefing`;
+  return dailyBriefingSubject(data);
 }
 
 export function getPreviewText() {
@@ -119,25 +113,31 @@ export function renderHTML(data = {}) {
     tournamentPulseHtml = buildTournamentPulse(tournamentMeta, priorDayResults);
   }
 
-  /* ── 4. MARKET & ATS INTELLIGENCE ──────────────────────────── */
-  const marketIntelHtml = buildMarketIntel(bestAts, worstAts, botIntelBullets);
+  /* ── 4. MARKET & ATS INTELLIGENCE (tournament-filtered) ──── */
+  const filteredBestAts = filterTournamentTeams(bestAts);
+  const filteredWorstAts = filterTournamentTeams(worstAts);
+  const marketIntelHtml = buildMarketIntel(filteredBestAts, filteredWorstAts, botIntelBullets);
 
-  /* ── 5. MAXIMUS'S PICKS ────────────────────────────────────── */
-  const picksHtml = buildPicksSection(modelSignals, picksSummary);
+  /* ── 5. MAXIMUS'S PICKS (tournament-filtered) ─────────────── */
+  const filteredSignals = filterTournamentSignals(modelSignals);
+  const picksHtml = buildPicksSection(filteredSignals, picksSummary);
 
-  /* ── 6. GAME SPOTLIGHTS ────────────────────────────────────── */
+  /* ── 6. GAME SPOTLIGHTS (tournament-filtered) ─────────────── */
+  const filteredUpcoming = filterTournamentGames(todayUpcoming);
+  const filteredResults = filterTournamentGames(priorDayResults);
   let spotlightsHtml = '';
-  if (todayUpcoming.length > 0) {
-    spotlightsHtml = buildGameSpotlights(todayUpcoming.slice(0, 3));
-  } else if (priorDayResults.length > 0) {
-    const meaningful = priorDayResults.filter(g => g.hasScore).slice(0, 3);
+  if (filteredUpcoming.length > 0) {
+    spotlightsHtml = buildGameSpotlights(filteredUpcoming.slice(0, 3));
+  } else if (filteredResults.length > 0) {
+    const meaningful = filteredResults.filter(g => g.hasScore).slice(0, 3);
     if (meaningful.length > 0) {
       spotlightsHtml = buildResultsRecap(meaningful);
     }
   }
 
-  /* ── 7. NEWS DIGEST ────────────────────────────────────────── */
-  const newsHtml = buildNewsDigest(headlines);
+  /* ── 7. NEWS DIGEST (tournament-filtered) ──────────────────── */
+  const filteredHeadlines = filterTournamentHeadlines(headlines);
+  const newsHtml = buildNewsDigest(filteredHeadlines);
 
   /* ── 8. BRACKETOLOGY CTA ───────────────────────────────────── */
   const bracketCta = showTournament ? buildBracketologyCta() : '';
@@ -180,6 +180,7 @@ ${openingHtml}
 ${tournamentPulseHtml}
 ${marketIntelHtml}
 ${picksHtml}
+${proPlugCard('inline')}
 ${spotlightsHtml}
 ${newsHtml}
 ${bracketCta}
@@ -358,7 +359,7 @@ function buildMarketIntel(bestAts, worstAts, botIntelBullets) {
     const top = bestAts[0];
     const pct = top.pct != null ? `${Math.round(top.pct * 100)}%` : '';
     trends.push({
-      emoji: '\uD83D\uDD25',
+      emoji: emojiForRow('hot', 0),
       title: `${top.name || top.team} is on an ATS heater`,
       body: pct ? `Covering at ${pct}. The market may not have caught up yet.` : 'Covering consistently. Worth monitoring in upcoming matchups.',
     });
@@ -369,16 +370,16 @@ function buildMarketIntel(bestAts, worstAts, botIntelBullets) {
     const bottom = worstAts[0];
     const pct = bottom.pct != null ? `${Math.round(bottom.pct * 100)}%` : '';
     trends.push({
-      emoji: '\u26A0\uFE0F',
+      emoji: emojiForRow('danger', 0),
       title: `${bottom.name || bottom.team} is overvalued`,
       body: pct ? `Covering at only ${pct}. The public may be inflating this line.` : 'Struggling to cover. Bettors should proceed with caution.',
     });
   }
 
-  // Bot intel bullets as additional trends
+  // Bot intel bullets as additional trends — use rotating emojis
   if (botIntelBullets.length > 0 && trends.length < 4) {
-    for (const bullet of botIntelBullets.slice(0, 4 - trends.length)) {
-      trends.push({ emoji: '\uD83D\uDCCA', title: bullet, body: '' });
+    for (let i = 0; i < Math.min(botIntelBullets.length, 4 - trends.length); i++) {
+      trends.push({ emoji: emojiForRow('data', i), title: botIntelBullets[i], body: '' });
     }
   }
 
