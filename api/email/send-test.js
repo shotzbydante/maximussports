@@ -138,100 +138,114 @@ export default async function handler(req, res) {
       return res.status(400).json({ code: 'BAD_TYPE', error: `Must be one of: ${VALID_TYPES.join(', ')}`, marker: DEBUG_MARKER });
     }
 
-    console.log(`[send-test] ${DEBUG_MARKER} loading template type=${type}`);
-
-    // ── Dynamic template import — isolated from top-level ──
+    // ── STEP 1: load_template ──
+    let step = 'load_template';
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} type=${type}`);
     let tmpl;
     try {
       tmpl = await loadTemplate(type);
-    } catch (importErr) {
-      console.error(`[send-test] template import FAILED type=${type}:`, importErr.message, importErr.stack);
-      return res.status(500).json({
-        ok: false,
-        code: 'TEMPLATE_IMPORT_FAILED',
-        error: importErr.message,
-        marker: DEBUG_MARKER,
-      });
-    }
-
-    console.log(`[send-test] ${DEBUG_MARKER} template loaded, gathering data`);
-
-    // ── Gather data ──
-    const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
-      fetchScoresSource(),
-      fetchRankingsSource(),
-      getAtsLeadersPipeline(),
-      fetchNewsAggregateSource({ includeNational: true }),
-      type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
-    ]);
-
-    const scoresToday   = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
-    const rankingsTop25 = rankingsData.status  === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
-    const atsLeaders    = atsResult.status     === 'fulfilled'
-      ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
-      : { best: [], worst: [] };
-    const headlinesRaw  = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
-    const headlines     = dedupeNewsItems(headlinesRaw);
-    const oddsGames     = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
-      ? oddsRaw.value.games.map(g => ({ ...g, gameStatus: 'Scheduled', startTime: g.commenceTime || null }))
-      : [];
-
-    const displayName = getUserDisplayName({ user });
-
-    let botIntelBullets = [];
-    if (type === 'daily' || type === 'pinned') {
-      try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); }
-      catch { botIntelBullets = []; }
-    }
-
-    const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
-
-    let pinnedTeams = [];
-    let pinnedSlugs = [];
-    try {
-      const sb = getSupabaseAdmin();
-      pinnedTeams = await getUserPinnedTeams(sb, user.id);
-      const teamMap = await fetchUserTeamsBatch(sb, [user.id]);
-      pinnedSlugs = getPinnedTeamSlugs(teamMap[user.id] || []);
     } catch (err) {
-      console.warn(`[send-test] pinned teams fetch failed: ${err.message}`);
+      console.error(`[send-test] ${DEBUG_MARKER} FAIL step=${step}:`, err.message, err.stack);
+      return res.status(500).json({ ok: false, code: 'STEP_FAILED', step, error: err.message, marker: DEBUG_MARKER });
     }
-    if (pinnedTeams.length === 0) {
-      pinnedTeams = FALLBACK_PINNED_TEAMS;
-      pinnedSlugs = FALLBACK_PINNED_TEAMS.map(t => t.slug);
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} ok`);
+
+    // ── STEP 2: assemble_data ──
+    step = 'assemble_data';
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step}`);
+    let emailData;
+    try {
+      const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
+        fetchScoresSource(),
+        fetchRankingsSource(),
+        getAtsLeadersPipeline(),
+        fetchNewsAggregateSource({ includeNational: true }),
+        type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
+      ]);
+
+      const scoresToday   = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+      const rankingsTop25 = rankingsData.status  === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+      const atsLeaders    = atsResult.status     === 'fulfilled'
+        ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
+        : { best: [], worst: [] };
+      const headlinesRaw  = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
+      const headlines     = dedupeNewsItems(headlinesRaw);
+      const oddsGames     = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
+        ? oddsRaw.value.games.map(g => ({ ...g, gameStatus: 'Scheduled', startTime: g.commenceTime || null }))
+        : [];
+
+      const displayName = getUserDisplayName({ user });
+
+      let botIntelBullets = [];
+      if (type === 'daily' || type === 'pinned') {
+        try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); }
+        catch { botIntelBullets = []; }
+      }
+
+      const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
+
+      let pinnedTeams = [];
+      let pinnedSlugs = [];
+      try {
+        const sb = getSupabaseAdmin();
+        pinnedTeams = await getUserPinnedTeams(sb, user.id);
+        const teamMap = await fetchUserTeamsBatch(sb, [user.id]);
+        pinnedSlugs = getPinnedTeamSlugs(teamMap[user.id] || []);
+      } catch (e) {
+        console.warn(`[send-test] pinned teams fetch failed: ${e.message}`);
+      }
+      if (pinnedTeams.length === 0) {
+        pinnedTeams = FALLBACK_PINNED_TEAMS;
+        pinnedSlugs = FALLBACK_PINNED_TEAMS.map(t => t.slug);
+      }
+
+      emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, pinnedSlugs, botIntelBullets, maximusNote, oddsGames };
+    } catch (err) {
+      console.error(`[send-test] ${DEBUG_MARKER} FAIL step=${step}:`, err.message, err.stack);
+      return res.status(500).json({ ok: false, code: 'STEP_FAILED', step, error: err.message, marker: DEBUG_MARKER });
     }
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} ok`);
 
-    const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames };
-
-    // ── Render ──
+    // ── STEP 3: render_email ──
+    step = 'render_email';
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} type=${type}`);
     let subject, html, text;
-    if (type === 'teamDigest') {
-      const { assembleTeamDigestPayload: assemble, TEAM_DIGEST_MAX_TEAMS: max } = await import('../_lib/teamDigest.js');
-      const { getTeamBySlug } = await import('../../src/data/teams.js');
-      const teamDigests = assemble(pinnedSlugs.slice(0, max), { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlug);
-      const digestData = { ...emailData, teamDigests, totalTeamCount: pinnedSlugs.length };
-      subject = tmpl.getSubject(digestData);
-      html    = tmpl.renderHTML(digestData);
-      text    = tmpl.renderText(digestData);
-    } else {
-      subject = tmpl.getSubject(emailData);
-      html    = tmpl.renderHTML(emailData);
-      text    = tmpl.renderText(emailData);
+    try {
+      if (type === 'teamDigest') {
+        const { assembleTeamDigestPayload: assemble, TEAM_DIGEST_MAX_TEAMS: max } = await import('../_lib/teamDigest.js');
+        const { getTeamBySlug } = await import('../../src/data/teams.js');
+        const teamDigests = assemble(emailData.pinnedSlugs.slice(0, max), emailData, getTeamBySlug);
+        const digestData = { ...emailData, teamDigests, totalTeamCount: emailData.pinnedSlugs.length };
+        subject = tmpl.getSubject(digestData);
+        html    = tmpl.renderHTML(digestData);
+        text    = tmpl.renderText(digestData);
+      } else {
+        subject = tmpl.getSubject(emailData);
+        html    = tmpl.renderHTML(emailData);
+        text    = tmpl.renderText(emailData);
+      }
+    } catch (err) {
+      console.error(`[send-test] ${DEBUG_MARKER} FAIL step=${step}:`, err.message, err.stack);
+      return res.status(500).json({ ok: false, code: 'STEP_FAILED', step, error: err.message, marker: DEBUG_MARKER });
+    }
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} ok subject="${subject?.slice(0, 60)}"`);
+
+    // ── STEP 4: send_email ──
+    step = 'send_email';
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} to=${user.email}`);
+    try {
+      subject = `[TEST] ${subject}`;
+      await sendEmail({ to: user.email, subject, html, text });
+    } catch (err) {
+      console.error(`[send-test] ${DEBUG_MARKER} FAIL step=${step}:`, err.message, err.stack);
+      return res.status(500).json({ ok: false, code: 'STEP_FAILED', step, error: err.message, marker: DEBUG_MARKER });
     }
 
-    subject = `[TEST] ${subject}`;
-    await sendEmail({ to: user.email, subject, html, text });
-
-    console.log(`[send-test] ${DEBUG_MARKER} ok type=${type} to=${user.email}`);
-    return res.status(200).json({ ok: true, type, to: user.email, displayName, marker: DEBUG_MARKER });
+    console.log(`[send-test] ${DEBUG_MARKER} ALL STEPS OK type=${type} to=${user.email}`);
+    return res.status(200).json({ ok: true, type, to: user.email, displayName: emailData.displayName, marker: DEBUG_MARKER });
 
   } catch (err) {
     console.error(`[send-test] ${DEBUG_MARKER} UNHANDLED:`, err.message, err.stack);
-    return res.status(500).json({
-      ok: false,
-      code: 'SEND_FAILED',
-      error: err.message || 'Failed to send test email.',
-      marker: DEBUG_MARKER,
-    });
+    return res.status(500).json({ ok: false, code: 'UNHANDLED', step: 'unknown', error: err.message, marker: DEBUG_MARKER });
   }
 }

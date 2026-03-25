@@ -1473,12 +1473,19 @@ function AdminQAPanel() {
         body: JSON.stringify({ type }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+      if (!res.ok) {
+        // Build detailed error from server response
+        const step = data.step ? `[${data.step}] ` : '';
+        const code = data.code ? `(${data.code}) ` : '';
+        const msg = data.error || `Server error ${res.status}`;
+        throw new Error(`${step}${code}${msg}`);
+      }
 
       const ts = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
       setResults(prev => ({ ...prev, [type]: { ok: true, message: `Sent at ${ts}` } }));
       showToast(`Test sent — check ${adminEmail}`, { type: 'success' });
     } catch (err) {
+      console.error('[Settings send-test]', err.message);
       setResults(prev => ({ ...prev, [type]: { ok: false, message: err.message || 'Send failed.' } }));
       showToast(err.message || 'Send failed.', { type: 'error' });
     } finally {
