@@ -222,6 +222,83 @@ export const CTA_TYPES = {
   },
 };
 
+// ─── Simplified sport context (replaces Feature Type for streamlined UX) ───
+
+export const SPORT_CONTEXTS = {
+  ncaam: {
+    id: 'ncaam',
+    label: '🏀 NCAAM',
+    defaultFeatureType: 'generalDemo',
+    tone: 'college basketball',
+    hooks: ['March Madness intelligence.', 'College basketball, decoded.', 'Every game. Every edge.'],
+  },
+  mlb: {
+    id: 'mlb',
+    label: '⚾ MLB',
+    defaultFeatureType: 'generalDemo',
+    tone: 'baseball intelligence',
+    hooks: ['Baseball intelligence, live.', 'Every game. Every matchup.', 'Own the diamond.'],
+  },
+};
+
+// ─── Simplified hook goal (replaces Hook Style for streamlined UX) ───
+
+export const HOOK_GOALS = {
+  app: {
+    id: 'app',
+    label: 'Check out the app',
+    hookStyle: 'product',
+    ctaType: 'explore',
+    cta: 'Explore Maximus Sports — maximussports.ai',
+    captionTone: 'instagram',
+  },
+  follow: {
+    id: 'follow',
+    label: 'Follow us on IG',
+    hookStyle: 'curiosity',
+    ctaType: 'instagram',
+    cta: 'Follow @maximussports.ai for daily intel',
+    captionTone: 'instagram',
+  },
+};
+
+// ─── Target duration presets ─────────────────────────────────────
+
+export const DURATION_PRESETS = [
+  { value: 8,  label: '8s' },
+  { value: 12, label: '12s' },
+  { value: 15, label: '15s' },
+  { value: 20, label: '20s' },
+  { value: 30, label: '30s' },
+];
+
+// ─── Text position presets ───────────────────────────────────────
+
+export const TEXT_POSITIONS = {
+  top:    { id: 'top',    label: 'Top',    headline: 0.12, subhead: 0.24 },
+  upper:  { id: 'upper',  label: 'Upper',  headline: 0.18, subhead: 0.30 },
+  center: { id: 'center', label: 'Center', headline: 0.35, subhead: 0.48 },
+  lower:  { id: 'lower',  label: 'Lower',  headline: 0.55, subhead: 0.67 },
+  bottom: { id: 'bottom', label: 'Bottom', headline: 0.65, subhead: 0.76 },
+};
+
+// ─── Color presets ───────────────────────────────────────────────
+
+export const COLOR_PRESETS = {
+  maximus:  { id: 'maximus',  label: 'Maximus',      bg: '#0B1120', accent: '#3C79B4' },
+  navy:     { id: 'navy',     label: 'Dark Navy',     bg: '#0A0E1A', accent: '#6EB3E8' },
+  glass:    { id: 'glass',    label: 'Glass Light',   bg: '#1A2236', accent: '#8EC5FF' },
+  sport:    { id: 'sport',    label: 'Sport Accent',  bg: '#0D1424', accent: '#27AE60' },
+};
+
+// ─── Font style presets ──────────────────────────────────────────
+
+export const FONT_PRESETS = {
+  editorial: { id: 'editorial', label: 'Editorial Bold',    family: 'Oswald', weight: 700, tracking: '0.04em' },
+  modern:    { id: 'modern',    label: 'Modern Clean',      family: 'Inter',  weight: 700, tracking: '0.01em' },
+  condensed: { id: 'condensed', label: 'Premium Condensed', family: 'Oswald', weight: 600, tracking: '0.08em' },
+};
+
 // ─── Variant style combos (ensure 3 distinct hooks) ─────────────
 
 export const VARIANT_COMBOS = {

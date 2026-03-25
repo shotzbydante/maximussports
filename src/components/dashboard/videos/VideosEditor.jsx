@@ -10,6 +10,12 @@ import {
   MESSAGE_ANGLES,
   COPY_INTENSITIES,
   CAPTION_TONES,
+  SPORT_CONTEXTS,
+  HOOK_GOALS,
+  DURATION_PRESETS,
+  TEXT_POSITIONS,
+  COLOR_PRESETS,
+  FONT_PRESETS,
 } from './templates/featureSpotlight';
 import { isRenderSupported, checkH264Support, renderVideo } from './render/renderVideo';
 import { analyzeTrim, beatPeaksToTimings } from './render/analyzeTrim';
@@ -44,6 +50,14 @@ export default function VideosEditor() {
   const [messageAngle, setMessageAngle] = useState('demo');
   const [copyIntensity, setCopyIntensity] = useState('balanced');
   const [captionTone, setCaptionTone] = useState('instagram');
+
+  // ── simplified controls (v2) ─────────────────────────────────
+  const [sportContext, setSportContext] = useState('ncaam');
+  const [hookGoal, setHookGoal] = useState('app');
+  const [targetDuration, setTargetDuration] = useState(15);
+  const [textPosition, setTextPosition] = useState('upper');
+  const [colorPreset, setColorPreset] = useState('maximus');
+  const [fontPreset, setFontPreset] = useState('editorial');
 
   // ── fields ─────────────────────────────────────────────────────
   const [headline, setHeadline] = useState('');
@@ -111,13 +125,14 @@ export default function VideosEditor() {
   const currentEditPlan = useMemo(() => {
     if (editMode !== 'smart' || !analysisResult?.scores?.length) return null;
     const srcDuration = analysisResult.fullDuration || videoDuration;
-    const proportionalTarget = computeProportionalTrimLength(srcDuration);
+    // Use user-selected target duration, falling back to proportional
+    const userTarget = targetDuration || computeProportionalTrimLength(srcDuration);
     return buildEditPlan(analysisResult.scores, analysisResult.sampleInterval, srcDuration, {
-      targetDuration: proportionalTarget,
+      targetDuration: Math.min(userTarget, srcDuration),
       fps: template.fps,
       beatCount: template.overlayBeats?.length || 3,
     });
-  }, [editMode, analysisResult, videoDuration, template]);
+  }, [editMode, analysisResult, videoDuration, template, targetDuration]);
 
   // ── dynamic beat timings ───────────────────────────────────────
   const beatTimings = useMemo(() => {
@@ -316,6 +331,36 @@ export default function VideosEditor() {
       setCta(CTA_TYPES[type].defaultText);
     }
   }, []);
+
+  // ── Sync simplified controls → legacy pipeline ───────────────
+  useEffect(() => {
+    const goal = HOOK_GOALS[hookGoal];
+    if (!goal) return;
+    setHookStyle(goal.hookStyle);
+    setCtaType(goal.ctaType);
+    setCta(goal.cta);
+    setCaptionTone(goal.captionTone);
+  }, [hookGoal]);
+
+  useEffect(() => {
+    const sport = SPORT_CONTEXTS[sportContext];
+    if (!sport) return;
+    setFeatureType(sport.defaultFeatureType);
+  }, [sportContext]);
+
+  // Sync text position → overlay Y positions
+  useEffect(() => {
+    const pos = TEXT_POSITIONS[textPosition];
+    if (!pos) return;
+    setOverlayYPositions({ headline: pos.headline, subhead: pos.subhead });
+  }, [textPosition]);
+
+  // Sync color preset → bgColor
+  useEffect(() => {
+    const preset = COLOR_PRESETS[colorPreset];
+    if (!preset) return;
+    setBgColor(preset.bg);
+  }, [colorPreset]);
 
   // ── trim helpers ───────────────────────────────────────────────
   const footageDuration = useMemo(() => {
@@ -816,80 +861,88 @@ export default function VideosEditor() {
             onChange={(e) => setPromptContext(e.target.value)}
           />
 
-          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Feature Type</div>
+          {/* ── Sport Context ── */}
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Sport</div>
           <div className={styles.chipRow}>
-            {Object.values(FEATURE_TYPES).map((ft) => (
+            {Object.values(SPORT_CONTEXTS).map((sc) => (
               <button
-                key={ft.id}
-                className={`${styles.chipBtn} ${featureType === ft.id ? styles.chipBtnActive : ''}`}
-                onClick={() => setFeatureType(ft.id)}
+                key={sc.id}
+                className={`${styles.chipBtn} ${sportContext === sc.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setSportContext(sc.id)}
               >
-                {ft.label}
+                {sc.label}
               </button>
             ))}
           </div>
 
-          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Hook Style</div>
+          {/* ── Hook Goal ── */}
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Goal</div>
           <div className={styles.chipRow}>
-            {Object.values(HOOK_STYLES).map((hs) => (
+            {Object.values(HOOK_GOALS).map((hg) => (
               <button
-                key={hs.id}
-                className={`${styles.chipBtn} ${hookStyle === hs.id ? styles.chipBtnActive : ''}`}
-                onClick={() => setHookStyle(hs.id)}
+                key={hg.id}
+                className={`${styles.chipBtn} ${hookGoal === hg.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setHookGoal(hg.id)}
               >
-                {hs.label}
+                {hg.label}
               </button>
             ))}
           </div>
 
-          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Message Angle</div>
+          {/* ── Target Duration ── */}
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Target Length</div>
           <div className={styles.chipRow}>
-            {Object.values(MESSAGE_ANGLES).map((ma) => (
+            {DURATION_PRESETS.map((dp) => (
               <button
-                key={ma.id}
-                className={`${styles.chipBtn} ${messageAngle === ma.id ? styles.chipBtnActive : ''}`}
-                onClick={() => setMessageAngle(ma.id)}
+                key={dp.value}
+                className={`${styles.chipBtn} ${targetDuration === dp.value ? styles.chipBtnActive : ''}`}
+                onClick={() => setTargetDuration(dp.value)}
               >
-                {ma.label}
+                {dp.label}
               </button>
             ))}
           </div>
 
-          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Copy Intensity</div>
+          {/* ── Text Position ── */}
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Text Position</div>
           <div className={styles.chipRow}>
-            {Object.values(COPY_INTENSITIES).map((ci) => (
+            {Object.values(TEXT_POSITIONS).map((tp) => (
               <button
-                key={ci.id}
-                className={`${styles.chipBtn} ${copyIntensity === ci.id ? styles.chipBtnActive : ''}`}
-                onClick={() => setCopyIntensity(ci.id)}
+                key={tp.id}
+                className={`${styles.chipBtn} ${textPosition === tp.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setTextPosition(tp.id)}
               >
-                {ci.label}
+                {tp.label}
               </button>
             ))}
           </div>
 
-          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Caption Tone</div>
+          {/* ── Color Treatment ── */}
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Color</div>
           <div className={styles.chipRow}>
-            {Object.values(CAPTION_TONES).map((ct) => (
+            {Object.values(COLOR_PRESETS).map((cp) => (
               <button
-                key={ct.id}
-                className={`${styles.chipBtn} ${captionTone === ct.id ? styles.chipBtnActive : ''}`}
-                onClick={() => setCaptionTone(ct.id)}
+                key={cp.id}
+                className={`${styles.chipBtn} ${colorPreset === cp.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setColorPreset(cp.id)}
+                style={colorPreset === cp.id ? { borderColor: cp.accent } : {}}
               >
-                {ct.label}
+                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: cp.accent, marginRight: 4, verticalAlign: 'middle' }} />
+                {cp.label}
               </button>
             ))}
           </div>
 
-          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>CTA Destination</div>
+          {/* ── Font Style ── */}
+          <div className={styles.fieldLabel} style={{ marginTop: 10 }}>Font</div>
           <div className={styles.chipRow}>
-            {Object.values(CTA_TYPES).map((t) => (
+            {Object.values(FONT_PRESETS).map((fp) => (
               <button
-                key={t.id}
-                className={`${styles.chipBtn} ${ctaType === t.id ? styles.chipBtnActive : ''}`}
-                onClick={() => handleCtaTypeChange(t.id)}
+                key={fp.id}
+                className={`${styles.chipBtn} ${fontPreset === fp.id ? styles.chipBtnActive : ''}`}
+                onClick={() => setFontPreset(fp.id)}
               >
-                {t.label}
+                {fp.label}
               </button>
             ))}
           </div>
