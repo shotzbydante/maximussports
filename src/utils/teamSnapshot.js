@@ -12,14 +12,14 @@
  *   - Future: email digests, share cards
  *
  * Usage:
- *   import { buildTeamSnapshot } from '../utils/teamSnapshot';
+ *   import { buildTeamSnapshot } from '../utils/teamSnapshot.js';
  *   const snapshot = buildTeamSnapshot({ teamPageData, teamNextLineData, teamChampOddsMap, rankMap });
  *
  * Shape is documented via JSDoc below. All fields are nullable — consumers must
  * guard for null before rendering.
  */
 
-import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight';
+import { computeAtsFromScheduleAndHistory } from '../components/team/MaximusInsight.jsx';
 
 // ─── News quality helpers ─────────────────────────────────────────────────────
 

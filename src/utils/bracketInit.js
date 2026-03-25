@@ -6,8 +6,8 @@
  * projected field — no user-facing error.
  */
 
-import { fetchBracketData } from '../data/bracketData';
-import { setOfficialBracketData, getTournamentDataMode } from './tournamentHelpers';
+import { fetchBracketData } from '../data/bracketData.js';
+import { setOfficialBracketData, getTournamentDataMode } from './tournamentHelpers.js';
 
 let _initPromise = null;
 

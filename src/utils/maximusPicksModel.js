@@ -18,11 +18,11 @@
  *   confidenceLabel(level) → 'HIGH' | 'MEDIUM' | 'LOW'
  */
 
-import { getTeamSlug } from './teamSlug';
-import { getAtsCache } from './atsCache';
-import { getTeamSeed, getTeamRegion, isTournamentActive } from './tournamentHelpers';
-import { getTournamentPrior } from './tournamentPrior';
-import { computeMatchupRefinements } from './tournamentHeuristics';
+import { getTeamSlug } from './teamSlug.js';
+import { getAtsCache } from './atsCache.js';
+import { getTeamSeed, getTeamRegion, isTournamentActive } from './tournamentHelpers.js';
+import { getTournamentPrior } from './tournamentPrior.js';
+import { computeMatchupRefinements } from './tournamentHeuristics.js';
 
 // ─── tuneable constants ────────────────────────────────────────────────────────
 

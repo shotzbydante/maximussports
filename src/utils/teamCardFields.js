@@ -6,8 +6,8 @@
  * duplicating transformation logic.
  */
 
-import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers';
-import { getTeamBySlug } from '../data/teams';
+import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers.js';
+import { getTeamBySlug } from '../data/teams.js';
 
 const NCAA_TOURNEY_START = '2026-03-17';
 

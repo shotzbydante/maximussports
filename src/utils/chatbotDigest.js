@@ -19,7 +19,7 @@
  *   extractBoldPhrases(text)            → string[]
  */
 
-import { getTeamSlug } from './teamSlug';
+import { getTeamSlug } from './teamSlug.js';
 
 // ─── Section-label stripper ───────────────────────────────────────────────────
 

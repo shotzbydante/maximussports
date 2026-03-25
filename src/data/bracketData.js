@@ -14,8 +14,8 @@
  *   bracket.year — tournament year
  */
 
-import { REGIONS, SEED_MATCHUP_ORDER, TOURNAMENT_YEAR, FINAL_FOUR_MATCHUPS } from '../config/bracketology';
-import { generateProjectedBracket } from './projectedField';
+import { REGIONS, SEED_MATCHUP_ORDER, TOURNAMENT_YEAR, FINAL_FOUR_MATCHUPS } from '../config/bracketology.js';
+import { generateProjectedBracket } from './projectedField.js';
 
 /**
  * Fetch bracket data. Tries official ESPN data first.

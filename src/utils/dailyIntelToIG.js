@@ -19,8 +19,8 @@
  * This module NEVER modifies the original intel or digest.
  */
 
-import { getTeamSlug } from './teamSlug';
-import { getTeamEmoji } from './getTeamEmoji';
+import { getTeamSlug } from './teamSlug.js';
+import { getTeamEmoji } from './getTeamEmoji.js';
 
 function teamEmoji(name) {
   if (!name) return '';

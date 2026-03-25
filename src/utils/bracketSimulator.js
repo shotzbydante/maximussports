@@ -18,10 +18,10 @@
  *   { gameId, selectedTeam, selectionType: 'manual' | 'model' }
  */
 
-import { resolveBracketMatchup } from './bracketMatchupResolver';
-import { buildFullBracket } from '../data/bracketData';
-import { isAnchorPick, shouldRegenerate } from './confidenceTier';
-import { enforceUpsetCap } from './marchMadnessSignals';
+import { resolveBracketMatchup } from './bracketMatchupResolver.js';
+import { buildFullBracket } from '../data/bracketData.js';
+import { isAnchorPick, shouldRegenerate } from './confidenceTier.js';
+import { enforceUpsetCap } from './marchMadnessSignals.js';
 
 const MAX_R1_UPSETS = 5;
 const MAX_R2_UPSETS = 3;

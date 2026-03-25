@@ -1,4 +1,4 @@
-import { TEAMS } from '../data/teams';
+import { TEAMS } from '../data/teams.js';
 
 /**
  * Build a canonical matchup slug from two team slugs.

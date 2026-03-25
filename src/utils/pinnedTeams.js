@@ -17,7 +17,7 @@ import {
   getPinnedForSport,
   addPinnedForSport,
   removePinnedForSport,
-} from '../hooks/usePinnedTeams';
+} from '../hooks/usePinnedTeams.js';
 
 // ─── Legacy migration (runs once) ─────────────────────────────────────────
 

@@ -13,9 +13,9 @@
  * frequency in historically volatile seed bands.
  */
 
-import { getTournamentPrior } from './tournamentPrior';
-import { computeMatchupSignals } from './marchMadnessSignals';
-import { computeChampionshipOverlay, computeMatchupRefinements } from './tournamentHeuristics';
+import { getTournamentPrior } from './tournamentPrior.js';
+import { computeMatchupSignals } from './marchMadnessSignals.js';
+import { computeChampionshipOverlay, computeMatchupRefinements } from './tournamentHeuristics.js';
 
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
