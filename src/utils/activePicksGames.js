@@ -12,7 +12,7 @@
  *   4. Matchup integrity guard: both teams must be in tournament field
  */
 
-import { isTournamentTeam, getTeamRegion, getTournamentPhase } from './tournamentHelpers.js';
+import { isTournamentTeam, getTournamentPhase } from './tournamentHelpers.js';
 
 /**
  * Build a canonical slug-based matchup key for dedup.
@@ -120,17 +120,16 @@ export function buildActivePicksGames({
     if (away) claimedTeams.add(away);
   }
 
-  // ── Layer 4: strict tournament integrity ──
-  // During March Madness, enforce multiple guards:
+  // ── Layer 4: tournament field integrity ──
+  // During March Madness, enforce:
   //   a) Both team slugs must be non-null
   //   b) Both teams must be in the NCAA men's tournament field
-  //   c) During regional rounds (Sweet 16 / Elite 8), both teams must share a region
-  // This catches stale odds pairings, NIT games, women's contamination,
-  // and cross-round mismatches.
+  // NOTE: We do NOT enforce same-region matching because the projected
+  // bracket regions may not match actual tournament results. After upsets,
+  // Sweet 16 matchups regularly cross projected regions.
   let phase = 'off';
   try { phase = getTournamentPhase() || 'off'; } catch { /* ignore */ }
   const isTourneyActive = phase !== 'off' && phase !== 'pre_tournament';
-  const isRegionalRound = phase === 'sweet_sixteen' || phase === 'elite_eight';
 
   if (isTourneyActive) {
     const validated = [];
@@ -143,13 +142,6 @@ export function buildActivePicksGames({
 
       // Guard B: both teams must be in tournament field
       if (!isTournamentTeam(hSlug) || !isTournamentTeam(aSlug)) continue;
-
-      // Guard C: during regional rounds, both teams must share a region
-      if (isRegionalRound) {
-        const hRegion = getTeamRegion(hSlug);
-        const aRegion = getTeamRegion(aSlug);
-        if (hRegion && aRegion && hRegion !== aRegion) continue;
-      }
 
       validated.push(g);
     }
