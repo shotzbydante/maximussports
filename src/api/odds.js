@@ -7,19 +7,34 @@ import { getTeamSlug } from '../utils/teamSlug.js';
 
 const isDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production';
 
-/** Normalize team name for matching: lowercase, strip mascots, punctuation, University, State */
+/** Normalize team name for matching: lowercase, strip punctuation */
 function normName(s) {
   if (!s || typeof s !== 'string') return '';
   return s
     .toLowerCase()
     .replace(/['']/g, '')
     .replace(/[.,()\-&]/g, ' ')
-    .replace(/\b(university|univ\.?|college|of|state)\b/g, '')
+    .replace(/\b(university|univ\.?|college|of)\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-/** Strip mascot (last word or two) for looser school-name matching */
+/**
+ * Normalize preserving "state" — critical for distinguishing Michigan vs Michigan State.
+ * Used for strict matching only.
+ */
+function normNameStrict(s) {
+  if (!s || typeof s !== 'string') return '';
+  return s
+    .toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[.,()\-&]/g, ' ')
+    .replace(/\b(university|univ\.?|college|of)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Strip mascot (last word) for school-name matching */
 function stripMascot(name) {
   if (!name || typeof name !== 'string') return '';
   const n = normName(name);
@@ -28,23 +43,40 @@ function stripMascot(name) {
   return parts.slice(0, -1).join(' ');
 }
 
+/**
+ * Match two team names. Prioritizes canonical slug comparison to avoid
+ * substring collisions (e.g. Michigan vs Michigan State).
+ */
 function namesMatch(a, b) {
   if (!a || !b) return false;
-  const na = normName(a);
-  const nb = normName(b);
-  if (na && nb) {
-    if (na === nb) return true;
-    if (na.includes(nb) || nb.includes(na)) return true;
-    const sa = stripMascot(a);
-    const sb = stripMascot(b);
-    if (sa && sb && (sa.includes(sb) || sb.includes(sa) || sa === sb)) return true;
-    const ta = na.replace(/\s+/g, '');
-    const tb = nb.replace(/\s+/g, '');
-    if (ta === tb || ta.includes(tb) || tb.includes(ta)) return true;
-  }
+
+  // Priority 1: canonical slug comparison (most reliable)
   const slugA = getTeamSlug(a);
   const slugB = getTeamSlug(b);
   if (slugA && slugB) return slugA === slugB;
+
+  // Priority 2: strict normalized name comparison (preserves "state")
+  const sa = normNameStrict(a);
+  const sb = normNameStrict(b);
+  if (sa && sb) {
+    if (sa === sb) return true;
+    // Only allow includes if the shorter string is 80%+ of the longer string length
+    // This prevents "michigan" (8 chars) from matching "michigan state spartans" (23 chars)
+    const shorter = sa.length <= sb.length ? sa : sb;
+    const longer = sa.length > sb.length ? sa : sb;
+    if (longer.includes(shorter) && shorter.length >= longer.length * 0.75) return true;
+  }
+
+  // Priority 3: mascot-stripped comparison with same length guard
+  const ma = stripMascot(a);
+  const mb = stripMascot(b);
+  if (ma && mb) {
+    if (ma === mb) return true;
+    const shorter = ma.length <= mb.length ? ma : mb;
+    const longer = ma.length > mb.length ? ma : mb;
+    if (longer.includes(shorter) && shorter.length >= longer.length * 0.75) return true;
+  }
+
   return false;
 }
 
