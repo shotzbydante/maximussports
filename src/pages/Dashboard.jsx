@@ -630,7 +630,7 @@ export default function Dashboard() {
       : null;
 
     const stats = {
-      gamesWithOdds: (games.filter(g => g.spread != null || g.homeSpread != null)).length,
+      gamesWithOdds: (canonicalPicksGames.filter(g => g.spread != null || g.homeSpread != null)).length,
       rank: enhancedTeamData?.rank ?? null,
       record: (enhancedTeamData?.team?.record?.items?.[0]?.summary) ?? null,
       atsRecord,
