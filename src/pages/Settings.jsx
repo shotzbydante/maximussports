@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSupabase } from '../lib/supabaseClient';
 import { TEAMS } from '../data/teams';
@@ -2865,7 +2865,10 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                         {ncaamTeams.map(renderTeamRow)}
                       </div>
                     ) : (
-                      <p className={styles.teamsSportEmpty}>No college basketball teams pinned yet</p>
+                      <div className={styles.teamsSportEmptyBlock}>
+                        <p className={styles.teamsSportEmpty}>No college basketball teams pinned yet</p>
+                        <Link to="/ncaam" className={styles.teamsSportEmptyCta}>Go to NCAAM Home →</Link>
+                      </div>
                     )}
                   </div>
 
@@ -2883,7 +2886,10 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                         {mlbTeams.map(renderTeamRow)}
                       </div>
                     ) : (
-                      <p className={styles.teamsSportEmpty}>No MLB teams pinned yet</p>
+                      <div className={styles.teamsSportEmptyBlock}>
+                        <p className={styles.teamsSportEmpty}>No MLB teams pinned yet</p>
+                        <Link to="/mlb" className={styles.teamsSportEmptyCta}>Go to MLB Home →</Link>
+                      </div>
                     )}
                   </div>
                 </div>

@@ -10,6 +10,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getSupabase } from '../../lib/supabaseClient';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
@@ -255,19 +256,38 @@ export default function MlbPinnedTeamSection() {
     });
   }, [pinned]);
 
-  const handlePin = (slug) => {
+  const handlePin = async (slug) => {
     if (!user) { navigate('/settings'); return; }
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setLimitHit(true);
       return;
     }
-    addTeam(slug);
+    addTeam(slug); // optimistic local update
     setLimitHit(false);
+    // Persist to server for authenticated users
+    try {
+      const sb = getSupabase();
+      if (sb && user?.id) {
+        await sb.from('user_teams').upsert({
+          user_id: user.id,
+          team_slug: slug,
+          is_primary: pinned.length === 0,
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,team_slug' });
+      }
+    } catch { /* best-effort server sync */ }
   };
 
-  const handleRemove = (slug) => {
-    removeTeam(slug);
+  const handleRemove = async (slug) => {
+    removeTeam(slug); // optimistic local update
     setLimitHit(false);
+    // Remove from server for authenticated users
+    try {
+      const sb = getSupabase();
+      if (sb && user?.id) {
+        await sb.from('user_teams').delete().eq('user_id', user.id).eq('team_slug', slug);
+      }
+    } catch { /* best-effort server sync */ }
   };
 
   const isEmpty = pinned.length === 0;

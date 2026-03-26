@@ -1526,16 +1526,30 @@
   padding: 1px 6px;
   border-radius: 999px;
 }
-.teamsSportEmpty {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-  padding: 12px 14px;
+.teamsSportEmptyBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 14px;
   background: rgba(0,0,0,0.015);
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-md);
   text-align: center;
+}
+.teamsSportEmpty {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
   margin: 0;
 }
+.teamsSportEmptyCta {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+.teamsSportEmptyCta:hover { color: var(--color-primary-hover, #2a5d9e); }
 
 .teamsList {
   display: flex;
