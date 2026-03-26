@@ -574,13 +574,35 @@ export default function Dashboard() {
     let picks = [];
     try {
       const p = buildMaximusPicks({ games, atsLeaders: atsL, rankMap, championshipOdds: champOdds });
-      // Pass ALL pick buckets so caption can accurately reflect the card
-      const topLeans = (arr, n = 3) => arr.filter(x => x.itemType === 'lean').sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag)).slice(0, n);
+      // Deduped topLeans: same logic as slide (top 3 per bucket), plus
+      // matchup-level and team-level dedup within each bucket to prevent
+      // the same team or game appearing multiple times in the caption.
+      const dedupedTopLeans = (arr, n = 3) => {
+        const leans = arr.filter(x => x.itemType === 'lean')
+          .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
+        const seen = new Set();
+        const result = [];
+        for (const pick of leans) {
+          if (result.length >= n) break;
+          // Dedup by pickTeam slug (prevents same team twice in one bucket)
+          const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
+          if (slug && seen.has(slug)) continue;
+          // Dedup by matchup key (prevents same game twice)
+          const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
+          const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
+          const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
+          if (mKey && seen.has(`m:${mKey}`)) continue;
+          if (slug) seen.add(slug);
+          if (mKey) seen.add(`m:${mKey}`);
+          result.push(pick);
+        }
+        return result;
+      };
       picks = [
-        ...topLeans(p.pickEmPicks ?? []),
-        ...topLeans(p.atsPicks ?? []),
-        ...topLeans(p.valuePicks ?? []),
-        ...topLeans(p.totalsPicks ?? []),
+        ...dedupedTopLeans(p.pickEmPicks ?? []),
+        ...dedupedTopLeans(p.atsPicks ?? []),
+        ...dedupedTopLeans(p.valuePicks ?? []),
+        ...dedupedTopLeans(p.totalsPicks ?? []),
       ];
     } catch { /* ignore */ }
 
