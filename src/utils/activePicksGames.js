@@ -13,6 +13,18 @@
  *   mergeWithOdds        – mergeGamesWithOdds function
  */
 
+/**
+ * Build a canonical slug-based matchup key for dedup.
+ * Uses the same identity resolution as the picks model.
+ */
+function matchupKey(game, getSlug) {
+  const home = getSlug?.(game.homeTeam) || (game.homeTeam || '').toLowerCase().trim();
+  const away = getSlug?.(game.awayTeam) || (game.awayTeam || '').toLowerCase().trim();
+  if (!home || !away) return null;
+  // Sort to make key order-independent (same game regardless of home/away orientation)
+  return [home, away].sort().join('|');
+}
+
 export function buildActivePicksGames({
   todayScores = [],
   oddsGames = [],
@@ -40,12 +52,13 @@ export function buildActivePicksGames({
     return dt && !scoreDates.has(dt);
   });
 
-  const base = [...todayMerged];
-  const seenIds = new Set(base.map((g) => g.gameId).filter(Boolean));
+  // Build candidate list from all sources
+  const candidates = [...todayMerged];
+  const seenIds = new Set(candidates.map((g) => g.gameId).filter(Boolean));
 
   for (const g of futureOdds) {
     if (!g.gameId || !seenIds.has(g.gameId)) {
-      base.push(g);
+      candidates.push(g);
       if (g.gameId) seenIds.add(g.gameId);
     }
   }
@@ -53,6 +66,19 @@ export function buildActivePicksGames({
   const extra = upcomingGamesWithSpreads.filter(
     (g) => !g.gameId || !seenIds.has(g.gameId),
   );
+  if (extra.length > 0) candidates.push(...extra);
 
-  return extra.length > 0 ? [...base, ...extra] : base;
+  // ── Slug-based dedup: prevent same matchup from appearing multiple times ──
+  // This is critical because odds games often lack gameId, so the ID-based
+  // dedup above doesn't catch them. Uses canonical team slugs for precision.
+  const seenMatchups = new Set();
+  const deduped = [];
+  for (const g of candidates) {
+    const key = matchupKey(g, getSlug);
+    if (key && seenMatchups.has(key)) continue; // duplicate matchup
+    if (key) seenMatchups.add(key);
+    deduped.push(g);
+  }
+
+  return deduped;
 }

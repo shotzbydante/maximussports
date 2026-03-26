@@ -34,7 +34,7 @@ function makeTeamObj(name) {
  * Slide 4 (4-slide mode only): Totals informational + quick market notes (ATS leaders).
  */
 export default function OddsInsightsSlide4({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games = data?.odds?.games ?? [];
+  const games = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
   let picks = { totalsPicks: [] };

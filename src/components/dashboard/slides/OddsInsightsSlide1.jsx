@@ -7,7 +7,7 @@ import { getSlideColors, getConfidenceLabel } from '../../../utils/confidenceSys
 import styles from './OddsInsightsSlide1.module.css';
 
 export default function OddsInsightsSlide1({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games = data?.odds?.games ?? [];
+  const games = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
   let picks = { pickEmPicks: [], atsPicks: [], valuePicks: [], mlPicks: [], totalsPicks: [] };

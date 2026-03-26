@@ -92,7 +92,7 @@ function MlPickRow({ pick }) {
 export default function OddsInsightsSlide2({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
   const { riskMode = 'standard', picksMode = 'top3' } = options;
 
-  const games = data?.odds?.games ?? [];
+  const games = data?.picksGames ?? data?.odds?.games ?? [];
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
 
   let picks = { atsPicks: [], mlPicks: [] };
