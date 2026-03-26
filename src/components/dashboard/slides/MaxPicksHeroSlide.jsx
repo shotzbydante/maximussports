@@ -251,13 +251,17 @@ function IntelModule({ picks, cat }) {
 /* ── Main slide export ────────────────────────────────────────── */
 
 export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.picksGames ?? data?.odds?.games ?? [];
-  const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
-  const rankMap    = data?.rankMap ?? {};
-  const champOdds  = data?.championshipOdds ?? {};
-
-  let picks = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
-  try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
+  // Use canonical picks from Dashboard if available (single source of truth).
+  // Only fall back to re-running the model if canonical picks are not passed.
+  let picks = data?.canonicalPicks;
+  if (!picks || (!picks.pickEmPicks?.length && !picks.atsPicks?.length && !picks.valuePicks?.length && !picks.totalsPicks?.length)) {
+    const games      = data?.picksGames ?? data?.odds?.games ?? [];
+    const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+    const rankMap    = data?.rankMap ?? {};
+    const champOdds  = data?.championshipOdds ?? {};
+    picks = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
+    try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
+  }
 
   const pe  = picks.pickEmPicks  ?? [];
   const ats = picks.atsPicks     ?? [];

@@ -12,13 +12,16 @@ function makeTeamObj(name) {
 }
 
 export default function MaxPicksValueSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.picksGames ?? data?.odds?.games ?? [];
-  const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
-  const rankMap    = data?.rankMap ?? {};
-  const champOdds  = data?.championshipOdds ?? {};
-
-  let picks = { valuePicks: [] };
-  try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
+  // Use canonical picks from Dashboard (single source of truth)
+  let picks = data?.canonicalPicks;
+  if (!picks) {
+    const games      = data?.picksGames ?? data?.odds?.games ?? [];
+    const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+    const rankMap    = data?.rankMap ?? {};
+    const champOdds  = data?.championshipOdds ?? {};
+    picks = {};
+    try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
+  }
 
   const valuePicks = (picks.valuePicks ?? []).slice(0, 4);
 

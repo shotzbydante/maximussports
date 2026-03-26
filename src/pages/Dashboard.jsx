@@ -1639,6 +1639,7 @@ export default function Dashboard() {
                 }
                 if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
                 enrichments.picksGames = canonicalPicksGames;
+                enrichments.canonicalPicks = canonicalPicks;
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
               teamData={enhancedTeamData}

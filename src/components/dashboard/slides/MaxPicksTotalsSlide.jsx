@@ -133,13 +133,16 @@ function FeaturedTotalCard({ pick }) {
 }
 
 export default function MaxPicksTotalsSlide({ data, asOf, slideNumber, slideTotal, options = {}, ...rest }) {
-  const games      = data?.picksGames ?? data?.odds?.games ?? [];
-  const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
-  const rankMap    = data?.rankMap ?? {};
-  const champOdds  = data?.championshipOdds ?? {};
-
-  let picks = { totalsPicks: [] };
-  try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
+  // Use canonical picks from Dashboard (single source of truth)
+  let picks = data?.canonicalPicks;
+  if (!picks) {
+    const games      = data?.picksGames ?? data?.odds?.games ?? [];
+    const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+    const rankMap    = data?.rankMap ?? {};
+    const champOdds  = data?.championshipOdds ?? {};
+    picks = {};
+    try { picks = buildMaximusPicks({ games, atsLeaders, rankMap, championshipOdds: champOdds }); } catch { /* ignore */ }
+  }
 
   const totalsPicks = (picks.totalsPicks ?? []).slice(0, 4);
   const isSingle = totalsPicks.length === 1;
