@@ -567,12 +567,21 @@ export default function Dashboard() {
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
     if (!dashData) return null;
-    const games = dashData?.odds?.games ?? [];
+    const games = dashData?.picksGames ?? dashData?.odds?.games ?? [];
     const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
+    const rankMap = dashData?.rankMap ?? {};
+    const champOdds = dashData?.championshipOdds ?? {};
     let picks = [];
     try {
-      const p = buildMaximusPicks({ games, atsLeaders: atsL });
-      picks = [...(p.atsPicks ?? []), ...(p.mlPicks ?? [])].slice(0, 3);
+      const p = buildMaximusPicks({ games, atsLeaders: atsL, rankMap, championshipOdds: champOdds });
+      // Pass ALL pick buckets so caption can accurately reflect the card
+      const topLeans = (arr, n = 3) => arr.filter(x => x.itemType === 'lean').sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag)).slice(0, n);
+      picks = [
+        ...topLeans(p.pickEmPicks ?? []),
+        ...topLeans(p.atsPicks ?? []),
+        ...topLeans(p.valuePicks ?? []),
+        ...topLeans(p.totalsPicks ?? []),
+      ];
     } catch { /* ignore */ }
 
     const asOf = new Date().toLocaleTimeString('en-US', {

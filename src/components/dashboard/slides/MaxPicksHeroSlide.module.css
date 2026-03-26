@@ -409,6 +409,16 @@
   /* color set dynamically via inline style to match confidence tier */
 }
 
+/* ── Totals meta row (badges on their own line) ──────────────── */
+
+.pickMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 25px;
+  margin-top: 2px;
+}
+
 /* ── Matchup context line ────────────────────────────────────── */
 
 .pickMatchup {

@@ -106,20 +106,24 @@ function PickRow({ pick, rank }) {
     const dir = pick.leanDirection;
     const isOver = dir === 'OVER';
     const isUnder = dir === 'UNDER';
+    const awayShort = heroDisplayName(pick.awayTeam);
+    const homeShort = heroDisplayName(pick.homeTeam);
     return (
       <div className={styles.pickRow}>
+        {/* Line 1: rank + logos + matchup + line value */}
         <div className={styles.pickMain}>
           <span className={styles.pickRank}>#{rank}</span>
           <div className={styles.pickLogos}>
             {awayObj && <TeamLogo team={awayObj} size={24} />}
             {homeObj && <TeamLogo team={homeObj} size={24} />}
           </div>
-          <span className={styles.pickLine}>
-            {heroDisplayName(pick.awayTeam)} vs {heroDisplayName(pick.homeTeam)}
-          </span>
+          <span className={styles.pickLine}>{awayShort} vs {homeShort}</span>
           {pick.lineValue != null && (
             <span className={styles.featuredTotalLineVal}>{pick.lineValue}</span>
           )}
+        </div>
+        {/* Line 2: O/U badge + confidence + edge */}
+        <div className={styles.pickMeta}>
           <span className={`${styles.ouBadgeSm} ${isOver ? styles.ouBadgeSmOver : isUnder ? styles.ouBadgeSmUnder : styles.ouBadgeSmNeutral}`}>
             {dir ? (isOver ? '▲ OVER' : '▼ UNDER') : 'O/U'}
           </span>
@@ -270,9 +274,14 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const valTop = topLeans(val);
   const totTop = topLeans(tot);
 
-  const leanCt = a => a.filter(p => p.itemType === 'lean').length;
-  const totalSignals = leanCt(pe) + leanCt(ats) + leanCt(val) + leanCt(tot);
+  // Count what is ACTUALLY RENDERED on the card (topLeans = up to 3 per bucket)
+  const renderedPe = peTop.length;
+  const renderedAts = atsTop.length;
+  const renderedVal = valTop.length;
+  const renderedTot = totTop.length;
+  const totalRendered = renderedPe + renderedAts + renderedVal + renderedTot;
   const totalPicks = pe.length + ats.length + val.length + tot.length;
+  const gamesAnalyzed = games.length;
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
@@ -308,11 +317,11 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
         <>
           <div className={styles.countGrid}>
             {[
-              [totalSignals, 'Leans Today'],
-              [leanCt(pe), "Pick 'Ems"],
-              [leanCt(ats), 'Spread Edges'],
-              [leanCt(val), 'Value Spots'],
-              [leanCt(tot), 'Totals'],
+              [gamesAnalyzed, 'Games'],
+              [renderedPe, "Pick 'Ems"],
+              [renderedAts, 'Spread Edges'],
+              [renderedVal, 'Value Spots'],
+              [renderedTot, 'Totals'],
             ].map(([v, l]) => (
               <div key={l} className={styles.countCell}>
                 <span className={styles.countValue}>{v}</span>
