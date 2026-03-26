@@ -5,11 +5,14 @@
  * picks game set from this function so the model sees the same universe
  * of games everywhere.
  *
- * Three-layer dedup:
+ * Four-layer dedup:
  *   1. gameId dedup (catches ESPN duplicates)
  *   2. Slug-based matchup dedup (catches odds API duplicates)
  *   3. Bracket-consistency: each team appears in only ONE matchup
+ *   4. Matchup integrity guard: both teams must be in tournament field
  */
+
+import { isTournamentTeam } from './tournamentHelpers.js';
 
 /**
  * Build a canonical slug-based matchup key for dedup.
@@ -57,15 +60,28 @@ export function buildActivePicksGames({
     return dt && !scoreDates.has(dt);
   });
 
-  // ── Layer 1: gameId dedup ──
+  // ── Layer 1: gameId dedup + ESPN team priority ──
+  // ESPN scores are the source of truth for team pairings.
+  // Build a set of teams already claimed by ESPN games so that
+  // odds-only games with stale pairings cannot steal team slots.
   const candidates = [...todayMerged];
   const seenIds = new Set(candidates.map((g) => g.gameId).filter(Boolean));
+  const espnTeams = new Set();
+  for (const g of todayMerged) {
+    const hSlug = getSlug?.(g.homeTeam);
+    const aSlug = getSlug?.(g.awayTeam);
+    if (hSlug) espnTeams.add(hSlug);
+    if (aSlug) espnTeams.add(aSlug);
+  }
 
   for (const g of futureOdds) {
-    if (!g.gameId || !seenIds.has(g.gameId)) {
-      candidates.push(g);
-      if (g.gameId) seenIds.add(g.gameId);
-    }
+    if (g.gameId && seenIds.has(g.gameId)) continue;
+    // Reject odds-only games where either team is already claimed by ESPN
+    const hSlug = getSlug?.(g.homeTeam);
+    const aSlug = getSlug?.(g.awayTeam);
+    if ((hSlug && espnTeams.has(hSlug)) || (aSlug && espnTeams.has(aSlug))) continue;
+    candidates.push(g);
+    if (g.gameId) seenIds.add(g.gameId);
   }
 
   const extra = upcomingGamesWithSpreads.filter(
@@ -102,6 +118,28 @@ export function buildActivePicksGames({
     bracketConsistent.push(g);
     if (home) claimedTeams.add(home);
     if (away) claimedTeams.add(away);
+  }
+
+  // ── Layer 4: matchup integrity — both teams must be in tournament field ──
+  // During March Madness, reject games where one or both teams are not in the
+  // current NCAA men's tournament field. This catches stale odds data, NIT
+  // games, and women's tournament contamination.
+  let isTourneyActive = false;
+  try { isTourneyActive = bracketConsistent.some(g => isTournamentTeam(getSlug?.(g.homeTeam) || g.homeTeam)); } catch { /* ignore */ }
+
+  if (isTourneyActive) {
+    const validated = [];
+    for (const g of bracketConsistent) {
+      const hSlug = getSlug?.(g.homeTeam) || g.homeTeam || '';
+      const aSlug = getSlug?.(g.awayTeam) || g.awayTeam || '';
+      const hInField = isTournamentTeam(hSlug);
+      const aInField = isTournamentTeam(aSlug);
+      if (hInField && aInField) {
+        validated.push(g);
+      }
+      // else: one or both teams not in tournament → drop silently
+    }
+    return validated;
   }
 
   return bracketConsistent;
