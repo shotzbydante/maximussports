@@ -1111,7 +1111,7 @@ function EditProfileForm({ user, profile, onSave, onCancel }) {
  * @param {string[]} [props.selectedSlugs]— currently selected slugs (multi-select mode)
  * @param {Function} [props.onToggle]     — (slug) => void  (multi-select toggle)
  */
-function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, selectedSlugs = [], onToggle }) {
+function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, selectedSlugs = [], onToggle, sport = 'ncaam' }) {
   const [query, setQuery]   = useState('');
   const [adding, setAdding] = useState(null);
   const inputRef            = useRef(null);
@@ -1120,14 +1120,19 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
 
   const existingSlugs = existingTeams.map(t => t.team_slug);
 
-  const allTeams = TEAMS
+  const isMlb = sport === 'mlb';
+  const sourceTeams = isMlb
+    ? MLB_TEAMS.map(t => ({ ...t, conference: t.division }))
+    : TEAMS;
+
+  const allTeams = sourceTeams
     .filter(t =>
       !query ||
       t.name.toLowerCase().includes(query.toLowerCase()) ||
-      t.conference.toLowerCase().includes(query.toLowerCase())
+      (t.conference || '').toLowerCase().includes(query.toLowerCase()) ||
+      (t.abbrev || '').toLowerCase().includes(query.toLowerCase())
     )
     .sort((a, b) => {
-      // In multi-select mode, selected teams float to top
       if (multiSelect) {
         const as = selectedSlugs.includes(a.slug) ? -1 : 0;
         const bs = selectedSlugs.includes(b.slug) ? -1 : 0;
@@ -1138,7 +1143,7 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
       return ap - bp;
     });
 
-  const panelTitle = multiSelect ? 'Select digest teams' : 'Pin a team';
+  const panelTitle = multiSelect ? 'Select digest teams' : isMlb ? 'Pin an MLB team' : 'Pin a team';
 
   return (
     <div className={styles.pickerPanel}>
@@ -1156,8 +1161,12 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
       </div>
       <div className={styles.pickerPanelList}>
         {allTeams.map(team => {
+          const mlbLogo = isMlb ? getMlbEspnLogoUrl(team.slug) : null;
+          const logoEl = isMlb && mlbLogo
+            ? <img src={mlbLogo} alt="" width={24} height={24} style={{ objectFit: 'contain', borderRadius: 3 }} />
+            : <TeamLogo team={team} size={24} />;
+
           if (multiSelect) {
-            // Multi-select: toggle checkbox style
             const isSelected = selectedSlugs.includes(team.slug);
             return (
               <button
@@ -1166,7 +1175,7 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
                 className={`${styles.pickerAddRow} ${isSelected ? styles.pickerAddRowPinned : ''}`}
                 onClick={() => onToggle && onToggle(team.slug)}
               >
-                <span className={styles.teamPickLogo}><TeamLogo team={team} size={24} /></span>
+                <span className={styles.teamPickLogo}>{logoEl}</span>
                 <span className={styles.pickerRowInfo}>
                   <span className={styles.teamPickName}>{team.name}</span>
                   <span className={styles.teamPickConf}>{team.conference}</span>
@@ -1197,7 +1206,7 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
                 setAdding(null);
               }}
             >
-              <span className={styles.teamPickLogo}><TeamLogo team={team} size={24} /></span>
+              <span className={styles.teamPickLogo}>{logoEl}</span>
               <span className={styles.pickerRowInfo}>
                 <span className={styles.teamPickName}>{team.name}</span>
                 <span className={styles.teamPickConf}>{team.conference}</span>
@@ -2064,7 +2073,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   const [userTeams, setUserTeams]         = useState([]);
   const [teamsLoading, setTeamsLoading]   = useState(true);
   const [teamsError, setTeamsError]       = useState('');
-  const [showTeamPicker, setShowTeamPicker] = useState(false);
+  const [showTeamPicker, setShowTeamPicker] = useState(null); // null | 'ncaam' | 'mlb'
   const [primaryPending, setPrimaryPending] = useState(null);
 
   const [prefs, setPrefs]           = useState(() => ({ ...DEFAULT_PREFS, ...(profile?.preferences || {}) }));
@@ -2780,14 +2789,14 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     {userTeams.length}/{entitlements.maxPinnedTeams} free
                   </span>
                 )}
-                <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(v => !v)}>
+                <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(v => v ? null : 'ncaam')}>
                   {showTeamPicker ? 'Cancel' : '+ Add team'}
                 </button>
               </div>
             </div>
 
             {showTeamPicker && (
-              <TeamPickerPanel existingTeams={userTeams} onAdd={handleAddTeam} onClose={() => setShowTeamPicker(false)} />
+              <TeamPickerPanel sport={showTeamPicker} existingTeams={userTeams} onAdd={handleAddTeam} onClose={() => setShowTeamPicker(null)} />
             )}
 
             {teamsError && <p className={styles.sectionError}>{teamsError}</p>}
@@ -2797,7 +2806,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             ) : enrichedTeams.length === 0 ? (
               <div className={styles.emptyTeams}>
                 <p className={styles.emptyState}>No teams added yet.</p>
-                {!showTeamPicker && (
+                {!showTeamPicker && enrichedTeams.length === 0 && (
                   <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(true)}>
                     + Add your first team
                   </button>
@@ -2859,7 +2868,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                       {ncaamTeams.length > 0 && (
                         <span className={styles.teamsSportCount}>{ncaamTeams.length}</span>
                       )}
-                      <button type="button" className={styles.teamsSportAddBtn} onClick={() => setShowTeamPicker(v => !v)}>
+                      <button type="button" className={styles.teamsSportAddBtn} onClick={() => setShowTeamPicker('ncaam')}>
                         + Add team
                       </button>
                     </div>
@@ -2870,7 +2879,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     ) : (
                       <div className={styles.teamsSportEmptyBlock}>
                         <p className={styles.teamsSportEmpty}>No college basketball teams pinned yet</p>
-                        <button type="button" className={styles.teamsSportEmptyCta} onClick={() => setShowTeamPicker(true)}>
+                        <button type="button" className={styles.teamsSportEmptyCta} onClick={() => setShowTeamPicker('ncaam')}>
                           + Add a college basketball team
                         </button>
                       </div>
@@ -2885,7 +2894,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                       {mlbTeams.length > 0 && (
                         <span className={styles.teamsSportCount}>{mlbTeams.length}</span>
                       )}
-                      <button type="button" className={styles.teamsSportAddBtn} onClick={() => setShowTeamPicker(v => !v)}>
+                      <button type="button" className={styles.teamsSportAddBtn} onClick={() => setShowTeamPicker('mlb')}>
                         + Add team
                       </button>
                     </div>
@@ -2896,7 +2905,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     ) : (
                       <div className={styles.teamsSportEmptyBlock}>
                         <p className={styles.teamsSportEmpty}>No MLB teams pinned yet</p>
-                        <button type="button" className={styles.teamsSportEmptyCta} onClick={() => setShowTeamPicker(true)}>
+                        <button type="button" className={styles.teamsSportEmptyCta} onClick={() => setShowTeamPicker('mlb')}>
                           + Add an MLB team
                         </button>
                       </div>
