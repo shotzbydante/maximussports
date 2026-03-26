@@ -1537,6 +1537,23 @@
   border-radius: var(--radius-md);
   text-align: center;
 }
+.teamsSportAddBtn {
+  margin-left: auto;
+  font-size: 0.60rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: none;
+  border: 1px solid var(--color-border-light);
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+}
+.teamsSportAddBtn:hover {
+  background: rgba(60,121,180,0.06);
+  border-color: rgba(60,121,180,0.25);
+}
 .teamsSportEmpty {
   font-size: 0.72rem;
   color: var(--color-text-muted);
@@ -1546,6 +1563,11 @@
   font-size: 0.66rem;
   font-weight: 600;
   color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
   text-decoration: none;
   transition: color 0.12s;
 }

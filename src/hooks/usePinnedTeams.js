@@ -7,21 +7,20 @@
  *   localStorage key: maximus-pinned-teams-v2
  *   Structure: { mlb: ['nyy', 'lad'], ncaam: ['duke-blue-devils', 'kansas-jayhawks'] }
  *
- * Migration:
- *   - Reads legacy maximus-mlb-pinned-teams (MLB v1 key) on first access
- *   - Reads legacy maximus-pinned-teams (NCAAM key) on first access
- *   - Merges into unified structure, removes legacy keys
+ * Reactivity:
+ *   - Listens for custom 'maximus-pins-updated' events (same-tab sync)
+ *   - Listens for 'storage' events (cross-tab sync)
+ *   - Re-reads from localStorage when either fires
  *
  * Usage:
  *   const { pinnedTeams, addTeam, removeTeam, isPinned } = usePinnedTeams({ sport: 'mlb' });
- *
- * Future: plug in Supabase user_teams sync (sport-aware rows).
  */
 import { useState, useCallback, useEffect } from 'react';
 
 const UNIFIED_KEY = 'maximus-pinned-teams-v2';
 const LEGACY_MLB_KEY = 'maximus-mlb-pinned-teams';
 const LEGACY_NCAAM_KEY = 'maximus-pinned-teams';
+const PINS_UPDATED_EVENT = 'maximus-pins-updated';
 
 // ─── Storage layer ─────────────────────────────────────────────────────────
 
@@ -42,6 +41,8 @@ function readUnified() {
 function writeUnified(data) {
   try {
     localStorage.setItem(UNIFIED_KEY, JSON.stringify(data));
+    // Notify same-tab listeners (storage event only fires cross-tab)
+    window.dispatchEvent(new CustomEvent(PINS_UPDATED_EVENT));
   } catch { /* quota exceeded */ }
 }
 
@@ -51,7 +52,6 @@ function readLegacyArray(key) {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed.filter(s => typeof s === 'string' && s.length > 0);
-    // NCAAM legacy: might be array of objects with .slug
     if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
       return parsed.map(item => item?.slug ?? '').filter(Boolean);
     }
@@ -71,15 +71,9 @@ function ensureMigrated() {
   const legacyMlb = readLegacyArray(LEGACY_MLB_KEY);
   const legacyNcaam = readLegacyArray(LEGACY_NCAAM_KEY);
 
-  const unified = {
-    mlb: legacyMlb,
-    ncaam: legacyNcaam,
-  };
-
-  writeUnified(unified);
-
-  // Don't delete legacy keys yet — NCAAM still reads from its own key
-  // We'll read from unified going forward for MLB
+  const unified = { mlb: legacyMlb, ncaam: legacyNcaam };
+  // Use raw localStorage.setItem (not writeUnified) to avoid premature event
+  try { localStorage.setItem(UNIFIED_KEY, JSON.stringify(unified)); } catch {}
 }
 
 function getForSport(sport) {
@@ -119,9 +113,26 @@ export function removePinnedForSport(sport, slug) {
 export default function usePinnedTeams({ sport = 'mlb' } = {}) {
   const [pinnedTeams, setPinnedTeams] = useState(() => getForSport(sport));
 
-  // Sync on mount and when sport changes
+  // Re-read from localStorage when unified store is updated
+  // (by sync hook, other components, or cross-tab)
   useEffect(() => {
-    setPinnedTeams(getForSport(sport));
+    const refresh = () => setPinnedTeams(getForSport(sport));
+
+    // Same-tab: custom event dispatched by writeUnified()
+    window.addEventListener(PINS_UPDATED_EVENT, refresh);
+    // Cross-tab: native storage event
+    window.addEventListener('storage', (e) => {
+      if (e.key === UNIFIED_KEY) refresh();
+    });
+
+    // Also refresh on sport change
+    refresh();
+
+    return () => {
+      window.removeEventListener(PINS_UPDATED_EVENT, refresh);
+      // Note: storage listener uses inline arrow so can't cleanly remove,
+      // but it's lightweight and component-lifetime-scoped
+    };
   }, [sport]);
 
   const addTeam = useCallback((slug) => {

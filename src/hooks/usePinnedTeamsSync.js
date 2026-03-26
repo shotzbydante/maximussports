@@ -99,6 +99,8 @@ export function usePinnedTeamsSync(user) {
           const UNIFIED_KEY = 'maximus-pinned-teams-v2';
           const v2 = { ncaam: ncaamSlugs, mlb: mlbSlugs };
           localStorage.setItem(UNIFIED_KEY, JSON.stringify(v2));
+          // Notify same-tab usePinnedTeams hooks to re-read
+          window.dispatchEvent(new CustomEvent('maximus-pins-updated'));
         } catch { /* quota */ }
 
         // Also update legacy NCAAM key for backward compat

@@ -2859,6 +2859,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                       {ncaamTeams.length > 0 && (
                         <span className={styles.teamsSportCount}>{ncaamTeams.length}</span>
                       )}
+                      <button type="button" className={styles.teamsSportAddBtn} onClick={() => setShowTeamPicker(v => !v)}>
+                        + Add team
+                      </button>
                     </div>
                     {ncaamTeams.length > 0 ? (
                       <div className={styles.teamsList}>
@@ -2867,7 +2870,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     ) : (
                       <div className={styles.teamsSportEmptyBlock}>
                         <p className={styles.teamsSportEmpty}>No college basketball teams pinned yet</p>
-                        <Link to="/ncaam" className={styles.teamsSportEmptyCta}>Go to NCAAM Home →</Link>
+                        <button type="button" className={styles.teamsSportEmptyCta} onClick={() => setShowTeamPicker(true)}>
+                          + Add a college basketball team
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2880,6 +2885,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                       {mlbTeams.length > 0 && (
                         <span className={styles.teamsSportCount}>{mlbTeams.length}</span>
                       )}
+                      <button type="button" className={styles.teamsSportAddBtn} onClick={() => setShowTeamPicker(v => !v)}>
+                        + Add team
+                      </button>
                     </div>
                     {mlbTeams.length > 0 ? (
                       <div className={styles.teamsList}>
@@ -2888,7 +2896,9 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     ) : (
                       <div className={styles.teamsSportEmptyBlock}>
                         <p className={styles.teamsSportEmpty}>No MLB teams pinned yet</p>
-                        <Link to="/mlb" className={styles.teamsSportEmptyCta}>Go to MLB Home →</Link>
+                        <button type="button" className={styles.teamsSportEmptyCta} onClick={() => setShowTeamPicker(true)}>
+                          + Add an MLB team
+                        </button>
                       </div>
                     )}
                   </div>
