@@ -2783,16 +2783,11 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
           <div className={styles.profileSection}>
             <div className={styles.sectionHeader}>
               <h3 className={styles.sectionTitle}>My Teams</h3>
-              <div className={styles.sectionHeaderRight}>
-                {planTier === 'free' && (
-                  <span className={styles.limitChip}>
-                    {userTeams.length}/{entitlements.maxPinnedTeams} free
-                  </span>
-                )}
-                <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(v => v ? null : 'ncaam')}>
-                  {showTeamPicker ? 'Cancel' : '+ Add team'}
-                </button>
-              </div>
+              {planTier === 'free' && (
+                <span className={styles.limitChip}>
+                  {userTeams.length}/{entitlements.maxPinnedTeams} free
+                </span>
+              )}
             </div>
 
             {showTeamPicker && (
@@ -2806,7 +2801,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
             ) : enrichedTeams.length === 0 ? (
               <div className={styles.emptyTeams}>
                 <p className={styles.emptyState}>No teams added yet.</p>
-                {!showTeamPicker && enrichedTeams.length === 0 && (
+                {!showTeamPicker && (
                   <button type="button" className={styles.btnAddTeam} onClick={() => setShowTeamPicker(true)}>
                     + Add your first team
                   </button>

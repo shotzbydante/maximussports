@@ -16,7 +16,8 @@ import { getMlbEspnLogoUrl } from '../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
 import { getTeamMeta } from '../../data/mlb/teamMeta';
 import { buildMlbTeamIntelSummary } from '../../data/mlb/teamIntelSummary';
-import usePinnedTeams from '../../hooks/usePinnedTeams';
+import usePinnedTeams, { getPinnedForSport } from '../../hooks/usePinnedTeams';
+import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import { usePlan } from '../../hooks/usePlan';
 import { MLB_TEAMS, getMLBEspnId } from '../../sports/mlb/teams';
 import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
@@ -264,6 +265,9 @@ export default function MlbPinnedTeamSection() {
     }
     addTeam(slug); // optimistic local update
     setLimitHit(false);
+    // Notify Settings/other surfaces
+    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
+    notifyPinnedChanged(allSlugs, 'home');
     // Persist to server for authenticated users
     try {
       const sb = getSupabase();
@@ -281,6 +285,9 @@ export default function MlbPinnedTeamSection() {
   const handleRemove = async (slug) => {
     removeTeam(slug); // optimistic local update
     setLimitHit(false);
+    // Notify Settings/other surfaces
+    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
+    notifyPinnedChanged(allSlugs, 'home');
     // Remove from server for authenticated users
     try {
       const sb = getSupabase();
