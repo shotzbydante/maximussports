@@ -564,47 +564,61 @@ export default function Dashboard() {
     return { mode: 'tournament', insights, title, subtitle, matchups, upsetGames: [], preset: tournamentPreset || null };
   }, [activeSection, gameMode, upsetRadarSlate, fiveGamesSlate, tournamentPreset, tournamentRegion, tournamentSelectedMatchups, dashData, dailyChampOdds]);
 
+  // ── Canonical picks games: shared by BOTH slide enrichment AND caption ──
+  const canonicalPicksGames = useMemo(() => {
+    if (!dashData) return [];
+    return buildActivePicksGames({
+      todayScores: dashData.scores ?? [],
+      oddsGames: dashData.odds?.games ?? [],
+      upcomingGamesWithSpreads: dashData.upcomingGamesWithSpreads ?? [],
+      getSlug: getTeamSlug,
+      mergeWithOdds: mergeGamesWithOdds,
+    });
+  }, [dashData]);
+
+  // ── Canonical picks result: ONE model call, shared by slide + caption ──
+  const canonicalPicks = useMemo(() => {
+    if (!canonicalPicksGames.length) return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
+    const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
+    const rm = dashData?.rankMap ?? {};
+    const co = dashData?.championshipOdds ?? {};
+    try {
+      return buildMaximusPicks({ games: canonicalPicksGames, atsLeaders: atsL, rankMap: rm, championshipOdds: co });
+    } catch { return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] }; }
+  }, [canonicalPicksGames, dashData]);
+
+  // ── Deduped top leans: exact same rows the slide card renders ──
+  const dedupedTopLeans = (arr, n = 3) => {
+    const leans = arr.filter(x => x.itemType === 'lean')
+      .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
+    const seen = new Set();
+    const result = [];
+    for (const pick of leans) {
+      if (result.length >= n) break;
+      const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
+      if (slug && seen.has(slug)) continue;
+      const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
+      const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
+      const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
+      if (mKey && seen.has(`m:${mKey}`)) continue;
+      if (slug) seen.add(slug);
+      if (mKey) seen.add(`m:${mKey}`);
+      result.push(pick);
+    }
+    return result;
+  };
+
+  const canonicalRenderedPicks = useMemo(() => [
+    ...dedupedTopLeans(canonicalPicks.pickEmPicks ?? []),
+    ...dedupedTopLeans(canonicalPicks.atsPicks ?? []),
+    ...dedupedTopLeans(canonicalPicks.valuePicks ?? []),
+    ...dedupedTopLeans(canonicalPicks.totalsPicks ?? []),
+  ], [canonicalPicks]);
+
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
     if (!dashData) return null;
-    const games = dashData?.picksGames ?? dashData?.odds?.games ?? [];
-    const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
-    const rankMap = dashData?.rankMap ?? {};
-    const champOdds = dashData?.championshipOdds ?? {};
-    let picks = [];
-    try {
-      const p = buildMaximusPicks({ games, atsLeaders: atsL, rankMap, championshipOdds: champOdds });
-      // Deduped topLeans: same logic as slide (top 3 per bucket), plus
-      // matchup-level and team-level dedup within each bucket to prevent
-      // the same team or game appearing multiple times in the caption.
-      const dedupedTopLeans = (arr, n = 3) => {
-        const leans = arr.filter(x => x.itemType === 'lean')
-          .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
-        const seen = new Set();
-        const result = [];
-        for (const pick of leans) {
-          if (result.length >= n) break;
-          // Dedup by pickTeam slug (prevents same team twice in one bucket)
-          const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
-          if (slug && seen.has(slug)) continue;
-          // Dedup by matchup key (prevents same game twice)
-          const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
-          const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
-          const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
-          if (mKey && seen.has(`m:${mKey}`)) continue;
-          if (slug) seen.add(slug);
-          if (mKey) seen.add(`m:${mKey}`);
-          result.push(pick);
-        }
-        return result;
-      };
-      picks = [
-        ...dedupedTopLeans(p.pickEmPicks ?? []),
-        ...dedupedTopLeans(p.atsPicks ?? []),
-        ...dedupedTopLeans(p.valuePicks ?? []),
-        ...dedupedTopLeans(p.totalsPicks ?? []),
-      ];
-    } catch { /* ignore */ }
+    const picks = canonicalRenderedPicks;
 
     const asOf = new Date().toLocaleTimeString('en-US', {
       hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short',
@@ -1614,13 +1628,7 @@ export default function Dashboard() {
                   if (Object.keys(rm).length > 0) enrichments.rankMap = rm;
                 }
                 if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
-                enrichments.picksGames = buildActivePicksGames({
-                  todayScores: d.scores ?? [],
-                  oddsGames: d.odds?.games ?? [],
-                  upcomingGamesWithSpreads: d.upcomingGamesWithSpreads ?? [],
-                  getSlug: getTeamSlug,
-                  mergeWithOdds: mergeGamesWithOdds,
-                });
+                enrichments.picksGames = canonicalPicksGames;
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
               teamData={enhancedTeamData}
