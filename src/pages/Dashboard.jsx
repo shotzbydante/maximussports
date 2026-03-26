@@ -582,9 +582,9 @@ export default function Dashboard() {
   }, [dashData]);
 
   // ── Canonical picks result: ONE model call, shared by slide + caption ──
-  const EMPTY_PICKS = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
   const canonicalPicks = useMemo(() => {
-    if (!canonicalPicksGames || !canonicalPicksGames.length) return EMPTY_PICKS;
+    const empty = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
+    if (!canonicalPicksGames || !canonicalPicksGames.length) return empty;
     try {
       const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
       const rm = dashData?.rankMap ?? {};
@@ -592,37 +592,43 @@ export default function Dashboard() {
       return buildMaximusPicks({ games: canonicalPicksGames, atsLeaders: atsL, rankMap: rm, championshipOdds: co });
     } catch (err) {
       console.warn('[Dashboard] canonicalPicks failed:', err?.message);
-      return EMPTY_PICKS;
+      return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
     }
   }, [canonicalPicksGames, dashData]);
 
   // ── Deduped top leans: exact same rows the slide card renders ──
   const canonicalRenderedPicks = useMemo(() => {
-    const dedupBucket = (arr) => {
-      const leans = (arr ?? []).filter(x => x.itemType === 'lean')
-        .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
-      const seen = new Set();
-      const result = [];
-      for (const pick of leans) {
-        if (result.length >= 3) break;
-        const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
-        if (slug && seen.has(slug)) continue;
-        const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
-        const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
-        const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
-        if (mKey && seen.has(`m:${mKey}`)) continue;
-        if (slug) seen.add(slug);
-        if (mKey) seen.add(`m:${mKey}`);
-        result.push(pick);
-      }
-      return result;
-    };
-    return [
-      ...dedupBucket(canonicalPicks.pickEmPicks),
-      ...dedupBucket(canonicalPicks.atsPicks),
-      ...dedupBucket(canonicalPicks.valuePicks),
-      ...dedupBucket(canonicalPicks.totalsPicks),
-    ];
+    try {
+      const dedupBucket = (arr) => {
+        const leans = (arr ?? []).filter(x => x?.itemType === 'lean')
+          .sort((a, b) => ((b?.confidence ?? 0) - (a?.confidence ?? 0)) || ((b?.edgeMag ?? 0) - (a?.edgeMag ?? 0)));
+        const seen = new Set();
+        const result = [];
+        for (const pick of leans) {
+          if (result.length >= 3) break;
+          const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
+          if (slug && seen.has(slug)) continue;
+          const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
+          const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
+          const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
+          if (mKey && seen.has(`m:${mKey}`)) continue;
+          if (slug) seen.add(slug);
+          if (mKey) seen.add(`m:${mKey}`);
+          result.push(pick);
+        }
+        return result;
+      };
+      const p = canonicalPicks ?? {};
+      return [
+        ...dedupBucket(p.pickEmPicks),
+        ...dedupBucket(p.atsPicks),
+        ...dedupBucket(p.valuePicks),
+        ...dedupBucket(p.totalsPicks),
+      ];
+    } catch (err) {
+      console.warn('[Dashboard] canonicalRenderedPicks failed:', err?.message);
+      return [];
+    }
   }, [canonicalPicks]);
 
   // ── compute caption ───────────────────────────────────────
@@ -1638,8 +1644,8 @@ export default function Dashboard() {
                   if (Object.keys(rm).length > 0) enrichments.rankMap = rm;
                 }
                 if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
-                enrichments.picksGames = canonicalPicksGames;
-                enrichments.canonicalPicks = canonicalPicks;
+                enrichments.picksGames = canonicalPicksGames ?? [];
+                enrichments.canonicalPicks = canonicalPicks ?? { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
               teamData={enhancedTeamData}
