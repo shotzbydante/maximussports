@@ -5,24 +5,29 @@
  * picks game set from this function so the model sees the same universe
  * of games everywhere.
  *
- * Inputs mirror what mergeHomeData() already exposes:
- *   todayScores          – ESPN score games for today  (dashData.scores / fast.scoresToday)
- *   oddsGames            – raw Odds API games          (dashData.odds.games)
- *   upcomingGamesWithSpreads – tomorrow ESPN+odds      (dashData.upcomingGamesWithSpreads)
- *   getSlug              – team-slug resolver           (getTeamSlug)
- *   mergeWithOdds        – mergeGamesWithOdds function
+ * Three-layer dedup:
+ *   1. gameId dedup (catches ESPN duplicates)
+ *   2. Slug-based matchup dedup (catches odds API duplicates)
+ *   3. Bracket-consistency: each team appears in only ONE matchup
  */
 
 /**
  * Build a canonical slug-based matchup key for dedup.
- * Uses the same identity resolution as the picks model.
  */
 function matchupKey(game, getSlug) {
   const home = getSlug?.(game.homeTeam) || (game.homeTeam || '').toLowerCase().trim();
   const away = getSlug?.(game.awayTeam) || (game.awayTeam || '').toLowerCase().trim();
   if (!home || !away) return null;
-  // Sort to make key order-independent (same game regardless of home/away orientation)
   return [home, away].sort().join('|');
+}
+
+/**
+ * Resolve both team slugs from a game object.
+ */
+function resolveTeamSlugs(game, getSlug) {
+  const home = getSlug?.(game.homeTeam) || null;
+  const away = getSlug?.(game.awayTeam) || null;
+  return { home, away };
 }
 
 export function buildActivePicksGames({
@@ -52,7 +57,7 @@ export function buildActivePicksGames({
     return dt && !scoreDates.has(dt);
   });
 
-  // Build candidate list from all sources
+  // ── Layer 1: gameId dedup ──
   const candidates = [...todayMerged];
   const seenIds = new Set(candidates.map((g) => g.gameId).filter(Boolean));
 
@@ -68,17 +73,36 @@ export function buildActivePicksGames({
   );
   if (extra.length > 0) candidates.push(...extra);
 
-  // ── Slug-based dedup: prevent same matchup from appearing multiple times ──
-  // This is critical because odds games often lack gameId, so the ID-based
-  // dedup above doesn't catch them. Uses canonical team slugs for precision.
+  // ── Layer 2: slug-based matchup dedup ──
   const seenMatchups = new Set();
-  const deduped = [];
+  const matchupDeduped = [];
   for (const g of candidates) {
     const key = matchupKey(g, getSlug);
-    if (key && seenMatchups.has(key)) continue; // duplicate matchup
+    if (key && seenMatchups.has(key)) continue;
     if (key) seenMatchups.add(key);
-    deduped.push(g);
+    matchupDeduped.push(g);
   }
 
-  return deduped;
+  // ── Layer 3: bracket-consistency — each team appears in only ONE matchup ──
+  // In a real tournament round, a team plays exactly one game.
+  // If corrupted data has the same team in multiple matchups, keep only the first.
+  // Priority: earlier in the array (todayScores > futureOdds > upcoming).
+  const claimedTeams = new Set();
+  const bracketConsistent = [];
+  for (const g of matchupDeduped) {
+    const { home, away } = resolveTeamSlugs(g, getSlug);
+    const homeUsed = home && claimedTeams.has(home);
+    const awayUsed = away && claimedTeams.has(away);
+
+    if (homeUsed || awayUsed) {
+      // Team already in another matchup — skip this game to preserve bracket integrity
+      continue;
+    }
+
+    bracketConsistent.push(g);
+    if (home) claimedTeams.add(home);
+    if (away) claimedTeams.add(away);
+  }
+
+  return bracketConsistent;
 }

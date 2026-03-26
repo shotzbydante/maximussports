@@ -91,13 +91,14 @@
   display: flex;
   align-items: stretch;
   gap: 0;
-  border: 1px solid rgba(183, 152, 108, 0.20);
-  border-radius: 8px;
+  border: 1px solid rgba(183, 152, 108, 0.22);
+  border-radius: 10px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(4px);
-  margin-bottom: 5px;
+  background: rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(6px);
+  margin-bottom: 6px;
   flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .countCell {
@@ -145,13 +146,14 @@
 
 .modCard {
   background: rgba(0, 0, 0, 0.26);
-  border: 1px solid rgba(183, 152, 108, 0.16);
-  border-radius: 10px;
+  border: 1px solid rgba(183, 152, 108, 0.18);
+  border-radius: 12px;
   padding: 0;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* Frosted module header — stronger treatment with gold left accent */
@@ -165,10 +167,10 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 14px 8px;
-  background: rgba(10, 22, 38, 0.58);
-  border-bottom: 1px solid rgba(183, 152, 108, 0.14);
-  border-left: 3px solid rgba(183, 152, 108, 0.55);
+  padding: 10px 14px 9px;
+  background: linear-gradient(135deg, rgba(10, 22, 38, 0.65) 0%, rgba(20, 35, 55, 0.55) 100%);
+  border-bottom: 1px solid rgba(183, 152, 108, 0.16);
+  border-left: 3px solid rgba(183, 152, 108, 0.60);
 }
 
 .modEmoji {
@@ -301,9 +303,16 @@
   flex-direction: column;
   gap: 3px;
   padding: 9px 11px;
-  border-radius: 6px;
+  border-radius: 8px;
   background: rgba(10, 22, 38, 0.40);
   border: 1px solid rgba(183, 152, 108, 0.08);
+  transition: border-color 0.15s;
+}
+/* First pick in each module = top signal — stronger treatment */
+.pickRow:first-child {
+  background: rgba(10, 22, 38, 0.55);
+  border-color: rgba(183, 152, 108, 0.22);
+  box-shadow: 0 2px 12px rgba(183, 152, 108, 0.06);
 }
 
 .pickMain {
