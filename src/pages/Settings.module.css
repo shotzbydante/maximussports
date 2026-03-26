@@ -1494,6 +1494,49 @@
   background: rgba(60, 121, 180, 0.05);
 }
 
+/* Sport-sectioned layout */
+.teamsSectioned {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.teamsSportSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.teamsSportHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px;
+}
+.teamsSportLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.teamsSportCount {
+  font-size: 0.54rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: rgba(0,0,0,0.04);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.teamsSportEmpty {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.015);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+  text-align: center;
+  margin: 0;
+}
+
 .teamsList {
   display: flex;
   flex-direction: column;

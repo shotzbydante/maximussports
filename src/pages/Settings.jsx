@@ -2803,12 +2803,14 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                   </button>
                 )}
               </div>
-            ) : (
-              <div className={styles.teamsList}>
-                {enrichedTeams.map(({ team_slug, is_primary, teamData, sport }) => {
-                  const isMlb = sport === 'mlb';
-                  const logoUrl = isMlb ? getMlbEspnLogoUrl(team_slug) : null;
-                  return (
+            ) : (() => {
+              const ncaamTeams = enrichedTeams.filter(t => t.sport !== 'mlb');
+              const mlbTeams = enrichedTeams.filter(t => t.sport === 'mlb');
+
+              const renderTeamRow = ({ team_slug, is_primary, teamData, sport }) => {
+                const isMlb = sport === 'mlb';
+                const logoUrl = isMlb ? getMlbEspnLogoUrl(team_slug) : null;
+                return (
                   <div key={team_slug} className={`${styles.teamsRow} ${is_primary ? styles.teamsRowPrimary : ''}`}>
                     <span className={styles.teamsRowLogo}>
                       {isMlb && logoUrl ? (
@@ -2819,9 +2821,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     </span>
                     <span className={styles.teamsRowInfo}>
                       <span className={styles.teamsRowName}>{teamData.name}</span>
-                      <span className={styles.teamsRowConf}>
-                        {isMlb ? `⚾ ${teamData.conference}` : teamData.conference}
-                      </span>
+                      <span className={styles.teamsRowConf}>{teamData.conference}</span>
                     </span>
                     {teamData.oddsTier ? (
                       <span className={`${styles.tierBadge} ${TIER_STYLE[teamData.oddsTier] || ''}`}>{teamData.oddsTier}</span>
@@ -2831,31 +2831,64 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
                     {is_primary ? (
                       <span className={styles.primaryStar} title="Primary team" aria-label="Primary team">★</span>
                     ) : (
-                      <button
-                        type="button"
-                        className={styles.btnSetPrimary}
+                      <button type="button" className={styles.btnSetPrimary}
                         onClick={() => handleSetPrimary(team_slug)}
                         title="Make primary team"
                         aria-label={`Make ${teamData.name} your primary team`}
-                        disabled={!!primaryPending}
-                      >
+                        disabled={!!primaryPending}>
                         <span className={styles.btnSetPrimaryInner}>
                           {primaryPending === team_slug ? <SpinnerIcon /> : '☆'}
                         </span>
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className={styles.btnRemoveTeam}
+                    <button type="button" className={styles.btnRemoveTeam}
                       onClick={() => handleRemoveTeam(team_slug)}
                       aria-label={`Remove ${teamData.name}`}
-                      title={`Remove ${teamData.name}`}
-                    >×</button>
+                      title={`Remove ${teamData.name}`}>×</button>
                   </div>
-                  );
-                })}
-              </div>
-            )}
+                );
+              };
+
+              return (
+                <div className={styles.teamsSectioned}>
+                  {/* NCAAM Section */}
+                  <div className={styles.teamsSportSection}>
+                    <div className={styles.teamsSportHeader}>
+                      <img src="/ncaa-logo.png" alt="NCAAM" width={22} height={22} style={{ objectFit: 'contain' }} />
+                      <span className={styles.teamsSportLabel}>College Basketball</span>
+                      {ncaamTeams.length > 0 && (
+                        <span className={styles.teamsSportCount}>{ncaamTeams.length}</span>
+                      )}
+                    </div>
+                    {ncaamTeams.length > 0 ? (
+                      <div className={styles.teamsList}>
+                        {ncaamTeams.map(renderTeamRow)}
+                      </div>
+                    ) : (
+                      <p className={styles.teamsSportEmpty}>No college basketball teams pinned yet</p>
+                    )}
+                  </div>
+
+                  {/* MLB Section */}
+                  <div className={styles.teamsSportSection}>
+                    <div className={styles.teamsSportHeader}>
+                      <img src="/mlb-logo.png" alt="MLB" width={22} height={22} style={{ objectFit: 'contain' }} />
+                      <span className={styles.teamsSportLabel}>MLB Baseball</span>
+                      {mlbTeams.length > 0 && (
+                        <span className={styles.teamsSportCount}>{mlbTeams.length}</span>
+                      )}
+                    </div>
+                    {mlbTeams.length > 0 ? (
+                      <div className={styles.teamsList}>
+                        {mlbTeams.map(renderTeamRow)}
+                      </div>
+                    ) : (
+                      <p className={styles.teamsSportEmpty}>No MLB teams pinned yet</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {planTier === 'free' && userTeams.length >= entitlements.maxPinnedTeams && (
               <div className={styles.limitNudge}>
