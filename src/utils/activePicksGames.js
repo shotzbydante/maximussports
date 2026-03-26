@@ -12,7 +12,7 @@
  *   4. Matchup integrity guard: both teams must be in tournament field
  */
 
-import { isTournamentTeam } from './tournamentHelpers.js';
+import { isTournamentTeam, getTeamRegion, getTournamentPhase } from './tournamentHelpers.js';
 
 /**
  * Build a canonical slug-based matchup key for dedup.
@@ -120,24 +120,38 @@ export function buildActivePicksGames({
     if (away) claimedTeams.add(away);
   }
 
-  // ── Layer 4: matchup integrity — both teams must be in tournament field ──
-  // During March Madness, reject games where one or both teams are not in the
-  // current NCAA men's tournament field. This catches stale odds data, NIT
-  // games, and women's tournament contamination.
-  let isTourneyActive = false;
-  try { isTourneyActive = bracketConsistent.some(g => isTournamentTeam(getSlug?.(g.homeTeam) || g.homeTeam)); } catch { /* ignore */ }
+  // ── Layer 4: strict tournament integrity ──
+  // During March Madness, enforce multiple guards:
+  //   a) Both team slugs must be non-null
+  //   b) Both teams must be in the NCAA men's tournament field
+  //   c) During regional rounds (Sweet 16 / Elite 8), both teams must share a region
+  // This catches stale odds pairings, NIT games, women's contamination,
+  // and cross-round mismatches.
+  let phase = 'off';
+  try { phase = getTournamentPhase() || 'off'; } catch { /* ignore */ }
+  const isTourneyActive = phase !== 'off' && phase !== 'pre_tournament';
+  const isRegionalRound = phase === 'sweet_sixteen' || phase === 'elite_eight';
 
   if (isTourneyActive) {
     const validated = [];
     for (const g of bracketConsistent) {
-      const hSlug = getSlug?.(g.homeTeam) || g.homeTeam || '';
-      const aSlug = getSlug?.(g.awayTeam) || g.awayTeam || '';
-      const hInField = isTournamentTeam(hSlug);
-      const aInField = isTournamentTeam(aSlug);
-      if (hInField && aInField) {
-        validated.push(g);
+      const hSlug = getSlug?.(g.homeTeam) || null;
+      const aSlug = getSlug?.(g.awayTeam) || null;
+
+      // Guard A: both slugs must resolve
+      if (!hSlug || !aSlug) continue;
+
+      // Guard B: both teams must be in tournament field
+      if (!isTournamentTeam(hSlug) || !isTournamentTeam(aSlug)) continue;
+
+      // Guard C: during regional rounds, both teams must share a region
+      if (isRegionalRound) {
+        const hRegion = getTeamRegion(hSlug);
+        const aRegion = getTeamRegion(aSlug);
+        if (hRegion && aRegion && hRegion !== aRegion) continue;
       }
-      // else: one or both teams not in tournament → drop silently
+
+      validated.push(g);
     }
     return validated;
   }
