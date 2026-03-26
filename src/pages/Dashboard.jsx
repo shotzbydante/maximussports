@@ -567,53 +567,63 @@ export default function Dashboard() {
   // ── Canonical picks games: shared by BOTH slide enrichment AND caption ──
   const canonicalPicksGames = useMemo(() => {
     if (!dashData) return [];
-    return buildActivePicksGames({
-      todayScores: dashData.scores ?? [],
-      oddsGames: dashData.odds?.games ?? [],
-      upcomingGamesWithSpreads: dashData.upcomingGamesWithSpreads ?? [],
-      getSlug: getTeamSlug,
-      mergeWithOdds: mergeGamesWithOdds,
-    });
+    try {
+      return buildActivePicksGames({
+        todayScores: dashData.scores ?? [],
+        oddsGames: dashData.odds?.games ?? [],
+        upcomingGamesWithSpreads: dashData.upcomingGamesWithSpreads ?? [],
+        getSlug: getTeamSlug,
+        mergeWithOdds: mergeGamesWithOdds,
+      });
+    } catch (err) {
+      console.warn('[Dashboard] canonicalPicksGames failed:', err?.message);
+      return [];
+    }
   }, [dashData]);
 
   // ── Canonical picks result: ONE model call, shared by slide + caption ──
+  const EMPTY_PICKS = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
   const canonicalPicks = useMemo(() => {
-    if (!canonicalPicksGames.length) return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
-    const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
-    const rm = dashData?.rankMap ?? {};
-    const co = dashData?.championshipOdds ?? {};
+    if (!canonicalPicksGames || !canonicalPicksGames.length) return EMPTY_PICKS;
     try {
+      const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
+      const rm = dashData?.rankMap ?? {};
+      const co = dashData?.championshipOdds ?? {};
       return buildMaximusPicks({ games: canonicalPicksGames, atsLeaders: atsL, rankMap: rm, championshipOdds: co });
-    } catch { return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] }; }
+    } catch (err) {
+      console.warn('[Dashboard] canonicalPicks failed:', err?.message);
+      return EMPTY_PICKS;
+    }
   }, [canonicalPicksGames, dashData]);
 
   // ── Deduped top leans: exact same rows the slide card renders ──
-  const dedupedTopLeans = (arr, n = 3) => {
-    const leans = arr.filter(x => x.itemType === 'lean')
-      .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
-    const seen = new Set();
-    const result = [];
-    for (const pick of leans) {
-      if (result.length >= n) break;
-      const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
-      if (slug && seen.has(slug)) continue;
-      const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
-      const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
-      const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
-      if (mKey && seen.has(`m:${mKey}`)) continue;
-      if (slug) seen.add(slug);
-      if (mKey) seen.add(`m:${mKey}`);
-      result.push(pick);
-    }
-    return result;
-  };
-
-  const canonicalRenderedPicks = useMemo(() => [
-    ...dedupedTopLeans(canonicalPicks.pickEmPicks ?? []),
-    ...dedupedTopLeans(canonicalPicks.atsPicks ?? []),
-    ...dedupedTopLeans(canonicalPicks.valuePicks ?? []),
-    ...dedupedTopLeans(canonicalPicks.totalsPicks ?? []),
-  ], [canonicalPicks]);
+  const canonicalRenderedPicks = useMemo(() => {
+    const dedupBucket = (arr) => {
+      const leans = (arr ?? []).filter(x => x.itemType === 'lean')
+        .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
+      const seen = new Set();
+      const result = [];
+      for (const pick of leans) {
+        if (result.length >= 3) break;
+        const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
+        if (slug && seen.has(slug)) continue;
+        const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
+        const aSlug = pick.awaySlug || getTeamSlug(pick.awayTeam || '') || '';
+        const mKey = [hSlug, aSlug].filter(Boolean).sort().join('|');
+        if (mKey && seen.has(`m:${mKey}`)) continue;
+        if (slug) seen.add(slug);
+        if (mKey) seen.add(`m:${mKey}`);
+        result.push(pick);
+      }
+      return result;
+    };
+    return [
+      ...dedupBucket(canonicalPicks.pickEmPicks),
+      ...dedupBucket(canonicalPicks.atsPicks),
+      ...dedupBucket(canonicalPicks.valuePicks),
+      ...dedupBucket(canonicalPicks.totalsPicks),
+    ];
+  }, [canonicalPicks]);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
@@ -642,7 +652,7 @@ export default function Dashboard() {
       game: selectedGame,
       picks,
       stats,
-      atsLeaders: atsL,
+      atsLeaders: dashData?.atsLeaders ?? { best: [], worst: [] },
       headlines: dashData?.headlines ?? [],
       asOf,
       styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
@@ -651,7 +661,7 @@ export default function Dashboard() {
       conference: activeSection === 'conference' ? selectedConference : null,
       tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
