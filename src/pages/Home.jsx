@@ -16,6 +16,7 @@ import { useHomeLoadTelemetry } from '../hooks/useHomeLoadTelemetry';
 import { useAuth } from '../context/AuthContext';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { safeBuildPicks, EMPTY_PICKS } from '../utils/safePicksResult';
+import { buildActivePicksGames } from '../utils/activePicksGames';
 import LiveScores from '../components/scores/LiveScores';
 import DynamicStats from '../components/home/DynamicStats';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
@@ -384,35 +385,20 @@ function OddsInsightsTeaser({ games = [], rankMap = {}, atsLeaders = { best: [],
     games.length < MIN_GAMES_FOR_PICKS &&
     thinSlateSupp.length > 0;
 
-  // activeGames: mirror Insights' allGames logic for full data parity.
-  // Always: today's games + futureOddsGames + deduped upcomingGamesWithSpreads.
-  // Supplementary: nextSlateGames (when today complete) or thinSlateSupp
-  // (when today is thin) are ADDED, never replacing futureOddsGames.
-  const baseParts = [...games];
+  // activeGames: use the same bracket-first canonical pipeline as Content Studio.
+  // During March Madness, this seeds from official bracket matchups and enriches
+  // with odds. Outside tournament, falls back to feed-first assembly.
+  const allScores = [...games];
+  if (todayComplete && nextSlateGames?.length > 0) allScores.push(...nextSlateGames);
+  if (isThinSlate) allScores.push(...thinSlateSupp);
 
-  if (todayComplete && nextSlateGames?.length > 0) {
-    baseParts.push(...nextSlateGames);
-  }
-  if (isThinSlate) {
-    baseParts.push(...thinSlateSupp);
-  }
-
-  // Always include futureOddsGames (deduped) — matches Insights Step 2
-  const baseIds1 = new Set(baseParts.map((g) => g.gameId).filter(Boolean));
-  for (const g of futureOddsGames) {
-    if (!g.gameId || !baseIds1.has(g.gameId)) {
-      baseParts.push(g);
-      if (g.gameId) baseIds1.add(g.gameId);
-    }
-  }
-
-  // Always include upcomingGamesWithSpreads (deduped) — matches Insights Step 3
-  const extraUpcoming = upcomingGamesWithSpreads.filter(
-    (g) => !g.gameId || !baseIds1.has(g.gameId),
-  );
-  const activeGames = extraUpcoming.length > 0
-    ? [...baseParts, ...extraUpcoming]
-    : baseParts;
+  const activeGames = buildActivePicksGames({
+    todayScores: allScores,
+    oddsGames: futureOddsGames,
+    upcomingGamesWithSpreads,
+    getSlug: getTeamSlug,
+    mergeWithOdds: mergeGamesWithOdds,
+  });
 
   const slateDate = todayComplete
     ? nextSportsDayStr()   // sports-aware: returns today's calendar date before 4 AM
