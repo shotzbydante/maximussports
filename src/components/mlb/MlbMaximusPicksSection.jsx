@@ -1,9 +1,10 @@
 /**
- * MlbMaximusPicksSection — Maximus's Picks for MLB Home.
+ * MlbMaximusPicksSection — Maximus's Picks / Odds Insights for MLB.
  *
- * 4 category columns: Pick 'Ems, ATS, Leans, Game Totals
- * Structurally parallels NCAAM MaximusPicks section.
- * MLB palette: burgundy / navy / white / warm neutrals.
+ * 4 category columns: Pick 'Ems, Run Line, Value Leans, Game Totals
+ * Supports two modes:
+ *   - "home": compact, always visible (shows empty state when no picks)
+ *   - "page": fuller board for standalone Odds Insights page
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -20,7 +21,6 @@ const CATEGORIES = [
 
 const CONF_LABELS = { high: 'HIGH', medium: 'MED', low: 'LOW' };
 const CONF_CLS = { high: 'confHigh', medium: 'confMed', low: 'confLow' };
-const MAX_SHOW = 4;
 
 function formatTime(iso) {
   if (!iso) return '';
@@ -67,7 +67,7 @@ function PickCard({ pick }) {
         </div>
       )}
 
-      {model?.edge != null && (
+      {model?.edge != null && model.edge > 0 && (
         <span className={styles.edgeBadge}>
           {(model.edge * 100).toFixed(1)}% edge
         </span>
@@ -76,7 +76,11 @@ function PickCard({ pick }) {
   );
 }
 
-export default function MlbMaximusPicksSection() {
+/**
+ * @param {Object} props
+ * @param {'home'|'page'} props.mode - "home" = compact always-visible; "page" = full standalone
+ */
+export default function MlbMaximusPicksSection({ mode = 'home' }) {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,49 +101,79 @@ export default function MlbMaximusPicksSection() {
     }
   }, [games]);
 
-  const showSection = !loading && picks && hasAnyPicks(picks);
+  const hasPicks = picks && hasAnyPicks(picks);
+  const maxPerCategory = mode === 'home' ? 3 : 6;
 
-  if (loading) return null; // Don't show skeleton for picks
-  if (!showSection) return null; // Hide entirely if no qualified picks
+  if (loading) {
+    return (
+      <section className={styles.section}>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <span className={styles.eyebrow}>Betting Intelligence</span>
+            <h2 className={styles.title}>{mode === 'page' ? 'Odds Insights' : "Maximus's Picks"}</h2>
+          </div>
+        </div>
+        <div className={styles.loadingState}>
+          <span className={styles.loadingDot} />
+          Evaluating today's MLB slate…
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.section}>
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <span className={styles.eyebrow}>Betting Intelligence</span>
-          <h2 className={styles.title}>Maximus's Picks</h2>
+          <h2 className={styles.title}>{mode === 'page' ? 'Odds Insights' : "Maximus's Picks"}</h2>
         </div>
-        <span className={styles.subtitle}>Data-driven leans across today's MLB slate</span>
+        {hasPicks && (
+          <span className={styles.subtitle}>Data-driven leans across today's MLB slate</span>
+        )}
       </div>
 
-      <div className={styles.categoryGrid}>
-        {CATEGORIES.map(cat => {
-          const items = picks.categories[cat.key] || [];
-          return (
-            <div key={cat.key} className={styles.category}>
-              <div className={styles.catHeader}>
-                <span className={styles.catLabel}>{cat.label}</span>
-                {items.length > 0 && <span className={styles.catCount}>{items.length}</span>}
-              </div>
-              <p className={styles.catDesc}>{cat.desc}</p>
-              <div className={styles.pickList}>
-                {items.length === 0 ? (
-                  <div className={styles.emptyState}>No qualified picks</div>
-                ) : (
-                  items.slice(0, MAX_SHOW).map(pick => (
-                    <PickCard key={pick.id} pick={pick} />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {!hasPicks ? (
+        <div className={styles.emptyBoard}>
+          <div className={styles.emptyIcon}>⚾</div>
+          <p className={styles.emptyTitle}>No qualified MLB edges right now</p>
+          <p className={styles.emptyDesc}>
+            Maximus is waiting for stronger signal alignment before posting today's board.
+            Check back as lines and slate context settle.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className={styles.categoryGrid}>
+            {CATEGORIES.map(cat => {
+              const items = picks.categories[cat.key] || [];
+              return (
+                <div key={cat.key} className={styles.category}>
+                  <div className={styles.catHeader}>
+                    <span className={styles.catLabel}>{cat.label}</span>
+                    {items.length > 0 && <span className={styles.catCount}>{items.length}</span>}
+                  </div>
+                  <p className={styles.catDesc}>{cat.desc}</p>
+                  <div className={styles.pickList}>
+                    {items.length === 0 ? (
+                      <div className={styles.catEmpty}>No qualified picks</div>
+                    ) : (
+                      items.slice(0, maxPerCategory).map(pick => (
+                        <PickCard key={pick.id} pick={pick} />
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-      {picks.meta && (
-        <p className={styles.metaLine}>
-          {picks.meta.qualifiedGames} game{picks.meta.qualifiedGames !== 1 ? 's' : ''} with picks · {picks.meta.totalCandidates} candidates evaluated
-        </p>
+          {picks.meta && (
+            <p className={styles.metaLine}>
+              {picks.meta.qualifiedGames} game{picks.meta.qualifiedGames !== 1 ? 's' : ''} with picks · {picks.meta.totalCandidates} candidates evaluated
+            </p>
+          )}
+        </>
       )}
     </section>
   );

@@ -1,20 +1,15 @@
-import { useWorkspace } from '../../workspaces/WorkspaceContext';
-import styles from './MlbShared.module.css';
+/**
+ * MLB Odds Insights — standalone picks/odds intelligence page.
+ * Uses the same MLB picks engine as the Home section,
+ * rendered in "page" mode for fuller board display.
+ */
+
+import MlbMaximusPicksSection from '../../components/mlb/MlbMaximusPicksSection';
 
 export default function MlbPicks() {
-  const { workspace } = useWorkspace();
-
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.pageTitle}>{workspace.emoji} Maximus MLB Picks</h1>
-        <p className={styles.subtitle}>Data-driven predictions and value bets</p>
-      </header>
-      <section className={styles.emptyState}>
-        <div className={styles.emptyIcon}>📊</div>
-        <h3>MLB picks coming soon</h3>
-        <p>Once odds data flows in for the MLB season, Maximus will surface the best moneyline, runline, and total plays daily.</p>
-      </section>
+    <div style={{ maxWidth: 1060, margin: '0 auto', padding: 'var(--space-lg) 0' }}>
+      <MlbMaximusPicksSection mode="page" />
     </div>
   );
 }

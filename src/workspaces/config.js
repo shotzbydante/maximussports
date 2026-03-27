@@ -110,7 +110,7 @@ export const WORKSPACES = {
       sportName: 'Major League Baseball',
       intelligence: 'MLB Intelligence',
       teamIntel: 'Team Intel',
-      picks: 'Maximus Picks',
+      picks: 'Odds Insights',
       games: 'Games',
       news: 'News Feed',
     },
