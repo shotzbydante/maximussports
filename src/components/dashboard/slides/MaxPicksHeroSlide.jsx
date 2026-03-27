@@ -285,7 +285,7 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const renderedTot = totTop.length;
   const totalRendered = renderedPe + renderedAts + renderedVal + renderedTot;
   const totalPicks = pe.length + ats.length + val.length + tot.length;
-  const gamesAnalyzed = games.length;
+  const gamesAnalyzed = data?.picksGames?.length ?? data?.odds?.games?.length ?? 0;
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',
