@@ -62,7 +62,13 @@ function getTeamAtsDisplay(slug) {
 function getExportSafeLogoUrl(slug) {
   if (!slug) return null;
   const espnUrl = getEspnLogoUrl(slug);
-  if (espnUrl) return espnUrl;
+  if (espnUrl) {
+    // Use ESPN combiner for CORS-safe export + consistent sizing
+    return espnUrl.replace(
+      'https://a.espncdn.com/i/teamlogos/ncaa/500/',
+      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500/'
+    ) + '&h=150&w=150';
+  }
   return `/logos/${slug}.png`;
 }
 
@@ -319,9 +325,9 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       </div>
 
       <div className={styles.h2h}>
-        <div className={styles.panel} style={{ borderColor: `${awayColor}48`, background: `linear-gradient(155deg, ${awayColor}1E 0%, ${awayColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${awayColor}0C, 0 0 28px ${awayColor}12` }}>
+        <div className={styles.panel} style={{ borderColor: `${awayColor}60`, background: `linear-gradient(155deg, ${awayColor}28 0%, ${awayColor}10 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.28), inset 0 0 50px ${awayColor}10, 0 0 36px ${awayColor}1A` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}5C 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}70 0%, transparent 55%)` }} />
             <SlideTeamLogo slug={awaySlug} name={awayTeam} size={115} />
           </div>
           {awaySeed != null && <span className={styles.seedPill} style={{ borderColor: `${awayColor}40`, background: `linear-gradient(135deg, ${awayColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>#{awaySeed}</span>}
@@ -340,9 +346,9 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
           <div className={styles.totalCard}><span className={styles.totalVal}>{fmtTotal(total)}</span><span className={styles.totalKey}>O/U TOTAL</span></div>
         </div>
 
-        <div className={styles.panel} style={{ borderColor: `${homeColor}48`, background: `linear-gradient(205deg, ${homeColor}1E 0%, ${homeColor}0C 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.22), inset 0 0 50px ${homeColor}0C, 0 0 28px ${homeColor}12` }}>
+        <div className={styles.panel} style={{ borderColor: `${homeColor}60`, background: `linear-gradient(205deg, ${homeColor}28 0%, ${homeColor}10 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.28), inset 0 0 50px ${homeColor}10, 0 0 36px ${homeColor}1A` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}5C 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}70 0%, transparent 55%)` }} />
             <SlideTeamLogo slug={homeSlug} name={homeTeam} size={115} />
           </div>
           {homeSeed != null && <span className={styles.seedPill} style={{ borderColor: `${homeColor}40`, background: `linear-gradient(135deg, ${homeColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>#{homeSeed}</span>}

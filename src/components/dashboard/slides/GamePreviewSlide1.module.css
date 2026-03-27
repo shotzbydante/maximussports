@@ -59,7 +59,7 @@
   margin-bottom: 4px;
 }
 
-/* ── Team panel ──────────────────────────────────────── */
+/* ── Team panel — neon-accent glass cards ────────────── */
 .panel {
   display: flex; flex-direction: column; align-items: center;
   gap: 8px; padding: 20px 8px 14px;
@@ -68,11 +68,11 @@
 }
 .panel::before {
   content: ''; position: absolute; inset: 0; border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.07); pointer-events: none;
+  border: 1px solid rgba(255,255,255,0.10); pointer-events: none;
 }
 .panel::after {
-  content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.32), transparent);
   pointer-events: none;
 }
 
@@ -146,16 +146,16 @@
 }
 .vsRing {
   width: 70px; height: 70px; border-radius: 50%;
-  border: 2.5px solid rgba(255,255,255,0.20);
+  border: 2.5px solid rgba(255,255,255,0.25);
   background:
-    radial-gradient(circle at 38% 32%, rgba(255,255,255,0.14) 0%, transparent 45%),
-    linear-gradient(145deg, rgba(110,179,232,0.14) 0%, rgba(255,255,255,0.05) 100%);
+    radial-gradient(circle at 38% 32%, rgba(255,255,255,0.18) 0%, transparent 45%),
+    linear-gradient(145deg, rgba(110,179,232,0.18) 0%, rgba(255,255,255,0.06) 100%);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Oswald', sans-serif; font-size: 30px; font-weight: 700;
-  color: rgba(240,244,248,0.45);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.28), 0 0 28px rgba(110,179,232,0.10),
-    inset 0 2px 0 rgba(255,255,255,0.14), inset 0 -2px 4px rgba(0,0,0,0.12);
-  text-shadow: 0 1px 8px rgba(110,179,232,0.22);
+  color: rgba(240,244,248,0.55);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.32), 0 0 32px rgba(110,179,232,0.14),
+    inset 0 2px 0 rgba(255,255,255,0.16), inset 0 -2px 4px rgba(0,0,0,0.12);
+  text-shadow: 0 1px 10px rgba(110,179,232,0.30);
 }
 .totalCard {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -163,7 +163,7 @@
   border: 1.5px solid rgba(255,255,255,0.18); border-radius: 12px; padding: 12px 20px;
   box-shadow: 0 4px 18px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.09);
 }
-.totalVal { font-family: 'Oswald', sans-serif; font-size: 32px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.totalVal { font-family: 'Oswald', sans-serif; font-size: 34px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 12px rgba(110,179,232,0.20); }
 .totalKey { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(168,208,240,0.35); }
 
 /* ── MAXIMUS'S PICKS — enlarged intelligence panel ───── */

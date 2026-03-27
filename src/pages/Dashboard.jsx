@@ -905,7 +905,14 @@ export default function Dashboard() {
     );
   }
 
-  const gamesForPicker = (dashData?.odds?.games ?? []).filter(g => g.awayTeam && g.homeTeam);
+  // Use canonical bracket-first games for the picker during March Madness
+  const gamesForPicker = (canonicalPicksGames.length > 0 ? canonicalPicksGames : (dashData?.odds?.games ?? []))
+    .filter(g => g.awayTeam && g.homeTeam)
+    .sort((a, b) => {
+      const ta = a.startTime || a.commenceTime || '';
+      const tb = b.startTime || b.commenceTime || '';
+      return ta.localeCompare(tb);
+    });
   const isWorking = dataLoading || teamPageLoading;
   const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference);
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
