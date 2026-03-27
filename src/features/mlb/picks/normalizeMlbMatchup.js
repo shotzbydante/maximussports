@@ -1,16 +1,17 @@
 /**
  * normalizeMlbMatchup — canonical away/home matchup normalization.
  *
- * Accepts a raw game object (from /api/mlb/live/games) and enriches
- * with team metadata from the season model.
+ * Accepts a raw game object (from /api/mlb/picks/board or /api/mlb/live/games)
+ * and enriches with team metadata from the season model + model inputs.
  */
 
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { getTeamMeta } from '../../../data/mlb/teamMeta';
+import { getTeamInputs } from '../../../data/mlb/seasonModelInputs';
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 
 /**
- * @param {Object} game - normalized game from /api/mlb/live/games
+ * @param {Object} game - normalized game from API
  * @returns {{ ok: boolean, matchup?: Object, reason?: string }}
  */
 export function normalizeMlbMatchup(game) {
@@ -25,44 +26,37 @@ export function normalizeMlbMatchup(game) {
   const homeProj = getTeamProjection(homeSl);
   const awayMeta = getTeamMeta(awaySl);
   const homeMeta = getTeamMeta(homeSl);
+  const awayInputs = getTeamInputs(awaySl);
+  const homeInputs = getTeamInputs(homeSl);
 
-  const awayTeam = {
-    slug: awaySl,
-    name: game.teams.away.name || awayProj?.name || awaySl,
-    shortName: game.teams.away.abbrev || awayProj?.abbrev || awaySl.toUpperCase(),
-    logo: getMlbEspnLogoUrl(awaySl) || game.teams.away.logo || null,
-    record: awayMeta?.record2025 || null,
-    projectedWins: awayProj?.projectedWins ?? null,
-    confidenceScore: awayProj?.confidenceScore ?? null,
-    floor: awayProj?.floor ?? null,
-    ceiling: awayProj?.ceiling ?? null,
-    // Scoring inputs (may be null if unavailable)
-    recentFormScore: null, // TODO: derive from schedule when available
-    startingPitcherScore: null, // TODO: add starter data source
-    runPreventionScore: null, // TODO: derive from model inputs
-    offenseScore: null, // TODO: derive from model inputs
-  };
+  const buildTeam = (sl, gameTeam, proj, meta, inputs) => ({
+    slug: sl,
+    name: gameTeam?.name || proj?.name || sl,
+    shortName: gameTeam?.abbrev || proj?.abbrev || sl.toUpperCase(),
+    logo: getMlbEspnLogoUrl(sl) || gameTeam?.logo || null,
+    record: meta?.record2025 || null,
+    projectedWins: proj?.projectedWins ?? null,
+    confidenceScore: proj?.confidenceScore ?? null,
+    floor: proj?.floor ?? null,
+    ceiling: proj?.ceiling ?? null,
+    // Model inputs for scoring (1-10 scale)
+    topOfLineup: inputs?.topOfLineup ?? null,
+    lineupDepth: inputs?.lineupDepth ?? null,
+    frontlineRotation: inputs?.frontlineRotation ?? null,
+    rotationDepth: inputs?.rotationDepth ?? null,
+    bullpenQuality: inputs?.bullpenQuality ?? null,
+    bullpenVolatility: inputs?.bullpenVolatility ?? null,
+    // Derived offense/defense composite scores
+    offenseScore: inputs ? (inputs.topOfLineup + inputs.lineupDepth) / 2 : null,
+    runPreventionScore: inputs ? (inputs.frontlineRotation + inputs.rotationDepth + inputs.bullpenQuality) / 3 : null,
+  });
 
-  const homeTeam = {
-    slug: homeSl,
-    name: game.teams.home.name || homeProj?.name || homeSl,
-    shortName: game.teams.home.abbrev || homeProj?.abbrev || homeSl.toUpperCase(),
-    logo: getMlbEspnLogoUrl(homeSl) || game.teams.home.logo || null,
-    record: homeMeta?.record2025 || null,
-    projectedWins: homeProj?.projectedWins ?? null,
-    confidenceScore: homeProj?.confidenceScore ?? null,
-    floor: homeProj?.floor ?? null,
-    ceiling: homeProj?.ceiling ?? null,
-    recentFormScore: null,
-    startingPitcherScore: null,
-    runPreventionScore: null,
-    offenseScore: null,
-  };
+  const awayTeam = buildTeam(awaySl, game.teams.away, awayProj, awayMeta, awayInputs);
+  const homeTeam = buildTeam(homeSl, game.teams.home, homeProj, homeMeta, homeInputs);
 
   // Normalize market data — keep aligned to away/home orientation
   const market = {
     moneyline: {
-      // game.market.moneyline is typically the home ML from the odds enricher
       away: null,
       home: game.market?.moneyline ?? null,
     },
@@ -105,20 +99,11 @@ export function normalizeMlbMatchup(game) {
   };
 }
 
-/**
- * Estimate opposite moneyline from one side.
- * Uses vig-adjusted approximation.
- */
+/** Estimate opposite moneyline from one side using vig-adjusted implied prob. */
 function estimateOppositeML(ml) {
   if (ml == null || !isFinite(ml)) return null;
-  // Convert to implied probability
   const imp = ml > 0 ? 100 / (ml + 100) : -ml / (-ml + 100);
-  // Assume ~4.5% total vig → opposite implied = 1 - imp + 0.045
   const oppImp = Math.max(0.05, Math.min(0.95, 1 - imp + 0.045));
-  // Convert back to American
-  if (oppImp >= 0.5) {
-    return Math.round(-oppImp / (1 - oppImp) * 100);
-  } else {
-    return Math.round((1 - oppImp) / oppImp * 100);
-  }
+  if (oppImp >= 0.5) return Math.round(-oppImp / (1 - oppImp) * 100);
+  return Math.round((1 - oppImp) / oppImp * 100);
 }

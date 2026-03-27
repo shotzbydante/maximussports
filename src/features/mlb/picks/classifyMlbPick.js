@@ -122,24 +122,16 @@ function evaluateTotal(matchup, score, thresholds) {
   const total = matchup.market?.total;
   if (!total || total.points == null) return null;
 
-  // Estimate expected total from team quality proxies
-  const awayOff = matchup.awayTeam.projectedWins;
-  const homeOff = matchup.homeTeam.projectedWins;
-  if (awayOff == null || homeOff == null) return null;
-
-  // Rough: higher projected wins ≈ better offense/pitching ratio
-  // Use league-average total as anchor and adjust based on team quality
-  const leagueAvgTotal = 8.5;
-  const awayAdj = (awayOff - 81) * 0.015; // slight adjustment per team
-  const homeAdj = (homeOff - 81) * 0.015;
-  const estimatedTotal = leagueAvgTotal + awayAdj + homeAdj;
+  // Use the model's expected total estimate (from scoreMlbMatchup)
+  const estimatedTotal = score.expectedTotal;
+  if (!estimatedTotal || !isFinite(estimatedTotal)) return null;
 
   const diff = estimatedTotal - total.points;
-  const edge = Math.abs(diff) * 0.08; // normalize to edge scale
+  const edge = Math.abs(diff) * 0.10; // normalize to edge scale
 
   if (edge < thresholds.total.low) return null;
 
-  const conf = resolveConfidence(edge, thresholds.total, score.dataQuality * 0.7, score.signalAgreement);
+  const conf = resolveConfidence(edge, thresholds.total, score.dataQuality * 0.8, score.signalAgreement);
   if (!conf) return null;
 
   const direction = diff > 0 ? 'Over' : 'Under';

@@ -85,10 +85,17 @@ export default function MlbMaximusPicksSection({ mode = 'home' }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/mlb/live/games?status=all&sort=importance')
+    // Use the dedicated picks board endpoint — fetches 2 days of upcoming games with odds
+    fetch('/api/mlb/picks/board')
       .then(r => r.json())
-      .then(d => setGames(d.games ?? d ?? []))
-      .catch(() => {})
+      .then(d => setGames(d.games ?? []))
+      .catch(() => {
+        // Fallback to live games if board endpoint fails
+        fetch('/api/mlb/live/games?status=all&sort=importance')
+          .then(r => r.json())
+          .then(d => setGames(d.games ?? d ?? []))
+          .catch(() => {});
+      })
       .finally(() => setLoading(false));
   }, []);
 

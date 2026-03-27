@@ -377,3 +377,8 @@ const TEAM_INPUTS = {
 };
 
 export default TEAM_INPUTS;
+
+/** Get raw model inputs for a single team by slug. */
+export function getTeamInputs(slug) {
+  return TEAM_INPUTS[slug] || null;
+}
