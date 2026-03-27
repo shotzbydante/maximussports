@@ -81,8 +81,8 @@
   display: flex; align-items: center; justify-content: center;
 }
 .logoGlow {
-  position: absolute; inset: -30px; border-radius: 50%; pointer-events: none;
-  mix-blend-mode: screen; /* prevents dark colors from muddying the logo */
+  position: absolute; inset: -35px; border-radius: 50%; pointer-events: none;
+  opacity: 0.55; /* reduced from full — prevents dark team colors from washing out logos */
 }
 .logoWrap::after {
   content: ''; position: absolute; inset: -10px; border-radius: 50%;

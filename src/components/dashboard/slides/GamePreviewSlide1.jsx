@@ -331,11 +331,17 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const atsTier = atsPick ? (pickToTier(atsPick) || TIERS.tossUp) : null;
   const totalsTier = ouLean ? (pickToTier(totalsPick) || TIERS.tossUp) : null;
 
-  // Extract ML for the Pick 'Em team to display next to the team name
-  const pickEmML = finalPickEm?._ml ?? (() => {
+  // Extract ML for the Pick 'Em team — use slug comparison for reliability
+  const pickEmML = (() => {
+    if (finalPickEm?._ml != null) return finalPickEm._ml;
     if (!finalPickEm?.pickTeam) return null;
-    const isHome = finalPickEm.pickTeam === homeTeam;
-    return isHome ? homeML : awayML;
+    // Resolve pick team to slug, then compare against home/away slugs
+    const pickSlug = getTeamSlug(finalPickEm.pickTeam) || finalPickEm.pickTeam?.toLowerCase();
+    if (pickSlug === homeSlug) return homeML;
+    if (pickSlug === awaySlug) return awayML;
+    // Fallback: name comparison
+    if (finalPickEm.pickTeam === homeTeam) return homeML;
+    return awayML;
   })();
 
   const { peIntel, atsIntel, ouIntel } = buildMicroIntel({
@@ -358,7 +364,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       <div className={styles.h2h}>
         <div className={styles.panel} style={{ borderColor: `${awayColor}60`, background: `linear-gradient(155deg, ${awayColor}28 0%, ${awayColor}10 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.28), inset 0 0 50px ${awayColor}10, 0 0 36px ${awayColor}1A` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}70 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${awayColor}50 0%, transparent 60%)` }} />
             <SlideTeamLogo slug={awaySlug} name={awayTeam} size={115} />
           </div>
           {awaySeed != null && <span className={styles.seedPill} style={{ borderColor: `${awayColor}40`, background: `linear-gradient(135deg, ${awayColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>#{awaySeed}</span>}
@@ -379,7 +385,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
 
         <div className={styles.panel} style={{ borderColor: `${homeColor}60`, background: `linear-gradient(205deg, ${homeColor}28 0%, ${homeColor}10 35%, transparent 70%)`, boxShadow: `0 6px 32px rgba(0,0,0,0.28), inset 0 0 50px ${homeColor}10, 0 0 36px ${homeColor}1A` }}>
           <div className={styles.logoWrap}>
-            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}70 0%, transparent 55%)` }} />
+            <div className={styles.logoGlow} style={{ background: `radial-gradient(circle, ${homeColor}50 0%, transparent 60%)` }} />
             <SlideTeamLogo slug={homeSlug} name={homeTeam} size={115} />
           </div>
           {homeSeed != null && <span className={styles.seedPill} style={{ borderColor: `${homeColor}40`, background: `linear-gradient(135deg, ${homeColor}18 0%, rgba(255,255,255,0.08) 100%)` }}>#{homeSeed}</span>}
