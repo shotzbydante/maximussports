@@ -126,6 +126,18 @@ function deriveOuLean(totalsPick, game, spreadNum) {
   return { direction: 'Under', confidence: 0, reason: 'Tournament pressure and half-court pace lean slightly toward the under.' };
 }
 
+/* ── Force Pick 'Em lean — always take a side when spread exists ────── */
+
+function derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML, awayML) {
+  if (pickEmPick?.pickTeam) return pickEmPick; // model already picked
+  if (homeSpreadNum == null || isNaN(homeSpreadNum)) return null;
+  // Favor the team the spread favors (negative = favored)
+  const isFav = homeSpreadNum < 0;
+  const pickTeam = isFav ? homeTeam : awayTeam;
+  const pickML = isFav ? homeML : awayML;
+  return { pickTeam, pickLine: pickTeam, confidence: 0, _derived: true, _ml: pickML };
+}
+
 /* ── Force ATS lean ───────────────────────────────────────────────────── */
 
 function deriveAtsLean(atsPick, homeSpreadNum, homeTeam, awayTeam) {
@@ -301,14 +313,25 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
     totalsPick = (picks.totalsPicks ?? []).find(matchFn) ?? null;
   } catch { /* graceful */ }
 
+  // Always take a side: derive picks when model doesn't qualify one
+  const finalPickEm = pickEmPick || derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML, awayML);
   const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, homeSpreadNum, homeTeam, awayTeam);
-  const pickEmTier = pickToTier(pickEmPick);
-  const atsTier = atsPick ? (pickToTier(atsPick) || TIERS.tossUp) : null;
   const ouLean = deriveOuLean(totalsPick, game, homeSpreadNum);
-  const totalsTier = ouLean ? pickToTier(totalsPick) || TIERS.tossUp : null;
+
+  // Tiers: derived picks get TOSS-UP tier (lowest), model picks keep their tier
+  const pickEmTier = finalPickEm ? (pickToTier(finalPickEm) || TIERS.tossUp) : null;
+  const atsTier = atsPick ? (pickToTier(atsPick) || TIERS.tossUp) : null;
+  const totalsTier = ouLean ? (pickToTier(totalsPick) || TIERS.tossUp) : null;
+
+  // Extract ML for the Pick 'Em team to display next to the team name
+  const pickEmML = finalPickEm?._ml ?? (() => {
+    if (!finalPickEm?.pickTeam) return null;
+    const isHome = finalPickEm.pickTeam === homeTeam;
+    return isHome ? homeML : awayML;
+  })();
 
   const { peIntel, atsIntel, ouIntel } = buildMicroIntel({
-    pickEmPick, atsPick, ouLean, homeSpreadNum, awayTeam, homeTeam,
+    pickEmPick: finalPickEm, atsPick, ouLean, homeSpreadNum, awayTeam, homeTeam,
   });
 
   return (
@@ -366,7 +389,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
       <div className={styles.intel}>
         <div className={styles.intelTitle}>MAXIMUS&apos;S PICKS</div>
         <div className={styles.picksCols}>
-          <div className={styles.pickCell}><PickEmIcon /><div className={styles.pickType}>PICK EM</div><div className={styles.pickVal}>{pickEmPick?.pickTeam || 'No lean'}</div><ConvictionPill tier={pickEmTier} />{peIntel && <div className={styles.microIntel}>{peIntel}</div>}</div>
+          <div className={styles.pickCell}><PickEmIcon /><div className={styles.pickType}>PICK EM</div><div className={styles.pickVal}>{finalPickEm?.pickTeam ? `${finalPickEm.pickTeam}${pickEmML != null ? ` ${fmtLine(pickEmML)}` : ''}` : 'No lean'}</div><ConvictionPill tier={pickEmTier} />{peIntel && <div className={styles.microIntel}>{peIntel}</div>}</div>
           <div className={styles.pickDiv} />
           <div className={styles.pickCell}><AtsIcon /><div className={styles.pickType}>ATS</div><div className={styles.pickVal}>{atsPick?.pickLine || 'No lean'}</div><ConvictionPill tier={atsTier} />{atsIntel && <div className={styles.microIntel}>{atsIntel}</div>}</div>
           <div className={styles.pickDiv} />

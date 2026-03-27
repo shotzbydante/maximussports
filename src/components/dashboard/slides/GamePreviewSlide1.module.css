@@ -166,13 +166,14 @@
 .totalVal { font-family: 'Oswald', sans-serif; font-size: 34px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 12px rgba(110,179,232,0.20); }
 .totalKey { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(168,208,240,0.35); }
 
-/* ── MAXIMUS'S PICKS — enlarged intelligence panel ───── */
+/* ── MAXIMUS'S PICKS — neon-accent intelligence panel ── */
 .intel {
   position: relative; z-index: 1;
   background: linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.07) 100%);
-  border: 2px solid rgba(255,255,255,0.18); border-radius: 20px;
+  border: 2px solid rgba(110,179,232,0.28); border-radius: 20px;
   padding: 30px 24px 26px;
-  box-shadow: 0 8px 36px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.06);
+  box-shadow: 0 8px 36px rgba(0,0,0,0.32), 0 0 24px rgba(110,179,232,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.06);
 }
 .intel::after {
   content: ''; position: absolute; top: 0; left: 18%; right: 18%; height: 1px;
