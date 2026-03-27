@@ -32,17 +32,20 @@ export function classifyMlbPick(matchup, score, thresholds) {
     }
   }
 
-  // ── Value Lean (INDEPENDENT evaluation) ──
-  // Leans are generated when:
-  // 1. A side has directional edge but doesn't clear Pick 'Em threshold, OR
-  // 2. A side has edge but data quality is moderate, OR
-  // 3. Even when Pick 'Em exists — lean captures the "value angle" framing
+  // ── Value Lean (INDEPENDENT — NCAAM-inspired philosophy) ──
+  // Leans capture directional value that doesn't clear Pick 'Em/ATS thresholds.
+  // Uses raw edge without harsh DQ/SA multiplier, similar to NCAAM VL_VALUE_MIN approach.
   if (mlSide && !hasPickEm) {
-    // Lower DQ requirement for leans — core signals are enough
-    const leanDQ = Math.max(score.dataQuality, 0.25);
-    const leanConf = resolveConfidence(mlSide.edge, thresholds.lean, leanDQ, score.signalAgreement);
-    if (leanConf) {
-      picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline', leanConf));
+    const rawEdge = mlSide.edge;
+    if (rawEdge >= thresholds.lean.low && score.dataQuality >= 0.20) {
+      let tier, tierScore;
+      if (rawEdge >= thresholds.lean.high) { tier = 'high'; tierScore = 0.8; }
+      else if (rawEdge >= thresholds.lean.medium) { tier = 'medium'; tierScore = 0.5; }
+      else { tier = 'low'; tierScore = 0.25; }
+      // Adjust score by data quality (mild, not harsh)
+      tierScore = tierScore * (0.85 + 0.15 * score.dataQuality);
+      picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline',
+        { tier, score: Math.round(tierScore * 100) / 100 }));
     }
   }
 
