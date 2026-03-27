@@ -82,6 +82,8 @@ export default function App() {
                     <Route path="games/:matchupSlug" element={<GameMatchup />} />
                     <Route path="college-basketball-picks-today" element={<CollegeBasketballPicksToday />} />
                     <Route path="march-madness-betting-intelligence" element={<MarchMadnessHub />} />
+                    <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
 
                   {/* ══ Legacy root NCAAM redirects → /ncaam/... ══ */}
@@ -109,6 +111,8 @@ export default function App() {
                     <Route path="insights" element={<MlbPicks />} />
                     <Route path="season-model" element={<MlbSeasonModel />} />
                     <Route path="compare" element={<MlbCompare />} />
+                    <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
 
                   {/* ══ Global / shared routes (no sport prefix) ══ */}
