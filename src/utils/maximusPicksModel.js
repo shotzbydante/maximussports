@@ -651,6 +651,7 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       opponentTeam,
       opponentSlug,
       pickLine,
+      _ml: pickML,
       confidence,
       edgeMag,
       signals,
