@@ -696,6 +696,10 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     };
 
     // ── Tier 1: both teams have ATS records ──
+    // During tournament, if Tier 1 rejects a game (edge too low), fall through to
+    // Tier 3 so tournament seed/upset signals can still produce an ATS pick.
+    // Outside tournament, insufficient edge skips the game entirely (original behavior).
+    tier1: {
     if (homeAts && awayAts) {
       const homePct = homeAts.coverPct / 100;
       const awayPct = awayAts.coverPct / 100;
@@ -714,7 +718,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         }
       }
       let adjustedEdge = rawEdge * spreadDiscount;
-      if (adjustedEdge < atsMinEdge) continue;
+      if (adjustedEdge < atsMinEdge) { if (tourn) break tier1; else continue; }
 
       const pickHome = (homePct - awayPct) > 0;
       const pickTeam = pickHome ? game.homeTeam : game.awayTeam;
@@ -730,13 +734,13 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const isPublicFav = pickIsFav && pickSlug && PUBLIC_TEAMS.includes(pickSlug);
       if (isPublicFav) {
         adjustedEdge = Math.max(0, adjustedEdge - ATS_PUBLIC_PENALTY);
-        if (adjustedEdge < atsMinEdge) continue;
+        if (adjustedEdge < atsMinEdge) { if (tourn) break tier1; else continue; }
       }
 
       const isBigFav  = spreadMagnitude != null && spreadMagnitude >= 10;
-      if (isBigFav && pickIsFav && adjustedEdge < ATS_EDGE_HIGH) continue;
+      if (isBigFav && pickIsFav && adjustedEdge < ATS_EDGE_HIGH) { if (tourn) break tier1; else continue; }
       // Very large spreads (12+) require HIGH-tier edge regardless of side
-      if (spreadMagnitude != null && spreadMagnitude >= ATS_LARGE_SPREAD_GATE && adjustedEdge < ATS_EDGE_HIGH) continue;
+      if (spreadMagnitude != null && spreadMagnitude >= ATS_LARGE_SPREAD_GATE && adjustedEdge < ATS_EDGE_HIGH) { if (tourn) break tier1; else continue; }
 
       const { spread: teamSpreadNum } = getTeamSpread(game, pickHome);
       const spreadDisplay = fmtSpread(teamSpreadNum);
@@ -781,6 +785,7 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       });
       continue;
     }
+    } // end tier1
 
     // ── Tier 2: one team has ATS records ──
     const singleAts = homeAts ?? awayAts;
