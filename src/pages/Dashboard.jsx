@@ -582,19 +582,32 @@ export default function Dashboard() {
   }, [dashData]);
 
   // ── Canonical picks result: ONE model call, shared by slide + caption ──
+  // Must use the same enrichment inputs as Home page to produce identical picks.
+  // dashData has rankingsTop25 (raw) not rankMap (processed), and dailyChampOdds
+  // is a separate state variable — build the same maps Home uses.
   const canonicalPicks = useMemo(() => {
     const empty = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
     if (!canonicalPicksGames || !canonicalPicksGames.length) return empty;
     try {
       const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
-      const rm = dashData?.rankMap ?? {};
-      const co = dashData?.championshipOdds ?? {};
+      // Build rankMap from rankingsTop25 (same as Home page)
+      const rm = {};
+      for (const r of (dashData?.rankingsTop25 ?? [])) {
+        const name = r.teamName || r.name || r.team || '';
+        const rank = r.rank ?? r.ranking ?? null;
+        if (name && rank != null) {
+          const slug = getTeamSlug(name);
+          if (slug) rm[slug] = rank;
+        }
+      }
+      // Use dailyChampOdds (same source as Home page)
+      const co = dailyChampOdds ?? {};
       return buildMaximusPicks({ games: canonicalPicksGames, atsLeaders: atsL, rankMap: rm, championshipOdds: co });
     } catch (err) {
       console.warn('[Dashboard] canonicalPicks failed:', err?.message);
       return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
     }
-  }, [canonicalPicksGames, dashData]);
+  }, [canonicalPicksGames, dashData, dailyChampOdds]);
 
   // ── Deduped top leans: exact same rows the slide card renders ──
   const canonicalRenderedPicks = useMemo(() => {
