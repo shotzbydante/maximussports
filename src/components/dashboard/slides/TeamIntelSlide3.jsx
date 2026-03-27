@@ -40,10 +40,10 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
   const hasLine = spread != null || ml != null || total != null;
 
   // Team pick from canonical Maximus's Picks — single source of truth.
-  // Match by slug identity, not fuzzy name matching.
+  // Match by slug identity (already order-agnostic since we check both sides).
   const cp = data?.canonicalPicks ?? {};
-  const allPicks = [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])];
   const teamSlug = teamData?.team?.slug || getTeamSlug(name || '');
+  const allPicks = [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])];
   let teamPick = null;
   if (teamSlug) {
     teamPick = allPicks.find(p => p.homeSlug === teamSlug || p.awaySlug === teamSlug) ?? null;

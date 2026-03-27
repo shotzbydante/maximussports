@@ -137,21 +137,7 @@ function derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML,
   return { pickTeam, pickLine: pickTeam, confidence: 0, _derived: true, _ml: pickML };
 }
 
-/* ── Force ATS lean ───────────────────────────────────────────────────── */
-
-function deriveAtsLean(atsPick, homeSpreadNum, homeTeam, awayTeam) {
-  if (atsPick?.pickLine) return atsPick;
-  if (homeSpreadNum == null || isNaN(homeSpreadNum)) return null;
-  const abs = Math.abs(homeSpreadNum);
-  if (abs >= 2 && abs <= 12) {
-    const homeShort = homeTeam?.split(' ').pop() || 'Home';
-    const awayShort = awayTeam?.split(' ').pop() || 'Away';
-    const dog = homeSpreadNum < 0 ? awayShort : homeShort;
-    const dogSpread = homeSpreadNum < 0 ? fmtLine(-homeSpreadNum) : fmtLine(homeSpreadNum);
-    return { pickLine: `${dog} ${dogSpread}`, confidence: 0, atsEdge: null, _derived: true };
-  }
-  return null;
-}
+/* (deriveAtsLean removed — ATS must come from canonical picks only) */
 
 /* ── Per-column micro-intel ───────────────────────────────────────────── */
 
@@ -337,27 +323,36 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
 
   // Picks — read from CANONICAL Maximus's Picks (single source of truth).
   // Never recompute independently — guarantees consistency across all surfaces.
+  // Order-agnostic matching: bracket and odds API may swap home/away orientation.
   const cp = data?.canonicalPicks ?? {};
-  const matchGame = (p) => p.homeSlug === homeSlug && p.awaySlug === awaySlug;
+  const gameSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
+  const matchGame = (p) =>
+    gameSlugs.has(p.homeSlug) && gameSlugs.has(p.awaySlug) && gameSlugs.size === 2;
   let pickEmPick = (cp.pickEmPicks ?? []).find(matchGame) ?? null;
   let rawAtsPick = (cp.atsPicks ?? []).find(matchGame) ?? null;
   let totalsPick = (cp.totalsPicks ?? []).find(matchGame) ?? null;
 
   // Hard validation: picked team must be one of the two matchup teams
-  const validSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
   const validatePick = (p) => {
     if (!p) return null;
     const pSlug = getTeamSlug(p.pickTeam || '');
-    if (pSlug && !validSlugs.has(pSlug)) return null;
+    if (pSlug && !gameSlugs.has(pSlug)) return null;
     return p;
   };
   pickEmPick = validatePick(pickEmPick);
   rawAtsPick = validatePick(rawAtsPick);
   totalsPick = validatePick(totalsPick);
 
-  // Always take a side: derive picks when model doesn't qualify one
+  // Debug: warn when canonical pick is missing so we can detect slug issues early
+  if (process.env.NODE_ENV !== 'production') {
+    if (!rawAtsPick && (cp.atsPicks ?? []).length > 0) {
+      console.warn('[ATS PICK MISSING]', { homeSlug, awaySlug, canonicalAtsSlugs: (cp.atsPicks ?? []).map(p => `${p.homeSlug}|${p.awaySlug}`) });
+    }
+  }
+
+  // Derive Pick 'Em and O/U fallbacks, but NEVER derive ATS — canonical only
   const finalPickEm = pickEmPick || derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML, awayML);
-  const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, homeSpreadNum, homeTeam, awayTeam);
+  const atsPick = rawAtsPick;
   const ouLean = deriveOuLean(totalsPick, game, homeSpreadNum);
 
   // Tiers: derived picks get TOSS-UP tier (lowest), model picks keep their tier

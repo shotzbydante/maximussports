@@ -79,11 +79,13 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
   const dayLabel = options.dayLabel || '';
   const roundLabel = options.roundLabel || '';
 
-  // Read from canonical picks — single source of truth
+  // Read from canonical picks — single source of truth (sorted keys for order-agnostic match)
   const cp = data?.canonicalPicks ?? {};
   const picksMap = {};
   [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])].forEach(p => {
-    const key = `${p.awaySlug || getTeamSlug(p.awayTeam || '')}|${p.homeSlug || getTeamSlug(p.homeTeam || '')}`;
+    const s1 = p.awaySlug || getTeamSlug(p.awayTeam || '');
+    const s2 = p.homeSlug || getTeamSlug(p.homeTeam || '');
+    const key = [s1, s2].sort().join('|');
     if (!picksMap[key] || (p.confidence ?? 0) > (picksMap[key].confidence ?? 0)) {
       picksMap[key] = p;
     }
@@ -189,7 +191,7 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
             const spreadNum = g.homeSpread ?? (g.awaySpread != null ? -g.awaySpread : null) ?? (g.spread != null ? parseFloat(g.spread) : null);
             const spreadStr = fmtSpread(spreadNum);
             const total = g.overUnder ?? g.total ?? null;
-            const pickKey = `${awayObj?.slug || ''}|${homeObj?.slug || ''}`;
+            const pickKey = [awayObj?.slug || '', homeObj?.slug || ''].sort().join('|');
             const pick = g._pick || picksMap[pickKey] || null;
             const storyline = g.storyline || g.whyItMatters || buildWhyLine(g, pick);
 

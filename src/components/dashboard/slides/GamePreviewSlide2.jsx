@@ -14,11 +14,12 @@ function pickToTier(pick) {
 }
 
 export default function GamePreviewSlide2({ game, data, asOf, slideNumber, slideTotal, ...rest }) {
-  // Read from canonical picks — single source of truth
+  // Read from canonical picks — single source of truth (order-agnostic slug match)
   const cp = data?.canonicalPicks ?? {};
   const homeSlug = game?.homeSlug || game?.homeTeamSlug || getTeamSlug(game?.homeTeam || '');
   const awaySlug = game?.awaySlug || game?.awayTeamSlug || getTeamSlug(game?.awayTeam || '');
-  const matchGame = (p) => p.homeSlug === homeSlug && p.awaySlug === awaySlug;
+  const gameSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
+  const matchGame = (p) => gameSlugs.has(p.homeSlug) && gameSlugs.has(p.awaySlug) && gameSlugs.size === 2;
   const allPicks = [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])];
   const gamePick = allPicks.find(matchGame) ?? null;
 
