@@ -276,6 +276,7 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const total = game.total ?? game.overUnder ?? null;
   const gameTime = game.time || game.startTime || game.commenceTime || null;
 
+  // Parse moneyline — format is "away_price / home_price" after orientation correction
   let awayML = null;
   let homeML = null;
   if (typeof ml === 'string' && ml.includes('/')) {
@@ -285,8 +286,15 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   } else if (ml != null) {
     const n = parseFloat(ml);
     if (!isNaN(n)) {
-      if (homeSpreadNum != null && homeSpreadNum < 0) homeML = n;
-      else awayML = n;
+      // Single number: use spread to infer which side it belongs to
+      // Negative ML = favorite, so if home is favored (negative spread), assign to home
+      if (homeSpreadNum != null && homeSpreadNum < 0) {
+        homeML = n < 0 ? n : null; // sanity: favorite should have negative ML
+        awayML = n > 0 ? n : null;
+      } else if (homeSpreadNum != null && homeSpreadNum > 0) {
+        awayML = n < 0 ? n : null;
+        homeML = n > 0 ? n : null;
+      }
     }
   }
 

@@ -71,13 +71,16 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
     let awaySpread = feed.awaySpread ?? null;
     let moneyline = feed.moneyline ?? null;
 
-    // If feed teams are swapped relative to bracket, flip spreads
+    // If feed teams are swapped relative to bracket, flip spreads AND moneyline
     if (isSwapped) {
       const tmpSpread = homeSpread;
       homeSpread = awaySpread != null ? awaySpread : (tmpSpread != null ? -tmpSpread : null);
       awaySpread = tmpSpread != null ? tmpSpread : (awaySpread != null ? -awaySpread : null);
-      // Moneyline: if it's a single number (home ML), it now belongs to the other side
-      // Keep as-is for now since moneyline format varies
+      // Moneyline: format is "away_price / home_price" — swap the halves
+      if (typeof moneyline === 'string' && moneyline.includes('/')) {
+        const parts = moneyline.split('/').map(s => s.trim());
+        if (parts.length === 2) moneyline = `${parts[1]} / ${parts[0]}`;
+      }
     }
 
     return {
