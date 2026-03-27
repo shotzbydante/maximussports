@@ -111,6 +111,24 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
 
   if (!team) return null;
 
+  // Destructure schedule data (may be { events, teamRecord } or legacy array)
+  const scheduleEvents = Array.isArray(schedule) ? schedule : schedule?.events ?? [];
+  const espnRecord = Array.isArray(schedule) ? null : schedule?.teamRecord;
+
+  // Current record: prefer ESPN canonical record, fall back to regular-season counting
+  const currentRecord = useMemo(() => {
+    if (espnRecord) return espnRecord;
+    if (!scheduleEvents.length) return '—';
+    const regFinals = scheduleEvents.filter(e =>
+      e.isFinal && e.ourScore != null && e.oppScore != null &&
+      e.seasonTypeName !== 'preseason'
+    );
+    if (regFinals.length === 0) return '0-0';
+    const w = regFinals.filter(e => e.ourScore > e.oppScore).length;
+    const l = regFinals.filter(e => e.ourScore < e.oppScore).length;
+    return `${w}-${l}`;
+  }, [espnRecord, scheduleEvents]);
+
   // Generate premium intel writeup
   const intel = useMemo(() => buildMlbTeamIntelSummary({
     team, projection: proj, meta, odds: odds?.[slug] ? { bestChanceAmerican: odds[slug].bestChanceAmerican } : null,
@@ -123,25 +141,6 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
     const upcoming = scheduleEvents.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
     return upcoming[0] || null;
   }, [scheduleEvents]);
-
-  // Destructure schedule data (may be { events, teamRecord } or legacy array)
-  const scheduleEvents = Array.isArray(schedule) ? schedule : schedule?.events ?? [];
-  const espnRecord = Array.isArray(schedule) ? null : schedule?.teamRecord;
-
-  // Current record: prefer ESPN canonical record, fall back to regular-season counting
-  const currentRecord = useMemo(() => {
-    if (espnRecord) return espnRecord;
-    if (!scheduleEvents.length) return '—';
-    // Count only regular-season finished games (exclude preseason/spring training)
-    const regFinals = scheduleEvents.filter(e =>
-      e.isFinal && e.ourScore != null && e.oppScore != null &&
-      e.seasonTypeName !== 'preseason'
-    );
-    if (regFinals.length === 0) return '0-0';
-    const w = regFinals.filter(e => e.ourScore > e.oppScore).length;
-    const l = regFinals.filter(e => e.ourScore < e.oppScore).length;
-    return `${w}-${l}`;
-  }, [espnRecord, scheduleEvents]);
 
   const handleShare = () => {
     const url = `${window.location.origin}/mlb/teams/${slug}`;
