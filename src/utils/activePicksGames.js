@@ -55,15 +55,34 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
   }
 
   // Step 3: Enrich bracket games with feed data (odds, spreads, totals, times)
+  // CRITICAL: Check if feed's home/away is swapped relative to bracket.
+  // If so, flip spreads so they correspond to the bracket's team orientation.
   const enriched = bracketGames.map(bg => {
     const key = [bg.homeSlug, bg.awaySlug].sort().join('|');
     const feed = feedByKey[key];
     if (!feed) return bg; // No feed data — keep bracket shell with partial data
 
-    // Merge: use feed's rich data but keep bracket's team identity
+    // Detect orientation: is the feed's home team the bracket's home team?
+    const feedHomeSlug = getSlug?.(feed.homeTeam) || null;
+    const isSwapped = feedHomeSlug && feedHomeSlug !== bg.homeSlug;
+
+    // Get raw spread values from feed
+    let homeSpread = feed.homeSpread ?? null;
+    let awaySpread = feed.awaySpread ?? null;
+    let moneyline = feed.moneyline ?? null;
+
+    // If feed teams are swapped relative to bracket, flip spreads
+    if (isSwapped) {
+      const tmpSpread = homeSpread;
+      homeSpread = awaySpread != null ? awaySpread : (tmpSpread != null ? -tmpSpread : null);
+      awaySpread = tmpSpread != null ? tmpSpread : (awaySpread != null ? -awaySpread : null);
+      // Moneyline: if it's a single number (home ML), it now belongs to the other side
+      // Keep as-is for now since moneyline format varies
+    }
+
     return {
       ...feed,
-      // Preserve bracket canonical identity
+      // Preserve bracket canonical identity (source of truth for team orientation)
       homeTeam: bg.homeTeam,
       awayTeam: bg.awayTeam,
       homeSlug: bg.homeSlug,
@@ -71,17 +90,18 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
       // Use feed's game metadata
       gameId: feed.gameId || bg.gameId,
       startTime: feed.startTime || feed.commenceTime || bg.startTime,
-      // Keep spread/odds from feed
-      spread: feed.spread ?? feed.homeSpread ?? null,
-      homeSpread: feed.homeSpread ?? null,
-      awaySpread: feed.awaySpread ?? null,
+      // Use orientation-corrected spreads
+      spread: homeSpread ?? null,
+      homeSpread,
+      awaySpread,
       total: feed.total ?? null,
-      moneyline: feed.moneyline ?? null,
+      moneyline,
       overPrice: feed.overPrice ?? null,
       underPrice: feed.underPrice ?? null,
       // Track enrichment
       _bracketSeeded: true,
       _enrichedFromFeed: true,
+      _spreadFlipped: !!isSwapped,
     };
   });
 
