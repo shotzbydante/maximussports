@@ -232,17 +232,35 @@ function ConvictionPill({ tier }) {
   );
 }
 
+// Teams with dark logos that need a contrast backplate on dark backgrounds
+const DARK_LOGO_TEAMS = new Set([
+  'michigan-state-spartans',
+  'oregon-ducks',
+  'baylor-bears',
+  'colorado-state-rams',
+]);
+
 function SlideTeamLogo({ slug, name, size }) {
   const url = getExportSafeLogoUrl(slug);
   const initials = name ? name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() : '??';
+  const needsBackplate = slug && DARK_LOGO_TEAMS.has(slug);
   if (!url) {
     return <span className={styles.logoFallback} style={{ width: size, height: size, fontSize: size * 0.3 }}>{initials}</span>;
   }
   return (
-    <img src={url} alt="" width={size} height={size} loading="eager" decoding="sync"
-      crossOrigin="anonymous" className={styles.logoImg}
-      style={{ objectFit: 'contain', maxWidth: size, maxHeight: size }}
-      data-fallback-text={initials} data-team-slug={slug} />
+    <div style={{ position: 'relative', width: size, height: size }}>
+      {needsBackplate && (
+        <div style={{
+          position: 'absolute', inset: '-4px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(200,210,220,0.18) 0%, rgba(180,200,220,0.08) 45%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+      )}
+      <img src={url} alt="" width={size} height={size} loading="eager" decoding="sync"
+        crossOrigin="anonymous" className={styles.logoImg}
+        style={{ objectFit: 'contain', maxWidth: size, maxHeight: size, position: 'relative', zIndex: 1 }}
+        data-fallback-text={initials} data-team-slug={slug} />
+    </div>
   );
 }
 
@@ -307,18 +325,33 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const awayAts = getTeamAtsDisplay(awaySlug);
   const homeAts = getTeamAtsDisplay(homeSlug);
 
-  // Picks — strict game-scoped matching
+  // Picks — SINGLE-GAME scoped: run model on ONLY this game, not the full slate.
+  // This prevents cross-game contamination where a pick from Michigan State's game
+  // leaks into Duke's card because of fuzzy name matching across the full slate.
   const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
-  const games = data?.odds?.games ?? [];
   let pickEmPick = null;
   let rawAtsPick = null;
   let totalsPick = null;
   try {
-    const picks = buildMaximusPicks({ games, atsLeaders });
-    const matchFn = (p) => matchPickToGame(p, awaySlug, homeSlug, awayTeam, homeTeam);
-    pickEmPick = (picks.pickEmPicks ?? []).find(matchFn) ?? null;
-    rawAtsPick = (picks.atsPicks ?? []).find(matchFn) ?? null;
-    totalsPick = (picks.totalsPicks ?? []).find(matchFn) ?? null;
+    // Run model on only this one canonical game
+    const singleGamePicks = buildMaximusPicks({ games: [game], atsLeaders });
+    pickEmPick = (singleGamePicks.pickEmPicks ?? [])[0] ?? null;
+    rawAtsPick = (singleGamePicks.atsPicks ?? [])[0] ?? null;
+    totalsPick = (singleGamePicks.totalsPicks ?? [])[0] ?? null;
+
+    // Hard validation: any returned pick MUST reference this exact matchup
+    const validSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
+    const validatePick = (p) => {
+      if (!p) return null;
+      const pSlug = getTeamSlug(p.pickTeam || '') || p.homeSlug || p.awaySlug;
+      if (pSlug && !validSlugs.has(pSlug) && !validSlugs.has(getTeamSlug(p.homeTeam || '')) && !validSlugs.has(getTeamSlug(p.awayTeam || ''))) {
+        return null; // pick references a team outside this matchup — discard
+      }
+      return p;
+    };
+    pickEmPick = validatePick(pickEmPick);
+    rawAtsPick = validatePick(rawAtsPick);
+    totalsPick = validatePick(totalsPick);
   } catch { /* graceful */ }
 
   // Always take a side: derive picks when model doesn't qualify one
