@@ -114,28 +114,34 @@ function PinnedCard({ slug, odds, schedule, onRemove, buildPath }) {
   // Generate premium intel writeup
   const intel = useMemo(() => buildMlbTeamIntelSummary({
     team, projection: proj, meta, odds: odds?.[slug] ? { bestChanceAmerican: odds[slug].bestChanceAmerican } : null,
-    currentRecord: (() => {
-      if (!Array.isArray(schedule) || !schedule.length) return '0-0';
-      const f = schedule.filter(e => e.isFinal && e.ourScore != null && e.oppScore != null);
-      return `${f.filter(e => e.ourScore > e.oppScore).length}-${f.filter(e => e.ourScore < e.oppScore).length}`;
-    })(),
-  }), [team, proj, meta, odds, slug, schedule]);
+    currentRecord,
+  }), [team, proj, meta, odds, slug, currentRecord]);
 
-  // Find next game from schedule (null = loading, [] = no data)
+  // Find next game from schedule events
   const nextGame = useMemo(() => {
-    if (!Array.isArray(schedule) || schedule.length === 0) return null;
-    const upcoming = schedule.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!scheduleEvents.length) return null;
+    const upcoming = scheduleEvents.filter(e => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
     return upcoming[0] || null;
-  }, [schedule]);
+  }, [scheduleEvents]);
 
-  // Current record from schedule
+  // Destructure schedule data (may be { events, teamRecord } or legacy array)
+  const scheduleEvents = Array.isArray(schedule) ? schedule : schedule?.events ?? [];
+  const espnRecord = Array.isArray(schedule) ? null : schedule?.teamRecord;
+
+  // Current record: prefer ESPN canonical record, fall back to regular-season counting
   const currentRecord = useMemo(() => {
-    if (!schedule?.length) return '0-0';
-    const finals = schedule.filter(e => e.isFinal && e.ourScore != null && e.oppScore != null);
-    const w = finals.filter(e => e.ourScore > e.oppScore).length;
-    const l = finals.filter(e => e.ourScore < e.oppScore).length;
+    if (espnRecord) return espnRecord;
+    if (!scheduleEvents.length) return '—';
+    // Count only regular-season finished games (exclude preseason/spring training)
+    const regFinals = scheduleEvents.filter(e =>
+      e.isFinal && e.ourScore != null && e.oppScore != null &&
+      e.seasonTypeName !== 'preseason'
+    );
+    if (regFinals.length === 0) return '0-0';
+    const w = regFinals.filter(e => e.ourScore > e.oppScore).length;
+    const l = regFinals.filter(e => e.ourScore < e.oppScore).length;
     return `${w}-${l}`;
-  }, [schedule]);
+  }, [espnRecord, scheduleEvents]);
 
   const handleShare = () => {
     const url = `${window.location.origin}/mlb/teams/${slug}`;
@@ -247,10 +253,13 @@ export default function MlbPinnedTeamSection() {
         if (prev[slug]) return prev; // already fetched
         const espnId = getMLBEspnId(slug);
         if (!espnId) return prev;
-        // Fire fetch, update state when done
+        // Fire fetch, update state when done (store events + teamRecord)
         fetch(`/api/mlb/team/schedule?teamId=${espnId}`)
           .then(r => r.json())
-          .then(d => setSchedules(p => ({ ...p, [slug]: d.events ?? [] })))
+          .then(d => setSchedules(p => ({
+            ...p,
+            [slug]: { events: d.events ?? [], teamRecord: d.teamRecord || null },
+          })))
           .catch(() => {});
         return { ...prev, [slug]: null }; // mark as loading to prevent re-fetch
       });

@@ -88,8 +88,11 @@ function scoreTeamVideoItem(item, meta) {
   if (/highlight|recap|breakdown|analysis/i.test(t)) s += 3;
   if (/walk.?off|grand slam|home run|no.?hitter/i.test(t)) s += 2;
 
-  // Source trust
-  if (/espn|mlb|fox sports|jomboy/i.test(ch)) s += 2;
+  // Source trust (premium sources get strong preference)
+  if (/^mlb$/i.test(ch) || ch.includes('mlb highlights')) s += 6;
+  else if (/espn/i.test(ch)) s += 5;
+  else if (/fox sports|jomboy/i.test(ch)) s += 3;
+  else if (/cbs sports|nbc sports|sns?y|nesn|yes network/i.test(ch)) s += 2;
 
   // Metadata
   if (item.thumbUrl) s += 1;
