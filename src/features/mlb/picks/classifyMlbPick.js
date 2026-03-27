@@ -20,18 +20,29 @@ export function classifyMlbPick(matchup, score, thresholds) {
     return picks;
   }
 
-  // ── Moneyline / Pick 'Em ──
   const mlSide = chooseBestSide(score);
+  let hasPickEm = false;
+
+  // ── Moneyline / Pick 'Em ──
   if (mlSide) {
     const conf = resolveConfidence(mlSide.edge, thresholds.moneyline, score.dataQuality, score.signalAgreement);
     if (conf) {
       picks.push(buildPick(matchup, score, mlSide, 'pickEms', 'moneyline', conf));
-    } else {
-      // Try as lean instead
-      const leanConf = resolveConfidence(mlSide.edge, thresholds.lean, score.dataQuality, score.signalAgreement);
-      if (leanConf) {
-        picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline', leanConf));
-      }
+      hasPickEm = true;
+    }
+  }
+
+  // ── Value Lean (INDEPENDENT evaluation) ──
+  // Leans are generated when:
+  // 1. A side has directional edge but doesn't clear Pick 'Em threshold, OR
+  // 2. A side has edge but data quality is moderate, OR
+  // 3. Even when Pick 'Em exists — lean captures the "value angle" framing
+  if (mlSide && !hasPickEm) {
+    // Lower DQ requirement for leans — core signals are enough
+    const leanDQ = Math.max(score.dataQuality, 0.25);
+    const leanConf = resolveConfidence(mlSide.edge, thresholds.lean, leanDQ, score.signalAgreement);
+    if (leanConf) {
+      picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline', leanConf));
     }
   }
 

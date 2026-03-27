@@ -34,9 +34,10 @@ function PickCard({ pick }) {
   const awayLogo = getMlbEspnLogoUrl(matchup.awayTeam.slug);
   const homeLogo = getMlbEspnLogoUrl(matchup.homeTeam.slug);
   const time = formatTime(matchup.startTime);
+  const isHigh = confidence === 'high';
 
   return (
-    <div className={styles.pickCard}>
+    <div className={`${styles.pickCard} ${isHigh ? styles.pickCardHigh : ''}`}>
       <div className={styles.pickHeader}>
         <span className={`${styles.confBadge} ${styles[CONF_CLS[confidence]] || ''}`}>
           {CONF_LABELS[confidence] || confidence}
