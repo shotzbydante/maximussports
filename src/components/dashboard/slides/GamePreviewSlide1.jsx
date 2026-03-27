@@ -4,7 +4,6 @@ import { getTeamSeed, getTournamentPhase, getActiveRound, getRoundLabel } from '
 import { getTeamColors } from '../../../utils/teamColors';
 import { getTeamBySlug } from '../../../data/teams';
 import { getEspnLogoUrl } from '../../../utils/espnTeamLogos';
-import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import { TIERS } from '../../../utils/confidenceTier';
 import { getAtsCache } from '../../../utils/atsCache';
 import styles from './GamePreviewSlide1.module.css';
@@ -336,34 +335,25 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const awayAts = getTeamAtsDisplay(awaySlug);
   const homeAts = getTeamAtsDisplay(homeSlug);
 
-  // Picks — SINGLE-GAME scoped: run model on ONLY this game, not the full slate.
-  // This prevents cross-game contamination where a pick from Michigan State's game
-  // leaks into Duke's card because of fuzzy name matching across the full slate.
-  const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
-  let pickEmPick = null;
-  let rawAtsPick = null;
-  let totalsPick = null;
-  try {
-    // Run model on only this one canonical game
-    const singleGamePicks = buildMaximusPicks({ games: [game], atsLeaders });
-    pickEmPick = (singleGamePicks.pickEmPicks ?? [])[0] ?? null;
-    rawAtsPick = (singleGamePicks.atsPicks ?? [])[0] ?? null;
-    totalsPick = (singleGamePicks.totalsPicks ?? [])[0] ?? null;
+  // Picks — read from CANONICAL Maximus's Picks (single source of truth).
+  // Never recompute independently — guarantees consistency across all surfaces.
+  const cp = data?.canonicalPicks ?? {};
+  const matchGame = (p) => p.homeSlug === homeSlug && p.awaySlug === awaySlug;
+  let pickEmPick = (cp.pickEmPicks ?? []).find(matchGame) ?? null;
+  let rawAtsPick = (cp.atsPicks ?? []).find(matchGame) ?? null;
+  let totalsPick = (cp.totalsPicks ?? []).find(matchGame) ?? null;
 
-    // Hard validation: any returned pick MUST reference this exact matchup
-    const validSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
-    const validatePick = (p) => {
-      if (!p) return null;
-      const pSlug = getTeamSlug(p.pickTeam || '') || p.homeSlug || p.awaySlug;
-      if (pSlug && !validSlugs.has(pSlug) && !validSlugs.has(getTeamSlug(p.homeTeam || '')) && !validSlugs.has(getTeamSlug(p.awayTeam || ''))) {
-        return null; // pick references a team outside this matchup — discard
-      }
-      return p;
-    };
-    pickEmPick = validatePick(pickEmPick);
-    rawAtsPick = validatePick(rawAtsPick);
-    totalsPick = validatePick(totalsPick);
-  } catch { /* graceful */ }
+  // Hard validation: picked team must be one of the two matchup teams
+  const validSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
+  const validatePick = (p) => {
+    if (!p) return null;
+    const pSlug = getTeamSlug(p.pickTeam || '');
+    if (pSlug && !validSlugs.has(pSlug)) return null;
+    return p;
+  };
+  pickEmPick = validatePick(pickEmPick);
+  rawAtsPick = validatePick(rawAtsPick);
+  totalsPick = validatePick(totalsPick);
 
   // Always take a side: derive picks when model doesn't qualify one
   const finalPickEm = pickEmPick || derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML, awayML);

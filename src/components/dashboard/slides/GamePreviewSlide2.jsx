@@ -1,7 +1,8 @@
 import SlideShell from './SlideShell';
 import InsightBullets from '../ui/InsightBullets';
 import styles from './GamePreviewSlide2.module.css';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { confidenceLabel } from '../../../utils/maximusPicksModel';
+import { getTeamSlug } from '../../../utils/teamSlug';
 import { TIERS } from '../../../utils/confidenceTier';
 
 function pickToTier(pick) {
@@ -13,20 +14,13 @@ function pickToTier(pick) {
 }
 
 export default function GamePreviewSlide2({ game, data, asOf, slideNumber, slideTotal, ...rest }) {
-  const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
-  const games = data?.odds?.games ?? [];
-
-  let gamePick = null;
-  try {
-    const picks = buildMaximusPicks({ games, atsLeaders });
-    const allPicks = [...(picks.atsPicks ?? []), ...(picks.mlPicks ?? [])];
-    const awayLower = (game?.awayTeam || '').toLowerCase().split(' ').pop() || '';
-    const homeLower = (game?.homeTeam || '').toLowerCase().split(' ').pop() || '';
-    gamePick = allPicks.find(p => {
-      const line = (p.pickLine || '').toLowerCase();
-      return (awayLower && line.includes(awayLower)) || (homeLower && line.includes(homeLower));
-    }) ?? null;
-  } catch { /* ignore */ }
+  // Read from canonical picks — single source of truth
+  const cp = data?.canonicalPicks ?? {};
+  const homeSlug = game?.homeSlug || game?.homeTeamSlug || getTeamSlug(game?.homeTeam || '');
+  const awaySlug = game?.awaySlug || game?.awayTeamSlug || getTeamSlug(game?.awayTeam || '');
+  const matchGame = (p) => p.homeSlug === homeSlug && p.awaySlug === awaySlug;
+  const allPicks = [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])];
+  const gamePick = allPicks.find(matchGame) ?? null;
 
   const spread = game?.homeSpread ?? game?.spread ?? null;
   const spreadNum = spread != null ? parseFloat(spread) : null;

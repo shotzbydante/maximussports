@@ -28,7 +28,7 @@
 import { useState } from 'react';
 import styles from './TeamIntelSlide4.module.css';
 import { getTeamColors } from '../../../utils/teamColors';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { confidenceLabel } from '../../../utils/maximusPicksModel';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -658,29 +658,13 @@ export default function TeamIntelSlide4({ data, teamData, asOf, ...rest }) {
     }
   }
 
-  // ── Maximus pick — scoped to this team's next matchup ─────────────────────
-  const games = data?.odds?.games ?? [];
+  // ── Maximus pick — from canonical picks (single source of truth) ───────────
+  const cp = data?.canonicalPicks ?? {};
+  const allPicks = [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])];
   let teamPick = null;
-  try {
-    const picks = buildMaximusPicks({ games, atsLeaders: data?.atsLeaders ?? { best: [], worst: [] } });
-    const all   = [...(picks.atsPicks ?? []), ...(picks.mlPicks ?? [])];
-    const tFrag = name ? name.toLowerCase().split(' ').pop() : '';
-    const oFrag = nextOpp ? nextOpp.toLowerCase().split(' ').pop() : '';
-    if (tFrag && oFrag) {
-      teamPick = all.find(p => {
-        const ht = (p.homeTeam || '').toLowerCase();
-        const at = (p.awayTeam || '').toLowerCase();
-        return (ht.includes(tFrag) || at.includes(tFrag)) && (ht.includes(oFrag) || at.includes(oFrag));
-      }) ?? null;
-    }
-    if (!teamPick && tFrag) {
-      teamPick = all.find(p => {
-        const ht = (p.homeTeam || '').toLowerCase();
-        const at = (p.awayTeam || '').toLowerCase();
-        return ht.includes(tFrag) || at.includes(tFrag);
-      }) ?? null;
-    }
-  } catch { /* ignore */ }
+  if (slug) {
+    teamPick = allPicks.find(p => p.homeSlug === slug || p.awaySlug === slug) ?? null;
+  }
 
   // ── Cleaned news headlines ────────────────────────────────────────────────
   const rawNews = teamData?.last7News?.length > 0

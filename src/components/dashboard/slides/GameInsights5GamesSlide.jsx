@@ -3,7 +3,6 @@ import TeamLogo from '../../shared/TeamLogo';
 import { getTeamSlug } from '../../../utils/teamSlug';
 import { getTeamSeed } from '../../../utils/tournamentHelpers';
 import { getTeamColors } from '../../../utils/teamColors';
-import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import { getConfidenceTier, TIERS } from '../../../utils/confidenceTier';
 import styles from './GameInsights5GamesSlide.module.css';
 
@@ -80,16 +79,15 @@ export default function GameInsights5GamesSlide({ data, asOf, slideNumber, slide
   const dayLabel = options.dayLabel || '';
   const roundLabel = options.roundLabel || '';
 
-  let picksMap = {};
-  try {
-    const { atsPicks = [], mlPicks = [] } = buildMaximusPicks({ games, atsLeaders });
-    [...atsPicks, ...mlPicks].forEach(p => {
-      const key = `${getTeamSlug(p.awayTeam || '')}|${getTeamSlug(p.homeTeam || '')}`;
-      if (!picksMap[key] || (p.confidence ?? 0) > (picksMap[key].confidence ?? 0)) {
-        picksMap[key] = p;
-      }
-    });
-  } catch { /* ignore */ }
+  // Read from canonical picks — single source of truth
+  const cp = data?.canonicalPicks ?? {};
+  const picksMap = {};
+  [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])].forEach(p => {
+    const key = `${p.awaySlug || getTeamSlug(p.awayTeam || '')}|${p.homeSlug || getTeamSlug(p.homeTeam || '')}`;
+    if (!picksMap[key] || (p.confidence ?? 0) > (picksMap[key].confidence ?? 0)) {
+      picksMap[key] = p;
+    }
+  });
 
   function getRank(teamName) {
     if (!teamName || !rankingsTop25.length) return null;

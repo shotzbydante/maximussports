@@ -1,7 +1,8 @@
 import SlideShell from './SlideShell';
 import LineBlock from '../ui/LineBlock';
 import styles from './TeamIntelSlide3.module.css';
-import { buildMaximusPicks, confidenceLabel } from '../../../utils/maximusPicksModel';
+import { confidenceLabel } from '../../../utils/maximusPicksModel';
+import { getTeamSlug } from '../../../utils/teamSlug';
 
 export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, slideTotal, ...rest }) {
   const name = teamData?.team?.displayName || teamData?.team?.name || data?.selectedTeamName || null;
@@ -38,41 +39,15 @@ export default function TeamIntelSlide3({ data, teamData, asOf, slideNumber, sli
 
   const hasLine = spread != null || ml != null || total != null;
 
-  // Team pick from picks model — scoped to the team's actual next matchup.
-  // Matches picks where EITHER the team OR their upcoming opponent is one of the game participants.
-  // Never surfaces a pick from a completely unrelated game.
-  const games = data?.odds?.games ?? [];
+  // Team pick from canonical Maximus's Picks — single source of truth.
+  // Match by slug identity, not fuzzy name matching.
+  const cp = data?.canonicalPicks ?? {};
+  const allPicks = [...(cp.atsPicks ?? []), ...(cp.mlPicks ?? [])];
+  const teamSlug = teamData?.team?.slug || getTeamSlug(name || '');
   let teamPick = null;
-  try {
-    const picks = buildMaximusPicks({ games, atsLeaders });
-    const allPicks = [...(picks.atsPicks ?? []), ...(picks.mlPicks ?? [])];
-
-    // Build match fragments: team name + next opponent (use last word of each)
-    const teamFrag = name ? name.toLowerCase().split(' ').pop() : '';
-    const oppFrag  = nextEvent?.opponent
-      ? nextEvent.opponent.toLowerCase().split(' ').pop()
-      : '';
-
-    // Most precise: find a pick from the exact upcoming matchup (game has both team + opponent)
-    if (teamFrag && oppFrag) {
-      teamPick = allPicks.find(p => {
-        const ht = (p.homeTeam || '').toLowerCase();
-        const at = (p.awayTeam || '').toLowerCase();
-        const teamInGame = ht.includes(teamFrag) || at.includes(teamFrag);
-        const oppInGame  = ht.includes(oppFrag)  || at.includes(oppFrag);
-        return teamInGame && oppInGame;
-      }) ?? null;
-    }
-
-    // Broader fallback: any pick where this team appears in the matchup
-    if (!teamPick && teamFrag) {
-      teamPick = allPicks.find(p => {
-        const ht = (p.homeTeam || '').toLowerCase();
-        const at = (p.awayTeam || '').toLowerCase();
-        return ht.includes(teamFrag) || at.includes(teamFrag);
-      }) ?? null;
-    }
-  } catch { /* ignore */ }
+  if (teamSlug) {
+    teamPick = allPicks.find(p => p.homeSlug === teamSlug || p.awaySlug === teamSlug) ?? null;
+  }
 
   const headlines = teamData?.last7News?.length > 0
     ? teamData.last7News
