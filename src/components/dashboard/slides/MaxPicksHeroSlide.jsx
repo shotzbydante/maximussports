@@ -285,7 +285,17 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const renderedTot = totTop.length;
   const totalRendered = renderedPe + renderedAts + renderedVal + renderedTot;
   const totalPicks = pe.length + ats.length + val.length + tot.length;
-  const gamesAnalyzed = data?.picksGames?.length ?? data?.odds?.games?.length ?? 0;
+  // Count unique matchups, not raw game objects (avoids double-counting swapped home/away)
+  const gamesAnalyzed = (() => {
+    const games = data?.picksGames ?? data?.odds?.games ?? [];
+    const seen = new Set();
+    for (const g of games) {
+      const h = g.homeSlug || getTeamSlug(g.homeTeam || '') || '';
+      const a = g.awaySlug || getTeamSlug(g.awayTeam || '') || '';
+      if (h && a) seen.add([h, a].sort().join('|'));
+    }
+    return seen.size;
+  })();
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles',

@@ -85,20 +85,18 @@
   margin-bottom: 4px;
 }
 
-/* ── Stat tiles (5 columns) ──────────────────────────────────── */
+/* ── Stat tiles — Bloomberg terminal strip ───────────────────── */
 
 .countGrid {
   display: flex;
   align-items: stretch;
   gap: 0;
-  border: 1px solid rgba(183, 152, 108, 0.22);
-  border-radius: 10px;
+  border: 1px solid rgba(183, 152, 108, 0.18);
+  border-radius: 8px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.30);
   margin-bottom: 6px;
   flex-shrink: 0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .countCell {
@@ -106,8 +104,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 5px 5px;
-  border-right: 1px solid rgba(183, 152, 108, 0.12);
+  justify-content: center;
+  padding: 8px 4px 6px;
+  border-right: 1px solid rgba(183, 152, 108, 0.10);
 }
 
 .countCell:last-child {
@@ -116,20 +115,20 @@
 
 .countValue {
   font-family: 'Oswald', sans-serif;
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
   color: #B7986C;
   line-height: 1;
+  letter-spacing: -0.01em;
 }
 
 .countLabel {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.10em;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.36);
-  margin-top: 2px;
+  color: rgba(240, 244, 248, 0.28);
+  margin-top: 3px;
 }
 
 /* ── 2×2 Intelligence Modules Grid ───────────────────────────── */
