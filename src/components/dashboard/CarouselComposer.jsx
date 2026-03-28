@@ -41,6 +41,9 @@ import MaxPicksUpsetsSlide from './slides/MaxPicksUpsetsSlide';
 // Conference Intel slide
 import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
 
+// MLB universal single slide
+import MlbSingleSlide from './slides/MlbSingleSlide';
+
 import styles from './CarouselComposer.module.css';
 
 /**
@@ -62,6 +65,16 @@ export function getTemplateDimensions(template) {
  */
 function getSlides(template, slideCount, options = {}) {
   switch (template) {
+    // ── MLB templates: ALWAYS single slide ──
+    case 'mlb-daily':
+    case 'mlb-team':
+    case 'mlb-league':
+    case 'mlb-division':
+    case 'mlb-game':
+    case 'mlb-picks':
+      return [MlbSingleSlide];
+
+    // ── NCAAM templates (untouched) ──
     case 'team':
       return [TeamIntelSlide4, TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 4));
     case 'conference':
@@ -106,12 +119,18 @@ function getSlides(template, slideCount, options = {}) {
 }
 
 const TEMPLATE_LABELS = {
-  daily:      'Daily Briefing',
-  team:       'Team Intel',
-  conference: 'Conference Intel',
-  game:       'Game Insights',
-  picks:      "Maximus's Picks",
-  odds:       'Odds Insights',
+  daily:           'Daily Briefing',
+  team:            'Team Intel',
+  conference:      'Conference Intel',
+  game:            'Game Insights',
+  picks:           "Maximus's Picks",
+  odds:            'Odds Insights',
+  'mlb-daily':     'MLB Daily Briefing',
+  'mlb-team':      'MLB Team Intel',
+  'mlb-league':    'MLB League Intel',
+  'mlb-division':  'MLB Division Intel',
+  'mlb-game':      'MLB Game Insights',
+  'mlb-picks':     "MLB Maximus's Picks",
 };
 
 /**

@@ -1,0 +1,220 @@
+/* MlbSingleSlide — cinematic MLB IG post (1080×1350) */
+
+.artboard {
+  position: relative; width: 1080px; height: 1350px;
+  overflow: hidden; font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  display: flex; flex-direction: column;
+  color: #fff;
+}
+
+/* ── Background ── */
+.bgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse at 30% 20%, #1a0a12 0%, #0e0610 40%, #060208 100%);
+}
+.bgGlow {
+  position: absolute; inset: 0; z-index: 1;
+  background: radial-gradient(circle at 50% 30%, rgba(184,41,61,0.08) 0%, transparent 60%);
+}
+.bgNoise {
+  position: absolute; inset: 0; z-index: 2; opacity: 0.03;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Header ── */
+.header {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 38px 48px 0;
+}
+.logoRow { display: flex; align-items: center; gap: 14px; }
+.brandLogo { width: 44px; height: 44px; object-fit: contain; }
+.logoMeta { display: flex; flex-direction: column; gap: 3px; }
+.brandName {
+  font-size: 14px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #fff; opacity: 0.92;
+}
+.intelChip {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: #b8293d;
+  background: rgba(184,41,61,0.12); padding: 3px 8px; border-radius: 4px;
+  align-self: flex-start;
+}
+.headerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.asOf { font-size: 11px; color: rgba(255,255,255,0.40); }
+.maxIntel {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(255,255,255,0.25);
+}
+
+.programStrip {
+  position: relative; z-index: 10;
+  height: 2px; margin: 18px 48px 0;
+  background: linear-gradient(90deg, rgba(184,41,61,0.40), rgba(0,45,114,0.20), transparent);
+}
+
+/* ── MLB crest ── */
+.mlbLogoZone {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center; margin: 22px 0 6px;
+}
+.mlbLogo { width: 56px; height: 56px; object-fit: contain; opacity: 0.75; }
+
+.dateZone {
+  position: relative; z-index: 10;
+  text-align: center; margin-bottom: 16px;
+}
+.dateLabel {
+  display: block; font-size: 18px; font-weight: 700;
+  letter-spacing: 0.04em; color: rgba(255,255,255,0.85);
+}
+.dateSub {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(184,41,61,0.70);
+}
+
+/* ── Matchup ── */
+.matchupZone {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  gap: 28px; padding: 0 48px; margin: 10px 0 16px;
+}
+.matchupTeam { display: flex; align-items: center; gap: 12px; }
+.matchupLogo { width: 60px; height: 60px; object-fit: contain; }
+.matchupTeamInfo { display: flex; flex-direction: column; gap: 2px; }
+.matchupTeamName {
+  font-size: 20px; font-weight: 800; color: #fff;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.matchupRecord { font-size: 12px; color: rgba(255,255,255,0.45); }
+.matchupVs {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.vsText {
+  font-size: 14px; font-weight: 800; color: rgba(255,255,255,0.30);
+  letter-spacing: 0.10em;
+}
+.matchupTime { font-size: 10px; color: rgba(255,255,255,0.35); }
+
+/* ── Headline ── */
+.headlineZone {
+  position: relative; z-index: 10;
+  padding: 0 48px; margin: 8px 0;
+}
+.headlineDivider, .headlineDividerBottom {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(184,41,61,0.25), transparent);
+  margin: 8px 0;
+}
+.headline {
+  font-size: 34px; font-weight: 800; line-height: 1.15;
+  letter-spacing: -0.01em; color: #fff; margin: 12px 0;
+  text-transform: uppercase;
+}
+.subheadline {
+  font-size: 15px; line-height: 1.45; color: rgba(255,255,255,0.55);
+  margin: 4px 0 0;
+}
+
+/* ── Pick callout ── */
+.pickCallout {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 48px;
+}
+.pickLabel {
+  font-size: 26px; font-weight: 800; color: #b8293d;
+  text-transform: uppercase; letter-spacing: -0.01em;
+}
+.pickConf {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 3px 10px; border-radius: 4px;
+}
+.conf_high   { color: #34d399; background: rgba(52,211,153,0.12); }
+.conf_medium { color: #fbbf24; background: rgba(251,191,36,0.12); }
+.conf_low    { color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); }
+
+/* ── Picks panel ── */
+.picksPanel {
+  position: relative; z-index: 10;
+  margin: 8px 48px; padding: 16px 20px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+}
+.picksPanelHeader {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 10px;
+}
+.sectionDot {
+  width: 5px; height: 5px; border-radius: 50%; background: #b8293d;
+}
+.picksList { display: flex; flex-direction: column; gap: 8px; }
+.pickRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.02); border-radius: 6px;
+}
+.pickRowCategory {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
+  min-width: 80px;
+}
+.pickRowLabel {
+  font-size: 15px; font-weight: 700; color: #fff; flex: 1;
+}
+.pickRowConf {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 3px;
+}
+
+/* ── Bullet module ── */
+.bulletModule {
+  position: relative; z-index: 10;
+  margin: 10px 48px; padding: 14px 20px;
+  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+}
+.bulletHeader {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 10px;
+}
+.bulletList { list-style: none; margin: 0; padding: 0; }
+.bulletItem {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 0;
+}
+.bulletIcon { font-size: 14px; flex-shrink: 0; }
+.bulletText {
+  font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.72);
+}
+
+/* ── Team focus ── */
+.teamFocusZone {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 48px;
+}
+.focusLogo { width: 48px; height: 48px; object-fit: contain; }
+.focusInfo { display: flex; flex-direction: column; gap: 2px; }
+.focusName { font-size: 22px; font-weight: 800; color: #fff; text-transform: uppercase; }
+.focusRecord { font-size: 12px; color: rgba(255,255,255,0.40); }
+
+/* ── Footer ── */
+.footer {
+  position: relative; z-index: 10;
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px 36px;
+}
+.footerUrl {
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.30);
+  letter-spacing: 0.04em;
+}
+.footerDisclaimer {
+  font-size: 9px; color: rgba(255,255,255,0.20);
+  max-width: 300px; text-align: right;
+}

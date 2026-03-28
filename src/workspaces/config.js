@@ -96,6 +96,8 @@ export const WORKSPACES = {
       champOdds: true,
       atsLeaders: false,
       conferenceIntel: false,
+      leagueIntel: true,
+      divisionIntel: true,
       oddsInsights: true,
       teamIntel: true,
       games: true,

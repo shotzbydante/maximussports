@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdminUser } from '../config/admin';
@@ -44,25 +44,49 @@ import { REGIONS } from '../config/bracketology';
 import { useWorkspace } from '../workspaces/WorkspaceContext';
 import { WorkspaceId, WORKSPACES } from '../workspaces/config';
 import { getVisibleWorkspaces } from '../workspaces/access';
+import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
+import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
+import { fetchMlbHeadlines } from '../api/mlbNews';
 import styles from './Dashboard.module.css';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 const PREVIEW_SCALES = { small: 0.25, medium: 0.35, large: 0.44 };
 
-const ALL_SECTIONS = [
+const CBB_SECTIONS = [
   { id: 'daily',      label: 'Daily Briefing',    icon: '📅',  requiredCap: null },
   { id: 'team',       label: 'Team Intel',         icon: '🏀',  requiredCap: 'teamIntel' },
   { id: 'conference', label: 'Conference Intel',    icon: '🏟️', requiredCap: 'conferenceIntel' },
   { id: 'game',       label: 'Game Insights',      icon: '📊',  requiredCap: 'games' },
   { id: 'picks',      label: "Maximus's Picks",    icon: '📈',  requiredCap: 'picks' },
-  { id: 'videos',     label: 'Videos',             icon: '🎬',  requiredCap: null },
+  { id: 'videos',     label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
+];
+
+const MLB_SECTIONS = [
+  { id: 'mlb-daily',    label: 'Daily Briefing',    icon: '📅',  requiredCap: null },
+  { id: 'mlb-team',     label: 'Team Intel',         icon: '⚾',  requiredCap: 'teamIntel' },
+  { id: 'mlb-league',   label: 'League Intel',        icon: '🌎',  requiredCap: 'leagueIntel' },
+  { id: 'mlb-division', label: 'Divisional Intel',    icon: '🏟️', requiredCap: 'divisionIntel' },
+  { id: 'mlb-game',     label: 'Game Insights',      icon: '📊',  requiredCap: 'games' },
+  { id: 'mlb-picks',    label: "Maximus's Picks",    icon: '📈',  requiredCap: 'picks' },
+  { id: 'videos',       label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
 ];
 
 function getSectionsForWorkspace(workspaceConfig) {
-  return ALL_SECTIONS.filter(sec =>
+  const sections = workspaceConfig.id === WorkspaceId.MLB ? MLB_SECTIONS : CBB_SECTIONS;
+  return sections.filter(sec =>
     sec.requiredCap === null || workspaceConfig.capabilities[sec.requiredCap],
   );
+}
+
+/** Returns true if the active section is an MLB template */
+function isMlbSection(sectionId) {
+  return sectionId?.startsWith('mlb-');
+}
+
+/** Extracts MLB template type from section id: 'mlb-daily' → 'daily' */
+function mlbTemplateType(sectionId) {
+  return sectionId?.replace('mlb-', '') || 'daily';
 }
 
 function gameLabel(g) {
@@ -128,6 +152,18 @@ export default function Dashboard() {
   // Championship odds map for Daily Briefing Slide 2 (fetched once at load)
   const [dailyChampOdds, setDailyChampOdds] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // ── MLB-specific state ─────────────────────────────────
+  const [mlbGames, setMlbGames] = useState([]);
+  const [mlbGamesLoading, setMlbGamesLoading] = useState(false);
+  const [mlbHeadlines, setMlbHeadlines] = useState([]);
+  const [mlbSelectedTeam, setMlbSelectedTeam] = useState(null);
+  const [mlbSelectedGame, setMlbSelectedGame] = useState(null);
+  const [mlbLeague, setMlbLeague] = useState('AL'); // 'AL' | 'NL'
+  const [mlbDivision, setMlbDivision] = useState('AL East');
+  const [mlbGameAngle, setMlbGameAngle] = useState('value');
+  const [mlbSlateMode, setMlbSlateMode] = useState('full'); // 'full' | 'featured' | 'division'
+  const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
 
   // ── export state ─────────────────────────────────────────
   const [assetsReady, setAssetsReady] = useState(false);
@@ -278,6 +314,26 @@ export default function Dashboard() {
       }
     }).catch(() => {});
   }, [isAuthorized]);
+
+  // ── MLB data loading ──────────────────────────────────────
+  useEffect(() => {
+    if (!isAuthorized || !isMlbStudio) return;
+    setMlbGamesLoading(true);
+    Promise.all([
+      fetch('/api/mlb/picks/board').then(r => r.json()).catch(() => ({ games: [] })),
+      fetchMlbHeadlines().catch(() => []),
+    ]).then(([boardData, headlines]) => {
+      setMlbGames(boardData?.games ?? []);
+      setMlbHeadlines(Array.isArray(headlines) ? headlines : headlines?.headlines ?? []);
+    }).finally(() => setMlbGamesLoading(false));
+  }, [isAuthorized, isMlbStudio, refreshKey]);
+
+  // ── MLB picks (memoized from games) ───────────────────────
+  const mlbPicks = useMemo(() => {
+    if (!mlbGames.length) return null;
+    try { return buildMlbPicks({ games: mlbGames }); }
+    catch { return null; }
+  }, [mlbGames]);
 
   // ── patch dashData.atsLeaders when hook resolves late ─────
   useEffect(() => {
@@ -646,6 +702,46 @@ export default function Dashboard() {
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
+    // ── MLB caption (simple, standalone) ──
+    if (mlbActive) {
+      const tmpl = mlbTemplateType(activeSection);
+      const gamesCount = mlbGames.length;
+      const cats = mlbPicks?.categories ?? {};
+      const pickSummary = [];
+      if (cats.pickEms?.length) pickSummary.push(`${cats.pickEms.length} moneyline pick${cats.pickEms.length > 1 ? 's' : ''}`);
+      if (cats.ats?.length) pickSummary.push(`${cats.ats.length} run line signal${cats.ats.length > 1 ? 's' : ''}`);
+      if (cats.leans?.length) pickSummary.push(`${cats.leans.length} value lean${cats.leans.length > 1 ? 's' : ''}`);
+      if (cats.totals?.length) pickSummary.push(`${cats.totals.length} total${cats.totals.length > 1 ? 's' : ''}`);
+
+      const shortLines = [];
+      if (tmpl === 'daily' || tmpl === 'picks') {
+        shortLines.push(`Today's MLB board: ${pickSummary.join(', ') || 'monitoring the slate'}.`);
+        shortLines.push('');
+        shortLines.push('Full analysis at maximussports.ai');
+      } else if (tmpl === 'team' && mlbSelectedTeam) {
+        shortLines.push(`${mlbSelectedTeam.name} Intel Report`);
+        shortLines.push('Model-driven breakdown and projections.');
+        shortLines.push('');
+        shortLines.push('Full analysis at maximussports.ai');
+      } else if (tmpl === 'game' && mlbSelectedGame) {
+        shortLines.push(`${mlbSelectedGame.awayTeam} at ${mlbSelectedGame.homeTeam} — Game Preview`);
+        shortLines.push('');
+        shortLines.push('Full analysis at maximussports.ai');
+      } else {
+        shortLines.push(`MLB Intelligence — ${gamesCount} games on the slate.`);
+        shortLines.push('');
+        shortLines.push('Full analysis at maximussports.ai');
+      }
+
+      const hashtags = ['#MLB', '#Baseball', '#MaximusSports', '#MLBPicks', '#BettingIntelligence'];
+      return {
+        shortCaption: shortLines.join('\n'),
+        longCaption: shortLines.join('\n') + '\n\nFor entertainment only. Please bet responsibly. 21+',
+        hashtags,
+      };
+    }
+
+    // ── CBB caption (unchanged) ──
     if (!dashData) return null;
     const picks = canonicalRenderedPicks;
 
@@ -680,7 +776,7 @@ export default function Dashboard() {
       conference: activeSection === 'conference' ? selectedConference : null,
       tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -926,11 +1022,24 @@ export default function Dashboard() {
       const tb = b.startTime || b.commenceTime || '';
       return ta.localeCompare(tb);
     });
-  const isWorking = dataLoading || teamPageLoading;
-  const canExport = !isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference);
+  const mlbActive = isMlbSection(activeSection);
+  const isWorking = mlbActive ? mlbGamesLoading : (dataLoading || teamPageLoading);
+  const canExport = mlbActive
+    ? (!mlbGamesLoading && (activeSection !== 'mlb-game' || !!mlbSelectedGame))
+    : (!isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference));
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
-  const options = {
+  // MLB: always force slideCount=1
+  const effectiveSlideCount = mlbActive ? 1 : slideCount;
+
+  const options = mlbActive ? {
+    mlbTemplate: mlbTemplateType(activeSection),
+    mlbLeague,
+    mlbDivision,
+    gameAngle: mlbGameAngle,
+    mlbSlateMode,
+    slideCount: 1,
+  } : {
     styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
     riskMode,
     picksMode,
@@ -974,7 +1083,7 @@ export default function Dashboard() {
                   onClick={() => {
                     setStudioWorkspaceId(ws.id);
                     setAssetsReady(false);
-                    setActiveSection('daily');
+                    setActiveSection(ws.id === WorkspaceId.MLB ? 'mlb-daily' : 'daily');
                   }}
                 >
                   {ws.emoji} {ws.shortLabel}
@@ -996,19 +1105,21 @@ export default function Dashboard() {
         <aside className={styles.controls}>
 
           {/* Section tabs */}
-          <div className={styles.sectionTabs}>
+          <div className={`${styles.sectionTabs} ${isMlbStudio ? styles.sectionTabsMlb : ''}`}>
             {getSectionsForWorkspace(studioWorkspace).map(sec => (
-              <button
-                key={sec.id}
-                className={`${styles.sectionTab} ${activeSection === sec.id ? styles.sectionTabActive : ''}`}
-                onClick={() => {
-                  setActiveSection(sec.id);
-                  setAssetsReady(false);
-                }}
-              >
-                <span className={styles.tabIcon}>{sec.icon}</span>
-                <span className={styles.tabLabel}>{sec.label}</span>
-              </button>
+              <React.Fragment key={sec.id}>
+                {sec.shared && <div className={styles.sharedDivider}><span className={styles.sharedLabel}>Shared Tools</span></div>}
+                <button
+                  className={`${styles.sectionTab} ${activeSection === sec.id ? styles.sectionTabActive : ''} ${isMlbStudio ? styles.sectionTabMlb : ''}`}
+                  onClick={() => {
+                    setActiveSection(sec.id);
+                    setAssetsReady(false);
+                  }}
+                >
+                  <span className={styles.tabIcon}>{sec.icon}</span>
+                  <span className={styles.tabLabel}>{sec.label}</span>
+                </button>
+              </React.Fragment>
             ))}
           </div>
 
@@ -1506,8 +1617,157 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ─── MLB controls ─────────────────────────── */}
+          {mlbActive && (
+            <div className={styles.sectionControls}>
+              {/* MLB always produces 1 slide — show format badge */}
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Format</label>
+                <div className={styles.chipGroup}>
+                  <span className={styles.chip} style={{ opacity: 0.6, cursor: 'default' }}>
+                    Single Slide · 1080 × 1350
+                  </span>
+                </div>
+              </div>
+
+              {/* Team picker for Team Intel */}
+              {activeSection === 'mlb-team' && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel}>Team</label>
+                  <div className={styles.selectWrap}>
+                    <select
+                      className={styles.select}
+                      value={mlbSelectedTeam?.slug || ''}
+                      onChange={e => {
+                        const slug = e.target.value;
+                        const team = MLB_TEAMS.find(t => t.slug === slug) || null;
+                        setMlbSelectedTeam(team);
+                        setAssetsReady(false);
+                      }}
+                    >
+                      <option value="">Select team…</option>
+                      {MLB_DIVISIONS.map(div => (
+                        <optgroup key={div} label={div}>
+                          {MLB_TEAMS.filter(t => t.division === div).sort((a, b) => a.name.localeCompare(b.name)).map(t => (
+                            <option key={t.slug} value={t.slug}>{t.name}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* League picker for League Intel */}
+              {activeSection === 'mlb-league' && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel}>League</label>
+                  <div className={styles.chipGroup}>
+                    {['AL', 'NL'].map(lg => (
+                      <button
+                        key={lg}
+                        className={`${styles.chip} ${mlbLeague === lg ? styles.chipActive : ''} ${isMlbStudio ? styles.chipMlb : ''}`}
+                        onClick={() => { setMlbLeague(lg); setAssetsReady(false); }}
+                      >
+                        {lg === 'AL' ? 'American League' : 'National League'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Division picker for Divisional Intel */}
+              {activeSection === 'mlb-division' && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel}>Division</label>
+                  <div className={styles.selectWrap}>
+                    <select
+                      className={styles.select}
+                      value={mlbDivision}
+                      onChange={e => { setMlbDivision(e.target.value); setAssetsReady(false); }}
+                    >
+                      {MLB_DIVISIONS.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Game picker for Game Insights */}
+              {activeSection === 'mlb-game' && (
+                <>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Game</label>
+                    {mlbGames.length === 0 ? (
+                      <div className={styles.emptyPicker}>No MLB games available</div>
+                    ) : (
+                      <div className={styles.selectWrap}>
+                        <select
+                          className={styles.select}
+                          value={mlbSelectedGame ? `${mlbSelectedGame.awayTeam}@${mlbSelectedGame.homeTeam}` : ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const [away, home] = val.split('@');
+                            const g = mlbGames.find(x => x.awayTeam === away && x.homeTeam === home);
+                            setMlbSelectedGame(g ?? null);
+                            setAssetsReady(false);
+                          }}
+                        >
+                          <option value="">Select game…</option>
+                          {mlbGames.filter(g => g.awayTeam && g.homeTeam).map((g, i) => (
+                            <option key={i} value={`${g.awayTeam}@${g.homeTeam}`}>
+                              {gameLabel(g)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Angle</label>
+                    <div className={styles.chipGroup}>
+                      {[{ id: 'value', label: 'Value' }, { id: 'story', label: 'Story' }].map(opt => (
+                        <button
+                          key={opt.id}
+                          className={`${styles.chip} ${mlbGameAngle === opt.id ? styles.chipActive : ''} ${isMlbStudio ? styles.chipMlb : ''}`}
+                          onClick={() => { setMlbGameAngle(opt.id); setAssetsReady(false); }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Mode for Daily Briefing / Picks */}
+              {(activeSection === 'mlb-daily' || activeSection === 'mlb-picks') && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel}>Slate Mode</label>
+                  <div className={styles.chipGroup}>
+                    {[
+                      { id: 'full', label: 'Full Slate' },
+                      { id: 'featured', label: 'Featured' },
+                      { id: 'division', label: 'Division' },
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        className={`${styles.chip} ${mlbSlateMode === opt.id ? styles.chipActive : ''} ${isMlbStudio ? styles.chipMlb : ''}`}
+                        onClick={() => { setMlbSlateMode(opt.id); setAssetsReady(false); }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Error */}
-          {dataError && (
+          {dataError && !mlbActive && (
             <div className={styles.errorBanner}>
               <strong>Error:</strong> {dataError}
             </div>
@@ -1629,9 +1889,9 @@ export default function Dashboard() {
         <section className={styles.previewArea}>
           {activeSection === 'videos' ? (
             <VideosEditor />
-          ) : isWorking || !dashData ? (
+          ) : isWorking || (!mlbActive && !dashData) ? (
             <div className={styles.skeletonRow}>
-              {Array.from({ length: slideCount }).map((_, i) => (
+              {Array.from({ length: effectiveSlideCount }).map((_, i) => (
                 <div
                   key={i}
                   className={styles.skeletonSlide}
@@ -1645,8 +1905,19 @@ export default function Dashboard() {
           ) : (
             <CarouselComposer
               template={activeSection}
-              slideCount={slideCount}
+              slideCount={effectiveSlideCount}
               data={(() => {
+                // MLB data path — simpler, self-contained
+                if (mlbActive) {
+                  return {
+                    mlbGames,
+                    mlbHeadlines,
+                    mlbPicks: mlbPicks ?? {},
+                    canonicalPicks: mlbPicks ?? {},
+                    games: mlbGames,
+                  };
+                }
+                // CBB data path (unchanged)
                 let d = dashData;
                 if (!d) return d;
                 const enrichments = {};
@@ -1668,9 +1939,9 @@ export default function Dashboard() {
                 enrichments.canonicalPicks = canonicalPicks ?? { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
-              teamData={enhancedTeamData}
+              teamData={mlbActive && mlbSelectedTeam ? { team: mlbSelectedTeam } : enhancedTeamData}
               conferenceData={activeSection === 'conference' && selectedConference ? { conference: selectedConference } : null}
-              selectedGame={selectedGame}
+              selectedGame={mlbActive ? mlbSelectedGame : selectedGame}
               exportRef={exportRef}
               onAssetsReady={() => setAssetsReady(true)}
               options={options}

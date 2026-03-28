@@ -4,6 +4,7 @@ import { getTeamSeed, getTournamentPhase, getActiveRound, getRoundLabel } from '
 import { getTeamColors } from '../../../utils/teamColors';
 import { getTeamBySlug } from '../../../data/teams';
 import { getEspnLogoUrl } from '../../../utils/espnTeamLogos';
+import { buildMaximusPicks } from '../../../utils/maximusPicksModel';
 import { TIERS } from '../../../utils/confidenceTier';
 import { getAtsCache } from '../../../utils/atsCache';
 import styles from './GamePreviewSlide1.module.css';
@@ -137,7 +138,35 @@ function derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML,
   return { pickTeam, pickLine: pickTeam, confidence: 0, _derived: true, _ml: pickML };
 }
 
-/* (deriveAtsLean removed — ATS must come from canonical picks only) */
+/* ── Force ATS lean — aligned with model direction ───────────────────── */
+
+function deriveAtsLean(atsPick, homeSpreadNum, homeTeam, awayTeam, pickEmTeam) {
+  if (atsPick?.pickLine) return atsPick;
+  if (homeSpreadNum == null || isNaN(homeSpreadNum)) return null;
+  const abs = Math.abs(homeSpreadNum);
+  if (abs < 1 || abs > 14) return null;
+
+  const homeShort = homeTeam?.split(' ').pop() || 'Home';
+  const awayShort = awayTeam?.split(' ').pop() || 'Away';
+
+  // Align ATS with Pick 'Em direction when available — prevents Team Intel
+  // from showing favorite ATS while Maximus's Picks shows underdog, or vice versa.
+  // If no Pick 'Em direction, default to the favorite (negative spread side).
+  let pickTeam, pickSpread;
+  if (pickEmTeam) {
+    const peShort = pickEmTeam.split(' ').pop()?.toLowerCase() || '';
+    const isHomePick = homeShort.toLowerCase() === peShort || homeTeam?.toLowerCase().includes(peShort);
+    pickTeam = isHomePick ? homeShort : awayShort;
+    pickSpread = isHomePick ? fmtLine(homeSpreadNum) : fmtLine(-homeSpreadNum);
+  } else {
+    // Default: pick the favorite (team with negative spread)
+    const isFav = homeSpreadNum < 0;
+    pickTeam = isFav ? homeShort : awayShort;
+    pickSpread = isFav ? fmtLine(homeSpreadNum) : fmtLine(-homeSpreadNum);
+  }
+
+  return { pickLine: `${pickTeam} ${pickSpread}`, confidence: 0, atsEdge: null, _derived: true };
+}
 
 /* ── Per-column micro-intel ───────────────────────────────────────────── */
 
@@ -279,24 +308,13 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const total = game.total ?? game.overUnder ?? null;
   const gameTime = game.time || game.startTime || game.commenceTime || null;
 
-  // Parse moneyline pair and cross-validate against spread direction
-  // (mirrors parseMoneylinePair in maximusPicksModel.js)
+  // Parse moneyline — format is "away_price / home_price" after orientation correction
   let awayML = null;
   let homeML = null;
   if (typeof ml === 'string' && ml.includes('/')) {
     const parts = ml.split('/').map(s => parseFloat(s.trim()));
-    if (!isNaN(parts[0]) && !isNaN(parts[1])) {
-      homeML = parts[0];
-      awayML = parts[1];
-      // Cross-validate: spread direction must agree with ML direction
-      if (homeML !== awayML && homeSpreadNum != null && homeSpreadNum !== 0) {
-        const homeIsFavBySpread = homeSpreadNum < 0;
-        const homeIsFavByML = homeML < awayML;
-        if (homeIsFavBySpread !== homeIsFavByML) {
-          [homeML, awayML] = [awayML, homeML];
-        }
-      }
-    }
+    if (!isNaN(parts[0])) awayML = parts[0];
+    if (!isNaN(parts[1])) homeML = parts[1];
   } else if (ml != null) {
     const n = parseFloat(ml);
     if (!isNaN(n)) {
@@ -321,38 +339,42 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const awayAts = getTeamAtsDisplay(awaySlug);
   const homeAts = getTeamAtsDisplay(homeSlug);
 
-  // Picks — read from CANONICAL Maximus's Picks (single source of truth).
-  // Never recompute independently — guarantees consistency across all surfaces.
-  // Order-agnostic matching: bracket and odds API may swap home/away orientation.
-  const cp = data?.canonicalPicks ?? {};
-  const gameSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
-  const matchGame = (p) =>
-    gameSlugs.has(p.homeSlug) && gameSlugs.has(p.awaySlug) && gameSlugs.size === 2;
-  let pickEmPick = (cp.pickEmPicks ?? []).find(matchGame) ?? null;
-  let rawAtsPick = (cp.atsPicks ?? []).find(matchGame) ?? null;
-  let totalsPick = (cp.totalsPicks ?? []).find(matchGame) ?? null;
-
-  // Hard validation: picked team must be one of the two matchup teams
-  const validatePick = (p) => {
-    if (!p) return null;
-    const pSlug = getTeamSlug(p.pickTeam || '');
-    if (pSlug && !gameSlugs.has(pSlug)) return null;
-    return p;
+  // Picks — resolve from canonical picks (same source as Maximus's Picks hero slide).
+  // This ensures Team Intel and Maximus's Picks always agree on side and line.
+  const validSlugs = new Set([homeSlug, awaySlug].filter(Boolean));
+  const isThisGame = (p) => {
+    if (!p) return false;
+    const pHome = p.homeSlug || getTeamSlug(p.homeTeam || '');
+    const pAway = p.awaySlug || getTeamSlug(p.awayTeam || '');
+    return (pHome && validSlugs.has(pHome)) || (pAway && validSlugs.has(pAway));
   };
-  pickEmPick = validatePick(pickEmPick);
-  rawAtsPick = validatePick(rawAtsPick);
-  totalsPick = validatePick(totalsPick);
 
-  // Debug: warn when canonical pick is missing so we can detect slug issues early
-  if (process.env.NODE_ENV !== 'production') {
-    if (!rawAtsPick && (cp.atsPicks ?? []).length > 0) {
-      console.warn('[ATS PICK MISSING]', { homeSlug, awaySlug, canonicalAtsSlugs: (cp.atsPicks ?? []).map(p => `${p.homeSlug}|${p.awaySlug}`) });
-    }
+  let pickEmPick = null;
+  let rawAtsPick = null;
+  let totalsPick = null;
+
+  // Priority 1: Use canonical picks from Dashboard (same as Maximus's Picks)
+  const canonical = data?.canonicalPicks;
+  if (canonical) {
+    pickEmPick = (canonical.pickEmPicks ?? []).find(isThisGame) ?? null;
+    rawAtsPick = (canonical.atsPicks ?? []).find(isThisGame) ?? null;
+    totalsPick = (canonical.totalsPicks ?? []).find(isThisGame) ?? null;
   }
 
-  // Derive Pick 'Em and O/U fallbacks, but NEVER derive ATS — canonical only
+  // Priority 2: Fallback — run model on this single game only
+  if (!pickEmPick && !rawAtsPick && !totalsPick) {
+    try {
+      const atsLeaders = data?.atsLeaders ?? { best: [], worst: [] };
+      const singleGamePicks = buildMaximusPicks({ games: [game], atsLeaders });
+      pickEmPick = (singleGamePicks.pickEmPicks ?? [])[0] ?? null;
+      rawAtsPick = (singleGamePicks.atsPicks ?? [])[0] ?? null;
+      totalsPick = (singleGamePicks.totalsPicks ?? [])[0] ?? null;
+    } catch { /* graceful */ }
+  }
+
+  // Always take a side: derive picks when model doesn't qualify one
   const finalPickEm = pickEmPick || derivePickEmLean(pickEmPick, homeSpreadNum, homeTeam, awayTeam, homeML, awayML);
-  const atsPick = rawAtsPick;
+  const atsPick = rawAtsPick || deriveAtsLean(rawAtsPick, homeSpreadNum, homeTeam, awayTeam);
   const ouLean = deriveOuLean(totalsPick, game, homeSpreadNum);
 
   // Tiers: derived picks get TOSS-UP tier (lowest), model picks keep their tier

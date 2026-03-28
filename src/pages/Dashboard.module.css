@@ -141,6 +141,34 @@
   color: var(--color-primary);
 }
 
+/* ── Shared tools divider ─────────────────────────────── */
+.sharedDivider {
+  padding: 8px 0 4px;
+  margin: 4px 0 2px;
+  border-top: 1px solid var(--color-border-light);
+}
+.sharedLabel {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  opacity: 0.55;
+}
+
+/* ── MLB theme overrides ────────────────────────────────── */
+.sectionTabsMlb {}
+.sectionTabMlb.sectionTabActive {
+  border-color: #b8293d;
+  color: #b8293d;
+  background: rgba(184, 41, 61, 0.06);
+}
+.chipMlb.chipActive {
+  background: rgba(184, 41, 61, 0.10);
+  border-color: rgba(184, 41, 61, 0.30);
+  color: #b8293d;
+}
+
 .authStatus {
   display: flex;
   align-items: center;
