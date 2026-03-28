@@ -12,7 +12,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 // ── Centralized model config ─────────────────────────────────────────────────
-const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-preview-05-20';
+const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'models/gemini-2.5-flash-image';
 const PROMPT_VERSION = 'mlb-gemini-v1';
 
 // ── Prompt builder (inlined to avoid ESM import issues in Vercel serverless) ─
@@ -267,6 +267,8 @@ export default async function handler(req, res) {
   payload.slideCount = 1;
 
   const prompt = buildSectionPrompt(payload);
+  const modelSource = process.env.GEMINI_IMAGE_MODEL ? 'env' : 'fallback';
+  console.log(`[generate-image] Using model: ${GEMINI_MODEL} (source: ${modelSource})`);
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -289,6 +291,7 @@ export default async function handler(req, res) {
         textFallback: parsed.textFallback || null,
         promptVersion: PROMPT_VERSION,
         model: GEMINI_MODEL,
+        modelUsed: GEMINI_MODEL,
       });
     }
 
@@ -298,6 +301,7 @@ export default async function handler(req, res) {
       mimeType: parsed.mimeType,
       promptVersion: PROMPT_VERSION,
       model: GEMINI_MODEL,
+      modelUsed: GEMINI_MODEL,
       metadata: {
         section: payload.section || 'unknown',
         headline: payload.headline || '',
@@ -311,6 +315,7 @@ export default async function handler(req, res) {
       error: `Gemini API error: ${err.message || 'Unknown error'}`,
       promptVersion: PROMPT_VERSION,
       model: GEMINI_MODEL,
+      modelUsed: GEMINI_MODEL,
     });
   }
 }
