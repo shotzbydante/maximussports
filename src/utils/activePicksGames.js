@@ -9,7 +9,7 @@
  *     Assembles from ESPN scores + Odds API, deduped.
  */
 
-import { isTournamentTeam, getTournamentPhase } from './tournamentHelpers.js';
+import { isTournamentTeam, isTournamentGame, getTournamentPhase } from './tournamentHelpers.js';
 import { CURRENT_MATCHUPS } from '../data/currentBracketMatchups.js';
 
 /**
@@ -108,7 +108,40 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
     };
   });
 
-  // Step 4: If mergeWithOdds helper is available, do a final pass to attach
+  // Step 4: Round-transition handling — when ALL bracket game dates are today or
+  // earlier, the current round may be complete. Include upcoming tournament games
+  // from the feed so the next round's slate appears automatically without
+  // requiring an immediate CURRENT_MATCHUPS update. Only future-dated feed games
+  // are added (isTournamentGame guards against NIT/non-tournament contamination).
+  const today = new Date().toISOString().slice(0, 10);
+  const allBracketDatesTodayOrPast = CURRENT_MATCHUPS.length > 0 &&
+    CURRENT_MATCHUPS.every(m => m.gameDate && m.gameDate <= today);
+
+  if (allBracketDatesTodayOrPast) {
+    const bracketKeys = new Set(enriched.map(g => [g.homeSlug, g.awaySlug].sort().join('|')));
+    const allFeedGames = [...(todayScores || []), ...(oddsGames || [])];
+    for (const fg of allFeedGames) {
+      const hSlug = getSlug?.(fg.homeTeam) || null;
+      const aSlug = getSlug?.(fg.awayTeam) || null;
+      if (!hSlug || !aSlug) continue;
+      const key = [hSlug, aSlug].sort().join('|');
+      if (bracketKeys.has(key)) continue; // already in bracket
+      // Only add FUTURE games where BOTH teams are seeded tournament teams
+      const gameDate = (fg.startTime || fg.commenceTime || '').slice(0, 10);
+      if (gameDate && gameDate <= today) continue; // skip today's/past games
+      if (!isTournamentGame(fg)) continue;
+      bracketKeys.add(key);
+      enriched.push({
+        ...fg,
+        homeSlug: hSlug,
+        awaySlug: aSlug,
+        _bracketSeeded: false,
+        _nextRoundFromFeed: true,
+      });
+    }
+  }
+
+  // Step 5: If mergeWithOdds helper is available, do a final pass to attach
   // any odds data that matched by team name (catches format variations)
   if (mergeWithOdds && oddsGames?.length) {
     return mergeWithOdds(enriched, oddsGames, getSlug);
