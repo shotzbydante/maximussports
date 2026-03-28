@@ -383,12 +383,18 @@ export default function Dashboard() {
   }, [selectedTeam, activeSection]);
 
   // ── auto-select first game when section === game ──────────
+  // Use canonicalPicksGames (bracket-first during tournament) so auto-selection
+  // picks from the same set as the game picker dropdown.
   useEffect(() => {
-    if (activeSection === 'game' && dashData?.odds?.games?.length && !selectedGame) {
-      const first = dashData.odds.games.find(g => g.spread != null || g.homeSpread != null || g.moneyline != null);
-      setSelectedGame(first ?? dashData.odds.games[0] ?? null);
+    if (activeSection === 'game' && !selectedGame) {
+      const source = canonicalPicksGames.length > 0 ? canonicalPicksGames : (dashData?.odds?.games ?? []);
+      // During round transition, prefer next-round games
+      const nextRound = source.filter(g => g._nextRoundFromFeed);
+      const pool = nextRound.length > 0 ? nextRound : source;
+      const first = pool.find(g => g.spread != null || g.homeSpread != null || g.moneyline != null);
+      setSelectedGame(first ?? pool[0] ?? null);
     }
-  }, [activeSection, dashData, selectedGame]);
+  }, [activeSection, canonicalPicksGames, dashData, selectedGame]);
 
   // ── sync slideCount when section changes ──────────────────
   useEffect(() => {
@@ -1017,14 +1023,21 @@ export default function Dashboard() {
     );
   }
 
-  // Use canonical bracket-first games for the picker during March Madness
-  const gamesForPicker = (canonicalPicksGames.length > 0 ? canonicalPicksGames : (dashData?.odds?.games ?? []))
-    .filter(g => g.awayTeam && g.homeTeam)
-    .sort((a, b) => {
+  // Use canonical bracket-first games for the picker during March Madness.
+  // When a round transition is active (next-round games from feed exist),
+  // only show those future games — not completed previous-round bracket games.
+  const gamesForPicker = (() => {
+    const source = canonicalPicksGames.length > 0 ? canonicalPicksGames : (dashData?.odds?.games ?? []);
+    const valid = source.filter(g => g.awayTeam && g.homeTeam);
+    // If any next-round games exist, show only those (active slate)
+    const nextRound = valid.filter(g => g._nextRoundFromFeed);
+    const pool = nextRound.length > 0 ? nextRound : valid;
+    return pool.sort((a, b) => {
       const ta = a.startTime || a.commenceTime || '';
       const tb = b.startTime || b.commenceTime || '';
       return ta.localeCompare(tb);
     });
+  })();
   // mlbActive is declared earlier (before caption useMemo)
   const isWorking = mlbActive ? mlbGamesLoading : (dataLoading || teamPageLoading);
   const canExport = mlbActive
