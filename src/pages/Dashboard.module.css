@@ -875,6 +875,71 @@
   margin: 2px 0;
 }
 
+/* ── Gemini generation (MLB only) ──────────────────────── */
+.btnGemini {
+  background: linear-gradient(135deg, #8B1A2B, #b8293d);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.12s, transform 0.1s;
+  width: 100%;
+}
+.btnGemini:hover:not(:disabled) { opacity: 0.9; transform: scale(1.01); }
+.btnGemini:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.geminiError {
+  font-size: 11px;
+  color: #e05050;
+  background: rgba(224, 80, 80, 0.06);
+  border: 1px solid rgba(224, 80, 80, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.geminiPreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.geminiLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.geminiImageWrap {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.geminiImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.geminiActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.geminiActions .btnGemini { width: auto; }
+.geminiActions .btnSecondary { width: auto; }
+
 /* Caption panel */
 .captionPanel {
   background: var(--color-bg);

@@ -45,6 +45,7 @@ import { useWorkspace } from '../workspaces/WorkspaceContext';
 import { WorkspaceId, WORKSPACES } from '../workspaces/config';
 import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
+import { normalizeMlbImagePayload } from '../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import styles from './Dashboard.module.css';
@@ -164,6 +165,12 @@ export default function Dashboard() {
   const [mlbGameAngle, setMlbGameAngle] = useState('value');
   const [mlbSlateMode, setMlbSlateMode] = useState('full'); // 'full' | 'featured' | 'division'
   const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
+
+  // ── Gemini image generation state (MLB only) ───────────
+  const [geminiImage, setGeminiImage] = useState(null);       // { base64, mimeType }
+  const [geminiLoading, setGeminiLoading] = useState(false);
+  const [geminiError, setGeminiError] = useState(null);
+  const [geminiMode, setGeminiMode] = useState(false);        // true = show generated image
 
   // ── export state ─────────────────────────────────────────
   const [assetsReady, setAssetsReady] = useState(false);
@@ -843,8 +850,48 @@ export default function Dashboard() {
   // ── regenerate ────────────────────────────────────────────
   const handleRegenerate = () => {
     setAssetsReady(false);
+    setGeminiImage(null);
+    setGeminiMode(false);
+    setGeminiError(null);
     setRefreshKey(k => k + 1);
   };
+
+  // ── Gemini image generation (MLB only) ──────────────────
+  const handleGeminiGenerate = useCallback(async () => {
+    if (!mlbActive) return;
+    setGeminiLoading(true);
+    setGeminiError(null);
+    setGeminiImage(null);
+    try {
+      const payload = normalizeMlbImagePayload({
+        activeSection,
+        mlbPicks,
+        mlbGames,
+        mlbHeadlines,
+        mlbSelectedTeam,
+        mlbSelectedGame,
+        mlbLeague,
+        mlbDivision,
+        mlbGameAngle,
+      });
+      const res = await fetch('/api/mlb/content-studio/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setGeminiError(data.error || 'Generation failed');
+        return;
+      }
+      setGeminiImage({ base64: data.imageBase64, mimeType: data.mimeType });
+      setGeminiMode(true);
+    } catch (err) {
+      setGeminiError(err.message || 'Network error during generation');
+    } finally {
+      setGeminiLoading(false);
+    }
+  }, [mlbActive, activeSection, mlbPicks, mlbGames, mlbHeadlines, mlbSelectedTeam, mlbSelectedGame, mlbLeague, mlbDivision, mlbGameAngle]);
 
   // ── export PNGs ───────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -1821,6 +1868,35 @@ export default function Dashboard() {
             <button className={styles.btnSecondary} onClick={handleDownloadZip} disabled={!canExport || exporting || zipping}>
               {zipping ? 'Zipping…' : 'Download ZIP'}
             </button>
+
+            {/* ── Gemini generation (MLB only) ──────────── */}
+            {mlbActive && (
+              <>
+                <div className={styles.publishDivider} />
+                <button
+                  className={styles.btnGemini}
+                  onClick={handleGeminiGenerate}
+                  disabled={geminiLoading || isWorking}
+                >
+                  {geminiLoading ? '✨ Generating…' : '✨ Generate with Gemini'}
+                </button>
+                {geminiMode && geminiImage && (
+                  <button
+                    className={styles.btnSecondary}
+                    onClick={() => { setGeminiMode(false); }}
+                    style={{ fontSize: '10px' }}
+                  >
+                    ← Standard Preview
+                  </button>
+                )}
+                {geminiError && (
+                  <div className={styles.geminiError}>
+                    ⚠ {geminiError}
+                  </div>
+                )}
+              </>
+            )}
+
             <div className={styles.publishDivider} />
             <InstagramPublishButton
               exportRef={exportRef}
@@ -1905,6 +1981,27 @@ export default function Dashboard() {
         <section className={styles.previewArea}>
           {activeSection === 'videos' ? (
             <VideosEditor />
+          ) : geminiMode && geminiImage && mlbActive ? (
+            /* ── Gemini-generated image preview (MLB only) ── */
+            <div className={styles.geminiPreview}>
+              <div className={styles.geminiLabel}>✨ Gemini Generated · Single Slide</div>
+              <div className={styles.geminiImageWrap} style={{ width: `${Math.round(1080 * previewScale)}px` }}>
+                <img
+                  src={`data:${geminiImage.mimeType};base64,${geminiImage.base64}`}
+                  alt="Generated MLB IG card"
+                  className={styles.geminiImage}
+                  style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
+                />
+              </div>
+              <div className={styles.geminiActions}>
+                <button className={styles.btnGemini} onClick={handleGeminiGenerate} disabled={geminiLoading}>
+                  {geminiLoading ? '✨ Regenerating…' : '✨ Regenerate'}
+                </button>
+                <button className={styles.btnSecondary} onClick={() => setGeminiMode(false)}>
+                  Standard Preview
+                </button>
+              </div>
+            </div>
           ) : isWorking || (!mlbActive && !dashData) ? (
             <div className={styles.skeletonRow}>
               {Array.from({ length: effectiveSlideCount }).map((_, i) => (
