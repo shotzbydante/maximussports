@@ -308,13 +308,26 @@ export default function GamePreviewSlide1({ game, data, asOf, slideNumber, slide
   const total = game.total ?? game.overUnder ?? null;
   const gameTime = game.time || game.startTime || game.commenceTime || null;
 
-  // Parse moneyline — format is "away_price / home_price" after orientation correction
+  // Parse moneyline pair and cross-validate against spread direction.
+  // Feed games (especially _nextRoundFromFeed) may have ML in either order.
+  // The cross-validation ensures homeML belongs to the spread-favorite side
+  // when home is favored, matching the logic in maximusPicksModel.parseMoneylinePair.
   let awayML = null;
   let homeML = null;
   if (typeof ml === 'string' && ml.includes('/')) {
     const parts = ml.split('/').map(s => parseFloat(s.trim()));
-    if (!isNaN(parts[0])) awayML = parts[0];
-    if (!isNaN(parts[1])) homeML = parts[1];
+    if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+      homeML = parts[0];
+      awayML = parts[1];
+      // Cross-validate: spread direction must agree with ML direction
+      if (homeML !== awayML && homeSpreadNum != null && homeSpreadNum !== 0) {
+        const homeIsFavBySpread = homeSpreadNum < 0;
+        const homeIsFavByML = homeML < awayML;
+        if (homeIsFavBySpread !== homeIsFavByML) {
+          [homeML, awayML] = [awayML, homeML];
+        }
+      }
+    }
   } else if (ml != null) {
     const n = parseFloat(ml);
     if (!isNaN(n)) {

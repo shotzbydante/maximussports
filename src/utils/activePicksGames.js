@@ -126,9 +126,10 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
       if (!hSlug || !aSlug) continue;
       const key = [hSlug, aSlug].sort().join('|');
       if (bracketKeys.has(key)) continue; // already in bracket
-      // Only add FUTURE games where BOTH teams are seeded tournament teams
+      // Only add today's or future games where BOTH teams are seeded tournament teams.
+      // Bracket dedup (line above) already prevents re-adding completed bracket games.
       const gameDate = (fg.startTime || fg.commenceTime || '').slice(0, 10);
-      if (gameDate && gameDate <= today) continue; // skip today's/past games
+      if (gameDate && gameDate < today) continue; // skip past games only
       if (!isTournamentGame(fg)) continue;
       bracketKeys.add(key);
       enriched.push({
