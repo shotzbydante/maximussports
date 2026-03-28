@@ -382,20 +382,6 @@ export default function Dashboard() {
       .catch(() => setTeamNextLineData(null));
   }, [selectedTeam, activeSection]);
 
-  // ── auto-select first game when section === game ──────────
-  // Use canonicalPicksGames (bracket-first during tournament) so auto-selection
-  // picks from the same set as the game picker dropdown.
-  useEffect(() => {
-    if (activeSection === 'game' && !selectedGame) {
-      const source = canonicalPicksGames.length > 0 ? canonicalPicksGames : (dashData?.odds?.games ?? []);
-      // During round transition, prefer next-round games
-      const nextRound = source.filter(g => g._nextRoundFromFeed);
-      const pool = nextRound.length > 0 ? nextRound : source;
-      const first = pool.find(g => g.spread != null || g.homeSpread != null || g.moneyline != null);
-      setSelectedGame(first ?? pool[0] ?? null);
-    }
-  }, [activeSection, canonicalPicksGames, dashData, selectedGame]);
-
   // ── sync slideCount when section changes ──────────────────
   useEffect(() => {
     setSlideCount(SECTION_SLIDE_DEFAULTS[activeSection] ?? 3);
@@ -643,13 +629,31 @@ export default function Dashboard() {
     }
   }, [dashData]);
 
+  // ── Working slate: the active set of games for Maximus's Picks ──────
+  // During round transition, only the next-round games are the active slate.
+  // This single source is used by the game picker, IG slide game counts, and
+  // the canonical picks computation — ensuring all surfaces agree.
+  const workingSlate = useMemo(() => {
+    const nextRound = canonicalPicksGames.filter(g => g._nextRoundFromFeed);
+    return nextRound.length > 0 ? nextRound : canonicalPicksGames;
+  }, [canonicalPicksGames]);
+
+  // ── auto-select first game when section === game ──────────
+  useEffect(() => {
+    if (activeSection === 'game' && !selectedGame) {
+      const first = workingSlate.find(g => g.spread != null || g.homeSpread != null || g.moneyline != null);
+      setSelectedGame(first ?? workingSlate[0] ?? null);
+    }
+  }, [activeSection, workingSlate, selectedGame]);
+
   // ── Canonical picks result: ONE model call, shared by slide + caption ──
   // Must use the same enrichment inputs as Home page to produce identical picks.
-  // dashData has rankingsTop25 (raw) not rankMap (processed), and dailyChampOdds
-  // is a separate state variable — build the same maps Home uses.
+  // Uses workingSlate (not full canonicalPicksGames) so picks are scoped to the
+  // active round only. dashData has rankingsTop25 (raw) not rankMap (processed),
+  // and dailyChampOdds is a separate state variable.
   const canonicalPicks = useMemo(() => {
     const empty = { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
-    if (!canonicalPicksGames || !canonicalPicksGames.length) return empty;
+    if (!workingSlate || !workingSlate.length) return empty;
     try {
       const atsL = dashData?.atsLeaders ?? { best: [], worst: [] };
       // Build rankMap from rankingsTop25 (same as Home page)
@@ -664,12 +668,12 @@ export default function Dashboard() {
       }
       // Use dailyChampOdds (same source as Home page)
       const co = dailyChampOdds ?? {};
-      return buildMaximusPicks({ games: canonicalPicksGames, atsLeaders: atsL, rankMap: rm, championshipOdds: co });
+      return buildMaximusPicks({ games: workingSlate, atsLeaders: atsL, rankMap: rm, championshipOdds: co });
     } catch (err) {
       console.warn('[Dashboard] canonicalPicks failed:', err?.message);
       return { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
     }
-  }, [canonicalPicksGames, dashData, dailyChampOdds]);
+  }, [workingSlate, dashData, dailyChampOdds]);
 
   // ── Deduped top leans: exact same rows the slide card renders ──
   const canonicalRenderedPicks = useMemo(() => {
@@ -1023,15 +1027,11 @@ export default function Dashboard() {
     );
   }
 
-  // Use canonical bracket-first games for the picker during March Madness.
-  // When a round transition is active (next-round games from feed exist),
-  // only show those future games — not completed previous-round bracket games.
+  // Game picker uses the same workingSlate as Maximus's Picks — ensures the
+  // single-game selector and IG slide show the same set of games.
   const gamesForPicker = (() => {
-    const source = canonicalPicksGames.length > 0 ? canonicalPicksGames : (dashData?.odds?.games ?? []);
-    const valid = source.filter(g => g.awayTeam && g.homeTeam);
-    // If any next-round games exist, show only those (active slate)
-    const nextRound = valid.filter(g => g._nextRoundFromFeed);
-    const pool = nextRound.length > 0 ? nextRound : valid;
+    const pool = (workingSlate.length > 0 ? workingSlate : (dashData?.odds?.games ?? []))
+      .filter(g => g.awayTeam && g.homeTeam);
     return pool.sort((a, b) => {
       const ta = a.startTime || a.commenceTime || '';
       const tb = b.startTime || b.commenceTime || '';
@@ -1951,7 +1951,7 @@ export default function Dashboard() {
                   if (Object.keys(rm).length > 0) enrichments.rankMap = rm;
                 }
                 if (activeSection === 'daily' && dailyDigest) enrichments.chatDigest = dailyDigest;
-                enrichments.picksGames = canonicalPicksGames ?? [];
+                enrichments.picksGames = workingSlate ?? [];
                 enrichments.canonicalPicks = canonicalPicks ?? { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
