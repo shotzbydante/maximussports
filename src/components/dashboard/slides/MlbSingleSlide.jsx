@@ -57,8 +57,14 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
     timeZone: 'America/Los_Angeles',
   });
 
-  // Extract content based on template type
-  const content = buildSlideContent(template, data, teamData, game, options);
+  // Extract content based on template type — null-safe
+  let content;
+  try {
+    content = buildSlideContent(template, data, teamData, game, options);
+  } catch (err) {
+    console.error('[MlbSingleSlide] buildSlideContent error:', err);
+    content = { category: 'MLB INTELLIGENCE', headline: 'Content unavailable', subheadline: 'Try regenerating or switching sections.' };
+  }
   const categoryLabel = content.category || 'MLB INTELLIGENCE';
 
   return (

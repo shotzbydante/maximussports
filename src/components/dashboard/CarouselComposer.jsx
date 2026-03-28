@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 // Daily Briefing slides
 import DailyBriefingHeroSlide from './slides/DailyBriefingHeroSlide';
@@ -45,6 +45,33 @@ import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
 import MlbSingleSlide from './slides/MlbSingleSlide';
 
 import styles from './CarouselComposer.module.css';
+
+/** Error boundary that prevents a single broken slide from crashing the whole Dashboard. */
+class SlideErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(err, info) { console.error('[CarouselComposer] Slide render error:', err, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', background: '#1a1a2e', color: '#fff',
+          fontFamily: 'Inter, sans-serif', padding: 40,
+        }}>
+          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Preview Error</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textAlign: 'center', maxWidth: 400 }}>
+            This slide failed to render. Try switching sections or regenerating.
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 16, maxWidth: 400, wordBreak: 'break-all' }}>
+            {String(this.state.error?.message || this.state.error || '')}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /**
  * Template → artboard dimensions. All templates default to 1080×1350 (IG 4:5)
@@ -212,7 +239,9 @@ export default function CarouselComposer({
                 className={styles.previewClip}
                 style={{ transform: `scale(${previewScale})` }}
               >
-                <SlideComp {...slideProps} options={getSlideOptions(i)} slideNumber={i + 1} />
+                <SlideErrorBoundary>
+                  <SlideComp {...slideProps} options={getSlideOptions(i)} slideNumber={i + 1} />
+                </SlideErrorBoundary>
               </div>
             </div>
           </div>
@@ -222,13 +251,14 @@ export default function CarouselComposer({
       {/* ── Full-res export artboards (visually hidden) ── */}
       <div className={styles.exportLayer} ref={exportRef} aria-hidden="true">
         {slides.map((SlideComp, i) => (
-          <SlideComp
-            key={i}
-            {...slideProps}
-            options={getSlideOptions(i)}
-            slideNumber={i + 1}
-            data-slide={String(i + 1)}
-          />
+          <SlideErrorBoundary key={i}>
+            <SlideComp
+              {...slideProps}
+              options={getSlideOptions(i)}
+              slideNumber={i + 1}
+              data-slide={String(i + 1)}
+            />
+          </SlideErrorBoundary>
         ))}
       </div>
     </div>
