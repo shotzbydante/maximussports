@@ -12,7 +12,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 // ── Centralized model config ─────────────────────────────────────────────────
-const GEMINI_MODEL = 'gemini-2.0-flash-exp';
+const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-preview-05-20';
 const PROMPT_VERSION = 'mlb-gemini-v1';
 
 // ── Prompt builder (inlined to avoid ESM import issues in Vercel serverless) ─
@@ -275,8 +275,7 @@ export default async function handler(req, res) {
       model: GEMINI_MODEL,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
-        responseModalities: ['image', 'text'],
-        responseMimeType: 'image/png',
+        responseModalities: ['Image'],
       },
     });
 
