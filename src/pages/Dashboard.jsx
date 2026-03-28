@@ -700,6 +700,9 @@ export default function Dashboard() {
     }
   }, [canonicalPicks]);
 
+  // ── MLB active flag (must precede caption useMemo which references it) ──
+  const mlbActive = isMlbSection(activeSection);
+
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
     // ── MLB caption (simple, standalone) ──
@@ -1022,7 +1025,7 @@ export default function Dashboard() {
       const tb = b.startTime || b.commenceTime || '';
       return ta.localeCompare(tb);
     });
-  const mlbActive = isMlbSection(activeSection);
+  // mlbActive is declared earlier (before caption useMemo)
   const isWorking = mlbActive ? mlbGamesLoading : (dataLoading || teamPageLoading);
   const canExport = mlbActive
     ? (!mlbGamesLoading && (activeSection !== 'mlb-game' || !!mlbSelectedGame))
