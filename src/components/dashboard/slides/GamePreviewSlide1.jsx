@@ -114,9 +114,12 @@ function matchPickToGame(pick, awaySlug, homeSlug, awayTeam, homeTeam) {
 /* ── Force O/U lean ───────────────────────────────────────────────────── */
 
 function deriveOuLean(totalsPick, game, spreadNum) {
+  // If canonical total pick exists, use its direction directly — never override.
   if (totalsPick?.leanDirection) {
-    return { direction: totalsPick.leanDirection === 'over' ? 'Over' : 'Under', confidence: totalsPick.confidence ?? 0, reason: totalsPick.whyValue || totalsPick.rationale || null };
+    const dir = totalsPick.leanDirection.toUpperCase();
+    return { direction: dir === 'OVER' ? 'Over' : 'Under', confidence: totalsPick.confidence ?? 0, reason: totalsPick.whyValue || totalsPick.rationale || null };
   }
+  // Fallback: derive from spread heuristics only when no canonical pick exists
   const total = game?.total ?? game?.overUnder ?? null;
   if (total == null || isNaN(parseFloat(total))) return null;
   if (spreadNum != null && !isNaN(spreadNum)) {
