@@ -1,6 +1,9 @@
-/* MlbSingleSlide — premium MLB IG post (1080×1350)
- * Dark red/burgundy gradient system — no stadium, no scenic backgrounds.
- * Clean, glassy, product-native. ESPN × Apple × Bloomberg. */
+/* ══════════════════════════════════════════════════════════════
+   MlbSingleSlide — Premium MLB IG card (1080×1350)
+   Design inspired by NCAAM GamePreviewSlide1, adapted for
+   Daily Briefing / intelligence card format.
+   Dark burgundy gradient. Glassmorphism. ESPN × Apple × Bloomberg.
+   ══════════════════════════════════════════════════════════════ */
 
 .artboard {
   position: relative; width: 1080px; height: 1350px;
@@ -13,186 +16,238 @@
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(
-    165deg,
-    #1a0a10 0%,
-    #2a0f1a 20%,
-    #3d1525 40%,
-    #2a0f1a 65%,
-    #0e0610 85%,
-    #060208 100%
+    168deg,
+    #180810 0%,
+    #2d1220 18%,
+    #3d1828 35%,
+    #2d1220 55%,
+    #140a12 75%,
+    #08040a 100%
   );
 }
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
-  background: radial-gradient(ellipse at 50% 35%, rgba(139,26,43,0.18) 0%, transparent 55%);
+  background: radial-gradient(ellipse at 50% 40%, rgba(139,26,43,0.22) 0%, transparent 55%);
+}
+.bgTopGlow {
+  position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+  width: 800px; height: 500px; z-index: 1;
+  background: radial-gradient(ellipse, rgba(196,165,90,0.06) 0%, transparent 60%);
+  pointer-events: none;
 }
 .bgNoise {
-  position: absolute; inset: 0; z-index: 2; opacity: 0.025;
+  position: absolute; inset: 0; z-index: 2; opacity: 0.02;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ── Header — mascot + brand + badge ── */
-.header {
+/* ── ZONE 1: Header (inspired by NCAAM heroRow) ── */
+.headerZone {
   position: relative; z-index: 10;
   display: flex; flex-direction: column; align-items: center;
-  padding: 44px 48px 0; gap: 8px;
-}
-.mascot {
-  width: 100px; height: 100px; object-fit: contain;
-}
-.brandRow {
-  display: flex; align-items: center; gap: 10px;
-}
-.brandLogo { width: 32px; height: 32px; object-fit: contain; }
-.brandName {
-  font-size: 16px; font-weight: 800; letter-spacing: 0.14em;
-  text-transform: uppercase; color: #fff; opacity: 0.92;
-}
-.intelChip {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: #fff;
-  background: rgba(139,26,43,0.65); padding: 4px 14px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.08);
+  padding: 44px 48px 0; gap: 6px;
 }
 
-/* ── Date ── */
-.dateZone {
-  position: relative; z-index: 10;
-  text-align: center; padding: 6px 0 12px;
-}
-.dateLabel {
-  font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.40);
-  letter-spacing: 0.03em;
+.heroRow {
+  display: flex; align-items: center; gap: 16px; justify-content: center;
 }
 
-/* ── Matchup (game insights) ── */
+/* Hero title — NCAAM-inspired accent glow text */
+.heroTitle {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  font-size: 42px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; margin: 0;
+  color: #C4A55A;
+  text-shadow: 0 2px 20px rgba(196,165,90,0.30), 0 0 36px rgba(196,165,90,0.10);
+}
+
+/* Mascot — larger, premium drop-shadow */
+.heroMascot {
+  width: 84px; height: auto; display: block;
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,0.55)) drop-shadow(0 0 14px rgba(196,165,90,0.25));
+}
+
+.badgeRow {
+  display: flex; gap: 8px; align-items: center;
+}
+
+/* Section badge — NCAAM roundBadge inspired, premium glass */
+.sectionBadge {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.90);
+  background: linear-gradient(145deg, rgba(139,26,43,0.30) 0%, rgba(255,255,255,0.06) 50%, rgba(139,26,43,0.20) 100%);
+  border: 1.5px solid rgba(196,165,90,0.25);
+  border-radius: 10px; padding: 6px 28px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+.dateLine {
+  font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.35);
+  letter-spacing: 0.03em; margin-top: 2px;
+}
+
+/* ── Matchup zone (game insights) ── */
 .matchupZone {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  gap: 24px; padding: 8px 48px 14px;
+  gap: 20px; padding: 14px 56px;
 }
-.matchupTeam { display: flex; align-items: center; gap: 10px; }
+.matchupSide { display: flex; align-items: center; gap: 10px; }
 .matchupLogo { width: 52px; height: 52px; object-fit: contain; }
-.matchupTeamName {
+.matchupName {
   font-size: 18px; font-weight: 800; color: #fff;
   text-transform: uppercase; letter-spacing: 0.02em;
 }
-.vsText {
-  font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.25);
-  letter-spacing: 0.10em;
+.vsCenter { display: flex; align-items: center; }
+.vsRing {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px; font-weight: 700; letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.10);
+  border-radius: 50%; width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
 }
 
-/* ── Headline ── */
-.headlineZone {
+/* ── ZONE 2: Hero briefing block ── */
+.heroZone {
   position: relative; z-index: 10;
-  padding: 0 60px; margin: 6px 0 10px;
-  text-align: center;
+  padding: 12px 64px 8px; text-align: center;
 }
 .headline {
-  font-size: 30px; font-weight: 800; line-height: 1.15;
-  letter-spacing: -0.01em; color: #fff; margin: 0;
-  text-transform: uppercase;
+  font-size: 28px; font-weight: 800; line-height: 1.15;
+  letter-spacing: -0.005em; color: #fff; margin: 0;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.40);
 }
 .subheadline {
-  font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.50);
-  margin: 6px 0 0;
+  font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.45);
+  margin: 8px 0 0;
 }
 
 /* ── Pick callout ── */
 .pickCallout {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 8px 48px;
+  padding: 6px 48px;
 }
 .pickLabel {
-  font-size: 22px; font-weight: 800; color: rgba(196,165,90,0.90);
-  text-transform: uppercase; letter-spacing: -0.01em;
+  font-size: 22px; font-weight: 800; color: #C4A55A;
+  text-transform: uppercase;
+  text-shadow: 0 2px 12px rgba(196,165,90,0.25);
 }
-.pickConf {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; padding: 3px 10px; border-radius: 4px;
-}
-.conf_high   { color: #34d399; background: rgba(52,211,153,0.12); }
-.conf_medium { color: #fbbf24; background: rgba(251,191,36,0.12); }
-.conf_low    { color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); }
 
-/* ── Glass panel — shared style for all content panels ── */
-.glassPanel {
+/* ── Signal chips (NCAAM ConvictionPill inspired) ── */
+.signalChip {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 10px; border-radius: 6px;
+  border: 1px solid; display: inline-block;
+}
+.chipGreen { color: #34d399; background: rgba(52,211,153,0.10); border-color: rgba(52,211,153,0.25); }
+.chipGold  { color: #C4A55A; background: rgba(196,165,90,0.10); border-color: rgba(196,165,90,0.25); }
+.chipRed   { color: #e05050; background: rgba(224,80,80,0.10); border-color: rgba(224,80,80,0.25); }
+.chipDefault { color: rgba(255,255,255,0.50); background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); }
+
+/* ── ZONE 3: Intelligence panel (NCAAM panel inspired) ── */
+.intelPanel {
   position: relative; z-index: 10;
   margin: 8px 56px; padding: 20px 24px;
-  background: rgba(10, 22, 40, 0.45);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 14px;
-  backdrop-filter: blur(8px);
+  background: linear-gradient(155deg, rgba(139,26,43,0.12) 0%, rgba(10,22,40,0.40) 35%, transparent 70%);
+  border: 1.5px solid rgba(196,165,90,0.15);
+  border-radius: 18px;
+  box-shadow: 0 6px 28px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+  overflow: hidden;
 }
+.intelPanel::after {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(196,165,90,0.20), transparent);
+  pointer-events: none;
+}
+
 .panelHeader {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.40);
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 14px;
 }
-.sectionDot {
+.panelDot {
   width: 5px; height: 5px; border-radius: 50%;
-  background: rgba(139,26,43,0.80);
+  background: #C4A55A;
+  box-shadow: 0 0 8px rgba(196,165,90,0.40);
+}
+.panelTitle {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(196,165,90,0.70);
 }
 
-/* ── Picks list ── */
-.picksList { display: flex; flex-direction: column; gap: 8px; }
-.pickRow {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px;
-  background: rgba(255,255,255,0.02); border-radius: 8px;
-}
-.pickRowCategory {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: rgba(255,255,255,0.30);
-  min-width: 72px;
-}
-.pickRowLabel { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
-.pickRowConf {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; padding: 2px 8px; border-radius: 3px;
-}
-
-/* ── Bullet list ── */
-.bulletList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.bulletItem { display: flex; align-items: flex-start; gap: 8px; }
-.bulletMarker {
-  color: rgba(196,165,90,0.60); font-size: 14px; flex-shrink: 0;
-  margin-top: 1px;
+/* ── Bullet grid ── */
+.bulletGrid { display: flex; flex-direction: column; gap: 10px; }
+.bulletRow { display: flex; align-items: flex-start; gap: 10px; }
+.bulletAccent {
+  color: rgba(196,165,90,0.50); font-size: 8px;
+  flex-shrink: 0; margin-top: 5px;
 }
 .bulletText {
-  font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.70);
+  font-size: 14px; line-height: 1.50; color: rgba(255,255,255,0.72);
 }
 
-/* ── Board pulse ── */
-.boardPulse {
+/* ── Picks columns (NCAAM picksCols inspired) ── */
+.picksCols {
+  display: flex; gap: 12px;
+}
+.pickCell {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 10px 8px;
+  background: rgba(255,255,255,0.02); border-radius: 12px;
+}
+.pickType {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(196,165,90,0.55);
+}
+.pickVal {
+  font-size: 14px; font-weight: 700; color: #fff; text-align: center;
+}
+
+/* ── ZONE 4: Market module (bottom analytics panel) ── */
+.marketModule {
   position: relative; z-index: 10;
+  margin: 6px 56px; padding: 16px 20px;
+  background: linear-gradient(155deg, rgba(196,165,90,0.06) 0%, rgba(10,22,40,0.35) 40%, transparent 80%);
+  border: 1px solid rgba(196,165,90,0.12);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.20);
+}
+
+.marketRow {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 60px;
+  padding: 4px 0;
 }
-.boardPulseIcon { font-size: 13px; }
-.boardPulseText {
-  font-size: 12px; color: rgba(255,255,255,0.40); line-height: 1.4;
+.marketIcon { font-size: 13px; flex-shrink: 0; }
+.marketLabel {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(196,165,90,0.55);
+  min-width: 75px;
+}
+.marketVal {
+  font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.4; flex: 1;
 }
 
-/* ── Matchups to watch row ── */
 .matchupsRow {
-  position: relative; z-index: 10;
-  display: flex; align-items: center; justify-content: center;
-  gap: 10px; padding: 6px 48px; flex-wrap: wrap;
+  padding: 6px 0 0; margin-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.04);
 }
+.matchupsLabel {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(196,165,90,0.45);
+  margin-bottom: 6px; display: block;
+}
+.matchupChips { display: flex; gap: 6px; flex-wrap: wrap; }
 .matchupChip {
   font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.50);
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(196,165,90,0.12);
   padding: 3px 10px; border-radius: 999px;
 }
 
 /* ── Team focus ── */
 .teamFocusZone {
   position: relative; z-index: 10;
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 60px;
+  display: flex; align-items: center; gap: 12px; padding: 8px 60px;
 }
 .focusLogo { width: 44px; height: 44px; object-fit: contain; }
 .focusInfo { display: flex; flex-direction: column; gap: 2px; }
@@ -204,13 +259,13 @@
   position: relative; z-index: 10;
   margin-top: auto;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 56px 40px;
+  padding: 0 56px 36px;
 }
 .footerUrl {
-  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.25);
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.22);
   letter-spacing: 0.04em;
 }
 .footerDisclaimer {
-  font-size: 9px; color: rgba(255,255,255,0.15);
+  font-size: 9px; color: rgba(255,255,255,0.14);
   max-width: 280px; text-align: right;
 }

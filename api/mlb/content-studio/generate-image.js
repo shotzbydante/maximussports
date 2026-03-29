@@ -159,7 +159,7 @@ function buildSectionPrompt(payload, hasMascotRef) {
   const mascotBlock = hasMascotRef ? MASCOT_SPEC : MASCOT_SPEC_NO_REF;
 
   const intel = payload.intelBriefing;
-  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 6);
+  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 4);
   const matchups = (intel?.keyMatchups || payload.keyMatchups || []).slice(0, 3);
   const boardPulse = intel?.boardPulse || payload.boardPulse || '';
   const signals = payload.signals || [];
@@ -176,41 +176,42 @@ function buildSectionPrompt(payload, hasMascotRef) {
 
   switch (section) {
     case 'daily-briefing':
-      contentSection = `EXACT CONTENT TO RENDER (use verbatim):
+      contentSection = `This is a DESIGNED APP CARD, not a generated image. Think of yourself as an art director
+rendering a premium mobile sports intelligence product card.
 
-HEADER:
-  Mascot: Maximus Sports baseball mascot (top center)
-  Brand: "MAXIMUS SPORTS"
-  Badge: "MLB DAILY BRIEFING" (burgundy pill)
-  Date: "${date}"
+EXACT CONTENT TO RENDER (every word must be spelled correctly):
 
-HEADLINE:
-  "${intel?.headline || headline}"
+ZONE 1 — HEADER:
+  - "DAILY BRIEFING" in gold accent (#C4A55A), large hero text
+  - Mascot next to the title
+  - "MLB DAILY BRIEFING" glass badge with gold border
+  - Date: "${date}"
 
-${subhead ? `SUBHEAD:\n  "${subhead}"\n` : ''}
-INTELLIGENCE BULLETS (render ALL inside a glass panel):
-${bulletBlock || '  (Use headline and subhead only)'}
+ZONE 2 — HERO BLOCK:
+  - Headline: "${intel?.headline || headline}"
+${subhead ? `  - Subhead: "${subhead}"` : ''}
 
-${matchupBlock ? `MATCHUPS TO WATCH:\n${matchupBlock}\n` : ''}
-${boardPulse ? `BOARD PULSE:\n  "${boardPulse}"\n` : ''}
-FOOTER:
-  "maximussports.ai"
-  "For entertainment only • 21+"
+ZONE 3 — INTELLIGENCE PANEL (glass card with gold-tinted border):
+${bulletBlock || '  (Use headline only)'}
+
+ZONE 4 — MARKET MODULE (compact bottom panel):
+${boardPulse ? `  - Board Pulse: "${boardPulse}"` : '  - (No market data)'}
+${matchupBlock ? `  - Matchups: ${matchupBlock}` : ''}
+
+FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-CARD STRUCTURE (top to bottom):
+4-ZONE LAYOUT:
+1. HEADER: Gold "DAILY BRIEFING" title with glow, mascot, badge, date
+2. HERO: Bold headline centered, max 3 lines. Subhead below.
+3. INTELLIGENCE PANEL: Glass card with gold accent border. Bullets well-spaced. Core of card.
+4. MARKET MODULE: Compact analytics panel with board pulse and matchups.
+5. FOOTER: Small, clean.
 
-1. TOP ZONE (~200px): Mascot → "MAXIMUS SPORTS" → "MLB DAILY BRIEFING" badge → date
-2. HEADLINE ZONE (~180px): Bold headline, subhead below in lighter weight
-3. GLASS INTELLIGENCE PANEL (~500-600px): ALL bullets inside frosted glass card — this is the core
-4. MATCHUPS ROW (~100px, if present): Compact horizontal team names with "vs"
-5. FOOTER (~80px): URL + disclaimer
-
-SECTION DIRECTION:
-- Full-slate editorial briefing — authoritative, premium, informative
-- Headline dominates, bullets fill the glass panel with good spacing
-- This should feel like opening a premium sports app's morning briefing`;
+STYLE: Premium product card — ESPN briefing × Apple Sports × Bloomberg Terminal.
+Dark red/burgundy gradient background. Glass panels. Gold accents. Crisp typography.
+NOT a poster. NOT a stadium scene. NOT a generic sports image.`;
       break;
 
     case 'team-intel':

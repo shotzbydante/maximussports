@@ -155,69 +155,78 @@ function dailyBriefingPrompt(payload) {
     ? matchups.map(m => `  • ${m.teamA} vs ${m.teamB}`).join('\n')
     : '';
 
+  // Reduce bullet count for Gemini to minimize typo risk
+  const gemBullets = bullets.slice(0, 4);
+  const gemBulletBlock = gemBullets.length > 0
+    ? gemBullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n')
+    : '  (Use headline and subhead only)';
+
   return `You are rendering a premium MLB Daily Briefing Instagram card for Maximus Sports.
+
+This is a DESIGNED APP CARD, not a generated image. Think of yourself as an art director
+rendering a premium mobile sports intelligence product card — like ESPN's morning briefing
+crossed with Apple Sports crossed with a Bloomberg Terminal dashboard.
 
 ${IDENTITY_RULES}
 
 ---
 
-EXACT CONTENT TO RENDER (use verbatim, do not modify):
+EXACT CONTENT TO RENDER (use verbatim — every word must be spelled correctly):
 
-HEADER:
-  Mascot: Maximus Sports baseball mascot (top center)
-  Brand: "MAXIMUS SPORTS"
-  Badge: "MLB DAILY BRIEFING" (burgundy pill badge)
-  Date: "${date}"
+ZONE 1 — HEADER:
+  - "DAILY BRIEFING" in gold accent text (#C4A55A), large, hero treatment
+  - Maximus Sports baseball mascot next to the title
+  - "MLB DAILY BRIEFING" badge in glass pill with gold border
+  - Date: "${date}"
 
-HEADLINE:
-  "${headline}"
+ZONE 2 — HERO BLOCK:
+  - Headline: "${headline}"
+${subhead ? `  - Subhead: "${subhead}"` : ''}
 
-${subhead ? `SUBHEAD:\n  "${subhead}"\n` : ''}
-INTELLIGENCE BULLETS (render ALL of these inside a glass panel):
-${bulletBlock}
+ZONE 3 — INTELLIGENCE PANEL (glass card):
+${gemBulletBlock}
 
-${matchupBlock ? `MATCHUPS TO WATCH:\n${matchupBlock}\n` : ''}
-${boardPulse ? `BOARD PULSE:\n  "${boardPulse}"\n` : ''}
+ZONE 4 — MARKET MODULE (bottom analytics panel):
+${boardPulse ? `  - Board Pulse: "${boardPulse}"` : '  - (No market data)'}
+${matchupBlock ? `  - Matchups: ${matchupBlock}` : ''}
+
 FOOTER:
-  "maximussports.ai"
-  "For entertainment only • 21+"
+  "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-CARD STRUCTURE (top to bottom):
+CARD STRUCTURE — follow this EXACT 4-zone layout:
 
-1. TOP ZONE (top 200px):
-   - Maximus Sports baseball mascot (centered, ~100-120px)
-   - "MAXIMUS SPORTS" wordmark below mascot (bold, white, uppercase)
-   - "MLB DAILY BRIEFING" badge (burgundy rounded pill)
-   - Date line (small, white at 40% opacity)
+1. HEADER ZONE: Title "DAILY BRIEFING" in warm gold with glow, mascot beside it,
+   section badge below, date line. This should feel heroic and premium.
 
-2. HEADLINE ZONE (next ~180px):
-   - Main headline in bold white
-   - Max 3 lines, tight spacing
-   - Subhead below in lighter weight, slightly smaller
+2. HERO ZONE: Bold headline centered. Clean, high-contrast, max 3 lines.
+   Subhead below in softer weight.
 
-3. GLASS INTELLIGENCE PANEL (main content area, ~500-600px):
-   - Frosted glass card with the exact specifications above
-   - All intelligence bullets rendered inside this panel
-   - Clean bullet markers (subtle dot or dash)
-   - Good line spacing — each bullet must be fully readable
-   - This is the CORE of the card — give it the most space
+3. INTELLIGENCE PANEL: Glass card with warm-tinted border (gold accent).
+   Bullet points inside — well-spaced, readable. Gold dot markers.
+   This is the core content — give it the most visual weight.
 
-4. MATCHUPS ROW (if matchups provided, ~100px):
-   - Compact horizontal layout below the glass panel
-   - Team names with subtle "vs" separator
-   - Small type, clean, informational
+4. MARKET MODULE: Compact bottom panel with subtle gold border. Board pulse,
+   matchup chips. This should feel like a mini analytics dashboard.
 
-5. FOOTER ZONE (bottom ~80px):
-   - "maximussports.ai" centered
-   - Disclaimer text below, very small
+5. FOOTER: URL + disclaimer. Small, clean.
 
 ---
 
 ${VISUAL_SYSTEM}
 
 ${MASCOT_SPEC}
+
+CRITICAL STYLE DIRECTION:
+- This card should look like it belongs in a premium sports intelligence app
+- It should NOT look like an AI-generated poster or generic sports image
+- Think: designed product card, not creative illustration
+- The background is a DARK RED/BURGUNDY gradient — warm, moody, cinematic but clean
+- Glass panels should feel like frosted app UI components
+- Typography should be crisp, editorial, and perfectly legible
+- Gold accents (#C4A55A) tie the composition together subtly
+- Overall feel: sleek, confident, premium, modern
 
 ${AVOID_BLOCK}`;
 }
