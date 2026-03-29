@@ -132,7 +132,7 @@ const PinIcon = () => (
 );
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const TOTAL_STEPS = 5;
+const WIZARD_STEPS = 3; // Teams → Preferences → Profile (the 3 main visible wizard steps)
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const NCAAM_PREFERENCES = [
@@ -297,15 +297,17 @@ function ConfirmModal({ title, message, bullets, subtext, confirmLabel = 'Confir
 
 /* ─── Progress bar ────────────────────────────────────────────────────────── */
 function ProgressBar({ step }) {
+  // Only show progress for the 3 main wizard steps (1=Teams, 2=Preferences, 3=Profile)
+  const clampedStep = Math.max(1, Math.min(step, WIZARD_STEPS));
   return (
     <div className={styles.progress}>
-      {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+      {Array.from({ length: WIZARD_STEPS }).map((_, i) => (
         <div
           key={i}
-          className={`${styles.progressDot} ${i < step ? styles.progressDotDone : ''} ${i === step - 1 ? styles.progressDotActive : ''}`}
+          className={`${styles.progressDot} ${i < clampedStep ? styles.progressDotDone : ''} ${i === clampedStep - 1 ? styles.progressDotActive : ''}`}
         />
       ))}
-      <span className={styles.progressLabel}>Step {step} of {TOTAL_STEPS}</span>
+      <span className={styles.progressLabel}>Step {clampedStep} of {WIZARD_STEPS}</span>
     </div>
   );
 }
@@ -624,7 +626,7 @@ function StepProfile({ onNext, defaultName = '', userId }) {
   const [error, setError]                 = useState('');
   const debounceRef                       = useRef(null);
 
-  useEffect(() => { track('onboarding_step_view', { step: 2 }); }, []);
+  useEffect(() => { track('onboarding_step_view', { step: 3 }); }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -664,7 +666,7 @@ function StepProfile({ onNext, defaultName = '', userId }) {
     if (usernameStatus === 'taken') { setError('That username is taken. Choose another or pick a suggestion below.'); return; }
     if (usernameStatus === 'checking') { setError('Still checking availability. Please wait a moment.'); return; }
     if (number && (Number(number) < 0 || Number(number) > 99)) { setError('Jersey number must be 0–99.'); return; }
-    track('onboarding_step_submit', { step: 2, success: true });
+    track('onboarding_step_submit', { step: 3, success: true });
     onNext({
       username: username.trim(),
       favoriteNumber: number !== '' ? number : null,
@@ -914,6 +916,13 @@ function OnboardingWizard({ user, onComplete }) {
   const [wizardError, setWizardError] = useState('');
 
   const defaultName = user?.user_metadata?.full_name?.split(' ')[0] || '';
+  const wizardRef = useRef(null);
+
+  // Scroll to top of wizard on every step change
+  useEffect(() => {
+    wizardRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
 
   const handleTeams = (slugs) => {
     setTeamSlugs(slugs);
@@ -986,8 +995,8 @@ function OnboardingWizard({ user, onComplete }) {
   if (step === 5) return <StepDone robotConfig={profileData.robotConfig} />;
 
   return (
-    <div className={styles.wizardCard}>
-      <ProgressBar step={Math.max(step, 1)} />
+    <div className={styles.wizardCard} ref={wizardRef}>
+      {step >= 1 && step <= 3 && <ProgressBar step={step} />}
       {wizardError && <div className={styles.wizardError}>{wizardError}</div>}
       {step === 0 && <StepPassword onNext={() => setStep(1)} onSkip={() => setStep(1)} />}
       {step === 1 && <StepTeams onNext={handleTeams} />}

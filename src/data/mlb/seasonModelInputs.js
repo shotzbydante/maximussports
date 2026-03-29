@@ -195,7 +195,7 @@ const TEAM_INPUTS = {
     champOdds: '+2200', playoffOdds: 42, marketWinTotal: 82.5,
   },
   tor: {
-    priorWins: 74, pythagWins: 76, trend3y: [89, 89, 74],
+    priorWins: 91, pythagWins: 89, trend3y: [89, 89, 91],
     continuity: 0.55, overperformance: -2,
     topOfLineup: 7, lineupDepth: 5,
     frontlineRotation: 6, rotationDepth: 5,
