@@ -176,42 +176,34 @@ function buildSectionPrompt(payload, hasMascotRef) {
 
   switch (section) {
     case 'daily-briefing':
-      contentSection = `This is a DESIGNED APP CARD, not a generated image. Think of yourself as an art director
-rendering a premium mobile sports intelligence product card.
+      contentSection = `You are rendering a PRODUCT UI CARD, not a poster.
+Your role is to ENHANCE VISUAL POLISH of the standard slide, not redesign it.
+Fill the ENTIRE 1080×1350 canvas. No empty space at the bottom.
 
-EXACT CONTENT TO RENDER (every word must be spelled correctly):
+HARD CONSTRAINTS:
+- Headline MUST be WHITE (#FFFFFF) — NOT gold, NOT yellow
+- ZERO emojis anywhere — use team logos only
+- Glass panels MUST have visible borders with subtle red glow
+- Fill every zone — no dead space
 
-ZONE 1 — HEADER:
-  - "DAILY BRIEFING" in gold accent (#C4A55A), large hero text
-  - Mascot next to the title
-  - "MLB DAILY BRIEFING" glass badge with gold border
-  - Date: "${date}"
+EXACT CONTENT (render verbatim, perfect spelling):
 
-ZONE 2 — HERO BLOCK:
-  - Headline: "${intel?.headline || headline}"
-${subhead ? `  - Subhead: "${subhead}"` : ''}
-
-ZONE 3 — INTELLIGENCE PANEL (glass card with gold-tinted border):
+ZONE 1 — HEADER: "MAXIMUS SPORTS" + mascot + "MLB DAILY BRIEFING" badge + "${date}"
+ZONE 2 — HERO (WHITE text): "${intel?.headline || headline}"
+${subhead ? `  "${subhead}"` : ''}
+ZONE 3 — AROUND THE LEAGUE (glass panel, 3 bullets):
 ${bulletBlock || '  (Use headline only)'}
-
-ZONE 4 — MARKET MODULE (compact bottom panel):
-${boardPulse ? `  - Board Pulse: "${boardPulse}"` : '  - (No market data)'}
-${matchupBlock ? `  - Matchups: ${matchupBlock}` : ''}
-
+ZONE 4 — WORLD SERIES OUTLOOK (LARGEST panel, 2-column AL|NL grid):
+${boardPulse ? `  "${boardPulse}"` : '  Top contenders with odds and projected wins'}
+${matchupBlock ? `ZONE 5 — MATCHUPS: ${matchupBlock}` : ''}
 FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
----
+LAYOUT (fill entire canvas):
+1. HEADER (100px) 2. HERO (120px) 3. AROUND THE LEAGUE (220px)
+4. WORLD SERIES OUTLOOK (420px — largest) 5. MATCHUPS (140px) 6. FOOTER (50px)
 
-4-ZONE LAYOUT:
-1. HEADER: Gold "DAILY BRIEFING" title with glow, mascot, badge, date
-2. HERO: Bold headline centered, max 3 lines. Subhead below.
-3. INTELLIGENCE PANEL: Glass card with gold accent border. Bullets well-spaced. Core of card.
-4. MARKET MODULE: Compact analytics panel with board pulse and matchups.
-5. FOOTER: Small, clean.
-
-STYLE: Premium product card — ESPN briefing × Apple Sports × Bloomberg Terminal.
-Dark red/burgundy gradient background. Glass panels. Gold accents. Crisp typography.
-NOT a poster. NOT a stadium scene. NOT a generic sports image.`;
+Panels: rgba(255,255,255,0.04) bg + border 1px rgba(255,255,255,0.10) + box-shadow 0 0 16px rgba(180,20,40,0.12)
+Background: deep red gradient #1c0408 → #4d0e18 → #1c0408. NO stadium/scenic.`;
       break;
 
     case 'team-intel':

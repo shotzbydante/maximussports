@@ -149,22 +149,12 @@ function dailyBriefingPrompt(payload) {
   const intel = payload.intelBriefing;
   const headline = intel?.headline || payload.headline || 'MLB Daily Briefing';
   const subhead = intel?.subhead || payload.subhead || '';
-  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 6);
+  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 3);
   const matchups = (intel?.keyMatchups || payload.keyMatchups || []).slice(0, 3);
-  const boardPulse = intel?.boardPulse || payload.boardPulse || '';
   const date = intel?.date || payload.dateLabel || '';
 
   const bulletBlock = bullets.length > 0
     ? bullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n')
-    : '  (No bullets available — use headline and subhead only)';
-
-  const matchupBlock = matchups.length > 0
-    ? matchups.map(m => `  • ${m.teamA} vs ${m.teamB}`).join('\n')
-    : '';
-
-  const gemBullets = bullets.slice(0, 3);
-  const gemBulletBlock = gemBullets.length > 0
-    ? gemBullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n')
     : '  (Use headline only)';
 
   const matchupBlock = matchups.length > 0
@@ -179,57 +169,60 @@ function dailyBriefingPrompt(payload) {
         .join('\n')
     : '';
 
-  return `You are rendering a FULL-HEIGHT premium MLB Daily Briefing Instagram card for Maximus Sports.
+  return `You are rendering a PRODUCT UI CARD — not a poster, not a graphic, not a creative image.
+You are an art director rendering a pixel-precise mobile sports intelligence card.
+Your role is to ENHANCE VISUAL POLISH, not redesign the layout.
 
-This is a DESIGNED APP CARD — a full-page editorial sports intelligence briefing.
-Think: ESPN premium morning briefing × Apple Sports × Bloomberg Terminal.
-The card must fill the ENTIRE 1080×1350 canvas with structured content. No dead space.
+You MUST follow the EXACT structure provided. Do NOT invent alternative layouts.
+You MUST fill the ENTIRE 1080×1350 canvas — no empty space at bottom.
 
 ${IDENTITY_RULES}
 
-ADDITIONAL RULES FOR THIS CARD:
-- Use team LOGOS only — NO emojis of any kind (no face emojis, no flag emojis, no object emojis)
-- Professional editorial tone throughout
-- Fill the full vertical canvas — no large empty areas
+HARD CONSTRAINTS FOR THIS CARD:
+- The main HEADLINE must be WHITE (#FFFFFF) — NOT gold, NOT yellow
+- Use team LOGOS only — absolutely ZERO emojis anywhere (no face, flag, or object emojis)
+- Use structured glass panels with visible BORDERS that stand out from the background
+- Each panel must have a subtle red/warm GLOW on its border — not invisible
+- Fill every zone of the canvas — the bottom half must have content, not empty space
+- Professional editorial tone — ESPN broadcast quality
 
 ---
 
-EXACT CONTENT TO RENDER (use verbatim — every word spelled correctly):
+EXACT CONTENT (render verbatim — perfect spelling):
 
-ZONE 1 — HEADER:
-  - Maximus Sports brand + mascot + "MLB DAILY BRIEFING" badge
-  - Date: "${date}"
+ZONE 1 — HEADER (compact):
+  Brand: "MAXIMUS SPORTS" (white) + mascot + "MLB DAILY BRIEFING" badge
+  Date: "${date}"
 
-ZONE 2 — HERO:
-  - Headline: "${headline}"
-${subhead ? `  - Subhead: "${subhead}"` : ''}
+ZONE 2 — HERO (white headline, centered):
+  "${headline}"
+${subhead ? `  "${subhead}"` : ''}
 
-ZONE 3 — AROUND THE LEAGUE (glass panel):
-${gemBulletBlock}
+ZONE 3 — AROUND THE LEAGUE (glass panel with visible border):
+${bulletBlock}
 
-ZONE 4 — WORLD SERIES OUTLOOK (larger glass panel, 2-column grid):
-${futuresContext || '  (No futures data available)'}
-  Show each team with: logo, abbreviation, championship odds, projected wins
+ZONE 4 — WORLD SERIES OUTLOOK (LARGEST panel — must fill significant space):
+${futuresContext || '  Top AL and NL contenders with odds'}
+  Layout: 2-column grid. AL left, NL right.
+  Each row: team logo + abbreviation + odds + projected wins.
 
-ZONE 5 — MATCHUPS TO WATCH:
-${matchupBlock || '  (No matchups available)'}
-  Show with team logos on each side
+ZONE 5 — MATCHUPS TO WATCH (glass panel):
+${matchupBlock || '  Key matchups with team logos'}
 
-ZONE 6 — FOOTER:
-  "maximussports.ai" — "For entertainment only • 21+"
+FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-FULL-HEIGHT 6-ZONE LAYOUT (must fill entire canvas):
+MANDATORY LAYOUT (fill entire 1080×1350):
+1. HEADER (100px): compact brand bar
+2. HERO (120px): WHITE headline, bold, centered, max 3 lines
+3. AROUND THE LEAGUE (220px): glass panel, 3 bullets, visible glowing border
+4. WORLD SERIES OUTLOOK (420px): LARGEST zone, 2-col grid, team rows with logos
+5. MATCHUPS TO WATCH (140px): team logos + "vs", glass panel
+6. FOOTER (50px)
 
-1. HEADER (~120px): Brand, mascot, badge, date — compact but premium
-2. HERO (~130px): Bold headline centered, subhead below
-3. AROUND THE LEAGUE (~200px): Glass panel with 3 editorial storyline bullets
-4. WORLD SERIES OUTLOOK (~350px): Largest panel. 2-column grid (AL | NL).
-   Each team row: logo + abbreviation + odds + projected wins.
-   This is the hero data module — make it substantial and fill space.
-5. MATCHUPS TO WATCH (~150px): Team logos flanking "vs" text. Clean rows.
-6. FOOTER (~50px): URL + disclaimer
+PANELS MUST have: rgba(255,255,255,0.04) background + visible border with subtle red glow
+(box-shadow: 0 0 12px rgba(180,20,40,0.15), border: 1px solid rgba(255,255,255,0.10))
 
 ---
 
@@ -237,14 +230,14 @@ ${VISUAL_SYSTEM}
 
 ${MASCOT_SPEC}
 
-CRITICAL STYLE DIRECTION:
-- FULL HEIGHT — use the entire 1080×1350 canvas. No floating card in empty space.
-- Deep red gradient background (#1c0408 → #4d0e18 → #1c0408)
-- Glass panels fill width with comfortable margins
-- Team logos only — zero emojis anywhere
-- Professional, editorial, premium tone
-- Each panel should be visually distinct from the others
-- The World Series Outlook panel should be the largest and most visually rich
+LOCK RULES:
+- Match the structure, spacing, and hierarchy of the standard slide EXACTLY
+- Do NOT redesign — only enhance visual polish
+- Do NOT use gold for the headline — use WHITE
+- Do NOT add emojis — use team logos only
+- Do NOT leave the bottom half empty
+- Do NOT use scenic/stadium/player imagery
+- Do NOT use alternative layouts or creative reinterpretation
 
 ${AVOID_BLOCK}`;
 }
