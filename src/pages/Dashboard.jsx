@@ -49,6 +49,7 @@ import { normalizeMlbImagePayload } from '../features/mlb/contentStudio/normaliz
 import { buildMlbCaption } from '../features/mlb/contentStudio/buildMlbCaption';
 import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
+import { fetchMlbChampionshipOdds } from '../api/mlbChampionshipOdds';
 import styles from './Dashboard.module.css';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
@@ -166,6 +167,7 @@ export default function Dashboard() {
   const [mlbGameAngle, setMlbGameAngle] = useState('value');
   const [mlbSlateMode, setMlbSlateMode] = useState('full'); // 'full' | 'featured' | 'division'
   const [mlbBriefing, setMlbBriefing] = useState(null);     // raw briefing text from /api/mlb/chat/homeSummary
+  const [mlbChampOdds, setMlbChampOdds] = useState(null);  // { odds: { slug: { bestChanceAmerican, ... } } }
   const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
 
   // ── Gemini image generation state (MLB only) ───────────
@@ -332,10 +334,12 @@ export default function Dashboard() {
       fetch('/api/mlb/picks/board').then(r => r.json()).catch(() => ({ games: [] })),
       fetchMlbHeadlines().catch(() => []),
       fetch('/api/mlb/chat/homeSummary').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([boardData, headlines, briefingData]) => {
+      fetchMlbChampionshipOdds().catch(() => ({ odds: {} })),
+    ]).then(([boardData, headlines, briefingData, champData]) => {
       setMlbGames(boardData?.games ?? []);
       setMlbHeadlines(Array.isArray(headlines) ? headlines : headlines?.headlines ?? []);
       if (briefingData?.summary) setMlbBriefing(briefingData.summary);
+      if (champData?.odds) setMlbChampOdds(champData.odds);
     }).finally(() => setMlbGamesLoading(false));
   }, [isAuthorized, isMlbStudio, refreshKey]);
 
@@ -2011,12 +2015,13 @@ export default function Dashboard() {
               template={activeSection}
               slideCount={effectiveSlideCount}
               data={(() => {
-                // MLB data path — includes briefing for standard slide
+                // MLB data path — includes briefing + championship odds
                 if (mlbActive) {
                   return {
                     mlbGames,
                     mlbHeadlines,
                     mlbBriefing,
+                    mlbChampOdds: mlbChampOdds ?? {},
                     mlbPicks: mlbPicks ?? {},
                     canonicalPicks: mlbPicks ?? {},
                     games: mlbGames,

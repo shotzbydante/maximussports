@@ -1,51 +1,86 @@
 /**
  * MlbSingleSlide — Premium MLB IG post (1080×1350).
  *
- * Design inspired by the NCAAM GamePreviewSlide1 system but adapted
- * for a Daily Briefing / intelligence card format.
+ * 3-panel full-height layout:
+ *   Panel 1: Yesterday + Storylines (intel bullets with team logos)
+ *   Panel 2: World Series Outlook (AL top 3 + NL top 3 with odds)
+ *   Panel 3: Matchups to Watch (team logos + descriptors)
  *
- * Daily Briefing content sourced from MLB Home "Today's Intelligence Briefing."
+ * Content sourced from MLB Home "Today's Intelligence Briefing"
+ * + championship odds API + picks board.
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import styles from './MlbSingleSlide.module.css';
 
-/* ── Helper components ──────────────────────────────────────── */
+/* ── Helpers ──────────────────────────────────────────────── */
 
-function Mascot({ className }) {
-  return (
-    <img src="/mascot-mlb.png" alt="" className={className}
-      crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
-  );
-}
-
-function TeamLogo({ slug, className }) {
+function TeamLogo({ slug, size = 28 }) {
   const url = getMlbEspnLogoUrl(slug);
   if (!url) return null;
   return (
-    <img src={url} alt="" className={className}
+    <img src={url} alt="" width={size} height={size}
+      className={styles.teamLogo} crossOrigin="anonymous"
+      onError={e => { e.currentTarget.style.display = 'none'; }} />
+  );
+}
+
+function Mascot() {
+  return (
+    <img src="/mascot-mlb.png" alt="" className={styles.mascot}
       crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
   );
 }
 
-function fmtPrice(ml) {
-  if (ml == null) return '';
-  const n = Number(ml);
+/** Resolve a team display name to its slug for logo lookup */
+function resolveSlug(name) {
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  const match = MLB_TEAMS.find(t =>
+    t.name.toLowerCase() === lower ||
+    lower.includes(t.name.split(' ').pop().toLowerCase())
+  );
+  return match?.slug || null;
+}
+
+function fmtOdds(v) {
+  if (v == null) return '';
+  const n = Number(v);
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-/* ── Signal chip (inspired by NCAAM ConvictionPill) ──────────── */
+/** Build top 3 AL + top 3 NL from championship odds map */
+function buildFuturesBoard(champOdds) {
+  if (!champOdds || Object.keys(champOdds).length === 0) return null;
 
-function SignalChip({ label, variant }) {
-  const cls = variant === 'gold' ? styles.chipGold
-    : variant === 'green' ? styles.chipGreen
-    : variant === 'red' ? styles.chipRed
-    : styles.chipDefault;
-  return <span className={`${styles.signalChip} ${cls}`}>{label}</span>;
+  const entries = [];
+  for (const [slug, data] of Object.entries(champOdds)) {
+    const team = MLB_TEAMS.find(t => t.slug === slug);
+    if (!team || !data) continue;
+    const odds = data.bestChanceAmerican ?? data.american ?? null;
+    if (odds == null) continue;
+    entries.push({ slug, name: team.name, abbrev: team.abbrev, league: team.league, odds });
+  }
+
+  // Sort by odds ascending (most favored = most negative)
+  entries.sort((a, b) => a.odds - b.odds);
+
+  const al = entries.filter(e => e.league === 'AL').slice(0, 3);
+  const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
+
+  if (al.length === 0 && nl.length === 0) return null;
+  return { al, nl };
 }
 
-/* ── Main component ─────────────────────────────────────────── */
+/** Strip emojis from text for cleaner display */
+function stripEmojis(text) {
+  if (!text) return '';
+  return text.replace(/[\u{1F300}-\u{1FAD6}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/* ── Main ─────────────────────────────────────────────────── */
 
 export default function MlbSingleSlide({ data, teamData, game, asOf, options = {}, ...rest }) {
   const template = options?.mlbTemplate || 'daily';
@@ -58,162 +93,169 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
   try {
     content = buildSlideContent(template, data, teamData, game, options);
   } catch (err) {
-    console.error('[MlbSingleSlide] buildSlideContent error:', err);
+    console.error('[MlbSingleSlide] error:', err);
     content = { category: 'MLB INTELLIGENCE', headline: 'Content unavailable' };
   }
 
   return (
     <div className={styles.artboard} {...rest}>
-      {/* Background */}
-      <div className={styles.bgBase} aria-hidden="true" />
-      <div className={styles.bgGlow} aria-hidden="true" />
-      <div className={styles.bgTopGlow} aria-hidden="true" />
-      <div className={styles.bgNoise} aria-hidden="true" />
+      <div className={styles.bgBase} />
+      <div className={styles.bgGlow} />
 
-      {/* ── ZONE 1: Header ──────────────────────────── */}
-      <div className={styles.headerZone}>
-        <div className={styles.heroRow}>
-          <h2 className={styles.heroTitle}>
-            {template === 'daily' ? 'DAILY BRIEFING' : (content.category || 'MLB INTELLIGENCE')}
-          </h2>
-          <Mascot className={styles.heroMascot} />
+      {/* ── HEADER ── */}
+      <div className={styles.header}>
+        <div className={styles.headerTop}>
+          <div className={styles.brandRow}>
+            <img src="/logo.png" alt="" className={styles.brandLogo} crossOrigin="anonymous" />
+            <span className={styles.brandName}>MAXIMUS SPORTS</span>
+          </div>
+          <Mascot />
         </div>
-        <div className={styles.badgeRow}>
-          <span className={styles.sectionBadge}>{content.category || 'MLB INTELLIGENCE'}</span>
-        </div>
-        <div className={styles.dateLine}>{today}</div>
+        <span className={styles.badge}>{content.category || 'MLB DAILY BRIEFING'}</span>
+        <span className={styles.dateLine}>{today}</span>
       </div>
 
-      {/* ── Matchup zone (game insights only) ──────── */}
+      {/* ── HERO ── */}
+      <div className={styles.heroZone}>
+        <h2 className={styles.headline}>{content.headline}</h2>
+        {content.subheadline && <p className={styles.subhead}>{content.subheadline}</p>}
+      </div>
+
+      {/* ── Matchup zone (game insights only) ── */}
       {content.matchup && (
-        <div className={styles.matchupZone}>
+        <div className={styles.matchupHero}>
           <div className={styles.matchupSide}>
-            <TeamLogo slug={content.matchup.awaySlug} className={styles.matchupLogo} />
+            <TeamLogo slug={content.matchup.awaySlug} size={48} />
             <span className={styles.matchupName}>{content.matchup.awayName}</span>
           </div>
-          <div className={styles.vsCenter}>
-            <span className={styles.vsRing}>VS</span>
-          </div>
+          <span className={styles.vsLabel}>VS</span>
           <div className={styles.matchupSide}>
-            <TeamLogo slug={content.matchup.homeSlug} className={styles.matchupLogo} />
+            <TeamLogo slug={content.matchup.homeSlug} size={48} />
             <span className={styles.matchupName}>{content.matchup.homeName}</span>
           </div>
         </div>
       )}
 
-      {/* ── ZONE 2: Hero briefing block ────────────── */}
-      <div className={styles.heroZone}>
-        <h3 className={styles.headline}>{content.headline}</h3>
-        {content.subheadline && <p className={styles.subheadline}>{content.subheadline}</p>}
-      </div>
-
-      {/* ── Pick callout ───────────────────────────── */}
-      {content.pickLabel && (
-        <div className={styles.pickCallout}>
-          <span className={styles.pickLabel}>{content.pickLabel}</span>
-          {content.pickConfidence && (
-            <SignalChip label={content.pickConfidence.toUpperCase()}
-              variant={content.pickConfidence === 'high' ? 'green' : content.pickConfidence === 'medium' ? 'gold' : 'default'} />
-          )}
-        </div>
-      )}
-
-      {/* ── ZONE 3: Intelligence panel (glass) ─────── */}
-      {content.bullets && content.bullets.length > 0 && (
-        <div className={styles.intelPanel}>
-          <div className={styles.panelHeader}>
+      {/* ── PANEL 1: Storylines ── */}
+      {content.storylines && content.storylines.length > 0 && (
+        <div className={styles.panel}>
+          <div className={styles.panelHead}>
             <span className={styles.panelDot} />
-            <span className={styles.panelTitle}>{content.bulletLabel || 'KEY INTEL'}</span>
+            <span className={styles.panelLabel}>STORYLINES</span>
           </div>
-          <div className={styles.bulletGrid}>
-            {content.bullets.map((b, i) => (
-              <div key={i} className={styles.bulletRow}>
-                <span className={styles.bulletAccent}>●</span>
-                <span className={styles.bulletText}>{typeof b === 'string' ? b : b.text}</span>
+          <div className={styles.storylineList}>
+            {content.storylines.map((s, i) => (
+              <div key={i} className={styles.storylineRow}>
+                {s.slug && <TeamLogo slug={s.slug} size={22} />}
+                <span className={styles.storylineText}>{s.text}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Picks panel ────────────────────────────── */}
-      {content.picks && content.picks.length > 0 && (
-        <div className={styles.intelPanel}>
-          <div className={styles.panelHeader}>
+      {/* ── Plain bullets fallback (non-daily sections) ── */}
+      {!content.storylines && content.bullets?.length > 0 && (
+        <div className={styles.panel}>
+          <div className={styles.panelHead}>
             <span className={styles.panelDot} />
-            <span className={styles.panelTitle}>MAXIMUS'S PICKS</span>
+            <span className={styles.panelLabel}>{content.bulletLabel || 'KEY INTEL'}</span>
           </div>
-          <div className={styles.picksCols}>
+          <div className={styles.storylineList}>
+            {content.bullets.map((b, i) => (
+              <div key={i} className={styles.storylineRow}>
+                <span className={styles.bulletDot}>•</span>
+                <span className={styles.storylineText}>{typeof b === 'string' ? b : b.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Picks panel ── */}
+      {content.picks?.length > 0 && (
+        <div className={styles.panel}>
+          <div className={styles.panelHead}>
+            <span className={styles.panelDot} />
+            <span className={styles.panelLabel}>MAXIMUS'S PICKS</span>
+          </div>
+          <div className={styles.picksGrid}>
             {content.picks.map((p, i) => (
               <div key={i} className={styles.pickCell}>
-                <div className={styles.pickType}>{p.category}</div>
-                <div className={styles.pickVal}>{p.label}</div>
-                {p.confidence && (
-                  <SignalChip label={p.confidence.toUpperCase()}
-                    variant={p.confidence === 'high' ? 'green' : p.confidence === 'medium' ? 'gold' : 'default'} />
-                )}
+                <span className={styles.pickType}>{p.category}</span>
+                <span className={styles.pickVal}>{p.label}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── ZONE 4: Market / board module ──────────── */}
-      {(content.boardPulse || content.futuresPulse || content.marketSignals?.length > 0 || content.matchupsToWatch?.length > 0) && (
-        <div className={styles.marketModule}>
-          <div className={styles.panelHeader}>
+      {/* ── PANEL 2: World Series Outlook ── */}
+      {content.futures && (
+        <div className={styles.panel}>
+          <div className={styles.panelHead}>
             <span className={styles.panelDot} />
-            <span className={styles.panelTitle}>MARKET INTEL</span>
+            <span className={styles.panelLabel}>WORLD SERIES OUTLOOK</span>
           </div>
-
-          {content.boardPulse && (
-            <div className={styles.marketRow}>
-              <span className={styles.marketIcon}>📊</span>
-              <span className={styles.marketLabel}>BOARD PULSE</span>
-              <span className={styles.marketVal}>{content.boardPulse}</span>
-            </div>
-          )}
-
-          {content.futuresPulse && (
-            <div className={styles.marketRow}>
-              <span className={styles.marketIcon}>🏆</span>
-              <span className={styles.marketLabel}>FUTURES</span>
-              <span className={styles.marketVal}>{content.futuresPulse}</span>
-            </div>
-          )}
-
-          {content.marketSignals?.map((s, i) => (
-            <div key={i} className={styles.marketRow}>
-              <span className={styles.marketIcon}>⚡</span>
-              <span className={styles.marketVal}>{s}</span>
-            </div>
-          ))}
-
-          {content.matchupsToWatch?.length > 0 && (
-            <div className={styles.matchupsRow}>
-              <span className={styles.matchupsLabel}>MATCHUPS TO WATCH</span>
-              <div className={styles.matchupChips}>
-                {content.matchupsToWatch.map((m, i) => (
-                  <span key={i} className={styles.matchupChip}>{m.teamA} vs {m.teamB}</span>
+          <div className={styles.futuresGrid}>
+            {content.futures.al.length > 0 && (
+              <div className={styles.futuresCol}>
+                <span className={styles.leagueLabel}>AMERICAN LEAGUE</span>
+                {content.futures.al.map((t, i) => (
+                  <div key={i} className={styles.futuresRow}>
+                    <TeamLogo slug={t.slug} size={24} />
+                    <span className={styles.futuresTeam}>{t.abbrev}</span>
+                    <span className={styles.futuresOdds}>{fmtOdds(t.odds)}</span>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Team focus ─────────────────────────────── */}
-      {content.teamFocus && (
-        <div className={styles.teamFocusZone}>
-          <TeamLogo slug={content.teamFocus.slug} className={styles.focusLogo} />
-          <div className={styles.focusInfo}>
-            <span className={styles.focusName}>{content.teamFocus.name}</span>
-            {content.teamFocus.record && <span className={styles.focusRecord}>{content.teamFocus.record}</span>}
+            )}
+            {content.futures.nl.length > 0 && (
+              <div className={styles.futuresCol}>
+                <span className={styles.leagueLabel}>NATIONAL LEAGUE</span>
+                {content.futures.nl.map((t, i) => (
+                  <div key={i} className={styles.futuresRow}>
+                    <TeamLogo slug={t.slug} size={24} />
+                    <span className={styles.futuresTeam}>{t.abbrev}</span>
+                    <span className={styles.futuresOdds}>{fmtOdds(t.odds)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── Footer ─────────────────────────────────── */}
+      {/* ── PANEL 3: Matchups to Watch ── */}
+      {content.matchupsToWatch?.length > 0 && (
+        <div className={styles.panel}>
+          <div className={styles.panelHead}>
+            <span className={styles.panelDot} />
+            <span className={styles.panelLabel}>MATCHUPS TO WATCH</span>
+          </div>
+          <div className={styles.matchupsList}>
+            {content.matchupsToWatch.map((m, i) => (
+              <div key={i} className={styles.matchupRow}>
+                <TeamLogo slug={m.slugA} size={24} />
+                <span className={styles.matchupTeam}>{m.teamA}</span>
+                <span className={styles.matchupVs}>vs</span>
+                <span className={styles.matchupTeam}>{m.teamB}</span>
+                <TeamLogo slug={m.slugB} size={24} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Team focus ── */}
+      {content.teamFocus && (
+        <div className={styles.teamFocusRow}>
+          <TeamLogo slug={content.teamFocus.slug} size={40} />
+          <span className={styles.focusName}>{content.teamFocus.name}</span>
+        </div>
+      )}
+
+      {/* ── FOOTER ── */}
       <footer className={styles.footer}>
         <span className={styles.footerUrl}>maximussports.ai</span>
         <span className={styles.footerDisclaimer}>For entertainment only. Please bet responsibly. 21+</span>
@@ -230,67 +272,62 @@ function buildSlideContent(template, data, teamData, game, options) {
   switch (template) {
     case 'team':     return buildTeamContent(teamData, options);
     case 'game':     return buildGameContent(game, data, options);
-    case 'picks':    return buildPicksContent(data, options);
+    case 'picks':    return buildPicksContent(data);
     case 'league':   return buildLeagueContent(data, options);
     case 'division': return buildDivisionContent(data, options);
     case 'daily':
-    default:         return buildDailyContent(data, options);
+    default:         return buildDailyContent(data);
   }
 }
 
-function buildDailyContent(data, options) {
-  const briefingText = data?.mlbBriefing;
-  const intel = parseBriefingToIntel(briefingText);
+function buildDailyContent(data) {
+  const intel = parseBriefingToIntel(data?.mlbBriefing);
+  const champOdds = data?.mlbChampOdds ?? {};
   const picks = data?.mlbPicks ?? data?.canonicalPicks ?? {};
-  const cats = picks?.categories ?? {};
   const games = data?.mlbGames ?? data?.games ?? [];
 
-  // Market signals from picks board
-  const marketSignals = [];
-  if (cats.pickEms?.length) marketSignals.push(`${cats.pickEms.length} moneyline pick${cats.pickEms.length > 1 ? 's' : ''} qualified`);
-  if (cats.ats?.length) marketSignals.push(`${cats.ats.length} run line signal${cats.ats.length > 1 ? 's' : ''}`);
-  if (cats.leans?.length) marketSignals.push(`${cats.leans.length} value lean${cats.leans.length > 1 ? 's' : ''}`);
-  if (cats.totals?.length) marketSignals.push(`${cats.totals.length} total${cats.totals.length > 1 ? 's' : ''} spot${cats.totals.length > 1 ? 's' : ''}`);
+  const futures = buildFuturesBoard(champOdds);
 
-  // Board type signal
-  const peCount = cats.pickEms?.length || 0;
-  const leanCount = cats.leans?.length || 0;
-  let boardType = null;
-  if (peCount + leanCount > 0) {
-    boardType = leanCount > peCount ? 'VALUE HEAVY' : peCount >= 3 ? 'FAVORITES BOARD' : 'MIXED BOARD';
+  // Build storylines with team logo slugs
+  const storylines = [];
+  const rawBullets = intel?.bullets || [];
+  for (const b of rawBullets.slice(0, 3)) {
+    const cleaned = stripEmojis(b);
+    if (!cleaned) continue;
+    // Find first mentioned team for logo
+    const teamMentions = intel?.teamMentions || [];
+    let slug = null;
+    for (const t of teamMentions) {
+      if (cleaned.toLowerCase().includes(t.toLowerCase())) {
+        slug = resolveSlug(t);
+        break;
+      }
+    }
+    storylines.push({ text: cleaned, slug });
   }
 
-  if (intel) {
-    return {
-      category: 'MLB DAILY BRIEFING',
-      headline: intel.headline,
-      subheadline: intel.subhead || null,
-      bullets: intel.bullets.slice(0, 4),
-      bulletLabel: "TODAY'S INTELLIGENCE",
-      boardPulse: intel.boardPulse || (games.length > 0 ? `${games.length} games across today's slate` : null),
-      futuresPulse: null, // will be populated when championship odds are wired in
-      matchupsToWatch: intel.keyMatchups?.slice(0, 2) || null,
-      marketSignals: marketSignals.slice(0, 2),
-      picks: null, matchup: null, pickLabel: null,
-    };
-  }
+  // Matchups with resolved slugs
+  const rawMatchups = intel?.keyMatchups || [];
+  const matchupsToWatch = rawMatchups.slice(0, 3).map(m => ({
+    teamA: m.teamA,
+    teamB: m.teamB,
+    slugA: resolveSlug(m.teamA),
+    slugB: resolveSlug(m.teamB),
+  }));
 
-  // Fallback
-  const headlines = data?.mlbHeadlines ?? [];
-  const headline = headlines?.[0]?.headline || headlines?.[0]?.title || `${games.length} games on today's MLB slate`;
-  const bullets = [];
-  for (const h of headlines.slice(0, 3)) {
-    const text = h.headline || h.title || '';
-    if (text) bullets.push(text);
-  }
+  const headline = intel?.headline
+    ? stripEmojis(intel.headline)
+    : `${games.length} games on today's MLB slate`;
+
+  const subheadline = intel?.subhead ? stripEmojis(intel.subhead) : null;
+
   return {
     category: 'MLB DAILY BRIEFING',
     headline,
-    subheadline: 'Full slate analysis and model-driven picks.',
-    bullets: bullets.slice(0, 4),
-    bulletLabel: "TODAY'S HEADLINES",
-    boardPulse: games.length > 0 ? `${games.length} games on the slate` : null,
-    marketSignals: marketSignals.slice(0, 2),
+    subheadline,
+    storylines: storylines.length > 0 ? storylines : null,
+    futures,
+    matchupsToWatch: matchupsToWatch.length > 0 ? matchupsToWatch : null,
     picks: null, matchup: null, pickLabel: null,
   };
 }
@@ -301,7 +338,7 @@ function buildTeamContent(teamData, options) {
   const name = team?.name || team?.displayName || slug;
   return {
     category: 'MLB TEAM INTEL', headline: `${name} Intel Report`,
-    subheadline: 'Full model-driven team breakdown and projections.',
+    subheadline: 'Model-driven team breakdown and projections.',
     teamFocus: { slug, name, record: team?.record },
     bullets: ['Season projection and model confidence', 'Rotation depth and bullpen analysis', 'Market positioning and value signals'],
     picks: null, matchup: null, pickLabel: null,
@@ -314,15 +351,13 @@ function buildGameContent(game, data, options) {
   const homeName = game.homeTeam || 'Home';
   const spread = game.homeSpread ?? game.spread;
   const total = game.total;
-  const ml = game.homeML ?? game.moneyline?.home;
   const bullets = [];
   if (spread != null) bullets.push(`Run Line: ${homeName} ${parseFloat(spread) > 0 ? '+' : ''}${spread}`);
   if (total != null) bullets.push(`Total: ${total}`);
-  if (ml != null) bullets.push(`Moneyline: ${homeName} ${fmtPrice(ml)}`);
   return {
     category: 'MLB GAME PREVIEW', headline: `${awayName} at ${homeName}`,
     subheadline: options?.gameAngle === 'story' ? 'Key storylines and matchup dynamics.' : 'Value-driven analysis and model edges.',
-    matchup: { awayName, homeName, awaySlug: game.awaySlug || '', homeSlug: game.homeSlug || '', time: game.time || '' },
+    matchup: { awayName, homeName, awaySlug: game.awaySlug || '', homeSlug: game.homeSlug || '' },
     bullets, bulletLabel: 'MARKET SNAPSHOT', picks: null, pickLabel: null,
   };
 }
@@ -337,13 +372,12 @@ function buildPicksContent(data) {
   };
   addPick("PICK 'EM", 'Moneyline', cats.pickEms);
   addPick('RUN LINE', 'Spread', cats.ats);
-  addPick('VALUE LEAN', 'Value', cats.leans);
   addPick('TOTAL', 'Over/Under', cats.totals);
   const topPick = pickRows[0];
   return {
     category: "MAXIMUS'S PICKS",
-    headline: topPick ? `Today's top play: ${topPick.label}` : 'No strong lean on today\'s slate',
-    subheadline: pickRows.length > 0 ? `${pickRows.length} qualified pick${pickRows.length !== 1 ? 's' : ''} across today's board.` : 'Model is waiting for stronger signal alignment.',
+    headline: topPick ? `Top play: ${topPick.label}` : 'No strong lean today',
+    subheadline: pickRows.length > 0 ? `${pickRows.length} qualified picks across the board.` : 'Waiting for stronger signal alignment.',
     picks: pickRows, bullets: null, matchup: null,
     pickLabel: topPick?.label || null, pickConfidence: topPick?.confidence || null,
   };
@@ -354,8 +388,8 @@ function buildLeagueContent(data, options) {
   return {
     category: `${league === 'AL' ? 'AMERICAN' : 'NATIONAL'} LEAGUE INTEL`,
     headline: `${league === 'AL' ? 'American' : 'National'} League Overview`,
-    subheadline: `Key storylines and competitive dynamics across the ${league}.`,
-    bullets: ['Division race updates and standings impact', 'Model projections and playoff probabilities', 'Notable trends and emerging value'],
+    subheadline: `Key storylines and competitive dynamics.`,
+    bullets: ['Division race updates', 'Model projections and playoff odds', 'Notable trends and value'],
     bulletLabel: `${league} STORYLINES`, picks: null, matchup: null, pickLabel: null,
   };
 }
@@ -364,8 +398,8 @@ function buildDivisionContent(data, options) {
   const division = options?.mlbDivision || 'AL East';
   return {
     category: `${division.toUpperCase()} INTEL`, headline: `${division} Division Report`,
-    subheadline: `Competitive landscape, projections, and value plays.`,
-    bullets: ['Division standings and race dynamics', 'Team-by-team model projections', 'Divisional matchup edges and trends'],
+    subheadline: `Competitive landscape and value plays.`,
+    bullets: ['Division standings and race dynamics', 'Team-by-team projections', 'Divisional matchup edges'],
     bulletLabel: 'DIVISION SIGNALS', picks: null, matchup: null, pickLabel: null,
   };
 }
