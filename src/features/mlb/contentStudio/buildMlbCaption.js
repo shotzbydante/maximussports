@@ -68,8 +68,15 @@ function dailyCaption(payload) {
   lines.push(headline);
   lines.push('');
 
-  // Bullets
-  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 4);
+  // Board pulse (compact market/odds snapshot)
+  const boardPulse = intel?.boardPulse || payload.boardPulse;
+  if (boardPulse) {
+    lines.push(`📊 ${boardPulse}`);
+    lines.push('');
+  }
+
+  // Bullets (now up to 5 for richer captions)
+  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 5);
   if (bullets.length > 0) {
     lines.push('🔥 Key intel:');
     for (const b of bullets) {
@@ -79,7 +86,7 @@ function dailyCaption(payload) {
   }
 
   // Matchups
-  const matchups = intel?.keyMatchups || payload.keyMatchups || [];
+  const matchups = (intel?.keyMatchups || payload.keyMatchups || []).slice(0, 3);
   if (matchups.length > 0) {
     lines.push('👀 Matchups to watch:');
     for (const m of matchups) {
@@ -92,10 +99,14 @@ function dailyCaption(payload) {
 
   lines.push('More → maximussports.ai');
 
-  return {
-    caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', '#SportsBetting', '#MaximusPicks', '#MaximusSports', '#BaseballIntel'],
-  };
+  // Build hashtags — include team-specific tags if teams are mentioned
+  const hashtags = ['#MLB', '#Baseball', '#SportsBetting', '#MaximusPicks', '#MaximusSports', '#BaseballIntel'];
+  const teamMentions = intel?.teamMentions || payload.teamMentions || [];
+  for (const t of teamMentions.slice(0, 3)) {
+    hashtags.push(`#${t.replace(/\s+/g, '')}`);
+  }
+
+  return { caption: lines.join('\n'), hashtags };
 }
 
 function teamCaption(payload) {

@@ -1,12 +1,21 @@
 /**
  * normalizeMlbImagePayload
  *
- * Converts MLB Content Studio dashboard state into a structured,
- * section-agnostic payload for Gemini image generation.
+ * Converts MLB Content Studio dashboard state into a structured payload
+ * for Gemini image generation.
  *
- * For Daily Briefing: content is sourced EXACTLY from MLB Home's
- * "Today's Intelligence Briefing" (llmSummary from /api/mlb/chat/homeSummary).
- * Text is passed through verbatim — no summarization or rewriting.
+ * Content source of truth: MLB Home "Today's Intelligence Briefing"
+ * (llmSummary from /api/mlb/chat/homeSummary).
+ *
+ * The briefing is a 5-paragraph AI-generated text:
+ *   P1: AROUND THE LEAGUE — top headlines
+ *   P2: WORLD SERIES ODDS PULSE — championship odds
+ *   P3: PENNANT RACE & DIVISION WATCH — standings/races
+ *   P4: SLEEPERS, INJURIES & VALUE — value plays
+ *   P5: DIAMOND DISPATCH + CLOSER — remaining headlines + closer
+ *
+ * parseBriefingToIntel() extracts rich structured data while preserving
+ * the actual source wording. Text is NEVER summarized or rewritten.
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
@@ -20,6 +29,28 @@ const SECTION_MAP = {
   'mlb-picks':    'maximus-picks',
 };
 
+// Canonical MLB team names for matchup extraction
+const MLB_TEAM_NAMES = [
+  'Yankees', 'Red Sox', 'Blue Jays', 'Rays', 'Orioles',
+  'Guardians', 'Twins', 'White Sox', 'Royals', 'Tigers',
+  'Astros', 'Rangers', 'Mariners', 'Athletics', 'Angels',
+  'Braves', 'Mets', 'Phillies', 'Marlins', 'Nationals',
+  'Cubs', 'Brewers', 'Cardinals', 'Pirates', 'Reds',
+  'Dodgers', 'Diamondbacks', 'Padres', 'Giants', 'Rockies',
+];
+
+// Full city+team patterns for extraction
+const FULL_TEAM_PATTERNS = [
+  'Los Angeles Dodgers', 'New York Yankees', 'Houston Astros', 'Atlanta Braves',
+  'Philadelphia Phillies', 'San Diego Padres', 'New York Mets', 'Boston Red Sox',
+  'Chicago Cubs', 'San Francisco Giants', 'Cleveland Guardians', 'Baltimore Orioles',
+  'Tampa Bay Rays', 'Texas Rangers', 'Minnesota Twins', 'Seattle Mariners',
+  'Milwaukee Brewers', 'St. Louis Cardinals', 'Toronto Blue Jays', 'Arizona Diamondbacks',
+  'Detroit Tigers', 'Kansas City Royals', 'Cincinnati Reds', 'Pittsburgh Pirates',
+  'Los Angeles Angels', 'Chicago White Sox', 'Miami Marlins', 'Washington Nationals',
+  'Colorado Rockies', 'Oakland Athletics',
+];
+
 function today() {
   return new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
@@ -27,70 +58,147 @@ function today() {
   });
 }
 
-/**
- * Strip markdown bold/italic from text for clean Gemini rendering.
- * Preserves the actual words, removes ** and * markers.
- */
+/** Strip markdown bold/italic markers, preserving the text inside. */
 function stripMarkdown(text) {
   if (!text) return '';
   return text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
 }
 
+/** Extract up to N sentences from a paragraph. */
+function extractSentences(text, max = 2) {
+  if (!text) return [];
+  // Split on sentence boundaries (period/exclamation/question followed by space or end)
+  const sentences = text.match(/[^.!?]*[.!?]+/g) || [text];
+  return sentences.slice(0, max).map(s => s.trim()).filter(Boolean);
+}
+
+/** Extract the section label from a paragraph if present (e.g., "ODDS PULSE:"). */
+function extractSectionLabel(text) {
+  const match = text.match(/^([A-Z][A-Z\s&+\-:]*[A-Z])\s*[:—–-]\s*/);
+  if (match) return { label: match[1].trim(), content: text.slice(match[0].length) };
+  return { label: null, content: text };
+}
+
 /**
- * Parse the 5-paragraph briefing text into structured intelBriefing.
- *
- * The MLB Home briefing from /api/mlb/chat/homeSummary has 5 paragraphs:
- *   P1: AROUND THE LEAGUE — headlines
- *   P2: WORLD SERIES ODDS PULSE — odds
- *   P3: PENNANT RACE & DIVISION WATCH — standings
- *   P4: SLEEPERS, INJURIES & VALUE — value plays
- *   P5: DIAMOND DISPATCH + CLOSER — remaining headlines + closer
- *
- * We extract the first paragraph as headline, convert paragraphs 2-4
- * into bullets, and extract team matchups from the text.
+ * Extract team mentions from text using canonical MLB team names.
+ * Returns unique team names found in the text.
  */
-function parseBriefingToIntel(briefingText) {
+function extractTeamMentions(text) {
+  if (!text) return [];
+  const found = new Set();
+  // Check full city+team names first
+  for (const full of FULL_TEAM_PATTERNS) {
+    if (text.includes(full)) {
+      const short = full.split(' ').pop(); // Last word = team name
+      found.add(short);
+    }
+  }
+  // Then check short names
+  for (const name of MLB_TEAM_NAMES) {
+    if (text.includes(name)) found.add(name);
+  }
+  return [...found];
+}
+
+/**
+ * Extract matchup pairs from text.
+ * Looks for patterns like "Team vs Team", "Team at Team", "Team-Team".
+ */
+function extractMatchups(text) {
+  if (!text) return [];
+  const matchups = [];
+  // Pattern: TeamName vs/at/@ TeamName
+  const patterns = [
+    /\b((?:[A-Z][a-z]+\s)*[A-Z][a-z]+)\s+(?:vs\.?|at|@|versus)\s+((?:[A-Z][a-z]+\s)*[A-Z][a-z]+)\b/g,
+  ];
+  for (const regex of patterns) {
+    let m;
+    while ((m = regex.exec(text)) !== null && matchups.length < 4) {
+      const a = m[1].trim();
+      const b = m[2].trim();
+      // Validate at least one is a known MLB team
+      const aKnown = MLB_TEAM_NAMES.some(t => a.includes(t));
+      const bKnown = MLB_TEAM_NAMES.some(t => b.includes(t));
+      if (aKnown || bKnown) {
+        matchups.push({ teamA: a, teamB: b });
+      }
+    }
+  }
+  return matchups;
+}
+
+/**
+ * Parse the 5-paragraph briefing text into a rich structured intelBriefing.
+ *
+ * Extracts MUCH MORE content than the previous version:
+ * - headline + subhead from P1
+ * - 4-6 substantive bullets across all paragraphs
+ * - matchups found anywhere in the text
+ * - board pulse summary
+ * - team mentions for potential logo injection
+ *
+ * All content is preserved verbatim — never summarized.
+ */
+export function parseBriefingToIntel(briefingText) {
   if (!briefingText) return null;
 
   const paragraphs = briefingText.split(/\n\n+/).filter(p => p.trim());
   if (paragraphs.length === 0) return null;
 
-  // Clean markdown from all paragraphs
   const cleaned = paragraphs.map(stripMarkdown);
 
-  // First paragraph → headline (first sentence or first 120 chars)
-  const firstPara = cleaned[0];
-  const firstSentenceMatch = firstPara.match(/^(.+?[.!?])\s/);
-  const headline = firstSentenceMatch
-    ? firstSentenceMatch[1].slice(0, 120)
-    : firstPara.slice(0, 120);
+  // ── P1: headline + subhead ──
+  const p1 = extractSectionLabel(cleaned[0]);
+  const p1Sentences = extractSentences(p1.content, 3);
+  const headline = p1Sentences[0] || cleaned[0].slice(0, 120);
+  const subhead = p1Sentences[1] || '';
 
-  // Paragraphs 2-4 → bullets (take first sentence of each, max 5 total)
+  // ── Build 4-6 rich bullets from all paragraphs ──
+  // Take the most substantive sentence from each paragraph section
   const bullets = [];
+
   for (let i = 0; i < Math.min(cleaned.length, 5); i++) {
-    const para = cleaned[i];
-    // Extract section label if present (e.g., "ODDS PULSE: ...")
-    const labelMatch = para.match(/^([A-Z][A-Z\s&+\-]*[A-Z])\s*:\s*/);
-    const content = labelMatch ? para.slice(labelMatch[0].length) : para;
-    // Take first sentence
-    const sentenceMatch = content.match(/^(.+?[.!?])\s/);
-    const bullet = sentenceMatch ? sentenceMatch[1] : content.slice(0, 150);
-    if (bullet.trim()) bullets.push(bullet.trim());
+    const { label, content } = extractSectionLabel(cleaned[i]);
+    const sentences = extractSentences(content, 2);
+
+    if (i === 0) {
+      // P1: skip headline (already extracted), take second sentence if available
+      if (sentences.length > 1) {
+        bullets.push(sentences[1]);
+      }
+    } else {
+      // P2-P5: take first 1-2 sentences, prefix with section context
+      for (const s of sentences.slice(0, i <= 2 ? 2 : 1)) {
+        if (s.trim().length > 15) { // Skip very short fragments
+          bullets.push(s);
+        }
+      }
+    }
+
+    if (bullets.length >= 6) break;
   }
 
-  // Extract team matchups from text (look for "Team vs Team" or "Team at Team")
-  const matchupRegex = /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s+(?:vs\.?|at|@)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\b/g;
-  const keyMatchups = [];
-  let match;
-  const fullText = briefingText;
-  while ((match = matchupRegex.exec(fullText)) !== null && keyMatchups.length < 3) {
-    keyMatchups.push({ teamA: match[1], teamB: match[2] });
+  // ── Extract matchups from full text ──
+  const keyMatchups = extractMatchups(briefingText);
+
+  // ── Extract all team mentions for logo context ──
+  const teamMentions = extractTeamMentions(briefingText);
+
+  // ── Board pulse: a compact summary line from P2 or P3 odds/standings ──
+  let boardPulse = '';
+  if (cleaned.length >= 3) {
+    const p2 = extractSectionLabel(cleaned[1]);
+    const p2First = extractSentences(p2.content, 1)[0];
+    if (p2First) boardPulse = p2First;
   }
 
   return {
     headline,
-    bullets: bullets.slice(0, 5),
-    keyMatchups,
+    subhead,
+    bullets: bullets.slice(0, 6),
+    keyMatchups: keyMatchups.slice(0, 3),
+    teamMentions: teamMentions.slice(0, 8),
+    boardPulse,
     date: today(),
     rawParagraphs: cleaned.slice(0, 5),
   };
@@ -98,19 +206,6 @@ function parseBriefingToIntel(briefingText) {
 
 /**
  * Build the normalized payload from Dashboard state.
- *
- * @param {Object} opts
- * @param {string} opts.activeSection
- * @param {Object} [opts.mlbPicks]
- * @param {Object[]} [opts.mlbGames]
- * @param {Object[]} [opts.mlbHeadlines]
- * @param {Object} [opts.mlbSelectedTeam]
- * @param {Object} [opts.mlbSelectedGame]
- * @param {string} [opts.mlbLeague]
- * @param {string} [opts.mlbDivision]
- * @param {string} [opts.mlbGameAngle]
- * @param {string} [opts.mlbBriefing] - raw briefing text from /api/mlb/chat/homeSummary
- * @returns {Object}
  */
 export function normalizeMlbImagePayload({
   activeSection,
@@ -125,8 +220,6 @@ export function normalizeMlbImagePayload({
   mlbBriefing,
 }) {
   const section = SECTION_MAP[activeSection] || 'daily-briefing';
-
-  // Parse briefing into structured intel (used by daily-briefing + picks)
   const intelBriefing = parseBriefingToIntel(mlbBriefing);
 
   const base = {
@@ -138,6 +231,7 @@ export function normalizeMlbImagePayload({
     dateLabel: today(),
     tags: ['#MLB', '#MaximusSports', '#BaseballIntel'],
     referenceImages: [],
+    layoutVariant: 'headline-heavy',
   };
 
   switch (section) {
@@ -158,28 +252,23 @@ export function normalizeMlbImagePayload({
   }
 }
 
-// Also export for caption generator
-export { parseBriefingToIntel };
-
 function buildDailyPayload(base, intelBriefing, games, picks) {
   const gamesCount = games?.length || 0;
 
-  // If we have the real briefing, use it verbatim
   if (intelBriefing) {
     return {
       ...base,
       intelBriefing,
       headline: intelBriefing.headline,
+      subhead: intelBriefing.subhead,
       bullets: intelBriefing.bullets,
       keyMatchups: intelBriefing.keyMatchups,
+      boardPulse: intelBriefing.boardPulse,
+      teamMentions: intelBriefing.teamMentions,
     };
   }
 
-  // Fallback: construct from headlines/picks if no briefing available
-  const topHeadline = games?.length > 0
-    ? `${gamesCount} Games on Today's MLB Slate`
-    : 'MLB Intelligence Briefing';
-
+  // Fallback
   const cats = picks?.categories ?? {};
   const signals = [];
   if (cats.pickEms?.length) signals.push(`${cats.pickEms.length} moneyline picks`);
@@ -187,26 +276,20 @@ function buildDailyPayload(base, intelBriefing, games, picks) {
 
   return {
     ...base,
-    headline: topHeadline,
+    headline: `${gamesCount} Games on Today's MLB Slate`,
     subhead: signals.length > 0 ? signals.join(' | ') : 'Full model-driven slate analysis',
     bullets: signals.slice(0, 3),
   };
 }
 
 function buildTeamPayload(base, team) {
-  if (!team) {
-    return { ...base, headline: 'Select a team to generate', section: 'team-intel' };
-  }
+  if (!team) return { ...base, headline: 'Select a team to generate', section: 'team-intel' };
   return {
     ...base,
     headline: `${team.name} Intel Report`,
     subhead: 'Model projections, rotation analysis, and value signals',
     teamA: { name: team.name, slug: team.slug, logoUrl: getMlbEspnLogoUrl(team.slug) },
-    bullets: [
-      'Season projection and model confidence',
-      'Rotation depth and bullpen analysis',
-      'Market positioning and value signals',
-    ],
+    bullets: ['Season projection and model confidence', 'Rotation depth and bullpen analysis', 'Market positioning and value signals'],
   };
 }
 
@@ -218,11 +301,7 @@ function buildLeaguePayload(base, league) {
     headline: `${fullName} Overview`,
     subhead: `Key storylines and competitive dynamics across the ${lg}`,
     league: lg,
-    bullets: [
-      'Division race updates and standings impact',
-      'Model projections and playoff probabilities',
-      'Notable trends and emerging value',
-    ],
+    bullets: ['Division race updates and standings impact', 'Model projections and playoff probabilities', 'Notable trends and emerging value'],
   };
 }
 
@@ -233,35 +312,25 @@ function buildDivisionPayload(base, division) {
     headline: `${div} Division Report`,
     subhead: `Competitive landscape, projections, and value plays`,
     division: div,
-    bullets: [
-      'Division standings and race dynamics',
-      'Team-by-team model projections',
-      'Divisional matchup edges and trends',
-    ],
+    bullets: ['Division standings and race dynamics', 'Team-by-team model projections', 'Divisional matchup edges and trends'],
   };
 }
 
 function buildGamePayload(base, game, angle) {
-  if (!game) {
-    return { ...base, headline: 'Select a game to generate', section: 'game-insights' };
-  }
+  if (!game) return { ...base, headline: 'Select a game to generate', section: 'game-insights' };
   const awayName = game.awayTeam || 'Away';
   const homeName = game.homeTeam || 'Home';
-  const awaySlug = game.awaySlug || '';
-  const homeSlug = game.homeSlug || '';
   const spread = game.homeSpread ?? game.spread;
   const total = game.total;
-
   const signals = [];
   if (spread != null) signals.push(`Run Line: ${homeName} ${parseFloat(spread) > 0 ? '+' : ''}${spread}`);
   if (total != null) signals.push(`Total: ${total}`);
-
   return {
     ...base,
     headline: `${awayName} at ${homeName}`,
     subhead: angle === 'story' ? 'Key storylines and matchup dynamics' : 'Value-driven analysis and model edges',
-    teamA: { name: awayName, slug: awaySlug, logoUrl: getMlbEspnLogoUrl(awaySlug) },
-    teamB: { name: homeName, slug: homeSlug, logoUrl: getMlbEspnLogoUrl(homeSlug) },
+    teamA: { name: awayName, slug: game.awaySlug || '', logoUrl: getMlbEspnLogoUrl(game.awaySlug || '') },
+    teamB: { name: homeName, slug: game.homeSlug || '', logoUrl: getMlbEspnLogoUrl(game.homeSlug || '') },
     recordA: game.awayRecord || null,
     recordB: game.homeRecord || null,
     signals,
@@ -271,7 +340,6 @@ function buildGamePayload(base, game, angle) {
 function buildPicksPayload(base, picks, intelBriefing) {
   const cats = picks?.categories ?? {};
   const pickRows = [];
-
   const addPick = (cat, items) => {
     const top = items?.[0];
     if (top) pickRows.push({ market: cat, label: top.pick?.label || cat, confidence: top.confidence });
@@ -279,18 +347,13 @@ function buildPicksPayload(base, picks, intelBriefing) {
   addPick('moneyline', cats.pickEms);
   addPick('runline', cats.ats);
   addPick('total', cats.totals);
-
   const topPick = pickRows[0] || null;
-
   return {
     ...base,
     headline: topPick ? `Top Play: ${topPick.label}` : "No Strong Lean Today",
-    subhead: pickRows.length > 0
-      ? `${pickRows.length} qualified pick${pickRows.length !== 1 ? 's' : ''} across today's board`
-      : 'Model is waiting for stronger signal alignment',
+    subhead: pickRows.length > 0 ? `${pickRows.length} qualified pick${pickRows.length !== 1 ? 's' : ''} across today's board` : 'Model is waiting for stronger signal alignment',
     keyPick: topPick,
     signals: pickRows.map(p => `${p.market}: ${p.label}`),
-    // Include briefing context if available
     ...(intelBriefing ? { intelBriefing } : {}),
   };
 }
