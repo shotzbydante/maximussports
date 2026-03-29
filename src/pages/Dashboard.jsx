@@ -46,6 +46,7 @@ import { WorkspaceId, WORKSPACES } from '../workspaces/config';
 import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
 import { normalizeMlbImagePayload } from '../features/mlb/contentStudio/normalizeMlbImagePayload';
+import { buildMlbCaption } from '../features/mlb/contentStudio/buildMlbCaption';
 import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import styles from './Dashboard.module.css';
@@ -164,6 +165,7 @@ export default function Dashboard() {
   const [mlbDivision, setMlbDivision] = useState('AL East');
   const [mlbGameAngle, setMlbGameAngle] = useState('value');
   const [mlbSlateMode, setMlbSlateMode] = useState('full'); // 'full' | 'featured' | 'division'
+  const [mlbBriefing, setMlbBriefing] = useState(null);     // raw briefing text from /api/mlb/chat/homeSummary
   const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
 
   // ── Gemini image generation state (MLB only) ───────────
@@ -329,9 +331,11 @@ export default function Dashboard() {
     Promise.all([
       fetch('/api/mlb/picks/board').then(r => r.json()).catch(() => ({ games: [] })),
       fetchMlbHeadlines().catch(() => []),
-    ]).then(([boardData, headlines]) => {
+      fetch('/api/mlb/chat/homeSummary').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([boardData, headlines, briefingData]) => {
       setMlbGames(boardData?.games ?? []);
       setMlbHeadlines(Array.isArray(headlines) ? headlines : headlines?.headlines ?? []);
+      if (briefingData?.summary) setMlbBriefing(briefingData.summary);
     }).finally(() => setMlbGamesLoading(false));
   }, [isAuthorized, isMlbStudio, refreshKey]);
 
@@ -722,43 +726,29 @@ export default function Dashboard() {
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
-    // ── MLB caption (simple, standalone) ──
+    // ── MLB caption (sourced from intelBriefing + payload normalizer) ──
     if (mlbActive) {
-      const tmpl = mlbTemplateType(activeSection);
-      const gamesCount = mlbGames.length;
-      const cats = mlbPicks?.categories ?? {};
-      const pickSummary = [];
-      if (cats.pickEms?.length) pickSummary.push(`${cats.pickEms.length} moneyline pick${cats.pickEms.length > 1 ? 's' : ''}`);
-      if (cats.ats?.length) pickSummary.push(`${cats.ats.length} run line signal${cats.ats.length > 1 ? 's' : ''}`);
-      if (cats.leans?.length) pickSummary.push(`${cats.leans.length} value lean${cats.leans.length > 1 ? 's' : ''}`);
-      if (cats.totals?.length) pickSummary.push(`${cats.totals.length} total${cats.totals.length > 1 ? 's' : ''}`);
-
-      const shortLines = [];
-      if (tmpl === 'daily' || tmpl === 'picks') {
-        shortLines.push(`Today's MLB board: ${pickSummary.join(', ') || 'monitoring the slate'}.`);
-        shortLines.push('');
-        shortLines.push('Full analysis at maximussports.ai');
-      } else if (tmpl === 'team' && mlbSelectedTeam) {
-        shortLines.push(`${mlbSelectedTeam.name} Intel Report`);
-        shortLines.push('Model-driven breakdown and projections.');
-        shortLines.push('');
-        shortLines.push('Full analysis at maximussports.ai');
-      } else if (tmpl === 'game' && mlbSelectedGame) {
-        shortLines.push(`${mlbSelectedGame.awayTeam} at ${mlbSelectedGame.homeTeam} — Game Preview`);
-        shortLines.push('');
-        shortLines.push('Full analysis at maximussports.ai');
-      } else {
-        shortLines.push(`MLB Intelligence — ${gamesCount} games on the slate.`);
-        shortLines.push('');
-        shortLines.push('Full analysis at maximussports.ai');
+      try {
+        const payload = normalizeMlbImagePayload({
+          activeSection,
+          mlbPicks,
+          mlbGames,
+          mlbHeadlines,
+          mlbSelectedTeam,
+          mlbSelectedGame,
+          mlbLeague,
+          mlbDivision,
+          mlbGameAngle,
+          mlbBriefing,
+        });
+        return buildMlbCaption(payload);
+      } catch {
+        return {
+          shortCaption: 'MLB Intelligence — maximussports.ai',
+          longCaption: 'MLB Intelligence — maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+',
+          hashtags: ['#MLB', '#Baseball', '#MaximusSports'],
+        };
       }
-
-      const hashtags = ['#MLB', '#Baseball', '#MaximusSports', '#MLBPicks', '#BettingIntelligence'];
-      return {
-        shortCaption: shortLines.join('\n'),
-        longCaption: shortLines.join('\n') + '\n\nFor entertainment only. Please bet responsibly. 21+',
-        hashtags,
-      };
     }
 
     // ── CBB caption (unchanged) ──
@@ -796,7 +786,7 @@ export default function Dashboard() {
       conference: activeSection === 'conference' ? selectedConference : null,
       tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -873,6 +863,7 @@ export default function Dashboard() {
         mlbLeague,
         mlbDivision,
         mlbGameAngle,
+        mlbBriefing,
       });
       const res = await fetch('/api/mlb/content-studio/generate-image', {
         method: 'POST',
@@ -891,7 +882,7 @@ export default function Dashboard() {
     } finally {
       setGeminiLoading(false);
     }
-  }, [mlbActive, activeSection, mlbPicks, mlbGames, mlbHeadlines, mlbSelectedTeam, mlbSelectedGame, mlbLeague, mlbDivision, mlbGameAngle]);
+  }, [mlbActive, activeSection, mlbPicks, mlbGames, mlbHeadlines, mlbSelectedTeam, mlbSelectedGame, mlbLeague, mlbDivision, mlbGameAngle, mlbBriefing]);
 
   // ── export PNGs ───────────────────────────────────────────
   const handleExport = useCallback(async () => {

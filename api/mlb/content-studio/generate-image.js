@@ -13,41 +13,82 @@ import { GoogleGenAI } from '@google/genai';
 
 // ── Centralized model config ─────────────────────────────────────────────────
 const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'models/gemini-2.5-flash-image';
-const PROMPT_VERSION = 'mlb-gemini-v1';
+const PROMPT_VERSION = 'mlb-gemini-v2';
 
-// ── Prompt builder (inlined to avoid ESM import issues in Vercel serverless) ─
+// ── Prompt builder (deterministic UI rendering — content passed verbatim) ────
 
-const STYLE_FOUNDATION = `
-VISUAL STYLE — "MLB Glassy Terminal":
-- Color palette: deep burgundy (#8B1A2B), dark navy (#0A1628), warm gold accents (#C4A55A), crisp white text
-- Background: dark cinematic gradient with subtle baseball stadium atmosphere (out-of-focus lights, diamond geometry)
-- Panels: frosted glass cards with thin white/gold borders, slight backdrop blur
-- Typography: clean modern sans-serif. Large bold headline, medium subhead, small detail text. High contrast.
-- Composition: single unified card layout, not a collage. Clean visual hierarchy.
-- Feel: premium, editorial, data-driven. Like a Bloomberg terminal crossed with a high-end sportsbook dashboard.
-- Branding: "MAXIMUS SPORTS" header text at top, "MLB INTELLIGENCE" chip/badge, "maximussports.ai" footer
-- Format: single 4:5 portrait image (1080x1350 pixels), optimized for Instagram feed
+const DESIGN_SYSTEM = `
+DESIGN SYSTEM (STRICT):
 
-MANDATORY REQUIREMENTS:
-- Generate exactly ONE image
-- 4:5 portrait aspect ratio
-- All text must be sharp, legible, and properly spelled
-- Clean layout with breathing room — do NOT overcrowd
-- Professional sports broadcast quality
-- Dark moody atmosphere with selective color pops
+Canvas:
+- Size: 1080x1350 (4:5 portrait)
+- Safe padding: 80px all sides
+- Max content width: 860px
+- Vertical stacked layout
+
+Background:
+- Deep navy (#0A1628) base
+- Burgundy radial glow (#8B1A2B) from center
+- Subtle stadium lighting effect in background
+- Light cinematic grain texture
+
+Header (Top Center):
+- "MAXIMUS SPORTS" in bold white uppercase, letter-spacing 0.12em
+- Below: "MLB INTELLIGENCE" badge — burgundy pill with white text, rounded
+
+Date:
+- Small, centered below header
+- Light opacity white text
+
+Main Glass Card:
+- Frosted glass panel
+- Background: rgba(10, 22, 40, 0.55) with backdrop blur
+- Border: 1px solid rgba(255, 255, 255, 0.08)
+- Border radius: 16px
+- Padding: 28px inside
+
+Headline:
+- Bold white text, large size
+- Max 3 lines
+- Tight letter spacing
+
+Body Content:
+- Clean bullet points with subtle markers
+- Good line spacing for readability
+- White text, slightly lower opacity than headline
+
+Footer:
+- "maximussports.ai" — small, centered
+- "For entertainment only • 21+" — tiny disclaimer
+
+STYLE:
+- Premium, sleek, glassy
+- ESPN broadcast quality × Apple design × Bloomberg Terminal
+- Clean structured UI — NOT a poster, NOT a collage
+- Mobile-first readability
+`.trim();
+
+const CRITICAL_RULES = `
+CRITICAL RULES:
+- DO NOT rewrite, summarize, or reinterpret ANY content
+- DO NOT invent data, stats, or text
+- DO NOT add new text beyond what is provided
+- Use the EXACT text provided in the CONTENT section
+- Focus ONLY on layout, hierarchy, typography, and visual polish
+- Render this as a structured UI card, not a creative graphic
 `.trim();
 
 const AVOID_BLOCK = `
 AVOID:
-- Multiple panels or collage layouts
-- Cartoonish or clip-art style graphics
-- Cheap gambling/betting bro aesthetic
-- Cluttered or overcrowded compositions
-- Invented or hallucinated team logos
-- Low-legibility text or tiny fonts
-- Generic stock photo feel
-- Bright/neon overpowering colors
-- Extra decorative text beyond what's specified
+- Collage layouts or multiple separate panels
+- Poster-style creative graphics
+- Tiny unreadable text
+- Stock imagery or photos
+- Cluttered compositions
+- Invented or hallucinated logos
+- Extra text beyond what is specified in CONTENT
+- Cartoonish or clip-art style
+- Bright neon colors
 - Multi-slide or carousel formats
 `.trim();
 
@@ -55,136 +96,114 @@ function buildSectionPrompt(payload) {
   const section = payload.section || 'daily-briefing';
   const headline = payload.headline || 'MLB Intelligence';
   const subhead = payload.subhead || '';
-  const bullets = (payload.bullets || []).map(b => `  - ${b}`).join('\n');
-  const signals = (payload.signals || []).map(s => `  - ${s}`).join('\n');
+  const date = payload.dateLabel || '';
 
-  let sectionBlock = '';
+  // For daily briefing, use intelBriefing if available
+  const intel = payload.intelBriefing;
+  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 5);
+  const matchups = intel?.keyMatchups || payload.keyMatchups || [];
+  const signals = payload.signals || [];
+
+  const bulletBlock = bullets.map((b, i) => `  ${i + 1}. ${b}`).join('\n');
+  const matchupBlock = matchups.length > 0
+    ? matchups.map(m => `  ${m.teamA} vs ${m.teamB}`).join('\n')
+    : '';
+  const signalBlock = signals.map(s => `  - ${s}`).join('\n');
+
+  let contentBlock = '';
 
   switch (section) {
     case 'daily-briefing':
-      sectionBlock = `
-Create a premium MLB Daily Briefing Instagram card.
+      contentBlock = `
+BADGE: MLB DAILY BRIEFING
+DATE: ${date}
+HEADLINE: ${intel?.headline || headline}
+${bulletBlock ? `BULLETS:\n${bulletBlock}` : ''}
+${matchupBlock ? `MATCHUPS:\n${matchupBlock}` : ''}
 
-CONTENT:
-- Top badge: "MLB DAILY BRIEFING"
-- Date: ${payload.dateLabel || 'Today'}
-- Main headline: "${headline}"
-${subhead ? `- Subhead: "${subhead}"` : ''}
-${bullets ? `- Key bullets:\n${bullets}` : ''}
-${signals ? `- Board summary signals:\n${signals}` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
-
-VISUAL DIRECTION:
-- Full-slate editorial feel — broad, authoritative
-- Centered composition with headline dominating
-- Subtle baseball diamond or field geometry in background
-- Glass panel for the headline area
+SECTION DIRECTION:
+- Full-slate editorial feel — authoritative morning briefing
+- Headline dominates the glass card
+- Bullets listed cleanly below
+- Matchups as compact row near bottom if present
 `.trim();
       break;
 
-    case 'team-intel': {
-      const teamName = payload.teamA?.name || 'Team';
-      sectionBlock = `
-Create a premium MLB Team Intel Instagram card for ${teamName}.
+    case 'team-intel':
+      contentBlock = `
+BADGE: MLB TEAM INTEL
+HEADLINE: ${headline}
+SUBHEAD: ${subhead}
+${bulletBlock ? `BULLETS:\n${bulletBlock}` : ''}
 
-CONTENT:
-- Top badge: "MLB TEAM INTEL"
-- Main headline: "${headline}"
-- Subhead: "${subhead}"
-${bullets ? `- Intel bullets:\n${bullets}` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
-
-VISUAL DIRECTION:
+SECTION DIRECTION:
 - Team-centric hero feel
-- Dramatic spotlight/vignette effect
-- Glass intel panel with structured data points
-- Baseball-specific visual cues
+- Dramatic spotlight/vignette
+- Glass panel with structured intel bullets
 `.trim();
       break;
-    }
 
     case 'league-intel': {
       const lg = payload.league || 'AL';
       const fullName = lg === 'AL' ? 'American League' : 'National League';
-      sectionBlock = `
-Create a premium MLB League Intel Instagram card for the ${fullName}.
+      contentBlock = `
+BADGE: ${fullName.toUpperCase()} INTEL
+HEADLINE: ${headline}
+SUBHEAD: ${subhead}
+${bulletBlock ? `BULLETS:\n${bulletBlock}` : ''}
 
-CONTENT:
-- Top badge: "${fullName.toUpperCase()} INTEL"
-- Main headline: "${headline}"
-${subhead ? `- Subhead: "${subhead}"` : ''}
-${bullets ? `- Storylines:\n${bullets}` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
-
-VISUAL DIRECTION:
-- League-race feel — competitive, dynamic
-- Subtle standings-board visual element
-- Premium editorial sports magazine layout
+SECTION DIRECTION:
+- League-race competitive feel
+- Subtle standings visual element
 `.trim();
       break;
     }
 
-    case 'division-intel': {
-      const div = payload.division || 'AL East';
-      sectionBlock = `
-Create a premium MLB Division Intel Instagram card for the ${div}.
+    case 'division-intel':
+      contentBlock = `
+BADGE: ${(payload.division || 'AL EAST').toUpperCase()} INTEL
+HEADLINE: ${headline}
+SUBHEAD: ${subhead}
+${bulletBlock ? `BULLETS:\n${bulletBlock}` : ''}
 
-CONTENT:
-- Top badge: "${div.toUpperCase()} INTEL"
-- Main headline: "${headline}"
-${subhead ? `- Subhead: "${subhead}"` : ''}
-${bullets ? `- Division signals:\n${bullets}` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
-
-VISUAL DIRECTION:
-- Division-race intensity — tight competition feel
+SECTION DIRECTION:
+- Division-race intensity
 - Glass panels suggesting team rankings
-- Focused, analytical composition
 `.trim();
       break;
-    }
 
     case 'game-insights': {
       const away = payload.teamA?.name || 'Away';
       const home = payload.teamB?.name || 'Home';
-      sectionBlock = `
-Create a premium MLB Game Preview Instagram card: ${away} at ${home}.
+      contentBlock = `
+BADGE: MLB GAME PREVIEW
+MATCHUP: ${away} VS ${home}
+${payload.recordA ? `AWAY RECORD: ${payload.recordA}` : ''}
+${payload.recordB ? `HOME RECORD: ${payload.recordB}` : ''}
+SUBHEAD: ${subhead}
+${signalBlock ? `MARKET SNAPSHOT:\n${signalBlock}` : ''}
 
-CONTENT:
-- Top badge: "MLB GAME PREVIEW"
-- Matchup: "${away} VS ${home}"
-${payload.recordA ? `- ${away} record: ${payload.recordA}` : ''}
-${payload.recordB ? `- ${home} record: ${payload.recordB}` : ''}
-${subhead ? `- Subhead: "${subhead}"` : ''}
-${signals ? `- Market snapshot:\n${signals}` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
-
-VISUAL DIRECTION:
-- Head-to-head matchup composition
-- Split visual with team identity on each side
-- "VS" graphic treatment in center
+SECTION DIRECTION:
+- Head-to-head composition, team names on each side
+- "VS" treatment in center
 - Glass panel for market data
-- Dramatic night-game atmosphere
+- Night-game atmosphere
 `.trim();
       break;
     }
 
     case 'maximus-picks': {
       const conf = payload.keyPick?.confidence;
-      sectionBlock = `
-Create a premium MLB Maximus's Picks Instagram card.
+      contentBlock = `
+BADGE: MAXIMUS'S PICKS
+HEADLINE: ${headline}
+SUBHEAD: ${subhead}
+${payload.keyPick ? `TOP PICK: ${payload.keyPick.label} (${payload.keyPick.market})${conf ? ` — ${conf.toUpperCase()} CONFIDENCE` : ''}` : ''}
+${signalBlock ? `BOARD SIGNALS:\n${signalBlock}` : ''}
 
-CONTENT:
-- Top badge: "MAXIMUS'S PICKS"
-- Main headline: "${headline}"
-${subhead ? `- Subhead: "${subhead}"` : ''}
-${payload.keyPick ? `- Top pick: "${payload.keyPick.label}" (${payload.keyPick.market})${conf ? ` — ${conf.toUpperCase()} confidence` : ''}` : ''}
-${signals ? `- Board signals:\n${signals}` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
-
-VISUAL DIRECTION:
-- Picks-board / dashboard feel — structured, data-rich but clean
-- Hero treatment for the top pick — large, prominent
+SECTION DIRECTION:
+- Picks-board / dashboard feel
+- Hero treatment for top pick
 ${conf === 'high' ? '- Green accent glow for high confidence' : ''}
 - Sharp data-terminal aesthetic
 `.trim();
@@ -192,18 +211,33 @@ ${conf === 'high' ? '- Green accent glow for high confidence' : ''}
     }
 
     default:
-      sectionBlock = `
-Create a premium MLB Intelligence Instagram card.
-
-CONTENT:
-- Top badge: "MLB INTELLIGENCE"
-- Main headline: "${headline}"
-${subhead ? `- Subhead: "${subhead}"` : ''}
-- Footer: "maximussports.ai" + "For entertainment only. 21+"
+      contentBlock = `
+BADGE: MLB INTELLIGENCE
+HEADLINE: ${headline}
+SUBHEAD: ${subhead}
 `.trim();
   }
 
-  return [STYLE_FOUNDATION, '', sectionBlock, '', AVOID_BLOCK].join('\n');
+  return `You are generating a premium Instagram sports intelligence card.
+
+GOAL:
+Render a single MLB card using the EXACT content provided below.
+
+${CRITICAL_RULES}
+
+---
+
+CONTENT:
+
+${contentBlock}
+
+FOOTER: maximussports.ai | For entertainment only • 21+
+
+---
+
+${DESIGN_SYSTEM}
+
+${AVOID_BLOCK}`;
 }
 
 // ── Response parser ──────────────────────────────────────────────────────────
