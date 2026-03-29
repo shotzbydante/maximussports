@@ -19,6 +19,8 @@
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { MLB_TEAMS } from '../../../sports/mlb/teams';
+import { getTeamProjection } from '../../../data/mlb/seasonModel';
 
 const SECTION_MAP = {
   'mlb-daily':    'daily-briefing',
@@ -218,6 +220,7 @@ export function normalizeMlbImagePayload({
   mlbDivision,
   mlbGameAngle,
   mlbBriefing,
+  mlbChampOdds,
 }) {
   const section = SECTION_MAP[activeSection] || 'daily-briefing';
   const intelBriefing = parseBriefingToIntel(mlbBriefing);
@@ -236,7 +239,7 @@ export function normalizeMlbImagePayload({
 
   switch (section) {
     case 'daily-briefing':
-      return buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks);
+      return buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks, mlbChampOdds);
     case 'team-intel':
       return buildTeamPayload(base, mlbSelectedTeam);
     case 'league-intel':
@@ -252,8 +255,34 @@ export function normalizeMlbImagePayload({
   }
 }
 
-function buildDailyPayload(base, intelBriefing, games, picks) {
+function buildDailyPayload(base, intelBriefing, games, picks, champOdds) {
   const gamesCount = games?.length || 0;
+
+  // Build Season Intelligence leaders for Gemini payload
+  let seasonIntel = null;
+  if (champOdds && Object.keys(champOdds).length > 0) {
+    try {
+      const entries = [];
+      for (const [slug, data] of Object.entries(champOdds)) {
+        const team = MLB_TEAMS.find(t => t.slug === slug);
+        if (!team || !data) continue;
+        const odds = data.bestChanceAmerican ?? data.american ?? null;
+        if (odds == null) continue;
+        const proj = getTeamProjection(slug);
+        entries.push({
+          slug, name: team.name, abbrev: team.abbrev, league: team.league, odds,
+          projectedWins: proj?.projectedWins ?? null,
+          signals: proj?.signals ?? [],
+          strongestDriver: proj?.takeaways?.strongestDriver ?? null,
+          marketStance: proj?.takeaways?.marketStance ?? null,
+        });
+      }
+      entries.sort((a, b) => a.odds - b.odds);
+      const al = entries.filter(e => e.league === 'AL').slice(0, 3);
+      const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
+      if (al.length > 0 || nl.length > 0) seasonIntel = { al, nl };
+    } catch { /* non-fatal */ }
+  }
 
   if (intelBriefing) {
     return {
@@ -265,6 +294,7 @@ function buildDailyPayload(base, intelBriefing, games, picks) {
       keyMatchups: intelBriefing.keyMatchups,
       boardPulse: intelBriefing.boardPulse,
       teamMentions: intelBriefing.teamMentions,
+      seasonIntel,
     };
   }
 
@@ -279,6 +309,7 @@ function buildDailyPayload(base, intelBriefing, games, picks) {
     headline: `${gamesCount} Games on Today's MLB Slate`,
     subhead: signals.length > 0 ? signals.join(' | ') : 'Full model-driven slate analysis',
     bullets: signals.slice(0, 3),
+    seasonIntel,
   };
 }
 

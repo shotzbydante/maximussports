@@ -12,6 +12,13 @@
  * All text comes verbatim from the normalized payload. Gemini renders layout only.
  */
 
+function fmtOdds(v) {
+  if (v == null) return '—';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
 // ── Style preset (centralized, reusable) ─────────────────────────────────────
 
 export const MLB_STYLE_PRESET = {
@@ -155,62 +162,74 @@ function dailyBriefingPrompt(payload) {
     ? matchups.map(m => `  • ${m.teamA} vs ${m.teamB}`).join('\n')
     : '';
 
-  // Reduce bullet count for Gemini to minimize typo risk
-  const gemBullets = bullets.slice(0, 4);
+  const gemBullets = bullets.slice(0, 3);
   const gemBulletBlock = gemBullets.length > 0
     ? gemBullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n')
-    : '  (Use headline and subhead only)';
+    : '  (Use headline only)';
 
-  return `You are rendering a premium MLB Daily Briefing Instagram card for Maximus Sports.
+  const matchupBlock = matchups.length > 0
+    ? matchups.map(m => `  ${m.teamA} vs ${m.teamB}`).join('\n')
+    : '';
 
-This is a DESIGNED APP CARD, not a generated image. Think of yourself as an art director
-rendering a premium mobile sports intelligence product card — like ESPN's morning briefing
-crossed with Apple Sports crossed with a Bloomberg Terminal dashboard.
+  // Build futures context if available
+  const futuresContext = payload.seasonIntel
+    ? [...(payload.seasonIntel.al || []), ...(payload.seasonIntel.nl || [])]
+        .slice(0, 6)
+        .map(t => `  ${t.abbrev} ${fmtOdds(t.odds)}${t.projectedWins ? ` · ${t.projectedWins}W proj` : ''}${t.signals?.[0] ? ` · ${t.signals[0]}` : ''}`)
+        .join('\n')
+    : '';
+
+  return `You are rendering a FULL-HEIGHT premium MLB Daily Briefing Instagram card for Maximus Sports.
+
+This is a DESIGNED APP CARD — a full-page editorial sports intelligence briefing.
+Think: ESPN premium morning briefing × Apple Sports × Bloomberg Terminal.
+The card must fill the ENTIRE 1080×1350 canvas with structured content. No dead space.
 
 ${IDENTITY_RULES}
 
+ADDITIONAL RULES FOR THIS CARD:
+- Use team LOGOS only — NO emojis of any kind (no face emojis, no flag emojis, no object emojis)
+- Professional editorial tone throughout
+- Fill the full vertical canvas — no large empty areas
+
 ---
 
-EXACT CONTENT TO RENDER (use verbatim — every word must be spelled correctly):
+EXACT CONTENT TO RENDER (use verbatim — every word spelled correctly):
 
 ZONE 1 — HEADER:
-  - "DAILY BRIEFING" in gold accent text (#C4A55A), large, hero treatment
-  - Maximus Sports baseball mascot next to the title
-  - "MLB DAILY BRIEFING" badge in glass pill with gold border
+  - Maximus Sports brand + mascot + "MLB DAILY BRIEFING" badge
   - Date: "${date}"
 
-ZONE 2 — HERO BLOCK:
+ZONE 2 — HERO:
   - Headline: "${headline}"
 ${subhead ? `  - Subhead: "${subhead}"` : ''}
 
-ZONE 3 — INTELLIGENCE PANEL (glass card):
+ZONE 3 — AROUND THE LEAGUE (glass panel):
 ${gemBulletBlock}
 
-ZONE 4 — MARKET MODULE (bottom analytics panel):
-${boardPulse ? `  - Board Pulse: "${boardPulse}"` : '  - (No market data)'}
-${matchupBlock ? `  - Matchups: ${matchupBlock}` : ''}
+ZONE 4 — WORLD SERIES OUTLOOK (larger glass panel, 2-column grid):
+${futuresContext || '  (No futures data available)'}
+  Show each team with: logo, abbreviation, championship odds, projected wins
 
-FOOTER:
+ZONE 5 — MATCHUPS TO WATCH:
+${matchupBlock || '  (No matchups available)'}
+  Show with team logos on each side
+
+ZONE 6 — FOOTER:
   "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-CARD STRUCTURE — follow this EXACT 4-zone layout:
+FULL-HEIGHT 6-ZONE LAYOUT (must fill entire canvas):
 
-1. HEADER ZONE: Title "DAILY BRIEFING" in warm gold with glow, mascot beside it,
-   section badge below, date line. This should feel heroic and premium.
-
-2. HERO ZONE: Bold headline centered. Clean, high-contrast, max 3 lines.
-   Subhead below in softer weight.
-
-3. INTELLIGENCE PANEL: Glass card with warm-tinted border (gold accent).
-   Bullet points inside — well-spaced, readable. Gold dot markers.
-   This is the core content — give it the most visual weight.
-
-4. MARKET MODULE: Compact bottom panel with subtle gold border. Board pulse,
-   matchup chips. This should feel like a mini analytics dashboard.
-
-5. FOOTER: URL + disclaimer. Small, clean.
+1. HEADER (~120px): Brand, mascot, badge, date — compact but premium
+2. HERO (~130px): Bold headline centered, subhead below
+3. AROUND THE LEAGUE (~200px): Glass panel with 3 editorial storyline bullets
+4. WORLD SERIES OUTLOOK (~350px): Largest panel. 2-column grid (AL | NL).
+   Each team row: logo + abbreviation + odds + projected wins.
+   This is the hero data module — make it substantial and fill space.
+5. MATCHUPS TO WATCH (~150px): Team logos flanking "vs" text. Clean rows.
+6. FOOTER (~50px): URL + disclaimer
 
 ---
 
@@ -219,14 +238,13 @@ ${VISUAL_SYSTEM}
 ${MASCOT_SPEC}
 
 CRITICAL STYLE DIRECTION:
-- This card should look like it belongs in a premium sports intelligence app
-- It should NOT look like an AI-generated poster or generic sports image
-- Think: designed product card, not creative illustration
-- The background is a DARK RED/BURGUNDY gradient — warm, moody, cinematic but clean
-- Glass panels should feel like frosted app UI components
-- Typography should be crisp, editorial, and perfectly legible
-- Gold accents (#C4A55A) tie the composition together subtly
-- Overall feel: sleek, confident, premium, modern
+- FULL HEIGHT — use the entire 1080×1350 canvas. No floating card in empty space.
+- Deep red gradient background (#1c0408 → #4d0e18 → #1c0408)
+- Glass panels fill width with comfortable margins
+- Team logos only — zero emojis anywhere
+- Professional, editorial, premium tone
+- Each panel should be visually distinct from the others
+- The World Series Outlook panel should be the largest and most visually rich
 
 ${AVOID_BLOCK}`;
 }
