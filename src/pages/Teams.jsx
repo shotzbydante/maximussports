@@ -11,7 +11,8 @@ import { fetchHomeFast } from '../api/home';
 import { buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import SeedBadge from '../components/common/SeedBadge';
-import { getTeamSeed, isBracketOfficial, getTeamRegion } from '../utils/tournamentHelpers';
+import { getTeamSeed, isBracketOfficial, getTeamRegion, isTournamentActive, isTournamentTeam } from '../utils/tournamentHelpers';
+import { CURRENT_MATCHUPS } from '../data/currentBracketMatchups';
 import { REGIONS } from '../config/bracketology';
 import styles from './Teams.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
@@ -278,8 +279,36 @@ export default function Teams() {
     return counts;
   }, [rankMap]);
 
-  /* ── Featured teams strip: title contenders + ranked + ATS signals ── */
+  /* ── Featured teams strip: tournament-aware spotlight ── */
   const featuredTeams = useMemo(() => {
+    const tourneyIsActive = isTournamentActive();
+
+    // During active tournament: spotlight teams still alive in the bracket.
+    // Derive from CURRENT_MATCHUPS (the canonical bracket source) — all teams
+    // listed there are still in contention. Rank by championship odds.
+    if (tourneyIsActive && CURRENT_MATCHUPS.length > 0) {
+      const aliveSlugs = new Set();
+      for (const m of CURRENT_MATCHUPS) {
+        if (m.slugA) aliveSlugs.add(m.slugA);
+        if (m.slugB) aliveSlugs.add(m.slugB);
+      }
+      const alive = [];
+      for (const slug of aliveSlugs) {
+        const team = TEAMS.find((t) => t.slug === slug);
+        if (!team) continue;
+        const odds = championshipOdds[slug];
+        const american = odds?.bestChanceAmerican ?? odds?.american;
+        const prob = american != null ? impliedProbFromAmerican(american) : 0;
+        const rank = rankMap[slug];
+        const tag = rank ? `#${rank} · Tournament` : 'Tournament';
+        alive.push({ ...team, featuredTag: tag, _prob: prob });
+      }
+      // Sort by championship odds probability (best odds first)
+      alive.sort((a, b) => b._prob - a._prob);
+      return alive;
+    }
+
+    // Pre-tournament / off-season: original logic — contenders + ranked + ATS signals
     const featured = [];
     const seen = new Set();
 
@@ -389,6 +418,7 @@ export default function Teams() {
   }, [filteredTeams, sortBy, championshipOdds]);
 
   const bracketIsOfficial = isBracketOfficial();
+  const tourneyActive = isTournamentActive(); // suppress bubble-era badges once tournament games are live
 
   const grouped = useMemo(() => {
     const byConf = {};
@@ -509,8 +539,8 @@ export default function Teams() {
       {featuredTeams.length > 0 && (
         <section className={styles.featuredSection}>
           <div className={styles.sectionHead}>
-            <span className={styles.sectionEyebrow}>Intel Spotlight</span>
-            <h2 className={styles.sectionHeadTitle}>Programs Driving the Board</h2>
+            <span className={styles.sectionEyebrow}>{tourneyActive ? 'Tournament Spotlight' : 'Intel Spotlight'}</span>
+            <h2 className={styles.sectionHeadTitle}>{tourneyActive ? 'Teams Still Standing' : 'Programs Driving the Board'}</h2>
           </div>
           <div className={styles.featuredStrip}>
             {featuredTeams.map((team) => {
@@ -518,7 +548,7 @@ export default function Teams() {
               const american = odds?.bestChanceAmerican ?? odds?.american;
               const rank = rankMap[team.slug];
               return (
-                <Link key={team.slug} to={`/teams/${team.slug}`} className={styles.featuredCard}>
+                <Link key={team.slug} to={`/ncaam/teams/${team.slug}`} className={styles.featuredCard}>
                   <TeamLogo team={team} size={36} />
                   <span className={styles.featuredName}>{team.name}</span>
                   <span className={`${styles.featuredTag} ${getFeaturedTagClass(team.featuredTag)}`}>
@@ -529,10 +559,12 @@ export default function Teams() {
                       <span className={styles.previewLabel}>Conference</span>
                       <span className={styles.previewValue}>{team.conference}</span>
                     </div>
+                    {!tourneyActive && (
                     <div className={styles.previewRow}>
                       <span className={styles.previewLabel}>Tier</span>
                       <span className={styles.previewValue}>{team.oddsTier}</span>
                     </div>
+                    )}
                     {rank && (
                       <div className={styles.previewRow}>
                         <span className={styles.previewLabel}>Ranking</span>
@@ -590,13 +622,14 @@ export default function Teams() {
                 {confTeams.length > 0 && (
                   <div className={styles.confFeaturedTeams}>
                     {confTeams.map((t) => (
-                      <Link key={t.slug} to={`/teams/${t.slug}`} className={styles.confFeaturedTeam}>
+                      <Link key={t.slug} to={`/ncaam/teams/${t.slug}`} className={styles.confFeaturedTeam}>
                         <TeamLogo team={t} size={18} />
                         <span>{t.name.split(' ').pop()}</span>
                       </Link>
                     ))}
                   </div>
                 )}
+                {!tourneyActive && (
                 <div className={styles.confCardTiers}>
                   {TIER_ORDER.map((tier) => {
                     const count = counts[tier] || 0;
@@ -610,6 +643,7 @@ export default function Teams() {
                     );
                   })}
                 </div>
+                )}
                 {confRankedCounts[conf] > 0 && (
                   <span className={styles.confCardSignal}>
                     {confRankedCounts[conf]} ranked program{confRankedCounts[conf] !== 1 ? 's' : ''}
@@ -740,7 +774,7 @@ export default function Teams() {
                           const seed = getTeamSeed(team.slug);
                           return (
                             <li key={team.slug}>
-                              <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
+                              <Link to={`/ncaam/teams/${team.slug}`} className={styles.teamRow}>
                                 {seed != null && <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />}
                                 <TeamLogo team={team} size={24} />
                                 <span className={styles.teamName}>{team.name}</span>
@@ -768,7 +802,7 @@ export default function Teams() {
                                 const seed = getTeamSeed(team.slug);
                                 return (
                                   <li key={team.slug}>
-                                    <Link to={`/teams/${team.slug}`} className={styles.teamRow}>
+                                    <Link to={`/ncaam/teams/${team.slug}`} className={styles.teamRow}>
                                       {seed != null && <SeedBadge seed={seed} size="sm" teamSlug={team.slug} />}
                                       <TeamLogo team={team} size={24} />
                                       {rankMap[team.slug] && seed == null && (
@@ -781,7 +815,7 @@ export default function Teams() {
                                         </span>
                                       )}
                                       <ChampionshipBadge slug={team.slug} oddsMap={championshipOdds} oddsMeta={championshipOddsMeta} loading={championshipOddsLoading} />
-                                      <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>
+                                      {!tourneyActive && <span className={`${styles.badge} ${TIER_CLASS[tier]}`}>{tier}</span>}
                                       <span className={styles.chevron}>&rarr;</span>
                                     </Link>
                                   </li>
