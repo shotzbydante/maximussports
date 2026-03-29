@@ -12,7 +12,7 @@ export const MLB_TEAM_META = {
   bos: { record2025: '81-81', finish: 'Missed Playoffs',    priorWins: 81 },
   tor: { record2025: '91-71', finish: 'Lost in World Series', priorWins: 91 },
   tb:  { record2025: '80-82', finish: 'Missed Playoffs',    priorWins: 80 },
-  bal: { record2025: '83-79', finish: 'Lost in Wild Card',  priorWins: 83 },
+  bal: { record2025: '91-71', finish: 'Lost in Wild Card',  priorWins: 91 },
   // AL Central
   cle: { record2025: '92-70', finish: 'Lost in ALCS',       priorWins: 92 },
   min: { record2025: '82-80', finish: 'Lost in Wild Card',  priorWins: 82 },
@@ -28,10 +28,10 @@ export const MLB_TEAM_META = {
   // ── National League ───────────────────────────────────────────────────────
   // NL West
   lad: { record2025: '98-64', finish: 'Won World Series',   priorWins: 98 },
-  sd:  { record2025: '82-80', finish: 'Missed Playoffs',    priorWins: 82 },
+  sd:  { record2025: '93-69', finish: 'Missed Playoffs',    priorWins: 93 },
   sf:  { record2025: '80-82', finish: 'Missed Playoffs',    priorWins: 80 },
   ari: { record2025: '89-73', finish: 'Lost in NLDS',       priorWins: 89 },
-  col: { record2025: '62-100', finish: 'Missed Playoffs',   priorWins: 62 },
+  col: { record2025: '61-101', finish: 'Missed Playoffs',   priorWins: 61 },
   // NL East
   atl: { record2025: '89-73', finish: 'Lost in NLDS',       priorWins: 89 },
   nym: { record2025: '89-73', finish: 'Lost in NLCS',       priorWins: 89 },
@@ -41,7 +41,7 @@ export const MLB_TEAM_META = {
   // NL Central
   mil: { record2025: '93-69', finish: 'Lost in Wild Card',  priorWins: 93 },
   chc: { record2025: '83-79', finish: 'Missed Playoffs',    priorWins: 83 },
-  stl: { record2025: '83-79', finish: 'Missed Playoffs',    priorWins: 83 },
+  stl: { record2025: '71-91', finish: 'Missed Playoffs',    priorWins: 71 },
   cin: { record2025: '77-85', finish: 'Missed Playoffs',    priorWins: 77 },
   pit: { record2025: '76-86', finish: 'Missed Playoffs',    priorWins: 76 },
 };
