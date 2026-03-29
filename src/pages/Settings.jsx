@@ -132,21 +132,31 @@ const PinIcon = () => (
 );
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
-const PREFERENCES = [
-  { key: 'briefing',    label: 'Daily AI Briefing',     description: 'Morning digest with Maximus AI analysis' },
-  { key: 'teamAlerts',  label: 'Pinned Teams Alerts',   description: 'Get notified about game results and news' },
-  { key: 'oddsIntel',   label: 'Odds & ATS Intel',      description: 'Odds analysis and ATS trends' },
-  { key: 'newsDigest',  label: 'Breaking News Digest',  description: 'Important news from your teams and league' },
-  { key: 'teamDigest',  label: 'Team Digest',           description: 'Full editorial digest for selected teams — schedule, ATS, news, videos' },
+const NCAAM_PREFERENCES = [
+  { key: 'briefing',      label: 'Daily AI Briefing',          description: 'Morning digest with Maximus AI analysis' },
+  { key: 'teamAlerts',    label: 'Pinned Teams Alerts',        description: 'Get notified about game results and news' },
+  { key: 'oddsIntel',     label: 'Odds & ATS Intel',           description: 'Line movement, spread edges, and value signals' },
+  { key: 'gameDayAlerts', label: 'Game Day Alerts',             description: 'Tip-off reminders and live score updates' },
+  { key: 'bracketIntel',  label: 'Bracket & Tournament Intel',  description: 'March Madness projections, upsets, and bracket edges' },
 ];
+
+const MLB_PREFERENCES = [
+  { key: 'newsDigest',  label: 'Breaking News Digest',  description: 'Important news from your teams and league' },
+  { key: 'teamDigest',  label: 'Team Digest',           description: 'Full editorial digest for selected teams' },
+];
+
+// Keep legacy shape for backward compatibility
+const PREFERENCES = [...NCAAM_PREFERENCES, ...MLB_PREFERENCES];
 
 const DEFAULT_PREFS = {
   briefing:        true,
   teamAlerts:      true,
   oddsIntel:       false,
+  gameDayAlerts:   true,
+  bracketIntel:    false,
   newsDigest:      true,
   teamDigest:      false,
   teamDigestTeams: [],
@@ -300,6 +310,99 @@ function ProgressBar({ step }) {
   );
 }
 
+/* ─── Step 0: Create Password (optional) ─────────────────────────────────── */
+function StepPassword({ onNext, onSkip }) {
+  const [password, setPassword]     = useState('');
+  const [confirm, setConfirm]       = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => { track('onboarding_step_view', { step: 'password' }); }, []);
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    setError('');
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    setSaving(true);
+    try {
+      const sb = getSupabase();
+      if (!sb) throw new Error('Auth service not available.');
+      const { error: updateErr } = await sb.auth.updateUser({ password });
+      if (updateErr) throw updateErr;
+      track('onboarding_password_created', {});
+      onNext();
+    } catch (err) {
+      setError(err.message || 'Could not set password. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={styles.step}>
+      <div className={styles.stepIconWrap}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      </div>
+      <h2 className={styles.stepTitle}>Secure your account</h2>
+      <p className={styles.stepSubtitle}>
+        Add a password so you can sign in easily on any device. You can always use a magic link instead.
+      </p>
+
+      <form className={styles.passwordForm} onSubmit={handleSubmit} noValidate>
+        <div className={styles.inputGroup}>
+          <label className={styles.inputLabel}>Password</label>
+          <div className={styles.passwordInputWrap}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className={styles.input}
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              autoComplete="new-password"
+              minLength={8}
+            />
+            <button
+              type="button"
+              className={styles.passwordToggle}
+              onClick={() => setShowPassword(v => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.inputGroup}>
+          <label className={styles.inputLabel}>Confirm password</label>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            className={styles.input}
+            placeholder="Re-enter password"
+            value={confirm}
+            onChange={(e) => { setConfirm(e.target.value); setError(''); }}
+            autoComplete="new-password"
+          />
+        </div>
+
+        {error && <div className={styles.errorMsg}>{error}</div>}
+
+        <button type="submit" className={styles.btnPrimary} disabled={saving || !password}>
+          {saving ? <><SpinnerIcon /> Setting password…</> : 'Set password & continue'}
+        </button>
+      </form>
+
+      <button type="button" className={styles.skipLink} onClick={onSkip}>
+        Skip for now
+      </button>
+    </div>
+  );
+}
+
 /* ─── Step 1: Favorite Teams ─────────────────────────────────────────────── */
 function StepTeams({ onNext, initialSelected = [] }) {
   const [query, setQuery]             = useState('');
@@ -347,8 +450,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Pick your teams</h2>
       <p className={styles.stepSubtitle}>
-        Select at least 1 team to personalize your daily intel across college basketball and baseball.
-        Your first pick becomes your primary team.
+        Follow at least one team to unlock personalized intel. Your first pick becomes your primary team.
       </p>
 
       {/* Sport tabs */}
@@ -423,14 +525,11 @@ function StepTeams({ onNext, initialSelected = [] }) {
                     <span className={styles.teamPickName}>{team.name}</span>
                     <span className={styles.teamPickConf}>{team.conference}</span>
                   </span>
-                  <span className={`${styles.teamPickTierBadge} ${TIER_STYLE[team.oddsTier] || ''}`}>
-                    {team.oddsTier}
-                  </span>
                   <span className={styles.teamPickCheck}>
                     {isSelected
                       ? isPrimary
                         ? <span className={styles.primaryBadge}>★ PRIMARY</span>
-                        : <CheckIcon />
+                        : <span className={styles.pinBadge}>📌</span>
                       : <span className={styles.teamPickAdd}>+</span>
                     }
                   </span>
@@ -705,16 +804,16 @@ function StepPreferences({ onNext, loading }) {
   return (
     <div className={styles.step}>
       <h2 className={styles.stepTitle}>Personalize your feed</h2>
-      <p className={styles.stepSubtitle}>Choose what matters to you across college basketball and baseball. Change anytime.</p>
+      <p className={styles.stepSubtitle}>Choose the intel that matters most. You can always change these in Settings.</p>
 
-      {/* NCAAM Section */}
+      {/* NCAAM Section — all 5 categories */}
       <div className={styles.prefSection}>
         <div className={styles.prefSectionHeader}>
           <span className={styles.prefSectionIcon}>🏀</span>
           <span className={styles.prefSectionLabel}>College Basketball</span>
         </div>
         <div className={styles.prefList}>
-          {PREFERENCES.filter(p => ['briefing', 'teamAlerts', 'oddsIntel'].includes(p.key)).map(({ key, label, description }) => (
+          {NCAAM_PREFERENCES.map(({ key, label, description }) => (
             <button
               key={key} type="button"
               className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
@@ -732,29 +831,30 @@ function StepPreferences({ onNext, loading }) {
         </div>
       </div>
 
-      {/* MLB Section */}
+      {/* MLB Section — coming soon state */}
       <div className={styles.prefSection}>
         <div className={styles.prefSectionHeader}>
           <span className={styles.prefSectionIcon}>⚾</span>
           <span className={styles.prefSectionLabel}>MLB Baseball</span>
+          <span className={styles.comingSoonBadge}>Coming Soon</span>
         </div>
-        <div className={styles.prefList}>
-          {PREFERENCES.filter(p => ['newsDigest', 'teamDigest'].includes(p.key)).map(({ key, label, description }) => (
-            <button
-              key={key} type="button"
-              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
-              onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+        <div className={`${styles.prefList} ${styles.prefListDisabled}`}>
+          {MLB_PREFERENCES.map(({ key, label, description }) => (
+            <div
+              key={key}
+              className={`${styles.prefRow} ${styles.prefRowDisabled}`}
             >
               <div className={styles.prefText}>
                 <span className={styles.prefLabel}>{label}</span>
                 <span className={styles.prefDesc}>{description}</span>
               </div>
-              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+              <div className={`${styles.toggle} ${styles.toggleDisabled}`}>
                 <div className={styles.toggleThumb} />
               </div>
-            </button>
+            </div>
           ))}
         </div>
+        <p className={styles.comingSoonNote}>Email digests for MLB are coming soon. We'll notify you when they're ready.</p>
       </div>
 
       <button className={styles.btnPrimary} onClick={() => onNext(prefs)} disabled={loading}>
@@ -790,15 +890,14 @@ function StepDone({ robotConfig }) {
           />
         )}
       </div>
-      <h2 className={styles.stepTitle}>Meet your Maximus Robot</h2>
-      <p className={styles.stepSubtitle}>Your Maximus profile is ready.</p>
-      <p className={styles.doneDesc}>You now have a personalized AI-powered sports intelligence command center — across college basketball and Major League Baseball.</p>
+      <h2 className={styles.stepTitle}>You're all set</h2>
+      <p className={styles.stepSubtitle}>Your personalized command center is ready.</p>
+      <p className={styles.doneDesc}>AI-powered picks, matchup intelligence, and market edges — tailored to your teams across college basketball and MLB.</p>
       <p className={styles.doneDigestNote}>
-        Your daily intel is on. Expect your first briefing around 6&nbsp;AM&nbsp;PT.
-        Manage subscriptions anytime in Settings.
+        Your daily briefing is active. First delivery around 6&nbsp;AM&nbsp;PT.
       </p>
       <button className={styles.btnPrimary} onClick={() => navigate('/')}>
-        Enter Maximus Sports →
+        Enter Maximus Sports
       </button>
     </div>
   );
@@ -806,7 +905,9 @@ function StepDone({ robotConfig }) {
 
 /* ─── Onboarding Wizard ──────────────────────────────────────────────────── */
 function OnboardingWizard({ user, onComplete }) {
-  const [step, setStep]               = useState(1);
+  // Skip password step for OAuth users (Google) — they already have auth
+  const isOAuth = !!user?.app_metadata?.provider && user.app_metadata.provider !== 'email';
+  const [step, setStep]               = useState(isOAuth ? 1 : 0);
   const [teamSlugs, setTeamSlugs]     = useState([]);
   const [profileData, setProfileData] = useState({});
   const [saving, setSaving]           = useState(false);
@@ -886,8 +987,9 @@ function OnboardingWizard({ user, onComplete }) {
 
   return (
     <div className={styles.wizardCard}>
-      <ProgressBar step={step} />
+      <ProgressBar step={Math.max(step, 1)} />
       {wizardError && <div className={styles.wizardError}>{wizardError}</div>}
+      {step === 0 && <StepPassword onNext={() => setStep(1)} onSkip={() => setStep(1)} />}
       {step === 1 && <StepTeams onNext={handleTeams} />}
       {step === 2 && <StepPreferences onNext={(prefs) => { setProfileData(prev => ({ ...prev, prefs })); setStep(3); }} loading={false} />}
       {step === 3 && <StepProfile onNext={(d) => { setProfileData(prev => ({ ...prev, ...d })); handleProfileComplete({ ...profileData, ...d }); }} defaultName={defaultName} userId={user.id} />}
@@ -3376,7 +3478,7 @@ function UnauthenticatedPanel() {
             <strong className={styles.emailSentEmailStr}>{email}</strong>.
           </p>
           <p className={styles.emailSentDescSub}>
-            Confirm your email to activate your Maximus Sports profile and unlock personalized college basketball intelligence.
+            Tap the link in your email to activate your account and start getting personalized intelligence.
           </p>
 
           {/* What you get */}
@@ -3435,12 +3537,12 @@ function UnauthenticatedPanel() {
           <path d="M9 34c0-6.075 4.925-11 11-11s11 4.925 11 11" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>
-      <h2 className={styles.unauthTitle}>Create your Maximus Sports profile</h2>
-      <p className={styles.unauthSubtitle}>Sync teams, personalize insights, unlock alerts</p>
+      <h2 className={styles.unauthTitle}>Join Maximus Sports</h2>
+      <p className={styles.unauthSubtitle}>Your personalized sports intelligence command center</p>
       <div className={styles.unauthBenefits}>
-        <span>✦ Pin your favorite teams</span>
-        <span>✦ Personalized ATS insights</span>
-        <span>✦ Game alerts &amp; AI briefings</span>
+        <span>✦ AI-powered daily briefings</span>
+        <span>✦ Personalized picks & edges</span>
+        <span>✦ Real-time team intel alerts</span>
       </div>
 
       {error && <div className={styles.errorMsg}>{error}</div>}

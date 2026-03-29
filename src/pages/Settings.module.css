@@ -293,6 +293,34 @@
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
 }
+.comingSoonBadge {
+  margin-left: auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(183, 152, 108, 0.12);
+  color: var(--color-beige-dune, #b7986c);
+}
+.prefListDisabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.prefRowDisabled {
+  cursor: default;
+}
+.toggleDisabled {
+  opacity: 0.4;
+}
+.comingSoonNote {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+  font-style: italic;
+  line-height: 1.5;
+}
 
 .teamPickList {
   display: flex;
@@ -423,6 +451,11 @@
   background: rgba(60, 121, 180, 0.12);
   color: var(--color-primary);
   white-space: nowrap;
+}
+
+.pinBadge {
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 .teamPickFooter {
@@ -987,6 +1020,77 @@
   color: var(--color-text-muted);
   letter-spacing: 0.04em;
   flex-shrink: 0;
+}
+
+/* ── Password step ──────────────────────────────────────────────── */
+.stepIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(60, 121, 180, 0.08);
+  margin: 0 auto var(--space-md);
+}
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 360px;
+  margin: var(--space-md) auto 0;
+}
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.inputLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
+.passwordInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.passwordInputWrap .input {
+  padding-right: 60px;
+}
+.passwordToggle {
+  position: absolute;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+.passwordToggle:hover {
+  background: rgba(60, 121, 180, 0.08);
+}
+.skipLink {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: color 0.15s;
+}
+.skipLink:hover {
+  color: var(--color-text);
 }
 
 .emailForm {
@@ -3118,7 +3222,15 @@
 .emailSentEmailStr {
   color: var(--color-text);
   font-weight: 600;
-  word-break: break-all;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 10px;
+  background: rgba(60, 121, 180, 0.08);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .emailSentHint {
@@ -3363,15 +3475,48 @@
   .identityLayout {
     flex-direction: column;
     align-items: center;
+    gap: var(--space-md);
+  }
+
+  .robotPreviewContainer {
+    order: -1; /* preview above form on mobile */
   }
 
   .robotPreviewGlow {
-    width: 160px;
-    height: 180px;
+    width: 110px;
+    height: 120px;
   }
 
   .identityForm {
     width: 100%;
+  }
+
+  .step {
+    padding-bottom: 80px; /* space for CTA above keyboard */
+  }
+
+  .btnPrimary {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin-top: auto;
+    border-radius: 0;
+    height: 52px;
+    margin-left: calc(-1 * var(--space-lg, 20px));
+    margin-right: calc(-1 * var(--space-lg, 20px));
+    width: calc(100% + 2 * var(--space-lg, 20px));
+  }
+
+  .input {
+    font-size: 16px; /* prevent iOS zoom */
+  }
+
+  .stepTitle {
+    font-size: 1.3rem;
+  }
+
+  .stepSubtitle {
+    font-size: 0.82rem;
   }
 }
 
