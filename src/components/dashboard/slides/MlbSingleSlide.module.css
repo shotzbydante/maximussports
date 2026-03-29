@@ -1,4 +1,6 @@
-/* MlbSingleSlide — cinematic MLB IG post (1080×1350) */
+/* MlbSingleSlide — premium MLB IG post (1080×1350)
+ * Dark red/burgundy gradient system — no stadium, no scenic backgrounds.
+ * Clean, glassy, product-native. ESPN × Apple × Bloomberg. */
 
 .artboard {
   position: relative; width: 1080px; height: 1350px;
@@ -7,214 +9,208 @@
   color: #fff;
 }
 
-/* ── Background ── */
+/* ── Background — dark burgundy gradient, NO stadium ── */
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
-  background: radial-gradient(ellipse at 30% 20%, #1a0a12 0%, #0e0610 40%, #060208 100%);
+  background: linear-gradient(
+    165deg,
+    #1a0a10 0%,
+    #2a0f1a 20%,
+    #3d1525 40%,
+    #2a0f1a 65%,
+    #0e0610 85%,
+    #060208 100%
+  );
 }
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
-  background: radial-gradient(circle at 50% 30%, rgba(184,41,61,0.08) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 50% 35%, rgba(139,26,43,0.18) 0%, transparent 55%);
 }
 .bgNoise {
-  position: absolute; inset: 0; z-index: 2; opacity: 0.03;
+  position: absolute; inset: 0; z-index: 2; opacity: 0.025;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ── Header ── */
+/* ── Header — mascot + brand + badge ── */
 .header {
   position: relative; z-index: 10;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 38px 48px 0;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 44px 48px 0; gap: 8px;
 }
-.logoRow { display: flex; align-items: center; gap: 14px; }
-.brandLogo { width: 44px; height: 44px; object-fit: contain; }
-.logoMeta { display: flex; flex-direction: column; gap: 3px; }
+.mascot {
+  width: 100px; height: 100px; object-fit: contain;
+}
+.brandRow {
+  display: flex; align-items: center; gap: 10px;
+}
+.brandLogo { width: 32px; height: 32px; object-fit: contain; }
 .brandName {
-  font-size: 14px; font-weight: 800; letter-spacing: 0.14em;
+  font-size: 16px; font-weight: 800; letter-spacing: 0.14em;
   text-transform: uppercase; color: #fff; opacity: 0.92;
 }
 .intelChip {
   font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: #b8293d;
-  background: rgba(184,41,61,0.12); padding: 3px 8px; border-radius: 4px;
-  align-self: flex-start;
-}
-.headerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.asOf { font-size: 11px; color: rgba(255,255,255,0.40); }
-.maxIntel {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(255,255,255,0.25);
+  text-transform: uppercase; color: #fff;
+  background: rgba(139,26,43,0.65); padding: 4px 14px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
-.programStrip {
-  position: relative; z-index: 10;
-  height: 2px; margin: 18px 48px 0;
-  background: linear-gradient(90deg, rgba(184,41,61,0.40), rgba(0,45,114,0.20), transparent);
-}
-
-/* ── MLB crest ── */
-.mlbLogoZone {
-  position: relative; z-index: 10;
-  display: flex; justify-content: center; margin: 22px 0 6px;
-}
-.mlbLogo { width: 56px; height: 56px; object-fit: contain; opacity: 0.75; }
-
+/* ── Date ── */
 .dateZone {
   position: relative; z-index: 10;
-  text-align: center; margin-bottom: 16px;
+  text-align: center; padding: 6px 0 12px;
 }
 .dateLabel {
-  display: block; font-size: 18px; font-weight: 700;
-  letter-spacing: 0.04em; color: rgba(255,255,255,0.85);
-}
-.dateSub {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(184,41,61,0.70);
+  font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.40);
+  letter-spacing: 0.03em;
 }
 
-/* ── Matchup ── */
+/* ── Matchup (game insights) ── */
 .matchupZone {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  gap: 28px; padding: 0 48px; margin: 10px 0 16px;
+  gap: 24px; padding: 8px 48px 14px;
 }
-.matchupTeam { display: flex; align-items: center; gap: 12px; }
-.matchupLogo { width: 60px; height: 60px; object-fit: contain; }
-.matchupTeamInfo { display: flex; flex-direction: column; gap: 2px; }
+.matchupTeam { display: flex; align-items: center; gap: 10px; }
+.matchupLogo { width: 52px; height: 52px; object-fit: contain; }
 .matchupTeamName {
-  font-size: 20px; font-weight: 800; color: #fff;
-  text-transform: uppercase; letter-spacing: 0.03em;
-}
-.matchupRecord { font-size: 12px; color: rgba(255,255,255,0.45); }
-.matchupVs {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 18px; font-weight: 800; color: #fff;
+  text-transform: uppercase; letter-spacing: 0.02em;
 }
 .vsText {
-  font-size: 14px; font-weight: 800; color: rgba(255,255,255,0.30);
+  font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.25);
   letter-spacing: 0.10em;
 }
-.matchupTime { font-size: 10px; color: rgba(255,255,255,0.35); }
 
 /* ── Headline ── */
 .headlineZone {
   position: relative; z-index: 10;
-  padding: 0 48px; margin: 8px 0;
-}
-.headlineDivider, .headlineDividerBottom {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(184,41,61,0.25), transparent);
-  margin: 8px 0;
+  padding: 0 60px; margin: 6px 0 10px;
+  text-align: center;
 }
 .headline {
-  font-size: 34px; font-weight: 800; line-height: 1.15;
-  letter-spacing: -0.01em; color: #fff; margin: 12px 0;
+  font-size: 30px; font-weight: 800; line-height: 1.15;
+  letter-spacing: -0.01em; color: #fff; margin: 0;
   text-transform: uppercase;
 }
 .subheadline {
-  font-size: 15px; line-height: 1.45; color: rgba(255,255,255,0.55);
-  margin: 4px 0 0;
+  font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.50);
+  margin: 6px 0 0;
 }
 
 /* ── Pick callout ── */
 .pickCallout {
   position: relative; z-index: 10;
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 48px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 48px;
 }
 .pickLabel {
-  font-size: 26px; font-weight: 800; color: #b8293d;
+  font-size: 22px; font-weight: 800; color: rgba(196,165,90,0.90);
   text-transform: uppercase; letter-spacing: -0.01em;
 }
 .pickConf {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; padding: 3px 10px; border-radius: 4px;
 }
 .conf_high   { color: #34d399; background: rgba(52,211,153,0.12); }
 .conf_medium { color: #fbbf24; background: rgba(251,191,36,0.12); }
 .conf_low    { color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); }
 
-/* ── Picks panel ── */
-.picksPanel {
+/* ── Glass panel — shared style for all content panels ── */
+.glassPanel {
   position: relative; z-index: 10;
-  margin: 8px 48px; padding: 16px 20px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
+  margin: 8px 56px; padding: 20px 24px;
+  background: rgba(10, 22, 40, 0.45);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
 }
-.picksPanelHeader {
+.panelHeader {
   font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.45);
+  text-transform: uppercase; color: rgba(255,255,255,0.40);
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .sectionDot {
-  width: 5px; height: 5px; border-radius: 50%; background: #b8293d;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(139,26,43,0.80);
 }
+
+/* ── Picks list ── */
 .picksList { display: flex; flex-direction: column; gap: 8px; }
 .pickRow {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px;
-  background: rgba(255,255,255,0.02); border-radius: 6px;
+  background: rgba(255,255,255,0.02); border-radius: 8px;
 }
 .pickRowCategory {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.35);
-  min-width: 80px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(255,255,255,0.30);
+  min-width: 72px;
 }
-.pickRowLabel {
-  font-size: 15px; font-weight: 700; color: #fff; flex: 1;
-}
+.pickRowLabel { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
 .pickRowConf {
   font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; padding: 2px 8px; border-radius: 3px;
 }
 
-/* ── Bullet module ── */
-.bulletModule {
-  position: relative; z-index: 10;
-  margin: 10px 48px; padding: 14px 20px;
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 10px;
+/* ── Bullet list ── */
+.bulletList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.bulletItem { display: flex; align-items: flex-start; gap: 8px; }
+.bulletMarker {
+  color: rgba(196,165,90,0.60); font-size: 14px; flex-shrink: 0;
+  margin-top: 1px;
 }
-.bulletHeader {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.45);
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 10px;
-}
-.bulletList { list-style: none; margin: 0; padding: 0; }
-.bulletItem {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 6px 0;
-}
-.bulletIcon { font-size: 14px; flex-shrink: 0; }
 .bulletText {
-  font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.72);
+  font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.70);
+}
+
+/* ── Board pulse ── */
+.boardPulse {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 60px;
+}
+.boardPulseIcon { font-size: 13px; }
+.boardPulseText {
+  font-size: 12px; color: rgba(255,255,255,0.40); line-height: 1.4;
+}
+
+/* ── Matchups to watch row ── */
+.matchupsRow {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 6px 48px; flex-wrap: wrap;
+}
+.matchupChip {
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.50);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  padding: 3px 10px; border-radius: 999px;
 }
 
 /* ── Team focus ── */
 .teamFocusZone {
   position: relative; z-index: 10;
-  display: flex; align-items: center; gap: 14px;
-  padding: 12px 48px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 60px;
 }
-.focusLogo { width: 48px; height: 48px; object-fit: contain; }
+.focusLogo { width: 44px; height: 44px; object-fit: contain; }
 .focusInfo { display: flex; flex-direction: column; gap: 2px; }
-.focusName { font-size: 22px; font-weight: 800; color: #fff; text-transform: uppercase; }
-.focusRecord { font-size: 12px; color: rgba(255,255,255,0.40); }
+.focusName { font-size: 20px; font-weight: 800; color: #fff; text-transform: uppercase; }
+.focusRecord { font-size: 12px; color: rgba(255,255,255,0.35); }
 
 /* ── Footer ── */
 .footer {
   position: relative; z-index: 10;
   margin-top: auto;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 48px 36px;
+  padding: 0 56px 40px;
 }
 .footerUrl {
-  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.30);
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.25);
   letter-spacing: 0.04em;
 }
 .footerDisclaimer {
-  font-size: 9px; color: rgba(255,255,255,0.20);
-  max-width: 300px; text-align: right;
+  font-size: 9px; color: rgba(255,255,255,0.15);
+  max-width: 280px; text-align: right;
 }

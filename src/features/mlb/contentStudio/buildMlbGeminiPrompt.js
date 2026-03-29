@@ -47,6 +47,9 @@ HARD IDENTITY RULES — YOU MUST FOLLOW ALL OF THESE:
 10. You MUST NOT omit ANY of the specified content blocks.
 11. You MUST NOT invent, summarize, paraphrase, or rewrite any content.
 12. You MUST NOT add text, stats, analysis, or data beyond what is provided.
+13. You MUST spell every word correctly — zero typos, zero garbled text.
+14. You MUST NOT alter, mutate, or distort any supplied wording.
+15. You MUST use a dark RED/BURGUNDY gradient background, NOT dark navy/blue.
 `.trim();
 
 // ── Visual system specification ─────────────────────────────────────────────
@@ -61,57 +64,61 @@ CANVAS:
 - Maximum content width: 860px
 - Single vertical editorial layout — NO multi-panel, NO collage
 
-COLOR PALETTE (USE ONLY THESE):
-- Primary background: deep navy #0A1628
-- Secondary glow: dark burgundy/wine #8B1A2B (radial glow from center, subtle)
-- Accent: warm gold #C4A55A (used sparingly for badges, dividers)
+COLOR PALETTE (USE ONLY THESE — NO EXCEPTIONS):
+- Primary background: dark burgundy-to-deep-red gradient (#1a0a10 → #3d1525 → #2a0f1a → #0e0610)
+- Secondary glow: subtle burgundy radial glow from center (#8B1A2B at 18% opacity)
+- Accent: warm gold #C4A55A (used sparingly for bullet markers, thin dividers)
 - Text: crisp white #FFFFFF, varying opacity for hierarchy
-- Glass panels: rgba(10, 22, 40, 0.55) with subtle white border rgba(255,255,255,0.08)
-- DO NOT use any other colors. No bright blue. No neon. No random stadium colors.
+- Glass panels: rgba(10, 22, 40, 0.45) with subtle white border rgba(255,255,255,0.07)
+- DO NOT use any other colors. No bright blue. No neon. No navy-dominant palette.
 
 GLASSMORPHISM:
 - Frosted glass panels for all content areas
-- Background: rgba(10, 22, 40, 0.55) with backdrop blur effect
-- Border: 1px solid rgba(255, 255, 255, 0.08)
-- Border radius: 16px
-- Subtle inner glow on glass panels
-- This is the defining visual characteristic — make it premium
+- Background: rgba(10, 22, 40, 0.45) with backdrop blur effect
+- Border: 1px solid rgba(255, 255, 255, 0.07)
+- Border radius: 14px
+- Subtle warm inner glow on glass panels
+- This is the defining visual characteristic — make it feel like a premium app UI
 
 TYPOGRAPHY:
 - Clean modern sans-serif (Inter, SF Pro, Helvetica Neue style)
-- Headline: bold, white, large (~28-34pt), tight letter-spacing
-- Subhead: semi-bold, white at 70% opacity, medium (~16-18pt)
-- Bullets: regular weight, white at 60-70% opacity, readable (~14-16pt)
-- Badge text: bold, uppercase, small (~10-11pt), high letter-spacing
-- All text must be SHARP and LEGIBLE — never fuzzy or compressed
+- Headline: bold, white, large (~28-30pt), tight letter-spacing, UPPERCASE
+- Subhead: regular, white at 50% opacity, ~14pt
+- Bullets: regular weight, white at 70% opacity, ~13pt, good line spacing
+- Badge text: bold, uppercase, ~10pt, high letter-spacing, burgundy pill bg
+- ALL text must be PERFECTLY SPELLED — zero typos, zero garbled characters
+- ALL text must be SHARP, CRISP, and FULLY LEGIBLE on a phone screen
 
-ATMOSPHERE:
-- Subtle cinematic stadium lighting in deep background (very far back, blurred)
-- Light film grain texture (barely visible, adds premium texture)
-- Dark moody overall — this is a night-game intelligence briefing
-- NO overpowering lighting effects, NO lens flares, NO bright spots
+BACKGROUND:
+- Dark burgundy/red gradient ONLY — consistent with Maximus Sports MLB UI
+- Light film grain texture (barely visible)
+- NO stadium, NO crowd, NO field, NO scenic backdrop, NO baseball environment
+- NO cinematic photography, NO action shots, NO players
+- Just a clean dark red gradient with subtle texture — like a premium app background
 `.trim();
 
 // ── Negative prompt / avoid block ───────────────────────────────────────────
 
 const AVOID_BLOCK = `
 ABSOLUTELY AVOID — HARD CONSTRAINTS:
+- Stadium backgrounds, baseball fields, crowd shots, scenic environments
 - Poster composition or movie-poster styling
-- Cinematic movie poster layouts
-- Random baseball players, crowd shots, or action photography
+- Cinematic photography or action shots of players
 - Overly realistic photography or stock photos
 - Floating disconnected text fragments
 - Multiple disconnected panels or collage layouts
 - Unbranded generic sports design
-- Off-brand palette — no bright blue neon, no washed colors, no random gradients
+- Off-brand palette — no bright blue, no neon, no washed colors, no navy-dominant look
 - Mascot omission — the mascot MUST appear
 - Extra invented analysis or paraphrased content
+- Misspelled words, garbled text, typos, or character mutations
 - Clip-art or cartoonish graphics (except the branded mascot)
 - Excessive realism or fantasy art
 - Fake magazine cover layouts
-- Tiny unreadable text
+- Tiny unreadable text below ~12pt
 - Cluttered or overcrowded composition
 - Any text not explicitly provided in the CONTENT section
+- Dark navy-dominant backgrounds — use DARK RED/BURGUNDY gradient instead
 `.trim();
 
 // ── Mascot specification ────────────────────────────────────────────────────

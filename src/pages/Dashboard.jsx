@@ -2011,11 +2011,12 @@ export default function Dashboard() {
               template={activeSection}
               slideCount={effectiveSlideCount}
               data={(() => {
-                // MLB data path — simpler, self-contained
+                // MLB data path — includes briefing for standard slide
                 if (mlbActive) {
                   return {
                     mlbGames,
                     mlbHeadlines,
+                    mlbBriefing,
                     mlbPicks: mlbPicks ?? {},
                     canonicalPicks: mlbPicks ?? {},
                     games: mlbGames,

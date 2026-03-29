@@ -5,10 +5,14 @@
  * This is the universal MLB slide component that adapts its layout
  * based on the template type (daily, team, game, picks, division, league).
  *
+ * The Daily Briefing template sources content from MLB Home's
+ * "Today's Intelligence Briefing" (mlbBriefing field in data).
+ *
  * 1080×1350 artboard (IG 4:5).
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import styles from './MlbSingleSlide.module.css';
 
 function MlbLogo({ className }) {
@@ -28,6 +32,18 @@ function MlbLogo({ className }) {
   );
 }
 
+function Mascot({ className }) {
+  return (
+    <img
+      src="/mascot-mlb.png"
+      alt="Maximus"
+      className={className}
+      crossOrigin="anonymous"
+      onError={e => { e.currentTarget.style.display = 'none'; }}
+    />
+  );
+}
+
 function TeamLogo({ slug, className }) {
   const url = getMlbEspnLogoUrl(slug);
   if (!url) return null;
@@ -42,7 +58,6 @@ function TeamLogo({ slug, className }) {
   );
 }
 
-/** Format ML price like -132 or +210 */
 function fmtPrice(ml) {
   if (ml == null) return '';
   const n = Number(ml);
@@ -57,7 +72,6 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
     timeZone: 'America/Los_Angeles',
   });
 
-  // Extract content based on template type — null-safe
   let content;
   try {
     content = buildSlideContent(template, data, teamData, game, options);
@@ -74,70 +88,43 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       <div className={styles.bgGlow} aria-hidden="true" />
       <div className={styles.bgNoise} aria-hidden="true" />
 
-      {/* Broadcast header */}
+      {/* Mascot + Header */}
       <header className={styles.header}>
-        <div className={styles.logoRow}>
+        <Mascot className={styles.mascot} />
+        <div className={styles.brandRow}>
           <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} crossOrigin="anonymous" />
-          <div className={styles.logoMeta}>
-            <span className={styles.brandName}>MAXIMUS SPORTS</span>
-            <span className={styles.intelChip}>{categoryLabel}</span>
-          </div>
+          <span className={styles.brandName}>MAXIMUS SPORTS</span>
         </div>
-        <div className={styles.headerRight}>
-          {asOf && <div className={styles.asOf}>As of {asOf}</div>}
-          <div className={styles.maxIntel}>MAXIMUM INTELLIGENCE</div>
-        </div>
+        <span className={styles.intelChip}>{categoryLabel}</span>
       </header>
 
-      <div className={styles.programStrip} aria-hidden="true" />
-
-      {/* MLB crest + date */}
-      <div className={styles.mlbLogoZone}>
-        <MlbLogo className={styles.mlbLogo} />
-      </div>
-
+      {/* Date */}
       <div className={styles.dateZone}>
         <span className={styles.dateLabel}>{today}</span>
-        <span className={styles.dateSub}>MLB Intelligence</span>
       </div>
 
-      {/* Matchup / hero section */}
+      {/* Matchup zone (game insights) */}
       {content.matchup && (
         <div className={styles.matchupZone}>
           <div className={styles.matchupTeam}>
             <TeamLogo slug={content.matchup.awaySlug} className={styles.matchupLogo} />
-            <div className={styles.matchupTeamInfo}>
-              <span className={styles.matchupTeamName}>{content.matchup.awayName}</span>
-              {content.matchup.awayRecord && (
-                <span className={styles.matchupRecord}>{content.matchup.awayRecord}</span>
-              )}
-            </div>
+            <span className={styles.matchupTeamName}>{content.matchup.awayName}</span>
           </div>
-          <div className={styles.matchupVs}>
-            <span className={styles.vsText}>VS</span>
-            {content.matchup.time && <span className={styles.matchupTime}>{content.matchup.time}</span>}
-          </div>
+          <span className={styles.vsText}>VS</span>
           <div className={styles.matchupTeam}>
             <TeamLogo slug={content.matchup.homeSlug} className={styles.matchupLogo} />
-            <div className={styles.matchupTeamInfo}>
-              <span className={styles.matchupTeamName}>{content.matchup.homeName}</span>
-              {content.matchup.homeRecord && (
-                <span className={styles.matchupRecord}>{content.matchup.homeRecord}</span>
-              )}
-            </div>
+            <span className={styles.matchupTeamName}>{content.matchup.homeName}</span>
           </div>
         </div>
       )}
 
-      {/* Headline / primary insight */}
+      {/* Headline */}
       <div className={styles.headlineZone}>
-        <div className={styles.headlineDivider} />
         <h2 className={styles.headline}>{content.headline}</h2>
         {content.subheadline && <p className={styles.subheadline}>{content.subheadline}</p>}
-        <div className={styles.headlineDividerBottom} />
       </div>
 
-      {/* Pick / lean callout */}
+      {/* Pick callout */}
       {content.pickLabel && (
         <div className={styles.pickCallout}>
           <span className={styles.pickLabel}>{content.pickLabel}</span>
@@ -149,10 +136,10 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* Picks summary panel */}
+      {/* Picks panel */}
       {content.picks && content.picks.length > 0 && (
-        <div className={styles.picksPanel}>
-          <div className={styles.picksPanelHeader}>
+        <div className={styles.glassPanel}>
+          <div className={styles.panelHeader}>
             <span className={styles.sectionDot} />
             MAXIMUS'S PICKS
           </div>
@@ -172,25 +159,44 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* Intel bullets */}
+      {/* Intel bullets — glass panel */}
       {content.bullets && content.bullets.length > 0 && (
-        <div className={styles.bulletModule}>
-          <div className={styles.bulletHeader}>
+        <div className={styles.glassPanel}>
+          <div className={styles.panelHeader}>
             <span className={styles.sectionDot} />
-            {content.bulletLabel || 'KEY SIGNALS'}
+            {content.bulletLabel || 'KEY INTEL'}
           </div>
           <ul className={styles.bulletList}>
             {content.bullets.map((b, i) => (
               <li key={i} className={styles.bulletItem}>
-                <span className={styles.bulletIcon}>{b.icon || '⚾'}</span>
-                <span className={styles.bulletText}>{b.text}</span>
+                <span className={styles.bulletMarker}>•</span>
+                <span className={styles.bulletText}>{typeof b === 'string' ? b : b.text}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* Team focus (single team intel) */}
+      {/* Board pulse */}
+      {content.boardPulse && (
+        <div className={styles.boardPulse}>
+          <span className={styles.boardPulseIcon}>📊</span>
+          <span className={styles.boardPulseText}>{content.boardPulse}</span>
+        </div>
+      )}
+
+      {/* Matchups to watch */}
+      {content.matchupsToWatch && content.matchupsToWatch.length > 0 && (
+        <div className={styles.matchupsRow}>
+          {content.matchupsToWatch.map((m, i) => (
+            <span key={i} className={styles.matchupChip}>
+              {m.teamA} vs {m.teamB}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Team focus */}
       {content.teamFocus && (
         <div className={styles.teamFocusZone}>
           <TeamLogo slug={content.teamFocus.slug} className={styles.focusLogo} />
@@ -201,7 +207,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* Broadcast footer */}
+      {/* Footer */}
       <footer className={styles.footer}>
         <span className={styles.footerUrl}>maximussports.ai</span>
         <span className={styles.footerDisclaimer}>
@@ -218,44 +224,58 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
 
 function buildSlideContent(template, data, teamData, game, options) {
   switch (template) {
-    case 'team':
-      return buildTeamContent(teamData, options);
-    case 'game':
-      return buildGameContent(game, data, options);
-    case 'picks':
-      return buildPicksContent(data, options);
-    case 'league':
-      return buildLeagueContent(data, options);
-    case 'division':
-      return buildDivisionContent(data, options);
+    case 'team':   return buildTeamContent(teamData, options);
+    case 'game':   return buildGameContent(game, data, options);
+    case 'picks':  return buildPicksContent(data, options);
+    case 'league': return buildLeagueContent(data, options);
+    case 'division': return buildDivisionContent(data, options);
     case 'daily':
-    default:
-      return buildDailyContent(data, options);
+    default:       return buildDailyContent(data, options);
   }
 }
 
+/**
+ * Daily Briefing — now sourced from MLB Home "Today's Intelligence Briefing".
+ * Falls back to headlines only if briefing is unavailable.
+ */
 function buildDailyContent(data, options) {
+  const briefingText = data?.mlbBriefing;
+  const intel = parseBriefingToIntel(briefingText);
+
+  // If we have the real briefing, use it
+  if (intel) {
+    return {
+      category: 'MLB DAILY BRIEFING',
+      headline: intel.headline,
+      subheadline: intel.subhead || null,
+      bullets: intel.bullets.slice(0, 4),
+      bulletLabel: "TODAY'S INTELLIGENCE",
+      boardPulse: intel.boardPulse || null,
+      matchupsToWatch: intel.keyMatchups?.slice(0, 2) || null,
+      picks: null,
+      matchup: null,
+      pickLabel: null,
+    };
+  }
+
+  // Fallback: headlines / game count
   const games = data?.mlbGames ?? data?.games ?? [];
   const gamesCount = games.length;
   const headlines = data?.mlbHeadlines ?? [];
-
   const headline = headlines?.[0]?.headline || headlines?.[0]?.title
     || `${gamesCount} game${gamesCount !== 1 ? 's' : ''} on today's MLB slate`;
 
   const bullets = [];
-  if (headlines.length > 0) {
-    for (const h of headlines.slice(0, 3)) {
-      bullets.push({ icon: '📰', text: h.headline || h.title || '' });
-    }
+  for (const h of headlines.slice(0, 3)) {
+    const text = h.headline || h.title || '';
+    if (text) bullets.push(text);
   }
-  if (gamesCount > 0) {
-    bullets.push({ icon: '⚾', text: `${gamesCount} games across the MLB schedule today` });
-  }
+  if (gamesCount > 0) bullets.push(`${gamesCount} games across the MLB schedule today`);
 
   return {
     category: 'MLB DAILY BRIEFING',
     headline,
-    subheadline: `Full slate analysis and model-driven picks for today's MLB action.`,
+    subheadline: 'Full slate analysis and model-driven picks for today\'s MLB action.',
     bullets: bullets.slice(0, 4),
     bulletLabel: "TODAY'S HEADLINES",
     picks: null,
@@ -268,99 +288,58 @@ function buildTeamContent(teamData, options) {
   const team = teamData?.team ?? options?.mlbTeam;
   const slug = team?.slug || '';
   const name = team?.name || team?.displayName || slug;
-
   return {
     category: 'MLB TEAM INTEL',
     headline: `${name} Intel Report`,
     subheadline: 'Full model-driven team breakdown and projections.',
     teamFocus: { slug, name, record: team?.record },
-    bullets: [
-      { icon: '📊', text: `Season projection and model confidence` },
-      { icon: '⚾', text: `Rotation depth and bullpen analysis` },
-      { icon: '💡', text: `Market positioning and value signals` },
-    ],
-    picks: null,
-    matchup: null,
-    pickLabel: null,
+    bullets: ['Season projection and model confidence', 'Rotation depth and bullpen analysis', 'Market positioning and value signals'],
+    picks: null, matchup: null, pickLabel: null,
   };
 }
 
 function buildGameContent(game, data, options) {
   if (!game) {
-    return {
-      category: 'MLB GAME PREVIEW',
-      headline: 'Select a game to generate a preview',
-      subheadline: null,
-      bullets: [],
-      picks: null,
-      matchup: null,
-      pickLabel: null,
-    };
+    return { category: 'MLB GAME PREVIEW', headline: 'Select a game to generate a preview', subheadline: null, bullets: [], picks: null, matchup: null, pickLabel: null };
   }
-
   const awayName = game.awayTeam || 'Away';
   const homeName = game.homeTeam || 'Home';
-  const awaySlug = game.awaySlug || game.awayTeam?.toLowerCase?.()?.replace(/\s+/g, '-') || '';
-  const homeSlug = game.homeSlug || game.homeTeam?.toLowerCase?.()?.replace(/\s+/g, '-') || '';
+  const awaySlug = game.awaySlug || '';
+  const homeSlug = game.homeSlug || '';
   const spread = game.homeSpread ?? game.spread;
   const total = game.total;
   const ml = game.homeML ?? game.moneyline?.home;
-
   const bullets = [];
-  if (spread != null) bullets.push({ icon: '📐', text: `Run Line: ${homeName} ${parseFloat(spread) > 0 ? '+' : ''}${spread}` });
-  if (total != null) bullets.push({ icon: '📊', text: `Total: ${total}` });
-  if (ml != null) bullets.push({ icon: '💰', text: `Moneyline: ${homeName} ${fmtPrice(ml)}` });
-
+  if (spread != null) bullets.push(`Run Line: ${homeName} ${parseFloat(spread) > 0 ? '+' : ''}${spread}`);
+  if (total != null) bullets.push(`Total: ${total}`);
+  if (ml != null) bullets.push(`Moneyline: ${homeName} ${fmtPrice(ml)}`);
   return {
     category: 'MLB GAME PREVIEW',
     headline: `${awayName} at ${homeName}`,
-    subheadline: options?.gameAngle === 'story'
-      ? 'Key storylines and matchup dynamics.'
-      : 'Value-driven analysis and model edges.',
-    matchup: {
-      awayName, homeName, awaySlug, homeSlug,
-      awayRecord: game.awayRecord, homeRecord: game.homeRecord,
-      time: game.time || '',
-    },
-    bullets,
-    bulletLabel: 'MARKET SNAPSHOT',
-    picks: null,
-    pickLabel: null,
+    subheadline: options?.gameAngle === 'story' ? 'Key storylines and matchup dynamics.' : 'Value-driven analysis and model edges.',
+    matchup: { awayName, homeName, awaySlug, homeSlug, awayRecord: game.awayRecord, homeRecord: game.homeRecord, time: game.time || '' },
+    bullets, bulletLabel: 'MARKET SNAPSHOT', picks: null, pickLabel: null,
   };
 }
 
 function buildPicksContent(data, options) {
   const cp = data?.canonicalPicks ?? data?.mlbPicks ?? {};
   const cats = cp?.categories ?? {};
-
   const pickRows = [];
   const addPick = (cat, label, items) => {
     const top = items?.[0];
-    if (top) {
-      pickRows.push({ category: cat, label: top.pick?.label || label, confidence: top.confidence });
-    }
+    if (top) pickRows.push({ category: cat, label: top.pick?.label || label, confidence: top.confidence });
   };
   addPick("PICK 'EM", 'Moneyline', cats.pickEms);
   addPick('RUN LINE', 'Spread', cats.ats);
   addPick('VALUE LEAN', 'Value', cats.leans);
   addPick('TOTAL', 'Over/Under', cats.totals);
-
   const topPick = pickRows[0];
-  const headline = topPick
-    ? `Today's top play: ${topPick.label}`
-    : 'No strong lean on today\'s slate';
-
   return {
     category: "MAXIMUS'S PICKS",
-    headline,
-    subheadline: pickRows.length > 0
-      ? `${pickRows.length} qualified pick${pickRows.length !== 1 ? 's' : ''} across today's MLB board.`
-      : 'Model is waiting for stronger signal alignment.',
-    picks: pickRows,
-    bullets: null,
-    matchup: null,
-    pickLabel: topPick?.label || null,
-    pickConfidence: topPick?.confidence || null,
+    headline: topPick ? `Today's top play: ${topPick.label}` : 'No strong lean on today\'s slate',
+    subheadline: pickRows.length > 0 ? `${pickRows.length} qualified pick${pickRows.length !== 1 ? 's' : ''} across today's MLB board.` : 'Model is waiting for stronger signal alignment.',
+    picks: pickRows, bullets: null, matchup: null, pickLabel: topPick?.label || null, pickConfidence: topPick?.confidence || null,
   };
 }
 
@@ -370,15 +349,8 @@ function buildLeagueContent(data, options) {
     category: `${league === 'AL' ? 'AMERICAN' : 'NATIONAL'} LEAGUE INTEL`,
     headline: `${league === 'AL' ? 'American' : 'National'} League Overview`,
     subheadline: `Key storylines and competitive dynamics across the ${league}.`,
-    bullets: [
-      { icon: '🏆', text: `Division race updates and standings impact` },
-      { icon: '📊', text: `Model projections and playoff probabilities` },
-      { icon: '⚾', text: `Notable trends and emerging value` },
-    ],
-    bulletLabel: `${league} STORYLINES`,
-    picks: null,
-    matchup: null,
-    pickLabel: null,
+    bullets: ['Division race updates and standings impact', 'Model projections and playoff probabilities', 'Notable trends and emerging value'],
+    bulletLabel: `${league} STORYLINES`, picks: null, matchup: null, pickLabel: null,
   };
 }
 
@@ -388,14 +360,7 @@ function buildDivisionContent(data, options) {
     category: `${division.toUpperCase()} INTEL`,
     headline: `${division} Division Report`,
     subheadline: `Competitive landscape, projections, and value plays within the ${division}.`,
-    bullets: [
-      { icon: '🏆', text: `Division standings and race dynamics` },
-      { icon: '📊', text: `Team-by-team model projections` },
-      { icon: '💡', text: `Divisional matchup edges and trends` },
-    ],
-    bulletLabel: 'DIVISION SIGNALS',
-    picks: null,
-    matchup: null,
-    pickLabel: null,
+    bullets: ['Division standings and race dynamics', 'Team-by-team model projections', 'Divisional matchup edges and trends'],
+    bulletLabel: 'DIVISION SIGNALS', picks: null, matchup: null, pickLabel: null,
   };
 }
