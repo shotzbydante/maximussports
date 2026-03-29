@@ -216,21 +216,28 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY LAYOUT (fill entire 1080×1350):
-1. HEADER (100px): compact brand bar
-2. HERO (120px): WHITE headline, bold, centered, max 3 lines
-3. AROUND THE LEAGUE (220px): glass panel, 3 bullets, visible glowing border
-4. WORLD SERIES OUTLOOK (420px): LARGEST zone, 2-col grid, team rows with logos
-5. MATCHUPS TO WATCH (140px): team logos + "vs", glass panel
-6. FOOTER (50px)
+MANDATORY LAYOUT (fill entire 1080×1350 — USE BIG SCALE):
+1. HEADER (100px): compact brand bar with mascot
+2. HERO (140px): WHITE headline at ~32pt, bold, centered. Subhead at ~14pt, 52% opacity.
+3. AROUND THE LEAGUE (200px): glass panel, 3 bullets at ~14pt with team logos (24px)
+4. WORLD SERIES OUTLOOK (500px): LARGEST zone. 2-column grid (AL | NL).
+   Each team is a FULL CARD containing:
+   - Team logo (36px) + abbreviation (18pt bold) + odds (17pt)
+   - Projected wins chip (12pt) + signal badge + confidence tier
+   - "Key driver: ..." line (12pt)
+   - Market stance + win range line (11pt italic)
+   The cards must feel FULL and premium — like mini Season Intelligence cards.
+5. MATCHUPS TO WATCH (100px): team logos (26px) + names at 14pt
+6. FOOTER (40px)
 
-PANEL SPECS:
-- Standard panels: bg rgba(255,255,255,0.035), border 1px rgba(255,255,255,0.10),
-  box-shadow 0 0 16px rgba(180,20,40,0.10), border-radius 12px
-- World Series Outlook (hero): bg rgba(255,255,255,0.04), border 1px rgba(255,255,255,0.12),
-  box-shadow 0 0 28px rgba(180,20,40,0.16) — STRONGEST glow of all panels
-- Team rows inside outlook: bg rgba(255,255,255,0.025), subtle inner card, border-radius 10px
-- Header area should have a faint warm light source behind the mascot/title
+TEAM CARD SPEC (inside World Series Outlook):
+- Each card: bg rgba(255,255,255,0.025), border 1px rgba(255,255,255,0.06),
+  border-radius 10px, padding 14px, box-shadow with subtle red glow
+- Logo: 36px. Team name: 18pt bold. Odds: 17pt right-aligned.
+- Below: projected wins + signal chip + confidence chip on one row
+- Below: "Key driver: Rotation" or "Key driver: Offense" line
+- Below: "Model above market · Range: 92–106W" italic line
+- Cards should fill their column height — no empty space inside
 
 ---
 
