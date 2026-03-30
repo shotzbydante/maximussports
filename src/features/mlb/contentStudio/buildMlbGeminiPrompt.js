@@ -217,29 +217,27 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 ---
 
 MANDATORY LAYOUT — TOP 50% EDITORIAL, BOTTOM 50% INTEL CARDS:
-1. HEADER (80px): compact brand bar with mascot (52px)
-2. HERO (140px): WHITE headline at ~38pt bold. Subhead at ~16pt, 60% opacity.
-3. AROUND THE LEAGUE (280px): glass panel with 5 editorial bullets at ~15pt. NO duplicate teams.
-   Each bullet covers a different theme. This is the editorial lead section.
-4. WORLD SERIES OUTLOOK (420px): 2-column grid (AL | NL). Top 3 by PROJECTED WINS.
-   Compact cards with: logo + name + odds, "Projected wins: N", confidence, vs market, key driver.
+1. HEADER (80px): compact brand bar
+2. HERO (140px): WHITE headline ~38pt. Subhead ~16pt, 60% opacity.
+3. AROUND THE LEAGUE (300px): glass panel with 3-4 EDITORIAL BLOCKS (not bullets).
+   Each block has a bold ALL-CAPS title + 1-2 sentence body.
+   Titles like: HOT OFF THE PRESS, PENNANT RACE INSIGHTS, MARKET SIGNAL, DIAMOND DISPATCH.
+   No duplicate teams. Each block covers a different theme.
+4. WORLD SERIES OUTLOOK (400px): 2-column grid (AL | NL). Top 3 by PROJECTED WINS.
+   Each team card has EXACTLY 4 lines. No more.
 5. FOOTER (30px)
 
-TEAMS ARE SORTED BY PROJECTED WINS — not by odds.
+AROUND THE LEAGUE = EDITORIAL BLOCKS (not bullets):
+- 3-4 titled sections, each with BOLD ALL-CAPS title + body text
+- Feels like a sports column, not a bullet list
+- Professional, editorial, factual tone
 
-AROUND THE LEAGUE RULES:
-- Must have 5 editorial bullets covering different teams/themes
-- No single team should appear in more than 1 bullet
-- Each bullet is a distinct league storyline
-- Text must be 15pt+ and readable
-
-TEAM CARD SPEC (compact — bottom half):
-- Logo: 34px. Team name: 20pt bold. Odds: 18pt.
-- "Projected wins: 91" format — NOT "91W"
-- Confidence tier chip
-- "+4.5 vs mkt" delta display
-- "Key driver: Offense" + market stance
-- Cards fill column height but are COMPACT — not oversized
+TEAM CARD — EXACTLY 4 LINES (no more, no less):
+  Line 1: Team logo + abbreviation (20pt bold) + odds (18pt right)
+  Line 2: "Projected wins: 91" (13pt)
+  Line 3: "Confidence: Medium-High  +4.5 vs mkt" (12pt)
+  Line 4: "Key driver: Offense · Model above market" (12pt italic)
+If a card has more than 4 lines, it is INCORRECT.
 
 ---
 

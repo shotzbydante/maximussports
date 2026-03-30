@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
    MlbSingleSlide — Full-canvas MLB IG card (1080×1350)
-   Top 50%: editorial briefing. Bottom 50%: season intel cards.
+   Editorial blocks + compact 4-line team intel cards.
    ══════════════════════════════════════════════════════════════ */
 
 .artboard {
@@ -74,7 +74,7 @@
 .matchupName { font-size: 20px; font-weight: 800; text-transform: uppercase; }
 .vsLabel { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.24); letter-spacing: 0.08em; }
 
-/* ── EDITORIAL PANEL (Around the League — larger, more narrative) ── */
+/* ── EDITORIAL PANEL ── */
 .editorialPanel {
   position: relative; z-index: 10;
   margin: 3px 28px; padding: 14px 18px;
@@ -85,7 +85,7 @@
 }
 .panelHead {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 8px; padding-bottom: 4px;
+  margin-bottom: 10px; padding-bottom: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .panelLabel {
@@ -98,12 +98,22 @@
   box-shadow: 0 0 8px rgba(255,255,255,0.18);
 }
 
-/* ── Storylines (5 bullets, larger text) ── */
-.storylineList { display: flex; flex-direction: column; gap: 6px; }
-.storylineRow { display: flex; align-items: flex-start; gap: 10px; }
-.storylineText { font-size: 15px; line-height: 1.40; color: rgba(255,255,255,0.72); flex: 1; }
+/* ── Editorial blocks (titled sections, not bullets) ── */
+.editorialList { display: flex; flex-direction: column; gap: 8px; }
+.editorialBlock {
+  font-size: 14px; line-height: 1.42; color: rgba(255,255,255,0.70);
+}
+.editorialTitle {
+  font-weight: 700; color: rgba(255,255,255,0.85);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 12px;
+}
+.editorialBody {
+  color: rgba(255,255,255,0.68);
+}
+
+.teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
 .bulletDot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.25); flex-shrink: 0; margin-top: 8px; }
-.teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; margin-top: 1px; }
 
 /* ── Picks ── */
 .picksGrid { display: flex; gap: 6px; }
@@ -111,7 +121,7 @@
 .pickType { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
 .pickVal { font-size: 16px; font-weight: 700; color: #fff; text-align: center; }
 
-/* ── OUTLOOK PANEL (bottom ~50% — compact cards) ── */
+/* ── OUTLOOK PANEL ── */
 .outlookPanel {
   position: relative; z-index: 10;
   margin: 3px 28px; padding: 10px 12px;
@@ -134,7 +144,7 @@
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-/* ── Team intel card — COMPACT, data-dense ── */
+/* ── TEAM CARD — exactly 4 lines ── */
 .teamCard {
   display: flex; flex-direction: column;
   justify-content: space-between;
@@ -146,8 +156,8 @@
   gap: 2px;
 }
 
-/* Header: logo + name + odds */
-.tcHeader {
+/* Line 1: logo + name + odds */
+.tcRow1 {
   display: flex; align-items: center; gap: 8px;
 }
 .tcName {
@@ -159,37 +169,22 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Stats row */
-.tcStats {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+/* Line 2: projected wins */
+.tcRow2 {
+  font-size: 13px; color: rgba(255,255,255,0.60);
 }
-.tcStat { display: flex; align-items: baseline; gap: 3px; }
-.tcStatLabel {
-  font-size: 11px; color: rgba(255,255,255,0.45);
-}
-.tcStatVal {
-  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.82);
-  font-variant-numeric: tabular-nums;
-}
-.tcChip {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; color: rgba(255,255,255,0.45);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  padding: 1px 6px; border-radius: 3px;
-}
-.tcDelta {
-  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.50);
-  font-variant-numeric: tabular-nums;
+.tcRow2 strong {
+  color: rgba(255,255,255,0.85); font-weight: 700;
 }
 
-/* Detail: driver + stance */
-.tcDetail {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  font-size: 12px; color: rgba(255,255,255,0.50);
+/* Line 3: confidence + delta */
+.tcRow3 {
+  font-size: 12px; color: rgba(255,255,255,0.52);
 }
-.tcStance {
-  color: rgba(255,255,255,0.40);
+
+/* Line 4: driver + stance */
+.tcRow4 {
+  font-size: 12px; color: rgba(255,255,255,0.45);
   font-style: italic;
 }
 
