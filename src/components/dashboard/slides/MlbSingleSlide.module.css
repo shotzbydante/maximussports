@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
    MlbSingleSlide — Full-canvas MLB IG card (1080×1350)
-   Scaled-up typography + team intel cards. Zero dead space.
+   FINAL PASS: max readability, zero dead space, mobile-first scale.
    ══════════════════════════════════════════════════════════════ */
 
 .artboard {
@@ -19,7 +19,7 @@
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
   background:
-    radial-gradient(ellipse at 50% 16%, rgba(220,40,60,0.12) 0%, transparent 38%),
+    radial-gradient(ellipse at 50% 14%, rgba(220,40,60,0.14) 0%, transparent 36%),
     radial-gradient(ellipse at 50% 50%, rgba(180,20,40,0.08) 0%, transparent 55%);
 }
 
@@ -27,58 +27,58 @@
 .header {
   position: relative; z-index: 10;
   display: flex; flex-direction: column; align-items: center;
-  padding: 28px 48px 0; gap: 5px;
+  padding: 24px 40px 0; gap: 4px;
 }
-.headerTop { display: flex; align-items: center; gap: 14px; }
+.headerTop { display: flex; align-items: center; gap: 12px; }
 .brandRow { display: flex; align-items: center; gap: 8px; }
-.brandLogo { width: 26px; height: 26px; object-fit: contain; }
+.brandLogo { width: 28px; height: 28px; object-fit: contain; }
 .brandName {
-  font-size: 13px; font-weight: 800; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(255,255,255,0.88);
+  font-size: 14px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(255,255,255,0.90);
 }
 .mascot {
-  width: 64px; height: 64px; object-fit: contain;
+  width: 60px; height: 60px; object-fit: contain;
   filter: drop-shadow(0 3px 10px rgba(0,0,0,0.50)) drop-shadow(0 0 12px rgba(220,40,60,0.12));
 }
 .badge {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.82);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.85);
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
-  padding: 4px 16px; border-radius: 6px;
+  padding: 4px 18px; border-radius: 6px;
   box-shadow: 0 0 10px rgba(180,20,40,0.08);
 }
-.dateLine { font-size: 11px; color: rgba(255,255,255,0.30); margin-top: 2px; }
+.dateLine { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 1px; }
 
-/* ── HERO — scaled up ── */
+/* ── HERO ── */
 .heroZone {
   position: relative; z-index: 10;
-  padding: 16px 48px 10px; text-align: center;
+  padding: 14px 44px 6px; text-align: center;
 }
 .headline {
-  font-size: 32px; font-weight: 800; line-height: 1.14;
+  font-size: 36px; font-weight: 800; line-height: 1.12;
   color: #fff; margin: 0;
   text-shadow: 0 2px 18px rgba(0,0,0,0.40);
 }
 .subhead {
-  font-size: 14px; line-height: 1.42; color: rgba(255,255,255,0.52);
-  margin: 8px 0 0;
+  font-size: 15px; line-height: 1.40; color: rgba(255,255,255,0.58);
+  margin: 6px 0 0;
 }
 
 /* ── Matchup hero ── */
 .matchupHero {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  gap: 16px; padding: 8px 48px;
+  gap: 16px; padding: 6px 44px;
 }
 .matchupSide { display: flex; align-items: center; gap: 8px; }
-.matchupName { font-size: 17px; font-weight: 800; text-transform: uppercase; }
-.vsLabel { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.20); letter-spacing: 0.08em; }
+.matchupName { font-size: 18px; font-weight: 800; text-transform: uppercase; }
+.vsLabel { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.22); letter-spacing: 0.08em; }
 
 /* ── PANEL ── */
 .panel {
   position: relative; z-index: 10;
-  margin: 4px 36px; padding: 14px 18px;
+  margin: 3px 32px; padding: 12px 16px;
   background: rgba(255,255,255,0.035);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 12px;
@@ -86,75 +86,77 @@
 }
 .panelHead {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 10px; padding-bottom: 6px;
+  margin-bottom: 8px; padding-bottom: 5px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 .panelLabel {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.42);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.48);
   text-shadow: 0 0 10px rgba(255,255,255,0.08);
 }
 .panelDot {
   width: 5px; height: 5px; border-radius: 50%;
-  background: rgba(255,255,255,0.35);
-  box-shadow: 0 0 8px rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.40);
+  box-shadow: 0 0 8px rgba(255,255,255,0.20);
 }
 
 /* ── Storylines ── */
-.storylineList { display: flex; flex-direction: column; gap: 8px; }
+.storylineList { display: flex; flex-direction: column; gap: 7px; }
 .storylineRow { display: flex; align-items: flex-start; gap: 10px; }
-.storylineText { font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.70); flex: 1; }
-.bulletDot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.22); flex-shrink: 0; margin-top: 7px; }
+.storylineText { font-size: 15px; line-height: 1.42; color: rgba(255,255,255,0.72); flex: 1; }
+.bulletDot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.25); flex-shrink: 0; margin-top: 8px; }
 .teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; margin-top: 1px; }
 
 /* ── Picks ── */
 .picksGrid { display: flex; gap: 6px; }
 .pickCell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; background: rgba(255,255,255,0.02); border-radius: 8px; }
-.pickType { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.28); }
-.pickVal { font-size: 13px; font-weight: 700; color: #fff; text-align: center; }
+.pickType { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.30); }
+.pickVal { font-size: 14px; font-weight: 700; color: #fff; text-align: center; }
 
-/* ── WORLD SERIES OUTLOOK — hero data module ── */
+/* ── WORLD SERIES OUTLOOK ── */
 .intelPanel {
   position: relative; z-index: 10;
-  margin: 4px 36px; padding: 16px 16px;
+  margin: 3px 32px; padding: 12px 14px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 14px;
   box-shadow: 0 0 28px rgba(180,20,40,0.16), 0 0 10px rgba(255,255,255,0.03), 0 6px 28px rgba(0,0,0,0.25);
-  flex: 1; min-height: 340px;
+  flex: 1; min-height: 360px;
   display: flex; flex-direction: column;
 }
 .intelGrid {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10px; flex: 1;
+  gap: 8px; flex: 1;
 }
-.intelCol { display: flex; flex-direction: column; gap: 8px; }
+.intelCol { display: flex; flex-direction: column; gap: 6px; }
 .leagueTag {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.32);
-  padding-bottom: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.38);
+  padding-bottom: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-/* ── Team intel card — mini Season Intelligence card ── */
+/* ── Team intel card ── */
 .teamCard {
-  display: flex; flex-direction: column; gap: 5px;
-  padding: 14px 14px;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 12px;
   background: rgba(255,255,255,0.025);
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 0 8px rgba(180,20,40,0.06);
   flex: 1;
+  gap: 4px;
 }
 .teamCardTop {
   display: flex; align-items: center; gap: 10px;
 }
 .teamCardName {
-  font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.92);
+  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.94);
   flex: 1;
 }
 .teamCardOdds {
-  font-size: 17px; font-weight: 700; color: rgba(255,255,255,0.50);
+  font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.55);
   font-variant-numeric: tabular-nums;
 }
 
@@ -163,56 +165,56 @@
   display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
 }
 .projChip {
-  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.75);
+  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.78);
   font-variant-numeric: tabular-nums;
 }
 .projLabel {
-  font-size: 8px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: rgba(255,255,255,0.30);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
   margin-right: 2px;
 }
 .signalChip {
-  font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.45);
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.07);
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
   padding: 2px 8px; border-radius: 4px;
 }
 .confChip {
-  font-size: 8px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; color: rgba(255,255,255,0.35);
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.05);
-  padding: 1px 6px; border-radius: 3px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.42);
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 2px 7px; border-radius: 3px;
 }
 
 /* Driver + market lines */
 .teamCardDriver {
-  font-size: 12px; line-height: 1.35; color: rgba(255,255,255,0.42);
+  font-size: 13px; line-height: 1.35; color: rgba(255,255,255,0.52);
 }
 .teamCardMarket {
-  font-size: 11px; line-height: 1.30; color: rgba(255,255,255,0.32);
+  font-size: 12px; line-height: 1.30; color: rgba(255,255,255,0.40);
   font-style: italic;
 }
 
 /* ── MATCHUPS ── */
-.matchupsList { display: flex; flex-direction: column; gap: 6px; }
+.matchupsList { display: flex; flex-direction: column; gap: 5px; }
 .matchupRow {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px;
   background: rgba(255,255,255,0.02); border-radius: 8px;
 }
-.matchupTeam { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.72); }
-.matchupVs { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.18); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 2px; }
+.matchupTeam { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.75); }
+.matchupVs { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.20); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 2px; }
 
 /* ── Team focus ── */
-.teamFocusRow { position: relative; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 6px 44px; }
-.focusName { font-size: 18px; font-weight: 800; text-transform: uppercase; }
+.teamFocusRow { position: relative; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 6px 40px; }
+.focusName { font-size: 20px; font-weight: 800; text-transform: uppercase; }
 
 /* ── FOOTER ── */
 .footer {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 36px 20px;
+  padding: 8px 32px 18px;
 }
-.footerUrl { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.18); letter-spacing: 0.03em; }
-.footerDisclaimer { font-size: 8px; color: rgba(255,255,255,0.10); max-width: 240px; text-align: right; }
+.footerUrl { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.20); letter-spacing: 0.03em; }
+.footerDisclaimer { font-size: 9px; color: rgba(255,255,255,0.12); max-width: 260px; text-align: right; }

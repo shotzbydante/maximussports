@@ -216,28 +216,31 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY LAYOUT (fill entire 1080×1350 — USE BIG SCALE):
-1. HEADER (100px): compact brand bar with mascot
-2. HERO (140px): WHITE headline at ~32pt, bold, centered. Subhead at ~14pt, 52% opacity.
-3. AROUND THE LEAGUE (200px): glass panel, 3 bullets at ~14pt with team logos (24px)
-4. WORLD SERIES OUTLOOK (500px): LARGEST zone. 2-column grid (AL | NL).
-   Each team is a FULL CARD containing:
-   - Team logo (36px) + abbreviation (18pt bold) + odds (17pt)
-   - Projected wins chip (12pt) + signal badge + confidence tier
-   - "Key driver: ..." line (12pt)
-   - Market stance + win range line (11pt italic)
-   The cards must feel FULL and premium — like mini Season Intelligence cards.
-5. MATCHUPS TO WATCH (100px): team logos (26px) + names at 14pt
-6. FOOTER (40px)
+MANDATORY LAYOUT (fill entire 1080×1350 — LARGE MOBILE-FIRST SCALE):
+1. HEADER (90px): compact brand bar with mascot (60px)
+2. HERO (150px): WHITE headline at ~36pt bold. Subhead at ~15pt, 58% opacity. LARGE and commanding.
+3. AROUND THE LEAGUE (180px): glass panel, 3 bullets at ~15pt with team logos (24px)
+4. WORLD SERIES OUTLOOK (520px): LARGEST zone. 2-column grid (AL | NL).
+   Each team is a FULL CARD that fills its height using justify-content: space-between.
+5. MATCHUPS TO WATCH (100px): team logos (26px) + names at 15pt
+6. FOOTER (36px)
+
+CRITICAL SCALE RULES:
+- All text must be LARGE enough to read on a phone without zooming
+- Headline: 36pt minimum. This is the most important text on the card.
+- Body text: 15pt minimum. Nothing should feel like microtext.
+- Team names in cards: 20pt bold. Odds next to them: 20pt.
+- Rationale/driver text: 13pt minimum, NOT faint — 50%+ opacity.
+- Content should feel large, legible, and optimized for mobile viewing.
+- If it feels "slightly too big" on desktop, that is CORRECT for IG.
 
 TEAM CARD SPEC (inside World Series Outlook):
-- Each card: bg rgba(255,255,255,0.025), border 1px rgba(255,255,255,0.06),
-  border-radius 10px, padding 14px, box-shadow with subtle red glow
-- Logo: 36px. Team name: 18pt bold. Odds: 17pt right-aligned.
-- Below: projected wins + signal chip + confidence chip on one row
-- Below: "Key driver: Rotation" or "Key driver: Offense" line
-- Below: "Model above market · Range: 92–106W" italic line
-- Cards should fill their column height — no empty space inside
+- Each card uses justify-content: space-between to fill its column height
+- Logo: 36px. Team name: 20pt bold. Odds: 20pt right-aligned.
+- Chips row: projected wins (14pt) + signal badge (10pt) + confidence tier (9pt)
+- "Key driver: ..." at 13pt, 52% opacity
+- "Market stance · Range" at 12pt italic, 40% opacity
+- Cards MUST fill their height — no empty space, content distributed top to bottom
 
 ---
 
