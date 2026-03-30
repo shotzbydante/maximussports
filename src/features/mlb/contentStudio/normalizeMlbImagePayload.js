@@ -277,7 +277,8 @@ function buildDailyPayload(base, intelBriefing, games, picks, champOdds) {
           marketStance: proj?.takeaways?.marketStance ?? null,
         });
       }
-      entries.sort((a, b) => a.odds - b.odds);
+      // Sort by projected wins DESCENDING (not by odds)
+      entries.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
       const al = entries.filter(e => e.league === 'AL').slice(0, 3);
       const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
       if (al.length > 0 || nl.length > 0) seasonIntel = { al, nl };

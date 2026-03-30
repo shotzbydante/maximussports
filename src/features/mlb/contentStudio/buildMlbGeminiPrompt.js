@@ -216,31 +216,30 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY LAYOUT (fill entire 1080×1350 — AGGRESSIVE MOBILE-FIRST SCALE):
-1. HEADER (85px): compact brand bar with mascot (56px)
-2. HERO (160px): WHITE headline at ~42pt bold. Subhead at ~17pt, 65% opacity. DOMINANT.
-3. AROUND THE LEAGUE (170px): glass panel, 3 bullets at ~16pt with team logos (28px)
-4. WORLD SERIES OUTLOOK (540px): LARGEST zone. 2-column grid (AL | NL).
-   Each team is a FULL CARD with justify-content: space-between.
-5. MATCHUPS TO WATCH (95px): team logos (30px) + names at 16pt
-6. FOOTER (30px)
+MANDATORY LAYOUT — TOP 50% EDITORIAL, BOTTOM 50% INTEL CARDS:
+1. HEADER (80px): compact brand bar with mascot (52px)
+2. HERO (140px): WHITE headline at ~38pt bold. Subhead at ~16pt, 60% opacity.
+3. AROUND THE LEAGUE (280px): glass panel with 5 editorial bullets at ~15pt. NO duplicate teams.
+   Each bullet covers a different theme. This is the editorial lead section.
+4. WORLD SERIES OUTLOOK (420px): 2-column grid (AL | NL). Top 3 by PROJECTED WINS.
+   Compact cards with: logo + name + odds, "Projected wins: N", confidence, vs market, key driver.
+5. FOOTER (30px)
 
-CRITICAL SCALE RULES — THIS IS AN INSTAGRAM GRAPHIC, NOT A DASHBOARD:
-- Headline: 42pt minimum. Must DOMINATE the card. If it feels too big, it is correct.
-- Body text: 16pt minimum. Nothing below 13pt anywhere on the card.
-- Team names in cards: 24pt bold. Odds next to them: 24pt. They must POP.
-- Projected wins: 15pt. Signal chips: 11pt. Conference chips: 10pt.
-- Driver text: 14pt, 60% opacity. Market text: 13pt, 50% opacity.
-- If content feels small or sparse, it is INCORRECT.
-- The card should feel like a PREMIUM SPORTS MEDIA GRAPHIC, not a UI component.
+TEAMS ARE SORTED BY PROJECTED WINS — not by odds.
 
-TEAM CARD SPEC (inside World Series Outlook):
-- Each card: justify-content: space-between, fills its column height
-- Team logo: 42px. Team name: 24pt bold. Odds: 24pt right-aligned.
-- Chips: projected wins (15pt) + signal badge (11pt) + confidence (10pt)
-- "Key driver: ..." at 14pt, 60% opacity — NOT faint
-- "Market stance · Range" at 13pt italic, 50% opacity — readable
-- Cards are DENSE and FULL — no empty padding, content distributed evenly
+AROUND THE LEAGUE RULES:
+- Must have 5 editorial bullets covering different teams/themes
+- No single team should appear in more than 1 bullet
+- Each bullet is a distinct league storyline
+- Text must be 15pt+ and readable
+
+TEAM CARD SPEC (compact — bottom half):
+- Logo: 34px. Team name: 20pt bold. Odds: 18pt.
+- "Projected wins: 91" format — NOT "91W"
+- Confidence tier chip
+- "+4.5 vs mkt" delta display
+- "Key driver: Offense" + market stance
+- Cards fill column height but are COMPACT — not oversized
 
 ---
 

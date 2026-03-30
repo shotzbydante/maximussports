@@ -1,8 +1,8 @@
 /**
  * MlbSingleSlide — Premium full-canvas MLB IG post (1080×1350).
  *
- * Full-page editorial briefing. NCAAM-inspired scale and density.
- * Season Intelligence data powers the World Series Outlook cards.
+ * Top ~50%: editorial briefing (Around the League — 5 deduped bullets)
+ * Bottom ~50%: Season Intelligence leaders (top 3 AL + top 3 NL by projected wins)
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
@@ -30,8 +30,13 @@ function resolveSlug(name) {
 function fmtOdds(v) {
   if (v == null) return '—';
   const n = Number(v);
-  if (isNaN(n)) return String(v);
-  return n > 0 ? `+${n}` : `${n}`;
+  return isNaN(n) ? String(v) : n > 0 ? `+${n}` : `${n}`;
+}
+
+function fmtDelta(v) {
+  if (v == null) return '';
+  const n = Number(v);
+  return isNaN(n) ? '' : n > 0 ? `+${n}` : `${n}`;
 }
 
 function stripEmojis(text) {
@@ -39,71 +44,77 @@ function stripEmojis(text) {
   return text.replace(/[\u{1F300}-\u{1FAD6}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
 }
 
+/** Top 3 AL + top 3 NL sorted by PROJECTED WINS (descending). */
 function buildSeasonIntelLeaders(champOdds) {
   const entries = [];
-  const slugsWithOdds = champOdds ? Object.keys(champOdds) : [];
-  for (const slug of slugsWithOdds) {
-    const team = MLB_TEAMS.find(t => t.slug === slug);
-    if (!team) continue;
-    const odds = champOdds[slug];
-    const oddsVal = odds?.bestChanceAmerican ?? odds?.american ?? null;
-    if (oddsVal == null) continue;
-    const proj = getTeamProjection(slug);
+  // Build from ALL teams with projections, not just those with championship odds
+  for (const team of MLB_TEAMS) {
+    const proj = getTeamProjection(team.slug);
+    if (!proj || !proj.projectedWins) continue;
+    const oddsData = champOdds?.[team.slug];
+    const oddsVal = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
     entries.push({
-      slug, name: team.name, abbrev: team.abbrev, league: team.league, odds: oddsVal,
-      projectedWins: proj?.projectedWins ?? null,
-      floor: proj?.floor ?? null, ceiling: proj?.ceiling ?? null,
-      confidenceTier: proj?.confidenceTier ?? null,
-      signals: proj?.signals ?? [],
-      strongestDriver: proj?.takeaways?.strongestDriver ?? null,
-      marketStance: proj?.takeaways?.marketStance ?? null,
-      divOutlook: proj?.divOutlook ?? null,
-      stability: proj?.takeaways?.stability ?? null,
+      slug: team.slug, name: team.name, abbrev: team.abbrev, league: team.league,
+      projectedWins: proj.projectedWins,
+      floor: proj.floor, ceiling: proj.ceiling,
+      odds: oddsVal,
+      confidenceTier: proj.confidenceTier ?? null,
+      confidenceScore: proj.confidenceScore ?? null,
+      signals: proj.signals ?? [],
+      strongestDriver: proj.takeaways?.strongestDriver ?? null,
+      biggestDrag: proj.takeaways?.biggestDrag ?? null,
+      marketStance: proj.takeaways?.marketStance ?? null,
+      marketWinTotal: proj.marketWinTotal ?? null,
+      marketDelta: proj.marketDelta ?? null,
+      divOutlook: proj.divOutlook ?? null,
+      rationale: proj.rationale ?? null,
     });
   }
-  entries.sort((a, b) => a.odds - b.odds);
+  // Sort by projected wins DESCENDING
+  entries.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
   const al = entries.filter(e => e.league === 'AL').slice(0, 3);
   const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
   if (al.length === 0 && nl.length === 0) return null;
   return { al, nl };
 }
 
-/** Renders a single team intelligence card inside the outlook grid */
+/** Compact team intel card — richer Season Intelligence data */
 function TeamIntelCard({ t }) {
+  // Build a short rationale from the full rationale text (first sentence)
+  let shortRationale = '';
+  if (t.rationale) {
+    const match = t.rationale.match(/^(.+?[.!])\s/);
+    shortRationale = match ? match[1] : t.rationale.slice(0, 100);
+  }
+
   return (
     <div className={styles.teamCard}>
-      {/* Row 1: Logo + Name + Odds */}
-      <div className={styles.teamCardTop}>
-        <TeamLogo slug={t.slug} size={42} />
-        <div className={styles.teamCardName}>{t.abbrev}</div>
-        <div className={styles.teamCardOdds}>{fmtOdds(t.odds)}</div>
+      {/* Header: logo + name + odds */}
+      <div className={styles.tcHeader}>
+        <TeamLogo slug={t.slug} size={34} />
+        <span className={styles.tcName}>{t.abbrev}</span>
+        {t.odds != null && <span className={styles.tcOdds}>{fmtOdds(t.odds)}</span>}
       </div>
 
-      {/* Row 2: Projection + Signal chips */}
-      <div className={styles.teamCardChips}>
-        {t.projectedWins && (
-          <span className={styles.projChip}>
-            <span className={styles.projLabel}>PROJ</span> {t.projectedWins}W
-          </span>
+      {/* Stats row: proj wins + confidence + vs market */}
+      <div className={styles.tcStats}>
+        <span className={styles.tcStat}>
+          <span className={styles.tcStatLabel}>Projected wins:</span>
+          <span className={styles.tcStatVal}>{t.projectedWins}</span>
+        </span>
+        {t.confidenceTier && (
+          <span className={styles.tcChip}>{t.confidenceTier}</span>
         )}
-        {t.signals?.[0] && <span className={styles.signalChip}>{t.signals[0]}</span>}
-        {t.confidenceTier && <span className={styles.confChip}>{t.confidenceTier}</span>}
+        {t.marketDelta != null && (
+          <span className={styles.tcDelta}>{fmtDelta(t.marketDelta)} vs mkt</span>
+        )}
       </div>
 
-      {/* Row 3: Key driver */}
-      {t.strongestDriver && (
-        <div className={styles.teamCardDriver}>
-          Key driver: {t.strongestDriver}
-        </div>
-      )}
-
-      {/* Row 4: Market stance */}
-      {t.marketStance && (
-        <div className={styles.teamCardMarket}>
-          {t.marketStance}
-          {t.floor && t.ceiling ? ` · Range: ${t.floor}–${t.ceiling}W` : ''}
-        </div>
-      )}
+      {/* Driver + stance */}
+      <div className={styles.tcDetail}>
+        {t.strongestDriver && <span>Key driver: {t.strongestDriver}</span>}
+        {t.marketStance && <span className={styles.tcStance}>{t.marketStance}</span>}
+      </div>
     </div>
   );
 }
@@ -152,14 +163,14 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── STORYLINES ── */}
+      {/* ── AROUND THE LEAGUE (5 bullets) ── */}
       {content.storylines?.length > 0 && (
-        <div className={styles.panel}>
+        <div className={styles.editorialPanel}>
           <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>AROUND THE LEAGUE</span></div>
           <div className={styles.storylineList}>
             {content.storylines.map((s, i) => (
               <div key={i} className={styles.storylineRow}>
-                {s.slug ? <TeamLogo slug={s.slug} size={28} /> : <span className={styles.bulletDot} />}
+                {s.slug ? <TeamLogo slug={s.slug} size={24} /> : <span className={styles.bulletDot} />}
                 <span className={styles.storylineText}>{s.text}</span>
               </div>
             ))}
@@ -169,7 +180,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
 
       {/* ── Bullets fallback ── */}
       {!content.storylines && content.bullets?.length > 0 && (
-        <div className={styles.panel}>
+        <div className={styles.editorialPanel}>
           <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>{content.bulletLabel || 'KEY INTEL'}</span></div>
           <div className={styles.storylineList}>
             {content.bullets.map((b, i) => (
@@ -181,7 +192,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
 
       {/* ── Picks ── */}
       {content.picks?.length > 0 && (
-        <div className={styles.panel}>
+        <div className={styles.editorialPanel}>
           <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>MAXIMUS'S PICKS</span></div>
           <div className={styles.picksGrid}>
             {content.picks.map((p, i) => (<div key={i} className={styles.pickCell}><span className={styles.pickType}>{p.category}</span><span className={styles.pickVal}>{p.label}</span></div>))}
@@ -189,39 +200,23 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── WORLD SERIES OUTLOOK — hero data module ── */}
+      {/* ── SEASON INTELLIGENCE LEADERS (bottom ~50%) ── */}
       {content.seasonIntel && (
-        <div className={styles.intelPanel}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>WORLD SERIES OUTLOOK</span></div>
-          <div className={styles.intelGrid}>
+        <div className={styles.outlookPanel}>
+          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>WORLD SERIES OUTLOOK — BY PROJECTED WINS</span></div>
+          <div className={styles.outlookGrid}>
             {content.seasonIntel.al.length > 0 && (
-              <div className={styles.intelCol}>
+              <div className={styles.outlookCol}>
                 <span className={styles.leagueTag}>AMERICAN LEAGUE</span>
                 {content.seasonIntel.al.map((t, i) => <TeamIntelCard key={i} t={t} />)}
               </div>
             )}
             {content.seasonIntel.nl.length > 0 && (
-              <div className={styles.intelCol}>
+              <div className={styles.outlookCol}>
                 <span className={styles.leagueTag}>NATIONAL LEAGUE</span>
                 {content.seasonIntel.nl.map((t, i) => <TeamIntelCard key={i} t={t} />)}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── MATCHUPS ── */}
-      {content.matchupsToWatch?.length > 0 && (
-        <div className={styles.panel}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>MATCHUPS TO WATCH</span></div>
-          <div className={styles.matchupsList}>
-            {content.matchupsToWatch.map((m, i) => (
-              <div key={i} className={styles.matchupRow}>
-                <TeamLogo slug={m.slugA} size={30} /><span className={styles.matchupTeam}>{m.teamA}</span>
-                <span className={styles.matchupVs}>vs</span>
-                <span className={styles.matchupTeam}>{m.teamB}</span><TeamLogo slug={m.slugB} size={30} />
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -258,14 +253,29 @@ function buildDailyContent(data) {
   const champOdds = data?.mlbChampOdds ?? {};
   const seasonIntel = buildSeasonIntelLeaders(champOdds);
 
+  // Build 5 storylines with team deduplication
   const storylines = [];
-  for (const b of (intel?.bullets || []).slice(0, 3)) {
+  const usedTeams = new Set();
+
+  for (const b of (intel?.bullets || []).slice(0, 8)) {
+    if (storylines.length >= 5) break;
     const cleaned = stripEmojis(b);
-    if (!cleaned) continue;
+    if (!cleaned || cleaned.length < 20) continue;
+
+    // Find team mention
     let slug = null;
+    let teamName = null;
     for (const t of (intel?.teamMentions || [])) {
-      if (cleaned.toLowerCase().includes(t.toLowerCase())) { slug = resolveSlug(t); break; }
+      if (cleaned.toLowerCase().includes(t.toLowerCase())) {
+        const resolved = resolveSlug(t);
+        if (resolved) { slug = resolved; teamName = t; break; }
+      }
     }
+
+    // Deduplicate: skip if this team already used in a bullet
+    if (teamName && usedTeams.has(teamName.toLowerCase())) continue;
+    if (teamName) usedTeams.add(teamName.toLowerCase());
+
     storylines.push({ text: cleaned, slug });
   }
 
