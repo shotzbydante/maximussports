@@ -216,31 +216,31 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY LAYOUT (fill entire 1080×1350 — LARGE MOBILE-FIRST SCALE):
-1. HEADER (90px): compact brand bar with mascot (60px)
-2. HERO (150px): WHITE headline at ~36pt bold. Subhead at ~15pt, 58% opacity. LARGE and commanding.
-3. AROUND THE LEAGUE (180px): glass panel, 3 bullets at ~15pt with team logos (24px)
-4. WORLD SERIES OUTLOOK (520px): LARGEST zone. 2-column grid (AL | NL).
-   Each team is a FULL CARD that fills its height using justify-content: space-between.
-5. MATCHUPS TO WATCH (100px): team logos (26px) + names at 15pt
-6. FOOTER (36px)
+MANDATORY LAYOUT (fill entire 1080×1350 — AGGRESSIVE MOBILE-FIRST SCALE):
+1. HEADER (85px): compact brand bar with mascot (56px)
+2. HERO (160px): WHITE headline at ~42pt bold. Subhead at ~17pt, 65% opacity. DOMINANT.
+3. AROUND THE LEAGUE (170px): glass panel, 3 bullets at ~16pt with team logos (28px)
+4. WORLD SERIES OUTLOOK (540px): LARGEST zone. 2-column grid (AL | NL).
+   Each team is a FULL CARD with justify-content: space-between.
+5. MATCHUPS TO WATCH (95px): team logos (30px) + names at 16pt
+6. FOOTER (30px)
 
-CRITICAL SCALE RULES:
-- All text must be LARGE enough to read on a phone without zooming
-- Headline: 36pt minimum. This is the most important text on the card.
-- Body text: 15pt minimum. Nothing should feel like microtext.
-- Team names in cards: 20pt bold. Odds next to them: 20pt.
-- Rationale/driver text: 13pt minimum, NOT faint — 50%+ opacity.
-- Content should feel large, legible, and optimized for mobile viewing.
-- If it feels "slightly too big" on desktop, that is CORRECT for IG.
+CRITICAL SCALE RULES — THIS IS AN INSTAGRAM GRAPHIC, NOT A DASHBOARD:
+- Headline: 42pt minimum. Must DOMINATE the card. If it feels too big, it is correct.
+- Body text: 16pt minimum. Nothing below 13pt anywhere on the card.
+- Team names in cards: 24pt bold. Odds next to them: 24pt. They must POP.
+- Projected wins: 15pt. Signal chips: 11pt. Conference chips: 10pt.
+- Driver text: 14pt, 60% opacity. Market text: 13pt, 50% opacity.
+- If content feels small or sparse, it is INCORRECT.
+- The card should feel like a PREMIUM SPORTS MEDIA GRAPHIC, not a UI component.
 
 TEAM CARD SPEC (inside World Series Outlook):
-- Each card uses justify-content: space-between to fill its column height
-- Logo: 36px. Team name: 20pt bold. Odds: 20pt right-aligned.
-- Chips row: projected wins (14pt) + signal badge (10pt) + confidence tier (9pt)
-- "Key driver: ..." at 13pt, 52% opacity
-- "Market stance · Range" at 12pt italic, 40% opacity
-- Cards MUST fill their height — no empty space, content distributed top to bottom
+- Each card: justify-content: space-between, fills its column height
+- Team logo: 42px. Team name: 24pt bold. Odds: 24pt right-aligned.
+- Chips: projected wins (15pt) + signal badge (11pt) + confidence (10pt)
+- "Key driver: ..." at 14pt, 60% opacity — NOT faint
+- "Market stance · Range" at 13pt italic, 50% opacity — readable
+- Cards are DENSE and FULL — no empty padding, content distributed evenly
 
 ---
 
@@ -258,7 +258,9 @@ LOCK RULES — FINAL:
 - BACKGROUND = dark true-red gradient only. No stadium. No scenic. No photography.
 - PANELS = visible borders with warm glow. Must stand out from background.
 - WORLD SERIES OUTLOOK = visually strongest panel. Largest. Most glow. Hero module.
-- This card must look like it was built by a premium sports product design team
+- This card must look like a PREMIUM SPORTS MEDIA GRAPHIC, not a UI component.
+- If content feels small, sparse, or dashboard-like, it is INCORRECT.
+- Think: ESPN graphic / Apple Sports / premium IG sports media post.
 
 ${AVOID_BLOCK}`;
 }

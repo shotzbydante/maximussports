@@ -74,7 +74,7 @@ function TeamIntelCard({ t }) {
     <div className={styles.teamCard}>
       {/* Row 1: Logo + Name + Odds */}
       <div className={styles.teamCardTop}>
-        <TeamLogo slug={t.slug} size={36} />
+        <TeamLogo slug={t.slug} size={42} />
         <div className={styles.teamCardName}>{t.abbrev}</div>
         <div className={styles.teamCardOdds}>{fmtOdds(t.odds)}</div>
       </div>
@@ -159,7 +159,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
           <div className={styles.storylineList}>
             {content.storylines.map((s, i) => (
               <div key={i} className={styles.storylineRow}>
-                {s.slug ? <TeamLogo slug={s.slug} size={24} /> : <span className={styles.bulletDot} />}
+                {s.slug ? <TeamLogo slug={s.slug} size={28} /> : <span className={styles.bulletDot} />}
                 <span className={styles.storylineText}>{s.text}</span>
               </div>
             ))}
@@ -217,9 +217,9 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
           <div className={styles.matchupsList}>
             {content.matchupsToWatch.map((m, i) => (
               <div key={i} className={styles.matchupRow}>
-                <TeamLogo slug={m.slugA} size={26} /><span className={styles.matchupTeam}>{m.teamA}</span>
+                <TeamLogo slug={m.slugA} size={30} /><span className={styles.matchupTeam}>{m.teamA}</span>
                 <span className={styles.matchupVs}>vs</span>
-                <span className={styles.matchupTeam}>{m.teamB}</span><TeamLogo slug={m.slugB} size={26} />
+                <span className={styles.matchupTeam}>{m.teamB}</span><TeamLogo slug={m.slugB} size={30} />
               </div>
             ))}
           </div>
