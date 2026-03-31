@@ -89,6 +89,12 @@ const VL_FORM_BONUS  = 0.03;
 const TOT_OU_MIN_EDGE   = 0.05;
 const TOT_OU_HIGH_EDGE  = 0.14;
 const TOT_OU_MED_EDGE   = 0.09;
+// Market total thresholds — the model should be more skeptical of overs when
+// the market total is already high (market has priced in pace), and more
+// skeptical of unders when the total is already low.
+const TOT_HIGH_TOTAL_THRESHOLD = 150; // above this, penalize OVER leans
+const TOT_LOW_TOTAL_THRESHOLD  = 135; // below this, penalize UNDER leans
+const TOT_EXTREME_TOTAL_PENALTY = 0.03; // edge reduction for extreme-total leans
 
 const PICKS_PER_SECTION = 5;
 const TARGET_SHOW = 4;
@@ -103,7 +109,8 @@ function isTournamentSeason() {
 const PE_HOME_BUMP_TOURN     = 0.015;
 const ATS_TOURN_EDGE_BUMP    = 0.02;
 const VL_TOURN_VALUE_BUMP    = 0.01;
-const TOT_TOURN_EDGE_BUMP    = 0.02;
+const TOT_TOURN_EDGE_BUMP    = 0.03; // slightly higher bar for tournament totals (was 0.02)
+const TOT_LATE_TOURN_OVER_PENALTY = 0.02; // extra penalty for OVER leans in Elite 8+
 const VL_LONGSHOT_ML         = 300;
 const ATS_TOURN_CONF_SPREAD  = 8;
 
@@ -1092,11 +1099,33 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
 
     if (combinedTrend === 0) continue;
     const isOver = combinedTrend > 0;
+
+    // ── Market total level adjustment ──────────────────────────────────────
+    // When the market total is already very high, the OVER is largely priced in.
+    // When the market total is already very low, the UNDER is largely priced in.
+    // Penalize leans that agree with the extreme — the model needs a stronger
+    // thesis to go OVER on 155+ or UNDER on 132.
+    let adjustedTrendMag = trendMag;
+    if (isOver && marketTotal >= TOT_HIGH_TOTAL_THRESHOLD) {
+      adjustedTrendMag = Math.max(0, adjustedTrendMag - TOT_EXTREME_TOTAL_PENALTY);
+    } else if (!isOver && marketTotal <= TOT_LOW_TOTAL_THRESHOLD) {
+      adjustedTrendMag = Math.max(0, adjustedTrendMag - TOT_EXTREME_TOTAL_PENALTY);
+    }
+
+    // ── Late tournament OVER dampener ──────────────────────────────────────
+    // Elite 8 / Final Four / Championship games historically play slower than
+    // regular season pace. The model should be more skeptical of overs in late
+    // tournament rounds. This doesn't prohibit overs — it raises the bar.
+    if (tourn && isOver && isTournamentActive()) {
+      adjustedTrendMag = Math.max(0, adjustedTrendMag - TOT_LATE_TOURN_OVER_PENALTY);
+    }
+
+    if (adjustedTrendMag < totMinEdge) continue;
     const leanLabel = isOver ? 'OVER' : 'UNDER';
 
     let confidence = 0;
-    if (trendMag >= TOT_OU_HIGH_EDGE) confidence = 2;
-    else if (trendMag >= TOT_OU_MED_EDGE) confidence = 1;
+    if (adjustedTrendMag >= TOT_OU_HIGH_EDGE) confidence = 2;
+    else if (adjustedTrendMag >= TOT_OU_MED_EDGE) confidence = 1;
     if (usedPriceFallback && confidence > 0) confidence = Math.max(0, confidence - 1);
 
     const priceStr = overPrice || underPrice ? ` (O ${overPrice ?? '—'} / U ${underPrice ?? '—'})` : '';
@@ -1108,6 +1137,8 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
     if (sidesConflict) signals.push('Pace signals partially conflict — lean is weaker');
     else if (!usedPriceFallback && leanLabel) signals.push(`Combined scoring trend favors ${leanLabel.toLowerCase()}`);
     else if (!leanLabel) signals.push('No clear directional edge');
+    if (tourn && isOver && marketTotal >= TOT_HIGH_TOTAL_THRESHOLD) signals.push('High total in tournament — over edge discounted');
+    if (tourn && !isOver && marketTotal <= TOT_LOW_TOTAL_THRESHOLD) signals.push('Low total in tournament — under edge discounted');
 
     const rationale = buildTotalsRationale({ homeTeam: game.homeTeam, awayTeam: game.awayTeam, leanLabel, trendMag, marketTotal, sidesConflict, confidence, tourn });
 
@@ -1119,7 +1150,7 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
       pickType: 'total', itemType: 'lean', pickTeam: null,
       pickLine: leanLabel ? `${leanLabel} ${marketTotal}${priceStr}` : `O/U ${marketTotal}${priceStr}`,
       leanDirection: leanLabel ?? null, confidence, lineValue: marketTotal,
-      edgeMag: trendMag, signals, rationale, partial: usedPriceFallback,
+      edgeMag: adjustedTrendMag, signals, rationale, partial: usedPriceFallback,
     });
   }
 
@@ -1262,7 +1293,11 @@ function buildTotalsRationale({ homeTeam, awayTeam, leanLabel, trendMag, marketT
   }
 
   if (tourn && leanLabel) {
-    parts.push('Tournament pace may differ from regular-season norms.');
+    if (leanLabel === 'OVER') {
+      parts.push('Tournament pace typically slows — over lean carries elevated risk.');
+    } else {
+      parts.push('Tournament pace may differ from regular-season norms.');
+    }
   }
 
   return parts.join(' ');
