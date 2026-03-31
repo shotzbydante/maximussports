@@ -68,7 +68,6 @@ function buildSeasonIntelLeaders(champOdds) {
   const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
   if (al.length === 0 && nl.length === 0) return null;
 
-  // Build flat ordered list: AL1, NL1, AL2, NL2, AL3, NL3
   const ordered = [];
   const maxLen = Math.max(al.length, nl.length);
   for (let i = 0; i < maxLen; i++) {
@@ -79,17 +78,16 @@ function buildSeasonIntelLeaders(champOdds) {
 }
 
 /**
- * Build editorial blocks with INTENTIONAL paragraph mapping:
- *   HOT OFF THE PRESS    → P1 (Around the League — top headlines)
+ * Build editorial blocks — 1 concise sentence each for social readability.
+ * Maps directly to the Home page Today's Intelligence Briefing structure:
+ *   HOT OFF THE PRESS    → P1 (Around the League)
  *   PENNANT RACE INSIGHTS → P3 (Pennant Race & Division Watch)
  *   MARKET SIGNAL         → P2 (World Series Odds Pulse)
- *
- * This maps directly to the Home page Today's Intelligence Briefing structure.
  */
 const EDITORIAL_MAP = [
-  { title: 'HOT OFF THE PRESS', paraIdx: 0, maxSentences: 2 },
-  { title: 'PENNANT RACE INSIGHTS', paraIdx: 2, maxSentences: 2 },
-  { title: 'MARKET SIGNAL', paraIdx: 1, maxSentences: 2 },
+  { title: 'HOT OFF THE PRESS', paraIdx: 0 },
+  { title: 'PENNANT RACE INSIGHTS', paraIdx: 2 },
+  { title: 'MARKET SIGNAL', paraIdx: 1 },
 ];
 
 function buildEditorialBlocks(intel) {
@@ -102,17 +100,16 @@ function buildEditorialBlocks(intel) {
     const cleaned = stripEmojis(para);
     if (!cleaned || cleaned.length < 30) continue;
 
-    // Extract section label prefix if present, then get body sentences
     const labelMatch = cleaned.match(/^([A-Z][A-Z\s&+\-:]*[A-Z])\s*[:—–-]\s*/);
     const bodyText = labelMatch ? cleaned.slice(labelMatch[0].length) : cleaned;
+    // Take 1 sentence only — concise editorial blurb
     const sentences = bodyText.match(/[^.!?]*[.!?]+/g) || [bodyText];
-    const body = sentences.slice(0, mapping.maxSentences).join(' ').trim();
+    const body = sentences[0]?.trim();
 
-    if (body.length < 20) continue;
+    if (!body || body.length < 20) continue;
     blocks.push({ title: mapping.title, body });
   }
 
-  // Fallback: if mapping didn't yield 3 blocks, fill from remaining paragraphs
   if (blocks.length < 3) {
     const usedIndices = new Set(EDITORIAL_MAP.map(m => m.paraIdx));
     const fallbackTitles = ['HOT OFF THE PRESS', 'PENNANT RACE INSIGHTS', 'MARKET SIGNAL'];
@@ -121,8 +118,8 @@ function buildEditorialBlocks(intel) {
       const cleaned = stripEmojis(intel.rawParagraphs[i]);
       if (!cleaned || cleaned.length < 30) continue;
       const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
-      const body = sentences.slice(0, 1).join(' ').trim();
-      if (body.length < 20) continue;
+      const body = sentences[0]?.trim();
+      if (!body || body.length < 20) continue;
       blocks.push({ title: fallbackTitles[blocks.length] || 'INTEL', body });
     }
   }
@@ -130,38 +127,72 @@ function buildEditorialBlocks(intel) {
   return blocks.length > 0 ? blocks : null;
 }
 
-/** Get label for a card: "AL LEADER", "NL 2", "AL 3", etc. */
+/** Inline SVG icons for editorial sections */
+function BoltIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={styles.editorialIcon}>
+      <path d="M8.5 1L3 9h4.5l-1 6L13 7H8.5l1-6z" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function PennantIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={styles.editorialIcon}>
+      <path d="M3 2v12M3 3l9 2.5L3 8" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function PulseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={styles.editorialIcon}>
+      <polyline points="1,8 4,8 6,3 8,12 10,6 12,8 15,8" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+const EDITORIAL_ICONS = {
+  'HOT OFF THE PRESS': BoltIcon,
+  'PENNANT RACE INSIGHTS': PennantIcon,
+  'MARKET SIGNAL': PulseIcon,
+};
+
 function getCardLabel(t) {
   if (t.rank === 1) return `${t.league} LEADER`;
   return `${t.league} ${t.rank}`;
 }
 
-/** Unified team card — equal size, hierarchy through styling */
+/** Compact market stance label */
+function fmtStance(stance) {
+  if (!stance) return '';
+  if (stance.includes('above')) return 'Above mkt';
+  if (stance.includes('below')) return 'Below mkt';
+  if (stance.includes('Aligned')) return 'At mkt';
+  if (stance.includes('Near')) return 'Near mkt';
+  return stance;
+}
+
 function TeamCard({ t }) {
   const isLeader = t.rank === 1;
   return (
     <div className={`${styles.teamCard} ${isLeader ? styles.teamCardLeader : ''}`}>
       <div className={styles.tcLabel}>{getCardLabel(t)}</div>
       <div className={styles.tcMain}>
-        {/* Left: logo + name + metadata */}
         <div className={styles.tcLeft}>
           <div className={styles.tcIdentity}>
-            <TeamLogo slug={t.slug} size={isLeader ? 40 : 32} />
+            <TeamLogo slug={t.slug} size={isLeader ? 38 : 30} />
             <span className={styles.tcName}>{t.abbrev}</span>
           </div>
           <div className={styles.tcWins}>
-            Projected wins: <strong>{t.projectedWins}</strong>
+            <strong>{t.projectedWins}W</strong> proj
             {t.signals?.[0] && <span className={styles.tcSignal}>{t.signals[0]}</span>}
           </div>
           <div className={styles.tcMeta}>
-            {t.confidenceTier && <>{t.confidenceTier}</>}
-            {t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
+            {t.confidenceTier}{t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
           </div>
           <div className={styles.tcDriver}>
-            Key Driver: {t.strongestDriver || '—'} - {t.marketStance || 'Aligned with market'}
+            {t.strongestDriver || '—'} · {fmtStance(t.marketStance)}
           </div>
         </div>
-        {/* Right: WS odds block */}
         <div className={styles.tcOddsBlock}>
           <span className={styles.tcOddsLabel}>WS ODDS</span>
           <span className={styles.tcOddsValue}>{fmtOdds(t.odds)}</span>
@@ -218,15 +249,21 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── EDITORIAL — 3 separate premium cards ── */}
+      {/* ── EDITORIAL — 3 separate premium cards with icons ── */}
       {content.editorialBlocks?.length > 0 && (
         <div className={styles.editorialSection}>
-          {content.editorialBlocks.map((block, i) => (
-            <div key={i} className={styles.editorialCard}>
-              <div className={styles.editorialCardLabel}>{block.title}:</div>
-              <div className={styles.editorialCardBody}>{block.body}</div>
-            </div>
-          ))}
+          {content.editorialBlocks.map((block, i) => {
+            const IconComponent = EDITORIAL_ICONS[block.title];
+            return (
+              <div key={i} className={styles.editorialCard}>
+                <div className={styles.editorialCardHeader}>
+                  {IconComponent && <IconComponent />}
+                  <span className={styles.editorialCardLabel}>{block.title}</span>
+                </div>
+                <div className={styles.editorialCardBody}>{block.body}</div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -234,7 +271,9 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       {!content.editorialBlocks && content.bullets?.length > 0 && (
         <div className={styles.editorialSection}>
           <div className={styles.editorialCard}>
-            <div className={styles.editorialCardLabel}>{content.bulletLabel || 'KEY INTEL'}</div>
+            <div className={styles.editorialCardHeader}>
+              <span className={styles.editorialCardLabel}>{content.bulletLabel || 'KEY INTEL'}</span>
+            </div>
             <div className={styles.editorialCardBody}>
               {content.bullets.map((b, i) => (
                 <div key={i}>{typeof b === 'string' ? b : b.text}</div>
@@ -248,7 +287,9 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       {content.picks?.length > 0 && (
         <div className={styles.editorialSection}>
           <div className={styles.editorialCard}>
-            <div className={styles.editorialCardLabel}>MAXIMUS'S PICKS</div>
+            <div className={styles.editorialCardHeader}>
+              <span className={styles.editorialCardLabel}>MAXIMUS'S PICKS</span>
+            </div>
             <div className={styles.picksGrid}>
               {content.picks.map((p, i) => (<div key={i} className={styles.pickCell}><span className={styles.pickType}>{p.category}</span><span className={styles.pickVal}>{p.label}</span></div>))}
             </div>
@@ -295,17 +336,26 @@ function buildSlideContent(template, data, teamData, game, options) {
   }
 }
 
-/** Shorten a headline to one concise sentence for mobile readability. */
+/** Shorten a headline to one concise sentence, max 60 chars. */
 function shortenHeadline(text) {
   if (!text) return 'MLB Intelligence Briefing';
   const cleaned = stripEmojis(text);
-  // Take the first sentence only
   const sentences = cleaned.match(/[^.!?]*[.!?]+/g);
   const first = sentences?.[0]?.trim() || cleaned;
-  // If still too long (>80 chars), truncate at a natural break
+  if (first.length > 60) {
+    return first.slice(0, 58).replace(/\s+\S*$/, '') + '.';
+  }
+  return first;
+}
+
+/** Shorten subhead to one sentence, max 80 chars. */
+function shortenSubhead(text) {
+  if (!text) return null;
+  const cleaned = stripEmojis(text);
+  const sentences = cleaned.match(/[^.!?]*[.!?]+/g);
+  const first = sentences?.[0]?.trim() || cleaned;
   if (first.length > 80) {
-    const truncated = first.slice(0, 78).replace(/\s+\S*$/, '');
-    return truncated + '.';
+    return first.slice(0, 78).replace(/\s+\S*$/, '') + '.';
   }
   return first;
 }
@@ -318,7 +368,7 @@ function buildDailyContent(data) {
   return {
     category: 'MLB DAILY BRIEFING',
     headline: intel?.headline ? shortenHeadline(intel.headline) : 'MLB Intelligence Briefing',
-    subheadline: intel?.subhead ? stripEmojis(intel.subhead) : null,
+    subheadline: intel?.subhead ? shortenSubhead(intel.subhead) : null,
     editorialBlocks, seasonIntel,
     picks: null, matchup: null, pickLabel: null,
   };

@@ -196,17 +196,18 @@ ZONE 1 — HEADER:
   Below: "${date}"
 
 ZONE 2 — HERO:
-  "${headline}" (sentence case — NOT all-caps, white, ~36pt bold, concise one-sentence headline)
-${subhead ? `  "${subhead}" (~18pt, white at 58% opacity)` : ''}
+  "${headline}" (sentence case — NOT all-caps, white, ~34pt bold, MAX 60 CHARS — concise and editorial)
+${subhead ? `  "${subhead}" (~17pt, white at 55% opacity, MAX 80 CHARS — one sentence only)` : ''}
 
-ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS, NOT one flat panel):
+ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS with subtle icons):
   Each editorial block is its OWN glass card with:
-    - A small colored LABEL TAB at top (burgundy pill, uppercase, bold)
-    - Body text below — narrative editorial slice from the Home page briefing
+    - A subtle inline SVG ICON + colored LABEL TAB at top (burgundy pill, uppercase, bold)
+    - ONE concise sentence of body text — punchy editorial blurb, NOT a mini-paragraph
   The 3 cards are:
-    1. "HOT OFF THE PRESS:" — league-wide narrative hook (from P1: Around the League)
-    2. "PENNANT RACE INSIGHTS:" — contention/rivalry/positioning (from P3: Pennant Race)
-    3. "MARKET SIGNAL:" — odds movement/implied probability (from P2: Odds Pulse)
+    1. bolt icon + "HOT OFF THE PRESS" — league-wide narrative hook (1 sentence)
+    2. pennant icon + "PENNANT RACE INSIGHTS" — contention/rivalry/positioning (1 sentence)
+    3. pulse icon + "MARKET SIGNAL" — odds movement/implied probability (1 sentence)
+  Body text ~20pt. Cards must read fast on mobile — no filler, no verbosity.
 ${bulletBlock}
 
 ZONE 4 — WORLD SERIES OUTLOOK (6 EQUAL-SIZE TEAM CARDS in a 3×2 grid):
@@ -248,17 +249,18 @@ CRITICAL: No dead zones. The outlook section EXPANDS to fill the remaining
 canvas — cards grow larger, no empty dark space at the bottom.
 
 Zone A — HEADER + HERO:
-  "MAXIMUS SPORTS" LEFT (17pt), mascot RIGHT (62px).
-  LARGER glossy badge: 19pt text, 32px MLB crest, 9px 32px padding.
-  Date below (14pt).
-  WHITE headline ~36pt sentence case bold (NOT all-caps, shorter concise headline).
-  Subhead ~18pt at 58% opacity.
+  "MAXIMUS SPORTS" LEFT (17pt), mascot RIGHT (58px).
+  Glossy badge: 18pt text, 30px MLB crest, 8px 30px padding.
+  Date below (13pt).
+  WHITE headline ~34pt sentence case bold (NOT all-caps, MAX 60 CHARS).
+  Subhead ~17pt at 55% opacity (MAX 80 CHARS, one sentence).
 
 Zone B — EDITORIAL:
-  3 SEPARATE glass cards stacked vertically with 8px gap.
-  Each card: 14-16px padding, 13px label tab.
-  LARGE readable body text: ~24pt (mobile-first — must be legible on IG feed).
-  Must feel like premium publishable editorial blurbs designed for social media.
+  3 SEPARATE glass cards stacked vertically with 6px gap.
+  Each card: 12-14px padding, icon + 12px label tab.
+  Body text: ~20pt (readable on mobile but compact — 1 sentence per card).
+  Each card has a subtle inline SVG icon next to the label pill.
+  Must feel like crisp, punchy editorial blurbs — NOT mini-paragraphs.
 
 Zone C — WORLD SERIES OUTLOOK (fills remaining canvas):
   Centered title: "WORLD SERIES OUTLOOK" (20pt bold uppercase).
@@ -301,9 +303,12 @@ LOCK RULES — FINAL:
 - Bottom 40% = outlook cards + footer (data-rich, compact, no dead zone)
 - NO large empty area beneath the outlook cards
 - Lighter premium glass on team cards — not too dark or muddy
-- HEADLINE = WHITE sentence case ~36pt (NOT all-caps, concise one-sentence)
-- Editorial body text MUST be ~24pt for mobile/IG readability
-- Card metadata minimum 12pt, team names 26-30pt, WS odds 22-28pt
+- HEADLINE = WHITE sentence case ~34pt (NOT all-caps, MAX 60 CHARS)
+- Editorial body text ~20pt, 1 sentence per card — concise, punchy, no filler
+- Each editorial card has a subtle inline SVG icon next to the label
+- Card metadata minimum 11pt, team names 24-28pt, WS odds 20-26pt
+- ALL 6 cards MUST be fully visible — no clipping at bottom of slide
+- Copy must be compressed: prefer 1 strong sentence over 2 weaker ones
 - EMOJIS = zero. Team logos only.
 - BACKGROUND = dark true-red gradient. No stadium.
 - Gemini enhances visual polish, does NOT redesign layout
