@@ -202,30 +202,36 @@ ${subhead ? `  "${subhead}" (~17pt, white at 60% opacity)` : ''}
 ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS, NOT one flat panel):
   Each editorial block is its OWN glass card with:
     - A small colored LABEL TAB at top (burgundy pill, uppercase, bold)
-    - Body text below
+    - Body text below — narrative editorial slice from the Home page briefing
   The 3 cards are:
-    1. "HOT OFF THE PRESS:" — top headline editorial
-    2. "PENNANT RACE INSIGHTS:" — odds/standings editorial
-    3. "MARKET SIGNAL:" — model/market editorial
+    1. "HOT OFF THE PRESS:" — league-wide narrative hook (from P1: Around the League)
+    2. "PENNANT RACE INSIGHTS:" — contention/rivalry/positioning (from P3: Pennant Race)
+    3. "MARKET SIGNAL:" — odds movement/implied probability (from P2: Odds Pulse)
 ${bulletBlock}
 
-ZONE 4 — WORLD SERIES OUTLOOK (6 TEAM CARDS — 2 FEATURED + 4 SECONDARY):
+ZONE 4 — WORLD SERIES OUTLOOK (6 EQUAL-SIZE TEAM CARDS in a 3×2 grid):
   Centered section title: "WORLD SERIES OUTLOOK" (20pt bold uppercase)
 
-  TOP ROW: 2 LARGE FEATURED CARDS side by side:
-    - Each has a small LEAGUE LABEL at top: "AL LEADER" or "NL LEADER"
-    - Logo (48px) + Team abbreviation (28pt bold) + Odds (24pt, right-aligned)
-    - "Projected wins: XX" with signal badge
-    - Confidence tier + vs market delta
-    - "Key Driver: X - Stance" + small chart icon (bottom right)
-    - STRONG GLOW border (box-shadow with red accent)
+  ALL 6 CARDS ARE EQUAL DIMENSIONS in a uniform 3×2 grid (2 columns, 3 rows).
+  Hierarchy is achieved through STYLING, not box size:
+    - AL LEADER + NL LEADER cards: stronger glow, border, gradient
+    - AL 2, AL 3, NL 2, NL 3 cards: standard glass treatment
+
+  EVERY CARD has this internal layout:
+    LEFT SIDE:
+      - League label pill ("AL LEADER", "NL 2", etc.)
+      - Logo + team abbreviation (large, bold)
+      - "Projected wins: XX" + signal badge
+      - Confidence tier + vs market delta
+      - Key Driver + stance
+    RIGHT SIDE:
+      - Explicit "WS ODDS" label (small, uppercase)
+      - Large odds value (e.g., "+900")
+      - Contained in a subtle bordered box
+    This creates BALANCED horizontal usage — no left-heavy cards.
+
 ${futuresContext || '  Top 3 AL + Top 3 NL teams by projected wins'}
 
-  BOTTOM: 4 SMALLER SECONDARY CARDS in a 2x2 grid:
-    - Each has a small LEAGUE LABEL at top: "AL 2", "AL 3", "NL 2", "NL 3"
-    - Logo (22px) + Name (16pt) + Odds (14pt right-aligned)
-    - "Projected wins: XX" + signal badge inline
-    - Confidence + vs market + key driver (compact)
   6 cards total. If fewer than 6 are shown, the result is INCORRECT.
 
 FOOTER: "maximussports.ai" — "For entertainment only • 21+"
@@ -256,20 +262,23 @@ Zone B — EDITORIAL (~430px):
 
 Zone C — WORLD SERIES OUTLOOK (~540px):
   Centered title: "WORLD SERIES OUTLOOK" (20pt bold uppercase).
-  2 FEATURED CARDS on top — these must CLEARLY POP:
-    - "AL LEADER" / "NL LEADER" labels (11pt)
-    - Logo (52px). Team name: 32pt bold. Odds: 28pt right-aligned.
-    - "Projected wins: XX" (15pt) + signal badge (11pt)
-    - Confidence + vs market (14pt)
-    - Key Driver + stance (13pt) + chart icon
-    - STRONG GLOW: box-shadow 32px rgba(180,20,40,0.20)
-    - 16px internal padding, 1.5px border rgba(255,255,255,0.16)
-  4 SECONDARY CARDS in 2x2 grid — compact but elegant:
-    - "AL 2", "AL 3", "NL 2", "NL 3" labels (10pt)
-    - Logo (22px). Name: 18pt. Odds: 16pt right-aligned.
-    - Projected wins (12pt) + confidence + key driver
-    - 10px padding, clean spacing between rows
-    - Clearly subordinate to featured cards
+  6 EQUAL-SIZE CARDS in a uniform 3×2 grid (2 columns, 3 rows).
+
+  ALL CARDS share the same box dimensions. Hierarchy through styling only:
+    LEADER CARDS (AL LEADER, NL LEADER):
+      - Stronger glow: box-shadow 28px rgba(180,20,40,0.20)
+      - Stronger border: 1.5px rgba(255,255,255,0.16)
+      - Richer gradient fill
+      - Slightly larger team name (26px vs 22px)
+      - Larger WS odds value (24px vs 20px)
+    NON-LEADER CARDS: lighter, standard glass treatment.
+
+  INTERNAL CARD COMPOSITION (balanced left + right):
+    LEFT: Logo + team name + projected wins + confidence + key driver
+    RIGHT: "WS ODDS" label + large odds value in bordered box
+    This eliminates left-heavy composition and makes odds explicit.
+
+  The odds block clearly communicates "World Series odds" at a glance.
   FOOTER snug below (12pt URL, 10pt disclaimer).
 
 ---
@@ -279,15 +288,18 @@ ${VISUAL_SYSTEM}
 ${MASCOT_SPEC}
 
 LOCK RULES — FINAL:
-- Follow the standard slide 2+4 card structure EXACTLY
-- 2 LARGE featured cards on top, 4 SMALLER secondary cards below
-- Featured cards must CLEARLY POP — stronger glow, bigger text, more padding than secondary
+- 6 EQUAL-SIZE team cards in a uniform 3×2 grid (NOT 2 big + 4 small)
+- Leader cards get hierarchy through STYLING (glow, border, gradient), not box size
 - ALL team cards MUST have league labels (AL LEADER, NL LEADER, AL 2, etc.)
+- ALL team cards MUST have explicit "WS ODDS" label with odds value in a bordered box on the right
+- No left-heavy card layouts — use the full horizontal space with left metadata + right odds block
 - Editorial section = 3 SEPARATE glass cards with label tabs (NOT one flat panel)
+- Editorial cards pull narratively from the Home briefing — not generic or templated
 - The slide MUST fill the entire 1080×1350 canvas — THREE deliberate zones
 - Top 60% = header + hero + editorial (generous, readable, breathable)
 - Bottom 40% = outlook cards + footer (data-rich, compact, no dead zone)
 - NO large empty area beneath the outlook cards
+- Lighter premium glass on team cards — not too dark or muddy
 - HEADLINE = WHITE UPPERCASE ~38pt
 - ALL body text must be READABLE on mobile (minimum 16pt for editorial, 12pt for card metadata)
 - EMOJIS = zero. Team logos only.

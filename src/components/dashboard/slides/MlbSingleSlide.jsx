@@ -1,10 +1,11 @@
 /**
  * MlbSingleSlide — Premium full-canvas MLB IG post (1080×1350).
  *
- * NCAAM Game Intel-inspired layout:
- *   Header → Hero → Editorial → 2 Featured + 4 Secondary team cards
+ * Three-zone layout:
+ *   Header/Hero → Editorial → World Series Outlook (6 uniform cards)
  *
- * Hierarchy: fewer, larger objects. Clear focal point.
+ * All 6 outlook cards are equal size in a 3×2 grid.
+ * Leaders get hierarchy through styling (glow, border, label), not box size.
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
@@ -21,12 +22,6 @@ function TeamLogo({ slug, size = 28 }) {
 
 function Mascot() {
   return <img src="/mascot-mlb.png" alt="" className={styles.mascot} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
-}
-
-function resolveSlug(name) {
-  if (!name) return null;
-  const lower = name.toLowerCase();
-  return MLB_TEAMS.find(t => t.name.toLowerCase() === lower || lower.includes(t.name.split(' ').pop().toLowerCase()))?.slug || null;
 }
 
 function fmtOdds(v) {
@@ -46,6 +41,11 @@ function stripEmojis(text) {
   return text.replace(/[\u{1F300}-\u{1FAD6}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
 }
 
+/**
+ * Build the 6 team entries for the outlook section.
+ * Source of truth: getTeamProjection() from seasonModel.js — the same
+ * engine used on the MLB Season Intelligence page.
+ */
 function buildSeasonIntelLeaders(champOdds) {
   const entries = [];
   for (const team of MLB_TEAMS) {
@@ -67,114 +67,108 @@ function buildSeasonIntelLeaders(champOdds) {
   const al = entries.filter(e => e.league === 'AL').slice(0, 3);
   const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
   if (al.length === 0 && nl.length === 0) return null;
-  return {
-    featured: [al[0], nl[0]].filter(Boolean),
-    secondary: [al[1], al[2], nl[1], nl[2]].filter(Boolean),
-  };
+
+  // Build flat ordered list: AL1, NL1, AL2, NL2, AL3, NL3
+  const ordered = [];
+  const maxLen = Math.max(al.length, nl.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (al[i]) ordered.push({ ...al[i], rank: i + 1 });
+    if (nl[i]) ordered.push({ ...nl[i], rank: i + 1 });
+  }
+  return ordered;
 }
 
-const EDITORIAL_TITLES = ['HOT OFF THE PRESS', 'PENNANT RACE INSIGHTS', 'MARKET SIGNAL', 'DIAMOND DISPATCH'];
+/**
+ * Build editorial blocks with INTENTIONAL paragraph mapping:
+ *   HOT OFF THE PRESS    → P1 (Around the League — top headlines)
+ *   PENNANT RACE INSIGHTS → P3 (Pennant Race & Division Watch)
+ *   MARKET SIGNAL         → P2 (World Series Odds Pulse)
+ *
+ * This maps directly to the Home page Today's Intelligence Briefing structure.
+ */
+const EDITORIAL_MAP = [
+  { title: 'HOT OFF THE PRESS', paraIdx: 0, maxSentences: 2 },
+  { title: 'PENNANT RACE INSIGHTS', paraIdx: 2, maxSentences: 2 },
+  { title: 'MARKET SIGNAL', paraIdx: 1, maxSentences: 2 },
+];
 
 function buildEditorialBlocks(intel) {
   if (!intel?.rawParagraphs?.length) return null;
   const blocks = [];
-  const usedTeams = new Set();
-  for (let i = 0; i < Math.min(intel.rawParagraphs.length, 4); i++) {
-    if (blocks.length >= 3) break;
-    const para = intel.rawParagraphs[i];
+
+  for (const mapping of EDITORIAL_MAP) {
+    const para = intel.rawParagraphs[mapping.paraIdx];
+    if (!para) continue;
     const cleaned = stripEmojis(para);
     if (!cleaned || cleaned.length < 30) continue;
-    let primaryTeam = null;
-    for (const t of (intel.teamMentions || [])) {
-      if (cleaned.toLowerCase().includes(t.toLowerCase())) {
-        if (!usedTeams.has(t.toLowerCase())) { primaryTeam = t; break; }
-      }
-    }
-    if (primaryTeam) usedTeams.add(primaryTeam.toLowerCase());
-    const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
-    const body = sentences.slice(0, blocks.length === 0 ? 2 : 1).join(' ').trim();
+
+    // Extract section label prefix if present, then get body sentences
+    const labelMatch = cleaned.match(/^([A-Z][A-Z\s&+\-:]*[A-Z])\s*[:—–-]\s*/);
+    const bodyText = labelMatch ? cleaned.slice(labelMatch[0].length) : cleaned;
+    const sentences = bodyText.match(/[^.!?]*[.!?]+/g) || [bodyText];
+    const body = sentences.slice(0, mapping.maxSentences).join(' ').trim();
+
     if (body.length < 20) continue;
-    blocks.push({ title: EDITORIAL_TITLES[blocks.length] || 'INTEL', body });
+    blocks.push({ title: mapping.title, body });
   }
+
+  // Fallback: if mapping didn't yield 3 blocks, fill from remaining paragraphs
+  if (blocks.length < 3) {
+    const usedIndices = new Set(EDITORIAL_MAP.map(m => m.paraIdx));
+    const fallbackTitles = ['HOT OFF THE PRESS', 'PENNANT RACE INSIGHTS', 'MARKET SIGNAL'];
+    for (let i = 0; i < intel.rawParagraphs.length && blocks.length < 3; i++) {
+      if (usedIndices.has(i)) continue;
+      const cleaned = stripEmojis(intel.rawParagraphs[i]);
+      if (!cleaned || cleaned.length < 30) continue;
+      const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
+      const body = sentences.slice(0, 1).join(' ').trim();
+      if (body.length < 20) continue;
+      blocks.push({ title: fallbackTitles[blocks.length] || 'INTEL', body });
+    }
+  }
+
   return blocks.length > 0 ? blocks : null;
 }
 
-/** Chart bar icon for featured cards */
-function ChartIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className={styles.chartIcon}>
-      <rect x="3" y="14" width="4" height="7" rx="1" fill="rgba(255,255,255,0.25)" />
-      <rect x="10" y="9" width="4" height="12" rx="1" fill="rgba(255,255,255,0.35)" />
-      <rect x="17" y="4" width="4" height="17" rx="1" fill="rgba(255,255,255,0.45)" />
-    </svg>
-  );
+/** Get label for a card: "AL LEADER", "NL 2", "AL 3", etc. */
+function getCardLabel(t) {
+  if (t.rank === 1) return `${t.league} LEADER`;
+  return `${t.league} ${t.rank}`;
 }
 
-/** Featured (large) team card — AL or NL leader */
-function FeaturedCard({ t, label }) {
+/** Unified team card — equal size, hierarchy through styling */
+function TeamCard({ t }) {
+  const isLeader = t.rank === 1;
   return (
-    <div className={styles.featuredCard}>
-      <div className={styles.fcLabel}>{label}</div>
-      <div className={styles.fcTop}>
-        <TeamLogo slug={t.slug} size={52} />
-        <span className={styles.fcName}>{t.abbrev}</span>
-        {t.odds != null && <span className={styles.fcOdds}>{fmtOdds(t.odds)}</span>}
-      </div>
-      <div className={styles.fcStats}>
-        <span className={styles.fcWins}>Projected wins: <strong>{t.projectedWins}</strong></span>
-        {t.signals?.[0] && <span className={styles.fcSignal}>{t.signals[0]}</span>}
-      </div>
-      <div className={styles.fcMeta}>
-        {t.confidenceTier && <>{t.confidenceTier}</>}
-        {t.marketDelta != null && <> {fmtDelta(t.marketDelta)} vs mkt</>}
-      </div>
-      <div className={styles.fcBottom}>
-        <span className={styles.fcDriver}>
-          {t.strongestDriver && <>Key Driver: {t.strongestDriver}</>}
-          {t.marketStance && <> - {t.marketStance}</>}
-        </span>
-        <ChartIcon />
+    <div className={`${styles.teamCard} ${isLeader ? styles.teamCardLeader : ''}`}>
+      <div className={styles.tcLabel}>{getCardLabel(t)}</div>
+      <div className={styles.tcMain}>
+        {/* Left: logo + name + metadata */}
+        <div className={styles.tcLeft}>
+          <div className={styles.tcIdentity}>
+            <TeamLogo slug={t.slug} size={isLeader ? 40 : 32} />
+            <span className={styles.tcName}>{t.abbrev}</span>
+          </div>
+          <div className={styles.tcWins}>
+            Projected wins: <strong>{t.projectedWins}</strong>
+            {t.signals?.[0] && <span className={styles.tcSignal}>{t.signals[0]}</span>}
+          </div>
+          <div className={styles.tcMeta}>
+            {t.confidenceTier && <>{t.confidenceTier}</>}
+            {t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
+          </div>
+          <div className={styles.tcDriver}>
+            Key Driver: {t.strongestDriver || '—'} - {t.marketStance || 'Aligned with market'}
+          </div>
+        </div>
+        {/* Right: WS odds block */}
+        <div className={styles.tcOddsBlock}>
+          <span className={styles.tcOddsLabel}>WS ODDS</span>
+          <span className={styles.tcOddsValue}>{fmtOdds(t.odds)}</span>
+        </div>
       </div>
     </div>
   );
-}
-
-/** Secondary (compact) team card */
-function SecondaryCard({ t, label }) {
-  return (
-    <div className={styles.secCard}>
-      <div className={styles.scLabel}>{label}</div>
-      <div className={styles.scRow1}>
-        <TeamLogo slug={t.slug} size={22} />
-        <span className={styles.scName}>{t.abbrev}</span>
-        {t.odds != null && <span className={styles.scOdds}>{fmtOdds(t.odds)}</span>}
-      </div>
-      <div className={styles.scRow2}>
-        Projected wins: <strong>{t.projectedWins}</strong>
-        {t.signals?.[0] && <span className={styles.scSignalInline}>{t.signals[0]}</span>}
-      </div>
-      <div className={styles.scRow3}>
-        {t.confidenceTier && <>{t.confidenceTier}</>}
-        {t.marketDelta != null && <> {fmtDelta(t.marketDelta)} vs mkt</>}
-      </div>
-      <div className={styles.scRow4}>
-        {t.strongestDriver && <>Key Driver: {t.strongestDriver} - {t.marketStance || 'Aligned with market'}</>}
-      </div>
-    </div>
-  );
-}
-
-/** League labels for secondary cards */
-function getSecondaryLabel(idx, seasonIntel) {
-  if (!seasonIntel?.featured) return '';
-  const featured = seasonIntel.featured;
-  const sec = seasonIntel.secondary;
-  if (!sec?.[idx]) return '';
-  const t = sec[idx];
-  // Count how many of this league appeared before in secondary
-  const sameLeagueBefore = sec.slice(0, idx).filter(s => s.league === t.league).length;
-  const rank = sameLeagueBefore + 2; // +2 because leader is #1
-  return `${t.league} ${rank}`;
 }
 
 export default function MlbSingleSlide({ data, teamData, game, asOf, options = {}, ...rest }) {
@@ -230,9 +224,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
           {content.editorialBlocks.map((block, i) => (
             <div key={i} className={styles.editorialCard}>
               <div className={styles.editorialCardLabel}>{block.title}:</div>
-              <div className={styles.editorialCardBody}>
-                <span className={styles.editorialCardTitle}>{block.title}:</span> {block.body}
-              </div>
+              <div className={styles.editorialCardBody}>{block.body}</div>
             </div>
           ))}
         </div>
@@ -264,28 +256,15 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── WORLD SERIES OUTLOOK — 2 Featured + 4 Secondary ── */}
+      {/* ── WORLD SERIES OUTLOOK — 6 uniform cards in 3×2 grid ── */}
       {content.seasonIntel && (
         <div className={styles.outlookSection}>
           <h3 className={styles.outlookTitle}>WORLD SERIES OUTLOOK</h3>
-
-          {/* Featured: 2 large cards side by side */}
-          {content.seasonIntel.featured?.length > 0 && (
-            <div className={styles.featuredRow}>
-              {content.seasonIntel.featured.map((t, i) => (
-                <FeaturedCard key={i} t={t} label={`${t.league} LEADER`} />
-              ))}
-            </div>
-          )}
-
-          {/* Secondary: 4 compact cards in 2x2 grid */}
-          {content.seasonIntel.secondary?.length > 0 && (
-            <div className={styles.secondaryGrid}>
-              {content.seasonIntel.secondary.map((t, i) => (
-                <SecondaryCard key={i} t={t} label={getSecondaryLabel(i, content.seasonIntel)} />
-              ))}
-            </div>
-          )}
+          <div className={styles.outlookGrid}>
+            {content.seasonIntel.map((t, i) => (
+              <TeamCard key={i} t={t} />
+            ))}
+          </div>
         </div>
       )}
 

@@ -2,9 +2,12 @@
    MlbSingleSlide — Full-canvas MLB IG card (1080×1350)
 
    Three-zone vertical composition:
-     Zone A  — Header + Hero:    ~22-25%  (~300px)
-     Zone B  — Editorial cards:  ~30-35%  (~430px)
-     Zone C  — Outlook + Footer: ~38-42%  (~540px)
+     Zone A  — Header + Hero:    ~22-25%
+     Zone B  — Editorial cards:  ~30-35%
+     Zone C  — Outlook + Footer: ~38-42%
+
+   World Series Outlook: 6 uniform cards in a 3×2 grid.
+   Leaders get hierarchy through styling, not box size.
    ══════════════════════════════════════════════════════════════ */
 
 .artboard {
@@ -114,10 +117,6 @@
 .editorialCardBody {
   font-size: 16px; line-height: 1.45; color: rgba(255,255,255,0.70);
 }
-.editorialCardTitle {
-  font-weight: 800; color: rgba(255,255,255,0.88);
-  font-size: 14px;
-}
 
 .teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
 
@@ -130,12 +129,11 @@
 /* ══ ZONE C: WORLD SERIES OUTLOOK SECTION ══ */
 .outlookSection {
   position: relative; z-index: 10;
-  margin: 6px 28px 0; padding: 16px 16px 14px;
+  margin: 6px 28px 0; padding: 16px 14px 12px;
   background: rgba(255,255,255,0.045);
   border: 1px solid rgba(255,255,255,0.13);
   border-radius: 14px;
   box-shadow: 0 0 36px rgba(180,20,40,0.18), 0 0 10px rgba(255,255,255,0.025);
-  /* NO flex:1 — section sizes to its content, no dead zone */
   display: flex; flex-direction: column; gap: 10px;
 }
 .outlookTitle {
@@ -144,84 +142,134 @@
   text-align: center; margin: 0 0 2px;
 }
 
-/* ── FEATURED ROW: 2 large hero cards ── */
-.featuredRow {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.featuredCard {
-  position: relative;
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 16px 16px 14px;
-  background: linear-gradient(155deg, rgba(139,26,43,0.22) 0%, rgba(10,22,40,0.42) 40%, transparent 80%);
-  border: 1.5px solid rgba(255,255,255,0.16);
-  border-radius: 14px;
-  box-shadow:
-    0 0 32px rgba(180,20,40,0.20),
-    0 0 10px rgba(255,255,255,0.04),
-    inset 0 1px 0 rgba(255,255,255,0.10);
-}
-.fcLabel {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.55);
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.10);
-  padding: 3px 10px; border-radius: 4px;
-  display: inline-block; width: fit-content;
-  margin-bottom: 2px;
-}
-.fcTop { display: flex; align-items: center; gap: 12px; }
-.fcName { font-size: 32px; font-weight: 800; color: rgba(255,255,255,0.97); flex: 1; }
-.fcOdds { font-size: 28px; font-weight: 700; color: rgba(255,255,255,0.62); font-variant-numeric: tabular-nums; }
-.fcStats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.fcWins { font-size: 15px; color: rgba(255,255,255,0.65); }
-.fcWins strong { color: rgba(255,255,255,0.94); font-weight: 800; }
-.fcSignal {
-  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.58);
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-  padding: 3px 10px; border-radius: 4px;
-}
-.fcMeta { font-size: 14px; color: rgba(255,255,255,0.55); line-height: 1.35; }
-.fcBottom {
-  display: flex; align-items: center; justify-content: space-between;
-}
-.fcDriver { font-size: 13px; color: rgba(255,255,255,0.48); flex: 1; line-height: 1.35; }
-.chartIcon { flex-shrink: 0; opacity: 0.65; }
-
-/* ── SECONDARY GRID: 4 compact cards in 2x2 ── */
-.secondaryGrid {
-  display: grid; grid-template-columns: 1fr 1fr;
+/* ── UNIFORM 3×2 GRID — all 6 cards equal size ── */
+.outlookGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
   gap: 8px;
 }
-.secCard {
+
+/* ── BASE TEAM CARD — lighter premium glass ── */
+.teamCard {
   position: relative;
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px 8px;
+  background: linear-gradient(155deg,
+    rgba(180,40,60,0.10) 0%,
+    rgba(120,25,40,0.08) 30%,
+    rgba(40,15,25,0.12) 100%);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(180,20,40,0.08);
 }
-.scLabel {
+
+/* ── LEADER CARD — hierarchy through styling, NOT box size ── */
+.teamCardLeader {
+  background: linear-gradient(155deg,
+    rgba(180,40,60,0.16) 0%,
+    rgba(120,25,40,0.12) 30%,
+    rgba(40,15,25,0.18) 100%);
+  border: 1.5px solid rgba(255,255,255,0.16);
+  box-shadow:
+    0 0 28px rgba(180,20,40,0.20),
+    0 0 8px rgba(255,255,255,0.03),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ── Card internals ── */
+.tcLabel {
   font-size: 10px; font-weight: 800; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.45);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  padding: 2px 7px; border-radius: 3px;
+  text-transform: uppercase; color: rgba(255,255,255,0.48);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 2px 8px; border-radius: 3px;
   display: inline-block; width: fit-content;
-  margin-bottom: 2px;
 }
-.scRow1 { display: flex; align-items: center; gap: 7px; }
-.scName { font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.92); flex: 1; }
-.scOdds { font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.52); font-variant-numeric: tabular-nums; }
-.scRow2 { font-size: 12px; color: rgba(255,255,255,0.52); line-height: 1.40; }
-.scRow2 strong { color: rgba(255,255,255,0.85); font-weight: 800; }
-.scSignalInline {
-  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.48);
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+.teamCardLeader .tcLabel {
+  color: rgba(255,255,255,0.60);
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.tcMain {
+  display: flex; align-items: flex-start; gap: 8px;
+}
+
+/* Left side: identity + metadata */
+.tcLeft {
+  flex: 1; display: flex; flex-direction: column; gap: 2px;
+  min-width: 0; /* prevent overflow */
+}
+.tcIdentity {
+  display: flex; align-items: center; gap: 8px;
+}
+.tcName {
+  font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.95);
+}
+.teamCardLeader .tcName {
+  font-size: 26px;
+}
+.tcWins {
+  font-size: 12px; color: rgba(255,255,255,0.58); line-height: 1.35;
+}
+.tcWins strong {
+  color: rgba(255,255,255,0.92); font-weight: 800;
+}
+.tcSignal {
+  font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
   padding: 1px 6px; border-radius: 3px; margin-left: 4px;
 }
-.scRow3 { font-size: 12px; color: rgba(255,255,255,0.46); line-height: 1.35; }
-.scRow4 { font-size: 11px; color: rgba(255,255,255,0.40); line-height: 1.35; }
+.teamCardLeader .tcSignal {
+  font-size: 10px;
+  background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.10);
+}
+.tcMeta {
+  font-size: 12px; color: rgba(255,255,255,0.48); line-height: 1.30;
+}
+.tcDriver {
+  font-size: 11px; color: rgba(255,255,255,0.40); line-height: 1.30;
+}
+.teamCardLeader .tcMeta {
+  font-size: 13px; color: rgba(255,255,255,0.52);
+}
+.teamCardLeader .tcDriver {
+  font-size: 12px; color: rgba(255,255,255,0.45);
+}
+
+/* Right side: WS odds block */
+.tcOddsBlock {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  min-width: 72px; flex-shrink: 0;
+}
+.teamCardLeader .tcOddsBlock {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  min-width: 80px;
+  padding: 8px 10px;
+}
+.tcOddsLabel {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.40);
+  margin-bottom: 2px;
+}
+.teamCardLeader .tcOddsLabel {
+  font-size: 10px; color: rgba(255,255,255,0.48);
+}
+.tcOddsValue {
+  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.88);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.teamCardLeader .tcOddsValue {
+  font-size: 24px; color: rgba(255,255,255,0.92);
+}
 
 /* ── MATCHUPS (legacy) ── */
 .matchupsList { display: flex; flex-direction: column; gap: 5px; }
@@ -241,7 +289,7 @@
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 32px 16px;
-  margin-top: auto; /* push footer to bottom of remaining space */
+  margin-top: auto;
 }
 .footerUrl { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.22); letter-spacing: 0.03em; }
 .footerDisclaimer { font-size: 10px; color: rgba(255,255,255,0.14); max-width: 280px; text-align: right; }
