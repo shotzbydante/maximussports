@@ -95,6 +95,7 @@ export default function ExamplePinnedTeamCard({ slug, gamesForToday, onDismiss, 
     return { data: cached, loading: !cached, fetchErr: false };
   });
   const { data, loading, fetchErr } = status;
+  const [video, setVideo] = useState(null);
   const shownRef = useRef(false);
 
   // Fire pinned_preview_shown once per mount
@@ -104,13 +105,27 @@ export default function ExamplePinnedTeamCard({ slug, gamesForToday, onDismiss, 
     track('pinned_preview_shown', { slug });
   }, [slug]);
 
+  // Fetch team video — same endpoint as real pinned card (PinnedTeamsSection)
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/youtube/team?teamSlug=${encodeURIComponent(slug)}&maxResults=1`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (cancelled || !d) return;
+        const item = (d.items ?? [])[0] ?? null;
+        setVideo(item);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [slug]);
+
   // Fetch team data — independent of all shared state.
   // All setState calls happen inside async callbacks, avoiding synchronous
   // setState within effect bodies that the linter flags.
   useEffect(() => {
     if (getCacheEntry(slug)) return; // cache hit — skip fetch
     let cancelled = false;
-    fetchTeamPage(slug, { coreOnly: true })
+    fetchTeamPage(slug)
       .then((res) => {
         if (cancelled) return;
         setCacheEntry(slug, res);
@@ -283,6 +298,27 @@ export default function ExamplePinnedTeamCard({ slug, gamesForToday, onDismiss, 
               {data?.teamSummary || `${team?.name ?? 'Duke'} enters the tournament as a top-seeded contender with elite talent and deep coaching experience.`}
             </p>
           </div>
+
+          {/* ── Zone 5: Video teaser (matches real card) ── */}
+          {video?.thumbUrl && (
+            <Link to={`/ncaam/teams/${slug}`} className={styles.videoTeaser}>
+              <div className={styles.videoThumb}>
+                <img
+                  src={video.thumbUrl}
+                  alt=""
+                  className={styles.videoThumbImg}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className={styles.videoPlayOverlay} aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                    <path d="M6 4.5L16 10L6 15.5V4.5Z" fill="currentColor" />
+                  </svg>
+                </div>
+              </div>
+              <span className={styles.videoTitle}>{video.title}</span>
+            </Link>
+          )}
 
           {/* ── Zone 6: CTA (matches real card) ── */}
           <div className={exStyles.cardActions}>

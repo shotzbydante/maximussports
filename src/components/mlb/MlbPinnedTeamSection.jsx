@@ -40,13 +40,32 @@ function formatRelTime(iso) {
 }
 
 /* ─── Preview Card (empty state right side) ─── */
+/* Mirrors the full PinnedCard structure so guests see the real product. */
 function PreviewCard({ slug, odds, onPin, buildPath }) {
   const team = MLB_TEAMS.find(t => t.slug === slug);
   const proj = getTeamProjection(slug);
   const meta = getTeamMeta(slug);
   const logo = team ? getMlbEspnLogoUrl(team.slug) : null;
   const teamOdds = odds?.[slug];
+  const [videos, setVideos] = useState([]);
+
+  // Fetch team video — same endpoint as real PinnedCard
+  useEffect(() => {
+    if (!team) return;
+    fetch(`/api/mlb/youtube/team?teamSlug=${team.slug}&maxResults=1`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setVideos((d.items ?? []).slice(0, 1)); })
+      .catch(() => {});
+  }, [team]);
+
   if (!team) return null;
+
+  // Generate intel writeup (same as real card)
+  const intel = buildMlbTeamIntelSummary({
+    team, projection: proj, meta,
+    odds: teamOdds ? { bestChanceAmerican: teamOdds.bestChanceAmerican } : null,
+    currentRecord: '0-0',
+  });
 
   return (
     <div className={styles.previewCard}>
@@ -54,36 +73,61 @@ function PreviewCard({ slug, odds, onPin, buildPath }) {
         <span className={styles.previewLabel}>Preview</span>
         <button type="button" className={styles.previewClose} aria-label="Dismiss preview">×</button>
       </div>
-      <div className={styles.previewIdentity}>
-        {logo && <img src={logo} alt="" className={styles.previewLogo} width={36} height={36} />}
-        <div>
-          <span className={styles.previewName}>{team.name}</span>
-          <span className={styles.previewDiv}>{team.division}</span>
+
+      {/* Header — matches real card */}
+      <div className={styles.cardHeader}>
+        <div className={styles.cardIdentity}>
+          {logo && <img src={logo} alt="" className={styles.cardLogo} width={32} height={32} />}
+          <div>
+            <Link to={buildPath(`/teams/${slug}`)} className={styles.cardName}>{team.name}</Link>
+            <span className={styles.cardDiv}>{team.division}</span>
+          </div>
         </div>
       </div>
-      {proj && (
-        <div className={styles.previewStats}>
-          <div className={styles.previewStat}>
-            <span className={styles.previewStatLabel}>Projected wins</span>
-            <span className={styles.previewStatValue}>{proj.projectedWins}</span>
-          </div>
-          {teamOdds && (
-            <div className={styles.previewStat}>
-              <span className={styles.previewStatLabel}>WS Odds</span>
-              <span className={styles.previewStatValue}>{formatOdds(teamOdds.bestChanceAmerican)}</span>
-            </div>
-          )}
-          <div className={styles.previewStat}>
-            <span className={styles.previewStatLabel}>2025</span>
-            <span className={styles.previewStatValue}>{meta.record2025}</span>
-          </div>
+
+      {/* 4 stat boxes — matches real card */}
+      <div className={styles.statBoxes}>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>2025 Record</span>
+          <span className={styles.statBoxValue}>{meta.record2025}</span>
         </div>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>Finish</span>
+          <span className={styles.statBoxValue}>{meta.finish}</span>
+        </div>
+        <div className={styles.statBox}>
+          <span className={styles.statBoxLabel}>Projected wins</span>
+          <span className={styles.statBoxValue}>{proj?.projectedWins ?? '—'}</span>
+        </div>
+        {teamOdds && (
+          <div className={styles.statBox}>
+            <span className={styles.statBoxLabel}>WS Odds</span>
+            <span className={styles.statBoxValue}>{formatOdds(teamOdds.bestChanceAmerican)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Intel writeup — matches real card */}
+      {intel && <p className={styles.intelText}>{intel}</p>}
+
+      {/* Hero video — matches real card */}
+      {videos[0] && (
+        <a href={`https://www.youtube.com/watch?v=${videos[0].videoId}`}
+          target="_blank" rel="noopener noreferrer" className={styles.heroVideo}>
+          <div className={styles.heroVideoThumb}>
+            <img src={videos[0].thumbUrl} alt={videos[0].title} loading="lazy" />
+            <span className={styles.playIcon}>▶</span>
+          </div>
+          <span className={styles.heroVideoTitle}>{videos[0].title}</span>
+        </a>
       )}
+
+      {/* CTA — pin + view */}
       <div className={styles.previewActions}>
         <button type="button" className={styles.pinBtnPrimary} onClick={() => onPin(slug)}>
           📌 Pin {team.name.split(' ').pop()}
         </button>
-        <Link to={buildPath(`/teams/${slug}`)} className={styles.viewProfileLink}>
+        <Link to={buildPath(`/teams/${slug}`)} className={styles.viewTeamCta}>
           View Team Intel →
         </Link>
       </div>
