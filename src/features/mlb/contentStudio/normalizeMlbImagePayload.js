@@ -281,7 +281,13 @@ function buildDailyPayload(base, intelBriefing, games, picks, champOdds) {
       entries.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
       const al = entries.filter(e => e.league === 'AL').slice(0, 3);
       const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
-      if (al.length > 0 || nl.length > 0) seasonIntel = { al, nl };
+      if (al.length > 0 || nl.length > 0) {
+        seasonIntel = {
+          al, nl,
+          featured: [al[0], nl[0]].filter(Boolean),
+          secondary: [...al.slice(1), ...nl.slice(1)],
+        };
+      }
     } catch { /* non-fatal */ }
   }
 

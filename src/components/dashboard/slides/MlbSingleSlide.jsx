@@ -1,8 +1,10 @@
 /**
  * MlbSingleSlide — Premium full-canvas MLB IG post (1080×1350).
  *
- * NCAAM-inspired header: brand left, mascot right.
- * Top ~45%: editorial briefing. Bottom ~55%: compact 6-team Season Intel cards.
+ * NCAAM Game Intel-inspired layout:
+ *   Header → Hero → Editorial → 2 Featured + 4 Secondary team cards
+ *
+ * Hierarchy: fewer, larger objects. Clear focal point.
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
@@ -58,13 +60,18 @@ function buildSeasonIntelLeaders(champOdds) {
       marketDelta: proj.marketDelta ?? null,
       strongestDriver: proj.takeaways?.strongestDriver ?? null,
       marketStance: proj.takeaways?.marketStance ?? null,
+      signals: proj.signals ?? [],
     });
   }
   entries.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
   const al = entries.filter(e => e.league === 'AL').slice(0, 3);
   const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
   if (al.length === 0 && nl.length === 0) return null;
-  return { al, nl };
+  // Featured = top 1 from each league. Secondary = remaining 2 from each.
+  return {
+    featured: [al[0], nl[0]].filter(Boolean),
+    secondary: [...al.slice(1), ...nl.slice(1)],
+  };
 }
 
 const EDITORIAL_TITLES = ['HOT OFF THE PRESS', 'PENNANT RACE INSIGHTS', 'MARKET SIGNAL', 'DIAMOND DISPATCH'];
@@ -74,7 +81,7 @@ function buildEditorialBlocks(intel) {
   const blocks = [];
   const usedTeams = new Set();
   for (let i = 0; i < Math.min(intel.rawParagraphs.length, 4); i++) {
-    if (blocks.length >= 4) break;
+    if (blocks.length >= 3) break; // max 3 for space
     const para = intel.rawParagraphs[i];
     const cleaned = stripEmojis(para);
     if (!cleaned || cleaned.length < 30) continue;
@@ -86,34 +93,51 @@ function buildEditorialBlocks(intel) {
     }
     if (primaryTeam) usedTeams.add(primaryTeam.toLowerCase());
     const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
-    const maxSentences = blocks.length === 0 ? 2 : 1;
-    const body = sentences.slice(0, maxSentences).join(' ').trim();
+    const body = sentences.slice(0, blocks.length === 0 ? 2 : 1).join(' ').trim();
     if (body.length < 20) continue;
     blocks.push({ title: EDITORIAL_TITLES[blocks.length] || 'INTEL', body });
   }
   return blocks.length > 0 ? blocks : null;
 }
 
-/** Compact 3-line team card (tighter than 4-line version) */
-function TeamIntelCard({ t }) {
+/** Featured (large) team card — AL or NL leader */
+function FeaturedCard({ t }) {
   return (
-    <div className={styles.teamCard}>
-      {/* Row 1: logo + name + odds */}
-      <div className={styles.tcRow1}>
-        <TeamLogo slug={t.slug} size={30} />
-        <span className={styles.tcName}>{t.abbrev}</span>
-        {t.odds != null && <span className={styles.tcOdds}>{fmtOdds(t.odds)}</span>}
+    <div className={styles.featuredCard}>
+      <div className={styles.fcTop}>
+        <TeamLogo slug={t.slug} size={48} />
+        <div className={styles.fcInfo}>
+          <span className={styles.fcName}>{t.abbrev}</span>
+          {t.odds != null && <span className={styles.fcOdds}>{fmtOdds(t.odds)}</span>}
+        </div>
       </div>
-      {/* Row 2: projected wins + confidence + delta */}
-      <div className={styles.tcRow2}>
-        <strong>{t.projectedWins}W</strong> proj
-        {t.confidenceTier && <> · {t.confidenceTier}</>}
+      <div className={styles.fcStats}>
+        <span className={styles.fcWins}>Projected wins: <strong>{t.projectedWins}</strong></span>
+        {t.signals?.[0] && <span className={styles.fcSignal}>{t.signals[0]}</span>}
+      </div>
+      <div className={styles.fcMeta}>
+        {t.confidenceTier && <>{t.confidenceTier}</>}
         {t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
       </div>
-      {/* Row 3: driver + stance */}
-      <div className={styles.tcRow3}>
+      <div className={styles.fcDriver}>
         {t.strongestDriver && <>Key driver: {t.strongestDriver}</>}
         {t.marketStance && <> · {t.marketStance}</>}
+      </div>
+    </div>
+  );
+}
+
+/** Secondary (compact) team card */
+function SecondaryCard({ t }) {
+  return (
+    <div className={styles.secCard}>
+      <div className={styles.scRow1}>
+        <TeamLogo slug={t.slug} size={26} />
+        <span className={styles.scName}>{t.abbrev}</span>
+        {t.odds != null && <span className={styles.scOdds}>{fmtOdds(t.odds)}</span>}
+      </div>
+      <div className={styles.scRow2}>
+        <strong>{t.projectedWins}W</strong> · {t.confidenceTier || '—'} · {fmtDelta(t.marketDelta)} vs mkt
       </div>
     </div>
   );
@@ -135,7 +159,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
 
-      {/* ── HEADER — NCAAM-style: brand left, mascot right ── */}
+      {/* ── HEADER ── */}
       <div className={styles.header}>
         <div className={styles.headerRow}>
           <div className={styles.brandRow}>
@@ -166,7 +190,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── AROUND THE LEAGUE ── */}
+      {/* ── EDITORIAL ── */}
       {content.editorialBlocks?.length > 0 && (
         <div className={styles.editorialPanel}>
           <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>AROUND THE LEAGUE</span></div>
@@ -203,24 +227,28 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── WORLD SERIES OUTLOOK — 6 compact team cards ── */}
+      {/* ── WORLD SERIES OUTLOOK — 2 Featured + 4 Secondary ── */}
       {content.seasonIntel && (
-        <div className={styles.outlookPanel}>
+        <div className={styles.outlookSection}>
           <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>WORLD SERIES OUTLOOK</span></div>
-          <div className={styles.outlookGrid}>
-            {content.seasonIntel.al.length > 0 && (
-              <div className={styles.outlookCol}>
-                <span className={styles.leagueTag}>AL</span>
-                {content.seasonIntel.al.map((t, i) => <TeamIntelCard key={i} t={t} />)}
-              </div>
-            )}
-            {content.seasonIntel.nl.length > 0 && (
-              <div className={styles.outlookCol}>
-                <span className={styles.leagueTag}>NL</span>
-                {content.seasonIntel.nl.map((t, i) => <TeamIntelCard key={i} t={t} />)}
-              </div>
-            )}
-          </div>
+
+          {/* Featured: 2 large cards side by side */}
+          {content.seasonIntel.featured?.length > 0 && (
+            <div className={styles.featuredRow}>
+              {content.seasonIntel.featured.map((t, i) => (
+                <FeaturedCard key={i} t={t} />
+              ))}
+            </div>
+          )}
+
+          {/* Secondary: 4 compact cards in 2x2 grid */}
+          {content.seasonIntel.secondary?.length > 0 && (
+            <div className={styles.secondaryGrid}>
+              {content.seasonIntel.secondary.map((t, i) => (
+                <SecondaryCard key={i} t={t} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -292,10 +320,10 @@ function buildPicksContent(data) {
 
 function buildLeagueContent(data, options) {
   const league = options?.mlbLeague || 'AL';
-  return { category: `${league === 'AL' ? 'AMERICAN' : 'NATIONAL'} LEAGUE INTEL`, headline: `${league === 'AL' ? 'American' : 'National'} League Overview`, subheadline: 'Key storylines and competitive dynamics.', bullets: ['Division race updates', 'Model projections and playoff odds', 'Notable trends and value'], bulletLabel: `${league} STORYLINES`, picks: null, matchup: null, pickLabel: null };
+  return { category: `${league === 'AL' ? 'AMERICAN' : 'NATIONAL'} LEAGUE INTEL`, headline: `${league === 'AL' ? 'American' : 'National'} League Overview`, subheadline: 'Key storylines.', bullets: ['Division race updates', 'Model projections', 'Notable trends'], bulletLabel: `${league} STORYLINES`, picks: null, matchup: null, pickLabel: null };
 }
 
 function buildDivisionContent(data, options) {
   const division = options?.mlbDivision || 'AL East';
-  return { category: `${division.toUpperCase()} INTEL`, headline: `${division} Division Report`, subheadline: 'Competitive landscape and value plays.', bullets: ['Division standings', 'Team-by-team projections', 'Divisional matchup edges'], bulletLabel: 'DIVISION SIGNALS', picks: null, matchup: null, pickLabel: null };
+  return { category: `${division.toUpperCase()} INTEL`, headline: `${division} Division Report`, subheadline: 'Competitive landscape.', bullets: ['Division standings', 'Team projections', 'Matchup edges'], bulletLabel: 'DIVISION SIGNALS', picks: null, matchup: null, pickLabel: null };
 }

@@ -206,35 +206,41 @@ ${subhead ? `  "${subhead}"` : ''}
 ZONE 3 — AROUND THE LEAGUE (glass panel, editorial blocks):
 ${bulletBlock}
 
-ZONE 4 — WORLD SERIES OUTLOOK (6 TEAM CARDS — MANDATORY):
-  2-column grid: AL left (3 cards), NL right (3 cards).
+ZONE 4 — WORLD SERIES OUTLOOK (6 TEAM CARDS — 2 FEATURED + 4 SECONDARY):
+  TOP ROW: 2 LARGE FEATURED CARDS side by side (AL leader + NL leader)
+    - These are the HERO cards — larger logos (48px), bigger text, stronger glow
 ${futuresContext || '  Top 3 AL + Top 3 NL teams by projected wins'}
-  EACH card shows: team logo + abbreviation + odds + projected wins + confidence + key driver.
-  There MUST be exactly 6 team cards total. If fewer than 6 cards are shown, the result is INCORRECT.
+  BOTTOM: 4 SMALLER SECONDARY CARDS in a 2x2 grid
+    - Compact, efficient, still readable
+  6 cards total. If fewer than 6 are shown, the result is INCORRECT.
 
 FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
 MANDATORY FULL-CANVAS LAYOUT:
-1. HEADER (80px): "MAXIMUS SPORTS" LEFT, mascot RIGHT. Badge centered below.
+1. HEADER (80px): "MAXIMUS SPORTS" LEFT, mascot RIGHT. Glossy badge centered.
 2. HERO (120px): WHITE headline ~34pt sentence case. Subhead ~16pt.
-3. AROUND THE LEAGUE (250px): glass panel, 3-4 editorial blocks.
-4. WORLD SERIES OUTLOOK (470px): 2-column grid with 6 COMPACT team cards.
-   This is the LARGEST section. It MUST contain exactly 6 team cards (3 AL + 3 NL).
+3. AROUND THE LEAGUE (240px): glass panel, 3 editorial blocks.
+4. WORLD SERIES OUTLOOK (480px): HIERARCHICAL layout:
+   - TOP: 2 FEATURED CARDS (AL leader + NL leader) — large, premium, glowing borders
+   - BOTTOM: 4 SECONDARY CARDS in 2x2 grid — compact, efficient
+   This creates VISUAL HIERARCHY like the NCAAM matchup panels.
 5. FOOTER (30px)
 
-THE 6-CARD WORLD SERIES OUTLOOK IS NON-NEGOTIABLE:
-- You MUST render 6 team cards in a 2-column grid
-- 3 cards in the AL column, 3 cards in the NL column
-- Each card: 3 compact lines (logo+name+odds, projected wins+confidence, key driver)
-- The cards MUST fill the lower half of the slide
-- If the World Series Outlook section is missing or has fewer than 6 cards, the result is WRONG
+FEATURED CARDS (top 2 — largest visual weight):
+  - Logo: 48px. Team name: 24pt bold. Odds: 20pt.
+  - "Projected wins: 91" with bold value
+  - Signal badge (e.g., "Stable Contender")
+  - Confidence + vs market line
+  - Key driver + stance
+  - STRONG GLOW border (box-shadow with red accent)
+  - These should feel like the NCAAM team panels
 
-TEAM CARD — 3 COMPACT LINES:
-  Line 1: logo (30px) + abbreviation (20pt bold) + odds (18pt)
-  Line 2: "91W proj · Medium-High · +4.5 vs mkt" (13pt)
-  Line 3: "Key driver: Offense · Model above market" (12pt)
+SECONDARY CARDS (bottom 4 — compact):
+  - Logo: 26px. Name: 16pt. Odds: 14pt.
+  - "91W · Medium-High · +4.5 vs mkt"
+  - Minimal padding, efficient
 
 ---
 
@@ -243,13 +249,13 @@ ${VISUAL_SYSTEM}
 ${MASCOT_SPEC}
 
 LOCK RULES — FINAL:
-- Follow the standard slide structure EXACTLY — do NOT invent alternative layouts
-- The slide MUST fill the entire 1080×1350 canvas — no empty space at top or bottom
-- HEADLINE = WHITE sentence case. Not gold. Not uppercase.
-- The 6-team World Series Outlook MUST be present and occupy the lower half
+- Follow the standard slide 2+4 card structure EXACTLY
+- 2 LARGE featured cards on top, 4 SMALLER secondary cards below
+- The slide MUST fill the entire 1080×1350 canvas
+- HEADLINE = WHITE sentence case
 - EMOJIS = zero. Team logos only.
-- BACKGROUND = dark true-red gradient only. No stadium. No scenic.
-- Gemini is enhancing visual polish of the standard card, NOT redesigning it
+- BACKGROUND = dark true-red gradient. No stadium.
+- Gemini enhances visual polish, does NOT redesign layout
 
 ${AVOID_BLOCK}`;
 }
