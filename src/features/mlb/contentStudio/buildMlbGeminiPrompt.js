@@ -196,8 +196,8 @@ ZONE 1 — HEADER:
   Below: "${date}"
 
 ZONE 2 — HERO:
-  "${headline}" (UPPERCASE, white, ~34pt bold)
-${subhead ? `  "${subhead}" (smaller, white at 55% opacity)` : ''}
+  "${headline}" (UPPERCASE, white, ~38pt bold, generous breathing room)
+${subhead ? `  "${subhead}" (~17pt, white at 60% opacity)` : ''}
 
 ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS, NOT one flat panel):
   Each editorial block is its OWN glass card with:
@@ -210,7 +210,7 @@ ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS, NOT one flat panel):
 ${bulletBlock}
 
 ZONE 4 — WORLD SERIES OUTLOOK (6 TEAM CARDS — 2 FEATURED + 4 SECONDARY):
-  Centered section title: "WORLD SERIES OUTLOOK" (18pt bold uppercase)
+  Centered section title: "WORLD SERIES OUTLOOK" (20pt bold uppercase)
 
   TOP ROW: 2 LARGE FEATURED CARDS side by side:
     - Each has a small LEAGUE LABEL at top: "AL LEADER" or "NL LEADER"
@@ -232,31 +232,45 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY FULL-CANVAS LAYOUT:
-1. HEADER (80px): "MAXIMUS SPORTS" LEFT, mascot RIGHT. Glossy badge centered.
-2. HERO (100px): WHITE headline ~34pt UPPERCASE. Subhead ~15pt.
-3. EDITORIAL (200px): 3 SEPARATE glass cards stacked vertically, each with own label tab.
-4. WORLD SERIES OUTLOOK (520px): HIERARCHICAL layout:
-   - CENTERED TITLE: "WORLD SERIES OUTLOOK"
-   - TOP: 2 FEATURED CARDS with "AL LEADER" / "NL LEADER" labels
-   - BOTTOM: 4 SECONDARY CARDS with "AL 2", "AL 3", "NL 2", "NL 3" labels
-   This creates VISUAL HIERARCHY like the NCAAM matchup panels.
-5. FOOTER (30px)
+MANDATORY FULL-CANVAS THREE-ZONE LAYOUT:
+The card is divided into THREE deliberate vertical zones:
+  Zone A (top ~22-25%): Header + Hero — brand, badge, date, headline, subhead
+  Zone B (middle ~30-35%): 3 editorial cards — generous padding, readable body text
+  Zone C (bottom ~38-42%): World Series Outlook + footer — data-rich but compact
 
-FEATURED CARDS (top 2 — largest visual weight):
-  - League label pill: "AL LEADER" / "NL LEADER"
-  - Logo: 48px. Team name: 28pt bold. Odds: 24pt right-aligned.
-  - "Projected wins: XX" with bold value + signal badge
-  - Confidence tier + vs market delta line
-  - Key Driver + stance + chart bar icon (bottom right corner)
-  - STRONG GLOW border (box-shadow with red accent)
+CRITICAL: No dead zones. No large empty areas below the outlook cards.
+The outlook section sizes to its CONTENT, not to fill remaining space.
+The footer sits snugly beneath the outlook section.
 
-SECONDARY CARDS (bottom 4 — compact but detailed):
-  - League label pill: "AL 2", "AL 3", "NL 2", "NL 3"
-  - Logo: 22px. Name: 16pt. Odds: 14pt right-aligned.
-  - Projected wins + signal badge
-  - Confidence + vs market + key driver
-  - Compact but readable
+Zone A — HEADER + HERO (~300px):
+  "MAXIMUS SPORTS" LEFT (17pt), mascot RIGHT (62px).
+  Glossy badge centered (15pt). Date below (13pt).
+  WHITE headline ~38pt UPPERCASE bold. Subhead ~17pt at 60% opacity.
+  The headline should BREATHE — generous padding around it.
+
+Zone B — EDITORIAL (~430px):
+  3 SEPARATE glass cards stacked vertically with 8px gap.
+  Each card: 16px padding, 12px label tab, 16pt body text.
+  Must feel like premium publishable editorial blocks.
+  NOT compressed or squished — these are the narrative heart of the card.
+
+Zone C — WORLD SERIES OUTLOOK (~540px):
+  Centered title: "WORLD SERIES OUTLOOK" (20pt bold uppercase).
+  2 FEATURED CARDS on top — these must CLEARLY POP:
+    - "AL LEADER" / "NL LEADER" labels (11pt)
+    - Logo (52px). Team name: 32pt bold. Odds: 28pt right-aligned.
+    - "Projected wins: XX" (15pt) + signal badge (11pt)
+    - Confidence + vs market (14pt)
+    - Key Driver + stance (13pt) + chart icon
+    - STRONG GLOW: box-shadow 32px rgba(180,20,40,0.20)
+    - 16px internal padding, 1.5px border rgba(255,255,255,0.16)
+  4 SECONDARY CARDS in 2x2 grid — compact but elegant:
+    - "AL 2", "AL 3", "NL 2", "NL 3" labels (10pt)
+    - Logo (22px). Name: 18pt. Odds: 16pt right-aligned.
+    - Projected wins (12pt) + confidence + key driver
+    - 10px padding, clean spacing between rows
+    - Clearly subordinate to featured cards
+  FOOTER snug below (12pt URL, 10pt disclaimer).
 
 ---
 
@@ -267,10 +281,15 @@ ${MASCOT_SPEC}
 LOCK RULES — FINAL:
 - Follow the standard slide 2+4 card structure EXACTLY
 - 2 LARGE featured cards on top, 4 SMALLER secondary cards below
+- Featured cards must CLEARLY POP — stronger glow, bigger text, more padding than secondary
 - ALL team cards MUST have league labels (AL LEADER, NL LEADER, AL 2, etc.)
 - Editorial section = 3 SEPARATE glass cards with label tabs (NOT one flat panel)
-- The slide MUST fill the entire 1080×1350 canvas
-- HEADLINE = WHITE UPPERCASE
+- The slide MUST fill the entire 1080×1350 canvas — THREE deliberate zones
+- Top 60% = header + hero + editorial (generous, readable, breathable)
+- Bottom 40% = outlook cards + footer (data-rich, compact, no dead zone)
+- NO large empty area beneath the outlook cards
+- HEADLINE = WHITE UPPERCASE ~38pt
+- ALL body text must be READABLE on mobile (minimum 16pt for editorial, 12pt for card metadata)
 - EMOJIS = zero. Team logos only.
 - BACKGROUND = dark true-red gradient. No stadium.
 - Gemini enhances visual polish, does NOT redesign layout

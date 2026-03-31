@@ -116,7 +116,7 @@ function FeaturedCard({ t, label }) {
     <div className={styles.featuredCard}>
       <div className={styles.fcLabel}>{label}</div>
       <div className={styles.fcTop}>
-        <TeamLogo slug={t.slug} size={48} />
+        <TeamLogo slug={t.slug} size={52} />
         <span className={styles.fcName}>{t.abbrev}</span>
         {t.odds != null && <span className={styles.fcOdds}>{fmtOdds(t.odds)}</span>}
       </div>
