@@ -100,9 +100,10 @@ function buildEditorialBlocks(intel) {
     }
     if (primaryTeam) usedTeams.add(primaryTeam.toLowerCase());
 
-    // Extract 1-2 sentences for compact display
+    // Extract sentences — first block gets 2, rest get 1 for mobile scanability
     const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
-    const body = sentences.slice(0, 2).join(' ').trim();
+    const maxSentences = blocks.length === 0 ? 2 : 1;
+    const body = sentences.slice(0, maxSentences).join(' ').trim();
     if (body.length < 20) continue;
 
     blocks.push({

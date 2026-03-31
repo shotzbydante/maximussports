@@ -216,27 +216,31 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY LAYOUT — TOP 50% EDITORIAL, BOTTOM 50% INTEL CARDS:
+MANDATORY LAYOUT — MOBILE-FIRST READABILITY:
 1. HEADER (80px): compact brand bar
-2. HERO (140px): WHITE headline ~38pt. Subhead ~16pt, 60% opacity.
-3. AROUND THE LEAGUE (300px): glass panel with 3-4 EDITORIAL BLOCKS (not bullets).
-   Each block has a bold ALL-CAPS title + 1-2 sentence body.
-   Titles like: HOT OFF THE PRESS, PENNANT RACE INSIGHTS, MARKET SIGNAL, DIAMOND DISPATCH.
-   No duplicate teams. Each block covers a different theme.
-4. WORLD SERIES OUTLOOK (400px): 2-column grid (AL | NL). Top 3 by PROJECTED WINS.
-   Each team card has EXACTLY 4 lines. No more.
+2. HERO (140px): WHITE headline ~36pt, SENTENCE CASE (not uppercase — saves mobile height).
+   Subhead ~17pt, 65% opacity — must be readable on a phone.
+3. AROUND THE LEAGUE (280px): glass panel with 3-4 EDITORIAL BLOCKS.
+   Each block: bold 13pt ALL-CAPS title + 1 sentence body at 16pt.
+   First block may have 2 sentences. Rest: 1 sentence max.
+4. WORLD SERIES OUTLOOK (420px): 2-column grid. EXACTLY 4 lines per card.
 5. FOOTER (30px)
 
-AROUND THE LEAGUE = EDITORIAL BLOCKS (not bullets):
-- 3-4 titled sections, each with BOLD ALL-CAPS title + body text
-- Feels like a sports column, not a bullet list
-- Professional, editorial, factual tone
+MOBILE READABILITY RULES:
+- Nothing below 13pt on the entire card
+- Team names: 22pt. Odds: 20pt. Both must pop instantly on a phone.
+- "Projected wins" line: 15pt. Bold value.
+- "Confidence" line: 14pt.
+- "Key driver" line: 13pt.
+- Editorial body text: 16pt minimum.
+- If any text is hard to read on a phone, it is INCORRECT.
+- Headline should be SENTENCE CASE, not all-uppercase (saves vertical space).
 
-TEAM CARD — EXACTLY 4 LINES (no more, no less):
-  Line 1: Team logo + abbreviation (20pt bold) + odds (18pt right)
-  Line 2: "Projected wins: 91" (13pt)
-  Line 3: "Confidence: Medium-High  +4.5 vs mkt" (12pt)
-  Line 4: "Key driver: Offense · Model above market" (12pt italic)
+TEAM CARD — EXACTLY 4 LINES:
+  Line 1: logo (34px) + abbreviation (22pt bold) + odds (20pt)
+  Line 2: "Projected wins: 91" (15pt, bold value)
+  Line 3: "Confidence: Medium-High +4.5 vs mkt" (14pt)
+  Line 4: "Key driver: Offense · Model above market" (13pt)
 If a card has more than 4 lines, it is INCORRECT.
 
 ---
@@ -249,7 +253,7 @@ LOCK RULES — FINAL:
 - Match the structure, spacing, and hierarchy of the standard slide EXACTLY
 - Do NOT redesign — only enhance visual polish and premium feel
 - HEADLINE = WHITE. Not gold. Not yellow. White.
-- SUBHEAD = white at 50% opacity. Must be readable on mobile.
+- SUBHEAD = white at 65% opacity. Must be clearly readable on mobile.
 - EMOJIS = zero. Not one. Team logos only.
 - BOTTOM HALF = must contain the World Series Outlook panel (largest zone)
 - BACKGROUND = dark true-red gradient only. No stadium. No scenic. No photography.

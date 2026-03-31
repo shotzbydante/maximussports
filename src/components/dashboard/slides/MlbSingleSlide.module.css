@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
    MlbSingleSlide — Full-canvas MLB IG card (1080×1350)
-   Editorial blocks + compact 4-line team intel cards.
+   MOBILE-FIRST READABILITY PASS — optimized for phone viewing.
    ══════════════════════════════════════════════════════════════ */
 
 .artboard {
@@ -49,19 +49,20 @@
 }
 .dateLine { font-size: 12px; color: rgba(255,255,255,0.35); }
 
-/* ── HERO ── */
+/* ── HERO — sentence case saves vertical space on mobile ── */
 .heroZone {
   position: relative; z-index: 10;
-  padding: 10px 40px 4px; text-align: center;
+  padding: 10px 36px 4px; text-align: center;
 }
 .headline {
-  font-size: 38px; font-weight: 800; line-height: 1.10;
+  font-size: 36px; font-weight: 800; line-height: 1.14;
   color: #fff; margin: 0;
   text-shadow: 0 3px 18px rgba(0,0,0,0.42);
+  /* NOT uppercase — saves ~30% vertical height on mobile */
 }
 .subhead {
-  font-size: 16px; line-height: 1.38; color: rgba(255,255,255,0.60);
-  margin: 5px 0 0;
+  font-size: 17px; line-height: 1.38; color: rgba(255,255,255,0.65);
+  margin: 6px 0 0;
 }
 
 /* ── Matchup hero ── */
@@ -89,8 +90,8 @@
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .panelLabel {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.50);
+  font-size: 14px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.55);
 }
 .panelDot {
   width: 5px; height: 5px; border-radius: 50%;
@@ -98,18 +99,18 @@
   box-shadow: 0 0 8px rgba(255,255,255,0.18);
 }
 
-/* ── Editorial blocks (titled sections, not bullets) ── */
-.editorialList { display: flex; flex-direction: column; gap: 8px; }
+/* ── Editorial blocks — optimized for mobile scanning ── */
+.editorialList { display: flex; flex-direction: column; gap: 10px; }
 .editorialBlock {
-  font-size: 14px; line-height: 1.42; color: rgba(255,255,255,0.70);
+  font-size: 16px; line-height: 1.40; color: rgba(255,255,255,0.72);
 }
 .editorialTitle {
-  font-weight: 700; color: rgba(255,255,255,0.85);
+  font-weight: 800; color: rgba(255,255,255,0.90);
   text-transform: uppercase; letter-spacing: 0.04em;
-  font-size: 12px;
+  font-size: 13px;
 }
 .editorialBody {
-  color: rgba(255,255,255,0.68);
+  color: rgba(255,255,255,0.72);
 }
 
 .teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
@@ -138,54 +139,53 @@
 }
 .outlookCol { display: flex; flex-direction: column; gap: 5px; }
 .leagueTag {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.40);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
   padding-bottom: 3px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-/* ── TEAM CARD — exactly 4 lines ── */
+/* ── TEAM CARD — mobile-readable 4 lines ── */
 .teamCard {
   display: flex; flex-direction: column;
   justify-content: space-between;
-  padding: 10px 10px;
+  padding: 10px 12px;
   background: rgba(255,255,255,0.025);
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.07);
   flex: 1;
-  gap: 2px;
+  gap: 3px;
 }
 
-/* Line 1: logo + name + odds */
+/* Line 1: logo + name + odds — HERO ROW, must pop on mobile */
 .tcRow1 {
   display: flex; align-items: center; gap: 8px;
 }
 .tcName {
-  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.94);
+  font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.96);
   flex: 1;
 }
 .tcOdds {
-  font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.55);
+  font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.60);
   font-variant-numeric: tabular-nums;
 }
 
-/* Line 2: projected wins */
+/* Line 2: projected wins — clear, bold value */
 .tcRow2 {
-  font-size: 13px; color: rgba(255,255,255,0.60);
+  font-size: 15px; color: rgba(255,255,255,0.65);
 }
 .tcRow2 strong {
-  color: rgba(255,255,255,0.85); font-weight: 700;
+  color: rgba(255,255,255,0.90); font-weight: 800;
 }
 
-/* Line 3: confidence + delta */
+/* Line 3: confidence + delta — readable secondary */
 .tcRow3 {
-  font-size: 12px; color: rgba(255,255,255,0.52);
+  font-size: 14px; color: rgba(255,255,255,0.58);
 }
 
-/* Line 4: driver + stance */
+/* Line 4: driver + stance — clear tertiary */
 .tcRow4 {
-  font-size: 12px; color: rgba(255,255,255,0.45);
-  font-style: italic;
+  font-size: 13px; color: rgba(255,255,255,0.52);
 }
 
 /* ── MATCHUPS ── */
