@@ -3355,7 +3355,18 @@ function UnauthenticatedPanel() {
   const [focusEmail, setFocusEmail]       = useState(false);
   const emailInputRef                     = useRef(null);
 
-  useEffect(() => { trackSignupViewed(); }, []);
+  useEffect(() => {
+    trackSignupViewed();
+    // Track embedded browser context for funnel analysis
+    if (isEmbeddedBrowser()) {
+      track('auth_embedded_browser_detected', {
+        source: getEmbeddedSource(),
+        platform: getPlatform(),
+        referrer: document.referrer?.slice(0, 200) || '',
+        auth_mode: 'email_first',
+      });
+    }
+  }, []);
 
   // Auto-focus email input when user picks "Use email instead" from modal
   useEffect(() => {
@@ -3537,6 +3548,11 @@ function UnauthenticatedPanel() {
   }
 
   // ── Normal sign-in state ───────────────────────────────────────────────────
+  // In embedded browsers (Instagram, Facebook, etc.), Google OAuth is blocked.
+  // Show email-first flow to avoid the dead-end modal. Google remains primary
+  // for normal browsers where it works reliably.
+  const inEmbedded = isEmbeddedBrowser();
+
   return (
     <div className={styles.unauthCard}>
       <div className={styles.unauthIcon}>
@@ -3547,7 +3563,11 @@ function UnauthenticatedPanel() {
         </svg>
       </div>
       <h2 className={styles.unauthTitle}>Join Maximus Sports</h2>
-      <p className={styles.unauthSubtitle}>Your personalized sports intelligence command center</p>
+      <p className={styles.unauthSubtitle}>
+        {inEmbedded
+          ? 'Enter your email to get your personalized picks and intel'
+          : 'Your personalized sports intelligence command center'}
+      </p>
       <div className={styles.unauthBenefits}>
         <span>✦ AI-powered daily briefings</span>
         <span>✦ Personalized picks & edges</span>
@@ -3556,37 +3576,67 @@ function UnauthenticatedPanel() {
 
       {error && <div className={styles.errorMsg}>{error}</div>}
 
-      <button type="button" className={styles.btnGoogle} onClick={handleGoogle} disabled={anyLoading}>
-        {googleLoading ? <SpinnerIcon /> : <GoogleIcon />}
-        Continue with Google
-      </button>
+      {/* Email-first in embedded browsers, Google-first in normal browsers */}
+      {inEmbedded ? (
+        <>
+          <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
+            <input
+              ref={emailInputRef}
+              type="email"
+              className={styles.emailInput}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={anyLoading}
+              autoComplete="email"
+              aria-label="Email address"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className={styles.btnEmailSubmit}
+              disabled={anyLoading || !email.trim()}
+            >
+              {emailLoading ? <SpinnerIcon /> : 'Get started with email'}
+            </button>
+          </form>
+          <p className={styles.emailHint}>We'll send a secure sign-in link. No password needed.</p>
+        </>
+      ) : (
+        <>
+          <button type="button" className={styles.btnGoogle} onClick={handleGoogle} disabled={anyLoading}>
+            {googleLoading ? <SpinnerIcon /> : <GoogleIcon />}
+            Continue with Google
+          </button>
 
-      <div className={styles.authDivider}>
-        <span className={styles.authDividerLine} />
-        <span className={styles.authDividerText}>or</span>
-        <span className={styles.authDividerLine} />
-      </div>
+          <div className={styles.authDivider}>
+            <span className={styles.authDividerLine} />
+            <span className={styles.authDividerText}>or</span>
+            <span className={styles.authDividerLine} />
+          </div>
 
-      <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
-        <input
-          ref={emailInputRef}
-          type="email"
-          className={styles.emailInput}
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={anyLoading}
-          autoComplete="email"
-          aria-label="Email address"
-        />
-        <button
-          type="submit"
-          className={styles.btnEmailSubmit}
-          disabled={anyLoading || !email.trim()}
-        >
-          {emailLoading ? <SpinnerIcon /> : 'Continue with email'}
-        </button>
-      </form>
+          <form className={styles.emailForm} onSubmit={handleEmailSubmit} noValidate>
+            <input
+              ref={emailInputRef}
+              type="email"
+              className={styles.emailInput}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={anyLoading}
+              autoComplete="email"
+              aria-label="Email address"
+            />
+            <button
+              type="submit"
+              className={styles.btnEmailSubmit}
+              disabled={anyLoading || !email.trim()}
+            >
+              {emailLoading ? <SpinnerIcon /> : 'Continue with email'}
+            </button>
+          </form>
+        </>
+      )}
 
       {showBrowserModal && (
         <EmbeddedBrowserModal

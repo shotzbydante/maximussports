@@ -112,19 +112,19 @@ export default function AuthGateModal({ onClose, message }) {
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
-        <h3 style={titleStyle}>Sign in required</h3>
+        <h3 style={titleStyle}>Unlock your edge</h3>
         <p style={descStyle}>
-          {message || 'Create a free account to save your preferences, follow friends, and personalize your experience.'}
+          {message || 'Create a free account to save your teams, get personalized picks, and unlock daily intel.'}
         </p>
         <button
           type="button"
           style={btnPrimary}
           onClick={() => { onClose(); navigate('/settings'); }}
         >
-          Create Account / Sign In
+          Get Started — Free
         </button>
         <button type="button" style={btnSecondary} onClick={onClose}>
-          Maybe later
+          Keep browsing
         </button>
       </div>
     </div>

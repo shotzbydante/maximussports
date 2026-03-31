@@ -1093,6 +1093,14 @@
   color: var(--color-text);
 }
 
+.emailHint {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .emailForm {
   display: flex;
   flex-direction: column;
