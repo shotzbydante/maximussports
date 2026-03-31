@@ -295,6 +295,21 @@ function buildSlideContent(template, data, teamData, game, options) {
   }
 }
 
+/** Shorten a headline to one concise sentence for mobile readability. */
+function shortenHeadline(text) {
+  if (!text) return 'MLB Intelligence Briefing';
+  const cleaned = stripEmojis(text);
+  // Take the first sentence only
+  const sentences = cleaned.match(/[^.!?]*[.!?]+/g);
+  const first = sentences?.[0]?.trim() || cleaned;
+  // If still too long (>80 chars), truncate at a natural break
+  if (first.length > 80) {
+    const truncated = first.slice(0, 78).replace(/\s+\S*$/, '');
+    return truncated + '.';
+  }
+  return first;
+}
+
 function buildDailyContent(data) {
   const intel = parseBriefingToIntel(data?.mlbBriefing);
   const champOdds = data?.mlbChampOdds ?? {};
@@ -302,7 +317,7 @@ function buildDailyContent(data) {
   const editorialBlocks = buildEditorialBlocks(intel);
   return {
     category: 'MLB DAILY BRIEFING',
-    headline: intel?.headline ? stripEmojis(intel.headline) : 'MLB Intelligence Briefing',
+    headline: intel?.headline ? shortenHeadline(intel.headline) : 'MLB Intelligence Briefing',
     subheadline: intel?.subhead ? stripEmojis(intel.subhead) : null,
     editorialBlocks, seasonIntel,
     picks: null, matchup: null, pickLabel: null,

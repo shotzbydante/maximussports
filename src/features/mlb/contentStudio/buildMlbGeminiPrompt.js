@@ -196,8 +196,8 @@ ZONE 1 — HEADER:
   Below: "${date}"
 
 ZONE 2 — HERO:
-  "${headline}" (UPPERCASE, white, ~38pt bold, generous breathing room)
-${subhead ? `  "${subhead}" (~17pt, white at 60% opacity)` : ''}
+  "${headline}" (sentence case — NOT all-caps, white, ~36pt bold, concise one-sentence headline)
+${subhead ? `  "${subhead}" (~18pt, white at 58% opacity)` : ''}
 
 ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS, NOT one flat panel):
   Each editorial block is its OWN glass card with:
@@ -244,38 +244,39 @@ The card is divided into THREE deliberate vertical zones:
   Zone B (middle ~30-35%): 3 editorial cards — generous padding, readable body text
   Zone C (bottom ~38-42%): World Series Outlook + footer — data-rich but compact
 
-CRITICAL: No dead zones. No large empty areas below the outlook cards.
-The outlook section sizes to its CONTENT, not to fill remaining space.
-The footer sits snugly beneath the outlook section.
+CRITICAL: No dead zones. The outlook section EXPANDS to fill the remaining
+canvas — cards grow larger, no empty dark space at the bottom.
 
-Zone A — HEADER + HERO (~300px):
+Zone A — HEADER + HERO:
   "MAXIMUS SPORTS" LEFT (17pt), mascot RIGHT (62px).
-  Glossy badge centered (15pt). Date below (13pt).
-  WHITE headline ~38pt UPPERCASE bold. Subhead ~17pt at 60% opacity.
-  The headline should BREATHE — generous padding around it.
+  LARGER glossy badge: 19pt text, 32px MLB crest, 9px 32px padding.
+  Date below (14pt).
+  WHITE headline ~36pt sentence case bold (NOT all-caps, shorter concise headline).
+  Subhead ~18pt at 58% opacity.
 
-Zone B — EDITORIAL (~430px):
+Zone B — EDITORIAL:
   3 SEPARATE glass cards stacked vertically with 8px gap.
-  Each card: 16px padding, 12px label tab, 16pt body text.
-  Must feel like premium publishable editorial blocks.
-  NOT compressed or squished — these are the narrative heart of the card.
+  Each card: 14-16px padding, 13px label tab.
+  LARGE readable body text: ~24pt (mobile-first — must be legible on IG feed).
+  Must feel like premium publishable editorial blurbs designed for social media.
 
-Zone C — WORLD SERIES OUTLOOK (~540px):
+Zone C — WORLD SERIES OUTLOOK (fills remaining canvas):
   Centered title: "WORLD SERIES OUTLOOK" (20pt bold uppercase).
-  6 EQUAL-SIZE CARDS in a uniform 3×2 grid (2 columns, 3 rows).
+  6 EQUAL-SIZE CARDS in a uniform 3×2 grid that FILLS the available height.
+  Cards are LARGE — they expand to use all remaining canvas space.
 
   ALL CARDS share the same box dimensions. Hierarchy through styling only:
     LEADER CARDS (AL LEADER, NL LEADER):
       - Stronger glow: box-shadow 28px rgba(180,20,40,0.20)
       - Stronger border: 1.5px rgba(255,255,255,0.16)
       - Richer gradient fill
-      - Slightly larger team name (26px vs 22px)
-      - Larger WS odds value (24px vs 20px)
+      - Larger team name (30px vs 26px)
+      - Larger WS odds value (28px vs 22px)
     NON-LEADER CARDS: lighter, standard glass treatment.
 
   INTERNAL CARD COMPOSITION (balanced left + right):
-    LEFT: Logo + team name + projected wins + confidence + key driver
-    RIGHT: "WS ODDS" label + large odds value in bordered box
+    LEFT: Logo + team name (26-30pt) + projected wins (14pt) + confidence (13pt) + key driver (12pt)
+    RIGHT: "WS ODDS" label (10-11pt) + large odds value (22-28pt) in bordered box
     This eliminates left-heavy composition and makes odds explicit.
 
   The odds block clearly communicates "World Series odds" at a glance.
@@ -300,8 +301,9 @@ LOCK RULES — FINAL:
 - Bottom 40% = outlook cards + footer (data-rich, compact, no dead zone)
 - NO large empty area beneath the outlook cards
 - Lighter premium glass on team cards — not too dark or muddy
-- HEADLINE = WHITE UPPERCASE ~38pt
-- ALL body text must be READABLE on mobile (minimum 16pt for editorial, 12pt for card metadata)
+- HEADLINE = WHITE sentence case ~36pt (NOT all-caps, concise one-sentence)
+- Editorial body text MUST be ~24pt for mobile/IG readability
+- Card metadata minimum 12pt, team names 26-30pt, WS odds 22-28pt
 - EMOJIS = zero. Team logos only.
 - BACKGROUND = dark true-red gradient. No stadium.
 - Gemini enhances visual polish, does NOT redesign layout
