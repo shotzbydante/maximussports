@@ -193,55 +193,48 @@ HARD CONSTRAINTS FOR THIS CARD:
 
 EXACT CONTENT (render verbatim — perfect spelling):
 
-ZONE 1 — HEADER (compact):
-  Brand: "MAXIMUS SPORTS" (white) + mascot + "MLB DAILY BRIEFING" badge
-  Date: "${date}"
+ZONE 1 — HEADER:
+  Left side: logo + "MAXIMUS SPORTS" wordmark
+  Right side: Maximus mascot
+  Center below: MLB logo + "MLB DAILY BRIEFING" glossy badge
+  Below: "${date}"
 
-ZONE 2 — HERO (white headline, centered):
+ZONE 2 — HERO:
   "${headline}"
 ${subhead ? `  "${subhead}"` : ''}
 
-ZONE 3 — AROUND THE LEAGUE (glass panel with visible border):
+ZONE 3 — AROUND THE LEAGUE (glass panel, editorial blocks):
 ${bulletBlock}
 
-ZONE 4 — WORLD SERIES OUTLOOK (LARGEST panel — must fill significant space):
-${futuresContext || '  Top AL and NL contenders with odds'}
-  Layout: 2-column grid. AL left, NL right.
-  Each row: team logo + abbreviation + odds + projected wins.
-
-ZONE 5 — MATCHUPS TO WATCH (glass panel):
-${matchupBlock || '  Key matchups with team logos'}
+ZONE 4 — WORLD SERIES OUTLOOK (6 TEAM CARDS — MANDATORY):
+  2-column grid: AL left (3 cards), NL right (3 cards).
+${futuresContext || '  Top 3 AL + Top 3 NL teams by projected wins'}
+  EACH card shows: team logo + abbreviation + odds + projected wins + confidence + key driver.
+  There MUST be exactly 6 team cards total. If fewer than 6 cards are shown, the result is INCORRECT.
 
 FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 ---
 
-MANDATORY LAYOUT — MOBILE-FIRST READABILITY:
-1. HEADER (80px): compact brand bar
-2. HERO (140px): WHITE headline ~36pt, SENTENCE CASE (not uppercase — saves mobile height).
-   Subhead ~17pt, 65% opacity — must be readable on a phone.
-3. AROUND THE LEAGUE (280px): glass panel with 3-4 EDITORIAL BLOCKS.
-   Each block: bold 13pt ALL-CAPS title + 1 sentence body at 16pt.
-   First block may have 2 sentences. Rest: 1 sentence max.
-4. WORLD SERIES OUTLOOK (420px): 2-column grid. EXACTLY 4 lines per card.
+MANDATORY FULL-CANVAS LAYOUT:
+1. HEADER (80px): "MAXIMUS SPORTS" LEFT, mascot RIGHT. Badge centered below.
+2. HERO (120px): WHITE headline ~34pt sentence case. Subhead ~16pt.
+3. AROUND THE LEAGUE (250px): glass panel, 3-4 editorial blocks.
+4. WORLD SERIES OUTLOOK (470px): 2-column grid with 6 COMPACT team cards.
+   This is the LARGEST section. It MUST contain exactly 6 team cards (3 AL + 3 NL).
 5. FOOTER (30px)
 
-MOBILE READABILITY RULES:
-- Nothing below 13pt on the entire card
-- Team names: 22pt. Odds: 20pt. Both must pop instantly on a phone.
-- "Projected wins" line: 15pt. Bold value.
-- "Confidence" line: 14pt.
-- "Key driver" line: 13pt.
-- Editorial body text: 16pt minimum.
-- If any text is hard to read on a phone, it is INCORRECT.
-- Headline should be SENTENCE CASE, not all-uppercase (saves vertical space).
+THE 6-CARD WORLD SERIES OUTLOOK IS NON-NEGOTIABLE:
+- You MUST render 6 team cards in a 2-column grid
+- 3 cards in the AL column, 3 cards in the NL column
+- Each card: 3 compact lines (logo+name+odds, projected wins+confidence, key driver)
+- The cards MUST fill the lower half of the slide
+- If the World Series Outlook section is missing or has fewer than 6 cards, the result is WRONG
 
-TEAM CARD — EXACTLY 4 LINES:
-  Line 1: logo (34px) + abbreviation (22pt bold) + odds (20pt)
-  Line 2: "Projected wins: 91" (15pt, bold value)
-  Line 3: "Confidence: Medium-High +4.5 vs mkt" (14pt)
-  Line 4: "Key driver: Offense · Model above market" (13pt)
-If a card has more than 4 lines, it is INCORRECT.
+TEAM CARD — 3 COMPACT LINES:
+  Line 1: logo (30px) + abbreviation (20pt bold) + odds (18pt)
+  Line 2: "91W proj · Medium-High · +4.5 vs mkt" (13pt)
+  Line 3: "Key driver: Offense · Model above market" (12pt)
 
 ---
 
@@ -250,18 +243,13 @@ ${VISUAL_SYSTEM}
 ${MASCOT_SPEC}
 
 LOCK RULES — FINAL:
-- Match the structure, spacing, and hierarchy of the standard slide EXACTLY
-- Do NOT redesign — only enhance visual polish and premium feel
-- HEADLINE = WHITE. Not gold. Not yellow. White.
-- SUBHEAD = white at 65% opacity. Must be clearly readable on mobile.
-- EMOJIS = zero. Not one. Team logos only.
-- BOTTOM HALF = must contain the World Series Outlook panel (largest zone)
-- BACKGROUND = dark true-red gradient only. No stadium. No scenic. No photography.
-- PANELS = visible borders with warm glow. Must stand out from background.
-- WORLD SERIES OUTLOOK = visually strongest panel. Largest. Most glow. Hero module.
-- This card must look like a PREMIUM SPORTS MEDIA GRAPHIC, not a UI component.
-- If content feels small, sparse, or dashboard-like, it is INCORRECT.
-- Think: ESPN graphic / Apple Sports / premium IG sports media post.
+- Follow the standard slide structure EXACTLY — do NOT invent alternative layouts
+- The slide MUST fill the entire 1080×1350 canvas — no empty space at top or bottom
+- HEADLINE = WHITE sentence case. Not gold. Not uppercase.
+- The 6-team World Series Outlook MUST be present and occupy the lower half
+- EMOJIS = zero. Team logos only.
+- BACKGROUND = dark true-red gradient only. No stadium. No scenic.
+- Gemini is enhancing visual polish of the standard card, NOT redesigning it
 
 ${AVOID_BLOCK}`;
 }

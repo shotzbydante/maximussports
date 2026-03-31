@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
    MlbSingleSlide — Full-canvas MLB IG card (1080×1350)
-   MOBILE-FIRST READABILITY PASS — optimized for phone viewing.
+   NCAAM-style header. Compact 3-line team cards. Mobile-first.
    ══════════════════════════════════════════════════════════════ */
 
 .artboard {
@@ -23,53 +23,65 @@
     radial-gradient(ellipse at 50% 50%, rgba(180,20,40,0.08) 0%, transparent 55%);
 }
 
-/* ── HEADER ── */
+/* ── HEADER — NCAAM pattern: brand left, mascot right ── */
 .header {
   position: relative; z-index: 10;
-  display: flex; flex-direction: column; align-items: center;
-  padding: 20px 36px 0; gap: 3px;
+  display: flex; flex-direction: column;
+  padding: 20px 28px 0; gap: 4px;
 }
-.headerTop { display: flex; align-items: center; gap: 12px; }
+.headerRow {
+  display: flex; align-items: center; justify-content: space-between;
+}
 .brandRow { display: flex; align-items: center; gap: 8px; }
 .brandLogo { width: 28px; height: 28px; object-fit: contain; }
 .brandName {
-  font-size: 14px; font-weight: 800; letter-spacing: 0.14em;
+  font-size: 15px; font-weight: 800; letter-spacing: 0.12em;
   text-transform: uppercase; color: rgba(255,255,255,0.90);
 }
 .mascot {
-  width: 52px; height: 52px; object-fit: contain;
+  width: 56px; height: 56px; object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.45));
 }
-.badge {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.85);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  padding: 4px 16px; border-radius: 6px;
-}
-.dateLine { font-size: 12px; color: rgba(255,255,255,0.35); }
 
-/* ── HERO — sentence case saves vertical space on mobile ── */
+/* Hero badge row — MLB crest + label */
+.heroBadgeRow {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin-top: 2px;
+}
+.mlbCrest { width: 22px; height: 22px; object-fit: contain; opacity: 0.70; }
+.heroBadge {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.90);
+  background: linear-gradient(135deg, rgba(139,26,43,0.40) 0%, rgba(255,255,255,0.06) 100%);
+  border: 1px solid rgba(255,255,255,0.14);
+  padding: 5px 18px; border-radius: 8px;
+  box-shadow: 0 0 12px rgba(180,20,40,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.dateLine {
+  font-size: 12px; color: rgba(255,255,255,0.35);
+  text-align: center;
+}
+
+/* ── HERO ── */
 .heroZone {
   position: relative; z-index: 10;
-  padding: 10px 36px 4px; text-align: center;
+  padding: 8px 32px 4px; text-align: center;
 }
 .headline {
-  font-size: 36px; font-weight: 800; line-height: 1.14;
+  font-size: 34px; font-weight: 800; line-height: 1.14;
   color: #fff; margin: 0;
-  text-shadow: 0 3px 18px rgba(0,0,0,0.42);
-  /* NOT uppercase — saves ~30% vertical height on mobile */
+  text-shadow: 0 3px 16px rgba(0,0,0,0.40);
 }
 .subhead {
-  font-size: 17px; line-height: 1.38; color: rgba(255,255,255,0.65);
-  margin: 6px 0 0;
+  font-size: 16px; line-height: 1.38; color: rgba(255,255,255,0.62);
+  margin: 5px 0 0;
 }
 
 /* ── Matchup hero ── */
 .matchupHero {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  gap: 16px; padding: 6px 40px;
+  gap: 16px; padding: 6px 36px;
 }
 .matchupSide { display: flex; align-items: center; gap: 8px; }
 .matchupName { font-size: 20px; font-weight: 800; text-transform: uppercase; }
@@ -78,7 +90,7 @@
 /* ── EDITORIAL PANEL ── */
 .editorialPanel {
   position: relative; z-index: 10;
-  margin: 3px 28px; padding: 14px 18px;
+  margin: 3px 24px; padding: 12px 16px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 12px;
@@ -86,12 +98,12 @@
 }
 .panelHead {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 10px; padding-bottom: 4px;
+  margin-bottom: 8px; padding-bottom: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .panelLabel {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; color: rgba(255,255,255,0.55);
+  font-size: 13px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.52);
 }
 .panelDot {
   width: 5px; height: 5px; border-radius: 50%;
@@ -99,19 +111,17 @@
   box-shadow: 0 0 8px rgba(255,255,255,0.18);
 }
 
-/* ── Editorial blocks — optimized for mobile scanning ── */
-.editorialList { display: flex; flex-direction: column; gap: 10px; }
+/* ── Editorial blocks ── */
+.editorialList { display: flex; flex-direction: column; gap: 8px; }
 .editorialBlock {
-  font-size: 16px; line-height: 1.40; color: rgba(255,255,255,0.72);
+  font-size: 15px; line-height: 1.40; color: rgba(255,255,255,0.70);
 }
 .editorialTitle {
-  font-weight: 800; color: rgba(255,255,255,0.90);
+  font-weight: 800; color: rgba(255,255,255,0.88);
   text-transform: uppercase; letter-spacing: 0.04em;
-  font-size: 13px;
+  font-size: 12px;
 }
-.editorialBody {
-  color: rgba(255,255,255,0.72);
-}
+.editorialBody { color: rgba(255,255,255,0.70); }
 
 .teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
 .bulletDot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.25); flex-shrink: 0; margin-top: 8px; }
@@ -125,7 +135,7 @@
 /* ── OUTLOOK PANEL ── */
 .outlookPanel {
   position: relative; z-index: 10;
-  margin: 3px 28px; padding: 10px 12px;
+  margin: 3px 24px; padding: 10px 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 14px;
@@ -135,57 +145,52 @@
 }
 .outlookGrid {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 6px; flex: 1;
+  gap: 5px; flex: 1;
 }
-.outlookCol { display: flex; flex-direction: column; gap: 5px; }
+.outlookCol { display: flex; flex-direction: column; gap: 4px; }
 .leagueTag {
   font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: rgba(255,255,255,0.45);
-  padding-bottom: 3px;
+  padding-bottom: 2px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-/* ── TEAM CARD — mobile-readable 4 lines ── */
+/* ── TEAM CARD — compact 3-line ── */
 .teamCard {
   display: flex; flex-direction: column;
-  justify-content: space-between;
-  padding: 10px 12px;
+  justify-content: center;
+  padding: 8px 10px;
   background: rgba(255,255,255,0.025);
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.07);
   flex: 1;
-  gap: 3px;
+  gap: 1px;
 }
 
-/* Line 1: logo + name + odds — HERO ROW, must pop on mobile */
+/* Row 1: logo + name + odds */
 .tcRow1 {
   display: flex; align-items: center; gap: 8px;
 }
 .tcName {
-  font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.96);
+  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.96);
   flex: 1;
 }
 .tcOdds {
-  font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.60);
+  font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.58);
   font-variant-numeric: tabular-nums;
 }
 
-/* Line 2: projected wins — clear, bold value */
+/* Row 2: projected wins + confidence + delta — ALL on one line */
 .tcRow2 {
-  font-size: 15px; color: rgba(255,255,255,0.65);
+  font-size: 13px; color: rgba(255,255,255,0.58);
 }
 .tcRow2 strong {
   color: rgba(255,255,255,0.90); font-weight: 800;
 }
 
-/* Line 3: confidence + delta — readable secondary */
+/* Row 3: driver + stance */
 .tcRow3 {
-  font-size: 14px; color: rgba(255,255,255,0.58);
-}
-
-/* Line 4: driver + stance — clear tertiary */
-.tcRow4 {
-  font-size: 13px; color: rgba(255,255,255,0.52);
+  font-size: 12px; color: rgba(255,255,255,0.48);
 }
 
 /* ── MATCHUPS ── */
@@ -199,14 +204,14 @@
 .matchupVs { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.22); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 2px; }
 
 /* ── Team focus ── */
-.teamFocusRow { position: relative; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 6px 36px; }
+.teamFocusRow { position: relative; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 6px 32px; }
 .focusName { font-size: 22px; font-weight: 800; text-transform: uppercase; }
 
 /* ── FOOTER ── */
 .footer {
   position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 28px 14px;
+  padding: 6px 24px 14px;
 }
 .footerUrl { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.20); letter-spacing: 0.03em; }
 .footerDisclaimer { font-size: 9px; color: rgba(255,255,255,0.12); max-width: 260px; text-align: right; }

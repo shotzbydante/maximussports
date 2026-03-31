@@ -1,8 +1,8 @@
 /**
  * MlbSingleSlide — Premium full-canvas MLB IG post (1080×1350).
  *
- * Top ~50%: editorial briefing blocks (not bullets)
- * Bottom ~50%: compact 4-line Season Intelligence team cards
+ * NCAAM-inspired header: brand left, mascot right.
+ * Top ~45%: editorial briefing. Bottom ~55%: compact 6-team Season Intel cards.
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
@@ -44,7 +44,6 @@ function stripEmojis(text) {
   return text.replace(/[\u{1F300}-\u{1FAD6}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
 }
 
-/** Top 3 AL + top 3 NL sorted by PROJECTED WINS (descending). */
 function buildSeasonIntelLeaders(champOdds) {
   const entries = [];
   for (const team of MLB_TEAMS) {
@@ -53,7 +52,7 @@ function buildSeasonIntelLeaders(champOdds) {
     const oddsData = champOdds?.[team.slug];
     const oddsVal = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
     entries.push({
-      slug: team.slug, name: team.name, abbrev: team.abbrev, league: team.league,
+      slug: team.slug, abbrev: team.abbrev, league: team.league,
       projectedWins: proj.projectedWins, odds: oddsVal,
       confidenceTier: proj.confidenceTier ?? null,
       marketDelta: proj.marketDelta ?? null,
@@ -68,30 +67,17 @@ function buildSeasonIntelLeaders(champOdds) {
   return { al, nl };
 }
 
-// ── Editorial section titles mapped to briefing paragraph positions ──
-const EDITORIAL_TITLES = [
-  'HOT OFF THE PRESS',
-  'PENNANT RACE INSIGHTS',
-  'MARKET SIGNAL',
-  'DIAMOND DISPATCH',
-];
+const EDITORIAL_TITLES = ['HOT OFF THE PRESS', 'PENNANT RACE INSIGHTS', 'MARKET SIGNAL', 'DIAMOND DISPATCH'];
 
-/**
- * Build editorial blocks from the 5-paragraph briefing.
- * Each block has a title and 1-2 sentence body. No duplicate teams.
- */
 function buildEditorialBlocks(intel) {
   if (!intel?.rawParagraphs?.length) return null;
   const blocks = [];
   const usedTeams = new Set();
-
   for (let i = 0; i < Math.min(intel.rawParagraphs.length, 4); i++) {
     if (blocks.length >= 4) break;
     const para = intel.rawParagraphs[i];
     const cleaned = stripEmojis(para);
     if (!cleaned || cleaned.length < 30) continue;
-
-    // Check team dedup
     let primaryTeam = null;
     for (const t of (intel.teamMentions || [])) {
       if (cleaned.toLowerCase().includes(t.toLowerCase())) {
@@ -99,51 +85,36 @@ function buildEditorialBlocks(intel) {
       }
     }
     if (primaryTeam) usedTeams.add(primaryTeam.toLowerCase());
-
-    // Extract sentences — first block gets 2, rest get 1 for mobile scanability
     const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
     const maxSentences = blocks.length === 0 ? 2 : 1;
     const body = sentences.slice(0, maxSentences).join(' ').trim();
     if (body.length < 20) continue;
-
-    blocks.push({
-      title: EDITORIAL_TITLES[blocks.length] || 'INTEL',
-      body,
-      slug: primaryTeam ? resolveSlug(primaryTeam) : null,
-    });
+    blocks.push({ title: EDITORIAL_TITLES[blocks.length] || 'INTEL', body });
   }
-
   return blocks.length > 0 ? blocks : null;
 }
 
-/** 4-line team card */
+/** Compact 3-line team card (tighter than 4-line version) */
 function TeamIntelCard({ t }) {
-  // Line 3: confidence + delta combined
-  const confLine = [
-    t.confidenceTier ? `Confidence: ${t.confidenceTier}` : null,
-    t.marketDelta != null ? `${fmtDelta(t.marketDelta)} vs mkt` : null,
-  ].filter(Boolean).join('  ');
-
-  // Line 4: driver + stance combined
-  const driverLine = [
-    t.strongestDriver ? `Key driver: ${t.strongestDriver}` : null,
-    t.marketStance ? t.marketStance : null,
-  ].filter(Boolean).join(' · ');
-
   return (
     <div className={styles.teamCard}>
-      {/* Line 1: logo + name + odds */}
+      {/* Row 1: logo + name + odds */}
       <div className={styles.tcRow1}>
-        <TeamLogo slug={t.slug} size={34} />
+        <TeamLogo slug={t.slug} size={30} />
         <span className={styles.tcName}>{t.abbrev}</span>
         {t.odds != null && <span className={styles.tcOdds}>{fmtOdds(t.odds)}</span>}
       </div>
-      {/* Line 2: projected wins */}
-      <div className={styles.tcRow2}>Projected wins: <strong>{t.projectedWins}</strong></div>
-      {/* Line 3: confidence + delta */}
-      {confLine && <div className={styles.tcRow3}>{confLine}</div>}
-      {/* Line 4: driver + stance */}
-      {driverLine && <div className={styles.tcRow4}>{driverLine}</div>}
+      {/* Row 2: projected wins + confidence + delta */}
+      <div className={styles.tcRow2}>
+        <strong>{t.projectedWins}W</strong> proj
+        {t.confidenceTier && <> · {t.confidenceTier}</>}
+        {t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
+      </div>
+      {/* Row 3: driver + stance */}
+      <div className={styles.tcRow3}>
+        {t.strongestDriver && <>Key driver: {t.strongestDriver}</>}
+        {t.marketStance && <> · {t.marketStance}</>}
+      </div>
     </div>
   );
 }
@@ -164,16 +135,19 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
 
-      {/* ── HEADER ── */}
+      {/* ── HEADER — NCAAM-style: brand left, mascot right ── */}
       <div className={styles.header}>
-        <div className={styles.headerTop}>
+        <div className={styles.headerRow}>
           <div className={styles.brandRow}>
             <img src="/logo.png" alt="" className={styles.brandLogo} crossOrigin="anonymous" />
             <span className={styles.brandName}>MAXIMUS SPORTS</span>
           </div>
           <Mascot />
         </div>
-        <span className={styles.badge}>{content.category || 'MLB DAILY BRIEFING'}</span>
+        <div className={styles.heroBadgeRow}>
+          <img src="/mlb-logo.png" alt="" className={styles.mlbCrest} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <span className={styles.heroBadge}>{content.category || 'MLB DAILY BRIEFING'}</span>
+        </div>
         <span className={styles.dateLine}>{today}</span>
       </div>
 
@@ -192,7 +166,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── AROUND THE LEAGUE — editorial blocks ── */}
+      {/* ── AROUND THE LEAGUE ── */}
       {content.editorialBlocks?.length > 0 && (
         <div className={styles.editorialPanel}>
           <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>AROUND THE LEAGUE</span></div>
@@ -229,20 +203,20 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── WORLD SERIES OUTLOOK ── */}
+      {/* ── WORLD SERIES OUTLOOK — 6 compact team cards ── */}
       {content.seasonIntel && (
         <div className={styles.outlookPanel}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>WORLD SERIES OUTLOOK — BY PROJECTED WINS</span></div>
+          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>WORLD SERIES OUTLOOK</span></div>
           <div className={styles.outlookGrid}>
             {content.seasonIntel.al.length > 0 && (
               <div className={styles.outlookCol}>
-                <span className={styles.leagueTag}>AMERICAN LEAGUE</span>
+                <span className={styles.leagueTag}>AL</span>
                 {content.seasonIntel.al.map((t, i) => <TeamIntelCard key={i} t={t} />)}
               </div>
             )}
             {content.seasonIntel.nl.length > 0 && (
               <div className={styles.outlookCol}>
-                <span className={styles.leagueTag}>NATIONAL LEAGUE</span>
+                <span className={styles.leagueTag}>NL</span>
                 {content.seasonIntel.nl.map((t, i) => <TeamIntelCard key={i} t={t} />)}
               </div>
             )}
@@ -282,13 +256,11 @@ function buildDailyContent(data) {
   const champOdds = data?.mlbChampOdds ?? {};
   const seasonIntel = buildSeasonIntelLeaders(champOdds);
   const editorialBlocks = buildEditorialBlocks(intel);
-
   return {
     category: 'MLB DAILY BRIEFING',
     headline: intel?.headline ? stripEmojis(intel.headline) : 'MLB Intelligence Briefing',
     subheadline: intel?.subhead ? stripEmojis(intel.subhead) : null,
-    editorialBlocks,
-    seasonIntel,
+    editorialBlocks, seasonIntel,
     picks: null, matchup: null, pickLabel: null,
   };
 }
