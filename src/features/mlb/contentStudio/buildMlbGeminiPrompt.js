@@ -157,10 +157,6 @@ function dailyBriefingPrompt(payload) {
     ? bullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n')
     : '  (Use headline only)';
 
-  const matchupBlock = matchups.length > 0
-    ? matchups.map(m => `  ${m.teamA} vs ${m.teamB}`).join('\n')
-    : '';
-
   // Build futures context if available
   const futuresContext = payload.seasonIntel
     ? [...(payload.seasonIntel.al || []), ...(payload.seasonIntel.nl || [])]
@@ -179,7 +175,7 @@ You MUST fill the ENTIRE 1080×1350 canvas — no empty space at bottom.
 ${IDENTITY_RULES}
 
 HARD CONSTRAINTS FOR THIS CARD:
-- The main HEADLINE must be WHITE (#FFFFFF) — NOT gold, NOT yellow, NOT any other color
+- The main HEADLINE must be WHITE (#FFFFFF) UPPERCASE — NOT gold, NOT yellow, NOT any other color
 - Subhead text must be white at ~50% opacity — readable, not invisible
 - Use team LOGOS only — absolutely ZERO emojis anywhere (no face, flag, or object emojis)
 - Use structured glass panels with visible BORDERS that stand out from the background
@@ -200,18 +196,36 @@ ZONE 1 — HEADER:
   Below: "${date}"
 
 ZONE 2 — HERO:
-  "${headline}"
-${subhead ? `  "${subhead}"` : ''}
+  "${headline}" (UPPERCASE, white, ~34pt bold)
+${subhead ? `  "${subhead}" (smaller, white at 55% opacity)` : ''}
 
-ZONE 3 — AROUND THE LEAGUE (glass panel, editorial blocks):
+ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS, NOT one flat panel):
+  Each editorial block is its OWN glass card with:
+    - A small colored LABEL TAB at top (burgundy pill, uppercase, bold)
+    - Body text below
+  The 3 cards are:
+    1. "HOT OFF THE PRESS:" — top headline editorial
+    2. "PENNANT RACE INSIGHTS:" — odds/standings editorial
+    3. "MARKET SIGNAL:" — model/market editorial
 ${bulletBlock}
 
 ZONE 4 — WORLD SERIES OUTLOOK (6 TEAM CARDS — 2 FEATURED + 4 SECONDARY):
-  TOP ROW: 2 LARGE FEATURED CARDS side by side (AL leader + NL leader)
-    - These are the HERO cards — larger logos (48px), bigger text, stronger glow
+  Centered section title: "WORLD SERIES OUTLOOK" (18pt bold uppercase)
+
+  TOP ROW: 2 LARGE FEATURED CARDS side by side:
+    - Each has a small LEAGUE LABEL at top: "AL LEADER" or "NL LEADER"
+    - Logo (48px) + Team abbreviation (28pt bold) + Odds (24pt, right-aligned)
+    - "Projected wins: XX" with signal badge
+    - Confidence tier + vs market delta
+    - "Key Driver: X - Stance" + small chart icon (bottom right)
+    - STRONG GLOW border (box-shadow with red accent)
 ${futuresContext || '  Top 3 AL + Top 3 NL teams by projected wins'}
-  BOTTOM: 4 SMALLER SECONDARY CARDS in a 2x2 grid
-    - Compact, efficient, still readable
+
+  BOTTOM: 4 SMALLER SECONDARY CARDS in a 2x2 grid:
+    - Each has a small LEAGUE LABEL at top: "AL 2", "AL 3", "NL 2", "NL 3"
+    - Logo (22px) + Name (16pt) + Odds (14pt right-aligned)
+    - "Projected wins: XX" + signal badge inline
+    - Confidence + vs market + key driver (compact)
   6 cards total. If fewer than 6 are shown, the result is INCORRECT.
 
 FOOTER: "maximussports.ai" — "For entertainment only • 21+"
@@ -220,27 +234,29 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 MANDATORY FULL-CANVAS LAYOUT:
 1. HEADER (80px): "MAXIMUS SPORTS" LEFT, mascot RIGHT. Glossy badge centered.
-2. HERO (120px): WHITE headline ~34pt sentence case. Subhead ~16pt.
-3. AROUND THE LEAGUE (240px): glass panel, 3 editorial blocks.
-4. WORLD SERIES OUTLOOK (480px): HIERARCHICAL layout:
-   - TOP: 2 FEATURED CARDS (AL leader + NL leader) — large, premium, glowing borders
-   - BOTTOM: 4 SECONDARY CARDS in 2x2 grid — compact, efficient
+2. HERO (100px): WHITE headline ~34pt UPPERCASE. Subhead ~15pt.
+3. EDITORIAL (200px): 3 SEPARATE glass cards stacked vertically, each with own label tab.
+4. WORLD SERIES OUTLOOK (520px): HIERARCHICAL layout:
+   - CENTERED TITLE: "WORLD SERIES OUTLOOK"
+   - TOP: 2 FEATURED CARDS with "AL LEADER" / "NL LEADER" labels
+   - BOTTOM: 4 SECONDARY CARDS with "AL 2", "AL 3", "NL 2", "NL 3" labels
    This creates VISUAL HIERARCHY like the NCAAM matchup panels.
 5. FOOTER (30px)
 
 FEATURED CARDS (top 2 — largest visual weight):
-  - Logo: 48px. Team name: 24pt bold. Odds: 20pt.
-  - "Projected wins: 91" with bold value
-  - Signal badge (e.g., "Stable Contender")
-  - Confidence + vs market line
-  - Key driver + stance
+  - League label pill: "AL LEADER" / "NL LEADER"
+  - Logo: 48px. Team name: 28pt bold. Odds: 24pt right-aligned.
+  - "Projected wins: XX" with bold value + signal badge
+  - Confidence tier + vs market delta line
+  - Key Driver + stance + chart bar icon (bottom right corner)
   - STRONG GLOW border (box-shadow with red accent)
-  - These should feel like the NCAAM team panels
 
-SECONDARY CARDS (bottom 4 — compact):
-  - Logo: 26px. Name: 16pt. Odds: 14pt.
-  - "91W · Medium-High · +4.5 vs mkt"
-  - Minimal padding, efficient
+SECONDARY CARDS (bottom 4 — compact but detailed):
+  - League label pill: "AL 2", "AL 3", "NL 2", "NL 3"
+  - Logo: 22px. Name: 16pt. Odds: 14pt right-aligned.
+  - Projected wins + signal badge
+  - Confidence + vs market + key driver
+  - Compact but readable
 
 ---
 
@@ -251,8 +267,10 @@ ${MASCOT_SPEC}
 LOCK RULES — FINAL:
 - Follow the standard slide 2+4 card structure EXACTLY
 - 2 LARGE featured cards on top, 4 SMALLER secondary cards below
+- ALL team cards MUST have league labels (AL LEADER, NL LEADER, AL 2, etc.)
+- Editorial section = 3 SEPARATE glass cards with label tabs (NOT one flat panel)
 - The slide MUST fill the entire 1080×1350 canvas
-- HEADLINE = WHITE sentence case
+- HEADLINE = WHITE UPPERCASE
 - EMOJIS = zero. Team logos only.
 - BACKGROUND = dark true-red gradient. No stadium.
 - Gemini enhances visual polish, does NOT redesign layout

@@ -67,10 +67,9 @@ function buildSeasonIntelLeaders(champOdds) {
   const al = entries.filter(e => e.league === 'AL').slice(0, 3);
   const nl = entries.filter(e => e.league === 'NL').slice(0, 3);
   if (al.length === 0 && nl.length === 0) return null;
-  // Featured = top 1 from each league. Secondary = remaining 2 from each.
   return {
     featured: [al[0], nl[0]].filter(Boolean),
-    secondary: [...al.slice(1), ...nl.slice(1)],
+    secondary: [al[1], al[2], nl[1], nl[2]].filter(Boolean),
   };
 }
 
@@ -81,7 +80,7 @@ function buildEditorialBlocks(intel) {
   const blocks = [];
   const usedTeams = new Set();
   for (let i = 0; i < Math.min(intel.rawParagraphs.length, 4); i++) {
-    if (blocks.length >= 3) break; // max 3 for space
+    if (blocks.length >= 3) break;
     const para = intel.rawParagraphs[i];
     const cleaned = stripEmojis(para);
     if (!cleaned || cleaned.length < 30) continue;
@@ -100,16 +99,26 @@ function buildEditorialBlocks(intel) {
   return blocks.length > 0 ? blocks : null;
 }
 
+/** Chart bar icon for featured cards */
+function ChartIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className={styles.chartIcon}>
+      <rect x="3" y="14" width="4" height="7" rx="1" fill="rgba(255,255,255,0.25)" />
+      <rect x="10" y="9" width="4" height="12" rx="1" fill="rgba(255,255,255,0.35)" />
+      <rect x="17" y="4" width="4" height="17" rx="1" fill="rgba(255,255,255,0.45)" />
+    </svg>
+  );
+}
+
 /** Featured (large) team card — AL or NL leader */
-function FeaturedCard({ t }) {
+function FeaturedCard({ t, label }) {
   return (
     <div className={styles.featuredCard}>
+      <div className={styles.fcLabel}>{label}</div>
       <div className={styles.fcTop}>
         <TeamLogo slug={t.slug} size={48} />
-        <div className={styles.fcInfo}>
-          <span className={styles.fcName}>{t.abbrev}</span>
-          {t.odds != null && <span className={styles.fcOdds}>{fmtOdds(t.odds)}</span>}
-        </div>
+        <span className={styles.fcName}>{t.abbrev}</span>
+        {t.odds != null && <span className={styles.fcOdds}>{fmtOdds(t.odds)}</span>}
       </div>
       <div className={styles.fcStats}>
         <span className={styles.fcWins}>Projected wins: <strong>{t.projectedWins}</strong></span>
@@ -117,30 +126,55 @@ function FeaturedCard({ t }) {
       </div>
       <div className={styles.fcMeta}>
         {t.confidenceTier && <>{t.confidenceTier}</>}
-        {t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
+        {t.marketDelta != null && <> {fmtDelta(t.marketDelta)} vs mkt</>}
       </div>
-      <div className={styles.fcDriver}>
-        {t.strongestDriver && <>Key driver: {t.strongestDriver}</>}
-        {t.marketStance && <> · {t.marketStance}</>}
+      <div className={styles.fcBottom}>
+        <span className={styles.fcDriver}>
+          {t.strongestDriver && <>Key Driver: {t.strongestDriver}</>}
+          {t.marketStance && <> - {t.marketStance}</>}
+        </span>
+        <ChartIcon />
       </div>
     </div>
   );
 }
 
 /** Secondary (compact) team card */
-function SecondaryCard({ t }) {
+function SecondaryCard({ t, label }) {
   return (
     <div className={styles.secCard}>
+      <div className={styles.scLabel}>{label}</div>
       <div className={styles.scRow1}>
-        <TeamLogo slug={t.slug} size={26} />
+        <TeamLogo slug={t.slug} size={22} />
         <span className={styles.scName}>{t.abbrev}</span>
         {t.odds != null && <span className={styles.scOdds}>{fmtOdds(t.odds)}</span>}
       </div>
       <div className={styles.scRow2}>
-        <strong>{t.projectedWins}W</strong> · {t.confidenceTier || '—'} · {fmtDelta(t.marketDelta)} vs mkt
+        Projected wins: <strong>{t.projectedWins}</strong>
+        {t.signals?.[0] && <span className={styles.scSignalInline}>{t.signals[0]}</span>}
+      </div>
+      <div className={styles.scRow3}>
+        {t.confidenceTier && <>{t.confidenceTier}</>}
+        {t.marketDelta != null && <> {fmtDelta(t.marketDelta)} vs mkt</>}
+      </div>
+      <div className={styles.scRow4}>
+        {t.strongestDriver && <>Key Driver: {t.strongestDriver} - {t.marketStance || 'Aligned with market'}</>}
       </div>
     </div>
   );
+}
+
+/** League labels for secondary cards */
+function getSecondaryLabel(idx, seasonIntel) {
+  if (!seasonIntel?.featured) return '';
+  const featured = seasonIntel.featured;
+  const sec = seasonIntel.secondary;
+  if (!sec?.[idx]) return '';
+  const t = sec[idx];
+  // Count how many of this league appeared before in secondary
+  const sameLeagueBefore = sec.slice(0, idx).filter(s => s.league === t.league).length;
+  const rank = sameLeagueBefore + 2; // +2 because leader is #1
+  return `${t.league} ${rank}`;
 }
 
 export default function MlbSingleSlide({ data, teamData, game, asOf, options = {}, ...rest }) {
@@ -190,39 +224,42 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── EDITORIAL ── */}
+      {/* ── EDITORIAL — 3 separate premium cards ── */}
       {content.editorialBlocks?.length > 0 && (
-        <div className={styles.editorialPanel}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>AROUND THE LEAGUE</span></div>
-          <div className={styles.editorialList}>
-            {content.editorialBlocks.map((block, i) => (
-              <div key={i} className={styles.editorialBlock}>
-                <span className={styles.editorialTitle}>{block.title}:</span>
-                <span className={styles.editorialBody}> {block.body}</span>
+        <div className={styles.editorialSection}>
+          {content.editorialBlocks.map((block, i) => (
+            <div key={i} className={styles.editorialCard}>
+              <div className={styles.editorialCardLabel}>{block.title}:</div>
+              <div className={styles.editorialCardBody}>
+                <span className={styles.editorialCardTitle}>{block.title}:</span> {block.body}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* ── Bullets fallback ── */}
       {!content.editorialBlocks && content.bullets?.length > 0 && (
-        <div className={styles.editorialPanel}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>{content.bulletLabel || 'KEY INTEL'}</span></div>
-          <div className={styles.editorialList}>
-            {content.bullets.map((b, i) => (
-              <div key={i} className={styles.editorialBlock}><span className={styles.editorialBody}>{typeof b === 'string' ? b : b.text}</span></div>
-            ))}
+        <div className={styles.editorialSection}>
+          <div className={styles.editorialCard}>
+            <div className={styles.editorialCardLabel}>{content.bulletLabel || 'KEY INTEL'}</div>
+            <div className={styles.editorialCardBody}>
+              {content.bullets.map((b, i) => (
+                <div key={i}>{typeof b === 'string' ? b : b.text}</div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Picks ── */}
       {content.picks?.length > 0 && (
-        <div className={styles.editorialPanel}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>MAXIMUS'S PICKS</span></div>
-          <div className={styles.picksGrid}>
-            {content.picks.map((p, i) => (<div key={i} className={styles.pickCell}><span className={styles.pickType}>{p.category}</span><span className={styles.pickVal}>{p.label}</span></div>))}
+        <div className={styles.editorialSection}>
+          <div className={styles.editorialCard}>
+            <div className={styles.editorialCardLabel}>MAXIMUS'S PICKS</div>
+            <div className={styles.picksGrid}>
+              {content.picks.map((p, i) => (<div key={i} className={styles.pickCell}><span className={styles.pickType}>{p.category}</span><span className={styles.pickVal}>{p.label}</span></div>))}
+            </div>
           </div>
         </div>
       )}
@@ -230,13 +267,13 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       {/* ── WORLD SERIES OUTLOOK — 2 Featured + 4 Secondary ── */}
       {content.seasonIntel && (
         <div className={styles.outlookSection}>
-          <div className={styles.panelHead}><span className={styles.panelDot} /><span className={styles.panelLabel}>WORLD SERIES OUTLOOK</span></div>
+          <h3 className={styles.outlookTitle}>WORLD SERIES OUTLOOK</h3>
 
           {/* Featured: 2 large cards side by side */}
           {content.seasonIntel.featured?.length > 0 && (
             <div className={styles.featuredRow}>
               {content.seasonIntel.featured.map((t, i) => (
-                <FeaturedCard key={i} t={t} />
+                <FeaturedCard key={i} t={t} label={`${t.league} LEADER`} />
               ))}
             </div>
           )}
@@ -245,7 +282,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
           {content.seasonIntel.secondary?.length > 0 && (
             <div className={styles.secondaryGrid}>
               {content.seasonIntel.secondary.map((t, i) => (
-                <SecondaryCard key={i} t={t} />
+                <SecondaryCard key={i} t={t} label={getSecondaryLabel(i, content.seasonIntel)} />
               ))}
             </div>
           )}

@@ -12,21 +12,22 @@
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(170deg,
-    #1c0408 0%, #3a0a12 22%, #4d0e18 42%,
-    #3a0a12 62%, #1c0408 82%, #0a0204 100%);
+    #1c0408 0%, #3a0a12 18%, #551220 38%,
+    #3a0a12 58%, #1c0408 80%, #0a0204 100%);
 }
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
   background:
-    radial-gradient(ellipse at 50% 12%, rgba(220,40,60,0.16) 0%, transparent 34%),
-    radial-gradient(ellipse at 50% 55%, rgba(180,20,40,0.06) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 10%, rgba(220,40,60,0.20) 0%, transparent 36%),
+    radial-gradient(ellipse at 50% 50%, rgba(180,20,40,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 85%, rgba(140,15,30,0.06) 0%, transparent 40%);
 }
 
 /* ── HEADER ── */
 .header {
   position: relative; z-index: 10;
   display: flex; flex-direction: column;
-  padding: 18px 24px 0; gap: 4px;
+  padding: 18px 28px 0; gap: 4px;
 }
 .headerRow {
   display: flex; align-items: center; justify-content: space-between;
@@ -48,27 +49,27 @@
 .mlbCrest { width: 22px; height: 22px; object-fit: contain; opacity: 0.75; }
 .heroBadge {
   font-size: 14px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.92);
-  background: linear-gradient(135deg, rgba(139,26,43,0.45) 0%, rgba(255,255,255,0.06) 100%);
-  border: 1.5px solid rgba(255,255,255,0.16);
-  padding: 6px 22px; border-radius: 10px;
-  box-shadow: 0 0 16px rgba(180,20,40,0.15), inset 0 1px 0 rgba(255,255,255,0.10);
+  text-transform: uppercase; color: rgba(255,255,255,0.94);
+  background: linear-gradient(135deg, rgba(139,26,43,0.50) 0%, rgba(255,255,255,0.08) 100%);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  padding: 6px 24px; border-radius: 10px;
+  box-shadow: 0 0 20px rgba(180,20,40,0.20), inset 0 1px 0 rgba(255,255,255,0.12);
 }
-.dateLine { font-size: 12px; color: rgba(255,255,255,0.35); text-align: center; }
+.dateLine { font-size: 12px; color: rgba(255,255,255,0.35); text-align: center; margin-top: 2px; }
 
 /* ── HERO ── */
 .heroZone {
   position: relative; z-index: 10;
-  padding: 12px 32px 6px; text-align: center;
+  padding: 10px 36px 4px; text-align: center;
 }
 .headline {
   font-size: 34px; font-weight: 800; line-height: 1.14;
-  color: #fff; margin: 0;
+  color: #fff; margin: 0; text-transform: uppercase;
   text-shadow: 0 3px 16px rgba(0,0,0,0.40);
 }
 .subhead {
-  font-size: 16px; line-height: 1.38; color: rgba(255,255,255,0.62);
-  margin: 5px 0 0;
+  font-size: 15px; line-height: 1.38; color: rgba(255,255,255,0.55);
+  margin: 4px 0 0;
 }
 
 /* ── Matchup hero ── */
@@ -81,7 +82,164 @@
 .matchupName { font-size: 20px; font-weight: 800; text-transform: uppercase; }
 .vsLabel { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.24); letter-spacing: 0.08em; }
 
-/* ── EDITORIAL PANEL ── */
+/* ── EDITORIAL SECTION — 3 separate premium cards ── */
+.editorialSection {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 6px 24px;
+}
+.editorialCard {
+  position: relative;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  box-shadow: 0 0 14px rgba(180,20,40,0.08);
+}
+.editorialCardLabel {
+  display: inline-block;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.88);
+  background: linear-gradient(135deg, rgba(139,26,43,0.55) 0%, rgba(80,15,25,0.45) 100%);
+  border: 1px solid rgba(255,255,255,0.12);
+  padding: 3px 12px; border-radius: 4px;
+  margin-bottom: 8px;
+}
+.editorialCardBody {
+  font-size: 14px; line-height: 1.40; color: rgba(255,255,255,0.65);
+}
+.editorialCardTitle {
+  font-weight: 800; color: rgba(255,255,255,0.85);
+  font-size: 13px;
+}
+
+.teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+
+/* ── Picks ── */
+.picksGrid { display: flex; gap: 6px; }
+.pickCell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 8px; background: rgba(255,255,255,0.025); border-radius: 8px; }
+.pickType { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
+.pickVal { font-size: 16px; font-weight: 700; color: #fff; text-align: center; }
+
+/* ══ WORLD SERIES OUTLOOK SECTION ══ */
+.outlookSection {
+  position: relative; z-index: 10;
+  margin: 8px 24px 0; padding: 14px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  box-shadow: 0 0 32px rgba(180,20,40,0.16), 0 0 8px rgba(255,255,255,0.02);
+  flex: 1;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.outlookTitle {
+  font-size: 18px; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.90);
+  text-align: center; margin: 0 0 2px;
+}
+
+/* ── FEATURED ROW: 2 large hero cards ── */
+.featuredRow {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.featuredCard {
+  position: relative;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 14px;
+  background: linear-gradient(155deg, rgba(139,26,43,0.18) 0%, rgba(10,22,40,0.38) 40%, transparent 75%);
+  border: 1.5px solid rgba(255,255,255,0.14);
+  border-radius: 14px;
+  box-shadow:
+    0 0 28px rgba(180,20,40,0.16),
+    0 0 8px rgba(255,255,255,0.03),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.fcLabel {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.50);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 2px 8px; border-radius: 4px;
+  display: inline-block; width: fit-content;
+  margin-bottom: 2px;
+}
+.fcTop { display: flex; align-items: center; gap: 10px; }
+.fcName { font-size: 28px; font-weight: 800; color: rgba(255,255,255,0.96); flex: 1; }
+.fcOdds { font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.60); font-variant-numeric: tabular-nums; }
+.fcStats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fcWins { font-size: 14px; color: rgba(255,255,255,0.60); }
+.fcWins strong { color: rgba(255,255,255,0.92); font-weight: 800; }
+.fcSignal {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  padding: 2px 8px; border-radius: 4px;
+}
+.fcMeta { font-size: 13px; color: rgba(255,255,255,0.50); }
+.fcBottom {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.fcDriver { font-size: 12px; color: rgba(255,255,255,0.42); flex: 1; }
+.chartIcon { flex-shrink: 0; opacity: 0.6; }
+
+/* ── SECONDARY GRID: 4 compact cards in 2x2 ── */
+.secondaryGrid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.secCard {
+  position: relative;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.025);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.scLabel {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.42);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 1px 6px; border-radius: 3px;
+  display: inline-block; width: fit-content;
+  margin-bottom: 2px;
+}
+.scRow1 { display: flex; align-items: center; gap: 6px; }
+.scName { font-size: 16px; font-weight: 800; color: rgba(255,255,255,0.92); flex: 1; }
+.scOdds { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.50); font-variant-numeric: tabular-nums; }
+.scRow2 { font-size: 11px; color: rgba(255,255,255,0.48); }
+.scRow2 strong { color: rgba(255,255,255,0.82); font-weight: 800; }
+.scSignalInline {
+  font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  padding: 1px 5px; border-radius: 3px; margin-left: 4px;
+}
+.scRow3 { font-size: 11px; color: rgba(255,255,255,0.42); }
+.scRow4 { font-size: 10px; color: rgba(255,255,255,0.35); }
+
+/* ── MATCHUPS (legacy) ── */
+.matchupsList { display: flex; flex-direction: column; gap: 5px; }
+.matchupRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; background: rgba(255,255,255,0.025); border-radius: 8px;
+}
+.matchupTeam { font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.78); }
+.matchupVs { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.22); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 2px; }
+
+/* ── Team focus ── */
+.teamFocusRow { position: relative; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 6px 32px; }
+.focusName { font-size: 22px; font-weight: 800; text-transform: uppercase; }
+
+/* ── FOOTER ── */
+.footer {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 28px 14px;
+}
+.footerUrl { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.20); letter-spacing: 0.03em; }
+.footerDisclaimer { font-size: 9px; color: rgba(255,255,255,0.12); max-width: 260px; text-align: right; }
+
+/* ── Legacy panel classes (used by non-daily templates) ── */
 .editorialPanel {
   position: relative; z-index: 10;
   margin: 6px 24px; padding: 14px 18px;
@@ -111,100 +269,4 @@
   text-transform: uppercase; letter-spacing: 0.04em; font-size: 12px;
 }
 .editorialBody { color: rgba(255,255,255,0.70); }
-
-.teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
 .bulletDot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.25); flex-shrink: 0; margin-top: 8px; }
-
-/* ── Picks ── */
-.picksGrid { display: flex; gap: 6px; }
-.pickCell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 8px; background: rgba(255,255,255,0.025); border-radius: 8px; }
-.pickType { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
-.pickVal { font-size: 16px; font-weight: 700; color: #fff; text-align: center; }
-
-/* ══ WORLD SERIES OUTLOOK SECTION ══ */
-.outlookSection {
-  position: relative; z-index: 10;
-  margin: 6px 24px; padding: 12px 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  box-shadow: 0 0 28px rgba(180,20,40,0.14), 0 0 8px rgba(255,255,255,0.02);
-  flex: 1;
-  display: flex; flex-direction: column; gap: 8px;
-}
-
-/* ── FEATURED ROW: 2 large hero cards (NCAAM panel-inspired) ── */
-.featuredRow {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.featuredCard {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 14px 14px;
-  background: linear-gradient(155deg, rgba(139,26,43,0.15) 0%, rgba(10,22,40,0.35) 40%, transparent 75%);
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  box-shadow:
-    0 0 24px rgba(180,20,40,0.14),
-    0 0 8px rgba(255,255,255,0.03),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-}
-.featuredCard::after {
-  content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-  pointer-events: none;
-}
-.fcTop { display: flex; align-items: center; gap: 10px; }
-.fcInfo { display: flex; align-items: baseline; gap: 8px; flex: 1; }
-.fcName { font-size: 24px; font-weight: 800; color: rgba(255,255,255,0.96); }
-.fcOdds { font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.58); font-variant-numeric: tabular-nums; margin-left: auto; }
-.fcStats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.fcWins { font-size: 14px; color: rgba(255,255,255,0.65); }
-.fcWins strong { color: rgba(255,255,255,0.92); font-weight: 800; }
-.fcSignal {
-  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.52);
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  padding: 2px 8px; border-radius: 4px;
-}
-.fcMeta { font-size: 13px; color: rgba(255,255,255,0.55); }
-.fcDriver { font-size: 12px; color: rgba(255,255,255,0.45); }
-
-/* ── SECONDARY GRID: 4 compact cards in 2x2 ── */
-.secondaryGrid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 5px;
-}
-.secCard {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.025);
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-.scRow1 { display: flex; align-items: center; gap: 6px; }
-.scName { font-size: 16px; font-weight: 800; color: rgba(255,255,255,0.92); flex: 1; }
-.scOdds { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.50); font-variant-numeric: tabular-nums; }
-.scRow2 { font-size: 12px; color: rgba(255,255,255,0.50); }
-.scRow2 strong { color: rgba(255,255,255,0.82); font-weight: 800; }
-
-/* ── MATCHUPS ── */
-.matchupsList { display: flex; flex-direction: column; gap: 5px; }
-.matchupRow {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 14px; background: rgba(255,255,255,0.025); border-radius: 8px;
-}
-.matchupTeam { font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.78); }
-.matchupVs { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.22); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 2px; }
-
-/* ── Team focus ── */
-.teamFocusRow { position: relative; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 6px 32px; }
-.focusName { font-size: 22px; font-weight: 800; text-transform: uppercase; }
-
-/* ── FOOTER ── */
-.footer {
-  position: relative; z-index: 10;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 24px 14px;
-}
-.footerUrl { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.20); letter-spacing: 0.03em; }
-.footerDisclaimer { font-size: 9px; color: rgba(255,255,255,0.12); max-width: 260px; text-align: right; }
