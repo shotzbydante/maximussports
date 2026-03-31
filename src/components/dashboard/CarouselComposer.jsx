@@ -43,6 +43,8 @@ import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
 
 // MLB universal single slide
 import MlbSingleSlide from './slides/MlbSingleSlide';
+// MLB Team Intel — premium cinematic slide (ported from NCAAM TeamIntelSlide4)
+import MlbTeamIntelSlide from './slides/MlbTeamIntelSlide';
 
 import styles from './CarouselComposer.module.css';
 
@@ -92,9 +94,10 @@ export function getTemplateDimensions(template) {
  */
 function getSlides(template, slideCount, options = {}) {
   switch (template) {
-    // ── MLB templates: ALWAYS single slide ──
-    case 'mlb-daily':
+    // ── MLB templates ──
     case 'mlb-team':
+      return [MlbTeamIntelSlide];
+    case 'mlb-daily':
     case 'mlb-league':
     case 'mlb-division':
     case 'mlb-game':
