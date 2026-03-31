@@ -18,6 +18,7 @@ import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { mergeGamesWithOdds } from '../api/odds';
 import { useAtsLeaders } from '../hooks/useAtsLeaders';
 import { getTeamSlug } from '../utils/teamSlug';
+import { buildActivePicksGames } from '../utils/activePicksGames';
 import { getSlugFromRankingsName, buildSlugToRankMap } from '../utils/rankingsNormalize';
 import { TEAMS } from '../data/teams';
 import ATSLeaderboard from '../components/home/ATSLeaderboard';
@@ -1048,6 +1049,20 @@ export default function Insights() {
     return [...merged, ...futureOddsGames, ...extraUpcoming];
   }, [fastData.scoresToday, slowData.oddsGames, slowData.upcomingGames]);
 
+  // Canonical tournament games for Maximus's Picks — scoped to current round only.
+  // Uses the same bracket-first pipeline as Home so both pages show the same slate.
+  const picksGames = useMemo(() => {
+    try {
+      return buildActivePicksGames({
+        todayScores: fastData.scoresToday,
+        oddsGames: slowData.oddsGames,
+        upcomingGamesWithSpreads: slowData.upcomingGames || [],
+        getSlug: getTeamSlug,
+        mergeWithOdds: mergeGamesWithOdds,
+      });
+    } catch { return allGames; }
+  }, [fastData.scoresToday, slowData.oddsGames, slowData.upcomingGames, allGames]);
+
   // Enrich all games with analytics
   const enriched = useMemo(
     () => allGames.map((g) => enrichGame(g, rankLookup)),
@@ -1181,7 +1196,7 @@ export default function Insights() {
           <span className={styles.picksSectionTag}>Data-Driven Leans</span>
         </div>
         <MaximusPicks
-          games={allGames}
+          games={picksGames}
           atsLeaders={atsLeaders}
           atsBySlug={atsBySlug}
           rankMap={picksRankMap}

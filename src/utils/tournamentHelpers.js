@@ -157,7 +157,9 @@ export function getTournamentPhase(now = new Date()) {
   if (n >= _toDateNum(FIRST_FOUR_START) && n < _toDateNum(FIRST_ROUND_START)) return 'first_four';
   if (n >= _toDateNum(FIRST_ROUND_START) && n <= _toDateNum(SECOND_ROUND_END)) return 'first_round';
   if (n >= _toDateNum(SWEET_16_START) && n <= _toDateNum(ELITE_EIGHT_END)) return 'sweet_sixteen';
-  if (n === _toDateNum(FINAL_FOUR_DATE)) return 'final_four';
+  // Final Four phase covers the gap after Elite 8 through the Final Four game day.
+  // Matchups are known during this window, so the app should be in Final Four mode.
+  if (n > _toDateNum(ELITE_EIGHT_END) && n <= _toDateNum(FINAL_FOUR_DATE)) return 'final_four';
   if (n >= _toDateNum(CHAMPIONSHIP_DATE) && n <= _toDateNum(TOURNAMENT_END)) return 'championship';
   return 'off';
 }

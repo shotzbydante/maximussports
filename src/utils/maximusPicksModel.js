@@ -410,7 +410,8 @@ function resolveTotal(game) {
 function baseGameKey(obj) {
   const home = getTeamSlug(obj.homeTeam) || (obj.homeTeam || '').toLowerCase().trim();
   const away = getTeamSlug(obj.awayTeam) || (obj.awayTeam || '').toLowerCase().trim();
-  return `${home}|${away}`;
+  // Order-agnostic key so swapped home/away from different sources deduplicates
+  return [home, away].sort().join('|');
 }
 
 // ─── confidence ───────────────────────────────────────────────────────────────
