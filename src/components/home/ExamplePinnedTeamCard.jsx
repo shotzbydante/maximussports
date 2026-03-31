@@ -206,70 +206,91 @@ export default function ExamplePinnedTeamCard({ slug, gamesForToday, onDismiss, 
           <div className={exStyles.fallback}>
             <p className={exStyles.fallbackTitle}>{team?.name ?? 'Duke Blue Devils'}</p>
             <p className={exStyles.fallbackText}>
-              Lock-tier ACC program. Elite recruiting, strong perimeter defense, perennial March Madness contender.
+              Elite program with strong recruiting, perennial March Madness contender, and deep tournament pedigree.
             </p>
-            <Link to={`/teams/${slug}`} className={styles.teamLink}>View full profile →</Link>
+            <Link to={`/ncaam/teams/${slug}`} className={styles.teamLink}>View full profile →</Link>
           </div>
         </div>
       ) : (
         <div className={exStyles.body}>
-          {/* Card header: logo + name + badges */}
+          {/* ── Zone 1: Header (matches real card) ── */}
           <div className={styles.cardHeader}>
-            <div className={styles.cardLinkMock}>
-              <TeamLogo team={team} size={30} />
+            <Link to={`/ncaam/teams/${slug}`} className={styles.cardLink}>
+              <TeamLogo team={team} size={32} />
               <div className={styles.cardMeta}>
                 <span className={styles.teamName}>{team?.name ?? 'Duke Blue Devils'}</span>
                 <span className={styles.conference}>{team?.conference ?? 'ACC'}</span>
               </div>
-            </div>
+            </Link>
             <div className={styles.cardBadges}>
               {rank != null && <span className={styles.rank}>#{rank}</span>}
             </div>
           </div>
 
-          {/* Today's game or next scheduled */}
-          {todayGame && (
-            <div className={styles.nextGame}>
-              <span className={styles.nextLabel}>Today:</span>
-              <span>
-                vs {todayGame.vs} — {todayGame.status}
-                {todayGame.time  && ` · ${todayGame.time} PST`}
-                {todayGame.network && ` · ${todayGame.network}`}
-              </span>
-            </div>
-          )}
-          {!todayGame && nextScheduled && (
-            <div className={styles.nextGame}>
-              <span className={styles.nextLabel}>Next:</span>
-              <span>
-                {nextScheduled.homeAway === 'home' ? 'vs' : '@'} {nextScheduled.opponent}
-              </span>
-            </div>
-          )}
-
-          {/* Records row */}
-          <div className={styles.recordsRow}>
-            <span className={styles.recordCell}>
-              <span className={styles.recordLabel}>Season</span>
-              <span className={styles.recordValue}>{seasonStr}</span>
+          {/* ── Zone 2: Stat strip (matches real card layout) ── */}
+          <div className={styles.statStrip}>
+            <span className={styles.statCell}>
+              <span className={styles.statLabel}>Record</span>
+              <span className={styles.statValue}>{seasonStr}</span>
             </span>
-            <span className={styles.recordCell}>
-              <span className={styles.recordLabel}>L10</span>
-              <span className={styles.recordValue}>{l10Str}</span>
+            <span className={styles.statCell}>
+              <span className={styles.statLabel}>L10</span>
+              <span className={styles.statValue}>{l10Str}</span>
             </span>
-            <span className={styles.recordCell}>
-              <span className={styles.recordLabel}>ATS</span>
-              <span className={styles.recordValue}>—</span>
+            <span className={styles.statCell}>
+              <span className={styles.statLabel}>ATS</span>
+              <span className={styles.statValue}>—</span>
             </span>
           </div>
 
-          {/* CTA */}
+          {/* ── Zone 3: Game module (matches real card) ── */}
+          {todayGame && (
+            <div className={styles.gameModule}>
+              <span className={styles.gameModuleTag}>Today</span>
+              <div className={styles.gameModuleBody}>
+                <div className={styles.gameModuleInfo}>
+                  <span className={styles.gameMatchup}>vs {todayGame.vs}</span>
+                  <span className={styles.gameDetail}>
+                    {todayGame.status}
+                    {todayGame.time && ` · ${todayGame.time} PST`}
+                    {todayGame.network && ` · ${todayGame.network}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          {!todayGame && nextScheduled && (
+            <div className={styles.gameModule}>
+              <span className={styles.gameModuleTag}>Next Game</span>
+              <div className={styles.gameModuleBody}>
+                <div className={styles.gameModuleInfo}>
+                  <span className={styles.gameMatchup}>
+                    {nextScheduled.homeAway === 'home' ? 'vs' : '@'} {nextScheduled.opponent}
+                  </span>
+                  {nextScheduled.date && (
+                    <span className={styles.gameDetail}>
+                      {new Date(nextScheduled.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Zone 4: Intel summary ── */}
+          <div className={styles.intelModule}>
+            <p className={styles.teamSummaryText}>
+              {data?.teamSummary || `${team?.name ?? 'Duke'} enters the tournament as a top-seeded contender with elite talent and deep coaching experience.`}
+            </p>
+          </div>
+
+          {/* ── Zone 6: CTA (matches real card) ── */}
           <div className={exStyles.cardActions}>
             <button type="button" className={exStyles.pinBtn} onClick={handlePin}>
               📌 Pin {team?.name?.split(' ')[0] ?? 'Duke'}
             </button>
-            <Link to={`/teams/${slug}`} className={styles.teamLink}>
-              View profile →
+            <Link to={`/ncaam/teams/${slug}`} className={styles.cardCta}>
+              View Team Intel →
             </Link>
           </div>
         </div>

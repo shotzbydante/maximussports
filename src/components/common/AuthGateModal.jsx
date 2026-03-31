@@ -2,20 +2,28 @@
  * AuthGateModal — lightweight prompt shown when a guest tries
  * a gated action (pin team, follow, subscribe, etc.).
  * Routes user to /settings for sign-in / account creation.
+ *
+ * Renders via portal to document.body so it is never clipped by
+ * parent overflow or displaced by parent transforms (which would
+ * break position:fixed on mobile Safari).
  */
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(0,0,0,0.45)',
-  zIndex: 1200,
+  backdropFilter: 'blur(4px)',
+  WebkitBackdropFilter: 'blur(4px)',
+  zIndex: 9999,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 24,
+  padding: 16,
   animation: 'authGateIn 0.15s ease-out',
+  overscrollBehavior: 'none',
 };
 
 const cardStyle = {
@@ -23,14 +31,17 @@ const cardStyle = {
   border: '1px solid var(--color-border-light, rgba(0,0,0,0.08))',
   borderRadius: 'var(--radius-card, 14px)',
   width: '100%',
-  maxWidth: 380,
-  padding: '32px 28px 24px',
+  maxWidth: 360,
+  padding: '28px 24px 20px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: 16,
+  gap: 14,
   textAlign: 'center',
-  boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 12px 40px rgba(0,0,0,0.08)',
+  maxHeight: 'calc(100vh - 32px)',
+  maxHeight: 'calc(100dvh - 32px)',
+  overflowY: 'auto',
 };
 
 const iconWrap = {
@@ -97,13 +108,25 @@ export default function AuthGateModal({ onClose, message }) {
     }
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    // Lock body scroll while modal is open
+    const scrollY = window.scrollY;
+    const { body } = document;
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.width = '100%';
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      body.style.overflow = '';
+      body.style.position = '';
+      body.style.top = '';
+      body.style.width = '';
+      window.scrollTo(0, scrollY);
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div style={overlayStyle}>
       <div ref={ref} style={cardStyle} role="dialog" aria-modal="true" aria-label="Sign in required">
         <div style={iconWrap}>
@@ -127,6 +150,7 @@ export default function AuthGateModal({ onClose, message }) {
           Keep browsing
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
