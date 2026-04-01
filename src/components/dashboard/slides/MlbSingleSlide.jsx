@@ -175,28 +175,34 @@ function TeamCard({ t }) {
   const isLeader = t.rank === 1;
   return (
     <div className={`${styles.teamCard} ${isLeader ? styles.teamCardLeader : ''}`}>
-      <div className={styles.tcLabel}>{getCardLabel(t)}</div>
-      <div className={styles.tcMain}>
-        <div className={styles.tcLeft}>
+      {/* Top row: label + identity left, odds badge right */}
+      <div className={styles.tcTopRow}>
+        <div className={styles.tcTopLeft}>
+          <span className={styles.tcLabel}>{getCardLabel(t)}</span>
           <div className={styles.tcIdentity}>
-            <TeamLogo slug={t.slug} size={isLeader ? 38 : 30} />
+            <TeamLogo slug={t.slug} size={isLeader ? 34 : 26} />
             <span className={styles.tcName}>{t.abbrev}</span>
-          </div>
-          <div className={styles.tcWins}>
-            <strong>{t.projectedWins}W</strong> proj
-            {t.signals?.[0] && <span className={styles.tcSignal}>{t.signals[0]}</span>}
-          </div>
-          <div className={styles.tcMeta}>
-            {t.confidenceTier}{t.marketDelta != null && <> · {fmtDelta(t.marketDelta)} vs mkt</>}
-          </div>
-          <div className={styles.tcDriver}>
-            {t.strongestDriver || '—'} · {fmtStance(t.marketStance)}
           </div>
         </div>
         <div className={styles.tcOddsBlock}>
-          <span className={styles.tcOddsLabel}>WS ODDS</span>
+          <span className={styles.tcOddsLabel}>WS</span>
           <span className={styles.tcOddsValue}>{fmtOdds(t.odds)}</span>
         </div>
+      </div>
+      {/* Hero: projected wins */}
+      <div className={styles.tcHero}>
+        <span className={styles.tcHeroWins}>{t.projectedWins}</span>
+        <span className={styles.tcHeroLabel}>PROJ. WINS</span>
+        {t.signals?.[0] && <span className={styles.tcSignal}>{t.signals[0]}</span>}
+      </div>
+      {/* Supporting meta */}
+      <div className={styles.tcSupport}>
+        <span className={styles.tcMeta}>
+          {t.confidenceTier}{t.marketDelta != null ? ` · ${fmtDelta(t.marketDelta)} vs mkt` : ''}
+        </span>
+        <span className={styles.tcDriver}>
+          {t.strongestDriver || '—'} · {fmtStance(t.marketStance)}
+        </span>
       </div>
     </div>
   );

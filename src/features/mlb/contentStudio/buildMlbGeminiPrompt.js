@@ -196,10 +196,11 @@ ZONE 1 — HEADER:
   Below: "${date}"
 
 ZONE 2 — HERO:
-  "${headline}" (sentence case — NOT all-caps, white, ~34pt bold, MAX 60 CHARS — concise and editorial)
-${subhead ? `  "${subhead}" (~17pt, white at 55% opacity, MAX 80 CHARS — one sentence only)` : ''}
+  "${headline}" (sentence case — NOT all-caps, white, ~32pt bold, MAX 60 CHARS — concise and editorial)
+${subhead ? `  "${subhead}" (~16pt, white at 55% opacity, MAX 80 CHARS — one sentence only)` : ''}
 
-ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS with subtle icons):
+ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS — THE STORY HOOK):
+  This is the PRIMARY NARRATIVE SECTION of the slide. It MUST feel prominent and breathable.
   Each editorial block is its OWN glass card with:
     - A subtle inline SVG ICON + colored LABEL TAB at top (burgundy pill, uppercase, bold)
     - ONE concise sentence of body text — punchy editorial blurb, NOT a mini-paragraph
@@ -207,34 +208,31 @@ ZONE 3 — EDITORIAL (3 SEPARATE PREMIUM CARDS with subtle icons):
     1. bolt icon + "HOT OFF THE PRESS" — league-wide narrative hook (1 sentence)
     2. pennant icon + "PENNANT RACE INSIGHTS" — contention/rivalry/positioning (1 sentence)
     3. pulse icon + "MARKET SIGNAL" — odds movement/implied probability (1 sentence)
-  Body text ~22pt, slightly stronger contrast. Cards must read fast on mobile — no filler, no verbosity.
-  This section is the NARRATIVE HOOK of the slide — it should feel prominent and breathable.
-  Give editorial cards MORE vertical breathing room than the data grid below.
+  Body text ~23pt, white at 82% opacity, strong contrast. Readable on mobile.
+  Give each card GENEROUS padding (16-18px). This section gets MORE vertical space than the grid below.
+  Editorial cards = the story. Outlook grid = the data board. Story dominates.
 ${bulletBlock}
 
-ZONE 4 — WORLD SERIES OUTLOOK (6 COMPACT TEAM CARDS in a 3×2 grid):
-  Centered section title: "WORLD SERIES OUTLOOK" (16pt bold uppercase)
+ZONE 4 — WORLD SERIES OUTLOOK (6 MODEL-FORWARD TEAM CARDS in a compact 3×2 grid):
+  Centered section title: "WORLD SERIES OUTLOOK" (14pt bold uppercase, tight)
 
-  ALL 6 CARDS ARE COMPACT AND DATA-DENSE in a uniform 3×2 grid (2 columns, 3 rows).
-  Cards should feel like a tight scannable data board — NOT large empty tiles.
-  Reduce internal whitespace aggressively. Information should fill each card efficiently.
-  Hierarchy is achieved through STYLING, not box size:
-    - AL LEADER + NL LEADER cards: stronger glow, border, gradient
-    - AL 2, AL 3, NL 2, NL 3 cards: standard glass treatment
+  THIS IS A COMPRESSED DATA BOARD — NOT a gallery of large tiles.
+  The section should be SHORTER than the editorial section above.
+  ALL 6 CARDS are in a uniform 3×2 grid (2 columns, 3 rows) with 4px gap.
+  Cards should feel like a tight futures model dashboard.
 
-  EVERY CARD has this internal layout:
-    LEFT SIDE:
-      - League label pill ("AL LEADER", "NL 2", etc.) — small, compact
-      - Logo + team abbreviation (22-26pt bold)
-      - "{XX}W proj" + signal badge (compact, single line)
-      - Confidence + vs market delta (11pt, single line)
-      - Key Driver + stance (10pt, compact)
-    RIGHT SIDE:
-      - Explicit "WS ODDS" label (8-9pt uppercase)
-      - Odds value (18-24pt bold)
-      - Contained in a small bordered box
-    Cards must feel TIGHT and EFFICIENT — no loose floating elements.
-    Use compressed signal language: "101W proj · Med-High" not verbose sentences.
+  EVERY CARD uses a MODEL-FORWARD layout where PROJECTED WINS are the HERO:
+    TOP ROW (compact): label pill + logo + team abbrev (20-24pt) LEFT, WS odds badge RIGHT
+      - Odds badge is SECONDARY: "WS" label (7-8pt) + odds value (16-19pt) in small box
+    HERO CENTER: Projected wins in LARGE DOMINANT TYPE (36-42pt, bold, white)
+      + "PROJ. WINS" label beside it (10pt uppercase)
+      + Optional signal badge
+    BOTTOM SUPPORT: Confidence tier + market delta (11pt) + Key driver + stance (10pt)
+
+  The projected wins number is the MOST VISUALLY DOMINANT element in each card.
+  It should be instantly scannable — you see "101" or "54" immediately.
+  The odds badge is small and secondary — NOT the focal point.
+  Cards must use their interior space FULLY — no dead zones or empty centers.
 
 ${futuresContext || '  Top 3 AL + Top 3 NL teams by projected wins'}
 
@@ -246,48 +244,48 @@ FOOTER: "maximussports.ai" — "For entertainment only • 21+"
 
 MANDATORY FULL-CANVAS THREE-ZONE LAYOUT:
 The card is divided into THREE deliberate vertical zones:
-  Zone A (top ~18-22%): Header + Hero — compact brand, badge, date, headline, subhead
-  Zone B (middle ~35-40%): 3 editorial cards — the STORY section, generous padding, large readable text (~22pt)
-  Zone C (bottom ~38-42%): World Series Outlook + footer — COMPACT data board, tight cards, no dead space
+  Zone A (top ~15-18%): Header + Hero — compact brand, badge, date, headline, subhead
+  Zone B (middle ~42-48%): 3 editorial cards — the DOMINANT STORY section, generous padding, large text (~23pt)
+  Zone C (bottom ~35-40%): World Series Outlook + footer — COMPRESSED model-forward data board
 
-CRITICAL: No dead zones. The outlook section EXPANDS to fill the remaining
-canvas — cards grow larger, no empty dark space at the bottom.
+CRITICAL: The editorial section is the STORY. The outlook is the DATA BOARD.
+The story section must feel bigger and more prominent than the data board.
+No dead zones. The outlook section fills remaining canvas but stays compact.
 
 Zone A — HEADER + HERO:
-  "MAXIMUS SPORTS" LEFT (17pt), mascot RIGHT (58px).
-  Glossy badge: 18pt text, 30px MLB crest, 8px 30px padding.
-  Date below (13pt).
-  WHITE headline ~34pt sentence case bold (NOT all-caps, MAX 60 CHARS).
-  Subhead ~17pt at 55% opacity (MAX 80 CHARS, one sentence).
+  "MAXIMUS SPORTS" LEFT (17pt), mascot RIGHT (54px).
+  Glossy badge: 16pt text, 26px MLB crest, 6px 24px padding.
+  Date below (12pt).
+  WHITE headline ~32pt sentence case bold (NOT all-caps, MAX 60 CHARS).
+  Subhead ~16pt at 55% opacity (MAX 80 CHARS, one sentence).
 
-Zone B — EDITORIAL (the story / narrative hook):
-  3 SEPARATE glass cards stacked vertically with 7px gap.
-  Each card: 14-16px padding, icon + 12px label tab.
-  Body text: ~22pt, white at 80% opacity (readable on mobile — 1 sentence per card).
+Zone B — EDITORIAL (the DOMINANT story / narrative hook):
+  3 SEPARATE glass cards stacked vertically with 8px gap.
+  Each card: 16-18px padding, icon + 12px label tab.
+  Body text: ~23pt, white at 82% opacity (highly readable on mobile — 1 sentence per card).
   Each card has a subtle inline SVG icon next to the label pill.
-  Must feel like crisp, punchy editorial blurbs — NOT mini-paragraphs.
-  This zone should feel PROMINENT — the editorial is the hook, not the data grid.
+  This zone gets the MOST vertical space of any zone.
+  Must feel like the narrative centerpiece of the slide.
 
-Zone C — WORLD SERIES OUTLOOK (compact data board):
-  Centered title: "WORLD SERIES OUTLOOK" (16pt bold uppercase).
-  6 COMPACT CARDS in a uniform 3×2 grid that fills remaining canvas.
-  Cards are TIGHT — reduced internal whitespace, dense information.
+Zone C — WORLD SERIES OUTLOOK (compressed model-forward data board):
+  Centered title: "WORLD SERIES OUTLOOK" (14pt bold uppercase).
+  6 COMPACT CARDS in a uniform 3×2 grid, 4px gap.
+  Cards use a MODEL-FORWARD layout:
+
+    PROJECTED WINS is the HERO ELEMENT inside each card (36-42pt bold).
+    It must be the first thing the eye hits — instant scanability.
 
   ALL CARDS share the same box dimensions. Hierarchy through styling only:
-    LEADER CARDS (AL LEADER, NL LEADER):
-      - Stronger glow: box-shadow 28px rgba(180,20,40,0.20)
-      - Stronger border: 1.5px rgba(255,255,255,0.16)
-      - Richer gradient fill
-      - Larger team name (26px vs 22px)
-      - Larger WS odds value (24px vs 18px)
-    NON-LEADER CARDS: lighter, standard glass treatment.
+    LEADER CARDS: Stronger glow, border, gradient. Larger projected wins (42pt vs 36pt).
+    NON-LEADER CARDS: lighter glass treatment.
 
-  INTERNAL CARD COMPOSITION (balanced left + right, COMPACT):
-    LEFT: Logo + team name (22-26pt) + "{XX}W proj" (12pt) + confidence (11pt) + driver (10pt)
-    RIGHT: "WS ODDS" label (8-9pt) + odds value (18-24pt) in small bordered box
-    Cards must feel like a tight data board — no wasted space inside.
+  INTERNAL CARD LAYOUT:
+    TOP: label pill + logo + team name (20-24pt) LEFT, small WS odds badge RIGHT
+    CENTER HERO: Projected wins NUMBER in dominant large type (36-42pt)
+      + "PROJ. WINS" label (10pt) + optional signal badge
+    BOTTOM: Confidence + delta (11pt) + Driver + stance (10pt)
 
-  The odds block clearly communicates "World Series odds" at a glance.
+  Cards MUST use their full interior — no dead centers, no empty bottoms.
   FOOTER snug below (11pt URL, 9pt disclaimer).
 
 ---
@@ -296,30 +294,30 @@ ${VISUAL_SYSTEM}
 
 ${MASCOT_SPEC}
 
-LOCK RULES — FINAL:
+LOCK RULES — FINAL (STRICTLY ENFORCED):
 - 6 COMPACT team cards in a uniform 3×2 grid (NOT 2 big + 4 small)
+- PROJECTED WINS is the HERO ELEMENT inside each card — 36-42pt, dominant, instantly scannable
+- Projected wins must be VISUALLY LARGER than team name and odds — it is the model's output
+- WS odds are SECONDARY — small badge in top-right of card, NOT the focal point
 - Leader cards get hierarchy through STYLING (glow, border, gradient), not box size
 - ALL team cards MUST have league labels (AL LEADER, NL LEADER, AL 2, etc.)
-- ALL team cards MUST have explicit "WS ODDS" label with odds value in a bordered box on the right
-- Team cards must be COMPACT and DATA-DENSE — no large empty tiles, no loose whitespace
-- Use compressed signal language inside cards: "{XX}W proj · {tier}" not verbose text
-- No left-heavy card layouts — use the full horizontal space with left metadata + right odds block
+- Team cards must be COMPACT — no dead space inside, no empty centers, no loose padding
+- Card interior is fully utilized: top identity row → hero wins center → support meta bottom
 - Editorial section = 3 SEPARATE glass cards with label tabs (NOT one flat panel)
-- Editorial is the STORY HOOK — it gets visual prominence over the data grid below
-- Editorial body text ~22pt, white at 80% opacity, 1 sentence per card — readable on mobile
-- Each editorial card has a subtle inline SVG icon next to the label
+- Editorial is the DOMINANT STORY HOOK — it gets MORE vertical space than the data grid
+- Editorial body text ~23pt, white at 82% opacity, 1 sentence per card — highly readable on mobile
+- Each editorial card has generous padding (16-18px) and a subtle inline SVG icon
 - The slide MUST fill the entire 1080×1350 canvas — THREE deliberate zones
-- Top ~55-60% = header + hero + editorial (generous, readable, breathable)
-- Bottom ~40-45% = outlook cards + footer (COMPACT data board, tight cards, no dead zone)
+- Top ~60-65% = header + hero + editorial (DOMINANT, generous, breathable)
+- Bottom ~35-40% = outlook cards + footer (COMPRESSED data board, tight, model-forward)
 - NO large empty area beneath the outlook cards
 - Lighter premium glass on team cards — not too dark or muddy
 - HEADLINE = WHITE sentence case ~32pt (NOT all-caps, MAX 60 CHARS)
-- Card metadata minimum 10pt, team names 22-26pt, WS odds 18-24pt
+- Card metadata minimum 10pt, team names 20-24pt, WS odds 16-19pt
 - ALL 6 cards MUST be fully visible — no clipping at bottom of slide
-- Copy must be compressed: prefer 1 strong sentence over 2 weaker ones
 - EMOJIS = zero. Team logos only.
 - BACKGROUND = dark true-red gradient. No stadium.
-- Gemini enhances visual polish ONLY — does NOT redesign layout or inflate card sizes
+- Gemini enhances visual polish ONLY — does NOT redesign, does NOT inflate card sizes, does NOT revert to old left-right layout
 
 ${AVOID_BLOCK}`;
 }
