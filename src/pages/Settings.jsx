@@ -7,7 +7,7 @@ import { MLB_TEAMS } from '../sports/mlb/teams';
 import { getMlbEspnLogoUrl } from '../utils/espnMlbLogos';
 import TeamLogo from '../components/shared/TeamLogo';
 import { addPinnedTeam, removePinnedTeam, setPinnedTeams } from '../utils/pinnedTeams';
-import { addPinnedForSport, removePinnedForSport } from '../hooks/usePinnedTeams';
+import { addPinnedForSport, removePinnedForSport, getPinnedForSport } from '../hooks/usePinnedTeams';
 import { notifyPinnedChanged, onPinnedChanged, slugArraysEqual } from '../utils/pinnedSync';
 import { track, identify, setUserProperties, analyticsReset } from '../analytics/index';
 import {
@@ -2568,12 +2568,52 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (!sb) { setTeamsLoading(false); return; }
       const { data, error } = await sb.from('user_teams').select('*').eq('user_id', user.id).order('created_at');
       if (error) throw error;
-      const teams = data || [];
+      let teams = data || [];
+      const dbSlugs = new Set(teams.map((t) => t.team_slug));
+
+      // Merge localStorage MLB pins that may not yet be in the DB
+      // (covers the case where the DB write from Home was best-effort and failed)
+      const localMlbPins = getPinnedForSport('mlb');
+      for (const slug of localMlbPins) {
+        if (!dbSlugs.has(slug) && MLB_TEAMS.some(t => t.slug === slug)) {
+          teams = [...teams, {
+            user_id: user.id,
+            team_slug: slug,
+            is_primary: false,
+            created_at: new Date().toISOString(),
+          }];
+          // Best-effort: push the missing pin to the DB
+          try {
+            await sb.from('user_teams').upsert(
+              { user_id: user.id, team_slug: slug, is_primary: false, created_at: new Date().toISOString() },
+              { onConflict: 'user_id,team_slug', ignoreDuplicates: true }
+            );
+          } catch { /* swallow */ }
+        }
+      }
+
       setUserTeams(teams);
-      // Reconcile localStorage to match DB and notify Home
-      const dbSlugs = teams.map((t) => t.team_slug);
-      setPinnedTeams(dbSlugs);
-      notifyPinnedChanged(dbSlugs, 'db');
+
+      // Reconcile localStorage v2 to match DB for BOTH sports
+      const allSlugs = teams.map((t) => t.team_slug);
+      const mlbSlugSet = new Set(MLB_TEAMS.map(t => t.slug));
+      const ncaamSlugs = allSlugs.filter(s => !mlbSlugSet.has(s));
+      const mlbSlugs = allSlugs.filter(s => mlbSlugSet.has(s));
+
+      // Write NCAAM via legacy-compatible helper
+      setPinnedTeams(ncaamSlugs);
+
+      // Write MLB to unified v2 store directly
+      try {
+        const UNIFIED_KEY = 'maximus-pinned-teams-v2';
+        const raw = localStorage.getItem(UNIFIED_KEY);
+        const v2 = raw ? JSON.parse(raw) : { mlb: [], ncaam: ncaamSlugs };
+        v2.mlb = mlbSlugs;
+        localStorage.setItem(UNIFIED_KEY, JSON.stringify(v2));
+        window.dispatchEvent(new CustomEvent('maximus-pins-updated'));
+      } catch { /* quota */ }
+
+      notifyPinnedChanged(allSlugs, 'db');
     } catch (err) {
       setTeamsError(isSchemaMissingError(err) ? 'Service temporarily unavailable.' : 'Could not load your teams.');
     } finally {
