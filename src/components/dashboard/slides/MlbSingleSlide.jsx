@@ -117,7 +117,7 @@ function buildSeasonIntelLeaders(champOdds) {
  *   MARKET SIGNAL         → P2 (World Series Odds Pulse) — 1 sentence
  */
 const EDITORIAL_MAP = [
-  { title: 'HOT OFF THE PRESS', paraIdx: 0, maxSentences: 3 },
+  { title: 'HOT OFF THE PRESS', paraIdx: 0, maxSentences: 2 },
   { title: 'PENNANT RACE INSIGHTS', paraIdx: 2, maxSentences: 1 },
   { title: 'MARKET SIGNAL', paraIdx: 1, maxSentences: 1 },
 ];
@@ -230,7 +230,7 @@ function TeamCard({ t }) {
           </div>
         </div>
         <div className={styles.tcOddsBlock}>
-          <TrophyIcon size={isLeader ? 16 : 13} />
+          <TrophyIcon size={isLeader ? 20 : 16} />
           <span className={styles.tcOddsValue}>{fmtOdds(t.odds)}</span>
         </div>
       </div>

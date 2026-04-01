@@ -302,24 +302,25 @@ ${VISUAL_SYSTEM}
 ${MASCOT_SPEC}
 
 LOCK RULES — FINAL (STRICTLY ENFORCED):
-- Header is CENTERED: MLB mark + "MAXIMUS SPORTS" badge + date. NO mascot. NO left-right layout.
-- Hero headline is LARGE (~50pt), UPPERCASE, WHITE, multi-line, editorial poster style
+- Header is CENTERED: MLB mark + "MAXIMUS SPORTS" badge (18pt) + date. NO mascot. NO left-right layout.
+- Hero headline is ~44pt UPPERCASE WHITE, multi-line editorial poster style
 - Editorial section uses 1 FULL-WIDTH card + 2 HALF-WIDTH cards side by side (NOT 3 stacked)
-- Editorial body text ~22pt, white at 82% opacity, 1 sentence per card
-- 6 team cards in uniform 3×2 grid with 6px gap
-- "{XX} PROJECTED WINS" reads as ONE unified hero statement inside each card (42-50pt number + 13-15pt label)
-- Team LOGO is MORE PROMINENT than win total — anchors card identity (36-44px)
-- Team names are 30-36pt bold. Odds badges have premium trophy SVG icon + value (22-26pt).
-- Odds badge has gold-tinted glassy treatment — NOT a plain white box
-- Card rationale is 1-2 readable editorial sentences (13-14pt), NOT tiny microtext
+- HOT OFF THE PRESS = 2 punchy sentences, distinct from headline, broad coverage not single-story
+- Editorial body text ~20pt, white at 82% opacity
+- ALL 6 team cards MUST be fully visible — NO CLIPPING at bottom
+- "{XX} PROJECTED WINS" reads as ONE SAME-SIZE hero line (number ~32-38pt + label ~16-19pt, visually unified)
+- The number and "PROJECTED WINS" should appear EQUAL in visual weight — NOT number-dominant
+- Team LOGO is prominent (36-44px), anchors card identity
+- Team names are 30-36pt bold
+- Odds badges: trophy SVG icon (16-20px) + value (22-26pt) in gold-tinted glassy chip
+- Card rationale is 1-2 readable editorial sentences (14-15pt), NOT tiny microtext
 - Leader cards get hierarchy through STYLING (glow, border, gradient), not box size
 - ALL team cards have league labels (AL LEADER, NL 2, etc.)
-- Card interiors are fully utilized: top identity → hero wins → support meta
+- Card interiors are fully utilized: top identity → hero wins → rationale
 - Outlook title has decorative line dividers on each side
 - Background is DRAMATIC deep-red gradient with bright stadium-light radial glow from top
-- Footer is CENTERED and STACKED: brand URL (16pt) + disclaimer (11pt)
-- The slide fills the entire 1080×1350 canvas — FIVE distinct zones
-- ALL 6 cards MUST be fully visible — no clipping
+- Footer is CENTERED and STACKED: brand URL (14pt) + disclaimer (10pt)
+- The slide fills the entire 1080×1350 canvas — FIVE distinct zones, ALL fitting without clipping
 - EMOJIS = zero. Team logos only.
 - Gemini enhances visual polish ONLY — does NOT redesign layout or change composition
 
