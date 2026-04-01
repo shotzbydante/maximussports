@@ -216,24 +216,29 @@ ZONE 3 — EDITORIAL (1 FULL-WIDTH + 2 HALF-WIDTH CARDS):
 ${bulletBlock}
 
 ZONE 4 — WORLD SERIES OUTLOOK (6 MODEL-FORWARD TEAM CARDS in a compact 3×2 grid):
-  Centered section title: "WORLD SERIES OUTLOOK" (14pt bold uppercase, tight)
+  Centered section title: "WORLD SERIES OUTLOOK" with decorative line dividers.
 
-  THIS IS A COMPRESSED DATA BOARD — NOT a gallery of large tiles.
-  The section should be SHORTER than the editorial section above.
-  ALL 6 CARDS are in a uniform 3×2 grid (2 columns, 3 rows) with 4px gap.
-  Cards should feel like a tight futures model dashboard.
+  ALL 6 CARDS are in a uniform 3×2 grid (2 columns, 3 rows) with 6px gap.
+  Each card should feel FULLY UTILIZED — no dead space inside.
 
-  EVERY CARD uses a MODEL-FORWARD layout where PROJECTED WINS are the HERO:
-    TOP ROW (compact): label pill + logo + team abbrev (20-24pt) LEFT, WS odds badge RIGHT
-      - Odds badge is SECONDARY: "WS" label (7-8pt) + odds value (16-19pt) in small box
-    HERO CENTER: Projected wins in LARGE DOMINANT TYPE (36-42pt, bold, white)
-      + "PROJ. WINS" label beside it (10pt uppercase)
-      + Optional signal badge
-    BOTTOM SUPPORT: Confidence tier + market delta (11pt) + Key driver + stance (10pt)
+  CARD INTERIOR LAYOUT:
+    TOP ROW:
+      - LEFT: League label pill ("AL LEADER", "NL 2", etc.) above team logo (36-44px) + team name (30-36pt bold)
+      - RIGHT: Premium trophy icon + championship odds value (22-26pt) in a glassy gold-tinted badge
+        The trophy is a custom SVG, NOT an emoji. Feels premium and editorial.
 
-  The projected wins number is the MOST VISUALLY DOMINANT element in each card.
-  It should be instantly scannable — you see "101" or "54" immediately.
-  The odds badge is small and secondary — NOT the focal point.
+    HERO CENTER — the most important element:
+      - "102 PROJECTED WINS" as ONE unified hero statement
+      - The number (42-50pt bold) and "PROJECTED WINS" (13-15pt uppercase) on the same baseline
+      - Optional model signal badge (e.g., "Stable Contender") beside it
+      - This line should be the FIRST thing the eye hits in each card
+
+    BOTTOM — 1-2 sentence editorial rationale:
+      - Readable text (13-14pt) explaining model confidence and key driver
+      - e.g., "Medium-High confidence, 4.5 wins above market. Offense is the strongest driver."
+      - Should fill the lower card area and feel editorial, not like tiny metadata
+
+  The team LOGO should be MORE PROMINENT than the win total — it anchors the card identity.
   Cards must use their interior space FULLY — no dead zones or empty centers.
 
 ${futuresContext || '  Top 3 AL + Top 3 NL teams by projected wins'}
@@ -266,7 +271,8 @@ Zone B — HERO HEADLINE:
   Optional italic subhead beneath (~16pt, 50% opacity).
 
 Zone C — EDITORIAL (1 full-width + 2 half-width):
-  Row 1: Full-width "HOT OFF THE PRESS" glass card.
+  Row 1: Full-width "HOT OFF THE PRESS" glass card — 2-3 sentence real news update.
+    This is DISTINCT from the hero headline. It is the lead editorial news of the day.
   Row 2: "PENNANT RACE INSIGHTS" (left half) + "MARKET SIGNAL" (right half).
   Glass cards with burgundy label pills, ~22pt body text, generous padding.
   This is the STORY SECTION — it must feel prominent and breathable.
@@ -301,9 +307,11 @@ LOCK RULES — FINAL (STRICTLY ENFORCED):
 - Editorial section uses 1 FULL-WIDTH card + 2 HALF-WIDTH cards side by side (NOT 3 stacked)
 - Editorial body text ~22pt, white at 82% opacity, 1 sentence per card
 - 6 team cards in uniform 3×2 grid with 6px gap
-- PROJECTED WINS is the HERO inside each card — 48-56pt, dominant, instantly scannable
-- Projected wins must be VISUALLY LARGER than team name and odds
-- Team names are 28-34pt bold. Odds badges are 22-26pt in bordered box, top-right.
+- "{XX} PROJECTED WINS" reads as ONE unified hero statement inside each card (42-50pt number + 13-15pt label)
+- Team LOGO is MORE PROMINENT than win total — anchors card identity (36-44px)
+- Team names are 30-36pt bold. Odds badges have premium trophy SVG icon + value (22-26pt).
+- Odds badge has gold-tinted glassy treatment — NOT a plain white box
+- Card rationale is 1-2 readable editorial sentences (13-14pt), NOT tiny microtext
 - Leader cards get hierarchy through STYLING (glow, border, gradient), not box size
 - ALL team cards have league labels (AL LEADER, NL 2, etc.)
 - Card interiors are fully utilized: top identity → hero wins → support meta

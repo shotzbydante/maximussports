@@ -46,6 +46,26 @@ function stripEmojis(text) {
  * Source of truth: getTeamProjection() from seasonModel.js — the same
  * engine used on the MLB Season Intelligence page.
  */
+/** Build a 1-2 sentence editorial rationale from projection data. */
+function buildCardRationale(t) {
+  const parts = [];
+  if (t.confidenceTier) {
+    parts.push(`${t.confidenceTier} confidence`);
+  }
+  if (t.marketDelta != null && t.marketDelta !== 0) {
+    const dir = t.marketDelta > 0 ? 'above' : 'below';
+    parts.push(`${Math.abs(t.marketDelta).toFixed(1)} wins ${dir} market`);
+  }
+  const line1 = parts.length > 0 ? parts.join(', ') + '.' : '';
+
+  const line2Parts = [];
+  if (t.strongestDriver) line2Parts.push(t.strongestDriver);
+  if (t.biggestDrag && t.biggestDrag !== 'None significant') line2Parts.push(`${t.biggestDrag} is the drag`);
+  const line2 = line2Parts.length > 0 ? line2Parts.join('. ') + '.' : '';
+
+  return [line1, line2].filter(Boolean).join(' ') || `${t.abbrev} projects at ${t.projectedWins} wins.`;
+}
+
 function buildSeasonIntelLeaders(champOdds) {
   const entries = [];
   for (const team of MLB_TEAMS) {
@@ -59,7 +79,10 @@ function buildSeasonIntelLeaders(champOdds) {
       confidenceTier: proj.confidenceTier ?? null,
       marketDelta: proj.marketDelta ?? null,
       strongestDriver: proj.takeaways?.strongestDriver ?? null,
+      biggestDrag: proj.takeaways?.biggestDrag ?? null,
       marketStance: proj.takeaways?.marketStance ?? null,
+      depthProfile: proj.takeaways?.depthProfile ?? null,
+      riskProfile: proj.takeaways?.riskProfile ?? null,
       signals: proj.signals ?? [],
     });
   }
@@ -84,10 +107,19 @@ function buildSeasonIntelLeaders(champOdds) {
  *   PENNANT RACE INSIGHTS → P3 (Pennant Race & Division Watch)
  *   MARKET SIGNAL         → P2 (World Series Odds Pulse)
  */
+/**
+ * Editorial blocks — HOT OFF THE PRESS gets 2-3 sentences (distinct from headline).
+ * PENNANT RACE INSIGHTS and MARKET SIGNAL get 1 sentence each.
+ *
+ * Mapping:
+ *   HOT OFF THE PRESS    → P1 (Around the League) — 2-3 sentences, richer news update
+ *   PENNANT RACE INSIGHTS → P3 (Pennant Race & Division Watch) — 1 sentence
+ *   MARKET SIGNAL         → P2 (World Series Odds Pulse) — 1 sentence
+ */
 const EDITORIAL_MAP = [
-  { title: 'HOT OFF THE PRESS', paraIdx: 0 },
-  { title: 'PENNANT RACE INSIGHTS', paraIdx: 2 },
-  { title: 'MARKET SIGNAL', paraIdx: 1 },
+  { title: 'HOT OFF THE PRESS', paraIdx: 0, maxSentences: 3 },
+  { title: 'PENNANT RACE INSIGHTS', paraIdx: 2, maxSentences: 1 },
+  { title: 'MARKET SIGNAL', paraIdx: 1, maxSentences: 1 },
 ];
 
 function buildEditorialBlocks(intel) {
@@ -102,9 +134,8 @@ function buildEditorialBlocks(intel) {
 
     const labelMatch = cleaned.match(/^([A-Z][A-Z\s&+\-:]*[A-Z])\s*[:—–-]\s*/);
     const bodyText = labelMatch ? cleaned.slice(labelMatch[0].length) : cleaned;
-    // Take 1 sentence only — concise editorial blurb
     const sentences = bodyText.match(/[^.!?]*[.!?]+/g) || [bodyText];
-    const body = sentences[0]?.trim();
+    const body = sentences.slice(0, mapping.maxSentences).join(' ').trim();
 
     if (!body || body.length < 20) continue;
     blocks.push({ title: mapping.title, body });
@@ -113,12 +144,14 @@ function buildEditorialBlocks(intel) {
   if (blocks.length < 3) {
     const usedIndices = new Set(EDITORIAL_MAP.map(m => m.paraIdx));
     const fallbackTitles = ['HOT OFF THE PRESS', 'PENNANT RACE INSIGHTS', 'MARKET SIGNAL'];
+    const fallbackMax = [3, 1, 1];
     for (let i = 0; i < intel.rawParagraphs.length && blocks.length < 3; i++) {
       if (usedIndices.has(i)) continue;
       const cleaned = stripEmojis(intel.rawParagraphs[i]);
       if (!cleaned || cleaned.length < 30) continue;
       const sentences = cleaned.match(/[^.!?]*[.!?]+/g) || [cleaned];
-      const body = sentences[0]?.trim();
+      const maxS = fallbackMax[blocks.length] || 1;
+      const body = sentences.slice(0, maxS).join(' ').trim();
       if (!body || body.length < 20) continue;
       blocks.push({ title: fallbackTitles[blocks.length] || 'INTEL', body });
     }
@@ -171,39 +204,44 @@ function fmtStance(stance) {
   return stance;
 }
 
+/** Inline SVG trophy icon for odds badge */
+function TrophyIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={styles.trophyIcon}>
+      <path d="M4 2h8v1.5c0 2.5-1.5 4.5-4 5.5-2.5-1-4-3-4-5.5V2z" stroke="rgba(255,215,0,0.70)" strokeWidth="1.0" fill="rgba(255,215,0,0.08)" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 3.5H2.5c0 1.5 0.8 2.5 1.5 3M12 3.5h1.5c0 1.5-0.8 2.5-1.5 3" stroke="rgba(255,215,0,0.50)" strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M6.5 9.5v1.5h3V9.5M5.5 11h5v1H5.5z" stroke="rgba(255,215,0,0.50)" strokeWidth="0.8" fill="rgba(255,215,0,0.05)" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function TeamCard({ t }) {
   const isLeader = t.rank === 1;
+  const rationale = buildCardRationale(t);
   return (
     <div className={`${styles.teamCard} ${isLeader ? styles.teamCardLeader : ''}`}>
-      {/* Top row: label + identity left, odds badge right */}
+      {/* Top row: label + logo + name LEFT, trophy + odds RIGHT */}
       <div className={styles.tcTopRow}>
         <div className={styles.tcTopLeft}>
           <span className={styles.tcLabel}>{getCardLabel(t)}</span>
           <div className={styles.tcIdentity}>
-            <TeamLogo slug={t.slug} size={isLeader ? 34 : 26} />
+            <TeamLogo slug={t.slug} size={isLeader ? 44 : 36} />
             <span className={styles.tcName}>{t.abbrev}</span>
           </div>
         </div>
         <div className={styles.tcOddsBlock}>
-          <span className={styles.tcOddsLabel}>WS</span>
+          <TrophyIcon size={isLeader ? 16 : 13} />
           <span className={styles.tcOddsValue}>{fmtOdds(t.odds)}</span>
         </div>
       </div>
-      {/* Hero: projected wins */}
+      {/* Hero: unified projected wins statement + conviction badge */}
       <div className={styles.tcHero}>
         <span className={styles.tcHeroWins}>{t.projectedWins}</span>
-        <span className={styles.tcHeroLabel}>PROJ. WINS</span>
+        <span className={styles.tcHeroLabel}>PROJECTED WINS</span>
         {t.signals?.[0] && <span className={styles.tcSignal}>{t.signals[0]}</span>}
       </div>
-      {/* Supporting meta */}
-      <div className={styles.tcSupport}>
-        <span className={styles.tcMeta}>
-          {t.confidenceTier}{t.marketDelta != null ? ` · ${fmtDelta(t.marketDelta)} vs mkt` : ''}
-        </span>
-        <span className={styles.tcDriver}>
-          {t.strongestDriver || '—'} · {fmtStance(t.marketStance)}
-        </span>
-      </div>
+      {/* Rationale — 1-2 sentence editorial */}
+      <div className={styles.tcRationale}>{rationale}</div>
     </div>
   );
 }
