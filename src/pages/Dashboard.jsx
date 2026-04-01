@@ -1089,8 +1089,11 @@ export default function Dashboard() {
     : (!isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference));
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
-  // MLB: always force slideCount=1
-  const effectiveSlideCount = mlbActive ? 1 : slideCount;
+  // MLB: mlb-daily gets 3 slides (carousel), other MLB templates get 1
+  const MLB_SLIDE_COUNTS = { 'mlb-daily': 3, 'mlb-team': 1 };
+  const effectiveSlideCount = mlbActive
+    ? (MLB_SLIDE_COUNTS[activeSection] ?? 1)
+    : slideCount;
 
   const options = mlbActive ? {
     mlbTemplate: mlbTemplateType(activeSection),
@@ -1098,7 +1101,7 @@ export default function Dashboard() {
     mlbDivision,
     gameAngle: mlbGameAngle,
     mlbSlateMode,
-    slideCount: 1,
+    slideCount: effectiveSlideCount,
   } : {
     styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
     riskMode,

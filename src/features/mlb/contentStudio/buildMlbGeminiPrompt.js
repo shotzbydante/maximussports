@@ -192,19 +192,21 @@ EXACT CONTENT FOR EACH SLIDE (render verbatim — perfect spelling):
 ═══ SLIDE 1 — HERO COVER ═══
 Purpose: Scroll-stopping hook. Minimal text, maximum visual impact.
 
-CONTENT:
-  - Top center: Maximus Sports logo + "MAXIMUS SPORTS" wordmark (18pt)
-  - Center: LARGE Maximus baseball mascot (480px, Pixar-like 3D, premium)
-  - Below mascot: MLB logo mark (48px)
-  - Title: "DAILY MLB BRIEFING" (72pt, bold, uppercase, white)
-  - Date: "${date}" (18pt, white at 50%)
-  - Tagline: "AI-powered intelligence for the modern fan" (16pt, italic, 35% opacity)
+COMPOSITION (strict vertical layout):
+  TOP (compact): Maximus Sports logo + "MAXIMUS SPORTS" wordmark (16pt, 75% opacity)
+  TOP-THIRD: Mascot hero (420px, Pixar-like 3D baseball mascot, premium drop shadow)
+  TRUE CENTER of canvas: MLB logo (56px) + "DAILY MLB BRIEFING" title + date
+    - Title: 86pt bold uppercase white with glow text-shadow — THE DOMINANT ELEMENT
+    - Date: "${date}" (22pt, white at 55%, directly under title, tight spacing)
+  BOTTOM: Tagline (17pt italic, 32% opacity) + footer
 
-RULES:
-  - NO team cards, NO dense text, NO editorial copy on this slide
-  - This is purely HOOK + BRAND + CONTEXT
-  - Background should be slightly more dramatic/clean than other slides
-  - Mascot must be prominent and centered
+CRITICAL RULES:
+  - Title "DAILY MLB BRIEFING" is the HERO — largest element, centered on canvas
+  - Mascot sits in TOP-THIRD, NOT center — it supports the title, not competes
+  - Do NOT shrink the title below 80pt
+  - Do NOT push the title below center
+  - Do NOT overcrowd this slide — it is HOOK ONLY
+  - NO team cards, NO dense text, NO editorial copy
 
 ═══ SLIDE 2 — EDITORIAL BRIEFING ═══
 Purpose: The story — clean, readable editorial narrative.
@@ -256,9 +258,11 @@ Each slide is 1080×1350 (IG 4:5 portrait).
 All 3 slides share the same deep-red gradient visual system.
 
 SLIDE 1 — HERO COVER:
-  - Centered Maximus mascot (large, ~480px)
-  - "DAILY MLB BRIEFING" title (72pt bold uppercase)
-  - MLB logo + date + brand
+  - Mascot in TOP-THIRD zone (420px, NOT centered — sits above title)
+  - "DAILY MLB BRIEFING" title (86pt bold uppercase) at TRUE CENTER of canvas
+  - This title is THE DOMINANT ELEMENT — largest thing on the slide
+  - Date (22pt) directly under title with tight spacing
+  - MLB logo above title (56px)
   - Minimal text. Maximum visual impact. Designed to stop scroll.
   - NO team cards. NO editorial text. NO dense info.
 
