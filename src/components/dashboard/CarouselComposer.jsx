@@ -41,10 +41,14 @@ import MaxPicksUpsetsSlide from './slides/MaxPicksUpsetsSlide';
 // Conference Intel slide
 import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
 
-// MLB universal single slide
+// MLB universal single slide (legacy, used by non-daily templates)
 import MlbSingleSlide from './slides/MlbSingleSlide';
 // MLB Team Intel — premium cinematic slide (ported from NCAAM TeamIntelSlide4)
 import MlbTeamIntelSlide from './slides/MlbTeamIntelSlide';
+// MLB Daily Briefing carousel (3 slides)
+import MlbDailySlide1 from './slides/MlbDailySlide1';
+import MlbDailySlide2 from './slides/MlbDailySlide2';
+import MlbDailySlide3 from './slides/MlbDailySlide3';
 
 import styles from './CarouselComposer.module.css';
 
@@ -98,6 +102,7 @@ function getSlides(template, slideCount, options = {}) {
     case 'mlb-team':
       return [MlbTeamIntelSlide];
     case 'mlb-daily':
+      return [MlbDailySlide1, MlbDailySlide2, MlbDailySlide3].slice(0, Math.min(slideCount, 3));
     case 'mlb-league':
     case 'mlb-division':
     case 'mlb-game':

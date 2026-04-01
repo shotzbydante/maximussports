@@ -1,0 +1,105 @@
+/* ══════════════════════════════════════════════════════════════
+   MlbDailySlide1 — Hero Cover · Slide 1 of MLB Daily Briefing
+   1080×1350 · Scroll-stopping hook + mascot hero + branding
+   ══════════════════════════════════════════════════════════════ */
+
+.artboard {
+  position: relative; width: 1080px; height: 1350px;
+  overflow: hidden; font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  display: flex; flex-direction: column;
+  color: #fff;
+}
+
+/* ── Background — dramatic, clean, more atmospheric ── */
+.bgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(175deg,
+    #350e18 0%, #551828 25%, #6a2035 45%,
+    #4a1220 60%, #2a0810 80%, #120408 100%);
+}
+.bgGlow {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    radial-gradient(ellipse 1000px 600px at 50% 35%, rgba(255,60,80,0.20) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 400px at 50% 70%, rgba(200,30,50,0.10) 0%, transparent 50%);
+}
+.bgRay {
+  position: absolute; inset: 0; z-index: 2;
+  background:
+    radial-gradient(ellipse 1400px 400px at 50% -5%, rgba(255,120,130,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 500px 700px at 15% 5%, rgba(255,80,100,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 500px 700px at 85% 5%, rgba(255,80,100,0.06) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ── Top brand bar ── */
+.topBar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px;
+  padding: 36px 40px 0;
+}
+.brandLogo {
+  width: 36px; height: 36px; object-fit: contain;
+}
+.brandName {
+  font-size: 18px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(255,255,255,0.85);
+}
+
+/* ── Center hero — mascot ── */
+.heroZone {
+  position: relative; z-index: 10;
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px 40px;
+}
+.mascot {
+  width: 480px; height: 480px; object-fit: contain;
+  filter:
+    drop-shadow(0 8px 40px rgba(0,0,0,0.50))
+    drop-shadow(0 0 80px rgba(180,20,40,0.20));
+}
+
+/* ── Title block ── */
+.titleZone {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 0 60px 24px;
+}
+.badgeRow {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mlbCrest {
+  width: 48px; height: 48px; object-fit: contain; opacity: 0.90;
+}
+.headline {
+  font-size: 72px; font-weight: 900; line-height: 1.0;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  margin: 0;
+  text-shadow:
+    0 3px 24px rgba(0,0,0,0.50),
+    0 0 60px rgba(180,20,40,0.20);
+}
+.dateLine {
+  font-size: 18px; color: rgba(255,255,255,0.50);
+  margin-top: 16px; letter-spacing: 0.03em;
+}
+.tagline {
+  font-size: 16px; color: rgba(255,255,255,0.35);
+  margin-top: 8px; font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+/* ── Footer ── */
+.footer {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 12px 32px 28px;
+}
+.footerUrl {
+  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.25);
+  letter-spacing: 0.06em;
+}

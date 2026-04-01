@@ -1,0 +1,241 @@
+/* ══════════════════════════════════════════════════════════════
+   MlbDailySlide3 — Model Board + CTA · Slide 3 of MLB Daily
+   1080×1350 · Data showcase + conversion
+   ══════════════════════════════════════════════════════════════ */
+
+.artboard {
+  position: relative; width: 1080px; height: 1350px;
+  overflow: hidden; font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  display: flex; flex-direction: column;
+  color: #fff;
+}
+
+/* ── Background ── */
+.bgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(175deg,
+    #2a0810 0%, #4a1220 20%, #5c1828 40%,
+    #4a1220 55%, #2a0810 75%, #120408 100%);
+}
+.bgGlow {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    radial-gradient(ellipse 800px 400px at 50% 10%, rgba(255,60,80,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse 600px 300px at 50% 75%, rgba(180,20,40,0.08) 0%, transparent 45%);
+}
+
+/* ── Header ── */
+.header {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 28px 40px 8px;
+  gap: 8px;
+}
+.mlbCrest {
+  width: 36px; height: 36px; object-fit: contain; opacity: 0.85;
+}
+.outlookTitle {
+  font-size: 24px; font-weight: 800; letter-spacing: 0.18em;
+  text-transform: uppercase; color: rgba(255,255,255,0.90);
+  margin: 0;
+  display: flex; align-items: center; gap: 20px;
+}
+.outlookTitle::before,
+.outlookTitle::after {
+  content: '';
+  width: 100px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+}
+
+/* ── 3×2 Grid — generous sizing ── */
+.outlookGrid {
+  position: relative; z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  margin: 4px 36px;
+  flex: 1;
+}
+
+/* ── Team Card ── */
+.teamCard {
+  display: flex; flex-direction: column;
+  padding: 14px 18px 12px;
+  background: linear-gradient(155deg,
+    rgba(180,40,60,0.12) 0%,
+    rgba(120,25,40,0.10) 30%,
+    rgba(40,15,25,0.14) 100%);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  box-shadow: 0 0 18px rgba(180,20,40,0.10);
+  justify-content: center;
+  gap: 3px;
+}
+.teamCardLeader {
+  background: linear-gradient(155deg,
+    rgba(180,40,60,0.18) 0%,
+    rgba(120,25,40,0.14) 30%,
+    rgba(40,15,25,0.20) 100%);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  box-shadow:
+    0 0 36px rgba(180,20,40,0.22),
+    0 0 12px rgba(255,255,255,0.03),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Card internals */
+.tcTopRow {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 6px;
+}
+.tcTopLeft {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0;
+}
+.tcLabel {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  padding: 2px 9px; border-radius: 4px;
+  display: inline-block; width: fit-content;
+  line-height: 1.4;
+}
+.teamCardLeader .tcLabel {
+  color: rgba(255,255,255,0.65);
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.14);
+  font-size: 11px;
+}
+.tcIdentity {
+  display: flex; align-items: center; gap: 10px;
+}
+.teamLogo { object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+.tcName {
+  font-size: 34px; font-weight: 800; color: rgba(255,255,255,0.95);
+  line-height: 1.0;
+}
+.teamCardLeader .tcName {
+  font-size: 40px;
+}
+
+/* Odds badge — trophy + value */
+.tcOddsBlock {
+  display: flex; align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(255,255,255,0.04) 100%);
+  border: 1px solid rgba(255,215,0,0.20);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.teamCardLeader .tcOddsBlock {
+  background: linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(255,255,255,0.05) 100%);
+  border-color: rgba(255,215,0,0.28);
+  padding: 7px 16px;
+}
+.trophyIcon { flex-shrink: 0; }
+.tcOddsValue {
+  font-size: 24px; font-weight: 800; color: rgba(255,255,255,0.88);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.teamCardLeader .tcOddsValue {
+  font-size: 28px; color: rgba(255,255,255,0.92);
+}
+
+/* Hero wins — unified same-size line */
+.tcHero {
+  display: flex; align-items: baseline; gap: 8px;
+  flex-wrap: wrap;
+  padding: 2px 0 0;
+}
+.tcHeroWins {
+  font-size: 36px; font-weight: 800; color: rgba(255,255,255,0.95);
+  font-variant-numeric: tabular-nums; line-height: 1;
+  letter-spacing: -0.01em;
+}
+.teamCardLeader .tcHeroWins {
+  font-size: 42px;
+}
+.tcHeroLabel {
+  font-size: 18px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(255,255,255,0.65);
+  align-self: flex-end; padding-bottom: 3px;
+}
+.teamCardLeader .tcHeroLabel {
+  font-size: 21px; color: rgba(255,255,255,0.72);
+}
+.tcSignal {
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.60);
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  padding: 3px 8px; border-radius: 5px;
+  align-self: flex-end; padding-bottom: 3px;
+}
+.teamCardLeader .tcSignal {
+  font-size: 12px;
+  background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.14);
+}
+
+/* Rationale */
+.tcRationale {
+  font-size: 15px; line-height: 1.40; color: rgba(255,255,255,0.52);
+  margin-top: 2px;
+}
+.teamCardLeader .tcRationale {
+  font-size: 16px; color: rgba(255,255,255,0.58);
+}
+
+/* ══ CTA Section ══ */
+.ctaSection {
+  position: relative; z-index: 10;
+  margin: 8px 36px 0;
+}
+.ctaCard {
+  text-align: center;
+  padding: 22px 28px 24px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(139,26,43,0.12) 100%);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  box-shadow: 0 0 30px rgba(180,20,40,0.16);
+}
+.ctaHeadline {
+  font-size: 28px; font-weight: 800; color: #fff;
+  margin: 0 0 6px;
+  letter-spacing: 0.01em;
+}
+.ctaSubtext {
+  font-size: 16px; color: rgba(255,255,255,0.55);
+  margin: 0 0 16px;
+}
+.ctaButton {
+  display: inline-flex; align-items: center;
+  padding: 12px 36px;
+  background: linear-gradient(135deg, rgba(220,40,60,0.70) 0%, rgba(180,20,40,0.60) 100%);
+  border: 1.5px solid rgba(255,255,255,0.22);
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(220,40,60,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.ctaButtonText {
+  font-size: 18px; font-weight: 700; color: #fff;
+  letter-spacing: 0.04em;
+}
+
+/* ── Footer ── */
+.footer {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 8px 32px 18px;
+  gap: 2px;
+}
+.footerUrl {
+  font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.25);
+  letter-spacing: 0.06em;
+}
+.footerDisclaimer {
+  font-size: 10px; color: rgba(255,255,255,0.14);
+  font-style: italic;
+}

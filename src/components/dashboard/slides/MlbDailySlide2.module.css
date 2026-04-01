@@ -1,0 +1,147 @@
+/* ══════════════════════════════════════════════════════════════
+   MlbDailySlide2 — Editorial Briefing · Slide 2 of MLB Daily
+   1080×1350 · The story — clean, readable, editorial
+   ══════════════════════════════════════════════════════════════ */
+
+.artboard {
+  position: relative; width: 1080px; height: 1350px;
+  overflow: hidden; font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  display: flex; flex-direction: column;
+  color: #fff;
+}
+
+/* ── Background ── */
+.bgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(175deg,
+    #2a0810 0%, #4a1220 20%, #5c1828 40%,
+    #4a1220 55%, #2a0810 75%, #120408 100%);
+}
+.bgGlow {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% 8%, rgba(255,60,80,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 350px at 50% 60%, rgba(160,20,40,0.06) 0%, transparent 45%);
+}
+
+/* ── Header ── */
+.header {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 32px 40px 0;
+  gap: 4px;
+}
+.badgeRow {
+  display: flex; align-items: center; gap: 10px;
+}
+.mlbCrest {
+  width: 28px; height: 28px; object-fit: contain; opacity: 0.85;
+}
+.badge {
+  font-size: 16px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.92);
+  background: linear-gradient(135deg, rgba(139,26,43,0.60) 0%, rgba(80,15,25,0.45) 100%);
+  border: 1.5px solid rgba(255,255,255,0.22);
+  padding: 8px 28px; border-radius: 10px;
+  box-shadow: 0 0 24px rgba(180,20,40,0.25), inset 0 1px 0 rgba(255,255,255,0.14);
+}
+.dateLine {
+  font-size: 13px; color: rgba(255,255,255,0.40);
+  margin-top: 4px; letter-spacing: 0.02em;
+}
+
+/* ── Hero headline ── */
+.heroZone {
+  position: relative; z-index: 10;
+  padding: 20px 56px 12px; text-align: center;
+}
+.headline {
+  font-size: 40px; font-weight: 800; line-height: 1.12;
+  color: #fff; margin: 0;
+  text-transform: uppercase;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.45);
+}
+.subhead {
+  font-size: 16px; line-height: 1.35; color: rgba(255,255,255,0.48);
+  margin: 6px auto 0; max-width: 780px;
+  font-style: italic;
+}
+
+/* ── Editorial section — spacious, readable ── */
+.editorialSection {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; gap: 14px;
+  margin: 8px 40px;
+  flex: 1;
+}
+
+/* Full-width card */
+.editorialCardFull {
+  padding: 24px 30px 28px;
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 16px;
+  box-shadow: 0 0 28px rgba(180,20,40,0.12);
+}
+
+/* Half-width row */
+.editorialRow {
+  display: flex; gap: 12px;
+  flex: 1;
+}
+.editorialCardHalf {
+  flex: 1;
+  padding: 22px 24px 26px;
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 16px;
+  box-shadow: 0 0 28px rgba(180,20,40,0.12);
+  display: flex; flex-direction: column;
+}
+
+.editorialCardHeader {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px;
+}
+.editorialIcon {
+  flex-shrink: 0; opacity: 0.85;
+}
+.editorialCardLabel {
+  font-size: 14px; font-weight: 800; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.92);
+  background: linear-gradient(135deg, rgba(139,26,43,0.60) 0%, rgba(80,15,25,0.50) 100%);
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 5px 16px; border-radius: 6px;
+}
+.editorialCardBody {
+  font-size: 24px; line-height: 1.45; color: rgba(255,255,255,0.84);
+}
+
+/* ── Swipe hint ── */
+.swipeHint {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 12px 40px 0;
+}
+.swipeText {
+  font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.30);
+  letter-spacing: 0.04em;
+}
+
+/* ── Footer ── */
+.footer {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 8px 32px 20px;
+  gap: 2px;
+}
+.footerUrl {
+  font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.25);
+  letter-spacing: 0.06em;
+}
+.footerDisclaimer {
+  font-size: 10px; color: rgba(255,255,255,0.14);
+  font-style: italic;
+}
