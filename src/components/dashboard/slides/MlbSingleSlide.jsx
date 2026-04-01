@@ -223,24 +223,18 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
     <div className={styles.artboard} {...rest}>
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
+      <div className={styles.bgRay} />
 
-      {/* ── HEADER ── */}
+      {/* ── HEADER — centered badge composition ── */}
       <div className={styles.header}>
-        <div className={styles.headerRow}>
-          <div className={styles.brandRow}>
-            <img src="/logo.png" alt="" className={styles.brandLogo} crossOrigin="anonymous" />
-            <span className={styles.brandName}>MAXIMUS SPORTS</span>
-          </div>
-          <Mascot />
-        </div>
         <div className={styles.heroBadgeRow}>
           <img src="/mlb-logo.png" alt="" className={styles.mlbCrest} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
-          <span className={styles.heroBadge}>{content.category || 'MLB DAILY BRIEFING'}</span>
+          <span className={styles.heroBadge}>{content.category || 'MAXIMUS SPORTS'}</span>
         </div>
         <span className={styles.dateLine}>{today}</span>
       </div>
 
-      {/* ── HERO ── */}
+      {/* ── HERO — large editorial headline ── */}
       <div className={styles.heroZone}>
         <h2 className={styles.headline}>{content.headline}</h2>
         {content.subheadline && <p className={styles.subhead}>{content.subheadline}</p>}
@@ -255,13 +249,15 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
         </div>
       )}
 
-      {/* ── EDITORIAL — 3 separate premium cards with icons ── */}
+      {/* ── EDITORIAL — 1 full-width + 2 half-width cards ── */}
       {content.editorialBlocks?.length > 0 && (
         <div className={styles.editorialSection}>
-          {content.editorialBlocks.map((block, i) => {
+          {/* First card: full-width HOT OFF THE PRESS */}
+          {content.editorialBlocks[0] && (() => {
+            const block = content.editorialBlocks[0];
             const IconComponent = EDITORIAL_ICONS[block.title];
             return (
-              <div key={i} className={styles.editorialCard}>
+              <div className={styles.editorialCard}>
                 <div className={styles.editorialCardHeader}>
                   {IconComponent && <IconComponent />}
                   <span className={styles.editorialCardLabel}>{block.title}</span>
@@ -269,7 +265,24 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
                 <div className={styles.editorialCardBody}>{block.body}</div>
               </div>
             );
-          })}
+          })()}
+          {/* Second row: two half-width cards */}
+          {content.editorialBlocks.length >= 2 && (
+            <div className={styles.editorialRow}>
+              {content.editorialBlocks.slice(1, 3).map((block, i) => {
+                const IconComponent = EDITORIAL_ICONS[block.title];
+                return (
+                  <div key={i} className={styles.editorialHalf}>
+                    <div className={styles.editorialCardHeader}>
+                      {IconComponent && <IconComponent />}
+                      <span className={styles.editorialCardLabel}>{block.title}</span>
+                    </div>
+                    <div className={styles.editorialCardBody}>{block.body}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -342,14 +355,15 @@ function buildSlideContent(template, data, teamData, game, options) {
   }
 }
 
-/** Shorten a headline to one concise sentence, max 60 chars. */
+/** Format headline — allow longer multi-line text for poster feel. */
 function shortenHeadline(text) {
   if (!text) return 'MLB Intelligence Briefing';
   const cleaned = stripEmojis(text);
+  // Take first sentence but allow up to 90 chars for multi-line poster headline
   const sentences = cleaned.match(/[^.!?]*[.!?]+/g);
   const first = sentences?.[0]?.trim() || cleaned;
-  if (first.length > 60) {
-    return first.slice(0, 58).replace(/\s+\S*$/, '') + '.';
+  if (first.length > 90) {
+    return first.slice(0, 88).replace(/\s+\S*$/, '') + '.';
   }
   return first;
 }
