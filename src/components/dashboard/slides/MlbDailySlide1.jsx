@@ -1,13 +1,13 @@
 /**
- * MlbDailySlide1 — Hero Cover Slide (Slide 1 of MLB Daily Briefing carousel)
+ * MlbDailySlide1 — Hero Cover (Slide 1 of MLB Daily Briefing carousel)
  *
- * Purpose: Scroll-stopping hook + brand + context
- * Content: Mascot hero · "DAILY MLB BRIEFING" · Date · MLB logo · Branding
+ * Purpose: Scroll-stopping IG cover hook
+ * Composition: Brand (top) → Mascot (top-third) → Hero title (center) → Badge (bottom)
  *
  * 1080×1350 · IG 4:5 portrait
  */
 
-import styles from './MlbDailySlide1.module.css';
+import styles from './MlbSlides.module.css';
 
 export default function MlbDailySlide1({ data, asOf, ...rest }) {
   const today = new Date().toLocaleDateString('en-US', {
@@ -20,35 +20,41 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
       <div className={styles.bgRay} />
+      <div className={styles.bgNoise} />
 
       {/* Top brand bar */}
-      <div className={styles.topBar}>
-        <img src="/logo.png" alt="" className={styles.brandLogo} crossOrigin="anonymous" />
-        <span className={styles.brandName}>MAXIMUS SPORTS</span>
+      <div className={styles.s1TopBar}>
+        <img src="/logo.png" alt="" className={styles.s1BrandLogo} crossOrigin="anonymous" />
+        <span className={styles.s1BrandName}>MAXIMUS SPORTS</span>
+        <img src="/mlb-logo.png" alt="" className={styles.s1MlbMark} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
       </div>
 
-      {/* Center hero composition */}
-      <div className={styles.heroZone}>
+      {/* Mascot — top-third zone, slight rotation */}
+      <div className={styles.s1MascotZone}>
         <img
           src="/mascot-mlb.png"
           alt="Maximus"
-          className={styles.mascot}
+          className={styles.s1Mascot}
           crossOrigin="anonymous"
           onError={e => { e.currentTarget.style.display = 'none'; }}
         />
       </div>
 
-      {/* Title block */}
-      <div className={styles.titleZone}>
-        <div className={styles.badgeRow}>
-          <img src="/mlb-logo.png" alt="" className={styles.mlbCrest} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
-        </div>
-        <h1 className={styles.headline}>DAILY MLB<br />BRIEFING</h1>
-        <div className={styles.dateLine}>{today}</div>
-        <div className={styles.tagline}>AI-powered intelligence for the modern fan</div>
+      {/* Hero title — centered on canvas */}
+      <div className={styles.s1TitleZone}>
+        <h1 className={styles.s1Headline}>MLB IS BACK.<br />THE EDGE IS LIVE.</h1>
+        <div className={styles.s1SubHeadline}>2026 SEASON STARTS NOW</div>
       </div>
 
-      {/* Footer */}
+      {/* Bottom info */}
+      <div className={styles.s1BottomBlock}>
+        <div className={styles.s1BadgeRow}>
+          <span className={styles.s1Badge}>DAILY MLB BRIEFING</span>
+        </div>
+        <div className={styles.s1DateLine}>{today}</div>
+        <div className={styles.s1Tagline}>AI-powered intel for the modern fan</div>
+      </div>
+
       <footer className={styles.footer}>
         <span className={styles.footerUrl}>maximussports.ai</span>
       </footer>
