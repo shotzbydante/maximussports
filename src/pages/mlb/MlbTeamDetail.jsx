@@ -151,8 +151,8 @@ function ScheduleSection({ events }) {
                       <span className={styles.schedColLink}></span>
                     </div>
                     {month.events.map((ev) => {
-                      const won = ev.isFinal && ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore;
-                      const lost = ev.isFinal && ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore;
+                      const won = ev.isFinal && (ev.isWin ?? (ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore));
+                      const lost = ev.isFinal && (ev.isLoss ?? (ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore));
                       const scoreStr = ev.ourScore != null && ev.oppScore != null ? `${ev.ourScore}-${ev.oppScore}` : '';
                       const isLive = ev.gameStatus === 'in_progress';
                       const isPast = ev.isFinal;
@@ -281,16 +281,22 @@ export default function MlbTeamDetail() {
     const upcoming = schedule.filter((e) => !e.isFinal).sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let w = 0, l = 0;
-    finals.forEach((e) => { if (e.ourScore != null && e.oppScore != null) { if (e.ourScore > e.oppScore) w++; else l++; } });
+    finals.forEach((e) => {
+      // Use pre-computed isWin/isLoss from API, fallback to score comparison
+      const won = e.isWin ?? (e.ourScore != null && e.oppScore != null && e.ourScore > e.oppScore);
+      const lost = e.isLoss ?? (e.ourScore != null && e.oppScore != null && e.ourScore < e.oppScore);
+      if (won) w++; else if (lost) l++;
+    });
     const rec = (w + l > 0) ? `${w}-${l}` : teamRecord || null;
 
     let streakStr = null;
     const scored = finals.filter((e) => e.ourScore != null && e.oppScore != null);
     if (scored.length > 0) {
-      const firstWin = scored[0].ourScore > scored[0].oppScore;
+      const firstWin = scored[0].isWin ?? (scored[0].ourScore > scored[0].oppScore);
       let count = 1;
       for (let i = 1; i < scored.length; i++) {
-        if ((scored[i].ourScore > scored[i].oppScore) === firstWin) count++;
+        const thisWin = scored[i].isWin ?? (scored[i].ourScore > scored[i].oppScore);
+        if (thisWin === firstWin) count++;
         else break;
       }
       streakStr = firstWin ? `W${count}` : `L${count}`;
@@ -298,7 +304,8 @@ export default function MlbTeamDetail() {
 
     const form = finals.slice(0, 10).map((e) => {
       if (e.ourScore == null || e.oppScore == null) return null;
-      return { won: e.ourScore > e.oppScore, score: `${e.ourScore}-${e.oppScore}`, opponent: e.opponent };
+      const won = e.isWin ?? (e.ourScore > e.oppScore);
+      return { won, score: `${e.ourScore}-${e.oppScore}`, opponent: e.opponent };
     }).filter(Boolean);
 
     return { recentGames: finals.slice(0, 7), nextGame: upcoming[0] || null, formGuide: form, record: rec, streak: streakStr };
@@ -560,8 +567,8 @@ export default function MlbTeamDetail() {
             <h3 className={styles.sectionTitle}>Recent Results</h3>
             <div className={styles.resultsList}>
               {recentGames.map((ev) => {
-                const won = ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore;
-                const lost = ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore;
+                const won = ev.isWin ?? (ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore);
+                const lost = ev.isLoss ?? (ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore);
                 return (
                   <div key={ev.id} className={`${styles.resultRow} ${won ? styles.resultRowWin : ''} ${lost ? styles.resultRowLoss : ''}`}>
                     <span className={`${styles.resultWL} ${won ? styles.resultWin : styles.resultLoss}`}>
