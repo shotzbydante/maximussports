@@ -56,7 +56,7 @@
 .root {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: var(--space-md, 14px);
+  gap: 16px;
   align-items: start;
 }
 
@@ -64,18 +64,18 @@
 .column {
   display: flex; flex-direction: column;
   background: var(--color-bg-elevated, #fff);
-  border: 1px solid rgba(184,41,61,0.10);
-  border-radius: var(--radius-card, 12px);
-  box-shadow: 0 1px 6px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(184,41,61,0.04);
+  border: 1px solid rgba(60,100,160,0.10);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 0 0 0.5px rgba(60,100,160,0.04);
   transition: box-shadow 0.20s ease, transform 0.20s ease;
   overflow: hidden;
 }
 .column:hover {
-  box-shadow: 0 4px 16px rgba(184,41,61,0.08), 0 0 0 0.5px rgba(184,41,61,0.08);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(60,100,160,0.08);
   transform: translateY(-2px);
 }
 
-.columnHeader { padding: 14px 14px 0; }
+.columnHeader { padding: 16px 16px 0; }
 .columnTitleRow { display: flex; align-items: center; gap: 6px; }
 .columnIcon { color: #b8293d; display: flex; align-items: center; }
 .columnTitle {
@@ -89,11 +89,11 @@
 }
 .columnDesc {
   font-size: 0.58rem; color: var(--color-text-muted);
-  margin: 4px 0 0; line-height: 1.4;
+  margin: 5px 0 0; line-height: 1.4;
 }
 .columnDivider {
-  height: 1px; margin-top: 10px;
-  background: linear-gradient(90deg, rgba(184,41,61,0.12), rgba(0,0,0,0.04));
+  height: 1px; margin-top: 12px;
+  background: linear-gradient(90deg, rgba(60,100,160,0.12), rgba(0,0,0,0.04));
 }
 
 /* ── Accordion (mobile) ── */
@@ -127,16 +127,16 @@
 
 /* ── Pick card (matches NCAAM GameCard pattern) ── */
 .pickCard {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px;
   background: var(--color-bg, #f8f8f8);
   border-bottom: 1px solid var(--color-border-light, rgba(0,0,0,0.05));
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .pickCard:last-child { border-bottom: none; }
 .pickCard:hover {
-  border-color: rgba(184,41,61,0.2);
-  box-shadow: 0 2px 8px rgba(184,41,61,0.06);
+  border-color: rgba(60,100,160,0.18);
+  box-shadow: 0 2px 8px rgba(60,100,160,0.06);
 }
 .pickCardTop {
   border-left: 3px solid rgba(27,107,74,0.35);
@@ -173,9 +173,9 @@
 }
 .teamLogoWrap img { object-fit: contain; border-radius: 3px; width: 22px; height: 22px; }
 .pickPill {
-  font-size: 0.78rem; font-weight: 700; color: var(--color-text);
-  background: rgba(60,100,160,0.06); border: 1px solid rgba(60,100,160,0.14);
-  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 0.82rem; font-weight: 700; color: var(--color-text);
+  background: rgba(60,100,160,0.07); border: 1px solid rgba(60,100,160,0.16);
+  padding: 4px 12px; border-radius: 999px; white-space: nowrap;
 }
 .confChip {
   font-size: 0.46rem; font-weight: 700; text-transform: uppercase;
@@ -215,9 +215,10 @@
 
 /* Model edge */
 .modelEdge {
-  display: flex; gap: 12px;
-  padding: 5px 8px; border-radius: 6px;
+  display: flex; gap: 14px;
+  padding: 6px 10px; border-radius: 8px;
   background: rgba(60,100,160,0.04);
+  border: 1px solid rgba(60,100,160,0.06);
 }
 .edgePair { display: flex; align-items: baseline; gap: 4px; }
 .edgeLabel {
@@ -231,9 +232,10 @@
 
 /* Signal panel */
 .signalPanel {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 6px 8px; border-radius: 6px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 7px 10px; border-radius: 8px;
   background: rgba(60,100,160,0.035);
+  border: 1px solid rgba(60,100,160,0.05);
 }
 .signalRow { display: flex; align-items: flex-start; gap: 5px; }
 .signalCheck {

@@ -1,24 +1,18 @@
 /**
  * classifyMlbPick — convert a scored matchup into zero or more pick cards.
  *
- * Picks are classified into: pickEms, ats, leans, totals
- * Each pick gets a confidence tier and score.
+ * Pick categories: pickEms, ats, leans, totals
  *
  * Key design decisions:
- *   - Value Leans run INDEPENDENTLY (not exclusive with Pick'Ems)
- *   - A single game can generate picks in multiple categories
- *   - MAX_PICKS_PER_GAME caps total picks per game (currently 3)
+ *   - Pick'Ems and ATS use adjusted edge (DQ/SA multiplier)
+ *   - Value Leans and Totals use RAW edge (no multiplier) for softer qualification
+ *   - Every game can generate picks in all 4 categories independently
+ *   - MAX_PICKS_PER_GAME = 4 so a game can appear in all columns
  *   - Low conviction picks are surfaced rather than hidden
  */
 
 import { MAX_PICKS_PER_GAME } from './mlbPickThresholds.js';
 
-/**
- * @param {Object} matchup - normalized matchup
- * @param {Object} score - from scoreMlbMatchup
- * @param {Object} thresholds - from MLB_PICK_THRESHOLDS
- * @returns {Array} pick card models
- */
 export function classifyMlbPick(matchup, score, thresholds) {
   const picks = [];
 
@@ -27,44 +21,34 @@ export function classifyMlbPick(matchup, score, thresholds) {
   }
 
   const mlSide = chooseBestSide(score);
-  let hasPickEm = false;
 
-  // ── Moneyline / Pick 'Em ──
+  // ── Moneyline / Pick 'Em (adjusted edge) ──
   if (mlSide) {
     const conf = resolveConfidence(mlSide.edge, thresholds.moneyline, score.dataQuality, score.signalAgreement);
     if (conf) {
       picks.push(buildPick(matchup, score, mlSide, 'pickEms', 'moneyline', conf));
-      hasPickEm = true;
     }
   }
 
-  // ── Value Lean (only when game doesn't qualify for Pick'Em) ──
-  // Leans capture directional value with softer thresholds for games
-  // that don't clear the Pick'Em bar. This prevents same-game overlap
-  // between Pick'Ems and Leans while ensuring Leans populate.
-  if (mlSide && !hasPickEm) {
-    const rawEdge = mlSide.edge;
-    if (rawEdge >= thresholds.lean.low && score.dataQuality >= 0.18) {
-      let tier, tierScore;
-      if (rawEdge >= thresholds.lean.high) { tier = 'high'; tierScore = 0.8; }
-      else if (rawEdge >= thresholds.lean.medium) { tier = 'medium'; tierScore = 0.5; }
-      else { tier = 'low'; tierScore = 0.25; }
-      tierScore = tierScore * (0.85 + 0.15 * score.dataQuality);
-      picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline',
-        { tier, score: Math.round(tierScore * 100) / 100 }));
+  // ── Value Lean (RAW edge — softer, independent of Pick'Em) ──
+  // Every game with ANY positive edge gets a lean. This ensures Leans
+  // always populate. Uses raw edge without DQ/SA multiplier.
+  if (mlSide && mlSide.edge > 0) {
+    const conf = resolveRawConfidence(mlSide.edge, thresholds.lean, score.dataQuality);
+    if (conf) {
+      picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline', conf));
     }
   }
 
-  // ── Run Line / ATS ──
+  // ── Run Line / ATS (adjusted edge) ──
   const rlPick = evaluateRunLine(matchup, score, thresholds);
   if (rlPick) picks.push(rlPick);
 
-  // ── Totals ──
+  // ── Totals (RAW edge — softer) ──
   const totalPick = evaluateTotal(matchup, score, thresholds);
   if (totalPick) picks.push(totalPick);
 
-  // Cap picks per game — keep one per category where possible
-  return capPicksPerGame(picks);
+  return picks.slice(0, MAX_PICKS_PER_GAME);
 }
 
 // ── Helpers ──
@@ -84,6 +68,7 @@ function chooseBestSide(score) {
   return { side: 'home', edge: bestHome, prob: score.homeWinProb };
 }
 
+/** Standard confidence resolution — applies DQ/SA adjustment multiplier */
 function resolveConfidence(edge, thresholdSet, dataQuality, signalAgreement) {
   if (edge == null || !isFinite(edge)) return null;
 
@@ -98,16 +83,31 @@ function resolveConfidence(edge, thresholdSet, dataQuality, signalAgreement) {
   return { tier, score: Math.round(tierScore * 100) / 100 };
 }
 
+/** Raw confidence resolution — NO DQ/SA multiplier, just raw edge vs thresholds.
+ *  Used for Value Leans and Totals to ensure they populate. */
+function resolveRawConfidence(rawEdge, thresholdSet, dataQuality) {
+  if (rawEdge == null || !isFinite(rawEdge)) return null;
+
+  let tier, tierScore;
+  if (rawEdge >= thresholdSet.high) { tier = 'high'; tierScore = 0.8; }
+  else if (rawEdge >= thresholdSet.medium) { tier = 'medium'; tierScore = 0.5; }
+  else if (rawEdge >= thresholdSet.low) { tier = 'low'; tierScore = 0.25; }
+  else return null;
+
+  // Mild DQ adjustment on the score (not the threshold gate)
+  tierScore = tierScore * (0.85 + 0.15 * dataQuality);
+  return { tier, score: Math.round(tierScore * 100) / 100 };
+}
+
 function evaluateRunLine(matchup, score, thresholds) {
   const rl = matchup.market?.runLine;
   if (!rl || rl.homeLine == null) return null;
 
   const side = chooseBestSide(score);
-  if (!side || side.edge < thresholds.runLine.low * 0.8) return null;
+  if (!side || side.edge < thresholds.runLine.low * 0.7) return null;
 
-  // Run line requires stronger conviction — need margin proxy
   const marginProxy = Math.abs(score.awayWinProb - score.homeWinProb);
-  if (marginProxy < 0.05) return null; // relaxed from 0.06
+  if (marginProxy < 0.04) return null;
 
   const rlEdge = side.edge * 0.85;
   const conf = resolveConfidence(rlEdge, thresholds.runLine, score.dataQuality, score.signalAgreement);
@@ -126,9 +126,7 @@ function evaluateRunLine(matchup, score, thresholds) {
     market: matchup.market,
     pick: {
       label: `${team.shortName} ${line > 0 ? '+' : ''}${line}`,
-      side: side.side,
-      value: line,
-      marketType: 'runline',
+      side: side.side, value: line, marketType: 'runline',
       explanation: `Model favors ${team.shortName} to cover the run line.`,
       topSignals: score.topSignals,
     },
@@ -144,15 +142,11 @@ function evaluateTotal(matchup, score, thresholds) {
   if (!estimatedTotal || !isFinite(estimatedTotal)) return null;
 
   const diff = estimatedTotal - total.points;
-  // Boosted multiplier (0.10 → 0.18) to compensate for narrow total variance
-  // MLB totals typically range 7-10.5, so model diff of 0.5-1.5 runs should
-  // generate meaningful edges
-  const edge = Math.abs(diff) * 0.18;
+  // Boosted multiplier for narrow MLB total variance
+  const edge = Math.abs(diff) * 0.22;
 
-  if (edge < thresholds.total.low) return null;
-
-  // Milder DQ discount for totals (0.8 → 0.9)
-  const conf = resolveConfidence(edge, thresholds.total, score.dataQuality * 0.9, score.signalAgreement);
+  // Use RAW confidence (no DQ/SA multiplier) so totals populate reliably
+  const conf = resolveRawConfidence(edge, thresholds.total, score.dataQuality);
   if (!conf) return null;
 
   const direction = diff > 0 ? 'Over' : 'Under';
@@ -167,37 +161,12 @@ function evaluateTotal(matchup, score, thresholds) {
     market: matchup.market,
     pick: {
       label: `${direction} ${total.points}`,
-      side: direction.toLowerCase(),
-      value: total.points,
-      marketType: 'total',
+      side: direction.toLowerCase(), value: total.points, marketType: 'total',
       explanation: `Model leans ${direction.toLowerCase()} based on team quality matchup.`,
       topSignals: score.topSignals,
     },
     model: buildModelPayload(score),
   };
-}
-
-/**
- * Cap picks per game to MAX_PICKS_PER_GAME, but prefer category diversity.
- * Keeps the best pick from each category before filling remaining slots.
- */
-function capPicksPerGame(picks) {
-  if (picks.length <= MAX_PICKS_PER_GAME) return picks;
-
-  // Dedupe: keep best pick per category
-  const byCategory = new Map();
-  for (const p of picks) {
-    const existing = byCategory.get(p.category);
-    if (!existing || p.confidenceScore > existing.confidenceScore) {
-      byCategory.set(p.category, p);
-    }
-  }
-
-  const unique = [...byCategory.values()];
-  // Sort by confidence, take top N
-  return unique
-    .sort((a, b) => b.confidenceScore - a.confidenceScore)
-    .slice(0, MAX_PICKS_PER_GAME);
 }
 
 function buildPick(matchup, score, side, category, marketType, conf) {
@@ -215,11 +184,9 @@ function buildPick(matchup, score, side, category, marketType, conf) {
     market: matchup.market,
     pick: {
       label: `${team.shortName} ${mlDisplay}`.trim(),
-      side: side.side,
-      value: ml,
-      marketType,
+      side: side.side, value: ml, marketType,
       explanation: category === 'leans'
-        ? `Directional lean toward ${team.name} — model sees value but edge is moderate.`
+        ? `Directional lean toward ${team.name} — moderate value signal.`
         : `Model favors ${team.name} with a ${(side.edge * 100).toFixed(1)}% edge.`,
       topSignals: score.topSignals,
     },
@@ -229,33 +196,18 @@ function buildPick(matchup, score, side, category, marketType, conf) {
 
 function buildMatchupPayload(matchup) {
   return {
-    awayTeam: {
-      slug: matchup.awayTeam.slug,
-      name: matchup.awayTeam.name,
-      shortName: matchup.awayTeam.shortName,
-      logo: matchup.awayTeam.logo,
-      record: matchup.awayTeam.record,
-    },
-    homeTeam: {
-      slug: matchup.homeTeam.slug,
-      name: matchup.homeTeam.name,
-      shortName: matchup.homeTeam.shortName,
-      logo: matchup.homeTeam.logo,
-      record: matchup.homeTeam.record,
-    },
+    awayTeam: { slug: matchup.awayTeam.slug, name: matchup.awayTeam.name, shortName: matchup.awayTeam.shortName, logo: matchup.awayTeam.logo, record: matchup.awayTeam.record },
+    homeTeam: { slug: matchup.homeTeam.slug, name: matchup.homeTeam.name, shortName: matchup.homeTeam.shortName, logo: matchup.homeTeam.logo, record: matchup.homeTeam.record },
     startTime: matchup.startTime,
   };
 }
 
 function buildModelPayload(score) {
   return {
-    awayWinProb: round(score.awayWinProb),
-    homeWinProb: round(score.homeWinProb),
-    impliedAwayWinProb: round(score.impliedAwayWinProb),
-    impliedHomeWinProb: round(score.impliedHomeWinProb),
+    awayWinProb: round(score.awayWinProb), homeWinProb: round(score.homeWinProb),
+    impliedAwayWinProb: round(score.impliedAwayWinProb), impliedHomeWinProb: round(score.impliedHomeWinProb),
     edge: round(Math.max(score.awayEdge ?? 0, score.homeEdge ?? 0)),
-    dataQuality: round(score.dataQuality),
-    signalAgreement: round(score.signalAgreement),
+    dataQuality: round(score.dataQuality), signalAgreement: round(score.signalAgreement),
   };
 }
 
