@@ -168,7 +168,8 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SLIDE 1 — HERO COVER (cinematic stadium composition)
+   SLIDE 1 — HERO COVER
+   Order: Brand → Glass Plaque → Mascot → Day Headline → Footer
    ══════════════════════════════════════════════════════════════ */
 
 .slide1 {
@@ -231,173 +232,154 @@
   background-size: 200px 200px;
 }
 
-/* ── Top badge ── */
-.slide1Top {
+/* ── Top brand pill ── */
+.slide1TopBrand {
   position: relative; z-index: 10;
   width: 100%;
   display: flex; justify-content: center; align-items: center;
-  min-height: 72px;
+  min-height: 52px;
 }
-.slide1TopPill {
-  height: 52px; padding: 0 24px;
-  border-radius: 16px;
-  display: inline-flex; align-items: center; gap: 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.20);
+.slide1TopBrandPill {
+  height: 36px; padding: 0 16px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
   box-shadow:
-    0 0 22px rgba(255,80,110,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.22);
+    0 0 16px rgba(255,90,120,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.14);
 }
-.slide1TopLogo {
-  width: 28px; height: 28px; object-fit: contain;
+.slide1TopBrandLogo {
+  width: 16px; height: 16px; object-fit: contain;
 }
-.slide1TopLabel {
-  font-size: 18px; line-height: 1; font-weight: 900;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: rgba(255,255,255,0.95);
+.slide1TopBrandPill span {
+  font-size: 12px; line-height: 1; font-weight: 800;
+  letter-spacing: 1.4px; text-transform: uppercase;
+  color: rgba(255,255,255,0.92);
 }
 
-/* ── Headline ── */
-.slide1HeadlineBlock {
+/* ── Hero briefing plaque (glass box, upper quarter) ── */
+.slide1BriefingHero {
   position: relative; z-index: 10;
-  margin-top: 32px;
-  text-align: center;
-  width: 100%; max-width: 930px;
+  width: 100%;
+  display: flex; justify-content: center; align-items: center;
+  margin-top: 18px;
+  min-height: 220px;
   flex-shrink: 0;
 }
-.slide1Headline {
-  margin: 0;
+.slide1BriefingHeroGlow {
+  position: absolute;
+  width: 760px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.14), rgba(255,80,110,0.10) 38%, transparent 74%);
+  filter: blur(22px);
+  z-index: 0;
+}
+.slide1BriefingHeroCard {
+  position: relative; z-index: 2;
+  width: 78%;
+  min-height: 150px;
+  border-radius: 24px;
+  padding: 28px 24px;
   display: flex; flex-direction: column;
-  align-items: center; gap: 2px;
+  align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow:
+    0 0 28px rgba(255,90,120,0.12),
+    0 0 14px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.18);
 }
-.slide1Headline span {
-  font-size: 94px; line-height: 0.90; font-weight: 900;
-  letter-spacing: -1.2px; text-transform: uppercase;
-  color: rgba(255,255,255,0.98);
-  text-shadow: 0 0 24px rgba(255,255,255,0.10);
-  display: block;
+.liveMotion .slide1BriefingHeroCard {
+  animation: breathe 4.2s ease-in-out infinite;
 }
-.slide1Subhead {
-  margin-top: 20px;
-  font-size: 28px; line-height: 1; font-weight: 800;
-  letter-spacing: 3px; text-transform: uppercase;
-  color: rgba(255,232,190,0.92);
-  text-shadow: 0 0 14px rgba(255,220,140,0.08);
+.slide1BriefingHeroTitle {
+  font-size: 32px; line-height: 1; font-weight: 900;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: rgba(255,255,255,0.96);
+  text-align: center;
+  text-shadow: 0 0 16px rgba(255,255,255,0.08);
+}
+.slide1BriefingHeroDate {
+  margin-top: 18px;
+  font-size: 22px; line-height: 1; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: rgba(255,225,180,0.92);
+  text-align: center;
 }
 
-/* ── Hero mascot ── */
-.slide1Hero {
+/* ── Mascot center zone ── */
+.slide1MascotZone {
   position: relative; z-index: 10;
-  width: 100%; height: 500px;
-  margin-top: 10px;
+  width: 100%; height: 430px;
+  margin-top: 8px;
   display: flex; justify-content: center; align-items: center;
   flex-shrink: 0;
 }
-.slide1HeroHalo {
+.slide1MascotHalo {
   position: absolute;
-  width: 470px; height: 470px;
+  width: 420px; height: 420px;
   border-radius: 50%;
   background: radial-gradient(circle,
     rgba(255,255,255,0.34) 0%,
     rgba(255,120,150,0.28) 20%,
-    rgba(255,70,110,0.18) 38%,
-    rgba(255,40,80,0.08) 56%,
-    transparent 76%);
+    rgba(255,70,110,0.18) 40%,
+    rgba(255,40,80,0.08) 58%,
+    transparent 78%);
   filter: blur(10px);
   z-index: 0;
 }
-.liveMotion .slide1HeroHalo {
+.liveMotion .slide1MascotHalo {
   animation: glowPulse 3.8s ease-in-out infinite;
 }
 .slide1Mascot {
   position: relative; z-index: 2;
-  width: 430px; max-width: 46%;
-  height: auto; object-fit: contain;
+  width: 320px; height: auto; object-fit: contain;
   filter: drop-shadow(0 18px 32px rgba(0,0,0,0.34));
 }
 .liveMotion .slide1Mascot {
   animation: floatY 5.2s ease-in-out infinite;
 }
-.slide1HeroShadow {
+.slide1MascotShadow {
   position: absolute;
-  bottom: 56px;
-  width: 360px; height: 60px;
+  bottom: 70px;
+  width: 290px; height: 52px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255,80,110,0.22), rgba(0,0,0,0.0) 68%);
   filter: blur(18px);
   z-index: 1;
 }
 
-/* ── Briefing plaque (above headline) ── */
-.slide1BriefingPlaque {
-  position: relative; z-index: 10;
-  text-align: center;
-  margin-top: 12px;
-  flex-shrink: 0;
-}
-.slide1PlaqueTitle {
-  font-size: 22px; line-height: 1; font-weight: 800;
-  letter-spacing: 2.5px; text-transform: uppercase;
-  color: rgba(255,255,255,0.75);
-}
-.slide1PlaqueDate {
-  margin-top: 8px;
-  font-size: 18px; line-height: 1; font-weight: 700;
-  letter-spacing: 1px; text-transform: uppercase;
-  color: rgba(255,225,180,0.80);
-}
-
-/* ── Synopsis card (below mascot) ── */
-.slide1SynopsisWrap {
+/* ── Lower headline zone (below mascot) ── */
+.slide1HeadlineZone {
   position: relative; z-index: 10;
   width: 100%;
+  margin-top: 10px;
   display: flex; justify-content: center; align-items: center;
-  margin-top: 0;
-  flex-shrink: 0;
-}
-.slide1SynopsisGlow {
-  position: absolute;
-  width: 760px; height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,0.12), rgba(255,80,110,0.10) 36%, transparent 72%);
-  filter: blur(22px);
-  z-index: 0;
-}
-.slide1SynopsisCard {
-  position: relative; z-index: 2;
-  width: 88%;
-  border-radius: 22px;
-  padding: 28px 28px 26px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
-  border: 1px solid rgba(255,255,255,0.16);
-  box-shadow:
-    0 0 28px rgba(255,90,120,0.12),
-    0 0 14px rgba(255,255,255,0.05),
-    inset 0 1px 0 rgba(255,255,255,0.18);
-}
-.liveMotion .slide1SynopsisCard {
-  animation: breathe 4.2s ease-in-out infinite;
-}
-.slide1SynopsisText {
-  font-size: 24px; line-height: 1.24; font-weight: 700;
-  color: rgba(255,255,255,0.88);
   text-align: center;
-  max-width: 820px;
+  min-height: 220px;
+  flex: 1;
+}
+.slide1Headline {
+  margin: 0;
+  max-width: 860px;
+  font-size: 74px; line-height: 0.92; font-weight: 900;
+  letter-spacing: -0.8px; text-transform: uppercase;
+  color: rgba(255,255,255,0.98);
+  text-shadow: 0 0 20px rgba(255,255,255,0.08);
 }
 
 /* ── Footer ── */
 .slide1Footer {
   position: relative; z-index: 10;
-  margin-top: 12px;
+  margin-top: auto;
   min-height: 20px;
   width: 100%;
   display: flex; justify-content: center; align-items: center;
 }
 .slide1Site {
-  font-size: 12px; line-height: 1; font-weight: 700;
-  color: rgba(255,255,255,0.40);
+  font-size: 11px; line-height: 1; font-weight: 700;
+  color: rgba(255,255,255,0.42);
   letter-spacing: 0.6px;
 }
 
@@ -445,12 +427,12 @@
   color: rgba(255,255,255,0.76);
 }
 
-/* Headline block — pushed lower */
+/* Headline block */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 18px; margin-bottom: 10px;
+  margin-top: 18px; margin-bottom: 12px;
   text-align: center;
-  min-height: 165px;
+  min-height: 170px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
@@ -554,7 +536,7 @@
   flex: 1;
 }
 .slide2SupportCard {
-  min-height: 360px;
+  min-height: 345px;
   border-radius: 18px;
   padding: 16px 16px 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
