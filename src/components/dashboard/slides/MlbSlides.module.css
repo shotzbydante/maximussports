@@ -244,118 +244,142 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SLIDE 2 — INTEL BRIEFING
+   SLIDE 2 — INTEL BRIEFING (premium editorial)
    ══════════════════════════════════════════════════════════════ */
 
-.s2Header {
+/* Stadium ambience for slide 2 — softer than slide 1 */
+.s2BgStadium {
+  position: absolute; inset: 0; z-index: 3;
+  background:
+    radial-gradient(ellipse 450px 400px at 12% 6%, rgba(255,180,190,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 450px 400px at 88% 6%, rgba(255,180,190,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 250px at 50% 3%, rgba(255,120,140,0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Brand pill — top */
+.s2TopBar {
   position: relative; z-index: 10;
   display: flex; flex-direction: column;
   align-items: center;
   padding: 28px 40px 0;
-  gap: 2px;
+  gap: 6px;
 }
-.s2BadgeRow {
+.s2BrandPill {
   display: flex; align-items: center; gap: 10px;
+  padding: 7px 22px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
 }
 .s2MlbCrest {
-  width: 24px; height: 24px; object-fit: contain; opacity: 0.80;
+  width: 20px; height: 20px; object-fit: contain; opacity: 0.75;
 }
-.s2Badge {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: rgba(255,255,255,0.65);
+.s2BrandText {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: rgba(255,255,255,0.60);
 }
 .s2DateLine {
-  font-size: 12px; color: rgba(255,255,255,0.30);
-  margin-top: 2px;
+  font-size: 12px; color: rgba(255,255,255,0.32);
+  letter-spacing: 0.02em;
 }
 
-/* Hero headline zone */
-.s2HeroZone {
+/* Headline zone — bold editorial */
+.s2HeadlineZone {
   position: relative; z-index: 10;
-  padding: 16px 52px 6px; text-align: center;
+  padding: 14px 52px 6px; text-align: center;
 }
 .s2Headline {
-  font-size: 42px; font-weight: 900; line-height: 1.08;
+  font-size: 48px; font-weight: 900; line-height: 1.06;
   text-transform: uppercase; margin: 0;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.45);
+  letter-spacing: -0.3px;
+  text-shadow:
+    0 0 14px rgba(255,255,255,0.06),
+    0 2px 18px rgba(0,0,0,0.50),
+    0 0 50px rgba(220,40,60,0.15);
 }
 .s2Subhead {
-  font-size: 15px; font-weight: 600; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.45);
-  margin-top: 8px;
+  font-size: 16px; font-weight: 500; letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.50);
+  margin-top: 10px;
+  font-style: italic;
+  line-height: 1.4;
 }
 
-/* Editorial section */
-.s2EditorialSection {
+/* Content zone — feature card + split grid */
+.s2ContentZone {
   position: relative; z-index: 10;
   display: flex; flex-direction: column; gap: 10px;
   margin: 10px 36px;
   flex: 1;
 }
 
-/* Feature card (HOT OFF THE PRESS) */
+/* Feature card — HOT OFF THE PRESS (hero of the slide) */
 .s2FeatureCard {
-  composes: glassCard;
-  padding: 20px 26px 22px;
+  position: relative;
+  padding: 22px 28px 24px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
   box-shadow:
-    0 0 30px rgba(220,40,60,0.14),
+    0 0 32px rgba(220,40,60,0.16),
     0 0 8px rgba(255,255,255,0.02),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+    inset 0 1px 0 rgba(255,255,255,0.10);
+  overflow: hidden;
 }
+/* Top highlight line — matching slide 1 glass card */
+.s2FeatureTopLine {
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,120,140,0.40), rgba(255,80,100,0.25), transparent);
+  border-radius: 2px;
+}
+
 .s2CardHeader {
   display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .s2CardIcon {
-  flex-shrink: 0; opacity: 0.80;
+  flex-shrink: 0; opacity: 0.85;
 }
 .s2CardLabel {
   font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(255,255,255,0.88);
-  background: linear-gradient(135deg, rgba(220,40,60,0.50) 0%, rgba(139,26,43,0.40) 100%);
-  border: 1px solid rgba(255,255,255,0.14);
-  padding: 4px 14px; border-radius: 5px;
+  text-transform: uppercase; color: rgba(255,255,255,0.90);
+  background: linear-gradient(135deg, rgba(220,40,60,0.55) 0%, rgba(139,26,43,0.42) 100%);
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 5px 16px; border-radius: 6px;
 }
 .s2FeatureBody {
-  font-size: 22px; line-height: 1.42; color: rgba(255,255,255,0.82);
+  font-size: 21px; line-height: 1.48; color: rgba(255,255,255,0.84);
 }
 
-/* Split grid (half-width cards) */
+/* Split grid — PENNANT RACE + MARKET SIGNAL */
 .s2SplitRow {
   display: flex; gap: 10px;
   flex: 1;
 }
 .s2SplitCard {
-  composes: glassCard;
   flex: 1;
-  padding: 18px 20px 20px;
+  padding: 20px 22px 22px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  box-shadow:
+    0 0 22px rgba(180,20,40,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.06);
   display: flex; flex-direction: column;
 }
-.s2SplitCardBody {
-  font-size: 19px; line-height: 1.40; color: rgba(255,255,255,0.78);
+.s2SplitBody {
+  font-size: 19px; line-height: 1.44; color: rgba(255,255,255,0.78);
   flex: 1;
-}
-
-/* Market signal stat highlight */
-.s2StatHighlight {
-  display: flex; align-items: baseline; gap: 8px;
-  margin-top: 10px;
-}
-.s2StatValue {
-  font-size: 36px; font-weight: 900; color: rgba(255,255,255,0.95);
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 20px rgba(255,215,0,0.15);
-}
-.s2StatLabel {
-  font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.40);
 }
 
 /* Swipe hint */
 .s2SwipeHint {
   position: relative; z-index: 10;
   text-align: center;
-  padding: 10px 40px 0;
+  padding: 8px 40px 0;
 }
 .s2SwipeText {
   font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.25);
