@@ -438,23 +438,23 @@
 /* Headline block — pushed lower */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 18px; margin-bottom: 12px;
+  margin-top: 18px; margin-bottom: 10px;
   text-align: center;
-  min-height: 170px;
+  min-height: 165px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
 .slide2Headline {
   margin: 0;
-  font-size: 52px; line-height: 0.95; font-weight: 900;
+  font-size: 54px; line-height: 0.95; font-weight: 900;
   letter-spacing: 0.4px; text-transform: uppercase;
   color: rgba(255,255,255,0.98);
   text-shadow: 0 0 18px rgba(255,255,255,0.10);
 }
 .slide2Subhead {
-  margin: 14px auto 0;
-  max-width: 840px;
-  font-size: 18px; line-height: 1.24; font-weight: 600;
+  margin: 12px auto 0;
+  max-width: 860px;
+  font-size: 20px; line-height: 1.22; font-weight: 600;
   color: rgba(255,255,255,0.68);
   text-align: center;
 }
@@ -462,7 +462,7 @@
 /* Feature card */
 .slide2FeatureCard {
   position: relative; z-index: 10;
-  min-height: 365px;
+  min-height: 390px;
   border-radius: 20px;
   padding: 16px 18px;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
@@ -514,9 +514,9 @@
   margin-top: 2px;
   filter: drop-shadow(0 0 4px rgba(255,255,255,0.10));
 }
-/* Feature card bullet text — 19px */
+/* Feature card bullet text — 20px */
 .slide2FeatureText {
-  font-size: 19px; line-height: 1.28; font-weight: 700;
+  font-size: 20px; line-height: 1.30; font-weight: 700;
   color: rgba(255,255,255,0.94);
 }
 /* Support card bullet text — 18px */
@@ -544,7 +544,7 @@
   flex: 1;
 }
 .slide2SupportCard {
-  min-height: 338px;
+  min-height: 345px;
   border-radius: 18px;
   padding: 16px 16px 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
@@ -601,6 +601,15 @@
   gap: 10px;
   margin-top: 8px;
 }
+.slide2PickSelectionWrap {
+  display: inline-flex; align-items: center;
+  gap: 8px;
+}
+.slide2PickSelectionLogo {
+  width: 20px; height: 20px; object-fit: contain;
+  border-radius: 2px; flex-shrink: 0;
+  filter: drop-shadow(0 0 3px rgba(255,255,255,0.08));
+}
 .slide2PickSelection {
   font-size: 20px; line-height: 1.12; font-weight: 900;
   color: rgba(255,255,255,0.96);
@@ -613,6 +622,53 @@
 .slide2PickRationale {
   margin-top: 7px;
   font-size: 15px; line-height: 1.24; font-weight: 700;
+  color: rgba(255,255,255,0.68);
+}
+
+/* ── Pennant Race — 4 team modules ── */
+.slide2RaceTeams {
+  display: flex; flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  flex: 1;
+}
+.slide2RaceTeamCard {
+  border-radius: 14px;
+  padding: 12px 12px 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow:
+    0 0 12px rgba(255,255,255,0.03),
+    0 0 18px rgba(255,90,120,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.slide2RaceTeamTopRow {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.slide2RaceTeamIdentity {
+  display: inline-flex; align-items: center;
+  gap: 8px;
+}
+.slide2RaceTeamName {
+  font-size: 16px; line-height: 1.1; font-weight: 800;
+  color: rgba(255,255,255,0.92);
+}
+.slide2RaceTeamWins {
+  font-size: 18px; line-height: 1; font-weight: 900;
+  color: rgba(255,255,255,0.96);
+}
+.slide2RaceTeamMeta {
+  margin-top: 7px;
+  font-size: 14px; line-height: 1.2; font-weight: 700;
+  color: rgba(255,255,255,0.74);
+  display: inline-flex; align-items: center;
+  gap: 6px;
+}
+.slide2RaceTeamTag {
+  margin-top: 6px;
+  font-size: 14px; line-height: 1.22; font-weight: 700;
   color: rgba(255,255,255,0.68);
 }
 
