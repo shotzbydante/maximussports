@@ -80,8 +80,18 @@ function ScheduleSection({ events }) {
 
   const grouped = useMemo(() => {
     const spring = events.filter((e) => e.seasonTypeName === 'preseason');
-    const regular = events.filter((e) => e.seasonTypeName === 'regular' || e.seasonTypeName === 'postseason' || (!e.seasonTypeName && e.seasonType !== 1));
-    const noType = events.filter((e) => !e.seasonTypeName && e.seasonType !== 1 && e.seasonType !== 2 && e.seasonType !== 3);
+    // Regular season: explicit regular/postseason OR no type assigned (but not preseason)
+    const regular = events.filter((e) =>
+      e.seasonTypeName === 'regular' || e.seasonTypeName === 'postseason' ||
+      (!e.seasonTypeName && e.seasonType !== 1)
+    );
+    // Dedupe by event ID to prevent double-counting
+    const seen = new Set();
+    const deduped = regular.filter(e => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
 
     function groupByMonth(evs) {
       const months = {};
@@ -97,8 +107,7 @@ function ScheduleSection({ events }) {
 
     const sections = [];
     if (spring.length > 0) sections.push({ id: 'spring', title: 'Spring Training', months: groupByMonth(spring) });
-    const regEvents = [...regular, ...noType];
-    if (regEvents.length > 0) sections.push({ id: 'regular', title: 'Regular Season', months: groupByMonth(regEvents) });
+    if (deduped.length > 0) sections.push({ id: 'regular', title: 'Regular Season', months: groupByMonth(deduped) });
     return sections;
   }, [events]);
 
@@ -376,17 +385,7 @@ export default function MlbTeamDetail() {
       </nav>
 
       <div className={styles.content}>
-        {/* ── Today's Game Intel ── */}
-        {liveGame && (
-          <section className={styles.todayGameSection}>
-            <h3 className={styles.sectionTitle}>
-              {liveGame.gameState?.isLive ? 'Live Now' : 'Today\'s Game'}
-            </h3>
-            <LiveGameCard game={liveGame} />
-          </section>
-        )}
-
-        {/* ── Intel Briefing ── */}
+        {/* ── Intel Briefing (leads with editorial context) ── */}
         <section id="intel" className={styles.briefingCard}>
           <div className={styles.briefingHeader}>
             <img src="/mascot-mlb.png" alt="" className={styles.briefingMascot} aria-hidden />
@@ -423,6 +422,16 @@ export default function MlbTeamDetail() {
             )}
           </div>
         </section>
+
+        {/* ── Today's Game Intel ── */}
+        {liveGame && (
+          <section className={styles.todayGameSection}>
+            <h3 className={styles.sectionTitle}>
+              {liveGame.gameState?.isLive ? 'Live Now' : 'Today\'s Game'}
+            </h3>
+            <LiveGameCard game={liveGame} />
+          </section>
+        )}
 
         {/* ── Maximus Model Outlook ── */}
         <div id="model">
@@ -478,7 +487,7 @@ export default function MlbTeamDetail() {
           </section>
 
           <section className={styles.atsCard}>
-            <h3 className={styles.sectionTitle}>ATS Profile</h3>
+            <h3 className={styles.sectionTitle}>Season Profile</h3>
             <div className={styles.atsBody}>
               <div className={styles.atsGrid}>
                 <div className={styles.atsStat}>
