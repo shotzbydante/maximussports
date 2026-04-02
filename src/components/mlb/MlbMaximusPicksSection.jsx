@@ -409,12 +409,7 @@ export default function MlbMaximusPicksSection({ mode = 'home' }) {
           <span className={styles.eyebrow}>Betting Intelligence</span>
           <h2 className={styles.sectionTitle}>{mode === 'page' ? 'MLB Odds Insights' : "Maximus's Picks"}</h2>
         </div>
-        {hasPicks && mode === 'home' && (
-          <button type="button" className={styles.expandToggle}
-            onClick={() => setExpanded(v => !v)}>
-            {expanded ? 'Collapse ▴' : 'Show all ▾'}
-          </button>
-        )}
+        {/* expand/collapse moved to bottom of board */}
       </div>
 
       {/* Summary strip */}
@@ -436,22 +431,35 @@ export default function MlbMaximusPicksSection({ mode = 'home' }) {
           </p>
         </div>
       ) : (
-        <div className={styles.root}>
-          {COLUMNS.map(col => (
-            <PickColumn
-              key={col.key}
-              config={col}
-              picks={picks.categories[col.key] || []}
-              cap={getCap()}
-              slateComplete={false}
-              mode={mode}
-            />
-          ))}
+        <div className={styles.boardWrapper}>
+          <div className={`${styles.boardContent} ${!expanded && mode === 'home' ? styles.boardCollapsed : ''}`}>
+            <div className={styles.root}>
+              {COLUMNS.map(col => (
+                <PickColumn
+                  key={col.key}
+                  config={col}
+                  picks={picks.categories[col.key] || []}
+                  cap={getCap()}
+                  slateComplete={false}
+                  mode={mode}
+                />
+              ))}
+            </div>
+          </div>
+          {/* Expand/collapse CTA — bottom-right */}
+          {mode === 'home' && (
+            <div className={styles.expandBar}>
+              <button type="button" className={styles.expandBtn} onClick={() => setExpanded(v => !v)}>
+                {expanded ? 'Collapse board' : 'Show full board'}
+                <ChevronIcon open={expanded} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Footer */}
-      {hasPicks && picks.meta && (
+      {hasPicks && (
         <div className={styles.picksFooter}>
           <p className={styles.disclaimer}>
             For entertainment only. Please bet responsibly. Leans are data-driven, not advice.

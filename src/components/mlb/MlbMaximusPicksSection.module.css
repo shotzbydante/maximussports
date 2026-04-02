@@ -153,7 +153,7 @@
 .dayChip {
   font-size: 0.50rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px;
-  color: #b8293d; background: rgba(184,41,61,0.08);
+  color: #3d5a73; background: rgba(60,100,160,0.08);
 }
 .pickTime {
   font-size: 0.52rem; color: var(--color-text-muted);
@@ -165,14 +165,16 @@
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
 .teamLogoWrap {
-  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; border: 1px solid rgba(0,0,0,0.06);
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.8);
   overflow: hidden; flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.teamLogoWrap img { object-fit: contain; border-radius: 3px; }
+.teamLogoWrap img { object-fit: contain; border-radius: 3px; width: 22px; height: 22px; }
 .pickPill {
-  font-size: 0.78rem; font-weight: 700; color: #b8293d;
-  background: rgba(184,41,61,0.06); border: 1px solid rgba(184,41,61,0.14);
+  font-size: 0.78rem; font-weight: 700; color: var(--color-text);
+  background: rgba(60,100,160,0.06); border: 1px solid rgba(60,100,160,0.14);
   padding: 3px 10px; border-radius: 999px; white-space: nowrap;
 }
 .confChip {
@@ -215,7 +217,7 @@
 .modelEdge {
   display: flex; gap: 12px;
   padding: 5px 8px; border-radius: 6px;
-  background: rgba(184,41,61,0.03);
+  background: rgba(60,100,160,0.04);
 }
 .edgePair { display: flex; align-items: baseline; gap: 4px; }
 .edgeLabel {
@@ -231,7 +233,7 @@
 .signalPanel {
   display: flex; flex-direction: column; gap: 3px;
   padding: 6px 8px; border-radius: 6px;
-  background: rgba(184,41,61,0.025);
+  background: rgba(60,100,160,0.035);
 }
 .signalRow { display: flex; align-items: flex-start; gap: 5px; }
 .signalCheck {
@@ -305,6 +307,40 @@
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ── Board-level expand/collapse ── */
+.boardWrapper { position: relative; }
+.boardContent {
+  position: relative;
+  transition: max-height 0.35s ease-out;
+  overflow: hidden;
+}
+.boardCollapsed {
+  max-height: 520px;
+}
+.boardCollapsed::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 80px; pointer-events: none; z-index: 2;
+  background: linear-gradient(to bottom, transparent, var(--color-bg-elevated, #fff) 90%);
+}
+.expandBar {
+  display: flex; justify-content: flex-end;
+  padding: 8px 0 0;
+}
+.expandBtn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.64rem; font-weight: 600; color: #b8293d;
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(184,41,61,0.18);
+  border-radius: 8px; padding: 7px 16px; cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.expandBtn:hover {
+  background: rgba(184,41,61,0.04);
+  border-color: rgba(184,41,61,0.30);
+  box-shadow: 0 2px 8px rgba(184,41,61,0.10);
 }
 
 /* ── Responsive (matches NCAAM breakpoints) ── */

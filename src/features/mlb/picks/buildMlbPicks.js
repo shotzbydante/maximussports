@@ -3,12 +3,26 @@
  *
  * Takes game data + odds and returns categorized pick cards
  * ready for UI consumption.
+ *
+ * Board assembly:
+ *   1. Score and classify all candidate games
+ *   2. Collect picks by category
+ *   3. Sort by confidence (high > medium > low)
+ *   4. Apply board-level diversity: cap each game to max 2 board appearances
+ *      (prevents one matchup from dominating all 4 columns)
+ *   5. Target ~5 picks per section on a normal slate
  */
 
 import { normalizeMlbMatchup } from './normalizeMlbMatchup.js';
 import { scoreMlbMatchup } from './scoreMlbMatchup.js';
 import { classifyMlbPick } from './classifyMlbPick.js';
 import { MLB_PICK_THRESHOLDS, MAX_CANDIDATE_GAMES } from './mlbPickThresholds.js';
+
+/** Max times a single game can appear across all board columns */
+const MAX_BOARD_APPEARANCES = 2;
+
+/** Target picks per section (soft cap — fills to this if candidates exist) */
+const SECTION_TARGET = 5;
 
 /**
  * @param {Object} input
@@ -37,12 +51,14 @@ export function buildMlbPicks({ games = [] }) {
       const status = (g.status || '').toLowerCase();
       const isLive = g.gameState?.isLive;
       const isFinal = g.gameState?.isFinal;
-      // Keep only upcoming/scheduled games
       return !isLive && !isFinal && status !== 'final' && status !== 'in_progress';
     })
     .slice(0, MAX_CANDIDATE_GAMES);
 
   result.meta.totalCandidates = candidates.length;
+
+  // Collect all picks from all games
+  const allPicks = [];
 
   for (const game of candidates) {
     try {
@@ -56,26 +72,16 @@ export function buildMlbPicks({ games = [] }) {
       const score = scoreMlbMatchup(normalized.matchup);
       const picks = classifyMlbPick(normalized.matchup, score, MLB_PICK_THRESHOLDS);
 
-      if (!picks.length) {
-        continue;
-      }
+      if (!picks.length) continue;
 
       result.meta.qualifiedGames += 1;
-
-      for (const pick of picks) {
-        switch (pick.category) {
-          case 'pickEms': result.categories.pickEms.push(pick); break;
-          case 'ats': result.categories.ats.push(pick); break;
-          case 'leans': result.categories.leans.push(pick); break;
-          case 'totals': result.categories.totals.push(pick); break;
-        }
-      }
+      allPicks.push(...picks);
     } catch {
       result.meta.skippedGames += 1;
     }
   }
 
-  // Sort each category: high confidence first, then score, then start time
+  // Sort all picks by confidence tier then score
   const sortFn = (a, b) => {
     const tierOrder = { high: 0, medium: 1, low: 2 };
     const ta = tierOrder[a.confidence] ?? 3;
@@ -85,10 +91,32 @@ export function buildMlbPicks({ games = [] }) {
     return (a.matchup?.startTime || '').localeCompare(b.matchup?.startTime || '');
   };
 
-  result.categories.pickEms.sort(sortFn);
-  result.categories.ats.sort(sortFn);
-  result.categories.leans.sort(sortFn);
-  result.categories.totals.sort(sortFn);
+  // Group by category
+  const byCat = { pickEms: [], ats: [], leans: [], totals: [] };
+  for (const pick of allPicks) {
+    if (byCat[pick.category]) byCat[pick.category].push(pick);
+  }
+
+  // Sort each category
+  for (const key of Object.keys(byCat)) {
+    byCat[key].sort(sortFn);
+  }
+
+  // Apply board-level diversity: track how many times each game appears
+  // across ALL columns, and cap at MAX_BOARD_APPEARANCES.
+  // Process categories in priority order so stronger sections fill first.
+  const gameAppearances = new Map();
+
+  for (const key of ['pickEms', 'ats', 'leans', 'totals']) {
+    const filtered = [];
+    for (const pick of byCat[key]) {
+      const count = gameAppearances.get(pick.gameId) || 0;
+      if (count >= MAX_BOARD_APPEARANCES) continue;
+      filtered.push(pick);
+      gameAppearances.set(pick.gameId, count + 1);
+    }
+    result.categories[key] = filtered;
+  }
 
   return result;
 }

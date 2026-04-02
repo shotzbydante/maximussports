@@ -27,19 +27,22 @@ export function classifyMlbPick(matchup, score, thresholds) {
   }
 
   const mlSide = chooseBestSide(score);
+  let hasPickEm = false;
 
   // ── Moneyline / Pick 'Em ──
   if (mlSide) {
     const conf = resolveConfidence(mlSide.edge, thresholds.moneyline, score.dataQuality, score.signalAgreement);
     if (conf) {
       picks.push(buildPick(matchup, score, mlSide, 'pickEms', 'moneyline', conf));
+      hasPickEm = true;
     }
   }
 
-  // ── Value Lean (INDEPENDENT — runs even if Pick'Em was generated) ──
-  // Leans capture directional value with softer thresholds.
-  // Uses raw edge without harsh DQ/SA multiplier.
-  if (mlSide) {
+  // ── Value Lean (only when game doesn't qualify for Pick'Em) ──
+  // Leans capture directional value with softer thresholds for games
+  // that don't clear the Pick'Em bar. This prevents same-game overlap
+  // between Pick'Ems and Leans while ensuring Leans populate.
+  if (mlSide && !hasPickEm) {
     const rawEdge = mlSide.edge;
     if (rawEdge >= thresholds.lean.low && score.dataQuality >= 0.18) {
       let tier, tierScore;
