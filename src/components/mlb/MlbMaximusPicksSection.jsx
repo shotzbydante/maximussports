@@ -101,7 +101,7 @@ const COLUMNS = [
 
 const CONF_LABELS = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
 const COLLAPSED_CAP = 3;
-const EXPANDED_CAP = 6;
+const EXPANDED_CAP = 5;
 const PAGE_CAP = 8;
 
 function formatTime(iso) {

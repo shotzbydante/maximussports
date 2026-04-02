@@ -3,18 +3,21 @@
  *
  * Board assembly:
  *   1. Filter to upcoming games, sort today > tomorrow > later
- *   2. When tomorrow's slate is thin, fill with Friday games that
- *      are NOT the same matchup as tomorrow's games (diversity fill)
+ *   2. Later games prefer non-duplicate matchups (diversity fill)
  *   3. Score and classify all candidate games
- *   4. Sort picks: date priority > confidence > score
- *   5. No cross-column game caps — each category is independent
- *   6. Target ~5 picks per section on a normal slate
+ *   4. Apply board-level diversity fill:
+ *      - Each column picks unique games first, shared games last
+ *      - Target 5 picks per column with max diversity
+ *   5. Sort by date priority > confidence > score
  */
 
 import { normalizeMlbMatchup } from './normalizeMlbMatchup.js';
 import { scoreMlbMatchup } from './scoreMlbMatchup.js';
 import { classifyMlbPick } from './classifyMlbPick.js';
 import { MLB_PICK_THRESHOLDS, MAX_CANDIDATE_GAMES } from './mlbPickThresholds.js';
+
+/** Target picks per column in the final board */
+const SECTION_TARGET = 5;
 
 function getGameDate(startTime) {
   if (!startTime) return '';
@@ -37,10 +40,18 @@ function getTodayDate() {
 
 /** Create a matchup key like "bos-vs-nyy" to detect same-series games */
 function getMatchupKey(game) {
-  // Raw game objects from API use game.teams.away.slug / game.teams.home.slug
   const away = game.teams?.away?.slug || game.awaySlug || game.awayTeam?.slug || '';
   const home = game.teams?.home?.slug || game.homeSlug || game.homeTeam?.slug || '';
   if (!away || !home) return '';
+  const pair = [away, home].sort();
+  return pair.join('-vs-');
+}
+
+/** Get matchup key from a pick object (uses the enriched matchup payload) */
+function getPickMatchupKey(pick) {
+  const away = pick.matchup?.awayTeam?.slug || '';
+  const home = pick.matchup?.homeTeam?.slug || '';
+  if (!away || !home) return pick.gameId || '';
   const pair = [away, home].sort();
   return pair.join('-vs-');
 }
@@ -74,13 +85,16 @@ export function buildMlbPicks({ games = [] }) {
   // Collect matchup keys from today+tomorrow for diversity filtering
   const nearTermMatchups = new Set();
   for (const g of [...todayGames, ...tomorrowGames]) {
-    nearTermMatchups.add(getMatchupKey(g));
+    const key = getMatchupKey(g);
+    if (key) nearTermMatchups.add(key);
   }
 
   // Sort later games: non-duplicate matchups first, then duplicates
-  const laterSorted = laterGames.sort((a, b) => {
-    const aIsDupe = nearTermMatchups.has(getMatchupKey(a)) ? 1 : 0;
-    const bIsDupe = nearTermMatchups.has(getMatchupKey(b)) ? 1 : 0;
+  const laterSorted = [...laterGames].sort((a, b) => {
+    const aKey = getMatchupKey(a);
+    const bKey = getMatchupKey(b);
+    const aIsDupe = aKey && nearTermMatchups.has(aKey) ? 1 : 0;
+    const bIsDupe = bKey && nearTermMatchups.has(bKey) ? 1 : 0;
     if (aIsDupe !== bIsDupe) return aIsDupe - bIsDupe;
     return (a.startTime || '').localeCompare(b.startTime || '');
   });
@@ -91,8 +105,8 @@ export function buildMlbPicks({ games = [] }) {
 
   result.meta.totalCandidates = candidates.length;
 
+  // Score and classify all candidates
   const allPicks = [];
-
   for (const game of candidates) {
     try {
       const normalized = normalizeMlbMatchup(game);
@@ -127,16 +141,46 @@ export function buildMlbPicks({ games = [] }) {
     return (b.confidenceScore || 0) - (a.confidenceScore || 0);
   };
 
-  // Group by category and sort independently
-  // Each category gets its own independent pool — no cross-column caps
+  // Group by category
+  const byCat = { pickEms: [], ats: [], leans: [], totals: [] };
   for (const pick of allPicks) {
-    if (result.categories[pick.category]) {
-      result.categories[pick.category].push(pick);
-    }
+    if (byCat[pick.category]) byCat[pick.category].push(pick);
   }
 
-  for (const key of Object.keys(result.categories)) {
-    result.categories[key].sort(sortFn);
+  // Sort each category
+  for (const key of Object.keys(byCat)) {
+    byCat[key].sort(sortFn);
+  }
+
+  // ── Board-level diversity fill ──
+  // Fill each column to SECTION_TARGET, preferring unique matchups
+  // across the entire board. Track which matchup keys have been used
+  // board-wide, and prefer picks from unused matchups.
+  const boardUsedMatchups = new Set();
+
+  for (const key of ['pickEms', 'ats', 'leans', 'totals']) {
+    const candidates = byCat[key];
+    const selected = [];
+    const deferred = []; // picks from already-used matchups
+
+    for (const pick of candidates) {
+      if (selected.length >= SECTION_TARGET) break;
+      const mk = getPickMatchupKey(pick);
+      if (boardUsedMatchups.has(mk)) {
+        deferred.push(pick);
+      } else {
+        selected.push(pick);
+        boardUsedMatchups.add(mk);
+      }
+    }
+
+    // If we haven't reached target, fill with deferred (already-used matchups)
+    for (const pick of deferred) {
+      if (selected.length >= SECTION_TARGET) break;
+      selected.push(pick);
+    }
+
+    result.categories[key] = selected;
   }
 
   return result;
