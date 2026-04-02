@@ -1,11 +1,14 @@
 /**
  * MlbDailySlide1 — Hero Cover (Slide 1 of MLB Daily Briefing carousel)
  *
- * Day-specific headline pulled from the MLB briefing source.
+ * Top: Briefing plaque (title + date)
+ * Middle: Headline + Mascot hero
+ * Bottom: One-sentence daily synopsis beneath mascot
+ *
  * 1080×1350 · IG 4:5 portrait
  */
 
-import { buildDailyContent, stripEmojis } from './mlbDailyHelpers';
+import { stripEmojis } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import styles from './MlbSlides.module.css';
 
@@ -15,10 +18,9 @@ function buildHeroHeadline(data) {
   const paras = intel?.rawParagraphs || [];
   const p1 = stripEmojis(paras[0] || '');
 
-  // Extract key names/teams/events from first paragraph
   const names = [];
   const namePatterns = [
-    /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander))/g,
+    /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander|Stanton|Adames))/g,
     /(Dodgers|Yankees|Braves|Phillies|Astros|Mets|Blue Jays|D-backs|Diamondbacks)/gi,
   ];
   for (const pat of namePatterns) {
@@ -35,9 +37,20 @@ function buildHeroHeadline(data) {
     const n1 = names[0].split(' ').pop().toUpperCase();
     return { line1: `${n1} DELIVERS.`, line2: 'THE BOARD TAKES SHAPE.' };
   }
-
-  // Fallback: still day-relevant
   return { line1: 'DEBUTS LAND.', line2: 'CONTENDERS ANSWER.' };
+}
+
+/** Build a 1-sentence synopsis from the briefing */
+function buildSynopsis(data) {
+  const intel = parseBriefingToIntel(data?.mlbBriefing);
+  const paras = intel?.rawParagraphs || [];
+  const p1 = stripEmojis(paras[0] || '');
+  const sents = (p1.match(/[^.!?]*[.!?]+/g) || []).map(s => s.trim());
+  if (sents[0] && sents[0].length > 20) {
+    const s = sents[0].length > 90 ? sents[0].slice(0, 88).replace(/\s+\S*$/, '') + '.' : sents[0];
+    return s;
+  }
+  return 'Stars and contenders are making early statements across the league.';
 }
 
 export default function MlbDailySlide1({ data, asOf, ...rest }) {
@@ -47,6 +60,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
   });
 
   const hero = buildHeroHeadline(data);
+  const synopsis = buildSynopsis(data);
 
   return (
     <div className={styles.slide1} {...rest}>
@@ -56,6 +70,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
       <div className={styles.slide1BgParticles} />
       <div className={styles.slide1Noise} />
 
+      {/* Top briefing plaque */}
       <header className={styles.slide1Top}>
         <div className={styles.slide1TopPill}>
           <img src="/mlb-logo.png" alt="" className={styles.slide1TopLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
@@ -63,25 +78,32 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
         </div>
       </header>
 
+      {/* Briefing card — now above headline as top plaque */}
+      <section className={styles.slide1BriefingPlaque}>
+        <div className={styles.slide1PlaqueTitle}>DAILY MLB BRIEFING</div>
+        <div className={styles.slide1PlaqueDate}>{today}</div>
+      </section>
+
+      {/* Headline */}
       <section className={styles.slide1HeadlineBlock}>
         <h1 className={styles.slide1Headline}>
           <span>{hero.line1}</span>
           <span>{hero.line2}</span>
         </h1>
-        <div className={styles.slide1Subhead}>2026 SEASON STARTS NOW</div>
       </section>
 
+      {/* Hero mascot */}
       <section className={styles.slide1Hero}>
         <div className={styles.slide1HeroHalo} />
         <img src="/mascot-mlb.png" alt="Maximus" className={styles.slide1Mascot} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
         <div className={styles.slide1HeroShadow} />
       </section>
 
-      <section className={styles.slide1BriefingCardWrap}>
-        <div className={styles.slide1BriefingGlow} />
-        <div className={styles.slide1BriefingCard}>
-          <div className={styles.slide1BriefingTitle}>DAILY MLB BRIEFING</div>
-          <div className={styles.slide1BriefingDate}>{today}</div>
+      {/* Synopsis card beneath mascot */}
+      <section className={styles.slide1SynopsisWrap}>
+        <div className={styles.slide1SynopsisGlow} />
+        <div className={styles.slide1SynopsisCard}>
+          <div className={styles.slide1SynopsisText}>{synopsis}</div>
         </div>
       </section>
 

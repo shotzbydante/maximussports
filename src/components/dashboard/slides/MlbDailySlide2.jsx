@@ -157,15 +157,16 @@ function buildSlide2Content(data) {
   }
   allTeams.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
   const raceTeams = allTeams.slice(0, 4).map(t => {
-    const signal = t.signals?.[0] || t.confidenceTier || '';
-    const tag = signal ? `${signal}` : `${t.confidenceTier || 'Contender'} outlook`;
+    const signal = t.signals?.[0] || '';
+    const oddsStr = t.odds != null ? fmtOdds(t.odds) : '—';
     return {
       team: t.abbrev,
       teamLogoSrc: logoUrl(t.slug),
+      division: shortDiv(t.division),
       projectedWins: t.projectedWins,
-      record: '—', // dynamic record not yet available in this pipeline
-      standingLabel: shortDiv(t.division),
-      summaryTag: tag,
+      convictionLabel: t.confidenceTier || 'Projected',
+      championshipOdds: oddsStr,
+      summaryTag: signal || null,
     };
   });
 
@@ -282,15 +283,18 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
               <div key={i} className={styles.slide2RaceTeamCard}>
                 <div className={styles.slide2RaceTeamTopRow}>
                   <div className={styles.slide2RaceTeamIdentity}>
-                    <InlineLogo src={t.teamLogoSrc} size={20} />
+                    <InlineLogo src={t.teamLogoSrc} size={22} />
                     <div className={styles.slide2RaceTeamName}>{t.team}</div>
                   </div>
-                  <div className={styles.slide2RaceTeamWins}>{t.projectedWins}W</div>
+                  <div className={styles.slide2RaceTeamMetaStack}>
+                    <div className={styles.slide2RaceTeamDivision}>{t.division}</div>
+                    <div className={styles.slide2RaceTeamConviction}>{t.convictionLabel}</div>
+                  </div>
                 </div>
-                <div className={styles.slide2RaceTeamMeta}>
-                  <span>{t.standingLabel}</span>
-                </div>
-                <div className={styles.slide2RaceTeamTag}>{t.summaryTag}</div>
+                <div className={styles.slide2RaceTeamProjection}>Projected Wins: {t.projectedWins}</div>
+                <div className={styles.slide2RaceTeamProjectionBadge}>Maximus Model Projection</div>
+                {t.summaryTag && <div className={styles.slide2RaceTeamTag}>{t.summaryTag}</div>}
+                <div className={styles.slide2RaceTeamOdds}>{'\uD83C\uDFC6'} {t.championshipOdds}</div>
               </div>
             ))}
           </div>
