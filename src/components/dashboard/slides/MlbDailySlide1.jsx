@@ -1,9 +1,7 @@
 /**
  * MlbDailySlide1 — Hero Cover (Slide 1 of MLB Daily Briefing carousel)
  *
- * Composition: Brand pill (top) → Headline (upper) → Mascot hero (center) → Glass card (bottom)
- * Mascot head overlaps into headline zone for integrated feel.
- *
+ * Composition: Brand pill → Headline → Mascot hero (white neon halo) → Glass card
  * 1080×1350 · IG 4:5 portrait
  */
 
@@ -16,31 +14,31 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
   });
 
   return (
-    <div className={styles.artboard} {...rest}>
+    <div className={`${styles.artboard} ${styles.liveMotion}`} {...rest}>
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
       <div className={styles.bgRay} />
-      <div className={styles.s1BgStadium} />
-      <div className={styles.s1BgStreaks} />
+      <div className={styles.bgStadium} />
+      <div className={styles.bgStreaks} />
       <div className={styles.bgNoise} />
 
-      {/* Brand pill — top center */}
+      {/* Brand pill */}
       <div className={styles.s1TopBar}>
-        <div className={styles.s1BrandPill}>
-          <img src="/mlb-logo.png" alt="" className={styles.s1MlbMark} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
-          <span className={styles.s1BrandName}>MAXIMUS SPORTS</span>
+        <div className={styles.s1Pill}>
+          <img src="/mlb-logo.png" alt="" className={styles.s1PillLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <span>MAXIMUS SPORTS</span>
         </div>
       </div>
 
-      {/* Headline — upper zone */}
+      {/* Headline */}
       <div className={styles.s1HeadlineZone}>
         <h1 className={styles.s1Headline}>MLB IS BACK.<br />THE EDGE IS LIVE.</h1>
-        <div className={styles.s1SubHeadline}>2026 SEASON STARTS NOW</div>
+        <div className={styles.s1Sub}>2026 SEASON STARTS NOW</div>
       </div>
 
-      {/* Mascot hero — center, overlaps headline + card */}
+      {/* Mascot with white neon halo */}
       <div className={styles.s1MascotZone}>
-        <div className={styles.s1MascotGlow} />
+        <div className={styles.s1MascotHalo} />
         <img
           src="/mascot-mlb.png"
           alt="Maximus"
@@ -50,15 +48,13 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
         />
       </div>
 
-      {/* Bottom glass card */}
+      {/* Bottom glass card — simplified */}
       <div className={styles.s1CardZone}>
-        <div className={styles.s1GlassCard}>
-          <div className={styles.s1CardTopLine} />
-          <div className={styles.s1CardLabel}>DAILY MLB BRIEFING</div>
-          <div className={styles.s1CardDate}>{today}</div>
-          <div className={styles.s1CardDivider} />
+        <div className={styles.s1CardHalo} />
+        <div className={styles.s1Card}>
+          <div className={styles.cardHighlight} />
           <div className={styles.s1CardTitle}>DAILY MLB BRIEFING</div>
-          <div className={styles.s1CardTagline}>AI-POWERED INTEL FOR THE MODERN FAN</div>
+          <div className={styles.s1CardDate}>{today}</div>
         </div>
       </div>
 

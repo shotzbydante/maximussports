@@ -2,23 +2,30 @@
    MlbSlides — Shared design system for MLB Daily Briefing carousel
    1080×1350 · IG 4:5 portrait · 3 slides
 
-   Slide 1: Hero Cover (hook)
-   Slide 2: Intel Briefing (story)
-   Slide 3: World Series Outlook + CTA (data + conversion)
+   Shared patterns: .glassCard, .glowHalo, .sectionPill
+   Animation gating: .liveMotion (omit class to disable for export)
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Keyframes ── */
+/* ── Keyframes (decorative only — export-safe) ── */
+@keyframes floatY {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-5px) rotate(-2deg); }
+}
 @keyframes glowPulse {
-  0%, 100% { opacity: 0.7; }
+  0%, 100% { opacity: 0.65; }
   50%      { opacity: 1.0; }
 }
-@keyframes subtleFloat {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50%      { transform: translateY(-8px) rotate(-2deg); }
+@keyframes shimmerSweep {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 30px rgba(255,255,255,0.06); }
+  50%      { box-shadow: 0 0 50px rgba(255,255,255,0.12); }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SHARED — Artboard + Background system
+   SHARED — Artboard + Background + Patterns
    ══════════════════════════════════════════════════════════════ */
 
 .artboard {
@@ -28,6 +35,8 @@
   display: flex; flex-direction: column;
   color: #fff;
 }
+
+/* ── Background layers ── */
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(170deg,
@@ -49,340 +58,317 @@
     radial-gradient(ellipse 450px 650px at 88% 0%, rgba(255,80,100,0.07) 0%, transparent 50%);
   pointer-events: none;
 }
-/* Subtle film grain texture */
+.bgStadium {
+  position: absolute; inset: 0; z-index: 3;
+  background:
+    radial-gradient(ellipse 500px 450px at 14% 7%, rgba(255,185,195,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 500px 450px at 86% 7%, rgba(255,185,195,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 800px 280px at 50% 4%, rgba(255,120,140,0.10) 0%, transparent 50%);
+  pointer-events: none;
+}
+.bgStreaks {
+  position: absolute; inset: 0; z-index: 3;
+  background:
+    linear-gradient(135deg, transparent 30%, rgba(255,100,120,0.05) 45%, transparent 55%),
+    linear-gradient(155deg, transparent 40%, rgba(255,80,100,0.04) 52%, transparent 58%),
+    linear-gradient(120deg, transparent 55%, rgba(255,120,140,0.035) 65%, transparent 72%);
+  pointer-events: none;
+}
 .bgNoise {
   position: absolute; inset: 0; z-index: 4;
-  opacity: 0.028;
+  opacity: 0.025;
   background-image:
     url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 200px 200px;
   pointer-events: none;
 }
 
-/* Shared footer */
-.footer {
-  position: relative; z-index: 10;
-  text-align: center;
-  padding: 12px 32px 24px;
-  flex-shrink: 0;
-}
-.footerUrl {
-  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.25);
-  letter-spacing: 0.06em;
-}
-.footerDisclaimer {
-  font-size: 10px; color: rgba(255,255,255,0.15);
-  font-style: italic; margin-top: 4px;
-  display: block;
-}
-
-/* ── Glass card mixin ── */
+/* ── Shared glass card pattern ── */
 .glassCard {
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 16px;
-  box-shadow:
-    0 0 24px rgba(180,20,40,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  backdrop-filter: blur(2px);
-}
-
-/* ══════════════════════════════════════════════════════════════
-   SLIDE 1 — HERO COVER
-   ══════════════════════════════════════════════════════════════ */
-
-/* Stadium lighting — bright clusters upper-left + upper-right */
-.s1BgStadium {
-  position: absolute; inset: 0; z-index: 3;
-  background:
-    radial-gradient(ellipse 500px 500px at 15% 8%, rgba(255,180,190,0.18) 0%, transparent 60%),
-    radial-gradient(ellipse 500px 500px at 85% 8%, rgba(255,180,190,0.18) 0%, transparent 60%),
-    radial-gradient(ellipse 800px 300px at 50% 5%, rgba(255,120,140,0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 300px 400px at 30% 15%, rgba(255,200,210,0.08) 0%, transparent 55%),
-    radial-gradient(ellipse 300px 400px at 70% 15%, rgba(255,200,210,0.08) 0%, transparent 55%);
-  pointer-events: none;
-}
-
-/* Light streaks + particles */
-.s1BgStreaks {
-  position: absolute; inset: 0; z-index: 3;
-  background:
-    linear-gradient(135deg, transparent 30%, rgba(255,100,120,0.06) 45%, transparent 55%),
-    linear-gradient(155deg, transparent 40%, rgba(255,80,100,0.05) 52%, transparent 58%),
-    linear-gradient(120deg, transparent 55%, rgba(255,120,140,0.04) 65%, transparent 72%);
-  pointer-events: none;
-}
-
-/* Brand pill — top center */
-.s1TopBar {
-  position: relative; z-index: 10;
-  display: flex; align-items: center; justify-content: center;
-  padding: 32px 40px 0;
-}
-.s1BrandPill {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 24px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
-  backdrop-filter: blur(4px);
-}
-.s1MlbMark {
-  width: 22px; height: 22px; object-fit: contain; opacity: 0.75;
-}
-.s1BrandName {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: rgba(255,255,255,0.65);
-}
-
-/* Headline — upper zone, above mascot */
-.s1HeadlineZone {
-  position: relative; z-index: 12;
-  text-align: center;
-  padding: 28px 56px 0;
-  flex-shrink: 0;
-}
-.s1Headline {
-  font-size: 82px; font-weight: 900; line-height: 0.95;
-  letter-spacing: -0.5px; text-transform: uppercase;
-  margin: 0;
-  text-shadow:
-    0 0 18px rgba(255,255,255,0.08),
-    0 2px 24px rgba(0,0,0,0.55),
-    0 0 60px rgba(220,40,60,0.20),
-    0 0 120px rgba(220,40,60,0.08);
-}
-.s1SubHeadline {
-  font-size: 20px; font-weight: 700; letter-spacing: 3px;
-  text-transform: uppercase; color: rgba(255,255,255,0.80);
-  margin-top: 10px;
-  text-shadow: 0 0 12px rgba(255,255,255,0.06);
-}
-
-/* Mascot — center of canvas, overlaps headline */
-.s1MascotZone {
-  position: relative; z-index: 11;
-  display: flex; align-items: center; justify-content: center;
-  flex: 1;
-  margin-top: -30px; /* overlap into headline */
-}
-.s1MascotGlow {
-  position: absolute;
-  width: 650px; height: 650px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255,60,80,0.40) 0%,
-    rgba(255,60,80,0.15) 35%,
-    transparent 70%
-  );
-  pointer-events: none;
-  animation: glowPulse 4s ease-in-out infinite;
-}
-.s1Mascot {
-  position: relative;
-  width: 420px; height: 420px; object-fit: contain;
-  transform: rotate(-2deg) scale(1.08);
-  animation: subtleFloat 6s ease-in-out infinite;
-  filter:
-    drop-shadow(0 12px 50px rgba(0,0,0,0.60))
-    drop-shadow(0 0 60px rgba(220,40,60,0.30))
-    drop-shadow(0 0 120px rgba(220,40,60,0.12));
-}
-
-/* Bottom glass card */
-.s1CardZone {
-  position: relative; z-index: 10;
-  display: flex; justify-content: center;
-  padding: 0 48px;
-  margin-top: -20px; /* pull up under mascot */
-  flex-shrink: 0;
-}
-.s1GlassCard {
-  width: 88%;
-  padding: 20px 32px 24px;
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 22px;
-  backdrop-filter: blur(6px);
-  box-shadow:
-    0 0 30px rgba(255,80,100,0.18),
-    0 0 60px rgba(180,20,40,0.08),
-    inset 0 1px 0 rgba(255,255,255,0.20);
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-/* Top highlight line */
-.s1CardTopLine {
-  position: absolute;
-  top: 0; left: 10%; right: 10%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255,120,140,0.50), rgba(255,80,100,0.30), transparent);
-  border-radius: 2px;
-}
-.s1CardLabel {
-  font-size: 14px; font-weight: 700; letter-spacing: 2px;
-  text-transform: uppercase; color: rgba(255,255,255,0.55);
-}
-.s1CardDate {
-  font-size: 19px; font-weight: 600; color: rgba(255,255,255,0.70);
-  margin-top: 6px; letter-spacing: 0.03em;
-}
-.s1CardDivider {
-  width: 60%; height: 1px; margin: 14px auto;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-}
-.s1CardTitle {
-  font-size: 32px; font-weight: 800; color: #fff;
-  letter-spacing: 0.04em;
-}
-.s1CardTagline {
-  font-size: 15px; color: rgba(255,255,255,0.55);
-  margin-top: 8px; letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-/* ══════════════════════════════════════════════════════════════
-   SLIDE 2 — INTEL BRIEFING (premium editorial)
-   ══════════════════════════════════════════════════════════════ */
-
-/* Stadium ambience for slide 2 — softer than slide 1 */
-.s2BgStadium {
-  position: absolute; inset: 0; z-index: 3;
-  background:
-    radial-gradient(ellipse 450px 400px at 12% 6%, rgba(255,180,190,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 450px 400px at 88% 6%, rgba(255,180,190,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 700px 250px at 50% 3%, rgba(255,120,140,0.08) 0%, transparent 50%);
-  pointer-events: none;
-}
-
-/* Brand pill — top */
-.s2TopBar {
-  position: relative; z-index: 10;
-  display: flex; flex-direction: column;
-  align-items: center;
-  padding: 28px 40px 0;
-  gap: 6px;
-}
-.s2BrandPill {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 22px;
-  background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 10px;
-}
-.s2MlbCrest {
-  width: 20px; height: 20px; object-fit: contain; opacity: 0.75;
-}
-.s2BrandText {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: rgba(255,255,255,0.60);
-}
-.s2DateLine {
-  font-size: 12px; color: rgba(255,255,255,0.32);
-  letter-spacing: 0.02em;
-}
-
-/* Headline zone — bold editorial */
-.s2HeadlineZone {
-  position: relative; z-index: 10;
-  padding: 14px 52px 6px; text-align: center;
-}
-.s2Headline {
-  font-size: 48px; font-weight: 900; line-height: 1.06;
-  text-transform: uppercase; margin: 0;
-  letter-spacing: -0.3px;
-  text-shadow:
-    0 0 14px rgba(255,255,255,0.06),
-    0 2px 18px rgba(0,0,0,0.50),
-    0 0 50px rgba(220,40,60,0.15);
-}
-.s2Subhead {
-  font-size: 16px; font-weight: 500; letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.50);
-  margin-top: 10px;
-  font-style: italic;
-  line-height: 1.4;
-}
-
-/* Content zone — feature card + split grid */
-.s2ContentZone {
-  position: relative; z-index: 10;
-  display: flex; flex-direction: column; gap: 10px;
-  margin: 10px 36px;
-  flex: 1;
-}
-
-/* Feature card — HOT OFF THE PRESS (hero of the slide) */
-.s2FeatureCard {
-  position: relative;
-  padding: 22px 28px 24px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 18px;
   box-shadow:
-    0 0 32px rgba(220,40,60,0.16),
-    0 0 8px rgba(255,255,255,0.02),
-    inset 0 1px 0 rgba(255,255,255,0.10);
+    0 0 28px rgba(180,20,40,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
   overflow: hidden;
 }
-/* Top highlight line — matching slide 1 glass card */
-.s2FeatureTopLine {
+
+/* ── Shared white neon glow halo ── */
+.glowHalo {
   position: absolute;
-  top: 0; left: 10%; right: 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255,255,255,0.18) 0%,
+    rgba(255,200,210,0.10) 30%,
+    transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Shared section pill (label badge) ── */
+.sectionPill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 22px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: rgba(255,255,255,0.65);
+}
+/* Shimmer edge on pill — decorative only */
+.liveMotion .sectionPill {
+  background-image: linear-gradient(
+    105deg,
+    rgba(255,255,255,0) 40%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0) 60%
+  );
+  background-size: 250% 100%;
+  animation: shimmerSweep 7s linear infinite;
+}
+
+/* ── Shared top-highlight line for glass cards ── */
+.cardHighlight {
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255,120,140,0.40), rgba(255,80,100,0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,120,140,0.45), rgba(255,80,100,0.25), transparent);
   border-radius: 2px;
 }
 
-.s2CardHeader {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 14px;
-}
-.s2CardIcon {
-  flex-shrink: 0; opacity: 0.85;
-}
-.s2CardLabel {
+/* ── Shared label pill inside cards ── */
+.cardLabel {
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(255,255,255,0.90);
   background: linear-gradient(135deg, rgba(220,40,60,0.55) 0%, rgba(139,26,43,0.42) 100%);
   border: 1px solid rgba(255,255,255,0.16);
   padding: 5px 16px; border-radius: 6px;
 }
-.s2FeatureBody {
-  font-size: 21px; line-height: 1.48; color: rgba(255,255,255,0.84);
+.cardIcon {
+  flex-shrink: 0; opacity: 0.85;
 }
 
-/* Split grid — PENNANT RACE + MARKET SIGNAL */
+/* Shared footer */
+.footer {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 8px 32px 20px;
+  flex-shrink: 0;
+}
+.footerUrl {
+  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.22);
+  letter-spacing: 0.06em;
+}
+.footerDisclaimer {
+  font-size: 10px; color: rgba(255,255,255,0.14);
+  font-style: italic; margin-top: 3px;
+  display: block;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 1 — HERO COVER
+   ══════════════════════════════════════════════════════════════ */
+
+/* Brand pill — top */
+.s1TopBar {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center;
+  padding: 28px 40px 0;
+}
+.s1Pill {
+  composes: sectionPill;
+  font-size: 15px;
+  padding: 9px 28px;
+}
+.s1PillLogo {
+  width: 24px; height: 24px; object-fit: contain; opacity: 0.80;
+}
+
+/* Headline — pushed lower for spacing from badge */
+.s1HeadlineZone {
+  position: relative; z-index: 12;
+  text-align: center;
+  padding: 40px 52px 0;
+  flex-shrink: 0;
+}
+.s1Headline {
+  font-size: 80px; font-weight: 900; line-height: 0.94;
+  letter-spacing: -0.5px; text-transform: uppercase;
+  margin: 0;
+  text-shadow:
+    0 0 20px rgba(255,255,255,0.10),
+    0 2px 24px rgba(0,0,0,0.55),
+    0 0 60px rgba(220,40,60,0.22);
+}
+.s1Sub {
+  font-size: 20px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: rgba(255,255,255,0.78);
+  margin-top: 12px;
+  text-shadow: 0 0 12px rgba(255,255,255,0.06);
+}
+
+/* Mascot — centered hero */
+.s1MascotZone {
+  position: relative; z-index: 11;
+  display: flex; align-items: center; justify-content: center;
+  flex: 1;
+  margin-top: -20px;
+}
+/* White neon halo behind mascot */
+.s1MascotHalo {
+  composes: glowHalo;
+  width: 580px; height: 580px;
+  background: radial-gradient(circle,
+    rgba(255,255,255,0.22) 0%,
+    rgba(255,200,210,0.12) 30%,
+    rgba(255,60,80,0.06) 55%,
+    transparent 75%);
+}
+.liveMotion .s1MascotHalo {
+  animation: glowPulse 4s ease-in-out infinite;
+}
+.s1Mascot {
+  position: relative;
+  width: 400px; height: 400px; object-fit: contain;
+  transform: rotate(-2deg) scale(1.06);
+  filter:
+    drop-shadow(0 12px 50px rgba(0,0,0,0.60))
+    drop-shadow(0 0 60px rgba(220,40,60,0.28))
+    drop-shadow(0 0 100px rgba(220,40,60,0.10));
+}
+.liveMotion .s1Mascot {
+  animation: floatY 5s ease-in-out infinite;
+}
+
+/* Bottom glass card — moved up, simplified */
+.s1CardZone {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center;
+  padding: 0 40px;
+  margin-top: -16px;
+  flex-shrink: 0;
+}
+/* White neon halo behind card */
+.s1CardHalo {
+  composes: glowHalo;
+  width: 700px; height: 200px;
+  border-radius: 40%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse,
+    rgba(255,255,255,0.12) 0%,
+    rgba(255,200,210,0.06) 40%,
+    transparent 70%);
+}
+.s1Card {
+  composes: glassCard;
+  width: 86%;
+  padding: 22px 32px 26px;
+  text-align: center;
+}
+.liveMotion .s1Card {
+  animation: breathe 4s ease-in-out infinite;
+}
+.s1CardTitle {
+  font-size: 28px; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.s1CardDate {
+  font-size: 18px; font-weight: 500; color: rgba(255,255,255,0.60);
+  margin-top: 8px; letter-spacing: 0.03em;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 2 — INTEL BRIEFING
+   ══════════════════════════════════════════════════════════════ */
+
+.s2TopBar {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 40px 0;
+  gap: 4px;
+}
+.s2Pill {
+  composes: sectionPill;
+}
+.s2PillLogo {
+  width: 20px; height: 20px; object-fit: contain; opacity: 0.75;
+}
+.s2Date {
+  font-size: 12px; color: rgba(255,255,255,0.30);
+  letter-spacing: 0.02em;
+}
+
+/* Headline */
+.s2HeadZone {
+  position: relative; z-index: 10;
+  padding: 12px 48px 4px; text-align: center;
+}
+.s2Headline {
+  font-size: 46px; font-weight: 900; line-height: 1.06;
+  text-transform: uppercase; margin: 0;
+  letter-spacing: -0.3px;
+  text-shadow:
+    0 0 16px rgba(255,255,255,0.07),
+    0 2px 18px rgba(0,0,0,0.50),
+    0 0 50px rgba(220,40,60,0.15);
+}
+.s2Subhead {
+  font-size: 15px; font-weight: 500; letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.48);
+  margin-top: 8px;
+  font-style: italic; line-height: 1.4;
+}
+
+/* Content zone */
+.s2Content {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 8px 32px;
+  flex: 1;
+}
+
+/* Feature card */
+.s2Feature {
+  composes: glassCard;
+  padding: 22px 26px 24px;
+  box-shadow:
+    0 0 36px rgba(220,40,60,0.16),
+    0 0 10px rgba(255,255,255,0.02),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.s2FeatureBody {
+  font-size: 22px; line-height: 1.48; color: rgba(255,255,255,0.84);
+  margin-top: 14px;
+}
+
+/* Split grid */
 .s2SplitRow {
   display: flex; gap: 10px;
   flex: 1;
 }
 .s2SplitCard {
+  composes: glassCard;
   flex: 1;
-  padding: 20px 22px 22px;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 16px;
-  box-shadow:
-    0 0 22px rgba(180,20,40,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.06);
+  padding: 18px 20px 20px;
   display: flex; flex-direction: column;
 }
 .s2SplitBody {
   font-size: 19px; line-height: 1.44; color: rgba(255,255,255,0.78);
   flex: 1;
+  margin-top: 12px;
 }
 
 /* Swipe hint */
-.s2SwipeHint {
+.s2Swipe {
   position: relative; z-index: 10;
   text-align: center;
   padding: 8px 40px 0;
 }
 .s2SwipeText {
-  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.25);
+  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.22);
   letter-spacing: 0.04em;
 }
 
@@ -390,185 +376,165 @@
    SLIDE 3 — WORLD SERIES OUTLOOK (2-column league board)
    ══════════════════════════════════════════════════════════════ */
 
-/* Stadium ambience — subtle, matching Slide 1 */
-.s3BgStadium {
-  position: absolute; inset: 0; z-index: 3;
-  background:
-    radial-gradient(ellipse 400px 350px at 10% 5%, rgba(255,180,190,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 400px 350px at 90% 5%, rgba(255,180,190,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 600px 200px at 50% 3%, rgba(255,120,140,0.06) 0%, transparent 50%);
-  pointer-events: none;
-}
-
 .s3Header {
   position: relative; z-index: 10;
   display: flex; flex-direction: column;
   align-items: center;
-  padding: 24px 40px 4px;
+  padding: 22px 40px 2px;
   gap: 4px;
 }
-.s3MlbCrest {
+.s3Logo {
   width: 28px; height: 28px; object-fit: contain; opacity: 0.80;
 }
 .s3Title {
-  font-size: 24px; font-weight: 900; letter-spacing: 0.18em;
-  text-transform: uppercase; color: rgba(255,255,255,0.90);
+  font-size: 36px; font-weight: 900; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.95);
   margin: 0;
-  display: flex; align-items: center; gap: 16px;
-  text-shadow: 0 0 14px rgba(255,255,255,0.06);
-}
-.s3Title::before,
-.s3Title::after {
-  content: '';
-  width: 80px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+  text-shadow:
+    0 0 16px rgba(255,255,255,0.08),
+    0 2px 16px rgba(0,0,0,0.45);
 }
 .s3Subtitle {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: rgba(255,255,255,0.35);
+  font-size: 14px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.40);
 }
 
-/* ── 2-column league board ── */
+/* League board */
 .s3Board {
   position: relative; z-index: 10;
-  display: flex; gap: 10px;
-  margin: 6px 28px;
+  display: flex; gap: 8px;
+  margin: 4px 24px;
   flex: 1;
 }
-.s3Column {
+.s3Col {
   flex: 1;
   display: flex; flex-direction: column;
-  gap: 0;
 }
-.s3ColHeader {
+.s3ColHead {
   text-align: center;
-  padding: 8px 0 6px;
+  padding: 6px 0 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 5px;
 }
 .s3ColTitle {
-  font-size: 12px; font-weight: 800; letter-spacing: 0.16em;
-  text-transform: uppercase; color: rgba(255,255,255,0.55);
+  font-size: 12px; font-weight: 800; letter-spacing: 0.18em;
+  text-transform: uppercase; color: rgba(255,255,255,0.50);
 }
 .s3ColBody {
   display: flex; flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   flex: 1;
 }
 
-/* ── Team row card ── */
+/* Team row */
 .s3Row {
-  padding: 10px 12px 9px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  composes: glassCard;
+  padding: 8px 11px 7px;
   border-radius: 12px;
-  box-shadow: 0 0 14px rgba(180,20,40,0.06);
   display: flex; flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 0 18px rgba(180,20,40,0.07);
 }
-.s3RowTop {
-  background: rgba(255,255,255,0.055);
-  border-color: rgba(255,255,255,0.12);
+.s3RowFeatured {
+  composes: s3Row;
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.14);
   box-shadow:
-    0 0 24px rgba(220,40,60,0.12),
-    inset 0 1px 0 rgba(255,255,255,0.06);
+    0 0 28px rgba(220,40,60,0.14),
+    0 0 8px rgba(255,255,255,0.03),
+    inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
-/* Row header: identity + odds */
-.s3RowHeader {
+/* Row: identity + odds */
+.s3RowTop {
   display: flex; align-items: center; justify-content: space-between;
   gap: 4px;
 }
-.s3RowIdentity {
-  display: flex; align-items: center; gap: 6px;
+.s3RowId {
+  display: flex; align-items: center; gap: 5px;
   min-width: 0;
 }
 .s3RowRank {
-  font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.35);
-  min-width: 16px;
+  font-size: 14px; font-weight: 800; color: rgba(255,255,255,0.30);
+  min-width: 18px;
   font-variant-numeric: tabular-nums;
 }
 .s3TeamLogo {
   object-fit: contain; border-radius: 2px; flex-shrink: 0;
 }
 .s3RowName {
-  font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.95);
+  font-size: 24px; font-weight: 800; color: rgba(255,255,255,0.95);
   line-height: 1.0;
 }
-.s3RowTop .s3RowName {
-  font-size: 26px;
-}
-.s3RowDiv {
-  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.28);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+.s3RowFeatured .s3RowName {
+  font-size: 28px;
 }
 
-/* Odds badge — compact gold chip */
-.s3RowOdds {
+/* Odds badge */
+.s3Odds {
   display: flex; align-items: center; gap: 4px;
   padding: 3px 8px;
   background: linear-gradient(135deg, rgba(255,215,0,0.07) 0%, rgba(255,255,255,0.02) 100%);
   border: 1px solid rgba(255,215,0,0.20);
   border-radius: 6px;
   flex-shrink: 0;
-  box-shadow: 0 0 10px rgba(255,215,0,0.06);
+  box-shadow: 0 0 12px rgba(255,215,0,0.06);
 }
-.s3RowTop .s3RowOdds {
-  padding: 3px 10px;
-  border-color: rgba(255,215,0,0.28);
-  box-shadow: 0 0 16px rgba(255,215,0,0.10);
+.s3RowFeatured .s3Odds {
+  padding: 4px 10px;
+  border-color: rgba(255,215,0,0.30);
+  box-shadow: 0 0 20px rgba(255,215,0,0.10);
 }
 .s3TrophyIcon { flex-shrink: 0; }
-.s3RowOddsVal {
-  font-size: 17px; font-weight: 800; color: rgba(255,255,255,0.82);
+.s3OddsVal {
+  font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.82);
   font-variant-numeric: tabular-nums; line-height: 1;
 }
-.s3RowTop .s3RowOddsVal {
-  font-size: 20px; color: rgba(255,255,255,0.88);
+.s3RowFeatured .s3OddsVal {
+  font-size: 21px; color: rgba(255,255,255,0.88);
 }
 
-/* Projected wins — hero stat */
-.s3RowWins {
+/* Wins hero */
+.s3Wins {
   display: flex; align-items: baseline; gap: 5px;
   flex-wrap: wrap;
-  padding: 1px 0 0;
 }
-.s3RowWinsNum {
-  font-size: 38px; font-weight: 900; color: rgba(255,255,255,0.96);
+.s3WinsNum {
+  font-size: 40px; font-weight: 900; color: rgba(255,255,255,0.96);
   font-variant-numeric: tabular-nums; line-height: 1;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 16px rgba(255,255,255,0.06);
+  text-shadow: 0 0 14px rgba(255,255,255,0.06);
 }
-.s3RowTop .s3RowWinsNum {
-  font-size: 46px;
+.s3RowFeatured .s3WinsNum {
+  font-size: 48px;
 }
-.s3RowWinsLabel {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: rgba(255,255,255,0.38);
+.s3WinsLabel {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.36);
   align-self: flex-end; padding-bottom: 4px;
 }
-.s3RowTop .s3RowWinsLabel {
-  font-size: 13px; color: rgba(255,255,255,0.45);
+.s3RowFeatured .s3WinsLabel {
+  font-size: 14px; color: rgba(255,255,255,0.44);
 }
-.s3RowSignal {
-  font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.52);
+.s3Signal {
+  font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.50);
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
   padding: 1px 6px; border-radius: 3px;
   align-self: flex-end; padding-bottom: 4px;
 }
-.s3RowTop .s3RowSignal {
-  font-size: 10px;
-}
 
-/* Rationale — 1-2 sentence distilled insight */
-.s3RowRationale {
-  font-size: 12px; line-height: 1.35; color: rgba(255,255,255,0.42);
+/* Rationale */
+.s3Rationale {
+  font-size: 13px; line-height: 1.35; color: rgba(255,255,255,0.44);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.s3RowTop .s3RowRationale {
-  font-size: 13px; color: rgba(255,255,255,0.48);
-  -webkit-line-clamp: 3;
+.s3RowFeatured .s3Rationale {
+  font-size: 14px; color: rgba(255,255,255,0.50);
 }
