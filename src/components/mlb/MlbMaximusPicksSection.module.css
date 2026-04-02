@@ -327,22 +327,25 @@
   background: linear-gradient(to bottom, transparent, var(--color-bg-elevated, #fff) 90%);
 }
 .expandBar {
-  display: flex; justify-content: flex-end;
-  padding: 8px 0 0;
+  display: flex; justify-content: center;
+  padding: 6px 0 0;
 }
 .expandBtn {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 0.64rem; font-weight: 600; color: #b8293d;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+  font-size: 0.68rem; font-weight: 600; color: var(--color-text-secondary, #3d5a73);
   background: var(--color-bg-elevated, #fff);
-  border: 1px solid rgba(184,41,61,0.18);
-  border-radius: 8px; padding: 7px 16px; cursor: pointer;
+  border: 1px solid rgba(60,100,160,0.12);
+  border-radius: 10px; padding: 10px 20px; cursor: pointer;
   transition: all 0.15s; font-family: inherit;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  letter-spacing: 0.02em;
 }
 .expandBtn:hover {
-  background: rgba(184,41,61,0.04);
-  border-color: rgba(184,41,61,0.30);
-  box-shadow: 0 2px 8px rgba(184,41,61,0.10);
+  background: rgba(60,100,160,0.04);
+  border-color: rgba(60,100,160,0.22);
+  box-shadow: 0 2px 8px rgba(60,100,160,0.08);
+  color: var(--color-text, #1a2d3d);
 }
 
 /* ── Responsive (matches NCAAM breakpoints) ── */

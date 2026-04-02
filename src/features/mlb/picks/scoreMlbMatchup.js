@@ -91,7 +91,15 @@ export function scoreMlbMatchup(matchup) {
     dataQuality += 0.06;
   }
 
-  dataQuality = clamp(dataQuality, 0, 1);
+  // ── Adjust DQ based on signal differentiation ──
+  // Base DQ from availability is always ~0.76-0.86 since all teams have
+  // static inputs. Modulate by how much signals actually differentiate
+  // this specific matchup (close teams → lower effective DQ).
+  const totalSignalMagnitude = signals.reduce((sum, s) => sum + Math.abs(s.delta), 0);
+  const avgMagnitude = signals.length > 0 ? totalSignalMagnitude / signals.length : 0;
+  // Scale: avgMag ~0 (identical teams) → -0.30 penalty, avgMag ~0.5+ → no penalty
+  const differentiationBonus = clamp(avgMagnitude * 2 - 0.30, -0.30, 0.10);
+  dataQuality = clamp(dataQuality + differentiationBonus, 0.15, 1);
 
   // ── Convert advantages to win probabilities ──
   const netAdv = awayAdv - homeAdv;
