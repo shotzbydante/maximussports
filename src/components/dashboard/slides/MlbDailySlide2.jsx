@@ -1,20 +1,22 @@
 /**
  * MlbDailySlide2 — Today's Intel Briefing (Slide 2 of MLB Daily Briefing carousel)
  *
- * Premium bullet-driven editorial digest. Each section has exactly 3 bullet groups,
- * each with one lead line + one support line. Specific names, teams, outcomes.
+ * Three sections — all single-line bullets, no sub-lines:
+ *   HOT OFF THE PRESS   → 4-5 current top-news bullets from MLB briefing
+ *   PENNANT RACE        → 4 bullets summarizing top Season Intelligence teams
+ *   MAXIMUS'S PICKS     → 4 bullets from today's MLB picks board
  *
  * 1080×1350 · IG 4:5 portrait
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
-import { buildDailyContent, stripEmojis } from './mlbDailyHelpers';
+import { buildDailyContent, stripEmojis, buildSeasonIntelLeaders } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import styles from './MlbSlides.module.css';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-const TEAM_KEYWORDS = {
+const TEAM_KW = {
   'diamondbacks': 'ari', 'arizona': 'ari', 'd-backs': 'ari',
   'dodgers': 'lad', 'los angeles dodgers': 'lad',
   'yankees': 'nyy', 'new york yankees': 'nyy',
@@ -32,23 +34,28 @@ const TEAM_KEYWORDS = {
   'giants': 'sf', 'san francisco': 'sf',
   'cubs': 'chc', 'chicago cubs': 'chc',
   'red sox': 'bos', 'boston': 'bos',
+  'angels': 'laa', 'nationals': 'wsh', 'rays': 'tb',
+  'twins': 'min', 'royals': 'kc', 'reds': 'cin',
+  'brewers': 'mil', 'pirates': 'pit', 'cardinals': 'stl',
+  'rockies': 'col', 'white sox': 'cws', 'athletics': 'oak',
+  'marlins': 'mia',
 };
 
 function findSlug(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
-  for (const [kw, slug] of Object.entries(TEAM_KEYWORDS)) {
+  for (const [kw, slug] of Object.entries(TEAM_KW)) {
     if (lower.includes(kw)) return slug;
   }
   return null;
 }
 
-function logoSrc(slug) {
+function logo(slug) {
   return slug ? getMlbEspnLogoUrl(slug) : null;
 }
 
-/** Trim filler words but keep specificity — allow up to 80 chars */
-function trim(text, max = 80) {
+/** Trim filler but keep substance — 85 char max */
+function trim(text, max = 85) {
   if (!text) return '';
   let s = text.trim();
   s = s.replace(/^(Meanwhile,?\s*|In other action,?\s*|Additionally,?\s*|Also,?\s*)/i, '');
@@ -78,64 +85,49 @@ function buildSlide2Content(data) {
     return (body.match(/[^.!?]*[.!?]+/g) || [body]).map(s => s.trim()).filter(Boolean);
   };
 
-  // Build bullet group: always { lead, support, logoSrc }
-  const buildGroup = (leadSent, supportSent) => {
-    const lead = trim(leadSent);
-    const support = supportSent ? trim(supportSent, 60) : '';
-    const slug = findSlug(leadSent);
-    return { lead, support, logoSrc: logoSrc(slug) };
-  };
-
-  // P1 = Around the League → 3 feature bullet groups
+  // ── HOT OFF THE PRESS: 4-5 bullets from P1 (Around the League) ──
   const p1 = getSentences(0);
-  const featureBullets = [];
-  for (let i = 0; i < Math.min(p1.length, 6) && featureBullets.length < 3; i += 2) {
-    if (p1[i]) featureBullets.push(buildGroup(p1[i], p1[i + 1]));
-  }
-  while (featureBullets.length < 3) {
-    featureBullets.push({ lead: 'Opening Day delivered instant signals', support: 'Stars and contenders set the tone', logoSrc: null });
-  }
-
-  // P3 = Pennant Race → 3 groups
-  const p3 = getSentences(2);
-  const pennantBullets = [];
-  for (let i = 0; i < Math.min(p3.length, 6) && pennantBullets.length < 3; i += 2) {
-    if (p3[i]) pennantBullets.push(buildGroup(p3[i], p3[i + 1]));
-  }
-  while (pennantBullets.length < 3) {
-    const fills = [
-      { lead: 'Divisional races are forming early', support: 'Positioning matters from day one', logoSrc: null },
-      { lead: 'Contenders are making early moves', support: 'Every win counts in tight divisions', logoSrc: null },
-      { lead: 'Early standings shape the narrative', support: 'The race is already on', logoSrc: null },
-    ];
-    pennantBullets.push(fills[pennantBullets.length] || fills[0]);
+  const featureBullets = p1.slice(0, 5).map(s => ({
+    text: trim(s),
+    logoSrc: logo(findSlug(s)),
+  }));
+  while (featureBullets.length < 4) {
+    featureBullets.push({ text: 'Contenders wasted no time making statements', logoSrc: null });
   }
 
-  // P2 = World Series Odds → 3 groups + hero stat
-  const p2 = getSentences(1);
-  const marketBullets = [];
-  for (let i = 0; i < Math.min(p2.length, 6) && marketBullets.length < 3; i += 2) {
-    if (p2[i]) marketBullets.push(buildGroup(p2[i], p2[i + 1]));
-  }
-  while (marketBullets.length < 3) {
-    const fills = [
-      { lead: 'Market positioning is taking shape', support: 'Early favorites are emerging', logoSrc: null },
-      { lead: 'The chase pack is forming behind', support: 'Several teams in contention', logoSrc: null },
-      { lead: 'Odds will shift as the season unfolds', support: 'Early signals set the tone', logoSrc: null },
-    ];
-    marketBullets.push(fills[marketBullets.length] || fills[0]);
+  // ── PENNANT RACE: 4 bullets from Season Intelligence top teams ──
+  const champOdds = data?.mlbChampOdds ?? {};
+  const seasonIntel = buildSeasonIntelLeaders(champOdds) || [];
+  const pennantBullets = seasonIntel.slice(0, 4).map(t => {
+    const delta = t.marketDelta > 0 ? `+${t.marketDelta.toFixed(1)} vs market` : '';
+    const signal = t.signals?.[0] || '';
+    const parts = [`${t.abbrev} projects at ${t.projectedWins} wins`];
+    if (signal) parts[0] += ` — ${signal}`;
+    else if (delta) parts[0] += ` (${delta})`;
+    return { text: trim(parts[0]), logoSrc: logo(t.slug) };
+  });
+  while (pennantBullets.length < 4) {
+    pennantBullets.push({ text: 'Top contenders are establishing early separation', logoSrc: null });
   }
 
-  // Market hero stat extraction
-  let odds = '+210';
-  let implied = '32.3% IMPLIED';
-  let heroSlug = 'lad';
-  const oddsMatch = (paras[1] || '').match(/\+\d+/);
-  if (oddsMatch) odds = oddsMatch[0];
-  const impliedMatch = (paras[1] || '').match(/(\d+\.?\d*)%/);
-  if (impliedMatch) implied = `${impliedMatch[1]}% IMPLIED`;
-  const detectedSlug = findSlug(paras[1] || '');
-  if (detectedSlug) heroSlug = detectedSlug;
+  // ── MAXIMUS'S PICKS: 4 bullets from today's pick board ──
+  const picks = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
+  const allPicks = [
+    ...(picks.pickEms || []).map(p => ({ ...p, cat: "Pick 'Em" })),
+    ...(picks.ats || []).map(p => ({ ...p, cat: 'ATS' })),
+    ...(picks.totals || []).map(p => ({ ...p, cat: 'O/U' })),
+  ];
+  // Sort by confidence then take top 4
+  allPicks.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+  const picksBullets = allPicks.slice(0, 4).map(p => {
+    const label = p.pick?.label || '';
+    const cat = p.cat || '';
+    const slug = p.matchup?.homeTeam?.slug || p.matchup?.awayTeam?.slug || null;
+    return { text: `${cat}: ${label}`, logoSrc: logo(slug) };
+  });
+  while (picksBullets.length < 4) {
+    picksBullets.push({ text: 'More picks available in the full daily board', logoSrc: null });
+  }
 
   return {
     dateLabel: today,
@@ -143,20 +135,19 @@ function buildSlide2Content(data) {
     headline: content.headline,
     subhead: content.subheadline || null,
     featureBullets,
-    featureTakeaway: 'Opening Day brought stars, statements, and instant pressure.',
+    featureTakeaway: "Today's board is being shaped by stars, debuts, and early pressure.",
     pennantBullets,
-    pennantTakeaway: 'Divisional races already have shape — nothing is settled.',
-    marketHero: { odds, implied, logoSrc: logoSrc(heroSlug) },
-    marketBullets,
-    marketTakeaway: 'The market is clustering around a clear top tier.',
+    pennantTakeaway: 'The board is tightening around a familiar contender tier.',
+    picksBullets,
+    picksTakeaway: "Maximus's model has identified today's strongest edges.",
   };
 }
 
 // ─── Component ──────────────────────────────────────────────────
 
-function InlineLogo({ src, size = 20, className }) {
+function InlineLogo({ src, size = 20 }) {
   if (!src) return null;
-  return <img src={src} alt="" width={size} height={size} className={className} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  return <img src={src} alt="" width={size} height={size} className={styles.slide2InlineLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
 }
 
 export default function MlbDailySlide2({ data, asOf, ...rest }) {
@@ -184,73 +175,50 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
         {c.subhead && <p className={styles.slide2Subhead}>{c.subhead}</p>}
       </section>
 
-      {/* Feature card */}
+      {/* HOT OFF THE PRESS */}
       <section className={styles.slide2FeatureCard}>
         <div className={styles.slide2SectionPill}>HOT OFF THE PRESS</div>
-        <div className={styles.slide2FeatureBullets}>
+        <div className={styles.slide2BulletList}>
           {c.featureBullets.map((b, i) => (
-            <div key={i} className={styles.slide2BulletGroup}>
+            <div key={i} className={styles.slide2BulletRow}>
               <div className={styles.slide2BulletMarker} />
-              <div className={styles.slide2BulletContent}>
-                <div className={styles.slide2FeatureLead}>
-                  <InlineLogo src={b.logoSrc} size={22} className={styles.slide2InlineLogo} />
-                  {b.lead}
-                </div>
-                <div className={styles.slide2FeatureLine}>{b.support}</div>
-              </div>
+              <InlineLogo src={b.logoSrc} size={20} />
+              <div className={styles.slide2BulletText}>{b.text}</div>
             </div>
           ))}
         </div>
-        <div className={styles.slide2FeatureTakeaway}>{c.featureTakeaway}</div>
+        {c.featureTakeaway && <div className={styles.slide2CardTakeaway}>{c.featureTakeaway}</div>}
       </section>
 
-      {/* Support grid */}
       <section className={styles.slide2SupportGrid}>
-        {/* Pennant Race */}
+        {/* PENNANT RACE */}
         <article className={styles.slide2SupportCard}>
           <div className={styles.slide2SectionPill}>PENNANT RACE</div>
-          <div className={styles.slide2SupportBullets}>
+          <div className={styles.slide2BulletList}>
             {c.pennantBullets.map((b, i) => (
-              <div key={i} className={styles.slide2BulletGroup}>
+              <div key={i} className={styles.slide2BulletRow}>
                 <div className={styles.slide2BulletMarker} />
-                <div className={styles.slide2BulletContent}>
-                  <div className={styles.slide2SupportLead}>
-                    <InlineLogo src={b.logoSrc} size={18} className={styles.slide2InlineLogoSm} />
-                    {b.lead}
-                  </div>
-                  <div className={styles.slide2SupportLine}>{b.support}</div>
-                </div>
+                <InlineLogo src={b.logoSrc} size={18} />
+                <div className={styles.slide2BulletText}>{b.text}</div>
               </div>
             ))}
           </div>
-          <div className={styles.slide2SupportTakeaway}>{c.pennantTakeaway}</div>
+          {c.pennantTakeaway && <div className={styles.slide2CardTakeaway}>{c.pennantTakeaway}</div>}
         </article>
 
-        {/* Market Signal */}
+        {/* MAXIMUS'S PICKS */}
         <article className={styles.slide2SupportCard}>
-          <div className={styles.slide2SectionPill}>MARKET SIGNAL</div>
-          <div className={styles.slide2MarketHero}>
-            <InlineLogo src={c.marketHero.logoSrc} size={24} className={styles.slide2MarketLogo} />
-            <div className={styles.slide2MarketHeroText}>
-              <div className={styles.slide2MarketOdds}>{c.marketHero.odds}</div>
-              <div className={styles.slide2MarketImplied}>{c.marketHero.implied}</div>
-            </div>
-          </div>
-          <div className={styles.slide2SupportBullets}>
-            {c.marketBullets.map((b, i) => (
-              <div key={i} className={styles.slide2BulletGroup}>
+          <div className={styles.slide2SectionPill}>MAXIMUS'S PICKS</div>
+          <div className={styles.slide2BulletList}>
+            {c.picksBullets.map((b, i) => (
+              <div key={i} className={styles.slide2BulletRow}>
                 <div className={styles.slide2BulletMarker} />
-                <div className={styles.slide2BulletContent}>
-                  <div className={styles.slide2SupportLead}>
-                    <InlineLogo src={b.logoSrc} size={18} className={styles.slide2InlineLogoSm} />
-                    {b.lead}
-                  </div>
-                  <div className={styles.slide2SupportLine}>{b.support}</div>
-                </div>
+                <InlineLogo src={b.logoSrc} size={18} />
+                <div className={styles.slide2BulletText}>{b.text}</div>
               </div>
             ))}
           </div>
-          <div className={styles.slide2SupportTakeaway}>{c.marketTakeaway}</div>
+          {c.picksTakeaway && <div className={styles.slide2CardTakeaway}>{c.picksTakeaway}</div>}
         </article>
       </section>
 

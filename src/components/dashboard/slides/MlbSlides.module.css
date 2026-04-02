@@ -392,7 +392,7 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SLIDE 2 — INTEL BRIEFING (bullet-driven editorial digest)
+   SLIDE 2 — INTEL BRIEFING (single-line bullet digest)
    ══════════════════════════════════════════════════════════════ */
 
 .slide2 {
@@ -400,44 +400,46 @@
   overflow: hidden;
   font-family: 'Inter', 'Helvetica Neue', -apple-system, sans-serif;
   color: #fff;
-  padding: 28px 26px 18px;
+  padding: 26px 24px 16px;
   display: flex; flex-direction: column;
 }
 
-/* Top strip */
+/* Top strip — more prominent */
 .slide2Top {
   position: relative; z-index: 10;
   display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
-  min-height: 48px;
+  min-height: 58px;
 }
 .slide2TopPill {
-  height: 30px; padding: 0 14px;
+  height: 34px; padding: 0 16px;
   border-radius: 999px;
   display: inline-flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 0 14px rgba(255,90,120,0.08);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow:
+    0 0 16px rgba(255,90,120,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.14);
 }
 .slide2TopLogo {
-  width: 15px; height: 15px; object-fit: contain; opacity: 0.80;
+  width: 16px; height: 16px; object-fit: contain; opacity: 0.85;
 }
 .slide2TopPill span {
-  font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
-  text-transform: uppercase; color: rgba(255,255,255,0.84);
+  font-size: 12px; font-weight: 800; letter-spacing: 1.5px;
+  text-transform: uppercase; color: rgba(255,255,255,0.88);
 }
 .slide2Date {
   margin-top: 8px;
-  font-size: 12px; line-height: 1.1; font-weight: 700;
-  color: rgba(255,255,255,0.55);
+  font-size: 14px; line-height: 1.1; font-weight: 700;
+  color: rgba(255,255,255,0.72);
 }
 
 /* Headline block */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 16px; margin-bottom: 12px;
+  margin-top: 14px; margin-bottom: 10px;
   text-align: center;
-  min-height: 165px;
+  min-height: 150px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
@@ -459,9 +461,9 @@
 /* Feature card */
 .slide2FeatureCard {
   position: relative; z-index: 10;
-  min-height: 330px;
+  min-height: 355px;
   border-radius: 20px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow:
@@ -485,95 +487,59 @@
   width: fit-content;
 }
 
-/* Shared bullet structure */
-.slide2BulletGroup {
-  display: grid;
-  grid-template-columns: 14px 1fr;
-  column-gap: 12px;
-  align-items: flex-start;
+/* ── Single-line bullet system (all cards) ── */
+.slide2BulletList {
+  margin-top: 12px;
+  display: flex; flex-direction: column;
+  gap: 11px;
+}
+.slide2BulletRow {
+  display: flex; align-items: flex-start;
+  gap: 10px;
 }
 .slide2BulletMarker {
   width: 9px; height: 9px;
-  margin-top: 7px;
+  margin-top: 6px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(255,255,255,0.92), rgba(255,120,140,0.60));
-  box-shadow: 0 0 8px rgba(255,255,255,0.20), 0 0 14px rgba(255,90,120,0.16);
+  flex-shrink: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,120,140,0.68));
+  box-shadow:
+    0 0 10px rgba(255,255,255,0.18),
+    0 0 14px rgba(255,90,120,0.16);
 }
-.slide2BulletContent {
-  display: flex; flex-direction: column;
-}
-
-/* ── Feature bullet typography (22/16) ── */
-.slide2FeatureBullets {
-  margin-top: 14px;
-  display: flex; flex-direction: column;
-  gap: 14px;
-}
-.slide2FeatureLead {
-  font-size: 22px; line-height: 1.10; font-weight: 800;
-  color: rgba(255,255,255,0.96);
-  display: flex; align-items: center; gap: 7px;
-}
-.slide2FeatureLine {
-  margin-top: 3px;
-  font-size: 16px; line-height: 1.28; font-weight: 600;
-  color: rgba(255,255,255,0.72);
-}
-.slide2FeatureTakeaway {
-  margin-top: 16px;
-  font-size: 15px; line-height: 1.26; font-weight: 700;
-  color: rgba(255,255,255,0.58);
-  border-top: 1px solid rgba(255,255,255,0.06);
-  padding-top: 12px;
-}
-
-/* ── Support bullet typography (19/15) ── */
-.slide2SupportBullets {
-  margin-top: 14px;
-  display: flex; flex-direction: column;
-  gap: 12px;
-}
-.slide2SupportLead {
-  font-size: 19px; line-height: 1.12; font-weight: 800;
-  color: rgba(255,255,255,0.94);
-  display: flex; align-items: center; gap: 5px;
-}
-.slide2SupportLine {
-  margin-top: 3px;
-  font-size: 15px; line-height: 1.28; font-weight: 600;
-  color: rgba(255,255,255,0.68);
-}
-.slide2SupportTakeaway {
-  margin-top: auto;
-  padding-top: 12px;
-  font-size: 14px; line-height: 1.26; font-weight: 700;
-  color: rgba(255,255,255,0.52);
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-
-/* Inline logos */
 .slide2InlineLogo {
+  width: 20px; height: 20px;
   object-fit: contain; border-radius: 2px; flex-shrink: 0;
+  margin-top: 1px;
   filter: drop-shadow(0 0 4px rgba(255,255,255,0.10));
 }
-.slide2InlineLogoSm {
-  object-fit: contain; border-radius: 2px; flex-shrink: 0;
-  filter: drop-shadow(0 0 3px rgba(255,255,255,0.08));
+.slide2BulletText {
+  font-size: 18px; line-height: 1.28; font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+
+/* Card takeaway — unified for all cards */
+.slide2CardTakeaway {
+  margin-top: auto;
+  padding-top: 12px;
+  font-size: 15px; line-height: 1.28; font-weight: 700;
+  color: rgba(255,255,255,0.58);
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 /* Support grid */
 .slide2SupportGrid {
   position: relative; z-index: 10;
-  margin-top: 14px;
+  margin-top: 12px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
   flex: 1;
 }
 .slide2SupportCard {
-  min-height: 305px;
+  min-height: 330px;
   border-radius: 18px;
-  padding: 18px 18px 16px;
+  padding: 16px 16px 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
   border: 1px solid rgba(255,255,255,0.11);
   box-shadow:
@@ -582,33 +548,6 @@
     inset 0 1px 0 rgba(255,255,255,0.12);
   display: flex; flex-direction: column;
   justify-content: flex-start;
-}
-
-/* Market hero stat */
-.slide2MarketHero {
-  margin-top: 12px; margin-bottom: 10px;
-  display: flex; align-items: center;
-  gap: 10px;
-}
-.slide2MarketLogo {
-  object-fit: contain; border-radius: 2px; flex-shrink: 0;
-  filter: drop-shadow(0 0 6px rgba(255,215,0,0.12));
-}
-.slide2MarketHeroText {
-  display: flex; flex-direction: column;
-  gap: 4px;
-}
-.slide2MarketOdds {
-  font-size: 52px; line-height: 0.9; font-weight: 900;
-  letter-spacing: -1px;
-  color: #F4D07A;
-  text-shadow: 0 0 14px rgba(255,215,0,0.16);
-}
-.slide2MarketImplied {
-  font-size: 17px; line-height: 1; font-weight: 800;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.72);
 }
 
 /* Footer */
