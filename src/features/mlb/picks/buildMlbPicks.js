@@ -1,15 +1,13 @@
 /**
  * buildMlbPicks — top-level orchestrator for MLB pick generation.
  *
- * Takes game data + odds and returns categorized pick cards
- * ready for UI consumption.
- *
  * Board assembly:
- *   1. Score and classify all candidate games
- *   2. Collect picks by category
- *   3. Sort by confidence (high > medium > low)
- *   4. Apply board-level diversity: cap each game to max 2 board appearances
- *      (prevents one matchup from dominating all 4 columns)
+ *   1. Filter to upcoming games, sort tomorrow-first
+ *   2. Score and classify all candidate games
+ *   3. Sort picks: tomorrow-first, then confidence tier, then score
+ *   4. Apply board-level diversity: cap same matchup to 2 columns
+ *      (but Pick'Ems/ATS vs Leans/Totals are different market framings,
+ *       so the cap tracks by matchup+framing rather than raw game ID)
  *   5. Target ~5 picks per section on a normal slate
  */
 
@@ -18,34 +16,42 @@ import { scoreMlbMatchup } from './scoreMlbMatchup.js';
 import { classifyMlbPick } from './classifyMlbPick.js';
 import { MLB_PICK_THRESHOLDS, MAX_CANDIDATE_GAMES } from './mlbPickThresholds.js';
 
-/** Max times a single game can appear across all board columns */
-const MAX_BOARD_APPEARANCES = 2;
-
-/** Target picks per section (soft cap — fills to this if candidates exist) */
-const SECTION_TARGET = 5;
+/** Max times a single game appears in "side" columns (Pick'Ems + ATS) */
+const MAX_SIDE_APPEARANCES = 1;
 
 /**
- * @param {Object} input
- * @param {Array} input.games - from /api/mlb/live/games or homeFeed
- * @returns {Object} categorized picks payload
+ * Get the calendar date string for a game (YYYY-MM-DD in local time)
  */
+function getGameDate(startTime) {
+  if (!startTime) return '';
+  try {
+    const d = new Date(startTime);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  } catch { return ''; }
+}
+
+function getTomorrowDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getTodayDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function buildMlbPicks({ games = [] }) {
   const result = {
     generatedAt: new Date().toISOString(),
-    meta: {
-      totalCandidates: 0,
-      qualifiedGames: 0,
-      skippedGames: 0,
-    },
-    categories: {
-      pickEms: [],
-      ats: [],
-      leans: [],
-      totals: [],
-    },
+    meta: { totalCandidates: 0, qualifiedGames: 0, skippedGames: 0 },
+    categories: { pickEms: [], ats: [], leans: [], totals: [] },
   };
 
-  // Filter to upcoming/scheduled games only (not final, not live)
+  const today = getTodayDate();
+  const tomorrow = getTomorrowDate();
+
+  // Filter to upcoming/scheduled games only
   const candidates = games
     .filter(g => {
       const status = (g.status || '').toLowerCase();
@@ -53,42 +59,58 @@ export function buildMlbPicks({ games = [] }) {
       const isFinal = g.gameState?.isFinal;
       return !isLive && !isFinal && status !== 'final' && status !== 'in_progress';
     })
+    // Sort: today first, then tomorrow, then later dates
+    .sort((a, b) => {
+      const aTime = a.startTime || a.date || '';
+      const bTime = b.startTime || b.date || '';
+      const aDate = getGameDate(aTime);
+      const bDate = getGameDate(bTime);
+      // Priority: today > tomorrow > later
+      const aPriority = aDate === today ? 0 : aDate === tomorrow ? 1 : 2;
+      const bPriority = bDate === today ? 0 : bDate === tomorrow ? 1 : 2;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return aTime.localeCompare(bTime);
+    })
     .slice(0, MAX_CANDIDATE_GAMES);
 
   result.meta.totalCandidates = candidates.length;
 
-  // Collect all picks from all games
   const allPicks = [];
 
   for (const game of candidates) {
     try {
       const normalized = normalizeMlbMatchup(game);
-
-      if (!normalized.ok || !normalized.matchup) {
-        result.meta.skippedGames += 1;
-        continue;
-      }
+      if (!normalized.ok || !normalized.matchup) { result.meta.skippedGames += 1; continue; }
 
       const score = scoreMlbMatchup(normalized.matchup);
       const picks = classifyMlbPick(normalized.matchup, score, MLB_PICK_THRESHOLDS);
 
       if (!picks.length) continue;
-
       result.meta.qualifiedGames += 1;
+
+      // Tag each pick with its game date for tomorrow-first sorting
+      const gameDate = getGameDate(normalized.matchup.startTime);
+      for (const pick of picks) {
+        pick._gameDate = gameDate;
+      }
       allPicks.push(...picks);
     } catch {
       result.meta.skippedGames += 1;
     }
   }
 
-  // Sort all picks by confidence tier then score
+  // Sort: today/tomorrow first, then by confidence tier, then score
   const sortFn = (a, b) => {
+    // Date priority: today > tomorrow > later
+    const aPriority = a._gameDate === today ? 0 : a._gameDate === tomorrow ? 1 : 2;
+    const bPriority = b._gameDate === today ? 0 : b._gameDate === tomorrow ? 1 : 2;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
     const tierOrder = { high: 0, medium: 1, low: 2 };
     const ta = tierOrder[a.confidence] ?? 3;
     const tb = tierOrder[b.confidence] ?? 3;
     if (ta !== tb) return ta - tb;
-    if (a.confidenceScore !== b.confidenceScore) return b.confidenceScore - a.confidenceScore;
-    return (a.matchup?.startTime || '').localeCompare(b.matchup?.startTime || '');
+    return (b.confidenceScore || 0) - (a.confidenceScore || 0);
   };
 
   // Group by category
@@ -102,21 +124,26 @@ export function buildMlbPicks({ games = [] }) {
     byCat[key].sort(sortFn);
   }
 
-  // Apply board-level diversity: track how many times each game appears
-  // across ALL columns, and cap at MAX_BOARD_APPEARANCES.
-  // Process categories in priority order so stronger sections fill first.
-  const gameAppearances = new Map();
+  // Apply diversity: for "side" picks (Pick'Ems, ATS), cap at 1 appearance
+  // per game to maximize unique games. Leans and Totals are independent
+  // market framings, so they don't count against the side cap.
+  const sideAppearances = new Map();
 
-  for (const key of ['pickEms', 'ats', 'leans', 'totals']) {
+  for (const key of ['pickEms', 'ats']) {
     const filtered = [];
     for (const pick of byCat[key]) {
-      const count = gameAppearances.get(pick.gameId) || 0;
-      if (count >= MAX_BOARD_APPEARANCES) continue;
+      const count = sideAppearances.get(pick.gameId) || 0;
+      if (count >= MAX_SIDE_APPEARANCES) continue;
       filtered.push(pick);
-      gameAppearances.set(pick.gameId, count + 1);
+      sideAppearances.set(pick.gameId, count + 1);
     }
     result.categories[key] = filtered;
   }
+
+  // Leans and Totals pass through without side-column diversity cap
+  // (they represent different market framings — directional value vs totals)
+  result.categories.leans = byCat.leans;
+  result.categories.totals = byCat.totals;
 
   return result;
 }

@@ -1,55 +1,49 @@
 /**
  * MLB Pick Thresholds — central tunable constants for pick qualification.
  *
- * Edge values represent model probability edge over implied market probability.
- * Confidence tiers: low / medium / high
- *
- * Calibration notes (2026-04):
- *   - Thresholds relaxed from initial conservative settings to ensure
- *     all 4 sections populate on typical MLB slates (~12-16 games/day)
- *   - Pitcher/offense/prevention signals are partially stubbed, capping
- *     achievable DQ at ~0.54. Thresholds account for this.
- *   - Value Leans run independently (not exclusive with Pick'Ems)
- *   - Totals use boosted edge scale to compensate for narrow total variance
- *   - Will continue tuning based on actual game outcomes
+ * Calibration notes (2026-04-01):
+ *   - Value Leans use raw edge (no DQ/SA multiplier) for softer qualification
+ *   - Totals use raw edge with boosted multiplier for narrow MLB total variance
+ *   - Pick'Ems and ATS use adjusted edge (with DQ/SA multiplier)
+ *   - All thresholds calibrated for stubbed pitcher data (DQ cap ~0.54)
+ *   - Tuned to produce ~5 picks per section on a 15-game slate
  */
 
 export const MLB_PICK_THRESHOLDS = {
   /** Minimum data quality to consider any pick (0–1 scale). */
-  minDataQuality: 0.25,
+  minDataQuality: 0.20,
 
-  /** Moneyline / Pick 'Em thresholds */
+  /** Moneyline / Pick 'Em thresholds (applied to adjusted edge) */
   moneyline: {
+    low: 0.015,
+    medium: 0.035,
+    high: 0.060,
+  },
+
+  /** Run line / ATS thresholds (applied to adjusted edge) */
+  runLine: {
     low: 0.020,
     medium: 0.040,
     high: 0.065,
   },
 
-  /** Run line / ATS thresholds */
-  runLine: {
-    low: 0.025,
-    medium: 0.045,
-    high: 0.070,
-  },
-
-  /** Lean thresholds (softer — directional value, runs independently) */
+  /** Lean thresholds (applied to RAW edge — no DQ/SA multiplier) */
   lean: {
-    low: 0.010,
-    medium: 0.025,
-    high: 0.045,
+    low: 0.005,
+    medium: 0.015,
+    high: 0.035,
   },
 
-  /** Game total (over/under) thresholds — relaxed due to narrow total variance */
+  /** Game total thresholds (applied to RAW edge — no DQ/SA multiplier) */
   total: {
-    low: 0.015,
-    medium: 0.030,
-    high: 0.055,
+    low: 0.008,
+    medium: 0.020,
+    high: 0.045,
   },
 };
 
-/** Max picks per game — raised to 3 so a game can appear in
- *  Pick'Em + ATS/Lean + Total without crowding out categories */
-export const MAX_PICKS_PER_GAME = 3;
+/** Max picks per game across all categories */
+export const MAX_PICKS_PER_GAME = 4;
 
 /** Max games in candidate window */
 export const MAX_CANDIDATE_GAMES = 20;
