@@ -1,10 +1,9 @@
 /**
  * MlbDailySlide2 — Today's Intel Briefing (Slide 2 of MLB Daily Briefing carousel)
  *
- * Three sections — all single-line bullets, no sub-lines:
- *   HOT OFF THE PRESS   → 4-5 current top-news bullets from MLB briefing
- *   PENNANT RACE        → 4 bullets summarizing top Season Intelligence teams
- *   MAXIMUS'S PICKS     → 4 bullets from today's MLB picks board
+ *   HOT OFF THE PRESS   → 4-5 current top-news bullets (19px)
+ *   PENNANT RACE        → 4 Season Intelligence bullets (18px)
+ *   MAXIMUS'S PICKS     → 3-4 game-intel pick modules
  *
  * 1080×1350 · IG 4:5 portrait
  */
@@ -50,17 +49,25 @@ function findSlug(text) {
   return null;
 }
 
-function logo(slug) {
+function logoUrl(slug) {
   return slug ? getMlbEspnLogoUrl(slug) : null;
 }
 
-/** Trim filler but keep substance — 85 char max */
 function trim(text, max = 85) {
   if (!text) return '';
   let s = text.trim();
   s = s.replace(/^(Meanwhile,?\s*|In other action,?\s*|Additionally,?\s*|Also,?\s*)/i, '');
   if (s.length <= max) return s;
   return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
+}
+
+/** Format confidence tier for display */
+function fmtConviction(tier) {
+  if (!tier) return 'Edge';
+  if (tier === 'high') return 'High';
+  if (tier === 'medium-high') return 'Med-High';
+  if (tier === 'medium') return 'Medium';
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
 // ─── Content builder ──────────────────────────────────────────
@@ -85,48 +92,50 @@ function buildSlide2Content(data) {
     return (body.match(/[^.!?]*[.!?]+/g) || [body]).map(s => s.trim()).filter(Boolean);
   };
 
-  // ── HOT OFF THE PRESS: 4-5 bullets from P1 (Around the League) ──
+  // ── HOT OFF THE PRESS: 4-5 bullets ──
   const p1 = getSentences(0);
   const featureBullets = p1.slice(0, 5).map(s => ({
     text: trim(s),
-    logoSrc: logo(findSlug(s)),
+    logoSrc: logoUrl(findSlug(s)),
   }));
   while (featureBullets.length < 4) {
-    featureBullets.push({ text: 'Contenders wasted no time making statements', logoSrc: null });
+    featureBullets.push({ text: 'Contenders wasted no time making early statements', logoSrc: null });
   }
 
-  // ── PENNANT RACE: 4 bullets from Season Intelligence top teams ──
+  // ── PENNANT RACE: 4 bullets from Season Intelligence ──
   const champOdds = data?.mlbChampOdds ?? {};
   const seasonIntel = buildSeasonIntelLeaders(champOdds) || [];
   const pennantBullets = seasonIntel.slice(0, 4).map(t => {
-    const delta = t.marketDelta > 0 ? `+${t.marketDelta.toFixed(1)} vs market` : '';
     const signal = t.signals?.[0] || '';
-    const parts = [`${t.abbrev} projects at ${t.projectedWins} wins`];
-    if (signal) parts[0] += ` — ${signal}`;
-    else if (delta) parts[0] += ` (${delta})`;
-    return { text: trim(parts[0]), logoSrc: logo(t.slug) };
+    let line = `${t.abbrev} projects at ${t.projectedWins} wins`;
+    if (signal) line += ` — ${signal}`;
+    else if (t.marketDelta > 0) line += ` (+${t.marketDelta.toFixed(1)} vs market)`;
+    return { text: trim(line), logoSrc: logoUrl(t.slug) };
   });
   while (pennantBullets.length < 4) {
     pennantBullets.push({ text: 'Top contenders are establishing early separation', logoSrc: null });
   }
 
-  // ── MAXIMUS'S PICKS: 4 bullets from today's pick board ──
-  const picks = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
-  const allPicks = [
-    ...(picks.pickEms || []).map(p => ({ ...p, cat: "Pick 'Em" })),
-    ...(picks.ats || []).map(p => ({ ...p, cat: 'ATS' })),
-    ...(picks.totals || []).map(p => ({ ...p, cat: 'O/U' })),
+  // ── MAXIMUS'S PICKS: 3-4 structured pick modules ──
+  const pickCats = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
+  const rawPicks = [
+    ...(pickCats.pickEms || []).map(p => ({ ...p, type: "Pick 'Em" })),
+    ...(pickCats.ats || []).map(p => ({ ...p, type: 'ATS' })),
+    ...(pickCats.totals || []).map(p => ({ ...p, type: 'O/U' })),
   ];
-  // Sort by confidence then take top 4
-  allPicks.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-  const picksBullets = allPicks.slice(0, 4).map(p => {
-    const label = p.pick?.label || '';
-    const cat = p.cat || '';
-    const slug = p.matchup?.homeTeam?.slug || p.matchup?.awayTeam?.slug || null;
-    return { text: `${cat}: ${label}`, logoSrc: logo(slug) };
+  rawPicks.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+
+  const picks = rawPicks.slice(0, 4).map(p => {
+    const away = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || '?';
+    const home = p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.name || '?';
+    const matchup = `${away} vs ${home}`;
+    const selection = p.pick?.label || '—';
+    const conviction = fmtConviction(p.confidence);
+    const rationale = p.pick?.explanation ? trim(p.pick.explanation, 60) : `Model edge: ${conviction.toLowerCase()} conviction`;
+    return { matchup, type: p.type, selection, conviction, rationale };
   });
-  while (picksBullets.length < 4) {
-    picksBullets.push({ text: 'More picks available in the full daily board', logoSrc: null });
+  while (picks.length < 3) {
+    picks.push({ matchup: 'TBD vs TBD', type: "Pick 'Em", selection: '—', conviction: 'Edge', rationale: 'More picks in the full daily board' });
   }
 
   return {
@@ -138,8 +147,7 @@ function buildSlide2Content(data) {
     featureTakeaway: "Today's board is being shaped by stars, debuts, and early pressure.",
     pennantBullets,
     pennantTakeaway: 'The board is tightening around a familiar contender tier.',
-    picksBullets,
-    picksTakeaway: "Maximus's model has identified today's strongest edges.",
+    picks,
   };
 }
 
@@ -183,7 +191,7 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
             <div key={i} className={styles.slide2BulletRow}>
               <div className={styles.slide2BulletMarker} />
               <InlineLogo src={b.logoSrc} size={20} />
-              <div className={styles.slide2BulletText}>{b.text}</div>
+              <div className={styles.slide2FeatureText}>{b.text}</div>
             </div>
           ))}
         </div>
@@ -209,16 +217,21 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
         {/* MAXIMUS'S PICKS */}
         <article className={styles.slide2SupportCard}>
           <div className={styles.slide2SectionPill}>MAXIMUS'S PICKS</div>
-          <div className={styles.slide2BulletList}>
-            {c.picksBullets.map((b, i) => (
-              <div key={i} className={styles.slide2BulletRow}>
-                <div className={styles.slide2BulletMarker} />
-                <InlineLogo src={b.logoSrc} size={18} />
-                <div className={styles.slide2BulletText}>{b.text}</div>
+          <div className={styles.slide2PicksList}>
+            {c.picks.map((p, i) => (
+              <div key={i} className={styles.slide2PickCard}>
+                <div className={styles.slide2PickTopRow}>
+                  <div className={styles.slide2PickMatchup}>{p.matchup}</div>
+                  <div className={styles.slide2PickTypePill}>{p.type}</div>
+                </div>
+                <div className={styles.slide2PickMiddleRow}>
+                  <div className={styles.slide2PickSelection}>{p.selection}</div>
+                  <div className={styles.slide2PickConviction}>{p.conviction}</div>
+                </div>
+                <div className={styles.slide2PickRationale}>{p.rationale}</div>
               </div>
             ))}
           </div>
-          {c.picksTakeaway && <div className={styles.slide2CardTakeaway}>{c.picksTakeaway}</div>}
         </article>
       </section>
 
