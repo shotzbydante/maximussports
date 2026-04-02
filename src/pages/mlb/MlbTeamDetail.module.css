@@ -223,6 +223,22 @@
 .briefingMascot { width: 28px; height: 28px; border-radius: 50%; }
 .briefingTitle { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mlb-red); }
 
+.briefingContext {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+.briefingChip {
+  font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+  background: rgba(60,100,160,0.08); color: var(--color-text-secondary);
+}
+.briefingChipWin { color: #228b22; background: rgba(34,139,34,0.08); }
+.briefingChipLoss { color: #dc3545; background: rgba(220,53,69,0.08); }
+.briefingForm {
+  font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
 .briefingBody {
   font-size: 0.88rem;
   line-height: 1.65;
@@ -303,11 +319,18 @@
 .formLoss { background: #dc3545; }
 
 /* ── Next Game ── */
-.nextGameBody { display: flex; flex-direction: column; gap: var(--space-sm); }
-.nextGameMatchup { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
-.nextGameVs { font-size: 0.72rem; color: var(--color-text-muted); }
-.nextGameOpp { font-size: 0.92rem; color: var(--color-text); }
-.nextGameTime { font-size: 0.76rem; color: var(--color-text-muted); margin-left: auto; }
+.nextGameBody { display: flex; flex-direction: column; gap: 10px; }
+.nextGameMatchup { display: flex; align-items: center; gap: 12px; }
+.nextGameVsTag {
+  font-size: 0.68rem; font-weight: 700; color: var(--color-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; min-width: 20px;
+}
+.nextGameDetails { display: flex; flex-direction: column; gap: 2px; }
+.nextGameOpp { font-size: 1.0rem; color: var(--color-text); }
+.nextGameTime { font-size: 0.76rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.nextGameMeta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
 .nextGameVenue { font-size: 0.72rem; color: var(--color-text-muted); }
 
 .oppLogo { width: 24px; height: 24px; object-fit: contain; border-radius: 2px; flex-shrink: 0; }
@@ -338,9 +361,21 @@
   font-size: 0.82rem;
 }
 .resultRow:last-child { border-bottom: none; }
-.resultDate { font-size: 0.72rem; color: var(--color-text-muted); min-width: 60px; font-variant-numeric: tabular-nums; }
+.resultRowWin { border-left: 3px solid rgba(34,139,34,0.30); }
+.resultRowLoss { border-left: 3px solid rgba(220,53,69,0.20); }
+.resultWL {
+  font-size: 0.64rem; font-weight: 800; min-width: 22px; text-align: center;
+  padding: 2px 0; border-radius: 3px;
+}
+.resultDate { font-size: 0.72rem; color: var(--color-text-muted); min-width: 55px; font-variant-numeric: tabular-nums; }
 .resultOpp { flex: 1; display: flex; align-items: center; gap: 6px; color: var(--color-text); min-width: 0; }
-.resultScore { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 50px; text-align: right; }
+.resultHomeAway { font-size: 0.68rem; color: var(--color-text-muted); }
+.resultOppName { font-weight: 500; }
+.resultScore { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 50px; text-align: right; }
+.resultNetwork {
+  font-size: 0.58rem; font-weight: 600; color: var(--color-text-muted);
+  background: rgba(0,0,0,0.04); padding: 1px 5px; border-radius: 3px;
+}
 .resultWin { color: #228b22; }
 .resultLoss { color: #dc3545; }
 
@@ -458,9 +493,14 @@
 .scheduleRow:last-child { border-bottom: none; }
 .scheduleRow:hover { background: var(--mlb-navy-soft); }
 
+.scheduleRowPast {
+  opacity: 0.55;
+}
+.scheduleRowPast:hover { opacity: 0.80; }
 .scheduleRowLive {
   border-left: 3px solid #228b22;
   background: rgba(34, 139, 34, 0.04);
+  opacity: 1;
 }
 
 .schedColDate { font-variant-numeric: tabular-nums; color: var(--color-text-muted); font-size: 0.72rem; }

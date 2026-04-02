@@ -14,6 +14,9 @@ import AffiliateCta from '../../components/common/AffiliateCta';
 import MlbTeamIntelFeed from '../../components/mlb/MlbTeamIntelFeed';
 import LiveGameCard from '../../components/mlb/LiveGameCard';
 import MlbModelOutlook from '../../components/mlb/MlbModelOutlook';
+import { getTeamProjection } from '../../data/mlb/seasonModel';
+import { getTeamMeta } from '../../data/mlb/teamMeta';
+import { buildMlbTeamIntelSummary } from '../../data/mlb/teamIntelSummary';
 import styles from './MlbTeamDetail.module.css';
 
 function formatOdds(american) {
@@ -152,8 +155,9 @@ function ScheduleSection({ events }) {
                       const lost = ev.isFinal && ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore;
                       const scoreStr = ev.ourScore != null && ev.oppScore != null ? `${ev.ourScore}-${ev.oppScore}` : '';
                       const isLive = ev.gameStatus === 'in_progress';
+                      const isPast = ev.isFinal;
                       return (
-                        <div key={ev.id} className={`${styles.scheduleRow} ${isLive ? styles.scheduleRowLive : ''}`}>
+                        <div key={ev.id} className={`${styles.scheduleRow} ${isLive ? styles.scheduleRowLive : ''} ${isPast ? styles.scheduleRowPast : ''}`}>
                           <span className={styles.schedColDate}>{formatDate(ev.date)}</span>
                           <span className={styles.schedColOpp}>
                             <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={22} />
@@ -383,12 +387,33 @@ export default function MlbTeamDetail() {
           </div>
           <div className={styles.briefingBody}>
             <p>
-              {team.name} {record ? `hold a ${record} record` : 'are gearing up'} {isSpringTraining ? 'in spring training' : 'this season'}.
-              {teamOdds ? ` Their World Series odds sit at ${formatOdds(teamOdds.bestChanceAmerican)} across ${teamOdds.booksCount || 'multiple'} sportsbooks.` : ''}
-              {streak ? ` Currently on a ${streak} streak.` : ''}
-              {formGuide.length >= 5 ? ` Recent form: ${formGuide.slice(0, 5).map((g) => g.won ? 'W' : 'L').join('-')}.` : ''}
-              {!teamOdds && !streak ? ' Championship odds and game data will populate as the season gets underway.' : ''}
+              {(() => {
+                const projection = getTeamProjection(team.slug);
+                const meta = getTeamMeta(team.slug);
+                const summary = buildMlbTeamIntelSummary({
+                  team, projection, meta, odds: teamOdds, currentRecord: record,
+                });
+                if (summary) return summary;
+                // Fallback if summary builder returns empty
+                return `${team.name} ${record ? `hold a ${record} record` : 'are gearing up'} this season.${teamOdds ? ` World Series odds: ${formatOdds(teamOdds.bestChanceAmerican)}.` : ''}`;
+              })()}
             </p>
+            {/* Additional live context */}
+            {(record || streak || formGuide.length > 0) && (
+              <div className={styles.briefingContext}>
+                {record && <span className={styles.briefingChip}>{record}</span>}
+                {streak && (
+                  <span className={`${styles.briefingChip} ${streak.startsWith('W') ? styles.briefingChipWin : styles.briefingChipLoss}`}>
+                    {streak}
+                  </span>
+                )}
+                {formGuide.length >= 3 && (
+                  <span className={styles.briefingForm}>
+                    Form: {formGuide.slice(0, 5).map((g) => g.won ? 'W' : 'L').join('-')}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -450,19 +475,47 @@ export default function MlbTeamDetail() {
             <div className={styles.atsBody}>
               <div className={styles.atsGrid}>
                 <div className={styles.atsStat}>
-                  <span className={styles.atsLabel}>Season</span>
-                  <span className={styles.atsValue}><span className={styles.atsPending}>{record || 'Pending'}</span></span>
+                  <span className={styles.atsLabel}>Season Record</span>
+                  <span className={styles.atsValue}>{record || '0-0'}</span>
                 </div>
                 <div className={styles.atsStat}>
-                  <span className={styles.atsLabel}>ATS</span>
-                  <span className={styles.atsValue}><span className={styles.atsPending}>Pending</span></span>
+                  <span className={styles.atsLabel}>Recent Form</span>
+                  <span className={styles.atsValue}>
+                    {formGuide.length >= 3
+                      ? formGuide.slice(0, 5).map(g => g.won ? 'W' : 'L').join('-')
+                      : <span className={styles.atsPending}>Building</span>}
+                  </span>
+                </div>
+                <div className={styles.atsStat}>
+                  <span className={styles.atsLabel}>Home</span>
+                  <span className={styles.atsValue}>
+                    {(() => {
+                      const home = recentGames.filter(e => e.homeAway === 'home' && e.ourScore != null);
+                      if (home.length < 1) return <span className={styles.atsPending}>—</span>;
+                      const w = home.filter(e => e.ourScore > e.oppScore).length;
+                      return `${w}-${home.length - w}`;
+                    })()}
+                  </span>
+                </div>
+                <div className={styles.atsStat}>
+                  <span className={styles.atsLabel}>Away</span>
+                  <span className={styles.atsValue}>
+                    {(() => {
+                      const away = recentGames.filter(e => e.homeAway === 'away' && e.ourScore != null);
+                      if (away.length < 1) return <span className={styles.atsPending}>—</span>;
+                      const w = away.filter(e => e.ourScore > e.oppScore).length;
+                      return `${w}-${away.length - w}`;
+                    })()}
+                  </span>
                 </div>
               </div>
-              <p className={styles.atsNote}>
-                {isSpringTraining
-                  ? 'ATS data will populate when the regular season begins.'
-                  : 'ATS tracking activates once sufficient game data is available.'}
-              </p>
+              {recentGames.length < 5 && (
+                <p className={styles.atsNote}>
+                  {isSpringTraining
+                    ? 'Full ATS tracking begins with the regular season.'
+                    : 'ATS coverage and trends will strengthen as more games are played.'}
+                </p>
+              )}
             </div>
             {formGuide.length > 0 && (
               <div className={styles.formGuide}>
@@ -485,12 +538,17 @@ export default function MlbTeamDetail() {
             <h3 className={styles.sectionTitle}>Next Game</h3>
             <div className={styles.nextGameBody}>
               <div className={styles.nextGameMatchup}>
-                <OpponentLogo logoUrl={nextGame.opponentLogo} abbrev={nextGame.opponentAbbrev} size={28} />
-                <span className={styles.nextGameVs}>{nextGame.homeAway === 'home' ? 'vs' : '@'}</span>
-                <strong className={styles.nextGameOpp}>{nextGame.opponent}</strong>
-                <span className={styles.nextGameTime}>{formatDateTime(nextGame.date)}</span>
+                <span className={styles.nextGameVsTag}>{nextGame.homeAway === 'home' ? 'vs' : '@'}</span>
+                <OpponentLogo logoUrl={nextGame.opponentLogo} abbrev={nextGame.opponentAbbrev} size={36} />
+                <div className={styles.nextGameDetails}>
+                  <strong className={styles.nextGameOpp}>{nextGame.opponent}</strong>
+                  <span className={styles.nextGameTime}>{formatDateTime(nextGame.date)}</span>
+                </div>
               </div>
-              {nextGame.venue && <p className={styles.nextGameVenue}>{nextGame.venue}</p>}
+              <div className={styles.nextGameMeta}>
+                {nextGame.venue && <span className={styles.nextGameVenue}>{nextGame.venue}</span>}
+                {nextGame.network && <span className={styles.networkBadge}>{nextGame.network}</span>}
+              </div>
               <GamecastLink url={nextGame.gamecastUrl} />
             </div>
           </section>
@@ -502,17 +560,23 @@ export default function MlbTeamDetail() {
             <h3 className={styles.sectionTitle}>Recent Results</h3>
             <div className={styles.resultsList}>
               {recentGames.map((ev) => {
-                const won = ev.ourScore > ev.oppScore;
+                const won = ev.ourScore != null && ev.oppScore != null && ev.ourScore > ev.oppScore;
+                const lost = ev.ourScore != null && ev.oppScore != null && ev.ourScore < ev.oppScore;
                 return (
-                  <div key={ev.id} className={styles.resultRow}>
+                  <div key={ev.id} className={`${styles.resultRow} ${won ? styles.resultRowWin : ''} ${lost ? styles.resultRowLoss : ''}`}>
+                    <span className={`${styles.resultWL} ${won ? styles.resultWin : styles.resultLoss}`}>
+                      {won ? 'W' : 'L'}
+                    </span>
                     <span className={styles.resultDate}>{formatDate(ev.date)}</span>
                     <span className={styles.resultOpp}>
-                      <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={20} />
-                      {ev.homeAway === 'home' ? 'vs' : '@'} {ev.opponent}
+                      <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={22} />
+                      <span className={styles.resultHomeAway}>{ev.homeAway === 'home' ? 'vs' : '@'}</span>
+                      <span className={styles.resultOppName}>{ev.opponent}</span>
                     </span>
                     <span className={`${styles.resultScore} ${won ? styles.resultWin : styles.resultLoss}`}>
-                      {ev.ourScore}-{ev.oppScore}
+                      {ev.ourScore != null ? `${ev.ourScore}-${ev.oppScore}` : '—'}
                     </span>
+                    {ev.network && <span className={styles.resultNetwork}>{ev.network}</span>}
                     <GamecastLink url={ev.gamecastUrl} />
                   </div>
                 );

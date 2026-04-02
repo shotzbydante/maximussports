@@ -95,11 +95,42 @@ export function buildMlbTeamIntelSummary({ team, projection, meta, odds, current
     }
   }
 
+  // Confidence context
+  if (conf === 'High' || conf === 'Medium-High') {
+    parts.push(`Model confidence is ${conf.toLowerCase()}, suggesting the projection sits on solid analytical ground.`);
+  } else if (conf === 'Medium-Low' || conf === 'Low') {
+    parts.push(`Confidence sits at ${conf.toLowerCase()} — more data points would sharpen this outlook.`);
+  }
+
   // Market stance
   if (delta > 2) {
     parts.push(`The model sees more value than the market — sitting ${delta} wins above the consensus line.`);
   } else if (delta < -2) {
     parts.push(`Market sentiment runs warmer than our model, which has them ${Math.abs(delta)} wins below the consensus.`);
+  }
+
+  // Current record context
+  if (currentRecord && currentRecord !== '0-0') {
+    const [cw, cl] = currentRecord.split('-').map(Number);
+    if (cw + cl >= 3) {
+      const pct = cw / (cw + cl);
+      const pace = Math.round(pct * 162);
+      if (pace >= wins + 5) {
+        parts.push(`Early returns are hot — their current ${currentRecord} pace would project to ${pace} wins, well above the model's baseline.`);
+      } else if (pace <= wins - 5) {
+        parts.push(`A slow start at ${currentRecord} puts them below projected pace, though it's early and regression is likely.`);
+      }
+    }
+  }
+
+  // Championship odds context
+  if (odds?.bestChanceAmerican != null) {
+    const american = odds.bestChanceAmerican;
+    if (american <= 500) {
+      parts.push(`World Series odds of ${american > 0 ? '+' : ''}${american} reflect legitimate title contender status in the betting market.`);
+    } else if (american >= 5000) {
+      parts.push(`At ${american > 0 ? '+' : ''}${american} to win the World Series, the market sees this as a longer-shot scenario.`);
+    }
   }
 
   // Prior year context
