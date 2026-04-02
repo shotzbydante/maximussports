@@ -1,8 +1,8 @@
 /**
  * MlbDailySlide1 — Hero Cover (Slide 1 of MLB Daily Briefing carousel)
  *
- * Purpose: Scroll-stopping IG cover hook
- * Composition: Brand (top) → Mascot (top-third) → Hero title (center) → Badge (bottom)
+ * Composition: Brand pill (top) → Headline (upper) → Mascot hero (center) → Glass card (bottom)
+ * Mascot head overlaps into headline zone for integrated feel.
  *
  * 1080×1350 · IG 4:5 portrait
  */
@@ -20,17 +20,27 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
       <div className={styles.bgRay} />
+      <div className={styles.s1BgStadium} />
+      <div className={styles.s1BgStreaks} />
       <div className={styles.bgNoise} />
 
-      {/* Top brand bar */}
+      {/* Brand pill — top center */}
       <div className={styles.s1TopBar}>
-        <img src="/logo.png" alt="" className={styles.s1BrandLogo} crossOrigin="anonymous" />
-        <span className={styles.s1BrandName}>MAXIMUS SPORTS</span>
-        <img src="/mlb-logo.png" alt="" className={styles.s1MlbMark} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+        <div className={styles.s1BrandPill}>
+          <img src="/mlb-logo.png" alt="" className={styles.s1MlbMark} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <span className={styles.s1BrandName}>MAXIMUS SPORTS</span>
+        </div>
       </div>
 
-      {/* Mascot — top-third zone, slight rotation */}
+      {/* Headline — upper zone */}
+      <div className={styles.s1HeadlineZone}>
+        <h1 className={styles.s1Headline}>MLB IS BACK.<br />THE EDGE IS LIVE.</h1>
+        <div className={styles.s1SubHeadline}>2026 SEASON STARTS NOW</div>
+      </div>
+
+      {/* Mascot hero — center, overlaps headline + card */}
       <div className={styles.s1MascotZone}>
+        <div className={styles.s1MascotGlow} />
         <img
           src="/mascot-mlb.png"
           alt="Maximus"
@@ -40,19 +50,16 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
         />
       </div>
 
-      {/* Hero title — centered on canvas */}
-      <div className={styles.s1TitleZone}>
-        <h1 className={styles.s1Headline}>MLB IS BACK.<br />THE EDGE IS LIVE.</h1>
-        <div className={styles.s1SubHeadline}>2026 SEASON STARTS NOW</div>
-      </div>
-
-      {/* Bottom info */}
-      <div className={styles.s1BottomBlock}>
-        <div className={styles.s1BadgeRow}>
-          <span className={styles.s1Badge}>DAILY MLB BRIEFING</span>
+      {/* Bottom glass card */}
+      <div className={styles.s1CardZone}>
+        <div className={styles.s1GlassCard}>
+          <div className={styles.s1CardTopLine} />
+          <div className={styles.s1CardLabel}>DAILY MLB BRIEFING</div>
+          <div className={styles.s1CardDate}>{today}</div>
+          <div className={styles.s1CardDivider} />
+          <div className={styles.s1CardTitle}>DAILY MLB BRIEFING</div>
+          <div className={styles.s1CardTagline}>AI-POWERED INTEL FOR THE MODERN FAN</div>
         </div>
-        <div className={styles.s1DateLine}>{today}</div>
-        <div className={styles.s1Tagline}>AI-powered intel for the modern fan</div>
       </div>
 
       <footer className={styles.footer}>
