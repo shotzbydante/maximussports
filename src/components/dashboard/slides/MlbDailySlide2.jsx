@@ -1,17 +1,63 @@
 /**
  * MlbDailySlide2 — Today's Intel Briefing (Slide 2 of MLB Daily Briefing carousel)
  *
- * Premium bullet-driven editorial digest. No paragraphs.
+ * Premium bullet-driven editorial digest with team logo accents.
  * Structured: Feature card (HOT OFF THE PRESS) + Support grid (PENNANT RACE + MARKET SIGNAL)
  *
  * 1080×1350 · IG 4:5 portrait
  */
 
+import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { buildDailyContent, stripEmojis } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import styles from './MlbSlides.module.css';
 
-// ─── Transform briefing into structured bullet content ──────────
+// ─── Team logo inline accent ──────────────────────────────────
+
+function InlineLogo({ slug, size = 20 }) {
+  const url = getMlbEspnLogoUrl(slug);
+  if (!url) return null;
+  return <img src={url} alt="" width={size} height={size} className={styles.slide2InlineLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+}
+
+// ─── Shorten a sentence to be punchier ────────────────────────
+
+function shorten(text, maxLen = 65) {
+  if (!text) return '';
+  let s = text.trim();
+  // Remove common filler patterns
+  s = s.replace(/^(Meanwhile,?\s*|In other action,?\s*|Additionally,?\s*|Looking at\s+)/i, '');
+  if (s.length <= maxLen) return s;
+  // Truncate at last word boundary before maxLen
+  const cut = s.slice(0, maxLen).replace(/\s+\S*$/, '');
+  return cut + '.';
+}
+
+// ─── Extract team slugs from text ─────────────────────────────
+
+const TEAM_KEYWORDS = {
+  'diamondbacks': 'ari', 'arizona': 'ari', 'd-backs': 'ari',
+  'dodgers': 'lad', 'los angeles dodgers': 'lad',
+  'yankees': 'nyy', 'new york yankees': 'nyy',
+  'blue jays': 'tor', 'toronto': 'tor',
+  'phillies': 'phi', 'philadelphia': 'phi',
+  'astros': 'hou', 'houston': 'hou',
+  'mets': 'nym', 'new york mets': 'nym',
+  'braves': 'atl', 'atlanta': 'atl',
+  'guardians': 'cle', 'cleveland': 'cle',
+  'tigers': 'det', 'detroit': 'det',
+};
+
+function findTeamSlug(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  for (const [kw, slug] of Object.entries(TEAM_KEYWORDS)) {
+    if (lower.includes(kw)) return slug;
+  }
+  return null;
+}
+
+// ─── Transform briefing into structured bullet content ────────
 
 function buildSlide2Content(data) {
   const content = buildDailyContent(data);
@@ -23,7 +69,6 @@ function buildSlide2Content(data) {
     timeZone: 'America/Los_Angeles',
   });
 
-  // Extract sentences from a paragraph
   const getSentences = (idx) => {
     const para = paras[idx];
     if (!para) return [];
@@ -34,63 +79,66 @@ function buildSlide2Content(data) {
     return (body.match(/[^.!?]*[.!?]+/g) || [body]).map(s => s.trim()).filter(Boolean);
   };
 
-  // P1 = Around the League → feature bullets
+  // Feature bullets — max 3 groups, shortened
   const p1 = getSentences(0);
   const featureBullets = [];
-  // Group sentences into bullet groups of ~2
   for (let i = 0; i < Math.min(p1.length, 6); i += 2) {
-    featureBullets.push({
-      lead: p1[i] || '',
-      lines: p1[i + 1] ? [p1[i + 1]] : [],
-    });
+    const lead = shorten(p1[i]);
+    const support = p1[i + 1] ? shorten(p1[i + 1], 55) : null;
+    if (lead) featureBullets.push({ lead, line: support, slug: findTeamSlug(p1[i]) });
   }
   if (featureBullets.length === 0) {
-    featureBullets.push({ lead: content.headline || 'Opening Day delivered', lines: [] });
+    featureBullets.push({ lead: 'Opening Day delivered', line: null, slug: null });
   }
+  // Cap at 3
+  featureBullets.length = Math.min(featureBullets.length, 3);
 
-  // P3 = Pennant Race → bullets
+  // Pennant bullets — max 3 groups
   const p3 = getSentences(2);
   const pennantBullets = [];
-  for (let i = 0; i < Math.min(p3.length, 4); i += 2) {
-    pennantBullets.push({
-      lead: p3[i] || '',
-      lines: p3[i + 1] ? [p3[i + 1]] : [],
-    });
+  for (let i = 0; i < Math.min(p3.length, 6); i += 2) {
+    const lead = shorten(p3[i]);
+    const support = p3[i + 1] ? shorten(p3[i + 1], 50) : null;
+    if (lead) pennantBullets.push({ lead, line: support, slug: findTeamSlug(p3[i]) });
   }
   if (pennantBullets.length === 0) {
-    pennantBullets.push({ lead: 'Divisional races already taking shape', lines: [] });
+    pennantBullets.push({ lead: 'Divisional races already taking shape', line: null, slug: null });
   }
+  pennantBullets.length = Math.min(pennantBullets.length, 3);
 
-  // P2 = World Series Odds Pulse → market bullets + hero stat
+  // Market bullets — max 3 groups
   const p2 = getSentences(1);
   const marketBullets = [];
-  for (let i = 0; i < Math.min(p2.length, 4); i += 2) {
-    marketBullets.push({
-      lead: p2[i] || '',
-      lines: p2[i + 1] ? [p2[i + 1]] : [],
-    });
+  for (let i = 0; i < Math.min(p2.length, 6); i += 2) {
+    const lead = shorten(p2[i]);
+    const support = p2[i + 1] ? shorten(p2[i + 1], 50) : null;
+    if (lead) marketBullets.push({ lead, line: support, slug: findTeamSlug(p2[i]) });
   }
   if (marketBullets.length === 0) {
-    marketBullets.push({ lead: 'Market positioning still forming', lines: [] });
+    marketBullets.push({ lead: 'Market positioning still forming', line: null, slug: null });
   }
+  marketBullets.length = Math.min(marketBullets.length, 3);
 
-  // Extract market hero stat from P2 text
+  // Market hero stat
   let marketOdds = '+210';
   let marketImplied = '32.3% IMPLIED';
+  let marketLeadSlug = 'lad';
   const oddsMatch = (paras[1] || '').match(/\+\d+/);
   if (oddsMatch) marketOdds = oddsMatch[0];
   const impliedMatch = (paras[1] || '').match(/(\d+\.?\d*)%/);
   if (impliedMatch) marketImplied = `${impliedMatch[1]}% IMPLIED`;
+  const leadSlug = findTeamSlug(paras[1] || '');
+  if (leadSlug) marketLeadSlug = leadSlug;
 
   return {
     dateLabel: today,
     headline: content.headline,
     subhead: content.subheadline || null,
     featureBullets,
-    featureTakeaway: 'The season opened with stars, statements, and instant pressure.',
+    featureTakeaway: 'Opening Day brought instant pressure, stars, and signals.',
     pennantBullets,
     pennantTakeaway: 'Divisional races already have shape — nothing is settled.',
-    marketHero: { odds: marketOdds, implied: marketImplied },
+    marketHero: { odds: marketOdds, implied: marketImplied, slug: marketLeadSlug },
     marketBullets,
     marketTakeaway: 'The market is clustering around a top tier with clear favorites.',
   };
@@ -123,65 +171,71 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
         {c.subhead && <p className={styles.slide2Subhead}>{c.subhead}</p>}
       </section>
 
+      {/* Feature card — HOT OFF THE PRESS */}
       <section className={styles.slide2FeatureCard}>
         <div className={styles.slide2SectionPill}>HOT OFF THE PRESS</div>
         <div className={styles.slide2BulletGroups}>
-          {c.featureBullets.map((group, idx) => (
+          {c.featureBullets.map((b, idx) => (
             <div key={idx} className={styles.slide2BulletGroup}>
               <div className={styles.slide2BulletMarker} />
               <div className={styles.slide2BulletContent}>
-                <div className={styles.slide2BulletLead}>{group.lead}</div>
-                {group.lines?.map((line, li) => (
-                  <div key={li} className={styles.slide2BulletLine}>{line}</div>
-                ))}
+                <div className={styles.slide2BulletLead}>
+                  {b.slug && <InlineLogo slug={b.slug} size={22} />}
+                  {b.lead}
+                </div>
+                {b.line && <div className={styles.slide2BulletLine}>{b.line}</div>}
               </div>
             </div>
           ))}
         </div>
-        <div className={styles.slide2FeatureTakeaway}>{c.featureTakeaway}</div>
+        <div className={styles.slide2Takeaway}>{c.featureTakeaway}</div>
       </section>
 
+      {/* Support grid */}
       <section className={styles.slide2SupportGrid}>
         {/* Pennant Race */}
         <article className={styles.slide2SupportCard}>
           <div className={styles.slide2SectionPill}>PENNANT RACE</div>
           <div className={styles.slide2BulletGroups}>
-            {c.pennantBullets.map((group, idx) => (
+            {c.pennantBullets.map((b, idx) => (
               <div key={idx} className={styles.slide2BulletGroup}>
                 <div className={styles.slide2BulletMarker} />
                 <div className={styles.slide2BulletContent}>
-                  <div className={styles.slide2SupportLead}>{group.lead}</div>
-                  {group.lines?.map((line, li) => (
-                    <div key={li} className={styles.slide2SupportLine}>{line}</div>
-                  ))}
+                  <div className={styles.slide2BulletLead}>
+                    {b.slug && <InlineLogo slug={b.slug} size={18} />}
+                    {b.lead}
+                  </div>
+                  {b.line && <div className={styles.slide2BulletLine}>{b.line}</div>}
                 </div>
               </div>
             ))}
           </div>
-          <div className={styles.slide2SupportTakeaway}>{c.pennantTakeaway}</div>
+          <div className={styles.slide2Takeaway}>{c.pennantTakeaway}</div>
         </article>
 
         {/* Market Signal */}
         <article className={styles.slide2SupportCard}>
           <div className={styles.slide2SectionPill}>MARKET SIGNAL</div>
           <div className={styles.slide2MarketHero}>
+            <InlineLogo slug={c.marketHero.slug} size={26} />
             <div className={styles.slide2MarketOdds}>{c.marketHero.odds}</div>
             <div className={styles.slide2MarketImplied}>{c.marketHero.implied}</div>
           </div>
           <div className={styles.slide2BulletGroups}>
-            {c.marketBullets.map((group, idx) => (
+            {c.marketBullets.map((b, idx) => (
               <div key={idx} className={styles.slide2BulletGroup}>
                 <div className={styles.slide2BulletMarker} />
                 <div className={styles.slide2BulletContent}>
-                  <div className={styles.slide2SupportLead}>{group.lead}</div>
-                  {group.lines?.map((line, li) => (
-                    <div key={li} className={styles.slide2SupportLine}>{line}</div>
-                  ))}
+                  <div className={styles.slide2BulletLead}>
+                    {b.slug && <InlineLogo slug={b.slug} size={18} />}
+                    {b.lead}
+                  </div>
+                  {b.line && <div className={styles.slide2BulletLine}>{b.line}</div>}
                 </div>
               </div>
             ))}
           </div>
-          <div className={styles.slide2SupportTakeaway}>{c.marketTakeaway}</div>
+          <div className={styles.slide2Takeaway}>{c.marketTakeaway}</div>
         </article>
       </section>
 

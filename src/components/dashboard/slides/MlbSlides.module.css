@@ -449,10 +449,10 @@
   text-shadow: 0 0 18px rgba(255,255,255,0.10);
 }
 .slide2Subhead {
-  margin: 14px auto 0;
+  margin: 12px auto 0;
   max-width: 820px;
-  font-size: 18px; line-height: 1.28; font-weight: 600;
-  color: rgba(255,255,255,0.74);
+  font-size: 17px; line-height: 1.28; font-weight: 600;
+  color: rgba(255,255,255,0.68);
   text-align: center;
 }
 
@@ -484,11 +484,11 @@
   border: 1px solid rgba(255,255,255,0.12);
 }
 
-/* Bullet groups */
+/* Bullet groups — unified across feature + support */
 .slide2BulletGroups {
-  margin-top: 16px;
+  margin-top: 14px;
   display: flex; flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 .slide2BulletGroup {
   display: grid;
@@ -497,32 +497,41 @@
   align-items: flex-start;
 }
 .slide2BulletMarker {
-  width: 10px; height: 10px;
-  margin-top: 8px;
+  width: 8px; height: 8px;
+  margin-top: 7px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,120,140,0.65));
-  box-shadow: 0 0 10px rgba(255,255,255,0.22), 0 0 16px rgba(255,90,120,0.18);
+  background: radial-gradient(circle, rgba(255,255,255,0.90), rgba(255,120,140,0.60));
+  box-shadow: 0 0 8px rgba(255,255,255,0.18), 0 0 12px rgba(255,90,120,0.14);
 }
 .slide2BulletContent {
   display: flex; flex-direction: column;
 }
 
-/* Feature bullet typography */
+/* Unified bullet typography — same sizes everywhere */
 .slide2BulletLead {
-  font-size: 26px; line-height: 1.1; font-weight: 800;
+  font-size: 21px; line-height: 1.12; font-weight: 800;
   color: rgba(255,255,255,0.96);
+  display: flex; align-items: center; gap: 6px;
 }
 .slide2BulletLine {
-  margin-top: 4px;
-  font-size: 19px; line-height: 1.32; font-weight: 600;
-  color: rgba(255,255,255,0.80);
+  margin-top: 3px;
+  font-size: 16px; line-height: 1.30; font-weight: 600;
+  color: rgba(255,255,255,0.72);
 }
 
-/* Feature takeaway */
-.slide2FeatureTakeaway {
-  margin-top: 18px;
-  font-size: 18px; line-height: 1.28; font-weight: 700;
-  color: rgba(255,255,255,0.72);
+/* Inline team logo inside bullets */
+.slide2InlineLogo {
+  object-fit: contain; border-radius: 2px; flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(255,255,255,0.10));
+}
+
+/* Unified takeaway — same style for all cards */
+.slide2Takeaway {
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 15px; line-height: 1.28; font-weight: 700;
+  color: rgba(255,255,255,0.58);
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 /* Support grid */
@@ -548,41 +557,27 @@
   justify-content: flex-start;
 }
 
-/* Support typography */
-.slide2SupportLead {
-  font-size: 20px; line-height: 1.14; font-weight: 800;
-  color: rgba(255,255,255,0.94);
-}
-.slide2SupportLine {
-  margin-top: 4px;
-  font-size: 17px; line-height: 1.32; font-weight: 600;
-  color: rgba(255,255,255,0.78);
-}
-.slide2SupportTakeaway {
-  margin-top: auto;
-  padding-top: 14px;
-  font-size: 16px; line-height: 1.3; font-weight: 700;
-  color: rgba(255,255,255,0.68);
-}
+/* Support cards reuse .slide2BulletLead / .slide2BulletLine / .slide2Takeaway */
+/* No separate support typography needed — unified type ramp */
 
 /* Market hero stat */
 .slide2MarketHero {
-  margin-top: 14px; margin-bottom: 16px;
-  display: flex; flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  margin-top: 12px; margin-bottom: 12px;
+  display: flex; align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .slide2MarketOdds {
-  font-size: 54px; line-height: 0.9; font-weight: 900;
+  font-size: 50px; line-height: 0.9; font-weight: 900;
   letter-spacing: -1px;
   color: #F4D07A;
   text-shadow: 0 0 14px rgba(255,215,0,0.16);
 }
 .slide2MarketImplied {
-  font-size: 20px; line-height: 1; font-weight: 800;
+  font-size: 18px; line-height: 1; font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.80);
+  color: rgba(255,255,255,0.72);
 }
 
 /* Footer */
