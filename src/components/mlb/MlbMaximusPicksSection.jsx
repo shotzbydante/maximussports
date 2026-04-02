@@ -118,9 +118,11 @@ function formatDayLabel(iso) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const gameDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const diffDays = Math.round((gameDay - today) / 86400000);
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+    if (diffDays === 0) return `Today · ${dateStr}`;
+    if (diffDays === 1) return `Tomorrow · ${dateStr}`;
+    const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${dayStr} · ${dateStr}`;
   } catch { return ''; }
 }
 

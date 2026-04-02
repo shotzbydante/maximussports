@@ -104,13 +104,15 @@ function evaluateRunLine(matchup, score, thresholds) {
   if (!rl || rl.homeLine == null) return null;
 
   const side = chooseBestSide(score);
-  if (!side || side.edge < thresholds.runLine.low * 0.7) return null;
+  if (!side || side.edge <= 0) return null;
 
+  // Run line needs some directional conviction
   const marginProxy = Math.abs(score.awayWinProb - score.homeWinProb);
-  if (marginProxy < 0.04) return null;
+  if (marginProxy < 0.03) return null;
 
-  const rlEdge = side.edge * 0.85;
-  const conf = resolveConfidence(rlEdge, thresholds.runLine, score.dataQuality, score.signalAgreement);
+  // Use raw confidence (like Leans/Totals) so ATS actually populates
+  const rlEdge = side.edge * 0.90;
+  const conf = resolveRawConfidence(rlEdge, thresholds.runLine, score.dataQuality);
   if (!conf) return null;
 
   const team = side.side === 'away' ? matchup.awayTeam : matchup.homeTeam;
