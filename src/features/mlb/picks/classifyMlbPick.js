@@ -3,6 +3,12 @@
  *
  * Picks are classified into: pickEms, ats, leans, totals
  * Each pick gets a confidence tier and score.
+ *
+ * Key design decisions:
+ *   - Value Leans run INDEPENDENTLY (not exclusive with Pick'Ems)
+ *   - A single game can generate picks in multiple categories
+ *   - MAX_PICKS_PER_GAME caps total picks per game (currently 3)
+ *   - Low conviction picks are surfaced rather than hidden
  */
 
 import { MAX_PICKS_PER_GAME } from './mlbPickThresholds.js';
@@ -21,28 +27,25 @@ export function classifyMlbPick(matchup, score, thresholds) {
   }
 
   const mlSide = chooseBestSide(score);
-  let hasPickEm = false;
 
   // ── Moneyline / Pick 'Em ──
   if (mlSide) {
     const conf = resolveConfidence(mlSide.edge, thresholds.moneyline, score.dataQuality, score.signalAgreement);
     if (conf) {
       picks.push(buildPick(matchup, score, mlSide, 'pickEms', 'moneyline', conf));
-      hasPickEm = true;
     }
   }
 
-  // ── Value Lean (INDEPENDENT — NCAAM-inspired philosophy) ──
-  // Leans capture directional value that doesn't clear Pick 'Em/ATS thresholds.
-  // Uses raw edge without harsh DQ/SA multiplier, similar to NCAAM VL_VALUE_MIN approach.
-  if (mlSide && !hasPickEm) {
+  // ── Value Lean (INDEPENDENT — runs even if Pick'Em was generated) ──
+  // Leans capture directional value with softer thresholds.
+  // Uses raw edge without harsh DQ/SA multiplier.
+  if (mlSide) {
     const rawEdge = mlSide.edge;
-    if (rawEdge >= thresholds.lean.low && score.dataQuality >= 0.20) {
+    if (rawEdge >= thresholds.lean.low && score.dataQuality >= 0.18) {
       let tier, tierScore;
       if (rawEdge >= thresholds.lean.high) { tier = 'high'; tierScore = 0.8; }
       else if (rawEdge >= thresholds.lean.medium) { tier = 'medium'; tierScore = 0.5; }
       else { tier = 'low'; tierScore = 0.25; }
-      // Adjust score by data quality (mild, not harsh)
       tierScore = tierScore * (0.85 + 0.15 * score.dataQuality);
       picks.push(buildPick(matchup, score, mlSide, 'leans', 'moneyline',
         { tier, score: Math.round(tierScore * 100) / 100 }));
@@ -57,10 +60,8 @@ export function classifyMlbPick(matchup, score, thresholds) {
   const totalPick = evaluateTotal(matchup, score, thresholds);
   if (totalPick) picks.push(totalPick);
 
-  // Cap picks per game
-  return picks
-    .sort((a, b) => b.confidenceScore - a.confidenceScore)
-    .slice(0, MAX_PICKS_PER_GAME);
+  // Cap picks per game — keep one per category where possible
+  return capPicksPerGame(picks);
 }
 
 // ── Helpers ──
@@ -103,9 +104,9 @@ function evaluateRunLine(matchup, score, thresholds) {
 
   // Run line requires stronger conviction — need margin proxy
   const marginProxy = Math.abs(score.awayWinProb - score.homeWinProb);
-  if (marginProxy < 0.06) return null; // too close for run line
+  if (marginProxy < 0.05) return null; // relaxed from 0.06
 
-  const rlEdge = side.edge * 0.85; // discount for spread risk
+  const rlEdge = side.edge * 0.85;
   const conf = resolveConfidence(rlEdge, thresholds.runLine, score.dataQuality, score.signalAgreement);
   if (!conf) return null;
 
@@ -136,16 +137,19 @@ function evaluateTotal(matchup, score, thresholds) {
   const total = matchup.market?.total;
   if (!total || total.points == null) return null;
 
-  // Use the model's expected total estimate (from scoreMlbMatchup)
   const estimatedTotal = score.expectedTotal;
   if (!estimatedTotal || !isFinite(estimatedTotal)) return null;
 
   const diff = estimatedTotal - total.points;
-  const edge = Math.abs(diff) * 0.10; // normalize to edge scale
+  // Boosted multiplier (0.10 → 0.18) to compensate for narrow total variance
+  // MLB totals typically range 7-10.5, so model diff of 0.5-1.5 runs should
+  // generate meaningful edges
+  const edge = Math.abs(diff) * 0.18;
 
   if (edge < thresholds.total.low) return null;
 
-  const conf = resolveConfidence(edge, thresholds.total, score.dataQuality * 0.8, score.signalAgreement);
+  // Milder DQ discount for totals (0.8 → 0.9)
+  const conf = resolveConfidence(edge, thresholds.total, score.dataQuality * 0.9, score.signalAgreement);
   if (!conf) return null;
 
   const direction = diff > 0 ? 'Over' : 'Under';
@@ -168,6 +172,29 @@ function evaluateTotal(matchup, score, thresholds) {
     },
     model: buildModelPayload(score),
   };
+}
+
+/**
+ * Cap picks per game to MAX_PICKS_PER_GAME, but prefer category diversity.
+ * Keeps the best pick from each category before filling remaining slots.
+ */
+function capPicksPerGame(picks) {
+  if (picks.length <= MAX_PICKS_PER_GAME) return picks;
+
+  // Dedupe: keep best pick per category
+  const byCategory = new Map();
+  for (const p of picks) {
+    const existing = byCategory.get(p.category);
+    if (!existing || p.confidenceScore > existing.confidenceScore) {
+      byCategory.set(p.category, p);
+    }
+  }
+
+  const unique = [...byCategory.values()];
+  // Sort by confidence, take top N
+  return unique
+    .sort((a, b) => b.confidenceScore - a.confidenceScore)
+    .slice(0, MAX_PICKS_PER_GAME);
 }
 
 function buildPick(matchup, score, side, category, marketType, conf) {
