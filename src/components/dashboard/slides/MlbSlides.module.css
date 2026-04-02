@@ -168,116 +168,227 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SLIDE 1 — HERO COVER
+   SLIDE 1 — HERO COVER (cinematic stadium composition)
    ══════════════════════════════════════════════════════════════ */
 
-/* Brand pill — top */
-.s1TopBar {
-  position: relative; z-index: 10;
-  display: flex; justify-content: center;
-  padding: 28px 40px 0;
-}
-.s1Pill {
-  composes: sectionPill;
-  font-size: 15px;
-  padding: 9px 28px;
-}
-.s1PillLogo {
-  width: 24px; height: 24px; object-fit: contain; opacity: 0.80;
+.slide1 {
+  position: relative; width: 1080px; height: 1350px;
+  overflow: hidden;
+  font-family: 'Inter', 'Helvetica Neue', -apple-system, sans-serif;
+  color: #fff;
+  padding: 28px 24px 18px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
 }
 
-/* Headline — pushed lower for spacing from badge */
-.s1HeadlineZone {
-  position: relative; z-index: 12;
+/* ── Background layers ── */
+.slide1BgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(190,40,70,0.38), transparent 26%),
+    radial-gradient(circle at 50% 58%, rgba(150,10,35,0.28), transparent 28%),
+    linear-gradient(180deg, #5d0018 0%, #6f0621 18%, #530015 48%, #32000d 76%, #180007 100%);
+}
+.slide1BgLights {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(circle at 11% 28%, rgba(255,255,255,0.28), transparent 10%),
+    radial-gradient(circle at 89% 28%, rgba(255,255,255,0.28), transparent 10%),
+    radial-gradient(circle at 9% 30%, rgba(255,90,130,0.22), transparent 20%),
+    radial-gradient(circle at 91% 30%, rgba(255,90,130,0.22), transparent 20%),
+    radial-gradient(circle at 18% 22%, rgba(255,200,210,0.12), transparent 12%),
+    radial-gradient(circle at 82% 22%, rgba(255,200,210,0.12), transparent 12%);
+}
+.slide1BgArena {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    linear-gradient(172deg, transparent 35%, rgba(255,255,255,0.04) 38%, transparent 41%),
+    linear-gradient(175deg, transparent 48%, rgba(255,255,255,0.035) 50%, transparent 52%),
+    linear-gradient(178deg, transparent 58%, rgba(255,255,255,0.03) 60%, transparent 62%),
+    linear-gradient(8deg, transparent 35%, rgba(255,90,120,0.03) 38%, transparent 41%),
+    linear-gradient(5deg, transparent 48%, rgba(255,90,120,0.025) 50%, transparent 52%);
+}
+.slide1BgParticles {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background:
+    radial-gradient(1px 1px at 15% 18%, rgba(255,255,255,0.50), transparent),
+    radial-gradient(1px 1px at 78% 24%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1px 1px at 42% 12%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1px 1px at 65% 32%, rgba(255,255,255,0.30), transparent),
+    radial-gradient(1px 1px at 28% 45%, rgba(255,255,255,0.25), transparent),
+    radial-gradient(1px 1px at 85% 48%, rgba(255,255,255,0.25), transparent),
+    radial-gradient(1.5px 1.5px at 52% 22%, rgba(255,200,210,0.40), transparent),
+    radial-gradient(1.5px 1.5px at 35% 35%, rgba(255,200,210,0.30), transparent),
+    linear-gradient(135deg, transparent 30%, rgba(255,100,120,0.04) 45%, transparent 55%),
+    linear-gradient(155deg, transparent 42%, rgba(255,80,100,0.035) 52%, transparent 58%),
+    linear-gradient(120deg, transparent 55%, rgba(255,120,140,0.03) 65%, transparent 72%);
+}
+.slide1Noise {
+  position: absolute; inset: 0; z-index: 4;
+  opacity: 0.035; pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* ── Top badge ── */
+.slide1Top {
+  position: relative; z-index: 10;
+  width: 100%;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 72px;
+}
+.slide1TopPill {
+  height: 52px; padding: 0 24px;
+  border-radius: 16px;
+  display: inline-flex; align-items: center; gap: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.20);
+  box-shadow:
+    0 0 22px rgba(255,80,110,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.slide1TopLogo {
+  width: 28px; height: 28px; object-fit: contain;
+}
+.slide1TopLabel {
+  font-size: 18px; line-height: 1; font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(255,255,255,0.95);
+}
+
+/* ── Headline ── */
+.slide1HeadlineBlock {
+  position: relative; z-index: 10;
+  margin-top: 32px;
   text-align: center;
-  padding: 40px 52px 0;
+  width: 100%; max-width: 930px;
   flex-shrink: 0;
 }
-.s1Headline {
-  font-size: 80px; font-weight: 900; line-height: 0.94;
-  letter-spacing: -0.5px; text-transform: uppercase;
+.slide1Headline {
   margin: 0;
-  text-shadow:
-    0 0 20px rgba(255,255,255,0.10),
-    0 2px 24px rgba(0,0,0,0.55),
-    0 0 60px rgba(220,40,60,0.22);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 2px;
 }
-.s1Sub {
-  font-size: 20px; font-weight: 700; letter-spacing: 3px;
-  text-transform: uppercase; color: rgba(255,255,255,0.78);
-  margin-top: 12px;
-  text-shadow: 0 0 12px rgba(255,255,255,0.06);
+.slide1Headline span {
+  font-size: 94px; line-height: 0.90; font-weight: 900;
+  letter-spacing: -1.2px; text-transform: uppercase;
+  color: rgba(255,255,255,0.98);
+  text-shadow: 0 0 24px rgba(255,255,255,0.10);
+  display: block;
 }
-
-/* Mascot — centered hero */
-.s1MascotZone {
-  position: relative; z-index: 11;
-  display: flex; align-items: center; justify-content: center;
-  flex: 1;
-  margin-top: -20px;
-}
-/* White neon halo behind mascot */
-.s1MascotHalo {
-  composes: glowHalo;
-  width: 580px; height: 580px;
-  background: radial-gradient(circle,
-    rgba(255,255,255,0.22) 0%,
-    rgba(255,200,210,0.12) 30%,
-    rgba(255,60,80,0.06) 55%,
-    transparent 75%);
-}
-.liveMotion .s1MascotHalo {
-  animation: glowPulse 4s ease-in-out infinite;
-}
-.s1Mascot {
-  position: relative;
-  width: 400px; height: 400px; object-fit: contain;
-  transform: rotate(-2deg) scale(1.06);
-  filter:
-    drop-shadow(0 12px 50px rgba(0,0,0,0.60))
-    drop-shadow(0 0 60px rgba(220,40,60,0.28))
-    drop-shadow(0 0 100px rgba(220,40,60,0.10));
-}
-.liveMotion .s1Mascot {
-  animation: floatY 5s ease-in-out infinite;
+.slide1Subhead {
+  margin-top: 20px;
+  font-size: 28px; line-height: 1; font-weight: 800;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: rgba(255,232,190,0.92);
+  text-shadow: 0 0 14px rgba(255,220,140,0.08);
 }
 
-/* Bottom glass card — moved up, simplified */
-.s1CardZone {
+/* ── Hero mascot ── */
+.slide1Hero {
   position: relative; z-index: 10;
-  display: flex; justify-content: center;
-  padding: 0 40px;
-  margin-top: -16px;
+  width: 100%; height: 500px;
+  margin-top: 10px;
+  display: flex; justify-content: center; align-items: center;
   flex-shrink: 0;
 }
-/* White neon halo behind card */
-.s1CardHalo {
-  composes: glowHalo;
-  width: 700px; height: 200px;
-  border-radius: 40%;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(ellipse,
-    rgba(255,255,255,0.12) 0%,
-    rgba(255,200,210,0.06) 40%,
-    transparent 70%);
+.slide1HeroHalo {
+  position: absolute;
+  width: 470px; height: 470px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255,255,255,0.34) 0%,
+    rgba(255,120,150,0.28) 20%,
+    rgba(255,70,110,0.18) 38%,
+    rgba(255,40,80,0.08) 56%,
+    transparent 76%);
+  filter: blur(10px);
+  z-index: 0;
 }
-.s1Card {
-  composes: glassCard;
-  width: 86%;
-  padding: 22px 32px 26px;
+.liveMotion .slide1HeroHalo {
+  animation: glowPulse 3.8s ease-in-out infinite;
+}
+.slide1Mascot {
+  position: relative; z-index: 2;
+  width: 430px; max-width: 46%;
+  height: auto; object-fit: contain;
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.34));
+}
+.liveMotion .slide1Mascot {
+  animation: floatY 5.2s ease-in-out infinite;
+}
+.slide1HeroShadow {
+  position: absolute;
+  bottom: 56px;
+  width: 360px; height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,80,110,0.22), rgba(0,0,0,0.0) 68%);
+  filter: blur(18px);
+  z-index: 1;
+}
+
+/* ── Bottom briefing card ── */
+.slide1BriefingCardWrap {
+  position: relative; z-index: 10;
+  width: 100%;
+  display: flex; justify-content: center; align-items: center;
+  margin-top: 0;
+  flex-shrink: 0;
+}
+.slide1BriefingGlow {
+  position: absolute;
+  width: 760px; height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.12), rgba(255,80,110,0.10) 36%, transparent 72%);
+  filter: blur(22px);
+  z-index: 0;
+}
+.slide1BriefingCard {
+  position: relative; z-index: 2;
+  width: 88%;
+  min-height: 210px;
+  border-radius: 24px;
+  padding: 34px 28px 30px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow:
+    0 0 28px rgba(255,90,120,0.12),
+    0 0 14px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.liveMotion .slide1BriefingCard {
+  animation: breathe 4.2s ease-in-out infinite;
+}
+.slide1BriefingTitle {
+  font-size: 34px; line-height: 1; font-weight: 900;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: rgba(255,255,255,0.96);
+  text-align: center;
+  text-shadow: 0 0 16px rgba(255,255,255,0.08);
+}
+.slide1BriefingDate {
+  margin-top: 26px;
+  font-size: 26px; line-height: 1; font-weight: 700;
+  letter-spacing: 1.4px; text-transform: uppercase;
+  color: rgba(255,225,180,0.92);
   text-align: center;
 }
-.liveMotion .s1Card {
-  animation: breathe 4s ease-in-out infinite;
+
+/* ── Footer ── */
+.slide1Footer {
+  position: relative; z-index: 10;
+  margin-top: 12px;
+  min-height: 20px;
+  width: 100%;
+  display: flex; justify-content: center; align-items: center;
 }
-.s1CardTitle {
-  font-size: 28px; font-weight: 800; letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.s1CardDate {
-  font-size: 18px; font-weight: 500; color: rgba(255,255,255,0.60);
-  margin-top: 8px; letter-spacing: 0.03em;
+.slide1Site {
+  font-size: 12px; line-height: 1; font-weight: 700;
+  color: rgba(255,255,255,0.40);
+  letter-spacing: 0.6px;
 }
 
 /* ══════════════════════════════════════════════════════════════
