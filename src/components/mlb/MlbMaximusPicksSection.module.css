@@ -165,21 +165,21 @@
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
 .teamLogoWrap {
-  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.08);
-  background: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.85);
   overflow: hidden; flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.teamLogoWrap img { object-fit: contain; border-radius: 3px; width: 22px; height: 22px; }
+.teamLogoWrap img { object-fit: contain; border-radius: 3px; width: 24px; height: 24px; }
 .pickPill {
-  font-size: 0.82rem; font-weight: 700; color: var(--color-text);
-  background: rgba(60,100,160,0.07); border: 1px solid rgba(60,100,160,0.16);
-  padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+  font-size: 0.72rem; font-weight: 700; color: var(--color-text);
+  background: rgba(60,100,160,0.07); border: 1px solid rgba(60,100,160,0.14);
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
 }
 .confChip {
-  font-size: 0.46rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px;
+  font-size: 0.48rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 2px 8px; border-radius: 4px;
 }
 .confHigh { color: #1b6b4a; background: rgba(45,138,110,0.14); border: 1px solid rgba(45,138,110,0.18); }
 .confMedium { color: #a07020; background: rgba(183,152,108,0.18); border: 1px solid rgba(183,152,108,0.22); }
