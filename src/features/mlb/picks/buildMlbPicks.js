@@ -35,10 +35,12 @@ function getTodayDate() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Create a matchup key like "nyy-vs-bos" to detect same-series games */
+/** Create a matchup key like "bos-vs-nyy" to detect same-series games */
 function getMatchupKey(game) {
-  const away = game.awaySlug || game.awayTeam?.slug || game.awayTeam?.shortName || '';
-  const home = game.homeSlug || game.homeTeam?.slug || game.homeTeam?.shortName || '';
+  // Raw game objects from API use game.teams.away.slug / game.teams.home.slug
+  const away = game.teams?.away?.slug || game.awaySlug || game.awayTeam?.slug || '';
+  const home = game.teams?.home?.slug || game.homeSlug || game.homeTeam?.slug || '';
+  if (!away || !home) return '';
   const pair = [away, home].sort();
   return pair.join('-vs-');
 }
