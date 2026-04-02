@@ -15,11 +15,29 @@ function getGameStatus(status) {
   return 'scheduled';
 }
 
+/** Extract numeric score from ESPN competitor — handles both string and object formats */
+function extractScore(competitor) {
+  if (competitor?.score == null) return null;
+  // Direct string/number: "5" or 5
+  if (typeof competitor.score === 'string' || typeof competitor.score === 'number') {
+    const n = Number(competitor.score);
+    return isNaN(n) ? null : n;
+  }
+  // Object format: { value: 5, displayValue: "5" }
+  if (typeof competitor.score === 'object') {
+    const v = competitor.score.value ?? competitor.score.displayValue;
+    if (v != null) { const n = Number(v); return isNaN(n) ? null : n; }
+  }
+  return null;
+}
+
 function shapeEvent(ev, teamId) {
   const comp = ev?.competitions?.[0];
   const competitors = comp?.competitors || [];
-  const us = competitors.find((c) => String(c.id) === String(teamId));
-  const them = competitors.find((c) => String(c.id) !== String(teamId));
+  // Match by team ID — ESPN uses string IDs
+  const teamIdStr = String(teamId);
+  const us = competitors.find((c) => String(c.id) === teamIdStr || String(c.team?.id) === teamIdStr);
+  const them = competitors.find((c) => c !== us);
   const status = comp?.status || ev?.status;
   const gameStatus = getGameStatus(status);
 
@@ -34,6 +52,14 @@ function shapeEvent(ev, teamId) {
 
   const seasonType = ev.season?.type ?? comp?.season?.type ?? null;
 
+  // Extract scores robustly
+  const ourScore = extractScore(us);
+  const oppScore = extractScore(them);
+
+  // Determine winner for final games
+  const isWin = gameStatus === 'final' && ourScore != null && oppScore != null && ourScore > oppScore;
+  const isLoss = gameStatus === 'final' && ourScore != null && oppScore != null && ourScore < oppScore;
+
   return {
     id: ev.id,
     date: ev.date || comp?.date || null,
@@ -42,8 +68,10 @@ function shapeEvent(ev, teamId) {
     opponentLogo: them?.team?.logo || null,
     opponentId: them?.id || null,
     homeAway: us?.homeAway || 'home',
-    ourScore: us?.score != null ? Number(us.score) : null,
-    oppScore: them?.score != null ? Number(them.score) : null,
+    ourScore,
+    oppScore,
+    isWin,
+    isLoss,
     isFinal: gameStatus === 'final',
     gameStatus,
     gamecastUrl,
