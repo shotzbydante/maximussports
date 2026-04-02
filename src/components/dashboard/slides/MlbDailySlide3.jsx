@@ -1,14 +1,17 @@
 /**
- * MlbDailySlide3 — World Series Outlook + CTA (Slide 3 of MLB Daily Briefing carousel)
+ * MlbDailySlide3 — World Series Outlook (Slide 3 of MLB Daily Briefing carousel)
  *
- * Purpose: Data showcase + conversion
- * Content: 6 team cards (top 2 featured, bottom 4 standard) + CTA
+ * Premium 2-column league board: AL top 5 (left) + NL top 5 (right)
+ * Sorted by projected wins. Each team box mirrors the Season Intelligence
+ * team card with distilled rationale, odds, and model signals.
  *
  * 1080×1350 · IG 4:5 portrait
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
-import { buildDailyContent, buildCardRationale, fmtOdds, fmtDelta } from './mlbDailyHelpers';
+import { MLB_TEAMS } from '../../../sports/mlb/teams';
+import { getTeamProjection } from '../../../data/mlb/seasonModel';
+import { fmtOdds, fmtDelta } from './mlbDailyHelpers';
 import styles from './MlbSlides.module.css';
 
 function TeamLogo({ slug, size = 28 }) {
@@ -17,8 +20,8 @@ function TeamLogo({ slug, size = 28 }) {
   return <img src={url} alt="" width={size} height={size} className={styles.s3TeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
 }
 
-/** Inline SVG trophy */
-function TrophyIcon({ size = 16 }) {
+/** Trophy SVG */
+function TrophyIcon({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={styles.s3TrophyIcon}>
       <path d="M4 2h8v1.5c0 2.5-1.5 4.5-4 5.5-2.5-1-4-3-4-5.5V2z" stroke="rgba(255,215,0,0.75)" strokeWidth="1.0" fill="rgba(255,215,0,0.10)" strokeLinecap="round" strokeLinejoin="round" />
@@ -28,88 +31,139 @@ function TrophyIcon({ size = 16 }) {
   );
 }
 
-function getCardLabel(t) {
-  if (t.rank === 1) return `${t.league} LEADER`;
-  return `${t.league} ${t.rank}`;
-}
+/** Build top 5 per league sorted by projected wins */
+function buildLeagueTop5(champOdds) {
+  const entries = [];
+  for (const team of MLB_TEAMS) {
+    const proj = getTeamProjection(team.slug);
+    if (!proj || !proj.projectedWins) continue;
+    const oddsData = champOdds?.[team.slug];
+    const oddsVal = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
 
-/** Build compact 1-line insight from model data */
-function buildInsightLine(t) {
-  const parts = [];
-  if (t.marketDelta != null && t.marketDelta !== 0) {
-    parts.push(`${fmtDelta(t.marketDelta)} vs market`);
+    // Distill rationale to 1-2 sentences
+    const fullRat = proj.rationale || '';
+    const ratSentences = fullRat.match(/[^.!?]*[.!?]+/g) || [];
+    // Pick strongest driver sentence + market sentence if available
+    const driverSent = ratSentences.find(s =>
+      /strongest|primary|engine|firepower|rotation|bullpen|offense/i.test(s)
+    );
+    const marketSent = ratSentences.find(s =>
+      /market|value signal|above.*market|below.*market/i.test(s)
+    );
+    const closeSent = ratSentences.find(s =>
+      /range:|profile,/i.test(s)
+    );
+    const distilled = [driverSent, marketSent || closeSent]
+      .filter(Boolean)
+      .map(s => s.trim())
+      .join(' ')
+      || ratSentences.slice(0, 2).join(' ').trim()
+      || '';
+
+    entries.push({
+      slug: team.slug, abbrev: team.abbrev, name: team.name,
+      league: team.league, division: team.division,
+      projectedWins: proj.projectedWins, odds: oddsVal,
+      floor: proj.floor, ceiling: proj.ceiling,
+      confidenceTier: proj.confidenceTier ?? null,
+      marketDelta: proj.marketDelta ?? null,
+      divOutlook: proj.divOutlook ?? null,
+      playoffProb: proj.playoffProb ?? null,
+      signals: proj.signals ?? [],
+      strongestDriver: proj.takeaways?.strongestDriver ?? null,
+      rationale: distilled,
+    });
   }
-  if (t.signals?.[0]) parts.push(t.signals[0]);
-  else if (t.strongestDriver) parts.push(t.strongestDriver);
-  return parts.join(' \u00b7 ') || `${t.confidenceTier || 'Projected'} outlook`;
+  entries.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
+  return {
+    al: entries.filter(e => e.league === 'AL').slice(0, 5),
+    nl: entries.filter(e => e.league === 'NL').slice(0, 5),
+  };
 }
 
-function TeamCard({ t, featured = false }) {
-  const insight = buildInsightLine(t);
-  const cardClass = featured ? styles.s3CardFeatured : styles.s3Card;
+/** Compact division label */
+function shortDiv(div) {
+  if (!div) return '';
+  return div.replace('American League ', 'AL ').replace('National League ', 'NL ');
+}
+
+function TeamRow({ t, rank }) {
+  const isTop = rank <= 2;
   return (
-    <div className={cardClass}>
-      <div className={styles.s3CardTop}>
-        <div className={styles.s3CardTopLeft}>
-          <span className={styles.s3CardRankLabel}>{getCardLabel(t)}</span>
-          <div className={styles.s3CardIdentity}>
-            <TeamLogo slug={t.slug} size={featured ? 44 : 36} />
-            <span className={styles.s3TeamName}>{t.abbrev}</span>
-          </div>
+    <div className={`${styles.s3Row} ${isTop ? styles.s3RowTop : ''}`}>
+      {/* Identity + odds row */}
+      <div className={styles.s3RowHeader}>
+        <div className={styles.s3RowIdentity}>
+          <span className={styles.s3RowRank}>{rank}</span>
+          <TeamLogo slug={t.slug} size={isTop ? 32 : 26} />
+          <span className={styles.s3RowName}>{t.abbrev}</span>
+          <span className={styles.s3RowDiv}>{shortDiv(t.division)}</span>
         </div>
-        <div className={styles.s3OddsBadge}>
-          <TrophyIcon size={featured ? 20 : 16} />
-          <span className={styles.s3OddsValue}>{fmtOdds(t.odds)}</span>
+        <div className={styles.s3RowOdds}>
+          <TrophyIcon size={isTop ? 14 : 12} />
+          <span className={styles.s3RowOddsVal}>{fmtOdds(t.odds)}</span>
         </div>
       </div>
-      <div className={styles.s3WinsHero}>
-        <span className={styles.s3WinsNumber}>{t.projectedWins}</span>
-        <span className={styles.s3WinsLabel}>PROJECTED WINS</span>
-        {t.signals?.[0] && <span className={styles.s3SignalBadge}>{t.signals[0]}</span>}
+      {/* Projected wins hero */}
+      <div className={styles.s3RowWins}>
+        <span className={styles.s3RowWinsNum}>{t.projectedWins}</span>
+        <span className={styles.s3RowWinsLabel}>PROJ W</span>
+        {t.signals?.[0] && <span className={styles.s3RowSignal}>{t.signals[0]}</span>}
       </div>
-      <div className={styles.s3Rationale}>{insight}</div>
+      {/* Rationale */}
+      {t.rationale && (
+        <div className={styles.s3RowRationale}>{t.rationale}</div>
+      )}
     </div>
   );
 }
 
 export default function MlbDailySlide3({ data, asOf, ...rest }) {
-  const content = buildDailyContent(data);
-  const seasonIntel = content.seasonIntel || [];
+  const champOdds = data?.mlbChampOdds ?? {};
+  const { al, nl } = buildLeagueTop5(champOdds);
 
   return (
     <div className={styles.artboard} {...rest}>
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
+      <div className={styles.bgRay} />
+      <div className={styles.s3BgStadium} />
       <div className={styles.bgNoise} />
 
       {/* Header */}
       <div className={styles.s3Header}>
         <img src="/mlb-logo.png" alt="" className={styles.s3MlbCrest} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
         <h2 className={styles.s3Title}>WORLD SERIES OUTLOOK</h2>
-        <span className={styles.s3Subtitle}>WHO HAS THE EDGE?</span>
+        <span className={styles.s3Subtitle}>MAXIMUS MODEL TOP 5 BY LEAGUE</span>
       </div>
 
-      {/* 6-card grid */}
-      <div className={styles.s3Grid}>
-        {seasonIntel.map((t, i) => (
-          <TeamCard key={i} t={t} featured={t.rank === 1} />
-        ))}
-      </div>
+      {/* 2-column league board */}
+      <div className={styles.s3Board}>
+        {/* AL column */}
+        <div className={styles.s3Column}>
+          <div className={styles.s3ColHeader}>
+            <span className={styles.s3ColTitle}>AMERICAN LEAGUE</span>
+          </div>
+          <div className={styles.s3ColBody}>
+            {al.map((t, i) => <TeamRow key={t.slug} t={t} rank={i + 1} />)}
+          </div>
+        </div>
 
-      {/* CTA */}
-      <div className={styles.s3CtaSection}>
-        <div className={styles.s3CtaCard}>
-          <h3 className={styles.s3CtaHeadline}>FIND TODAY'S EDGE</h3>
-          <p className={styles.s3CtaSubtext}>Daily AI-powered picks, projections, and insights</p>
-          <div className={styles.s3CtaButton}>
-            <span className={styles.s3CtaButtonText}>VIEW PICKS →</span>
+        {/* NL column */}
+        <div className={styles.s3Column}>
+          <div className={styles.s3ColHeader}>
+            <span className={styles.s3ColTitle}>NATIONAL LEAGUE</span>
+          </div>
+          <div className={styles.s3ColBody}>
+            {nl.map((t, i) => <TeamRow key={t.slug} t={t} rank={i + 1} />)}
           </div>
         </div>
       </div>
 
+      {/* Subtle footer */}
       <footer className={styles.footer}>
         <span className={styles.footerUrl}>maximussports.ai</span>
-        <span className={styles.footerDisclaimer}>For entertainment only. Please bet responsibly. 21+</span>
+        <span className={styles.footerDisclaimer}>Full Season Intelligence in app · For entertainment only. 21+</span>
       </footer>
     </div>
   );
