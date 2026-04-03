@@ -436,9 +436,9 @@
 /* Headline block */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 16px; margin-bottom: 8px;
+  margin-top: 14px; margin-bottom: 6px;
   text-align: center;
-  min-height: 152px;
+  min-height: 148px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
@@ -460,9 +460,9 @@
 /* Feature card */
 .slide2FeatureCard {
   position: relative; z-index: 10;
-  min-height: 320px;
+  min-height: 300px;
   border-radius: 20px;
-  padding: 14px 18px;
+  padding: 14px 18px 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow:
@@ -535,10 +535,10 @@
 /* Support grid */
 .slide2SupportGrid {
   position: relative; z-index: 10;
-  margin-top: 8px;
+  margin-top: 6px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 11px;
+  gap: 10px;
   flex: 1;
 }
 .slide2SupportCard {
@@ -558,8 +558,8 @@
 /* ── Maximus's Picks — game-intel pick modules ── */
 .slide2PicksList {
   display: flex; flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 9px;
+  margin-top: 10px;
   flex: 1;
 }
 .slide2PickCard {
@@ -629,8 +629,8 @@
 /* ── Pennant Race — 4 team modules (stretch to fill) ── */
 .slide2RaceTeams {
   display: flex; flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 9px;
+  margin-top: 10px;
   flex: 1;
 }
 .slide2RaceTeamCard {
@@ -726,7 +726,7 @@
   display: flex; flex-direction: column;
   align-items: center;
   min-height: 68px;
-  margin-top: 2px;
+  margin-top: 6px;
 }
 .s3TopPill {
   height: 44px; padding: 0 24px;
@@ -757,8 +757,8 @@
   position: relative; z-index: 10;
   display: flex; flex-direction: column;
   align-items: center;
-  padding: 2px 24px 4px;
-  margin-bottom: 8px;
+  padding: 8px 24px 4px;
+  margin-bottom: 6px;
   flex-shrink: 0;
 }
 .s3Title {
