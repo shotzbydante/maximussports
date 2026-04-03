@@ -118,9 +118,17 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
       <div className={styles.bgStreaks} />
       <div className={styles.bgNoise} />
 
-      {/* Header — compact, max 132px */}
+      {/* Top badge — matching Slide 2 */}
+      <div className={styles.s3TopBadge}>
+        <div className={styles.s3TopPill}>
+          <img src="/mlb-logo.png" alt="" className={styles.s3TopLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <span>MAXIMUS SPORTS</span>
+        </div>
+        <div className={styles.s3TopDate}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })}</div>
+      </div>
+
+      {/* Header */}
       <div className={styles.s3Header}>
-        <img src="/mlb-logo.png" alt="" className={styles.s3Logo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
         <h2 className={styles.s3Title}>WORLD SERIES OUTLOOK</h2>
         <span className={styles.s3Subtitle}>WHAT THE MAXIMUS PREDICTION MODEL SAYS</span>
       </div>
