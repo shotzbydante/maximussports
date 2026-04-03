@@ -482,13 +482,15 @@
   display: grid;
   grid-template-columns: 60px minmax(160px, 1fr) 75px 90px 55px 50px auto;
   gap: 10px;
-  padding: 7px var(--space-md);
+  padding: 8px var(--space-md);
   font-size: 0.58rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(0, 0, 0, 0.025);
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* ── Base schedule row — future/upcoming games (white, active) ── */
