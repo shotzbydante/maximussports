@@ -73,7 +73,7 @@ function GameStatusBadge({ ev }) {
   return <span className={styles.statusScheduled}>{timeStr || 'Scheduled'}</span>;
 }
 
-function ScheduleSection({ events }) {
+function ScheduleSection({ events, teamLogoUrl }) {
   // Determine current month key for auto-expand
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -169,11 +169,19 @@ function ScheduleSection({ events }) {
                         <div key={ev.id} className={`${styles.scheduleRow} ${isLive ? styles.scheduleRowLive : ''} ${isPast ? styles.scheduleRowPast : ''}`}>
                           <span className={styles.schedColDate}>{formatDate(ev.date)}</span>
                           <span className={styles.schedColOpp}>
-                            <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={22} />
-                            <span className={styles.schedOppText}>
-                              <span className={styles.schedHomeAway}>{ev.homeAway === 'home' ? 'vs' : '@'}</span>
-                              {ev.opponent}
-                            </span>
+                            {ev.homeAway === 'away' ? (
+                              <>
+                                <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={20} />
+                                <span className={styles.schedHomeAway}>@</span>
+                                <span className={styles.schedOppText}>{ev.opponent}</span>
+                              </>
+                            ) : (
+                              <>
+                                <OpponentLogo logoUrl={ev.opponentLogo} abbrev={ev.opponentAbbrev} size={20} />
+                                <span className={styles.schedHomeAway}>vs</span>
+                                <span className={styles.schedOppText}>{ev.opponent}</span>
+                              </>
+                            )}
                           </span>
                           <span className={`${styles.schedColResult} ${won ? styles.resultWin : ''} ${lost ? styles.resultLoss : ''}`}>
                             {ev.isFinal && scoreStr ? (
@@ -616,7 +624,7 @@ export default function MlbTeamDetail() {
           {scheduleLoading ? (
             <p className={styles.muted}>Loading schedule…</p>
           ) : (
-            <ScheduleSection events={schedule} />
+            <ScheduleSection events={schedule} teamLogoUrl={logoUrl} />
           )}
         </section>
       </div>

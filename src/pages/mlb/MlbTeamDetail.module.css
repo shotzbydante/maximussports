@@ -474,8 +474,8 @@
 
 .scheduleHeaderRow {
   display: grid;
-  grid-template-columns: 60px minmax(120px, 1fr) 65px 80px 50px 45px auto;
-  gap: 6px;
+  grid-template-columns: 60px minmax(140px, 1fr) 70px 85px 55px 50px auto;
+  gap: 8px;
   padding: 5px var(--space-md);
   font-size: 0.56rem;
   font-weight: 700;
@@ -487,21 +487,22 @@
 
 .scheduleRow {
   display: grid;
-  grid-template-columns: 60px minmax(120px, 1fr) 65px 80px 50px 45px auto;
-  gap: 6px;
-  padding: 7px var(--space-md);
+  grid-template-columns: 60px minmax(140px, 1fr) 70px 85px 55px 50px auto;
+  gap: 8px;
+  padding: 9px var(--space-md);
   font-size: 0.78rem;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   transition: background 0.1s;
 }
 .scheduleRow:last-child { border-bottom: none; }
 .scheduleRow:hover { background: var(--mlb-navy-soft); }
 
 .scheduleRowPast {
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(0, 0, 0, 0.025);
 }
-.scheduleRowPast:hover { background: rgba(0, 0, 0, 0.04); }
+.scheduleRowPast:hover { background: rgba(0, 0, 0, 0.045); }
+/* Future/upcoming rows are white by default (no class needed) */
 .scheduleRowLive {
   border-left: 3px solid #228b22;
   background: rgba(34, 139, 34, 0.04);
@@ -580,7 +581,7 @@
   .teamName { font-size: 1.15rem; }
   .scheduleHeaderRow,
   .scheduleRow {
-    grid-template-columns: 50px 1fr 55px 70px auto;
+    grid-template-columns: 50px 1fr 60px 75px auto;
     font-size: 0.68rem;
   }
   .schedColNetwork, .schedColBetting { display: none; }
