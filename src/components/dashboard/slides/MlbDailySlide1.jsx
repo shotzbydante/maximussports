@@ -9,30 +9,38 @@ import { stripEmojis } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import styles from './MlbSlides.module.css';
 
-/** Build a punchy hero headline from the day's briefing */
+/** Map player names to their teams for headline context */
+const PLAYER_TEAMS = {
+  'fernandez': 'D-BACKS', 'ohtani': 'DODGERS', 'painter': 'PHILLIES',
+  'judge': 'YANKEES', 'soto': 'YANKEES', 'acuna': 'BRAVES',
+  'betts': 'DODGERS', 'trout': 'ANGELS', 'degrom': 'RANGERS',
+  'cole': 'YANKEES', 'verlander': 'ASTROS', 'stanton': 'YANKEES',
+  'adames': 'GIANTS',
+};
+
+/** Build a punchy hero headline with team context from the day's briefing */
 function buildHeroHeadline(data) {
   const intel = parseBriefingToIntel(data?.mlbBriefing);
   const paras = intel?.rawParagraphs || [];
   const p1 = stripEmojis(paras[0] || '');
 
-  const names = [];
-  const namePatterns = [
-    /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander|Stanton|Adames))/g,
-    /(Dodgers|Yankees|Braves|Phillies|Astros|Mets|Blue Jays|D-backs|Diamondbacks)/gi,
-  ];
-  for (const pat of namePatterns) {
-    const matches = p1.match(pat);
-    if (matches) names.push(...matches.slice(0, 2));
-  }
+  const playerPat = /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander|Stanton|Adames))/g;
+  const playerMatches = p1.match(playerPat) || [];
 
-  if (names.length >= 2) {
-    const n1 = names[0].split(' ').pop().toUpperCase();
-    const n2 = names[1].split(' ').pop().toUpperCase();
-    return `${n1} BREAKS THROUGH. ${n2} SETS THE TONE.`;
+  if (playerMatches.length >= 2) {
+    const last1 = playerMatches[0].split(' ').pop();
+    const last2 = playerMatches[1].split(' ').pop();
+    const team1 = PLAYER_TEAMS[last1.toLowerCase()] || '';
+    const team2 = PLAYER_TEAMS[last2.toLowerCase()] || '';
+    const t1 = team1 ? `${team1}' ` : '';
+    const t2 = team2 ? `${team2}' ` : '';
+    return `${t1}${last1.toUpperCase()} BREAKS THROUGH. ${t2}${last2.toUpperCase()} SETS THE TONE.`;
   }
-  if (names.length === 1) {
-    const n1 = names[0].split(' ').pop().toUpperCase();
-    return `${n1} DELIVERS. THE BOARD TAKES SHAPE.`;
+  if (playerMatches.length === 1) {
+    const last1 = playerMatches[0].split(' ').pop();
+    const team1 = PLAYER_TEAMS[last1.toLowerCase()] || '';
+    const t1 = team1 ? `${team1}' ` : '';
+    return `${t1}${last1.toUpperCase()} DELIVERS. THE BOARD TAKES SHAPE.`;
   }
   return 'DEBUTS LAND. CONTENDERS ANSWER.';
 }
