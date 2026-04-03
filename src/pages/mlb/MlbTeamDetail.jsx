@@ -205,7 +205,15 @@ function ScheduleSection({ events, teamLogoUrl }) {
                             )}
                           </span>
                           <span className={styles.schedColBetting}>
-                            <span className={styles.bettingPlaceholder}>—</span>
+                            {ev.spreadDisplay || ev.totalDisplay ? (
+                              <span className={styles.bettingValue}>
+                                {ev.spreadDisplay || ''}
+                                {ev.spreadDisplay && ev.totalDisplay ? ' ' : ''}
+                                {ev.totalDisplay || ''}
+                              </span>
+                            ) : (
+                              <span className={styles.schedDash}>—</span>
+                            )}
                           </span>
                           <span className={styles.schedColLink}>
                             {ev.gamecastUrl && (

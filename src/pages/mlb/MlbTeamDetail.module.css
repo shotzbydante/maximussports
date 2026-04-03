@@ -549,6 +549,11 @@
 .schedColNetwork { font-size: 0.64rem; }
 .schedColBetting { font-size: 0.64rem; text-align: center; }
 .schedColLink { display: flex; align-items: center; }
+.bettingValue {
+  font-size: 0.62rem; font-weight: 600;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 .schedDash { color: var(--color-text-muted); font-weight: 400; }
 .schedMuted { color: var(--color-text-muted); }
 
