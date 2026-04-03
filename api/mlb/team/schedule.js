@@ -60,6 +60,39 @@ function shapeEvent(ev, teamId) {
   const isWin = gameStatus === 'final' && ourScore != null && oppScore != null && ourScore > oppScore;
   const isLoss = gameStatus === 'final' && ourScore != null && oppScore != null && ourScore < oppScore;
 
+  // Extract broadcast/network — ESPN schedule API nests broadcasts in multiple possible locations
+  const broadcasts = comp?.broadcasts || comp?.geoBroadcasts || ev?.competitions?.[0]?.broadcasts || [];
+  let network = null;
+  if (Array.isArray(broadcasts) && broadcasts.length > 0) {
+    // broadcasts can be: [{ names: ['ESPN'] }] or [{ media: { shortName: 'ESPN' }, ... }]
+    const first = broadcasts[0];
+    if (first?.names?.[0]) {
+      network = first.names[0];
+    } else if (first?.media?.shortName) {
+      network = first.media.shortName;
+    } else if (typeof first === 'string') {
+      network = first;
+    }
+  }
+
+  // Extract odds/betting data — ESPN schedule API includes odds on competition object
+  const espnOdds = comp?.odds?.[0] || null;
+  let spread = null;
+  let spreadDisplay = null;
+  let total = null;
+  let totalDisplay = null;
+
+  if (espnOdds) {
+    if (espnOdds.spread != null) {
+      const s = parseFloat(espnOdds.spread);
+      if (!isNaN(s)) { spread = s; spreadDisplay = s > 0 ? `+${s}` : `${s}`; }
+    }
+    if (espnOdds.overUnder != null) {
+      const t = parseFloat(espnOdds.overUnder);
+      if (!isNaN(t)) { total = t; totalDisplay = `O/U ${t}`; }
+    }
+  }
+
   return {
     id: ev.id,
     date: ev.date || comp?.date || null,
@@ -76,7 +109,11 @@ function shapeEvent(ev, teamId) {
     gameStatus,
     gamecastUrl,
     venue: comp?.venue?.fullName || null,
-    network: comp?.broadcasts?.[0]?.names?.[0] || null,
+    network,
+    spread,
+    spreadDisplay,
+    total,
+    totalDisplay,
     seasonType,
     seasonTypeName: seasonType === 1 ? 'preseason' : seasonType === 2 ? 'regular' : seasonType === 3 ? 'postseason' : null,
   };
