@@ -1,19 +1,17 @@
 /**
- * buildMlbCaption
+ * buildMlbCaption — Instagram caption generator for MLB Content Studio.
  *
- * Generates Instagram captions for MLB Content Studio posts.
- * Captions mirror the actual 3-slide carousel content:
- *   Slide 1: Hero hook (headline, teams)
- *   Slide 2: Intel briefing (Hot Off The Press, Pennant Race, Maximus Picks)
- *   Slide 3: World Series Outlook (AL/NL projections)
+ * Produces social-native, editorial captions that mirror all 3 carousel slides.
+ * Voice: ESPN × The Athletic × premium startup brand.
+ * Data: same sources as MlbDailySlide1/2/3 — zero drift.
  *
- * Data is pulled from the SAME sources as the slides — no drift.
+ * Structure: identity opener → hero story → board/picks → outlook → CTA
  */
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 
-// ── Team emoji map ──────────────────────────────────────────────────────────
+// ── Team emojis ─────────────────────────────────────────────────────────────
 
 const TEAM_EMOJIS = {
   'Yankees': '🗽', 'Red Sox': '🧦', 'Blue Jays': '🐦', 'Rays': '⚡', 'Orioles': '🐦',
@@ -21,246 +19,277 @@ const TEAM_EMOJIS = {
   'Astros': '🚀', 'Rangers': '⭐', 'Mariners': '🧭', 'Athletics': '🐘', 'Angels': '😇',
   'Braves': '🪓', 'Mets': '🍎', 'Phillies': '🔔', 'Marlins': '🐟', 'Nationals': '🏛️',
   'Cubs': '🐻', 'Brewers': '🍺', 'Cardinals': '🐦', 'Pirates': '🏴‍☠️', 'Reds': '🔴',
-  'Dodgers': '🔵', 'Diamondbacks': '🐍', 'Padres': '🟤', 'Giants': '🧡', 'Rockies': '🏔️',
+  'Dodgers': '💙', 'Diamondbacks': '🐍', 'Padres': '🟤', 'Giants': '🧡', 'Rockies': '🏔️',
 };
 
-function getTeamEmoji(teamName) {
-  if (!teamName) return '⚾';
-  for (const [key, emoji] of Object.entries(TEAM_EMOJIS)) {
-    if (teamName.includes(key)) return emoji;
+function teamEmoji(name) {
+  if (!name) return '⚾';
+  for (const [k, e] of Object.entries(TEAM_EMOJIS)) {
+    if (name.includes(k)) return e;
   }
   return '⚾';
 }
 
-// ── Caption builders per section ────────────────────────────────────────────
+// ── Rotating brand openers ──────────────────────────────────────────────────
 
-/**
- * Daily briefing caption — mirrors all 3 slides of the carousel.
- * Uses same data sources as MlbDailySlide1/2/3.
- */
-function dailyCaption(payload) {
-  const intel = payload.intelBriefing;
+const OPENERS = [
+  '🔥 When the stars show up… the board moves ⚾',
+  '⚾🔥 The edges show up before the standings do.',
+  '🔥 Early in the season, the signals are already loud ⚾',
+  '⚾ When the model and the market align, you pay attention 🔥',
+  '🔥 Stars. Signals. Edges. The board is live ⚾',
+];
+
+function pickOpener(seed) {
+  // Deterministic-ish rotation based on day of year
+  const dayOfYear = seed || Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  return OPENERS[dayOfYear % OPENERS.length];
+}
+
+// ── Rotating CTAs ───────────────────────────────────────────────────────────
+
+const CTAS = [
+  'Stay locked in. More edges daily 🔥',
+  'This board is forming fast. More tomorrow.',
+  "We're just getting started. More intel daily ⚾",
+  'The season moves fast. Stay ahead → maximussports.ai',
+  'Full board + daily picks → maximussports.ai',
+];
+
+function pickCTA(seed) {
+  const dayOfYear = seed || Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  return CTAS[(dayOfYear + 2) % CTAS.length]; // offset from opener
+}
+
+// ── Helper: extract player/team stories from headline ───────────────────────
+
+const PLAYER_TEAM_MAP = {
+  'fernandez': { last: 'Fernandez', team: 'D-Backs', emoji: '🐍' },
+  'ohtani': { last: 'Ohtani', team: 'Dodgers', emoji: '💙' },
+  'judge': { last: 'Judge', team: 'Yankees', emoji: '🗽' },
+  'soto': { last: 'Soto', team: 'Yankees', emoji: '🗽' },
+  'betts': { last: 'Betts', team: 'Dodgers', emoji: '💙' },
+  'acuna': { last: 'Acuña', team: 'Braves', emoji: '🪓' },
+  'trout': { last: 'Trout', team: 'Angels', emoji: '😇' },
+  'cole': { last: 'Cole', team: 'Yankees', emoji: '🗽' },
+  'painter': { last: 'Painter', team: 'Phillies', emoji: '🔔' },
+  'stanton': { last: 'Stanton', team: 'Yankees', emoji: '🗽' },
+  'adames': { last: 'Adames', team: 'Giants', emoji: '🧡' },
+  'verlander': { last: 'Verlander', team: 'Astros', emoji: '🚀' },
+};
+
+function extractHeroStories(briefingText) {
+  if (!briefingText) return [];
+  const lower = briefingText.toLowerCase();
+  const found = [];
+  for (const [key, info] of Object.entries(PLAYER_TEAM_MAP)) {
+    if (lower.includes(key)) found.push(info);
+  }
+  return found.slice(0, 2);
+}
+
+// ── Helper: build hero summary (Slide 1) ────────────────────────────────────
+
+function buildHeroSummary(intel) {
+  const headline = intel?.headline || '';
+  const stories = extractHeroStories(headline + ' ' + (intel?.rawParagraphs?.[0] || ''));
+
+  if (stories.length >= 2) {
+    return `${stories[0].emoji} ${stories[0].team}' ${stories[0].last} breaks out in a BIG way.\n${stories[1].emoji} ${stories[1].last} sets the tone early for ${stories[1].team}.`;
+  }
+  if (stories.length === 1) {
+    return `${stories[0].emoji} ${stories[0].team}' ${stories[0].last} makes a statement on Opening Day.`;
+  }
+  // Fallback: use headline directly but clean it up
+  if (headline && headline.length > 20) {
+    return headline;
+  }
+  return 'The 2026 season is already delivering.';
+}
+
+// ── Helper: build board + pennant summary (Slide 2) ─────────────────────────
+
+function buildBoardSummary(seasonIntel) {
+  const teams = getTopTeams(seasonIntel, 4);
+  if (teams.length === 0) return null;
+
   const lines = [];
-
-  // ── HOOK ──
-  lines.push('⚾🔥 Today\'s MLB Daily Briefing is LIVE.\n');
-
-  // ── SLIDE 1: Hero headline ──
-  const headline = intel?.headline || payload.headline || 'MLB Daily Briefing';
-  lines.push(headline);
-  lines.push('');
-
-  // ── SLIDE 2: Hot Off The Press (key news bullets) ──
-  const bullets = (intel?.bullets || payload.bullets || []).slice(0, 4);
-  if (bullets.length > 0) {
-    lines.push('📰 Hot Off The Press:');
-    for (const b of bullets) {
-      lines.push(`• ${b}`);
-    }
-    lines.push('');
+  for (const t of teams) {
+    const e = teamEmoji(t.name || t.abbrev);
+    lines.push(`${e} ${t.abbrev} (${t.projectedWins}W)`);
   }
-
-  // ── SLIDE 2: Pennant Race (top projected teams from Season Intelligence) ──
-  const topTeams = buildTopProjectedTeams(payload.seasonIntel);
-  if (topTeams.length > 0) {
-    lines.push('🏆 Pennant Race — Top Projected Teams:');
-    for (const t of topTeams) {
-      const emoji = getTeamEmoji(t.name);
-      lines.push(`${emoji} ${t.abbrev}: ${t.projectedWins}W projected${t.signal ? ` — ${t.signal}` : ''}`);
-    }
-    lines.push('');
-  }
-
-  // ── SLIDE 2: Maximus's Picks (from actual picks board) ──
-  const picks = buildPicksSummary(payload);
-  if (picks.length > 0) {
-    lines.push('🎯 Maximus\'s Picks:');
-    for (const p of picks) {
-      lines.push(`• ${p}`);
-    }
-    lines.push('');
-  }
-
-  // ── SLIDE 3: World Series Outlook (AL/NL leaders) ──
-  const outlook = buildOutlookSummary(payload.seasonIntel);
-  if (outlook) {
-    lines.push('📊 World Series Outlook:');
-    lines.push(outlook);
-    lines.push('');
-  }
-
-  // ── CTA ──
-  lines.push('Full intel + picks → maximussports.ai');
-
-  // ── Hashtags (max 5) ──
-  const hashtags = ['#MLB', '#Baseball', '#MaximusSports', '#MaximusPicks', '#BaseballIntel'];
-
-  return { caption: lines.join('\n'), hashtags };
+  return lines.join('\n');
 }
 
-/**
- * Build top 4 projected teams from Season Intelligence data.
- * Same source as Slide 2 Pennant Race + Slide 3 board.
- */
-function buildTopProjectedTeams(seasonIntel) {
-  // If seasonIntel has al/nl arrays (from normalizeMlbImagePayload)
-  if (seasonIntel?.al || seasonIntel?.nl) {
-    const all = [...(seasonIntel.al || []), ...(seasonIntel.nl || [])];
-    all.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
-    return all.slice(0, 4).map(t => ({
-      abbrev: t.abbrev,
-      name: t.abbrev, // abbreviated for emoji lookup
-      projectedWins: t.projectedWins,
-      signal: t.signals?.[0] || null,
-    }));
-  }
+// ── Helper: build picks summary (Slide 2) ───────────────────────────────────
 
-  // Fallback: compute from Season Model directly
-  const entries = [];
-  for (const team of MLB_TEAMS) {
-    const proj = getTeamProjection(team.slug);
-    if (!proj || !proj.projectedWins) continue;
-    entries.push({
-      abbrev: team.abbrev,
-      name: team.name,
-      projectedWins: proj.projectedWins,
-      signal: proj.signals?.[0] || null,
-    });
-  }
-  entries.sort((a, b) => b.projectedWins - a.projectedWins);
-  return entries.slice(0, 4);
-}
-
-/**
- * Build picks summary from actual picks data.
- * Same source as Slide 2 Maximus's Picks.
- */
-function buildPicksSummary(payload) {
-  const picks = [];
+function buildPicksLine(payload) {
   const cats = payload.picks?.categories || payload.mlbPicks?.categories || {};
   const all = [
-    ...(cats.pickEms || []).map(p => ({ ...p, cat: "Pick 'Em" })),
+    ...(cats.pickEms || []).map(p => ({ ...p, cat: 'ML' })),
     ...(cats.ats || []).map(p => ({ ...p, cat: 'ATS' })),
     ...(cats.totals || []).map(p => ({ ...p, cat: 'O/U' })),
   ];
   all.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
 
-  for (const p of all.slice(0, 3)) {
-    const label = p.pick?.label || '';
-    const cat = p.cat || '';
-    if (label) picks.push(`${cat}: ${label}`);
-  }
-  return picks;
+  const labels = all.slice(0, 3).map(p => p.pick?.label || '').filter(Boolean);
+  if (labels.length === 0) return null;
+  return labels.join(', ');
 }
 
-/**
- * Build World Series Outlook summary line.
- * Same source as Slide 3 league board.
- */
-function buildOutlookSummary(seasonIntel) {
-  if (!seasonIntel?.al?.length && !seasonIntel?.nl?.length) {
-    // Fallback from model
-    const entries = [];
+// ── Helper: build outlook summary (Slide 3) ─────────────────────────────────
+
+function buildOutlookNarrative(seasonIntel) {
+  const alTeams = getTopTeams(seasonIntel, 5, 'AL');
+  const nlTeams = getTopTeams(seasonIntel, 5, 'NL');
+
+  const nlTop = nlTeams[0];
+  const alTop = alTeams[0];
+  const alSecond = alTeams[1];
+
+  if (!nlTop && !alTop) return null;
+
+  const parts = [];
+  if (nlTop) {
+    const e = teamEmoji(nlTop.name || nlTop.abbrev);
+    parts.push(`${e} ${nlTop.abbrev} leads the NL`);
+  }
+  if (alTop && alSecond) {
+    const e1 = teamEmoji(alTop.name || alTop.abbrev);
+    const e2 = teamEmoji(alSecond.name || alSecond.abbrev);
+    parts.push(`${e1} ${alTop.abbrev} and ${e2} ${alSecond.abbrev} pace the AL`);
+  } else if (alTop) {
+    const e = teamEmoji(alTop.name || alTop.abbrev);
+    parts.push(`${e} ${alTop.abbrev} paces the AL`);
+  }
+
+  return parts.join(', while ') + '.';
+}
+
+// ── Shared: get top teams from Season Intelligence or model ─────────────────
+
+function getTopTeams(seasonIntel, count = 4, leagueFilter = null) {
+  let pool = [];
+
+  if (seasonIntel?.al || seasonIntel?.nl) {
+    pool = [...(seasonIntel.al || []), ...(seasonIntel.nl || [])];
+  } else {
     for (const team of MLB_TEAMS) {
       const proj = getTeamProjection(team.slug);
       if (!proj || !proj.projectedWins) continue;
-      entries.push({ abbrev: team.abbrev, projectedWins: proj.projectedWins, league: team.league });
+      pool.push({
+        abbrev: team.abbrev, name: team.name, league: team.league,
+        projectedWins: proj.projectedWins, signals: proj.signals ?? [],
+      });
     }
-    entries.sort((a, b) => b.projectedWins - a.projectedWins);
-    const alTop = entries.find(e => e.league === 'AL');
-    const nlTop = entries.find(e => e.league === 'NL');
-    if (alTop && nlTop) {
-      return `AL: ${alTop.abbrev} (${alTop.projectedWins}W) | NL: ${nlTop.abbrev} (${nlTop.projectedWins}W)`;
-    }
-    return null;
   }
 
-  const alTop = seasonIntel.al?.[0];
-  const nlTop = seasonIntel.nl?.[0];
-  const parts = [];
-  if (alTop) parts.push(`AL: ${alTop.abbrev} (${alTop.projectedWins}W)`);
-  if (nlTop) parts.push(`NL: ${nlTop.abbrev} (${nlTop.projectedWins}W)`);
-  return parts.join(' | ') || null;
+  if (leagueFilter) {
+    pool = pool.filter(t => t.league === leagueFilter);
+  }
+  pool.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
+  return pool.slice(0, count);
 }
 
-// ── Other section builders (unchanged) ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  DAILY BRIEFING CAPTION — social-native, editorial, mirrors all 3 slides
+// ═══════════════════════════════════════════════════════════════════════════
+
+function dailyCaption(payload) {
+  const intel = payload.intelBriefing;
+  const parts = [];
+
+  // ── 1. SIGNATURE OPENER ──
+  parts.push(pickOpener());
+  parts.push('');
+
+  // ── 2. SLIDE 1: Hero storyline ──
+  const heroSummary = buildHeroSummary(intel);
+  parts.push(heroSummary);
+  parts.push('');
+
+  // Transition line
+  parts.push('And just like that, the 2026 board is already taking shape.');
+  parts.push('');
+
+  // ── 3. SLIDE 2: Board + Race ──
+  const boardSummary = buildBoardSummary(payload.seasonIntel);
+  if (boardSummary) {
+    parts.push('📊 Early model signals:');
+    parts.push(boardSummary);
+    parts.push('');
+  }
+
+  // ── 3b. SLIDE 2: Picks ──
+  const picksLine = buildPicksLine(payload);
+  if (picksLine) {
+    parts.push(`💰 Maximus likes ${picksLine}.`);
+    parts.push('Edges are showing early.');
+    parts.push('');
+  }
+
+  // ── 4. SLIDE 3: World Series Outlook ──
+  const outlookLine = buildOutlookNarrative(payload.seasonIntel);
+  if (outlookLine) {
+    parts.push(`🏆 ${outlookLine}`);
+    parts.push('');
+  }
+
+  // ── 5. CTA ──
+  parts.push(pickCTA());
+
+  // ── 6. Hashtags ──
+  const hashtags = ['#MLB', '#Baseball', '#SportsBetting', '#MLBPredictions', '#MaximusPicks'];
+
+  return { caption: parts.join('\n'), hashtags };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  OTHER SECTION BUILDERS (team, game, picks, generic)
+// ═══════════════════════════════════════════════════════════════════════════
 
 function teamCaption(payload) {
   const teamName = payload.teamA?.name || payload.headline || 'Team';
-  const emoji = getTeamEmoji(teamName);
+  const emoji = teamEmoji(teamName);
   const bullets = (payload.bullets || []).slice(0, 3);
-  const lines = [];
-  lines.push(`${emoji} ${teamName} Intel Report\n`);
-  lines.push(payload.subhead || 'Full model-driven breakdown');
-  lines.push('');
+  const lines = [`${emoji} ${teamName} Intel Report\n`, payload.subhead || 'Full model-driven breakdown', ''];
   if (bullets.length > 0) {
     lines.push('📊 Breakdown:');
     for (const b of bullets) lines.push(`• ${b}`);
     lines.push('');
   }
   lines.push('More → maximussports.ai');
-  return {
-    caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', `#${teamName.replace(/\s+/g, '')}`, '#MaximusSports', '#BaseballIntel'],
-  };
+  return { caption: lines.join('\n'), hashtags: ['#MLB', '#Baseball', `#${teamName.replace(/\s+/g, '')}`, '#MaximusSports', '#BaseballIntel'] };
 }
 
 function gameCaption(payload) {
   const away = payload.teamA?.name || 'Away';
   const home = payload.teamB?.name || 'Home';
-  const eA = getTeamEmoji(away);
-  const eH = getTeamEmoji(home);
   const signals = payload.signals || [];
-  const lines = [];
-  lines.push(`${eA} ${away} at ${eH} ${home}\n`);
-  lines.push(payload.subhead || 'Game preview and analysis');
-  lines.push('');
-  if (signals.length > 0) {
-    lines.push('📐 Market snapshot:');
-    for (const s of signals) lines.push(`• ${s}`);
-    lines.push('');
-  }
+  const lines = [`${teamEmoji(away)} ${away} at ${teamEmoji(home)} ${home}\n`, payload.subhead || 'Game preview and analysis', ''];
+  if (signals.length > 0) { lines.push('📐 Market snapshot:'); for (const s of signals) lines.push(`• ${s}`); lines.push(''); }
   lines.push('More → maximussports.ai');
-  return {
-    caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', '#GamePreview', '#MaximusSports', '#MaximusPicks'],
-  };
+  return { caption: lines.join('\n'), hashtags: ['#MLB', '#Baseball', '#GamePreview', '#MaximusSports', '#MaximusPicks'] };
 }
 
 function picksCaption(payload) {
-  const signals = payload.signals || [];
   const conf = payload.keyPick?.confidence;
-  const lines = [];
-  lines.push('⚾ Today\'s MLB picks board is LIVE.\n');
-  lines.push(payload.headline || "Maximus's Picks");
-  lines.push('');
+  const lines = ['⚾ Today\'s MLB picks board is LIVE.\n', payload.headline || "Maximus's Picks", ''];
   if (payload.keyPick) {
-    const confLabel = conf === 'high' ? '🟢 HIGH' : conf === 'medium' ? '🟡 MEDIUM' : '⚪ LOW';
-    lines.push(`🎯 Top play: ${payload.keyPick.label} (${confLabel})`);
-    lines.push('');
+    const cl = conf === 'high' ? '🟢 HIGH' : conf === 'medium' ? '🟡 MEDIUM' : '⚪ LOW';
+    lines.push(`🎯 Top play: ${payload.keyPick.label} (${cl})\n`);
   }
-  if (signals.length > 0) {
-    lines.push('📊 Board signals:');
-    for (const s of signals) lines.push(`• ${s}`);
-    lines.push('');
-  }
+  const signals = payload.signals || [];
+  if (signals.length > 0) { lines.push('📊 Board signals:'); for (const s of signals) lines.push(`• ${s}`); lines.push(''); }
   lines.push('More → maximussports.ai');
-  return {
-    caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', '#SportsBetting', '#MaximusPicks', '#MaximusSports'],
-  };
+  return { caption: lines.join('\n'), hashtags: ['#MLB', '#Baseball', '#SportsBetting', '#MaximusPicks', '#MaximusSports'] };
 }
 
 function genericCaption(payload) {
-  const lines = [];
-  lines.push(`⚾ ${payload.headline || 'MLB Intelligence'}\n`);
+  const lines = [`⚾ ${payload.headline || 'MLB Intelligence'}\n`];
   if (payload.subhead) lines.push(payload.subhead);
-  lines.push('');
-  lines.push('More → maximussports.ai');
-  return {
-    caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', '#MaximusSports'],
-  };
+  lines.push('', 'More → maximussports.ai');
+  return { caption: lines.join('\n'), hashtags: ['#MLB', '#Baseball', '#MaximusSports'] };
 }
 
 // ── Main export ─────────────────────────────────────────────────────────────
@@ -274,11 +303,6 @@ const SECTION_BUILDERS = {
   'maximus-picks': picksCaption,
 };
 
-/**
- * Build an MLB Instagram caption from a normalized payload.
- * @param {Object} payload - normalized MLB image payload
- * @returns {{ shortCaption: string, longCaption: string, hashtags: string[] }}
- */
 export function buildMlbCaption(payload) {
   const builder = SECTION_BUILDERS[payload.section] || genericCaption;
   const result = builder(payload);
