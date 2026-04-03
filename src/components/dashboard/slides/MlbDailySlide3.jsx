@@ -130,7 +130,10 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
         {/* AL column */}
         <div className={styles.s3Col}>
           <div className={styles.s3ColHead}>
-            <span className={styles.s3ColTitle}>AMERICAN LEAGUE</span>
+            <div className={styles.s3ColHeadMain}>
+              <img src="/al-logo.png" alt="" className={styles.s3LeagueLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+              <span className={styles.s3ColTitle}>AMERICAN LEAGUE</span>
+            </div>
             <span className={styles.s3ColSub}>TOP 5 BY PROJECTED WINS</span>
           </div>
           <div className={styles.s3ColBody}>
@@ -141,7 +144,10 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
         {/* NL column */}
         <div className={styles.s3Col}>
           <div className={styles.s3ColHead}>
-            <span className={styles.s3ColTitle}>NATIONAL LEAGUE</span>
+            <div className={styles.s3ColHeadMain}>
+              <img src="/nl-logo.png" alt="" className={styles.s3LeagueLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+              <span className={styles.s3ColTitle}>NATIONAL LEAGUE</span>
+            </div>
             <span className={styles.s3ColSub}>TOP 5 BY PROJECTED WINS</span>
           </div>
           <div className={styles.s3ColBody}>

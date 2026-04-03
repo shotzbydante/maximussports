@@ -186,47 +186,50 @@
 .slide1BgBase {
   position: absolute; inset: 0; z-index: 0;
   background:
-    radial-gradient(circle at 50% 20%, rgba(190,40,70,0.38), transparent 26%),
-    radial-gradient(circle at 50% 58%, rgba(150,10,35,0.28), transparent 28%),
-    linear-gradient(180deg, #5d0018 0%, #6f0621 18%, #530015 48%, #32000d 76%, #180007 100%);
+    radial-gradient(circle at 50% 18%, rgba(200,45,80,0.34), transparent 28%),
+    radial-gradient(circle at 50% 58%, rgba(150,12,35,0.24), transparent 32%),
+    linear-gradient(180deg, #6d001b 0%, #7a0622 18%, #5a0017 48%, #33000d 76%, #170006 100%);
 }
 .slide1BgLights {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
-    radial-gradient(circle at 11% 28%, rgba(255,255,255,0.28), transparent 10%),
-    radial-gradient(circle at 89% 28%, rgba(255,255,255,0.28), transparent 10%),
-    radial-gradient(circle at 9% 30%, rgba(255,90,130,0.22), transparent 20%),
-    radial-gradient(circle at 91% 30%, rgba(255,90,130,0.22), transparent 20%),
-    radial-gradient(circle at 18% 22%, rgba(255,200,210,0.12), transparent 12%),
-    radial-gradient(circle at 82% 22%, rgba(255,200,210,0.12), transparent 12%);
+    radial-gradient(circle at 12% 30%, rgba(255,255,255,0.30), transparent 10%),
+    radial-gradient(circle at 88% 30%, rgba(255,255,255,0.30), transparent 10%),
+    radial-gradient(circle at 10% 32%, rgba(255,90,130,0.22), transparent 22%),
+    radial-gradient(circle at 90% 32%, rgba(255,90,130,0.22), transparent 22%),
+    radial-gradient(circle at 20% 22%, rgba(255,200,210,0.14), transparent 14%),
+    radial-gradient(circle at 80% 22%, rgba(255,200,210,0.14), transparent 14%),
+    radial-gradient(circle at 50% 12%, rgba(255,160,180,0.08), transparent 20%);
 }
 .slide1BgArena {
   position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background:
-    linear-gradient(172deg, transparent 35%, rgba(255,255,255,0.04) 38%, transparent 41%),
-    linear-gradient(175deg, transparent 48%, rgba(255,255,255,0.035) 50%, transparent 52%),
-    linear-gradient(178deg, transparent 58%, rgba(255,255,255,0.03) 60%, transparent 62%),
-    linear-gradient(8deg, transparent 35%, rgba(255,90,120,0.03) 38%, transparent 41%),
-    linear-gradient(5deg, transparent 48%, rgba(255,90,120,0.025) 50%, transparent 52%);
+    linear-gradient(170deg, transparent 32%, rgba(255,255,255,0.06) 36%, transparent 40%),
+    linear-gradient(174deg, transparent 44%, rgba(255,255,255,0.05) 47%, transparent 50%),
+    linear-gradient(178deg, transparent 55%, rgba(255,255,255,0.04) 58%, transparent 61%),
+    linear-gradient(6deg, transparent 32%, rgba(255,90,120,0.05) 36%, transparent 40%),
+    linear-gradient(3deg, transparent 44%, rgba(255,90,120,0.04) 47%, transparent 50%),
+    radial-gradient(ellipse 900px 300px at 50% 52%, rgba(255,60,90,0.06) 0%, transparent 60%);
 }
 .slide1BgParticles {
   position: absolute; inset: 0; z-index: 3; pointer-events: none;
   background:
-    radial-gradient(1px 1px at 15% 18%, rgba(255,255,255,0.50), transparent),
-    radial-gradient(1px 1px at 78% 24%, rgba(255,255,255,0.45), transparent),
-    radial-gradient(1px 1px at 42% 12%, rgba(255,255,255,0.35), transparent),
-    radial-gradient(1px 1px at 65% 32%, rgba(255,255,255,0.30), transparent),
-    radial-gradient(1px 1px at 28% 45%, rgba(255,255,255,0.25), transparent),
-    radial-gradient(1px 1px at 85% 48%, rgba(255,255,255,0.25), transparent),
-    radial-gradient(1.5px 1.5px at 52% 22%, rgba(255,200,210,0.40), transparent),
-    radial-gradient(1.5px 1.5px at 35% 35%, rgba(255,200,210,0.30), transparent),
-    linear-gradient(135deg, transparent 30%, rgba(255,100,120,0.04) 45%, transparent 55%),
-    linear-gradient(155deg, transparent 42%, rgba(255,80,100,0.035) 52%, transparent 58%),
-    linear-gradient(120deg, transparent 55%, rgba(255,120,140,0.03) 65%, transparent 72%);
+    radial-gradient(1.5px 1.5px at 12% 16%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px 1px at 78% 22%, rgba(255,255,255,0.50), transparent),
+    radial-gradient(1px 1px at 42% 10%, rgba(255,255,255,0.40), transparent),
+    radial-gradient(1.5px 1.5px at 65% 28%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1px 1px at 25% 42%, rgba(255,255,255,0.28), transparent),
+    radial-gradient(1px 1px at 88% 45%, rgba(255,255,255,0.28), transparent),
+    radial-gradient(2px 2px at 52% 20%, rgba(255,200,210,0.45), transparent),
+    radial-gradient(1.5px 1.5px at 35% 32%, rgba(255,200,210,0.35), transparent),
+    radial-gradient(1px 1px at 72% 38%, rgba(255,180,200,0.25), transparent),
+    linear-gradient(130deg, transparent 28%, rgba(255,100,120,0.06) 42%, transparent 52%),
+    linear-gradient(150deg, transparent 38%, rgba(255,80,100,0.05) 48%, transparent 56%),
+    linear-gradient(115deg, transparent 52%, rgba(255,120,140,0.04) 62%, transparent 70%);
 }
 .slide1Noise {
   position: absolute; inset: 0; z-index: 4;
-  opacity: 0.035; pointer-events: none;
+  opacity: 0.032; pointer-events: none;
   background-image:
     url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 200px 200px;
@@ -265,12 +268,12 @@
   width: 100%;
   display: flex; justify-content: center; align-items: center;
   margin-top: 14px;
-  min-height: 205px;
+  min-height: 215px;
   flex-shrink: 0;
 }
 .slide1BriefingHeroGlow {
   position: absolute;
-  width: 760px; height: 200px;
+  width: 780px; height: 210px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255,255,255,0.14), rgba(255,80,110,0.10) 38%, transparent 74%);
   filter: blur(22px);
@@ -278,16 +281,16 @@
 }
 .slide1BriefingHeroCard {
   position: relative; z-index: 2;
-  width: 82%;
-  min-height: 150px;
+  width: 80%;
+  min-height: 155px;
   border-radius: 24px;
-  padding: 26px 22px;
+  padding: 28px 24px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.05));
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
   border: 1px solid rgba(255,255,255,0.18);
   box-shadow:
-    0 0 28px rgba(255,90,120,0.12),
+    0 0 30px rgba(255,90,120,0.12),
     0 0 14px rgba(255,255,255,0.05),
     inset 0 1px 0 rgba(255,255,255,0.18);
 }
@@ -296,7 +299,7 @@
 }
 .slide1BriefingHeroTitle {
   font-size: 34px; line-height: 1; font-weight: 900;
-  letter-spacing: 2px; text-transform: uppercase;
+  letter-spacing: 2.2px; text-transform: uppercase;
   color: rgba(255,255,255,0.96);
   text-align: center;
   text-shadow: 0 0 16px rgba(255,255,255,0.08);
@@ -319,13 +322,13 @@
 }
 .slide1MascotHalo {
   position: absolute;
-  width: 430px; height: 430px;
+  width: 450px; height: 450px;
   border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(255,255,255,0.34) 0%,
-    rgba(255,120,150,0.28) 20%,
-    rgba(255,70,110,0.18) 40%,
-    rgba(255,40,80,0.08) 58%,
+    rgba(255,255,255,0.36) 0%,
+    rgba(255,120,150,0.30) 20%,
+    rgba(255,70,110,0.20) 40%,
+    rgba(255,40,80,0.10) 58%,
     transparent 78%);
   filter: blur(10px);
   z-index: 0;
@@ -335,7 +338,7 @@
 }
 .slide1Mascot {
   position: relative; z-index: 2;
-  width: 330px; height: auto; object-fit: contain;
+  width: 335px; max-width: none; height: auto; object-fit: contain;
   filter: drop-shadow(0 18px 32px rgba(0,0,0,0.34));
 }
 .liveMotion .slide1Mascot {
@@ -343,8 +346,8 @@
 }
 .slide1MascotShadow {
   position: absolute;
-  bottom: 70px;
-  width: 290px; height: 52px;
+  bottom: 72px;
+  width: 300px; height: 54px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255,80,110,0.22), rgba(0,0,0,0.0) 68%);
   filter: blur(18px);
@@ -358,7 +361,7 @@
   margin-top: 0;
   display: flex; justify-content: center; align-items: flex-start;
   text-align: center;
-  min-height: 220px;
+  min-height: 230px;
   flex: 1;
 }
 .slide1Headline {
@@ -431,9 +434,9 @@
 /* Headline block */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 16px; margin-bottom: 10px;
+  margin-top: 16px; margin-bottom: 8px;
   text-align: center;
-  min-height: 162px;
+  min-height: 156px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
@@ -455,7 +458,7 @@
 /* Feature card */
 .slide2FeatureCard {
   position: relative; z-index: 10;
-  min-height: 398px;
+  min-height: 365px;
   border-radius: 20px;
   padding: 16px 18px;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
@@ -485,7 +488,7 @@
 .slide2BulletList {
   margin-top: 12px;
   display: flex; flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 .slide2BulletRow {
   display: flex; align-items: flex-start;
@@ -509,7 +512,7 @@
 }
 /* Feature card bullet text */
 .slide2FeatureText {
-  font-size: 21px; line-height: 1.30; font-weight: 700;
+  font-size: 22px; line-height: 1.30; font-weight: 700;
   color: rgba(255,255,255,0.94);
 }
 /* Support card bullet text — 18px */
@@ -521,8 +524,8 @@
 /* Card takeaway */
 .slide2CardTakeaway {
   margin-top: auto;
-  padding-top: 12px;
-  font-size: 15px; line-height: 1.28; font-weight: 700;
+  padding-top: 10px;
+  font-size: 15px; line-height: 1.26; font-weight: 700;
   color: rgba(255,255,255,0.74);
   border-top: 1px solid rgba(255,255,255,0.06);
 }
@@ -530,14 +533,14 @@
 /* Support grid */
 .slide2SupportGrid {
   position: relative; z-index: 10;
-  margin-top: 12px;
+  margin-top: 10px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   flex: 1;
 }
 .slide2SupportCard {
-  min-height: 356px;
+  min-height: 372px;
   border-radius: 18px;
   padding: 16px 16px 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
@@ -775,6 +778,14 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
   flex-shrink: 0;
 }
+.s3ColHeadMain {
+  display: inline-flex; align-items: center;
+  gap: 8px;
+}
+.s3LeagueLogo {
+  width: 18px; height: 18px; object-fit: contain;
+  opacity: 0.85;
+}
 .s3ColTitle {
   font-size: 18px; font-weight: 800; letter-spacing: 1.1px;
   line-height: 1;
@@ -782,6 +793,7 @@
 }
 .s3ColSub {
   font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+  margin-top: 3px;
   line-height: 1;
   text-transform: uppercase; color: rgba(255,255,255,0.58);
   margin-top: 4px;
@@ -842,12 +854,12 @@
   object-fit: contain; border-radius: 2px; flex-shrink: 0;
 }
 .s3Name {
-  font-size: 24px; font-weight: 900; line-height: 0.95;
+  font-size: 25px; font-weight: 900; line-height: 0.95;
   letter-spacing: 0.2px;
   color: rgba(255,255,255,0.98);
 }
 .s3Record {
-  font-size: 13px; font-weight: 700; line-height: 1.2;
+  font-size: 14px; font-weight: 700; line-height: 1.2;
   color: rgba(255,255,255,0.74);
   margin-top: 4px;
   margin-left: 20px; /* align under name, past rank */
@@ -855,7 +867,7 @@
 
 /* Odds badge */
 .s3OddsBadge {
-  min-width: 72px; height: 34px;
+  min-width: 74px; height: 35px;
   padding: 0 10px;
   border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
@@ -867,7 +879,7 @@
 }
 .s3TrophyIcon { flex-shrink: 0; }
 .s3OddsVal {
-  font-size: 18px; font-weight: 900; line-height: 1;
+  font-size: 19px; font-weight: 900; line-height: 1;
   color: #F7D37A;
   font-variant-numeric: tabular-nums;
 }
@@ -879,13 +891,13 @@
   padding: 10px 0 0;
 }
 .s3WinsNum {
-  font-size: 54px; font-weight: 900; line-height: 0.88;
+  font-size: 58px; font-weight: 900; line-height: 0.88;
   letter-spacing: -1px;
   color: rgba(255,255,255,0.98);
   font-variant-numeric: tabular-nums;
 }
 .s3WinsLabel {
-  font-size: 12px; font-weight: 800; line-height: 1;
+  font-size: 13px; font-weight: 800; line-height: 1;
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: rgba(255,255,255,0.62);
@@ -912,7 +924,7 @@
   padding-top: 10px;
 }
 .s3Rationale {
-  font-size: 16px; line-height: 1.28; font-weight: 600;
+  font-size: 17px; line-height: 1.30; font-weight: 600;
   color: rgba(255,255,255,0.80);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -920,7 +932,7 @@
   overflow: hidden;
 }
 .s3RationaleSecondary {
-  font-size: 12px; line-height: 1.2; font-weight: 700;
+  font-size: 13px; line-height: 1.22; font-weight: 700;
   color: rgba(255,255,255,0.50);
   margin-top: 4px;
 }
