@@ -130,6 +130,73 @@ export async function publishToInstagram(payload) {
   };
 }
 
+// ── Carousel Publish ────────────────────────────────────────────────────────
+
+/**
+ * Publishes a carousel (multi-image) post to Instagram via the backend.
+ *
+ * @param {{
+ *   imageUrls:             string[],
+ *   caption:               string,
+ *   title?:                string,
+ *   contentType?:          string,
+ *   teamSlug?:             string,
+ *   teamName?:             string,
+ *   contentStudioSection?: string,
+ *   generatedBy?:          string,
+ *   templateType?:         string,
+ * }} payload
+ * @returns {Promise<{
+ *   ok: true, postId: string, requestId: string,
+ *   publishedMediaId: string, permalink: string|null, durationMs: number,
+ * }>}
+ */
+export async function publishCarouselToInstagram(payload) {
+  const { imageUrls, caption, ...metaFields } = payload;
+
+  let res;
+  try {
+    res = await fetch('/api/social/instagram/publish-carousel', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        imageUrls,
+        caption,
+        metadata: metaFields,
+      }),
+    });
+  } catch {
+    const err = new Error('Network error — could not reach the Instagram carousel publish service.');
+    err.stage = 'network';
+    throw err;
+  }
+
+  const data = await res.json();
+
+  if (!res.ok || !data.ok) {
+    const errData = data.error ?? {};
+    const err = new Error(
+      errData.userMessage ?? errData.message ?? data.error ?? 'Instagram carousel publish failed',
+    );
+    err.stage       = data.stage          ?? 'publish';
+    err.code        = errData.code        ?? null;
+    err.category    = errData.category    ?? null;
+    err.postId      = data.postId         ?? null;
+    err.requestId   = data.requestId      ?? null;
+    err.serverDebug = data.debug          ?? null;
+    throw err;
+  }
+
+  return {
+    ok:               true,
+    postId:           data.postId,
+    requestId:        data.requestId      ?? null,
+    publishedMediaId: data.publishedMediaId,
+    permalink:        data.permalink       ?? null,
+    durationMs:       data.durationMs      ?? null,
+  };
+}
+
 // ── Post history ─────────────────────────────────────────────────────────────
 
 /**

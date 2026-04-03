@@ -19,7 +19,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { sanitizeImagesForExport } from './utils/exportReady';
 import { getTemplateDimensions } from './CarouselComposer';
-import { uploadAsset, publishToInstagram } from '../../lib/socialPosts';
+import { uploadAsset, publishToInstagram, publishCarouselToInstagram } from '../../lib/socialPosts';
 import styles from './InstagramPublishButton.module.css';
 
 const DEBUG = import.meta.env.DEV;
@@ -165,71 +165,61 @@ export default function InstagramPublishButton({
       return;
     }
 
-    const slide1 = exportRef.current.querySelector('[data-slide="1"]');
-    if (!slide1) {
-      setErrorMessage('Slide 1 not found in export artboard.');
+    // ── Detect all slides in the export artboard ──
+    const allSlides = Array.from(exportRef.current.querySelectorAll('[data-slide]'));
+    if (allSlides.length === 0) {
+      setErrorMessage('No slides found in export artboard.');
       setStage('error');
       return;
     }
 
-    // ── Step 1: Render slide to PNG ──────────────────────────────────────
+    const isCarousel = allSlides.length > 1;
+
+    // ── Step 1: Render all slides to PNGs ──────────────────────────────────
     setStage('rendering');
-    let dataUrl;
+    const dataUrls = [];
     try {
       const { toPng } = await import('html-to-image');
-
       await document.fonts.ready;
 
       const imgReport = await sanitizeImagesForExport(exportRef.current);
-
       if (imgReport.failed > 0) {
-        console.warn(
-          `[InstagramPublish] ${imgReport.failed} image(s) failed and replaced before capture:`,
-          imgReport.details,
-        );
-      }
-
-      if (DEBUG) {
-        const rect = slide1.getBoundingClientRect();
-        const cs = window.getComputedStyle(slide1);
-        console.log('[InstagramPublish:debug] capture node:', {
-          tagName: slide1.tagName,
-          dataSlide: slide1.getAttribute('data-slide'),
-          dims: { w: rect.width, h: rect.height },
-          visibility: cs.visibility,
-          children: slide1.childElementCount,
-        });
+        console.warn(`[InstagramPublish] ${imgReport.failed} image(s) sanitized:`, imgReport.details);
       }
 
       const exportLayer = exportRef.current;
       const prevLayerVis = exportLayer.style.visibility;
-      const prevSlideVis = slide1.style.visibility;
       exportLayer.style.visibility = 'visible';
-      slide1.style.visibility = 'visible';
 
       const dims = getTemplateDimensions(template);
-      try {
-        dataUrl = await toPng(slide1, {
-          width: dims.width, height: dims.height, pixelRatio: 1, skipAutoScale: true,
-          backgroundColor: '#ffffff',
-        });
-      } finally {
-        exportLayer.style.visibility = prevLayerVis;
-        slide1.style.visibility = prevSlideVis;
+
+      for (let i = 0; i < allSlides.length; i++) {
+        const slide = allSlides[i];
+        const prevVis = slide.style.visibility;
+        slide.style.visibility = 'visible';
+
+        try {
+          const dataUrl = await toPng(slide, {
+            width: dims.width, height: dims.height, pixelRatio: 1,
+            skipAutoScale: true, backgroundColor: '#ffffff',
+          });
+          dataUrls.push(dataUrl);
+          if (DEBUG) {
+            const sizeKB = Math.round((dataUrl.length * 3) / 4 / 1024);
+            console.log(`[InstagramPublish:debug] slide ${i + 1} rendered: ${sizeKB} KB`);
+          }
+        } finally {
+          slide.style.visibility = prevVis;
+        }
       }
 
-      if (DEBUG) {
-        const sizeKB = Math.round((dataUrl.length * 3) / 4 / 1024);
-        console.log(`[InstagramPublish:debug] rendered PNG: ${sizeKB} KB`);
-      }
+      exportLayer.style.visibility = prevLayerVis;
     } catch (err) {
       const msg = err.message || '';
       if (/img|image|load|fetch|network|cors/i.test(msg)) {
         setErrorMessage('Slide export failed — one or more remote logos/images did not load.');
       } else if (/font/i.test(msg)) {
         setErrorMessage('Slide export failed — fonts did not load in time.');
-      } else if (/node/i.test(msg) || /null/i.test(msg)) {
-        setErrorMessage('Slide export failed — the render node was missing or detached.');
       } else {
         setErrorMessage(`Render failed: ${msg || 'html-to-image error'}`);
       }
@@ -237,12 +227,12 @@ export default function InstagramPublishButton({
       return;
     }
 
-    // ── Step 1b: Blank-image validation ──────────────────────────────────
+    // ── Step 1b: Blank-image validation (check first slide) ──────────────
     try {
-      const blank = await isBlankImage(dataUrl);
+      const blank = await isBlankImage(dataUrls[0]);
       if (blank) {
-        console.error('[InstagramPublish] Rendered PNG is blank — aborting.');
-        setErrorMessage('Slide export produced a blank image. Please retry or check the slide preview.');
+        console.error('[InstagramPublish] First slide PNG is blank — aborting.');
+        setErrorMessage('Slide export produced a blank image. Please retry.');
         setStage('error');
         return;
       }
@@ -250,30 +240,29 @@ export default function InstagramPublishButton({
       if (DEBUG) console.warn('[InstagramPublish:debug] blank-check skipped');
     }
 
-    // ── Step 2: Upload PNG ───────────────────────────────────────────────
+    // ── Step 2: Upload all PNGs ─────────────────────────────────────────
     setStage('uploading');
-    let imageUrl;
+    const imageUrls = [];
     try {
       const templateSlug = metadata.templateType ?? 'slide';
-      const ts           = Date.now();
-      const { url }      = await uploadAsset(dataUrl, `${templateSlug}_${ts}_slide1.png`);
-      imageUrl = url;
-      if (DEBUG) console.log('[InstagramPublish:debug] uploaded:', imageUrl);
+      const ts = Date.now();
+      for (let i = 0; i < dataUrls.length; i++) {
+        const { url } = await uploadAsset(dataUrls[i], `${templateSlug}_${ts}_slide${i + 1}.png`);
+        imageUrls.push(url);
+        if (DEBUG) console.log(`[InstagramPublish:debug] uploaded slide ${i + 1}:`, url);
+      }
     } catch (err) {
       setErrorMessage(`Upload failed: ${err.message ?? 'Storage error'}`);
       setStage('error');
       return;
     }
 
-    // Mark in-flight to prevent duplicate submissions for same asset
-    inFlightRef.current = imageUrl;
+    inFlightRef.current = imageUrls[0];
 
-    // ── Step 3: Publish (server polls container, then publishes) ─────────
+    // ── Step 3: Publish ─────────────────────────────────────────────────
     setStage('publishing');
     try {
-      const result = await publishToInstagram({
-        imageUrl,
-        caption:               captionText,
+      const metaFields = {
         title:                 metadata.title              ?? null,
         contentType:           metadata.contentType        ?? null,
         teamSlug:              metadata.teamSlug           ?? null,
@@ -281,7 +270,11 @@ export default function InstagramPublishButton({
         contentStudioSection:  metadata.contentStudioSection ?? null,
         generatedBy:           'content_studio',
         templateType:          metadata.templateType       ?? null,
-      });
+      };
+
+      const result = isCarousel
+        ? await publishCarouselToInstagram({ imageUrls, caption: captionText, ...metaFields })
+        : await publishToInstagram({ imageUrl: imageUrls[0], caption: captionText, ...metaFields });
 
       if (DEBUG) console.log('[InstagramPublish:debug] success:', result);
 
