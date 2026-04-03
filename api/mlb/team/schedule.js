@@ -4,8 +4,16 @@
  */
 
 import { createCache, coalesce } from '../../_cache.js';
+import { enrichGamesWithOdds } from '../live/_odds.js';
+import { espnIdToSlug } from '../live/_normalize.js';
+import { MLB_TEAMS } from '../../../src/sports/mlb/teams.js';
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams';
+
+// Map ESPN abbreviation (uppercase) → our slug (lowercase)
+const abbrevToSlug = Object.fromEntries(
+  MLB_TEAMS.map(t => [t.abbrev.toUpperCase(), t.slug])
+);
 const cache = createCache(5 * 60 * 1000);
 
 function getGameStatus(status) {
@@ -139,8 +147,54 @@ export default async function handler(req, res) {
       if (!r.ok) throw new Error(`ESPN MLB schedule: ${r.status}`);
       const data = await r.json();
       const rawEvents = data?.events || [];
-      const events = rawEvents.map((ev) => shapeEvent(ev, teamId));
+      let events = rawEvents.map((ev) => shapeEvent(ev, teamId));
       const teamRecord = data?.team?.recordSummary || null;
+
+      // Enrich upcoming games with odds from The Odds API
+      // Convert schedule events to the canonical shape enrichGamesWithOdds expects,
+      // then merge odds back into the schedule event shape.
+      const teamSlug = espnIdToSlug[String(teamId)] || null;
+      if (teamSlug) {
+        try {
+          const upcoming = events.filter(e => !e.isFinal);
+          if (upcoming.length > 0) {
+            // Build canonical game objects for odds matching
+            const canonicalGames = upcoming.map(ev => {
+              const oppSlug = abbrevToSlug[ev.opponentAbbrev?.toUpperCase()] || ev.opponentAbbrev?.toLowerCase() || '';
+              return {
+                gameId: ev.id,
+                teams: {
+                  home: { slug: ev.homeAway === 'home' ? teamSlug : oppSlug },
+                  away: { slug: ev.homeAway === 'away' ? teamSlug : oppSlug },
+                },
+                market: {},
+              };
+            });
+            const enriched = await enrichGamesWithOdds(canonicalGames);
+            // Merge odds back into schedule events
+            const oddsMap = new Map();
+            for (const g of enriched) {
+              if (g.market?.pregameSpread != null || g.market?.pregameTotal != null) {
+                oddsMap.set(g.gameId, g);
+              }
+            }
+            events = events.map(ev => {
+              const enrichedGame = oddsMap.get(ev.id);
+              if (!enrichedGame) return ev;
+              const sp = enrichedGame.market?.pregameSpread;
+              const tot = enrichedGame.market?.pregameTotal;
+              return {
+                ...ev,
+                spread: sp ?? ev.spread,
+                spreadDisplay: sp != null ? (sp > 0 ? `+${sp}` : `${sp}`) : ev.spreadDisplay,
+                total: tot ?? ev.total,
+                totalDisplay: tot != null ? `O/U ${tot}` : ev.totalDisplay,
+              };
+            });
+          }
+        } catch { /* odds enrichment is best-effort */ }
+      }
+
       return { events, teamRecord };
     });
 
