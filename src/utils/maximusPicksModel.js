@@ -478,7 +478,10 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
   const homeBump = tourn ? PE_HOME_BUMP_TOURN : PE_HOME_BUMP;
 
   for (const game of games) {
-    if (!hasMoneylineLine(game) && !hasSpreadLine(game)) continue;
+    // Bracket-seeded tournament games are always scored even without odds data.
+    // They'll use rankings, championship odds, and seed-based priors instead.
+    const isBracketGame = game._bracketSeeded === true;
+    if (!isBracketGame && !hasMoneylineLine(game) && !hasSpreadLine(game)) continue;
 
     const homeSlug = getTeamSlug(game.homeTeam);
     const awaySlug = getTeamSlug(game.awayTeam);
@@ -558,6 +561,17 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       minEdge = PE_MIN_EDGE_T3;
       homeScore = (marketProb ?? 0.5) * 0.85 + homeBump + 0.5 * 0.15;
       awayScore = (1 - (marketProb ?? 0.5)) * 0.85 + 0.5 * 0.15;
+    } else if (isBracketGame) {
+      // Tier 3 fallback for bracket-seeded games without market data.
+      // Uses seed-based priors + any available enrichment (champ odds, ranking).
+      tier = 3;
+      minEdge = 0; // Always show bracket games — conviction will be honest
+      const hChamp = champOddsSignal(homeChampOdds) ?? 0.5;
+      const aChamp = champOddsSignal(awayChampOdds) ?? 0.5;
+      const hRank  = rankSignal(homeRank) ?? 0.5;
+      const aRank  = rankSignal(awayRank) ?? 0.5;
+      homeScore = hChamp * 0.40 + hRank * 0.30 + 0.5 * 0.30 + homeBump;
+      awayScore = aChamp * 0.40 + aRank * 0.30 + 0.5 * 0.30;
     } else {
       continue;
     }
@@ -683,7 +697,8 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
   const atsMinEdge = tourn ? ATS_EDGE_MIN + ATS_TOURN_EDGE_BUMP : ATS_EDGE_MIN;
 
   for (const game of games) {
-    if (!hasSpreadLine(game)) continue;
+    const isBracketGame = game._bracketSeeded === true;
+    if (!isBracketGame && !hasSpreadLine(game)) continue;
     const { spread: homeSpreadNum } = getTeamSpread(game, true);
     const spreadMagnitude = homeSpreadNum != null ? Math.abs(homeSpreadNum) : null;
 
@@ -908,6 +923,25 @@ function buildSpreadPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
         partial: true,
         _tier: 3,
       });
+    } else if (isBracketGame) {
+      // Bracket-seeded game without spread data — use seed-based lean
+      const tournEdge = getTournamentAtsEdge(game, homeSlug, awaySlug, rankMap, championshipOdds);
+      if (tournEdge) {
+        picks.push({
+          ...sharedBase,
+          itemType: 'lean',
+          pickTeam: tournEdge.pickTeam,
+          opponentTeam: tournEdge.opponentTeam,
+          opponentSlug: tournEdge.opponentSlug,
+          spread: null,
+          pickLine: `${tournEdge.pickTeam} ATS —`,
+          confidence: Math.min(tournEdge.confidence, 0),
+          edgeMag: tournEdge.edgeMag || 0.04,
+          signals: tournEdge.signals || ['Bracket-seeded game — awaiting line data'],
+          partial: true,
+          _tier: 3,
+        });
+      }
     }
   }
 
@@ -924,7 +958,8 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
   const vlMin = tourn ? VL_VALUE_MIN + VL_TOURN_VALUE_BUMP : VL_VALUE_MIN;
 
   for (const game of games) {
-    if (!game.moneyline) continue;
+    const isBracketGame = game._bracketSeeded === true;
+    if (!isBracketGame && !game.moneyline) continue;
     const { homeML, awayML } = parseMoneylinePair(game);
     if (homeML == null || awayML == null) continue;
 
@@ -1048,9 +1083,10 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
   const totMinEdge = tourn ? TOT_OU_MIN_EDGE + TOT_TOURN_EDGE_BUMP : TOT_OU_MIN_EDGE;
 
   for (const game of games) {
-    if (!hasTotalLine(game)) continue;
+    const isBracketGame = game._bracketSeeded === true;
+    if (!isBracketGame && !hasTotalLine(game)) continue;
     const marketTotal = resolveTotal(game);
-    if (marketTotal == null) continue;
+    if (!isBracketGame && marketTotal == null) continue;
 
     const homeSlug = getTeamSlug(game.homeTeam);
     const awaySlug = getTeamSlug(game.awayTeam);
@@ -1465,6 +1501,46 @@ export function buildMaximusPicks({
   const rawAts    = buildSpreadPicks(dedupedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
   const rawValue  = buildValuePicks(dedupedGames, atsLeaders, atsBySlug, rankMap, championshipOdds);
   const rawTotals = buildTotalsPicks(dedupedGames, atsLeaders, atsBySlug);
+
+  // Ensure every bracket-seeded game has at least one lean per category.
+  // If a category builder couldn't produce a lean (e.g., no odds data),
+  // generate a minimal bracket-based lean so the IG slide isn't empty.
+  const bracketGames = dedupedGames.filter(g => g._bracketSeeded);
+  function ensureBracketCoverage(categoryPicks, pickType) {
+    const coveredKeys = new Set(categoryPicks.map(baseGameKey));
+    for (const bg of bracketGames) {
+      const key = baseGameKey(bg);
+      if (key && coveredKeys.has(key)) continue;
+      // Generate a minimal lean from seed/ranking data
+      const homeSlug = getTeamSlug(bg.homeTeam);
+      const awaySlug = getTeamSlug(bg.awayTeam);
+      const homeSeed = getTeamSeed(homeSlug);
+      const awaySeed = getTeamSeed(awaySlug);
+      // Favor the higher seed (lower number) as a baseline
+      const pickHome = (homeSeed != null && awaySeed != null) ? homeSeed < awaySeed : true;
+      const pickTeam = pickHome ? bg.homeTeam : bg.awayTeam;
+      const oppTeam = pickHome ? bg.awayTeam : bg.homeTeam;
+      const oppSlug = pickHome ? awaySlug : homeSlug;
+      categoryPicks.push({
+        key: bg.gameId || `${bg.homeTeam}-${bg.awayTeam}`,
+        matchup: `${bg.awayTeam} @ ${bg.homeTeam}`,
+        homeTeam: bg.homeTeam, awayTeam: bg.awayTeam,
+        homeSlug, awaySlug,
+        time: null,
+        pickType,
+        itemType: 'lean',
+        pickTeam, opponentTeam: oppTeam, opponentSlug: oppSlug,
+        pickLine: `${pickTeam} — awaiting line`,
+        confidence: 0, edgeMag: 0.02,
+        signals: ['Bracket-seeded matchup — line data pending'],
+        partial: true, _tier: 3, _bracketFallback: true,
+      });
+    }
+  }
+  ensureBracketCoverage(rawPickEm, 'pickem');
+  ensureBracketCoverage(rawAts, 'ats');
+  ensureBracketCoverage(rawValue, 'value');
+  ensureBracketCoverage(rawTotals, 'total');
 
   const pickEmKeys  = new Set(rawPickEm.map(baseGameKey));
   const atsKeys     = new Set(rawAts.map(baseGameKey));
