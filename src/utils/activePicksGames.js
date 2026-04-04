@@ -108,16 +108,16 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
     };
   });
 
-  // Step 4: Round-transition handling — when ALL bracket game dates are today or
-  // earlier, the current round may be complete. Include upcoming tournament games
-  // from the feed so the next round's slate appears automatically without
-  // requiring an immediate CURRENT_MATCHUPS update. Only future-dated feed games
-  // are added (isTournamentGame guards against NIT/non-tournament contamination).
+  // Step 4: Round-transition handling — when ALL bracket game dates are STRICTLY
+  // in the past (not today), the current round is complete. Include upcoming
+  // tournament games from the feed so the next round's slate appears automatically.
+  // CRITICAL: Do NOT activate on the day games are being played — that causes
+  // stale/extra games to leak into the picks board from the feed.
   const today = new Date().toISOString().slice(0, 10);
-  const allBracketDatesTodayOrPast = CURRENT_MATCHUPS.length > 0 &&
-    CURRENT_MATCHUPS.every(m => m.gameDate && m.gameDate <= today);
+  const allBracketDatesInPast = CURRENT_MATCHUPS.length > 0 &&
+    CURRENT_MATCHUPS.every(m => m.gameDate && m.gameDate < today);
 
-  if (allBracketDatesTodayOrPast) {
+  if (allBracketDatesInPast) {
     const bracketKeys = new Set(enriched.map(g => [g.homeSlug, g.awaySlug].sort().join('|')));
     const allFeedGames = [...(todayScores || []), ...(oddsGames || [])];
     for (const fg of allFeedGames) {

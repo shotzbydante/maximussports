@@ -268,10 +268,11 @@ export default function MaxPicksHeroSlide({ data, asOf, slideNumber, slideTotal,
   const val = picks.valuePicks   ?? [];
   const tot = picks.totalsPicks  ?? [];
 
-  const topLeans = (arr, n = 3) =>
+  // Dynamic row count: show all leans (one per canonical game), not hardcoded 3.
+  // During Final Four with 2 games, this correctly shows 2 rows per category.
+  const topLeans = (arr) =>
     arr.filter(p => p.itemType === 'lean')
-       .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag))
-       .slice(0, n);
+       .sort((a, b) => (b.confidence - a.confidence) || (b.edgeMag - a.edgeMag));
 
   const peTop  = topLeans(pe);
   const atsTop = topLeans(ats);

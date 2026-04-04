@@ -691,6 +691,7 @@ export default function Dashboard() {
   }, [workingSlate, dashData, dailyChampOdds]);
 
   // ── Deduped top leans: exact same rows the slide card renders ──
+  // No hard limit — during Final Four with 2 games, this yields 2 per category.
   const canonicalRenderedPicks = useMemo(() => {
     try {
       const dedupBucket = (arr) => {
@@ -699,7 +700,6 @@ export default function Dashboard() {
         const seen = new Set();
         const result = [];
         for (const pick of leans) {
-          if (result.length >= 3) break;
           const slug = getTeamSlug(pick.pickTeam || '') || (pick.pickTeam || '').toLowerCase();
           if (slug && seen.has(slug)) continue;
           const hSlug = pick.homeSlug || getTeamSlug(pick.homeTeam || '') || '';
