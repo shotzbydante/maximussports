@@ -594,7 +594,9 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       }
     }
 
-    if (Math.abs(edge) < minEdge) continue;
+    // Bracket-seeded tournament games always produce a lean — conviction is honest
+    // but the row must appear. Non-bracket games use normal threshold.
+    if (!isBracketGame && Math.abs(edge) < minEdge) continue;
 
     const pickHome = edge > 0;
     const pickTeam = pickHome ? game.homeTeam : game.awayTeam;
@@ -1008,6 +1010,14 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
     } else if (awayValue >= vlMin) {
       if (awayML <= VL_AVOID_PRICE) continue;
       pickTeam = game.awayTeam; pickML = awayML; pickProb = awayModelProb; impliedPct = awayImplied; value = awayValue;
+    } else if (isBracketGame) {
+      // Bracket games always produce a value lean — pick the side with more value
+      const bestHome = homeValue >= awayValue;
+      pickTeam = bestHome ? game.homeTeam : game.awayTeam;
+      pickML = bestHome ? homeML : awayML;
+      pickProb = bestHome ? homeModelProb : awayModelProb;
+      impliedPct = bestHome ? homeImplied : awayImplied;
+      value = bestHome ? homeValue : awayValue;
     } else {
       continue;
     }
@@ -1156,7 +1166,8 @@ function buildTotalsPicks(games, atsLeaders, atsBySlug) {
       adjustedTrendMag = Math.max(0, adjustedTrendMag - TOT_LATE_TOURN_OVER_PENALTY);
     }
 
-    if (adjustedTrendMag < totMinEdge) continue;
+    const isBracketGameTot = game._bracketSeeded === true;
+    if (!isBracketGameTot && adjustedTrendMag < totMinEdge) continue;
     const leanLabel = isOver ? 'OVER' : 'UNDER';
 
     let confidence = 0;
