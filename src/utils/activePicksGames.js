@@ -26,7 +26,7 @@ function matchupKey(game, getSlug) {
  * BRACKET-FIRST mode: Build canonical games from official bracket matchups,
  * then enrich with odds/spreads/totals from feeds.
  */
-function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds }) {
+function buildBracketFirstGames({ todayScores, oddsGames, upcomingGamesWithSpreads, getSlug, mergeWithOdds }) {
   // Step 1: Create canonical game shells from bracket matchups
   const bracketGames = CURRENT_MATCHUPS.map(m => ({
     homeTeam: m.teamA,
@@ -38,19 +38,58 @@ function buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds
     _bracketSeeded: true,
   }));
 
-  // Step 2: Build a lookup of feed games by matchup key for enrichment
-  const allFeedGames = [...(todayScores || []), ...(oddsGames || [])];
+  // Step 2: Build a lookup of feed games by matchup key for enrichment.
+  // Use slug-based keys when available. Also index by bracket slug keys
+  // so bracket games can find their feed match even when the feed uses
+  // different team name formats (e.g., "Connecticut" vs "UConn").
+  const allFeedGames = [...(todayScores || []), ...(oddsGames || []), ...(upcomingGamesWithSpreads || [])];
   const feedByKey = {};
+
+  // Pre-build the set of bracket slug keys for cross-reference
+  const bracketSlugKeys = new Set(
+    CURRENT_MATCHUPS.map(m => [m.slugA, m.slugB].sort().join('|'))
+  );
+
   for (const fg of allFeedGames) {
     const hSlug = getSlug?.(fg.homeTeam) || null;
     const aSlug = getSlug?.(fg.awayTeam) || null;
-    if (!hSlug || !aSlug) continue;
-    const key = [hSlug, aSlug].sort().join('|');
-    // Prefer ESPN (has gameId with numbers) over odds-only
-    const existing = feedByKey[key];
-    const isEspn = fg.gameId && /^\d+$/.test(String(fg.gameId));
-    if (!existing || isEspn) {
-      feedByKey[key] = fg;
+    if (!hSlug && !aSlug) continue; // need at least one slug
+
+    // Try order-agnostic slug key first
+    if (hSlug && aSlug) {
+      const key = [hSlug, aSlug].sort().join('|');
+      const existing = feedByKey[key];
+      const isEspn = fg.gameId && /^\d+$/.test(String(fg.gameId));
+      if (!existing || isEspn) {
+        feedByKey[key] = fg;
+      }
+    }
+
+    // If only one slug resolved, try matching against bracket entries directly.
+    // This handles cases where the Odds API uses a name variant that only
+    // partially resolves (e.g., one team resolves but the other doesn't).
+    if ((!hSlug || !aSlug) && bracketSlugKeys.size > 0) {
+      const resolvedSlug = hSlug || aSlug;
+      for (const bKey of bracketSlugKeys) {
+        if (bKey.includes(resolvedSlug) && !feedByKey[bKey]) {
+          // Check if the unresolved team name partially matches the other bracket team
+          const otherBracketSlug = bKey.split('|').find(s => s !== resolvedSlug);
+          const unresolvedName = (!hSlug ? fg.homeTeam : fg.awayTeam) || '';
+          const otherTeam = CURRENT_MATCHUPS.find(m =>
+            m.slugA === otherBracketSlug || m.slugB === otherBracketSlug
+          );
+          if (otherTeam) {
+            const otherName = otherTeam.slugA === otherBracketSlug ? otherTeam.teamA : otherTeam.teamB;
+            // Check if unresolved name shares words with the bracket team name
+            const unresolvedWords = unresolvedName.toLowerCase().split(/\s+/);
+            const bracketWords = otherName.toLowerCase().split(/\s+/);
+            const overlap = unresolvedWords.filter(w => w.length > 3 && bracketWords.includes(w));
+            if (overlap.length > 0) {
+              feedByKey[bKey] = fg;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -212,7 +251,7 @@ export function buildActivePicksGames({
 
   if (isTourneyActive && CURRENT_MATCHUPS.length > 0) {
     // BRACKET-FIRST: canonical matchups from official bracket
-    return buildBracketFirstGames({ todayScores, oddsGames, getSlug, mergeWithOdds });
+    return buildBracketFirstGames({ todayScores, oddsGames, upcomingGamesWithSpreads, getSlug, mergeWithOdds });
   }
 
   // FEED-FIRST: standard behavior outside tournament
