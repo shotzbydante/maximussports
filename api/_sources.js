@@ -197,7 +197,7 @@ function extractOdds(bookmakers, homeTeamName, awayTeamName) {
         }
       }
     }
-    if (homeSpread != null && total != null) break;
+    if (homeSpread != null && total != null && moneyline != null) break;
   }
   // Legacy `spread` field: home team's spread as a formatted string (backward compat)
   const spread = homeSpread != null
