@@ -135,6 +135,32 @@ const CHAMP_STAGE_MIN_EDGE_BUMP = 0.03; // require stronger edge to surface a pi
 const CHAMP_STAGE_VL_ATS_DAMPENER = 0.60; // scale Value Leans ATS weight down
 const ATS_TOURN_CONF_SPREAD  = 8;
 
+// ── Tournament run quality signal ──────────────────────────────────────────
+// In championship-stage games, a team's tournament seed reflects how the
+// selection committee rated them before the tournament. A lower seed that
+// reaches the Final Four / Championship has exceeded expectations more than
+// a higher seed — their path was harder. This signal captures path quality.
+//
+// Weight: 0.08 in Pick'Em, replacing the SOS slot (which was a crude binary)
+const PE_W_TOURN_PATH = 0.08;
+
+/**
+ * Tournament path quality signal based on seed.
+ * Lower seeds reaching late rounds = stronger path (more upsets required).
+ * Returns 0.0-1.0 where higher = stronger path demonstration.
+ */
+function tournPathSignal(seed) {
+  if (seed == null) return 0.5; // neutral when unknown
+  // Seeds 1-2 are expected to reach late rounds (weaker path signal)
+  // Seeds 3-5 reaching late rounds = moderate path quality
+  // Seeds 6+ reaching late rounds = exceptional path quality
+  if (seed >= 6) return 0.80; // exceptional — mid/low seed reached championship stage
+  if (seed >= 4) return 0.65; // strong — beat multiple higher seeds
+  if (seed >= 3) return 0.58; // solid — proved seed accuracy
+  if (seed >= 2) return 0.52; // expected — 2-seed reaching late rounds is baseline
+  return 0.48; // 1-seed — expected to be here, no path-quality bonus
+}
+
 // ── March Madness ATS adjustments ─────────────────────────────────────────────
 // When tournament is active, use seed-based upset rates and March Madness signals
 // to produce more nuanced ATS picks instead of defaulting to spread magnitude.
@@ -496,7 +522,9 @@ function marketWinSignal(game) {
 function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds) {
   const picks = [];
   const tourn = isTournamentSeason();
-  const homeBump = tourn ? PE_HOME_BUMP_TOURN : PE_HOME_BUMP;
+  // NCAA tournament games are neutral site — no home court advantage.
+  // Only apply home bump for regular-season games.
+  const homeBump = tourn ? 0 : PE_HOME_BUMP;
 
   for (const game of games) {
     // Bracket-seeded tournament games are always scored even without odds data.
@@ -545,7 +573,6 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const hChamp = champOddsSignal(homeChampOdds) ?? 0.5;
       const hRec   = (recordSignal(homeAts) ?? 0.5 - 0.5) * atsDamp + 0.5; // dampen deviation from neutral
       const hLast  = homeAts?.window === 'last30' ? ((recordSignal(homeAts) ?? 0.5 - 0.5) * atsDamp + 0.5) : 0.5;
-      const hSos   = homeRank != null && homeRank <= 25 ? 0.65 : 0.5;
       const hAts   = homeAts ? (clamp(homeAts.coverPct / 100, 0.3, 0.7) - 0.5) * atsDamp + 0.5 : 0.5;
       const hMkt   = marketProb ?? 0.5;
 
@@ -553,14 +580,21 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const aChamp = champOddsSignal(awayChampOdds) ?? 0.5;
       const aRec   = (recordSignal(awayAts) ?? 0.5 - 0.5) * atsDamp + 0.5;
       const aLast  = awayAts?.window === 'last30' ? ((recordSignal(awayAts) ?? 0.5 - 0.5) * atsDamp + 0.5) : 0.5;
-      const aSos   = awayRank != null && awayRank <= 25 ? 0.65 : 0.5;
       const aAts   = awayAts ? (clamp(awayAts.coverPct / 100, 0.3, 0.7) - 0.5) * atsDamp + 0.5 : 0.5;
       const aMkt   = 1 - hMkt;
 
+      // In championship stage, replace the crude SOS binary with tournament path
+      // quality signal. Otherwise keep the regular SOS heuristic.
+      const homeSeed = getTeamSeed(homeSlug);
+      const awaySeed = getTeamSeed(awaySlug);
+      const hSos = champStage ? tournPathSignal(homeSeed) : (homeRank != null && homeRank <= 25 ? 0.65 : 0.5);
+      const aSos = champStage ? tournPathSignal(awaySeed) : (awayRank != null && awayRank <= 25 ? 0.65 : 0.5);
+      const sosW = champStage ? PE_W_TOURN_PATH : PE_W_SOS;
+
       homeScore = hRank * PE_W_RANKING + hChamp * PE_W_CHAMP_ODDS + hRec * PE_W_SEASON_REC +
-                  hLast * PE_W_LAST10 + hSos * PE_W_SOS + hAts * PE_W_ATS + hMkt * mktW + homeBump;
+                  hLast * PE_W_LAST10 + hSos * sosW + hAts * PE_W_ATS + hMkt * mktW + homeBump;
       awayScore = aRank * PE_W_RANKING + aChamp * PE_W_CHAMP_ODDS + aRec * PE_W_SEASON_REC +
-                  aLast * PE_W_LAST10 + aSos * PE_W_SOS + aAts * PE_W_ATS + aMkt * mktW;
+                  aLast * PE_W_LAST10 + aSos * sosW + aAts * PE_W_ATS + aMkt * mktW;
 
     } else if (enrichCount >= 1) {
       // Tier 2: reduced model — at least 1 enrichment + market or form
@@ -661,7 +695,12 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
       const favPct = Math.round((pickHome ? marketProb : 1 - marketProb) * 100);
       if (favPct >= 55) signals.push(`Market implied ${favPct}% win probability`);
     }
-    if (pickHome) signals.push('Home court advantage');
+    if (pickHome && !tourn) signals.push('Home court advantage');
+    if (pickHome && tourn) signals.push('Neutral court — no home edge');
+    if (isChampionshipStage()) {
+      const pickSeed = pickHome ? getTeamSeed(homeSlug) : getTeamSeed(awaySlug);
+      if (pickSeed != null && pickSeed >= 3) signals.push(`${pickSeed}-seed tournament run — path quality edge`);
+    }
     if (peRefinements?.signals?.length > 0) {
       for (const s of peRefinements.signals.slice(0, 1)) {
         if (!signals.includes(s)) signals.push(s);
