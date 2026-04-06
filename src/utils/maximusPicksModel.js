@@ -20,7 +20,7 @@
 
 import { getTeamSlug } from './teamSlug.js';
 import { getAtsCache } from './atsCache.js';
-import { getTeamSeed, getTeamRegion, isTournamentActive } from './tournamentHelpers.js';
+import { getTeamSeed, getTeamRegion, isTournamentActive, getTournamentPhase } from './tournamentHelpers.js';
 import { getTournamentPrior } from './tournamentPrior.js';
 import { computeMatchupRefinements } from './tournamentHeuristics.js';
 
@@ -106,12 +106,33 @@ function isTournamentSeason() {
   const m = new Date().getMonth();
   return m === 2 || m === 3; // March, April
 }
+
+/**
+ * Detect if we're in the championship stage (Final Four or later).
+ * At this stage, all remaining teams are elite and regular-season signals
+ * lose predictive power relative to market efficiency.
+ */
+function isChampionshipStage() {
+  try {
+    const phase = getTournamentPhase();
+    return phase === 'final_four' || phase === 'championship';
+  } catch { return false; }
+}
 const PE_HOME_BUMP_TOURN     = 0.015;
 const ATS_TOURN_EDGE_BUMP    = 0.02;
 const VL_TOURN_VALUE_BUMP    = 0.01;
-const TOT_TOURN_EDGE_BUMP    = 0.03; // slightly higher bar for tournament totals (was 0.02)
-const TOT_LATE_TOURN_OVER_PENALTY = 0.02; // extra penalty for OVER leans in Elite 8+
+const TOT_TOURN_EDGE_BUMP    = 0.03;
+const TOT_LATE_TOURN_OVER_PENALTY = 0.02;
 const VL_LONGSHOT_ML         = 300;
+
+// ── Championship-stage adjustments ────────────────────────────────────────
+// Final Four + Championship games feature elite-vs-elite matchups where
+// regular-season ATS signals lose predictive power and market lines are
+// extremely efficient. These adjustments reduce model overconfidence.
+const CHAMP_STAGE_ATS_DAMPENER = 0.50; // scale ATS-derived signals to 50% weight in late rounds
+const CHAMP_STAGE_MARKET_BOOST = 0.40; // increase market weight from 0.25 to 0.40
+const CHAMP_STAGE_MIN_EDGE_BUMP = 0.03; // require stronger edge to surface a pick
+const CHAMP_STAGE_VL_ATS_DAMPENER = 0.60; // scale Value Leans ATS weight down
 const ATS_TOURN_CONF_SPREAD  = 8;
 
 // ── March Madness ATS adjustments ─────────────────────────────────────────────
@@ -511,27 +532,35 @@ function buildPickEmPicks(games, atsLeaders, atsBySlug, rankMap, championshipOdd
     if (enrichCount >= 3) {
       // Tier 1: full model — at least 3 of 4 signal categories present
       tier = 1;
-      minEdge = PE_MIN_EDGE_T1;
+      const champStage = isChampionshipStage();
+      minEdge = PE_MIN_EDGE_T1 + (champStage ? CHAMP_STAGE_MIN_EDGE_BUMP : 0);
+
+      // In championship stage, dampen ATS-derived signals and boost market weight.
+      // Rationale: regular-season ATS cover rate loses predictive power in elite-vs-elite
+      // matchups, and the market line is extremely efficient at this stage.
+      const atsDamp = champStage ? CHAMP_STAGE_ATS_DAMPENER : 1.0;
+      const mktW    = champStage ? CHAMP_STAGE_MARKET_BOOST : PE_W_MARKET;
+
       const hRank  = rankSignal(homeRank)          ?? 0.5;
       const hChamp = champOddsSignal(homeChampOdds) ?? 0.5;
-      const hRec   = recordSignal(homeAts)          ?? 0.5;
-      const hLast  = homeAts?.window === 'last30' ? (recordSignal(homeAts) ?? 0.5) : 0.5;
+      const hRec   = (recordSignal(homeAts) ?? 0.5 - 0.5) * atsDamp + 0.5; // dampen deviation from neutral
+      const hLast  = homeAts?.window === 'last30' ? ((recordSignal(homeAts) ?? 0.5 - 0.5) * atsDamp + 0.5) : 0.5;
       const hSos   = homeRank != null && homeRank <= 25 ? 0.65 : 0.5;
-      const hAts   = homeAts ? clamp(homeAts.coverPct / 100, 0.3, 0.7) : 0.5;
+      const hAts   = homeAts ? (clamp(homeAts.coverPct / 100, 0.3, 0.7) - 0.5) * atsDamp + 0.5 : 0.5;
       const hMkt   = marketProb ?? 0.5;
 
       const aRank  = rankSignal(awayRank)          ?? 0.5;
       const aChamp = champOddsSignal(awayChampOdds) ?? 0.5;
-      const aRec   = recordSignal(awayAts)          ?? 0.5;
-      const aLast  = awayAts?.window === 'last30' ? (recordSignal(awayAts) ?? 0.5) : 0.5;
+      const aRec   = (recordSignal(awayAts) ?? 0.5 - 0.5) * atsDamp + 0.5;
+      const aLast  = awayAts?.window === 'last30' ? ((recordSignal(awayAts) ?? 0.5 - 0.5) * atsDamp + 0.5) : 0.5;
       const aSos   = awayRank != null && awayRank <= 25 ? 0.65 : 0.5;
-      const aAts   = awayAts ? clamp(awayAts.coverPct / 100, 0.3, 0.7) : 0.5;
+      const aAts   = awayAts ? (clamp(awayAts.coverPct / 100, 0.3, 0.7) - 0.5) * atsDamp + 0.5 : 0.5;
       const aMkt   = 1 - hMkt;
 
       homeScore = hRank * PE_W_RANKING + hChamp * PE_W_CHAMP_ODDS + hRec * PE_W_SEASON_REC +
-                  hLast * PE_W_LAST10 + hSos * PE_W_SOS + hAts * PE_W_ATS + hMkt * PE_W_MARKET + homeBump;
+                  hLast * PE_W_LAST10 + hSos * PE_W_SOS + hAts * PE_W_ATS + hMkt * mktW + homeBump;
       awayScore = aRank * PE_W_RANKING + aChamp * PE_W_CHAMP_ODDS + aRec * PE_W_SEASON_REC +
-                  aLast * PE_W_LAST10 + aSos * PE_W_SOS + aAts * PE_W_ATS + aMkt * PE_W_MARKET;
+                  aLast * PE_W_LAST10 + aSos * PE_W_SOS + aAts * PE_W_ATS + aMkt * mktW;
 
     } else if (enrichCount >= 1) {
       // Tier 2: reduced model — at least 1 enrichment + market or form
@@ -976,7 +1005,10 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
 
     const homeCover = homeAts ? homeAts.coverPct / 100 : 0.5;
     const awayCover = awayAts ? awayAts.coverPct / 100 : 0.5;
-    const atsDiff   = homeCover - awayCover;
+    // In championship stage, dampen ATS influence on value calculation
+    const vlChampStage = isChampionshipStage();
+    const vlAtsDamp = vlChampStage ? CHAMP_STAGE_VL_ATS_DAMPENER : 1.0;
+    const atsDiff   = (homeCover - awayCover) * vlAtsDamp;
 
     const homeChamp = championshipOdds?.[homeSlug]?.american;
     const awayChamp = championshipOdds?.[awaySlug]?.american;
@@ -988,12 +1020,13 @@ function buildValuePicks(games, atsLeaders, atsBySlug, rankMap, championshipOdds
     }
 
     // Form momentum boost: when the lean-side team's recent ATS form (last30)
-    // strongly aligns (>58% cover rate), nudge model probability up
+    // strongly aligns (>58% cover rate), nudge model probability up.
+    // Dampened in championship stage where form data is less predictive.
     let formBoost = 0;
     const leanHomeCover = homeCover > awayCover;
     const strongFormSide = leanHomeCover ? homeAts : awayAts;
     if (strongFormSide && strongFormSide.window === 'last30' && strongFormSide.coverPct >= 58) {
-      formBoost = leanHomeCover ? VL_FORM_BONUS : -VL_FORM_BONUS;
+      formBoost = (leanHomeCover ? VL_FORM_BONUS : -VL_FORM_BONUS) * (vlChampStage ? 0.5 : 1.0);
     }
 
     const homeModelProb = clamp(0.5 + atsDiff * VL_ATS_WEIGHT + VL_HOME_BUMP + champAdj + formBoost, 0.35, 0.75);

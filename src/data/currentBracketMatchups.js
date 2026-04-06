@@ -18,31 +18,20 @@
  *   gameDate           — ISO date string (day of game)
  */
 
-export const CURRENT_ROUND = 5; // Final Four
-export const CURRENT_ROUND_LABEL = 'Final Four';
+export const CURRENT_ROUND = 6; // National Championship
+export const CURRENT_ROUND_LABEL = 'National Championship';
 
 export const CURRENT_MATCHUPS = [
   {
-    teamA: 'Illinois Fighting Illini',
-    teamB: 'UConn Huskies',
-    slugA: 'illinois-fighting-illini',
-    slugB: 'uconn-huskies',
-    seedA: 3,
-    seedB: 2,
-    round: 5,
-    roundLabel: 'Final Four',
-    gameDate: '2026-04-04',
-  },
-  {
     teamA: 'Michigan Wolverines',
-    teamB: 'Arizona Wildcats',
+    teamB: 'UConn Huskies',
     slugA: 'michigan-wolverines',
-    slugB: 'arizona-wildcats',
+    slugB: 'uconn-huskies',
     seedA: 2,
-    seedB: 1,
-    round: 5,
-    roundLabel: 'Final Four',
-    gameDate: '2026-04-04',
+    seedB: 2,
+    round: 6,
+    roundLabel: 'National Championship',
+    gameDate: '2026-04-06',
   },
 ];
 
