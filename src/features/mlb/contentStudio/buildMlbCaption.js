@@ -90,9 +90,16 @@ function extractHeroStories(briefingText) {
 
 // ── Helper: build hero summary (Slide 1) ────────────────────────────────────
 
+/** Strip section labels like "¶1 AROUND THE LEAGUE:" from raw briefing text */
+function cleanBriefingText(text) {
+  if (!text) return '';
+  return text.replace(/^[¶#§]\d*\s*/i, '').replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '').trim();
+}
+
 function buildHeroSummary(intel) {
   const headline = intel?.headline || '';
-  const stories = extractHeroStories(headline + ' ' + (intel?.rawParagraphs?.[0] || ''));
+  const rawP1 = cleanBriefingText(intel?.rawParagraphs?.[0] || '');
+  const stories = extractHeroStories(headline + ' ' + rawP1);
 
   if (stories.length >= 2) {
     return `${stories[0].emoji} ${stories[0].team}' ${stories[0].last} breaks out in a BIG way.\n${stories[1].emoji} ${stories[1].last} sets the tone early for ${stories[1].team}.`;
@@ -116,7 +123,7 @@ function buildBoardSummary(seasonIntel) {
   const lines = [];
   for (const t of teams) {
     const e = teamEmoji(t.name || t.abbrev);
-    lines.push(`${e} ${t.abbrev} (${t.projectedWins}W)`);
+    lines.push(`${e} ${t.abbrev} — Projected wins: ${t.projectedWins}`);
   }
   return lines.join('\n');
 }
