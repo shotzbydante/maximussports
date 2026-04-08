@@ -55,11 +55,19 @@ function logoUrl(slug) {
   return slug ? getMlbEspnLogoUrl(slug) : null;
 }
 
-function trim(text, max = 85) {
+function trim(text, max = 95) {
   if (!text) return '';
   let s = text.trim();
+  // Strip filler prefixes
   s = s.replace(/^(Meanwhile,?\s*|In other action,?\s*|Additionally,?\s*|Also,?\s*)/i, '');
+  // Strip leaked section labels
+  s = s.replace(/^[¶#§]\d*\s*/i, '');
+  s = s.replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '');
   if (s.length <= max) return s;
+  // Cut at last sentence boundary if possible
+  const sentEnd = s.lastIndexOf('.', max);
+  if (sentEnd > max * 0.5) return s.slice(0, sentEnd + 1);
+  // Otherwise cut at word boundary
   return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
 }
 
@@ -78,7 +86,9 @@ function shortDiv(div) {
 
 /** Build day-specific headline from briefing */
 function buildHeadline(paras) {
-  const p1 = stripEmojis(paras[0] || '');
+  let p1 = stripEmojis(paras[0] || '');
+  // Strip section labels that leak into headlines
+  p1 = p1.replace(/^[¶#§]\d*\s*/i, '').replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '');
   const names = [];
   const pats = [
     /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander|Stanton|Adames))/g,
@@ -96,15 +106,14 @@ function buildHeadline(paras) {
   return 'BIG DEBUTS AND EARLY SIGNALS SHAPE THE BOARD';
 }
 
-/** Build short subhead from briefing */
+/** Build short subhead from briefing — clean, complete sentence */
 function buildSubhead(paras) {
-  const p1 = stripEmojis(paras[0] || '');
-  const sents = (p1.match(/[^.!?]*[.!?]+/g) || []).map(s => s.trim());
-  if (sents.length >= 2) {
-    const s1 = sents[0].length > 50 ? sents[0].slice(0, 48).replace(/\s+\S*$/, '') + '.' : sents[0];
-    return s1;
-  }
-  return 'Debuts, aces, and early contenders shape the board.';
+  const raw = stripEmojis(paras[0] || '');
+  // Strip section labels like "¶1 AROUND THE LEAGUE:" or "AROUND THE LEAGUE —"
+  const cleaned = raw.replace(/^[¶#§]\d*\s*/i, '').replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '').trim();
+  const sents = (cleaned.match(/[^.!?]*[.!?]+/g) || []).map(s => s.trim()).filter(s => s.length > 10);
+  if (sents[0]) return sents[0];
+  return 'The board is taking shape as contenders make early statements.';
 }
 
 // ─── Content builder ──────────────────────────────────────────
@@ -122,11 +131,15 @@ function buildSlide2Content(data) {
   const getSentences = (idx) => {
     const para = paras[idx];
     if (!para) return [];
-    const cleaned = stripEmojis(para);
+    let cleaned = stripEmojis(para);
     if (!cleaned || cleaned.length < 30) return [];
+    // Strip section labels: "¶1 AROUND THE LEAGUE:", "AROUND THE LEAGUE —", etc.
+    cleaned = cleaned.replace(/^[¶#§]\d*\s*/i, '');
     const labelMatch = cleaned.match(/^([A-Z][A-Z\s&+\-:]*[A-Z])\s*[:—–-]\s*/);
-    const body = labelMatch ? cleaned.slice(labelMatch[0].length) : cleaned;
-    return (body.match(/[^.!?]*[.!?]+/g) || [body]).map(s => s.trim()).filter(Boolean);
+    if (labelMatch) cleaned = cleaned.slice(labelMatch[0].length);
+    // Split into complete sentences only
+    const sents = (cleaned.match(/[^.!?]*[.!?]+/g) || []).map(s => s.trim()).filter(s => s.length > 15);
+    return sents;
   };
 
   // ── HOT OFF THE PRESS: 4-5 bullets ──
