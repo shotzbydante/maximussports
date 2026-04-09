@@ -864,6 +864,45 @@
   }
 }
 
+/* ── Championship Hero (season complete) ─────────────────────── */
+.champHero {
+  margin-bottom: var(--space-lg);
+}
+.champHeroInner {
+  display: flex; align-items: center; gap: 20px;
+  padding: 24px 28px;
+  background: linear-gradient(135deg, rgba(1,39,93,0.06) 0%, rgba(255,203,0,0.04) 100%);
+  border: 1px solid rgba(1,39,93,0.12);
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+}
+.champTrophy {
+  font-size: 2.2rem; flex-shrink: 0;
+}
+.champContent { flex: 1; }
+.champEyebrow {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--color-text-muted);
+  margin-bottom: 4px; display: block;
+}
+.champTeam {
+  font-size: 1.5rem; font-weight: 800; color: var(--color-text);
+  margin: 0 0 6px; line-height: 1.15;
+}
+.champScore {
+  font-size: 0.88rem; font-weight: 600; color: var(--color-text-secondary);
+  margin: 0 0 4px;
+}
+.champLine {
+  font-size: 0.78rem; color: var(--color-text-muted);
+  margin: 0; line-height: 1.45; font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .champHeroInner { flex-direction: column; text-align: center; padding: 20px; gap: 12px; }
+  .champTeam { font-size: 1.2rem; }
+}
+
 /* ── Bracketology Promo ──────────────────────────────────────── */
 .bracketPromo {
   margin: var(--space-lg) 0;

@@ -37,6 +37,7 @@ import { fixPositiveOdds } from '../utils/fixPositiveOdds';
 import styles from './Home.module.css';
 import SEOHead, { buildOgImageUrl } from '../components/seo/SEOHead';
 import { BRACKETOLOGY_ROUTE } from '../config/bracketology';
+import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
 
 // ── Deferred below-the-fold imports ──────────────────────────────────────────
 const MaximusPicks     = lazy(() => import('../components/home/MaximusPicks'));
@@ -1091,6 +1092,28 @@ export default function Home() {
         <span className={styles.pageIntroDivider}>·</span>
         <span className={styles.pageIntroSub}>College Basketball Intelligence</span>
       </header>
+
+      {/* ── Championship Hero (season complete) ───────────────────── */}
+      {(() => {
+        const cbb = WORKSPACES[WorkspaceId.CBB];
+        if (cbb.seasonState !== SeasonState.COMPLETED || !cbb.championship) return null;
+        const ch = cbb.championship;
+        return (
+          <div className={styles.champHero}>
+            <div className={styles.champHeroInner}>
+              <span className={styles.champTrophy}>🏆</span>
+              <div className={styles.champContent}>
+                <span className={styles.champEyebrow}>March Madness {ch.year} — National Champion</span>
+                <h2 className={styles.champTeam}>{ch.champion}</h2>
+                <p className={styles.champScore}>
+                  Championship Final: {ch.score} vs {ch.runnerUp}
+                </p>
+                <p className={styles.champLine}>{ch.headline}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Hero Intelligence Briefing Card ─────────────────────────── */}
       <div className={styles.banner}>

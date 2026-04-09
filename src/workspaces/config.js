@@ -11,6 +11,21 @@ export const WorkspaceId = /** @type {const} */ ({
   MLB: 'mlb',
 });
 
+/**
+ * Season lifecycle states — canonical source of truth for all
+ * downstream behavior (routing, emails, UI, cards).
+ *
+ * - 'active'    → live season, full product functionality
+ * - 'completed' → season over, offseason mode (no emails, no live polling,
+ *                  team cards show tournament finish, Home shows champion)
+ * - 'preseason' → future: offseason with forward-looking content
+ */
+export const SeasonState = /** @type {const} */ ({
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  PRESEASON: 'preseason',
+});
+
 /** @typedef {'cbb' | 'mlb'} WorkspaceIdType */
 
 /**
@@ -48,6 +63,17 @@ export const WORKSPACES = {
     emoji: '\u{1F3C0}',
     logo: '/ncaa-logo.png',
     sportKey: 'basketball_ncaab',
+    seasonState: SeasonState.COMPLETED,
+    /** Championship result — drives the Home editorial hero and offseason mode */
+    championship: {
+      year: 2026,
+      champion: 'Michigan Wolverines',
+      championSlug: 'michigan-wolverines',
+      runnerUp: 'UConn Huskies',
+      runnerUpSlug: 'uconn-huskies',
+      score: '69-63',
+      headline: 'Michigan finishes atop March Madness 2026.',
+    },
     capabilities: {
       bracketology: true,
       contentStudio: true,
@@ -89,6 +115,7 @@ export const WORKSPACES = {
     emoji: '\u{26BE}',
     logo: '/mlb-logo.png',
     sportKey: 'baseball_mlb',
+    seasonState: SeasonState.ACTIVE,
     capabilities: {
       bracketology: false,
       seasonIntel: true,
@@ -131,8 +158,29 @@ export const WORKSPACES = {
 
 export const WORKSPACE_LIST = Object.values(WORKSPACES);
 
-export const DEFAULT_WORKSPACE_ID = WorkspaceId.CBB;
+/** Default workspace — MLB is the active season sport.
+ *  Change back to CBB when NCAAM season resumes. */
+export const DEFAULT_WORKSPACE_ID = WorkspaceId.MLB;
 
 export function getWorkspace(id) {
   return WORKSPACES[id] ?? WORKSPACES[DEFAULT_WORKSPACE_ID];
+}
+
+/** Check if a workspace's season is in a given state */
+export function isSeasonState(workspaceId, state) {
+  const ws = WORKSPACES[workspaceId];
+  return ws?.seasonState === state;
+}
+
+/** Check if a workspace's season is active (not completed/preseason) */
+export function isSeasonActive(workspaceId) {
+  return isSeasonState(workspaceId, SeasonState.ACTIVE);
+}
+
+/** Get the active-season workspace ID (for default routing) */
+export function getActiveSeasonWorkspaceId() {
+  for (const ws of WORKSPACE_LIST) {
+    if (ws.seasonState === SeasonState.ACTIVE) return ws.id;
+  }
+  return DEFAULT_WORKSPACE_ID;
 }
