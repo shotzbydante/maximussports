@@ -95,7 +95,7 @@ export default function Landing() {
         <header className={styles.hero}>
           <div className={styles.heroGlow} />
           <div className={styles.heroContent}>
-            <img src="/mascot.png" alt="" className={styles.heroMascot} width={80} height={80} />
+            <img src="/mascot.png" alt="" className={styles.heroMascot} width={120} height={120} />
             <h1 className={styles.heroTitle}>
               <span className={styles.heroTitleMain}>MAXIMUS</span>
               <span className={styles.heroTitleSub}>SPORTS</span>

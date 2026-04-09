@@ -157,13 +157,12 @@ export default function TopNav() {
   return (
     <header className={styles.topnav}>
       <div className={styles.brand}>
-        <Link to={buildPath('/')} className={styles.brandLink} aria-label="Maximus Sports Home">
-          <img
-            src="/maximus-logo.png"
-            alt="Maximus Sports"
-            className={styles.brandLogo}
-            onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
-          />
+        <Link to="/" className={styles.brandLink} aria-label="Maximus Sports Home">
+          <img src="/mascot.png" alt="" className={styles.brandMascot} width={36} height={36} />
+          <span className={styles.brandWordmark}>
+            <span className={styles.brandWordmarkMain}>MAXIMUS</span>
+            <span className={styles.brandWordmarkSub}>SPORTS</span>
+          </span>
         </Link>
         <div className={styles.brandTaglineCluster}>
           <span className={styles.brandTagline}>Maximum Sports. Maximum Intelligence.</span>

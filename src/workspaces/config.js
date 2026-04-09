@@ -134,7 +134,7 @@ export const WORKSPACES = {
     access: {
       public: true,
     },
-    badge: 'BETA',
+    /* badge removed — MLB is production-ready */
     labels: {
       sportName: 'Major League Baseball',
       intelligence: 'MLB Intelligence',

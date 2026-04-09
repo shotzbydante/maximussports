@@ -18,7 +18,7 @@
 }
 
 .block:hover {
-  background: var(--color-bg-muted);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .block:focus-visible {
@@ -56,7 +56,7 @@
 .username {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: rgba(255, 255, 255, 0.90);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -65,7 +65,7 @@
 
 .handle {
   font-size: 0.7rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.45);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -79,9 +79,9 @@
   text-transform: uppercase;
   padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(60, 121, 180, 0.12);
-  color: var(--color-primary);
-  border: 1px solid rgba(60, 121, 180, 0.2);
+  background: rgba(56, 133, 224, 0.18);
+  color: rgba(130, 190, 255, 0.90);
+  border: 1px solid rgba(56, 133, 224, 0.30);
   flex-shrink: 0;
   line-height: 1.5;
 }
@@ -90,7 +90,7 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.35);
   opacity: 0;
   transition: opacity 0.12s;
 }
