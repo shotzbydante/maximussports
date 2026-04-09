@@ -9,6 +9,7 @@
 import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers.js';
 import { getTeamBySlug } from '../data/teams.js';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config.js';
+import { CURRENT_MATCHUPS } from '../data/currentBracketMatchups.js';
 
 const NCAA_TOURNEY_START = '2026-03-17';
 
@@ -221,31 +222,74 @@ function deriveTournamentStatus(slug, events) {
   const wins = completedNcaa.length;
   const lastWin = completedNcaa[0] || null;
 
-  // ── Season complete: convert "active" to final achievement ──
-  const seasonCompleted = WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED;
+  // ── Season complete: derive CANONICAL final finish ──
+  const cbbConfig = WORKSPACES[WorkspaceId.CBB];
+  const seasonCompleted = cbbConfig?.seasonState === SeasonState.COMPLETED;
   if (seasonCompleted) {
-    // Team won all their tournament games — determine final finish from win count
-    const FINISH_MAP = {
-      6: 'National Champions',
-      5: 'Runner-up',
-      4: 'Final Four',
-      3: 'Elite Eight',
-      2: 'Sweet 16',
-      1: 'Round of 32',
-      0: 'Round of 64',
-    };
-    const finishLabel = FINISH_MAP[wins] || (wins > 6 ? 'National Champions' : 'Tournament Participant');
+    const ch = cbbConfig.championship;
+    const lastGame = lastWin || (lostGame ? {
+      opponent: lostGame.opponent, ourScore: lostGame.ourScore,
+      oppScore: lostGame.oppScore, date: lostGame.date, won: false,
+    } : null);
+
+    // Priority 1: Champion — from canonical championship config
+    if (ch?.championSlug === slug) {
+      return {
+        label: 'National Champions',
+        status: 'champion',
+        roundLabel: 'National Champions',
+        lastGame: lastGame || { opponent: ch.runnerUp, ourScore: null, oppScore: null, date: null, won: true },
+        nextNcaaGame: null,
+      };
+    }
+
+    // Priority 2: Runner-up — from canonical championship config
+    if (ch?.runnerUpSlug === slug) {
+      return {
+        label: 'Lost in National Championship Game',
+        status: 'eliminated',
+        roundLabel: 'National Championship Game',
+        lastGame: lastGame || { opponent: ch.champion, ourScore: null, oppScore: null, date: null, won: false },
+        nextNcaaGame: null,
+      };
+    }
+
+    // Priority 3: Final Four losers — from currentBracketMatchups (round 5)
+    // These teams made the Final Four but lost to the champion or runner-up
+    const ffMatch = CURRENT_MATCHUPS.find(m => m.round === 5 && (m.slugA === slug || m.slugB === slug));
+    if (ffMatch) {
+      // This team made the Final Four — they lost in the FF since they're not champion/runner-up
+      const opponent = ffMatch.slugA === slug ? ffMatch.teamB : ffMatch.teamA;
+      return {
+        label: 'Lost in Final Four',
+        status: 'eliminated',
+        roundLabel: 'Final Four',
+        lastGame: lastGame || { opponent, ourScore: null, oppScore: null, date: ffMatch.gameDate, won: false },
+        nextNcaaGame: null,
+      };
+    }
+
+    // Priority 4: Other tournament teams — use event-based loss detection
+    if (lostGame) {
+      const gamesBeforeLoss = completedNcaa.filter(
+        (e) => new Date(e.date) <= new Date(lostGame.date)
+      ).length;
+      const roundName = getRoundLabel(gamesBeforeLoss);
+      return {
+        label: `Lost in ${roundName}`,
+        status: 'eliminated',
+        roundLabel: roundName,
+        lastGame: { opponent: lostGame.opponent, ourScore: lostGame.ourScore, oppScore: lostGame.oppScore, date: lostGame.date, won: false },
+        nextNcaaGame: null,
+      };
+    }
+
+    // Priority 5: In field but no tournament game data found — generic finish
     return {
-      label: finishLabel,
-      status: wins >= 6 ? 'champion' : 'eliminated',
-      roundLabel: finishLabel,
-      lastGame: lastWin ? {
-        opponent: lastWin.opponent,
-        ourScore: lastWin.ourScore,
-        oppScore: lastWin.oppScore,
-        date: lastWin.date,
-        won: true,
-      } : null,
+      label: 'Season Complete',
+      status: 'eliminated',
+      roundLabel: 'Season Complete',
+      lastGame: null,
       nextNcaaGame: null,
     };
   }
