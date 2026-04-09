@@ -207,16 +207,7 @@ export default function Landing() {
           </div>
         )}
 
-        {/* ── Footer ── */}
-        <footer className={styles.footer}>
-          <span className={styles.footerBrand}>Maximus Sports</span>
-          <span className={styles.footerTag}>AI-Powered Sports Intelligence</span>
-          <div className={styles.footerLinks}>
-            <Link to="/privacy" className={styles.footerLink}>Privacy</Link>
-            <Link to="/terms" className={styles.footerLink}>Terms</Link>
-            <Link to="/contact" className={styles.footerLink}>Contact</Link>
-          </div>
-        </footer>
+        {/* Footer handled by global Layout Footer component */}
       </div>
     </>
   );
