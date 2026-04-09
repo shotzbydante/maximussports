@@ -45,22 +45,30 @@ const NCAAM_MODULES = [
   { title: 'Odds Insights', desc: 'Historical picks performance and ATS analytics.', to: '/ncaam/insights' },
 ];
 
-function NewsCard({ item }) {
-  const hasImage = item.image || item.thumbnail;
-  return (
-    <a href={item.url || item.link || '#'} target="_blank" rel="noopener noreferrer" className={styles.newsCard}>
-      {hasImage && (
-        <div className={styles.newsThumb}>
-          <img src={item.image || item.thumbnail} alt="" loading="lazy" className={styles.newsThumbImg} />
-          {(item.type === 'video' || item.isVideo) && <span className={styles.playIcon}>▶</span>}
-        </div>
-      )}
-      <div className={styles.newsBody}>
-        <span className={styles.newsTitle}>{item.title || item.headline}</span>
-        {item.source && <span className={styles.newsSource}>{item.source}</span>}
-      </div>
-    </a>
-  );
+/** Clean video/headline titles — remove noisy suffixes, duplicated sources, separators */
+function cleanTitle(raw) {
+  if (!raw) return '';
+  let t = raw;
+  // Remove trailing " - Source Name" or " | Source Name"
+  t = t.replace(/\s*[|\u2013\u2014–—]\s*(?:Yahoo Sports|ESPN|MLB\.com|CBS Sports|Fox Sports|The Athletic|AP News|Bleacher Report)\s*$/i, '');
+  // Remove trailing " // highlights" or " | MLB Highlights"
+  t = t.replace(/\s*[|/]{1,2}\s*(?:MLB\s+)?Highlights?\s*$/i, '');
+  // Remove trailing " - YouTube"
+  t = t.replace(/\s*-\s*YouTube\s*$/i, '');
+  // Trim excess whitespace
+  return t.trim();
+}
+
+function formatTimeAgo(dateStr) {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffH = Math.floor((now - d) / (1000 * 60 * 60));
+    if (diffH < 1) return 'Just now';
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    return `${diffD}d ago`;
+  } catch { return ''; }
 }
 
 export default function Landing() {
@@ -70,6 +78,7 @@ export default function Landing() {
 
   const navigate = useNavigate();
   const [mlbNews, setMlbNews] = useState([]);
+  const [mlbVideos, setMlbVideos] = useState([]);
 
   // ── Welcome modal: same trigger logic as NCAAM Home ──
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
@@ -97,7 +106,12 @@ export default function Landing() {
 
   useEffect(() => {
     fetchMlbHeadlines()
-      .then(d => setMlbNews((d.headlines || []).slice(0, 3)))
+      .then(d => setMlbNews((d.headlines || []).slice(0, 6)))
+      .catch(() => {});
+    // Fetch curated MLB videos
+    fetch('/api/mlb/youtube/intelFeed?maxResults=6')
+      .then(r => r.json())
+      .then(d => setMlbVideos((d.items || []).slice(0, 4)))
       .catch(() => {});
   }, []);
 
@@ -236,12 +250,65 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* ── Live News Previews ── */}
-        {mlbNews.length > 0 && (
-          <div className={styles.newsSection}>
-            <h3 className={styles.newsSectionTitle}>Latest from MLB</h3>
-            <div className={styles.newsGrid}>
-              {mlbNews.map((item, i) => <NewsCard key={i} item={item} />)}
+        {/* ── MLB Intel Feed (curated) ── */}
+        {(mlbVideos.length > 0 || mlbNews.length > 0) && (
+          <div className={styles.intelFeed}>
+            <h3 className={styles.intelFeedTitle}>MLB Intel Feed</h3>
+            <div className={styles.intelFeedGrid}>
+              {/* Videos column */}
+              {mlbVideos.length > 0 && (
+                <div className={styles.intelVideos}>
+                  {/* Featured video (first item) */}
+                  {mlbVideos[0] && (
+                    <a href={`https://www.youtube.com/watch?v=${mlbVideos[0].videoId}`}
+                      target="_blank" rel="noopener noreferrer" className={styles.featuredVideo}>
+                      <div className={styles.featuredThumb}>
+                        <img src={mlbVideos[0].thumbUrl} alt="" loading="lazy" />
+                        <span className={styles.playOverlay}>▶</span>
+                      </div>
+                      <div className={styles.featuredInfo}>
+                        <span className={styles.featuredTitle}>{cleanTitle(mlbVideos[0].title)}</span>
+                        <span className={styles.featuredMeta}>
+                          {mlbVideos[0].channelTitle}
+                          {mlbVideos[0].publishedAt && ` · ${formatTimeAgo(mlbVideos[0].publishedAt)}`}
+                        </span>
+                      </div>
+                    </a>
+                  )}
+                  {/* Supporting videos */}
+                  <div className={styles.supportingVideos}>
+                    {mlbVideos.slice(1, 4).map((v, i) => (
+                      <a key={i} href={`https://www.youtube.com/watch?v=${v.videoId}`}
+                        target="_blank" rel="noopener noreferrer" className={styles.supportVideo}>
+                        <div className={styles.supportThumb}>
+                          <img src={v.thumbUrl} alt="" loading="lazy" />
+                          <span className={styles.playIconSmall}>▶</span>
+                        </div>
+                        <div className={styles.supportInfo}>
+                          <span className={styles.supportTitle}>{cleanTitle(v.title)}</span>
+                          <span className={styles.supportMeta}>
+                            {v.channelTitle}
+                            {v.publishedAt && ` · ${formatTimeAgo(v.publishedAt)}`}
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Headlines column */}
+              {mlbNews.length > 0 && (
+                <div className={styles.intelHeadlines}>
+                  <span className={styles.headlinesLabel}>Headlines</span>
+                  {mlbNews.map((item, i) => (
+                    <a key={i} href={item.url || item.link || '#'}
+                      target="_blank" rel="noopener noreferrer" className={styles.headlineRow}>
+                      <span className={styles.headlineTitle}>{cleanTitle(item.title || item.headline)}</span>
+                      {item.source && <span className={styles.headlineSource}>{item.source}</span>}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

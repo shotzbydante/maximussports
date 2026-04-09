@@ -225,61 +225,122 @@
   font-size: 0.64rem; color: rgba(255,255,255,0.38); line-height: 1.45;
 }
 
-/* ── News Section ── */
-.newsSection {
+/* ── MLB Intel Feed ── */
+.intelFeed {
   max-width: 1000px; margin: 0 auto;
   padding: 0 24px 52px;
 }
-.newsSectionTitle {
-  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.10em; color: rgba(255,255,255,0.38);
-  margin: 0 0 14px; padding-bottom: 8px;
+.intelFeedTitle {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: rgba(255,255,255,0.42);
+  margin: 0 0 16px; padding-bottom: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.newsGrid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+.intelFeedGrid {
+  display: grid; grid-template-columns: 3fr 2fr;
+  gap: 20px; align-items: start;
 }
-.newsCard {
+
+/* Videos column */
+.intelVideos { display: flex; flex-direction: column; gap: 10px; }
+
+.featuredVideo {
   display: flex; flex-direction: column;
   background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
-  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px; overflow: hidden;
   text-decoration: none;
-  transition: background 0.12s, border-color 0.12s, transform 0.15s;
+  transition: border-color 0.15s, transform 0.15s;
 }
-.newsCard:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.12);
+.featuredVideo:hover {
+  border-color: rgba(255,255,255,0.14);
   transform: translateY(-2px);
 }
-.newsThumb {
+.featuredThumb {
   position: relative; width: 100%;
   aspect-ratio: 16/9; overflow: hidden;
   background: rgba(255,255,255,0.02);
 }
-.newsThumbImg {
-  width: 100%; height: 100%; object-fit: cover;
-}
-.playIcon {
+.featuredThumb img { width: 100%; height: 100%; object-fit: cover; }
+.playOverlay {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  font-size: 1.4rem; color: rgba(255,255,255,0.85);
+  font-size: 1.6rem; color: rgba(255,255,255,0.90);
+  background: rgba(0,0,0,0.55); border-radius: 50%;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.featuredVideo:hover .playOverlay { background: rgba(184,41,61,0.70); }
+.featuredInfo { padding: 12px 14px; }
+.featuredTitle {
+  font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,0.85);
+  line-height: 1.35; display: block; margin-bottom: 4px;
+}
+.featuredMeta {
+  font-size: 0.62rem; color: rgba(255,255,255,0.35);
+}
+
+/* Supporting videos */
+.supportingVideos {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.supportVideo {
+  display: flex; flex-direction: column;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px; overflow: hidden;
+  text-decoration: none;
+  transition: border-color 0.12s;
+}
+.supportVideo:hover { border-color: rgba(255,255,255,0.12); }
+.supportThumb {
+  position: relative; width: 100%;
+  aspect-ratio: 16/9; overflow: hidden;
+  background: rgba(255,255,255,0.02);
+}
+.supportThumb img { width: 100%; height: 100%; object-fit: cover; }
+.playIconSmall {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 0.9rem; color: rgba(255,255,255,0.80);
   background: rgba(0,0,0,0.50); border-radius: 50%;
-  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
 }
-.newsBody {
-  padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 4px;
+.supportInfo { padding: 8px 10px; }
+.supportTitle {
+  font-size: 0.64rem; font-weight: 600; color: rgba(255,255,255,0.72);
+  line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.newsTitle {
-  font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.78);
+.supportMeta {
+  font-size: 0.52rem; color: rgba(255,255,255,0.28); margin-top: 3px; display: block;
+}
+
+/* Headlines column */
+.intelHeadlines {
+  display: flex; flex-direction: column; gap: 0;
+}
+.headlinesLabel {
+  font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: rgba(255,255,255,0.30);
+  margin-bottom: 8px;
+}
+.headlineRow {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.headlineRow:last-child { border-bottom: none; }
+.headlineRow:hover { background: rgba(255,255,255,0.04); }
+.headlineTitle {
+  font-size: 0.76rem; font-weight: 600; color: rgba(255,255,255,0.75);
   line-height: 1.40;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.newsSource {
-  font-size: 0.58rem; color: rgba(255,255,255,0.30);
+.headlineSource {
+  font-size: 0.54rem; color: rgba(255,255,255,0.28);
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
@@ -316,7 +377,13 @@
   .tile { padding: 28px 24px 24px; min-height: 200px; }
 }
 
+@media (max-width: 900px) {
+  .intelFeedGrid { grid-template-columns: 1fr; }
+  .supportingVideos { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 480px) {
+  .supportingVideos { grid-template-columns: 1fr; }
   .heroTitleMain { font-size: 2.2rem; }
   .heroTitleSub { font-size: 1.2rem; }
   .valueStrip { gap: 6px; }
