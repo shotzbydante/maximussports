@@ -1,13 +1,13 @@
 /**
  * buildMlbDailyHeadline — Dynamic, data-driven hero headlines for MLB Daily Briefing.
  *
- * Priority: marquee results > blowouts > shutouts > streaks > standings movement > general
+ * Priority: marquee results > blowouts > shutouts > upsets > contender wins > player stories > standings > general
  * Style: punchy, 2-clause, editorial, daily-changing
  * Data: existing MLB pipelines (live games, briefing, season model)
  *
  * Returns: { heroTitle, mainHeadline, subhead }
  *   heroTitle    → Slide 1 hero text (all-caps, 2 clauses, ≤ 65 chars ideal)
- *   mainHeadline → Slide 2 header (mixed case, ~60 chars)
+ *   mainHeadline → Slide 2 header (mixed case, ~70 chars)
  *   subhead      → Slide 2 subhead (1 sentence, ≤ 95 chars)
  */
 
@@ -15,17 +15,37 @@ import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { parseBriefingToIntel } from './normalizeMlbImagePayload';
 
-// ── Team display names ──────────────────────────────────────────────────
+// ── Team metadata maps ──────────────────────────────────────────────────
 
-const SLUG_TO_SHORT = Object.fromEntries(
-  MLB_TEAMS.map(t => [t.slug, t.abbrev])
-);
-const SLUG_TO_NAME = Object.fromEntries(
-  MLB_TEAMS.map(t => [t.slug, t.name.split(' ').pop()])  // "Yankees", "Dodgers", etc.
+const TEAM_META = Object.fromEntries(
+  MLB_TEAMS.map(t => [t.slug, { name: t.name.split(' ').pop(), abbrev: t.abbrev, division: t.division, league: t.league }])
 );
 
-function teamShort(slug) { return SLUG_TO_SHORT[slug] || slug?.toUpperCase() || '???'; }
-function teamName(slug) { return SLUG_TO_NAME[slug] || slug || '???'; }
+/** Full team nickname for editorial use — "Rockies", "Yankees", etc. */
+function teamName(slug) { return TEAM_META[slug]?.name || slug || '???'; }
+
+/** Short division label — "NL West", "AL East" */
+function teamDiv(slug) { return TEAM_META[slug]?.division || ''; }
+
+/** League — "AL" or "NL" */
+function teamLeague(slug) { return TEAM_META[slug]?.league || ''; }
+
+/** Abbreviation — only for subheads, never hero headlines */
+function teamAbbrev(slug) { return TEAM_META[slug]?.abbrev || slug?.toUpperCase() || '???'; }
+
+// ── Verb agreement for plural team names ────────────────────────────────
+// All MLB team nicknames are grammatically plural except "Red Sox" and "White Sox"
+// (which are also plural in usage). So ALL teams use plural verbs:
+//   "Rockies cruise", "Yankees roll", "Red Sox dominate"
+
+const PLURAL_VERBS = {
+  cruise: 'cruise',   roll: 'roll',   dominate: 'dominate',
+  blank: 'blank',     rout: 'rout',   stun: 'stun',
+  top: 'top',         handle: 'handle', deliver: 'deliver',
+  shut: 'shut',       take: 'take',   answer: 'answer',
+  keep: 'keep',       hold: 'hold',   crush: 'crush',
+  sweep: 'sweep',     drop: 'drop',   edge: 'edge',
+};
 
 // ── Extract stories from live/final games ───────────────────────────────
 
@@ -56,7 +76,6 @@ function extractGameStories(liveGames) {
 
     if (!winSlug) continue;
 
-    // Is winner a top contender? (projected 88+ wins)
     const winProj = getTeamProjection(winSlug);
     const loseProj = getTeamProjection(loseSlug);
     const winProjWins = winProj?.projectedWins ?? 81;
@@ -64,20 +83,26 @@ function extractGameStories(liveGames) {
     const isContender = winProjWins >= 88;
     const isUpset = loseProjWins >= 88 && winProjWins < 84;
 
+    // Division / race context
+    const winDiv = teamDiv(winSlug);
+    const loseDiv = teamDiv(loseSlug);
+    const isDivisionRival = winDiv && winDiv === loseDiv;
+
     stories.push({
-      type: margin >= 7 ? 'blowout' : loseScore === 0 ? 'shutout' : margin === 1 ? 'walkoff' : 'result',
+      type: loseScore === 0 ? 'shutout' : margin >= 7 ? 'blowout' : margin === 1 ? 'close' : 'result',
       winSlug, loseSlug,
       winScore, loseScore, margin,
-      isContender, isUpset,
+      isContender, isUpset, isDivisionRival,
       winProjWins, loseProjWins,
+      winDiv, loseDiv,
     });
   }
 
-  // Sort: blowouts & shutouts first, then upsets, then contender wins
+  // Sort: upsets first, then shutouts, blowouts, contender wins, others
   stories.sort((a, b) => {
-    const typeOrder = { blowout: 0, shutout: 1, walkoff: 2, result: 3 };
     if (a.isUpset && !b.isUpset) return -1;
     if (!a.isUpset && b.isUpset) return 1;
+    const typeOrder = { shutout: 0, blowout: 1, close: 2, result: 3 };
     if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
     if (a.isContender && !b.isContender) return -1;
     if (!a.isContender && b.isContender) return 1;
@@ -87,14 +112,28 @@ function extractGameStories(liveGames) {
   return stories;
 }
 
+// ── Find a meaningful second story ──────────────────────────────────────
+
+function findSecondStory(stories, topStory) {
+  if (stories.length < 2) return null;
+  // Prefer a contender from a different division, or any contender
+  for (const s of stories.slice(1)) {
+    if (s.isContender && s.winDiv !== topStory.winDiv) return s;
+  }
+  for (const s of stories.slice(1)) {
+    if (s.isContender) return s;
+  }
+  // Any other notable result
+  return stories[1];
+}
+
 // ── Extract stories from briefing text ──────────────────────────────────
 
 function extractBriefingStories(briefingText) {
-  if (!briefingText) return { players: [], teams: [], hasStandings: false };
+  if (!briefingText) return { players: [], hasStandings: false, hasStreak: false, intel: null };
 
   const intel = parseBriefingToIntel(briefingText);
   const raw = (intel?.rawParagraphs || []).join(' ');
-  const lower = raw.toLowerCase();
 
   // Player extraction
   const PLAYER_PAT = /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander|Stanton|Adames|Tatis|Lindor|Alvarez|Tucker|Witt|Carroll|Rodriguez|Skenes|Yamamoto|Freeman|Harper|Arenado|Machado|Vlad|Guerrero|Volpe|Cortes|Burnes|Webb|Strider|Cease|Glasnow|Snell|Musgrove|Scherzer|Kershaw|Sale|Bieber|Nola|Fried|Wheeler|Alcantara|Gausman|Bassitt))/gi;
@@ -104,10 +143,7 @@ function extractBriefingStories(briefingText) {
     players.push(m[1]);
   }
 
-  // Detect standings / race language
   const hasStandings = /first place|lead(s|ing) the|game(s)? (back|behind|ahead)|division lead|wild card|pennant/i.test(raw);
-
-  // Detect streak language
   const hasStreak = /winning streak|win streak|losing streak|consecutive|in a row|straight (win|loss)/i.test(raw);
 
   return { players: [...new Set(players)], hasStandings, hasStreak, intel };
@@ -120,7 +156,7 @@ function getModelContenders() {
   for (const team of MLB_TEAMS) {
     const proj = getTeamProjection(team.slug);
     if (!proj || !proj.projectedWins) continue;
-    teams.push({ slug: team.slug, abbrev: team.abbrev, projectedWins: proj.projectedWins, league: team.league });
+    teams.push({ slug: team.slug, abbrev: team.abbrev, projectedWins: proj.projectedWins, league: team.league, division: team.division });
   }
   teams.sort((a, b) => b.projectedWins - a.projectedWins);
   return teams;
@@ -134,68 +170,187 @@ function dayOfYear() {
   return Math.floor((now - start) / 86400000);
 }
 
-// ── Headline template banks ─────────────────────────────────────────────
+// ── Division short label for headlines ──────────────────────────────────
 
-const BLOWOUT_HERO = [
-  (w, l, s) => `${w} ROLLS. ${s} STATEMENT MADE.`,
-  (w, l, s) => `${w} DOMINATES ${l}. THE BOARD SHIFTS.`,
-  (w, l, s) => `${w} CRUISES ${s}. CONTENDERS TAKE NOTICE.`,
-];
+function divShortLabel(div) {
+  if (!div) return '';
+  // "NL West" → "NL WEST", "AL East" → "AL EAST"
+  return div.toUpperCase();
+}
 
-const SHUTOUT_HERO = [
-  (w, l) => `${w} SHUTS OUT ${l}. PITCHING WINS.`,
-  (w, l) => `BLANKED. ${w} DOMINATES ${l}.`,
-];
+// ═══════════════════════════════════════════════════════════════════════
+//  HERO TITLE TEMPLATES (Slide 1 — all-caps, punchy, emotional)
+//
+//  All verbs are plural-safe: "ROCKIES CRUISE", not "ROCKIES CRUISES"
+// ═══════════════════════════════════════════════════════════════════════
 
-const UPSET_HERO = [
-  (w, l) => `${w} STUNS ${l}. THE BOARD REACTS.`,
-  (w, l) => `UPSET ALERT. ${w} TAKES DOWN ${l}.`,
-];
+function heroBlowout(top, second, doy) {
+  const w = teamName(top.winSlug).toUpperCase();
+  const l = teamName(top.loseSlug).toUpperCase();
+  const score = `${top.winScore}-${top.loseScore}`;
+  const divLabel = divShortLabel(top.winDiv);
 
-const CONTENDER_HERO = [
-  (w) => `${w} DELIVERS. THE RACE TIGHTENS.`,
-  (w) => `${w} HANDLES BUSINESS. CONTENDERS ROLL.`,
-  (w, l) => `${w} TOPS ${l}. EARLY SIGNALS EMERGE.`,
-];
+  const templates = [
+    () => second
+      ? `${w} ROLL ${score}. ${teamName(second.winSlug).toUpperCase()} KEEP PACE.`
+      : `${w} ROLL ${score} OVER ${l}. ${divLabel} PRESSURE BUILDS.`,
+    () => second
+      ? `${w} CRUISE PAST ${l}. ${teamName(second.winSlug).toUpperCase()} ANSWER.`
+      : `${w} CRUISE ${score}. THE ${divLabel} RACE TIGHTENS.`,
+    () => `${w} ROUT ${l} ${score}. THE BOARD SHIFTS.`,
+  ];
+  return templates[doy % templates.length]();
+}
 
-const PLAYER_HERO = [
+function heroShutout(top, second, doy) {
+  const w = teamName(top.winSlug).toUpperCase();
+  const l = teamName(top.loseSlug).toUpperCase();
+  const templates = [
+    () => second
+      ? `${w} BLANK ${l}. ${teamName(second.winSlug).toUpperCase()} HOLD THE LINE.`
+      : `${w} SHUT OUT ${l}. PITCHING DOMINATES.`,
+    () => `${w} BLANK ${l}. THE ${divShortLabel(top.winDiv)} GAP NARROWS.`,
+  ];
+  return templates[doy % templates.length]();
+}
+
+function heroUpset(top, second, doy) {
+  const w = teamName(top.winSlug).toUpperCase();
+  const l = teamName(top.loseSlug).toUpperCase();
+  const templates = [
+    () => `${w} STUN ${l}. THE ${divShortLabel(top.loseDiv)} RACE SHIFTS.`,
+    () => second
+      ? `${w} UPSET ${l}. ${teamName(second.winSlug).toUpperCase()} TAKE ADVANTAGE.`
+      : `${w} TAKE DOWN ${l}. THE BOARD REACTS.`,
+  ];
+  return templates[doy % templates.length]();
+}
+
+function heroContender(top, second, doy) {
+  const w = teamName(top.winSlug).toUpperCase();
+  const l = teamName(top.loseSlug).toUpperCase();
+  const score = `${top.winScore}-${top.loseScore}`;
+
+  const templates = [
+    () => second
+      ? `${w} TOP ${l}. ${teamName(second.winSlug).toUpperCase()} KEEP PACE.`
+      : `${w} HANDLE ${l} ${score}. THE RACE TIGHTENS.`,
+    () => second
+      ? `${w} WIN ${score}. ${teamName(second.winSlug).toUpperCase()} ANSWER.`
+      : `${w} CRUISE PAST ${l}. EARLY GAPS FORM.`,
+    () => top.isDivisionRival
+      ? `${w} TOP ${l} IN ${divShortLabel(top.winDiv)} CLASH.`
+      : `${w} ROLL PAST ${l}. THE BOARD MOVES.`,
+  ];
+  return templates[doy % templates.length]();
+}
+
+function heroResult(top, second, doy) {
+  const w = teamName(top.winSlug).toUpperCase();
+  const l = teamName(top.loseSlug).toUpperCase();
+  const score = `${top.winScore}-${top.loseScore}`;
+  const templates = [
+    () => second
+      ? `${w} WIN ${score}. ${teamName(second.winSlug).toUpperCase()} ALSO DELIVER.`
+      : `${w} EDGE ${l} ${score}. THE BOARD REACTS.`,
+    () => `${w} TOP ${l}. THE ${divShortLabel(top.winDiv)} PICTURE SHIFTS.`,
+  ];
+  return templates[doy % templates.length]();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SLIDE 2 HEADLINE TEMPLATES (mixed case, more descriptive, informative)
+//
+//  Uses full team names, references opponent + standings context
+// ═══════════════════════════════════════════════════════════════════════
+
+function slide2Blowout(top, second, doy) {
+  const w = teamName(top.winSlug);
+  const l = teamName(top.loseSlug);
+  const score = `${top.winScore}-${top.loseScore}`;
+  const templates = [
+    () => second
+      ? `${w} cruise ${score} over ${l} while ${teamName(second.winSlug)} keep pace`
+      : `${w} roll ${score} past ${l} as ${divShortLabel(top.winDiv)} pressure builds`,
+    () => second
+      ? `${w} rout ${l} ${score}, ${teamName(second.winSlug)} respond in ${divShortLabel(second.winDiv)}`
+      : `${w} dominate ${l} ${score} — early ${divShortLabel(top.winDiv)} separation`,
+  ];
+  return templates[doy % templates.length]();
+}
+
+function slide2Shutout(top, second, doy) {
+  const w = teamName(top.winSlug);
+  const l = teamName(top.loseSlug);
+  return second
+    ? `${w} blank ${l} as ${teamName(second.winSlug)} also pick up a win`
+    : `${w} shut out ${l} — pitching dominates across the board`;
+}
+
+function slide2Upset(top, second, doy) {
+  const w = teamName(top.winSlug);
+  const l = teamName(top.loseSlug);
+  return second
+    ? `${w} stun ${l} while ${teamName(second.winSlug)} take advantage`
+    : `${w} pull the upset over ${l} as the ${divShortLabel(top.loseDiv)} race shifts`;
+}
+
+function slide2Contender(top, second, doy) {
+  const w = teamName(top.winSlug);
+  const l = teamName(top.loseSlug);
+  const score = `${top.winScore}-${top.loseScore}`;
+  const templates = [
+    () => second
+      ? `${w} top ${l} ${score} while ${teamName(second.winSlug)} keep pace`
+      : `${w} handle ${l} ${score} as ${divShortLabel(top.winDiv)} takes shape`,
+    () => second
+      ? `${w} win ${score}, ${teamName(second.winSlug)} answer — early gaps form`
+      : `${w} cruise past ${l} ${score} — the board tightens`,
+  ];
+  return templates[doy % templates.length]();
+}
+
+function slide2Result(top, second, doy) {
+  const w = teamName(top.winSlug);
+  const l = teamName(top.loseSlug);
+  const score = `${top.winScore}-${top.loseScore}`;
+  return second
+    ? `${w} edge ${l} ${score} while ${teamName(second.winSlug)} also deliver`
+    : `${w} top ${l} ${score} — the ${divShortLabel(top.winDiv)} picture shifts`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  FALLBACK TEMPLATES (briefing-driven or general)
+// ═══════════════════════════════════════════════════════════════════════
+
+const PLAYER_HERO_TEMPLATES = [
   (p1, p2) => `${p1} BREAKS THROUGH. ${p2} SETS THE TONE.`,
   (p1, p2) => `${p1} DELIVERS. ${p2} ANSWERS.`,
   (p1) => `${p1} MAKES A STATEMENT. THE BOARD SHIFTS.`,
-  (p1) => `${p1} DELIVERS AS CONTENDERS SET THE TONE.`,
+  (p1) => `${p1} DELIVERS. CONTENDERS SET THE TONE.`,
 ];
 
-const STANDINGS_HERO = [
-  () => 'THE RACE TIGHTENS. CONTENDERS SEPARATE.',
-  () => 'DIVISION LEADS SHIFT. THE BOARD REACTS.',
-  () => 'STANDINGS SHUFFLE. EARLY SEPARATION BEGINS.',
+const STANDINGS_HERO_TEMPLATES = [
+  'THE RACE TIGHTENS. CONTENDERS SEPARATE.',
+  'DIVISION LEADS SHIFT. THE BOARD REACTS.',
+  'STANDINGS SHUFFLE. EARLY SEPARATION BEGINS.',
 ];
 
-const GENERAL_HERO = [
-  'CONTENDERS ANSWER. THE BOARD TAKES SHAPE.',
-  'DEBUTS LAND. EARLY SIGNALS EMERGE.',
-  'THE BOARD IS LIVE. EDGES ARE FORMING.',
-  'BIG BATS. BIGGER SIGNALS. THE BOARD MOVES.',
+const GENERAL_HERO_TEMPLATES = [
+  'THE BOARD TAKES SHAPE. EARLY GAPS FORM.',
   'RESULTS LAND. THE MODEL REACTS.',
+  'BIG BATS. BIGGER SIGNALS. THE BOARD MOVES.',
   'THE SEASON MOVES FAST. SO DOES THE BOARD.',
+  'EARLY SIGNALS EMERGE. THE RACE IS ON.',
+  'CONTENDERS ANSWER. THE PICTURE SHARPENS.',
 ];
 
-// ── Slide 2 headline templates ──────────────────────────────────────────
-
-const SLIDE2_HEADLINES = {
-  blowout: (w, l, s) => `${w} cruises ${s} as contenders flex`,
-  shutout: (w, l) => `${w} blanks ${l} — pitching leads the way`,
-  upset: (w, l) => `${w} stuns ${l} in early-season upset`,
-  contender: (w) => `${w} takes care of business as the board takes shape`,
-  player: (p) => `${p} delivers as contenders set the tone`,
-  standings: () => 'Division races heating up across both leagues',
-  general: [
-    'Big debuts and early signals shape the board',
-    'Contenders flex as the model reacts',
-    'The board takes shape — edges are forming',
-    'Results land across the league — the model reacts',
-  ],
-};
+const GENERAL_SLIDE2 = [
+  'Results land across the league as the model reacts',
+  'Early signals emerge — the board takes shape',
+  'The race is on as contenders separate from the pack',
+  'Big results across both leagues shift the board',
+];
 
 // ═══════════════════════════════════════════════════════════════════════
 //  MAIN BUILDER
@@ -211,82 +366,72 @@ export function buildMlbDailyHeadline({ liveGames, briefing, seasonIntel } = {})
   let mainHeadline = '';
   let subhead = '';
 
-  // ── Priority 1: Marquee game results (blowouts, shutouts, upsets) ──
   const topStory = gameStories[0];
+  const secondStory = topStory ? findSecondStory(gameStories, topStory) : null;
 
-  if (topStory?.type === 'blowout' && topStory.margin >= 7) {
-    const w = teamName(topStory.winSlug).toUpperCase();
-    const l = teamName(topStory.loseSlug).toUpperCase();
-    const score = `${topStory.winScore}-${topStory.loseScore}`;
-    const tmpl = BLOWOUT_HERO[doy % BLOWOUT_HERO.length];
-    heroTitle = tmpl(w, l, score);
-    mainHeadline = SLIDE2_HEADLINES.blowout(teamShort(topStory.winSlug), teamShort(topStory.loseSlug), score);
-    subhead = buildSubheadFromGame(topStory, gameStories[1]);
-  } else if (topStory?.type === 'shutout') {
-    const w = teamName(topStory.winSlug).toUpperCase();
-    const l = teamName(topStory.loseSlug).toUpperCase();
-    const tmpl = SHUTOUT_HERO[doy % SHUTOUT_HERO.length];
-    heroTitle = tmpl(w, l);
-    mainHeadline = SLIDE2_HEADLINES.shutout(teamShort(topStory.winSlug), teamShort(topStory.loseSlug));
-    subhead = buildSubheadFromGame(topStory, gameStories[1]);
-  } else if (topStory?.isUpset) {
-    const w = teamName(topStory.winSlug).toUpperCase();
-    const l = teamName(topStory.loseSlug).toUpperCase();
-    const tmpl = UPSET_HERO[doy % UPSET_HERO.length];
-    heroTitle = tmpl(w, l);
-    mainHeadline = SLIDE2_HEADLINES.upset(teamShort(topStory.winSlug), teamShort(topStory.loseSlug));
-    subhead = buildSubheadFromGame(topStory, gameStories[1]);
+  // ── Priority 1: Upset ──
+  if (topStory?.isUpset) {
+    heroTitle = heroUpset(topStory, secondStory, doy);
+    mainHeadline = slide2Upset(topStory, secondStory, doy);
+    subhead = buildSubheadFromGame(topStory, secondStory);
   }
-
-  // ── Priority 2: Contender win ──
+  // ── Priority 2: Shutout ──
+  else if (topStory?.type === 'shutout') {
+    heroTitle = heroShutout(topStory, secondStory, doy);
+    mainHeadline = slide2Shutout(topStory, secondStory, doy);
+    subhead = buildSubheadFromGame(topStory, secondStory);
+  }
+  // ── Priority 3: Blowout (7+ run margin) ──
+  else if (topStory?.type === 'blowout') {
+    heroTitle = heroBlowout(topStory, secondStory, doy);
+    mainHeadline = slide2Blowout(topStory, secondStory, doy);
+    subhead = buildSubheadFromGame(topStory, secondStory);
+  }
+  // ── Priority 4: Contender win ──
   else if (topStory?.isContender) {
-    const w = teamName(topStory.winSlug).toUpperCase();
-    const l = teamName(topStory.loseSlug).toUpperCase();
-    const tmpl = CONTENDER_HERO[doy % CONTENDER_HERO.length];
-    heroTitle = tmpl(w, l);
-    mainHeadline = SLIDE2_HEADLINES.contender(teamShort(topStory.winSlug));
-    subhead = buildSubheadFromGame(topStory, gameStories[1]);
+    heroTitle = heroContender(topStory, secondStory, doy);
+    mainHeadline = slide2Contender(topStory, secondStory, doy);
+    subhead = buildSubheadFromGame(topStory, secondStory);
   }
-
-  // ── Priority 3: Player-driven from briefing ──
+  // ── Priority 5: Any final game result ──
+  else if (topStory) {
+    heroTitle = heroResult(topStory, secondStory, doy);
+    mainHeadline = slide2Result(topStory, secondStory, doy);
+    subhead = buildSubheadFromGame(topStory, secondStory);
+  }
+  // ── Priority 6: Player-driven from briefing ──
   else if (briefingData.players.length >= 2) {
     const p1 = briefingData.players[0].split(' ').pop().toUpperCase();
     const p2 = briefingData.players[1].split(' ').pop().toUpperCase();
-    const tmpl = PLAYER_HERO[doy % 2]; // first two templates take 2 players
-    heroTitle = tmpl(p1, p2);
-    mainHeadline = SLIDE2_HEADLINES.player(briefingData.players[0].split(' ').pop());
+    heroTitle = PLAYER_HERO_TEMPLATES[doy % 2](p1, p2);
+    mainHeadline = `${briefingData.players[0].split(' ').pop()} delivers as ${briefingData.players[1].split(' ').pop()} answers`;
     subhead = buildSubheadFromBriefing(briefingData);
   } else if (briefingData.players.length === 1) {
     const p1 = briefingData.players[0].split(' ').pop().toUpperCase();
-    const tmpl = PLAYER_HERO[2 + (doy % 2)]; // last two templates take 1 player
-    heroTitle = tmpl(p1);
-    mainHeadline = SLIDE2_HEADLINES.player(briefingData.players[0].split(' ').pop());
+    heroTitle = PLAYER_HERO_TEMPLATES[2 + (doy % 2)](p1);
+    mainHeadline = `${briefingData.players[0].split(' ').pop()} delivers — the board takes shape`;
     subhead = buildSubheadFromBriefing(briefingData);
   }
-
-  // ── Priority 4: Standings / race movement ──
+  // ── Priority 7: Standings movement from briefing ──
   else if (briefingData.hasStandings) {
-    const tmpl = STANDINGS_HERO[doy % STANDINGS_HERO.length];
-    heroTitle = tmpl();
-    mainHeadline = SLIDE2_HEADLINES.standings();
+    heroTitle = STANDINGS_HERO_TEMPLATES[doy % STANDINGS_HERO_TEMPLATES.length];
+    mainHeadline = 'Division races heat up across both leagues';
     subhead = buildSubheadFromBriefing(briefingData);
   }
-
-  // ── Priority 5: General / seasonal rotation ──
+  // ── Priority 8: General rotation ──
   else {
-    heroTitle = GENERAL_HERO[doy % GENERAL_HERO.length];
-    const generalH = SLIDE2_HEADLINES.general;
-    mainHeadline = generalH[doy % generalH.length];
+    heroTitle = GENERAL_HERO_TEMPLATES[doy % GENERAL_HERO_TEMPLATES.length];
+    mainHeadline = GENERAL_SLIDE2[doy % GENERAL_SLIDE2.length];
     subhead = buildGeneralSubhead(contenders, doy);
   }
 
   // Ensure heroTitle is all-caps
   heroTitle = heroTitle.toUpperCase();
 
-  // Truncate heroTitle if too long for the slide
+  // Safety: truncate if too long for the slide
   if (heroTitle.length > 70) {
     const period = heroTitle.lastIndexOf('.', 65);
-    if (period > 30) heroTitle = heroTitle.slice(0, period + 1);
+    if (period > 25) heroTitle = heroTitle.slice(0, period + 1);
   }
 
   return { heroTitle, mainHeadline, subhead };
@@ -295,14 +440,20 @@ export function buildMlbDailyHeadline({ liveGames, briefing, seasonIntel } = {})
 // ── Subhead builders ────────────────────────────────────────────────────
 
 function buildSubheadFromGame(topStory, secondStory) {
-  const winner = teamShort(topStory.winSlug);
-  const loser = teamShort(topStory.loseSlug);
+  const winner = teamName(topStory.winSlug);
+  const loser = teamName(topStory.loseSlug);
+  const score = `${topStory.winScore}-${topStory.loseScore}`;
 
   if (secondStory) {
-    const s2w = teamShort(secondStory.winSlug);
-    return `${winner} wins ${topStory.winScore}-${topStory.loseScore} while ${s2w} also picks up a key victory.`;
+    const s2w = teamName(secondStory.winSlug);
+    const s2l = teamName(secondStory.loseSlug);
+    return `${winner} win ${score} over ${loser} while ${s2w} top ${s2l}.`;
   }
-  return `${winner} wins ${topStory.winScore}-${topStory.loseScore} over ${loser} as the board reacts.`;
+  const div = teamDiv(topStory.winSlug);
+  if (div) {
+    return `${winner} win ${score} over ${loser} as the ${div} race takes shape.`;
+  }
+  return `${winner} win ${score} over ${loser} as the board reacts.`;
 }
 
 function buildSubheadFromBriefing(briefingData) {
@@ -310,7 +461,6 @@ function buildSubheadFromBriefing(briefingData) {
   if (!intel?.rawParagraphs?.[0]) {
     return 'The board is taking shape as contenders make early statements.';
   }
-  // Extract first clean sentence from briefing
   let raw = intel.rawParagraphs[0];
   raw = raw.replace(/[\u{1F300}-\u{1FAD6}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
   raw = raw.replace(/^[¶#§]\d*\s*/i, '').replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '').trim();
@@ -323,9 +473,9 @@ function buildGeneralSubhead(contenders, doy) {
     const t1 = contenders[0];
     const t2 = contenders[1];
     const subs = [
-      `${t1.abbrev} and ${t2.abbrev} lead the projected standings as edges emerge across the board.`,
-      `The model favors ${t1.abbrev} and ${t2.abbrev} early — contenders separate from the pack.`,
-      `${t1.abbrev} projects at ${t1.projectedWins} wins as the board takes shape.`,
+      `${teamName(t1.slug)} and ${teamName(t2.slug)} lead the projected standings as edges emerge.`,
+      `The model favors ${teamName(t1.slug)} and ${teamName(t2.slug)} early — the pack separates.`,
+      `${teamName(t1.slug)} project at ${t1.projectedWins} wins as the board takes shape.`,
     ];
     return subs[doy % subs.length];
   }
