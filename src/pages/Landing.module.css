@@ -1,0 +1,223 @@
+/* ═══════════════════════════════════════════════════════════════
+   Landing — Root homepage for maximussports.ai
+   Premium, cinematic, glassy — darker than in-app pages
+   ═══════════════════════════════════════════════════════════════ */
+
+.page {
+  min-height: 100vh;
+  background: linear-gradient(170deg, #060a14 0%, #0a1628 30%, #0e1e38 60%, #0a1628 85%, #060a14 100%);
+  color: #fff;
+  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  overflow-x: hidden;
+}
+
+/* ── Hero ── */
+.hero {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding: 80px 24px 48px;
+  overflow: hidden;
+}
+.heroGlow {
+  position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(56,133,224,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.heroLogo {
+  width: 52px; height: 52px; object-fit: contain;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 2px 8px rgba(56,133,224,0.25));
+}
+.heroTitle {
+  font-size: 2.8rem; font-weight: 800; letter-spacing: -0.02em;
+  line-height: 1.1; margin: 0 0 14px;
+  background: linear-gradient(135deg, #fff 0%, #a8c8e8 50%, #6ba3d6 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.heroTagline {
+  font-size: 1.15rem; font-weight: 500; color: rgba(255,255,255,0.75);
+  margin: 0 0 10px; max-width: 560px; line-height: 1.45;
+}
+.heroSub {
+  font-size: 0.82rem; color: rgba(255,255,255,0.40);
+  margin: 0; max-width: 520px; line-height: 1.55;
+}
+
+/* ── Value Props ── */
+.valueStrip {
+  display: flex; justify-content: center; gap: 10px;
+  padding: 0 24px 48px; flex-wrap: wrap;
+}
+.valueChip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,0.65);
+  backdrop-filter: blur(8px);
+}
+.valueIcon { font-size: 0.82rem; }
+.valueLabel { white-space: nowrap; }
+
+/* ── Sport Tiles ── */
+.tilesRow {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 20px; max-width: 960px; margin: 0 auto;
+  padding: 0 24px 40px;
+}
+
+.tile {
+  position: relative;
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 28px 28px 24px;
+  border-radius: 18px;
+  text-decoration: none; color: #fff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+.tile:hover {
+  transform: translateY(-4px);
+}
+
+.tileMlb {
+  background: linear-gradient(155deg, rgba(184,41,61,0.15) 0%, rgba(10,22,40,0.80) 40%, rgba(10,22,40,0.95) 100%);
+  border: 1px solid rgba(184,41,61,0.20);
+  box-shadow: 0 4px 24px rgba(184,41,61,0.10), 0 0 0 0.5px rgba(184,41,61,0.08);
+}
+.tileMlb:hover {
+  box-shadow: 0 8px 36px rgba(184,41,61,0.18), 0 0 0 0.5px rgba(184,41,61,0.15);
+}
+
+.tileNcaam {
+  background: linear-gradient(155deg, rgba(56,133,224,0.12) 0%, rgba(10,22,40,0.80) 40%, rgba(10,22,40,0.95) 100%);
+  border: 1px solid rgba(56,133,224,0.18);
+  box-shadow: 0 4px 24px rgba(56,133,224,0.08), 0 0 0 0.5px rgba(56,133,224,0.06);
+}
+.tileNcaam:hover {
+  box-shadow: 0 8px 36px rgba(56,133,224,0.15), 0 0 0 0.5px rgba(56,133,224,0.12);
+}
+
+.tileHeader {
+  display: flex; align-items: center; gap: 14px;
+}
+.tileLogo {
+  width: 36px; height: 36px; object-fit: contain;
+  border-radius: 8px; flex-shrink: 0;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.30));
+}
+.tileTitle {
+  font-size: 1.15rem; font-weight: 800; color: #fff;
+  margin: 0; line-height: 1.2;
+}
+.tileStatus {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.64rem; font-weight: 600; color: rgba(255,255,255,0.50);
+  margin-top: 2px;
+}
+.statusDot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34,197,94,0.40);
+}
+.statusComplete { color: rgba(255,255,255,0.40); }
+
+.tileDesc {
+  font-size: 0.82rem; line-height: 1.55; color: rgba(255,255,255,0.55);
+  margin: 0;
+}
+.tileCta {
+  margin-top: auto;
+}
+.ctaBtn {
+  display: inline-block;
+  font-size: 0.74rem; font-weight: 700; color: rgba(255,255,255,0.85);
+  padding: 8px 20px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.tile:hover .ctaBtn {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.20);
+}
+
+/* ── Preview Rows ── */
+.previewsRow {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 20px; max-width: 960px; margin: 0 auto;
+  padding: 0 24px 60px;
+}
+.previewSection {}
+.previewSectionTitle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: rgba(255,255,255,0.40);
+  margin: 0 0 12px; padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.previewSectionTitle img { opacity: 0.6; }
+.previewCards {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.previewCard {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+.previewCard:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.10);
+}
+.previewTitle {
+  font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.82);
+}
+.previewDesc {
+  font-size: 0.68rem; color: rgba(255,255,255,0.40); line-height: 1.45;
+}
+
+/* ── Footer ── */
+.footer {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 40px 24px 32px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.footerBrand {
+  font-size: 0.72rem; font-weight: 800; color: rgba(255,255,255,0.30);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.footerTag {
+  font-size: 0.62rem; color: rgba(255,255,255,0.18);
+}
+.footerLinks {
+  display: flex; gap: 16px; margin-top: 6px;
+}
+.footerLink {
+  font-size: 0.62rem; color: rgba(255,255,255,0.25);
+  text-decoration: none;
+}
+.footerLink:hover { color: rgba(255,255,255,0.50); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .heroTitle { font-size: 2rem; }
+  .heroTagline { font-size: 1rem; }
+  .tilesRow { grid-template-columns: 1fr; }
+  .previewsRow { grid-template-columns: 1fr; }
+  .hero { padding: 56px 20px 36px; }
+  .tile { padding: 22px 22px 20px; }
+}
+
+@media (max-width: 480px) {
+  .heroTitle { font-size: 1.6rem; }
+  .valueStrip { gap: 6px; }
+  .valueChip { padding: 6px 12px; font-size: 0.66rem; }
+}
