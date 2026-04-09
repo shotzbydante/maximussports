@@ -130,8 +130,8 @@
 
 .optionLabel {
   font-size: 0.78rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.80);
+  font-weight: 600;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
