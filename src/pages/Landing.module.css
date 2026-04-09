@@ -83,7 +83,7 @@
 .tilesRow {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 22px; max-width: 1000px; margin: 0 auto;
-  padding: 0 24px 44px;
+  padding: 0 24px 52px;
 }
 
 .tile {
@@ -103,42 +103,42 @@
   pointer-events: none; z-index: 0;
 }
 
-/* MLB tile — burgundy neon glow */
+/* MLB tile — enhanced burgundy neon glow */
 .tileMlb {
-  background: linear-gradient(155deg, rgba(184,41,61,0.18) 0%, rgba(10,22,40,0.85) 35%, rgba(10,22,40,0.95) 100%);
-  border: 1.5px solid rgba(184,41,61,0.28);
+  background: linear-gradient(155deg, rgba(184,41,61,0.20) 0%, rgba(10,22,40,0.85) 35%, rgba(10,22,40,0.95) 100%);
+  border: 1.5px solid rgba(184,41,61,0.32);
   box-shadow:
-    0 0 20px rgba(184,41,61,0.12),
-    0 4px 24px rgba(0,0,0,0.20),
-    inset 0 1px 0 rgba(184,41,61,0.10);
+    0 0 28px rgba(184,41,61,0.16),
+    0 4px 24px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(184,41,61,0.12);
 }
 .tileMlb:hover {
   box-shadow:
-    0 0 36px rgba(184,41,61,0.22),
-    0 8px 36px rgba(0,0,0,0.25),
-    inset 0 1px 0 rgba(184,41,61,0.15);
+    0 0 44px rgba(184,41,61,0.26),
+    0 8px 36px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(184,41,61,0.18);
 }
 .tileMlb .tileGlow {
-  background: radial-gradient(ellipse at 30% 20%, rgba(184,41,61,0.08) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 30% 20%, rgba(184,41,61,0.12) 0%, transparent 55%);
 }
 
-/* NCAAM tile — blue neon glow */
+/* NCAAM tile — enhanced blue neon glow */
 .tileNcaam {
-  background: linear-gradient(155deg, rgba(56,133,224,0.15) 0%, rgba(10,22,40,0.85) 35%, rgba(10,22,40,0.95) 100%);
-  border: 1.5px solid rgba(56,133,224,0.25);
+  background: linear-gradient(155deg, rgba(56,133,224,0.18) 0%, rgba(10,22,40,0.85) 35%, rgba(10,22,40,0.95) 100%);
+  border: 1.5px solid rgba(56,133,224,0.30);
   box-shadow:
-    0 0 20px rgba(56,133,224,0.10),
-    0 4px 24px rgba(0,0,0,0.20),
-    inset 0 1px 0 rgba(56,133,224,0.08);
+    0 0 28px rgba(56,133,224,0.14),
+    0 4px 24px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(56,133,224,0.10);
 }
 .tileNcaam:hover {
   box-shadow:
-    0 0 36px rgba(56,133,224,0.18),
-    0 8px 36px rgba(0,0,0,0.25),
-    inset 0 1px 0 rgba(56,133,224,0.12);
+    0 0 44px rgba(56,133,224,0.22),
+    0 8px 36px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(56,133,224,0.15);
 }
 .tileNcaam .tileGlow {
-  background: radial-gradient(ellipse at 30% 20%, rgba(56,133,224,0.06) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 30% 20%, rgba(56,133,224,0.10) 0%, transparent 55%);
 }
 
 .tileHeader {
@@ -191,35 +191,39 @@
 .modulesRow {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 22px; max-width: 1000px; margin: 0 auto;
-  padding: 0 24px 48px;
+  padding: 0 24px 56px;
 }
 .moduleSection {}
 .moduleSectionTitle {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.10em; color: rgba(255,255,255,0.38);
-  margin: 0 0 12px; padding-bottom: 8px;
+  font-size: 0.70rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; color: rgba(255,255,255,0.55);
+  text-shadow: 0 0 12px rgba(120,180,255,0.35);
+  margin: 0 0 14px; padding-bottom: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.moduleSectionTitle img { opacity: 0.6; }
+.moduleSectionTitle img { opacity: 0.7; }
 .moduleCards {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
 .moduleCard {
   display: flex; flex-direction: column; gap: 4px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   text-decoration: none;
-  transition: background 0.12s, border-color 0.12s;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  min-height: 72px;
 }
 .moduleCard:hover {
   background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.14);
+  transform: translateY(-2px);
 }
 .moduleTitle {
-  font-size: 0.76rem; font-weight: 700; color: rgba(255,255,255,0.80);
+  font-size: 0.76rem; font-weight: 700; color: rgba(255,255,255,0.82);
 }
 .moduleDesc {
   font-size: 0.64rem; color: rgba(255,255,255,0.38); line-height: 1.45;
@@ -258,10 +262,18 @@
 }
 .featuredThumb {
   position: relative; width: 100%;
-  aspect-ratio: 16/9; overflow: hidden;
+  aspect-ratio: 16/8.5; overflow: hidden;
   background: rgba(255,255,255,0.02);
 }
-.featuredThumb img { width: 100%; height: 100%; object-fit: cover; }
+.featuredThumb::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.35));
+  pointer-events: none;
+}
+.featuredThumb img {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: saturate(0.9) contrast(1.05);
+}
 .playOverlay {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   font-size: 1.6rem; color: rgba(255,255,255,0.90);
@@ -297,7 +309,10 @@
   aspect-ratio: 16/9; overflow: hidden;
   background: rgba(255,255,255,0.02);
 }
-.supportThumb img { width: 100%; height: 100%; object-fit: cover; }
+.supportThumb img {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: saturate(0.85) contrast(1.05);
+}
 .playIconSmall {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   font-size: 0.9rem; color: rgba(255,255,255,0.80);
