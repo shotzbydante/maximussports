@@ -1,16 +1,15 @@
 /**
  * Landing — Root homepage for maximussports.ai
  *
- * Brand-first front door that introduces Maximus Sports
- * and routes users into MLB or NCAAM workspaces.
- *
- * Premium, cinematic, glassy treatment — darker and richer
- * than in-app pages to feel like a distinct entry experience.
+ * Premium, cinematic front door. Routes users into MLB or NCAAM.
+ * Features live news/video previews from News Feed API.
  */
 
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
+import { fetchMlbHeadlines } from '../api/mlbNews';
 import styles from './Landing.module.css';
 
 const META = {
@@ -28,23 +27,50 @@ const VALUE_PROPS = [
   { icon: '⚡', label: 'Data-Driven Edge' },
 ];
 
-const MLB_PREVIEWS = [
-  { title: 'Daily Briefing', desc: 'AI-generated league-wide intelligence every morning.' },
-  { title: 'Team Intel', desc: 'Deep projections, odds, and matchup context for every team.' },
-  { title: "Maximus's Picks", desc: 'Model-backed moneyline, ATS, value, and totals picks.' },
+const MLB_MODULES = [
+  { title: 'Daily Briefing', desc: 'AI-generated league-wide intelligence.', to: '/mlb' },
+  { title: 'Team Intel', desc: 'Projections, odds, and matchup context.', to: '/mlb/teams' },
+  { title: "Maximus's Picks", desc: 'Moneyline, ATS, value, and totals picks.', to: '/mlb/insights' },
+  { title: 'Season Intelligence', desc: 'Full-season model projections.', to: '/mlb/season-model' },
 ];
 
-const NCAAM_PREVIEWS = [
-  { title: 'Tournament Recap', desc: 'Full bracket breakdown and championship analysis.' },
-  { title: 'Team Intel', desc: 'Season records, ATS profiles, and conference performance.' },
-  { title: 'Bracketology', desc: 'Model-driven bracket picks and matchup probabilities.' },
+const NCAAM_MODULES = [
+  { title: 'Tournament Recap', desc: 'Championship analysis and bracket breakdown.', to: '/ncaam' },
+  { title: 'Team Intel', desc: 'Season records, ATS, and conference performance.', to: '/ncaam/teams' },
+  { title: 'Bracketology', desc: 'Model-driven bracket picks and probabilities.', to: '/bracketology' },
+  { title: 'Odds Insights', desc: 'Historical picks performance and ATS analytics.', to: '/ncaam/insights' },
 ];
+
+function NewsCard({ item }) {
+  const hasImage = item.image || item.thumbnail;
+  return (
+    <a href={item.url || item.link || '#'} target="_blank" rel="noopener noreferrer" className={styles.newsCard}>
+      {hasImage && (
+        <div className={styles.newsThumb}>
+          <img src={item.image || item.thumbnail} alt="" loading="lazy" className={styles.newsThumbImg} />
+          {(item.type === 'video' || item.isVideo) && <span className={styles.playIcon}>▶</span>}
+        </div>
+      )}
+      <div className={styles.newsBody}>
+        <span className={styles.newsTitle}>{item.title || item.headline}</span>
+        {item.source && <span className={styles.newsSource}>{item.source}</span>}
+      </div>
+    </a>
+  );
+}
 
 export default function Landing() {
   const ncaam = WORKSPACES[WorkspaceId.CBB];
-  const mlb = WORKSPACES[WorkspaceId.MLB];
   const ncaamComplete = ncaam.seasonState === SeasonState.COMPLETED;
   const ch = ncaam.championship;
+
+  const [mlbNews, setMlbNews] = useState([]);
+
+  useEffect(() => {
+    fetchMlbHeadlines()
+      .then(d => setMlbNews((d.headlines || []).slice(0, 3)))
+      .catch(() => {});
+  }, []);
 
   return (
     <>
@@ -69,13 +95,13 @@ export default function Landing() {
         <header className={styles.hero}>
           <div className={styles.heroGlow} />
           <div className={styles.heroContent}>
-            <img src="/logo.png" alt="Maximus Sports" className={styles.heroLogo} width={52} height={52} />
+            <img src="/logo.png" alt="Maximus Sports" className={styles.heroLogo} width={56} height={56} />
             <h1 className={styles.heroTitle}>Maximus Sports</h1>
             <p className={styles.heroTagline}>
               AI-powered sports intelligence, built for fans who want an edge.
             </p>
             <p className={styles.heroSub}>
-              Schedules, odds, picks, team intel, season outlooks, and premium editorial briefings — all in one place.
+              Schedules, odds, picks, team intel, season outlooks, and premium editorial briefings.
             </p>
           </div>
         </header>
@@ -92,10 +118,11 @@ export default function Landing() {
 
         {/* ── Sport Tiles ── */}
         <div className={styles.tilesRow}>
-          {/* MLB Tile */}
+          {/* MLB */}
           <Link to="/mlb" className={`${styles.tile} ${styles.tileMlb}`}>
+            <div className={styles.tileGlow} />
             <div className={styles.tileHeader}>
-              <img src="/mlb-logo.png" alt="MLB" className={styles.tileLogo} width={36} height={36} />
+              <img src="/mlb-logo.png" alt="MLB" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>Major League Baseball</h2>
                 <span className={styles.tileStatus}>
@@ -112,21 +139,22 @@ export default function Landing() {
             </div>
           </Link>
 
-          {/* NCAAM Tile */}
+          {/* NCAAM */}
           <Link to="/ncaam" className={`${styles.tile} ${styles.tileNcaam}`}>
+            <div className={styles.tileGlow} />
             <div className={styles.tileHeader}>
-              <img src="/ncaa-logo.png" alt="NCAAM" className={styles.tileLogo} width={36} height={36} />
+              <img src="/ncaa-logo.png" alt="NCAAM" className={styles.tileLogo} width={42} height={42} />
               <div>
                 <h2 className={styles.tileTitle}>College Basketball</h2>
                 <span className={`${styles.tileStatus} ${styles.statusComplete}`}>
-                  {ncaamComplete ? 'Season Complete' : 'Season Active'}
+                  {ncaamComplete ? '2026 Season Complete' : 'Season Active'}
                 </span>
               </div>
             </div>
             <p className={styles.tileDesc}>
               {ncaamComplete && ch
                 ? `March Madness 2026 is complete. ${ch.champion.split(' ').pop()} defeated ${ch.runnerUp.split(' ').pop()} ${ch.score} on April 6. Explore bracket insights, tournament recap, team intel, and picks history.`
-                : 'Bracket intelligence, team intel, odds insights, ATS analytics, and tournament analysis for March Madness and the full college basketball season.'}
+                : 'Bracket intelligence, team intel, odds insights, ATS analytics, and tournament analysis.'}
             </p>
             <div className={styles.tileCta}>
               <span className={styles.ctaBtn}>
@@ -136,35 +164,45 @@ export default function Landing() {
           </Link>
         </div>
 
-        {/* ── Preview Rows ── */}
-        <div className={styles.previewsRow}>
-          <div className={styles.previewSection}>
-            <h3 className={styles.previewSectionTitle}>
+        {/* ── Module Grid ── */}
+        <div className={styles.modulesRow}>
+          <div className={styles.moduleSection}>
+            <h3 className={styles.moduleSectionTitle}>
               <img src="/mlb-logo.png" alt="" width={18} height={18} /> MLB Intelligence
             </h3>
-            <div className={styles.previewCards}>
-              {MLB_PREVIEWS.map((p, i) => (
-                <Link key={i} to="/mlb" className={styles.previewCard}>
-                  <span className={styles.previewTitle}>{p.title}</span>
-                  <span className={styles.previewDesc}>{p.desc}</span>
+            <div className={styles.moduleCards}>
+              {MLB_MODULES.map((m, i) => (
+                <Link key={i} to={m.to} className={styles.moduleCard}>
+                  <span className={styles.moduleTitle}>{m.title}</span>
+                  <span className={styles.moduleDesc}>{m.desc}</span>
                 </Link>
               ))}
             </div>
           </div>
-          <div className={styles.previewSection}>
-            <h3 className={styles.previewSectionTitle}>
+          <div className={styles.moduleSection}>
+            <h3 className={styles.moduleSectionTitle}>
               <img src="/ncaa-logo.png" alt="" width={18} height={18} /> NCAAM Intelligence
             </h3>
-            <div className={styles.previewCards}>
-              {NCAAM_PREVIEWS.map((p, i) => (
-                <Link key={i} to="/ncaam" className={styles.previewCard}>
-                  <span className={styles.previewTitle}>{p.title}</span>
-                  <span className={styles.previewDesc}>{p.desc}</span>
+            <div className={styles.moduleCards}>
+              {NCAAM_MODULES.map((m, i) => (
+                <Link key={i} to={m.to} className={styles.moduleCard}>
+                  <span className={styles.moduleTitle}>{m.title}</span>
+                  <span className={styles.moduleDesc}>{m.desc}</span>
                 </Link>
               ))}
             </div>
           </div>
         </div>
+
+        {/* ── Live News Previews ── */}
+        {mlbNews.length > 0 && (
+          <div className={styles.newsSection}>
+            <h3 className={styles.newsSectionTitle}>Latest from MLB</h3>
+            <div className={styles.newsGrid}>
+              {mlbNews.map((item, i) => <NewsCard key={i} item={item} />)}
+            </div>
+          </div>
+        )}
 
         {/* ── Footer ── */}
         <footer className={styles.footer}>

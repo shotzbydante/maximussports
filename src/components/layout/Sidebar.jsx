@@ -86,7 +86,7 @@ export default function Sidebar() {
           <span className={styles.sectionTitle}>Navigate</span>
           <nav className={styles.nav}>
             <NavLink
-              to={buildPath('/')}
+              to="/"
               end
               className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
             >
