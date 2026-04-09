@@ -213,6 +213,7 @@ export function normalizeMlbImagePayload({
   activeSection,
   mlbPicks,
   mlbGames = [],
+  mlbLiveGames = [],
   mlbHeadlines = [],
   mlbSelectedTeam,
   mlbSelectedGame,
@@ -239,7 +240,7 @@ export function normalizeMlbImagePayload({
 
   switch (section) {
     case 'daily-briefing':
-      return buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks, mlbChampOdds);
+      return { ...buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks, mlbChampOdds), mlbLiveGames, mlbBriefing };
     case 'team-intel':
       return buildTeamPayload(base, mlbSelectedTeam);
     case 'league-intel':

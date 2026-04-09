@@ -3,47 +3,14 @@
  *
  * Hierarchy: Brand pill → Glass briefing plaque → Mascot hero → Day headline
  * 1080×1350 · IG 4:5 portrait
+ *
+ * Headlines are now driven by `buildMlbDailyHeadline()` which uses
+ * live game results, briefing text, and season model data for
+ * daily-changing, reactive hero titles.
  */
 
-import { stripEmojis } from './mlbDailyHelpers';
-import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
+import { buildMlbDailyHeadline } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
 import styles from './MlbSlides.module.css';
-
-/** Map player names to their teams for headline context */
-const PLAYER_TEAMS = {
-  'fernandez': 'D-BACKS', 'ohtani': 'DODGERS', 'painter': 'PHILLIES',
-  'judge': 'YANKEES', 'soto': 'YANKEES', 'acuna': 'BRAVES',
-  'betts': 'DODGERS', 'trout': 'ANGELS', 'degrom': 'RANGERS',
-  'cole': 'YANKEES', 'verlander': 'ASTROS', 'stanton': 'YANKEES',
-  'adames': 'GIANTS',
-};
-
-/** Build a punchy hero headline with team context from the day's briefing */
-function buildHeroHeadline(data) {
-  const intel = parseBriefingToIntel(data?.mlbBriefing);
-  const paras = intel?.rawParagraphs || [];
-  const p1 = stripEmojis(paras[0] || '');
-
-  const playerPat = /([A-Z][a-z]+ (?:Fernandez|Ohtani|Painter|Judge|Soto|Acuna|Betts|Trout|deGrom|Cole|Verlander|Stanton|Adames))/g;
-  const playerMatches = p1.match(playerPat) || [];
-
-  if (playerMatches.length >= 2) {
-    const last1 = playerMatches[0].split(' ').pop();
-    const last2 = playerMatches[1].split(' ').pop();
-    const team1 = PLAYER_TEAMS[last1.toLowerCase()] || '';
-    const team2 = PLAYER_TEAMS[last2.toLowerCase()] || '';
-    const t1 = team1 ? `${team1}' ` : '';
-    const t2 = team2 ? `${team2}' ` : '';
-    return `${t1}${last1.toUpperCase()} BREAKS THROUGH. ${t2}${last2.toUpperCase()} SETS THE TONE.`;
-  }
-  if (playerMatches.length === 1) {
-    const last1 = playerMatches[0].split(' ').pop();
-    const team1 = PLAYER_TEAMS[last1.toLowerCase()] || '';
-    const t1 = team1 ? `${team1}' ` : '';
-    return `${t1}${last1.toUpperCase()} DELIVERS. THE BOARD TAKES SHAPE.`;
-  }
-  return 'DEBUTS LAND. CONTENDERS ANSWER.';
-}
 
 export default function MlbDailySlide1({ data, asOf, ...rest }) {
   const today = new Date().toLocaleDateString('en-US', {
@@ -51,7 +18,11 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
     timeZone: 'America/Los_Angeles',
   });
 
-  const heroHeadline = buildHeroHeadline(data);
+  const { heroTitle } = buildMlbDailyHeadline({
+    liveGames: data?.mlbLiveGames || [],
+    briefing: data?.mlbBriefing,
+    seasonIntel: null,
+  });
 
   return (
     <div className={styles.slide1} {...rest}>
@@ -87,7 +58,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
 
       {/* Day-specific headline — below mascot */}
       <section className={styles.slide1HeadlineZone}>
-        <h1 className={styles.slide1Headline}>{heroHeadline}</h1>
+        <h1 className={styles.slide1Headline}>{heroTitle}</h1>
       </section>
 
       <footer className={styles.slide1Footer}>

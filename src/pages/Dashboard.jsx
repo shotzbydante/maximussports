@@ -106,7 +106,7 @@ export default function Dashboard() {
   const isUnauthorized = !authLoading && !isAdminUser(user?.email);
 
   // ── workspace scoping for Content Studio ───────────────
-  const [studioWorkspaceId, setStudioWorkspaceId] = useState(WorkspaceId.CBB);
+  const [studioWorkspaceId, setStudioWorkspaceId] = useState(WorkspaceId.MLB);
   const studioWorkspace = WORKSPACES[studioWorkspaceId] ?? WORKSPACES[WorkspaceId.CBB];
   const availableStudioWorkspaces = useMemo(
     () => (user ? getVisibleWorkspaces(user) : []),
@@ -115,7 +115,7 @@ export default function Dashboard() {
   const isCbbStudio = studioWorkspaceId === WorkspaceId.CBB;
 
   // ── section / template state ────────────────────────────
-  const [activeSection, setActiveSection] = useState('daily');
+  const [activeSection, setActiveSection] = useState('mlb-daily');
 
   // ── section-specific options ─────────────────────────────
   const [dailyStyleMode, setDailyStyleMode] = useState('generic');
@@ -167,6 +167,7 @@ export default function Dashboard() {
   const [mlbGameAngle, setMlbGameAngle] = useState('value');
   const [mlbSlateMode, setMlbSlateMode] = useState('full'); // 'full' | 'featured' | 'division'
   const [mlbBriefing, setMlbBriefing] = useState(null);     // raw briefing text from /api/mlb/chat/homeSummary
+  const [mlbLiveGames, setMlbLiveGames] = useState([]);    // today's full slate (including final) from /api/mlb/live/games
   const [mlbChampOdds, setMlbChampOdds] = useState(null);  // { odds: { slug: { bestChanceAmerican, ... } } }
   const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
 
@@ -335,11 +336,13 @@ export default function Dashboard() {
       fetchMlbHeadlines().catch(() => []),
       fetch('/api/mlb/chat/homeSummary').then(r => r.ok ? r.json() : null).catch(() => null),
       fetchMlbChampionshipOdds().catch(() => ({ odds: {} })),
-    ]).then(([boardData, headlines, briefingData, champData]) => {
+      fetch('/api/mlb/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
+    ]).then(([boardData, headlines, briefingData, champData, liveData]) => {
       setMlbGames(boardData?.games ?? []);
       setMlbHeadlines(Array.isArray(headlines) ? headlines : headlines?.headlines ?? []);
       if (briefingData?.summary) setMlbBriefing(briefingData.summary);
       if (champData?.odds) setMlbChampOdds(champData.odds);
+      setMlbLiveGames(liveData?.games ?? []);
     }).finally(() => setMlbGamesLoading(false));
   }, [isAuthorized, isMlbStudio, refreshKey]);
 
@@ -737,6 +740,7 @@ export default function Dashboard() {
           activeSection,
           mlbPicks,
           mlbGames,
+          mlbLiveGames,
           mlbHeadlines,
           mlbSelectedTeam,
           mlbSelectedGame,
@@ -791,7 +795,7 @@ export default function Dashboard() {
       conference: activeSection === 'conference' ? selectedConference : null,
       tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
     });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -888,7 +892,7 @@ export default function Dashboard() {
     } finally {
       setGeminiLoading(false);
     }
-  }, [mlbActive, activeSection, mlbPicks, mlbGames, mlbHeadlines, mlbSelectedTeam, mlbSelectedGame, mlbLeague, mlbDivision, mlbGameAngle, mlbBriefing]);
+  }, [mlbActive, activeSection, mlbPicks, mlbGames, mlbLiveGames, mlbHeadlines, mlbSelectedTeam, mlbSelectedGame, mlbLeague, mlbDivision, mlbGameAngle, mlbBriefing]);
 
   // ── export PNGs ───────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -2024,6 +2028,7 @@ export default function Dashboard() {
                 if (mlbActive) {
                   return {
                     mlbGames,
+                    mlbLiveGames,
                     mlbHeadlines,
                     mlbBriefing,
                     mlbChampOdds: mlbChampOdds ?? {},

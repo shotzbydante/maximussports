@@ -13,6 +13,7 @@ import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { buildDailyContent, stripEmojis, fmtOdds } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
+import { buildMlbDailyHeadline } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
 import styles from './MlbSlides.module.css';
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -228,11 +229,18 @@ function buildSlide2Content(data) {
     picks.push({ matchup: 'TBD vs TBD', type: "Pick 'Em", selection: '—', selectionLogoSrc: null, conviction: 'Edge', rationale: 'More picks in the full daily board' });
   }
 
+  // Dynamic headline from live games + briefing + model
+  const dynamicHL = buildMlbDailyHeadline({
+    liveGames: data?.mlbLiveGames || [],
+    briefing: data?.mlbBriefing,
+    seasonIntel: null,
+  });
+
   return {
     dateLabel: today,
     mlbLogoSrc: '/mlb-logo.png',
-    headline: buildHeadline(paras),
-    subhead: buildSubhead(paras),
+    headline: dynamicHL.mainHeadline || buildHeadline(paras),
+    subhead: dynamicHL.subhead || buildSubhead(paras),
     featureBullets,
     featureTakeaway: "Today's board is being shaped by stars, debuts, and early pressure.",
     raceTeams,

@@ -10,6 +10,7 @@
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
+import { buildMlbDailyHeadline } from './buildMlbDailyHeadline';
 
 // ── Team emojis ─────────────────────────────────────────────────────────────
 
@@ -210,8 +211,13 @@ function dailyCaption(payload) {
   parts.push(pickOpener());
   parts.push('');
 
-  // ── 2. SLIDE 1: Hero storyline ──
-  const heroSummary = buildHeroSummary(intel);
+  // ── 2. SLIDE 1: Hero storyline (dynamic from live games + briefing) ──
+  const dynamicHL = buildMlbDailyHeadline({
+    liveGames: payload.mlbLiveGames || [],
+    briefing: payload.mlbBriefing || null,
+    seasonIntel: null,
+  });
+  const heroSummary = dynamicHL.subhead || buildHeroSummary(intel);
   parts.push(heroSummary);
   parts.push('');
 
