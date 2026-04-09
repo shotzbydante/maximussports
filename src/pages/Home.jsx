@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchChampionshipOdds } from '../api/championshipOdds';
 import { safeBuildPicks, EMPTY_PICKS } from '../utils/safePicksResult';
 import { buildActivePicksGames } from '../utils/activePicksGames';
+import TeamLogo from '../components/shared/TeamLogo';
 import LiveScores from '../components/scores/LiveScores';
 import DynamicStats from '../components/home/DynamicStats';
 import PinnedTeamsSection from '../components/home/PinnedTeamsSection';
@@ -1098,6 +1099,8 @@ export default function Home() {
         const cbb = WORKSPACES[WorkspaceId.CBB];
         if (cbb.seasonState !== SeasonState.COMPLETED || !cbb.championship) return null;
         const ch = cbb.championship;
+        const champLogo = ch.championSlug ? getTeamBySlug(ch.championSlug) : null;
+        const runnerLogo = ch.runnerUpSlug ? getTeamBySlug(ch.runnerUpSlug) : null;
         return (
           <div className={styles.champHero}>
             <div className={styles.champHeroInner}>
@@ -1106,10 +1109,17 @@ export default function Home() {
               </div>
               <div className={styles.champContent}>
                 <span className={styles.champEyebrow}>March Madness {ch.year} — National Champion</span>
-                <h2 className={styles.champTeam}>{ch.champion}</h2>
-                <p className={styles.champScore}>
-                  Championship Final: {ch.score} vs {ch.runnerUp}
-                </p>
+                <div className={styles.champTeamRow}>
+                  {champLogo && <TeamLogo team={champLogo} size={36} />}
+                  <h2 className={styles.champTeam}>{ch.champion}</h2>
+                </div>
+                <div className={styles.champResultRow}>
+                  <span className={styles.champResultLabel}>Championship Final:</span>
+                  <span className={styles.champScoreBadge}>{ch.score}</span>
+                  <span className={styles.champVs}>vs</span>
+                  {runnerLogo && <TeamLogo team={runnerLogo} size={22} />}
+                  <span className={styles.champRunnerName}>{ch.runnerUp}</span>
+                </div>
                 <p className={styles.champLine}>{ch.headline}</p>
               </div>
             </div>
