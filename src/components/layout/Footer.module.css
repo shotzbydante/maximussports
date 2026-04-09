@@ -1,8 +1,9 @@
 .footer {
-  background: var(--color-bg-elevated);
-  border-top: 1px solid var(--color-border-light);
+  background: linear-gradient(180deg, #0a1628 0%, #060a14 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
   padding: var(--space-xl) var(--space-lg) var(--space-xl);
   margin-top: auto;
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .inner {
@@ -42,14 +43,14 @@
   font-family: var(--font-display);
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: rgba(255, 255, 255, 0.85);
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
 .brandTagline {
   font-size: 0.72rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.40);
   line-height: 1.3;
 }
 
@@ -57,7 +58,7 @@
 .divider {
   width: 100%;
   height: 1px;
-  background: var(--color-border-light);
+  background: rgba(255, 255, 255, 0.06);
   max-width: 420px;
 }
 
@@ -74,7 +75,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.30);
   margin: 0;
 }
 
@@ -105,9 +106,9 @@
   height: 36px;
   padding: 0 10px;
   border-radius: 6px;
-  border: 1px solid var(--color-border-light);
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.60);
   text-decoration: none;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
   box-sizing: border-box;
@@ -125,29 +126,29 @@
 .stackRepoLabel {
   font-size: 0.58rem;
   font-weight: 400;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.30);
   letter-spacing: 0.01em;
   white-space: nowrap;
   line-height: 1;
 }
 
 .stackBadge:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
   text-decoration: none;
 }
 
 /* ── Attribution ── */
 .attribution {
   font-size: 0.75rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.45);
   margin: 0;
   line-height: 1.6;
 }
 
 .attributionLink {
-  color: var(--color-primary);
+  color: rgba(130, 190, 255, 0.80);
   font-weight: 600;
   text-decoration: none;
   border-bottom: 1px solid transparent;
@@ -155,8 +156,8 @@
 }
 
 .attributionLink:hover {
-  border-bottom-color: var(--color-primary);
-  color: var(--color-primary-hover);
+  border-bottom-color: rgba(130, 190, 255, 0.60);
+  color: rgba(130, 190, 255, 1);
   text-decoration: none;
 }
 
@@ -170,7 +171,7 @@
 .legalLink {
   font-size: 0.72rem;
   font-weight: 500;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.40);
   text-decoration: none;
   text-decoration-thickness: 1px;
   padding: 2px 4px;
@@ -180,11 +181,11 @@
 }
 
 .legalLink:hover {
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.70);
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .legalLink:focus-visible {
@@ -195,7 +196,7 @@
 
 .legalDot {
   font-size: 0.65rem;
-  color: var(--color-border);
+  color: rgba(255, 255, 255, 0.15);
   user-select: none;
 }
 
@@ -213,7 +214,7 @@
 .legalDivider {
   width: 1px;
   height: 14px;
-  background: var(--color-border);
+  background: rgba(255, 255, 255, 0.10);
   flex-shrink: 0;
   align-self: center;
   opacity: 0.8;
@@ -221,19 +222,19 @@
 
 .support {
   font-size: 0.72rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.35);
   line-height: 1.2;
 }
 
 .supportLink {
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.40);
   text-decoration: none;
   white-space: nowrap;
   transition: color 0.15s;
 }
 
 .supportLink:hover {
-  color: var(--color-primary);
+  color: rgba(130, 190, 255, 0.80);
 }
 
 @media (max-width: 640px) {
