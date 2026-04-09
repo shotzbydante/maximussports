@@ -1101,7 +1101,9 @@ export default function Home() {
         return (
           <div className={styles.champHero}>
             <div className={styles.champHeroInner}>
-              <span className={styles.champTrophy}>🏆</span>
+              <div className={styles.champBadge}>
+                <span className={styles.champBadgeIcon}>🏆</span>
+              </div>
               <div className={styles.champContent}>
                 <span className={styles.champEyebrow}>March Madness {ch.year} — National Champion</span>
                 <h2 className={styles.champTeam}>{ch.champion}</h2>
@@ -1121,7 +1123,11 @@ export default function Home() {
         <div className={styles.bannerContent}>
           {/* Editorial briefing header — always visible */}
           <div className={styles.heroBriefingHeader}>
-            <span className={styles.heroBriefingEyebrow}>Today&apos;s Intelligence Briefing</span>
+            <span className={styles.heroBriefingEyebrow}>
+              {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED
+                ? '2026 Season Recap'
+                : 'Today\u2019s Intelligence Briefing'}
+            </span>
           </div>
 
           {/* Collapsible text area — max-height clamped only on mobile */}
@@ -1129,7 +1135,17 @@ export default function Home() {
             id="home-insight-body"
             className={`${styles.insightBody} ${isBannerCollapsed ? styles.insightBodyCollapsed : ''}`}
           >
-            {(llmSummary || summaryText) ? (
+            {WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED ? (
+              <p className={styles.bannerText}>
+                The 2026 college basketball season is complete. Michigan defeated UConn 69-63 to claim the national championship,
+                capping a dominant March Madness run. The Wolverines cut through the bracket with methodical precision,
+                dispatching every challenger en route to the program&apos;s third title. UConn, the two-time defending champion,
+                fell short in a hard-fought final that lived up to the billing. The Final Four in San Antonio featured
+                some of the tournament&apos;s most compelling storylines, from bracket-busting upsets to blue-blood resurgence.
+                As the offseason begins, the landscape shifts to the transfer portal, recruiting, and early projections for 2027.
+                Maximus will return with full intelligence when the next season tips off.
+              </p>
+            ) : (llmSummary || summaryText) ? (
               <FormattedSummary text={llmSummary || summaryText} className={styles.bannerText} />
             ) : (
               <p className={styles.bannerText}>Loading today&apos;s intel…</p>

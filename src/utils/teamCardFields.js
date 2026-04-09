@@ -8,6 +8,7 @@
 
 import { getTeamSeed, getTeamRegion, isBracketOfficial, getTournamentPhase, getRoundLabel, getActiveRound } from './tournamentHelpers.js';
 import { getTeamBySlug } from '../data/teams.js';
+import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config.js';
 
 const NCAA_TOURNEY_START = '2026-03-17';
 
@@ -218,6 +219,38 @@ function deriveTournamentStatus(slug, events) {
   }
 
   const wins = completedNcaa.length;
+  const lastWin = completedNcaa[0] || null;
+
+  // ── Season complete: convert "active" to final achievement ──
+  const seasonCompleted = WORKSPACES[WorkspaceId.CBB]?.seasonState === SeasonState.COMPLETED;
+  if (seasonCompleted) {
+    // Team won all their tournament games — determine final finish from win count
+    const FINISH_MAP = {
+      6: 'National Champions',
+      5: 'Runner-up',
+      4: 'Final Four',
+      3: 'Elite Eight',
+      2: 'Sweet 16',
+      1: 'Round of 32',
+      0: 'Round of 64',
+    };
+    const finishLabel = FINISH_MAP[wins] || (wins > 6 ? 'National Champions' : 'Tournament Participant');
+    return {
+      label: finishLabel,
+      status: wins >= 6 ? 'champion' : 'eliminated',
+      roundLabel: finishLabel,
+      lastGame: lastWin ? {
+        opponent: lastWin.opponent,
+        ourScore: lastWin.ourScore,
+        oppScore: lastWin.oppScore,
+        date: lastWin.date,
+        won: true,
+      } : null,
+      nextNcaaGame: null,
+    };
+  }
+
+  // ── Active season: team is still advancing ──
   const nextRoundNum = wins + 1;
   const nextRoundLabel = getRoundLabel(nextRoundNum);
 
@@ -232,8 +265,6 @@ function deriveTournamentStatus(slug, events) {
     opponentLogo: nextSched.opponentLogo || null,
     opponentId: nextSched.opponentId || null,
   } : null;
-
-  const lastWin = completedNcaa[0] || null;
 
   return {
     label: `Next: ${nextRoundLabel}`,
