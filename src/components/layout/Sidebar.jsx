@@ -16,6 +16,14 @@ const HomeIcon = () => (
     <path d="M2 7L8 2l6 5v7h-4v-4H6v4H2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
   </svg>
 );
+const BriefingIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="5.5" y1="5" x2="10.5" y2="5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <line x1="5.5" y1="7.5" x2="10.5" y2="7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <line x1="5.5" y1="10" x2="8.5" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
 const GamesIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
     <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
@@ -92,6 +100,14 @@ export default function Sidebar() {
             >
               <span className={styles.icon}><HomeIcon /></span>
               <span>Home</span>
+            </NavLink>
+            <NavLink
+              to={buildPath('/')}
+              end
+              className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
+            >
+              <span className={styles.icon}><BriefingIcon /></span>
+              <span>Daily Briefing</span>
             </NavLink>
             <NavLink
               to={buildPath('/games')}

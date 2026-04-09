@@ -122,6 +122,7 @@ export default function TopNav() {
   const NAV_LINKS = useMemo(() => {
     const links = [
       { to: '/', end: true, label: 'Home', iconKey: 'home' },
+      { to: buildPath('/'), end: true, label: 'Daily Briefing', iconKey: 'briefing' },
       { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
       { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
       { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
