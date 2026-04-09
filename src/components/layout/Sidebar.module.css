@@ -1,20 +1,19 @@
 .sidebar {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
-  background: var(--color-bg-elevated);
-  border-right: 1px solid var(--color-border-light);
+  background: linear-gradient(180deg, #0a1628 0%, #0e1e38 50%, #0a1628 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   padding: var(--space-md) 0 0;
   display: flex;
   flex-direction: column;
   box-shadow:
-    var(--shadow-sm),
+    2px 0 8px rgba(0, 0, 0, 0.15),
     1px 0 0 rgba(255, 255, 255, 0.04) inset;
   position: sticky;
   top: var(--topnav-height, 56px);
   height: calc(100vh - var(--topnav-height, 56px));
   overflow-y: auto;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .navArea {
@@ -27,8 +26,8 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(60, 121, 180, 0.10) 20%,
-    rgba(60, 121, 180, 0.10) 80%,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.08) 80%,
     transparent 100%
   );
   margin: var(--space-sm) var(--space-md);
@@ -44,11 +43,10 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.10em;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.35);
   display: block;
   margin-bottom: var(--space-sm);
   padding: 0 var(--space-sm);
-  opacity: 0.7;
 }
 
 .nav {
@@ -63,7 +61,7 @@
   gap: var(--space-sm);
   padding: 7px var(--space-md);
   font-size: 0.84rem;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.65);
   border-radius: 8px;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   width: 100%;
@@ -76,19 +74,19 @@
 }
 
 .link.expanded {
-  background: rgba(60, 121, 180, 0.06);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .link:hover {
-  background: rgba(60, 121, 180, 0.06);
-  color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .link.active {
-  background: rgba(60, 121, 180, 0.10);
-  color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow: inset 3px 0 0 rgba(56, 133, 224, 0.70);
   border-radius: 0 8px 8px 0;
 }
 
