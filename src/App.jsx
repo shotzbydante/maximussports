@@ -63,8 +63,8 @@ export default function App() {
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Layout />}>
-                  {/* ══ Root redirect → NCAAM ══ */}
-                  <Route index element={<Navigate to="/ncaam" replace />} />
+                  {/* ══ Root redirect → active-season workspace (MLB) ══ */}
+                  <Route index element={<Navigate to="/mlb" replace />} />
 
                   {/* ══ NCAAM routes (canonical: /ncaam/...) ══ */}
                   <Route path="ncaam">

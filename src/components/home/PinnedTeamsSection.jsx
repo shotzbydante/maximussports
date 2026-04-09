@@ -1055,7 +1055,19 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
                       </div>
                     );
                   }
-                  return null;
+                  // Priority 5: Season complete — show clean "Season Complete" state
+                  return (
+                    <div className={styles.gameModule}>
+                      <span className={styles.gameModuleTag}>Season Complete</span>
+                      <div className={styles.gameModuleBody}>
+                        <div className={styles.gameModuleInfo}>
+                          <span className={styles.gameDetail}>
+                            {fields?.record || 'Season over'} · Check back for next season
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
                 })()}
 
                 {/* ── Zone 4: Intel summary ── */}

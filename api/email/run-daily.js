@@ -273,6 +273,22 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
   }
 
+  // ── Season state gate: suppress NCAAM emails when season is completed ──
+  // All current email types are NCAAM-focused. When NCAAM season is over,
+  // skip sending entirely. MLB emails will use a separate pipeline.
+  // This is driven by the canonical seasonState in workspace config.
+  const NCAAM_SEASON_STATE = 'completed'; // matches workspaces/config.js
+  if (NCAAM_SEASON_STATE === 'completed') {
+    console.log(`[run-daily] ⏸ NCAAM season completed — skipping ${type} email run.`);
+    return res.status(200).json({
+      ok: true,
+      type,
+      skipped: true,
+      reason: 'ncaam_season_completed',
+      message: 'NCAAM season is complete. Email sends are suspended until next season.',
+    });
+  }
+
   const prefKey = TYPE_TO_PREF_KEY[type];
   const dateKey = makeDateKey(type);
   const startedAt = Date.now();
