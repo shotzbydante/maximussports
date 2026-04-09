@@ -1,19 +1,18 @@
 .topnav {
   height: var(--topnav-height);
-  background: rgba(255, 255, 255, 0.88);
-  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(135deg, #0a1628 0%, #0e1e38 50%, #0a1628 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-lg);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    0 2px 8px rgba(0, 0, 0, 0.20),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset;
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .brand {
@@ -149,6 +148,7 @@
   padding: 6px 13px;
   font-size: 0.8rem;
   font-weight: 500;
+  color: rgba(255, 255, 255, 0.70);
   color: var(--color-text-secondary);
   border-radius: 7px;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
@@ -158,15 +158,15 @@
 }
 
 .link:hover {
-  color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .link.active {
-  color: var(--color-primary);
-  background: rgba(60, 121, 180, 0.10);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(60, 121, 180, 0.08);
+  box-shadow: 0 1px 3px rgba(56, 133, 224, 0.15);
 }
 
 .navOverlay {
