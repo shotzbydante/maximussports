@@ -482,4 +482,226 @@ function buildGeneralSubhead(contenders, doy) {
   return 'Contenders are making early statements across both leagues.';
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  HOT OFF THE PRESS — dynamic bullet builder for Slide 2
+//
+//  Generates 4 editorial bullets from structured game results.
+//  Aligned with the headline engine: same data, same team names,
+//  same priority logic. Bullets feel like a real newsroom recap.
+// ═══════════════════════════════════════════════════════════════════════
+
+// ── Bullet template banks (by story type) ───────────────────────────────
+
+function bulletBlowout(s, doy) {
+  const w = teamName(s.winSlug);
+  const l = teamName(s.loseSlug);
+  const score = `${s.winScore}-${s.loseScore}`;
+  const templates = [
+    `${w} cruise past ${l} ${score} in a dominant showing.`,
+    `${w} roll over ${l} ${score} — a statement win.`,
+    `${w} rout ${l} ${score}, leaving no doubt.`,
+  ];
+  return templates[doy % templates.length];
+}
+
+function bulletShutout(s, doy) {
+  const w = teamName(s.winSlug);
+  const l = teamName(s.loseSlug);
+  const score = `${s.winScore}-0`;
+  const templates = [
+    `${w} shut out ${l} ${score} behind dominant pitching.`,
+    `${w} blank ${l} ${score} in a pitching masterclass.`,
+    `${w} hold ${l} scoreless in a ${score} gem.`,
+  ];
+  return templates[doy % templates.length];
+}
+
+function bulletUpset(s, doy) {
+  const w = teamName(s.winSlug);
+  const l = teamName(s.loseSlug);
+  const score = `${s.winScore}-${s.loseScore}`;
+  const templates = [
+    `${w} stun ${l} ${score} in an early-season upset.`,
+    `${w} pull off the upset, topping ${l} ${score}.`,
+    `Upset: ${w} take down ${l} ${score}.`,
+  ];
+  return templates[doy % templates.length];
+}
+
+function bulletContender(s, doy) {
+  const w = teamName(s.winSlug);
+  const l = teamName(s.loseSlug);
+  const score = `${s.winScore}-${s.loseScore}`;
+  const templates = [
+    `${w} handle ${l} ${score} to stay on track.`,
+    `${w} top ${l} ${score} in a strong outing.`,
+    `${w} take care of business, beating ${l} ${score}.`,
+    `${w} edge ${l} ${score} as the ${teamDiv(s.winSlug)} race tightens.`,
+  ];
+  return templates[doy % templates.length];
+}
+
+function bulletResult(s, doy) {
+  const w = teamName(s.winSlug);
+  const l = teamName(s.loseSlug);
+  const score = `${s.winScore}-${s.loseScore}`;
+  if (s.margin === 1) {
+    const templates = [
+      `${w} edge ${l} ${score} in a nail-biter.`,
+      `${w} hold on to beat ${l} ${score} in a tight one.`,
+    ];
+    return templates[doy % templates.length];
+  }
+  const templates = [
+    `${w} beat ${l} ${score}.`,
+    `${w} top ${l} ${score}.`,
+    `${w} win ${score} over ${l}.`,
+  ];
+  return templates[doy % templates.length];
+}
+
+function bulletForStory(story, doy) {
+  if (story.isUpset) return bulletUpset(story, doy);
+  switch (story.type) {
+    case 'shutout': return bulletShutout(story, doy);
+    case 'blowout': return bulletBlowout(story, doy);
+    default: return story.isContender ? bulletContender(story, doy) : bulletResult(story, doy);
+  }
+}
+
+// ── Division / standings context bullet ─────────────────────────────────
+
+function bulletDivisionContext(stories, doy) {
+  // Count contender wins by division
+  const divWins = {};
+  for (const s of stories) {
+    if (s.isContender && s.winDiv) {
+      divWins[s.winDiv] = (divWins[s.winDiv] || 0) + 1;
+    }
+  }
+  const divEntries = Object.entries(divWins).sort((a, b) => b[1] - a[1]);
+
+  if (divEntries.length >= 2) {
+    const templates = [
+      `Contenders win in both the ${divEntries[0][0]} and ${divEntries[1][0]} as early races take shape.`,
+      `${divEntries[0][0]} and ${divEntries[1][0]} contenders both pick up wins — pressure builds.`,
+    ];
+    return templates[doy % templates.length];
+  }
+  if (divEntries.length === 1) {
+    const div = divEntries[0][0];
+    const count = divEntries[0][1];
+    if (count >= 2) return `Multiple ${div} contenders win, tightening the division race.`;
+    return `The ${div} picture shifts as contenders make their move.`;
+  }
+
+  // Fallback: league-level summary
+  const totalFinals = stories.length;
+  if (totalFinals >= 6) {
+    return `A busy night across the league with ${totalFinals} games in the books.`;
+  }
+  return 'Early standings pressure builds across both leagues.';
+}
+
+// ── Volume / notable-count bullet ───────────────────────────────────────
+
+function bulletVolume(stories, usedSlugs, doy) {
+  // Find the next best story NOT already used
+  for (const s of stories) {
+    if (usedSlugs.has(s.winSlug)) continue;
+    return bulletForStory(s, doy + 1); // offset doy for template variation
+  }
+  // If all stories used, generate a summary bullet
+  const contenderWins = stories.filter(s => s.isContender).length;
+  if (contenderWins >= 3) return `${contenderWins} projected contenders pick up wins across the league.`;
+  if (stories.length >= 4) return `${stories.length} games finalize across the league as the board adjusts.`;
+  return 'Results across the league continue to shape early standings.';
+}
+
+// ── Main HOTP builder ───────────────────────────────────────────────────
+
+/**
+ * Build "Hot Off The Press" bullets from structured game results.
+ *
+ * @param {Object} opts
+ * @param {Array} opts.liveGames - games from /api/mlb/live/games (includes finals)
+ * @param {string} [opts.briefing] - AI briefing text (fallback only)
+ * @returns {{ text: string, logoSlug: string|null }[]} - 4 bullet objects
+ */
+export function buildMlbHotPress({ liveGames, briefing } = {}) {
+  const doy = dayOfYear();
+  const stories = extractGameStories(liveGames);
+
+  // ── If we have game results, build from structured data ──
+  if (stories.length >= 1) {
+    const bullets = [];
+    const usedSlugs = new Set();
+
+    // Bullet 1: Top story (aligns with headline)
+    const top = stories[0];
+    bullets.push({ text: bulletForStory(top, doy), logoSlug: top.winSlug });
+    usedSlugs.add(top.winSlug);
+
+    // Bullet 2: Second key result (from different division if possible)
+    const second = findSecondStory(stories, top);
+    if (second && !usedSlugs.has(second.winSlug)) {
+      bullets.push({ text: bulletForStory(second, doy + 1), logoSlug: second.winSlug });
+      usedSlugs.add(second.winSlug);
+    } else if (stories.length >= 2) {
+      const alt = stories[1];
+      bullets.push({ text: bulletForStory(alt, doy + 1), logoSlug: alt.winSlug });
+      usedSlugs.add(alt.winSlug);
+    }
+
+    // Bullet 3: Division / standings context
+    if (stories.length >= 2) {
+      bullets.push({ text: bulletDivisionContext(stories, doy), logoSlug: null });
+    }
+
+    // Bullet 4: Additional game or volume summary
+    if (stories.length >= 3) {
+      bullets.push({ text: bulletVolume(stories, usedSlugs, doy), logoSlug: null });
+    }
+
+    // Pad to 4 if needed
+    while (bullets.length < 4) {
+      bullets.push({ text: bulletVolume(stories, usedSlugs, doy + bullets.length), logoSlug: null });
+    }
+
+    return bullets.slice(0, 4);
+  }
+
+  // ── Fallback: parse briefing text if no game results ──
+  if (briefing) {
+    const briefingData = extractBriefingStories(briefing);
+    const intel = briefingData.intel;
+    if (intel?.rawParagraphs?.[0]) {
+      let raw = intel.rawParagraphs[0];
+      // Clean up
+      raw = raw.replace(/[\u{1F300}-\u{1FAD6}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
+      raw = raw.replace(/^[¶#§]\d*\s*/i, '').replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '').trim();
+      const sents = (raw.match(/[^.!?]*[.!?]+/g) || [])
+        .map(s => s.trim())
+        .filter(s => s.length > 15 && s.length <= 95)
+        // Filter out generic filler
+        .filter(s => !/^(As we dive|In a thrilling|As teams jockey|As the season)/i.test(s));
+      if (sents.length >= 2) {
+        return sents.slice(0, 4).map(text => ({ text, logoSlug: null }));
+      }
+    }
+  }
+
+  // ── Last resort: model-driven general bullets ──
+  const contenders = getModelContenders();
+  const t1 = contenders[0];
+  const t2 = contenders[1];
+  const t3 = contenders[2];
+  return [
+    { text: t1 ? `${teamName(t1.slug)} project at ${t1.projectedWins} wins to lead the ${t1.league}.` : 'League-wide results continue to shape early standings.', logoSlug: t1?.slug || null },
+    { text: t2 ? `${teamName(t2.slug)} sit at ${t2.projectedWins} projected wins as contenders emerge.` : 'Contenders separate from the pack across both leagues.', logoSlug: t2?.slug || null },
+    { text: t3 ? `${teamName(t3.slug)} round out the top tier at ${t3.projectedWins} projected wins.` : 'Early model signals point to a competitive season ahead.', logoSlug: t3?.slug || null },
+    { text: 'Early edges are forming — the board reacts daily.', logoSlug: null },
+  ];
+}
+
 export default buildMlbDailyHeadline;

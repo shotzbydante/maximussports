@@ -13,7 +13,7 @@ import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { buildDailyContent, stripEmojis, fmtOdds } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
-import { buildMlbDailyHeadline } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
+import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
 import styles from './MlbSlides.module.css';
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -129,29 +129,15 @@ function buildSlide2Content(data) {
     timeZone: 'America/Los_Angeles',
   });
 
-  const getSentences = (idx) => {
-    const para = paras[idx];
-    if (!para) return [];
-    let cleaned = stripEmojis(para);
-    if (!cleaned || cleaned.length < 30) return [];
-    // Strip section labels: "¶1 AROUND THE LEAGUE:", "AROUND THE LEAGUE —", etc.
-    cleaned = cleaned.replace(/^[¶#§]\d*\s*/i, '');
-    const labelMatch = cleaned.match(/^([A-Z][A-Z\s&+\-:]*[A-Z])\s*[:—–-]\s*/);
-    if (labelMatch) cleaned = cleaned.slice(labelMatch[0].length);
-    // Split into complete sentences only
-    const sents = (cleaned.match(/[^.!?]*[.!?]+/g) || []).map(s => s.trim()).filter(s => s.length > 15);
-    return sents;
-  };
-
-  // ── HOT OFF THE PRESS: 4-5 bullets ──
-  const p1 = getSentences(0);
-  const featureBullets = p1.slice(0, 5).map(s => ({
-    text: trim(s),
-    logoSrc: logoUrl(findSlug(s)),
+  // ── HOT OFF THE PRESS: 4 dynamic bullets from game results ──
+  const hotPressBullets = buildMlbHotPress({
+    liveGames: data?.mlbLiveGames || [],
+    briefing: data?.mlbBriefing,
+  });
+  const featureBullets = hotPressBullets.map(b => ({
+    text: trim(b.text),
+    logoSrc: logoUrl(b.logoSlug),
   }));
-  while (featureBullets.length < 4) {
-    featureBullets.push({ text: 'Contenders wasted no time making early statements', logoSrc: null });
-  }
 
   // ── PENNANT RACE: top 4 MLB teams by projected wins, league-agnostic ──
   const allTeams = [];
@@ -242,7 +228,7 @@ function buildSlide2Content(data) {
     headline: dynamicHL.mainHeadline || buildHeadline(paras),
     subhead: dynamicHL.subhead || buildSubhead(paras),
     featureBullets,
-    featureTakeaway: "Today's board is being shaped by stars, debuts, and early pressure.",
+    featureTakeaway: dynamicHL.subhead || "Today's board is being shaped by results across both leagues.",
     raceTeams,
     picks,
   };
