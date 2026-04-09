@@ -11,8 +11,7 @@
   overflow-x: hidden;
   /* Full-bleed: override parent .main padding so dark bg fills edge-to-edge */
   margin: calc(-1 * var(--space-lg, 24px));
-  margin-bottom: 0;
-  padding: var(--space-lg, 24px) 0 0;
+  padding: 0;
 }
 
 /* ── Hero ── */
