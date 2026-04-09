@@ -5,12 +5,16 @@
  * Features live news/video previews from News Feed API.
  */
 
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { WORKSPACES, WorkspaceId, SeasonState } from '../workspaces/config';
 import { fetchMlbHeadlines } from '../api/mlbNews';
+import { getFlag, setFlag } from '../utils/localFlags';
+import { trackAccountCreateSkipped } from '../lib/analytics/posthog';
 import styles from './Landing.module.css';
+
+const WelcomeModal = lazy(() => import('../components/marketing/WelcomeModal'));
 
 const META = {
   title: 'Maximus Sports — AI-Powered Sports Intelligence',
@@ -64,7 +68,32 @@ export default function Landing() {
   const ncaamComplete = ncaam.seasonState === SeasonState.COMPLETED;
   const ch = ncaam.championship;
 
+  const navigate = useNavigate();
   const [mlbNews, setMlbNews] = useState([]);
+
+  // ── Welcome modal: same trigger logic as NCAAM Home ──
+  const [welcomeOpen, setWelcomeOpen] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('welcome') === '1') return true;
+      return !getFlag('mx_welcome_seen_v1');
+    } catch { return false; }
+  });
+
+  const handleWelcomeClose = useCallback(() => {
+    setWelcomeOpen(false);
+    setFlag('mx_welcome_seen_v1');
+  }, []);
+
+  const handleWelcomeSignup = useCallback(() => {
+    handleWelcomeClose();
+    navigate('/settings');
+  }, [handleWelcomeClose, navigate]);
+
+  const handleWelcomeExplore = useCallback(() => {
+    trackAccountCreateSkipped({ reason: 'welcome_modal_explore' });
+    handleWelcomeClose();
+  }, [handleWelcomeClose]);
 
   useEffect(() => {
     fetchMlbHeadlines()
@@ -89,6 +118,16 @@ export default function Landing() {
         <meta name="twitter:description" content={META.description} />
         <meta name="twitter:image" content={META.image} />
       </Helmet>
+
+      {/* ── Welcome modal for new users ── */}
+      <Suspense fallback={null}>
+        <WelcomeModal
+          open={welcomeOpen}
+          onClose={handleWelcomeClose}
+          onSignup={handleWelcomeSignup}
+          onExplore={handleWelcomeExplore}
+        />
+      </Suspense>
 
       <div className={styles.page}>
         {/* ── Hero ── */}
