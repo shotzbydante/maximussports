@@ -32,17 +32,17 @@ const VALUE_PROPS = [
 ];
 
 const MLB_MODULES = [
-  { title: 'Daily Briefing', desc: 'AI-generated league-wide intelligence.', to: '/mlb' },
-  { title: 'Team Intel', desc: 'Projections, odds, and matchup context.', to: '/mlb/teams' },
-  { title: "Maximus's Picks", desc: 'Moneyline, ATS, value, and totals picks.', to: '/mlb/insights' },
-  { title: 'Season Intelligence', desc: 'Full-season model projections.', to: '/mlb/season-model' },
+  { title: 'Daily Briefing', desc: 'AI-powered daily read on games, edges, and market movement.', to: '/mlb' },
+  { title: 'Team Intel', desc: 'Deep team breakdowns, trends, and matchup context.', to: '/mlb/teams' },
+  { title: "Maximus's Picks", desc: 'Model-driven picks across moneyline, ATS, and totals.', to: '/mlb/insights' },
+  { title: 'Season Intelligence', desc: 'Projected wins, playoff odds, and market inefficiencies.', to: '/mlb/season-model' },
 ];
 
 const NCAAM_MODULES = [
-  { title: 'Tournament Recap', desc: 'Championship analysis and bracket breakdown.', to: '/ncaam' },
-  { title: 'Team Intel', desc: 'Season records, ATS, and conference performance.', to: '/ncaam/teams' },
-  { title: 'Bracketology', desc: 'Model-driven bracket picks and probabilities.', to: '/bracketology' },
-  { title: 'Odds Insights', desc: 'Historical picks performance and ATS analytics.', to: '/ncaam/insights' },
+  { title: 'Tournament Recap', desc: 'Full March Madness breakdown, results, and key storylines.', to: '/ncaam' },
+  { title: 'Team Intel', desc: 'Season records, conference performance, and roster depth.', to: '/ncaam/teams' },
+  { title: 'Bracketology', desc: 'Model-driven projections and matchup probabilities.', to: '/bracketology' },
+  { title: 'Odds Insights', desc: 'Historical picks performance and ATS cover analytics.', to: '/ncaam/insights' },
 ];
 
 /** Clean video/headline titles — remove noisy suffixes, duplicated sources, separators */
@@ -192,6 +192,7 @@ export default function Landing() {
             </p>
             <div className={styles.tileCta}>
               <span className={styles.ctaBtn}>Enter MLB Intelligence →</span>
+              <span className={styles.ctaMicro}>Live now →</span>
             </div>
           </Link>
 
@@ -216,6 +217,9 @@ export default function Landing() {
               <span className={styles.ctaBtn}>
                 {ncaamComplete ? 'View Season Recap →' : 'Enter NCAAM Intelligence →'}
               </span>
+              <span className={styles.ctaMicro}>
+                {ncaamComplete ? 'Season recap →' : 'Live now →'}
+              </span>
             </div>
           </Link>
         </div>
@@ -229,7 +233,7 @@ export default function Landing() {
             <div className={styles.moduleCards}>
               {MLB_MODULES.map((m, i) => (
                 <Link key={i} to={m.to} className={styles.moduleCard}>
-                  <span className={styles.moduleTitle}>{m.title}</span>
+                  <span className={styles.moduleTitle}>{m.title} <span className={styles.moduleArrow}>→</span></span>
                   <span className={styles.moduleDesc}>{m.desc}</span>
                 </Link>
               ))}
@@ -242,7 +246,7 @@ export default function Landing() {
             <div className={styles.moduleCards}>
               {NCAAM_MODULES.map((m, i) => (
                 <Link key={i} to={m.to} className={styles.moduleCard}>
-                  <span className={styles.moduleTitle}>{m.title}</span>
+                  <span className={styles.moduleTitle}>{m.title} <span className={styles.moduleArrow}>→</span></span>
                   <span className={styles.moduleDesc}>{m.desc}</span>
                 </Link>
               ))}
