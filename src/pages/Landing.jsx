@@ -95,8 +95,8 @@ export default function Landing() {
         <header className={styles.hero}>
           <div className={styles.heroGlow} />
           <div className={styles.heroContent}>
-            <img src="/logo.png" alt="Maximus Sports" className={styles.heroLogo} width={56} height={56} />
-            <h1 className={styles.heroTitle}>Maximus Sports</h1>
+            <img src="/maximus-logo.png" alt="Maximus Sports" className={styles.heroLogoBrand} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; e.target.className = styles.heroLogoFallback; }} />
+            <h1 className={styles.srOnly}>Maximus Sports — AI-Powered Sports Intelligence</h1>
             <p className={styles.heroTagline}>
               AI-powered sports intelligence, built for fans who want an edge.
             </p>
