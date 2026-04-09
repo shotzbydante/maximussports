@@ -5,6 +5,7 @@ import ScrollToTop from './components/layout/ScrollToTop';
 import AnalyticsRouteListener from './components/layout/AnalyticsRouteListener';
 import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
+import Landing from './pages/Landing';
 import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 import { initOfficialBracket } from './utils/bracketInit';
@@ -63,8 +64,8 @@ export default function App() {
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Layout />}>
-                  {/* ══ Root redirect → active-season workspace (MLB) ══ */}
-                  <Route index element={<Navigate to="/mlb" replace />} />
+                  {/* ══ Root homepage — brand landing page ══ */}
+                  <Route index element={<Landing />} />
 
                   {/* ══ NCAAM routes (canonical: /ncaam/...) ══ */}
                   <Route path="ncaam">
