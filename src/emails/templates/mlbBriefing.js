@@ -9,7 +9,7 @@
 
 import {
   MlbEmailShell, mlbHeroBlock, mlbSectionHeader, mlbBulletSection,
-  mlbDividerRow, cleanNarrativeText, narrativeToBullets,
+  mlbDividerRow, cleanNarrativeText, narrativeToBullets, stripInlineEmoji,
 } from '../MlbEmailShell.js';
 import { mlbBriefingSubject } from '../helpers/subjectGenerator.js';
 
@@ -67,11 +67,12 @@ export function renderHTML(data = {}) {
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
 ${mlbBulletSection(allBullets.slice(0, 5), takeaway)}`;
   } else if (topHeadlines.length > 0) {
-    // Fallback: headlines as bullet links (flat single-td, no nested tables)
+    // Fallback: headlines as bullet links (flat single-td, no nested tables, no emojis)
     const headlineHtml = topHeadlines.map(h => {
       const link = h.link || 'https://maximussports.ai/mlb';
       const source = h.source || '';
-      return `<p style="margin:0 0 8px;font-size:14px;line-height:1.55;font-family:'DM Sans',Arial,sans-serif;"><span style="color:#c41e3a;font-weight:700;">&bull;</span>&nbsp; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${h.title || 'No title'}</a>${source ? `<br/><span style="font-size:10.5px;color:#9ca3af;">${source}</span>` : ''}</p>`;
+      const title = stripInlineEmoji(h.title || 'No title');
+      return `<p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,sans-serif;">&bull; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${title}</a>${source ? `<br/><span style="font-size:11px;color:#9ca3af;">${source}</span>` : ''}</p>`;
     }).join('\n');
 
     aroundTheLeague = `
@@ -155,11 +156,12 @@ ${mlbBulletSection(sections[4].bullets, sections[4].takeaway)}`;
   // ── DIAMOND DISPATCH (curated headline links) ─────────────────
   let diamondDispatch = '';
   if (topHeadlines.length > 0 && hasNarrative) {
-    // Flat single-td rendering — no nested tables, no fragmentation
+    // Flat single-td rendering — no nested tables, no fragmentation, no emojis
     const linksHtml = topHeadlines.slice(0, 4).map(h => {
       const link = h.link || '#';
       const source = h.source || '';
-      return `<p style="margin:0 0 10px;font-size:14px;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;"><span style="color:#c41e3a;font-weight:700;">&bull;</span>&nbsp; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${h.title}</a>${source ? `<br/><span style="font-size:10.5px;color:#9ca3af;">${source}</span>` : ''}</p>`;
+      const title = stripInlineEmoji(h.title || '');
+      return `<p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,sans-serif;">&bull; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${title}</a>${source ? `<br/><span style="font-size:11px;color:#9ca3af;">${source}</span>` : ''}</p>`;
     }).join('\n');
 
     diamondDispatch = `
