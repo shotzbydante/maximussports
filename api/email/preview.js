@@ -14,6 +14,7 @@ import { getJson } from '../_globalCache.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
+import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
 import { renderHTML as renderDailyHTML }  from '../../src/emails/templates/dailyBriefing.js';
 import { renderHTML as renderPinnedHTML } from '../../src/emails/templates/pinnedTeamsAlerts.js';
 import { renderHTML as renderOddsHTML }   from '../../src/emails/templates/oddsIntel.js';
@@ -128,33 +129,14 @@ export default async function handler(req, res) {
   }
 
   const tplType = TYPE_TO_TEMPLATE[type];
+  const isMLB = type.startsWith('mlb_');
 
   // ── Fetch data ─────────────────────────────────────────────────────────────
   try {
-    const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
-      fetchScoresSource(),
-      fetchRankingsSource(),
-      getAtsLeadersPipeline(),
-      fetchNewsAggregateSource({ includeNational: true }),
-    ]);
-
-    const scoresToday   = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
-    const rankingsTop25 = rankingsData.status  === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
-    const atsLeaders    = atsResult.status     === 'fulfilled'
-      ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
-      : { best: [], worst: [] };
-    const headlinesRaw  = newsData.status      === 'fulfilled' ? (newsData.value?.items || []) : [];
-    const headlines     = dedupeNewsItems(headlinesRaw);
-
-    let botIntelBullets = [];
-    if (tplType === 'daily' || tplType === 'pinned') {
-      botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday);
-    }
-    const maximusNote = botIntelBullets[0] || '';
-
-    // Resolve real pinned teams if admin is authenticated
+    let scoresToday, rankingsTop25, atsLeaders, headlines, botIntelBullets, maximusNote, narrativeParagraph;
     let pinnedTeams = FALLBACK_PINNED_TEAMS;
     let pinnedSlugs = FALLBACK_PINNED_TEAMS.map(t => t.slug);
+
     if (adminUserId) {
       try {
         const sb = getSupabaseAdmin();
@@ -167,15 +149,45 @@ export default async function handler(req, res) {
       } catch { /* fall through to fallback */ }
     }
 
+    if (isMLB) {
+      // ── MLB-SPECIFIC DATA ──
+      const host = req.headers.host || 'localhost:3000';
+      const mlbData = await assembleMlbEmailData(`http://${host}`, {
+        includeSummary: tplType === 'mlbBriefing',
+      });
+      scoresToday = mlbData.scoresToday;
+      rankingsTop25 = mlbData.rankingsTop25;
+      atsLeaders = mlbData.atsLeaders;
+      headlines = mlbData.headlines;
+      botIntelBullets = mlbData.botIntelBullets;
+      narrativeParagraph = mlbData.narrativeParagraph;
+      maximusNote = botIntelBullets[0] || '';
+    } else {
+      // ── NCAAM / GLOBAL DATA ──
+      const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
+        fetchScoresSource(), fetchRankingsSource(), getAtsLeadersPipeline(),
+        fetchNewsAggregateSource({ includeNational: true }),
+      ]);
+      scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+      rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+      atsLeaders = atsResult.status === 'fulfilled'
+        ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
+        : { best: [], worst: [] };
+      const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+      headlines = dedupeNewsItems(headlinesRaw);
+      botIntelBullets = [];
+      if (tplType === 'daily' || tplType === 'pinned') {
+        botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday);
+      }
+      maximusNote = botIntelBullets[0] || '';
+      narrativeParagraph = '';
+    }
+
     const emailData = {
       displayName: 'Dante',
-      scoresToday,
-      rankingsTop25,
-      atsLeaders,
-      headlines,
-      pinnedTeams,
-      botIntelBullets,
-      maximusNote,
+      scoresToday, rankingsTop25, atsLeaders, headlines,
+      pinnedTeams, pinnedSlugs, botIntelBullets, maximusNote,
+      narrativeParagraph: narrativeParagraph || '',
     };
 
     let html;
