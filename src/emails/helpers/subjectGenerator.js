@@ -144,35 +144,64 @@ export function breakingNewsSubject({ displayName, headlines = [] } = {}) {
    MLB DAILY BRIEFING SUBJECTS
    ═══════════════════════════════════════════════════════════════ */
 
-export function mlbBriefingSubject({ displayName, headlines = [] } = {}) {
-  const top1 = headlines[0]?.title;
-  const top2 = headlines[1]?.title;
+export function mlbBriefingSubject({ displayName, headlines = [], narrativeParagraph = '' } = {}) {
+  /**
+   * Extract punchy team-name hooks from headlines.
+   * Looks for MLB team names mentioned and creates short editorial hooks.
+   */
+  const MLB_TEAM_HOOKS = [
+    'Yankees', 'Dodgers', 'Mets', 'Red Sox', 'Braves', 'Astros', 'Phillies',
+    'Padres', 'Cubs', 'Cardinals', 'Giants', 'Rangers', 'Orioles', 'Twins',
+    'Mariners', 'Guardians', 'Tigers', 'Rays', 'Blue Jays', 'Brewers',
+    'Diamondbacks', 'Reds', 'Royals', 'Angels', 'Marlins', 'Pirates',
+    'Rockies', 'Nationals', 'White Sox', 'Athletics',
+  ];
 
-  // Extract short hooks from headlines
-  function shorten(title, max = 30) {
+  function extractTeamMentions(text) {
+    if (!text) return [];
+    return MLB_TEAM_HOOKS.filter(team => text.toLowerCase().includes(team.toLowerCase()));
+  }
+
+  function shorten(title, max = 35) {
     if (!title) return null;
     if (title.length <= max) return title;
     const cut = title.lastIndexOf(' ', max);
-    return title.slice(0, cut > 10 ? cut : max);
+    return title.slice(0, cut > 10 ? cut : max) + '\u2026';
   }
 
-  const hook1 = shorten(top1);
-  const hook2 = shorten(top2, 25);
+  // Extract teams from top headlines to build topical hooks
+  const allTeams = headlines.slice(0, 6).flatMap(h => extractTeamMentions(h.title));
+  const uniqueTeams = [...new Set(allTeams)].slice(0, 3);
+
+  const hook1 = shorten(headlines[0]?.title);
+  const hook2 = shorten(headlines[1]?.title, 28);
 
   const templates = [];
 
-  if (hook1 && hook2) {
-    templates.push(`\u26BE MLB Daily Briefing: ${hook1}, ${hook2}`);
-    templates.push(`\u26BE MLB Daily Briefing: ${hook1} \u{1F525}`);
+  // Team-driven topical subjects (highest priority)
+  if (uniqueTeams.length >= 3) {
+    templates.push(`\u26BE MLB Daily Briefing: ${uniqueTeams[0]} Spotlight, ${uniqueTeams[1]} Heat, ${uniqueTeams[2]} Watch`);
+    templates.push(`\u26BE MLB Daily Briefing: ${uniqueTeams.join(', ')} Lead Today\u2019s Intel`);
   }
-  if (hook1) {
-    templates.push(`\u26BE MLB Daily Briefing: ${hook1}`);
-    templates.push(`\u26BE ${hook1} \u2014 and more from around the league`);
+  if (uniqueTeams.length >= 2) {
+    templates.push(`\u26BE MLB Daily Briefing: ${uniqueTeams[0]} & ${uniqueTeams[1]} Headlines, Division Heat`);
+    templates.push(`\u26BE MLB Daily Briefing: ${uniqueTeams[0]} Watch, ${uniqueTeams[1]} Momentum`);
+  }
+  if (uniqueTeams.length >= 1) {
+    templates.push(`\u26BE MLB Daily Briefing: ${uniqueTeams[0]} in Focus, Early Value Signals`);
   }
 
-  templates.push(`\u26BE MLB Daily Briefing: The stories that move the needle`);
-  templates.push(`\u26BE MLB Daily Briefing: What you need to know today`);
-  templates.push(`\u26BE MLB Daily Briefing: Headlines, intel, and edges`);
+  // Headline-driven subjects
+  if (hook1 && hook2) {
+    templates.push(`\u26BE MLB Daily Briefing: ${hook1}`);
+  } else if (hook1) {
+    templates.push(`\u26BE MLB Daily Briefing: ${hook1}`);
+  }
+
+  // Date-contextual fallbacks
+  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  templates.push(`\u26BE MLB Daily Briefing: ${dayOfWeek}\u2019s Biggest Storylines`);
+  templates.push(`\u26BE MLB Daily Briefing: Today\u2019s Division Watch & Value Edges`);
 
   return pick(templates, 'mlb_briefing');
 }
