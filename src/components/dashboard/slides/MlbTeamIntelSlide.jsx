@@ -8,21 +8,20 @@
  *   1. Header        — Maximus branding + timestamp
  *   2. Logo hero     — team logo with animated glow (MLB ESPN CDN)
  *   3. Identity      — division · projected wins · WS odds chips
- *   4. Record line   — season record · last 10 form
- *   5. Headline      — MLB narrative scoring engine (buildMlbHeroNarrative)
- *   6. Subtext       — editorial sentence from highest-scoring signal
- *   7. Stat band     — Projected Wins / Range / WS Odds / Playoff %
- *   8. Schedule      — LAST game result → NEXT game (spread · total · datetime)
- *   9. Intel module  — Key drivers + analyst note
- *  10. News intel    — Recent team headlines
- *  11. Footer        — URL + disclaimer
+ *   4. Record line   — season record · L10 · streak
+ *   5. Headline      — topical narrative engine (form, division, storyline)
+ *   6. Subtext       — editorial sentence supporting headline
+ *   7. Stat band     — Projected Wins / Range / WS Odds / Confidence
+ *   8. Intel brief   — TEAM INTEL BRIEFING: 5 rich bullets (the hero section)
+ *   9. Footer        — URL + disclaimer
  *
- * Data source of truth: getTeamProjection() from seasonModel.js
+ * Data: getTeamProjection() + seasonModelInputs + mlbLiveGames + teamNews
  */
 
 import { useState } from 'react';
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
+import TEAM_INPUTS from '../../../data/mlb/seasonModelInputs';
 import styles from './MlbTeamIntelSlide.module.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -39,7 +38,7 @@ function fmtOdds(american) {
   return american > 0 ? `+${american}` : String(american);
 }
 
-function cap(str, max = 110) {
+function cap(str, max = 120) {
   if (!str) return '';
   return str.length <= max ? str : str.slice(0, max - 1) + '\u2026';
 }
@@ -50,11 +49,23 @@ function hashStr(s) {
   return Math.abs(h);
 }
 
-function pickPhrase(phrases, seed) {
-  return phrases[hashStr(seed || '') % phrases.length];
+function pickOne(arr, seed) {
+  return arr[hashStr(seed || '') % arr.length];
 }
 
-// ─── MLB Team Colors (dark red base + team accent) ──────────────────────────
+// Short team name: "Tampa Bay Rays" → "Rays", "New York Yankees" → "Yankees"
+function shortName(fullName) {
+  if (!fullName) return '';
+  const parts = fullName.split(' ');
+  return parts[parts.length - 1];
+}
+
+// Division short: "AL East" → "AL East" (already short), used in headlines
+function divShort(div) {
+  return div || '';
+}
+
+// ─── MLB Team Colors ──────────────────────────────────────────────────────
 
 const MLB_TEAM_COLORS = {
   nyy: { primary: '#003087', secondary: '#0C2340' },
@@ -105,31 +116,25 @@ function cleanNewsHeadline(raw) {
   if (sepIdx > s.length * 0.35) s = s.slice(0, sepIdx);
   s = s.replace(/^(?:MLB|Baseball|Béisbol)\s*(?:Preview|Recap|Report|Update|Analysis|Roundup):\s*/i, '');
   s = s.replace(/\s*[-\u2013\u2014|]\s*(?:ESPN|CBS|Yahoo|Fox|NBC|AP|SI|The Athletic)[\s\w]*$/i, '');
-  if (s.length > 80) s = s.slice(0, 79) + '\u2026';
+  if (s.length > 85) s = s.slice(0, 84) + '\u2026';
   return s;
 }
 
 // ─── Live Game Context Extraction ───────────────────────────────────────────
 
-/**
- * Extract recent results, L10, streak from mlbLiveGames for a given team slug.
- * This mirrors the pattern in MlbTeamDetail.jsx but uses the live games feed.
- */
 function extractTeamContext(liveGames, slug) {
   if (!liveGames?.length || !slug) {
-    return { recentGames: [], l10: null, streak: null, l10Record: null };
+    return { recentGames: [], l10Record: null, streak: null };
   }
 
-  // Filter to this team's final games
   const teamFinals = liveGames
     .filter(g => g.gameState?.isFinal && (g.teams?.home?.slug === slug || g.teams?.away?.slug === slug))
     .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
 
   if (teamFinals.length === 0) {
-    return { recentGames: [], l10: null, streak: null, l10Record: null };
+    return { recentGames: [], l10Record: null, streak: null };
   }
 
-  // Map to simplified results
   const results = teamFinals.map(g => {
     const isHome = g.teams?.home?.slug === slug;
     const ourScore = isHome ? g.teams?.home?.score : g.teams?.away?.score;
@@ -144,7 +149,7 @@ function extractTeamContext(liveGames, slug) {
   const last10 = results.slice(0, 10);
   const l10Wins = last10.filter(r => r.won).length;
   const l10Losses = last10.length - l10Wins;
-  const l10Record = last10.length > 0 ? `${l10Wins}-${l10Losses}` : null;
+  const l10Record = last10.length > 0 ? `${l10Wins}\u2013${l10Losses}` : null;
 
   // Streak
   let streak = null;
@@ -158,251 +163,292 @@ function extractTeamContext(liveGames, slug) {
     streak = firstResult ? `W${count}` : `L${count}`;
   }
 
-  return {
-    recentGames: results.slice(0, 5),
-    l10: last10,
-    l10Record,
-    streak,
-  };
+  return { recentGames: results.slice(0, 5), l10Record, streak, l10Wins };
 }
 
-// ─── MLB Narrative Engine ───────────────────────────────────────────────────
-
-const MLB_PHRASE_LIB = {
-  valueTheses: [
-    'THE NUMBER\nIS WRONG',
-    'MARKET\nMISPRICED',
-    'HIDDEN\nVALUE',
-    'UNDERVALUED',
-  ],
-  contenderTheses: [
-    'BUILT TO\nWIN NOW',
-    'LEGIT\nCONTENDER',
-    'PENNANT\nHUNGRY',
-    'WORLD SERIES\nCALIBER',
-  ],
-  rebuildTheses: [
-    'REBUILD\nWATCH',
-    'LONG ROAD\nAHEAD',
-    'BUILDING FOR\nTOMORROW',
-    'PATIENCE\nREQUIRED',
-  ],
-  transitionTheses: [
-    'IN THE\nMIDDLE',
-    'CROSSROADS\nSEASON',
-    'PROVE IT\nYEAR',
-    'THE QUESTION\nMARK',
-  ],
-  fringeTheses: [
-    'DARK HORSE\nALERT',
-    'DON\'T SLEEP\nON THEM',
-    'FRINGE\nCONTENDER',
-    'OCTOBER\nOUTSIDER',
-  ],
-  rotationTheses: [
-    'ARM\nDOMINANCE',
-    'PITCHING\nFORTRESS',
-    'ROTATION\nEDGE',
-  ],
-  offenseTheses: [
-    'LINEUP\nLOADED',
-    'OFFENSE\nFIRST',
-    'POWER\nSURGE',
-  ],
-  // Topical headlines — incorporate live context
-  hotStreakTheses: [
-    'ROLLING',
-    'ON FIRE',
-    'HEATING UP',
-  ],
-  coldStreakTheses: [
-    'SKIDDING',
-    'GOING COLD',
-    'IN FREEFALL',
-  ],
-};
+// ─── Topical Headline Engine ───────────────────────────────────────────────
 
 /**
- * Upgraded headline engine — incorporates standings, L10, recent results,
- * division context alongside model signals for topical, current headlines.
+ * Generate topical, team-specific headlines that connect to real data.
+ * Priority: recent form → division race → team strengths → model context.
+ *
+ * Headlines should feel like "RAYS GAIN GROUND" or "ROTATION LEADS THE PUSH"
+ * — not generic labels like "UNDERVALUED" or "MARKET MISPRICED".
  */
-function buildMlbHeroNarrative({ teamName, slug, projection, teamContext, divisionRank }) {
+function buildMlbHeroNarrative({ teamName, slug, projection, teamContext, division, inputs }) {
+  const sn = shortName(teamName).toUpperCase();
+  const div = divShort(division);
+
   if (!projection) {
     return {
-      headline: 'INTEL\nFILE',
+      headline: `${sn}\nINTEL FILE`,
       subtext: `Full market intelligence on ${teamName}.`,
-      signalType: 'standard',
-      score: 10,
     };
   }
 
-  const proj = projection;
-  const tk = proj.takeaways || {};
-  const wins = proj.projectedWins;
-  const delta = proj.marketDelta || 0;
+  const tk = projection.takeaways || {};
+  const wins = projection.projectedWins;
+  const delta = projection.marketDelta || 0;
   const driver = tk.strongestDriver || '';
   const driverLow = driver.toLowerCase();
-  const signals = [];
+  const { streak, l10Record, recentGames, l10Wins } = teamContext || {};
   const seed = slug || teamName;
 
-  const { streak, l10Record, recentGames } = teamContext || {};
+  const signals = [];
 
-  // ── TOPICAL SIGNALS (prioritized — these make the slide feel current) ──
+  // ── FORM-BASED (most topical) ──
 
-  // Hot streak (W4+)
-  if (streak && streak.startsWith('W') && parseInt(streak.slice(1)) >= 4) {
-    const streakLen = parseInt(streak.slice(1));
-    signals.push({
-      type: 'hotStreak', score: 98,
-      headline: `WIN ${streakLen}\nSTRAIGHT`,
-      subtext: `${teamName} ${streakLen === 4 ? 'have' : 'have'} won ${streakLen} straight. The momentum is building.`,
+  if (streak && streak.startsWith('W') && parseInt(streak.slice(1)) >= 5) {
+    const n = parseInt(streak.slice(1));
+    signals.push({ score: 100,
+      headline: `${sn} WIN\n${n} STRAIGHT`,
+      subtext: `${teamName} are surging with ${n} consecutive wins. The momentum is real and the standings are shifting.`,
+    });
+  } else if (streak && streak.startsWith('W') && parseInt(streak.slice(1)) >= 3) {
+    signals.push({ score: 95,
+      headline: `${sn}\nGAIN GROUND`,
+      subtext: `${teamName} have won ${streak.slice(1)} straight. The recent stretch is creating separation.`,
     });
   }
 
-  // Cold streak (L4+)
-  if (streak && streak.startsWith('L') && parseInt(streak.slice(1)) >= 4) {
-    const streakLen = parseInt(streak.slice(1));
-    signals.push({
-      type: 'coldStreak', score: 96,
-      headline: `DROP ${streakLen}\nIN A ROW`,
-      subtext: `${teamName} have lost ${streakLen} straight. The slide is real and the pressure is mounting.`,
+  if (streak && streak.startsWith('L') && parseInt(streak.slice(1)) >= 5) {
+    const n = parseInt(streak.slice(1));
+    signals.push({ score: 98,
+      headline: `${sn} DROP\n${n} STRAIGHT`,
+      subtext: `${teamName} have lost ${n} in a row. The skid is putting serious pressure on the roster.`,
+    });
+  } else if (streak && streak.startsWith('L') && parseInt(streak.slice(1)) >= 3) {
+    signals.push({ score: 93,
+      headline: 'BATS QUIET\nPRESSURE RISES',
+      subtext: `${teamName} have dropped ${streak.slice(1)} straight. Something needs to shift — and soon.`,
     });
   }
 
-  // Strong L10 (7+ wins) — team is hot
-  if (l10Record) {
-    const [w10] = l10Record.split('-').map(Number);
-    if (w10 >= 7) {
-      signals.push({
-        type: 'hotForm', score: 92,
-        headline: pickPhrase(MLB_PHRASE_LIB.hotStreakTheses, seed + 'hot'),
-        subtext: `${teamName} are ${l10Record} in their last 10. This stretch is changing the conversation.`,
-      });
-    }
-    if (w10 <= 3) {
-      signals.push({
-        type: 'coldForm', score: 90,
-        headline: pickPhrase(MLB_PHRASE_LIB.coldStreakTheses, seed + 'cold'),
-        subtext: `${teamName} are ${l10Record} in their last 10. Something needs to change — fast.`,
-      });
-    }
+  // Strong L10
+  if (l10Wins != null && l10Wins >= 7) {
+    signals.push({ score: 90,
+      headline: 'L10 TREND\nTURNS POSITIVE',
+      subtext: `${teamName} are ${l10Record} in their last 10. The recent form is the best story in their season.`,
+    });
   }
-
-  // Division leader
-  if (divisionRank === 1 && wins >= 88) {
-    signals.push({
-      type: 'divLeader', score: 88,
-      headline: 'DIVISION\nLEADER',
-      subtext: `${teamName} sit atop their division with ${wins} projected wins. The target is on their back.`,
+  if (l10Wins != null && l10Wins <= 3) {
+    signals.push({ score: 88,
+      headline: 'FORM\nFALLING',
+      subtext: `${teamName} are ${l10Record} over their last 10. The slide is eroding their position.`,
     });
   }
 
-  // ── MODEL SIGNALS ──
+  // ── DIVISION RACE ──
 
-  // Value signal — model significantly above market
-  if (delta >= 3) {
-    signals.push({
-      type: 'valueAbove', score: 85,
-      headline: pickPhrase(MLB_PHRASE_LIB.valueTheses, seed + 'val'),
-      subtext: `The model sees ${teamName} ${Math.abs(delta).toFixed(1)} wins above the market consensus. There is real upside here.`,
+  if (div && wins >= 92) {
+    signals.push({ score: 82,
+      headline: `${div.toUpperCase()}\nFRONTRUNNER`,
+      subtext: `${teamName} project as the team to beat in the ${div}. ${wins} projected wins sets the pace.`,
+    });
+  }
+  if (div && wins >= 85 && wins < 92) {
+    signals.push({ score: 72,
+      headline: `${div.toUpperCase()}\nPRESSURE BUILDS`,
+      subtext: `${teamName} are right in the ${div} race at ${wins} projected wins. Every series matters from here.`,
     });
   }
 
-  // Market overvalued — model significantly below
-  if (delta <= -3) {
-    signals.push({
-      type: 'valueBelow', score: 80,
-      headline: 'MARKET HAS\nOVERCORRECTED',
-      subtext: `${teamName} sits ${Math.abs(delta).toFixed(1)} wins below market expectations. The hype may be ahead of reality.`,
-    });
-  }
+  // ── DRIVER-BASED ──
 
-  // Elite contender
-  if (wins >= 95) {
-    signals.push({
-      type: 'eliteContender', score: 78,
-      headline: pickPhrase(MLB_PHRASE_LIB.contenderTheses, seed + 'elite'),
-      subtext: `${teamName} projects as one of baseball's elite at ${wins} wins. This roster is built for October.`,
-    });
-  }
-
-  // Contender
-  if (wins >= 88 && wins < 95) {
-    signals.push({
-      type: 'contender', score: 70,
-      headline: pickPhrase(MLB_PHRASE_LIB.contenderTheses, seed + 'cont'),
-      subtext: `${teamName} projects at ${wins} wins — a legitimate contender with postseason upside.`,
-    });
-  }
-
-  // Fringe contender
-  if (wins >= 80 && wins < 88) {
-    signals.push({
-      type: 'fringe', score: 55,
-      headline: pickPhrase(MLB_PHRASE_LIB.fringeTheses, seed + 'fringe'),
-      subtext: `${teamName} at ${wins} projected wins — close enough to matter, but no margin for error.`,
-    });
-  }
-
-  // Transition / rebuild territory
-  if (wins >= 68 && wins < 80) {
-    signals.push({
-      type: 'transition', score: 45,
-      headline: pickPhrase(MLB_PHRASE_LIB.transitionTheses, seed + 'trans'),
-      subtext: `${teamName} projects at ${wins} wins. A transition year with narrow paths to meaningful October.`,
-    });
-  }
-
-  if (wins < 68) {
-    signals.push({
-      type: 'rebuild', score: 40,
-      headline: pickPhrase(MLB_PHRASE_LIB.rebuildTheses, seed + 'reb'),
-      subtext: `${wins} projected wins puts ${teamName} in rebuilding territory. The long game is the play here.`,
-    });
-  }
-
-  // Rotation-led
   if (driverLow.includes('rotation') || driverLow.includes('pitching')) {
-    signals.push({
-      type: 'rotationLed', score: 50,
-      headline: pickPhrase(MLB_PHRASE_LIB.rotationTheses, seed + 'rot'),
-      subtext: `Pitching anchors ${teamName}'s outlook. The rotation gives them a legitimate edge most nights.`,
+    signals.push({ score: 68,
+      headline: 'ROTATION\nLEADS THE PUSH',
+      subtext: `Pitching is the engine for ${teamName}. The rotation gives them a legitimate edge most nights.`,
     });
   }
-
-  // Offense-led
   if (driverLow.includes('offense') || driverLow.includes('lineup')) {
-    signals.push({
-      type: 'offenseLed', score: 50,
-      headline: pickPhrase(MLB_PHRASE_LIB.offenseTheses, seed + 'off'),
-      subtext: `The lineup is the engine for ${teamName} — enough firepower to keep them in games consistently.`,
+    signals.push({ score: 68,
+      headline: 'LINEUP\nDRIVES THE BUS',
+      subtext: `The bats carry ${teamName}. Offensive production is their margin for error.`,
     });
   }
 
-  // Overperformance correction
-  if (driverLow.includes('overperf')) {
-    signals.push({
-      type: 'overperfCorrection', score: 65,
-      headline: 'BOUNCE-BACK\nCANDIDATE',
-      subtext: `Overperformance correction is the primary positive driver for ${teamName}. Run differential says they were underrated.`,
+  // ── MODEL EDGE ──
+
+  if (delta >= 4) {
+    signals.push({ score: 75,
+      headline: `${sn} ARE\nUNDERPRICED`,
+      subtext: `The model sees ${teamName} ${delta.toFixed(1)} wins above market. The number has not caught up yet.`,
+    });
+  }
+  if (delta <= -4) {
+    signals.push({ score: 70,
+      headline: 'MARKET\nTOO HIGH',
+      subtext: `${teamName} sit ${Math.abs(delta).toFixed(1)} wins below expectations. The price may be ahead of the product.`,
     });
   }
 
-  // Fallback
-  signals.push({
-    type: 'standard', score: 10,
-    headline: 'FULL\nBREAKDOWN',
-    subtext: `Full model intelligence on ${teamName}. ${wins} projected wins.`,
-  });
+  // ── TIER-BASED FALLBACKS (still more specific than old generic labels) ──
+
+  if (wins >= 95) {
+    signals.push({ score: 60,
+      headline: `${sn}\nARE FOR REAL`,
+      subtext: `${wins} projected wins. ${teamName} have the roster depth to go deep into October.`,
+    });
+  } else if (wins >= 85) {
+    signals.push({ score: 50,
+      headline: `${sn}\nSTAY IN THE MIX`,
+      subtext: `${teamName} project at ${wins} wins — firmly in the playoff conversation with room to run.`,
+    });
+  } else if (wins >= 75) {
+    signals.push({ score: 40,
+      headline: pickOne([
+        `${sn}\nAT A CROSSROADS`,
+        `${sn}\nSEARCH FOR ANSWERS`,
+      ], seed),
+      subtext: `${wins} projected wins. ${teamName} are in no-man's land — not contending, not rebuilding.`,
+    });
+  } else {
+    signals.push({ score: 30,
+      headline: pickOne([
+        'BUILDING FOR\nTOMORROW',
+        'LONG ROAD\nAHEAD',
+      ], seed),
+      subtext: `${wins} projected wins. ${teamName} are in rebuild mode. The future is the focus.`,
+    });
+  }
 
   signals.sort((a, b) => b.score - a.score);
   const winner = signals[0];
   return {
     headline: winner.headline,
-    subtext: cap(winner.subtext, 110),
-    signalType: winner.type,
-    score: winner.score,
+    subtext: cap(winner.subtext, 120),
   };
+}
+
+// ─── Team Intel Briefing Builder ────────────────────────────────────────────
+
+/**
+ * Build the 5 hero intel bullets that form the lower-half content engine.
+ *
+ * Priority order (per spec):
+ *   1. Division standing — rank, outlook, gap context
+ *   2. L10 record — with editorial interpretation
+ *   3. Last 2 games — specific recent results
+ *   4. Team news / player / pitching storyline
+ *   5. What's next — upcoming game + why it matters
+ */
+function buildIntelBriefing({
+  division, divOutlook, projection, teamContext, inputs,
+  newsHeadlines, nextOpp, spread, ml, nextTime, teamName, tk,
+}) {
+  const bullets = [];
+  const wins = projection?.projectedWins;
+
+  // ── BULLET 1: Division standing ──
+  if (division && divOutlook) {
+    const outlookLow = divOutlook.toLowerCase();
+    if (outlookLow.includes('contend') || outlookLow.includes('lead')) {
+      bullets.push(`${division} contender. Model projects ${wins} wins — firmly in the race.`);
+    } else if (outlookLow.includes('compet') || outlookLow.includes('fringe')) {
+      bullets.push(`Positioned in the ${division} as a fringe contender at ${wins} projected wins.`);
+    } else if (outlookLow.includes('rebuild') || outlookLow.includes('retool')) {
+      bullets.push(`${division}, rebuilding phase. ${wins} projected wins — focused on the long game.`);
+    } else {
+      bullets.push(`${division}. Model projects ${wins} wins. Outlook: ${divOutlook}.`);
+    }
+  } else if (division && wins) {
+    bullets.push(`Competing in the ${division} with ${wins} projected wins.`);
+  }
+
+  // ── BULLET 2: L10 record ──
+  if (teamContext.l10Record) {
+    const l10w = teamContext.l10Wins ?? parseInt(teamContext.l10Record);
+    let interp;
+    if (l10w >= 8) interp = 'surging — the hottest stretch of the season';
+    else if (l10w >= 7) interp = 'strong recent form with momentum building';
+    else if (l10w >= 5) interp = 'steady but without clear separation';
+    else if (l10w >= 4) interp = 'recent results have been inconsistent';
+    else if (l10w >= 3) interp = 'struggling to find traction over the past week';
+    else interp = 'in a prolonged cold stretch that demands answers';
+
+    const streakNote = teamContext.streak ? `, currently on a ${teamContext.streak} streak` : '';
+    bullets.push(`L10: ${teamContext.l10Record}${streakNote}. ${interp.charAt(0).toUpperCase() + interp.slice(1)}.`);
+  }
+
+  // ── BULLET 3: Last 2 games ──
+  const recent = teamContext.recentGames?.slice(0, 2) || [];
+  if (recent.length === 2) {
+    const w = recent.filter(r => r.won).length;
+    const lines = recent.map(r =>
+      `${r.won ? 'W' : 'L'} ${r.ourScore}\u2013${r.oppScore} vs ${r.oppAbbrev || shortName(r.opponent)}`
+    );
+    if (w === 2) {
+      bullets.push(`Won both of their last 2: ${lines.join(', ')}.`);
+    } else if (w === 0) {
+      bullets.push(`Dropped both of their last 2: ${lines.join(', ')}.`);
+    } else {
+      bullets.push(`Split the last 2: ${lines.join(', ')}.`);
+    }
+  } else if (recent.length === 1) {
+    const r = recent[0];
+    bullets.push(`Last result: ${r.won ? 'Won' : 'Lost'} ${r.ourScore}\u2013${r.oppScore} vs ${r.oppAbbrev || shortName(r.opponent)}.`);
+  }
+
+  // ── BULLET 4: Team storyline / news / pitching-offense profile ──
+  // First try news headlines for a current storyline
+  if (newsHeadlines?.length > 0) {
+    bullets.push(newsHeadlines[0]);
+  } else if (inputs) {
+    // Fall back to rotation/lineup/bullpen profile from model inputs
+    const rot = inputs.frontlineRotation;
+    const lineup = inputs.topOfLineup;
+    const bp = inputs.bullpenQuality;
+    const bpVol = inputs.bullpenVolatility;
+
+    if (rot >= 8) {
+      bullets.push(`Rotation rated elite (${rot}/10). Front-end arms anchor the pitching staff.`);
+    } else if (lineup >= 8) {
+      bullets.push(`Lineup rated elite (${lineup}/10). Offensive firepower carries the roster.`);
+    } else if (bp <= 4 || bpVol >= 5) {
+      bullets.push(`Bullpen remains a concern — quality ${bp}/10, volatility ${bpVol}/6.`);
+    } else if (tk?.riskProfile && tk.riskProfile !== 'Standard risk') {
+      bullets.push(`Risk profile: ${tk.riskProfile}. ${tk.stability ? `Stability: ${tk.stability}.` : ''}`);
+    } else if (tk?.strongestDriver) {
+      bullets.push(`Key driver: ${tk.strongestDriver}. ${tk.biggestDrag && tk.biggestDrag !== 'None significant' ? `Biggest drag: ${tk.biggestDrag}.` : ''}`);
+    }
+  } else if (tk?.strongestDriver) {
+    bullets.push(`Key driver: ${tk.strongestDriver}.`);
+  }
+
+  // ── BULLET 5: What's next ──
+  if (nextOpp) {
+    let nextBullet = `Next up: vs ${nextOpp}`;
+    if (spread != null) nextBullet += ` (${fmtSpread(spread)})`;
+    else if (ml != null) nextBullet += ` (${ml > 0 ? '+' : ''}${ml} ML)`;
+    if (nextTime) nextBullet += ` — ${nextTime}`;
+    nextBullet += '.';
+    bullets.push(nextBullet);
+  } else {
+    // Fall back to market/model context
+    const delta = projection?.marketDelta;
+    if (delta != null && Math.abs(delta) >= 2) {
+      const dir = delta > 0 ? 'above' : 'below';
+      bullets.push(`Model sees them ${Math.abs(delta).toFixed(1)} wins ${dir} market consensus — the gap creates opportunity.`);
+    }
+  }
+
+  // Pad to 5 with remaining news headlines or model context if short
+  if (bullets.length < 5 && newsHeadlines?.length > 1) {
+    bullets.push(newsHeadlines[1]);
+  }
+  if (bullets.length < 5 && newsHeadlines?.length > 2) {
+    bullets.push(newsHeadlines[2]);
+  }
+  if (bullets.length < 5 && projection?.marketDelta != null && Math.abs(projection.marketDelta) >= 1.5) {
+    const dir = projection.marketDelta > 0 ? 'above' : 'below';
+    bullets.push(`Model: ${Math.abs(projection.marketDelta).toFixed(1)} wins ${dir} market. ${tk?.marketStance || ''}`);
+  }
+  if (bullets.length < 5 && tk?.depthProfile) {
+    bullets.push(`Roster depth: ${tk.depthProfile}. ${tk.stability ? `Stability rating: ${tk.stability}.` : ''}`);
+  }
+
+  return bullets.slice(0, 5);
 }
 
 // ─── Team Logo Hero ──────────────────────────────────────────────────────────
@@ -440,48 +486,21 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
   // Season intelligence
   const projection = slug ? getTeamProjection(slug) : null;
   const tk = projection?.takeaways || {};
+  const inputs = slug ? TEAM_INPUTS[slug] : null;
   const champOdds = data?.mlbChampOdds ?? {};
   const oddsData = champOdds?.[slug];
   const wsOdds = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
 
   // Division & record
-  const division = team.division || '';
+  const division = team.division || projection?.division || '';
   const record = team.record?.items?.[0]?.summary
     || team.recordSummary
     || (typeof team.record === 'string' ? team.record : null)
     || null;
 
-  // ── Live team context: L10, streak, recent results from mlbLiveGames ──
+  // Live team context
   const liveGames = data?.mlbLiveGames ?? [];
   const teamContext = extractTeamContext(liveGames, slug);
-
-  // Division rank approximation from projection context
-  const divOutlook = projection?.divOutlook ?? '';
-  const divisionRank = divOutlook.toLowerCase().includes('lead') ? 1
-    : divOutlook.toLowerCase().includes('contend') ? 2
-    : divOutlook.toLowerCase().includes('2nd') ? 2
-    : divOutlook.toLowerCase().includes('3rd') ? 3
-    : null;
-
-  // Narrative engine — now with live context
-  const narrative = buildMlbHeroNarrative({
-    teamName: name, slug, projection, teamContext, divisionRank,
-  });
-
-  // Stat band items
-  const statBand = [];
-  if (projection) {
-    statBand.push({ label: 'PROJ. WINS', value: String(projection.projectedWins) });
-    statBand.push({ label: 'RANGE', value: `${projection.floor}\u2013${projection.ceiling}` });
-    if (wsOdds != null) {
-      statBand.push({ label: 'WS ODDS', value: fmtOdds(wsOdds) || '\u2014' });
-    }
-    if (projection.playoffPct != null) {
-      statBand.push({ label: 'PLAYOFF %', value: `${Math.round(projection.playoffPct * 100)}%` });
-    } else if (projection.confidenceTier) {
-      statBand.push({ label: 'CONFIDENCE', value: projection.confidenceTier });
-    }
-  }
 
   // Schedule / next game
   const nextLine = teamData?.nextLine ?? null;
@@ -507,77 +526,46 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
     ? teamData.last7News
     : (teamData?.teamNews ?? []);
   const newsHeadlines = rawNews
-    .slice(0, 3)
+    .slice(0, 4)
     .map(n => cleanNewsHeadline(n.headline || n.title || ''))
     .filter(Boolean);
 
-  // ── Team Intel Briefing — prioritized contextual bullets ──
-  const intelBullets = [];
-  const marketDelta = projection?.marketDelta;
+  // ── Narrative headline — topical, team-specific ──
+  const divOutlook = projection?.divOutlook ?? '';
+  const narrative = buildMlbHeroNarrative({
+    teamName: name, slug, projection, teamContext, division, inputs,
+  });
 
-  // 1. Division standing / outlook
-  if (divOutlook) {
-    intelBullets.push(`Division outlook: ${divOutlook}`);
-  } else if (division) {
-    intelBullets.push(`Competing in the ${division}`);
+  // ── Stat band ──
+  const statBand = [];
+  if (projection) {
+    statBand.push({ label: 'PROJ. WINS', value: String(projection.projectedWins) });
+    statBand.push({ label: 'RANGE', value: `${projection.floor}\u2013${projection.ceiling}` });
+    if (wsOdds != null) {
+      statBand.push({ label: 'WS ODDS', value: fmtOdds(wsOdds) || '\u2014' });
+    }
+    if (projection.confidenceTier) {
+      statBand.push({ label: 'CONFIDENCE', value: projection.confidenceTier });
+    }
   }
 
-  // 2. L10 / recent form
-  if (teamContext.l10Record) {
-    const [w10] = teamContext.l10Record.split('-').map(Number);
-    const formWord = w10 >= 7 ? 'surging' : w10 >= 5 ? 'steady' : w10 >= 3 ? 'struggling' : 'in freefall';
-    intelBullets.push(`Last 10: ${teamContext.l10Record} — ${formWord}${teamContext.streak ? ` (${teamContext.streak})` : ''}`);
-  } else if (teamContext.streak) {
-    intelBullets.push(`Current streak: ${teamContext.streak}`);
-  }
+  // ── Team Intel Briefing — the hero section of the lower half ──
+  const briefingBullets = buildIntelBriefing({
+    division, divOutlook, projection, teamContext, inputs,
+    newsHeadlines, nextOpp, spread, ml, nextTime, teamName: name, tk,
+  });
 
-  // 3. Recent result (most recent game)
-  if (teamContext.recentGames?.length > 0) {
-    const last = teamContext.recentGames[0];
-    const resultWord = last.won ? 'Won' : 'Lost';
-    intelBullets.push(`Last game: ${resultWord} ${last.ourScore}\u2013${last.oppScore} vs ${last.oppAbbrev || last.opponent}`);
-  }
-
-  // 4. Next game with line
-  if (nextOpp) {
-    let nextBullet = `Next: vs ${nextOpp}`;
-    if (spread != null) nextBullet += ` (${fmtSpread(spread)})`;
-    else if (ml != null) nextBullet += ` (${ml > 0 ? '+' : ''}${ml} ML)`;
-    intelBullets.push(nextBullet);
-  }
-
-  // 5. Model / market edge
-  if (marketDelta != null && Math.abs(marketDelta) >= 1.5) {
-    const dir = marketDelta > 0 ? 'above' : 'below';
-    intelBullets.push(`Model: ${Math.abs(marketDelta).toFixed(1)} wins ${dir} market consensus`);
-  } else if (tk.strongestDriver) {
-    intelBullets.push(`Key driver: ${tk.strongestDriver}`);
-  }
-
-  // 6. News headline (if room and available)
-  if (intelBullets.length < 5 && newsHeadlines.length > 0) {
-    intelBullets.push(newsHeadlines[0]);
-  }
-
-  // Cap at 5 bullets
-  const finalBullets = intelBullets.slice(0, 5);
-
-  // Identity chips — fixed badge format
+  // Identity chips
   const chips = [];
   if (projection?.projectedWins) chips.push({ text: `Projected wins: ${projection.projectedWins}`, type: 'stat' });
   if (wsOdds != null) chips.push({ text: `\uD83C\uDFC6 ${fmtOdds(wsOdds)}`, type: 'odds' });
   if (division) chips.push({ text: division, type: 'conf' });
 
-  // Record / form line — now with L10 and streak
+  // Record / form line
   const recordParts = [];
   if (record) recordParts.push(record.replace('-', '\u2013'));
   if (teamContext.l10Record) recordParts.push(`L10: ${teamContext.l10Record}`);
   if (teamContext.streak) recordParts.push(teamContext.streak);
-
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    timeZone: 'America/Los_Angeles',
-  });
 
   return (
     <div
@@ -625,7 +613,7 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
         )}
       </div>
 
-      {/* Editorial headline — powered by MLB narrative engine */}
+      {/* Editorial headline */}
       <div className={styles.headlineZone}>
         <div className={styles.headlineDivider} />
         <h2 className={styles.headline}>
@@ -636,12 +624,12 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
         <div className={styles.headlineDividerBottom} />
       </div>
 
-      {/* Contextual subtext */}
+      {/* Subtext */}
       {narrative.subtext && (
         <div className={styles.quickIntel}>{narrative.subtext}</div>
       )}
 
-      {/* Stat band — at-a-glance projection stats */}
+      {/* Stat band */}
       {statBand.length > 0 && (
         <div className={styles.statGrid}>
           {statBand.map((s, i) => (
@@ -653,43 +641,18 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
         </div>
       )}
 
-      {/* Team Intel Briefing — replaces old Key Drivers */}
-      {finalBullets.length > 0 && (
-        <div className={styles.driversModule}>
-          <div className={styles.driversTitle}>TEAM INTEL BRIEFING</div>
-          <ul className={styles.intelList}>
-            {finalBullets.map((bullet, i) => (
-              <li key={i} className={styles.intelItem}>{bullet}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Next game / matchup module */}
-      {nextOpp && (
-        <div className={styles.scheduleModule}>
-          <div className={styles.schedRow}>
-            <span className={styles.schedBadge}>NEXT</span>
-            <span className={styles.schedContent}>
-              <span className={styles.schedOpp}>vs {nextOpp}</span>
-              {spread != null && <span className={styles.schedLine}>{fmtSpread(spread)}</span>}
-              {spread == null && ml != null && <span className={styles.schedLine}>{ml > 0 ? `+${ml}` : ml} ML</span>}
-              {total != null && <span className={styles.schedLine}>{total}o/u</span>}
-              {nextTime && <span className={styles.schedTime}>{nextTime}</span>}
-            </span>
+      {/* ═══ TEAM INTEL BRIEFING — the hero content section ═══ */}
+      {briefingBullets.length > 0 && (
+        <div className={styles.briefingModule}>
+          <div className={styles.briefingHeader}>
+            <div className={styles.briefingTitle}>TEAM INTEL BRIEFING</div>
+            <div className={styles.briefingAccent} />
           </div>
-        </div>
-      )}
-
-      {/* News INTEL module — remaining headlines not used in briefing */}
-      {newsHeadlines.length > 1 && (
-        <div className={styles.intelModule}>
-          <div className={styles.intelTitle}>INTEL</div>
-          <ul className={styles.intelList}>
-            {newsHeadlines.slice(1, 3).map((item, i) => (
-              <li key={i} className={styles.intelItem}>{item}</li>
+          <ol className={styles.briefingList}>
+            {briefingBullets.map((bullet, i) => (
+              <li key={i} className={styles.briefingItem}>{bullet}</li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
 
