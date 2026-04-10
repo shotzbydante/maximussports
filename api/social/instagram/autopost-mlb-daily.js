@@ -37,7 +37,8 @@ import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../src/features/m
 import { buildMlbCaption } from '../../../src/features/mlb/contentStudio/buildMlbCaption.js';
 import { stripEmojis, fmtOdds } from '../../../src/components/dashboard/slides/mlbDailyHelpers.js';
 
-// Server-side slide renderer
+// Pixel-perfect browser renderer (primary) + Satori fallback
+import { renderSlidesWithBrowser } from '../../_lib/mlbBrowserRenderer.js';
 import { renderSlide1, renderSlide2, renderSlide3 } from '../../_lib/mlbSlideRenderer.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -388,6 +389,63 @@ export default async function handler(req, res) {
     });
   }
 
+  // ── Render-preview mode: render slides, return base64 images (no publish) ──
+  if (mode === 'render-preview') {
+    const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
+    const [liveGames, champOdds] = await Promise.all([
+      fetchLiveGames(baseUrl, log),
+      fetchChampOdds(baseUrl, log),
+    ]);
+
+    const content = buildSlideContent(liveGames, champOdds, dateLabel);
+
+    // Attempt browser render
+    const browserData = {
+      mlbLiveGames: liveGames,
+      mlbChampOdds: champOdds ?? {},
+      mlbBriefing: null,
+      mlbPicks: { categories: {} },
+      canonicalPicks: { categories: {} },
+    };
+
+    let slideBuffers;
+    let renderMethod = 'unknown';
+
+    try {
+      const browserResult = await renderSlidesWithBrowser(baseUrl, browserData, log);
+      if (browserResult && browserResult.length === 3) {
+        slideBuffers = browserResult;
+        renderMethod = 'browser';
+      } else {
+        slideBuffers = await Promise.all([
+          renderSlide1(content),
+          renderSlide2(content),
+          renderSlide3(content),
+        ]);
+        renderMethod = 'satori-fallback';
+      }
+    } catch (e) {
+      log.error('render-preview failed:', e.message);
+      return res.status(500).json({ ok: false, stage: 'render_preview', error: e.message, requestId, dateKey });
+    }
+
+    // Return base64-encoded images for QA inspection
+    const slides = slideBuffers.map((buf, i) => ({
+      slide: i + 1,
+      sizeKB: Math.round(buf.length / 1024),
+      base64: `data:image/png;base64,${buf.toString('base64')}`,
+    }));
+
+    return res.status(200).json({
+      ok: true, mode: 'render-preview', requestId, dateKey, dateLabel,
+      renderMethod,
+      headline: content.headline,
+      slideCount: slides.length,
+      slides,
+      durationMs: Date.now() - startTs,
+    });
+  }
+
   // ── Assemble data ──
   const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
   log.info('assembling data from:', baseUrl);
@@ -431,16 +489,37 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, stage: 'caption_build', error: e.message, requestId, dateKey });
   }
 
-  // ── Render slides ──
+  // ── Render slides (browser primary, Satori fallback) ──
   let slideBuffers;
+  let renderMethod = 'unknown';
   try {
-    log.info('rendering 3 slides...');
-    slideBuffers = await Promise.all([
-      renderSlide1(content),
-      renderSlide2(content),
-      renderSlide3(content),
-    ]);
-    log.info(`rendered: ${slideBuffers.map(b => `${(b.length / 1024).toFixed(0)}KB`).join(', ')}`);
+    log.info('rendering 3 slides via headless browser...');
+
+    // Build the data shape the real React slide components expect
+    const browserData = {
+      mlbLiveGames: liveGames,
+      mlbChampOdds: champOdds ?? {},
+      mlbBriefing: null,
+      mlbPicks: { categories: {} },
+      canonicalPicks: { categories: {} },
+    };
+
+    const browserResult = await renderSlidesWithBrowser(baseUrl, browserData, log);
+
+    if (browserResult && browserResult.length === 3) {
+      slideBuffers = browserResult;
+      renderMethod = 'browser';
+      log.info(`browser render SUCCESS: ${slideBuffers.map(b => `${(b.length / 1024).toFixed(0)}KB`).join(', ')}`);
+    } else {
+      log.warn('browser renderer returned null — falling back to Satori');
+      slideBuffers = await Promise.all([
+        renderSlide1(content),
+        renderSlide2(content),
+        renderSlide3(content),
+      ]);
+      renderMethod = 'satori-fallback';
+      log.info(`Satori fallback rendered: ${slideBuffers.map(b => `${(b.length / 1024).toFixed(0)}KB`).join(', ')}`);
+    }
   } catch (e) {
     log.error('slide render failed:', e.message, e.stack?.slice(0, 200));
     return res.status(500).json({ ok: false, stage: 'slide_render', error: e.message, requestId, dateKey });
@@ -471,6 +550,7 @@ export default async function handler(req, res) {
       imageUrls,
       imageCount: imageUrls.length,
       headline: content.headline,
+      renderMethod,
       wouldPublish: true,
       durationMs: Date.now() - startTs,
     });
@@ -513,6 +593,7 @@ export default async function handler(req, res) {
       postId: publishResult.postId,
       imageUrls,
       imageCount: imageUrls.length,
+      renderMethod,
       captionLength: captionText.length,
       durationMs,
     });

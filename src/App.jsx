@@ -35,6 +35,7 @@ const MlbPicks        = lazy(() => import('./pages/mlb/MlbPicks'));
 const MlbSeasonModel  = lazy(() => import('./pages/mlb/MlbSeasonModel'));
 const MlbCompare      = lazy(() => import('./pages/mlb/MlbCompare'));
 
+const RenderMlbDaily = lazy(() => import('./pages/RenderMlbDaily'));
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
 const GameMatchup = lazy(() => import('./pages/GameMatchup'));
@@ -124,6 +125,8 @@ export default function App() {
                   <Route path="contact" element={<Contact />} />
                 </Route>
                 <Route path="share/:id" element={<SharePage />} />
+                {/* Hidden render page — headless browser screenshot target for autopost */}
+                <Route path="render/mlb-daily" element={<RenderMlbDaily />} />
               </Routes>
             </Suspense>
           </WorkspaceProvider>
