@@ -507,6 +507,16 @@
   font-style: italic;
 }
 
+/* Intel list inside drivers module — tighter spacing for briefing bullets */
+.driversModule .intelList {
+  gap: 5px;
+}
+
+.driversModule .intelItem {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
 /* ── Schedule module ──────────────────────────────────────────── */
 
 .scheduleModule {
