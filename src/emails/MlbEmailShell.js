@@ -1,26 +1,37 @@
 /**
- * MlbEmailShell — MLB-branded email wrapper (light mode, premium polish).
+ * MlbEmailShell — MLB-branded email wrapper (premium white-mode).
  *
- * Design: light body, white cards, MLB red accents, baseball mascot header.
- * Premium editorial feel optimized for Gmail rendering.
+ * Typography scale (email-safe, consistent):
+ *   Eyebrow/date:     13px / 18px line-height / uppercase / red
+ *   Headline:         20px / 28px line-height / 800 weight / #111827
+ *   Intro paragraph:  16px / 26px line-height / #4b5563
+ *   Section pill:     12px / 16px line-height / 700 weight / uppercase / red
+ *   Bullet/body:      16px / 26px line-height / #1f2937
+ *   Takeaway:         15px / 24px line-height / #7f1d1d
+ *   CTA support:      14px / 20px line-height
+ *   Footer:           12px / 18px line-height / muted
  */
 
 const BG_OUTER  = '#f3f4f6';
 const BG_BODY   = '#ffffff';
 const BG_CARD   = '#fafbfc';
 const BRAND_RED = '#c41e3a';
-const ACCENT    = '#c41e3a';
 const NAVY      = '#0f2440';
 const TEXT_PRIMARY   = '#111827';
+const TEXT_BODY      = '#1f2937';
 const TEXT_SECONDARY = '#4b5563';
 const TEXT_MUTED     = '#9ca3af';
 const BORDER         = '#e5e7eb';
 const MASCOT_URL     = 'https://maximussports.ai/mascot-mlb.png';
+const FONT_STACK     = "'DM Sans',Arial,Helvetica,sans-serif";
+
+/* ═══════════════════════════════════════════════════════════════
+   TEXT NORMALIZATION PIPELINE
+   ═══════════════════════════════════════════════════════════════ */
 
 /**
  * Strip inline emojis from body/bullet text.
  * Gmail renders emojis as oversized inline elements that force line breaks.
- * Applied to all bullet/body content but NOT to section headers or subject lines.
  */
 export function stripInlineEmoji(text = '') {
   return text
@@ -30,35 +41,60 @@ export function stripInlineEmoji(text = '') {
 }
 
 /**
+ * Fix punctuation-spacing artifacts left by emoji stripping and AI generation.
+ * Handles: stray spaces before commas/periods, double spaces, spacing around
+ * parentheses, spacing after closing strong tags before punctuation.
+ * Preserves HTML tags.
+ */
+export function normalizeSpacing(text = '') {
+  if (!text) return '';
+  return text
+    // Space before punctuation (but not inside HTML tags)
+    .replace(/(<\/[^>]+>)\s+([.,;:!?])/g, '$1$2')
+    .replace(/([^<\s])\s+([.,;:!?])/g, '$1$2')
+    // Space after opening paren, before closing paren
+    .replace(/\(\s+/g, '(')
+    .replace(/\s+\)/g, ')')
+    // Collapse multiple spaces (outside tags)
+    .replace(/  +/g, ' ')
+    // Clean up space after bullet character
+    .replace(/&bull;\s{2,}/g, '&bull; ')
+    .trim();
+}
+
+/**
  * Clean raw AI narrative text for email rendering.
- * - Converts markdown bold (**text**) to <strong> tags
- * - Strips paragraph markers (¶1, ¶2)
- * - Removes duplicate section headers that appear inline
- * - Strips inline emojis that break Gmail mobile line wrapping
- * - Trims excessive whitespace
+ * Full pipeline: strip markers → bold → dedupe headers → strip emojis → fix spacing.
  */
 export function cleanNarrativeText(text) {
   if (!text) return '';
   let result = text
-    // Strip paragraph markers
     .replace(/¶\d+\s*/g, '')
-    // Convert markdown bold to HTML
-    .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#111827;">$1</strong>')
-    // Remove inline section headers that duplicate our template headers
+    .replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${TEXT_PRIMARY};">$1</strong>`)
     .replace(/^(AROUND THE LEAGUE|WORLD SERIES ODDS PULSE|PENNANT RACE WATCH|SLEEPERS.*?VALUE|DIAMOND DISPATCH)\s*[:—\-–]\s*/gim, '')
-    // Clean up excessive whitespace
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  // Strip emojis from the plain-text portions (preserve HTML tags)
-  result = result.replace(/(>[^<]*)/g, (match) => {
-    return match.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').replace(/\s{2,}/g, ' ');
-  });
-  // Strip emojis from text before the first HTML tag
-  result = result.replace(/^([^<]+)/, (match) => {
-    return match.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').replace(/\s{2,}/g, ' ');
-  });
-  return result.trim();
+  // Strip emojis from plain-text portions (preserve HTML tags)
+  result = result.replace(/(>[^<]*)/g, (m) =>
+    m.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').replace(/\s{2,}/g, ' ')
+  );
+  result = result.replace(/^([^<]+)/, (m) =>
+    m.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').replace(/\s{2,}/g, ' ')
+  );
+  return normalizeSpacing(result);
 }
+
+/**
+ * Full text preparation: clean + strip emojis + normalize spacing.
+ * Use this for all bullet/body content before rendering.
+ */
+export function prepareBodyText(text) {
+  return normalizeSpacing(stripInlineEmoji(cleanNarrativeText(text)));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EMAIL SHELL
+   ═══════════════════════════════════════════════════════════════ */
 
 export function MlbEmailShell({ content, previewText = '', userId = '', ctaUrl = '', ctaLabel = '' }) {
   const manageUrl = `https://maximussports.ai/settings${userId ? `?uid=${userId}` : ''}`;
@@ -83,91 +119,86 @@ export function MlbEmailShell({ content, previewText = '', userId = '', ctaUrl =
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
     img { -ms-interpolation-mode: bicubic; border: 0; line-height: 100%; outline: none; text-decoration: none; display: block; }
     body { margin: 0 !important; padding: 0 !important; background-color: ${BG_OUTER} !important; width: 100% !important; }
-    a { color: ${ACCENT}; }
+    a { color: ${BRAND_RED}; }
     * { box-sizing: border-box; }
     @media only screen and (max-width: 480px) {
       .email-outer-td   { padding: 0 !important; }
       .email-container  { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; }
-      .shell-header-td  { padding: 14px 18px 12px !important; }
-      .hero-td          { padding: 18px 18px 14px !important; }
-      .hero-h1          { font-size: 19px !important; line-height: 1.3 !important; }
-      .intro-td         { padding: 0 18px 14px !important; }
-      .section-td       { padding: 0 18px 12px !important; }
-      .card-td          { padding: 14px 16px 13px !important; }
-      .divider-td       { padding: 0 18px !important; }
-      .cta-td           { padding: 14px 18px 20px !important; }
+      .shell-header-td  { padding: 16px 20px 14px !important; }
+      .hero-td          { padding: 20px 20px 10px !important; }
+      .hero-h1          { font-size: 18px !important; line-height: 26px !important; }
+      .intro-td         { padding: 0 20px 16px !important; }
+      .section-td       { padding-left: 20px !important; padding-right: 20px !important; }
+      .divider-td       { padding: 0 20px !important; }
+      .cta-td           { padding: 12px 20px 20px !important; }
       .cta-link         { font-size: 15px !important; padding: 14px 20px !important; display: block !important; width: 100% !important; text-align: center !important; }
-      .footer-td        { padding: 16px 18px 20px !important; }
-      .mascot-img       { width: 48px !important; height: 48px !important; }
+      .footer-td        { padding: 18px 20px 22px !important; }
+      .mascot-img       { width: 44px !important; height: 44px !important; }
     }
     @media only screen and (max-width: 620px) {
       .email-container { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
     }
   </style>
 </head>
-<body bgcolor="${BG_OUTER}" style="margin:0;padding:0;background-color:${BG_OUTER};font-family:'DM Sans',Arial,Helvetica,sans-serif;width:100%;min-width:100%;">
+<body bgcolor="${BG_OUTER}" style="margin:0;padding:0;background-color:${BG_OUTER};font-family:${FONT_STACK};width:100%;min-width:100%;">
 
-${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;" aria-hidden="true">${previewText}&nbsp;&zwnj;&hairsp;&zwnj;&hairsp;&zwnj;&hairsp;</div>` : ''}
+${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;" aria-hidden="true">${previewText}&nbsp;&zwnj;&hairsp;&zwnj;&hairsp;</div>` : ''}
 
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="${BG_OUTER}"
        style="background-color:${BG_OUTER};width:100%;margin:0;padding:0;border-collapse:collapse;">
   <tr>
-    <td align="center" valign="top" style="padding:20px 12px 28px;background-color:${BG_OUTER};" class="email-outer-td">
+    <td align="center" valign="top" style="padding:20px 12px 28px;" class="email-outer-td">
 
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" bgcolor="${BG_BODY}"
              class="email-container"
              style="max-width:560px;width:100%;background-color:${BG_BODY};border-radius:10px;border:1px solid ${BORDER};border-collapse:collapse;overflow:hidden;">
 
-        <!-- HEADER: Mascot + MLB brand bar -->
+        <!-- ═══ HEADER ═══ -->
         <tr>
-          <td style="padding:20px 24px 16px;border-bottom:3px solid ${BRAND_RED};background-color:#fefefe;" class="shell-header-td">
+          <td style="padding:22px 28px 18px;border-bottom:3px solid ${BRAND_RED};" class="shell-header-td">
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
               <tr>
-                <td valign="middle" style="width:56px;padding-right:14px;">
-                  <img src="${MASCOT_URL}" alt="Maximus" width="52" height="52" class="mascot-img"
-                       style="width:52px;height:52px;border-radius:12px;display:block;border:0;" />
+                <td valign="middle" style="width:52px;padding-right:16px;">
+                  <img src="${MASCOT_URL}" alt="Maximus" width="48" height="48" class="mascot-img"
+                       style="width:48px;height:48px;border-radius:10px;display:block;border:0;" />
                 </td>
                 <td valign="middle">
-                  <span style="font-size:17px;font-weight:800;color:${NAVY};letter-spacing:0.04em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;display:block;line-height:1.2;">MAXIMUS SPORTS</span>
-                  <span style="font-size:11px;font-weight:700;color:${BRAND_RED};letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,sans-serif;display:block;margin-top:2px;">MLB INTELLIGENCE</span>
+                  <span style="font-size:16px;font-weight:800;color:${NAVY};letter-spacing:0.05em;text-transform:uppercase;font-family:${FONT_STACK};display:block;line-height:20px;">MAXIMUS SPORTS</span>
+                  <span style="font-size:11px;font-weight:700;color:${BRAND_RED};letter-spacing:0.1em;text-transform:uppercase;font-family:${FONT_STACK};display:block;margin-top:3px;line-height:14px;">MLB INTELLIGENCE</span>
                 </td>
                 <td align="right" valign="middle">
-                  <a href="https://maximussports.ai/mlb" style="font-size:11px;color:${TEXT_MUTED};text-decoration:none;font-family:'DM Sans',Arial,Helvetica,sans-serif;">maximussports.ai</a>
+                  <a href="https://maximussports.ai/mlb" style="font-size:11px;color:${TEXT_MUTED};text-decoration:none;font-family:${FONT_STACK};">maximussports.ai</a>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- CONTENT -->
+        <!-- ═══ CONTENT ═══ -->
         ${content}
 
-        <!-- PRE-CTA SPACER -->
-        <tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-        <!-- DIVIDER -->
+        <!-- ═══ PRE-CTA DIVIDER ═══ -->
+        <tr><td style="height:16px;font-size:0;line-height:0;">&nbsp;</td></tr>
         <tr>
-          <td style="padding:0 24px;" class="divider-td">
+          <td style="padding:0 28px;" class="divider-td">
             <div style="height:1px;background-color:${BORDER};font-size:0;line-height:0;">&nbsp;</div>
           </td>
         </tr>
 
-        <!-- CTA BLOCK -->
+        <!-- ═══ CTA BLOCK ═══ -->
         <tr>
-          <td style="padding:20px 24px 8px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:${NAVY};font-family:'DM Sans',Arial,sans-serif;">Dive into the full picture</p>
-            <p style="margin:0;font-size:12px;color:${TEXT_MUTED};font-family:'DM Sans',Arial,sans-serif;">Picks, team intel, live odds, and more.</p>
+          <td style="padding:22px 28px 6px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:14px;font-weight:700;line-height:20px;color:${NAVY};font-family:${FONT_STACK};">Dive into the full picture</p>
+            <p style="margin:0;font-size:13px;line-height:18px;color:${TEXT_MUTED};font-family:${FONT_STACK};">Picks, team intel, live odds, and more.</p>
           </td>
         </tr>
-
-        <!-- CTA BUTTON -->
         <tr>
-          <td style="padding:10px 40px 22px;" class="cta-td">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">
+          <td style="padding:12px 44px 24px;" class="cta-td">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
               <tr>
                 <td align="center" bgcolor="${BRAND_RED}" style="border-radius:8px;background-color:${BRAND_RED};">
                   <a href="${finalCtaUrl}" class="cta-link"
-                     style="display:block;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 24px;text-align:center;letter-spacing:0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;border-radius:8px;line-height:1.3;">
+                     style="display:block;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 28px;text-align:center;letter-spacing:0.02em;font-family:${FONT_STACK};border-radius:8px;line-height:20px;">
                     ${finalCtaLabel}
                   </a>
                 </td>
@@ -176,18 +207,18 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
           </td>
         </tr>
 
-        <!-- FOOTER -->
+        <!-- ═══ FOOTER ═══ -->
         <tr>
-          <td style="background-color:#f9fafb;border-top:1px solid ${BORDER};padding:16px 24px 20px;border-radius:0 0 10px 10px;" class="footer-td">
-            <p style="margin:0 0 6px;font-size:11px;color:${TEXT_MUTED};line-height:1.5;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+          <td style="background-color:#f9fafb;border-top:1px solid ${BORDER};padding:20px 28px 24px;border-radius:0 0 10px 10px;" class="footer-td">
+            <p style="margin:0 0 8px;font-size:12px;line-height:18px;color:${TEXT_MUTED};text-align:center;font-family:${FONT_STACK};">
               Not betting advice. Sports intelligence for informational purposes only.
             </p>
-            <p style="margin:0 0 6px;font-size:11px;color:${TEXT_MUTED};text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
-              <a href="${manageUrl}" style="color:${ACCENT};text-decoration:underline;">Manage preferences</a>
+            <p style="margin:0 0 8px;font-size:12px;line-height:18px;color:${TEXT_MUTED};text-align:center;font-family:${FONT_STACK};">
+              <a href="${manageUrl}" style="color:${BRAND_RED};text-decoration:underline;">Manage preferences</a>
               &nbsp;&middot;&nbsp;
-              <a href="https://maximussports.ai/mlb" style="color:${ACCENT};text-decoration:underline;">maximussports.ai</a>
+              <a href="https://maximussports.ai/mlb" style="color:${BRAND_RED};text-decoration:underline;">maximussports.ai</a>
             </p>
-            <p style="margin:0;font-size:10px;color:#d1d5db;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+            <p style="margin:0;font-size:11px;line-height:16px;color:#d1d5db;text-align:center;font-family:${FONT_STACK};">
               &copy; ${year} Maximus Sports
             </p>
           </td>
@@ -197,35 +228,38 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
     </td>
   </tr>
 </table>
-
 </body>
 </html>`;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   COMPONENT HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+
 /**
- * MLB hero block: date line + bold editorial headline.
+ * Hero block: eyebrow date + headline.
  */
 export function mlbHeroBlock({ line, sublabel }) {
   return `
 <tr>
-  <td style="padding:22px 24px 8px;background-color:${BG_BODY};" class="hero-td">
-    <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:${BRAND_RED};letter-spacing:0.08em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">${sublabel || ''}</p>
-    <h1 class="hero-h1" style="margin:0;font-size:21px;font-weight:800;color:${TEXT_PRIMARY};line-height:1.32;letter-spacing:-0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${line}</h1>
+  <td style="padding:26px 28px 10px;" class="hero-td">
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;line-height:18px;color:${BRAND_RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${FONT_STACK};">${sublabel || ''}</p>
+    <h1 class="hero-h1" style="margin:0;font-size:20px;font-weight:800;line-height:28px;color:${TEXT_PRIMARY};letter-spacing:-0.01em;font-family:${FONT_STACK};">${line}</h1>
   </td>
 </tr>`;
 }
 
 /**
- * MLB section header — red pill badge with emoji + title.
+ * Section header — red pill badge.
  */
 export function mlbSectionHeader(emoji, title) {
   return `
 <tr>
-  <td style="padding:18px 24px 10px;" class="section-td">
+  <td style="padding:22px 28px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
       <tr>
-        <td style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:4px 10px 4px 8px;">
-          <span style="font-size:13px;font-weight:800;color:${BRAND_RED};letter-spacing:0.04em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">${emoji} ${title}</span>
+        <td style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:5px 12px 5px 10px;">
+          <span style="font-size:12px;font-weight:700;line-height:16px;color:${BRAND_RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${FONT_STACK};">${emoji} ${title}</span>
         </td>
       </tr>
     </table>
@@ -234,26 +268,26 @@ export function mlbSectionHeader(emoji, title) {
 }
 
 /**
- * MLB section label — inline compact label.
+ * Section label — inline compact label for cards.
  */
 export function mlbSectionLabel(label) {
-  return `<span style="display:inline-block;font-size:10px;font-weight:700;color:${BRAND_RED};letter-spacing:0.1em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.5;">${label}</span>`;
+  return `<span style="display:inline-block;font-size:11px;font-weight:700;line-height:14px;color:${BRAND_RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${FONT_STACK};">${label}</span>`;
 }
 
 /**
- * MLB card — light panel with red left border accent.
+ * Glass card — light panel with red left border.
  */
 export function mlbGlassCard({ label, headline, body }) {
   return `
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
+  <td style="padding:0 28px 16px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
            style="background-color:${BG_CARD};border:1px solid ${BORDER};border-left:3px solid ${BRAND_RED};border-radius:6px;border-collapse:collapse;">
       <tr>
-        <td style="padding:16px 18px 14px;" class="card-td">
-          ${label ? `<div style="margin-bottom:6px;">${mlbSectionLabel(label)}</div>` : ''}
-          ${headline ? `<p style="margin:0 0 5px;font-size:15px;font-weight:700;color:${TEXT_PRIMARY};line-height:1.35;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${headline}</p>` : ''}
-          <p style="margin:0;font-size:13.5px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${body}</p>
+        <td style="padding:16px 18px 14px;">
+          ${label ? `<div style="margin-bottom:8px;">${mlbSectionLabel(label)}</div>` : ''}
+          ${headline ? `<p style="margin:0 0 6px;font-size:15px;font-weight:700;line-height:22px;color:${TEXT_PRIMARY};font-family:${FONT_STACK};">${headline}</p>` : ''}
+          <p style="margin:0;font-size:14px;line-height:22px;color:${TEXT_SECONDARY};font-family:${FONT_STACK};">${normalizeSpacing(body)}</p>
         </td>
       </tr>
     </table>
@@ -262,41 +296,36 @@ export function mlbGlassCard({ label, headline, body }) {
 }
 
 /**
- * MLB body paragraph — clean editorial text block.
+ * Body paragraph.
  */
 export function mlbParagraph(text) {
   return `
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
-    <p style="margin:0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${stripInlineEmoji(cleanNarrativeText(text))}</p>
+  <td style="padding:0 28px 16px;" class="section-td">
+    <p style="margin:0;font-size:16px;line-height:26px;color:${TEXT_BODY};font-family:${FONT_STACK};">${prepareBodyText(text)}</p>
   </td>
 </tr>`;
 }
 
 /**
- * Convert a narrative paragraph into an array of bullet-point strings.
- * Splits on sentence boundaries. Returns cleaned HTML strings.
+ * Convert a narrative paragraph into bullet-point strings.
  */
 export function narrativeToBullets(text) {
   if (!text) return [];
   const cleaned = cleanNarrativeText(text);
-  // Split on sentence endings followed by space + uppercase letter or emoji
   const plain = cleaned.replace(/<[^>]+>/g, '');
   const sentences = plain
     .split(/(?<=[.!?])\s+(?=[A-Z\u{1F300}-\u{1FAFF}])/u)
     .map(s => s.trim())
     .filter(s => s.length > 15);
 
-  // Re-apply bold from cleaned HTML by matching sentence text
   return sentences.map(sentence => {
-    // Check if the cleaned HTML has a bold version of any phrase in this sentence
     const boldPattern = /<strong[^>]*>([^<]+)<\/strong>/g;
     let result = sentence;
     let match;
     while ((match = boldPattern.exec(cleaned)) !== null) {
-      const boldText = match[1];
-      if (sentence.includes(boldText)) {
-        result = result.replace(boldText, match[0]);
+      if (sentence.includes(match[1])) {
+        result = result.replace(match[1], match[0]);
       }
     }
     return result;
@@ -304,26 +333,23 @@ export function narrativeToBullets(text) {
 }
 
 /**
- * Render a bullet list with optional takeaway line.
- *
- * EMAIL-SAFE APPROACH: All bullets in a single <td> using inline bullet
- * characters (no nested two-column tables that Gmail mobile fragments).
- * Each bullet is a <p> with &bull; prefix — full-width, no wrapping issues.
+ * Bullet list with optional takeaway.
+ * Single <td>, inline bullet chars, no nested tables.
  */
 export function mlbBulletSection(bullets, takeaway = '') {
   if (!bullets || bullets.length === 0) return '';
 
   const bulletHtml = bullets.map(b =>
-    `<p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,Helvetica,sans-serif;">&bull; ${stripInlineEmoji(b)}</p>`
+    `<p style="margin:0 0 12px 0;font-size:16px;line-height:26px;color:${TEXT_BODY};font-family:${FONT_STACK};">&bull; ${normalizeSpacing(stripInlineEmoji(b))}</p>`
   ).join('\n');
 
   const takeawayHtml = takeaway
-    ? `<p style="margin:16px 0 0 0;padding:12px 14px;font-size:15px;line-height:22px;color:#7f1d1d;font-family:'DM Sans',Arial,Helvetica,sans-serif;background-color:#fef2f2;border-radius:6px;border-left:3px solid ${BRAND_RED};">&rarr; <strong>Takeaway:</strong> ${stripInlineEmoji(cleanNarrativeText(takeaway))}</p>`
+    ? `<p style="margin:16px 0 0 0;padding:14px 16px;font-size:15px;line-height:24px;color:#7f1d1d;font-family:${FONT_STACK};background-color:#fef2f2;border-radius:6px;border-left:3px solid ${BRAND_RED};">&rarr; <strong>Takeaway:</strong> ${normalizeSpacing(stripInlineEmoji(cleanNarrativeText(takeaway)))}</p>`
     : '';
 
   return `
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
+  <td style="padding:0 28px 16px;" class="section-td">
     ${bulletHtml}
     ${takeawayHtml}
   </td>
@@ -331,32 +357,30 @@ export function mlbBulletSection(bullets, takeaway = '') {
 }
 
 /**
- * MLB divider row — subtle separator.
+ * Divider row.
  */
 export function mlbDividerRow() {
   return `
 <tr>
-  <td style="padding:6px 24px;" class="divider-td">
+  <td style="padding:8px 28px;" class="divider-td">
     <div style="height:1px;background-color:${BORDER};font-size:0;line-height:0;">&nbsp;</div>
   </td>
 </tr>`;
 }
 
 /**
- * MLB spacer row.
+ * Spacer row.
  */
 export function mlbSpacerRow(px = 8) {
   return `<tr><td style="height:${px}px;font-size:0;line-height:0;" aria-hidden="true">&nbsp;</td></tr>`;
 }
 
 /**
- * MLB team logo image.
+ * Team logo image.
  */
 export function mlbTeamLogoImg(team, size = 22) {
   const slug = team?.slug;
   if (!slug) return `<span style="display:inline-block;width:${size}px;height:${size}px;background-color:#e5e7eb;border-radius:4px;vertical-align:middle;"></span>`;
-  const src = `https://maximussports.ai/logos/${slug}.png`;
-  const alt = team?.name || slug;
-  return `<img src="${src}" alt="${alt}" width="${size}" height="${size}"
+  return `<img src="https://maximussports.ai/logos/${slug}.png" alt="${team?.name || slug}" width="${size}" height="${size}"
     style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;" />`;
 }
