@@ -250,26 +250,58 @@ export default async function handler(req, res) {
     }
 
     const tplType = TYPE_TO_TEMPLATE[type];
-    const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
-      fetchScoresSource(),
-      fetchRankingsSource(),
-      getAtsLeadersPipeline(),
-      fetchNewsAggregateSource({ includeNational: true }),
-      tplType === 'odds' ? fetchOddsSource() : Promise.resolve(null),
-    ]);
+    const isMLB = type.startsWith('mlb_');
 
-    const scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
-    const rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
-    const atsLeaders = atsResult.status === 'fulfilled' ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] } : { best: [], worst: [] };
-    const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
-    const headlines = dedupeNewsItems(headlinesRaw);
-    const oddsGames = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
-      ? oddsRaw.value.games.map(g => ({ ...g, gameStatus: 'Scheduled', startTime: g.commenceTime || null }))
-      : [];
-
+    let scoresToday = [];
+    let rankingsTop25 = [];
+    let atsLeaders = { best: [], worst: [] };
+    let headlines = [];
+    let oddsGames = [];
     let botIntelBullets = [];
-    if (tplType === 'daily' || tplType === 'pinned') {
-      try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); } catch { /* ok */ }
+    let mlbNarrativeParagraph = '';
+
+    if (isMLB) {
+      // MLB-specific data fetching
+      const host = req.headers.host || 'localhost:3000';
+      const baseUrl = `http://${host}`;
+      const [mlbNewsRaw, mlbLiveRaw, mlbSummaryRaw] = await Promise.allSettled([
+        fetch(`${baseUrl}/api/mlb/news/headlines`).then(r => r.ok ? r.json() : { headlines: [] }),
+        fetch(`${baseUrl}/api/mlb/live/homeFeed`).then(r => r.ok ? r.json() : {}),
+        tplType === 'mlbBriefing'
+          ? fetch(`${baseUrl}/api/mlb/chat/homeSummary`).then(r => r.ok ? r.json() : {})
+          : Promise.resolve({}),
+      ]);
+      const mlbNews = mlbNewsRaw.status === 'fulfilled' ? mlbNewsRaw.value : {};
+      headlines = (mlbNews.headlines || []).map(h => ({ title: h.title, link: h.link, source: h.source, pubDate: h.time || null }));
+      const mlbLive = mlbLiveRaw.status === 'fulfilled' ? mlbLiveRaw.value : {};
+      scoresToday = [...(mlbLive.liveNow || []), ...(mlbLive.startingSoon || [])].map(g => ({
+        homeTeam: g.homeTeam || g.home?.name || '', awayTeam: g.awayTeam || g.away?.name || '',
+        homeScore: g.homeScore ?? g.home?.score ?? null, awayScore: g.awayScore ?? g.away?.score ?? null,
+        gameStatus: g.status || g.gameStatus || 'Scheduled', spread: g.spread || null, overUnder: g.overUnder || g.total || null,
+      }));
+      const mlbSummary = mlbSummaryRaw.status === 'fulfilled' ? mlbSummaryRaw.value : {};
+      if (mlbSummary.summary) {
+        mlbNarrativeParagraph = mlbSummary.summary;
+        botIntelBullets = mlbSummary.summary.split(/\n+/).map(l => l.trim()).filter(l => l.length > 30).slice(0, 4);
+      }
+      console.log(`[global-send] MLB data: ${headlines.length} headlines, ${scoresToday.length} games`);
+    } else {
+      // NCAAM / Global data fetching
+      const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
+        fetchScoresSource(), fetchRankingsSource(), getAtsLeadersPipeline(),
+        fetchNewsAggregateSource({ includeNational: true }),
+        tplType === 'odds' ? fetchOddsSource() : Promise.resolve(null),
+      ]);
+      scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+      rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+      atsLeaders = atsResult.status === 'fulfilled' ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] } : { best: [], worst: [] };
+      const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+      headlines = dedupeNewsItems(headlinesRaw);
+      oddsGames = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
+        ? oddsRaw.value.games.map(g => ({ ...g, gameStatus: 'Scheduled', startTime: g.commenceTime || null })) : [];
+      if (tplType === 'daily' || tplType === 'pinned') {
+        try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); } catch { /* ok */ }
+      }
     }
 
     let getTeamBySlugFn = null;
@@ -301,7 +333,7 @@ export default async function handler(req, res) {
       }
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
-      const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames };
+      const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames, narrativeParagraph: isMLB ? mlbNarrativeParagraph : '' };
 
       let subject, html, text;
       try {

@@ -1,25 +1,20 @@
 /**
- * MlbEmailShell — MLB-branded email wrapper.
+ * MlbEmailShell — MLB-branded email wrapper (light mode).
  *
- * Design: dark navy body, deep red accents, glassmorphism cards.
- * Premium editorial feel — The Athletic meets Bloomberg Terminal.
- *
- * All critical styles inline (Gmail strips <style> blocks).
- * Solid backgrounds only (Gmail strips gradients).
+ * Design: light neutral body, white cards, tasteful MLB red accents.
+ * Premium editorial feel optimized for Gmail rendering.
+ * Solid backgrounds, inline styles, mobile-first.
  */
 
-const BG_OUTER  = '#0a0e1a';
-const BG_BODY   = '#111827';
-const BG_CARD   = '#1a2236';
+const BG_OUTER  = '#f7f8fa';
+const BG_BODY   = '#ffffff';
+const BG_CARD   = '#f9fafb';
 const BRAND_RED = '#c41e3a';
-const ACCENT    = '#e8364f';
-const GOLD      = '#d4a843';
-const TEXT_PRIMARY   = '#f0f4f8';
-const TEXT_SECONDARY = '#94a3b8';
-const TEXT_MUTED     = '#64748b';
-const BORDER         = 'rgba(196,30,58,0.18)';
-const BORDER_SOLID   = '#2a1520';
-const GLOW_BORDER    = '#3a1525';
+const ACCENT    = '#c41e3a';
+const TEXT_PRIMARY   = '#1a1a2e';
+const TEXT_SECONDARY = '#4a5568';
+const TEXT_MUTED     = '#8a94a6';
+const BORDER         = '#e8ecf0';
 
 export function MlbEmailShell({ content, previewText = '', userId = '', ctaUrl = '', ctaLabel = '' }) {
   const manageUrl = `https://maximussports.ai/settings${userId ? `?uid=${userId}` : ''}`;
@@ -53,7 +48,6 @@ export function MlbEmailShell({ content, previewText = '', userId = '', ctaUrl =
       .email-container  { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; }
       .shell-header-td  { padding: 16px 18px 14px !important; }
       .shell-wordmark   { font-size: 14px !important; }
-      .shell-content-td { padding: 0 !important; }
       .hero-td          { padding: 18px 18px 14px !important; }
       .hero-h1          { font-size: 20px !important; line-height: 1.28 !important; }
       .intro-td         { padding: 0 18px 14px !important; }
@@ -83,7 +77,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
 
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" bgcolor="${BG_BODY}"
              class="email-container"
-             style="max-width:560px;width:100%;background-color:${BG_BODY};border-radius:10px;border:1px solid ${GLOW_BORDER};border-collapse:collapse;">
+             style="max-width:560px;width:100%;background-color:${BG_BODY};border-radius:8px;border:1px solid ${BORDER};border-collapse:collapse;">
 
         <!-- HEADER: MLB brand bar -->
         <tr>
@@ -111,7 +105,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
         <!-- DIVIDER -->
         <tr>
           <td style="padding:0 24px;" class="divider-td">
-            <div style="height:1px;background-color:${BORDER_SOLID};font-size:0;line-height:0;">&nbsp;</div>
+            <div style="height:1px;background-color:${BORDER};font-size:0;line-height:0;">&nbsp;</div>
           </td>
         </tr>
 
@@ -128,9 +122,9 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
           <td style="padding:10px 24px 20px;" class="cta-td">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">
               <tr>
-                <td align="center" bgcolor="${BRAND_RED}" style="border-radius:8px;background-color:${BRAND_RED};">
+                <td align="center" bgcolor="${BRAND_RED}" style="border-radius:6px;background-color:${BRAND_RED};">
                   <a href="${finalCtaUrl}" class="cta-link"
-                     style="display:block;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 24px;text-align:center;letter-spacing:0.03em;font-family:'DM Sans',Arial,Helvetica,sans-serif;border-radius:8px;line-height:1.3;">
+                     style="display:block;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;text-align:center;letter-spacing:0.02em;font-family:'DM Sans',Arial,Helvetica,sans-serif;border-radius:6px;line-height:1.3;">
                     ${finalCtaLabel}
                   </a>
                 </td>
@@ -141,7 +135,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
 
         <!-- FOOTER -->
         <tr>
-          <td style="background-color:#0d1117;border-top:1px solid ${BORDER_SOLID};padding:16px 24px 20px;border-radius:0 0 10px 10px;" class="footer-td">
+          <td style="background-color:#f9fafb;border-top:1px solid ${BORDER};padding:16px 24px 20px;border-radius:0 0 8px 8px;" class="footer-td">
             <p style="margin:0 0 6px;font-size:12px;color:${TEXT_MUTED};line-height:1.5;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
               Not betting advice. Sports intelligence for informational purposes only.
             </p>
@@ -150,7 +144,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
               &nbsp;&middot;&nbsp;
               <a href="https://maximussports.ai/mlb" style="color:${ACCENT};text-decoration:underline;">maximussports.ai</a>
             </p>
-            <p style="margin:0;font-size:11px;color:#475569;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+            <p style="margin:0;font-size:11px;color:#b0b8c4;text-align:center;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
               &copy; ${year} Maximus Sports
             </p>
           </td>
@@ -166,7 +160,7 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
 }
 
 /**
- * MLB hero block: date + bold headline, dark bg with red accents.
+ * MLB hero block: date + bold headline with red accent date.
  */
 export function mlbHeroBlock({ line, sublabel }) {
   return `
@@ -179,13 +173,13 @@ export function mlbHeroBlock({ line, sublabel }) {
 }
 
 /**
- * MLB section header — emoji + ALL CAPS title with red glow effect.
+ * MLB section header — emoji + ALL CAPS title with red color.
  */
 export function mlbSectionHeader(emoji, title) {
   return `
 <tr>
   <td style="padding:16px 24px 8px;" class="section-td">
-    <p class="section-header" style="margin:0;font-size:14px;font-weight:800;color:${TEXT_PRIMARY};letter-spacing:0.06em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;text-shadow:0 0 20px rgba(196,30,58,0.25);">${emoji} ${title}</p>
+    <p class="section-header" style="margin:0;font-size:14px;font-weight:800;color:${BRAND_RED};letter-spacing:0.06em;text-transform:uppercase;font-family:'DM Sans',Arial,Helvetica,sans-serif;line-height:1.4;">${emoji} ${title}</p>
   </td>
 </tr>`;
 }
@@ -198,14 +192,14 @@ export function mlbSectionLabel(label) {
 }
 
 /**
- * MLB glass card — dark panel with subtle red border glow.
+ * MLB card — light panel with subtle red left border.
  */
 export function mlbGlassCard({ label, headline, body }) {
   return `
 <tr>
   <td style="padding:0 24px 12px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background-color:${BG_CARD};border:1px solid ${GLOW_BORDER};border-radius:8px;border-collapse:collapse;">
+           style="background-color:${BG_CARD};border:1px solid ${BORDER};border-left:3px solid ${BRAND_RED};border-radius:6px;border-collapse:collapse;">
       <tr>
         <td style="padding:16px 18px 14px;" class="card-td">
           ${label ? `<div style="margin-bottom:8px;">${mlbSectionLabel(label)}</div>` : ''}
@@ -237,7 +231,7 @@ export function mlbDividerRow() {
   return `
 <tr>
   <td style="padding:4px 24px;" class="divider-td">
-    <div style="height:1px;background-color:${BORDER_SOLID};font-size:0;line-height:0;">&nbsp;</div>
+    <div style="height:1px;background-color:${BORDER};font-size:0;line-height:0;">&nbsp;</div>
   </td>
 </tr>`;
 }
@@ -254,7 +248,7 @@ export function mlbSpacerRow(px = 8) {
  */
 export function mlbTeamLogoImg(team, size = 22) {
   const slug = team?.slug;
-  if (!slug) return `<span style="display:inline-block;width:${size}px;height:${size}px;background-color:#1a2236;border-radius:3px;vertical-align:middle;"></span>`;
+  if (!slug) return `<span style="display:inline-block;width:${size}px;height:${size}px;background-color:#e8ecf0;border-radius:3px;vertical-align:middle;"></span>`;
   const src = `https://maximussports.ai/logos/${slug}.png`;
   const alt = team?.name || slug;
   return `<img src="${src}" alt="${alt}" width="${size}" height="${size}"

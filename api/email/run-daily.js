@@ -437,48 +437,114 @@ export default async function handler(req, res) {
     // ── 6. Fetch shared data
     // Determine the template type for conditional data fetching
     const tplType = TYPE_TO_TEMPLATE[type];
-    const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
-      fetchScoresSource(),
-      fetchRankingsSource(),
-      getAtsLeadersPipeline(),
-      fetchNewsAggregateSource({ includeNational: true }),
-      (tplType === 'odds') ? fetchOddsSource() : Promise.resolve(null),
-    ]);
+    const isMLB = type.startsWith('mlb_');
 
-    const scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
-    const rankingsTop25 = rankingsData.status === 'fulfilled'
-      ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
-    const atsLeaders = atsResult.status === 'fulfilled'
-      ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
-      : { best: [], worst: [] };
-    const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
-    const headlines = dedupeNewsItems(headlinesRaw);
-
-    const oddsGames = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
-      ? oddsRaw.value.games.map(g => ({
-          ...g,
-          gameStatus: 'Scheduled',
-          startTime: g.commenceTime || null,
-        }))
-      : [];
-
-    // ── 7. Email briefing context (narrative, results, matchups, picks)
+    let scoresToday = [];
+    let rankingsTop25 = [];
+    let atsLeaders = { best: [], worst: [] };
+    let headlines = [];
+    let oddsGames = [];
     let botIntelBullets = [];
     let briefingContext = {};
-    if (tplType === 'daily' || tplType === 'pinned') {
-      try {
-        briefingContext = await buildEmailBriefingContext(atsLeaders, rankingsTop25, scoresToday, []);
-        botIntelBullets = briefingContext.botIntelBullets || [];
-      } catch {
-        botIntelBullets = [];
-        briefingContext = {};
+    let mlbNarrativeParagraph = '';
+
+    if (isMLB) {
+      // ── MLB-specific data fetching ──
+      // Use dedicated MLB endpoints to avoid NCAAM contamination
+      const host = req.headers.host || 'localhost:3000';
+      const baseUrl = `http://${host}`;
+      const [mlbNewsRaw, mlbLiveRaw, mlbSummaryRaw] = await Promise.allSettled([
+        fetch(`${baseUrl}/api/mlb/news/headlines`).then(r => r.ok ? r.json() : { headlines: [] }),
+        fetch(`${baseUrl}/api/mlb/live/homeFeed`).then(r => r.ok ? r.json() : {}),
+        tplType === 'mlbBriefing'
+          ? fetch(`${baseUrl}/api/mlb/chat/homeSummary`).then(r => r.ok ? r.json() : {})
+          : Promise.resolve({}),
+      ]);
+
+      // MLB headlines
+      const mlbNews = mlbNewsRaw.status === 'fulfilled' ? mlbNewsRaw.value : {};
+      headlines = (mlbNews.headlines || []).map(h => ({
+        title: h.title,
+        link: h.link,
+        source: h.source,
+        pubDate: h.time || null,
+      }));
+
+      // MLB live scores
+      const mlbLive = mlbLiveRaw.status === 'fulfilled' ? mlbLiveRaw.value : {};
+      const liveGames = [
+        ...(mlbLive.liveNow || []),
+        ...(mlbLive.startingSoon || []),
+      ];
+      scoresToday = liveGames.map(g => ({
+        homeTeam: g.homeTeam || g.home?.name || '',
+        awayTeam: g.awayTeam || g.away?.name || '',
+        homeScore: g.homeScore ?? g.home?.score ?? null,
+        awayScore: g.awayScore ?? g.away?.score ?? null,
+        gameStatus: g.status || g.gameStatus || 'Scheduled',
+        statusType: g.statusType || '',
+        spread: g.spread || null,
+        overUnder: g.overUnder || g.total || null,
+        moneylineHome: g.moneylineHome || null,
+      }));
+
+      // MLB narrative summary (for briefing)
+      const mlbSummary = mlbSummaryRaw.status === 'fulfilled' ? mlbSummaryRaw.value : {};
+      if (mlbSummary.summary) {
+        mlbNarrativeParagraph = mlbSummary.summary;
+        // Extract bullet-style intel from the AI summary
+        const rawLines = mlbSummary.summary
+          .split(/\n+/)
+          .map(l => l.trim())
+          .filter(l => l.length > 30 && l.length < 300);
+        botIntelBullets = rawLines.slice(0, 4);
+      }
+
+      console.log(`[run-daily] MLB data: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets`);
+
+    } else {
+      // ── NCAAM / Global data fetching (original pipeline) ──
+      const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
+        fetchScoresSource(),
+        fetchRankingsSource(),
+        getAtsLeadersPipeline(),
+        fetchNewsAggregateSource({ includeNational: true }),
+        (tplType === 'odds') ? fetchOddsSource() : Promise.resolve(null),
+      ]);
+
+      scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+      rankingsTop25 = rankingsData.status === 'fulfilled'
+        ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+      atsLeaders = atsResult.status === 'fulfilled'
+        ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] }
+        : { best: [], worst: [] };
+      const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+      headlines = dedupeNewsItems(headlinesRaw);
+
+      oddsGames = (oddsRaw.status === 'fulfilled' && oddsRaw.value?.games)
+        ? oddsRaw.value.games.map(g => ({
+            ...g,
+            gameStatus: 'Scheduled',
+            startTime: g.commenceTime || null,
+          }))
+        : [];
+
+      // NCAAM briefing context
+      if (tplType === 'daily' || tplType === 'pinned') {
+        try {
+          briefingContext = await buildEmailBriefingContext(atsLeaders, rankingsTop25, scoresToday, []);
+          botIntelBullets = briefingContext.botIntelBullets || [];
+        } catch {
+          botIntelBullets = [];
+          briefingContext = {};
+        }
       }
     }
 
-    // ── 7b. Model signals + tournament meta (for daily briefing)
+    // ── 7b. Model signals + tournament meta (for NCAAM daily briefing only)
     let modelSignals = [];
     let tournamentMeta = {};
-    if (tplType === 'daily') {
+    if (tplType === 'daily' && !isMLB) {
       try {
         const cached = await getJson('picks:latest:v1');
         if (Array.isArray(cached) && cached.length > 0) {
@@ -599,7 +665,7 @@ export default async function handler(req, res) {
         modelSignals,
         tournamentMeta,
         // Enhanced briefing context for upgraded email
-        narrativeParagraph: briefingContext.narrativeParagraph || '',
+        narrativeParagraph: isMLB ? mlbNarrativeParagraph : (briefingContext.narrativeParagraph || ''),
         priorDayResults: briefingContext.priorDayResults || [],
         todayUpcoming: briefingContext.todayUpcoming || [],
         picksSummary: briefingContext.picksSummary || '',
