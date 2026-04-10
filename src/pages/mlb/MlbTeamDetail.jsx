@@ -17,6 +17,7 @@ import MlbModelOutlook from '../../components/mlb/MlbModelOutlook';
 import { getTeamProjection } from '../../data/mlb/seasonModel';
 import { getTeamMeta } from '../../data/mlb/teamMeta';
 import { buildMlbTeamIntelSummary } from '../../data/mlb/teamIntelSummary';
+import { buildMlbTeamIntelBriefing, extractTeamContextFromSchedule } from '../../data/mlb/buildTeamIntelBriefing';
 import styles from './MlbTeamDetail.module.css';
 
 function formatOdds(american) {
@@ -408,6 +409,7 @@ export default function MlbTeamDetail() {
             <h2 className={styles.briefingTitle}>Intel Briefing</h2>
           </div>
           <div className={styles.briefingBody}>
+            {/* Editorial narrative paragraph */}
             <p>
               {(() => {
                 const projection = getTeamProjection(team.slug);
@@ -416,11 +418,10 @@ export default function MlbTeamDetail() {
                   team, projection, meta, odds: teamOdds, currentRecord: record,
                 });
                 if (summary) return summary;
-                // Fallback if summary builder returns empty
                 return `${team.name} ${record ? `hold a ${record} record` : 'are gearing up'} this season.${teamOdds ? ` World Series odds: ${formatOdds(teamOdds.bestChanceAmerican)}.` : ''}`;
               })()}
             </p>
-            {/* Additional live context */}
+            {/* Live context chips */}
             {(record || streak || formGuide.length > 0) && (
               <div className={styles.briefingContext}>
                 {record && <span className={styles.briefingChip}>{record}</span>}
@@ -436,6 +437,43 @@ export default function MlbTeamDetail() {
                 )}
               </div>
             )}
+            {/* ── Structured Team Intel Briefing (shared with IG slide) ── */}
+            {(() => {
+              const schedContext = extractTeamContextFromSchedule(schedule);
+              const briefing = buildMlbTeamIntelBriefing({
+                slug: team.slug,
+                teamName: team.name,
+                division: team.division,
+                teamContext: schedContext,
+                newsHeadlines: teamHeadlines,
+                nextGame: nextGame ? {
+                  opponent: nextGame.opponent,
+                  date: nextGame.date,
+                  oppSlug: null,
+                } : null,
+              });
+              if (!briefing.items.length) return null;
+              return (
+                <div className={styles.intelBriefingList}>
+                  <div className={styles.intelBriefingLabel}>Team Intel Briefing</div>
+                  <ol className={styles.intelBriefingOl}>
+                    {briefing.items.map((item, i) => (
+                      <li key={i} className={styles.intelBriefingItem}>
+                        {item.oppSlug && (item.type === 'recent' || item.type === 'next') && (
+                          <img
+                            src={getMlbEspnLogoUrl(item.oppSlug)}
+                            alt=""
+                            className={styles.intelOppLogo}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                        {item.text}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            })()}
           </div>
         </section>
 

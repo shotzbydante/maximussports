@@ -250,6 +250,68 @@
   color: var(--color-text-secondary);
 }
 
+/* ── Structured Intel Briefing List (shared with IG slide) ── */
+.intelBriefingList {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.intelBriefingLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mlb-red);
+  margin-bottom: var(--space-sm);
+}
+
+.intelBriefingOl {
+  list-style: none;
+  counter-reset: briefing;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intelBriefingItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  counter-increment: briefing;
+}
+
+.intelBriefingItem::before {
+  content: counter(briefing);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--mlb-red);
+  background: var(--mlb-red-soft);
+  border: 1px solid var(--mlb-red-border);
+  border-radius: 50%;
+  margin-top: 1px;
+}
+
+.intelOppLogo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin-top: 1px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+}
+
 /* ── Two Col ── */
 .twoCol {
   display: grid;

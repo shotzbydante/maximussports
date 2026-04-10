@@ -11,6 +11,7 @@
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline';
+import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing';
 
 // ── Team emojis ─────────────────────────────────────────────────────────────
 
@@ -313,21 +314,45 @@ function buildDailyHashtags(hotPress, topTeams) {
 function teamCaption(payload) {
   const teamName = payload.teamA?.name || payload.headline || 'Team';
   const emoji = teamEmoji(teamName);
-  const bullets = (payload.bullets || []).slice(0, 5);
-  const projection = payload.projection || null;
+  const slug = payload.teamA?.slug || null;
   const lines = [];
+
+  // ── Build shared briefing for alignment with slide + team page ──
+  const liveGames = payload.mlbLiveGames || [];
+  const teamContext = extractTeamContext(liveGames, slug);
+  const projection = slug ? getTeamProjection(slug) : (payload.projection || null);
+  const team = slug ? MLB_TEAMS.find(t => t.slug === slug) : null;
+
+  const briefing = buildMlbTeamIntelBriefing({
+    slug,
+    teamName,
+    division: team?.division || payload.division || '',
+    projection,
+    teamContext,
+    newsHeadlines: payload.newsHeadlines || [],
+    nextLine: payload.nextLine ?? null,
+  });
 
   // Opener — editorial identity with headline thesis
   lines.push(`${emoji} ${teamName} — Team Intel Report`);
   lines.push('');
 
-  // Headline thesis as social hook
-  if (payload.subhead) {
+  // Headline from shared engine
+  if (briefing.headline) {
+    lines.push(briefing.headline.replace(/\n/g, ' '));
+    lines.push('');
+  } else if (payload.subhead) {
     lines.push(payload.subhead);
     lines.push('');
   }
 
-  // Projection + standings context
+  // Subtext hook
+  if (briefing.subtext) {
+    lines.push(briefing.subtext);
+    lines.push('');
+  }
+
+  // Projection context
   if (projection?.projectedWins) {
     const parts = [`📈 ${projection.projectedWins} projected wins`];
     if (projection.floor && projection.ceiling) {
@@ -341,11 +366,11 @@ function teamCaption(payload) {
     lines.push('');
   }
 
-  // Full Team Intel Briefing — mirrors the slide
-  if (bullets.length > 0) {
+  // Full Team Intel Briefing — shared bullets, mirrors slide + team page
+  if (briefing.items.length > 0) {
     lines.push('🔎 Team Intel Briefing:');
-    for (let i = 0; i < bullets.length; i++) {
-      lines.push(`${i + 1}. ${bullets[i]}`);
+    for (let i = 0; i < briefing.items.length; i++) {
+      lines.push(`${i + 1}. ${briefing.items[i].text}`);
     }
     lines.push('');
   }
