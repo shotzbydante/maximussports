@@ -34,6 +34,7 @@ import { getSubject as getMlbDigestSubject, renderHTML as renderMlbDigestHTML, r
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
+import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
 
 const TYPE_TO_PREF_KEY = {
   global_briefing:   'global_briefing',
@@ -261,29 +262,18 @@ export default async function handler(req, res) {
     let mlbNarrativeParagraph = '';
 
     if (isMLB) {
-      // MLB-specific data fetching
+      // MLB-specific data via shared helper (no NCAAM contamination possible)
       const host = req.headers.host || 'localhost:3000';
-      const baseUrl = `http://${host}`;
-      const [mlbNewsRaw, mlbLiveRaw, mlbSummaryRaw] = await Promise.allSettled([
-        fetch(`${baseUrl}/api/mlb/news/headlines`).then(r => r.ok ? r.json() : { headlines: [] }),
-        fetch(`${baseUrl}/api/mlb/live/homeFeed`).then(r => r.ok ? r.json() : {}),
-        tplType === 'mlbBriefing'
-          ? fetch(`${baseUrl}/api/mlb/chat/homeSummary`).then(r => r.ok ? r.json() : {})
-          : Promise.resolve({}),
-      ]);
-      const mlbNews = mlbNewsRaw.status === 'fulfilled' ? mlbNewsRaw.value : {};
-      headlines = (mlbNews.headlines || []).map(h => ({ title: h.title, link: h.link, source: h.source, pubDate: h.time || null }));
-      const mlbLive = mlbLiveRaw.status === 'fulfilled' ? mlbLiveRaw.value : {};
-      scoresToday = [...(mlbLive.liveNow || []), ...(mlbLive.startingSoon || [])].map(g => ({
-        homeTeam: g.homeTeam || g.home?.name || '', awayTeam: g.awayTeam || g.away?.name || '',
-        homeScore: g.homeScore ?? g.home?.score ?? null, awayScore: g.awayScore ?? g.away?.score ?? null,
-        gameStatus: g.status || g.gameStatus || 'Scheduled', spread: g.spread || null, overUnder: g.overUnder || g.total || null,
-      }));
-      const mlbSummary = mlbSummaryRaw.status === 'fulfilled' ? mlbSummaryRaw.value : {};
-      if (mlbSummary.summary) {
-        mlbNarrativeParagraph = mlbSummary.summary;
-        botIntelBullets = mlbSummary.summary.split(/\n+/).map(l => l.trim()).filter(l => l.length > 30).slice(0, 4);
-      }
+      const mlbData = await assembleMlbEmailData(`http://${host}`, {
+        includeSummary: tplType === 'mlbBriefing',
+      });
+      headlines = mlbData.headlines;
+      scoresToday = mlbData.scoresToday;
+      botIntelBullets = mlbData.botIntelBullets;
+      mlbNarrativeParagraph = mlbData.narrativeParagraph;
+      rankingsTop25 = mlbData.rankingsTop25;
+      atsLeaders = mlbData.atsLeaders;
+      oddsGames = mlbData.oddsGames;
       console.log(`[global-send] MLB data: ${headlines.length} headlines, ${scoresToday.length} games`);
     } else {
       // NCAAM / Global data fetching
