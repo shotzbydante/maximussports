@@ -1,12 +1,16 @@
 /**
- * MLB Daily Briefing — premium editorial newsletter (polished light mode).
+ * MLB Daily Briefing — premium editorial newsletter.
+ *
+ * Mobile-first bullet format: every section uses bullet points
+ * with a takeaway line. No dense paragraph blocks.
  *
  * Content: MLB-only from /api/mlb/* endpoints.
- * Narrative is cleaned to strip raw formatting, dedupe section labels,
- * and convert markdown bold to HTML.
  */
 
-import { MlbEmailShell, mlbHeroBlock, mlbSectionHeader, mlbGlassCard, mlbParagraph, mlbDividerRow, cleanNarrativeText } from '../MlbEmailShell.js';
+import {
+  MlbEmailShell, mlbHeroBlock, mlbSectionHeader, mlbBulletSection,
+  mlbDividerRow, cleanNarrativeText, narrativeToBullets,
+} from '../MlbEmailShell.js';
 import { mlbBriefingSubject } from '../helpers/subjectGenerator.js';
 
 export function getSubject(data = {}) {
@@ -14,15 +18,21 @@ export function getSubject(data = {}) {
 }
 
 /**
- * Parse the 5-paragraph AI narrative into clean editorial sections.
- * Strips inline headers, markdown, and normalizes spacing.
+ * Parse AI narrative into section objects with bullets + takeaway.
  */
-function parseNarrativeSections(raw) {
+function parseNarrativeToSections(raw) {
   if (!raw) return [];
-  return raw
+  const paragraphs = raw
     .split(/\n{2,}/)
     .map(p => cleanNarrativeText(p))
     .filter(p => p.length > 30);
+
+  return paragraphs.map(p => {
+    const bullets = narrativeToBullets(p);
+    // Last sentence is often a good takeaway candidate
+    const takeaway = bullets.length > 2 ? bullets.pop() : '';
+    return { bullets, takeaway };
+  });
 }
 
 export function renderHTML(data = {}) {
@@ -39,48 +49,47 @@ export function renderHTML(data = {}) {
   const hour = new Date().getHours();
   const partOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 
-  const sections = parseNarrativeSections(narrativeParagraph);
+  const sections = parseNarrativeToSections(narrativeParagraph);
   const topHeadlines = headlines.slice(0, 5);
   const hasNarrative = sections.length > 0;
 
   // ── AROUND THE LEAGUE ─────────────────────────────────────────
   let aroundTheLeague = '';
   if (hasNarrative && sections[0]) {
+    // Merge first two narrative sections into one bullet block
+    const allBullets = [
+      ...(sections[0]?.bullets || []),
+      ...(sections[1]?.bullets || []),
+    ];
+    const takeaway = sections[1]?.takeaway || sections[0]?.takeaway || '';
+
     aroundTheLeague = `
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
-${mlbParagraph(sections[0])}
-${sections[1] ? mlbParagraph(sections[1]) : ''}`;
+${mlbBulletSection(allBullets.slice(0, 5), takeaway)}`;
   } else if (topHeadlines.length > 0) {
-    const rows = topHeadlines.map((h, i) => {
+    // Fallback: headlines as bullet links
+    const rows = topHeadlines.map(h => {
       const link = h.link || 'https://maximussports.ai/mlb';
       const source = h.source || '';
-      const isTop = i === 0;
       return `<tr>
-  <td style="padding:${isTop ? '8px 0 10px' : '8px 0'};border-bottom:1px solid #f3f4f6;">
+  <td style="padding:0 24px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
-        <td style="padding-right:12px;">
-          <a href="${link}" style="font-size:${isTop ? '15px' : '14px'};font-weight:${isTop ? '700' : '600'};color:#111827;text-decoration:none;line-height:1.45;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${h.title || 'No title'}</a>
-          ${source ? `<span style="font-size:11px;color:#9ca3af;font-family:'DM Sans',Arial,sans-serif;">${source}</span>` : ''}
-        </td>
-        <td align="right" valign="top" style="white-space:nowrap;padding-top:2px;">
-          <a href="${link}" style="font-size:11px;color:#c41e3a;text-decoration:none;font-weight:700;font-family:'DM Sans',Arial,sans-serif;" target="_blank">Read &rarr;</a>
+        <td valign="top" style="width:18px;padding:4px 0;font-size:14px;color:#c41e3a;font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">&bull;</td>
+        <td style="padding:4px 0;">
+          <a href="${link}" style="font-size:13.5px;font-weight:600;color:#111827;text-decoration:none;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;" target="_blank">${h.title || 'No title'}</a>
+          ${source ? `<br/><span style="font-size:10.5px;color:#9ca3af;font-family:'DM Sans',Arial,sans-serif;">${source}</span>` : ''}
         </td>
       </tr>
     </table>
   </td>
 </tr>`;
-    }).join('');
+    }).join('\n');
 
     aroundTheLeague = `
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
-<tr>
-  <td style="padding:0 24px 14px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      ${rows}
-    </table>
-  </td>
-</tr>`;
+${rows}
+<tr><td style="height:10px;font-size:0;">&nbsp;</td></tr>`;
   }
 
   // ── SCORES ────────────────────────────────────────────────────
@@ -92,8 +101,7 @@ ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
   if (finals.length > 0) {
     const scoreCards = finals.slice(0, 5).map(g => {
       const score = g.homeScore != null && g.awayScore != null
-        ? `${g.awayScore} \u2013 ${g.homeScore}`
-        : 'Final';
+        ? `${g.awayScore} \u2013 ${g.homeScore}` : 'Final';
       return `<tr>
   <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
@@ -131,26 +139,26 @@ ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
 
   // ── WORLD SERIES ODDS PULSE ───────────────────────────────────
   let oddsPulse = '';
-  if (sections.length > 2) {
+  if (sections.length > 2 && sections[2]?.bullets?.length > 0) {
     oddsPulse = `
 ${mlbSectionHeader('\u{1F4B0}', 'WORLD SERIES ODDS PULSE')}
-${mlbParagraph(sections[2])}`;
+${mlbBulletSection(sections[2].bullets, sections[2].takeaway)}`;
   }
 
   // ── PENNANT RACE WATCH ────────────────────────────────────────
   let pennantRace = '';
-  if (sections.length > 3) {
+  if (sections.length > 3 && sections[3]?.bullets?.length > 0) {
     pennantRace = `
 ${mlbSectionHeader('\u{1F3C1}', 'PENNANT RACE WATCH')}
-${mlbParagraph(sections[3])}`;
+${mlbBulletSection(sections[3].bullets, sections[3].takeaway)}`;
   }
 
   // ── SLEEPERS, INJURIES & VALUE ────────────────────────────────
   let sleepersSection = '';
-  if (sections.length > 4) {
+  if (sections.length > 4 && sections[4]?.bullets?.length > 0) {
     sleepersSection = `
 ${mlbSectionHeader('\u{1F9E0}', 'SLEEPERS, INJURIES & VALUE')}
-${mlbParagraph(sections[4])}`;
+${mlbBulletSection(sections[4].bullets, sections[4].takeaway)}`;
   }
 
   // ── DIAMOND DISPATCH (curated headline links) ─────────────────
@@ -160,42 +168,39 @@ ${mlbParagraph(sections[4])}`;
       const link = h.link || '#';
       const source = h.source || '';
       return `<tr>
-  <td style="padding:9px 0;border-bottom:1px solid #f3f4f6;">
-    <a href="${link}" style="font-size:13.5px;font-weight:600;color:#111827;text-decoration:none;line-height:1.45;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${h.title}</a>
-    ${source ? `<span style="font-size:10.5px;color:#9ca3af;font-family:'DM Sans',Arial,sans-serif;display:block;margin-top:2px;">${source}</span>` : ''}
+  <td style="padding:0 24px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td valign="top" style="width:18px;padding:5px 0;font-size:14px;color:#c41e3a;font-family:'DM Sans',Arial,sans-serif;line-height:1.5;">&bull;</td>
+        <td style="padding:5px 0;">
+          <a href="${link}" style="font-size:13.5px;font-weight:600;color:#111827;text-decoration:none;line-height:1.45;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${h.title}</a>
+          ${source ? `<span style="font-size:10.5px;color:#9ca3af;font-family:'DM Sans',Arial,sans-serif;display:block;margin-top:1px;">${source}</span>` : ''}
+        </td>
+      </tr>
+    </table>
   </td>
 </tr>`;
-    }).join('');
+    }).join('\n');
 
     diamondDispatch = `
 ${mlbSectionHeader('\u{26A1}', 'DIAMOND DISPATCH')}
+${links}
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      ${links}
-    </table>
-    <div style="margin-top:10px;">
-      <a href="https://maximussports.ai/mlb/news" style="font-size:12px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All MLB news &rarr;</a>
-    </div>
+  <td style="padding:8px 24px 14px;" class="section-td">
+    <a href="https://maximussports.ai/mlb/news" style="font-size:12px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All MLB news &rarr;</a>
   </td>
 </tr>`;
   }
 
   // ── HERO LINE ─────────────────────────────────────────────────
-  const gameCount = scoresToday.length;
-  let heroLine = 'Your daily MLB intelligence briefing.';
-  if (gameCount > 0) {
-    heroLine = `${gameCount} game${gameCount !== 1 ? 's' : ''} on the board \u2014 here\u2019s your daily edge.`;
-  } else if (topHeadlines.length > 0) {
-    heroLine = 'Today\u2019s biggest storylines and intel.';
-  }
+  const heroLine = 'Your Daily MLB Intelligence \u2014 Key Storylines, Odds & Edges';
 
   const content = `
 ${mlbHeroBlock({ line: heroLine, sublabel: today })}
 
 <tr>
   <td style="padding:8px 24px 16px;" class="intro-td">
-    <p style="margin:0;font-size:15px;color:#4b5563;line-height:1.65;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+    <p style="margin:0;font-size:15px;color:#4b5563;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
       Good ${partOfDay}, ${greetingName}. Here\u2019s what\u2019s moving across the diamond.
     </p>
   </td>
@@ -229,18 +234,24 @@ export function renderText(data = {}) {
     '',
   ];
   if (narrativeParagraph) {
-    lines.push(narrativeParagraph.replace(/\*\*/g, ''));
+    // Convert to bullets for plain text too
+    const plain = narrativeParagraph.replace(/\*\*/g, '');
+    const sentences = plain.split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.length > 15);
+    sentences.forEach(s => lines.push(`\u2022 ${s}`));
     lines.push('');
   }
   if (headlines.length > 0) {
     lines.push('\u{26A1} DIAMOND DISPATCH');
-    lines.push(...headlines.slice(0, 5).map((h, i) => `${i + 1}. ${h.title || 'No title'}${h.source ? ` (${h.source})` : ''}`));
+    headlines.slice(0, 5).forEach(h => {
+      lines.push(`\u2022 ${h.title || 'No title'}`);
+      if (h.source) lines.push(`  (${h.source})`);
+    });
     lines.push('');
   }
   const finals = scoresToday.filter(g => /final/i.test(g.status || g.gameStatus || '')).slice(0, 5);
   if (finals.length > 0) {
     lines.push('SCORES');
-    lines.push(...finals.map(g => `${g.awayTeam} ${g.awayScore ?? ''} @ ${g.homeTeam} ${g.homeScore ?? ''}`.trim()));
+    finals.forEach(g => lines.push(`${g.awayTeam} ${g.awayScore ?? ''} @ ${g.homeTeam} ${g.homeScore ?? ''}`.trim()));
     lines.push('');
   }
   lines.push('Open MLB Intelligence -> https://maximussports.ai/mlb', '', 'Not betting advice. Manage preferences: https://maximussports.ai/settings');

@@ -252,6 +252,85 @@ export function mlbParagraph(text) {
 }
 
 /**
+ * Convert a narrative paragraph into an array of bullet-point strings.
+ * Splits on sentence boundaries and groups into digestible insights.
+ */
+export function narrativeToBullets(text) {
+  if (!text) return [];
+  const cleaned = cleanNarrativeText(text);
+  // Strip HTML tags for splitting, but keep them for output
+  const plain = cleaned.replace(/<[^>]+>/g, '');
+  // Split on sentence endings followed by space + uppercase or emoji
+  const sentences = plain
+    .split(/(?<=[.!?])\s+(?=[A-Z\u{1F300}-\u{1FAFF}])/u)
+    .map(s => s.trim())
+    .filter(s => s.length > 15);
+
+  // Re-apply bold formatting from the cleaned HTML version
+  return sentences.map(sentence => {
+    // Find the sentence in the cleaned HTML and return that version
+    const idx = cleaned.replace(/<[^>]+>/g, '').indexOf(sentence.slice(0, 30));
+    if (idx >= 0) {
+      // Extract the HTML version of this sentence
+      let htmlStart = 0;
+      let plainCount = 0;
+      for (let i = 0; i < cleaned.length; i++) {
+        if (cleaned[i] === '<') {
+          const end = cleaned.indexOf('>', i);
+          if (end > i) { i = end; continue; }
+        }
+        if (plainCount === idx) { htmlStart = i; break; }
+        plainCount++;
+      }
+      // Find sentence end in HTML
+      let htmlEnd = htmlStart;
+      let matchedPlain = 0;
+      for (let i = htmlStart; i < cleaned.length; i++) {
+        if (cleaned[i] === '<') {
+          const end = cleaned.indexOf('>', i);
+          if (end > i) { i = end; continue; }
+        }
+        matchedPlain++;
+        if (matchedPlain >= sentence.length) { htmlEnd = i + 1; break; }
+      }
+      const htmlSentence = cleaned.slice(htmlStart, htmlEnd + 20).replace(/\s+$/, '');
+      if (htmlSentence.length > 20) return htmlSentence;
+    }
+    return sentence;
+  }).filter(s => s.length > 15);
+}
+
+/**
+ * Render a bullet list with optional takeaway line.
+ * Each bullet is a table row with bullet character + text.
+ */
+export function mlbBulletSection(bullets, takeaway = '') {
+  if (!bullets || bullets.length === 0) return '';
+
+  const bulletRows = bullets.map(b =>
+    `<tr>
+  <td style="padding:0 24px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td valign="top" style="width:18px;padding:4px 0;font-size:14px;color:${BRAND_RED};font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">&bull;</td>
+        <td style="padding:4px 0;font-size:13.5px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${b}</td>
+      </tr>
+    </table>
+  </td>
+</tr>`
+  ).join('\n');
+
+  const takeawayRow = takeaway ? `
+<tr>
+  <td style="padding:6px 24px 0;" class="section-td">
+    <p style="margin:0;font-size:13px;font-weight:700;color:${NAVY};line-height:1.5;font-family:'DM Sans',Arial,Helvetica,sans-serif;">&rarr; Takeaway: <span style="font-weight:500;color:${TEXT_SECONDARY};">${cleanNarrativeText(takeaway)}</span></p>
+  </td>
+</tr>` : '';
+
+  return `${bulletRows}\n${takeawayRow}\n<tr><td style="height:10px;font-size:0;">&nbsp;</td></tr>`;
+}
+
+/**
  * MLB divider row — subtle separator.
  */
 export function mlbDividerRow() {
