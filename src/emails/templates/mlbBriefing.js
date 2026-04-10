@@ -67,29 +67,20 @@ export function renderHTML(data = {}) {
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
 ${mlbBulletSection(allBullets.slice(0, 5), takeaway)}`;
   } else if (topHeadlines.length > 0) {
-    // Fallback: headlines as bullet links
-    const rows = topHeadlines.map(h => {
+    // Fallback: headlines as bullet links (flat single-td, no nested tables)
+    const headlineHtml = topHeadlines.map(h => {
       const link = h.link || 'https://maximussports.ai/mlb';
       const source = h.source || '';
-      return `<tr>
-  <td style="padding:0 24px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      <tr>
-        <td valign="top" style="width:18px;padding:4px 0;font-size:14px;color:#c41e3a;font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">&bull;</td>
-        <td style="padding:4px 0;">
-          <a href="${link}" style="font-size:13.5px;font-weight:600;color:#111827;text-decoration:none;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;" target="_blank">${h.title || 'No title'}</a>
-          ${source ? `<br/><span style="font-size:10.5px;color:#9ca3af;font-family:'DM Sans',Arial,sans-serif;">${source}</span>` : ''}
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>`;
+      return `<p style="margin:0 0 8px;font-size:14px;line-height:1.55;font-family:'DM Sans',Arial,sans-serif;"><span style="color:#c41e3a;font-weight:700;">&bull;</span>&nbsp; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${h.title || 'No title'}</a>${source ? `<br/><span style="font-size:10.5px;color:#9ca3af;">${source}</span>` : ''}</p>`;
     }).join('\n');
 
     aroundTheLeague = `
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
-${rows}
-<tr><td style="height:10px;font-size:0;">&nbsp;</td></tr>`;
+<tr>
+  <td style="padding:0 24px 14px;" class="section-td">
+    ${headlineHtml}
+  </td>
+</tr>`;
   }
 
   // ── SCORES ────────────────────────────────────────────────────
@@ -164,30 +155,19 @@ ${mlbBulletSection(sections[4].bullets, sections[4].takeaway)}`;
   // ── DIAMOND DISPATCH (curated headline links) ─────────────────
   let diamondDispatch = '';
   if (topHeadlines.length > 0 && hasNarrative) {
-    const links = topHeadlines.slice(0, 4).map(h => {
+    // Flat single-td rendering — no nested tables, no fragmentation
+    const linksHtml = topHeadlines.slice(0, 4).map(h => {
       const link = h.link || '#';
       const source = h.source || '';
-      return `<tr>
-  <td style="padding:0 24px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      <tr>
-        <td valign="top" style="width:18px;padding:5px 0;font-size:14px;color:#c41e3a;font-family:'DM Sans',Arial,sans-serif;line-height:1.5;">&bull;</td>
-        <td style="padding:5px 0;">
-          <a href="${link}" style="font-size:13.5px;font-weight:600;color:#111827;text-decoration:none;line-height:1.45;font-family:'DM Sans',Arial,sans-serif;display:block;" target="_blank">${h.title}</a>
-          ${source ? `<span style="font-size:10.5px;color:#9ca3af;font-family:'DM Sans',Arial,sans-serif;display:block;margin-top:1px;">${source}</span>` : ''}
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>`;
+      return `<p style="margin:0 0 10px;font-size:14px;line-height:1.5;font-family:'DM Sans',Arial,sans-serif;"><span style="color:#c41e3a;font-weight:700;">&bull;</span>&nbsp; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${h.title}</a>${source ? `<br/><span style="font-size:10.5px;color:#9ca3af;">${source}</span>` : ''}</p>`;
     }).join('\n');
 
     diamondDispatch = `
 ${mlbSectionHeader('\u{26A1}', 'DIAMOND DISPATCH')}
-${links}
 <tr>
-  <td style="padding:8px 24px 14px;" class="section-td">
-    <a href="https://maximussports.ai/mlb/news" style="font-size:12px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All MLB news &rarr;</a>
+  <td style="padding:0 24px 14px;" class="section-td">
+    ${linksHtml}
+    <p style="margin:6px 0 0;"><a href="https://maximussports.ai/mlb/news" style="font-size:12px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All MLB news &rarr;</a></p>
   </td>
 </tr>`;
   }
