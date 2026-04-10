@@ -1,0 +1,57 @@
+.page { max-width: 960px; margin: 0 auto; padding: var(--space-lg) 0; }
+.header { margin-bottom: var(--space-lg); }
+.subtitle { font-size: 0.82rem; color: var(--color-text-muted); margin-top: var(--space-xs); }
+.pageTitle { font-size: 1.35rem; font-weight: 700; color: var(--color-text); }
+
+/* Division grid (teams) */
+.divisionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.divisionCard {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.divisionHeader {
+  display: flex; align-items: center; width: 100%;
+  padding: var(--space-md) var(--space-lg); background: none;
+  border: none; cursor: pointer; font-family: inherit;
+  font-size: 0.85rem; font-weight: 600; color: var(--color-text); gap: var(--space-sm);
+}
+.divisionHeader:hover { background: var(--color-bg-muted); }
+
+.divisionLabel { flex: 1; text-align: left; }
+.divisionCount { font-size: 0.72rem; font-weight: 400; color: var(--color-text-muted); }
+
+.teamList {
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.teamItem {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg); font-size: 0.82rem;
+  color: var(--color-text-secondary); transition: background 0.12s, color 0.12s;
+}
+.teamItem:hover { background: var(--color-bg-muted); color: #1d428a; }
+
+.teamAbbrev {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--color-text-muted); min-width: 32px;
+}
+
+/* Empty state */
+.emptyState {
+  text-align: center; padding: var(--space-xxl) var(--space-lg);
+  background: var(--color-bg-elevated); border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+.emptyState h3 { font-size: 1.05rem; font-weight: 600; color: var(--color-text); margin-top: var(--space-md); }
+.emptyState p { font-size: 0.85rem; color: var(--color-text-muted); margin-top: var(--space-sm); max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.55; }
+.emptyIcon { font-size: 2.4rem; }
