@@ -80,11 +80,14 @@ export default function Landing() {
   const [mlbNews, setMlbNews] = useState([]);
   const [mlbVideos, setMlbVideos] = useState([]);
 
-  // ── Welcome modal: same trigger logic as NCAAM Home ──
+  // ── Welcome modal: show only for first-time unauthed visitors ──
+  // Never show if user already completed onboarding or is logged in
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('welcome') === '1') return true;
+      // Skip if user completed onboarding
+      if (getFlag('mx_onboarding_completed')) return false;
       return !getFlag('mx_welcome_seen_v1');
     } catch { return false; }
   });

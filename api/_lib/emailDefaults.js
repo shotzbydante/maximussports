@@ -31,9 +31,9 @@ export const DEFAULT_EMAIL_PREFS = {
   mlb_team_digest:     false,
   mlb_picks:           false,
 
-  // NCAAM
-  ncaam_briefing:      true,
-  ncaam_team_digest:   true,
+  // NCAAM (default off during MLB season / offseason)
+  ncaam_briefing:      false,
+  ncaam_team_digest:   false,
   ncaam_picks:         false,
 };
 

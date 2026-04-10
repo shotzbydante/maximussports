@@ -162,9 +162,9 @@ const DEFAULT_PREFS = {
   mlb_briefing:        true,
   mlb_team_digest:     false,
   mlb_picks:           false,
-  // NCAAM
-  ncaam_briefing:      true,
-  ncaam_team_digest:   true,
+  // NCAAM (default off during MLB season / offseason)
+  ncaam_briefing:      false,
+  ncaam_team_digest:   false,
   ncaam_picks:         false,
 };
 
@@ -419,7 +419,7 @@ function StepTeams({ onNext, initialSelected = [] }) {
   const [selected, setSelected]       = useState(initialSelected);
   const [conference, setConference]   = useState('All');
   const [topTierOnly, setTopTierOnly] = useState(false);
-  const [sportTab, setSportTab]       = useState('ncaam');
+  const [sportTab, setSportTab]       = useState('mlb');
   const [error, setError]             = useState('');
 
   useEffect(() => { track('onboarding_step_view', { step: 1 }); }, []);
@@ -927,12 +927,15 @@ function StepDone({ robotConfig }) {
       </div>
       <h2 className={styles.stepTitle}>You're all set</h2>
       <p className={styles.stepSubtitle}>Your personalized command center is ready.</p>
-      <p className={styles.doneDesc}>AI-powered picks, matchup intelligence, and market edges — tailored to your teams across college basketball and MLB.</p>
+      <p className={styles.doneDesc}>AI-powered picks, matchup intelligence, and market edges — tailored to your teams across MLB and college basketball.</p>
       <p className={styles.doneDigestNote}>
         Your daily briefing is active. First delivery around 6&nbsp;AM&nbsp;PT.
       </p>
-      <button className={styles.btnPrimary} onClick={() => navigate('/')}>
-        Enter Maximus Sports
+      <button className={styles.btnPrimary} onClick={() => {
+        try { localStorage.setItem('mx_onboarding_completed', 'true'); } catch { /* ignore */ }
+        navigate('/mlb');
+      }}>
+        Enter MLB Intelligence
       </button>
     </div>
   );

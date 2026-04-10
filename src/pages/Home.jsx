@@ -596,11 +596,12 @@ export default function Home() {
   const [intelRef, intelInView] = useInView({ rootMargin: '300px' });
   const [tournamentRef, tournamentInView] = useInView({ rootMargin: '300px' });
 
-  // ── Welcome modal: show on first visit or when ?welcome=1 is present ──
+  // ── Welcome modal: show on first visit, never after onboarding ──
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('welcome') === '1') return true;
+      if (getFlag('mx_onboarding_completed')) return false;
       return !getFlag('mx_welcome_seen_v1');
     } catch { return false; }
   });
