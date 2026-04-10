@@ -10,7 +10,7 @@
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { buildMlbDailyHeadline } from './buildMlbDailyHeadline';
+import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline';
 
 // ── Team emojis ─────────────────────────────────────────────────────────────
 
@@ -31,35 +31,10 @@ function teamEmoji(name) {
   return '⚾';
 }
 
-// ── Rotating brand openers ──────────────────────────────────────────────────
+// ── Day-of-year seed ────────────────────────────────────────────────────────
 
-const OPENERS = [
-  '🔥 When the stars show up… the board moves ⚾',
-  '⚾🔥 The edges show up before the standings do.',
-  '🔥 Early in the season, the signals are already loud ⚾',
-  '⚾ When the model and the market align, you pay attention 🔥',
-  '🔥 Stars. Signals. Edges. The board is live ⚾',
-];
-
-function pickOpener(seed) {
-  // Deterministic-ish rotation based on day of year
-  const dayOfYear = seed || Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  return OPENERS[dayOfYear % OPENERS.length];
-}
-
-// ── Rotating CTAs ───────────────────────────────────────────────────────────
-
-const CTAS = [
-  'Stay locked in. More edges daily 🔥',
-  'This board is forming fast. More tomorrow.',
-  "We're just getting started. More intel daily ⚾",
-  'The season moves fast. Stay ahead → maximussports.ai',
-  'Full board + daily picks → maximussports.ai',
-];
-
-function pickCTA(seed) {
-  const dayOfYear = seed || Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  return CTAS[(dayOfYear + 2) % CTAS.length]; // offset from opener
+function dayOfYear() {
+  return Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
 }
 
 // ── Helper: extract player/team stories from headline ───────────────────────
@@ -204,57 +179,131 @@ function getTopTeams(seasonIntel, count = 4, leagueFilter = null) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function dailyCaption(payload) {
-  const intel = payload.intelBriefing;
+  const doy = dayOfYear();
   const parts = [];
 
-  // ── 1. SIGNATURE OPENER ──
-  parts.push(pickOpener());
-  parts.push('');
-
-  // ── 2. SLIDE 1: Hero storyline (dynamic from live games + briefing) ──
+  // ── Pull the same data the slides use ──
   const dynamicHL = buildMlbDailyHeadline({
     liveGames: payload.mlbLiveGames || [],
     briefing: payload.mlbBriefing || null,
     seasonIntel: null,
   });
-  const heroSummary = dynamicHL.subhead || buildHeroSummary(intel);
-  parts.push(heroSummary);
+  const hotPress = buildMlbHotPress({
+    liveGames: payload.mlbLiveGames || [],
+    briefing: payload.mlbBriefing || null,
+  });
+
+  // ── 1. OPENER — emoji-led, premium, energetic ──
+  parts.push('⚾ Your Daily MLB Intel Briefing is here.');
   parts.push('');
 
-  // Transition line
-  parts.push('And just like that, the 2026 board is already taking shape.');
+  // ── 2. TOP STORY — from the headline engine ──
+  const topBullet = hotPress[0]?.text;
+  const topEmoji = hotPress[0]?.logoSlug ? teamEmoji(nameFromSlug(hotPress[0].logoSlug)) : '🚨';
+  if (topBullet) {
+    parts.push(`${topEmoji} ${topBullet}`);
+  } else if (dynamicHL.subhead) {
+    parts.push(`🚨 ${dynamicHL.subhead}`);
+  }
   parts.push('');
 
-  // ── 3. SLIDE 2: Board + Race ──
-  const boardSummary = buildBoardSummary(payload.seasonIntel);
-  if (boardSummary) {
-    parts.push('📊 Early model signals:');
-    parts.push(boardSummary);
+  // ── 3. SECOND STORY ──
+  const secondBullet = hotPress[1]?.text;
+  const secondEmoji = hotPress[1]?.logoSlug ? teamEmoji(nameFromSlug(hotPress[1].logoSlug)) : '🔥';
+  if (secondBullet) {
+    parts.push(`${secondEmoji} ${secondBullet}`);
     parts.push('');
   }
 
-  // ── 3b. SLIDE 2: Picks ──
-  const picksLine = buildPicksLine(payload);
-  if (picksLine) {
-    parts.push(`💰 Maximus likes ${picksLine}.`);
-    parts.push('Edges are showing early.');
+  // ── 4. TRANSITION — narrative momentum ──
+  const transitions = [
+    'And just like that — the board is already shifting. 👀',
+    'The early signals are loud. The model is reacting. 📡',
+    'Results like these ripple across the standings. 📊',
+  ];
+  parts.push(transitions[doy % transitions.length]);
+  parts.push('');
+
+  // ── 5. MODEL SIGNALS — projected wins leaders ──
+  const topTeams = getTopTeams(payload.seasonIntel, 4);
+  if (topTeams.length > 0) {
+    parts.push('📈 Model signals — projected wins leaders:');
+    for (const t of topTeams) {
+      const e = teamEmoji(t.name || t.abbrev);
+      parts.push(`${e} ${t.abbrev} — ${t.projectedWins} wins`);
+    }
     parts.push('');
   }
 
-  // ── 4. SLIDE 3: World Series Outlook ──
+  // ── 6. PENNANT RACE IMPLICATION ──
   const outlookLine = buildOutlookNarrative(payload.seasonIntel);
   if (outlookLine) {
     parts.push(`🏆 ${outlookLine}`);
     parts.push('');
   }
 
-  // ── 5. CTA ──
-  parts.push(pickCTA());
+  // ── 7. DIVISION CONTEXT (from HOTP bullet 3 or 4) ──
+  const contextBullet = hotPress[2]?.text || hotPress[3]?.text;
+  if (contextBullet) {
+    parts.push(`🔎 ${contextBullet}`);
+    parts.push('');
+  }
 
-  // ── 6. Hashtags ──
-  const hashtags = ['#MLB', '#Baseball', '#SportsBetting', '#MLBPredictions', '#MaximusPicks'];
+  // ── 8. CTA — closing punch ──
+  const ctas = [
+    'The board moves daily. Stay ahead of it → maximussports.ai 🔥',
+    'Tomorrow brings more edges. Stay locked in → maximussports.ai ⚾',
+    'The model never sleeps. Neither should your edge → maximussports.ai 🧠',
+  ];
+  parts.push(ctas[(doy + 1) % ctas.length]);
+
+  // ── 9. HASHTAGS — content-aware, story-specific ──
+  const hashtags = buildDailyHashtags(hotPress, topTeams);
 
   return { caption: parts.join('\n'), hashtags };
+}
+
+// ── Slug → team name helper ────────────────────────────────────────────────
+
+function nameFromSlug(slug) {
+  if (!slug) return '';
+  const team = MLB_TEAMS.find(t => t.slug === slug);
+  return team?.name || slug;
+}
+
+// ── Dynamic hashtag builder ────────────────────────────────────────────────
+
+function buildDailyHashtags(hotPress, topTeams) {
+  const tags = new Set();
+
+  // Always include the core MLB analysis tag
+  tags.add('#MLB');
+  tags.add('#MLBPredictions');
+
+  // Add team-specific hashtags from top stories
+  for (const b of hotPress.slice(0, 2)) {
+    if (b?.logoSlug) {
+      const team = MLB_TEAMS.find(t => t.slug === b.logoSlug);
+      if (team?.name) {
+        tags.add(`#${team.name.replace(/\s+/g, '')}`);
+      }
+    }
+  }
+
+  // Add top projected team if not already present
+  if (topTeams.length > 0) {
+    const topName = topTeams[0].name || topTeams[0].abbrev;
+    if (topName) tags.add(`#${topName.replace(/\s+/g, '')}`);
+  }
+
+  // Fill to 5 with strong category tags
+  const fillers = ['#BaseballAnalytics', '#MLBStandings', '#SportsBetting', '#BaseballIntel', '#MLBModel'];
+  for (const f of fillers) {
+    if (tags.size >= 5) break;
+    tags.add(f);
+  }
+
+  return [...tags].slice(0, 5);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -319,9 +368,14 @@ const SECTION_BUILDERS = {
 export function buildMlbCaption(payload) {
   const builder = SECTION_BUILDERS[payload.section] || genericCaption;
   const result = builder(payload);
+  // Daily briefing: short and long are identical (unified caption)
+  const isDailyBriefing = payload.section === 'daily-briefing';
+  const fullCaption = isDailyBriefing
+    ? result.caption
+    : result.caption + '\n\nFor entertainment only. Please bet responsibly. 21+';
   return {
-    shortCaption: result.caption,
-    longCaption: result.caption + '\n\nFor entertainment only. Please bet responsibly. 21+',
+    shortCaption: fullCaption,
+    longCaption: fullCaption,
     hashtags: result.hashtags,
   };
 }
