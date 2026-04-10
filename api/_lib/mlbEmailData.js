@@ -91,16 +91,16 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
 
   if (includePicks) {
     fetches.push(
-      fetch(`${baseUrl}/api/mlb/picks/board`)
-        .then(r => r.ok ? r.json() : { games: [] })
-        .catch(() => ({ games: [] }))
+      fetch(`${baseUrl}/api/mlb/picks/built`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
     );
   }
 
   const results = await Promise.allSettled(fetches);
   const [mlbNewsResult, mlbLiveResult, ...rest] = results;
   const mlbSummaryResult = includeSummary ? rest.shift() : null;
-  const mlbPicksBoardResult = includePicks ? rest.shift() : null;
+  const mlbPicksBuiltResult = includePicks ? rest.shift() : null;
 
   // Headlines
   const mlbNews = mlbNewsResult.status === 'fulfilled' ? mlbNewsResult.value : {};
@@ -143,18 +143,16 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     }
   }
 
-  // Picks board (run buildMlbPicks server-side)
+  // Picks board (from /api/mlb/picks/built — pre-built server-side)
   let picksBoard = null;
-  if (includePicks && mlbPicksBoardResult?.status === 'fulfilled') {
-    const boardData = mlbPicksBoardResult.value;
-    if (boardData?.games?.length > 0) {
-      try {
-        const { buildMlbPicks } = await import('../../src/features/mlb/picks/buildMlbPicks.js');
-        picksBoard = buildMlbPicks({ games: boardData.games });
-        console.log(`[mlbEmailData] Picks built: pickEms=${picksBoard.categories.pickEms.length} ats=${picksBoard.categories.ats.length} leans=${picksBoard.categories.leans.length} totals=${picksBoard.categories.totals.length}`);
-      } catch (err) {
-        console.warn(`[mlbEmailData] buildMlbPicks failed: ${err.message}`);
-      }
+  if (includePicks && mlbPicksBuiltResult?.status === 'fulfilled') {
+    const builtData = mlbPicksBuiltResult.value;
+    if (builtData?.categories) {
+      picksBoard = builtData;
+      const c = builtData.categories;
+      console.log(`[mlbEmailData] Picks received: pickEms=${c.pickEms?.length || 0} ats=${c.ats?.length || 0} leans=${c.leans?.length || 0} totals=${c.totals?.length || 0}`);
+    } else {
+      console.warn(`[mlbEmailData] /api/mlb/picks/built returned no categories:`, JSON.stringify(builtData)?.slice(0, 200));
     }
   }
 
