@@ -18,15 +18,28 @@ const BORDER         = '#e5e7eb';
 const MASCOT_URL     = 'https://maximussports.ai/mascot-mlb.png';
 
 /**
+ * Strip inline emojis from body/bullet text.
+ * Gmail renders emojis as oversized inline elements that force line breaks.
+ * Applied to all bullet/body content but NOT to section headers or subject lines.
+ */
+export function stripInlineEmoji(text = '') {
+  return text
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
  * Clean raw AI narrative text for email rendering.
  * - Converts markdown bold (**text**) to <strong> tags
  * - Strips paragraph markers (¶1, ¶2)
  * - Removes duplicate section headers that appear inline
+ * - Strips inline emojis that break Gmail mobile line wrapping
  * - Trims excessive whitespace
  */
 export function cleanNarrativeText(text) {
   if (!text) return '';
-  return text
+  let result = text
     // Strip paragraph markers
     .replace(/¶\d+\s*/g, '')
     // Convert markdown bold to HTML
@@ -36,6 +49,15 @@ export function cleanNarrativeText(text) {
     // Clean up excessive whitespace
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  // Strip emojis from the plain-text portions (preserve HTML tags)
+  result = result.replace(/(>[^<]*)/g, (match) => {
+    return match.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').replace(/\s{2,}/g, ' ');
+  });
+  // Strip emojis from text before the first HTML tag
+  result = result.replace(/^([^<]+)/, (match) => {
+    return match.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').replace(/\s{2,}/g, ' ');
+  });
+  return result.trim();
 }
 
 export function MlbEmailShell({ content, previewText = '', userId = '', ctaUrl = '', ctaLabel = '' }) {
@@ -246,7 +268,7 @@ export function mlbParagraph(text) {
   return `
 <tr>
   <td style="padding:0 24px 14px;" class="section-td">
-    <p style="margin:0;font-size:14px;color:${TEXT_SECONDARY};line-height:1.7;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${cleanNarrativeText(text)}</p>
+    <p style="margin:0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,Helvetica,sans-serif;">${stripInlineEmoji(cleanNarrativeText(text))}</p>
   </td>
 </tr>`;
 }
@@ -292,11 +314,11 @@ export function mlbBulletSection(bullets, takeaway = '') {
   if (!bullets || bullets.length === 0) return '';
 
   const bulletHtml = bullets.map(b =>
-    `<p style="margin:0 0 8px;font-size:14px;color:${TEXT_SECONDARY};line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;"><span style="color:${BRAND_RED};font-weight:700;">&bull;</span>&nbsp; ${b}</p>`
+    `<p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,Helvetica,sans-serif;">&bull; ${stripInlineEmoji(b)}</p>`
   ).join('\n');
 
   const takeawayHtml = takeaway
-    ? `<p style="margin:8px 0 0;padding:10px 14px;font-size:13px;color:${NAVY};line-height:1.55;font-family:'DM Sans',Arial,Helvetica,sans-serif;background-color:#fef2f2;border-radius:6px;border-left:3px solid ${BRAND_RED};">&rarr; <strong>Takeaway:</strong> ${cleanNarrativeText(takeaway)}</p>`
+    ? `<p style="margin:16px 0 0 0;padding:12px 14px;font-size:15px;line-height:22px;color:#7f1d1d;font-family:'DM Sans',Arial,Helvetica,sans-serif;background-color:#fef2f2;border-radius:6px;border-left:3px solid ${BRAND_RED};">&rarr; <strong>Takeaway:</strong> ${stripInlineEmoji(cleanNarrativeText(takeaway))}</p>`
     : '';
 
   return `
