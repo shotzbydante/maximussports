@@ -116,39 +116,46 @@ function teamCaption(payload) {
   const projection = payload.projection || null;
   const lines = [];
 
-  // Opener — editorial identity
+  // Opener — editorial identity with headline thesis
   lines.push(`${emoji} ${teamName} — Team Intel Report`);
   lines.push('');
 
-  // Subhead — contextual, not generic
+  // Headline thesis as social hook
   if (payload.subhead) {
     lines.push(payload.subhead);
     lines.push('');
   }
 
-  // Projection context
+  // Projection + standings context
   if (projection?.projectedWins) {
-    lines.push(`📈 Model: ${projection.projectedWins} projected wins (${projection.floor}\u2013${projection.ceiling} range)`);
+    const parts = [`📈 ${projection.projectedWins} projected wins`];
+    if (projection.floor && projection.ceiling) {
+      parts[0] += ` (${projection.floor}\u2013${projection.ceiling} range)`;
+    }
     if (projection.marketDelta != null && Math.abs(projection.marketDelta) >= 1.5) {
       const dir = projection.marketDelta > 0 ? 'above' : 'below';
-      lines.push(`📐 ${Math.abs(projection.marketDelta).toFixed(1)} wins ${dir} market consensus`);
+      parts.push(`📐 ${Math.abs(projection.marketDelta).toFixed(1)} wins ${dir} market consensus`);
     }
+    lines.push(parts.join('\n'));
     lines.push('');
   }
 
-  // Intel briefing bullets
+  // Full Team Intel Briefing — mirrors the slide
   if (bullets.length > 0) {
     lines.push('🔎 Team Intel Briefing:');
-    for (const b of bullets) lines.push(`• ${b}`);
+    for (let i = 0; i < bullets.length; i++) {
+      lines.push(`${i + 1}. ${bullets[i]}`);
+    }
     lines.push('');
   }
 
   // CTA
   lines.push('Full breakdown → maximussports.ai');
 
+  const teamTag = teamName.replace(/\s+/g, '');
   return {
     caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', `#${teamName.replace(/\s+/g, '')}`, '#BaseballIntel', '#MaximusSports'],
+    hashtags: ['#MLB', '#Baseball', `#${teamTag}`, '#BaseballIntel', '#MaximusSports'],
   };
 }
 
