@@ -133,7 +133,7 @@ export default async function handler(req, res) {
 
   // ── Fetch data ─────────────────────────────────────────────────────────────
   try {
-    let scoresToday, rankingsTop25, atsLeaders, headlines, botIntelBullets, maximusNote, narrativeParagraph;
+    let scoresToday, rankingsTop25, atsLeaders, headlines, botIntelBullets, maximusNote, narrativeParagraph, picksBoard;
     let pinnedTeams = FALLBACK_PINNED_TEAMS;
     let pinnedSlugs = FALLBACK_PINNED_TEAMS.map(t => t.slug);
 
@@ -154,6 +154,7 @@ export default async function handler(req, res) {
       const host = req.headers.host || 'localhost:3000';
       const mlbData = await assembleMlbEmailData(`http://${host}`, {
         includeSummary: tplType === 'mlbBriefing',
+        includePicks: tplType === 'mlbPicks',
       });
       scoresToday = mlbData.scoresToday;
       rankingsTop25 = mlbData.rankingsTop25;
@@ -161,6 +162,7 @@ export default async function handler(req, res) {
       headlines = mlbData.headlines;
       botIntelBullets = mlbData.botIntelBullets;
       narrativeParagraph = mlbData.narrativeParagraph;
+      picksBoard = mlbData.picksBoard || null;
       maximusNote = botIntelBullets[0] || '';
     } else {
       // ── NCAAM / GLOBAL DATA ──
@@ -188,6 +190,7 @@ export default async function handler(req, res) {
       scoresToday, rankingsTop25, atsLeaders, headlines,
       pinnedTeams, pinnedSlugs, botIntelBullets, maximusNote,
       narrativeParagraph: narrativeParagraph || '',
+      picksBoard: picksBoard || null,
     };
 
     let html;

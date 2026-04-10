@@ -260,12 +260,14 @@ export default async function handler(req, res) {
     let oddsGames = [];
     let botIntelBullets = [];
     let mlbNarrativeParagraph = '';
+    let picksBoard = null;
 
     if (isMLB) {
       // MLB-specific data via shared helper (no NCAAM contamination possible)
       const host = req.headers.host || 'localhost:3000';
       const mlbData = await assembleMlbEmailData(`http://${host}`, {
         includeSummary: tplType === 'mlbBriefing',
+        includePicks: tplType === 'mlbPicks',
       });
       headlines = mlbData.headlines;
       scoresToday = mlbData.scoresToday;
@@ -274,7 +276,8 @@ export default async function handler(req, res) {
       rankingsTop25 = mlbData.rankingsTop25;
       atsLeaders = mlbData.atsLeaders;
       oddsGames = mlbData.oddsGames;
-      console.log(`[global-send] MLB data: ${headlines.length} headlines, ${scoresToday.length} games`);
+      picksBoard = mlbData.picksBoard;
+      console.log(`[global-send] MLB data: ${headlines.length} headlines, ${scoresToday.length} games, picks=${!!picksBoard}`);
     } else {
       // NCAAM / Global data fetching
       const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
@@ -323,7 +326,7 @@ export default async function handler(req, res) {
       }
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
-      const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames, narrativeParagraph: isMLB ? mlbNarrativeParagraph : '' };
+      const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames, narrativeParagraph: isMLB ? mlbNarrativeParagraph : '', picksBoard: picksBoard || null };
 
       let subject, html, text;
       try {

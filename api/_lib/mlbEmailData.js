@@ -13,6 +13,7 @@
  * @param {string} baseUrl — e.g. "http://localhost:3000" or "https://maximussports.ai"
  * @param {object} [opts]
  * @param {boolean} [opts.includeSummary=true] — fetch the AI narrative (slower; skip for picks/digest)
+ * @param {boolean} [opts.includePicks=false] — fetch picks board + run buildMlbPicks (for picks email)
  * @returns {Promise<MlbEmailPayload>}
  */
 
@@ -69,7 +70,7 @@ function validateMlbScores(scores) {
 }
 
 export async function assembleMlbEmailData(baseUrl, opts = {}) {
-  const { includeSummary = true } = opts;
+  const { includeSummary = true, includePicks = false } = opts;
 
   const fetches = [
     fetch(`${baseUrl}/api/mlb/news/headlines`)
@@ -88,7 +89,18 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     );
   }
 
-  const [mlbNewsResult, mlbLiveResult, mlbSummaryResult] = await Promise.allSettled(fetches);
+  if (includePicks) {
+    fetches.push(
+      fetch(`${baseUrl}/api/mlb/picks/board`)
+        .then(r => r.ok ? r.json() : { games: [] })
+        .catch(() => ({ games: [] }))
+    );
+  }
+
+  const results = await Promise.allSettled(fetches);
+  const [mlbNewsResult, mlbLiveResult, ...rest] = results;
+  const mlbSummaryResult = includeSummary ? rest.shift() : null;
+  const mlbPicksBoardResult = includePicks ? rest.shift() : null;
 
   // Headlines
   const mlbNews = mlbNewsResult.status === 'fulfilled' ? mlbNewsResult.value : {};
@@ -131,13 +143,29 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     }
   }
 
-  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}`);
+  // Picks board (run buildMlbPicks server-side)
+  let picksBoard = null;
+  if (includePicks && mlbPicksBoardResult?.status === 'fulfilled') {
+    const boardData = mlbPicksBoardResult.value;
+    if (boardData?.games?.length > 0) {
+      try {
+        const { buildMlbPicks } = await import('../../src/features/mlb/picks/buildMlbPicks.js');
+        picksBoard = buildMlbPicks({ games: boardData.games });
+        console.log(`[mlbEmailData] Picks built: pickEms=${picksBoard.categories.pickEms.length} ats=${picksBoard.categories.ats.length} leans=${picksBoard.categories.leans.length} totals=${picksBoard.categories.totals.length}`);
+      } catch (err) {
+        console.warn(`[mlbEmailData] buildMlbPicks failed: ${err.message}`);
+      }
+    }
+  }
+
+  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}, picks=${!!picksBoard}`);
 
   return {
     headlines,
     scoresToday,
     narrativeParagraph,
     botIntelBullets,
+    picksBoard,
     // Empty NCAAM-specific fields so templates don't break
     rankingsTop25: [],
     atsLeaders: { best: [], worst: [] },

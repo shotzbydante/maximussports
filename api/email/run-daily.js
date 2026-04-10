@@ -448,12 +448,14 @@ export default async function handler(req, res) {
     let botIntelBullets = [];
     let briefingContext = {};
     let mlbNarrativeParagraph = '';
+    let picksBoard = null;
 
     if (isMLB) {
       // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──
       const host = req.headers.host || 'localhost:3000';
       const mlbData = await assembleMlbEmailData(`http://${host}`, {
         includeSummary: tplType === 'mlbBriefing',
+        includePicks: tplType === 'mlbPicks',
       });
       headlines = mlbData.headlines;
       scoresToday = mlbData.scoresToday;
@@ -462,8 +464,9 @@ export default async function handler(req, res) {
       rankingsTop25 = mlbData.rankingsTop25;
       atsLeaders = mlbData.atsLeaders;
       oddsGames = mlbData.oddsGames;
+      picksBoard = mlbData.picksBoard;
 
-      console.log(`[run-daily] MLB data: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets`);
+      console.log(`[run-daily] MLB data: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, picks=${!!picksBoard}`);
 
     } else {
       // ── NCAAM / Global data fetching (original pipeline) ──
@@ -632,6 +635,7 @@ export default async function handler(req, res) {
         priorDayResults: briefingContext.priorDayResults || [],
         todayUpcoming: briefingContext.todayUpcoming || [],
         picksSummary: briefingContext.picksSummary || '',
+        picksBoard: picksBoard || null,
       };
 
       let subject, html, text;
