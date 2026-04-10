@@ -5,6 +5,12 @@
     "api/social/instagram/publish.js": {
       "maxDuration": 120
     },
+    "api/social/instagram/publish-carousel.js": {
+      "maxDuration": 120
+    },
+    "api/social/instagram/autopost-mlb-daily.js": {
+      "maxDuration": 120
+    },
     "api/email/run-daily.js": {
       "maxDuration": 120
     },
@@ -71,6 +77,7 @@
     {"path": "/api/email/run-daily?type=mlb_picks",         "schedule": "15 19 * * *"},
     {"path": "/api/email/run-daily?type=ncaam_briefing",    "schedule": "0 14 * * *"},
     {"path": "/api/email/run-daily?type=ncaam_team_digest", "schedule": "45 22 * * *"},
-    {"path": "/api/email/run-daily?type=ncaam_picks",       "schedule": "0 20 * * *"}
+    {"path": "/api/email/run-daily?type=ncaam_picks",       "schedule": "0 20 * * *"},
+    {"path": "/api/social/instagram/autopost-mlb-daily?mode=live", "schedule": "0 13 * * *"}
   ]
 }
