@@ -30,15 +30,15 @@ const VALID_TYPES = [
   'ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks',
 ];
 
-/** Map new type → legacy template key for dynamic import. */
+/** Map new type → template key for dynamic import. */
 const TYPE_TO_TEMPLATE = {
   global_briefing:   'daily',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
-  mlb_briefing:      'news',
-  mlb_team_digest:   'teamDigest',
-  mlb_picks:         'odds',
+  mlb_briefing:      'mlbBriefing',
+  mlb_team_digest:   'mlbTeamDigest',
+  mlb_picks:         'mlbPicks',
 };
 
 const FALLBACK_PINNED_TEAMS = [
@@ -57,7 +57,10 @@ async function loadTemplate(type) {
     case 'pinned':     return import('../../src/emails/templates/pinnedTeamsAlerts.js');
     case 'odds':       return import('../../src/emails/templates/oddsIntel.js');
     case 'news':       return import('../../src/emails/templates/breakingNews.js');
-    case 'teamDigest': return import('../../src/emails/templates/teamDigest.js');
+    case 'teamDigest':   return import('../../src/emails/templates/teamDigest.js');
+    case 'mlbBriefing':  return import('../../src/emails/templates/mlbBriefing.js');
+    case 'mlbPicks':     return import('../../src/emails/templates/mlbPicks.js');
+    case 'mlbTeamDigest': return import('../../src/emails/templates/mlbTeamDigest.js');
     default:           throw new Error(`Unknown template type: ${type} (mapped: ${tpl})`);
   }
 }

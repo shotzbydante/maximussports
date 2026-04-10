@@ -19,6 +19,9 @@ import { renderHTML as renderPinnedHTML } from '../../src/emails/templates/pinne
 import { renderHTML as renderOddsHTML }   from '../../src/emails/templates/oddsIntel.js';
 import { renderHTML as renderNewsHTML }   from '../../src/emails/templates/breakingNews.js';
 import { renderHTML as renderDigestHTML } from '../../src/emails/templates/teamDigest.js';
+import { renderHTML as renderMlbBriefingHTML } from '../../src/emails/templates/mlbBriefing.js';
+import { renderHTML as renderMlbPicksHTML } from '../../src/emails/templates/mlbPicks.js';
+import { renderHTML as renderMlbDigestHTML } from '../../src/emails/templates/mlbTeamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
 
@@ -28,15 +31,15 @@ const VALID_TYPES = [
   'ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks',
 ];
 
-/** Map new type → legacy template key. */
+/** Map new type → template key. */
 const TYPE_TO_TEMPLATE = {
   global_briefing:   'daily',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
-  mlb_briefing:      'news',
-  mlb_team_digest:   'teamDigest',
-  mlb_picks:         'odds',
+  mlb_briefing:      'mlbBriefing',
+  mlb_team_digest:   'mlbTeamDigest',
+  mlb_picks:         'mlbPicks',
 };
 
 // Fallback only used when no authenticated admin or admin has zero pinned teams
@@ -191,6 +194,22 @@ export default async function handler(req, res) {
         );
         const digestData = { ...emailData, teamDigests, totalTeamCount: pinnedSlugs.length };
         html = renderDigestHTML(digestData);
+        break;
+      }
+      case 'mlbBriefing':
+        html = renderMlbBriefingHTML(emailData);
+        break;
+      case 'mlbPicks':
+        html = renderMlbPicksHTML(emailData);
+        break;
+      case 'mlbTeamDigest': {
+        const { getTeamBySlug: getSlug } = await import('../../src/data/teams.js');
+        const td = assembleTeamDigestPayload(
+          pinnedSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
+          { scoresToday, rankingsTop25, atsLeaders, headlines },
+          getSlug
+        );
+        html = renderMlbDigestHTML({ ...emailData, teamDigests: td, totalTeamCount: pinnedSlugs.length });
         break;
       }
     }

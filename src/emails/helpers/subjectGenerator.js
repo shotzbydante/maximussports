@@ -141,7 +141,92 @@ export function breakingNewsSubject({ displayName, headlines = [] } = {}) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TEAM DIGEST SUBJECTS
+   MLB DAILY BRIEFING SUBJECTS
+   ═══════════════════════════════════════════════════════════════ */
+
+export function mlbBriefingSubject({ displayName, headlines = [] } = {}) {
+  const top1 = headlines[0]?.title;
+  const top2 = headlines[1]?.title;
+
+  // Extract short hooks from headlines
+  function shorten(title, max = 30) {
+    if (!title) return null;
+    if (title.length <= max) return title;
+    const cut = title.lastIndexOf(' ', max);
+    return title.slice(0, cut > 10 ? cut : max);
+  }
+
+  const hook1 = shorten(top1);
+  const hook2 = shorten(top2, 25);
+
+  const templates = [];
+
+  if (hook1 && hook2) {
+    templates.push(`\u26BE MLB Daily Briefing: ${hook1}, ${hook2}`);
+    templates.push(`\u26BE MLB Daily Briefing: ${hook1} \u{1F525}`);
+  }
+  if (hook1) {
+    templates.push(`\u26BE MLB Daily Briefing: ${hook1}`);
+    templates.push(`\u26BE ${hook1} \u2014 and more from around the league`);
+  }
+
+  templates.push(`\u26BE MLB Daily Briefing: The stories that move the needle`);
+  templates.push(`\u26BE MLB Daily Briefing: What you need to know today`);
+  templates.push(`\u26BE MLB Daily Briefing: Headlines, intel, and edges`);
+
+  return pick(templates, 'mlb_briefing');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MLB PICKS SUBJECTS
+   ═══════════════════════════════════════════════════════════════ */
+
+export function mlbPicksSubject({ displayName, atsLeaders = {}, scoresToday = [], oddsGames = [] } = {}) {
+  const best = atsLeaders.best || [];
+  const gameCount = oddsGames.length || scoresToday.length || 0;
+  const topTeam = best[0];
+
+  const templates = [];
+
+  if (gameCount > 0) {
+    templates.push(`\u26BE Maximus Picks: ${gameCount} High-Conviction Plays \u{1F4B0}`);
+    templates.push(`\u26BE Maximus Picks: Today\u2019s edges across ${gameCount} games`);
+  }
+  if (topTeam) {
+    templates.push(`\u26BE Maximus Picks: ${topTeam.name || topTeam.team} is covering everything \u{1F4B0}`);
+    templates.push(`\u26BE ATS edge alert: ${topTeam.name || topTeam.team} leads today\u2019s board`);
+  }
+
+  templates.push(`\u26BE Maximus Picks: Model-driven MLB edges \u{1F4B0}`);
+  templates.push(`\u26BE Maximus Picks: Where the value lives today`);
+  templates.push(`\u26BE MLB ATS intel and today\u2019s sharpest edges`);
+
+  return pick(templates, 'mlb_picks');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MLB TEAM DIGEST SUBJECTS
+   ═══════════════════════════════════════════════════════════════ */
+
+export function mlbTeamDigestSubject({ displayName, teamDigests = [] } = {}) {
+  const first = teamDigests[0];
+  const teamName = first?.team?.name || null;
+
+  const templates = [];
+  if (teamName && teamDigests.length === 1) {
+    templates.push(`\u26BE Your Teams Today: ${teamName} full intel`);
+    templates.push(`\u26BE ${teamName}: digest, trends, and outlook`);
+  } else if (teamName && teamDigests.length > 1) {
+    templates.push(`\u26BE Your Teams Today: ${teamName} + ${teamDigests.length - 1} more`);
+    templates.push(`\u26BE ${teamDigests.length} team digests ready \u2014 full MLB intel`);
+  }
+  templates.push(`\u26BE Your Teams Today: MLB team digest is ready`);
+
+  return pick(templates, 'mlb_team_digest');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEAM DIGEST SUBJECTS (NCAAM)
    ═══════════════════════════════════════════════════════════════ */
 
 export function teamDigestSubject({ displayName, teamDigests = [] } = {}) {

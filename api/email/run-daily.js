@@ -40,6 +40,9 @@ import { getSubject as getPinnedSubject, renderHTML as renderPinnedHTML, renderT
 import { getSubject as getOddsSubject, renderHTML as renderOddsHTML, renderText as renderOddsText } from '../../src/emails/templates/oddsIntel.js';
 import { getSubject as getNewsSubject, renderHTML as renderNewsHTML, renderText as renderNewsText } from '../../src/emails/templates/breakingNews.js';
 import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderText as renderDigestText } from '../../src/emails/templates/teamDigest.js';
+import { getSubject as getMlbBriefingSubject, renderHTML as renderMlbBriefingHTML, renderText as renderMlbBriefingText } from '../../src/emails/templates/mlbBriefing.js';
+import { getSubject as getMlbPicksSubject, renderHTML as renderMlbPicksHTML, renderText as renderMlbPicksText } from '../../src/emails/templates/mlbPicks.js';
+import { getSubject as getMlbDigestSubject, renderHTML as renderMlbDigestHTML, renderText as renderMlbDigestText } from '../../src/emails/templates/mlbTeamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
@@ -75,15 +78,15 @@ const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
 /** Types that are NCAAM-specific and should be gated by NCAAM season state. */
 const NCAAM_TYPES = ['ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks'];
 
-/** Map new type → template rendering function set (reuses existing templates). */
+/** Map new type → template rendering function set. */
 const TYPE_TO_TEMPLATE = {
   global_briefing:   'daily',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
-  mlb_briefing:      'news',
-  mlb_team_digest:   'teamDigest',
-  mlb_picks:         'odds',
+  mlb_briefing:      'mlbBriefing',
+  mlb_team_digest:   'mlbTeamDigest',
+  mlb_picks:         'mlbPicks',
 };
 
 function makeDateKey(type) {
@@ -666,6 +669,36 @@ export default async function handler(req, res) {
             subject = getDigestSubject(digestEmailData);
             html    = renderDigestHTML(digestEmailData);
             text    = renderDigestText(digestEmailData);
+            break;
+          }
+          case 'mlbBriefing':
+            subject = getMlbBriefingSubject(emailData);
+            html    = renderMlbBriefingHTML(emailData);
+            text    = renderMlbBriefingText(emailData);
+            break;
+          case 'mlbPicks':
+            subject = getMlbPicksSubject(emailData);
+            html    = renderMlbPicksHTML(emailData);
+            text    = renderMlbPicksText(emailData);
+            break;
+          case 'mlbTeamDigest': {
+            if (!getTeamBySlugFn || pinnedSlugs.length === 0) {
+              skipCounts.no_digest_teams++;
+              console.log(`[run-daily] SKIP user=${userId} reason=no_pinned_teams email=${email}`);
+              continue;
+            }
+            const planEntitlements2 = getProfileEntitlements(profile);
+            const maxEmailTeams2 = isFinite(planEntitlements2.maxEmailTeams)
+              ? planEntitlements2.maxEmailTeams
+              : TEAM_DIGEST_MAX_TEAMS;
+            const digestSlugs2 = pinnedSlugs.slice(0, Math.min(maxEmailTeams2, TEAM_DIGEST_MAX_TEAMS));
+            const teamDigests2 = assembleTeamDigestPayload(
+              digestSlugs2, { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlugFn
+            );
+            const mlbDigestData = { ...emailData, teamDigests: teamDigests2, totalTeamCount: pinnedSlugs.length };
+            subject = getMlbDigestSubject(mlbDigestData);
+            html    = renderMlbDigestHTML(mlbDigestData);
+            text    = renderMlbDigestText(mlbDigestData);
             break;
           }
         }
