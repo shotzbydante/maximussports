@@ -1,0 +1,215 @@
+/* ── NextScheduledPost ─────────────────────────────────────────────────── */
+
+.root {
+  margin-top: 32px;
+  margin-bottom: 0;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Readiness badge ───────────────────────────────────────────────────── */
+.readinessBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.readinessIcon {
+  font-size: 9px;
+}
+
+.readiness_green {
+  background: rgba(45, 138, 110, 0.10);
+  color: var(--color-up, #2d8a6e);
+  border: 1px solid rgba(45, 138, 110, 0.22);
+}
+
+.readiness_amber {
+  background: rgba(210, 160, 50, 0.10);
+  color: #b89230;
+  border: 1px solid rgba(210, 160, 50, 0.25);
+}
+
+.readiness_red {
+  background: rgba(196, 92, 74, 0.10);
+  color: var(--color-down, #c45c4a);
+  border: 1px solid rgba(196, 92, 74, 0.22);
+}
+
+/* ── Card ──────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card, 12px);
+  padding: 14px 18px;
+  border-left: 3px solid var(--color-up, #2d8a6e);
+}
+
+/* ── Main row ──────────────────────────────────────────────────────────── */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ── Post info (left) ──────────────────────────────────────────────────── */
+.postInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.postName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.pills {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.platformPill,
+.typePill {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.platformPill {
+  color: var(--color-primary);
+  border-color: rgba(60, 121, 180, 0.2);
+}
+
+/* ── Schedule info (right) ─────────────────────────────────────────────── */
+.scheduleInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.scheduleTime {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.timePrimary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.timeDivider {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.timeSecondary {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.countdown {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-up, #2d8a6e);
+  letter-spacing: 0.02em;
+}
+
+/* ── Last run row ──────────────────────────────────────────────────────── */
+.lastRun {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.lastRunLabel {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.lastRunTime {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.lastRunLink {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary, #3C79B4);
+  text-decoration: none;
+  margin-left: auto;
+}
+
+.lastRunLink:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .scheduleInfo {
+    align-items: flex-start;
+  }
+
+  .lastRun {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .lastRunLink {
+    margin-left: 0;
+  }
+}

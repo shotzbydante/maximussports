@@ -99,7 +99,8 @@ function StatusBadge({ status }) {
 
 function SummaryStats({ posts }) {
   const counts = posts.reduce((acc, p) => {
-    acc[p.lifecycle_status] = (acc[p.lifecycle_status] ?? 0) + 1;
+    const status = getEffectiveStatus(p);
+    acc[status] = (acc[status] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -152,6 +153,18 @@ function CaptionPreview({ text }) {
   );
 }
 
+/**
+ * Derive effective status from durable fields.
+ * If lifecycle_status is 'pending' but published_media_id or permalink exists,
+ * the publish clearly succeeded — show 'posted' instead of stale 'pending'.
+ */
+function getEffectiveStatus(post) {
+  if (post.lifecycle_status === 'pending') {
+    if (post.published_media_id || post.permalink) return 'posted';
+  }
+  return post.lifecycle_status;
+}
+
 function PostCard({ post }) {
   const [captionCopied, setCaptionCopied] = useState(false);
 
@@ -169,6 +182,7 @@ function PostCard({ post }) {
     if (post.image_snapshot_url) window.open(post.image_snapshot_url, '_blank', 'noopener');
   };
 
+  const effectiveStatus = getEffectiveStatus(post);
   const platformMeta = PLATFORM_META[post.platform] ?? { label: post.platform, icon: '🌐' };
   const postedTs   = formatTs(post.posted_at);
   const createdTs  = formatTs(post.created_at);
@@ -176,12 +190,13 @@ function PostCard({ post }) {
   const tsLabel    = post.posted_at ? 'Posted' : 'Created';
 
   const detail = parseStatusDetail(post.status_detail);
-  const permalink = detail?.permalink ?? null;
-  const durationLabel = formatDuration(detail?.duration_ms);
+  // Read permalink from top-level column first, then status_detail fallback
+  const permalink = post.permalink ?? detail?.permalink ?? null;
+  const durationLabel = formatDuration(detail?.duration_ms ?? detail?.durationMs);
   const requestId = post.asset_version ?? detail?.request_id ?? null;
 
   return (
-    <div className={`${styles.card} ${styles[`card_${post.lifecycle_status}`] ?? ''}`}>
+    <div className={`${styles.card} ${styles[`card_${effectiveStatus}`] ?? ''}`}>
       {/* Thumbnail */}
       <div className={styles.thumb}>
         {post.image_snapshot_url ? (
@@ -213,7 +228,7 @@ function PostCard({ post }) {
           <span className={styles.cardTitle}>
             {post.title ?? post.template_type ?? post.content_studio_section ?? 'Untitled'}
           </span>
-          <StatusBadge status={post.lifecycle_status} />
+          <StatusBadge status={effectiveStatus} />
         </div>
 
         {/* Row 2: platform + team + duration */}
@@ -238,7 +253,7 @@ function PostCard({ post }) {
         )}
 
         {/* Row 4: failure detail — human-readable stage + message */}
-        {post.lifecycle_status === 'failed' && (
+        {effectiveStatus === 'failed' && (
           <div className={styles.errorDetail} role="alert">
             {post.response_stage && (
               <span className={styles.failStageLabel}>
@@ -252,7 +267,7 @@ function PostCard({ post }) {
         )}
 
         {/* Row 5: permalink or media ID */}
-        {permalink && post.lifecycle_status === 'posted' ? (
+        {permalink && effectiveStatus === 'posted' ? (
           <a
             href={permalink}
             target="_blank"
@@ -261,7 +276,7 @@ function PostCard({ post }) {
           >
             View on Instagram ↗
           </a>
-        ) : post.published_media_id ? (
+        ) : post.published_media_id && effectiveStatus === 'posted' ? (
           <p className={styles.mediaId}>
             ID&nbsp;{post.published_media_id}
           </p>

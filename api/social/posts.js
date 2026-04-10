@@ -57,6 +57,9 @@ export default async function handler(req, res) {
       posted_at,
       published_media_id,
       creation_id,
+      permalink,
+      status_detail,
+      asset_version,
       error_message,
       team_slug,
       team_name,
@@ -73,6 +76,41 @@ export default async function handler(req, res) {
   if (team)     query = query.eq('team_slug', team);
 
   const { data, error, count } = await query;
+
+  // ── Reconcile stale pending records ──
+  // If a record has published_media_id or permalink but lifecycle_status is still 'pending',
+  // the publish succeeded but the DB update was lost (timeout, silent Supabase error, etc.)
+  // Auto-repair these records for data integrity.
+  if (!error && data?.length > 0) {
+    const staleIds = data
+      .filter(p => p.lifecycle_status === 'pending' && (p.published_media_id || p.permalink))
+      .map(p => p.id);
+
+    if (staleIds.length > 0) {
+      console.log(`[social/posts] Reconciling ${staleIds.length} stale pending record(s) with published evidence`);
+      try {
+        await supabase
+          .from('social_posts')
+          .update({
+            lifecycle_status: 'posted',
+            response_stage: 'ok',
+            posted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .in('id', staleIds);
+
+        // Patch the in-memory data to reflect the fix immediately
+        for (const p of data) {
+          if (staleIds.includes(p.id)) {
+            p.lifecycle_status = 'posted';
+            p.response_stage = 'ok';
+          }
+        }
+      } catch (e) {
+        console.warn('[social/posts] Reconciliation failed (non-blocking):', e.message);
+      }
+    }
+  }
 
   if (error) {
     const msg = error.message ?? 'Database query failed';

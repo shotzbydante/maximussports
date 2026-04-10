@@ -19,6 +19,7 @@ import CarouselComposer, { getTemplateDimensions } from '../components/dashboard
 import TagSuggestionsPanel from '../components/dashboard/tags/TagSuggestionsPanel';
 import InstagramPublishButton from '../components/dashboard/InstagramPublishButton';
 import PostHistory from '../components/dashboard/PostHistory';
+import NextScheduledPost from '../components/dashboard/NextScheduledPost';
 import VideosEditor from '../components/dashboard/videos/VideosEditor';
 import { sanitizeImagesForExport } from '../components/dashboard/utils/exportReady';
 import { TEAMS } from '../data/teams';
@@ -2070,6 +2071,9 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+
+      {/* ── Next Scheduled Post ─────────────────────────── */}
+      <NextScheduledPost refreshKey={historyRefreshKey} />
 
       {/* ── Post History ──────────────────────────────── */}
       <PostHistory refreshKey={historyRefreshKey} />

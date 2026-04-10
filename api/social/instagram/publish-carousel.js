@@ -159,7 +159,7 @@ export default async function handler(req, res) {
         content_studio_section: metadata.contentStudioSection ?? null,
         generated_by:           metadata.generatedBy        ?? 'content_studio',
         template_type:          metadata.templateType       ?? null,
-        triggered_by:           'manual_ui',
+        triggered_by:           metadata.triggered_by ?? 'manual_ui',
         route_used:             '/api/social/instagram/publish-carousel',
         asset_version:          requestId,
         status_detail:          JSON.stringify({ imageCount: imageUrls.length }),
@@ -305,33 +305,58 @@ export default async function handler(req, res) {
     return failAndReturn(500, 'publish_media', { message: err.message }, { parentId });
   }
 
-  // ── Step 6: Permalink + DB update ──
+  // ── Step 6: Critical status update (before permalink — prevents timeout-induced stale pending) ──
+  const durationMs = Date.now() - startTs;
+
+  if (supabase && postId) {
+    try {
+      const { error: critUpdateErr } = await supabase.from('social_posts').update({
+        lifecycle_status:   'posted',
+        creation_id:        parentId,
+        published_media_id: publishedMediaId,
+        response_stage:     'ok',
+        posted_at:          new Date().toISOString(),
+        updated_at:         new Date().toISOString(),
+      }).eq('id', postId);
+
+      if (critUpdateErr) {
+        log.warn('critical status update returned error:', critUpdateErr.message);
+      } else {
+        log.info('critical status update: lifecycle_status=posted');
+      }
+    } catch (e) {
+      log.warn('critical status update exception:', e.message);
+    }
+  }
+
+  // ── Step 7: Permalink fetch (best-effort — post is already marked as posted) ──
   let permalink = null;
   if (publishedMediaId) {
     permalink = await fetchPermalink(publishedMediaId, accessToken, log);
   }
 
-  const durationMs = Date.now() - startTs;
   log.info(`carousel publish complete: ${durationMs}ms, permalink=${permalink ?? 'n/a'}`);
 
-  if (supabase && postId) {
+  // ── Step 8: Final enrichment update (permalink + status_detail) ──
+  if (supabase && postId && permalink) {
     try {
-      await supabase.from('social_posts').update({
-        lifecycle_status:   'posted',
-        creation_id:        parentId,
-        published_media_id: publishedMediaId,
-        permalink:          permalink,
-        response_stage:     'ok',
-        status_detail:      JSON.stringify({
+      const { error: enrichErr } = await supabase.from('social_posts').update({
+        permalink,
+        status_detail: JSON.stringify({
           childIds,
           parentId,
+          permalink,
           imageCount: imageUrls.length,
           durationMs,
         }),
         updated_at: new Date().toISOString(),
       }).eq('id', postId);
+
+      if (enrichErr) {
+        log.warn('permalink enrichment update returned error:', enrichErr.message);
+      }
     } catch (e) {
-      log.warn('final DB update failed (non-blocking):', e.message);
+      log.warn('permalink enrichment failed (non-blocking):', e.message);
     }
   }
 
