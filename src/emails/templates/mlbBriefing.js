@@ -1,38 +1,36 @@
 /**
  * MLB Daily Briefing — premium editorial newsletter.
  *
- * Mobile-first bullet format: every section uses bullet points
- * with a takeaway line. No dense paragraph blocks.
- *
+ * Mobile-first bullet format with consistent typography scale.
+ * All text passes through: cleanNarrativeText → stripInlineEmoji → normalizeSpacing.
  * Content: MLB-only from /api/mlb/* endpoints.
  */
 
 import {
   MlbEmailShell, mlbHeroBlock, mlbSectionHeader, mlbBulletSection,
-  mlbDividerRow, cleanNarrativeText, narrativeToBullets, stripInlineEmoji,
+  mlbDividerRow, cleanNarrativeText, narrativeToBullets,
+  stripInlineEmoji, normalizeSpacing,
 } from '../MlbEmailShell.js';
 import { mlbBriefingSubject } from '../helpers/subjectGenerator.js';
+
+const FONT = "'DM Sans',Arial,Helvetica,sans-serif";
+const TEXT_BODY = '#1f2937';
 
 export function getSubject(data = {}) {
   return mlbBriefingSubject(data);
 }
 
-/**
- * Parse AI narrative into section objects with bullets + takeaway.
- */
 function parseNarrativeToSections(raw) {
   if (!raw) return [];
-  const paragraphs = raw
+  return raw
     .split(/\n{2,}/)
     .map(p => cleanNarrativeText(p))
-    .filter(p => p.length > 30);
-
-  return paragraphs.map(p => {
-    const bullets = narrativeToBullets(p);
-    // Last sentence is often a good takeaway candidate
-    const takeaway = bullets.length > 2 ? bullets.pop() : '';
-    return { bullets, takeaway };
-  });
+    .filter(p => p.length > 30)
+    .map(p => {
+      const bullets = narrativeToBullets(p);
+      const takeaway = bullets.length > 2 ? bullets.pop() : '';
+      return { bullets, takeaway };
+    });
 }
 
 export function renderHTML(data = {}) {
@@ -56,29 +54,26 @@ export function renderHTML(data = {}) {
   // ── AROUND THE LEAGUE ─────────────────────────────────────────
   let aroundTheLeague = '';
   if (hasNarrative && sections[0]) {
-    // Merge first two narrative sections into one bullet block
     const allBullets = [
       ...(sections[0]?.bullets || []),
       ...(sections[1]?.bullets || []),
     ];
     const takeaway = sections[1]?.takeaway || sections[0]?.takeaway || '';
-
     aroundTheLeague = `
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
 ${mlbBulletSection(allBullets.slice(0, 5), takeaway)}`;
   } else if (topHeadlines.length > 0) {
-    // Fallback: headlines as bullet links (flat single-td, no nested tables, no emojis)
     const headlineHtml = topHeadlines.map(h => {
       const link = h.link || 'https://maximussports.ai/mlb';
       const source = h.source || '';
-      const title = stripInlineEmoji(h.title || 'No title');
-      return `<p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,sans-serif;">&bull; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${title}</a>${source ? `<br/><span style="font-size:11px;color:#9ca3af;">${source}</span>` : ''}</p>`;
+      const title = normalizeSpacing(stripInlineEmoji(h.title || 'No title'));
+      return `<p style="margin:0 0 12px 0;font-size:16px;line-height:26px;color:${TEXT_BODY};font-family:${FONT};">&bull; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${title}</a>${source ? `<br/><span style="font-size:12px;line-height:18px;color:#9ca3af;font-family:${FONT};">${source}</span>` : ''}</p>`;
     }).join('\n');
 
     aroundTheLeague = `
 ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
+  <td style="padding:0 28px 16px;" class="section-td">
     ${headlineHtml}
   </td>
 </tr>`;
@@ -95,13 +90,13 @@ ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
       const score = g.homeScore != null && g.awayScore != null
         ? `${g.awayScore} \u2013 ${g.homeScore}` : 'Final';
       return `<tr>
-  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;">
+  <td style="padding:10px 14px;border-bottom:1px solid #f3f4f6;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
       <tr>
-        <td style="font-size:13.5px;font-weight:600;color:#111827;font-family:'DM Sans',Arial,sans-serif;">
+        <td style="font-size:14px;font-weight:600;line-height:20px;color:#111827;font-family:${FONT};">
           ${g.awayTeam || 'Away'} <span style="color:#9ca3af;font-weight:400;">@</span> ${g.homeTeam || 'Home'}
         </td>
-        <td align="right" style="font-size:14px;font-weight:700;color:#c41e3a;font-family:'DM Sans',Arial,sans-serif;white-space:nowrap;">
+        <td align="right" style="font-size:14px;font-weight:700;line-height:20px;color:#c41e3a;font-family:${FONT};white-space:nowrap;">
           ${score}
         </td>
       </tr>
@@ -112,18 +107,18 @@ ${mlbSectionHeader('\u{1F525}', 'AROUND THE LEAGUE')}
 
     scoreSection = `
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
+  <td style="padding:0 28px 16px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="border:1px solid #e5e7eb;border-radius:8px;border-collapse:collapse;overflow:hidden;background-color:#fafbfc;">
+           style="border:1px solid #e5e7eb;border-radius:8px;border-collapse:collapse;overflow:hidden;">
       <tr>
-        <td style="padding:8px 12px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;">
-          <span style="font-size:10px;font-weight:700;color:#c41e3a;letter-spacing:0.08em;text-transform:uppercase;font-family:'DM Sans',Arial,sans-serif;">FINAL SCORES</span>
+        <td style="padding:10px 14px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;">
+          <span style="font-size:11px;font-weight:700;line-height:14px;color:#c41e3a;letter-spacing:0.06em;text-transform:uppercase;font-family:${FONT};">FINAL SCORES</span>
         </td>
       </tr>
       ${scoreCards}
     </table>
-    <div style="margin-top:8px;">
-      <a href="https://maximussports.ai/mlb" style="font-size:12px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">Full scoreboard &rarr;</a>
+    <div style="margin-top:10px;">
+      <a href="https://maximussports.ai/mlb" style="font-size:13px;line-height:18px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:${FONT};">Full scoreboard &rarr;</a>
     </div>
   </td>
 </tr>`;
@@ -153,36 +148,35 @@ ${mlbSectionHeader('\u{1F9E0}', 'SLEEPERS, INJURIES & VALUE')}
 ${mlbBulletSection(sections[4].bullets, sections[4].takeaway)}`;
   }
 
-  // ── DIAMOND DISPATCH (curated headline links) ─────────────────
+  // ── DIAMOND DISPATCH ──────────────────────────────────────────
   let diamondDispatch = '';
   if (topHeadlines.length > 0 && hasNarrative) {
-    // Flat single-td rendering — no nested tables, no fragmentation, no emojis
     const linksHtml = topHeadlines.slice(0, 4).map(h => {
       const link = h.link || '#';
       const source = h.source || '';
-      const title = stripInlineEmoji(h.title || '');
-      return `<p style="margin:0 0 12px 0;font-size:16px;line-height:24px;color:#1f2937;font-family:'DM Sans',Arial,sans-serif;">&bull; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${title}</a>${source ? `<br/><span style="font-size:11px;color:#9ca3af;">${source}</span>` : ''}</p>`;
+      const title = normalizeSpacing(stripInlineEmoji(h.title || ''));
+      return `<p style="margin:0 0 12px 0;font-size:16px;line-height:26px;color:${TEXT_BODY};font-family:${FONT};">&bull; <a href="${link}" style="color:#111827;text-decoration:none;font-weight:600;" target="_blank">${title}</a>${source ? `<br/><span style="font-size:12px;line-height:18px;color:#9ca3af;font-family:${FONT};">${source}</span>` : ''}</p>`;
     }).join('\n');
 
     diamondDispatch = `
 ${mlbSectionHeader('\u{26A1}', 'DIAMOND DISPATCH')}
 <tr>
-  <td style="padding:0 24px 14px;" class="section-td">
+  <td style="padding:0 28px 16px;" class="section-td">
     ${linksHtml}
-    <p style="margin:6px 0 0;"><a href="https://maximussports.ai/mlb/news" style="font-size:12px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:'DM Sans',Arial,sans-serif;">All MLB news &rarr;</a></p>
+    <p style="margin:4px 0 0;"><a href="https://maximussports.ai/mlb/news" style="font-size:13px;line-height:18px;color:#c41e3a;text-decoration:none;font-weight:600;font-family:${FONT};">All MLB news &rarr;</a></p>
   </td>
 </tr>`;
   }
 
-  // ── HERO LINE ─────────────────────────────────────────────────
+  // ── HERO ───────────────────────────────────────────────────────
   const heroLine = 'Your Daily MLB Intelligence \u2014 Key Storylines, Odds & Edges';
 
   const content = `
 ${mlbHeroBlock({ line: heroLine, sublabel: today })}
 
 <tr>
-  <td style="padding:8px 24px 16px;" class="intro-td">
-    <p style="margin:0;font-size:15px;color:#4b5563;line-height:1.6;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+  <td style="padding:6px 28px 20px;" class="intro-td">
+    <p style="margin:0;font-size:16px;line-height:26px;color:#4b5563;font-family:${FONT};">
       Good ${partOfDay}, ${greetingName}. Here\u2019s what\u2019s moving across the diamond.
     </p>
   </td>
@@ -200,7 +194,7 @@ ${diamondDispatch}`;
   return MlbEmailShell({
     content,
     previewText: headlines.length > 0
-      ? `\u26BE ${headlines[0].title || 'Today\u2019s MLB Daily Briefing.'}`
+      ? `\u26BE ${stripInlineEmoji(headlines[0].title || 'Today\u2019s MLB Daily Briefing.')}`
       : `\u26BE Today\u2019s MLB Daily Briefing from Maximus Sports.`,
   });
 }
@@ -216,10 +210,8 @@ export function renderText(data = {}) {
     '',
   ];
   if (narrativeParagraph) {
-    // Convert to bullets for plain text too
     const plain = narrativeParagraph.replace(/\*\*/g, '');
-    const sentences = plain.split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.length > 15);
-    sentences.forEach(s => lines.push(`\u2022 ${s}`));
+    plain.split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.length > 15).forEach(s => lines.push(`\u2022 ${s}`));
     lines.push('');
   }
   if (headlines.length > 0) {
