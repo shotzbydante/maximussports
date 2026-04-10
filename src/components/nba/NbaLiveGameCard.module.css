@@ -1,0 +1,66 @@
+/* NbaLiveGameCard — premium compact game intel card (navy palette) */
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg, 12px);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  min-width: 220px;
+}
+.card:hover {
+  box-shadow: var(--shadow-card-hover, 0 4px 16px rgba(0,0,0,0.08));
+  border-color: rgba(29, 66, 138, 0.25);
+}
+.cardLive {
+  border-left: 3px solid #228b22;
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.03) 0%, transparent 60%);
+}
+.cardCompact { padding: 8px 10px; gap: 4px; min-width: 180px; }
+
+.matchup { display: flex; flex-direction: column; gap: 4px; }
+.teamRow { display: flex; align-items: center; gap: 8px; }
+.logo { width: 24px; height: 24px; object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+.teamName { flex: 1; font-size: 0.82rem; font-weight: 600; color: var(--color-text); }
+.score {
+  font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--color-text); min-width: 24px; text-align: right;
+}
+
+.meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 2px 8px; border-radius: 999px;
+}
+.pillLive { color: #228b22; background: rgba(34,139,34,0.1); border: 1px solid rgba(34,139,34,0.2); }
+.pillFinal { color: var(--color-text-muted); background: rgba(0,0,0,0.04); border: 1px solid var(--color-border-light); }
+.pillUpcoming { color: #1d428a; background: rgba(29,66,138,0.08); border: 1px solid rgba(29,66,138,0.15); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+.liveDot { width: 6px; height: 6px; border-radius: 50%; background: #228b22; animation: livePulse 1.5s ease-in-out infinite; }
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.networkBadge { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); background: rgba(0,0,0,0.04); padding: 2px 6px; border-radius: 4px; }
+
+.signalRow { display: flex; gap: 4px; flex-wrap: wrap; }
+.signalBadge { font-size: 0.52rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.signalHot { color: #1d428a; background: rgba(29,66,138,0.1); }
+.signalEdge { color: #228b22; background: rgba(34,139,34,0.08); }
+.signalWatch { color: #c9082a; background: rgba(201,8,42,0.08); }
+
+.bettingRow { display: flex; gap: 8px; }
+.bettingItem { font-size: 0.68rem; font-weight: 500; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.bettingReal { color: var(--color-text); font-weight: 600; }
+
+.insight { font-size: 0.72rem; line-height: 1.4; color: var(--color-text-secondary); margin: 0; }
+
+.gamecastCta { font-size: 0.62rem; font-weight: 600; color: #1d428a; text-decoration: none; display: inline-flex; align-items: center; gap: 2px; transition: opacity 0.12s; }
+.gamecastCta:hover { opacity: 0.7; }
+
+.edgeBadge { display: inline-flex; align-items: center; font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; }
+.edgeStrong { color: #1a7a1a; background: rgba(26,122,26,0.12); border: 1px solid rgba(26,122,26,0.2); }
+.edgeMod { color: #228b22; background: rgba(34,139,34,0.08); }
+.edgeSlight { color: var(--color-text-muted); background: rgba(0,0,0,0.04); }

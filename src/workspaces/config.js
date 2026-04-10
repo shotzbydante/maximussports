@@ -9,6 +9,7 @@
 export const WorkspaceId = /** @type {const} */ ({
   CBB: 'cbb',
   MLB: 'mlb',
+  NBA: 'nba',
 });
 
 /**
@@ -26,7 +27,7 @@ export const SeasonState = /** @type {const} */ ({
   PRESEASON: 'preseason',
 });
 
-/** @typedef {'cbb' | 'mlb'} WorkspaceIdType */
+/** @typedef {'cbb' | 'mlb' | 'nba'} WorkspaceIdType */
 
 /**
  * @typedef {Object} WorkspaceConfig
@@ -152,6 +153,54 @@ export const WORKSPACES = {
       loadingTitle: 'Initializing MLB Intelligence',
       loadingSubtext: 'Calibrating projections\u2026',
       splashKey: '__maximus_mlb_splash_shown',
+    },
+  },
+  [WorkspaceId.NBA]: {
+    id: WorkspaceId.NBA,
+    label: 'National Basketball Association',
+    shortLabel: 'NBA',
+    routeBase: '/nba',
+    emoji: '\u{1F3C0}',
+    logo: '/nba-logo.png',
+    sportKey: 'basketball_nba',
+    seasonState: SeasonState.ACTIVE,
+    badge: 'ADMIN',
+    capabilities: {
+      bracketology: false,
+      seasonIntel: true,
+      contentStudio: false,
+      champOdds: true,
+      atsLeaders: false,
+      conferenceIntel: true,
+      leagueIntel: false,
+      divisionIntel: false,
+      oddsInsights: true,
+      teamIntel: true,
+      games: true,
+      newsFeed: true,
+      picks: true,
+    },
+    access: {
+      public: false,
+      allowedEmails: ['dantedicicco@gmail.com'],
+    },
+    labels: {
+      sportName: 'NBA Basketball',
+      intelligence: 'NBA Intelligence',
+      teamIntel: 'Team Intel',
+      picks: 'Odds Insights',
+      games: 'Games',
+      news: 'News Feed',
+    },
+    /** Sport-aware theme — deep navy palette */
+    theme: {
+      mascot: '/mascot.png',
+      accent: '#1d428a',
+      accentRgb: '29, 66, 138',
+      gradientBg: 'radial-gradient(ellipse at center, #0a1628 0%, #060d1a 60%, #020408 100%)',
+      loadingTitle: 'Initializing NBA Intelligence',
+      loadingSubtext: 'Loading court data\u2026',
+      splashKey: '__maximus_nba_splash_shown',
     },
   },
 };

@@ -25,7 +25,7 @@ const WorkspaceContext = createContext(null);
  * Derive workspace id from the current URL pathname.
  * `/ncaam/...` → 'cbb'; `/mlb/...` → 'mlb'; everything else → 'cbb' (default).
  */
-const PREFIX_TO_WORKSPACE = { ncaam: WorkspaceId.CBB, mlb: WorkspaceId.MLB };
+const PREFIX_TO_WORKSPACE = { ncaam: WorkspaceId.CBB, mlb: WorkspaceId.MLB, nba: WorkspaceId.NBA };
 
 function deriveWorkspaceFromPath(pathname) {
   const segment = pathname.split('/').filter(Boolean)[0]?.toLowerCase();

@@ -35,6 +35,14 @@ const MlbPicks        = lazy(() => import('./pages/mlb/MlbPicks'));
 const MlbSeasonModel  = lazy(() => import('./pages/mlb/MlbSeasonModel'));
 const MlbCompare      = lazy(() => import('./pages/mlb/MlbCompare'));
 
+const NbaHome       = lazy(() => import('./pages/nba/NbaHome'));
+const NbaGames      = lazy(() => import('./pages/nba/NbaGames'));
+const NbaTeams      = lazy(() => import('./pages/nba/NbaTeams'));
+const NbaTeamDetail = lazy(() => import('./pages/nba/NbaTeamDetail'));
+const NbaNewsFeed   = lazy(() => import('./pages/nba/NbaNewsFeed'));
+const NbaPicks      = lazy(() => import('./pages/nba/NbaPicks'));
+const NbaSeasonIntel = lazy(() => import('./pages/nba/NbaSeasonIntel'));
+
 const RenderMlbDaily = lazy(() => import('./pages/RenderMlbDaily'));
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
 const MarchMadnessHub = lazy(() => import('./pages/MarchMadnessHub'));
@@ -113,6 +121,19 @@ export default function App() {
                     <Route path="insights" element={<MlbPicks />} />
                     <Route path="season-model" element={<MlbSeasonModel />} />
                     <Route path="compare" element={<MlbCompare />} />
+                    <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="settings" element={<Navigate to="/settings" replace />} />
+                  </Route>
+
+                  {/* ══ NBA routes (admin-gated workspace: /nba/...) ══ */}
+                  <Route path="nba" element={<WorkspaceGate workspaceId={WorkspaceId.NBA} />}>
+                    <Route index element={<NbaHome />} />
+                    <Route path="games" element={<NbaGames />} />
+                    <Route path="teams" element={<NbaTeams />} />
+                    <Route path="teams/:slug" element={<NbaTeamDetail />} />
+                    <Route path="news" element={<NbaNewsFeed />} />
+                    <Route path="insights" element={<NbaPicks />} />
+                    <Route path="season-intel" element={<NbaSeasonIntel />} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>

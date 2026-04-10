@@ -1,0 +1,46 @@
+/* NBA Season Intelligence — navy palette */
+.page { max-width: 960px; margin: 0 auto; padding: var(--space-lg) 0; }
+.header { margin-bottom: var(--space-md); }
+.pageTitle { font-size: 1.35rem; font-weight: 700; color: var(--color-text); }
+.subtitle { font-size: 0.82rem; color: var(--color-text-muted); margin-top: var(--space-xs); }
+
+.controls { display: flex; gap: 2px; margin-bottom: var(--space-lg); }
+.confPill {
+  padding: 6px 14px; font-size: 0.76rem; font-weight: 500;
+  color: var(--color-text-secondary); background: none;
+  border: 1px solid var(--color-border-light); border-radius: 6px;
+  cursor: pointer; font-family: inherit; transition: all 0.12s;
+}
+.confPill:hover { background: rgba(29, 66, 138, 0.06); color: var(--color-text); }
+.confPillActive { background: rgba(29, 66, 138, 0.1); color: #1d428a; border-color: rgba(29, 66, 138, 0.25); font-weight: 600; }
+
+.teamList { display: flex; flex-direction: column; gap: 2px; }
+
+.teamCard {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--color-bg-elevated); border: 1px solid var(--color-border-light);
+  text-decoration: none; transition: all 0.12s;
+}
+.teamCard:hover { border-color: rgba(29, 66, 138, 0.2); box-shadow: var(--shadow-sm); }
+
+.rank {
+  font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted); min-width: 22px; text-align: center;
+}
+
+.teamLogo { width: 32px; height: 32px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
+
+.teamInfo { flex: 1; min-width: 0; }
+.teamName { font-size: 0.85rem; font-weight: 600; color: var(--color-text); display: block; }
+.teamConf { font-size: 0.68rem; color: var(--color-text-muted); }
+
+.oddsInfo { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 60px; }
+.oddsValue { font-size: 0.88rem; font-weight: 700; color: #1d428a; font-variant-numeric: tabular-nums; }
+.impliedPct { font-size: 0.62rem; font-weight: 500; color: var(--color-text-muted); }
+.oddsNA { font-size: 0.72rem; color: var(--color-text-muted); }
+
+.loadingState, .emptyState {
+  text-align: center; padding: var(--space-xxl) var(--space-lg);
+  color: var(--color-text-muted); font-size: 0.85rem;
+}

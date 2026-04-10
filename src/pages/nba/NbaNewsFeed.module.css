@@ -1,0 +1,62 @@
+/* NBA News Feed — navy palette */
+.page { max-width: 960px; margin: 0 auto; padding: var(--space-lg) 0; }
+.header { margin-bottom: var(--space-md); }
+.pageTitle { font-size: 1.35rem; font-weight: 700; color: var(--color-text); }
+.subtitle { font-size: 0.82rem; color: var(--color-text-muted); margin-top: var(--space-xs); }
+
+.controls { margin-bottom: var(--space-lg); }
+.filterRow { display: flex; gap: 2px; }
+.filterPill {
+  padding: 6px 14px; font-size: 0.76rem; font-weight: 500;
+  color: var(--color-text-secondary); background: none;
+  border: 1px solid var(--color-border-light); border-radius: 6px;
+  cursor: pointer; font-family: inherit; transition: all 0.12s;
+}
+.filterPill:hover { background: rgba(29, 66, 138, 0.06); color: var(--color-text); }
+.filterPillActive { background: rgba(29, 66, 138, 0.1); color: #1d428a; border-color: rgba(29, 66, 138, 0.25); font-weight: 600; }
+
+/* Headlines */
+.headlineStream { display: flex; flex-direction: column; gap: 2px; }
+.headlineRow {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 10px 0; border-bottom: 1px solid var(--color-border-light);
+}
+
+.logoChip {
+  width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 800; color: rgba(255,255,255,0.92);
+  letter-spacing: 0.04em; line-height: 1.2; text-align: center;
+}
+
+.headlineBody { flex: 1; min-width: 0; }
+.headlineMeta { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; flex-wrap: wrap; }
+.headlineSource { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
+.headlineTime { font-size: 0.62rem; color: var(--color-text-muted); }
+
+.headlineLink {
+  font-size: 0.85rem; font-weight: 500; color: var(--color-text);
+  line-height: 1.4; text-decoration: none; transition: color 0.12s;
+}
+.headlineLink:hover { color: #1d428a; }
+.headlineText { font-size: 0.85rem; font-weight: 500; color: var(--color-text); line-height: 1.4; }
+
+/* Signal tags */
+.signalTag {
+  display: inline-flex; font-size: 0.52rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 1px 6px; border-radius: 4px;
+}
+.signalInjury { color: #c62828; background: rgba(198,40,40,0.08); }
+.signalTrade { color: #0d47a1; background: rgba(13,71,161,0.08); }
+.signalSigning { color: #2e7d32; background: rgba(46,125,50,0.08); }
+.signalProspect { color: #6a1b9a; background: rgba(106,27,154,0.08); }
+.signalPlayoff { color: #e65100; background: rgba(230,81,0,0.08); }
+.signalBetting { color: #1d428a; background: rgba(29,66,138,0.08); }
+
+/* Skeleton */
+.skeleton { display: flex; flex-direction: column; gap: var(--space-md); }
+.skelLine { height: 48px; background: var(--color-bg-muted); border-radius: 8px; animation: shimmer 1.5s infinite; }
+@keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.7; } }
+
+.emptyMsg { font-size: 0.82rem; color: var(--color-text-muted); text-align: center; padding: var(--space-xl); }
