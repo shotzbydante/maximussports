@@ -148,6 +148,7 @@ export default async function handler(req, res) {
         // ── MLB-SPECIFIC DATA (no NCAAM contamination possible) ──
         const mlbData = await assembleMlbEmailData(baseUrl, {
           includeSummary: tplType === 'mlbBriefing',
+          includePicks: tplType === 'mlbPicks',
         });
 
         let pinnedTeams = [];
