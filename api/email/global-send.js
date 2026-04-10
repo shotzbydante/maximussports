@@ -1,25 +1,24 @@
 /**
  * POST /api/email/global-send
  *
- * Admin-only endpoint to trigger a real global send for a digest type.
- * Runs the same core logic as the cron-triggered run-daily.js, but
- * initiated manually with admin JWT authentication.
+ * Admin-only endpoint to trigger a real global send for an email type.
+ * Uses the v2 subscription model (global_briefing, mlb_*, ncaam_*).
  *
  * Body:
- *   { type: 'daily'|'pinned'|'odds'|'news'|'teamDigest', override?: boolean }
+ *   { type: '<email_type>', override?: boolean }
  *
  * override=true → sends to ALL users regardless of subscription preferences.
  * override=false (default) → sends only to eligible subscribed users.
  *
  * Auth: Authorization: Bearer <supabase-access-token>
- * Access: admin user only (dantedicicco@gmail.com)
+ * Access: admin user only
  */
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
 import { sendEmailThrottled } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
-import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
+import { DEFAULT_EMAIL_PREFS, resolvePreferences } from '../_lib/emailDefaults.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
@@ -34,14 +33,27 @@ import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
 
 const TYPE_TO_PREF_KEY = {
-  daily:      'briefing',
-  pinned:     'teamAlerts',
-  odds:       'oddsIntel',
-  news:       'newsDigest',
-  teamDigest: 'teamDigest',
+  global_briefing:   'global_briefing',
+  ncaam_briefing:    'ncaam_briefing',
+  ncaam_team_digest: 'ncaam_team_digest',
+  ncaam_picks:       'ncaam_picks',
+  mlb_briefing:      'mlb_briefing',
+  mlb_team_digest:   'mlb_team_digest',
+  mlb_picks:         'mlb_picks',
 };
 
 const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
+
+/** Map new type → template rendering function set. */
+const TYPE_TO_TEMPLATE = {
+  global_briefing:   'daily',
+  ncaam_briefing:    'daily',
+  ncaam_team_digest: 'pinned',
+  ncaam_picks:       'odds',
+  mlb_briefing:      'news',
+  mlb_team_digest:   'teamDigest',
+  mlb_picks:         'odds',
+};
 
 function makeDateKey(type) {
   const today = new Date().toISOString().slice(0, 10);
@@ -205,7 +217,7 @@ export default async function handler(req, res) {
 
       if (override) return true;
 
-      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile.preferences || {}) };
+      const prefs = resolvePreferences(profile.preferences);
       const subscribed = prefs[prefKey] === true;
       if (!subscribed) skipCounts.opted_out++;
       return subscribed;
@@ -234,12 +246,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, type, sent: 0, message: 'All already sent today.' });
     }
 
+    const tplType = TYPE_TO_TEMPLATE[type];
     const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
       fetchScoresSource(),
       fetchRankingsSource(),
       getAtsLeadersPipeline(),
       fetchNewsAggregateSource({ includeNational: true }),
-      type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
+      tplType === 'odds' ? fetchOddsSource() : Promise.resolve(null),
     ]);
 
     const scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
@@ -252,7 +265,7 @@ export default async function handler(req, res) {
       : [];
 
     let botIntelBullets = [];
-    if (type === 'daily' || type === 'pinned') {
+    if (tplType === 'daily' || tplType === 'pinned') {
       try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); } catch { /* ok */ }
     }
 
@@ -280,7 +293,7 @@ export default async function handler(req, res) {
       const pinnedTeams = getTeamBySlugFn ? resolveTeamRows(teamRows, getTeamBySlugFn) : [];
       const pinnedSlugs = getPinnedTeamSlugs(teamRows);
 
-      if (type === 'pinned' || type === 'teamDigest') {
+      if (tplType === 'pinned' || tplType === 'teamDigest') {
         console.log(`[global-send] Team resolve user=${userId} email=${email} slugs=[${pinnedSlugs.join(',')}] names=[${pinnedTeams.map(t => t.name).join(',')}]`);
       }
 
@@ -289,7 +302,7 @@ export default async function handler(req, res) {
 
       let subject, html, text;
       try {
-        switch (type) {
+        switch (tplType) {
           case 'daily':
             subject = getDailySubject(emailData); html = renderDailyHTML(emailData); text = renderDailyText(emailData); break;
           case 'pinned':

@@ -21,7 +21,7 @@
 
 import { verifyUserToken, getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
-import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
+import { DEFAULT_EMAIL_PREFS, resolvePreferences } from '../_lib/emailDefaults.js';
 import { sendEmail } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
@@ -106,8 +106,8 @@ export default async function handler(req, res) {
       .eq('id', authUser.id)
       .maybeSingle();
 
-    const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile?.preferences || {}) };
-    const briefingEnabled = prefs.briefing === true;
+    const prefs = resolvePreferences(profile?.preferences);
+    const briefingEnabled = prefs.global_briefing === true;
 
     const result = {
       userId: authUser.id,
@@ -116,10 +116,10 @@ export default async function handler(req, res) {
       preferences: prefs,
       eligible: briefingEnabled,
       reason: !profile
-        ? 'no_profile_using_defaults_briefing_true'
+        ? 'no_profile_using_defaults_global_briefing_true'
         : briefingEnabled
-          ? 'briefing_enabled'
-          : 'briefing_opted_out',
+          ? 'global_briefing_enabled'
+          : 'global_briefing_opted_out',
       emailSent: false,
     };
 

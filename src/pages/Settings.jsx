@@ -135,39 +135,47 @@ const PinIcon = () => (
 const WIZARD_STEPS = 3; // Teams → Preferences → Profile (the 3 main visible wizard steps)
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
+/* ─── Email Subscription Model (v2) ─────────────────────────────────────── */
+const GLOBAL_PREFERENCES = [
+  { key: 'global_briefing', label: 'Daily Global Intel Briefing', description: 'Your daily cross-sport read on the biggest signals across Maximus Sports' },
+];
+
 const NCAAM_PREFERENCES = [
-  { key: 'briefing',      label: 'Daily AI Briefing',          description: 'Morning digest with Maximus AI analysis' },
-  { key: 'teamAlerts',    label: 'Pinned Teams Alerts',        description: 'Get notified about game results and news' },
-  { key: 'oddsIntel',     label: 'Odds & ATS Intel',           description: 'Line movement, spread edges, and value signals' },
-  { key: 'gameDayAlerts', label: 'Game Day Alerts',             description: 'Tip-off reminders and live score updates' },
-  { key: 'bracketIntel',  label: 'Bracket & Tournament Intel',  description: 'March Madness projections, upsets, and bracket edges' },
+  { key: 'ncaam_briefing',     label: 'Daily NCAAM Briefing',        description: 'League-wide NCAAM briefing with headlines, intel, and key signals' },
+  { key: 'ncaam_team_digest',  label: 'Daily NCAAM Team Digest',     description: 'Daily updates for your pinned NCAAM teams' },
+  { key: 'ncaam_picks',        label: "Daily NCAAM Maximus's Picks", description: 'Model-driven NCAAM picks and edges delivered daily' },
 ];
 
 const MLB_PREFERENCES = [
-  { key: 'newsDigest',  label: 'Breaking News Digest',  description: 'Important news from your teams and league' },
-  { key: 'teamDigest',  label: 'Team Digest',           description: 'Full editorial digest for selected teams' },
+  { key: 'mlb_briefing',     label: 'Daily MLB Briefing',        description: 'League-wide MLB briefing with headlines, intel, and key signals' },
+  { key: 'mlb_team_digest',  label: 'Daily MLB Team Digest',     description: 'Daily updates for your pinned MLB teams' },
+  { key: 'mlb_picks',        label: "Daily MLB Maximus's Picks", description: 'Model-driven MLB picks and edges delivered daily' },
 ];
 
-// Keep legacy shape for backward compatibility
-const PREFERENCES = [...NCAAM_PREFERENCES, ...MLB_PREFERENCES];
+// Flat list for legacy compat (includes all preference keys)
+const PREFERENCES = [...GLOBAL_PREFERENCES, ...NCAAM_PREFERENCES, ...MLB_PREFERENCES];
 
 const DEFAULT_PREFS = {
-  briefing:        true,
-  teamAlerts:      true,
-  oddsIntel:       false,
-  gameDayAlerts:   true,
-  bracketIntel:    false,
-  newsDigest:      true,
-  teamDigest:      false,
-  teamDigestTeams: [],
+  // Global
+  global_briefing:     true,
+  // MLB
+  mlb_briefing:        true,
+  mlb_team_digest:     false,
+  mlb_picks:           false,
+  // NCAAM
+  ncaam_briefing:      true,
+  ncaam_team_digest:   true,
+  ncaam_picks:         false,
 };
 
 const TEST_EMAIL_TYPES = [
-  { type: 'daily',      label: 'Send Daily AI Briefing (TEST)' },
-  { type: 'pinned',     label: 'Send Pinned Teams Alerts (TEST)' },
-  { type: 'odds',       label: 'Send Odds & ATS Intel (TEST)' },
-  { type: 'news',       label: 'Send Breaking News Digest (TEST)' },
-  { type: 'teamDigest', label: 'Send Team Digest (TEST)' },
+  { type: 'global_briefing',   label: 'Send Daily Global Intel Briefing (TEST)', section: 'global' },
+  { type: 'ncaam_briefing',    label: 'Send Daily NCAAM Briefing (TEST)',        section: 'ncaam' },
+  { type: 'ncaam_team_digest', label: 'Send Daily NCAAM Team Digest (TEST)',     section: 'ncaam' },
+  { type: 'ncaam_picks',       label: "Send Daily NCAAM Maximus's Picks (TEST)", section: 'ncaam' },
+  { type: 'mlb_briefing',      label: 'Send Daily MLB Briefing (TEST)',          section: 'mlb' },
+  { type: 'mlb_team_digest',   label: 'Send Daily MLB Team Digest (TEST)',       section: 'mlb' },
+  { type: 'mlb_picks',         label: "Send Daily MLB Maximus's Picks (TEST)",   section: 'mlb' },
 ];
 
 const TIER_STYLE = {
@@ -808,11 +816,62 @@ function StepPreferences({ onNext, loading }) {
       <h2 className={styles.stepTitle}>Personalize your feed</h2>
       <p className={styles.stepSubtitle}>Choose the intel that matters most. You can always change these in Settings.</p>
 
-      {/* NCAAM Section — all 5 categories */}
+      {/* Global — auto-opted, shown for transparency */}
       <div className={styles.prefSection}>
         <div className={styles.prefSectionHeader}>
-          <span className={styles.prefSectionIcon}>🏀</span>
-          <span className={styles.prefSectionLabel}>College Basketball</span>
+          <span className={styles.prefSectionIcon}>M</span>
+          <span className={styles.prefSectionLabel}>Maximus Sports</span>
+        </div>
+        <div className={styles.prefList}>
+          {GLOBAL_PREFERENCES.map(({ key, label, description }) => (
+            <button
+              key={key} type="button"
+              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+              onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+            >
+              <div className={styles.prefText}>
+                <span className={styles.prefLabel}>{label}</span>
+                <span className={styles.prefDesc}>{description}</span>
+              </div>
+              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                <div className={styles.toggleThumb} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* MLB Section */}
+      <div className={styles.prefSection}>
+        <div className={styles.prefSectionHeader}>
+          <span className={styles.prefSectionIcon}>&#9918;</span>
+          <span className={styles.prefSectionLabel}>MLB</span>
+        </div>
+        <div className={styles.prefList}>
+          {MLB_PREFERENCES.map(({ key, label, description }) => (
+            <button
+              key={key} type="button"
+              className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+              onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+            >
+              <div className={styles.prefText}>
+                <span className={styles.prefLabel}>{label}</span>
+                <span className={styles.prefDesc}>{description}</span>
+              </div>
+              <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                <div className={styles.toggleThumb} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* NCAAM Section */}
+      <div className={styles.prefSection}>
+        <div className={styles.prefSectionHeader}>
+          <span className={styles.prefSectionIcon}>&#127936;</span>
+          <span className={styles.prefSectionLabel}>NCAAM</span>
+          <span className={styles.comingSoonBadge}>Offseason</span>
         </div>
         <div className={styles.prefList}>
           {NCAAM_PREFERENCES.map(({ key, label, description }) => (
@@ -831,32 +890,6 @@ function StepPreferences({ onNext, loading }) {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* MLB Section — coming soon state */}
-      <div className={styles.prefSection}>
-        <div className={styles.prefSectionHeader}>
-          <span className={styles.prefSectionIcon}>⚾</span>
-          <span className={styles.prefSectionLabel}>MLB Baseball</span>
-          <span className={styles.comingSoonBadge}>Coming Soon</span>
-        </div>
-        <div className={`${styles.prefList} ${styles.prefListDisabled}`}>
-          {MLB_PREFERENCES.map(({ key, label, description }) => (
-            <div
-              key={key}
-              className={`${styles.prefRow} ${styles.prefRowDisabled}`}
-            >
-              <div className={styles.prefText}>
-                <span className={styles.prefLabel}>{label}</span>
-                <span className={styles.prefDesc}>{description}</span>
-              </div>
-              <div className={`${styles.toggle} ${styles.toggleDisabled}`}>
-                <div className={styles.toggleThumb} />
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className={styles.comingSoonNote}>Email digests for MLB are coming soon. We'll notify you when they're ready.</p>
       </div>
 
       <button className={styles.btnPrimary} onClick={() => onNext(prefs)} disabled={loading}>
@@ -1345,11 +1378,16 @@ function TeamPickerPanel({ existingTeams, onAdd, onClose, multiSelect = false, s
 /* ─── Admin QA helpers ───────────────────────────────────────────────────── */
 
 const DIGEST_META = [
-  { type: 'daily',      name: 'Daily AI Briefing' },
-  { type: 'pinned',     name: 'Pinned Teams Alerts' },
-  { type: 'odds',       name: 'Odds & ATS Intel' },
-  { type: 'news',       name: 'Breaking News Digest' },
-  { type: 'teamDigest', name: 'Team Digest' },
+  // Global
+  { type: 'global_briefing',   name: 'Daily Global Intel Briefing',    section: 'Maximus Sports' },
+  // MLB
+  { type: 'mlb_briefing',      name: 'Daily MLB Briefing',             section: 'MLB' },
+  { type: 'mlb_team_digest',   name: 'Daily MLB Team Digest',          section: 'MLB' },
+  { type: 'mlb_picks',         name: "Daily MLB Maximus's Picks",      section: 'MLB' },
+  // NCAAM
+  { type: 'ncaam_briefing',    name: 'Daily NCAAM Briefing',           section: 'NCAAM' },
+  { type: 'ncaam_team_digest', name: 'Daily NCAAM Team Digest',        section: 'NCAAM' },
+  { type: 'ncaam_picks',       name: "Daily NCAAM Maximus's Picks",    section: 'NCAAM' },
 ];
 
 function todayPT() {
@@ -1673,7 +1711,9 @@ function AdminQAPanel() {
       <div className={styles.logsSection}>
         <h4 className={styles.logsSectionTitle}>Email Send Logs &amp; Global Send</h4>
         <div className={styles.logsTable}>
-          {DIGEST_META.map(({ type, name }) => {
+          {DIGEST_META.map(({ type, name, section }, idx) => {
+            const prevSection = idx > 0 ? DIGEST_META[idx - 1].section : null;
+            const showSectionHeader = section !== prevSection;
             const run = jobRuns[type];
             const info = deriveRunStatus(run);
             const chipCls =
@@ -1686,7 +1726,13 @@ function AdminQAPanel() {
             const isGlobalSending = globalSending === type;
             const expanded = expandedRow === type;
             return (
-              <div key={type} className={styles.logsRowWrap}>
+              <div key={type}>
+                {showSectionHeader && (
+                  <div style={{ padding: '0.5rem 0 0.25rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none', marginTop: idx > 0 ? '0.5rem' : 0 }}>
+                    {section}
+                  </div>
+                )}
+              <div className={styles.logsRowWrap}>
                 <div className={styles.logsRow}>
                   <span className={styles.logsDigestName}>{name}</span>
                   {jobRunsLoading ? (
@@ -1753,6 +1799,7 @@ function AdminQAPanel() {
                     </span>
                   )}
                 </div>
+              </div>
               </div>
             );
           })}
@@ -2187,7 +2234,23 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
   const [showTeamPicker, setShowTeamPicker] = useState(null); // null | 'ncaam' | 'mlb'
   const [primaryPending, setPrimaryPending] = useState(null);
 
-  const [prefs, setPrefs]           = useState(() => ({ ...DEFAULT_PREFS, ...(profile?.preferences || {}) }));
+  const [prefs, setPrefs]           = useState(() => {
+    const stored = profile?.preferences || {};
+    // Migrate legacy preference keys (v1 → v2) at read time
+    const hasLegacy = ['briefing', 'teamAlerts', 'oddsIntel', 'newsDigest', 'teamDigest'].some(k => k in stored);
+    if (hasLegacy) {
+      const migrated = { ...stored };
+      const map = { briefing: 'global_briefing', teamAlerts: 'ncaam_team_digest', oddsIntel: 'ncaam_picks', newsDigest: 'mlb_briefing', teamDigest: 'mlb_team_digest' };
+      for (const [old, nw] of Object.entries(map)) {
+        if (old in migrated && !(nw in migrated)) migrated[nw] = migrated[old];
+        delete migrated[old];
+      }
+      if (!('ncaam_briefing' in migrated) && 'briefing' in stored) migrated.ncaam_briefing = stored.briefing;
+      delete migrated.gameDayAlerts; delete migrated.bracketIntel; delete migrated.teamDigestTeams;
+      return { ...DEFAULT_PREFS, ...migrated };
+    }
+    return { ...DEFAULT_PREFS, ...stored };
+  });
   const [saveStatus, setSaveStatus] = useState('idle');
   const saveDebounce                = useRef(null);
   const [digestPickerOpen, setDigestPickerOpen] = useState(false);
@@ -2516,17 +2579,19 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         favorite_number: profile?.favorite_number != null ? String(profile.favorite_number) : null,
         primary_team:    primarySlug,
         team_count:      teamSlugs.length,
-        sub_briefing:    prefs.briefing   ?? DEFAULT_PREFS.briefing,
-        sub_teamAlerts:  prefs.teamAlerts  ?? DEFAULT_PREFS.teamAlerts,
-        sub_oddsIntel:   prefs.oddsIntel   ?? DEFAULT_PREFS.oddsIntel,
-        sub_newsDigest:  prefs.newsDigest  ?? DEFAULT_PREFS.newsDigest,
+        sub_global_briefing:   prefs.global_briefing   ?? DEFAULT_PREFS.global_briefing,
+        sub_mlb_briefing:      prefs.mlb_briefing      ?? DEFAULT_PREFS.mlb_briefing,
+        sub_ncaam_briefing:    prefs.ncaam_briefing     ?? DEFAULT_PREFS.ncaam_briefing,
+        sub_ncaam_team_digest: prefs.ncaam_team_digest  ?? DEFAULT_PREFS.ncaam_team_digest,
+        sub_ncaam_picks:       prefs.ncaam_picks        ?? DEFAULT_PREFS.ncaam_picks,
       });
       setUserProperties({
-        primary_team_slug: primarySlug,
-        sub_briefing:      prefs.briefing   ?? DEFAULT_PREFS.briefing,
-        sub_teamAlerts:    prefs.teamAlerts  ?? DEFAULT_PREFS.teamAlerts,
-        sub_oddsIntel:     prefs.oddsIntel   ?? DEFAULT_PREFS.oddsIntel,
-        sub_newsDigest:    prefs.newsDigest  ?? DEFAULT_PREFS.newsDigest,
+        primary_team_slug:     primarySlug,
+        sub_global_briefing:   prefs.global_briefing   ?? DEFAULT_PREFS.global_briefing,
+        sub_mlb_briefing:      prefs.mlb_briefing      ?? DEFAULT_PREFS.mlb_briefing,
+        sub_ncaam_briefing:    prefs.ncaam_briefing     ?? DEFAULT_PREFS.ncaam_briefing,
+        sub_ncaam_team_digest: prefs.ncaam_team_digest  ?? DEFAULT_PREFS.ncaam_team_digest,
+        sub_ncaam_picks:       prefs.ncaam_picks        ?? DEFAULT_PREFS.ncaam_picks,
         provider:          user.app_metadata?.provider || 'google',
       });
     }, 500);
@@ -2751,10 +2816,6 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     const prevValue = prefs[key];
     const newPrefs = { ...prefs, [key]: !prevValue };
     setPrefs(newPrefs);
-    // When enabling Team Digest, auto-open the picker if no teams selected yet
-    if (key === 'teamDigest' && !prevValue && (!newPrefs.teamDigestTeams || newPrefs.teamDigestTeams.length === 0)) {
-      setDigestPickerOpen(true);
-    }
     debouncedPrefSave(newPrefs, key, () => setPrefs(prev => ({ ...prev, [key]: prevValue })));
   }
 
@@ -3079,88 +3140,114 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
               {saveStatus === 'saving' && <span className={styles.savingStatus}>Saving…</span>}
               {saveStatus === 'error'  && <span className={styles.errorStatus}>Save failed</span>}
             </div>
-            <div className={styles.prefList}>
-              {PREFERENCES.map(({ key, label, description }) => {
-                const isOn = !!prefs[key];
-                const isTeamDigest = key === 'teamDigest';
 
-                const toggleRow = (
-                  <button
-                    type="button"
-                    className={`${styles.prefRow} ${isOn ? styles.prefRowOn : ''}`}
-                    onClick={() => handlePrefToggle(key)}
-                  >
-                    <div className={styles.prefText}>
-                      <span className={styles.prefLabel}>{label}</span>
-                      <span className={styles.prefDesc}>{description}</span>
-                    </div>
-                    <div className={`${styles.toggle} ${isOn ? styles.toggleOn : ''}`}>
-                      <div className={styles.toggleThumb} />
-                    </div>
-                  </button>
-                );
-
-                if (!isTeamDigest) return <div key={key}>{toggleRow}</div>;
-
-                return (
-                  <div key={key} className={`${styles.teamDigestCard} ${isOn ? styles.teamDigestCardOn : ''}`}>
-                    {toggleRow}
-                    {isOn && (
-                      <div className={styles.digestTeamSelector}>
-                        <div className={styles.digestTeamSelectorHeader}>
-                          <span className={styles.digestTeamSelectorLabel}>
-                            Digest teams
-                            {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0
-                              ? ` (${prefs.teamDigestTeams.length}${planTier === 'free' ? `/${entitlements.maxEmailTeams}` : ''} selected)`
-                              : ' — select at least one'}
-                          </span>
-                          <button type="button" className={styles.btnAddTeam} onClick={() => setDigestPickerOpen(v => !v)}>
-                            {digestPickerOpen ? 'Done' : '+ Add teams'}
-                          </button>
-                        </div>
-
-                        {Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length > 0 && (
-                          <div className={styles.digestTeamChips}>
-                            {prefs.teamDigestTeams.map(slug => {
-                              const teamData = TEAMS.find(t => t.slug === slug);
-                              if (!teamData) return null;
-                              return (
-                                <span key={slug} className={styles.digestTeamChip}>
-                                  <TeamLogo team={teamData} size={14} />
-                                  <span className={styles.digestTeamChipName}>{teamData.name}</span>
-                                  <button type="button" className={styles.digestTeamChipRemove} onClick={() => handleDigestTeamToggle(slug)} aria-label={`Remove ${teamData.name} from Team Digest`}>×</button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {digestPickerOpen && (
-                          <div className={styles.digestPickerWrap}>
-                            <TeamPickerPanel
-                              existingTeams={(prefs.teamDigestTeams || []).map(slug => ({ team_slug: slug }))}
-                              onAdd={(slug) => { handleDigestTeamToggle(slug); }}
-                              onClose={() => setDigestPickerOpen(false)}
-                              multiSelect
-                              selectedSlugs={prefs.teamDigestTeams || []}
-                              onToggle={handleDigestTeamToggle}
-                            />
-                          </div>
-                        )}
-
-                        {planTier === 'free' && Array.isArray(prefs.teamDigestTeams) && prefs.teamDigestTeams.length >= entitlements.maxEmailTeams && (
-                          <div className={styles.limitNudge}>
-                            <span>Free plan: {entitlements.maxEmailTeams} digest teams max.</span>
-                            <button type="button" className={styles.limitNudgeLink} onClick={() => setActiveTab('billing')}>
-                              Upgrade to Pro for unlimited →
-                            </button>
-                          </div>
-                        )}
+            {/* ── Maximus Sports (Global) ── */}
+            <div className={styles.prefSection}>
+              <div className={styles.prefSectionHeader}>
+                <span className={styles.prefSectionLabel}>Maximus Sports</span>
+              </div>
+              <div className={styles.prefList}>
+                {GLOBAL_PREFERENCES.map(({ key, label, description }) => (
+                  <div key={key}>
+                    <button
+                      type="button"
+                      className={`${styles.prefRow} ${prefs[key] ? styles.prefRowOn : ''}`}
+                      onClick={() => handlePrefToggle(key)}
+                    >
+                      <div className={styles.prefText}>
+                        <span className={styles.prefLabel}>{label}</span>
+                        <span className={styles.prefDesc}>{description}</span>
                       </div>
-                    )}
+                      <div className={`${styles.toggle} ${prefs[key] ? styles.toggleOn : ''}`}>
+                        <div className={styles.toggleThumb} />
+                      </div>
+                    </button>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+
+            {/* ── MLB ── */}
+            <div className={styles.prefSection}>
+              <div className={styles.prefSectionHeader}>
+                <span className={styles.prefSectionLabel}>MLB</span>
+              </div>
+              <div className={styles.prefList}>
+                {MLB_PREFERENCES.map(({ key, label, description }) => {
+                  const isOn = !!prefs[key];
+                  const isTeamDigest = key === 'mlb_team_digest';
+                  const toggleRow = (
+                    <button
+                      type="button"
+                      className={`${styles.prefRow} ${isOn ? styles.prefRowOn : ''}`}
+                      onClick={() => handlePrefToggle(key)}
+                    >
+                      <div className={styles.prefText}>
+                        <span className={styles.prefLabel}>{label}</span>
+                        <span className={styles.prefDesc}>{description}</span>
+                      </div>
+                      <div className={`${styles.toggle} ${isOn ? styles.toggleOn : ''}`}>
+                        <div className={styles.toggleThumb} />
+                      </div>
+                    </button>
+                  );
+                  if (!isTeamDigest) return <div key={key}>{toggleRow}</div>;
+                  return (
+                    <div key={key} className={`${styles.teamDigestCard} ${isOn ? styles.teamDigestCardOn : ''}`}>
+                      {toggleRow}
+                      {isOn && (
+                        <div className={styles.digestTeamSelector}>
+                          <p className={styles.prefDesc} style={{ padding: '0.5rem 0.75rem', margin: 0 }}>
+                            Digest is sent for your pinned MLB teams. Pin teams above to receive updates.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── NCAAM ── */}
+            <div className={styles.prefSection}>
+              <div className={styles.prefSectionHeader}>
+                <span className={styles.prefSectionLabel}>NCAAM</span>
+                <span className={styles.comingSoonBadge}>Offseason</span>
+              </div>
+              <div className={styles.prefList}>
+                {NCAAM_PREFERENCES.map(({ key, label, description }) => {
+                  const isOn = !!prefs[key];
+                  const isTeamDigest = key === 'ncaam_team_digest';
+                  const toggleRow = (
+                    <button
+                      type="button"
+                      className={`${styles.prefRow} ${isOn ? styles.prefRowOn : ''}`}
+                      onClick={() => handlePrefToggle(key)}
+                    >
+                      <div className={styles.prefText}>
+                        <span className={styles.prefLabel}>{label}</span>
+                        <span className={styles.prefDesc}>{description}</span>
+                      </div>
+                      <div className={`${styles.toggle} ${isOn ? styles.toggleOn : ''}`}>
+                        <div className={styles.toggleThumb} />
+                      </div>
+                    </button>
+                  );
+                  if (!isTeamDigest) return <div key={key}>{toggleRow}</div>;
+                  return (
+                    <div key={key} className={`${styles.teamDigestCard} ${isOn ? styles.teamDigestCardOn : ''}`}>
+                      {toggleRow}
+                      {isOn && (
+                        <div className={styles.digestTeamSelector}>
+                          <p className={styles.prefDesc} style={{ padding: '0.5rem 0.75rem', margin: 0 }}>
+                            Digest is sent for your pinned NCAAM teams. Pin teams above to receive updates.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

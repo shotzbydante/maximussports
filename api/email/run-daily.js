@@ -1,44 +1,35 @@
 /* global process */
 /**
- * GET /api/email/run-daily?type=daily|pinned|odds|news|teamDigest
+ * GET /api/email/run-daily?type=<email_type>
  *
  * Automated daily email engine. Called by Vercel cron jobs.
  *
- * Staggered cadence (configured in vercel.json, all times UTC):
- *   daily:       0 13 * * *  → 6:00 AM PDT / 5:00 AM PST  — Morning briefing
- *   news:       30 16 * * *  → 9:30 AM PDT / 8:30 AM PST  — Breaking news digest
- *   odds:       15 19 * * *  → 12:15 PM PDT / 11:15 AM PST — Odds & ATS intel
- *   pinned:     45 22 * * *  → 3:45 PM PDT / 2:45 PM PST  — Pinned teams alerts
- *   teamDigest: 30  2 * * *  → 7:30 PM PDT / 6:30 PM PST  — Team digest
+ * ─── Email Types (v2 subscription model) ────────────────────────────────────
  *
- * Designed so a fully subscribed user gets emails spread through the day,
- * not all at once. Times target Pacific Daylight (PDT, UTC-7).
+ * GLOBAL:
+ *   global_briefing      → Daily Global Intel Briefing
  *
- * For each email type:
- *  1. Fetch all users from Supabase auth
- *  2. Load their profiles and preferences
- *  3. Check email_send_log to prevent duplicate sends (max 1/type/day)
- *  4. Gather data for the email type
- *  5. Render and send personalized emails
- *  6. Log each send to email_send_log
- *  7. Log the job run to email_job_runs for admin visibility
+ * MLB:
+ *   mlb_briefing         → Daily MLB Briefing
+ *   mlb_team_digest      → Daily MLB Team Digest
+ *   mlb_picks            → Daily MLB Maximus's Picks
  *
- * Eligibility rules:
- *   daily   → ALL users by default unless explicitly opted out (briefing: false)
- *   pinned  → subscribed users (teamAlerts: true, default true)
- *   odds    → subscribed users (oddsIntel: true, default false — opt-in only)
- *   news    → subscribed users (newsDigest: true, default true)
- *   teamDigest → subscribed users with at least one selected team
+ * NCAAM:
+ *   ncaam_briefing       → Daily NCAAM Briefing
+ *   ncaam_team_digest    → Daily NCAAM Team Digest
+ *   ncaam_picks          → Daily NCAAM Maximus's Picks
  *
- * New users without a profile row receive default preferences
- * (briefing: true, teamAlerts: true, newsDigest: true) so they are
- * automatically included in the next eligible send after signup.
+ * Season gating: NCAAM emails are suppressed when season is completed.
+ * Global and MLB emails continue regardless of NCAAM season state.
+ *
+ * Legacy preference keys (briefing, teamAlerts, oddsIntel, newsDigest,
+ * teamDigest) are transparently migrated at read-time via resolvePreferences().
  */
 
 import { getSupabaseAdmin } from '../_lib/supabaseAdmin.js';
 import { sendEmailThrottled } from '../_lib/sendEmail.js';
 import { getUserDisplayName } from '../_lib/personalization.js';
-import { DEFAULT_EMAIL_PREFS } from '../_lib/emailDefaults.js';
+import { DEFAULT_EMAIL_PREFS, resolvePreferences } from '../_lib/emailDefaults.js';
 import { dedupeNewsItems } from '../_lib/newsDedupe.js';
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource, fetchOddsSource } from '../_sources.js';
 import { getAtsLeadersPipeline } from '../home/atsPipeline.js';
@@ -53,15 +44,47 @@ import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDi
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
 
+/**
+ * Email type → preference key mapping (v2 subscription model).
+ *
+ * Global:
+ *   global_briefing      → global_briefing      Daily Global Intel Briefing
+ *
+ * MLB:
+ *   mlb_briefing         → mlb_briefing          Daily MLB Briefing
+ *   mlb_team_digest      → mlb_team_digest       Daily MLB Team Digest
+ *   mlb_picks            → mlb_picks             Daily MLB Maximus's Picks
+ *
+ * NCAAM:
+ *   ncaam_briefing       → ncaam_briefing         Daily NCAAM Briefing
+ *   ncaam_team_digest    → ncaam_team_digest      Daily NCAAM Team Digest
+ *   ncaam_picks          → ncaam_picks            Daily NCAAM Maximus's Picks
+ */
 const TYPE_TO_PREF_KEY = {
-  daily:      'briefing',
-  pinned:     'teamAlerts',
-  odds:       'oddsIntel',
-  news:       'newsDigest',
-  teamDigest: 'teamDigest',
+  global_briefing:   'global_briefing',
+  ncaam_briefing:    'ncaam_briefing',
+  ncaam_team_digest: 'ncaam_team_digest',
+  ncaam_picks:       'ncaam_picks',
+  mlb_briefing:      'mlb_briefing',
+  mlb_team_digest:   'mlb_team_digest',
+  mlb_picks:         'mlb_picks',
 };
 
 const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
+
+/** Types that are NCAAM-specific and should be gated by NCAAM season state. */
+const NCAAM_TYPES = ['ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks'];
+
+/** Map new type → template rendering function set (reuses existing templates). */
+const TYPE_TO_TEMPLATE = {
+  global_briefing:   'daily',
+  ncaam_briefing:    'daily',
+  ncaam_team_digest: 'pinned',
+  ncaam_picks:       'odds',
+  mlb_briefing:      'news',
+  mlb_team_digest:   'teamDigest',
+  mlb_picks:         'odds',
+};
 
 function makeDateKey(type) {
   const today = new Date().toISOString().slice(0, 10);
@@ -274,18 +297,16 @@ export default async function handler(req, res) {
   }
 
   // ── Season state gate: suppress NCAAM emails when season is completed ──
-  // All current email types are NCAAM-focused. When NCAAM season is over,
-  // skip sending entirely. MLB emails will use a separate pipeline.
-  // This is driven by the canonical seasonState in workspace config.
+  // Only NCAAM-specific emails are gated. Global and MLB emails continue.
   const NCAAM_SEASON_STATE = 'completed'; // matches workspaces/config.js
-  if (NCAAM_SEASON_STATE === 'completed') {
+  if (NCAAM_TYPES.includes(type) && NCAAM_SEASON_STATE === 'completed') {
     console.log(`[run-daily] ⏸ NCAAM season completed — skipping ${type} email run.`);
     return res.status(200).json({
       ok: true,
       type,
       skipped: true,
       reason: 'ncaam_season_completed',
-      message: 'NCAAM season is complete. Email sends are suspended until next season.',
+      message: 'NCAAM season is complete. NCAAM email sends are suspended until next season.',
     });
   }
 
@@ -363,7 +384,7 @@ export default async function handler(req, res) {
         return false;
       }
 
-      const prefs = { ...DEFAULT_EMAIL_PREFS, ...(profile.preferences || {}) };
+      const prefs = resolvePreferences(profile.preferences);
       const subscribed = prefs[prefKey] === true;
 
       if (!subscribed) {
@@ -411,12 +432,14 @@ export default async function handler(req, res) {
     }
 
     // ── 6. Fetch shared data
+    // Determine the template type for conditional data fetching
+    const tplType = TYPE_TO_TEMPLATE[type];
     const [scoresTodayRaw, rankingsData, atsResult, newsData, oddsRaw] = await Promise.allSettled([
       fetchScoresSource(),
       fetchRankingsSource(),
       getAtsLeadersPipeline(),
       fetchNewsAggregateSource({ includeNational: true }),
-      type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
+      (tplType === 'odds') ? fetchOddsSource() : Promise.resolve(null),
     ]);
 
     const scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
@@ -439,7 +462,7 @@ export default async function handler(req, res) {
     // ── 7. Email briefing context (narrative, results, matchups, picks)
     let botIntelBullets = [];
     let briefingContext = {};
-    if (type === 'daily' || type === 'pinned') {
+    if (tplType === 'daily' || tplType === 'pinned') {
       try {
         briefingContext = await buildEmailBriefingContext(atsLeaders, rankingsTop25, scoresToday, []);
         botIntelBullets = briefingContext.botIntelBullets || [];
@@ -452,7 +475,7 @@ export default async function handler(req, res) {
     // ── 7b. Model signals + tournament meta (for daily briefing)
     let modelSignals = [];
     let tournamentMeta = {};
-    if (type === 'daily') {
+    if (tplType === 'daily') {
       try {
         const cached = await getJson('picks:latest:v1');
         if (Array.isArray(cached) && cached.length > 0) {
@@ -502,7 +525,7 @@ export default async function handler(req, res) {
     }
 
     // ── 7c. Rebuild picks summary now that modelSignals are loaded
-    if (type === 'daily' && modelSignals.length > 0 && briefingContext) {
+    if (tplType === 'daily' && modelSignals.length > 0 && briefingContext) {
       const topPicks = modelSignals.slice(0, 3);
       const parts = topPicks.map(p => {
         const matchup = p.matchup || `${p.awayTeam || '?'} vs ${p.homeTeam || '?'}`;
@@ -554,7 +577,7 @@ export default async function handler(req, res) {
       const pinnedSlugs = getPinnedTeamSlugs(teamRows);
 
       // Debug logging: team resolution
-      if (type === 'pinned' || type === 'teamDigest') {
+      if (tplType === 'pinned' || tplType === 'teamDigest') {
         console.log(`[run-daily] Team resolve user=${userId} email=${email} raw_slugs=[${pinnedSlugs.join(',')}] resolved_names=[${pinnedTeams.map(t => t.name).join(',')}] count=${pinnedTeams.length}`);
       }
 
@@ -581,7 +604,10 @@ export default async function handler(req, res) {
 
       let subject, html, text;
       try {
-        switch (type) {
+        // Map new type to legacy template via TYPE_TO_TEMPLATE
+        const tpl = TYPE_TO_TEMPLATE[type];
+
+        switch (tpl) {
           case 'daily':
             subject = getDailySubject(emailData);
             html    = renderDailyHTML(emailData);
@@ -603,7 +629,7 @@ export default async function handler(req, res) {
             text    = renderNewsText(emailData);
             break;
           case 'teamDigest': {
-            // Team Digest now uses pinned teams (user_teams) as single source of truth
+            // Team Digest uses pinned teams (user_teams) as single source of truth
             if (!getTeamBySlugFn || pinnedSlugs.length === 0) {
               skipCounts.no_digest_teams++;
               console.log(`[run-daily] SKIP user=${userId} reason=no_pinned_teams email=${email}`);
