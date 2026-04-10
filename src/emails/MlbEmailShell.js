@@ -69,7 +69,9 @@ export function normalizeSpacing(text = '') {
 export function cleanNarrativeText(text) {
   if (!text) return '';
   let result = text
-    .replace(/¶\d+\s*/g, '')
+    // Strip paragraph markers: ¶1, ¶ 2, ¶1:, ¶1 —, standalone ¶
+    .replace(/¶\s*\d+\s*[:—\-–]?\s*/g, '')
+    .replace(/¶/g, '')
     .replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${TEXT_PRIMARY};">$1</strong>`)
     .replace(/^(AROUND THE LEAGUE|WORLD SERIES ODDS PULSE|PENNANT RACE WATCH|SLEEPERS.*?VALUE|DIAMOND DISPATCH)\s*[:—\-–]\s*/gim, '')
     .replace(/\n{3,}/g, '\n\n')
