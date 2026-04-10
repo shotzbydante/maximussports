@@ -3,7 +3,7 @@
  * POST /api/email/send-test
  * Admin-only endpoint that sends a test email for a given subscription type.
  *
- * Body:   { type: 'daily' | 'pinned' | 'odds' | 'news' | 'teamDigest' }
+ * Body:   { type: '<email_type>' }  (see VALID_TYPES)
  * Auth:   Authorization: Bearer <supabase-access-token>
  * Access: admin user only (see api/_lib/admin.js)
  *
@@ -24,7 +24,22 @@ import { getJson } from '../_globalCache.js';
 import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
 
 const DEBUG_MARKER = 'EMAIL_TEST_V3';
-const VALID_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
+const VALID_TYPES = [
+  'global_briefing',
+  'mlb_briefing', 'mlb_team_digest', 'mlb_picks',
+  'ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks',
+];
+
+/** Map new type → legacy template key for dynamic import. */
+const TYPE_TO_TEMPLATE = {
+  global_briefing:   'daily',
+  ncaam_briefing:    'daily',
+  ncaam_team_digest: 'pinned',
+  ncaam_picks:       'odds',
+  mlb_briefing:      'news',
+  mlb_team_digest:   'teamDigest',
+  mlb_picks:         'odds',
+};
 
 const FALLBACK_PINNED_TEAMS = [
   { name: 'Duke Blue Devils',  slug: 'duke-blue-devils' },
@@ -36,13 +51,14 @@ const FALLBACK_PINNED_TEAMS = [
  * Dynamic import prevents top-level ESM resolution failures from crashing the function.
  */
 async function loadTemplate(type) {
-  switch (type) {
+  const tpl = TYPE_TO_TEMPLATE[type] || type;
+  switch (tpl) {
     case 'daily':      return import('../../src/emails/templates/dailyBriefing.js');
     case 'pinned':     return import('../../src/emails/templates/pinnedTeamsAlerts.js');
     case 'odds':       return import('../../src/emails/templates/oddsIntel.js');
     case 'news':       return import('../../src/emails/templates/breakingNews.js');
     case 'teamDigest': return import('../../src/emails/templates/teamDigest.js');
-    default:           throw new Error(`Unknown template type: ${type}`);
+    default:           throw new Error(`Unknown template type: ${type} (mapped: ${tpl})`);
   }
 }
 
@@ -138,6 +154,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ code: 'BAD_TYPE', error: `Must be one of: ${VALID_TYPES.join(', ')}`, marker: DEBUG_MARKER });
     }
 
+    const tplType = TYPE_TO_TEMPLATE[type] || type;
+
     // ── STEP 1: load_template ──
     let step = 'load_template';
     console.log(`[send-test] ${DEBUG_MARKER} step=${step} type=${type}`);
@@ -160,7 +178,7 @@ export default async function handler(req, res) {
         fetchRankingsSource(),
         getAtsLeadersPipeline(),
         fetchNewsAggregateSource({ includeNational: true }),
-        type === 'odds' ? fetchOddsSource() : Promise.resolve(null),
+        (TYPE_TO_TEMPLATE[type] === 'odds') ? fetchOddsSource() : Promise.resolve(null),
       ]);
 
       const scoresToday   = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
@@ -177,7 +195,7 @@ export default async function handler(req, res) {
       const displayName = getUserDisplayName({ user });
 
       let botIntelBullets = [];
-      if (type === 'daily' || type === 'pinned') {
+      if (tplType === 'daily' || tplType === 'pinned') {
         try { botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday); }
         catch { botIntelBullets = []; }
       }
@@ -211,7 +229,7 @@ export default async function handler(req, res) {
     console.log(`[send-test] ${DEBUG_MARKER} step=${step} type=${type}`);
     let subject, html, text;
     try {
-      if (type === 'teamDigest') {
+      if (tplType === 'teamDigest') {
         const { assembleTeamDigestPayload: assemble, TEAM_DIGEST_MAX_TEAMS: max } = await import('../_lib/teamDigest.js');
         const { getTeamBySlug } = await import('../../src/data/teams.js');
         const teamDigests = assemble(emailData.pinnedSlugs.slice(0, max), emailData, getTeamBySlug);

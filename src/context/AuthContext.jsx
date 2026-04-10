@@ -14,12 +14,16 @@ function dbg(...args) {
 }
 
 const DEFAULT_EMAIL_PREFS = {
-  briefing:        true,
-  teamAlerts:      true,
-  oddsIntel:       false,
-  newsDigest:      true,
-  teamDigest:      false,
-  teamDigestTeams: [],
+  // Global
+  global_briefing:     true,
+  // MLB
+  mlb_briefing:        true,
+  mlb_team_digest:     false,
+  mlb_picks:           false,
+  // NCAAM
+  ncaam_briefing:      true,
+  ncaam_team_digest:   true,
+  ncaam_picks:         false,
 };
 
 function extractDisplayName(user) {

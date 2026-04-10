@@ -13,7 +13,11 @@
 import { verifyUserToken, getSupabaseAdmin, getEnvStatus } from '../_lib/supabaseAdmin.js';
 import { isAdminEmail } from '../_lib/admin.js';
 
-const DIGEST_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
+const DIGEST_TYPES = [
+  'global_briefing',
+  'mlb_briefing', 'mlb_team_digest', 'mlb_picks',
+  'ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks',
+];
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

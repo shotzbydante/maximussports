@@ -1,18 +1,11 @@
 /* global process */
 /**
- * GET /api/email/preview?type=daily|pinned|odds|news&secret=<PREVIEW_SECRET>
+ * GET /api/email/preview?type=<email_type>&secret=<PREVIEW_SECRET>
  *
  * Dev/admin-only endpoint: returns rendered HTML for any email template
  * so you can inspect it in-browser without sending a real email.
  *
- * Security:
- *  - Must provide `?secret=<PREVIEW_SECRET>` matching the env var, OR
- *  - NODE_ENV must not be 'production' (local dev)
- *  - Falls back to admin email check via Authorization: Bearer <token> if neither above
- *
- * Usage:
- *   http://localhost:3000/api/email/preview?type=daily&secret=mysecret
- *   https://your-domain.vercel.app/api/email/preview?type=pinned&secret=mysecret
+ * Uses the v2 subscription model type names (global_briefing, mlb_*, ncaam_*).
  */
 
 import { fetchScoresSource, fetchRankingsSource, fetchNewsAggregateSource } from '../_sources.js';
@@ -29,7 +22,22 @@ import { renderHTML as renderDigestHTML } from '../../src/emails/templates/teamD
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
 
-const VALID_TYPES = ['daily', 'pinned', 'odds', 'news', 'teamDigest'];
+const VALID_TYPES = [
+  'global_briefing',
+  'mlb_briefing', 'mlb_team_digest', 'mlb_picks',
+  'ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks',
+];
+
+/** Map new type → legacy template key. */
+const TYPE_TO_TEMPLATE = {
+  global_briefing:   'daily',
+  ncaam_briefing:    'daily',
+  ncaam_team_digest: 'pinned',
+  ncaam_picks:       'odds',
+  mlb_briefing:      'news',
+  mlb_team_digest:   'teamDigest',
+  mlb_picks:         'odds',
+};
 
 // Fallback only used when no authenticated admin or admin has zero pinned teams
 const FALLBACK_PINNED_TEAMS = [
@@ -116,6 +124,8 @@ export default async function handler(req, res) {
     `);
   }
 
+  const tplType = TYPE_TO_TEMPLATE[type];
+
   // ── Fetch data ─────────────────────────────────────────────────────────────
   try {
     const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
@@ -134,7 +144,7 @@ export default async function handler(req, res) {
     const headlines     = dedupeNewsItems(headlinesRaw);
 
     let botIntelBullets = [];
-    if (type === 'daily' || type === 'pinned') {
+    if (tplType === 'daily' || tplType === 'pinned') {
       botIntelBullets = await getBotIntelBullets(atsLeaders, rankingsTop25, scoresToday);
     }
     const maximusNote = botIntelBullets[0] || '';
@@ -166,7 +176,7 @@ export default async function handler(req, res) {
     };
 
     let html;
-    switch (type) {
+    switch (tplType) {
       case 'daily':  html = renderDailyHTML(emailData);  break;
       case 'pinned': html = renderPinnedHTML(emailData); break;
       case 'odds':   html = renderOddsHTML(emailData);   break;

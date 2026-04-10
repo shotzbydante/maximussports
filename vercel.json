@@ -65,10 +65,12 @@
     {"path": "/api/ats/warm",                           "schedule": "*/7 * * * *"},
     {"path": "/api/ats/warmAll",                        "schedule": "*/10 * * * *"},
     {"path": "/api/ats/warmFull",                       "schedule": "*/30 * * * *"},
-    {"path": "/api/email/run-daily?type=daily",         "schedule": "0 13 * * *"},
-    {"path": "/api/email/run-daily?type=news",          "schedule": "30 16 * * *"},
-    {"path": "/api/email/run-daily?type=odds",          "schedule": "15 19 * * *"},
-    {"path": "/api/email/run-daily?type=pinned",        "schedule": "45 22 * * *"},
-    {"path": "/api/email/run-daily?type=teamDigest",   "schedule": "30 2 * * *"}
+    {"path": "/api/email/run-daily?type=global_briefing",   "schedule": "0 13 * * *"},
+    {"path": "/api/email/run-daily?type=mlb_briefing",      "schedule": "30 16 * * *"},
+    {"path": "/api/email/run-daily?type=mlb_team_digest",   "schedule": "30 2 * * *"},
+    {"path": "/api/email/run-daily?type=mlb_picks",         "schedule": "15 19 * * *"},
+    {"path": "/api/email/run-daily?type=ncaam_briefing",    "schedule": "0 14 * * *"},
+    {"path": "/api/email/run-daily?type=ncaam_team_digest", "schedule": "45 22 * * *"},
+    {"path": "/api/email/run-daily?type=ncaam_picks",       "schedule": "0 20 * * *"}
   ]
 }
