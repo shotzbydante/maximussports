@@ -168,238 +168,355 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SLIDE 1 — HERO COVER
-   Order: Brand → Glass Plaque → Mascot → Day Headline → Footer
+   SLIDE 1 — SUMMARY COVER DASHBOARD
+   Brand → Title/Date → Story Cards + Mascot → HOTP bullets
+   → Bottom grid (Pennant Race | Picks) → CTA pill
    ══════════════════════════════════════════════════════════════ */
 
-.slide1 {
+.s1 {
   position: relative; width: 1080px; height: 1350px;
   overflow: hidden;
   font-family: 'Inter', 'Helvetica Neue', -apple-system, sans-serif;
   color: #fff;
-  padding: 22px 24px 14px;
+  padding: 0;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center;
 }
 
-/* ── Background layers ── */
-.slide1BgBase {
+/* ── Background ── */
+.s1BgBase {
   position: absolute; inset: 0; z-index: 0;
   background:
-    radial-gradient(circle at 50% 38%, rgba(240,30,80,0.34), transparent 36%),
-    radial-gradient(circle at 50% 16%, rgba(220,50,90,0.40), transparent 30%),
-    radial-gradient(circle at 50% 62%, rgba(180,15,45,0.26), transparent 36%),
-    radial-gradient(circle at 50% 50%, rgba(255,60,100,0.10), transparent 50%),
-    linear-gradient(180deg, #820024 0%, #920828 14%, #720020 40%, #3e0010 70%, #1a0006 100%);
+    radial-gradient(circle at 50% 32%, rgba(255,40,90,0.32), transparent 40%),
+    radial-gradient(circle at 50% 14%, rgba(240,55,95,0.36), transparent 32%),
+    radial-gradient(circle at 50% 58%, rgba(200,20,55,0.22), transparent 38%),
+    radial-gradient(circle at 50% 50%, rgba(255,70,110,0.10), transparent 50%),
+    linear-gradient(180deg, #8a1030 0%, #9a1838 12%, #7a1228 38%, #4a0818 68%, #1e0408 100%);
 }
-.slide1BgLights {
+.s1BgLights {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
-    radial-gradient(circle at 12% 26%, rgba(255,255,255,0.38), transparent 12%),
-    radial-gradient(circle at 88% 26%, rgba(255,255,255,0.38), transparent 12%),
-    radial-gradient(circle at 10% 30%, rgba(255,80,130,0.32), transparent 26%),
-    radial-gradient(circle at 90% 30%, rgba(255,80,130,0.32), transparent 26%),
-    radial-gradient(circle at 22% 18%, rgba(255,200,220,0.22), transparent 18%),
-    radial-gradient(circle at 78% 18%, rgba(255,200,220,0.22), transparent 18%),
-    radial-gradient(circle at 50% 8%, rgba(255,180,200,0.16), transparent 24%),
-    radial-gradient(circle at 50% 50%, rgba(255,60,100,0.12), transparent 34%),
-    radial-gradient(circle at 50% 82%, rgba(255,40,80,0.08), transparent 20%);
+    radial-gradient(circle at 14% 22%, rgba(255,255,255,0.32), transparent 12%),
+    radial-gradient(circle at 86% 22%, rgba(255,255,255,0.32), transparent 12%),
+    radial-gradient(circle at 10% 28%, rgba(255,90,140,0.28), transparent 24%),
+    radial-gradient(circle at 90% 28%, rgba(255,90,140,0.28), transparent 24%),
+    radial-gradient(circle at 50% 8%, rgba(255,190,210,0.14), transparent 22%),
+    radial-gradient(circle at 50% 44%, rgba(255,60,100,0.14), transparent 36%),
+    radial-gradient(circle at 50% 78%, rgba(255,40,80,0.06), transparent 22%);
 }
-.slide1BgArena {
+.s1BgSeam {
   position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background:
-    linear-gradient(170deg, transparent 32%, rgba(255,255,255,0.06) 36%, transparent 40%),
-    linear-gradient(174deg, transparent 44%, rgba(255,255,255,0.05) 47%, transparent 50%),
-    linear-gradient(178deg, transparent 55%, rgba(255,255,255,0.04) 58%, transparent 61%),
-    linear-gradient(6deg, transparent 32%, rgba(255,90,120,0.05) 36%, transparent 40%),
-    linear-gradient(3deg, transparent 44%, rgba(255,90,120,0.04) 47%, transparent 50%),
-    radial-gradient(ellipse 900px 300px at 50% 52%, rgba(255,60,90,0.06) 0%, transparent 60%);
+    radial-gradient(ellipse 140px 800px at 82% 50%, rgba(255,180,190,0.06), transparent 60%),
+    radial-gradient(ellipse 100px 600px at 85% 44%, rgba(255,140,160,0.04), transparent 50%);
 }
-.slide1BgParticles {
-  position: absolute; inset: 0; z-index: 3; pointer-events: none;
-  background:
-    radial-gradient(1.5px 1.5px at 12% 16%, rgba(255,255,255,0.55), transparent),
-    radial-gradient(1px 1px at 78% 22%, rgba(255,255,255,0.50), transparent),
-    radial-gradient(1px 1px at 42% 10%, rgba(255,255,255,0.40), transparent),
-    radial-gradient(1.5px 1.5px at 65% 28%, rgba(255,255,255,0.35), transparent),
-    radial-gradient(1px 1px at 25% 42%, rgba(255,255,255,0.28), transparent),
-    radial-gradient(1px 1px at 88% 45%, rgba(255,255,255,0.28), transparent),
-    radial-gradient(2px 2px at 52% 20%, rgba(255,200,210,0.45), transparent),
-    radial-gradient(1.5px 1.5px at 35% 32%, rgba(255,200,210,0.35), transparent),
-    radial-gradient(1px 1px at 72% 38%, rgba(255,180,200,0.25), transparent),
-    linear-gradient(130deg, transparent 28%, rgba(255,100,120,0.06) 42%, transparent 52%),
-    linear-gradient(150deg, transparent 38%, rgba(255,80,100,0.05) 48%, transparent 56%),
-    linear-gradient(115deg, transparent 52%, rgba(255,120,140,0.04) 62%, transparent 70%);
-}
-.slide1Noise {
-  position: absolute; inset: 0; z-index: 4;
-  opacity: 0.032; pointer-events: none;
+.s1BgNoise {
+  position: absolute; inset: 0; z-index: 3;
+  opacity: 0.028; pointer-events: none;
   background-image:
     url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 200px 200px;
 }
 
 /* ── Top brand pill ── */
-.slide1TopBrand {
+.s1TopBar {
   position: relative; z-index: 10;
   width: 100%;
-  display: flex; justify-content: center; align-items: center;
-  min-height: 62px;
-  margin-top: 0;
+  display: flex; justify-content: center;
+  padding-top: 42px;
 }
-.slide1TopBrandPill {
-  height: 48px; padding: 0 28px;
-  border-radius: 14px;
+.s1BrandPill {
+  height: 52px; padding: 0 30px;
+  border-radius: 18px;
   display: inline-flex; align-items: center; gap: 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
-  border: 1px solid rgba(255,255,255,0.22);
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+  border: 1.5px solid rgba(255,210,220,0.22);
   box-shadow:
-    0 0 28px rgba(255,80,120,0.18),
-    0 0 10px rgba(255,255,255,0.06),
-    inset 0 1px 0 rgba(255,255,255,0.22);
+    0 0 24px rgba(255,80,120,0.16),
+    0 0 8px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.18);
 }
-.slide1TopBrandLogo {
-  width: 22px; height: 22px; object-fit: contain;
-}
-.slide1TopBrandPill span {
-  font-size: 16px; line-height: 1; font-weight: 800;
-  letter-spacing: 1.8px; text-transform: uppercase;
-  color: rgba(255,255,255,0.95);
+.s1BrandIcon { width: 22px; height: 22px; object-fit: contain; }
+.s1BrandPill span {
+  font-size: 15px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: rgba(255,255,255,0.92);
 }
 
-/* ── Hero briefing plaque (glass box, upper quarter) ── */
-.slide1BriefingHero {
+/* ── Title block (free-floating, not in glass card) ── */
+.s1TitleBlock {
+  position: relative; z-index: 10;
+  text-align: center;
+  margin-top: 26px;
+}
+.s1Title {
+  margin: 0;
+  font-size: 76px; line-height: 0.92; font-weight: 900;
+  letter-spacing: 1.6px; text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.30), 0 0 40px rgba(255,80,110,0.10);
+}
+.s1Date {
+  margin-top: 12px;
+  font-size: 26px; line-height: 1; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: rgba(255,225,180,0.90);
+  text-shadow: 0 0 10px rgba(255,200,160,0.06);
+}
+
+/* ── Story cards + mascot zone ── */
+.s1StoryZone {
   position: relative; z-index: 10;
   width: 100%;
-  display: flex; justify-content: center; align-items: center;
-  margin-top: 10px;
-  min-height: 210px;
+  margin-top: 18px;
+  min-height: 340px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 40px;
+}
+.s1MascotWrap {
+  position: relative;
   flex-shrink: 0;
+  width: 280px;
+  margin-right: -30px;
+  z-index: 12;
+  align-self: flex-end;
 }
-.slide1BriefingHeroGlow {
+.s1MascotGlow {
   position: absolute;
-  width: 860px; height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,0.20), rgba(255,80,110,0.14) 36%, transparent 72%);
-  filter: blur(28px);
-  z-index: 0;
-}
-.slide1BriefingHeroCard {
-  position: relative; z-index: 2;
-  width: 84%;
-  min-height: 170px;
-  border-radius: 26px;
-  padding: 30px 24px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  background: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.06));
-  border: 1px solid rgba(255,255,255,0.22);
-  box-shadow:
-    0 0 36px rgba(255,80,120,0.16),
-    0 0 18px rgba(255,255,255,0.06),
-    0 0 80px rgba(255,50,90,0.06),
-    inset 0 1px 0 rgba(255,255,255,0.22);
-}
-.liveMotion .slide1BriefingHeroCard {
-  animation: breathe 4.2s ease-in-out infinite;
-}
-.slide1BriefingHeroTitle {
-  font-size: 38px; line-height: 1; font-weight: 900;
-  letter-spacing: 2.3px; text-transform: uppercase;
-  color: rgba(255,255,255,0.97);
-  text-align: center;
-  text-shadow: 0 0 20px rgba(255,255,255,0.10), 0 0 50px rgba(255,80,110,0.06);
-}
-.slide1BriefingHeroDate {
-  margin-top: 16px;
-  font-size: 24px; line-height: 1; font-weight: 700;
-  letter-spacing: 1.2px; text-transform: uppercase;
-  color: rgba(255,225,180,0.94);
-  text-align: center;
-  text-shadow: 0 0 12px rgba(255,200,160,0.08);
-}
-
-/* ── Mascot center zone ── */
-.slide1MascotZone {
-  position: relative; z-index: 10;
-  width: 100%; height: 450px;
-  margin-top: 2px;
-  display: flex; justify-content: center; align-items: center;
-  flex-shrink: 0;
-}
-.slide1MascotHalo {
-  position: absolute;
-  width: 640px; height: 640px;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px; height: 380px;
   border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(255,255,255,0.50) 0%,
-    rgba(255,248,252,0.38) 10%,
-    rgba(255,150,180,0.30) 24%,
-    rgba(255,80,120,0.22) 40%,
-    rgba(255,40,80,0.12) 58%,
-    rgba(255,20,60,0.05) 72%,
-    transparent 82%);
-  filter: blur(18px);
+    rgba(255,255,255,0.36) 0%,
+    rgba(255,200,220,0.24) 22%,
+    rgba(255,80,120,0.14) 44%,
+    transparent 70%);
+  filter: blur(16px);
   z-index: 0;
 }
-.liveMotion .slide1MascotHalo {
-  animation: glowPulse 3.8s ease-in-out infinite;
-}
-.slide1Mascot {
+.s1MascotImg {
   position: relative; z-index: 2;
-  width: 420px; max-width: none; height: auto; object-fit: contain;
+  width: 280px; height: auto; object-fit: contain;
   filter:
-    drop-shadow(0 18px 36px rgba(0,0,0,0.44))
-    drop-shadow(0 0 70px rgba(240,40,70,0.22))
-    drop-shadow(0 0 120px rgba(255,60,90,0.08));
-}
-.liveMotion .slide1Mascot {
-  animation: floatY 5.2s ease-in-out infinite;
-}
-.slide1MascotShadow {
-  position: absolute;
-  bottom: 66px;
-  width: 340px; height: 60px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,80,110,0.26), rgba(0,0,0,0.0) 68%);
-  filter: blur(20px);
-  z-index: 1;
+    drop-shadow(0 14px 28px rgba(0,0,0,0.40))
+    drop-shadow(0 0 50px rgba(240,40,70,0.18));
 }
 
-/* ── Lower headline zone (below mascot) ── */
-.slide1HeadlineZone {
+/* Stacked glass story cards */
+.s1CardsStack {
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 20px;
+  z-index: 11;
+}
+.s1StoryCard {
+  width: 100%;
+  padding: 28px 36px;
+  border-radius: 28px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+  border: 1.5px solid rgba(255,210,225,0.20);
+  box-shadow:
+    0 0 32px rgba(255,80,120,0.12),
+    0 0 14px rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.16);
+}
+.s1StoryTitle {
+  font-size: 44px; line-height: 1.05; font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.28);
+}
+.s1StorySub {
+  margin-top: 8px;
+  font-size: 26px; line-height: 1.15; font-weight: 600;
+  color: rgba(255,225,180,0.88);
+}
+
+/* ── HOTP section ── */
+.s1HotpZone {
   position: relative; z-index: 10;
   width: 100%;
-  margin-top: 4px;
-  display: flex; justify-content: center; align-items: flex-start;
-  text-align: center;
+  padding: 0 48px;
+  margin-top: 18px;
+}
+.s1HotpPill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 26px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,210,225,0.16);
+  font-size: 16px; font-weight: 800; letter-spacing: 1.6px;
+  text-transform: uppercase; color: rgba(255,255,255,0.82);
+  margin-bottom: 14px;
+}
+.s1HotpIcon { font-size: 18px; }
+.s1HotpBullets {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px 24px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.s1HotpRow {
+  display: flex; align-items: center; gap: 10px;
+}
+.s1BulletDot {
+  font-size: 14px; color: rgba(255,180,200,0.60);
   flex-shrink: 0;
 }
-.slide1Headline {
-  margin: 0;
-  max-width: 940px;
-  font-size: 74px; line-height: 0.94; font-weight: 900;
-  letter-spacing: -0.6px; text-transform: uppercase;
-  color: rgba(255,255,255,0.99);
-  text-shadow:
-    0 0 28px rgba(255,255,255,0.14),
-    0 2px 14px rgba(0,0,0,0.44),
-    0 0 70px rgba(240,40,70,0.14),
-    0 0 120px rgba(255,60,90,0.06);
+.s1BulletText {
+  font-size: 22px; line-height: 1.28; font-weight: 600;
+  color: rgba(255,255,255,0.88);
 }
 
-/* ── Footer ── */
-.slide1Footer {
+/* ── Bottom grid: Pennant Race + Picks ── */
+.s1BottomGrid {
   position: relative; z-index: 10;
-  margin-top: auto;
-  min-height: 14px;
   width: 100%;
-  display: flex; justify-content: center; align-items: center;
+  display: flex; gap: 20px;
+  padding: 0 40px;
+  margin-top: 16px;
+  flex: 1;
+  min-height: 0;
 }
-.slide1Site {
-  font-size: 11px; line-height: 1; font-weight: 700;
-  color: rgba(255,255,255,0.45);
-  letter-spacing: 0.8px;
+.s1BottomCard {
+  flex: 1;
+  border-radius: 22px;
+  padding: 18px 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,210,225,0.16);
+  box-shadow:
+    0 0 22px rgba(255,80,120,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.s1SectionLabel {
+  font-size: 15px; font-weight: 800; letter-spacing: 1.4px;
+  text-transform: uppercase; color: rgba(255,255,255,0.70);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ── Pennant Race rows ── */
+.s1RaceList {
+  display: flex; flex-direction: column; gap: 10px;
+  flex: 1;
+}
+.s1RaceRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.s1RaceTeamId {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+  width: 90px;
+}
+.s1RaceAbbrev {
+  font-size: 20px; font-weight: 800; color: #fff;
+}
+.s1RaceCenter {
+  flex: 1;
+  min-width: 0;
+}
+.s1RaceWins {
+  font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.90);
+}
+.s1RaceConviction {
+  font-size: 12px; font-weight: 600; color: rgba(255,200,160,0.70);
+  margin-top: 1px;
+}
+.s1RaceTag {
+  font-size: 11px; font-weight: 600; color: rgba(255,180,200,0.60);
+  margin-top: 1px;
+}
+.s1RaceRight {
+  flex-shrink: 0;
+  text-align: right;
+}
+.s1RaceDiv {
+  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55);
+}
+.s1RaceOdds {
+  font-size: 14px; font-weight: 700; color: rgba(255,200,120,0.85);
+  margin-top: 2px;
+}
+
+/* ── Picks rows ── */
+.s1PicksList {
+  display: flex; flex-direction: column; gap: 8px;
+  flex: 1;
+}
+.s1PickRow {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.s1PickTop {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.s1PickMatchup {
+  font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.60);
+}
+.s1PickType {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: rgba(255,200,160,0.75);
+  padding: 2px 8px; border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.s1PickMid {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 3px;
+}
+.s1PickSelWrap {
+  display: flex; align-items: center; gap: 6px;
+}
+.s1PickSel {
+  font-size: 20px; font-weight: 800; color: #fff;
+}
+.s1PickConv {
+  font-size: 13px; font-weight: 700; color: rgba(255,200,160,0.80);
+}
+.s1PickRationale {
+  font-size: 13px; line-height: 1.24; font-weight: 500;
+  color: rgba(255,255,255,0.50);
+}
+
+/* ── Bottom CTA pill ── */
+.s1Footer {
+  position: relative; z-index: 10;
+  width: 100%;
+  display: flex; justify-content: center;
+  padding: 14px 0 28px;
+  flex-shrink: 0;
+}
+.s1CtaPill {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 62px; padding: 0 36px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+  border: 1.5px solid rgba(255,210,225,0.18);
+  box-shadow:
+    0 0 28px rgba(255,80,120,0.12),
+    0 0 10px rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.14);
+}
+.s1CtaIcon { font-size: 20px; opacity: 0.80; }
+.s1CtaLabel {
+  font-size: 16px; font-weight: 700; letter-spacing: 1.4px;
+  text-transform: uppercase; color: rgba(255,255,255,0.60);
+}
+.s1CtaSite {
+  font-size: 22px; font-weight: 800; letter-spacing: 0.6px;
+  color: rgba(255,230,200,0.92);
 }
 
 /* ══════════════════════════════════════════════════════════════
