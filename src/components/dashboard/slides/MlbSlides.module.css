@@ -40,8 +40,8 @@
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(170deg,
-    #280810 0%, #481220 18%, #5a1828 38%,
-    #380a12 58%, #1a0408 82%, #080204 100%);
+    #3e0c18 0%, #5c1626 18%, #6a1c2e 38%,
+    #481018 58%, #240610 82%, #100206 100%);
 }
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
@@ -417,6 +417,11 @@
   flex-shrink: 0;
   width: 90px;
 }
+.s1RaceTeamId img {
+  filter: drop-shadow(0 0 6px rgba(255,255,255,0.45)) drop-shadow(0 0 12px rgba(255,255,255,0.18));
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+}
 .s1RaceAbbrev {
   font-size: 20px; font-weight: 800; color: #fff;
 }
@@ -509,7 +514,11 @@
     0 0 10px rgba(255,255,255,0.04),
     inset 0 1px 0 rgba(255,255,255,0.14);
 }
-.s1CtaIcon { font-size: 20px; opacity: 0.80; }
+.s1CtaIcon {
+  flex-shrink: 0;
+  color: rgba(255,230,200,0.85);
+  filter: drop-shadow(0 0 4px rgba(255,220,180,0.30));
+}
 .s1CtaLabel {
   font-size: 16px; font-weight: 700; letter-spacing: 1.4px;
   text-transform: uppercase; color: rgba(255,255,255,0.60);

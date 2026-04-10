@@ -288,7 +288,10 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
       {/* ── Bottom CTA pill ── */}
       <footer className={styles.s1Footer}>
         <div className={styles.s1CtaPill}>
-          <span className={styles.s1CtaIcon}>📊</span>
+          <svg className={styles.s1CtaIcon} width="22" height="22" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <polyline points="2,11 5.5,7 8.5,9 14,4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points="10,4 14,4 14,8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <span className={styles.s1CtaLabel}>MORE AT</span>
           <span className={styles.s1CtaSite}>maximussports.ai</span>
         </div>

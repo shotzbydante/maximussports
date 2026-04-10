@@ -497,9 +497,9 @@ function bulletBlowout(s, doy) {
   const l = teamName(s.loseSlug);
   const score = `${s.winScore}-${s.loseScore}`;
   const templates = [
-    `${w} cruise past ${l} ${score} in a dominant showing.`,
-    `${w} roll over ${l} ${score} — a statement win.`,
-    `${w} rout ${l} ${score}, leaving no doubt.`,
+    `${w} cruise past ${l} ${score} as their lineup fires on all cylinders.`,
+    `${w} roll over ${l} ${score} — a statement win that sends a message early.`,
+    `${w} rout ${l} ${score} behind a complete effort on both sides of the ball.`,
   ];
   return templates[doy % templates.length];
 }
@@ -509,9 +509,9 @@ function bulletShutout(s, doy) {
   const l = teamName(s.loseSlug);
   const score = `${s.winScore}-0`;
   const templates = [
-    `${w} shut out ${l} ${score} behind dominant pitching.`,
-    `${w} blank ${l} ${score} in a pitching masterclass.`,
-    `${w} hold ${l} scoreless in a ${score} gem.`,
+    `${w} shut out ${l} ${score} behind dominant pitching that silenced the lineup.`,
+    `${w} blank ${l} ${score} as their pitching staff continues to set the tone early.`,
+    `${w} hold ${l} scoreless in a ${score} gem — a sharp effort on the mound.`,
   ];
   return templates[doy % templates.length];
 }
@@ -521,9 +521,9 @@ function bulletUpset(s, doy) {
   const l = teamName(s.loseSlug);
   const score = `${s.winScore}-${s.loseScore}`;
   const templates = [
-    `${w} stun ${l} ${score} in an early-season upset.`,
-    `${w} pull off the upset, topping ${l} ${score}.`,
-    `Upset: ${w} take down ${l} ${score}.`,
+    `${w} stun ${l} ${score} behind a sharp pitching effort in an early-season upset.`,
+    `${w} pull off the upset, topping ${l} ${score} to shake up the early standings.`,
+    `Upset alert: ${w} take down ${l} ${score} as the underdog prevails.`,
   ];
   return templates[doy % templates.length];
 }
@@ -532,11 +532,12 @@ function bulletContender(s, doy) {
   const w = teamName(s.winSlug);
   const l = teamName(s.loseSlug);
   const score = `${s.winScore}-${s.loseScore}`;
+  const div = teamDiv(s.winSlug);
   const templates = [
-    `${w} handle ${l} ${score} to stay on track.`,
-    `${w} top ${l} ${score} in a strong outing.`,
-    `${w} take care of business, beating ${l} ${score}.`,
-    `${w} edge ${l} ${score} as the ${teamDiv(s.winSlug)} race tightens.`,
+    `${w} handle ${l} ${score} to stay on track in the ${div || 'division'} race.`,
+    `${w} top ${l} ${score} in a strong outing that keeps their momentum rolling.`,
+    `${w} take care of business, beating ${l} ${score} and holding their position.`,
+    `${w} edge ${l} ${score} as the ${div || 'division'} race continues to tighten.`,
   ];
   return templates[doy % templates.length];
 }
@@ -547,15 +548,15 @@ function bulletResult(s, doy) {
   const score = `${s.winScore}-${s.loseScore}`;
   if (s.margin === 1) {
     const templates = [
-      `${w} edge ${l} ${score} in a nail-biter.`,
-      `${w} hold on to beat ${l} ${score} in a tight one.`,
+      `${w} edge ${l} ${score} in a nail-biter that went down to the wire.`,
+      `${w} hold on to beat ${l} ${score} in a tightly contested affair.`,
     ];
     return templates[doy % templates.length];
   }
   const templates = [
-    `${w} beat ${l} ${score}.`,
-    `${w} top ${l} ${score}.`,
-    `${w} win ${score} over ${l}.`,
+    `${w} beat ${l} ${score} as they look to build early-season momentum.`,
+    `${w} top ${l} ${score} in a solid all-around performance.`,
+    `${w} win ${score} over ${l} and continue to stack results.`,
   ];
   return templates[doy % templates.length];
 }
@@ -583,24 +584,24 @@ function bulletDivisionContext(stories, doy) {
 
   if (divEntries.length >= 2) {
     const templates = [
-      `Contenders win in both the ${divEntries[0][0]} and ${divEntries[1][0]} as early races take shape.`,
-      `${divEntries[0][0]} and ${divEntries[1][0]} contenders both pick up wins — pressure builds.`,
+      `Pressure builds across both leagues as ${divEntries[0][0]} and ${divEntries[1][0]} contenders trade wins and division races tighten.`,
+      `${divEntries[0][0]} and ${divEntries[1][0]} contenders both pick up key wins — early separation is underway.`,
     ];
     return templates[doy % templates.length];
   }
   if (divEntries.length === 1) {
     const div = divEntries[0][0];
     const count = divEntries[0][1];
-    if (count >= 2) return `Multiple ${div} contenders win, tightening the division race.`;
-    return `The ${div} picture shifts as contenders make their move.`;
+    if (count >= 2) return `Multiple ${div} contenders win tonight, adding urgency to a tightening division race.`;
+    return `The ${div} picture shifts as contenders jockey for early positioning.`;
   }
 
   // Fallback: league-level summary
   const totalFinals = stories.length;
   if (totalFinals >= 6) {
-    return `A busy night across the league with ${totalFinals} games in the books.`;
+    return `A full slate across the league with ${totalFinals} games in the books — the standings continue to shuffle.`;
   }
-  return 'Early standings pressure builds across both leagues.';
+  return 'Pressure builds across both leagues as contenders trade wins and division races tighten.';
 }
 
 // ── Volume / notable-count bullet ───────────────────────────────────────
