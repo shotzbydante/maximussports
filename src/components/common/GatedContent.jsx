@@ -1,60 +1,81 @@
 /**
- * GatedContent — progressive content gating for unauthenticated users.
+ * GatedContent — premium progressive content gate for unauthenticated users.
  *
- * Shows a preview of the content (top portion), then blurs the rest
- * with a gradient overlay and signup CTA.
+ * Shows the top portion of real content, then fades into a polished
+ * signup CTA overlay. Authenticated users see everything normally.
  *
- * Usage:
- *   <GatedContent previewPercent={30}>
- *     <ExpensiveContent />
- *   </GatedContent>
- *
- * For authenticated users, renders children normally with no gating.
+ * Props:
+ *   previewPercent  — how much of the page to show (default 25)
+ *   sport           — 'mlb' | 'ncaam' | 'nba' (for sport-specific copy)
+ *   title           — override CTA title
+ *   subtitle        — override CTA subtitle
  */
 
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './GatedContent.module.css';
 
+const SPORT_COPY = {
+  mlb:   { title: 'Unlock full MLB intelligence',   sub: 'Create your free account to access every matchup, team signal, and edge.' },
+  ncaam: { title: 'Unlock full NCAAM intelligence',  sub: 'Create your free account to access picks, team intel, and bracket edges.' },
+  nba:   { title: 'Unlock full NBA intelligence',    sub: 'Create your free account to access every matchup, team signal, and edge.' },
+};
+
 export default function GatedContent({
   children,
-  previewPercent = 30,
-  title = 'Unlock full MLB intelligence',
-  subtitle = 'Create your free account to access picks, team intel, and edges.',
+  previewPercent = 25,
+  sport = 'mlb',
+  title,
+  subtitle,
   ctaLabel = 'Create Free Account',
   ctaRoute = '/settings',
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const containerRef = useRef(null);
+  const wrapperRef = useRef(null);
+  const [previewPx, setPreviewPx] = useState(600);
+
+  const copy = SPORT_COPY[sport] || SPORT_COPY.mlb;
+  const heading = title || copy.title;
+  const sub = subtitle || copy.sub;
+
+  // Calculate preview height based on actual rendered content
+  useEffect(() => {
+    if (user || !wrapperRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const h = wrapperRef.current?.scrollHeight || 2000;
+      setPreviewPx(Math.max(300, Math.round(h * previewPercent / 100)));
+    });
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, [user, previewPercent]);
 
   // Authenticated users see everything
   if (user) return <>{children}</>;
 
-  const previewHeight = `${previewPercent}vh`;
-
   return (
-    <div className={styles.gatedWrapper} ref={containerRef}>
-      <div className={styles.preview} style={{ maxHeight: previewHeight }}>
+    <div className={styles.gatedWrapper} ref={wrapperRef}>
+      {/* Real content — clipped to preview height */}
+      <div className={styles.contentClip} style={{ maxHeight: `${previewPx}px` }}>
         {children}
       </div>
-      <div className={styles.blurred}>
-        {children}
-      </div>
-      <div className={styles.overlay}>
-        <div className={styles.overlayContent}>
-          <div className={styles.lockIcon}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+
+      {/* Fade + CTA overlay */}
+      <div className={styles.fadeOverlay}>
+        <div className={styles.ctaCard}>
+          <div className={styles.lockBadge}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
           </div>
-          <h3 className={styles.overlayTitle}>{title}</h3>
-          <p className={styles.overlaySubtitle}>{subtitle}</p>
-          <button className={styles.ctaButton} onClick={() => navigate(ctaRoute)}>
+          <h3 className={styles.ctaTitle}>{heading}</h3>
+          <p className={styles.ctaSub}>{sub}</p>
+          <button className={styles.ctaBtn} onClick={() => navigate(ctaRoute)}>
             {ctaLabel}
           </button>
+          <p className={styles.ctaNote}>Free forever. No credit card required.</p>
         </div>
       </div>
     </div>

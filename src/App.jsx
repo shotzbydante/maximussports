@@ -12,6 +12,7 @@ import { initOfficialBracket } from './utils/bracketInit';
 import { WorkspaceProvider } from './workspaces/WorkspaceContext';
 import WorkspaceGate from './workspaces/WorkspaceGate';
 import { WorkspaceId } from './workspaces/config';
+import RouteGate from './components/common/RouteGate';
 
 const Teams       = lazy(() => import('./pages/Teams'));
 const TeamPage    = lazy(() => import('./components/team/TeamPage'));
@@ -78,20 +79,20 @@ export default function App() {
 
                   {/* ══ NCAAM routes (canonical: /ncaam/...) ══ */}
                   <Route path="ncaam">
-                    <Route index element={<Home />} />
-                    <Route path="teams" element={<Teams />} />
-                    <Route path="teams/:slug" element={<TeamPage />} />
-                    <Route path="games" element={<Games />} />
-                    <Route path="insights" element={<Insights />} />
+                    <Route index element={<RouteGate><Home /></RouteGate>} />
+                    <Route path="teams" element={<RouteGate><Teams /></RouteGate>} />
+                    <Route path="teams/:slug" element={<RouteGate><TeamPage /></RouteGate>} />
+                    <Route path="games" element={<RouteGate><Games /></RouteGate>} />
+                    <Route path="insights" element={<RouteGate><Insights /></RouteGate>} />
                     <Route path="odds-insights" element={<Navigate to="/ncaam/insights" replace />} />
-                    <Route path="news" element={<NewsFeed />} />
-                    <Route path="alerts" element={<Alerts />} />
-                    <Route path="bracketology" element={<Bracketology />} />
+                    <Route path="news" element={<RouteGate><NewsFeed /></RouteGate>} />
+                    <Route path="alerts" element={<RouteGate><Alerts /></RouteGate>} />
+                    <Route path="bracketology" element={<RouteGate><Bracketology /></RouteGate>} />
                     <Route path="friends" element={<Friends />} />
                     <Route path="join" element={<Join />} />
-                    <Route path="games/:matchupSlug" element={<GameMatchup />} />
-                    <Route path="college-basketball-picks-today" element={<CollegeBasketballPicksToday />} />
-                    <Route path="march-madness-betting-intelligence" element={<MarchMadnessHub />} />
+                    <Route path="games/:matchupSlug" element={<RouteGate><GameMatchup /></RouteGate>} />
+                    <Route path="college-basketball-picks-today" element={<RouteGate><CollegeBasketballPicksToday /></RouteGate>} />
+                    <Route path="march-madness-betting-intelligence" element={<RouteGate><MarchMadnessHub /></RouteGate>} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
@@ -113,14 +114,14 @@ export default function App() {
 
                   {/* ══ MLB routes (gated workspace: /mlb/...) ══ */}
                   <Route path="mlb" element={<WorkspaceGate workspaceId={WorkspaceId.MLB} />}>
-                    <Route index element={<MlbHome />} />
-                    <Route path="games" element={<MlbGames />} />
-                    <Route path="teams" element={<MlbTeams />} />
-                    <Route path="teams/:slug" element={<MlbTeamDetail />} />
-                    <Route path="news" element={<MlbNewsFeed />} />
-                    <Route path="insights" element={<MlbPicks />} />
-                    <Route path="season-model" element={<MlbSeasonModel />} />
-                    <Route path="compare" element={<MlbCompare />} />
+                    <Route index element={<RouteGate><MlbHome /></RouteGate>} />
+                    <Route path="games" element={<RouteGate><MlbGames /></RouteGate>} />
+                    <Route path="teams" element={<RouteGate><MlbTeams /></RouteGate>} />
+                    <Route path="teams/:slug" element={<RouteGate><MlbTeamDetail /></RouteGate>} />
+                    <Route path="news" element={<RouteGate><MlbNewsFeed /></RouteGate>} />
+                    <Route path="insights" element={<RouteGate><MlbPicks /></RouteGate>} />
+                    <Route path="season-model" element={<RouteGate><MlbSeasonModel /></RouteGate>} />
+                    <Route path="compare" element={<RouteGate><MlbCompare /></RouteGate>} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>

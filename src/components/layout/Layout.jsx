@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
+import StickyGuestCTA from '../common/StickyGuestCTA';
 import { useAuth } from '../../context/AuthContext';
 import { usePinnedTeamsSync } from '../../hooks/usePinnedTeamsSync';
 import styles from './Layout.module.css';
@@ -22,6 +23,7 @@ export default function Layout() {
         </main>
       </div>
       <Footer />
+      {!user && <StickyGuestCTA />}
     </div>
   );
 }
