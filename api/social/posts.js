@@ -42,6 +42,9 @@ export default async function handler(req, res) {
   const { platform, status, team, limit: rawLimit } = getQuery(req);
   const limit = Math.min(parseInt(rawLimit ?? DEFAULT_LIMIT, 10) || DEFAULT_LIMIT, MAX_LIMIT);
 
+  // NOTE: Only select columns guaranteed to exist in the production schema.
+  // `permalink` is NOT a top-level column — it lives inside `status_detail` JSON.
+  // Derived fields (permalink) are extracted in post-processing below.
   let query = supabase
     .from('social_posts')
     .select(`
@@ -57,7 +60,6 @@ export default async function handler(req, res) {
       posted_at,
       published_media_id,
       creation_id,
-      permalink,
       status_detail,
       asset_version,
       error_message,
@@ -76,41 +78,6 @@ export default async function handler(req, res) {
   if (team)     query = query.eq('team_slug', team);
 
   const { data, error, count } = await query;
-
-  // ── Reconcile stale pending records ──
-  // If a record has published_media_id or permalink but lifecycle_status is still 'pending',
-  // the publish succeeded but the DB update was lost (timeout, silent Supabase error, etc.)
-  // Auto-repair these records for data integrity.
-  if (!error && data?.length > 0) {
-    const staleIds = data
-      .filter(p => p.lifecycle_status === 'pending' && (p.published_media_id || p.permalink))
-      .map(p => p.id);
-
-    if (staleIds.length > 0) {
-      console.log(`[social/posts] Reconciling ${staleIds.length} stale pending record(s) with published evidence`);
-      try {
-        await supabase
-          .from('social_posts')
-          .update({
-            lifecycle_status: 'posted',
-            response_stage: 'ok',
-            posted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .in('id', staleIds);
-
-        // Patch the in-memory data to reflect the fix immediately
-        for (const p of data) {
-          if (staleIds.includes(p.id)) {
-            p.lifecycle_status = 'posted';
-            p.response_stage = 'ok';
-          }
-        }
-      } catch (e) {
-        console.warn('[social/posts] Reconciliation failed (non-blocking):', e.message);
-      }
-    }
-  }
 
   if (error) {
     const msg = error.message ?? 'Database query failed';
@@ -134,9 +101,53 @@ export default async function handler(req, res) {
     });
   }
 
+  // ── Post-processing: derive permalink from status_detail + reconcile stale pending ──
+  const posts = (data ?? []).map(p => {
+    // Extract permalink from status_detail JSON (not a top-level column)
+    let permalink = null;
+    if (p.status_detail) {
+      try {
+        const detail = typeof p.status_detail === 'string' ? JSON.parse(p.status_detail) : p.status_detail;
+        permalink = detail?.permalink ?? null;
+      } catch { /* malformed JSON — ignore */ }
+    }
+    return { ...p, permalink };
+  });
+
+  // Reconcile stale pending records:
+  // If a record has published_media_id but lifecycle_status is still 'pending',
+  // the publish succeeded but the DB update was lost (timeout, silent error, etc.)
+  const staleIds = posts
+    .filter(p => p.lifecycle_status === 'pending' && (p.published_media_id || p.permalink))
+    .map(p => p.id);
+
+  if (staleIds.length > 0) {
+    console.log(`[social/posts] Reconciling ${staleIds.length} stale pending record(s)`);
+    try {
+      await supabase
+        .from('social_posts')
+        .update({
+          lifecycle_status: 'posted',
+          response_stage: 'ok',
+          posted_at: new Date().toISOString(),
+        })
+        .in('id', staleIds);
+
+      // Patch in-memory to reflect fix immediately
+      for (const p of posts) {
+        if (staleIds.includes(p.id)) {
+          p.lifecycle_status = 'posted';
+          p.response_stage = 'ok';
+        }
+      }
+    } catch (e) {
+      console.warn('[social/posts] Reconciliation failed (non-blocking):', e.message);
+    }
+  }
+
   return res.status(200).json({
     ok:    true,
-    posts: data ?? [],
-    total: count ?? (data?.length ?? 0),
+    posts,
+    total: count ?? posts.length,
   });
 }

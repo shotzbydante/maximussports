@@ -337,26 +337,26 @@ export default async function handler(req, res) {
 
   log.info(`carousel publish complete: ${durationMs}ms, permalink=${permalink ?? 'n/a'}`);
 
-  // ── Step 8: Final enrichment update (permalink + status_detail) ──
-  if (supabase && postId && permalink) {
+  // ── Step 8: Final enrichment update (permalink stored inside status_detail JSON) ──
+  // NOTE: `permalink` is NOT a top-level column on social_posts.
+  // It is persisted inside the status_detail JSON blob.
+  if (supabase && postId) {
     try {
       const { error: enrichErr } = await supabase.from('social_posts').update({
-        permalink,
         status_detail: JSON.stringify({
           childIds,
           parentId,
-          permalink,
+          permalink: permalink ?? null,
           imageCount: imageUrls.length,
           durationMs,
         }),
-        updated_at: new Date().toISOString(),
       }).eq('id', postId);
 
       if (enrichErr) {
-        log.warn('permalink enrichment update returned error:', enrichErr.message);
+        log.warn('status_detail enrichment returned error:', enrichErr.message);
       }
     } catch (e) {
-      log.warn('permalink enrichment failed (non-blocking):', e.message);
+      log.warn('status_detail enrichment failed (non-blocking):', e.message);
     }
   }
 

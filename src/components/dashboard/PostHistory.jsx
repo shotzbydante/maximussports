@@ -190,9 +190,9 @@ function PostCard({ post }) {
   const tsLabel    = post.posted_at ? 'Posted' : 'Created';
 
   const detail = parseStatusDetail(post.status_detail);
-  // Read permalink from top-level column first, then status_detail fallback
+  // permalink is derived by the API from status_detail JSON (not a DB column)
   const permalink = post.permalink ?? detail?.permalink ?? null;
-  const durationLabel = formatDuration(detail?.duration_ms ?? detail?.durationMs);
+  const durationLabel = formatDuration(detail?.duration_ms ?? detail?.durationMs ?? detail?.durationMs);
   const requestId = post.asset_version ?? detail?.request_id ?? null;
 
   return (
