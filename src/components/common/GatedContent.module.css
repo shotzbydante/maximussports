@@ -8,7 +8,7 @@
   position: relative;
 }
 
-/* ── Fade overlay + CTA ─────────────────────────────────────── */
+/* ── Fade overlay — fills remaining viewport ─────────────────── */
 .fadeOverlay {
   position: relative;
   margin-top: -120px;
@@ -16,18 +16,28 @@
   background: linear-gradient(
     to bottom,
     rgba(11, 20, 35, 0) 0%,
-    rgba(11, 20, 35, 0.75) 40%,
-    rgba(11, 20, 35, 0.95) 70%,
-    rgba(11, 20, 35, 0.98) 100%
+    rgba(11, 20, 35, 0.7) 80px,
+    rgba(11, 20, 35, 0.92) 160px,
+    rgba(11, 20, 35, 0.97) 240px,
+    rgb(11, 20, 35) 320px
   );
+  /* Extend solid color below the gradient */
+  background-color: rgb(11, 20, 35);
+}
+
+/* ── CTA Region — centers the card vertically in the fill area ── */
+.ctaRegion {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 40px;
 }
 
 /* ── CTA Card ────────────────────────────────────────────────── */
 .ctaCard {
   text-align: center;
   max-width: 420px;
-  margin: 0 auto;
-  padding: 32px 28px 40px;
+  padding: 0 28px 40px;
 }
 
 .lockBadge {
@@ -98,8 +108,11 @@
     margin-top: -100px;
     padding-top: 100px;
   }
+  .ctaRegion {
+    padding-top: 24px;
+  }
   .ctaCard {
-    padding: 28px 20px 36px;
+    padding: 0 20px 36px;
   }
   .ctaTitle {
     font-size: 19px;
@@ -111,7 +124,7 @@
 
 @media (max-width: 380px) {
   .ctaCard {
-    padding: 24px 16px 32px;
+    padding: 0 16px 32px;
   }
   .ctaTitle {
     font-size: 17px;
