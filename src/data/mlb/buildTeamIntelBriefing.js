@@ -759,5 +759,45 @@ export function buildMlbTeamIntelBriefing(opts) {
     if (enrichedSubtext.length > 130) enrichedSubtext = subtext; // revert if too long
   }
 
-  return { headline, subtext: enrichedSubtext, items, projection, whyItMatters };
+  // ── Team Leaders: best player per stat category for this team ──
+  const teamLeaders = extractTeamLeaders(slug, opts.mlbLeaders);
+
+  return { headline, subtext: enrichedSubtext, items, projection, whyItMatters, teamLeaders };
+}
+
+/**
+ * Extract the best player per stat category for a given team from league leaders.
+ * @param {string} slug - team slug
+ * @param {Object} mlbLeaders - from /api/mlb/leaders: { categories: { ... } }
+ * @returns {Array<{ stat: string, label: string, player: string, value: string }>}
+ */
+function extractTeamLeaders(slug, mlbLeaders) {
+  if (!slug || !mlbLeaders?.categories) return [];
+  const teamAbbrev = MLB_TEAMS.find(t => t.slug === slug)?.abbrev || '';
+  if (!teamAbbrev) return [];
+
+  const cats = mlbLeaders.categories;
+  const mapping = [
+    { key: 'homeRuns', stat: 'HR', label: 'Home Runs' },
+    { key: 'RBIs', stat: 'RBI', label: 'RBIs' },
+    { key: 'hits', stat: 'H', label: 'Hits' },
+    { key: 'wins', stat: 'W', label: 'Wins' },
+    { key: 'saves', stat: 'SV', label: 'Saves' },
+  ];
+
+  const results = [];
+  for (const { key, stat, label } of mapping) {
+    const leaders = cats[key]?.leaders;
+    if (!leaders) continue;
+    const match = leaders.find(l => l.teamAbbrev === teamAbbrev);
+    if (match) {
+      results.push({
+        stat,
+        label,
+        player: match.name || '—',
+        value: match.display || String(match.value || 0),
+      });
+    }
+  }
+  return results;
 }

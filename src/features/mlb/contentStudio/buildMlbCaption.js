@@ -348,74 +348,63 @@ function teamCaption(payload) {
     mlbLeaders: payload.mlbLeaders ?? null,
   });
 
-  // Build record + L10 summary for caption context
-  const recordL10Parts = [];
-  if (record) recordL10Parts.push(record);
-  if (teamContext.l10Record) recordL10Parts.push(`L10: ${teamContext.l10Record}`);
-  const recordSummary = recordL10Parts.length > 0 ? recordL10Parts.join(' · ') : null;
-
-  // Opener — editorial identity with headline thesis
-  lines.push(`${emoji} ${teamName} — Team Intel Report`);
+  // ── Unified caption format ──
+  lines.push('⚾ Your MLB Team Intel Report');
+  lines.push('');
+  lines.push(`${emoji} ${teamName}`);
   lines.push('');
 
-  // Headline from shared engine
+  // Headline
   if (briefing.headline) {
-    lines.push(briefing.headline.replace(/\n/g, ' '));
-    lines.push('');
-  } else if (payload.subhead) {
-    lines.push(payload.subhead);
+    lines.push(`🔥 ${briefing.headline.replace(/\n/g, ' ')}`);
     lines.push('');
   }
 
-  // Subtext hook
-  if (briefing.subtext) {
-    lines.push(briefing.subtext);
-    lines.push('');
-  }
-
-  // "Why it matters" — standings-aware context from shared engine
-  const topWhy = briefing.whyItMatters?.top;
-  if (topWhy && topWhy.priority >= 70 && topWhy.long) {
-    lines.push(`⚡ ${topWhy.long}`);
-    lines.push('');
-  }
-
-  // Record + L10 context
-  if (recordSummary) {
-    lines.push(`📊 ${recordSummary}`);
-    lines.push('');
-  }
-
-  // Projection context
+  // Model projection
   if (projection?.projectedWins) {
-    const parts = [`📈 ${projection.projectedWins} projected wins`];
+    let projLine = `📈 Maximus Model: ${projection.projectedWins} wins`;
     if (projection.floor && projection.ceiling) {
-      parts[0] += ` (${projection.floor}\u2013${projection.ceiling} range)`;
+      projLine += ` (${projection.floor}\u2013${projection.ceiling} range)`;
     }
+    lines.push(projLine);
     if (projection.marketDelta != null && Math.abs(projection.marketDelta) >= 1.5) {
-      const dir = projection.marketDelta > 0 ? 'above' : 'below';
-      parts.push(`📐 ${Math.abs(projection.marketDelta).toFixed(1)} wins ${dir} market consensus`);
+      const dir = projection.marketDelta > 0 ? '+' : '';
+      lines.push(`💰 ${dir}${projection.marketDelta.toFixed(1)} wins vs market \u2014 ${projection.marketDelta > 0 ? 'value still on the board' : 'market sees more'}`);
     }
-    lines.push(parts.join('\n'));
     lines.push('');
   }
 
-  // Full Team Intel Briefing — shared bullets, mirrors slide + team page
+  // Intel bullets
   if (briefing.items.length > 0) {
-    lines.push('🔎 Team Intel Briefing:');
+    lines.push('🔎 What\u2019s happening:');
     for (let i = 0; i < briefing.items.length; i++) {
       lines.push(`${i + 1}. ${briefing.items[i].text}`);
     }
     lines.push('');
   }
 
-  // CTA
-  lines.push('Full breakdown → maximussports.ai');
+  // Team Leaders
+  const LEADER_EMOJIS = { HR: '💥', RBI: '🎯', H: '⚡', W: '🔥', SV: '🧤' };
+  if (briefing.teamLeaders?.length > 0) {
+    lines.push('🏆 Team Leaders:');
+    for (const tl of briefing.teamLeaders) {
+      const le = LEADER_EMOJIS[tl.stat] || '⚾';
+      lines.push(`${le} ${tl.label} \u2014 ${tl.player} (${tl.value})`);
+    }
+    lines.push('');
+  }
 
+  // CTA
+  lines.push('The board moves fast. Stay ahead \u2192');
+  lines.push('maximussports.ai 🚀');
+
+  // Hashtags — dynamic, no #MaximusSports
   const teamTag = teamName.replace(/\s+/g, '');
+  const shortName = teamName.split(' ').pop();
+  const caption = lines.join('\n');
   return {
-    caption: lines.join('\n'),
-    hashtags: ['#MLB', '#Baseball', `#${teamTag}`, '#BaseballIntel', '#MaximusSports'],
+    caption,
+    hashtags: [`#MLB`, `#${teamTag}`, '#BaseballAnalytics', '#MLBPredictions', '#SportsBetting'],
   };
 }
 

@@ -288,6 +288,23 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
         </div>
       )}
 
+      {/* ═══ TEAM LEADERS — top player per stat category ═══ */}
+      {briefing.teamLeaders?.length > 0 && (
+        <div className={styles.teamLeadersModule}>
+          <div className={styles.teamLeadersTitle}>TEAM LEADERS</div>
+          <div className={styles.teamLeadersGrid}>
+            {briefing.teamLeaders.map((tl, i) => (
+              <div key={i} className={styles.teamLeaderRow}>
+                <span className={styles.teamLeaderStat}>{tl.stat}</span>
+                <span className={styles.teamLeaderName}>{tl.player}</span>
+                {slug && <img src={getMlbEspnLogoUrl(slug)} alt="" className={styles.teamLeaderLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+                <span className={styles.teamLeaderValue}>{tl.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className={styles.footer}>
         <span className={styles.footerUrl}>maximussports.ai</span>
