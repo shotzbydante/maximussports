@@ -17,51 +17,71 @@ const EAST_DIVISIONS = ['Atlantic', 'Central', 'Southeast'];
 const WEST_DIVISIONS = ['Northwest', 'Pacific', 'Southwest'];
 
 function formatOdds(american) {
-  if (american == null) return '\u2014';
+  if (american == null) return null;
   return american > 0 ? `+${american}` : `${american}`;
+}
+
+/** Shorten "2nd in Eastern" → "2nd East", "1st in Western" → "1st West" */
+function shortenStanding(s) {
+  if (!s) return null;
+  return s
+    .replace(/\s+in\s+Eastern/i, ' East')
+    .replace(/\s+in\s+Western/i, ' West');
+}
+
+/** Parse streak string like "W4" or "L10|4" into clean form */
+function parseStreak(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  // ESPN sometimes sends "W4", "L3", or "L10|4" formats
+  const clean = raw.split('|')[0].trim();
+  if (/^[WL]\d+$/i.test(clean)) return clean.toUpperCase();
+  return null;
+}
+
+function FormDots({ streak, boardData }) {
+  // Try to render streak as a compact pill
+  const parsed = parseStreak(streak);
+  if (!parsed) return <span className={styles.formEmpty}>{'\u2014'}</span>;
+
+  const isWin = parsed.startsWith('W');
+  return (
+    <span className={`${styles.formPill} ${isWin ? styles.formPillWin : styles.formPillLoss}`}>
+      {parsed}
+    </span>
+  );
 }
 
 function TeamRow({ team, boardData, odds, buildPath }) {
   const logo = getNbaEspnLogoUrl(team.slug);
   const board = boardData?.[team.slug];
   const teamOdds = odds?.[team.slug];
+  const oddsStr = formatOdds(teamOdds?.bestPayoutAmerican);
+  const standingStr = shortenStanding(board?.standing);
 
   return (
     <Link to={buildPath(`/teams/${team.slug}`)} className={styles.teamRow}>
-      <div className={styles.teamIdentity}>
-        {logo && <img src={logo} alt="" className={styles.teamLogo} width={28} height={28} loading="lazy" />}
-        <div className={styles.teamNameCol}>
+      <span className={styles.colTeamCell}>
+        {logo && <img src={logo} alt="" className={styles.teamLogo} width={26} height={26} loading="lazy" />}
+        <span className={styles.teamNameCol}>
           <span className={styles.teamName}>{team.name}</span>
-          <span className={styles.teamAbbrev}>{team.abbrev}</span>
-        </div>
-      </div>
-      <div className={styles.teamStats}>
-        {board?.record ? (
-          <span className={styles.record}>{board.record}</span>
+        </span>
+      </span>
+      <span className={styles.colRecordCell}>
+        {board?.record || '\u2014'}
+      </span>
+      <span className={styles.colStandingCell}>
+        {standingStr || '\u2014'}
+      </span>
+      <span className={styles.colFormCell}>
+        <FormDots streak={board?.streak} />
+      </span>
+      <span className={styles.colOddsCell}>
+        {oddsStr ? (
+          <span className={styles.oddsPill}>{oddsStr}</span>
         ) : (
-          <span className={styles.recordEmpty}>\u2014</span>
+          <span className={styles.oddsEmpty}>{'\u2014'}</span>
         )}
-        {board?.standing ? (
-          <span className={styles.standing}>{board.standing}</span>
-        ) : (
-          <span className={styles.standingEmpty}>\u2014</span>
-        )}
-        {board?.streak ? (
-          <span className={`${styles.streak} ${board.streak.startsWith('W') ? styles.streakWin : styles.streakLoss}`}>
-            {board.streak}
-          </span>
-        ) : (
-          <span className={styles.streakEmpty}>\u2014</span>
-        )}
-      </div>
-      <div className={styles.teamOdds}>
-        {teamOdds?.bestPayoutAmerican != null ? (
-          <span className={styles.oddsValue}>{formatOdds(teamOdds.bestPayoutAmerican)}</span>
-        ) : (
-          <span className={styles.oddsEmpty}>\u2014</span>
-        )}
-      </div>
-      <span className={styles.chevron} aria-hidden>&#8250;</span>
+      </span>
     </Link>
   );
 }
@@ -71,15 +91,13 @@ function DivisionCard({ division, teams, boardData, odds, buildPath }) {
     <div className={styles.divisionCard}>
       <div className={styles.divisionHeader}>
         <span className={styles.divisionLabel}>{division}</span>
-        <span className={styles.divisionCount}>{teams.length} teams</span>
       </div>
-      <div className={styles.divisionHeaderRow}>
-        <span className={styles.colTeam}>Team</span>
-        <span className={styles.colRecord}>Record</span>
-        <span className={styles.colStanding}>Standing</span>
-        <span className={styles.colStreak}>Streak</span>
-        <span className={styles.colOdds}>Title</span>
-        <span className={styles.colChevron}></span>
+      <div className={styles.colHeaders}>
+        <span className={styles.hdrTeam}>Team</span>
+        <span className={styles.hdrRecord}>Record</span>
+        <span className={styles.hdrStanding}>Standing</span>
+        <span className={styles.hdrForm}>Form</span>
+        <span className={styles.hdrOdds}>Title</span>
       </div>
       <div className={styles.teamList}>
         {teams.map(team => (
@@ -127,7 +145,6 @@ export default function NbaTeams() {
         byDiv[t.division].push(t);
       }
     }
-    // Sort by conference rank within division
     for (const div of EAST_DIVISIONS) {
       byDiv[div].sort((a, b) => (boardData[a.slug]?.confRank || 99) - (boardData[b.slug]?.confRank || 99));
     }
@@ -152,10 +169,10 @@ export default function NbaTeams() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.pageTitle}>
-          <img src="/nba-logo.png" alt="NBA" className={styles.headerLogo} width={28} height={28} />
+          <img src="/nba-logo.png" alt="NBA" className={styles.headerLogo} />
           NBA Team Intel
         </h1>
-        <p className={styles.subtitle}>All 30 NBA teams — standings, championship odds, and intel across both conferences</p>
+        <p className={styles.subtitle}>All 30 NBA teams &mdash; standings, championship odds, and intel across both conferences</p>
       </header>
 
       {loading ? (
@@ -164,8 +181,8 @@ export default function NbaTeams() {
         <div className={styles.conferenceGrid}>
           {/* Eastern Conference */}
           <div className={styles.conferenceColumn}>
-            <div className={styles.confHeader}>
-              <img src="/nba-east-logo.png" alt="Eastern Conference" className={styles.confLogo} width={28} height={28} />
+            <div className={`${styles.confHeader} ${styles.confHeaderEast}`}>
+              <img src="/nba-east-logo.png" alt="Eastern Conference" className={styles.confLogo} />
               <h2 className={styles.confTitle}>Eastern Conference</h2>
             </div>
             {EAST_DIVISIONS.map(div => (
@@ -182,8 +199,8 @@ export default function NbaTeams() {
 
           {/* Western Conference */}
           <div className={styles.conferenceColumn}>
-            <div className={styles.confHeader}>
-              <img src="/nba-west-logo.png" alt="Western Conference" className={styles.confLogo} width={28} height={28} />
+            <div className={`${styles.confHeader} ${styles.confHeaderWest}`}>
+              <img src="/nba-west-logo.png" alt="Western Conference" className={styles.confLogo} />
               <h2 className={styles.confTitle}>Western Conference</h2>
             </div>
             {WEST_DIVISIONS.map(div => (
