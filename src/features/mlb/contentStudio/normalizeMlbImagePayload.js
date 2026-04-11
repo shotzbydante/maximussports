@@ -222,6 +222,8 @@ export function normalizeMlbImagePayload({
   mlbGameAngle,
   mlbBriefing,
   mlbChampOdds,
+  mlbStandings = null,
+  mlbLeaders = null,
 }) {
   const section = SECTION_MAP[activeSection] || 'daily-briefing';
   const intelBriefing = parseBriefingToIntel(mlbBriefing);
@@ -242,7 +244,7 @@ export function normalizeMlbImagePayload({
     case 'daily-briefing':
       return { ...buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks, mlbChampOdds), mlbLiveGames, mlbBriefing };
     case 'team-intel':
-      return buildTeamPayload(base, mlbSelectedTeam);
+      return buildTeamPayload(base, mlbSelectedTeam, { mlbLiveGames, mlbStandings, mlbLeaders, mlbChampOdds });
     case 'league-intel':
       return buildLeaguePayload(base, mlbLeague);
     case 'division-intel':
@@ -321,14 +323,23 @@ function buildDailyPayload(base, intelBriefing, games, picks, champOdds) {
   };
 }
 
-function buildTeamPayload(base, team) {
+function buildTeamPayload(base, team, { mlbLiveGames, mlbStandings, mlbLeaders, mlbChampOdds } = {}) {
   if (!team) return { ...base, headline: 'Select a team to generate', section: 'team-intel' };
+  const slug = team.slug;
+  const standings = mlbStandings?.[slug] || null;
   return {
     ...base,
     headline: `${team.name} Intel Report`,
     subhead: 'Model projections, rotation analysis, and value signals',
-    teamA: { name: team.name, slug: team.slug, logoUrl: getMlbEspnLogoUrl(team.slug) },
-    bullets: ['Season projection and model confidence', 'Rotation depth and bullpen analysis', 'Market positioning and value signals'],
+    teamA: { name: team.name, slug, logoUrl: getMlbEspnLogoUrl(slug) },
+    // Pass through real data for caption pipeline
+    mlbLiveGames: mlbLiveGames || [],
+    mlbStandings: mlbStandings || {},
+    mlbLeaders: mlbLeaders || null,
+    mlbChampOdds: mlbChampOdds || {},
+    record: standings?.record || null,
+    division: team.division || '',
+    newsHeadlines: [],
   };
 }
 
