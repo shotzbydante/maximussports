@@ -19,6 +19,7 @@
 import { getTeamProjection } from './seasonModel';
 import TEAM_INPUTS from './seasonModelInputs';
 import { MLB_TEAMS } from '../../sports/mlb/teams';
+import { buildTeamWhyItMatters } from './whyItMatters';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -695,5 +696,25 @@ export function buildMlbTeamIntelBriefing(opts) {
     divContext,
   });
 
-  return { headline, subtext, items, projection };
+  // "Why It Matters" — shared narrative signals for this team
+  const whyItMatters = buildTeamWhyItMatters({
+    slug,
+    teamName,
+    division,
+    standings,
+    projection,
+    teamContext,
+    champOdds: opts.champOdds,
+  });
+
+  // Enrich subtext with top "why" signal when headline subtext is generic
+  let enrichedSubtext = subtext;
+  const topWhy = whyItMatters.top;
+  if (topWhy && topWhy.priority >= 70 && subtext && subtext.length < 100) {
+    // Append "why it matters" context to short subtexts
+    enrichedSubtext = subtext.replace(/\.\s*$/, '') + '. ' + topWhy.short + '.';
+    if (enrichedSubtext.length > 130) enrichedSubtext = subtext; // revert if too long
+  }
+
+  return { headline, subtext: enrichedSubtext, items, projection, whyItMatters };
 }

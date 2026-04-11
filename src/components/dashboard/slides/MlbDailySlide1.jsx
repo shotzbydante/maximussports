@@ -70,6 +70,7 @@ function buildSlide1Content(data) {
   const hotPress = buildMlbHotPress({
     liveGames: data?.mlbLiveGames || [],
     briefing: data?.mlbBriefing,
+    allStandings: data?.mlbStandings || null,
   });
   const bullets = hotPress.slice(0, 3).map(b => ({
     text: trim(b.text),

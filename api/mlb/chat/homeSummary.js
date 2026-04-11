@@ -111,15 +111,65 @@ async function fetchMlbOdds() {
   return cached?.odds ?? {};
 }
 
+async function fetchMlbStandings() {
+  try {
+    const year = new Date().getFullYear();
+    const url = `https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings?season=${year}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) return {};
+    const data = await r.json();
+    const teams = {};
+    const entries = data?.children?.flatMap(c => c?.standings?.entries || []) || [];
+    for (const entry of entries) {
+      const abbr = entry?.team?.abbreviation?.toLowerCase();
+      if (!abbr) continue;
+      const slugMap = { 'chw': 'cws', 'wsh': 'wsh', 'ari': 'ari' };
+      const slug = slugMap[abbr] || MLB_TEAMS.find(t => t.abbrev === abbr.toUpperCase())?.slug || abbr;
+      const stats = {};
+      for (const s of (entry?.stats || [])) { stats[s.name] = s; }
+      const wins = parseInt(stats.wins?.value) || 0;
+      const losses = parseInt(stats.losses?.value) || 0;
+      teams[slug] = {
+        wins, losses,
+        record: `${wins}-${losses}`,
+        gb: parseFloat(stats.gamesBehind?.value) || 0,
+        l10: stats.record?.displayValue || '',
+        streak: stats.streak?.displayValue || '',
+      };
+    }
+    // Compute division ranks
+    const divGroups = {};
+    for (const [s, st] of Object.entries(teams)) {
+      const div = MLB_TEAMS.find(t => t.slug === s)?.division || '';
+      if (!div) continue;
+      st.division = div;
+      if (!divGroups[div]) divGroups[div] = [];
+      divGroups[div].push({ slug: s, wins: st.wins });
+    }
+    for (const [, group] of Object.entries(divGroups)) {
+      group.sort((a, b) => b.wins - a.wins);
+      group.forEach((t, i) => { teams[t.slug].rank = i + 1; });
+    }
+    return teams;
+  } catch {
+    return {};
+  }
+}
+
 async function buildMlbSummaryData() {
-  const [headlines, champOdds] = await Promise.allSettled([
+  const [headlines, champOdds, standings] = await Promise.allSettled([
     fetchMlbHeadlines(),
     fetchMlbOdds(),
+    fetchMlbStandings(),
   ]);
 
   return {
     headlines: headlines.status === 'fulfilled' ? headlines.value : [],
     championshipOdds: champOdds.status === 'fulfilled' ? champOdds.value : {},
+    standings: standings.status === 'fulfilled' ? standings.value : {},
   };
 }
 
@@ -133,7 +183,7 @@ function getMlbSeasonPhase() {
 }
 
 function buildPayload(data) {
-  const { headlines, championshipOdds } = data;
+  const { headlines, championshipOdds, standings } = data;
 
   const slugToName = Object.fromEntries(MLB_TEAMS.map((t) => [t.slug, t.name]));
 
@@ -158,6 +208,9 @@ function buildPayload(data) {
     source: h.source || 'News',
   }));
 
+  // Build compact standings summary by division
+  const standingsSummary = buildStandingsBlock(standings, slugToName);
+
   return {
     dateNow: getPstDate(),
     timezone: 'America/Los_Angeles',
@@ -165,7 +218,36 @@ function buildPayload(data) {
     champSleepers,
     headlines: headlinesTop,
     seasonPhase: getMlbSeasonPhase(),
+    standings: standingsSummary,
   };
+}
+
+function buildStandingsBlock(standings, slugToName) {
+  if (!standings || Object.keys(standings).length === 0) return null;
+  const divisions = {};
+  for (const [slug, st] of Object.entries(standings)) {
+    const div = st.division || MLB_TEAMS.find(t => t.slug === slug)?.division || '';
+    if (!div) continue;
+    if (!divisions[div]) divisions[div] = [];
+    divisions[div].push({
+      team: slugToName[slug] || slug,
+      record: st.record || `${st.wins}-${st.losses}`,
+      gb: st.gb ?? 0,
+      rank: st.rank ?? 99,
+      l10: st.l10 || '',
+    });
+  }
+  const result = {};
+  for (const [div, teams] of Object.entries(divisions)) {
+    teams.sort((a, b) => a.rank - b.rank);
+    result[div] = teams.map(t => ({
+      team: t.team,
+      record: t.record,
+      gb: t.gb === 0 ? '—' : `${t.gb} GB`,
+      l10: t.l10,
+    }));
+  }
+  return result;
 }
 
 const TEAM_EMOJIS = {
@@ -201,8 +283,8 @@ function buildPrompt(data) {
   } else if (phase === 'regular_season') {
     p1 = '¶1 AROUND THE LEAGUE: Open with 3–4 top headlines from headlines[] with team emojis. Set the scene — where are we in the season? Reference specific results, trades, milestones, or breakout performances. Name teams and be specific.';
     p2 = '¶2 WORLD SERIES ODDS PULSE: Reference 4–5 teams from champOdds whose stock is moving with exact odds (positive odds MUST include "+") and team emojis. Frame as market reads — who\'s rising, who\'s fading, and why. Connect to headlines where possible.';
-    p3 = '¶3 PENNANT RACE & DIVISION WATCH: Discuss 2–3 tight division or wild-card races. Use champOdds context and team emojis. Which teams are making a push? Which rivals should we watch? Frame with bettor urgency.';
-    p4 = '¶4 SLEEPERS, INJURIES & VALUE: Call out 1–2 teams from champSleepers overperforming, plus any major injury/roster news from headlines[]. Frame as betting value or dark horse stories. Use team emojis.';
+    p3 = '¶3 PENNANT RACE & DIVISION WATCH: Use the standings[] data to discuss 2–3 tight division races. Reference ACTUAL records, games back, and L10 trends from standings. Which teams are closing the gap? Where is separation happening? Name teams with emojis. Frame around "why it matters" — how today\'s results shift the bigger picture. Connect standings movement to champOdds where possible. This paragraph should feel like an analyst breaking down the race, not a generic summary.';
+    p4 = '¶4 SLEEPERS, INJURIES & VALUE: Call out 1–2 teams from champSleepers overperforming (check standings to validate), plus any major injury/roster news from headlines[]. Frame as betting value or dark horse stories. Use team emojis.';
     p5 = '¶5 DIAMOND DISPATCH + CLOSER: 2–3 remaining headlines. Surface buzzy storylines. End with a sharp, punchy closer — what to watch tonight or this week. Make it feel urgent and premium.';
   } else if (phase === 'postseason') {
     p1 = '¶1 OCTOBER BASEBALL: We\'re in the postseason. Recap the most compelling headlines from headlines[] with team emojis. Frame the active series and elimination games with urgency and drama.';
@@ -236,6 +318,12 @@ ${p3}
 ${p4}
 
 ${p5}
+
+STANDINGS DATA:
+- If standings[] is present, it contains REAL current MLB standings grouped by division with records, GB, and L10 trends.
+- Use this data to ground your ¶3 (Pennant Race) analysis in actual standings context — reference real records and games back.
+- When discussing a team's trajectory, connect their L10 record to whether they're gaining or losing ground.
+- Always answer "why it matters" — don't just report standings, explain what the standings mean for the race.
 
 STYLE RULES:
 - Target 350–450 words total (hard limit: 500 words). This should feel substantive, not thin.

@@ -12,6 +12,7 @@ import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline';
 import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing';
+import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
 
 // ── Team emojis ─────────────────────────────────────────────────────────────
 
@@ -192,6 +193,7 @@ function dailyCaption(payload) {
   const hotPress = buildMlbHotPress({
     liveGames: payload.mlbLiveGames || [],
     briefing: payload.mlbBriefing || null,
+    allStandings: payload.mlbStandings || null,
   });
 
   // ── 1. OPENER — emoji-led, premium, energetic ──
@@ -216,13 +218,19 @@ function dailyCaption(payload) {
     parts.push('');
   }
 
-  // ── 4. TRANSITION — narrative momentum ──
-  const transitions = [
-    'And just like that — the board is already shifting. 👀',
-    'The early signals are loud. The model is reacting. 📡',
-    'Results like these ripple across the standings. 📊',
-  ];
-  parts.push(transitions[doy % transitions.length]);
+  // ── 4. TRANSITION — standings-aware "why it matters" ──
+  const standingsContext = hotPress[2]?.text;
+  if (standingsContext && standingsContext.length > 30) {
+    // Use the standings-enriched HOTP bullet as the transition
+    parts.push(`📊 ${standingsContext}`);
+  } else {
+    const transitions = [
+      'And just like that — the board is already shifting. 👀',
+      'The early signals are loud. The model is reacting. 📡',
+      'Results like these ripple across the standings. 📊',
+    ];
+    parts.push(transitions[doy % transitions.length]);
+  }
   parts.push('');
 
   // ── 5. MODEL SIGNALS — projected wins leaders ──
@@ -243,8 +251,8 @@ function dailyCaption(payload) {
     parts.push('');
   }
 
-  // ── 7. DIVISION CONTEXT (from HOTP bullet 3 or 4) ──
-  const contextBullet = hotPress[2]?.text || hotPress[3]?.text;
+  // ── 7. ADDITIONAL CONTEXT (from HOTP bullet 4) ──
+  const contextBullet = hotPress[3]?.text;
   if (contextBullet) {
     parts.push(`🔎 ${contextBullet}`);
     parts.push('');
@@ -325,6 +333,8 @@ function teamCaption(payload) {
 
   const record = payload.record || null;
 
+  const standings = payload.mlbStandings?.[slug] || null;
+
   const briefing = buildMlbTeamIntelBriefing({
     slug,
     teamName,
@@ -334,6 +344,7 @@ function teamCaption(payload) {
     teamContext,
     newsHeadlines: payload.newsHeadlines || [],
     nextLine: payload.nextLine ?? null,
+    standings,
   });
 
   // Build record + L10 summary for caption context
@@ -358,6 +369,13 @@ function teamCaption(payload) {
   // Subtext hook
   if (briefing.subtext) {
     lines.push(briefing.subtext);
+    lines.push('');
+  }
+
+  // "Why it matters" — standings-aware context from shared engine
+  const topWhy = briefing.whyItMatters?.top;
+  if (topWhy && topWhy.priority >= 70 && topWhy.long) {
+    lines.push(`⚡ ${topWhy.long}`);
     lines.push('');
   }
 
