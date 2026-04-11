@@ -11,7 +11,7 @@
  *   4. Headline      — topical narrative (form, division, storyline)
  *   5. Subtext       — editorial sentence supporting headline
  *   6. Stat band     — Projected Wins / Range / WS Odds / Confidence
- *   7. Intel brief   — TEAM INTEL BRIEFING: 5 rich bullets with opponent logos
+ *   7. Intel brief   — TEAM INTEL BRIEFING: 6 rich bullets with opponent logos
  *   8. Footer        — URL + disclaimer
  *
  * Data: shared buildMlbTeamIntelBriefing() → same source as team page
@@ -155,6 +155,7 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
     newsHeadlines: rawNews,
     nextLine: teamData?.nextLine ?? null,
     standings: teamStanding,
+    mlbLeaders: data?.mlbLeaders ?? null,
   });
 
   // ── Stat band ──

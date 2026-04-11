@@ -444,6 +444,7 @@ export function buildIntelBriefingItems({
   record,
   standings,
   divContext,
+  mlbLeaders,
 }) {
   const items = [];
   const wins = projection?.projectedWins;
@@ -649,7 +650,48 @@ export function buildIntelBriefingItems({
     items.push({ text: cleanedNews[2], type: 'news' });
   }
 
-  return items.slice(0, 5);
+  // ── Bullet 6: Team-specific season leaders ──
+  const teamAbbrev = MLB_TEAMS.find(t => t.slug === slug)?.abbrev || '';
+  if (teamAbbrev && mlbLeaders?.categories) {
+    const cats = mlbLeaders.categories;
+    const mentions = [];
+
+    // Find this team's players in each leader category
+    for (const [catKey, catLabel] of [['homeRuns', 'home runs'], ['RBIs', 'RBIs'], ['hits', 'hits'], ['wins', 'wins'], ['saves', 'saves']]) {
+      const leaders = cats[catKey]?.leaders;
+      if (!leaders) continue;
+      for (let i = 0; i < leaders.length; i++) {
+        if (leaders[i].teamAbbrev === teamAbbrev) {
+          const lastName = (leaders[i].name || '').split(' ').pop();
+          mentions.push({
+            name: lastName,
+            cat: catLabel,
+            rank: i + 1,
+            value: leaders[i].display || String(leaders[i].value || 0),
+            isPitching: catKey === 'wins' || catKey === 'saves',
+          });
+        }
+      }
+    }
+
+    if (mentions.length >= 2) {
+      // Two+ mentions — combine the two best
+      const hitting = mentions.find(m => !m.isPitching);
+      const pitching = mentions.find(m => m.isPitching);
+      if (hitting && pitching) {
+        items.push({ text: `${hitting.name} ranks among MLB leaders in ${hitting.cat} (${hitting.value}), while ${pitching.name} anchors the pitching side with ${pitching.value} ${pitching.cat}.`, type: 'leaders' });
+      } else {
+        const [a, b] = mentions;
+        items.push({ text: `${a.name} (${a.value} ${a.cat}) and ${b.name} (${b.value} ${b.cat}) both rank among MLB's season leaders.`, type: 'leaders' });
+      }
+    } else if (mentions.length === 1) {
+      const m = mentions[0];
+      const ordinal = m.rank === 1 ? 'leads MLB' : `ranks ${m.rank === 2 ? '2nd' : '3rd'} in MLB`;
+      items.push({ text: `${m.name} ${ordinal} in ${m.cat} with ${m.value}, setting the pace for the club.`, type: 'leaders' });
+    }
+  }
+
+  return items.slice(0, 6);
 }
 
 // ─── Full Structured Briefing ──────────────────────────────────────────────
@@ -691,6 +733,7 @@ export function buildMlbTeamIntelBriefing(opts) {
     newsHeadlines: opts.newsHeadlines,
     nextGame: opts.nextGame,
     nextLine: opts.nextLine,
+    mlbLeaders: opts.mlbLeaders,
     record,
     standings,
     divContext,
