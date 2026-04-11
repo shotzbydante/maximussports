@@ -465,8 +465,8 @@
 .briefingModule {
   position: relative;
   z-index: 10;
-  margin: 10px 56px 0;
-  padding: 20px 28px 18px;
+  margin: 8px 56px 0;
+  padding: 16px 28px 14px;
   border: 1px solid rgba(220, 40, 60, 0.22);
   border-radius: 14px;
   background:
@@ -485,7 +485,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .briefingTitle {
@@ -515,14 +515,14 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   flex: 1;
 }
 
 .briefingItem {
   position: relative;
   counter-increment: briefing;
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 400;
   color: rgba(240, 244, 248, 0.86);
   line-height: 1.38;
@@ -631,7 +631,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 80px 28px;
+  padding: 10px 80px 22px;
   border-top: 1px solid rgba(220, 40, 60, 0.11);
   gap: 16px;
   flex-shrink: 0;

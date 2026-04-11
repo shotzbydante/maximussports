@@ -624,16 +624,7 @@ export function buildIntelBriefingItems({
   if (items.length < 5 && cleanedNews.length > 1) {
     items.push({ text: cleanedNews[1], type: 'news' });
   }
-  if (items.length < 5) {
-    const mdelta = projection?.marketDelta;
-    if (mdelta != null && Math.abs(mdelta) >= 2.5) {
-      const dir = mdelta > 0 ? 'above' : 'below';
-      const stance = mdelta > 0
-        ? `There's still value here if the market hasn't adjusted.`
-        : `The market may be pricing in last year's roster, not this one.`;
-      items.push({ text: `The model sees ${teamName} ${Math.abs(mdelta).toFixed(1)} wins ${dir} market consensus. ${stance}`, type: 'model' });
-    }
-  }
+  // model-vs-market delta removed — low priority, wastes vertical space
   if (items.length < 5 && tk.depthProfile) {
     const depth = tk.depthProfile.toLowerCase();
     let depthNarrative;
@@ -691,7 +682,7 @@ export function buildIntelBriefingItems({
     }
   }
 
-  return items.slice(0, 6);
+  return items.slice(0, 5);
 }
 
 // ─── Full Structured Briefing ──────────────────────────────────────────────
