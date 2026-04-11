@@ -43,6 +43,7 @@ import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderT
 import { getSubject as getMlbBriefingSubject, renderHTML as renderMlbBriefingHTML, renderText as renderMlbBriefingText } from '../../src/emails/templates/mlbBriefing.js';
 import { getSubject as getMlbPicksSubject, renderHTML as renderMlbPicksHTML, renderText as renderMlbPicksText } from '../../src/emails/templates/mlbPicks.js';
 import { getSubject as getMlbDigestSubject, renderHTML as renderMlbDigestHTML, renderText as renderMlbDigestText } from '../../src/emails/templates/mlbTeamDigest.js';
+import { getSubject as getGlobalSubject, renderHTML as renderGlobalHTML, renderText as renderGlobalText } from '../../src/emails/templates/globalBriefing.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
@@ -81,7 +82,7 @@ const NCAAM_TYPES = ['ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks'];
 
 /** Map new type → template rendering function set. */
 const TYPE_TO_TEMPLATE = {
-  global_briefing:   'daily',
+  global_briefing:   'globalBriefing',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
@@ -449,8 +450,28 @@ export default async function handler(req, res) {
     let briefingContext = {};
     let mlbNarrativeParagraph = '';
     let picksBoard = null;
+    let mlbData = null;
 
-    if (isMLB) {
+    if (tplType === 'globalBriefing') {
+      // ── Global briefing: fetch BOTH NCAAM + MLB data ──
+      const host = req.headers.host || 'localhost:3000';
+
+      // NCAAM data (existing pipeline)
+      const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
+        fetchScoresSource(), fetchRankingsSource(), getAtsLeadersPipeline(),
+        fetchNewsAggregateSource({ includeNational: true }),
+      ]);
+      scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+      rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+      atsLeaders = atsResult.status === 'fulfilled' ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] } : { best: [], worst: [] };
+      const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+      headlines = dedupeNewsItems(headlinesRaw);
+
+      // MLB data (via shared helper)
+      mlbData = await assembleMlbEmailData(`http://${host}`, { includeSummary: true });
+      console.log(`[run-daily] Global briefing: NCAAM headlines=${headlines.length} MLB headlines=${mlbData.headlines.length} MLB narrative=${!!mlbData.narrativeParagraph}`);
+
+    } else if (isMLB) {
       // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──
       const host = req.headers.host || 'localhost:3000';
       const mlbData = await assembleMlbEmailData(`http://${host}`, {
@@ -575,11 +596,18 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 7d. Pre-load team data (used by all team-related emails)
+    // ── 7d. Pre-load team data (sport-specific for team-related emails)
     let getTeamBySlugFn = null;
     try {
-      const teamsModule = await import('../../src/data/teams.js');
-      getTeamBySlugFn = teamsModule.getTeamBySlug;
+      if (isMLB) {
+        // MLB emails must use MLB teams module — never NCAAM
+        const mlbTeamsModule = await import('../../src/sports/mlb/teams.js');
+        getTeamBySlugFn = mlbTeamsModule.getMLBTeamBySlug;
+        console.log('[run-daily] Loaded MLB teams module for mlb digest');
+      } else {
+        const teamsModule = await import('../../src/data/teams.js');
+        getTeamBySlugFn = teamsModule.getTeamBySlug;
+      }
     } catch (err) {
       console.warn('[run-daily] failed to load teams data:', err.message);
     }
@@ -636,6 +664,7 @@ export default async function handler(req, res) {
         todayUpcoming: briefingContext.todayUpcoming || [],
         picksSummary: briefingContext.picksSummary || '',
         picksBoard: picksBoard || null,
+        mlbData: mlbData || null,
       };
 
       let subject, html, text;
@@ -644,6 +673,11 @@ export default async function handler(req, res) {
         const tpl = TYPE_TO_TEMPLATE[type];
 
         switch (tpl) {
+          case 'globalBriefing':
+            subject = getGlobalSubject(emailData);
+            html    = renderGlobalHTML(emailData);
+            text    = renderGlobalText(emailData);
+            break;
           case 'daily':
             subject = getDailySubject(emailData);
             html    = renderDailyHTML(emailData);

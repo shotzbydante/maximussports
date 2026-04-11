@@ -240,13 +240,11 @@ export function mlbTeamDigestSubject({ displayName, teamDigests = [] } = {}) {
 
   const templates = [];
   if (teamName && teamDigests.length === 1) {
-    templates.push(`\u26BE Your Teams Today: ${teamName} full intel`);
-    templates.push(`\u26BE ${teamName}: digest, trends, and outlook`);
+    templates.push(`\u26BE Your Daily MLB Team Digest \u2014 ${teamName}`);
   } else if (teamName && teamDigests.length > 1) {
-    templates.push(`\u26BE Your Teams Today: ${teamName} + ${teamDigests.length - 1} more`);
-    templates.push(`\u26BE ${teamDigests.length} team digests ready \u2014 full MLB intel`);
+    templates.push(`\u26BE Your Daily MLB Team Digest \u2014 ${teamName} + ${teamDigests.length - 1} more`);
   }
-  templates.push(`\u26BE Your Teams Today: MLB team digest is ready`);
+  templates.push(`\u26BE Your Daily MLB Team Digest`);
 
   return pick(templates, 'mlb_team_digest');
 }
