@@ -56,137 +56,71 @@ async function fetchWithTimeout(url, ms = FETCH_TIMEOUT) {
   }
 }
 
-// ─── Batting leaders via v3 site API (inline athlete data) ──────────────
+// ─── All leaders via core API (athlete $ref resolution) ───────────────
 
-async function fetchBattingLeaders(season) {
-  const url = `https://site.web.api.espn.com/apis/site/v3/sports/baseball/mlb/leaders?season=${season}&seasontype=2&limit=5`;
-  const r = await fetchWithTimeout(url);
-  if (!r.ok) return {};
+const TARGET_CATS = ['homeRuns', 'RBIs', 'hits', 'wins', 'saves'];
 
-  const data = await r.json();
-  const categories = {};
+async function resolveEntry(entry) {
+  const athleteRef = entry.athlete?.$ref || '';
+  const teamRef = entry.team?.$ref || '';
 
-  // v3 returns: { leaders: { categories: [{ name, displayName, leaders: [...] }] } }
-  const cats = data?.leaders?.categories || [];
-  for (const cat of cats) {
-    const name = cat.name; // e.g. 'homeRuns', 'RBIs', 'avg'
-    if (!['homeRuns', 'RBIs', 'hits'].includes(name)) continue;
+  let athleteName = '—';
+  let teamAbbrev = '';
+  let teamName = '';
 
-    const entries = (cat.leaders || []).slice(0, 3).map(entry => {
-      const athlete = entry.athlete || {};
-      const teamRef = athlete.team || {};
-      return {
-        name: athlete.displayName || athlete.fullName || '—',
-        team: teamRef.displayName || teamRef.shortDisplayName || '',
-        teamAbbrev: teamRef.abbreviation || '',
-        value: entry.value ?? 0,
-        display: String(Math.round(entry.value ?? 0)),
-      };
-    });
-
-    categories[name] = {
-      label: cat.displayName || name,
-      abbrev: cat.abbreviation || name,
-      leaders: entries,
-    };
+  if (athleteRef) {
+    try {
+      const ar = await fetchWithTimeout(athleteRef, 4000);
+      if (ar.ok) {
+        const ad = await ar.json();
+        athleteName = ad.displayName || ad.fullName || '—';
+      }
+    } catch { /* fallback */ }
   }
 
-  return categories;
+  if (teamRef) {
+    const teamIdMatch = teamRef.match(/teams\/(\d+)/);
+    if (teamIdMatch) {
+      const tid = teamIdMatch[1];
+      teamAbbrev = espnIdToAbbrev[tid] || '';
+      const slug = espnIdToSlug[tid];
+      if (slug) {
+        const t = MLB_TEAMS.find(t => t.slug === slug);
+        teamName = t?.name || '';
+      }
+    }
+  }
+
+  return {
+    name: athleteName,
+    team: teamName,
+    teamAbbrev,
+    value: entry.value ?? 0,
+    display: String(Math.round(entry.value ?? 0)),
+  };
 }
 
-// ─── Pitching leaders via core API (needs athlete resolution) ───────────
-
-async function fetchPitchingLeaders(season) {
+async function fetchAllLeaders() {
+  const season = getCurrentSeason();
   const url = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/types/2/leaders?limit=5`;
   const r = await fetchWithTimeout(url);
-  if (!r.ok) return {};
+  if (!r.ok) return { categories: {}, fetchedAt: new Date().toISOString() };
 
   const data = await r.json();
   const cats = data?.categories || [];
   const categories = {};
 
   for (const cat of cats) {
-    const name = cat.name;
-    if (!['wins', 'saves'].includes(name)) continue;
+    if (!TARGET_CATS.includes(cat.name)) continue;
 
     const entries = (cat.leaders || []).slice(0, 3);
-    const resolved = await Promise.all(entries.map(async (entry) => {
-      const athleteRef = entry.athlete?.$ref || '';
-      const teamRef = entry.team?.$ref || '';
+    const resolved = await Promise.all(entries.map(resolveEntry));
 
-      let athleteName = '—';
-      let teamAbbrev = '';
-      let teamName = '';
-
-      // Resolve athlete name
-      if (athleteRef) {
-        try {
-          const ar = await fetchWithTimeout(athleteRef, 4000);
-          if (ar.ok) {
-            const ad = await ar.json();
-            athleteName = ad.displayName || ad.fullName || '—';
-          }
-        } catch { /* fallback to '—' */ }
-      }
-
-      // Resolve team abbreviation from team ref URL
-      if (teamRef) {
-        const teamIdMatch = teamRef.match(/teams\/(\d+)/);
-        if (teamIdMatch) {
-          const tid = teamIdMatch[1];
-          teamAbbrev = espnIdToAbbrev[tid] || '';
-          const slug = espnIdToSlug[tid];
-          if (slug) {
-            const t = MLB_TEAMS.find(t => t.slug === slug);
-            teamName = t?.name || '';
-          }
-        }
-      }
-
-      return {
-        name: athleteName,
-        team: teamName,
-        teamAbbrev,
-        value: entry.value ?? 0,
-        display: String(Math.round(entry.value ?? 0)),
-      };
-    }));
-
-    categories[name] = {
-      label: cat.displayName || name,
-      abbrev: cat.abbreviation || name,
+    categories[cat.name] = {
+      label: cat.displayName || cat.name,
+      abbrev: cat.abbreviation || cat.name,
       leaders: resolved,
     };
-  }
-
-  return categories;
-}
-
-// ─── Combined fetch ─────────────────────────────────────────────────────
-
-async function fetchAllLeaders() {
-  const season = getCurrentSeason();
-
-  const [batting, pitching] = await Promise.allSettled([
-    fetchBattingLeaders(season),
-    fetchPitchingLeaders(season),
-  ]);
-
-  const battingCats = batting.status === 'fulfilled' ? batting.value : {};
-  const pitchingCats = pitching.status === 'fulfilled' ? pitching.value : {};
-
-  // Merge — batting categories first, then pitching
-  const categories = {
-    homeRuns: battingCats.homeRuns || null,
-    RBIs: battingCats.RBIs || null,
-    hits: battingCats.hits || null,
-    wins: pitchingCats.wins || null,
-    saves: pitchingCats.saves || null,
-  };
-
-  // Filter out nulls
-  for (const k of Object.keys(categories)) {
-    if (!categories[k]) delete categories[k];
   }
 
   return { categories, fetchedAt: new Date().toISOString() };

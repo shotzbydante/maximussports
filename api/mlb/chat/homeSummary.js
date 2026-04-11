@@ -161,32 +161,35 @@ async function fetchMlbStandings() {
 
 async function fetchMlbLeaders() {
   try {
+    const season = (() => { const m = new Date().getMonth() + 1; return m <= 2 ? new Date().getFullYear() - 1 : new Date().getFullYear(); })();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    const r = await fetch('https://site.web.api.espn.com/apis/site/v3/sports/baseball/mlb/leaders?season=' + getCurrentSeason() + '&seasontype=2&limit=5', { signal: controller.signal });
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/types/2/leaders?limit=3`, { signal: controller.signal });
     clearTimeout(timer);
     if (!r.ok) return {};
     const data = await r.json();
-    const cats = data?.leaders?.categories || [];
+    const cats = data?.categories || [];
+    const target = ['homeRuns', 'RBIs', 'hits'];
     const result = {};
     for (const cat of cats) {
-      if (!['homeRuns', 'RBIs', 'hits'].includes(cat.name)) continue;
-      result[cat.name] = {
-        leaders: (cat.leaders || []).slice(0, 3).map(e => ({
-          name: e.athlete?.displayName || '—',
-          teamAbbrev: e.athlete?.team?.abbreviation || '',
-          value: e.value ?? 0,
-          display: String(Math.round(e.value ?? 0)),
-        })),
-      };
+      if (!target.includes(cat.name)) continue;
+      const entries = (cat.leaders || []).slice(0, 3);
+      // Resolve athlete names (parallel)
+      const resolved = await Promise.all(entries.map(async (e) => {
+        let name = '—';
+        const ref = e.athlete?.$ref;
+        if (ref) {
+          try {
+            const ar = await fetch(ref, { signal: AbortSignal.timeout(3000) });
+            if (ar.ok) { const ad = await ar.json(); name = ad.displayName || '—'; }
+          } catch { /* fallback */ }
+        }
+        return { name, value: e.value ?? 0, display: String(Math.round(e.value ?? 0)) };
+      }));
+      result[cat.name] = { leaders: resolved };
     }
     return result;
   } catch { return {}; }
-}
-
-function getCurrentSeason() {
-  const m = new Date().getMonth() + 1;
-  return m <= 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
 }
 
 async function buildMlbSummaryData() {
