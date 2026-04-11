@@ -94,11 +94,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ code: 'BAD_TYPE', error: `Must be one of: ${VALID_TYPES.join(', ')}`, marker: DEBUG_MARKER });
     }
 
-    const tplName = resolveTemplate(type);
-
     // ── STEP 1: load_template ──
     let step = 'load_template';
-    console.log(`[send-test] ${DEBUG_MARKER} step=${step} type=${type} isMLB=${isMLB}`);
+    console.log(`[send-test] ${DEBUG_MARKER} step=${step} type=${type}`);
     let tmpl;
     try { tmpl = await loadTemplate(type); }
     catch (err) {
