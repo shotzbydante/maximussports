@@ -308,7 +308,7 @@ ${AVOID_BLOCK}`;
 
 function teamIntelPrompt(payload) {
   const teamName = payload.teamA?.name || payload.headline || 'Team';
-  const bullets = (payload.bullets || []).slice(0, 6);
+  const bullets = (payload.bullets || []).slice(0, 5);
   const bulletBlock = bullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n');
 
   return `You are rendering a premium MLB Team Intel Instagram card for Maximus Sports.
@@ -351,7 +351,7 @@ ${AVOID_BLOCK}`;
 function leagueIntelPrompt(payload) {
   const lg = payload.league || 'AL';
   const fullName = lg === 'AL' ? 'American League' : 'National League';
-  const bullets = (payload.bullets || []).slice(0, 6);
+  const bullets = (payload.bullets || []).slice(0, 5);
   const bulletBlock = bullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n');
 
   return `You are rendering a premium MLB ${fullName} Intel Instagram card for Maximus Sports.
@@ -388,7 +388,7 @@ ${AVOID_BLOCK}`;
 
 function divisionIntelPrompt(payload) {
   const div = payload.division || 'AL East';
-  const bullets = (payload.bullets || []).slice(0, 6);
+  const bullets = (payload.bullets || []).slice(0, 5);
   const bulletBlock = bullets.map((b, i) => `  ${i + 1}. "${b}"`).join('\n');
 
   return `You are rendering a premium MLB ${div} Division Intel Instagram card for Maximus Sports.
