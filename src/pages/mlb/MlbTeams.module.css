@@ -1,0 +1,339 @@
+/* MLB Team Intel — premium league-wide intelligence hub */
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Hero section ────────────────────────────────────────────── */
+.heroSection {
+  margin-bottom: var(--space-xl);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: var(--space-sm);
+}
+
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: var(--space-sm) 0 var(--space-xs);
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  max-width: 520px;
+}
+
+/* ── Two-column league grid ──────────────────────────────────── */
+.leagueGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xl);
+}
+
+@media (max-width: 800px) {
+  .leagueGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.league {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── League header ───────────────────────────────────────────── */
+.leagueHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--color-border-light);
+}
+
+.leagueLogo {
+  height: 30px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.leagueBadge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.leagueBadgeAL {
+  color: #002D72;
+  background: rgba(0, 45, 114, 0.07);
+  border: 1px solid rgba(0, 45, 114, 0.15);
+}
+
+.leagueBadgeNL {
+  color: #BF0D3E;
+  background: rgba(191, 13, 62, 0.07);
+  border: 1px solid rgba(191, 13, 62, 0.15);
+}
+
+/* ── Division blocks ─────────────────────────────────────────── */
+.divisionBlock {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.divisionTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(60, 121, 180, 0.03);
+  border-bottom: 1px solid var(--color-border-light);
+  margin: 0;
+}
+
+.divisionTeams {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Team rows ───────────────────────────────────────────────── */
+.teamRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: background 0.12s;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+}
+
+.teamRow:last-child {
+  border-bottom: none;
+}
+
+.teamRow:hover {
+  background: rgba(60, 121, 180, 0.05);
+}
+
+/* Identity: logo + name + rank */
+.teamIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.teamLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.teamLogo img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+
+.teamAbbrevFallback {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.teamNameCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.teamName {
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.divRank {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+  line-height: 1.2;
+}
+
+/* ── Stat strip ──────────────────────────────────────────────── */
+.statStrip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.statCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 44px;
+}
+
+.statCellWide {
+  min-width: 70px;
+  align-items: flex-start;
+}
+
+.statLabel {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.statValue {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.statValueMuted {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.statValueAccent {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.oddsPill {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(60, 121, 180, 0.07);
+  border: 1px solid rgba(60, 121, 180, 0.14);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowArrow {
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: opacity 0.12s;
+}
+
+.teamRow:hover .rowArrow {
+  opacity: 0.8;
+}
+
+/* ── Loading ─────────────────────────────────────────────────── */
+.loadingNote {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-md);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Mobile responsiveness ───────────────────────────────────── */
+@media (max-width: 600px) {
+  .statStrip {
+    gap: 8px;
+  }
+
+  .statCellWide {
+    display: none; /* Hide "Finish" on small screens */
+  }
+
+  .teamName {
+    font-size: 0.76rem;
+  }
+
+  .teamLogo img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .teamLogo {
+    width: 26px;
+    height: 26px;
+  }
+
+  .statCell {
+    min-width: 36px;
+  }
+
+  .rowArrow {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .statStrip {
+    gap: 6px;
+  }
+
+  .statLabel {
+    font-size: 0.5rem;
+  }
+
+  .statValue,
+  .statValueAccent {
+    font-size: 0.65rem;
+  }
+}
