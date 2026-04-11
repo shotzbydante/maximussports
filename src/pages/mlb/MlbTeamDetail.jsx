@@ -481,6 +481,21 @@ export default function MlbTeamDetail() {
                       </li>
                     ))}
                   </ol>
+                  {/* Team Leaders — from shared pipeline */}
+                  {briefing.teamLeaders?.length > 0 && (
+                    <div className={styles.teamLeadersSection}>
+                      <div className={styles.intelBriefingLabel} style={{ marginTop: '16px' }}>Team Leaders</div>
+                      <div className={styles.teamLeadersGrid}>
+                        {briefing.teamLeaders.map((tl, i) => (
+                          <div key={i} className={styles.teamLeaderRow}>
+                            <span className={styles.teamLeaderStat}>{tl.stat}</span>
+                            <span className={styles.teamLeaderName}>{tl.player}</span>
+                            <span className={styles.teamLeaderValue}>{tl.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
