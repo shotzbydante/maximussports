@@ -1,14 +1,14 @@
 /**
  * GatedContent — premium progressive content gate for unauthenticated users.
  *
- * Shows the top portion of real content, then fades into a polished
- * signup CTA overlay that fills the remaining viewport. No dead white space.
+ * Architecture:
+ *   1. contentClip — real page content, clipped to previewPx
+ *   2. fadeBand    — positioned over the bottom of contentClip, creates a
+ *                    long gradual fade from transparent → dark navy
+ *   3. ctaFill     — solid dark region below with CTA card, fills viewport
  *
- * Props:
- *   previewPercent  — how much of the page to show (default 25)
- *   sport           — 'mlb' | 'ncaam' | 'nba' (for sport-specific copy)
- *   title           — override CTA title
- *   subtitle        — override CTA subtitle
+ * This 3-layer approach gives a premium cinematic fade over real content
+ * while ensuring no dead white space below.
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -21,6 +21,10 @@ const SPORT_COPY = {
   ncaam: { title: 'Unlock full NCAAM intelligence',  sub: 'Create your free account to access picks, team intel, and bracket edges.' },
   nba:   { title: 'Unlock full NBA intelligence',    sub: 'Create your free account to access every matchup, team signal, and edge.' },
 };
+
+// Height of the gradient fade band that overlays the bottom of the content
+const FADE_BAND_PX = 280;
+const FADE_BAND_MOBILE = 200;
 
 export default function GatedContent({
   children,
@@ -41,7 +45,6 @@ export default function GatedContent({
   const heading = title || copy.title;
   const sub = subtitle || copy.sub;
 
-  // Calculate preview height + remaining viewport fill height
   useEffect(() => {
     if (user) return;
 
@@ -53,59 +56,51 @@ export default function GatedContent({
       const preview = Math.max(minPx, Math.round(contentH * pct / 100));
       setPreviewPx(preview);
 
-      // Calculate how much viewport remains after the preview
-      // so the fade+CTA region fills the rest with no white space
       const vh = window.innerHeight;
       const topOffset = wrapperRef.current?.getBoundingClientRect()?.top || 0;
-      const remainingVh = vh - topOffset - preview + 120; // +120 for overlap
-      setFillHeight(Math.max(360, remainingVh));
+      const remaining = vh - topOffset - preview;
+      setFillHeight(Math.max(380, remaining + 60));
     }
 
     measure();
-
-    // Re-measure on resize and after content loads
-    const onResize = () => measure();
-    window.addEventListener('resize', onResize);
-
+    window.addEventListener('resize', measure);
     let observer;
     if (wrapperRef.current) {
       observer = new ResizeObserver(measure);
       observer.observe(wrapperRef.current);
     }
-
     return () => {
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
   }, [user, previewPercent]);
 
-  // Authenticated users see everything
   if (user) return <>{children}</>;
 
   return (
     <div className={styles.gatedWrapper} ref={wrapperRef}>
-      {/* Real content — clipped to preview height */}
+      {/* Layer 1: Real content, clipped */}
       <div className={styles.contentClip} style={{ maxHeight: `${previewPx}px` }}>
         {children}
+        {/* Layer 2: Gradient fade band — sits over the bottom of clipped content */}
+        <div className={styles.fadeBand} />
       </div>
 
-      {/* Fade + CTA overlay — fills remaining viewport */}
-      <div className={styles.fadeOverlay} style={{ minHeight: `${fillHeight}px` }}>
-        <div className={styles.ctaRegion}>
-          <div className={styles.ctaCard}>
-            <div className={styles.lockBadge}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            </div>
-            <h3 className={styles.ctaTitle}>{heading}</h3>
-            <p className={styles.ctaSub}>{sub}</p>
-            <button className={styles.ctaBtn} onClick={() => navigate(ctaRoute)}>
-              {ctaLabel}
-            </button>
-            <p className={styles.ctaNote}>Free forever. No credit card required.</p>
+      {/* Layer 3: Solid fill + CTA — covers remaining viewport */}
+      <div className={styles.ctaFill} style={{ minHeight: `${fillHeight}px` }}>
+        <div className={styles.ctaCard}>
+          <div className={styles.lockBadge}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
           </div>
+          <h3 className={styles.ctaTitle}>{heading}</h3>
+          <p className={styles.ctaSub}>{sub}</p>
+          <button className={styles.ctaBtn} onClick={() => navigate(ctaRoute)}>
+            {ctaLabel}
+          </button>
+          <p className={styles.ctaNote}>Free forever. No credit card required.</p>
         </div>
       </div>
     </div>
