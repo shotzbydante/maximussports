@@ -480,6 +480,16 @@ export default async function handler(req, res) {
       } catch { /* projections not available */ }
 
       console.log(`[run-daily] Global briefing: NCAAM headlines=${headlines.length} MLB headlines=${mlbData.headlines.length} MLB narrative=${!!mlbData.narrativeParagraph} pennant=${!!mlbData.pennantRace}`);
+      console.log('[GLOBAL BRIEFING PROD]', {
+        hasMlbData: !!mlbData,
+        mlbNarrativeLength: mlbData?.narrativeParagraph?.length || 0,
+        mlbHeadlineCount: mlbData?.headlines?.length || 0,
+        hasPicks: !!mlbData?.picksBoard,
+        picksCount: mlbData?.picksBoard?.categories
+          ? Object.values(mlbData.picksBoard.categories).reduce((acc, arr) => acc + (arr?.length || 0), 0)
+          : 0,
+        hasPennant: !!mlbData?.pennantRace,
+      });
 
     } else if (isMLB) {
       // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──

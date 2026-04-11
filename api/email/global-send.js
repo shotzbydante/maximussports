@@ -31,6 +31,7 @@ import { getSubject as getDigestSubject, renderHTML as renderDigestHTML, renderT
 import { getSubject as getMlbBriefingSubject, renderHTML as renderMlbBriefingHTML, renderText as renderMlbBriefingText } from '../../src/emails/templates/mlbBriefing.js';
 import { getSubject as getMlbPicksSubject, renderHTML as renderMlbPicksHTML, renderText as renderMlbPicksText } from '../../src/emails/templates/mlbPicks.js';
 import { getSubject as getMlbDigestSubject, renderHTML as renderMlbDigestHTML, renderText as renderMlbDigestText } from '../../src/emails/templates/mlbTeamDigest.js';
+import { getSubject as getGlobalSubject, renderHTML as renderGlobalHTML, renderText as renderGlobalText } from '../../src/emails/templates/globalBriefing.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
@@ -261,8 +262,23 @@ export default async function handler(req, res) {
     let botIntelBullets = [];
     let mlbNarrativeParagraph = '';
     let picksBoard = null;
+    let mlbDataForGlobal = null;
 
-    if (isMLB) {
+    if (tplType === 'globalBriefing') {
+      // Global briefing: fetch BOTH NCAAM + MLB
+      const host = req.headers.host || 'localhost:3000';
+      const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
+        fetchScoresSource(), fetchRankingsSource(), getAtsLeadersPipeline(),
+        fetchNewsAggregateSource({ includeNational: true }),
+      ]);
+      scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+      rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+      atsLeaders = atsResult.status === 'fulfilled' ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] } : { best: [], worst: [] };
+      const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+      headlines = dedupeNewsItems(headlinesRaw);
+      mlbDataForGlobal = await assembleMlbEmailData(`http://${host}`, { includeSummary: true, includePicks: true });
+      console.log(`[global-send] Global briefing: NCAAM=${headlines.length} MLB=${mlbDataForGlobal.headlines.length}`);
+    } else if (isMLB) {
       // MLB-specific data via shared helper (no NCAAM contamination possible)
       const host = req.headers.host || 'localhost:3000';
       const mlbData = await assembleMlbEmailData(`http://${host}`, {
@@ -334,11 +350,13 @@ export default async function handler(req, res) {
       }
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
-      const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames, narrativeParagraph: isMLB ? mlbNarrativeParagraph : '', picksBoard: picksBoard || null };
+      const emailData = { displayName, scoresToday, rankingsTop25, atsLeaders, headlines, pinnedTeams, botIntelBullets, maximusNote, oddsGames, narrativeParagraph: isMLB ? mlbNarrativeParagraph : '', picksBoard: picksBoard || null, mlbData: mlbDataForGlobal || null };
 
       let subject, html, text;
       try {
         switch (tplType) {
+          case 'globalBriefing':
+            subject = getGlobalSubject(emailData); html = renderGlobalHTML(emailData); text = renderGlobalText(emailData); break;
           case 'daily':
             subject = getDailySubject(emailData); html = renderDailyHTML(emailData); text = renderDailyText(emailData); break;
           case 'pinned':

@@ -38,6 +38,19 @@ export function renderHTML(data = {}) {
   const partOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening';
   const sc = showChamp();
 
+  // Diagnostic: log what data arrived
+  console.log('[globalBriefing template]', {
+    hasMlbData: !!mlbData,
+    mlbNarrativeLen: mlbData?.narrativeParagraph?.length || 0,
+    mlbHeadlineCount: mlbData?.headlines?.length || 0,
+    hasPicks: !!mlbData?.picksBoard,
+    hasPennant: !!mlbData?.pennantRace,
+  });
+
+  if (!mlbData) {
+    console.error('[globalBriefing] CRITICAL: mlbData is missing — MLB section will not render');
+  }
+
   const mlbNarrative = mlbData?.narrativeParagraph || '';
   const mlbHeadlines = mlbData?.headlines || [];
   const picks = mlbData?.picksBoard?.categories;
