@@ -110,8 +110,8 @@ function teamAbbrevFromRef(teamRef) {
 
 async function fetchAllLeaders() {
   const season = getCurrentSeason();
-  // Fetch enough entries per category to cover all 30 teams
-  const url = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/types/2/leaders?limit=50`;
+  // Fetch deep enough to cover all 30 teams (pitching stats may need more depth)
+  const url = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/${season}/types/2/leaders?limit=100`;
   const r = await fetchWithTimeout(url, 12000);
   if (!r.ok) return { categories: {}, fetchedAt: new Date().toISOString() };
 

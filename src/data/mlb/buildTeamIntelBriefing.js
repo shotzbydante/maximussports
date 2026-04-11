@@ -761,18 +761,14 @@ export function buildMlbTeamIntelBriefing(opts) {
  * Uses teamBest map (per-team best from full leaderboard) first,
  * falls back to scanning the top-3 league leaders array.
  *
- * Always returns all 5 categories when data is available.
+ * ALWAYS returns exactly 5 items in fixed order: HR, RBI, Hits, Wins, Saves.
+ * Missing categories get a graceful fallback so the UI never has gaps.
  *
  * @param {string} slug - team slug
  * @param {Object} mlbLeaders - from /api/mlb/leaders: { categories: { ... } }
  * @returns {Array<{ stat: string, label: string, player: string, value: string }>}
  */
 function extractTeamLeaders(slug, mlbLeaders) {
-  if (!slug || !mlbLeaders?.categories) return [];
-  const teamAbbrev = MLB_TEAMS.find(t => t.slug === slug)?.abbrev || '';
-  if (!teamAbbrev) return [];
-
-  const cats = mlbLeaders.categories;
   const mapping = [
     { key: 'homeRuns', stat: 'HR', label: 'Home Runs' },
     { key: 'RBIs', stat: 'RBI', label: 'RBIs' },
@@ -781,33 +777,46 @@ function extractTeamLeaders(slug, mlbLeaders) {
     { key: 'saves', stat: 'SV', label: 'Saves' },
   ];
 
-  const results = [];
-  for (const { key, stat, label } of mapping) {
-    const cat = cats[key];
-    if (!cat) continue;
+  // If no data at all, return 5 fallback items so UI still renders
+  if (!slug || !mlbLeaders?.categories) {
+    return mapping.map(({ stat, label }) => ({
+      stat, label, player: '—', value: '—',
+    }));
+  }
 
-    // Prefer teamBest map (covers all teams)
-    const tb = cat.teamBest?.[teamAbbrev];
-    if (tb) {
-      results.push({
-        stat,
-        label,
-        player: tb.name || '—',
+  const teamAbbrev = MLB_TEAMS.find(t => t.slug === slug)?.abbrev || '';
+  if (!teamAbbrev) {
+    return mapping.map(({ stat, label }) => ({
+      stat, label, player: '—', value: '—',
+    }));
+  }
+
+  const cats = mlbLeaders.categories;
+
+  return mapping.map(({ key, stat, label }) => {
+    const cat = cats[key];
+
+    // Try teamBest map first (covers all teams from full leaderboard)
+    const tb = cat?.teamBest?.[teamAbbrev];
+    if (tb && tb.name && tb.name !== '—') {
+      return {
+        stat, label,
+        player: tb.name,
         value: tb.display || String(tb.value || 0),
-      });
-      continue;
+      };
     }
 
     // Fallback: scan top-3 league leaders
-    const match = (cat.leaders || []).find(l => l.teamAbbrev === teamAbbrev);
-    if (match) {
-      results.push({
-        stat,
-        label,
-        player: match.name || '—',
+    const match = (cat?.leaders || []).find(l => l.teamAbbrev === teamAbbrev);
+    if (match && match.name && match.name !== '—') {
+      return {
+        stat, label,
+        player: match.name,
         value: match.display || String(match.value || 0),
-      });
+      };
     }
-  }
-  return results;
+
+    // Last resort: graceful fallback — category still renders
+    return { stat, label, player: '—', value: '—' };
+  });
 }
