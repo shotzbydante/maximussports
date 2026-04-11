@@ -69,6 +69,8 @@ function validateMlbScores(scores) {
   });
 }
 
+import { buildLeadersEditorialHook } from '../../src/data/mlb/seasonLeaders.js';
+
 export async function assembleMlbEmailData(baseUrl, opts = {}) {
   const { includeSummary = true, includePicks = false } = opts;
 
@@ -79,6 +81,9 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     fetch(`${baseUrl}/api/mlb/live/homeFeed`)
       .then(r => r.ok ? r.json() : {})
       .catch(() => ({})),
+    fetch(`${baseUrl}/api/mlb/leaders`)
+      .then(r => r.ok ? r.json() : { categories: {} })
+      .catch(() => ({ categories: {} })),
   ];
 
   if (includeSummary) {
@@ -98,7 +103,7 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
   }
 
   const results = await Promise.allSettled(fetches);
-  const [mlbNewsResult, mlbLiveResult, ...rest] = results;
+  const [mlbNewsResult, mlbLiveResult, mlbLeadersResult, ...rest] = results;
   const mlbSummaryResult = includeSummary ? rest.shift() : null;
   const mlbPicksBuiltResult = includePicks ? rest.shift() : null;
 
@@ -156,7 +161,11 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     }
   }
 
-  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}, picks=${!!picksBoard}`);
+  // Season leaders editorial hook
+  const mlbLeadersData = mlbLeadersResult?.status === 'fulfilled' ? mlbLeadersResult.value : {};
+  const leadersEditorial = buildLeadersEditorialHook(mlbLeadersData) || null;
+
+  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}, picks=${!!picksBoard}, leaders=${!!leadersEditorial}`);
 
   return {
     headlines,
@@ -164,6 +173,7 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     narrativeParagraph,
     botIntelBullets,
     picksBoard,
+    leadersEditorial,
     // Empty NCAAM-specific fields so templates don't break
     rankingsTop25: [],
     atsLeaders: { best: [], worst: [] },

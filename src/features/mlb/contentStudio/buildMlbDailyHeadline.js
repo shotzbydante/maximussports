@@ -13,7 +13,7 @@
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { buildGameWhyItMatters, buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
+import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
 import { parseBriefingToIntel } from './normalizeMlbImagePayload';
 
 // ── Team metadata maps ──────────────────────────────────────────────────
@@ -562,22 +562,13 @@ function bulletResult(s, doy) {
   return templates[doy % templates.length];
 }
 
-function bulletForStory(story, doy, whySignal) {
-  let base;
-  if (story.isUpset) base = bulletUpset(story, doy);
-  else {
-    switch (story.type) {
-      case 'shutout': base = bulletShutout(story, doy); break;
-      case 'blowout': base = bulletBlowout(story, doy); break;
-      default: base = story.isContender ? bulletContender(story, doy) : bulletResult(story, doy);
-    }
+function bulletForStory(story, doy) {
+  if (story.isUpset) return bulletUpset(story, doy);
+  switch (story.type) {
+    case 'shutout': return bulletShutout(story, doy);
+    case 'blowout': return bulletBlowout(story, doy);
+    default: return story.isContender ? bulletContender(story, doy) : bulletResult(story, doy);
   }
-  // Enrich with "why it matters" standings context when available
-  if (whySignal?.short && base.length + whySignal.short.length < 140) {
-    // Replace generic tail with standings-aware context
-    base = base.replace(/\.\s*$/, '') + ` — ${whySignal.short.toLowerCase()}.`;
-  }
-  return base;
 }
 
 // ── Division / standings context bullet ─────────────────────────────────
@@ -654,22 +645,19 @@ export function buildMlbHotPress({ liveGames, briefing, allStandings } = {}) {
     const bullets = [];
     const usedSlugs = new Set();
 
-    // Bullet 1: Top story — enriched with "why it matters"
+    // Bullet 1: Top story
     const top = stories[0];
-    const topWhy = buildGameWhyItMatters(top, allStandings);
-    bullets.push({ text: bulletForStory(top, doy, topWhy), logoSlug: top.winSlug });
+    bullets.push({ text: bulletForStory(top, doy), logoSlug: top.winSlug });
     usedSlugs.add(top.winSlug);
 
-    // Bullet 2: Second key result — enriched with "why it matters"
+    // Bullet 2: Second key result (from different division if possible)
     const second = findSecondStory(stories, top);
     if (second && !usedSlugs.has(second.winSlug)) {
-      const secondWhy = buildGameWhyItMatters(second, allStandings);
-      bullets.push({ text: bulletForStory(second, doy + 1, secondWhy), logoSlug: second.winSlug });
+      bullets.push({ text: bulletForStory(second, doy + 1), logoSlug: second.winSlug });
       usedSlugs.add(second.winSlug);
     } else if (stories.length >= 2) {
       const alt = stories[1];
-      const altWhy = buildGameWhyItMatters(alt, allStandings);
-      bullets.push({ text: bulletForStory(alt, doy + 1, altWhy), logoSlug: alt.winSlug });
+      bullets.push({ text: bulletForStory(alt, doy + 1), logoSlug: alt.winSlug });
       usedSlugs.add(alt.winSlug);
     }
 
