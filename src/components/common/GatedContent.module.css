@@ -95,16 +95,25 @@
 /* ── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .fadeOverlay {
-    margin-top: -80px;
-    padding-top: 80px;
+    margin-top: -100px;
+    padding-top: 100px;
   }
   .ctaCard {
-    padding: 24px 20px 32px;
+    padding: 28px 20px 36px;
   }
   .ctaTitle {
     font-size: 19px;
   }
   .ctaSub {
     font-size: 13px;
+  }
+}
+
+@media (max-width: 380px) {
+  .ctaCard {
+    padding: 24px 16px 32px;
+  }
+  .ctaTitle {
+    font-size: 17px;
   }
 }

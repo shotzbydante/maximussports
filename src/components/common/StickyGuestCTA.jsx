@@ -1,14 +1,15 @@
 /**
  * StickyGuestCTA — premium floating bottom banner for unauthenticated users.
  *
- * Shows on home/briefing pages to encourage account creation.
- * Automatically hidden for authenticated users.
- * Dismissable per session.
+ * Shows on OPEN pages (home, briefings) to encourage account creation.
+ * Automatically hidden on PREVIEW pages (which have their own in-page gate)
+ * and for authenticated users. Dismissable per session.
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getRouteAccess } from '../../hooks/useAuthGate';
 import styles from './StickyGuestCTA.module.css';
 
 export default function StickyGuestCTA({
@@ -18,10 +19,15 @@ export default function StickyGuestCTA({
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [dismissed, setDismissed] = useState(false);
 
-  // Don't show for authenticated users or if dismissed
-  if (user || dismissed) return null;
+  // Hide for authenticated users
+  if (user) return null;
+  // Hide if dismissed this session
+  if (dismissed) return null;
+  // Hide on preview-gated pages (they have their own in-page CTA)
+  if (getRouteAccess(location.pathname) === 'preview') return null;
 
   return (
     <div className={styles.stickyBar}>

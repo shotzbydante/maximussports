@@ -40,12 +40,16 @@ export default function GatedContent({
   const heading = title || copy.title;
   const sub = subtitle || copy.sub;
 
-  // Calculate preview height based on actual rendered content
+  // Calculate preview height based on actual rendered content.
+  // Mobile gets a higher minimum so users see more real content before the gate.
   useEffect(() => {
     if (user || !wrapperRef.current) return;
+    const isMobile = window.innerWidth <= 480;
+    const minPx = isMobile ? 520 : 400;
+    const pct = isMobile ? Math.max(previewPercent, 35) : previewPercent;
     const observer = new ResizeObserver(() => {
       const h = wrapperRef.current?.scrollHeight || 2000;
-      setPreviewPx(Math.max(300, Math.round(h * previewPercent / 100)));
+      setPreviewPx(Math.max(minPx, Math.round(h * pct / 100)));
     });
     observer.observe(wrapperRef.current);
     return () => observer.disconnect();
