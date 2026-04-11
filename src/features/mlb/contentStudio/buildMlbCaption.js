@@ -447,43 +447,55 @@ function buildStandingContext(standings, division, record) {
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
+/** Clean internal model jargon from bullets before rendering to users */
+function cleanJargon(text) {
+  if (!text) return text;
+  return text
+    .replace(/\broster misc\b/gi, 'roster construction')
+    .replace(/\boverperf\.?\s*corr\.?\b/gi, 'overperformance correction')
+    .replace(/\bunderperf\.?\s*corr\.?\b/gi, 'underperformance correction')
+    .replace(/\bproj\.?\s*wins?\b/gi, 'projected wins')
+    .replace(/\bconf\.?\s*tier\b/gi, 'confidence level')
+    .replace(/\bmarket\s*delta\b/gi, 'market gap')
+    .replace(/\bdiv\.?\s*rank\b/gi, 'division rank')
+    .replace(/\bGB\b/g, 'games back');
+}
+
 function synthesizeNarrative(briefing) {
-  // Combine subtext and first 2 intel bullets into a narrative paragraph
   const fragments = [];
-  if (briefing.subtext) fragments.push(briefing.subtext);
+  if (briefing.subtext) fragments.push(cleanJargon(briefing.subtext));
   const items = briefing.items || [];
-  // Pick the most narrative-rich bullets (recent game, standings, trend)
-  for (const item of items.slice(0, 3)) {
+  // Use first 2 items (standings context + trend) for narrative flow
+  for (const item of items.slice(0, 2)) {
     if (item.text && item.text.length > 20) {
-      fragments.push(item.text);
+      fragments.push(cleanJargon(item.text));
     }
   }
   if (fragments.length === 0) return null;
-  // Join into flowing narrative — max 2 sentences
   return fragments.slice(0, 2).join(' ');
 }
 
 function buildWhyItMatters(briefing) {
   const items = briefing.items || [];
   const bullets = [];
-  // Pick items 3-5 (driver, risk, outlook) for "why it matters"
+  // Pick items 3-5 (last game, driver, risk/outlook)
   for (const item of items.slice(2, 5)) {
     if (item.text && item.text.length > 10) {
-      // Trim to first sentence if very long
-      let text = item.text;
-      if (text.length > 120) {
+      let text = cleanJargon(item.text);
+      if (text.length > 140) {
         const sentEnd = text.indexOf('. ', 40);
         if (sentEnd > 0) text = text.slice(0, sentEnd + 1);
       }
       bullets.push(text);
     }
   }
-  // If we got fewer than 3, pull from earlier items
-  if (bullets.length < 2 && items.length > 0) {
+  // Fill from earlier items if needed
+  if (bullets.length < 2) {
     for (const item of items) {
       if (bullets.length >= 3) break;
-      if (item.text && !bullets.includes(item.text)) {
-        bullets.push(item.text.length > 120 ? item.text.slice(0, 117) + '...' : item.text);
+      const cleaned = cleanJargon(item.text);
+      if (cleaned && !bullets.includes(cleaned)) {
+        bullets.push(cleaned.length > 140 ? cleaned.slice(0, 137) + '...' : cleaned);
       }
     }
   }
@@ -491,8 +503,11 @@ function buildWhyItMatters(briefing) {
 }
 
 function buildBottomLine(briefing, teamName, projection) {
-  // Use whyItMatters from briefing if available
-  if (briefing.whyItMatters) return briefing.whyItMatters;
+  // Use whyItMatters from briefing if available — it's { signals, top } object
+  const wim = briefing.whyItMatters;
+  if (wim?.top?.long) return wim.top.long;
+  if (wim?.top?.short) return wim.top.short;
+  if (typeof wim === 'string') return wim;
 
   // Synthesize from projection + headline
   const shortName = teamName.split(' ').pop();

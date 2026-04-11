@@ -756,6 +756,8 @@ export default function Dashboard() {
           mlbGameAngle,
           mlbBriefing,
           mlbChampOdds,
+          mlbStandings,
+          mlbLeaders,
         });
         return buildMlbCaption(payload);
       } catch {
@@ -881,6 +883,8 @@ export default function Dashboard() {
         mlbGameAngle,
         mlbBriefing,
         mlbChampOdds,
+        mlbStandings,
+        mlbLeaders,
       });
       const res = await fetch('/api/mlb/content-studio/generate-image', {
         method: 'POST',
