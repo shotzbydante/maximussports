@@ -5,10 +5,10 @@
  * and enriches with team metadata from the season model + model inputs.
  */
 
-import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { getTeamMeta } from '../../../data/mlb/teamMeta';
-import { getTeamInputs } from '../../../data/mlb/seasonModelInputs';
-import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
+import { getTeamMeta } from '../../../data/mlb/teamMeta.js';
+import { getTeamInputs } from '../../../data/mlb/seasonModelInputs.js';
+import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos.js';
 
 /**
  * @param {Object} game - normalized game from API

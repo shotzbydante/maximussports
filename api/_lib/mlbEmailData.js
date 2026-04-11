@@ -145,14 +145,25 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
 
   // Picks board (from /api/mlb/picks/built — pre-built server-side)
   let picksBoard = null;
-  if (includePicks && mlbPicksBuiltResult?.status === 'fulfilled') {
-    const builtData = mlbPicksBuiltResult.value;
-    if (builtData?.categories) {
-      picksBoard = builtData;
-      const c = builtData.categories;
-      console.log(`[mlbEmailData] Picks received: pickEms=${c.pickEms?.length || 0} ats=${c.ats?.length || 0} leans=${c.leans?.length || 0} totals=${c.totals?.length || 0}`);
+  if (includePicks) {
+    if (mlbPicksBuiltResult?.status === 'fulfilled') {
+      const builtData = mlbPicksBuiltResult.value;
+      if (builtData?.categories) {
+        picksBoard = builtData;
+        const c = builtData.categories;
+        const total = (c.pickEms?.length || 0) + (c.ats?.length || 0) + (c.leans?.length || 0) + (c.totals?.length || 0);
+        console.log(`[mlbEmailData] Picks received: total=${total} pickEms=${c.pickEms?.length || 0} ats=${c.ats?.length || 0} leans=${c.leans?.length || 0} totals=${c.totals?.length || 0}`);
+        if (builtData._error) {
+          console.warn(`[mlbEmailData] Picks endpoint reported error: ${builtData._error}`);
+        }
+        if (builtData._debug) {
+          console.log(`[mlbEmailData] Picks debug: totalGames=${builtData._debug.totalGames} upcoming=${builtData._debug.upcoming} enriched=${builtData._debug.enriched}`);
+        }
+      } else {
+        console.warn(`[mlbEmailData] /api/mlb/picks/built returned no categories:`, JSON.stringify(builtData)?.slice(0, 300));
+      }
     } else {
-      console.warn(`[mlbEmailData] /api/mlb/picks/built returned no categories:`, JSON.stringify(builtData)?.slice(0, 200));
+      console.error(`[mlbEmailData] Picks fetch FAILED: status=${mlbPicksBuiltResult?.status} reason=${mlbPicksBuiltResult?.reason?.message || 'unknown'}`);
     }
   }
 

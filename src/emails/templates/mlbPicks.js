@@ -182,12 +182,22 @@ export function renderHTML(data = {}) {
   const greetingName = firstName || 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const categories = picksBoard?.categories || {};
-  const pickEms = categories.pickEms || [];
-  const ats = categories.ats || [];
-  const leans = categories.leans || [];
-  const totals = categories.totals || [];
+  // Defensive normalization — handle any shape variation
+  const raw = picksBoard?.categories || picksBoard || {};
+  const categories = {
+    pickEms: raw.pickEms || raw.pickEm || raw.pick_ems || [],
+    ats: raw.ats || raw.spreads || raw.against_the_spread || [],
+    leans: raw.leans || raw.valueLeans || raw.value_leans || [],
+    totals: raw.totals || raw.gameTotals || raw.game_totals || [],
+  };
+  const pickEms = categories.pickEms;
+  const ats = categories.ats;
+  const leans = categories.leans;
+  const totals = categories.totals;
   const totalPicks = pickEms.length + ats.length + leans.length + totals.length;
+
+  // Diagnostic: log what arrived at the template
+  console.log(`[mlbPicks template] picksBoard exists=${!!picksBoard} totalPicks=${totalPicks} pickEms=${pickEms.length} ats=${ats.length} leans=${leans.length} totals=${totals.length}`);
 
   // Board summary
   const parts = [];

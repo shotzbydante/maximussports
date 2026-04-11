@@ -92,11 +92,15 @@ export default async function handler(req, res) {
     return res.status(200).json(payload);
 
   } catch (err) {
-    console.error('[mlb/picks/built] Error:', err.message, err.stack);
-    return res.status(500).json({
-      error: err.message,
+    console.error('[mlb/picks/built] FATAL ERROR:', err.message);
+    console.error('[mlb/picks/built] Stack:', err.stack);
+    // Return 200 with empty categories so the email pipeline doesn't get null
+    // but the _error field signals the failure for diagnostics
+    return res.status(200).json({
       categories: { pickEms: [], ats: [], leans: [], totals: [] },
       meta: { totalCandidates: 0, qualifiedGames: 0, skippedGames: 0 },
+      generatedAt: new Date().toISOString(),
+      _error: err.message,
     });
   }
 }
