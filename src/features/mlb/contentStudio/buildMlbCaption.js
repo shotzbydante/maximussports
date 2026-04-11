@@ -345,6 +345,7 @@ function teamCaption(payload) {
     newsHeadlines: payload.newsHeadlines || [],
     nextLine: payload.nextLine ?? null,
     standings,
+    mlbLeaders: payload.mlbLeaders ?? null,
   });
 
   // Build record + L10 summary for caption context

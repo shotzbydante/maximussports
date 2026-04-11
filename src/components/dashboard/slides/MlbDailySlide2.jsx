@@ -143,18 +143,24 @@ function buildSlide2Content(data) {
 
   // ── SEASON LEADERS: top 3 in each category from ESPN ──
   const leadersRaw = data?.mlbLeaders?.categories || {};
+  // abbrev → slug lookup for team logos
+  const abbrevToSlug = Object.fromEntries(MLB_TEAMS.map(t => [t.abbrev, t.slug]));
+
   const leaderCategories = LEADER_CATEGORIES
     .filter(cat => leadersRaw[cat.key]?.leaders?.length > 0)
     .map(cat => ({
       key: cat.key,
       label: cat.label,
       abbrev: cat.abbrev,
-      leaders: leadersRaw[cat.key].leaders.slice(0, 3).map(l => ({
-        name: l.name?.split(' ').pop() || l.name || '—', // last name only for compact display
-        fullName: l.name || '—',
-        teamAbbrev: l.teamAbbrev || '',
-        value: l.display || String(l.value || 0),
-      })),
+      leaders: leadersRaw[cat.key].leaders.slice(0, 3).map(l => {
+        const slug = abbrevToSlug[l.teamAbbrev] || l.teamAbbrev?.toLowerCase() || null;
+        return {
+          name: l.name || '—',
+          teamAbbrev: l.teamAbbrev || '',
+          teamLogoSrc: slug ? getMlbEspnLogoUrl(slug) : null,
+          value: l.display || String(l.value || 0),
+        };
+      }),
     }));
 
   // ── MAXIMUS'S PICKS: 4 pick modules, ensure ATS representation ──
@@ -284,7 +290,7 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
                     <div key={li} className={styles.slide2LeaderRow}>
                       <span className={styles.slide2LeaderRank}>{li + 1}</span>
                       <span className={styles.slide2LeaderName}>{l.name}</span>
-                      {l.teamAbbrev && <span className={styles.slide2LeaderTeam}>{l.teamAbbrev}</span>}
+                      {l.teamLogoSrc && <img src={l.teamLogoSrc} alt="" className={styles.slide2LeaderTeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
                       <span className={styles.slide2LeaderValue}>{l.value}</span>
                     </div>
                   ))}

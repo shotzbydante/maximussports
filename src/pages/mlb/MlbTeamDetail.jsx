@@ -249,6 +249,7 @@ export default function MlbTeamDetail() {
   const [schedule, setSchedule] = useState([]);
   const [teamRecord, setTeamRecord] = useState(null);
   const [standings, setStandings] = useState(null);
+  const [mlbLeaders, setMlbLeaders] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scheduleLoading, setScheduleLoading] = useState(true);
   const [liveGame, setLiveGame] = useState(null);
@@ -274,10 +275,12 @@ export default function MlbTeamDetail() {
       fetchMlbChampionshipOdds(),
       fetchMlbHeadlines(),
       fetch('/api/mlb/standings').then(r => r.ok ? r.json() : { teams: {} }),
-    ]).then(([oddsRes, newsRes, standingsRes]) => {
+      fetch('/api/mlb/leaders').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
+    ]).then(([oddsRes, newsRes, standingsRes, leadersRes]) => {
       if (oddsRes.status === 'fulfilled') setOdds(oddsRes.value.odds ?? {});
       if (newsRes.status === 'fulfilled') setHeadlines(newsRes.value.headlines ?? []);
       if (standingsRes.status === 'fulfilled') setStandings(standingsRes.value?.teams ?? null);
+      if (leadersRes.status === 'fulfilled') setMlbLeaders(leadersRes.value ?? null);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -452,6 +455,7 @@ export default function MlbTeamDetail() {
                 teamContext: schedContext,
                 newsHeadlines: teamHeadlines,
                 standings: teamStanding,
+                mlbLeaders: mlbLeaders ?? null,
                 nextGame: nextGame ? {
                   opponent: nextGame.opponent,
                   date: nextGame.date,

@@ -387,12 +387,11 @@ export function buildLeagueWhyItMatters(stories, allStandings) {
   const top = gameSignals[0];
   if (gameSignals.length >= 2 && gameSignals[1].priority >= 80) {
     const second = gameSignals[1];
-    // Extract just the first sentence from top.long to keep it concise
-    const topFirst = top.long.split(/[.!?]\s/)[0] + '.';
+    // Use .short values for concise, clean synthesis — no multi-sentence fragments
     return {
       type: 'standings_shift',
       short: top.short,
-      long: `${topFirst} Meanwhile, ${second.short.toLowerCase()}.`,
+      long: `${top.short}, while ${second.short.charAt(0).toLowerCase() + second.short.slice(1)}.`,
       priority: Math.max(top.priority, second.priority),
     };
   }

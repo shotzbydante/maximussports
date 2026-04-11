@@ -39,7 +39,7 @@ function fmtConviction(tier) {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
-function trim(text, max = 80) {
+function trim(text, max = 120) {
   if (!text) return '';
   let s = text.trim();
   s = s.replace(/^(Meanwhile,?\s*|In other action,?\s*|Additionally,?\s*|Also,?\s*)/i, '');
@@ -47,7 +47,7 @@ function trim(text, max = 80) {
   s = s.replace(/^[A-Z][A-Z\s&+\-:]*[A-Z]\s*[:—–-]\s*/i, '');
   if (s.length <= max) return s;
   const sentEnd = s.lastIndexOf('.', max);
-  if (sentEnd > max * 0.5) return s.slice(0, sentEnd + 1);
+  if (sentEnd > max * 0.4) return s.slice(0, sentEnd + 1);
   return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
 }
 
