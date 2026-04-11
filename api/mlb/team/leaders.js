@@ -72,6 +72,59 @@ async function fetchTeamInfo(espnId) {
 }
 
 /**
+ * Compute L10 record from team schedule (last 10 completed games).
+ */
+async function fetchL10(espnId) {
+  const url = `${ESPN_BASE}/teams/${espnId}/schedule`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'MaximusSports/1.0' }, signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const events = data?.events || [];
+
+    // Find completed games
+    const completed = events.filter(e => {
+      const status = e.competitions?.[0]?.status?.type;
+      return status?.completed === true;
+    });
+
+    // Take last 10
+    const last10 = completed.slice(-10);
+    if (last10.length === 0) return null;
+
+    // Count wins (team is either home or away; check if their score > opponent)
+    const teamAbbrev = data?.team?.abbreviation?.toUpperCase();
+    let wins = 0;
+    let losses = 0;
+
+    for (const event of last10) {
+      const comp = event.competitions?.[0];
+      if (!comp) continue;
+      const competitors = comp.competitors || [];
+      const teamEntry = competitors.find(c => c.team?.abbreviation?.toUpperCase() === teamAbbrev);
+      const oppEntry = competitors.find(c => c.team?.abbreviation?.toUpperCase() !== teamAbbrev);
+      if (teamEntry && oppEntry) {
+        const teamScore = parseInt(teamEntry.score, 10);
+        const oppScore = parseInt(oppEntry.score, 10);
+        if (!isNaN(teamScore) && !isNaN(oppScore)) {
+          if (teamScore > oppScore) wins++;
+          else losses++;
+        }
+      }
+    }
+
+    return `${wins}-${losses}`;
+  } catch (err) {
+    clearTimeout(timer);
+    console.warn(`[mlb/team/leaders] L10 fetch failed for ${espnId}:`, err.message);
+    return null;
+  }
+}
+
+/**
  * Fetch team-level aggregate stats from ESPN.
  * Returns team totals for key batting/pitching categories.
  */
@@ -129,24 +182,27 @@ export default async function handler(req, res) {
   if (cached) return res.status(200).json({ ...cached, _cached: true });
 
   const espnId = SLUG_TO_ESPN_ID[slug];
-  const [infoResult, statsResult] = await Promise.allSettled([
+  const [infoResult, statsResult, l10Result] = await Promise.allSettled([
     fetchTeamInfo(espnId),
     fetchTeamStats(espnId),
+    fetchL10(espnId),
   ]);
 
   const info = infoResult.status === 'fulfilled' ? infoResult.value : null;
   const stats = statsResult.status === 'fulfilled' ? statsResult.value : null;
+  const l10 = l10Result.status === 'fulfilled' ? l10Result.value : null;
 
   const payload = {
     team: slug,
     record: info?.record || null,
     standingSummary: info?.standingSummary || null,
+    l10: l10 || null,
     nextGame: info?.nextGame || null,
     teamStats: stats || null,
     fetchedAt: new Date().toISOString(),
   };
 
-  console.log(`[mlb/team/leaders] ${slug}: record=${payload.record} standing=${payload.standingSummary} stats=${!!stats}`);
+  console.log(`[mlb/team/leaders] ${slug}: record=${payload.record} standing=${payload.standingSummary} l10=${l10} stats=${!!stats}`);
 
   cache.set(cacheKey, payload);
   return res.status(200).json(payload);

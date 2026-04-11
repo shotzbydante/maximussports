@@ -797,6 +797,7 @@ export default async function handler(req, res) {
                 const lrData = lr?.status === 'fulfilled' ? lr.value : null;
                 d._currentRecord = lrData?.record || null;
                 d._standingSummary = lrData?.standingSummary || null;
+                d._l10 = lrData?.l10 || null;
                 d._teamStats = lrData?.teamStats || null;
                 d._nextGameInfo = lrData?.nextGame || null;
               });
@@ -809,10 +810,11 @@ export default async function handler(req, res) {
                 const teamData = getTeamBySlugFn(slug);
                 if (proj) {
                   digest.team.division = teamData?.division || proj.division || '';
-                  // Build rich subline: "8-5 • 1st in AL East • 91W projected"
+                  // Build rich subline: "8-5 • L10: 5-5 • 1st in AL East"
                   const standing = digest._standingSummary || '';
                   const rec = digest._currentRecord || '';
-                  const subParts = [rec, standing, `${proj.projectedWins}W projected`].filter(Boolean);
+                  const l10 = digest._l10 ? `L10: ${digest._l10}` : '';
+                  const subParts = [rec, l10, standing].filter(Boolean);
                   digest.team.conference = subParts.join(' \u2022 ');
                   digest.maximusInsight = buildMlbTeamIntelSummary({
                     team: teamData || digest.team,
