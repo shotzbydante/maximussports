@@ -33,6 +33,13 @@ function fmtOdds(american) {
   return american > 0 ? `+${american}` : String(american);
 }
 
+function ordinal(n) {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
+
 // ─── MLB Team Colors ──────────────────────────────────────────────────────
 
 const MLB_TEAM_COLORS = {
@@ -118,9 +125,12 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
   const oddsData = champOdds?.[slug];
   const wsOdds = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
 
-  // Division & record
+  // Division & record — prefer ESPN standings when available
   const division = team.division || projection?.division || '';
-  const record = team.record?.items?.[0]?.summary
+  const standings = data?.mlbStandings ?? {};
+  const teamStanding = slug ? standings[slug] : null;
+  const record = teamStanding?.record
+    || team.record?.items?.[0]?.summary
     || team.recordSummary
     || (typeof team.record === 'string' ? team.record : null)
     || null;
@@ -144,12 +154,13 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
     teamContext,
     newsHeadlines: rawNews,
     nextLine: teamData?.nextLine ?? null,
+    standings: teamStanding,
   });
 
   // ── Stat band ──
   const statBand = [];
   if (projection) {
-    statBand.push({ label: 'PROJ. WINS', value: String(projection.projectedWins) });
+    statBand.push({ label: 'MAXIMUS PROJ.', value: String(projection.projectedWins) });
     statBand.push({ label: 'RANGE', value: `${projection.floor}\u2013${projection.ceiling}` });
     if (wsOdds != null) {
       statBand.push({ label: 'WS ODDS', value: fmtOdds(wsOdds) || '\u2014' });
@@ -161,18 +172,24 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
 
   // Identity chips
   const chips = [];
-  if (projection?.projectedWins) chips.push({ text: `Projected wins: ${projection.projectedWins}`, type: 'stat' });
+  if (projection?.projectedWins) chips.push({ text: `Maximus Model: ${projection.projectedWins} W`, type: 'stat' });
   if (wsOdds != null) chips.push({ text: `\uD83C\uDFC6 ${fmtOdds(wsOdds)}`, type: 'odds' });
   if (division) chips.push({ text: division, type: 'conf' });
 
-  // Record / form line — prioritize overall record + L10
+  // Record / form line — ESPN standings → live context → model fallback
   const recordParts = [];
-  if (record) recordParts.push(record.replace('-', '\u2013'));
-  if (teamContext.l10Record) recordParts.push(`L10: ${teamContext.l10Record}`);
-  // Only show streak if ≥3 to avoid clutter
-  if (teamContext.streak) {
-    const streakNum = parseInt(teamContext.streak.slice(1));
-    if (streakNum >= 3) recordParts.push(teamContext.streak);
+  if (record) recordParts.push(record.replace(/-/g, '\u2013'));
+  // L10: prefer ESPN standings (always full 10), fall back to live context (only if ≥5 games)
+  const l10Display = teamStanding?.l10 || teamContext.l10Record;
+  if (l10Display) recordParts.push(`L10: ${l10Display.replace(/-/g, '\u2013')}`);
+  // Division rank + GB from ESPN standings
+  if (teamStanding?.rank && division) {
+    const rankStr = `${ordinal(teamStanding.rank)} ${division}`;
+    if (teamStanding.gb > 0) {
+      recordParts.push(`${rankStr} (${teamStanding.gb} GB)`);
+    } else {
+      recordParts.push(rankStr);
+    }
   }
 
   return (

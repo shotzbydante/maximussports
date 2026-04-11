@@ -85,10 +85,11 @@ export function extractTeamContext(liveGames, slug) {
     return { won, ourScore, oppScore, opponent, oppAbbrev, oppSlug, date: g.startTime };
   });
 
-  const last10 = results.slice(0, 10);
-  const l10Wins = last10.filter(r => r.won).length;
-  const l10Losses = last10.length - l10Wins;
-  const l10Record = last10.length > 0 ? `${l10Wins}\u2013${l10Losses}` : null;
+  // Only show L10 if we have at least 5 games — avoids misleading "L10: 0–1"
+  const l10Pool = results.slice(0, 10);
+  const l10Wins = l10Pool.filter(r => r.won).length;
+  const l10Losses = l10Pool.length - l10Wins;
+  const l10Record = l10Pool.length >= 5 ? `${l10Wins}\u2013${l10Losses}` : null;
 
   let streak = null;
   if (results.length > 0) {
@@ -104,8 +105,9 @@ export function extractTeamContext(liveGames, slug) {
   return {
     recentGames: results.slice(0, 5),
     l10Record,
-    l10Wins,
+    l10Wins: l10Pool.length >= 5 ? l10Wins : null,
     streak,
+    gamesPlayed: results.length,
   };
 }
 
@@ -140,10 +142,11 @@ export function extractTeamContextFromSchedule(events) {
     };
   });
 
-  const last10 = results.slice(0, 10);
-  const l10Wins = last10.filter(r => r.won).length;
-  const l10Losses = last10.length - l10Wins;
-  const l10Record = last10.length > 0 ? `${l10Wins}\u2013${l10Losses}` : null;
+  // Only show L10 if we have at least 5 games — avoids misleading partial records
+  const l10Pool = results.slice(0, 10);
+  const l10Wins = l10Pool.filter(r => r.won).length;
+  const l10Losses = l10Pool.length - l10Wins;
+  const l10Record = l10Pool.length >= 5 ? `${l10Wins}\u2013${l10Losses}` : null;
 
   let streak = null;
   const scored = results.filter(r => r.ourScore != null && r.oppScore != null);
@@ -160,9 +163,45 @@ export function extractTeamContextFromSchedule(events) {
   return {
     recentGames: results.slice(0, 5),
     l10Record,
-    l10Wins,
+    l10Wins: l10Pool.length >= 5 ? l10Wins : null,
     streak,
+    gamesPlayed: results.length,
   };
+}
+
+// ─── Division Rank / Games Back (derived from model projections) ──────────
+
+/**
+ * Compute approximate division rank + games back from projected wins.
+ * Uses season model data for every team in the same division.
+ * Returns { rank, gb, divTeams, leader } or null if unavailable.
+ */
+function getDivisionContext(slug, division) {
+  if (!slug || !division) return null;
+
+  const divTeams = MLB_TEAMS
+    .filter(t => t.division === division)
+    .map(t => {
+      const proj = getTeamProjection(t.slug);
+      return { slug: t.slug, abbrev: t.abbrev, projectedWins: proj?.projectedWins ?? 81 };
+    })
+    .sort((a, b) => b.projectedWins - a.projectedWins);
+
+  const idx = divTeams.findIndex(t => t.slug === slug);
+  if (idx === -1) return null;
+
+  const rank = idx + 1;
+  const leader = divTeams[0];
+  const gb = leader.projectedWins - divTeams[idx].projectedWins;
+
+  return { rank, gb, leader, divTeams };
+}
+
+function ordinal(n) {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
 }
 
 // ─── Topical Headline Engine ───────────────────────────────────────────────
@@ -183,7 +222,7 @@ function pickOne(arr, seed) {
  * Headlines should feel DAILY — referencing actual opponents and scores,
  * not vague labels like "FORM FALLING" or "AT A CROSSROADS".
  */
-export function buildTopicalHeadline({ teamName, slug, projection, teamContext, division, record }) {
+export function buildTopicalHeadline({ teamName, slug, projection, teamContext, division, record, divContext }) {
   const sn = shortName(teamName).toUpperCase();
   const seed = slug || teamName;
   const { streak, l10Record, l10Wins, recentGames } = teamContext || {};
@@ -402,6 +441,8 @@ export function buildIntelBriefingItems({
   nextGame,
   nextLine,
   record,
+  standings,
+  divContext,
 }) {
   const items = [];
   const wins = projection?.projectedWins;
@@ -410,56 +451,64 @@ export function buildIntelBriefingItems({
   const { streak, l10Record, l10Wins, recentGames } = teamContext || {};
   const sn = shortName(teamName);
 
-  // ── 1. Division / standings context — explicit position ──
-  if (division) {
-    const outlookLow = (divOutlook || '').toLowerCase();
-    if (outlookLow.includes('lead') || (wins && wins >= 94)) {
-      if (record) {
-        items.push({ text: `${record} on the season — leading the charge in the ${division}. The ${sn} are the team to beat right now.`, type: 'division' });
-      } else {
-        items.push({ text: `Setting the pace in the ${division} with ${wins} projected wins. The ${sn} are the team to beat.`, type: 'division' });
-      }
-    } else if (outlookLow.includes('contend') || (wins && wins >= 86)) {
-      if (record) {
-        items.push({ text: `${record} and right in the ${division} race. ${wins ? `Projected for ${wins} wins` : 'In contention'} — every series carries weight now.`, type: 'division' });
-      } else {
-        items.push({ text: `Competing in the ${division} with ${wins} projected wins. The margin for error is getting thinner by the week.`, type: 'division' });
-      }
-    } else if (outlookLow.includes('fringe') || outlookLow.includes('compet') || (wins && wins >= 78)) {
-      if (record) {
-        items.push({ text: `${record} — hanging around the ${division} race, but the window is narrowing. Projected at ${wins || '~80'} wins.`, type: 'division' });
-      } else {
-        items.push({ text: `On the fringe in the ${division} at ${wins} projected wins. Not out of it, but need a run soon.`, type: 'division' });
-      }
-    } else if (outlookLow.includes('rebuild') || outlookLow.includes('retool') || (wins && wins < 72)) {
-      if (record) {
-        items.push({ text: `${record} in a rebuilding year in the ${division}. The focus is on development, not October.`, type: 'division' });
-      } else {
-        items.push({ text: `Rebuilding in the ${division} with ${wins} projected wins. The future is the priority here.`, type: 'division' });
-      }
+  // ── 1. Division / standings context — explicit rank + GB ──
+  const rank = divContext?.rank ?? standings?.rank ?? null;
+  const gb = divContext?.gb ?? standings?.gb ?? null;
+
+  if (division && rank != null) {
+    // We have real standings data — use explicit rank + GB
+    const rankLabel = `${ordinal(rank)} in the ${division}`;
+    const recPrefix = record ? `${record}, ` : '';
+
+    if (rank === 1) {
+      items.push({ text: `${recPrefix}${rankLabel} — leading the division. ${wins ? `Maximus model projects ${wins} wins.` : `The ${sn} are the team to beat.`}`, type: 'division' });
+    } else if (gb != null && gb <= 3) {
+      items.push({ text: `${recPrefix}${rankLabel}, ${gb === 0 ? 'tied for the lead' : `${gb} ${gb === 1 ? 'game' : 'games'} back`}. Within striking distance as every series carries weight.`, type: 'division' });
+    } else if (gb != null && gb <= 8) {
+      items.push({ text: `${recPrefix}${rankLabel}, sitting ${gb} games back. Still in the race, but the margin for error is shrinking fast.`, type: 'division' });
+    } else if (gb != null && gb > 8) {
+      items.push({ text: `${recPrefix}${rankLabel}, ${gb} games off the pace. The gap is real — this stretch will define whether they stay in it or start looking ahead.`, type: 'division' });
     } else {
-      if (record) {
-        items.push({ text: `${record} in the ${division}. ${wins ? `Model projects ${wins} wins` : 'Positioning for the second half'} — searching for an identity.`, type: 'division' });
-      } else {
-        items.push({ text: `Competing in the ${division}. ${wins ? `${wins} projected wins` : 'Middle of the pack'} — the next few weeks will define the season.`, type: 'division' });
-      }
+      items.push({ text: `${recPrefix}${rankLabel}. ${wins ? `Maximus model projects ${wins} wins` : 'Competing'} — the next few weeks will shape the outlook.`, type: 'division' });
+    }
+  } else if (division) {
+    // No standings data — fall back to model-based framing
+    const outlookLow = (divOutlook || '').toLowerCase();
+    const recPrefix = record ? `${record} in the ${division}` : `Competing in the ${division}`;
+    if (outlookLow.includes('lead') || (wins && wins >= 94)) {
+      items.push({ text: `${recPrefix} — model projects ${wins} wins, the pace-setter in the division.`, type: 'division' });
+    } else if (outlookLow.includes('contend') || (wins && wins >= 86)) {
+      items.push({ text: `${recPrefix}. Projected for ${wins} wins — right in the race, where every series carries weight.`, type: 'division' });
+    } else if (wins && wins >= 78) {
+      items.push({ text: `${recPrefix}. Projected at ${wins} wins — on the fringe, but the window is narrowing.`, type: 'division' });
+    } else if (wins && wins < 72) {
+      items.push({ text: `${recPrefix}. Rebuilding at ${wins} projected wins — the focus is development, not October.`, type: 'division' });
+    } else {
+      items.push({ text: `${recPrefix}. ${wins ? `${wins} projected wins` : 'Middle of the pack'} — searching for an identity.`, type: 'division' });
     }
   } else if (record) {
-    items.push({ text: `${record} on the season. ${wins ? `Model projects ${wins} wins.` : ''}`, type: 'division' });
+    items.push({ text: `${record} on the season. ${wins ? `Maximus model projects ${wins} wins.` : ''}`, type: 'division' });
   }
 
-  // ── 2. L10 / recent form — narrative, not just a number ──
-  if (l10Record && l10Wins != null) {
-    let narrative;
-    if (l10Wins >= 8) narrative = `L10: ${l10Record}. ${sn} are surging — this is the hottest stretch of their season and the standings are shifting.`;
-    else if (l10Wins >= 7) narrative = `L10: ${l10Record}. Strong recent form with real momentum building. This is when good teams separate.`;
-    else if (l10Wins === 6) narrative = `L10: ${l10Record}. Slightly above .500 over the last 10 — solid but not pulling away.`;
-    else if (l10Wins === 5) narrative = `L10: ${l10Record}. Right at .500 over the last 10 — treading water without clear separation.`;
-    else if (l10Wins === 4) narrative = `L10: ${l10Record}. Recent results have been inconsistent, and the margin for error is shrinking.`;
-    else if (l10Wins === 3) narrative = `L10: ${l10Record}. The ${sn} are struggling to find traction. Something needs to click soon.`;
-    else narrative = `L10: ${l10Record}. A brutal stretch that's eroding their position. The skid demands answers.`;
+  // ── 2. L10 / recent form — prefer ESPN standings L10 (always full 10 games) ──
+  const espnL10 = standings?.l10 ?? null;
+  const effectiveL10 = espnL10 || l10Record;
+  const effectiveL10Wins = espnL10
+    ? parseInt(espnL10.split('-')[0]) || 0
+    : l10Wins;
+  const effectiveStreak = standings?.streak || streak;
 
-    const streakNote = streak ? ` Currently on a ${streak} streak.` : '';
+  if (effectiveL10 && effectiveL10Wins != null) {
+    let narrative;
+    if (effectiveL10Wins >= 8) narrative = `L10: ${effectiveL10}. ${sn} are surging — this is the hottest stretch of their season and the standings are shifting.`;
+    else if (effectiveL10Wins >= 7) narrative = `L10: ${effectiveL10}. Strong recent form with real momentum building. This is when good teams separate.`;
+    else if (effectiveL10Wins === 6) narrative = `L10: ${effectiveL10}. Slightly above .500 over the last 10 — solid but not pulling away.`;
+    else if (effectiveL10Wins === 5) narrative = `L10: ${effectiveL10}. Right at .500 over the last 10 — treading water without clear separation.`;
+    else if (effectiveL10Wins === 4) narrative = `L10: ${effectiveL10}. Recent results have been inconsistent, and the margin for error is shrinking.`;
+    else if (effectiveL10Wins === 3) narrative = `L10: ${effectiveL10}. The ${sn} are struggling to find traction — something needs to click soon.`;
+    else narrative = `L10: ${effectiveL10}. A brutal stretch that's already costing them ground. The skid demands answers.`;
+
+    const streakNote = effectiveStreak ? ` Currently on a ${effectiveStreak} streak.` : '';
     items.push({
       text: narrative + streakNote,
       type: 'l10',
@@ -505,7 +554,7 @@ export function buildIntelBriefingItems({
     const opp = shortName(r.opponent) || r.oppAbbrev;
     const verb = r.won ? 'took down' : 'fell to';
     items.push({
-      text: `Last out: ${verb} ${opp} ${r.ourScore}\u2013${r.oppScore}. ${r.won ? 'A result that keeps the momentum going.' : 'A result that raises questions about what comes next.'}`,
+      text: `Last out: ${verb} ${opp} ${r.ourScore}\u2013${r.oppScore}. ${r.won ? 'A result that keeps the momentum alive.' : 'Now facing real pressure to respond.'}`,
       type: 'recent',
       oppSlug: r.oppSlug || null,
     });
@@ -617,17 +666,23 @@ export function buildIntelBriefingItems({
  * @param {Object} [opts.nextGame] - { opponent, date, oppSlug }
  * @param {Object} [opts.nextLine] - { nextEvent, consensus }
  * @param {Object} [opts.projection] - from getTeamProjection() (auto-fetched if not provided)
+ * @param {Object} [opts.standings] - ESPN standings: { wins, losses, record, gb, gbDisplay, rank, l10, streak, division }
  * @returns {{ headline, subtext, items: Array<{text, oppSlug?, type}> }}
  */
 export function buildMlbTeamIntelBriefing(opts) {
-  const { slug, teamName, division, record } = opts;
+  const { slug, teamName, division, record, standings } = opts;
   const projection = opts.projection || (slug ? getTeamProjection(slug) : null);
   const divOutlook = projection?.divOutlook ?? '';
 
   const teamContext = opts.teamContext || { recentGames: [], l10Record: null, l10Wins: null, streak: null };
 
+  // Compute division context from ESPN standings or fall back to model projections
+  const divContext = standings?.rank
+    ? { rank: standings.rank, gb: standings.gb ?? 0 }
+    : getDivisionContext(slug, division);
+
   const { headline, subtext } = buildTopicalHeadline({
-    teamName, slug, projection, teamContext, division, record,
+    teamName, slug, projection, teamContext, division, record, divContext,
   });
 
   const items = buildIntelBriefingItems({
@@ -636,6 +691,8 @@ export function buildMlbTeamIntelBriefing(opts) {
     nextGame: opts.nextGame,
     nextLine: opts.nextLine,
     record,
+    standings,
+    divContext,
   });
 
   return { headline, subtext, items, projection };

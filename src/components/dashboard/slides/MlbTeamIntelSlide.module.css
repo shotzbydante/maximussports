@@ -82,8 +82,8 @@
   z-index: 1;
   background: radial-gradient(
     ellipse 860px 580px at 50% 20%,
-    color-mix(in srgb, var(--team-primary) 35%, rgba(180,20,40,0.20)) 0%,
-    color-mix(in srgb, var(--team-primary) 10%, transparent) 45%,
+    color-mix(in srgb, var(--team-primary) 42%, rgba(180,20,40,0.24)) 0%,
+    color-mix(in srgb, var(--team-primary) 12%, transparent) 45%,
     transparent 72%
   );
   animation: bgGlowBreath 5.5s ease-in-out infinite;
@@ -210,7 +210,8 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--team-primary) 32%, transparent) 0%,
+    color-mix(in srgb, var(--team-primary) 32%, rgba(255,255,255,0.06)) 0%,
+    color-mix(in srgb, var(--team-primary) 18%, transparent) 40%,
     transparent 70%
   );
   animation: glowRingPulse 3.8s ease-in-out infinite;
@@ -321,8 +322,8 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 18px;
   font-weight: 500;
-  color: rgba(240, 244, 248, 0.52);
-  letter-spacing: 0.06em;
+  color: rgba(240, 244, 248, 0.58);
+  letter-spacing: 0.05em;
 }
 
 /* ── Editorial headline zone ──────────────────────────────────── */
@@ -342,13 +343,14 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(220, 40, 60, 0.55) 20%,
-    color-mix(in srgb, var(--team-primary) 80%, rgba(220, 40, 60, 1)) 50%,
-    rgba(220, 40, 60, 0.55) 80%,
+    rgba(220, 40, 60, 0.65) 20%,
+    color-mix(in srgb, var(--team-primary) 85%, rgba(220, 40, 60, 1)) 50%,
+    rgba(220, 40, 60, 0.65) 80%,
     transparent 100%
   );
   margin-bottom: 12px;
   border-radius: 2px;
+  box-shadow: 0 0 8px rgba(220, 40, 60, 0.25);
 }
 
 .headline {
@@ -431,7 +433,7 @@
 .statChip {
   flex: 1;
   text-align: center;
-  padding: 12px 10px 10px;
+  padding: 10px 6px 9px;
   border-right: 1px solid rgba(220, 40, 60, 0.16);
 }
 
@@ -445,7 +447,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.42);
+  color: rgba(240, 244, 248, 0.50);
   margin-bottom: 4px;
 }
 
@@ -453,7 +455,7 @@
   font-family: 'Oswald', sans-serif;
   font-size: 26px;
   font-weight: 700;
-  color: rgba(255, 180, 180, 0.88);
+  color: rgba(255, 180, 180, 0.94);
   letter-spacing: 0.02em;
   line-height: 1;
 }
@@ -464,7 +466,7 @@
   position: relative;
   z-index: 10;
   margin: 10px 56px 0;
-  padding: 20px 28px 24px;
+  padding: 20px 28px 18px;
   border: 1px solid rgba(220, 40, 60, 0.22);
   border-radius: 14px;
   background:
@@ -513,19 +515,19 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   flex: 1;
 }
 
 .briefingItem {
   position: relative;
   counter-increment: briefing;
-  font-size: 23px;
+  font-size: 25px;
   font-weight: 400;
-  color: rgba(240, 244, 248, 0.82);
-  line-height: 1.40;
+  color: rgba(240, 244, 248, 0.86);
+  line-height: 1.38;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  padding-left: 34px;
+  padding-left: 36px;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -535,19 +537,19 @@
   content: counter(briefing);
   position: absolute;
   left: 0;
-  top: 2px;
+  top: 3px;
   font-family: 'Oswald', sans-serif;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 5px;
-  background: rgba(220, 40, 60, 0.14);
-  border: 1px solid rgba(220, 40, 60, 0.28);
-  color: rgba(255, 180, 180, 0.82);
+  background: rgba(220, 40, 60, 0.18);
+  border: 1px solid rgba(220, 40, 60, 0.32);
+  color: rgba(255, 180, 180, 0.92);
   flex-shrink: 0;
 }
 

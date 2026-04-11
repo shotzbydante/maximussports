@@ -170,6 +170,7 @@ export default function Dashboard() {
   const [mlbBriefing, setMlbBriefing] = useState(null);     // raw briefing text from /api/mlb/chat/homeSummary
   const [mlbLiveGames, setMlbLiveGames] = useState([]);    // today's full slate (including final) from /api/mlb/live/games
   const [mlbChampOdds, setMlbChampOdds] = useState(null);  // { odds: { slug: { bestChanceAmerican, ... } } }
+  const [mlbStandings, setMlbStandings] = useState(null);  // { slug: { wins, losses, record, gb, rank, l10, streak, division } }
   const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
 
   // ── Gemini image generation state (MLB only) ───────────
@@ -338,12 +339,14 @@ export default function Dashboard() {
       fetch('/api/mlb/chat/homeSummary').then(r => r.ok ? r.json() : null).catch(() => null),
       fetchMlbChampionshipOdds().catch(() => ({ odds: {} })),
       fetch('/api/mlb/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
-    ]).then(([boardData, headlines, briefingData, champData, liveData]) => {
+      fetch('/api/mlb/standings').then(r => r.ok ? r.json() : { teams: {} }).catch(() => ({ teams: {} })),
+    ]).then(([boardData, headlines, briefingData, champData, liveData, standingsData]) => {
       setMlbGames(boardData?.games ?? []);
       setMlbHeadlines(Array.isArray(headlines) ? headlines : headlines?.headlines ?? []);
       if (briefingData?.summary) setMlbBriefing(briefingData.summary);
       if (champData?.odds) setMlbChampOdds(champData.odds);
       setMlbLiveGames(liveData?.games ?? []);
+      setMlbStandings(standingsData?.teams ?? null);
     }).finally(() => setMlbGamesLoading(false));
   }, [isAuthorized, isMlbStudio, refreshKey]);
 
@@ -2033,6 +2036,7 @@ export default function Dashboard() {
                     mlbHeadlines,
                     mlbBriefing,
                     mlbChampOdds: mlbChampOdds ?? {},
+                    mlbStandings: mlbStandings ?? {},
                     mlbPicks: mlbPicks ?? {},
                     canonicalPicks: mlbPicks ?? {},
                     games: mlbGames,

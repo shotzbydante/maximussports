@@ -248,6 +248,7 @@ export default function MlbTeamDetail() {
   const [headlines, setHeadlines] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [teamRecord, setTeamRecord] = useState(null);
+  const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scheduleLoading, setScheduleLoading] = useState(true);
   const [liveGame, setLiveGame] = useState(null);
@@ -272,9 +273,11 @@ export default function MlbTeamDetail() {
     Promise.allSettled([
       fetchMlbChampionshipOdds(),
       fetchMlbHeadlines(),
-    ]).then(([oddsRes, newsRes]) => {
+      fetch('/api/mlb/standings').then(r => r.ok ? r.json() : { teams: {} }),
+    ]).then(([oddsRes, newsRes, standingsRes]) => {
       if (oddsRes.status === 'fulfilled') setOdds(oddsRes.value.odds ?? {});
       if (newsRes.status === 'fulfilled') setHeadlines(newsRes.value.headlines ?? []);
+      if (standingsRes.status === 'fulfilled') setStandings(standingsRes.value?.teams ?? null);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -440,6 +443,7 @@ export default function MlbTeamDetail() {
             {/* ── Structured Team Intel Briefing (shared with IG slide) ── */}
             {(() => {
               const schedContext = extractTeamContextFromSchedule(schedule);
+              const teamStanding = standings?.[team.slug] ?? null;
               const briefing = buildMlbTeamIntelBriefing({
                 slug: team.slug,
                 teamName: team.name,
@@ -447,6 +451,7 @@ export default function MlbTeamDetail() {
                 record,
                 teamContext: schedContext,
                 newsHeadlines: teamHeadlines,
+                standings: teamStanding,
                 nextGame: nextGame ? {
                   opponent: nextGame.opponent,
                   date: nextGame.date,
