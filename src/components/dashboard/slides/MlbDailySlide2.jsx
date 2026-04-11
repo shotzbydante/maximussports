@@ -155,8 +155,7 @@ function buildSlide2Content(data) {
       leaders: leadersRaw[cat.key].leaders.slice(0, 3).map(l => {
         const slug = abbrevToSlug[l.teamAbbrev] || l.teamAbbrev?.toLowerCase() || null;
         return {
-          name: l.name?.split(' ').pop() || l.name || '—',
-          fullName: l.name || '—',
+          name: l.name || '—',
           teamAbbrev: l.teamAbbrev || '',
           teamLogoSrc: slug ? getMlbEspnLogoUrl(slug) : null,
           value: l.display || String(l.value || 0),
