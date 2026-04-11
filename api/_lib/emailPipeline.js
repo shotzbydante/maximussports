@@ -265,6 +265,8 @@ export async function enrichMlbTeamDigests(teamDigests, getTeamBySlugFn) {
           meta,
           odds: null,
         });
+        digest._meta = meta;
+        digest._projection = proj;
       }
     }
   } catch (err) {

@@ -235,18 +235,19 @@ export function mlbPicksSubject({ picksBoard } = {}) {
    ═══════════════════════════════════════════════════════════════ */
 
 export function mlbTeamDigestSubject({ displayName, teamDigests = [] } = {}) {
-  const first = teamDigests[0];
-  const teamName = first?.team?.name || null;
+  // Use short mascot names for compact subjects
+  const names = teamDigests.map(d => d.team?.name?.split(' ').pop()).filter(Boolean);
 
-  const templates = [];
-  if (teamName && teamDigests.length === 1) {
-    templates.push(`\u26BE Your Daily MLB Team Digest \u2014 ${teamName}`);
-  } else if (teamName && teamDigests.length > 1) {
-    templates.push(`\u26BE Your Daily MLB Team Digest \u2014 ${teamName} + ${teamDigests.length - 1} more`);
+  if (names.length === 1) {
+    return `\u26BE Your Daily MLB Team Digest \u2014 ${teamDigests[0].team.name}`;
   }
-  templates.push(`\u26BE Your Daily MLB Team Digest`);
-
-  return pick(templates, 'mlb_team_digest');
+  if (names.length === 2) {
+    return `\u26BE Your Daily MLB Team Digest \u2014 ${names[0]} + ${names[1]}`;
+  }
+  if (names.length > 2) {
+    return `\u26BE Your Daily MLB Team Digest \u2014 ${names[0]}, ${names[1]} + ${names.length - 2} more`;
+  }
+  return `\u26BE Your Daily MLB Team Digest`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
