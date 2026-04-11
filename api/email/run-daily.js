@@ -467,8 +467,8 @@ export default async function handler(req, res) {
       const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
       headlines = dedupeNewsItems(headlinesRaw);
 
-      // MLB data (via shared helper)
-      mlbData = await assembleMlbEmailData(`http://${host}`, { includeSummary: true });
+      // MLB data (via shared helper — include picks for summary card)
+      mlbData = await assembleMlbEmailData(`http://${host}`, { includeSummary: true, includePicks: true });
       console.log(`[run-daily] Global briefing: NCAAM headlines=${headlines.length} MLB headlines=${mlbData.headlines.length} MLB narrative=${!!mlbData.narrativeParagraph}`);
 
     } else if (isMLB) {
@@ -749,16 +749,21 @@ export default async function handler(req, res) {
             text    = renderMlbPicksText(emailData);
             break;
           case 'mlbTeamDigest': {
-            if (!getTeamBySlugFn || pinnedSlugs.length === 0) {
+            // Filter pinnedSlugs to only MLB teams (user_teams stores all sports mixed)
+            const mlbSlugs = getTeamBySlugFn
+              ? pinnedSlugs.filter(s => getTeamBySlugFn(s) != null)
+              : [];
+            console.log(`[run-daily] MLB digest: total pinned=${pinnedSlugs.length} mlb_only=${mlbSlugs.length} slugs=[${mlbSlugs.join(',')}]`);
+            if (!getTeamBySlugFn || mlbSlugs.length === 0) {
               skipCounts.no_digest_teams++;
-              console.log(`[run-daily] SKIP user=${userId} reason=no_pinned_teams email=${email}`);
+              console.log(`[run-daily] SKIP user=${userId} reason=no_mlb_pinned_teams email=${email}`);
               continue;
             }
             const planEntitlements2 = getProfileEntitlements(profile);
             const maxEmailTeams2 = isFinite(planEntitlements2.maxEmailTeams)
               ? planEntitlements2.maxEmailTeams
               : TEAM_DIGEST_MAX_TEAMS;
-            const digestSlugs2 = pinnedSlugs.slice(0, Math.min(maxEmailTeams2, TEAM_DIGEST_MAX_TEAMS));
+            const digestSlugs2 = mlbSlugs.slice(0, Math.min(maxEmailTeams2, TEAM_DIGEST_MAX_TEAMS));
             const teamDigests2 = assembleTeamDigestPayload(
               digestSlugs2, { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlugFn
             );

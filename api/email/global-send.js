@@ -376,13 +376,14 @@ export default async function handler(req, res) {
           case 'mlbPicks':
             subject = getMlbPicksSubject(emailData); html = renderMlbPicksHTML(emailData); text = renderMlbPicksText(emailData); break;
           case 'mlbTeamDigest': {
-            if (!getTeamBySlugFn || pinnedSlugs.length === 0) {
+            const mlbOnlySlugs = getTeamBySlugFn ? pinnedSlugs.filter(s => getTeamBySlugFn(s) != null) : [];
+            if (!getTeamBySlugFn || mlbOnlySlugs.length === 0) {
               skipCounts.no_digest_teams++;
               continue;
             }
             const pe = getProfileEntitlements(profile);
             const met = isFinite(pe.maxEmailTeams) ? pe.maxEmailTeams : TEAM_DIGEST_MAX_TEAMS;
-            const ds = pinnedSlugs.slice(0, Math.min(met, TEAM_DIGEST_MAX_TEAMS));
+            const ds = mlbOnlySlugs.slice(0, Math.min(met, TEAM_DIGEST_MAX_TEAMS));
             const td = assembleTeamDigestPayload(ds, { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlugFn);
             const dd = { ...emailData, teamDigests: td, totalTeamCount: pinnedSlugs.length };
             subject = getMlbDigestSubject(dd); html = renderMlbDigestHTML(dd); text = renderMlbDigestText(dd);
