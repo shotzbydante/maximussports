@@ -53,14 +53,14 @@ function TeamRow({ team, meta, projection, odds, divRank }) {
         )}
         {meta?.finish && (
           <div className={`${styles.statCell} ${styles.statCellWide}`}>
-            <span className={styles.statLabel}>Finish</span>
+            <span className={styles.statLabel}>2025 Finish</span>
             <span className={styles.statValueMuted}>{meta.finish}</span>
           </div>
         )}
         {projection?.projectedWins != null && (
-          <div className={styles.statCell}>
-            <span className={styles.statLabel}>Proj. W</span>
-            <span className={styles.statValueAccent}>{projection.projectedWins}</span>
+          <div className={`${styles.statCell} ${styles.statCellProjection}`}>
+            <span className={styles.statLabel}>Maximus Projection</span>
+            <span className={styles.statValueAccent}>{projection.projectedWins} wins</span>
           </div>
         )}
         {oddsStr && (
@@ -77,11 +77,18 @@ function TeamRow({ team, meta, projection, odds, divRank }) {
 }
 
 function DivisionBlock({ division, teams, odds, projectionMap, metaMap, divRanks }) {
+  // Sort teams by projected rank (1st → 5th) within division
+  const sorted = useMemo(() => {
+    return [...teams].sort((a, b) =>
+      (projectionMap[b.slug]?.projectedWins ?? 0) - (projectionMap[a.slug]?.projectedWins ?? 0)
+    );
+  }, [teams, projectionMap]);
+
   return (
     <div className={styles.divisionBlock}>
       <h4 className={styles.divisionTitle}>{division}</h4>
       <div className={styles.divisionTeams}>
-        {teams.map((team) => (
+        {sorted.map((team) => (
           <TeamRow
             key={team.slug}
             team={team}

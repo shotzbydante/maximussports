@@ -126,11 +126,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 10px var(--space-md);
+  padding: 11px var(--space-md);
   text-decoration: none;
   color: var(--color-text);
-  transition: background 0.12s;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  transition: background 0.15s, box-shadow 0.15s;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   cursor: pointer;
 }
 
@@ -139,7 +139,8 @@
 }
 
 .teamRow:hover {
-  background: rgba(60, 121, 180, 0.05);
+  background: rgba(60, 121, 180, 0.06);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 /* Identity: logo + name + rank */
@@ -212,8 +213,12 @@
 }
 
 .statCellWide {
-  min-width: 70px;
+  min-width: 80px;
   align-items: flex-start;
+}
+
+.statCellProjection {
+  min-width: 68px;
 }
 
 .statLabel {
@@ -297,7 +302,16 @@
   }
 
   .statCellWide {
-    display: none; /* Hide "Finish" on small screens */
+    display: none; /* Hide "2025 Finish" on small screens */
+  }
+
+  .statCellProjection .statLabel {
+    /* Shorten long label on mobile */
+    font-size: 0;
+  }
+  .statCellProjection .statLabel::after {
+    content: 'PROJ.';
+    font-size: 0.55rem;
   }
 
   .teamName {
@@ -316,6 +330,10 @@
 
   .statCell {
     min-width: 36px;
+  }
+
+  .statCellProjection {
+    min-width: 40px;
   }
 
   .rowArrow {
