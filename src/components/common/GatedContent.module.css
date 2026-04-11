@@ -3,75 +3,90 @@
   overflow: hidden;
 }
 
+/* ── Layer 1: Clipped real content ───────────────────────────── */
 .contentClip {
   overflow: hidden;
   position: relative;
 }
 
-/* ── Fade overlay — fills remaining viewport ─────────────────── */
-.fadeOverlay {
-  position: relative;
-  margin-top: -120px;
-  padding-top: 120px;
+/* ── Layer 2: Fade band over bottom of clipped content ───────── */
+/* Positioned absolutely at the bottom of contentClip so real
+   cards/modules are visible through the early transparent stops */
+.fadeBand {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 280px;
+  pointer-events: none;
   background: linear-gradient(
     to bottom,
     rgba(11, 20, 35, 0) 0%,
-    rgba(11, 20, 35, 0.7) 80px,
-    rgba(11, 20, 35, 0.92) 160px,
-    rgba(11, 20, 35, 0.97) 240px,
-    rgb(11, 20, 35) 320px
+    rgba(11, 20, 35, 0.04) 15%,
+    rgba(11, 20, 35, 0.12) 30%,
+    rgba(11, 20, 35, 0.28) 45%,
+    rgba(11, 20, 35, 0.5) 58%,
+    rgba(11, 20, 35, 0.72) 70%,
+    rgba(11, 20, 35, 0.88) 82%,
+    rgba(11, 20, 35, 0.96) 92%,
+    rgb(11, 20, 35) 100%
   );
-  /* Extend solid color below the gradient */
-  background-color: rgb(11, 20, 35);
 }
 
-/* ── CTA Region — centers the card vertically in the fill area ── */
-.ctaRegion {
+/* ── Layer 3: CTA fill region ────────────────────────────────── */
+/* Solid dark background that continues below the fade band,
+   filling the remaining viewport. No white space possible. */
+.ctaFill {
+  background-color: rgb(11, 20, 35);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 40px;
+  padding-top: 48px;
 }
 
 /* ── CTA Card ────────────────────────────────────────────────── */
 .ctaCard {
   text-align: center;
   max-width: 420px;
-  padding: 0 28px 40px;
+  padding: 0 28px 48px;
 }
 
 .lockBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgba(196, 30, 58, 0.1);
-  border: 1px solid rgba(196, 30, 58, 0.15);
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(196, 30, 58, 0.08);
+  border: 1px solid rgba(196, 30, 58, 0.12);
   color: #c41e3a;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 24px rgba(196, 30, 58, 0.06);
 }
 
 .ctaTitle {
   font-size: 22px;
   font-weight: 800;
   color: #f0f4f8;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
 
 .ctaSub {
   font-size: 14px;
-  color: rgba(240, 244, 248, 0.55);
-  margin: 0 0 22px;
+  color: rgba(240, 244, 248, 0.5);
+  margin: 0 0 24px;
   line-height: 1.55;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .ctaBtn {
   display: inline-block;
-  padding: 13px 32px;
+  padding: 14px 36px;
   font-size: 15px;
   font-weight: 700;
   color: #ffffff;
@@ -82,13 +97,17 @@
   letter-spacing: 0.02em;
   transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
   font-family: inherit;
-  box-shadow: 0 2px 12px rgba(196, 30, 58, 0.25);
+  box-shadow:
+    0 2px 12px rgba(196, 30, 58, 0.2),
+    0 0 40px rgba(196, 30, 58, 0.08);
 }
 
 .ctaBtn:hover {
   background: #a81832;
   transform: translateY(-1px);
-  box-shadow: 0 4px 18px rgba(196, 30, 58, 0.35);
+  box-shadow:
+    0 4px 20px rgba(196, 30, 58, 0.3),
+    0 0 50px rgba(196, 30, 58, 0.1);
 }
 
 .ctaBtn:active {
@@ -97,19 +116,28 @@
 
 .ctaNote {
   font-size: 12px;
-  color: rgba(240, 244, 248, 0.3);
-  margin: 12px 0 0;
+  color: rgba(240, 244, 248, 0.25);
+  margin: 14px 0 0;
   line-height: 1.4;
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
-@media (max-width: 480px) {
-  .fadeOverlay {
-    margin-top: -100px;
-    padding-top: 100px;
+/* ── Desktop refinement ──────────────────────────────────────── */
+@media (min-width: 769px) {
+  .fadeBand {
+    height: 320px;
   }
-  .ctaRegion {
-    padding-top: 24px;
+  .ctaFill {
+    padding-top: 56px;
+  }
+}
+
+/* ── Mobile ──────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .fadeBand {
+    height: 200px;
+  }
+  .ctaFill {
+    padding-top: 28px;
   }
   .ctaCard {
     padding: 0 20px 36px;
