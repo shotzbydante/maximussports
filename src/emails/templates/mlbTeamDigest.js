@@ -34,7 +34,8 @@ export function getPreviewText(data = {}) {
 }
 
 /**
- * Render a compact stat strip (2025 Record | Finish | Proj. Wins | Current).
+ * Render a compact stat strip mirroring the IG team intel slide.
+ * Shows: 2025 Record | 2025 Finish | Projected Wins | Current Record
  */
 function renderStatStrip(digest) {
   const meta = digest._meta || {};
@@ -45,7 +46,7 @@ function renderStatStrip(digest) {
     cells.push({ label: '2025 RECORD', value: meta.record2025 });
   }
   if (meta.finish) {
-    cells.push({ label: 'FINISH', value: meta.finish });
+    cells.push({ label: '2025 FINISH', value: meta.finish });
   }
   if (proj.projectedWins != null) {
     cells.push({ label: 'PROJECTED WINS', value: String(proj.projectedWins), accent: true });
@@ -57,9 +58,9 @@ function renderStatStrip(digest) {
   if (cells.length === 0) return '';
 
   const cellHtml = cells.map(c =>
-    `<td style="padding:8px 10px;text-align:center;border-right:1px solid ${BORDER};">
-      <span style="display:block;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${MUTED};font-family:${F};margin-bottom:2px;">${c.label}</span>
-      <span style="font-size:13px;font-weight:700;color:${c.accent ? RED : BODY};font-family:${F};white-space:nowrap;">${c.value}</span>
+    `<td style="padding:8px 8px;text-align:center;border-right:1px solid ${BORDER};">
+      <span style="display:block;font-size:8px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${MUTED};font-family:${F};margin-bottom:2px;">${c.label}</span>
+      <span style="font-size:14px;font-weight:700;color:${c.accent ? RED : BODY};font-family:${F};white-space:nowrap;">${c.value}</span>
     </td>`
   ).join('');
 
