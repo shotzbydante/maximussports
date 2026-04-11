@@ -210,25 +210,22 @@ export function mlbBriefingSubject({ displayName, headlines = [], narrativeParag
    MLB PICKS SUBJECTS
    ═══════════════════════════════════════════════════════════════ */
 
-export function mlbPicksSubject({ displayName, atsLeaders = {}, scoresToday = [], oddsGames = [] } = {}) {
-  const best = atsLeaders.best || [];
-  const gameCount = oddsGames.length || scoresToday.length || 0;
-  const topTeam = best[0];
+export function mlbPicksSubject({ picksBoard } = {}) {
+  const cats = picksBoard?.categories || {};
+  const total = (cats.pickEms?.length || 0) + (cats.ats?.length || 0) + (cats.leans?.length || 0) + (cats.totals?.length || 0);
+  const highCount = [...(cats.pickEms || []), ...(cats.ats || []), ...(cats.leans || []), ...(cats.totals || [])].filter(p => p.confidence === 'high').length;
 
   const templates = [];
 
-  if (gameCount > 0) {
-    templates.push(`\u26BE Maximus Picks: ${gameCount} High-Conviction Plays \u{1F4B0}`);
-    templates.push(`\u26BE Maximus Picks: Today\u2019s edges across ${gameCount} games`);
+  if (total > 0 && highCount > 0) {
+    templates.push(`\u{1F9E0}\u26BE Your Daily Maximus\u2019s Picks Digest \u2014 ${total} Edges, ${highCount} High Conviction`);
+    templates.push(`\u{1F9E0}\u26BE Your Daily Maximus\u2019s Picks Digest \u2014 ${total} Model-Backed MLB Edges`);
   }
-  if (topTeam) {
-    templates.push(`\u26BE Maximus Picks: ${topTeam.name || topTeam.team} is covering everything \u{1F4B0}`);
-    templates.push(`\u26BE ATS edge alert: ${topTeam.name || topTeam.team} leads today\u2019s board`);
+  if (total > 0) {
+    templates.push(`\u{1F9E0}\u26BE Your Daily Maximus\u2019s Picks Digest \u2014 ${total} Picks on the Board`);
   }
 
-  templates.push(`\u26BE Maximus Picks: Model-driven MLB edges \u{1F4B0}`);
-  templates.push(`\u26BE Maximus Picks: Where the value lives today`);
-  templates.push(`\u26BE MLB ATS intel and today\u2019s sharpest edges`);
+  templates.push(`\u{1F9E0}\u26BE Your Daily Maximus\u2019s Picks Digest`);
 
   return pick(templates, 'mlb_picks');
 }

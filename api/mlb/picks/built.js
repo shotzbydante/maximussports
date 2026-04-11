@@ -74,12 +74,18 @@ export default async function handler(req, res) {
     try { enriched = await enrichGamesWithOdds(upcoming); }
     catch (err) { console.warn('[mlb/picks/built] odds enrichment failed:', err?.message); }
 
+    console.log(`[mlb/picks/built] Games: total=${allGames.length} upcoming=${upcoming.length} enriched=${enriched.length}`);
+
     // Build picks
     const result = buildMlbPicks({ games: enriched });
+
+    const c = result.categories;
+    console.log(`[mlb/picks/built] Picks: pickEms=${c.pickEms.length} ats=${c.ats.length} leans=${c.leans.length} totals=${c.totals.length} qualified=${result.meta.qualifiedGames}`);
 
     const payload = {
       ...result,
       generatedAt: new Date().toISOString(),
+      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length },
     };
 
     cache.set(cacheKey, payload);
