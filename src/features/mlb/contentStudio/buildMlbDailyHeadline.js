@@ -13,6 +13,7 @@
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
+import { buildGameWhyItMatters, buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
 import { parseBriefingToIntel } from './normalizeMlbImagePayload';
 
 // ── Team metadata maps ──────────────────────────────────────────────────
@@ -561,19 +562,34 @@ function bulletResult(s, doy) {
   return templates[doy % templates.length];
 }
 
-function bulletForStory(story, doy) {
-  if (story.isUpset) return bulletUpset(story, doy);
-  switch (story.type) {
-    case 'shutout': return bulletShutout(story, doy);
-    case 'blowout': return bulletBlowout(story, doy);
-    default: return story.isContender ? bulletContender(story, doy) : bulletResult(story, doy);
+function bulletForStory(story, doy, whySignal) {
+  let base;
+  if (story.isUpset) base = bulletUpset(story, doy);
+  else {
+    switch (story.type) {
+      case 'shutout': base = bulletShutout(story, doy); break;
+      case 'blowout': base = bulletBlowout(story, doy); break;
+      default: base = story.isContender ? bulletContender(story, doy) : bulletResult(story, doy);
+    }
   }
+  // Enrich with "why it matters" standings context when available
+  if (whySignal?.short && base.length + whySignal.short.length < 140) {
+    // Replace generic tail with standings-aware context
+    base = base.replace(/\.\s*$/, '') + ` — ${whySignal.short.toLowerCase()}.`;
+  }
+  return base;
 }
 
 // ── Division / standings context bullet ─────────────────────────────────
 
-function bulletDivisionContext(stories, doy) {
-  // Count contender wins by division
+function bulletDivisionContext(stories, doy, allStandings) {
+  // If we have standings, use the league-wide "why it matters" signal
+  const leagueSignal = buildLeagueWhyItMatters(stories, allStandings);
+  if (leagueSignal?.long) {
+    return leagueSignal.long;
+  }
+
+  // Fallback: count contender wins by division
   const divWins = {};
   for (const s of stories) {
     if (s.isContender && s.winDiv) {
@@ -596,7 +612,6 @@ function bulletDivisionContext(stories, doy) {
     return `The ${div} picture shifts as contenders jockey for early positioning.`;
   }
 
-  // Fallback: league-level summary
   const totalFinals = stories.length;
   if (totalFinals >= 6) {
     return `A full slate across the league with ${totalFinals} games in the books — the standings continue to shuffle.`;
@@ -627,9 +642,10 @@ function bulletVolume(stories, usedSlugs, doy) {
  * @param {Object} opts
  * @param {Array} opts.liveGames - games from /api/mlb/live/games (includes finals)
  * @param {string} [opts.briefing] - AI briefing text (fallback only)
+ * @param {Object} [opts.allStandings] - { [slug]: { rank, gb, l10, streak, wins, losses, division } }
  * @returns {{ text: string, logoSlug: string|null }[]} - 4 bullet objects
  */
-export function buildMlbHotPress({ liveGames, briefing } = {}) {
+export function buildMlbHotPress({ liveGames, briefing, allStandings } = {}) {
   const doy = dayOfYear();
   const stories = extractGameStories(liveGames);
 
@@ -638,25 +654,28 @@ export function buildMlbHotPress({ liveGames, briefing } = {}) {
     const bullets = [];
     const usedSlugs = new Set();
 
-    // Bullet 1: Top story (aligns with headline)
+    // Bullet 1: Top story — enriched with "why it matters"
     const top = stories[0];
-    bullets.push({ text: bulletForStory(top, doy), logoSlug: top.winSlug });
+    const topWhy = buildGameWhyItMatters(top, allStandings);
+    bullets.push({ text: bulletForStory(top, doy, topWhy), logoSlug: top.winSlug });
     usedSlugs.add(top.winSlug);
 
-    // Bullet 2: Second key result (from different division if possible)
+    // Bullet 2: Second key result — enriched with "why it matters"
     const second = findSecondStory(stories, top);
     if (second && !usedSlugs.has(second.winSlug)) {
-      bullets.push({ text: bulletForStory(second, doy + 1), logoSlug: second.winSlug });
+      const secondWhy = buildGameWhyItMatters(second, allStandings);
+      bullets.push({ text: bulletForStory(second, doy + 1, secondWhy), logoSlug: second.winSlug });
       usedSlugs.add(second.winSlug);
     } else if (stories.length >= 2) {
       const alt = stories[1];
-      bullets.push({ text: bulletForStory(alt, doy + 1), logoSlug: alt.winSlug });
+      const altWhy = buildGameWhyItMatters(alt, allStandings);
+      bullets.push({ text: bulletForStory(alt, doy + 1, altWhy), logoSlug: alt.winSlug });
       usedSlugs.add(alt.winSlug);
     }
 
-    // Bullet 3: Division / standings context
+    // Bullet 3: Division / standings context — powered by whyItMatters
     if (stories.length >= 2) {
-      bullets.push({ text: bulletDivisionContext(stories, doy), logoSlug: null });
+      bullets.push({ text: bulletDivisionContext(stories, doy, allStandings), logoSlug: null });
     }
 
     // Bullet 4: Additional game or volume summary

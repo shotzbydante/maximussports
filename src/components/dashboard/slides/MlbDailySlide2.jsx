@@ -133,6 +133,7 @@ function buildSlide2Content(data) {
   const hotPressBullets = buildMlbHotPress({
     liveGames: data?.mlbLiveGames || [],
     briefing: data?.mlbBriefing,
+    allStandings: data?.mlbStandings || null,
   });
   const featureBullets = hotPressBullets.map(b => ({
     text: trim(b.text),
