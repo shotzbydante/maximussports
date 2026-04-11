@@ -794,8 +794,11 @@ export default async function handler(req, res) {
               );
               teamDigests2.forEach((d, i) => {
                 const lr = leaderResults[i];
-                d._leaders = lr?.status === 'fulfilled' ? lr.value?.leaders || null : null;
-                d._currentRecord = lr?.status === 'fulfilled' ? lr.value?.record || null : null;
+                const lrData = lr?.status === 'fulfilled' ? lr.value : null;
+                d._currentRecord = lrData?.record || null;
+                d._standingSummary = lrData?.standingSummary || null;
+                d._teamStats = lrData?.teamStats || null;
+                d._nextGameInfo = lrData?.nextGame || null;
               });
 
               for (const digest of teamDigests2) {
@@ -806,7 +809,11 @@ export default async function handler(req, res) {
                 const teamData = getTeamBySlugFn(slug);
                 if (proj) {
                   digest.team.division = teamData?.division || proj.division || '';
-                  digest.team.conference = `${proj.projectedWins}W projected \u2022 ${proj.divOutlook || ''} \u2022 ${teamData?.division || ''}`;
+                  // Build rich subline: "8-5 • 1st in AL East • 91W projected"
+                  const standing = digest._standingSummary || '';
+                  const rec = digest._currentRecord || '';
+                  const subParts = [rec, standing, `${proj.projectedWins}W projected`].filter(Boolean);
+                  digest.team.conference = subParts.join(' \u2022 ');
                   digest.maximusInsight = buildMlbTeamIntelSummary({
                     team: teamData || digest.team,
                     projection: proj,

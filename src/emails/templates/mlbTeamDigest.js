@@ -75,36 +75,35 @@ function renderStatStrip(digest) {
 }
 
 /**
- * Render team leaders (HR, RBI, Hits, Wins, Saves).
+ * Render team aggregate stats (HR, RBI, Hits, Wins, Saves) from ESPN.
+ * These are team totals, not individual player leaders.
  */
-function renderTeamLeaders(leaders) {
-  if (!leaders) return '';
+function renderTeamStats(teamStats) {
+  if (!teamStats) return '';
   const cats = [
     { key: 'hr', label: 'HR' },
     { key: 'rbi', label: 'RBI' },
     { key: 'hits', label: 'HITS' },
-    { key: 'wins', label: 'WINS' },
-    { key: 'saves', label: 'SAVES' },
+    { key: 'wins', label: 'W' },
+    { key: 'saves', label: 'SV' },
   ];
 
-  const hasAny = cats.some(c => leaders[c.key]?.name);
+  const hasAny = cats.some(c => teamStats[c.key]?.value != null);
   if (!hasAny) return '';
 
   const cellHtml = cats.map(c => {
-    const entry = leaders[c.key];
-    const name = entry?.name || '\u2014';
-    const val = entry?.value != null ? String(entry.value) : '\u2014';
-    return `<td style="padding:6px 4px;text-align:center;">
+    const entry = teamStats[c.key];
+    const val = entry?.display || (entry?.value != null ? String(Math.round(entry.value)) : '\u2014');
+    return `<td style="padding:8px 4px;text-align:center;">
       <span style="display:block;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${RED};font-family:${F};margin-bottom:2px;">${c.label}</span>
-      <span style="display:block;font-size:14px;font-weight:700;color:${BODY};font-family:${F};">${val}</span>
-      <span style="display:block;font-size:10px;color:${MUTED};font-family:${F};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;">${name}</span>
+      <span style="display:block;font-size:15px;font-weight:700;color:${BODY};font-family:${F};">${val}</span>
     </td>`;
   }).join('');
 
   return `
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
-    <div style="margin-bottom:6px;">${mlbSectionLabel('TEAM LEADERS')}</div>
+    <div style="margin-bottom:6px;">${mlbSectionLabel('TEAM STATS')}</div>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
            style="border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;overflow:hidden;background:#fafbfc;">
       <tr>${cellHtml}</tr>
@@ -117,7 +116,8 @@ function renderTeamSection(digest, isFirst = false) {
   const { team, game, ats, teamNews, teamUrl, aiSummary, maximusInsight } = digest;
   const teamName = team.name || 'Your Team';
   const logoHtml = mlbTeamLogoImg(team, 36);
-  const leaders = digest._leaders || null;
+  const teamStats = digest._teamStats || null;
+  const nextGameInfo = digest._nextGameInfo || null;
 
   // Team hero: logo + name + division + CTA
   const teamHero = `
@@ -141,20 +141,38 @@ function renderTeamSection(digest, isFirst = false) {
   // Stat strip
   const statStrip = renderStatStrip(digest);
 
-  // Next game
+  // Next game — prefer ESPN nextGameInfo, fall back to digest game data
   let gameSection = '';
-  if (game) {
-    const status = game.gameStatus || game.status || 'Scheduled';
-    const isFinal = /final|postponed/i.test(status);
-    const isLive = /\d|halftime|progress/i.test(status);
-    let scoreDisplay = '';
-    if (isFinal && game.homeScore != null) {
-      scoreDisplay = `<span style="color:${RED};font-weight:700;">${game.awayScore} \u2013 ${game.homeScore}</span> <span style="color:${MUTED};">Final</span>`;
-    } else if (isLive) {
-      scoreDisplay = `<span style="color:${RED};font-weight:700;">LIVE</span> <span style="color:#4b5563;">${status}</span>`;
-    } else {
-      scoreDisplay = `<span style="color:${MUTED};">${status}</span>`;
+  const gameData = game || null;
+  const ngInfo = nextGameInfo;
+
+  if (gameData || ngInfo) {
+    let matchupLine = '';
+    let detailLine = '';
+
+    if (gameData) {
+      const status = gameData.gameStatus || gameData.status || 'Scheduled';
+      const isFinal = /final|postponed/i.test(status);
+      const isLive = /\d|halftime|progress/i.test(status);
+      matchupLine = `${gameData.awayTeam || 'Away'} @ ${gameData.homeTeam || 'Home'}`;
+      if (isFinal && gameData.homeScore != null) {
+        detailLine = `<span style="color:${RED};font-weight:700;">${gameData.awayScore} \u2013 ${gameData.homeScore}</span> <span style="color:${MUTED};">Final</span>`;
+      } else if (isLive) {
+        detailLine = `<span style="color:${RED};font-weight:700;">LIVE</span> <span style="color:#4b5563;">${status}</span>`;
+      } else {
+        detailLine = `<span style="color:${MUTED};">${status}</span>`;
+      }
+      if (gameData.spread) detailLine += `<span style="color:${MUTED};margin-left:8px;">Spread: ${gameData.spread}</span>`;
+    } else if (ngInfo) {
+      matchupLine = ngInfo.name || `${ngInfo.awayTeam || '?'} @ ${ngInfo.homeTeam || '?'}`;
+      try {
+        const d = new Date(ngInfo.date);
+        const timeStr = d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles' });
+        detailLine = `<span style="color:${MUTED};">${timeStr} PT</span>`;
+      } catch { detailLine = ''; }
+      if (ngInfo.broadcast) detailLine += `<span style="color:${MUTED};margin-left:8px;">${ngInfo.broadcast}</span>`;
     }
+
     gameSection = `
 <tr>
   <td style="padding:0 24px 10px;" class="section-td">
@@ -163,8 +181,8 @@ function renderTeamSection(digest, isFirst = false) {
            style="background:#f9fafb;border:1px solid ${BORDER};border-left:3px solid ${RED};border-radius:6px;border-collapse:collapse;">
       <tr>
         <td style="padding:10px 14px;">
-          <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#111827;font-family:${F};">${game.awayTeam || 'Away'} @ ${game.homeTeam || 'Home'}</p>
-          <p style="margin:0;font-size:13px;font-family:${F};">${scoreDisplay}${game.spread ? `<span style="color:${MUTED};margin-left:8px;">Spread: ${game.spread}</span>` : ''}</p>
+          <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#111827;font-family:${F};">${matchupLine}</p>
+          ${detailLine ? `<p style="margin:0;font-size:13px;font-family:${F};">${detailLine}</p>` : ''}
         </td>
       </tr>
     </table>
@@ -189,8 +207,8 @@ function renderTeamSection(digest, isFirst = false) {
   </td>
 </tr>` : '';
 
-  // Team leaders
-  const leadersSection = renderTeamLeaders(leaders);
+  // Team stats
+  const statsSection = renderTeamStats(teamStats);
 
   // Team news (compact)
   let newsSection = '';
@@ -210,7 +228,7 @@ function renderTeamSection(digest, isFirst = false) {
 </tr>`;
   }
 
-  return [teamHero, statStrip, gameSection, summarySection, leadersSection, newsSection].filter(Boolean).join('\n');
+  return [teamHero, statStrip, gameSection, summarySection, statsSection, newsSection].filter(Boolean).join('\n');
 }
 
 export function renderHTML(data = {}) {

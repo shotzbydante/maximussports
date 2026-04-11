@@ -25,26 +25,36 @@ import { dedupeNewsItems } from './newsDedupe.js';
 export function filterTeamNews(team, allNews, max = 5) {
   if (!Array.isArray(allNews) || allNews.length === 0) return [];
 
-  const name  = (team.name  || '').toLowerCase();
-  const slug  = (team.slug  || '').toLowerCase();
+  const name = (team.name || '').toLowerCase();
+  const slug = (team.slug || '').toLowerCase();
+  const words = name.split(/\s+/).filter(w => w.length >= 3);
+  // Mascot name is typically the last word and most unique
+  const mascot = words[words.length - 1] || '';
+  // City/location names that are too common to match alone
+  const COMMON_WORDS = new Set(['new', 'san', 'los', 'bay', 'city', 'the', 'tampa', 'kansas']);
 
-  // Build a set of matching tokens
-  const tokens = new Set();
-  for (const word of name.split(/\s+/)) {
-    if (word.length >= 3) tokens.add(word);
-  }
-  for (const part of slug.split('-')) {
-    if (part.length >= 3) tokens.add(part);
-  }
-
-  const tokenArr = Array.from(tokens);
-
-  const matched = allNews.filter(item => {
+  // Score each news item by relevance
+  const scored = allNews.map(item => {
     const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
-    return tokenArr.some(t => text.includes(t));
+    let score = 0;
+    // Full team name match (strongest signal)
+    if (text.includes(name)) score += 10;
+    // Mascot name match (strong signal)
+    if (mascot && mascot.length >= 4 && text.includes(mascot)) score += 5;
+    // Slug match (for short slugs like 'nyy')
+    if (slug.length >= 3 && text.includes(slug)) score += 3;
+    // Individual word matches (weaker, skip common words)
+    for (const w of words) {
+      if (!COMMON_WORDS.has(w) && w.length >= 4 && text.includes(w)) score += 2;
+    }
+    return { item, score };
   });
 
-  return matched.slice(0, max);
+  return scored
+    .filter(s => s.score >= 3) // Require at least moderate relevance
+    .sort((a, b) => b.score - a.score)
+    .slice(0, max)
+    .map(s => s.item);
 }
 
 /**
