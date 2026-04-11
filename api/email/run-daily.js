@@ -778,11 +778,25 @@ export default async function handler(req, res) {
               digestSlugs2, { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlugFn
             );
 
-            // Enrich each MLB team digest with projection data + team intel summary
+            // Enrich each MLB team digest with projection data + team intel summary + leaders
             try {
               const { getTeamProjection } = await import('../../src/data/mlb/seasonModel.js');
               const { getTeamMeta: getMlbMeta } = await import('../../src/data/mlb/teamMeta.js');
               const { buildMlbTeamIntelSummary } = await import('../../src/data/mlb/teamIntelSummary.js');
+
+              // Fetch team leaders in parallel
+              const host = req.headers.host || 'localhost:3000';
+              const leaderResults = await Promise.allSettled(
+                teamDigests2.map(d => d.team?.slug
+                  ? fetch(`http://${host}/api/mlb/team/leaders?team=${d.team.slug}`).then(r => r.ok ? r.json() : null).catch(() => null)
+                  : Promise.resolve(null)
+                )
+              );
+              teamDigests2.forEach((d, i) => {
+                const lr = leaderResults[i];
+                d._leaders = lr?.status === 'fulfilled' ? lr.value?.leaders || null : null;
+                d._currentRecord = lr?.status === 'fulfilled' ? lr.value?.record || null : null;
+              });
 
               for (const digest of teamDigests2) {
                 const slug = digest.team?.slug;
@@ -799,6 +813,9 @@ export default async function handler(req, res) {
                     meta,
                     odds: null,
                   });
+                  // Attach structured data for the template stat strip + leaders
+                  digest._meta = meta;
+                  digest._projection = proj;
                 }
               }
             } catch (err) {
