@@ -380,9 +380,29 @@ export function mlbSpacerRow(px = 8) {
 /**
  * Team logo image.
  */
+/**
+ * ESPN CDN slug → ID mapping for MLB team logos.
+ * URL pattern: https://a.espncdn.com/i/teamlogos/mlb/500/{id}.png
+ */
+const MLB_ESPN_LOGO_IDS = {
+  nyy: '10', bos: '2', tor: '14', tb: '30', bal: '1',
+  cle: '5', min: '9', det: '6', cws: '4', kc: '7',
+  hou: '18', sea: '12', tex: '13', laa: '3', oak: '11',
+  atl: '15', nym: '21', phi: '22', mia: '28', wsh: '20',
+  chc: '16', mil: '8', stl: '24', pit: '23', cin: '17',
+  lad: '19', sd: '25', sf: '26', ari: '29', col: '27',
+};
+
 export function mlbTeamLogoImg(team, size = 22) {
   const slug = team?.slug;
-  if (!slug) return `<span style="display:inline-block;width:${size}px;height:${size}px;background-color:#e5e7eb;border-radius:4px;vertical-align:middle;"></span>`;
-  return `<img src="https://maximussports.ai/logos/${slug}.png" alt="${team?.name || slug}" width="${size}" height="${size}"
-    style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;" />`;
+  const espnId = slug ? MLB_ESPN_LOGO_IDS[slug] : null;
+  const logoUrl = espnId ? `https://a.espncdn.com/i/teamlogos/mlb/500/${espnId}.png` : null;
+
+  if (!logoUrl) {
+    const abbr = (team?.abbrev || team?.shortName || slug || '??').slice(0, 3).toUpperCase();
+    return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:9px;font-weight:700;color:#6b7280;background:#f3f4f6;border-radius:4px;vertical-align:middle;">${abbr}</span>`;
+  }
+
+  return `<img src="${logoUrl}" alt="${team?.name || slug}" width="${size}" height="${size}"
+    style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;text-decoration:none;" />`;
 }

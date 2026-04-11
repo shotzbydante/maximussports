@@ -70,9 +70,18 @@ function confBadge(confidence) {
   return `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.05em;color:${c.color};background:${c.bg};padding:2px 8px;border-radius:4px;font-family:${F};vertical-align:middle;">${c.label}</span>`;
 }
 
-function logoImg(slug, name, size = 24) {
-  if (!slug) return '';
-  return `<img src="https://maximussports.ai/logos/${slug}.png" alt="${name || slug}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;" />`;
+/**
+ * Email-safe MLB team logo <img>.
+ * Uses the logo URL from the pick data (ESPN CDN), with fallback to
+ * abbreviation text if no URL is available.
+ */
+function logoImg(logoUrl, name, size = 24) {
+  if (!logoUrl) {
+    // Fallback: abbreviation in a neutral circle
+    const abbr = (name || '??').slice(0, 3).toUpperCase();
+    return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:9px;font-weight:700;color:#6b7280;background:#f3f4f6;border-radius:4px;vertical-align:middle;font-family:${F};">${abbr}</span>`;
+  }
+  return `<img src="${logoUrl}" alt="${name || 'Team'}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;outline:none;text-decoration:none;" />`;
 }
 
 function renderPickCard(pick) {
@@ -90,8 +99,9 @@ function renderPickCard(pick) {
   const signals = (p?.topSignals || []).slice(0, 2);
   const pickLabel = p?.label || '';
 
-  const awayLogo = logoImg(away.slug, away.shortName, 22);
-  const homeLogo = logoImg(home.slug, home.shortName, 22);
+  // Use the logo URL from the pick data (ESPN CDN), not a constructed path
+  const awayLogo = logoImg(away.logo, away.shortName, 22);
+  const homeLogo = logoImg(home.logo, home.shortName, 22);
   const awayName = away.shortName || away.name || 'Away';
   const homeName = home.shortName || home.name || 'Home';
 
