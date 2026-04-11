@@ -546,8 +546,8 @@
   position: relative; z-index: 10;
   display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
-  min-height: 74px;
-  margin-top: 4px;
+  min-height: 68px;
+  margin-top: 2px;
 }
 .slide2TopPill {
   height: 44px; padding: 0 24px;
@@ -667,7 +667,7 @@
 /* Card takeaway */
 .slide2CardTakeaway {
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 6px;
   font-size: 15px; line-height: 1.24; font-weight: 700;
   color: rgba(255,255,255,0.74);
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -699,8 +699,8 @@
 /* ── Maximus's Picks — game-intel pick modules ── */
 .slide2PicksList {
   display: flex; flex-direction: column;
-  gap: 9px;
-  margin-top: 10px;
+  gap: 7px;
+  margin-top: 8px;
   flex: 1;
 }
 .slide2PickCard {

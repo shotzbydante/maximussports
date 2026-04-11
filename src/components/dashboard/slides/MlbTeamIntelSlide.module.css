@@ -573,52 +573,52 @@
 
 .teamLeadersStrip {
   position: relative; z-index: 10;
-  margin: 8px 50px 0;
+  margin: 8px 44px 0;
   border-radius: 14px;
-  padding: 10px 16px 10px;
+  padding: 12px 14px 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.10);
   box-shadow: 0 0 16px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 .teamLeadersStripTitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px; font-weight: 700;
-  letter-spacing: 1.4px; text-transform: uppercase;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 1.6px; text-transform: uppercase;
   color: rgba(255,180,180,0.72);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   text-align: center;
 }
 .teamLeadersColumns {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 .teamLeaderCol {
   flex: 1;
   display: flex; flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 6px 4px;
+  padding: 8px 6px 7px;
   border-radius: 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
 }
 .teamLeaderColStat {
-  font-size: 13px; font-weight: 800;
+  font-size: 15px; font-weight: 800;
   letter-spacing: 0.8px;
-  color: rgba(255,255,255,0.52);
+  color: rgba(255,255,255,0.55);
   text-transform: uppercase;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 .teamLeaderColName {
-  font-size: 16px; font-weight: 700;
+  font-size: 18px; font-weight: 700;
   color: rgba(255,255,255,0.96);
-  line-height: 1.15;
+  line-height: 1.18;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 100%;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 .teamLeaderColValue {
-  font-size: 20px; font-weight: 900;
+  font-size: 24px; font-weight: 900;
   color: rgba(255,225,170,1);
   line-height: 1.1;
 }
