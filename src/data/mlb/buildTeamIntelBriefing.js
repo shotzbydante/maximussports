@@ -178,12 +178,17 @@ function pickOne(arr, seed) {
 
 /**
  * Generate topical, team-specific headline + subtext.
- * Priority: recent form → division race → team strengths → model tier.
+ * Priority: recent results → streaks → L10 trends → division race → model tier.
+ *
+ * Headlines should feel DAILY — referencing actual opponents and scores,
+ * not vague labels like "FORM FALLING" or "AT A CROSSROADS".
  */
-export function buildTopicalHeadline({ teamName, slug, projection, teamContext, division }) {
+export function buildTopicalHeadline({ teamName, slug, projection, teamContext, division, record }) {
   const sn = shortName(teamName).toUpperCase();
-  const div = (division || '').toUpperCase();
   const seed = slug || teamName;
+  const { streak, l10Record, l10Wins, recentGames } = teamContext || {};
+  const recent1 = recentGames?.[0];
+  const recent2 = recentGames?.[1];
 
   if (!projection) {
     return { headline: `${sn}\nINTEL FILE`, subtext: `Full market intelligence on ${teamName}.` };
@@ -191,114 +196,185 @@ export function buildTopicalHeadline({ teamName, slug, projection, teamContext, 
 
   const wins = projection.projectedWins;
   const delta = projection.marketDelta || 0;
-  const driverLow = (projection.takeaways?.strongestDriver || '').toLowerCase();
-  const { streak, l10Record, l10Wins } = teamContext || {};
 
   const signals = [];
 
-  // ── FORM-BASED (most topical) ──
+  // ─── RECENT-RESULT HEADLINES (most topical — use opponent names) ───
+
+  if (recent1 && recent1.oppAbbrev) {
+    const oppName = shortName(recent1.opponent) || recent1.oppAbbrev;
+    const oppUp = oppName.toUpperCase();
+    const score = `${recent1.ourScore}\u2013${recent1.oppScore}`;
+
+    // Big win headline
+    if (recent1.won) {
+      const margin = (recent1.ourScore || 0) - (recent1.oppScore || 0);
+      if (streak?.startsWith('W') && parseInt(streak.slice(1)) >= 4) {
+        const n = parseInt(streak.slice(1));
+        signals.push({ score: 105,
+          headline: `${sn} WIN\n${n} STRAIGHT`,
+          subtext: `The latest: a ${score} win over ${oppName}. ${teamName} have won ${n} consecutive and the momentum is building.`,
+        });
+      } else if (margin >= 5) {
+        signals.push({ score: 102,
+          headline: `${sn} ROLL\nPAST ${oppUp}`,
+          subtext: `A convincing ${score} win over ${oppName}. The offense showed up when it mattered.`,
+        });
+      } else if (margin <= 1) {
+        signals.push({ score: 100,
+          headline: `${sn} EDGE\n${oppUp}`,
+          subtext: `A tight ${score} win over ${oppName}. Close games have been going their way.`,
+        });
+      } else {
+        signals.push({ score: 99,
+          headline: `${sn} TAKE DOWN\n${oppUp}`,
+          subtext: `A ${score} win over ${oppName} keeps the momentum going. The recent stretch matters.`,
+        });
+      }
+    }
+
+    // Loss headline
+    if (!recent1.won) {
+      const margin = (recent1.oppScore || 0) - (recent1.ourScore || 0);
+      if (streak?.startsWith('L') && parseInt(streak.slice(1)) >= 4) {
+        const n = parseInt(streak.slice(1));
+        signals.push({ score: 105,
+          headline: `${sn} DROP\n${n} STRAIGHT`,
+          subtext: `The latest: a ${score} loss to ${oppName}. ${n} in a row now, and the pressure is mounting.`,
+        });
+      } else if (margin >= 5) {
+        signals.push({ score: 100,
+          headline: `${oppUp} BLOW\nPAST ${sn}`,
+          subtext: `A lopsided ${score} loss to ${oppName}. Not the kind of game that inspires confidence.`,
+        });
+      } else if (margin <= 1) {
+        signals.push({ score: 98,
+          headline: `${sn} FALL SHORT\nVS ${oppUp}`,
+          subtext: `A heartbreaker — ${score} against ${oppName}. The margins have been razor-thin.`,
+        });
+      } else {
+        signals.push({ score: 97,
+          headline: `${sn} DROP ONE\nTO ${oppUp}`,
+          subtext: `A ${score} loss to ${oppName}. Questions linger after another tough result.`,
+        });
+      }
+    }
+
+    // 2-game series context (split, swept, etc.)
+    if (recent2 && recent2.oppAbbrev === recent1.oppAbbrev) {
+      const w = [recent1, recent2].filter(r => r.won).length;
+      if (w === 2) {
+        signals.push({ score: 103,
+          headline: `${sn} SWEEP\n${oppUp}`,
+          subtext: `${teamName} take both from ${oppName}. Back-to-back wins send a message.`,
+        });
+      } else if (w === 0) {
+        signals.push({ score: 101,
+          headline: `${oppUp} SWEEP\n${sn}`,
+          subtext: `${teamName} drop both to ${oppName}. A rough stretch that demands a response.`,
+        });
+      }
+    }
+  }
+
+  // ─── STREAK HEADLINES (without specific opponent) ───
+
   if (streak) {
     const n = parseInt(streak.slice(1));
-    if (streak.startsWith('W') && n >= 5) {
-      signals.push({ score: 100,
+    if (streak.startsWith('W') && n >= 5 && !recent1) {
+      signals.push({ score: 96,
         headline: `${sn} WIN\n${n} STRAIGHT`,
-        subtext: `${teamName} are surging with ${n} consecutive wins. The momentum is real and the standings are shifting.`,
-      });
-    } else if (streak.startsWith('W') && n >= 3) {
-      signals.push({ score: 95,
-        headline: `${sn}\nGAIN GROUND`,
-        subtext: `${teamName} have won ${n} straight. The recent stretch is creating separation.`,
-      });
-    } else if (streak.startsWith('L') && n >= 5) {
-      signals.push({ score: 98,
-        headline: `${sn} DROP\n${n} STRAIGHT`,
-        subtext: `${teamName} have lost ${n} in a row. The skid is putting serious pressure on the roster.`,
-      });
-    } else if (streak.startsWith('L') && n >= 3) {
-      signals.push({ score: 93,
-        headline: 'BATS QUIET\nPRESSURE RISES',
-        subtext: `${teamName} have dropped ${n} straight. Something needs to shift — and soon.`,
+        subtext: `${teamName} are on fire with ${n} consecutive wins. The standings are shifting.`,
       });
     }
-  }
-
-  if (l10Wins != null) {
-    if (l10Wins >= 7) {
-      signals.push({ score: 90,
-        headline: 'L10 TREND\nTURNS POSITIVE',
-        subtext: `${teamName} are ${l10Record} in their last 10. The recent form is the best story in their season.`,
-      });
-    }
-    if (l10Wins <= 3) {
+    if (streak.startsWith('W') && n === 3) {
       signals.push({ score: 88,
-        headline: 'FORM\nFALLING',
-        subtext: `${teamName} are ${l10Record} over their last 10. The slide is eroding their position.`,
+        headline: `${sn}\nGAIN GROUND`,
+        subtext: `Three straight wins for ${teamName}. The recent push is creating separation.`,
+      });
+    }
+    if (streak.startsWith('L') && n >= 5 && !recent1) {
+      signals.push({ score: 94,
+        headline: `${sn} DROP\n${n} STRAIGHT`,
+        subtext: `${n} straight losses. ${teamName} need a spark before this slide gets worse.`,
       });
     }
   }
 
-  // ── DIVISION RACE ──
-  if (div && wins >= 92) {
-    signals.push({ score: 82,
-      headline: `${div}\nFRONTRUNNER`,
-      subtext: `${teamName} project as the team to beat in the ${division}. ${wins} projected wins sets the pace.`,
-    });
+  // ─── L10 TREND HEADLINES ───
+
+  if (l10Wins != null && l10Record) {
+    if (l10Wins >= 8) {
+      signals.push({ score: 85,
+        headline: `${sn}\nON A TEAR`,
+        subtext: `${l10Record} over their last 10. ${teamName} are playing their best ball of the season right now.`,
+      });
+    }
+    if (l10Wins <= 2) {
+      signals.push({ score: 84,
+        headline: `${sn}\nIN FREEFALL`,
+        subtext: `${l10Record} in their last 10. ${teamName} are hemorrhaging ground and need answers fast.`,
+      });
+    }
+    if (l10Wins === 3) {
+      signals.push({ score: 78,
+        headline: `${sn} SEARCH\nFOR ANSWERS`,
+        subtext: `Just ${l10Record} in their last 10. The recent slide is putting real pressure on ${teamName}.`,
+      });
+    }
   }
-  if (div && wins >= 85 && wins < 92) {
+
+  // ─── DIVISION RACE HEADLINES ───
+
+  if (division && wins >= 92) {
     signals.push({ score: 72,
-      headline: `${div}\nPRESSURE BUILDS`,
-      subtext: `${teamName} are right in the ${division} race at ${wins} projected wins. Every series matters.`,
+      headline: `${sn}\nSET THE PACE`,
+      subtext: `${teamName} project at ${wins} wins — the team to beat in the ${division}.`,
+    });
+  }
+  if (division && wins >= 85 && wins < 92) {
+    signals.push({ score: 62,
+      headline: `${sn}\nSTAY IN THE HUNT`,
+      subtext: `${wins} projected wins keeps ${teamName} right in the ${division} conversation.`,
     });
   }
 
-  // ── DRIVER-BASED ──
-  if (driverLow.includes('rotation') || driverLow.includes('pitching')) {
-    signals.push({ score: 68,
-      headline: 'ROTATION\nLEADS THE PUSH',
-      subtext: `Pitching is the engine for ${teamName}. The rotation gives them a legitimate edge most nights.`,
-    });
-  }
-  if (driverLow.includes('offense') || driverLow.includes('lineup')) {
-    signals.push({ score: 68,
-      headline: 'LINEUP\nDRIVES THE BUS',
-      subtext: `The bats carry ${teamName}. Offensive production is their margin for error.`,
-    });
-  }
+  // ─── MODEL EDGE HEADLINES (lower priority) ───
 
-  // ── MODEL EDGE ──
-  if (delta >= 4) {
-    signals.push({ score: 75,
+  if (delta >= 5) {
+    signals.push({ score: 65,
       headline: `${sn} ARE\nUNDERPRICED`,
-      subtext: `The model sees ${teamName} ${delta.toFixed(1)} wins above market. The number has not caught up yet.`,
+      subtext: `The model sees ${teamName} ${delta.toFixed(1)} wins above market. The number hasn't caught up yet.`,
     });
   }
-  if (delta <= -4) {
-    signals.push({ score: 70,
-      headline: 'MARKET\nTOO HIGH',
+  if (delta <= -5) {
+    signals.push({ score: 60,
+      headline: `MARKET\nTOO HIGH ON ${sn}`,
       subtext: `${teamName} sit ${Math.abs(delta).toFixed(1)} wins below expectations. The price may be ahead of the product.`,
     });
   }
 
-  // ── TIER FALLBACKS ──
+  // ─── TIER FALLBACKS (only if nothing more current) ───
+
   if (wins >= 95) {
-    signals.push({ score: 60, headline: `${sn}\nARE FOR REAL`,
-      subtext: `${wins} projected wins. ${teamName} have the roster depth to go deep into October.` });
+    signals.push({ score: 50, headline: `${sn}\nARE FOR REAL`,
+      subtext: `${wins} projected wins. ${teamName} have the depth to go deep into October.` });
   } else if (wins >= 85) {
-    signals.push({ score: 50, headline: `${sn}\nSTAY IN THE MIX`,
+    signals.push({ score: 40, headline: `${sn}\nIN THE MIX`,
       subtext: `${teamName} project at ${wins} wins — firmly in the playoff conversation.` });
   } else if (wins >= 75) {
-    signals.push({ score: 40,
-      headline: pickOne([`${sn}\nAT A CROSSROADS`, `${sn}\nSEARCH FOR ANSWERS`], seed),
-      subtext: `${wins} projected wins. ${teamName} are in no-man's land — not contending, not rebuilding.` });
-  } else {
     signals.push({ score: 30,
-      headline: pickOne(['BUILDING FOR\nTOMORROW', 'LONG ROAD\nAHEAD'], seed),
-      subtext: `${wins} projected wins. ${teamName} are in rebuild mode. The future is the focus.` });
+      headline: pickOne([`${sn}\nAT A CROSSROADS`, `THE ${sn}\nQUESTION`], seed),
+      subtext: `${wins} projected wins. ${teamName} are stuck between contending and retooling.` });
+  } else {
+    signals.push({ score: 20,
+      headline: pickOne([`${sn}\nBUILDING`, `LONG ROAD\nFOR ${sn}`], seed),
+      subtext: `${wins} projected wins. The focus for ${teamName} is the future, not October.` });
   }
 
   signals.sort((a, b) => b.score - a.score);
   const w = signals[0];
-  const sub = w.subtext.length > 120 ? w.subtext.slice(0, 119) + '\u2026' : w.subtext;
+  const sub = w.subtext.length > 130 ? w.subtext.slice(0, 129) + '\u2026' : w.subtext;
   return { headline: w.headline, subtext: sub };
 }
 
@@ -308,11 +384,12 @@ export function buildTopicalHeadline({ teamName, slug, projection, teamContext, 
  * Build 5 structured briefing items that power both the slide and team page.
  *
  * Each item is an object: { text, oppSlug?, type }
- *   - text: the briefing line
+ *   - text: the briefing line (mini-narrative, not a data fragment)
  *   - oppSlug: opponent team slug for inline logo (optional)
  *   - type: 'division' | 'l10' | 'recent' | 'news' | 'next' | 'model' | 'profile'
  *
- * Priority: division → L10 → recent games → news → next game → model
+ * Priority: division/standings → L10 → recent games → news/profile → next game
+ * Each bullet should feel like a mini-story, not a data label.
  */
 export function buildIntelBriefingItems({
   slug,
@@ -324,75 +401,117 @@ export function buildIntelBriefingItems({
   newsHeadlines,
   nextGame,
   nextLine,
+  record,
 }) {
   const items = [];
   const wins = projection?.projectedWins;
   const tk = projection?.takeaways || {};
   const inputs = slug ? TEAM_INPUTS[slug] : null;
   const { streak, l10Record, l10Wins, recentGames } = teamContext || {};
+  const sn = shortName(teamName);
 
-  // ── 1. Division standing ──
-  if (division && divOutlook) {
-    const outlookLow = divOutlook.toLowerCase();
-    if (outlookLow.includes('contend') || outlookLow.includes('lead')) {
-      items.push({ text: `${division} contender. Model projects ${wins} wins — firmly in the race.`, type: 'division' });
-    } else if (outlookLow.includes('compet') || outlookLow.includes('fringe')) {
-      items.push({ text: `Fringe contender in the ${division} at ${wins} projected wins.`, type: 'division' });
-    } else if (outlookLow.includes('rebuild') || outlookLow.includes('retool')) {
-      items.push({ text: `${division}, rebuild phase. ${wins} projected wins — focused on the long game.`, type: 'division' });
+  // ── 1. Division / standings context — explicit position ──
+  if (division) {
+    const outlookLow = (divOutlook || '').toLowerCase();
+    if (outlookLow.includes('lead') || (wins && wins >= 94)) {
+      if (record) {
+        items.push({ text: `${record} on the season — leading the charge in the ${division}. The ${sn} are the team to beat right now.`, type: 'division' });
+      } else {
+        items.push({ text: `Setting the pace in the ${division} with ${wins} projected wins. The ${sn} are the team to beat.`, type: 'division' });
+      }
+    } else if (outlookLow.includes('contend') || (wins && wins >= 86)) {
+      if (record) {
+        items.push({ text: `${record} and right in the ${division} race. ${wins ? `Projected for ${wins} wins` : 'In contention'} — every series carries weight now.`, type: 'division' });
+      } else {
+        items.push({ text: `Competing in the ${division} with ${wins} projected wins. The margin for error is getting thinner by the week.`, type: 'division' });
+      }
+    } else if (outlookLow.includes('fringe') || outlookLow.includes('compet') || (wins && wins >= 78)) {
+      if (record) {
+        items.push({ text: `${record} — hanging around the ${division} race, but the window is narrowing. Projected at ${wins || '~80'} wins.`, type: 'division' });
+      } else {
+        items.push({ text: `On the fringe in the ${division} at ${wins} projected wins. Not out of it, but need a run soon.`, type: 'division' });
+      }
+    } else if (outlookLow.includes('rebuild') || outlookLow.includes('retool') || (wins && wins < 72)) {
+      if (record) {
+        items.push({ text: `${record} in a rebuilding year in the ${division}. The focus is on development, not October.`, type: 'division' });
+      } else {
+        items.push({ text: `Rebuilding in the ${division} with ${wins} projected wins. The future is the priority here.`, type: 'division' });
+      }
     } else {
-      items.push({ text: `${division}. Model: ${wins} projected wins. Outlook: ${divOutlook}.`, type: 'division' });
+      if (record) {
+        items.push({ text: `${record} in the ${division}. ${wins ? `Model projects ${wins} wins` : 'Positioning for the second half'} — searching for an identity.`, type: 'division' });
+      } else {
+        items.push({ text: `Competing in the ${division}. ${wins ? `${wins} projected wins` : 'Middle of the pack'} — the next few weeks will define the season.`, type: 'division' });
+      }
     }
-  } else if (division && wins) {
-    items.push({ text: `Competing in the ${division} with ${wins} projected wins.`, type: 'division' });
+  } else if (record) {
+    items.push({ text: `${record} on the season. ${wins ? `Model projects ${wins} wins.` : ''}`, type: 'division' });
   }
 
-  // ── 2. L10 / form ──
-  if (l10Record) {
-    let interp;
-    if (l10Wins >= 8) interp = 'surging — the hottest stretch of the season';
-    else if (l10Wins >= 7) interp = 'strong recent form with momentum building';
-    else if (l10Wins >= 5) interp = 'steady but without clear separation';
-    else if (l10Wins >= 4) interp = 'recent results have been inconsistent';
-    else if (l10Wins >= 3) interp = 'struggling to find traction';
-    else interp = 'in a prolonged cold stretch that demands answers';
+  // ── 2. L10 / recent form — narrative, not just a number ──
+  if (l10Record && l10Wins != null) {
+    let narrative;
+    if (l10Wins >= 8) narrative = `L10: ${l10Record}. ${sn} are surging — this is the hottest stretch of their season and the standings are shifting.`;
+    else if (l10Wins >= 7) narrative = `L10: ${l10Record}. Strong recent form with real momentum building. This is when good teams separate.`;
+    else if (l10Wins === 6) narrative = `L10: ${l10Record}. Slightly above .500 over the last 10 — solid but not pulling away.`;
+    else if (l10Wins === 5) narrative = `L10: ${l10Record}. Right at .500 over the last 10 — treading water without clear separation.`;
+    else if (l10Wins === 4) narrative = `L10: ${l10Record}. Recent results have been inconsistent, and the margin for error is shrinking.`;
+    else if (l10Wins === 3) narrative = `L10: ${l10Record}. The ${sn} are struggling to find traction. Something needs to click soon.`;
+    else narrative = `L10: ${l10Record}. A brutal stretch that's eroding their position. The skid demands answers.`;
 
-    const streakNote = streak ? `, currently on a ${streak} streak` : '';
+    const streakNote = streak ? ` Currently on a ${streak} streak.` : '';
     items.push({
-      text: `L10: ${l10Record}${streakNote}. ${interp.charAt(0).toUpperCase() + interp.slice(1)}.`,
+      text: narrative + streakNote,
       type: 'l10',
     });
   }
 
-  // ── 3. Last 2 games ──
+  // ── 3. Last 1–2 games — tell the story of recent results ──
   const recent2 = (recentGames || []).slice(0, 2);
-  if (recent2.length === 2) {
+  if (recent2.length >= 2) {
+    const r1 = recent2[0];
+    const r2 = recent2[1];
+    const opp1 = shortName(r1.opponent) || r1.oppAbbrev;
+    const opp2 = shortName(r2.opponent) || r2.oppAbbrev;
+    const sameOpp = r1.oppAbbrev === r2.oppAbbrev;
     const w = recent2.filter(r => r.won).length;
-    const lines = recent2.map(r => {
-      const opp = r.oppAbbrev || shortName(r.opponent);
-      return `${r.won ? 'W' : 'L'} ${r.ourScore}\u2013${r.oppScore} vs ${opp}`;
-    });
+
     let text;
-    if (w === 2) text = `Won both of their last 2: ${lines.join(', ')}.`;
-    else if (w === 0) text = `Dropped both of their last 2: ${lines.join(', ')}.`;
-    else text = `Split the last 2: ${lines.join(', ')}.`;
+    if (sameOpp && w === 2) {
+      text = `Took both from ${opp1} — ${r2.won ? 'W' : 'L'} ${r2.ourScore}\u2013${r2.oppScore}, then ${r1.won ? 'W' : 'L'} ${r1.ourScore}\u2013${r1.oppScore}. A statement series.`;
+    } else if (sameOpp && w === 0) {
+      text = `Dropped both to ${opp1} — ${r2.won ? 'W' : 'L'} ${r2.ourScore}\u2013${r2.oppScore}, then ${r1.won ? 'W' : 'L'} ${r1.ourScore}\u2013${r1.oppScore}. A rough stretch that needs a response.`;
+    } else if (sameOpp) {
+      text = `Split with ${opp1} — ${r2.won ? 'W' : 'L'} ${r2.ourScore}\u2013${r2.oppScore}, then ${r1.won ? 'W' : 'L'} ${r1.ourScore}\u2013${r1.oppScore}. Competitive but no separation.`;
+    } else if (w === 2) {
+      text = `Won their last two: ${r1.ourScore}\u2013${r1.oppScore} over ${opp1} and ${r2.ourScore}\u2013${r2.oppScore} over ${opp2}. Offense and pitching both showing up.`;
+    } else if (w === 0) {
+      text = `Dropped their last two: ${r1.ourScore}\u2013${r1.oppScore} to ${opp1} and ${r2.ourScore}\u2013${r2.oppScore} to ${opp2}. The slide needs to stop here.`;
+    } else {
+      const winGame = recent2.find(r => r.won);
+      const lossGame = recent2.find(r => !r.won);
+      const wOpp = shortName(winGame.opponent) || winGame.oppAbbrev;
+      const lOpp = shortName(lossGame.opponent) || lossGame.oppAbbrev;
+      text = `Split the last two — beat ${wOpp} ${winGame.ourScore}\u2013${winGame.oppScore}, fell to ${lOpp} ${lossGame.ourScore}\u2013${lossGame.oppScore}. Inconsistency remains the story.`;
+    }
 
     items.push({
       text,
       type: 'recent',
-      // Include oppSlug of most recent opponent for logo rendering
-      oppSlug: recent2[0]?.oppSlug || null,
+      oppSlug: r1.oppSlug || null,
     });
   } else if (recent2.length === 1) {
     const r = recent2[0];
+    const opp = shortName(r.opponent) || r.oppAbbrev;
+    const verb = r.won ? 'took down' : 'fell to';
     items.push({
-      text: `Last result: ${r.won ? 'Won' : 'Lost'} ${r.ourScore}\u2013${r.oppScore} vs ${r.oppAbbrev || shortName(r.opponent)}.`,
+      text: `Last out: ${verb} ${opp} ${r.ourScore}\u2013${r.oppScore}. ${r.won ? 'A result that keeps the momentum going.' : 'A result that raises questions about what comes next.'}`,
       type: 'recent',
       oppSlug: r.oppSlug || null,
     });
   }
 
-  // ── 4. Team news / player / pitching storyline ──
+  // ── 4. Team news / pitching / lineup / player storyline ──
   const cleanedNews = (newsHeadlines || [])
     .map(n => typeof n === 'string' ? n : cleanHeadline(n.headline || n.title || ''))
     .filter(Boolean);
@@ -400,21 +519,25 @@ export function buildIntelBriefingItems({
   if (cleanedNews.length > 0) {
     items.push({ text: cleanedNews[0], type: 'news' });
   } else if (inputs) {
-    // Fall back to rotation/lineup profile
+    // Fall back to editorial rotation/lineup profile narrative
     if (inputs.frontlineRotation >= 8) {
-      items.push({ text: `Rotation rated elite (${inputs.frontlineRotation}/10). Front-end arms anchor the staff.`, type: 'profile' });
+      items.push({ text: `Pitching continues to anchor this roster — the rotation is rated among the best in baseball and gives them a chance every night.`, type: 'profile' });
     } else if (inputs.topOfLineup >= 8) {
-      items.push({ text: `Lineup rated elite (${inputs.topOfLineup}/10). Offensive firepower carries the roster.`, type: 'profile' });
+      items.push({ text: `The lineup is the engine here. Top-of-the-order production has been elite, giving the pitching staff real margin for error.`, type: 'profile' });
     } else if (inputs.bullpenQuality <= 4 || inputs.bullpenVolatility >= 5) {
-      items.push({ text: `Bullpen remains a concern — quality ${inputs.bullpenQuality}/10, volatility ${inputs.bullpenVolatility}/6.`, type: 'profile' });
+      items.push({ text: `The bullpen remains a question mark — late-inning volatility continues to cost them in close games.`, type: 'profile' });
+    } else if (inputs.frontlineRotation <= 4) {
+      items.push({ text: `Rotation depth is a real concern. Without top-end arms, the margin for error is paper-thin.`, type: 'profile' });
     } else if (tk.strongestDriver) {
-      items.push({ text: `Key driver: ${tk.strongestDriver}. ${tk.biggestDrag && tk.biggestDrag !== 'None significant' ? `Drag: ${tk.biggestDrag}.` : ''}`, type: 'profile' });
+      const driver = tk.strongestDriver;
+      const drag = tk.biggestDrag && tk.biggestDrag !== 'None significant' ? tk.biggestDrag : null;
+      items.push({ text: `${driver} is carrying the load.${drag ? ` The risk: ${drag.toLowerCase()} could limit the ceiling.` : ''}`, type: 'profile' });
     }
   } else if (tk.strongestDriver) {
-    items.push({ text: `Key driver: ${tk.strongestDriver}.`, type: 'profile' });
+    items.push({ text: `${tk.strongestDriver} drives the outlook. The model's read hinges on that strength holding up over 162.`, type: 'profile' });
   }
 
-  // ── 5. Upcoming game / what's next ──
+  // ── 5. Upcoming game — why it matters ──
   const nOpp = nextGame?.opponent || nextLine?.nextEvent?.opponent;
   const nSpread = nextLine?.consensus?.spread;
   const nMl = nextLine?.consensus?.moneyline;
@@ -422,7 +545,8 @@ export function buildIntelBriefingItems({
   const nOppSlug = nextGame?.oppSlug || slugFromName(nOpp);
 
   if (nOpp) {
-    let text = `Next up: vs ${nOpp}`;
+    const oppShort = shortName(nOpp) || nOpp;
+    let text = `Next up: ${oppShort}`;
     if (nSpread != null) {
       const sp = parseFloat(nSpread);
       text += ` (${sp > 0 ? '+' : ''}${sp})`;
@@ -435,23 +559,41 @@ export function buildIntelBriefingItems({
         text += ` — ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}`;
       }
     }
-    text += '.';
+    // Add context about why it matters
+    const isDivision = nOppSlug && division && MLB_TEAMS.find(t => t.slug === nOppSlug)?.division === division;
+    if (isDivision) {
+      text += '. A divisional matchup with standings implications.';
+    } else {
+      text += '.';
+    }
     items.push({ text, type: 'next', oppSlug: nOppSlug || null });
   }
 
-  // ── Pad with additional news or model context ──
+  // ── Pad with additional context if under 5 bullets ──
   if (items.length < 5 && cleanedNews.length > 1) {
     items.push({ text: cleanedNews[1], type: 'news' });
   }
   if (items.length < 5) {
-    const delta = projection?.marketDelta;
-    if (delta != null && Math.abs(delta) >= 2) {
-      const dir = delta > 0 ? 'above' : 'below';
-      items.push({ text: `Model: ${Math.abs(delta).toFixed(1)} wins ${dir} market consensus. ${tk.marketStance || ''}`.trim(), type: 'model' });
+    const mdelta = projection?.marketDelta;
+    if (mdelta != null && Math.abs(mdelta) >= 2.5) {
+      const dir = mdelta > 0 ? 'above' : 'below';
+      const stance = mdelta > 0
+        ? `There's still value here if the market hasn't adjusted.`
+        : `The market may be pricing in last year's roster, not this one.`;
+      items.push({ text: `The model sees ${teamName} ${Math.abs(mdelta).toFixed(1)} wins ${dir} market consensus. ${stance}`, type: 'model' });
     }
   }
   if (items.length < 5 && tk.depthProfile) {
-    items.push({ text: `Roster depth: ${tk.depthProfile}. ${tk.stability ? `Stability: ${tk.stability}.` : ''}`.trim(), type: 'profile' });
+    const depth = tk.depthProfile.toLowerCase();
+    let depthNarrative;
+    if (depth.includes('deep') || depth.includes('strong')) {
+      depthNarrative = `Roster depth is a strength — this team can absorb injuries and maintain performance across a long season.`;
+    } else if (depth.includes('thin') || depth.includes('shallow')) {
+      depthNarrative = `Depth is a real vulnerability here. One or two injuries to key contributors could change the trajectory.`;
+    } else {
+      depthNarrative = `Depth is mixed — enough to stay competitive, but a key injury could expose the gaps quickly.`;
+    }
+    items.push({ text: depthNarrative, type: 'profile' });
   }
   if (items.length < 5 && cleanedNews.length > 2) {
     items.push({ text: cleanedNews[2], type: 'news' });
@@ -469,6 +611,7 @@ export function buildIntelBriefingItems({
  * @param {string} opts.slug - team slug
  * @param {string} opts.teamName - full team name
  * @param {string} opts.division - e.g., "AL East"
+ * @param {string} [opts.record] - overall W-L record string (e.g., "82-80")
  * @param {Object} opts.teamContext - from extractTeamContext() or extractTeamContextFromSchedule()
  * @param {Array} opts.newsHeadlines - array of headline strings or {title, headline} objects
  * @param {Object} [opts.nextGame] - { opponent, date, oppSlug }
@@ -477,14 +620,14 @@ export function buildIntelBriefingItems({
  * @returns {{ headline, subtext, items: Array<{text, oppSlug?, type}> }}
  */
 export function buildMlbTeamIntelBriefing(opts) {
-  const { slug, teamName, division } = opts;
+  const { slug, teamName, division, record } = opts;
   const projection = opts.projection || (slug ? getTeamProjection(slug) : null);
   const divOutlook = projection?.divOutlook ?? '';
 
   const teamContext = opts.teamContext || { recentGames: [], l10Record: null, l10Wins: null, streak: null };
 
   const { headline, subtext } = buildTopicalHeadline({
-    teamName, slug, projection, teamContext, division,
+    teamName, slug, projection, teamContext, division, record,
   });
 
   const items = buildIntelBriefingItems({
@@ -492,6 +635,7 @@ export function buildMlbTeamIntelBriefing(opts) {
     newsHeadlines: opts.newsHeadlines,
     nextGame: opts.nextGame,
     nextLine: opts.nextLine,
+    record,
   });
 
   return { headline, subtext, items, projection };

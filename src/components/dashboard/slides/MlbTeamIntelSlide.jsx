@@ -139,6 +139,7 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
     slug,
     teamName: name,
     division,
+    record,
     projection,
     teamContext,
     newsHeadlines: rawNews,
@@ -164,11 +165,15 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
   if (wsOdds != null) chips.push({ text: `\uD83C\uDFC6 ${fmtOdds(wsOdds)}`, type: 'odds' });
   if (division) chips.push({ text: division, type: 'conf' });
 
-  // Record / form line
+  // Record / form line — prioritize overall record + L10
   const recordParts = [];
   if (record) recordParts.push(record.replace('-', '\u2013'));
   if (teamContext.l10Record) recordParts.push(`L10: ${teamContext.l10Record}`);
-  if (teamContext.streak) recordParts.push(teamContext.streak);
+  // Only show streak if ≥3 to avoid clutter
+  if (teamContext.streak) {
+    const streakNum = parseInt(teamContext.streak.slice(1));
+    if (streakNum >= 3) recordParts.push(teamContext.streak);
+  }
 
   return (
     <div

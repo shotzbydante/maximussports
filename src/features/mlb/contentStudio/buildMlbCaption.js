@@ -323,15 +323,24 @@ function teamCaption(payload) {
   const projection = slug ? getTeamProjection(slug) : (payload.projection || null);
   const team = slug ? MLB_TEAMS.find(t => t.slug === slug) : null;
 
+  const record = payload.record || null;
+
   const briefing = buildMlbTeamIntelBriefing({
     slug,
     teamName,
     division: team?.division || payload.division || '',
+    record,
     projection,
     teamContext,
     newsHeadlines: payload.newsHeadlines || [],
     nextLine: payload.nextLine ?? null,
   });
+
+  // Build record + L10 summary for caption context
+  const recordL10Parts = [];
+  if (record) recordL10Parts.push(record);
+  if (teamContext.l10Record) recordL10Parts.push(`L10: ${teamContext.l10Record}`);
+  const recordSummary = recordL10Parts.length > 0 ? recordL10Parts.join(' · ') : null;
 
   // Opener — editorial identity with headline thesis
   lines.push(`${emoji} ${teamName} — Team Intel Report`);
@@ -349,6 +358,12 @@ function teamCaption(payload) {
   // Subtext hook
   if (briefing.subtext) {
     lines.push(briefing.subtext);
+    lines.push('');
+  }
+
+  // Record + L10 context
+  if (recordSummary) {
+    lines.push(`📊 ${recordSummary}`);
     lines.push('');
   }
 

@@ -444,6 +444,7 @@ export default function MlbTeamDetail() {
                 slug: team.slug,
                 teamName: team.name,
                 division: team.division,
+                record,
                 teamContext: schedContext,
                 newsHeadlines: teamHeadlines,
                 nextGame: nextGame ? {

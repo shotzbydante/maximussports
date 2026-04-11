@@ -280,8 +280,8 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 0.82rem;
-  line-height: 1.55;
+  font-size: 0.86rem;
+  line-height: 1.6;
   color: var(--color-text-secondary);
   counter-increment: briefing;
 }
