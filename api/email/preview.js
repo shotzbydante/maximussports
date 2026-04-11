@@ -227,12 +227,13 @@ export default async function handler(req, res) {
         break;
       case 'mlbTeamDigest': {
         const { getMLBTeamBySlug: getSlug } = await import('../../src/sports/mlb/teams.js');
+        const mlbOnly = pinnedSlugs.filter(s => getSlug(s) != null);
         const td = assembleTeamDigestPayload(
-          pinnedSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
+          mlbOnly.slice(0, TEAM_DIGEST_MAX_TEAMS),
           { scoresToday, rankingsTop25, atsLeaders, headlines },
           getSlug
         );
-        html = renderMlbDigestHTML({ ...emailData, teamDigests: td, totalTeamCount: pinnedSlugs.length });
+        html = renderMlbDigestHTML({ ...emailData, teamDigests: td, totalTeamCount: mlbOnly.length });
         break;
       }
     }

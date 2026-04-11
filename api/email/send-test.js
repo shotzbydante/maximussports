@@ -253,7 +253,10 @@ export default async function handler(req, res) {
           ? await import('../../src/sports/mlb/teams.js')
           : await import('../../src/data/teams.js');
         const getTeamBySlug = tplType === 'mlbTeamDigest' ? teamMod.getMLBTeamBySlug : teamMod.getTeamBySlug;
-        const teamDigests = assemble(emailData.pinnedSlugs.slice(0, max), emailData, getTeamBySlug);
+        // Filter slugs to only the current sport (user_teams stores all sports mixed)
+        const sportSlugs = emailData.pinnedSlugs.filter(s => getTeamBySlug(s) != null);
+        console.log(`[send-test] Digest: total pinned=${emailData.pinnedSlugs.length} sport_filtered=${sportSlugs.length} tplType=${tplType}`);
+        const teamDigests = assemble(sportSlugs.slice(0, max), emailData, getTeamBySlug);
         const digestData = { ...emailData, teamDigests, totalTeamCount: emailData.pinnedSlugs.length };
         subject = tmpl.getSubject(digestData);
         html    = tmpl.renderHTML(digestData);
