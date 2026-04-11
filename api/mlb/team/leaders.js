@@ -1,31 +1,23 @@
 /**
  * GET /api/mlb/team/leaders?team=nyy
  *
- * Returns team-level stat leaders (top player per category) from ESPN.
- * Categories: HR, RBI, Hits, Wins, Saves
+ * Returns current team metadata from ESPN:
+ *   - record (e.g. "8-5")
+ *   - standingSummary (e.g. "1st in AL East")
+ *   - nextEvent (opponent, date)
+ *   - teamStats (aggregate HR, RBI, H, W, SV)
  *
- * Source: ESPN team statistics endpoint
- * Cache: 2 hours (stats don't change frequently)
+ * Note: ESPN's public API does not expose individual player leaders.
+ * Team-aggregate stats are returned instead. Individual player leaders
+ * require the MLB Stats API (statsapi.mlb.com) which is a future integration.
  *
- * Response:
- * {
- *   team: 'nyy',
- *   leaders: {
- *     hr:    { name: 'Aaron Judge', value: 12 },
- *     rbi:   { name: 'Aaron Judge', value: 30 },
- *     hits:  { name: 'Juan Soto',   value: 45 },
- *     wins:  { name: 'Gerrit Cole', value: 4 },
- *     saves: { name: 'Clay Holmes', value: 8 },
- *   },
- *   fetchedAt: ISO string
- * }
+ * Cache: 30 minutes
  */
 
 import { createCache } from '../../_cache.js';
 
-const cache = createCache(2 * 60 * 60 * 1000); // 2 hour cache
+const cache = createCache(30 * 60 * 1000); // 30 min cache
 const FETCH_TIMEOUT = 8000;
-
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb';
 
 const SLUG_TO_ESPN_ID = {
@@ -38,114 +30,81 @@ const SLUG_TO_ESPN_ID = {
 };
 
 /**
- * Fetch team roster/stats from ESPN and extract leaders.
+ * Fetch team info: record, standing, next event.
  */
-async function fetchTeamLeaders(espnId) {
-  // ESPN team endpoint includes leaders in the response
-  const url = `${ESPN_BASE}/teams/${espnId}?enable=roster,stats`;
+async function fetchTeamInfo(espnId) {
+  const url = `${ESPN_BASE}/teams/${espnId}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-
   try {
-    const r = await fetch(url, {
-      headers: { 'User-Agent': 'MaximusSports/1.0' },
-      signal: controller.signal,
-    });
+    const r = await fetch(url, { headers: { 'User-Agent': 'MaximusSports/1.0' }, signal: controller.signal });
     clearTimeout(timer);
     if (!r.ok) return null;
-
     const data = await r.json();
     const team = data?.team;
     if (!team) return null;
 
-    // ESPN returns team.record.items for standings
     const record = team.record?.items?.[0]?.summary || null;
+    const standingSummary = team.standingSummary || null;
 
-    // Try to get leaders from team response
-    // ESPN sometimes includes leaders in the team endpoint
-    const leaders = {};
+    // Next event
+    const ne = team.nextEvent?.[0];
+    let nextGame = null;
+    if (ne) {
+      const competitors = ne.competitions?.[0]?.competitors || [];
+      const away = competitors.find(c => c.homeAway === 'away');
+      const home = competitors.find(c => c.homeAway === 'home');
+      nextGame = {
+        name: ne.shortName || ne.name || '',
+        date: ne.date,
+        awayTeam: away?.team?.abbreviation || '',
+        homeTeam: home?.team?.abbreviation || '',
+        broadcast: ne.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || null,
+      };
+    }
 
-    // Check if nextEvent exists for schedule info
-    const nextEvent = team.nextEvent?.[0];
-    const nextGame = nextEvent ? {
-      opponent: null,
-      date: nextEvent.date,
-      name: nextEvent.name || nextEvent.shortName,
-    } : null;
-
-    // Try the statistics endpoint for detailed team stats
-    return { record, leaders, nextGame };
+    return { record, standingSummary, nextGame };
   } catch (err) {
     clearTimeout(timer);
-    console.warn(`[mlb/team/leaders] fetch failed for ${espnId}:`, err.message);
+    console.warn(`[mlb/team/leaders] team fetch failed for ${espnId}:`, err.message);
     return null;
   }
 }
 
 /**
- * Fetch team statistics with batting/pitching leaders from ESPN.
+ * Fetch team-level aggregate stats from ESPN.
+ * Returns team totals for key batting/pitching categories.
  */
 async function fetchTeamStats(espnId) {
   const url = `${ESPN_BASE}/teams/${espnId}/statistics`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-
   try {
-    const r = await fetch(url, {
-      headers: { 'User-Agent': 'MaximusSports/1.0' },
-      signal: controller.signal,
-    });
+    const r = await fetch(url, { headers: { 'User-Agent': 'MaximusSports/1.0' }, signal: controller.signal });
     clearTimeout(timer);
-    if (!r.ok) {
-      console.warn(`[mlb/team/leaders] stats endpoint returned ${r.status} for team ${espnId}`);
-      return null;
-    }
-
+    if (!r.ok) return null;
     const data = await r.json();
 
-    // Parse batting leaders
-    const batting = data?.results?.stats?.categories?.find(c =>
-      c.name === 'batting' || c.displayName === 'Batting'
-    );
-    const pitching = data?.results?.stats?.categories?.find(c =>
-      c.name === 'pitching' || c.displayName === 'Pitching'
-    );
+    const categories = data?.results?.stats?.categories || [];
+    const batting = categories.find(c => c.name === 'batting');
+    const pitching = categories.find(c => c.name === 'pitching');
 
-    const leaders = {};
+    const getStat = (cat, abbrev) => {
+      if (!cat?.stats) return null;
+      const s = cat.stats.find(st => st.abbreviation === abbrev);
+      return s ? { value: s.value != null ? Number(s.value) : null, display: s.displayValue || null } : null;
+    };
 
-    // Extract from splits or leaders
-    if (batting?.leaders) {
-      for (const leader of batting.leaders) {
-        const cat = leader.abbreviation?.toLowerCase() || leader.name?.toLowerCase();
-        const topAthlete = leader.leaders?.[0];
-        if (topAthlete?.athlete) {
-          const entry = {
-            name: topAthlete.athlete.displayName || topAthlete.athlete.shortName,
-            value: topAthlete.value != null ? Number(topAthlete.value) : null,
-          };
-          if (cat === 'hr' || cat === 'homeRuns') leaders.hr = entry;
-          if (cat === 'rbi') leaders.rbi = entry;
-          if (cat === 'h' || cat === 'hits') leaders.hits = entry;
-        }
-      }
-    }
-
-    if (pitching?.leaders) {
-      for (const leader of pitching.leaders) {
-        const cat = leader.abbreviation?.toLowerCase() || leader.name?.toLowerCase();
-        const topAthlete = leader.leaders?.[0];
-        if (topAthlete?.athlete) {
-          const entry = {
-            name: topAthlete.athlete.displayName || topAthlete.athlete.shortName,
-            value: topAthlete.value != null ? Number(topAthlete.value) : null,
-          };
-          if (cat === 'w' || cat === 'wins') leaders.wins = entry;
-          if (cat === 'sv' || cat === 'saves') leaders.saves = entry;
-        }
-      }
-    }
-
-    return leaders;
+    return {
+      hr:    getStat(batting, 'HR'),
+      rbi:   getStat(batting, 'RBI'),
+      hits:  getStat(batting, 'H'),
+      avg:   getStat(batting, 'AVG'),
+      runs:  getStat(batting, 'R'),
+      wins:  getStat(pitching, 'W'),
+      saves: getStat(pitching, 'SV'),
+      era:   getStat(pitching, 'ERA'),
+    };
   } catch (err) {
     clearTimeout(timer);
     console.warn(`[mlb/team/leaders] stats fetch failed for ${espnId}:`, err.message);
@@ -155,59 +114,40 @@ async function fetchTeamStats(espnId) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=7200');
+  res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const slug = url.searchParams.get('team');
 
   if (!slug || !SLUG_TO_ESPN_ID[slug]) {
-    return res.status(400).json({ error: 'Invalid team slug. Use ?team=nyy, ?team=lad, etc.' });
+    return res.status(400).json({ error: 'Invalid team slug' });
   }
 
-  const cacheKey = `mlb:leaders:${slug}`;
+  const cacheKey = `mlb:team:${slug}`;
   const cached = cache.get(cacheKey);
   if (cached) return res.status(200).json({ ...cached, _cached: true });
 
   const espnId = SLUG_TO_ESPN_ID[slug];
-
-  // Fetch team info + stats in parallel
-  const [teamInfo, stats] = await Promise.allSettled([
-    fetchTeamLeaders(espnId),
+  const [infoResult, statsResult] = await Promise.allSettled([
+    fetchTeamInfo(espnId),
     fetchTeamStats(espnId),
   ]);
 
-  const info = teamInfo.status === 'fulfilled' ? teamInfo.value : null;
-  const leaders = stats.status === 'fulfilled' ? stats.value : null;
+  const info = infoResult.status === 'fulfilled' ? infoResult.value : null;
+  const stats = statsResult.status === 'fulfilled' ? statsResult.value : null;
 
   const payload = {
     team: slug,
     record: info?.record || null,
-    leaders: leaders || {},
+    standingSummary: info?.standingSummary || null,
     nextGame: info?.nextGame || null,
+    teamStats: stats || null,
     fetchedAt: new Date().toISOString(),
   };
 
+  console.log(`[mlb/team/leaders] ${slug}: record=${payload.record} standing=${payload.standingSummary} stats=${!!stats}`);
+
   cache.set(cacheKey, payload);
   return res.status(200).json(payload);
-}
-
-/**
- * Batch fetch leaders for multiple teams. Used by email pipeline.
- */
-export async function fetchTeamLeadersBatch(baseUrl, slugs) {
-  if (!slugs?.length) return {};
-  const results = await Promise.allSettled(
-    slugs.map(slug =>
-      fetch(`${baseUrl}/api/mlb/team/leaders?team=${slug}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null)
-    )
-  );
-  const map = {};
-  slugs.forEach((slug, i) => {
-    const r = results[i];
-    map[slug] = r.status === 'fulfilled' ? r.value : null;
-  });
-  return map;
 }
