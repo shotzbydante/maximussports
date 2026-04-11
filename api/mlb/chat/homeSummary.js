@@ -159,17 +159,49 @@ async function fetchMlbStandings() {
   }
 }
 
+async function fetchMlbLeaders() {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const r = await fetch('https://site.web.api.espn.com/apis/site/v3/sports/baseball/mlb/leaders?season=' + getCurrentSeason() + '&seasontype=2&limit=5', { signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) return {};
+    const data = await r.json();
+    const cats = data?.leaders?.categories || [];
+    const result = {};
+    for (const cat of cats) {
+      if (!['homeRuns', 'RBIs', 'hits'].includes(cat.name)) continue;
+      result[cat.name] = {
+        leaders: (cat.leaders || []).slice(0, 3).map(e => ({
+          name: e.athlete?.displayName || '—',
+          teamAbbrev: e.athlete?.team?.abbreviation || '',
+          value: e.value ?? 0,
+          display: String(Math.round(e.value ?? 0)),
+        })),
+      };
+    }
+    return result;
+  } catch { return {}; }
+}
+
+function getCurrentSeason() {
+  const m = new Date().getMonth() + 1;
+  return m <= 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
+}
+
 async function buildMlbSummaryData() {
-  const [headlines, champOdds, standings] = await Promise.allSettled([
+  const [headlines, champOdds, standings, leaders] = await Promise.allSettled([
     fetchMlbHeadlines(),
     fetchMlbOdds(),
     fetchMlbStandings(),
+    fetchMlbLeaders(),
   ]);
 
   return {
     headlines: headlines.status === 'fulfilled' ? headlines.value : [],
     championshipOdds: champOdds.status === 'fulfilled' ? champOdds.value : {},
     standings: standings.status === 'fulfilled' ? standings.value : {},
+    leaders: leaders.status === 'fulfilled' ? leaders.value : {},
   };
 }
 
@@ -183,7 +215,7 @@ function getMlbSeasonPhase() {
 }
 
 function buildPayload(data) {
-  const { headlines, championshipOdds, standings } = data;
+  const { headlines, championshipOdds, standings, leaders } = data;
 
   const slugToName = Object.fromEntries(MLB_TEAMS.map((t) => [t.slug, t.name]));
 
@@ -219,6 +251,7 @@ function buildPayload(data) {
     headlines: headlinesTop,
     seasonPhase: getMlbSeasonPhase(),
     standings: standingsSummary,
+    seasonLeaders: leaders || {},
   };
 }
 
@@ -324,6 +357,12 @@ STANDINGS DATA:
 - Use this data to ground your ¶3 (Pennant Race) analysis in actual standings context — reference real records and games back.
 - When discussing a team's trajectory, connect their L10 record to whether they're gaining or losing ground.
 - Always answer "why it matters" — don't just report standings, explain what the standings mean for the race.
+
+SEASON LEADERS DATA:
+- If seasonLeaders is present, it contains real current MLB stat leaders (HR, RBI, Hits) with player names, team abbreviations, and stat values.
+- Weave 1–2 leader references naturally into your briefing where relevant — e.g., mention the HR leader when discussing their team's surge, or reference a tight stat race as a storyline.
+- Do NOT dedicate an entire paragraph to leaders. Use them as texture within existing paragraphs.
+- Only reference leaders that are actually in the data — never invent stat values.
 
 STYLE RULES:
 - Target 350–450 words total (hard limit: 500 words). This should feel substantive, not thin.

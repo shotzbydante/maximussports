@@ -11,6 +11,7 @@
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
+import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders';
 import { buildDailyContent, stripEmojis, fmtOdds } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
@@ -56,7 +57,7 @@ function logoUrl(slug) {
   return slug ? getMlbEspnLogoUrl(slug) : null;
 }
 
-function trim(text, max = 95) {
+function trim(text, max = 120) {
   if (!text) return '';
   let s = text.trim();
   // Strip filler prefixes
@@ -67,7 +68,7 @@ function trim(text, max = 95) {
   if (s.length <= max) return s;
   // Cut at last sentence boundary if possible
   const sentEnd = s.lastIndexOf('.', max);
-  if (sentEnd > max * 0.5) return s.slice(0, sentEnd + 1);
+  if (sentEnd > max * 0.4) return s.slice(0, sentEnd + 1);
   // Otherwise cut at word boundary
   return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
 }
@@ -140,36 +141,21 @@ function buildSlide2Content(data) {
     logoSrc: logoUrl(b.logoSlug),
   }));
 
-  // ── PENNANT RACE: top 4 MLB teams by projected wins, league-agnostic ──
-  const allTeams = [];
-  for (const team of MLB_TEAMS) {
-    const proj = getTeamProjection(team.slug);
-    if (!proj || !proj.projectedWins) continue;
-    const oddsData = (data?.mlbChampOdds ?? {})[team.slug];
-    const oddsVal = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
-    allTeams.push({
-      slug: team.slug, abbrev: team.abbrev, division: team.division,
-      projectedWins: proj.projectedWins,
-      signals: proj.signals ?? [],
-      confidenceTier: proj.confidenceTier ?? null,
-      marketDelta: proj.marketDelta ?? null,
-      odds: oddsVal,
-    });
-  }
-  allTeams.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
-  const raceTeams = allTeams.slice(0, 4).map(t => {
-    const signal = t.signals?.[0] || '';
-    const oddsStr = t.odds != null ? fmtOdds(t.odds) : '—';
-    return {
-      team: t.abbrev,
-      teamLogoSrc: logoUrl(t.slug),
-      division: shortDiv(t.division),
-      projectedWins: t.projectedWins,
-      convictionLabel: t.confidenceTier || 'Projected',
-      championshipOdds: oddsStr,
-      summaryTag: signal || null,
-    };
-  });
+  // ── SEASON LEADERS: top 3 in each category from ESPN ──
+  const leadersRaw = data?.mlbLeaders?.categories || {};
+  const leaderCategories = LEADER_CATEGORIES
+    .filter(cat => leadersRaw[cat.key]?.leaders?.length > 0)
+    .map(cat => ({
+      key: cat.key,
+      label: cat.label,
+      abbrev: cat.abbrev,
+      leaders: leadersRaw[cat.key].leaders.slice(0, 3).map(l => ({
+        name: l.name?.split(' ').pop() || l.name || '—', // last name only for compact display
+        fullName: l.name || '—',
+        teamAbbrev: l.teamAbbrev || '',
+        value: l.display || String(l.value || 0),
+      })),
+    }));
 
   // ── MAXIMUS'S PICKS: 4 pick modules, ensure ATS representation ──
   const pickCats = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
@@ -230,7 +216,7 @@ function buildSlide2Content(data) {
     subhead: dynamicHL.subhead || buildSubhead(paras),
     featureBullets,
     featureTakeaway: dynamicHL.subhead || "Today's board is being shaped by results across both leagues.",
-    raceTeams,
+    leaderCategories,
     picks,
   };
 }
@@ -283,28 +269,30 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
       </section>
 
       <section className={styles.slide2SupportGrid}>
-        {/* PENNANT RACE — 4 team modules */}
+        {/* SEASON LEADERS — top 3 in 5 stat categories */}
         <article className={styles.slide2SupportCard}>
-          <div className={styles.slide2SectionPill}>PENNANT RACE</div>
-          <div className={styles.slide2RaceTeams}>
-            {c.raceTeams.map((t, i) => (
-              <div key={i} className={styles.slide2RaceTeamCard}>
-                <div className={styles.slide2RaceTeamTopRow}>
-                  <div className={styles.slide2RaceTeamIdentity}>
-                    <InlineLogo src={t.teamLogoSrc} size={22} />
-                    <div className={styles.slide2RaceTeamName}>{t.team}</div>
-                  </div>
-                  <div className={styles.slide2RaceTeamMetaStack}>
-                    <div className={styles.slide2RaceTeamDivision}>{t.division}</div>
-                    <div className={styles.slide2RaceTeamConviction}>{t.convictionLabel}</div>
-                  </div>
+          <div className={styles.slide2SectionPill}>SEASON LEADERS</div>
+          <div className={styles.slide2LeadersWrap}>
+            {c.leaderCategories.length > 0 ? c.leaderCategories.map((cat, ci) => (
+              <div key={ci} className={styles.slide2LeaderCategory}>
+                <div className={styles.slide2LeaderCatHeader}>
+                  <span className={styles.slide2LeaderCatLabel}>{cat.label}</span>
+                  <span className={styles.slide2LeaderCatAbbrev}>{cat.abbrev}</span>
                 </div>
-                <div className={styles.slide2RaceTeamProjection}>Projected Wins: {t.projectedWins}</div>
-                <div className={styles.slide2RaceTeamProjectionBadge}>Maximus Model Projection</div>
-                {t.summaryTag && <div className={styles.slide2RaceTeamTag}>{t.summaryTag}</div>}
-                <div className={styles.slide2RaceTeamOdds}>{'\uD83C\uDFC6'} {t.championshipOdds}</div>
+                <div className={styles.slide2LeaderRows}>
+                  {cat.leaders.map((l, li) => (
+                    <div key={li} className={styles.slide2LeaderRow}>
+                      <span className={styles.slide2LeaderRank}>{li + 1}</span>
+                      <span className={styles.slide2LeaderName}>{l.name}</span>
+                      {l.teamAbbrev && <span className={styles.slide2LeaderTeam}>{l.teamAbbrev}</span>}
+                      <span className={styles.slide2LeaderValue}>{l.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )) : (
+              <div className={styles.slide2LeadersEmpty}>Season leaders loading...</div>
+            )}
           </div>
         </article>
 

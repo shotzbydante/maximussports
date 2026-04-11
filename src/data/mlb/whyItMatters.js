@@ -383,14 +383,16 @@ export function buildLeagueWhyItMatters(stories, allStandings) {
   // Sort by priority and return the top signal
   gameSignals.sort((a, b) => b.priority - a.priority);
 
-  // If multiple high-priority signals, synthesize
+  // If multiple high-priority signals, synthesize into one coherent sentence
   const top = gameSignals[0];
   if (gameSignals.length >= 2 && gameSignals[1].priority >= 80) {
     const second = gameSignals[1];
+    // Extract just the first sentence from top.long to keep it concise
+    const topFirst = top.long.split(/[.!?]\s/)[0] + '.';
     return {
       type: 'standings_shift',
-      short: `${top.short} — and more`,
-      long: `${top.long} Meanwhile, ${second.short.toLowerCase()}.`,
+      short: top.short,
+      long: `${topFirst} Meanwhile, ${second.short.toLowerCase()}.`,
       priority: Math.max(top.priority, second.priority),
     };
   }
