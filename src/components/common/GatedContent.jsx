@@ -2,7 +2,7 @@
  * GatedContent — premium progressive content gate for unauthenticated users.
  *
  * Shows the top portion of real content, then fades into a polished
- * signup CTA overlay. Authenticated users see everything normally.
+ * signup CTA overlay that fills the remaining viewport. No dead white space.
  *
  * Props:
  *   previewPercent  — how much of the page to show (default 25)
@@ -35,24 +35,48 @@ export default function GatedContent({
   const navigate = useNavigate();
   const wrapperRef = useRef(null);
   const [previewPx, setPreviewPx] = useState(600);
+  const [fillHeight, setFillHeight] = useState(500);
 
   const copy = SPORT_COPY[sport] || SPORT_COPY.mlb;
   const heading = title || copy.title;
   const sub = subtitle || copy.sub;
 
-  // Calculate preview height based on actual rendered content.
-  // Mobile gets a higher minimum so users see more real content before the gate.
+  // Calculate preview height + remaining viewport fill height
   useEffect(() => {
-    if (user || !wrapperRef.current) return;
-    const isMobile = window.innerWidth <= 480;
-    const minPx = isMobile ? 520 : 400;
-    const pct = isMobile ? Math.max(previewPercent, 35) : previewPercent;
-    const observer = new ResizeObserver(() => {
-      const h = wrapperRef.current?.scrollHeight || 2000;
-      setPreviewPx(Math.max(minPx, Math.round(h * pct / 100)));
-    });
-    observer.observe(wrapperRef.current);
-    return () => observer.disconnect();
+    if (user) return;
+
+    function measure() {
+      const isMobile = window.innerWidth <= 480;
+      const minPx = isMobile ? 520 : 400;
+      const pct = isMobile ? Math.max(previewPercent, 35) : previewPercent;
+      const contentH = wrapperRef.current?.scrollHeight || 2000;
+      const preview = Math.max(minPx, Math.round(contentH * pct / 100));
+      setPreviewPx(preview);
+
+      // Calculate how much viewport remains after the preview
+      // so the fade+CTA region fills the rest with no white space
+      const vh = window.innerHeight;
+      const topOffset = wrapperRef.current?.getBoundingClientRect()?.top || 0;
+      const remainingVh = vh - topOffset - preview + 120; // +120 for overlap
+      setFillHeight(Math.max(360, remainingVh));
+    }
+
+    measure();
+
+    // Re-measure on resize and after content loads
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+
+    let observer;
+    if (wrapperRef.current) {
+      observer = new ResizeObserver(measure);
+      observer.observe(wrapperRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      observer?.disconnect();
+    };
   }, [user, previewPercent]);
 
   // Authenticated users see everything
@@ -65,21 +89,23 @@ export default function GatedContent({
         {children}
       </div>
 
-      {/* Fade + CTA overlay */}
-      <div className={styles.fadeOverlay}>
-        <div className={styles.ctaCard}>
-          <div className={styles.lockBadge}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
+      {/* Fade + CTA overlay — fills remaining viewport */}
+      <div className={styles.fadeOverlay} style={{ minHeight: `${fillHeight}px` }}>
+        <div className={styles.ctaRegion}>
+          <div className={styles.ctaCard}>
+            <div className={styles.lockBadge}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <h3 className={styles.ctaTitle}>{heading}</h3>
+            <p className={styles.ctaSub}>{sub}</p>
+            <button className={styles.ctaBtn} onClick={() => navigate(ctaRoute)}>
+              {ctaLabel}
+            </button>
+            <p className={styles.ctaNote}>Free forever. No credit card required.</p>
           </div>
-          <h3 className={styles.ctaTitle}>{heading}</h3>
-          <p className={styles.ctaSub}>{sub}</p>
-          <button className={styles.ctaBtn} onClick={() => navigate(ctaRoute)}>
-            {ctaLabel}
-          </button>
-          <p className={styles.ctaNote}>Free forever. No credit card required.</p>
         </div>
       </div>
     </div>
