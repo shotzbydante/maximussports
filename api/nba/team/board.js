@@ -43,7 +43,11 @@ function parseStandings(data) {
       const losses = Number(stats.losses ?? stats.L ?? 0);
       const record = `${wins}-${losses}`;
       const confRank = Number(stats.playoffSeed ?? stats.rank ?? 0);
-      const streak = stats.streak ?? null;
+      const rawStreak = stats.streak ?? null;
+      // Clean ESPN streak format: "W4", "L10|4" → "W4", "L10"
+      const streak = typeof rawStreak === 'string'
+        ? rawStreak.split('|')[0].trim()
+        : null;
       const pct = Number(stats.winPercent ?? stats.winPct ?? (wins / Math.max(wins + losses, 1)));
       const gb = stats.gamesBehind ?? stats.GB ?? null;
 
