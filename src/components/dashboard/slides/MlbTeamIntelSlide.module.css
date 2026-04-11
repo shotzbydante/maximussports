@@ -569,57 +569,58 @@
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
 }
 
-/* ── Team Leaders module ──────────────────────────────────────── */
+/* ── Team Leaders — 5-column bottom strip ────────────────────── */
 
-.teamLeadersModule {
+.teamLeadersStrip {
   position: relative; z-index: 10;
-  margin: 12px 50px 0;
-  border-radius: 18px;
-  padding: 14px 20px 12px;
+  margin: 8px 50px 0;
+  border-radius: 14px;
+  padding: 10px 16px 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.10);
   box-shadow: 0 0 16px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.08);
 }
-.teamLeadersTitle {
+.teamLeadersStripTitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 16px; font-weight: 700;
-  letter-spacing: 1.2px; text-transform: uppercase;
-  color: rgba(255,220,140,0.95);
-  margin-bottom: 10px;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 1.4px; text-transform: uppercase;
+  color: rgba(255,180,180,0.72);
+  margin-bottom: 8px;
+  text-align: center;
 }
-.teamLeadersGrid {
-  display: flex; flex-direction: column;
+.teamLeadersColumns {
+  display: flex;
   gap: 6px;
 }
-.teamLeaderRow {
-  display: flex; align-items: center;
-  gap: 8px;
-}
-.teamLeaderStat {
-  width: 36px;
-  font-size: 14px; font-weight: 800;
-  letter-spacing: 0.5px;
-  color: rgba(255,255,255,0.60);
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-.teamLeaderName {
+.teamLeaderCol {
   flex: 1;
-  font-size: 18px; font-weight: 700;
+  display: flex; flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.teamLeaderColStat {
+  font-size: 13px; font-weight: 800;
+  letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.52);
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.teamLeaderColName {
+  font-size: 16px; font-weight: 700;
   color: rgba(255,255,255,0.96);
+  line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+  margin-bottom: 2px;
 }
-.teamLeaderLogo {
-  width: 20px; height: 20px;
-  object-fit: contain;
-  flex-shrink: 0;
-  opacity: 0.90;
-}
-.teamLeaderValue {
+.teamLeaderColValue {
   font-size: 20px; font-weight: 900;
   color: rgba(255,225,170,1);
-  min-width: 28px; text-align: right;
-  flex-shrink: 0;
+  line-height: 1.1;
 }
 
 /* ── Footer ────────────────────────────────────────────────────── */
