@@ -177,6 +177,31 @@ async function fetchChampOdds(baseUrl, log) {
   }
 }
 
+async function fetchLeaders(baseUrl, log) {
+  try {
+    const res = await fetch(`${baseUrl}/api/mlb/leaders`);
+    if (!res.ok) { log.warn('leaders fetch failed:', res.status); return {}; }
+    return await res.json();
+  } catch (e) {
+    log.warn('leaders fetch error:', e.message);
+    return {};
+  }
+}
+
+async function fetchStandings(baseUrl, log) {
+  try {
+    const res = await fetch(`${baseUrl}/api/mlb/standings`);
+    if (!res.ok) { log.warn('standings fetch failed:', res.status); return {}; }
+    const data = await res.json();
+    // Normalize to { slug: standings } map if needed
+    if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+    return {};
+  } catch (e) {
+    log.warn('standings fetch error:', e.message);
+    return {};
+  }
+}
+
 function buildSlideContent(liveGames, champOdds, dateLabel) {
   // Headline + HOTP (same as Slide 1 & 2)
   const hl = buildMlbDailyHeadline({ liveGames, briefing: null, seasonIntel: null });
@@ -357,9 +382,11 @@ export default async function handler(req, res) {
   // ── Preview mode: return metadata only ──
   if (mode === 'preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds] = await Promise.all([
+    const [liveGames, champOdds, mlbLeaders, mlbStandings] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
+      fetchLeaders(baseUrl, log),
+      fetchStandings(baseUrl, log),
     ]);
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel);
@@ -392,9 +419,11 @@ export default async function handler(req, res) {
   // ── Render-preview mode: render slides, return base64 images (no publish) ──
   if (mode === 'render-preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds] = await Promise.all([
+    const [liveGames, champOdds, mlbLeaders, mlbStandings] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
+      fetchLeaders(baseUrl, log),
+      fetchStandings(baseUrl, log),
     ]);
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel);
@@ -403,6 +432,8 @@ export default async function handler(req, res) {
     const browserData = {
       mlbLiveGames: liveGames,
       mlbChampOdds: champOdds ?? {},
+      mlbLeaders: mlbLeaders ?? {},
+      mlbStandings: mlbStandings ?? {},
       mlbBriefing: null,
       mlbPicks: { categories: {} },
       canonicalPicks: { categories: {} },
@@ -450,13 +481,15 @@ export default async function handler(req, res) {
   const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
   log.info('assembling data from:', baseUrl);
 
-  let liveGames, champOdds;
+  let liveGames, champOdds, mlbLeaders, mlbStandings;
   try {
-    [liveGames, champOdds] = await Promise.all([
+    [liveGames, champOdds, mlbLeaders, mlbStandings] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
+      fetchLeaders(baseUrl, log),
+      fetchStandings(baseUrl, log),
     ]);
-    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds entries`);
+    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${Object.keys(mlbLeaders?.categories || {}).length} leader cats, ${Object.keys(mlbStandings).length} standings`);
   } catch (e) {
     log.error('data assembly failed:', e.message);
     return res.status(500).json({ ok: false, stage: 'data_assembly', error: e.message, requestId, dateKey });
@@ -499,6 +532,8 @@ export default async function handler(req, res) {
     const browserData = {
       mlbLiveGames: liveGames,
       mlbChampOdds: champOdds ?? {},
+      mlbLeaders: mlbLeaders ?? {},
+      mlbStandings: mlbStandings ?? {},
       mlbBriefing: null,
       mlbPicks: { categories: {} },
       canonicalPicks: { categories: {} },
