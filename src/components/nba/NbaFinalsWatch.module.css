@@ -44,6 +44,16 @@
   margin-bottom: var(--space-sm);
   padding-bottom: var(--space-xs);
   border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confLogo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 3px;
 }
 
 .teamList {
