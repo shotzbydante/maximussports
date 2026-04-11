@@ -110,7 +110,7 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
   const { al, nl } = buildLeagueTop5(champOdds);
 
   return (
-    <div className={`${styles.artboard} ${styles.liveMotion}`} style={{ padding: '28px 0 18px' }} {...rest}>
+    <div className={`${styles.artboard} ${styles.liveMotion}`} data-slide="3" style={{ padding: '28px 0 18px' }} {...rest}>
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
       <div className={styles.bgRay} />
