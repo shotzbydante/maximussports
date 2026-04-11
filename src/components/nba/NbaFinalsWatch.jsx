@@ -51,9 +51,12 @@ export default function NbaFinalsWatch() {
       return bP - aP;
     });
 
-  const renderConf = (label, teams) => (
+  const renderConf = (label, teams, logoSrc) => (
     <div className={styles.confColumn}>
-      <h3 className={styles.confTitle}>{label}</h3>
+      <h3 className={styles.confTitle}>
+        <img src={logoSrc} alt={label} className={styles.confLogo} width={22} height={22} />
+        {label}
+      </h3>
       <div className={styles.teamList}>
         {teams.map(t => {
           const logo = getNbaEspnLogoUrl(t.slug);
@@ -74,8 +77,8 @@ export default function NbaFinalsWatch() {
       <h2 className={styles.sectionTitle}>Finals Watch</h2>
       <p className={styles.sectionSub}>Championship odds by conference</p>
       <div className={styles.grid}>
-        {renderConf('Eastern Conference', eastern)}
-        {renderConf('Western Conference', western)}
+        {renderConf('Eastern Conference', eastern, '/nba-east-logo.png')}
+        {renderConf('Western Conference', western, '/nba-west-logo.png')}
       </div>
     </section>
   );

@@ -1,0 +1,173 @@
+/* NBA Team Intel — premium conference/division board */
+.page {
+  --nba-primary: #1d428a;
+  --nba-primary-soft: rgba(29, 66, 138, 0.08);
+  --nba-primary-border: rgba(29, 66, 138, 0.14);
+  --nba-east: #1d428a;
+  --nba-west: #c9082a;
+
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-lg) 0;
+}
+
+.header { margin-bottom: var(--space-lg); }
+.pageTitle {
+  font-size: 1.35rem; font-weight: 700; color: var(--color-text);
+  display: flex; align-items: center; gap: 10px;
+}
+.headerLogo { width: 28px; height: 28px; object-fit: contain; }
+.subtitle { font-size: 0.82rem; color: var(--color-text-muted); margin-top: var(--space-xs); }
+
+.loadingState { text-align: center; padding: var(--space-xxl); color: var(--color-text-muted); }
+
+/* Conference grid — two columns */
+.conferenceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xl);
+}
+@media (max-width: 860px) {
+  .conferenceGrid { grid-template-columns: 1fr; }
+}
+
+.conferenceColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.confHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: var(--space-xs);
+  border-bottom: 2px solid var(--nba-primary-border);
+}
+
+.confLogo { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; }
+.confTitle {
+  font-size: 0.82rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--color-text);
+}
+
+/* Division cards */
+.divisionCard {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.divisionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--nba-primary-soft);
+  border-bottom: 1px solid var(--nba-primary-border);
+}
+
+.divisionLabel {
+  font-size: 0.76rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--nba-primary);
+}
+
+.divisionCount {
+  font-size: 0.62rem; font-weight: 500; color: var(--color-text-muted);
+}
+
+/* Column headers */
+.divisionHeaderRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 52px 90px 42px 48px 16px;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 0.52rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  align-items: center;
+}
+
+.colTeam { text-align: left; }
+.colRecord { text-align: center; }
+.colStanding { text-align: left; }
+.colStreak { text-align: center; }
+.colOdds { text-align: right; }
+.colChevron { text-align: right; }
+
+/* Team rows */
+.teamList { display: flex; flex-direction: column; }
+
+.teamRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto 16px;
+  gap: 6px;
+  padding: 8px 16px;
+  text-decoration: none;
+  color: var(--color-text);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.12s;
+  align-items: center;
+}
+.teamRow:last-child { border-bottom: none; }
+.teamRow:hover { background: rgba(29, 66, 138, 0.03); }
+
+.teamIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.teamLogo { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
+
+.teamNameCol { display: flex; flex-direction: column; min-width: 0; }
+.teamName {
+  font-size: 0.8rem; font-weight: 600; color: var(--color-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.teamAbbrev { font-size: 0.58rem; font-weight: 500; color: var(--color-text-muted); letter-spacing: 0.04em; }
+
+.teamStats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.record { font-size: 0.76rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--color-text); min-width: 42px; text-align: center; }
+.recordEmpty { font-size: 0.76rem; color: var(--color-text-muted); min-width: 42px; text-align: center; }
+
+.standing { font-size: 0.65rem; font-weight: 500; color: var(--color-text-secondary); min-width: 75px; }
+.standingEmpty { font-size: 0.65rem; color: var(--color-text-muted); min-width: 75px; }
+
+.streak {
+  font-size: 0.6rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; min-width: 28px; text-align: center;
+}
+.streakWin { color: #228b22; background: rgba(34, 139, 34, 0.1); }
+.streakLoss { color: #dc3545; background: rgba(220, 53, 69, 0.1); }
+.streakEmpty { font-size: 0.6rem; color: var(--color-text-muted); min-width: 28px; text-align: center; }
+
+.teamOdds { display: flex; align-items: center; justify-content: flex-end; min-width: 48px; }
+.oddsValue { font-size: 0.72rem; font-weight: 700; color: var(--nba-primary); font-variant-numeric: tabular-nums; }
+.oddsEmpty { font-size: 0.72rem; color: var(--color-text-muted); }
+
+.chevron {
+  font-size: 0.9rem; color: var(--color-text-muted); transition: color 0.12s;
+}
+.teamRow:hover .chevron { color: var(--nba-primary); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .divisionHeaderRow { display: none; }
+  .teamRow {
+    grid-template-columns: 1fr auto 16px;
+    padding: 10px 12px;
+  }
+  .standing { display: none; }
+  .streakEmpty, .streak { display: none; }
+}
