@@ -152,7 +152,7 @@ ${mlbHeroBlock({ line: 'Pin MLB teams to get your digest', sublabel: today })}
     return MlbEmailShell({ content, previewText: '\u26BE Pin MLB teams to get your personalized digest.', ctaUrl: 'https://maximussports.ai/settings', ctaLabel: 'Pin teams in Settings &rarr;' });
   }
 
-  const heroLine = teamDigests.length === 1 ? `${teamDigests[0].team.name} \u2014 your full digest.` : `${teamDigests.length} teams, one read.`;
+  const heroLine = teamDigests.length === 1 ? `${teamDigests[0].team.name} \u2014 your daily team intel.` : `Your Daily MLB Team Digest \u2014 ${teamDigests.length} teams.`;
   const divider = `\n${mlbDividerRow()}\n${mlbSpacerRow(6)}\n`;
   const teamSections = teamDigests.slice(0, TEAM_DIGEST_MAX_TEAMS).map((d, i) => renderTeamSection(d, i === 0)).join(divider);
 

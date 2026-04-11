@@ -469,7 +469,17 @@ export default async function handler(req, res) {
 
       // MLB data (via shared helper — include picks for summary card)
       mlbData = await assembleMlbEmailData(`http://${host}`, { includeSummary: true, includePicks: true });
-      console.log(`[run-daily] Global briefing: NCAAM headlines=${headlines.length} MLB headlines=${mlbData.headlines.length} MLB narrative=${!!mlbData.narrativeParagraph}`);
+
+      // Build pennant race data from projections (top 3 AL + top 3 NL)
+      try {
+        const { getSeasonProjections, filterTeams } = await import('../../src/data/mlb/seasonModel.js');
+        const allProj = getSeasonProjections();
+        const alTop = filterTeams(allProj, { league: 'AL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
+        const nlTop = filterTeams(allProj, { league: 'NL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
+        mlbData.pennantRace = { al: alTop, nl: nlTop };
+      } catch { /* projections not available */ }
+
+      console.log(`[run-daily] Global briefing: NCAAM headlines=${headlines.length} MLB headlines=${mlbData.headlines.length} MLB narrative=${!!mlbData.narrativeParagraph} pennant=${!!mlbData.pennantRace}`);
 
     } else if (isMLB) {
       // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──
@@ -767,7 +777,35 @@ export default async function handler(req, res) {
             const teamDigests2 = assembleTeamDigestPayload(
               digestSlugs2, { scoresToday, rankingsTop25, atsLeaders, headlines }, getTeamBySlugFn
             );
-            const mlbDigestData = { ...emailData, teamDigests: teamDigests2, totalTeamCount: pinnedSlugs.length };
+
+            // Enrich each MLB team digest with projection data + team intel summary
+            try {
+              const { getTeamProjection } = await import('../../src/data/mlb/seasonModel.js');
+              const { getTeamMeta: getMlbMeta } = await import('../../src/data/mlb/teamMeta.js');
+              const { buildMlbTeamIntelSummary } = await import('../../src/data/mlb/teamIntelSummary.js');
+
+              for (const digest of teamDigests2) {
+                const slug = digest.team?.slug;
+                if (!slug) continue;
+                const proj = getTeamProjection(slug);
+                const meta = getMlbMeta(slug);
+                const teamData = getTeamBySlugFn(slug);
+                if (proj) {
+                  digest.team.division = teamData?.division || proj.division || '';
+                  digest.team.conference = `${proj.projectedWins}W projected \u2022 ${proj.divOutlook || ''} \u2022 ${teamData?.division || ''}`;
+                  digest.maximusInsight = buildMlbTeamIntelSummary({
+                    team: teamData || digest.team,
+                    projection: proj,
+                    meta,
+                    odds: null,
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn(`[run-daily] MLB digest enrichment failed: ${err.message}`);
+            }
+
+            const mlbDigestData = { ...emailData, teamDigests: teamDigests2, totalTeamCount: mlbSlugs.length };
             subject = getMlbDigestSubject(mlbDigestData);
             html    = renderMlbDigestHTML(mlbDigestData);
             text    = renderMlbDigestText(mlbDigestData);
