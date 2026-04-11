@@ -293,13 +293,16 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
         <div className={styles.teamLeadersStrip}>
           <div className={styles.teamLeadersStripTitle}>TEAM LEADERS</div>
           <div className={styles.teamLeadersColumns}>
-            {briefing.teamLeaders.map((tl, i) => (
-              <div key={i} className={styles.teamLeaderCol}>
-                <span className={styles.teamLeaderColStat}>{tl.stat}</span>
-                <span className={styles.teamLeaderColName}>{tl.player?.split(' ').pop() || '—'}</span>
-                <span className={styles.teamLeaderColValue}>{tl.value}</span>
-              </div>
-            ))}
+            {briefing.teamLeaders.map((tl, i) => {
+              const displayLabel = { HR: 'HR', RBI: 'RBI', H: 'Hits', W: 'Wins', SV: 'Saves' }[tl.stat] || tl.stat;
+              return (
+                <div key={i} className={styles.teamLeaderCol}>
+                  <span className={styles.teamLeaderColStat}>{displayLabel}</span>
+                  <span className={styles.teamLeaderColName}>{tl.player || '—'}</span>
+                  <span className={styles.teamLeaderColValue}>{tl.value}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
