@@ -757,7 +757,12 @@ export function buildMlbTeamIntelBriefing(opts) {
 }
 
 /**
- * Extract the best player per stat category for a given team from league leaders.
+ * Extract the best player per stat category for a given team.
+ * Uses teamBest map (per-team best from full leaderboard) first,
+ * falls back to scanning the top-3 league leaders array.
+ *
+ * Always returns all 5 categories when data is available.
+ *
  * @param {string} slug - team slug
  * @param {Object} mlbLeaders - from /api/mlb/leaders: { categories: { ... } }
  * @returns {Array<{ stat: string, label: string, player: string, value: string }>}
@@ -778,9 +783,23 @@ function extractTeamLeaders(slug, mlbLeaders) {
 
   const results = [];
   for (const { key, stat, label } of mapping) {
-    const leaders = cats[key]?.leaders;
-    if (!leaders) continue;
-    const match = leaders.find(l => l.teamAbbrev === teamAbbrev);
+    const cat = cats[key];
+    if (!cat) continue;
+
+    // Prefer teamBest map (covers all teams)
+    const tb = cat.teamBest?.[teamAbbrev];
+    if (tb) {
+      results.push({
+        stat,
+        label,
+        player: tb.name || '—',
+        value: tb.display || String(tb.value || 0),
+      });
+      continue;
+    }
+
+    // Fallback: scan top-3 league leaders
+    const match = (cat.leaders || []).find(l => l.teamAbbrev === teamAbbrev);
     if (match) {
       results.push({
         stat,
