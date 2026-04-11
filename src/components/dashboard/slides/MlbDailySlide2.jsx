@@ -238,7 +238,7 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
   const c = buildSlide2Content(data);
 
   return (
-    <div className={styles.slide2} {...rest}>
+    <div className={styles.slide2} data-slide="2" {...rest}>
       <div className={styles.bgBase} />
       <div className={styles.bgGlow} />
       <div className={styles.bgRay} />
