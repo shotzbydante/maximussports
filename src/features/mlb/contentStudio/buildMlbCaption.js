@@ -323,22 +323,20 @@ function teamCaption(payload) {
   const teamName = payload.teamA?.name || payload.headline || 'Team';
   const emoji = teamEmoji(teamName);
   const slug = payload.teamA?.slug || null;
-  const lines = [];
 
-  // ── Build shared briefing for alignment with slide + team page ──
+  // ── Build shared briefing — same source as slide + team page ──
   const liveGames = payload.mlbLiveGames || [];
   const teamContext = extractTeamContext(liveGames, slug);
   const projection = slug ? getTeamProjection(slug) : (payload.projection || null);
   const team = slug ? MLB_TEAMS.find(t => t.slug === slug) : null;
-
+  const division = team?.division || payload.division || '';
   const record = payload.record || null;
-
   const standings = payload.mlbStandings?.[slug] || null;
 
   const briefing = buildMlbTeamIntelBriefing({
     slug,
     teamName,
-    division: team?.division || payload.division || '',
+    division,
     record,
     projection,
     teamContext,
@@ -348,64 +346,190 @@ function teamCaption(payload) {
     mlbLeaders: payload.mlbLeaders ?? null,
   });
 
-  // ── Unified caption format ──
-  lines.push('⚾ Your MLB Team Intel Report');
-  lines.push('');
-  lines.push(`${emoji} ${teamName}`);
+  const lines = [];
+
+  // ── 1. OPENER ──
+  lines.push(`\u26be ${teamName} \u2014 Team Intel Report`);
   lines.push('');
 
-  // Headline
+  // ── 2. HOOK HEADLINE ──
   if (briefing.headline) {
-    lines.push(`🔥 ${briefing.headline.replace(/\n/g, ' ')}`);
+    lines.push(`${emoji} ${briefing.headline.replace(/\n/g, ' ').toUpperCase()}`);
     lines.push('');
   }
 
-  // Model projection
+  // ── 3. MODEL + STANDING CONTEXT ──
   if (projection?.projectedWins) {
-    let projLine = `📈 Maximus Model: ${projection.projectedWins} wins`;
+    let projLine = `\ud83d\udcca Maximus Model: ${projection.projectedWins} wins`;
     if (projection.floor && projection.ceiling) {
       projLine += ` (${projection.floor}\u2013${projection.ceiling} range)`;
     }
     lines.push(projLine);
-    if (projection.marketDelta != null && Math.abs(projection.marketDelta) >= 1.5) {
-      const dir = projection.marketDelta > 0 ? '+' : '';
-      lines.push(`💰 ${dir}${projection.marketDelta.toFixed(1)} wins vs market \u2014 ${projection.marketDelta > 0 ? 'value still on the board' : 'market sees more'}`);
+  }
+
+  // Division rank + GB from standings or briefing items
+  const standingCtx = buildStandingContext(standings, division, record);
+  if (standingCtx) {
+    lines.push(`\ud83d\udccd ${standingCtx}`);
+  }
+  lines.push('');
+
+  // ── 4. WHAT'S ACTUALLY HAPPENING — narrative synthesis ──
+  const narrative = synthesizeNarrative(briefing);
+  if (narrative) {
+    lines.push('\ud83d\udca1 What\u2019s actually happening:');
+    lines.push(narrative);
+    lines.push('');
+  }
+
+  // ── 5. WHY IT MATTERS — 3 compact bullet points ──
+  const whyBullets = buildWhyItMatters(briefing);
+  if (whyBullets.length > 0) {
+    lines.push('\ud83d\udcca Why it matters:');
+    for (const b of whyBullets) {
+      lines.push(`\u2022 ${b}`);
     }
     lines.push('');
   }
 
-  // Intel bullets
-  if (briefing.items.length > 0) {
-    lines.push('🔎 What\u2019s happening:');
-    for (let i = 0; i < briefing.items.length; i++) {
-      lines.push(`${i + 1}. ${briefing.items[i].text}`);
-    }
-    lines.push('');
-  }
-
-  // Team Leaders
-  const LEADER_EMOJIS = { HR: '💥', RBI: '🎯', H: '⚡', W: '🔥', SV: '🧤' };
-  if (briefing.teamLeaders?.length > 0) {
-    lines.push('🏆 Team Leaders:');
-    for (const tl of briefing.teamLeaders) {
-      const le = LEADER_EMOJIS[tl.stat] || '⚾';
-      lines.push(`${le} ${tl.label} \u2014 ${tl.player} (${tl.value})`);
-    }
-    lines.push('');
-  }
-
-  // CTA
-  lines.push('The board moves fast. Stay ahead \u2192');
-  lines.push('maximussports.ai 🚀');
-
-  // Hashtags — dynamic, no #MaximusSports
-  const teamTag = teamName.replace(/\s+/g, '');
-  const shortName = teamName.split(' ').pop();
-  const caption = lines.join('\n');
-  return {
-    caption,
-    hashtags: [`#MLB`, `#${teamTag}`, '#BaseballAnalytics', '#MLBPredictions', '#SportsBetting'],
+  // ── 6. TEAM LEADERS — always exactly 5 categories ──
+  const LEADER_DISPLAY = {
+    HR: { emoji: '\ud83d\udca5', label: 'Home Runs' },
+    RBI: { emoji: '\ud83c\udfaf', label: 'RBIs' },
+    H: { emoji: '\u26a1', label: 'Hits' },
+    W: { emoji: '\ud83d\udd25', label: 'Wins' },
+    SV: { emoji: '\ud83e\udde4', label: 'Saves' },
   };
+
+  if (briefing.teamLeaders?.length > 0) {
+    lines.push('\ud83c\udfc6 Team Leaders:');
+    for (const tl of briefing.teamLeaders) {
+      const ld = LEADER_DISPLAY[tl.stat] || { emoji: '\u26be', label: tl.label || tl.stat };
+      const playerName = (tl.player && tl.player !== '\u2014') ? tl.player : 'No clear leader';
+      const value = (tl.value && tl.value !== '\u2014') ? tl.value : '\u2014';
+      lines.push(`${ld.emoji} ${ld.label} \u2014 ${playerName} (${value})`);
+    }
+    lines.push('');
+  }
+
+  // ── 7. BOTTOM LINE ──
+  const bottomLine = buildBottomLine(briefing, teamName, projection);
+  lines.push(`\ud83d\udcc9 Bottom line:`);
+  lines.push(bottomLine);
+  lines.push('');
+
+  // ── 8. CTA ──
+  lines.push('\ud83d\ude80 Stay ahead \u2192 maximussports.ai');
+  lines.push('');
+
+  // ── 9. DISCLAIMER ──
+  lines.push('For entertainment only. Please bet responsibly. 21+');
+
+  // ── 10. HASHTAGS — dynamic, team-aware, exactly 5 ──
+  const hashtags = buildTeamHashtags(teamName);
+
+  return { caption: lines.join('\n'), hashtags };
+}
+
+// ── Caption helpers ───────────────────────────────────────────────────────
+
+function buildStandingContext(standings, division, record) {
+  const parts = [];
+  if (record) parts.push(record);
+  if (standings?.rank && division) {
+    const ordStr = standings.rank === 1 ? '1st' : standings.rank === 2 ? '2nd' : standings.rank === 3 ? '3rd' : `${standings.rank}th`;
+    let divStr = `${ordStr} in the ${division}`;
+    if (standings.gb > 0) divStr += `, ${standings.gb} GB`;
+    parts.push(divStr);
+  } else if (division) {
+    parts.push(division);
+  }
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+function synthesizeNarrative(briefing) {
+  // Combine subtext and first 2 intel bullets into a narrative paragraph
+  const fragments = [];
+  if (briefing.subtext) fragments.push(briefing.subtext);
+  const items = briefing.items || [];
+  // Pick the most narrative-rich bullets (recent game, standings, trend)
+  for (const item of items.slice(0, 3)) {
+    if (item.text && item.text.length > 20) {
+      fragments.push(item.text);
+    }
+  }
+  if (fragments.length === 0) return null;
+  // Join into flowing narrative — max 2 sentences
+  return fragments.slice(0, 2).join(' ');
+}
+
+function buildWhyItMatters(briefing) {
+  const items = briefing.items || [];
+  const bullets = [];
+  // Pick items 3-5 (driver, risk, outlook) for "why it matters"
+  for (const item of items.slice(2, 5)) {
+    if (item.text && item.text.length > 10) {
+      // Trim to first sentence if very long
+      let text = item.text;
+      if (text.length > 120) {
+        const sentEnd = text.indexOf('. ', 40);
+        if (sentEnd > 0) text = text.slice(0, sentEnd + 1);
+      }
+      bullets.push(text);
+    }
+  }
+  // If we got fewer than 3, pull from earlier items
+  if (bullets.length < 2 && items.length > 0) {
+    for (const item of items) {
+      if (bullets.length >= 3) break;
+      if (item.text && !bullets.includes(item.text)) {
+        bullets.push(item.text.length > 120 ? item.text.slice(0, 117) + '...' : item.text);
+      }
+    }
+  }
+  return bullets.slice(0, 3);
+}
+
+function buildBottomLine(briefing, teamName, projection) {
+  // Use whyItMatters from briefing if available
+  if (briefing.whyItMatters) return briefing.whyItMatters;
+
+  // Synthesize from projection + headline
+  const shortName = teamName.split(' ').pop();
+  if (projection?.confidenceTier) {
+    const tier = projection.confidenceTier.toLowerCase();
+    if (tier.includes('high')) {
+      return `The ${shortName} have the pieces. The model sees it. Now they need to prove it on the field.`;
+    }
+    if (tier.includes('low')) {
+      return `It\u2019s a tough road ahead for the ${shortName}. The margins are thin and the room for error is shrinking.`;
+    }
+  }
+  return `The ${shortName} are in a defining stretch. What happens next will set the tone for the rest of the season.`;
+}
+
+function buildTeamHashtags(teamName) {
+  const shortName = teamName.split(' ').pop();
+  const fullTag = `#${teamName.replace(/\s+/g, '')}`;
+
+  // Team-specific culture tags
+  const teamTags = {
+    'Yankees': '#PinstripePride', 'Red Sox': '#RedSoxNation', 'Dodgers': '#LetsGoDodgers',
+    'Mets': '#LGM', 'Cubs': '#GoCubsGo', 'Braves': '#ForTheA',
+    'Astros': '#LevelUp', 'Phillies': '#RingTheBell', 'Padres': '#FriarFaithful',
+    'Giants': '#SFGiants', 'Cardinals': '#STLCards', 'Guardians': '#ClevelandGuardians',
+    'Rangers': '#StraightUpTX', 'Mariners': '#SeaUsRise', 'Twins': '#MNTwins',
+    'Orioles': '#Birdland', 'Rays': '#RaysUp', 'Blue Jays': '#NextLevel',
+    'White Sox': '#WhiteSox', 'Royals': '#Royals', 'Tigers': '#DetroitRoots',
+    'Angels': '#GoHalos', 'Athletics': '#GreenCollar', 'Brewers': '#ThisIsMyCrew',
+    'Pirates': '#LetsGoBucs', 'Reds': '#ATOBTTR', 'Diamondbacks': '#Dbacks',
+    'Rockies': '#Rockies', 'Nationals': '#NATITUDE', 'Marlins': '#MakeItMiami',
+  };
+
+  const culturalTag = teamTags[shortName] || fullTag;
+  const tags = [fullTag, culturalTag, '#MLB', '#BaseballIntel', '#MLBPredictions'];
+  // Deduplicate
+  return [...new Set(tags)].slice(0, 5);
 }
 
 function gameCaption(payload) {
@@ -453,8 +577,9 @@ export function buildMlbCaption(payload) {
   const builder = SECTION_BUILDERS[payload.section] || genericCaption;
   const result = builder(payload);
   // Daily briefing: short and long are identical (unified caption)
-  const isDailyBriefing = payload.section === 'daily-briefing';
-  const fullCaption = isDailyBriefing
+  // team-intel and daily-briefing include their own disclaimer
+  const hasOwnDisclaimer = payload.section === 'daily-briefing' || payload.section === 'team-intel';
+  const fullCaption = hasOwnDisclaimer
     ? result.caption
     : result.caption + '\n\nFor entertainment only. Please bet responsibly. 21+';
   return {
