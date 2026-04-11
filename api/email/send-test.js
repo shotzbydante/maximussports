@@ -33,7 +33,7 @@ const VALID_TYPES = [
 
 /** Map new type → template key for dynamic import. */
 const TYPE_TO_TEMPLATE = {
-  global_briefing:   'daily',
+  global_briefing:   'globalBriefing',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
@@ -50,6 +50,7 @@ const FALLBACK_PINNED_TEAMS = [
 async function loadTemplate(type) {
   const tpl = TYPE_TO_TEMPLATE[type] || type;
   switch (tpl) {
+    case 'globalBriefing': return import('../../src/emails/templates/globalBriefing.js');
     case 'daily':        return import('../../src/emails/templates/dailyBriefing.js');
     case 'pinned':       return import('../../src/emails/templates/pinnedTeamsAlerts.js');
     case 'odds':         return import('../../src/emails/templates/oddsIntel.js');
@@ -144,7 +145,26 @@ export default async function handler(req, res) {
       const host = req.headers.host || 'localhost:3000';
       const baseUrl = `http://${host}`;
 
-      if (isMLB) {
+      if (tplType === 'globalBriefing') {
+        // ── GLOBAL BRIEFING: both NCAAM + MLB ──
+        const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
+          fetchScoresSource(), fetchRankingsSource(), getAtsLeadersPipeline(),
+          fetchNewsAggregateSource({ includeNational: true }),
+        ]);
+        const scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
+        const rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
+        const atsLeaders = atsResult.status === 'fulfilled' ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] } : { best: [], worst: [] };
+        const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
+        const headlines = dedupeNewsItems(headlinesRaw);
+        const mlbData = await assembleMlbEmailData(baseUrl, { includeSummary: true });
+
+        emailData = {
+          displayName, scoresToday, rankingsTop25, atsLeaders, headlines,
+          botIntelBullets: [], maximusNote: '', oddsGames: [],
+          mlbData, pinnedTeams: [], pinnedSlugs: [],
+        };
+
+      } else if (isMLB) {
         // ── MLB-SPECIFIC DATA (no NCAAM contamination possible) ──
         const mlbData = await assembleMlbEmailData(baseUrl, {
           includeSummary: tplType === 'mlbBriefing',
@@ -228,7 +248,11 @@ export default async function handler(req, res) {
     try {
       if (tplType === 'teamDigest' || tplType === 'mlbTeamDigest') {
         const { assembleTeamDigestPayload: assemble, TEAM_DIGEST_MAX_TEAMS: max } = await import('../_lib/teamDigest.js');
-        const { getTeamBySlug } = await import('../../src/data/teams.js');
+        // Use sport-specific team module: MLB teams for mlbTeamDigest, NCAAM for teamDigest
+        const teamMod = tplType === 'mlbTeamDigest'
+          ? await import('../../src/sports/mlb/teams.js')
+          : await import('../../src/data/teams.js');
+        const getTeamBySlug = tplType === 'mlbTeamDigest' ? teamMod.getMLBTeamBySlug : teamMod.getTeamBySlug;
         const teamDigests = assemble(emailData.pinnedSlugs.slice(0, max), emailData, getTeamBySlug);
         const digestData = { ...emailData, teamDigests, totalTeamCount: emailData.pinnedSlugs.length };
         subject = tmpl.getSubject(digestData);

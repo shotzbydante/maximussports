@@ -50,7 +50,7 @@ const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
 
 /** Map new type → template rendering function set. */
 const TYPE_TO_TEMPLATE = {
-  global_briefing:   'daily',
+  global_briefing:   'globalBriefing',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
@@ -298,7 +298,15 @@ export default async function handler(req, res) {
     }
 
     let getTeamBySlugFn = null;
-    try { const m = await import('../../src/data/teams.js'); getTeamBySlugFn = m.getTeamBySlug; } catch { /* ok */ }
+    try {
+      if (isMLB) {
+        const m = await import('../../src/sports/mlb/teams.js');
+        getTeamBySlugFn = m.getMLBTeamBySlug;
+      } else {
+        const m = await import('../../src/data/teams.js');
+        getTeamBySlugFn = m.getTeamBySlug;
+      }
+    } catch { /* ok */ }
 
     const userIds = toSend.map(u => u.id);
     const userTeamsMap = await fetchUserTeamsBatch(sb, userIds);

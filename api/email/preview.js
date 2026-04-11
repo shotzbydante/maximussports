@@ -22,6 +22,7 @@ import { renderHTML as renderNewsHTML }   from '../../src/emails/templates/break
 import { renderHTML as renderDigestHTML } from '../../src/emails/templates/teamDigest.js';
 import { renderHTML as renderMlbBriefingHTML } from '../../src/emails/templates/mlbBriefing.js';
 import { renderHTML as renderMlbPicksHTML } from '../../src/emails/templates/mlbPicks.js';
+import { renderHTML as renderGlobalHTML } from '../../src/emails/templates/globalBriefing.js';
 import { renderHTML as renderMlbDigestHTML } from '../../src/emails/templates/mlbTeamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
@@ -34,7 +35,7 @@ const VALID_TYPES = [
 
 /** Map new type → template key. */
 const TYPE_TO_TEMPLATE = {
-  global_briefing:   'daily',
+  global_briefing:   'globalBriefing',
   ncaam_briefing:    'daily',
   ncaam_team_digest: 'pinned',
   ncaam_picks:       'odds',
@@ -193,8 +194,15 @@ export default async function handler(req, res) {
       picksBoard: picksBoard || null,
     };
 
+    // For globalBriefing preview, fetch MLB data too
+    if (tplType === 'globalBriefing' && !emailData.mlbData) {
+      const host = req.headers.host || 'localhost:3000';
+      emailData.mlbData = await assembleMlbEmailData(`http://${host}`, { includeSummary: true });
+    }
+
     let html;
     switch (tplType) {
+      case 'globalBriefing': html = renderGlobalHTML(emailData); break;
       case 'daily':  html = renderDailyHTML(emailData);  break;
       case 'pinned': html = renderPinnedHTML(emailData); break;
       case 'odds':   html = renderOddsHTML(emailData);   break;
@@ -218,7 +226,7 @@ export default async function handler(req, res) {
         html = renderMlbPicksHTML(emailData);
         break;
       case 'mlbTeamDigest': {
-        const { getTeamBySlug: getSlug } = await import('../../src/data/teams.js');
+        const { getMLBTeamBySlug: getSlug } = await import('../../src/sports/mlb/teams.js');
         const td = assembleTeamDigestPayload(
           pinnedSlugs.slice(0, TEAM_DIGEST_MAX_TEAMS),
           { scoresToday, rankingsTop25, atsLeaders, headlines },
