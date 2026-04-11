@@ -48,6 +48,11 @@ import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDi
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
 import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
+import {
+  EMAIL_REGISTRY, VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey,
+  isSeasonGated, getEmailConfig, getEmailSport,
+  loadTeamLookup, filterSportSlugs, enrichMlbTeamDigests, emailPayloadDigest,
+} from '../_lib/emailPipeline.js';
 
 /**
  * Email type → preference key mapping (v2 subscription model).
@@ -65,31 +70,12 @@ import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
  *   ncaam_team_digest    → ncaam_team_digest      Daily NCAAM Team Digest
  *   ncaam_picks          → ncaam_picks            Daily NCAAM Maximus's Picks
  */
-const TYPE_TO_PREF_KEY = {
-  global_briefing:   'global_briefing',
-  ncaam_briefing:    'ncaam_briefing',
-  ncaam_team_digest: 'ncaam_team_digest',
-  ncaam_picks:       'ncaam_picks',
-  mlb_briefing:      'mlb_briefing',
-  mlb_team_digest:   'mlb_team_digest',
-  mlb_picks:         'mlb_picks',
-};
-
-const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
-
-/** Types that are NCAAM-specific and should be gated by NCAAM season state. */
-const NCAAM_TYPES = ['ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks'];
-
-/** Map new type → template rendering function set. */
-const TYPE_TO_TEMPLATE = {
-  global_briefing:   'globalBriefing',
-  ncaam_briefing:    'daily',
-  ncaam_team_digest: 'pinned',
-  ncaam_picks:       'odds',
-  mlb_briefing:      'mlbBriefing',
-  mlb_team_digest:   'mlbTeamDigest',
-  mlb_picks:         'mlbPicks',
-};
+// Use centralized EMAIL_REGISTRY from emailPipeline.js as single source of truth.
+// Local aliases for backward-compat with existing code that references these.
+const VALID_TYPES = VALID_EMAIL_TYPES;
+const TYPE_TO_PREF_KEY = Object.fromEntries(VALID_TYPES.map(t => [t, resolvePrefKey(t)]));
+const TYPE_TO_TEMPLATE = Object.fromEntries(VALID_TYPES.map(t => [t, resolveTemplate(t)]));
+const NCAAM_TYPES = VALID_TYPES.filter(t => isSeasonGated(t));
 
 function makeDateKey(type) {
   const today = new Date().toISOString().slice(0, 10);
@@ -687,9 +673,13 @@ export default async function handler(req, res) {
         mlbData: mlbData || null,
       };
 
+      // Parity digest — same format as send-test for comparison
+      if (i === 0) {
+        console.log(`[run-daily] payload digest (first user):`, JSON.stringify(emailPayloadDigest(type, emailData)));
+      }
+
       let subject, html, text;
       try {
-        // Map new type to legacy template via TYPE_TO_TEMPLATE
         const tpl = TYPE_TO_TEMPLATE[type];
 
         switch (tpl) {

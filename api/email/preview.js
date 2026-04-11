@@ -26,23 +26,11 @@ import { renderHTML as renderGlobalHTML } from '../../src/emails/templates/globa
 import { renderHTML as renderMlbDigestHTML } from '../../src/emails/templates/mlbTeamDigest.js';
 import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDigest.js';
 import { getUserPinnedTeams, getPinnedTeamSlugs, fetchUserTeamsBatch } from '../_lib/getUserPinnedTeams.js';
+import { VALID_EMAIL_TYPES, resolveTemplate } from '../_lib/emailPipeline.js';
 
-const VALID_TYPES = [
-  'global_briefing',
-  'mlb_briefing', 'mlb_team_digest', 'mlb_picks',
-  'ncaam_briefing', 'ncaam_team_digest', 'ncaam_picks',
-];
-
-/** Map new type → template key. */
-const TYPE_TO_TEMPLATE = {
-  global_briefing:   'globalBriefing',
-  ncaam_briefing:    'daily',
-  ncaam_team_digest: 'pinned',
-  ncaam_picks:       'odds',
-  mlb_briefing:      'mlbBriefing',
-  mlb_team_digest:   'mlbTeamDigest',
-  mlb_picks:         'mlbPicks',
-};
+// Derive from centralized registry
+const VALID_TYPES = VALID_EMAIL_TYPES;
+const TYPE_TO_TEMPLATE = Object.fromEntries(VALID_TYPES.map(t => [t, resolveTemplate(t)]));
 
 // Fallback only used when no authenticated admin or admin has zero pinned teams
 const FALLBACK_PINNED_TEAMS = [

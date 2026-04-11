@@ -36,29 +36,14 @@ import { assembleTeamDigestPayload, TEAM_DIGEST_MAX_TEAMS } from '../_lib/teamDi
 import { getProfileEntitlements } from '../_lib/entitlements.js';
 import { fetchUserTeamsBatch, resolveTeamRows, getPinnedTeamSlugs } from '../_lib/getUserPinnedTeams.js';
 import { assembleMlbEmailData } from '../_lib/mlbEmailData.js';
+import {
+  VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey, emailPayloadDigest,
+} from '../_lib/emailPipeline.js';
 
-const TYPE_TO_PREF_KEY = {
-  global_briefing:   'global_briefing',
-  ncaam_briefing:    'ncaam_briefing',
-  ncaam_team_digest: 'ncaam_team_digest',
-  ncaam_picks:       'ncaam_picks',
-  mlb_briefing:      'mlb_briefing',
-  mlb_team_digest:   'mlb_team_digest',
-  mlb_picks:         'mlb_picks',
-};
-
-const VALID_TYPES = Object.keys(TYPE_TO_PREF_KEY);
-
-/** Map new type → template rendering function set. */
-const TYPE_TO_TEMPLATE = {
-  global_briefing:   'globalBriefing',
-  ncaam_briefing:    'daily',
-  ncaam_team_digest: 'pinned',
-  ncaam_picks:       'odds',
-  mlb_briefing:      'mlbBriefing',
-  mlb_team_digest:   'mlbTeamDigest',
-  mlb_picks:         'mlbPicks',
-};
+// Derive from centralized registry — single source of truth
+const VALID_TYPES = VALID_EMAIL_TYPES;
+const TYPE_TO_PREF_KEY = Object.fromEntries(VALID_TYPES.map(t => [t, resolvePrefKey(t)]));
+const TYPE_TO_TEMPLATE = Object.fromEntries(VALID_TYPES.map(t => [t, resolveTemplate(t)]));
 
 function makeDateKey(type) {
   const today = new Date().toISOString().slice(0, 10);
