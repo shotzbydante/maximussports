@@ -19,6 +19,7 @@ import { buildMlbTeamIntelSummary } from '../../data/mlb/teamIntelSummary';
 import usePinnedTeams, { getPinnedForSport } from '../../hooks/usePinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import { usePlan } from '../../hooks/usePlan';
+import { useTeamPin } from '../../hooks/useTeamPin';
 import { MLB_TEAMS, getMLBEspnId } from '../../sports/mlb/teams';
 import { fetchMlbChampionshipOdds } from '../../api/mlbChampionshipOdds';
 import MlbTeamPickerModal from './MlbTeamPickerModal';
@@ -309,44 +310,44 @@ export default function MlbPinnedTeamSection() {
     });
   }, [pinned]);
 
+  const { pinTeam, unpinTeam, isPinning } = useTeamPin();
+
   const handlePin = async (slug) => {
     if (!user) { navigate('/settings'); return; }
+    // Client-side pre-check for instant UX feedback
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setLimitHit(true);
       return;
     }
-    addTeam(slug); // optimistic local update
+    // Optimistic local update
+    addTeam(slug);
     setLimitHit(false);
-    // Notify Settings/other surfaces
+
+    // Server-validated persist (source of truth)
+    const result = await pinTeam(slug);
+    if (!result.ok) {
+      // Server rejected — revert optimistic update
+      removeTeam(slug);
+      setLimitHit(true);
+      return;
+    }
+
+    // Notify other surfaces
     const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
     notifyPinnedChanged(allSlugs, 'home');
-    // Persist to server for authenticated users
-    try {
-      const sb = getSupabase();
-      if (sb && user?.id) {
-        await sb.from('user_teams').upsert({
-          user_id: user.id,
-          team_slug: slug,
-          is_primary: pinned.length === 0,
-          created_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,team_slug' });
-      }
-    } catch { /* best-effort server sync */ }
   };
 
   const handleRemove = async (slug) => {
-    removeTeam(slug); // optimistic local update
+    // Optimistic local update
+    removeTeam(slug);
     setLimitHit(false);
-    // Notify Settings/other surfaces
+
+    // Server-validated persist
+    await unpinTeam(slug);
+
+    // Notify other surfaces
     const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
     notifyPinnedChanged(allSlugs, 'home');
-    // Remove from server for authenticated users
-    try {
-      const sb = getSupabase();
-      if (sb && user?.id) {
-        await sb.from('user_teams').delete().eq('user_id', user.id).eq('team_slug', slug);
-      }
-    } catch { /* best-effort server sync */ }
   };
 
   const isEmpty = pinned.length === 0;
