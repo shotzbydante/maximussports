@@ -84,6 +84,9 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     fetch(`${baseUrl}/api/mlb/leaders`)
       .then(r => r.ok ? r.json() : { categories: {} })
       .catch(() => ({ categories: {} })),
+    fetch(`${baseUrl}/api/mlb/odds/championship`)
+      .then(r => r.ok ? r.json() : { odds: {} })
+      .catch(() => ({ odds: {} })),
   ];
 
   if (includeSummary) {
@@ -103,7 +106,7 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
   }
 
   const results = await Promise.allSettled(fetches);
-  const [mlbNewsResult, mlbLiveResult, mlbLeadersResult, ...rest] = results;
+  const [mlbNewsResult, mlbLiveResult, mlbLeadersResult, mlbChampOddsResult, ...rest] = results;
   const mlbSummaryResult = includeSummary ? rest.shift() : null;
   const mlbPicksBuiltResult = includePicks ? rest.shift() : null;
 
@@ -172,11 +175,15 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     }
   }
 
-  // Season leaders editorial hook
+  // Season leaders editorial hook + raw data
   const mlbLeadersData = mlbLeadersResult?.status === 'fulfilled' ? mlbLeadersResult.value : {};
   const leadersEditorial = buildLeadersEditorialHook(mlbLeadersData) || null;
 
-  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}, picks=${!!picksBoard}, leaders=${!!leadersEditorial}`);
+  // Championship odds — normalize to { [slug]: { american, bestChanceAmerican } }
+  const champOddsRaw = mlbChampOddsResult?.status === 'fulfilled' ? mlbChampOddsResult.value : {};
+  const champOdds = champOddsRaw?.odds || champOddsRaw || {};
+
+  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}, picks=${!!picksBoard}, leaders=${!!leadersEditorial}, champOdds=${Object.keys(champOdds).length}`);
 
   return {
     headlines,
@@ -185,6 +192,8 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     botIntelBullets,
     picksBoard,
     leadersEditorial,
+    leadersCategories: mlbLeadersData?.categories || {},
+    champOdds,
     // Empty NCAAM-specific fields so templates don't break
     rankingsTop25: [],
     atsLeaders: { best: [], worst: [] },

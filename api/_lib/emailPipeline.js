@@ -35,6 +35,7 @@ export const EMAIL_REGISTRY = {
     dataNeeds: ['ncaam', 'mlb'],
     mlbFlags: { includeSummary: true, includePicks: true },
     includePennantRace: true,
+    includeWorldSeriesOutlook: true,
   },
   mlb_briefing: {
     template: 'mlbBriefing',
@@ -225,7 +226,7 @@ export async function assembleEmailData(type, baseUrl) {
     // For global briefing, MLB data is supplementary
     result.mlbData = mlbData;
 
-    // Pennant race
+    // Pennant race (top 3 per league)
     if (config.includePennantRace) {
       try {
         const { getSeasonProjections, filterTeams } = await import('../../src/data/mlb/seasonModel.js');
@@ -233,6 +234,39 @@ export async function assembleEmailData(type, baseUrl) {
         const alTop = filterTeams(all, { league: 'AL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
         const nlTop = filterTeams(all, { league: 'NL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
         result.mlbData.pennantRace = { al: alTop, nl: nlTop };
+      } catch { /* projections not available */ }
+    }
+
+    // World Series Outlook (top 5 per league with full projection details)
+    if (config.includeWorldSeriesOutlook) {
+      try {
+        const { getSeasonProjections, filterTeams } = await import('../../src/data/mlb/seasonModel.js');
+        const all = getSeasonProjections();
+        const champOdds = mlbData.champOdds || {};
+
+        const enrichTeam = (t) => {
+          const oddsData = champOdds[t.slug];
+          const oddsVal = oddsData?.bestChanceAmerican ?? oddsData?.american ?? null;
+          const fullRat = t.rationale || '';
+          const sents = fullRat.match(/[^.!?]*[.!?]+/g) || [];
+          const driverS = sents.find(s => /strongest|primary|engine|firepower|rotation|bullpen|offense|lineup/i.test(s));
+          const marketS = sents.find(s => /market|value signal|above.*market|below.*market/i.test(s));
+          const closeS = sents.find(s => /range:|profile,/i.test(s));
+          const distilled = [driverS, marketS || closeS]
+            .filter(Boolean).map(s => s.trim()).join(' ')
+            || sents.slice(0, 2).join(' ').trim() || '';
+
+          return {
+            ...t,
+            champOdds: oddsVal,
+            distilledRationale: distilled,
+            rangeLabel: t.floor && t.ceiling ? `${t.floor}\u2013${t.ceiling}` : '',
+          };
+        };
+
+        const alTop5 = filterTeams(all, { league: 'AL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 5).map(enrichTeam);
+        const nlTop5 = filterTeams(all, { league: 'NL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 5).map(enrichTeam);
+        result.mlbData.worldSeriesOutlook = { al: alTop5, nl: nlTop5 };
       } catch { /* projections not available */ }
     }
   }
@@ -306,6 +340,9 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
     picksBoard: assembledData.picksBoard || null,
     mlbData: assembledData.mlbData || null,
     pennantRace: assembledData.mlbData?.pennantRace || null,
+    worldSeriesOutlook: assembledData.mlbData?.worldSeriesOutlook || null,
+    leadersCategories: assembledData.mlbData?.leadersCategories || {},
+    champOdds: assembledData.mlbData?.champOdds || {},
   };
 }
 
