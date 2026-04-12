@@ -25,17 +25,19 @@ const SLIDE_H = 1350;
 
 /** Fetch data from live APIs (fallback if no injected data) */
 async function fetchSlideData() {
-  const [gamesRes, oddsRes, leadersRes, standingsRes] = await Promise.allSettled([
+  const [gamesRes, oddsRes, leadersRes, standingsRes, picksRes] = await Promise.allSettled([
     fetch('/api/mlb/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }),
     fetch('/api/mlb/odds/championship').then(r => r.ok ? r.json() : {}),
     fetch('/api/mlb/leaders').then(r => r.ok ? r.json() : {}),
     fetch('/api/mlb/standings').then(r => r.ok ? r.json() : {}),
+    fetch('/api/mlb/picks/built').then(r => r.ok ? r.json() : { categories: {} }),
   ]);
 
   const games = gamesRes.status === 'fulfilled' ? (gamesRes.value.games || []) : [];
   const odds = oddsRes.status === 'fulfilled' ? oddsRes.value : {};
   const leaders = leadersRes.status === 'fulfilled' ? leadersRes.value : {};
   const standings = standingsRes.status === 'fulfilled' ? standingsRes.value : {};
+  const picks = picksRes.status === 'fulfilled' ? picksRes.value : { categories: {} };
 
   return {
     mlbLiveGames: games,
@@ -43,8 +45,8 @@ async function fetchSlideData() {
     mlbLeaders: leaders,
     mlbStandings: standings,
     mlbBriefing: null,
-    mlbPicks: { categories: {} },
-    canonicalPicks: { categories: {} },
+    mlbPicks: picks,
+    canonicalPicks: picks,
   };
 }
 

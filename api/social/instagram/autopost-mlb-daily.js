@@ -198,6 +198,17 @@ async function fetchChampOdds(baseUrl, log) {
   }
 }
 
+async function fetchPicks(baseUrl, log) {
+  try {
+    const res = await fetch(`${baseUrl}/api/mlb/picks/built`);
+    if (!res.ok) { log.warn('picks fetch failed:', res.status); return { categories: {} }; }
+    return await res.json();
+  } catch (e) {
+    log.warn('picks fetch error:', e.message);
+    return { categories: {} };
+  }
+}
+
 async function fetchLeaders(baseUrl, log) {
   try {
     const res = await fetch(`${baseUrl}/api/mlb/leaders`);
@@ -403,11 +414,12 @@ export default async function handler(req, res) {
   // ── Preview mode: return metadata only ──
   if (mode === 'preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds, mlbLeaders, mlbStandings] = await Promise.all([
+    const [liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
       fetchLeaders(baseUrl, log),
       fetchStandings(baseUrl, log),
+      fetchPicks(baseUrl, log),
     ]);
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel);
@@ -440,11 +452,12 @@ export default async function handler(req, res) {
   // ── Render-preview mode: render slides, return base64 images (no publish) ──
   if (mode === 'render-preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds, mlbLeaders, mlbStandings] = await Promise.all([
+    const [liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
       fetchLeaders(baseUrl, log),
       fetchStandings(baseUrl, log),
+      fetchPicks(baseUrl, log),
     ]);
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel);
@@ -456,8 +469,8 @@ export default async function handler(req, res) {
       mlbLeaders: mlbLeaders ?? {},
       mlbStandings: mlbStandings ?? {},
       mlbBriefing: null,
-      mlbPicks: { categories: {} },
-      canonicalPicks: { categories: {} },
+      mlbPicks: mlbPicks ?? { categories: {} },
+      canonicalPicks: mlbPicks ?? { categories: {} },
     };
 
     let slideBuffers;
@@ -526,15 +539,16 @@ export default async function handler(req, res) {
   const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
   log.info('assembling data from:', baseUrl);
 
-  let liveGames, champOdds, mlbLeaders, mlbStandings;
+  let liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks;
   try {
-    [liveGames, champOdds, mlbLeaders, mlbStandings] = await Promise.all([
+    [liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
       fetchLeaders(baseUrl, log),
       fetchStandings(baseUrl, log),
+      fetchPicks(baseUrl, log),
     ]);
-    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${Object.keys(mlbLeaders?.categories || {}).length} leader cats, ${Object.keys(mlbStandings).length} standings`);
+    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${Object.keys(mlbLeaders?.categories || {}).length} leader cats, ${Object.keys(mlbStandings).length} standings, ${Object.keys(mlbPicks?.categories || {}).length} pick cats`);
   } catch (e) {
     log.error('data assembly failed:', e.message);
     if (mode === 'live' || mode === 'force') await persistFailure('data_assembly', e.message);
@@ -583,8 +597,8 @@ export default async function handler(req, res) {
       mlbLeaders: mlbLeaders ?? {},
       mlbStandings: mlbStandings ?? {},
       mlbBriefing: null,
-      mlbPicks: { categories: {} },
-      canonicalPicks: { categories: {} },
+      mlbPicks: mlbPicks ?? { categories: {} },
+      canonicalPicks: mlbPicks ?? { categories: {} },
     };
 
     const browserResult = await renderSlidesWithBrowser(baseUrl, browserData, log);

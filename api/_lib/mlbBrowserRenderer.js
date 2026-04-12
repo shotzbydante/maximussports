@@ -5,9 +5,10 @@
  * to the /render/mlb-daily page (which loads the REAL React slide components
  * with full CSS Modules), and screenshot each [data-slide] element at 1080×1350.
  *
- * This produces output identical to the manual Content Studio export path
- * (html-to-image), since both use the exact same React components, CSS, and
- * asset pipeline.
+ * Quality measures:
+ *   - deviceScaleFactor: 2 — retina-quality rendering for crisp gradients/text
+ *   - Inter font injection — ensures font parity with dashboard preview
+ *   - Font + image readiness wait — no screenshots until fully rendered
  *
  * Exports:
  *   renderSlidesWithBrowser(baseUrl, data, log) → [Buffer, Buffer, Buffer]
@@ -24,10 +25,21 @@ const SLIDE_COUNT = 3;
 const VIEWPORT_W = SLIDE_W;
 const VIEWPORT_H = SLIDE_H * SLIDE_COUNT + 100; // Stack all 3 slides vertically
 
+// Retina-quality: 2x DPR produces 2160×2700 screenshots (IG downscales for display).
+// This is critical for gradient fidelity — at 1x, subtle rgba overlays look like
+// flat white blocks instead of smooth glass effects.
+const DEVICE_SCALE_FACTOR = 2;
+
 // Timeouts
 const NAVIGATION_TIMEOUT = 30_000;
 const READY_TIMEOUT = 20_000;
 const READY_POLL_INTERVAL = 250;
+
+// Inter font CSS — injected into the page so serverless Chromium
+// (which has no system fonts) renders text identically to the dashboard.
+const INTER_FONT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+`;
 
 /**
  * Get Chromium executable path and launch args.
@@ -45,7 +57,7 @@ async function getChromiumConfig() {
       executablePath,
       args: chromiumMod.args,
       headless: chromiumMod.headless ?? 'new',
-      defaultViewport: { width: VIEWPORT_W, height: VIEWPORT_H, deviceScaleFactor: 1 },
+      defaultViewport: { width: VIEWPORT_W, height: VIEWPORT_H, deviceScaleFactor: DEVICE_SCALE_FACTOR },
     };
   } catch (e) {
     // Fallback for local dev — try common Chrome paths
@@ -64,7 +76,7 @@ async function getChromiumConfig() {
             executablePath: p,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
             headless: 'new',
-            defaultViewport: { width: VIEWPORT_W, height: VIEWPORT_H, deviceScaleFactor: 1 },
+            defaultViewport: { width: VIEWPORT_W, height: VIEWPORT_H, deviceScaleFactor: DEVICE_SCALE_FACTOR },
           };
         }
       } catch {
@@ -141,9 +153,18 @@ export async function renderSlidesWithBrowser(baseUrl, data, log) {
       }
     });
 
+    // Inject Inter font stylesheet BEFORE navigation so it's available when CSS loads
+    await page.evaluateOnNewDocument((css) => {
+      const style = document.createElement('style');
+      style.textContent = css;
+      document.addEventListener('DOMContentLoaded', () => {
+        document.head.prepend(style);
+      });
+    }, INTER_FONT_CSS);
+
     // Navigate to render page
     const renderUrl = `${baseUrl}/render/mlb-daily`;
-    log.info(`navigating to ${renderUrl}`);
+    log.info(`navigating to ${renderUrl} (DPR=${DEVICE_SCALE_FACTOR})`);
     const navStart = Date.now();
 
     await page.goto(renderUrl, {
@@ -152,6 +173,23 @@ export async function renderSlidesWithBrowser(baseUrl, data, log) {
     });
 
     log.info(`page loaded in ${Date.now() - navStart}ms`);
+
+    // Inject Inter font via <link> as well (belt-and-suspenders for Google Fonts)
+    await page.addStyleTag({
+      url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap',
+    }).catch(() => {
+      log.warn('Google Fonts link injection failed — using @import fallback');
+    });
+
+    // Wait for Inter font to actually load
+    const fontLoaded = await page.evaluate(async () => {
+      try {
+        await document.fonts.ready;
+        const interLoaded = document.fonts.check('16px Inter');
+        return interLoaded;
+      } catch { return false; }
+    });
+    log.info(`Inter font loaded: ${fontLoaded}`);
 
     // Wait for slides to signal readiness
     await waitForSlidesReady(page, log);
