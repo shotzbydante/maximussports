@@ -5,10 +5,9 @@
  * 4 categories: Pick 'Ems, Against the Spread, Value Leans, Game Totals.
  * Each pick rendered as a mini-card with logos, metrics, and rationale.
  *
- * Logo fix: Team logos now use absolute ESPN CDN URLs via mlbTeamLogoImg()
- * from MlbEmailShell.js, converting the slug from the pick data. The prior
- * approach passed relative paths (/logos/mlb/nyy.png) from getMlbEspnLogoUrl()
- * which email clients cannot resolve.
+ * Logos: uses canonical self-hosted logos (maximussports.ai/logos/mlb/{slug}.png)
+ * via mlbTeamLogoImg() from MlbEmailShell.js — same source as Content Studio.
+ * This replaced the old ESPN numeric-ID CDN which served stale logos.
  */
 
 import {
@@ -60,13 +59,11 @@ const PARTNERS = {
 /**
  * Resolve team logo for email use.
  *
- * The pick data arrives with a `logo` field that's typically a relative
- * path (/logos/mlb/nyy.png) from getMlbEspnLogoUrl(). Email clients
- * cannot resolve relative URLs, so we convert the slug to an absolute
- * ESPN CDN URL via mlbTeamLogoImg() from MlbEmailShell.
+ * Uses mlbTeamLogoImg() from MlbEmailShell which serves canonical
+ * self-hosted logos (same source as Content Studio).
  *
  * Fallback chain:
- *   1. team.slug → mlbTeamLogoImg() (absolute ESPN CDN URL)
+ *   1. team.slug → mlbTeamLogoImg() (absolute self-hosted URL)
  *   2. team.logo if already absolute (https://...)
  *   3. text abbreviation badge
  */
