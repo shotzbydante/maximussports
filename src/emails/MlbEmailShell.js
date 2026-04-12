@@ -190,8 +190,8 @@ ${previewText ? `<div style="display:none;font-size:1px;color:${BG_OUTER};line-h
         <!-- ═══ CTA BLOCK ═══ -->
         <tr>
           <td style="padding:22px 28px 6px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:14px;font-weight:700;line-height:20px;color:${NAVY};font-family:${FONT_STACK};">Dive into the full picture</p>
-            <p style="margin:0;font-size:13px;line-height:18px;color:${TEXT_MUTED};font-family:${FONT_STACK};">Picks, team intel, live odds, and more.</p>
+            <p style="margin:0 0 4px;font-size:14px;font-weight:700;line-height:20px;color:${NAVY};font-family:${FONT_STACK};">See the Full Board</p>
+            <p style="margin:0;font-size:13px;line-height:18px;color:${TEXT_MUTED};font-family:${FONT_STACK};">Picks, team intel, live odds, and model signals.</p>
           </td>
         </tr>
         <tr>
@@ -378,25 +378,30 @@ export function mlbSpacerRow(px = 8) {
 }
 
 /**
- * Team logo image.
+ * Team logo image — canonical source for ALL email templates.
+ *
+ * Uses the same self-hosted logos as Content Studio (src/utils/espnMlbLogos.js).
+ * These were downloaded from ESPN's slug-based CDN and placed in public/logos/mlb/.
+ * This replaced the old ESPN numeric-ID CDN approach which served stale logos
+ * (e.g., Cleveland Indians Chief Wahoo mark instead of current Guardians logo).
+ *
+ * Canonical source: public/logos/mlb/{slug}.png
+ * Absolute URL:     https://maximussports.ai/logos/mlb/{slug}.png
  */
-/**
- * ESPN CDN slug → ID mapping for MLB team logos.
- * URL pattern: https://a.espncdn.com/i/teamlogos/mlb/500/{id}.png
- */
-const MLB_ESPN_LOGO_IDS = {
-  nyy: '10', bos: '2', tor: '14', tb: '30', bal: '1',
-  cle: '5', min: '9', det: '6', cws: '4', kc: '7',
-  hou: '18', sea: '12', tex: '13', laa: '3', oak: '11',
-  atl: '15', nym: '21', phi: '22', mia: '28', wsh: '20',
-  chc: '16', mil: '8', stl: '24', pit: '23', cin: '17',
-  lad: '19', sd: '25', sf: '26', ari: '29', col: '27',
-};
+const MLB_VALID_SLUGS = new Set([
+  'nyy', 'bos', 'tor', 'tb', 'bal',
+  'cle', 'min', 'det', 'cws', 'kc',
+  'hou', 'sea', 'tex', 'laa', 'oak',
+  'atl', 'nym', 'phi', 'mia', 'wsh',
+  'chc', 'mil', 'stl', 'pit', 'cin',
+  'lad', 'sd', 'sf', 'ari', 'col',
+]);
 
 export function mlbTeamLogoImg(team, size = 22) {
   const slug = team?.slug;
-  const espnId = slug ? MLB_ESPN_LOGO_IDS[slug] : null;
-  const logoUrl = espnId ? `https://a.espncdn.com/i/teamlogos/mlb/500/${espnId}.png` : null;
+  const logoUrl = slug && MLB_VALID_SLUGS.has(slug)
+    ? `https://maximussports.ai/logos/mlb/${slug}.png`
+    : null;
 
   if (!logoUrl) {
     const abbr = (team?.abbrev || team?.shortName || slug || '??').slice(0, 3).toUpperCase();
