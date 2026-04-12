@@ -401,7 +401,7 @@ export default async function handler(req, res) {
   const { alreadyPosted, existing } = await checkAlreadyPosted(supabase, dateKey, log);
   log.info(`idempotency: alreadyPosted=${alreadyPosted}${existing ? `, mediaId=${existing.published_media_id}` : ''}`);
 
-  if (alreadyPosted && mode !== 'force') {
+  if (alreadyPosted && mode === 'live') {
     log.info('skipping — already posted today');
     return res.status(200).json({
       ok: true, skipped: true,
