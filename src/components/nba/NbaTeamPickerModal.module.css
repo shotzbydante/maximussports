@@ -1,0 +1,83 @@
+/* NbaTeamPickerModal — team search + pin modal (navy palette) */
+
+.backdrop {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(10, 18, 28, 0.65);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px 16px;
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  width: 100%; max-width: 420px; max-height: 80vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 20px 12px; gap: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.title { font-size: 0.88rem; font-weight: 700; color: var(--color-text); margin: 0; }
+.subtitle { font-size: 0.68rem; color: var(--color-text-muted); margin: 2px 0 0; }
+.closeBtn {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.2rem; color: var(--color-text-muted); padding: 4px;
+  transition: color 0.12s;
+}
+.closeBtn:hover { color: var(--color-text); }
+
+.searchWrap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.searchIcon { color: var(--color-text-muted); flex-shrink: 0; }
+.searchInput {
+  flex: 1; border: none; background: none;
+  font-size: 0.82rem; color: var(--color-text);
+  font-family: inherit; outline: none;
+}
+.searchInput::placeholder { color: var(--color-text-muted); }
+
+.selectedBar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 20px; gap: 8px;
+  background: rgba(0,0,0,0.02);
+}
+.selectedCount { font-size: 0.60rem; font-weight: 700; color: var(--color-text-muted); }
+.atCap { color: #1d428a; }
+.limitNote { font-size: 0.56rem; font-weight: 600; color: #1d428a; font-style: italic; }
+
+.teamList { overflow-y: auto; flex: 1; padding: 4px 0; }
+.teamRow {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 20px;
+  background: none; border: none;
+  cursor: pointer; font-family: inherit;
+  transition: background 0.1s; text-align: left;
+}
+.teamRow:hover { background: rgba(29,66,138,0.04); }
+.teamRowPinned { background: rgba(45,138,110,0.04); }
+.teamRowPinned:hover { background: rgba(45,138,110,0.08); }
+.teamRowBlocked { opacity: 0.45; cursor: not-allowed; }
+
+.teamLogo { width: 28px; height: 28px; object-fit: contain; border-radius: 3px; flex-shrink: 0; }
+.teamInfo { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 1px; }
+.teamName { font-size: 0.78rem; font-weight: 600; color: var(--color-text); }
+.teamDiv { font-size: 0.52rem; color: var(--color-text-muted); }
+
+.pinIndicator { font-size: 0.72rem; flex-shrink: 0; width: 24px; text-align: center; }
+
+.noResults { font-size: 0.76rem; color: var(--color-text-muted); text-align: center; padding: 20px; }
+
+@media (max-width: 480px) {
+  .modal { max-height: 90vh; border-radius: 14px 14px 0 0; align-self: flex-end; }
+}
