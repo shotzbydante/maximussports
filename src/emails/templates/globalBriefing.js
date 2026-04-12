@@ -19,8 +19,10 @@ const BLUE = '#2d6ca8';
 const NAVY = '#0f2440';
 const BODY = '#1f2937';
 const MUTED = '#9ca3af';
+const DIM = '#b0b8c4';       // lighter than MUTED — labels that must not compete
 const BORDER = '#e5e7eb';
-const CARD_BG = '#fafbfc';
+const ROW_BORDER = '#eef0f2'; // subtler than BORDER — between ranked rows
+const CARD_BG = '#f9fafb';
 
 // Championship display: 5 days from April 7, 2026
 const CHAMP_DATE = new Date('2026-04-07T00:00:00');
@@ -72,8 +74,8 @@ function sectionPill(label) {
   return `
 <tr><td style="padding:22px 24px 10px;">
   <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-    <tr><td style="background:rgba(196,30,58,0.06);border:1px solid rgba(196,30,58,0.15);border-radius:4px;padding:5px 12px;">
-      <span style="font-size:12px;font-weight:700;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">${label}</span>
+    <tr><td style="background:rgba(196,30,58,0.06);border:1px solid rgba(196,30,58,0.15);border-radius:4px;padding:5px 14px;">
+      <span style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">${label}</span>
     </td></tr>
   </table>
 </td></tr>`;
@@ -81,7 +83,7 @@ function sectionPill(label) {
 
 /** Compact divider */
 function divider() {
-  return `<tr><td style="padding:6px 24px;"><div style="height:1px;background:${BORDER};font-size:0;">&nbsp;</div></td></tr>`;
+  return `<tr><td style="padding:8px 28px;"><div style="height:1px;background:${ROW_BORDER};font-size:0;">&nbsp;</div></td></tr>`;
 }
 
 // ── Exports ──────────────────────────────────────────────────────
@@ -178,23 +180,23 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
   const champOdds = data.champOdds || {};
 
   if (pennant?.al?.length > 0 && pennant?.nl?.length > 0) {
-    const renderTeamRow = (t, i) => {
+    const renderTeamRow = (t, i, isLast) => {
       const oddsData = champOdds[t.slug];
       const odds = oddsData?.bestChanceAmerican ?? oddsData?.american ?? t.champOdds ?? null;
       return `
       <tr>
-        <td style="padding:7px 0;border-bottom:1px solid #f0f1f3;font-family:${F};">
+        <td style="padding:7px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
             <tr>
-              <td style="width:18px;font-size:12px;font-weight:700;color:${MUTED};vertical-align:middle;font-family:${F};">${i + 1}</td>
-              <td style="width:22px;vertical-align:middle;padding:0 6px 0 2px;">${logoImg(t.slug, 18)}</td>
-              <td style="font-size:13px;font-weight:700;color:${NAVY};vertical-align:middle;font-family:${F};width:40px;">${t.abbrev}</td>
+              <td style="width:16px;font-size:11px;font-weight:600;color:${DIM};vertical-align:middle;font-family:${F};">${i + 1}</td>
+              <td style="width:24px;vertical-align:middle;padding:0 8px 0 0;">${logoImg(t.slug, 16)}</td>
+              <td style="font-size:14px;font-weight:700;color:${NAVY};vertical-align:middle;font-family:${F};width:42px;">${t.abbrev}</td>
               <td style="vertical-align:middle;">
-                <span style="font-size:12px;color:${BODY};font-family:${F};">Model: ${t.projectedWins} wins</span>
-                <span style="font-size:10px;color:${MUTED};font-family:${F};padding-left:6px;">${capitalize(t.confidenceTier || '')}</span>
+                <span style="font-size:12px;font-weight:500;color:${BODY};font-family:${F};">${t.projectedWins} wins</span>
+                <span style="font-size:10px;font-weight:400;color:${DIM};font-family:${F};padding-left:4px;">${capitalize(t.confidenceTier || '')}</span>
               </td>
-              <td align="right" style="vertical-align:middle;white-space:nowrap;">
-                <span style="font-size:11px;font-weight:600;color:${RED};font-family:${F};">${fmtOdds(odds)}</span>
+              <td align="right" style="width:44px;vertical-align:middle;white-space:nowrap;">
+                <span style="font-size:11px;font-weight:700;color:${RED};font-family:${F};">${fmtOdds(odds)}</span>
               </td>
             </tr>
           </table>
@@ -205,22 +207,22 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
     pennantHtml = `
 <tr><td style="padding:0 24px 16px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
-    <tr><td style="padding:14px 14px 6px;">
-      <span style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">PENNANT RACE SNAPSHOT</span>
+    <tr><td style="padding:14px 16px 6px;">
+      <span style="font-size:12px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">PENNANT RACE SNAPSHOT</span>
     </td></tr>
-    <tr><td style="padding:2px 14px 6px;">
-      <span style="font-size:10px;font-weight:600;color:${BLUE};letter-spacing:0.04em;text-transform:uppercase;font-family:${F};">AMERICAN LEAGUE</span>
+    <tr><td style="padding:4px 16px 8px;">
+      <span style="font-size:10px;font-weight:600;color:${BLUE};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">AMERICAN LEAGUE</span>
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:4px;">
-        ${pennant.al.map((t, i) => renderTeamRow(t, i)).join('')}
+        ${pennant.al.map((t, i) => renderTeamRow(t, i, i === pennant.al.length - 1)).join('')}
       </table>
     </td></tr>
-    <tr><td style="padding:10px 14px 6px;">
-      <span style="font-size:10px;font-weight:600;color:${RED};letter-spacing:0.04em;text-transform:uppercase;font-family:${F};">NATIONAL LEAGUE</span>
+    <tr><td style="padding:10px 16px 8px;">
+      <span style="font-size:10px;font-weight:600;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">NATIONAL LEAGUE</span>
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:4px;">
-        ${pennant.nl.map((t, i) => renderTeamRow(t, i)).join('')}
+        ${pennant.nl.map((t, i) => renderTeamRow(t, i, i === pennant.nl.length - 1)).join('')}
       </table>
     </td></tr>
-    <tr><td style="padding:8px 14px 12px;">
+    <tr><td style="padding:8px 16px 14px;">
       <a href="https://maximussports.ai/mlb/season-intelligence" style="font-size:11px;color:${RED};text-decoration:none;font-weight:600;font-family:${F};">Full Season Intelligence &rarr;</a>
     </td></tr>
   </table>
@@ -267,22 +269,22 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
 
         return `
         <tr>
-          <td style="padding:10px 0${isLast ? '' : ';border-bottom:1px solid #f0f1f3'};font-family:${F};">
+          <td style="padding:10px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
               <tr>
                 <td style="vertical-align:top;">
-                  <p style="margin:0 0 3px;font-size:11px;font-weight:600;color:${MUTED};letter-spacing:0.02em;font-family:${F};">${matchup}</p>
-                  <p style="margin:0;font-size:15px;font-weight:700;color:${NAVY};line-height:20px;font-family:${F};">${selection}</p>
+                  <p style="margin:0 0 3px;font-size:11px;font-weight:500;color:${DIM};letter-spacing:0.02em;font-family:${F};">${matchup}</p>
+                  <p style="margin:0;font-size:15px;font-weight:800;color:${NAVY};line-height:20px;font-family:${F};">${selection}</p>
                 </td>
-                <td style="width:70px;text-align:center;vertical-align:top;padding-top:2px;">
-                  <span style="display:inline-block;font-size:10px;font-weight:600;color:${BLUE};background:rgba(45,108,168,0.08);border:1px solid rgba(45,108,168,0.15);border-radius:3px;padding:2px 7px;font-family:${F};">${p.type}</span>
+                <td style="width:64px;text-align:center;vertical-align:top;padding-top:2px;">
+                  <span style="display:inline-block;font-size:9px;font-weight:700;color:#5a7da8;background:#f0f4f8;border-radius:3px;padding:3px 7px;letter-spacing:0.04em;text-transform:uppercase;font-family:${F};">${p.type}</span>
                 </td>
-                <td style="width:60px;text-align:right;vertical-align:top;padding-top:2px;">
-                  <span style="font-size:12px;font-weight:600;color:${p.confidence === 'high' ? RED : BODY};font-family:${F};">${conviction}</span>
+                <td style="width:60px;text-align:right;vertical-align:top;padding-top:4px;">
+                  <span style="font-size:12px;font-weight:700;color:${p.confidence === 'high' ? RED : '#4b5563'};font-family:${F};">${conviction}</span>
                 </td>
               </tr>
             </table>
-            <p style="margin:4px 0 0;font-size:12px;color:${MUTED};line-height:16px;font-family:${F};">${normalizeSpacing(stripInlineEmoji(rationale))}</p>
+            <p style="margin:4px 0 0;font-size:11px;color:${DIM};line-height:16px;font-family:${F};">${normalizeSpacing(stripInlineEmoji(rationale))}</p>
           </td>
         </tr>`;
       }).join('');
@@ -290,15 +292,15 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
       picksHtml = `
 <tr><td style="padding:0 24px 16px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-left:3px solid ${RED};border-radius:6px;border-collapse:collapse;">
-    <tr><td style="padding:14px 14px 2px;">
-      <span style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">MAXIMUS'S PICKS</span>
+    <tr><td style="padding:14px 16px 4px;">
+      <span style="font-size:12px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">MAXIMUS'S PICKS</span>
     </td></tr>
-    <tr><td style="padding:0 14px 6px;">
+    <tr><td style="padding:0 16px 8px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
         ${pickCards}
       </table>
     </td></tr>
-    <tr><td style="padding:6px 14px 12px;">
+    <tr><td style="padding:4px 16px 14px;">
       <a href="https://maximussports.ai/mlb/insights" style="font-size:11px;color:${RED};text-decoration:none;font-weight:600;font-family:${F};">Open Full Picks Board &rarr;</a>
     </td></tr>
   </table>
@@ -321,22 +323,22 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
         const slug = ABBREV_TO_SLUG[(l.teamAbbrev || '').toUpperCase()] || null;
         return `
         <tr>
-          <td style="width:16px;font-size:11px;font-weight:600;color:${MUTED};vertical-align:middle;font-family:${F};padding:4px 0;">${i + 1}</td>
-          <td style="font-size:13px;font-weight:500;color:${BODY};vertical-align:middle;font-family:${F};padding:4px 4px;">${l.name}</td>
-          <td style="width:22px;vertical-align:middle;padding:4px 2px;">${slug ? logoImg(slug, 16) : `<span style="font-size:10px;color:${MUTED};font-family:${F};">${l.teamAbbrev || ''}</span>`}</td>
-          <td align="right" style="width:30px;font-size:14px;font-weight:700;color:${NAVY};vertical-align:middle;font-family:${F};padding:4px 0;">${l.display || l.value || ''}</td>
+          <td style="width:16px;font-size:11px;font-weight:600;color:${DIM};vertical-align:middle;font-family:${F};padding:4px 0;">${i + 1}</td>
+          <td style="font-size:13px;font-weight:600;color:${BODY};vertical-align:middle;font-family:${F};padding:4px 6px 4px 4px;">${l.name}</td>
+          <td style="width:22px;vertical-align:middle;padding:4px 6px 4px 0;">${slug ? logoImg(slug, 14) : `<span style="font-size:10px;color:${DIM};font-family:${F};">${l.teamAbbrev || ''}</span>`}</td>
+          <td align="right" style="width:32px;font-size:14px;font-weight:800;color:${NAVY};vertical-align:middle;font-family:${F};padding:4px 0;">${l.display || l.value || ''}</td>
         </tr>`;
       }).join('');
 
       return `
-      <tr><td style="padding:${catIdx === 0 ? '0' : '6px'} 0 ${isLast ? '0' : '6px'};${isLast ? '' : `border-bottom:1px solid ${BORDER};`}">
+      <tr><td style="padding:${catIdx === 0 ? '0' : '8px'} 0 ${isLast ? '0' : '8px'};${isLast ? '' : `border-bottom:1px solid ${ROW_BORDER};`}">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
           <tr>
-            <td colspan="4" style="padding:0 0 2px;">
+            <td colspan="4" style="padding:0 0 3px;">
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                 <tr>
-                  <td style="font-size:12px;font-weight:700;color:${NAVY};text-transform:uppercase;letter-spacing:0.02em;font-family:${F};">${cat.label}</td>
-                  <td align="right" style="font-size:11px;font-weight:600;color:${MUTED};font-family:${F};">${cat.abbrev}</td>
+                  <td style="font-size:11px;font-weight:700;color:${NAVY};text-transform:uppercase;letter-spacing:0.05em;font-family:${F};">${cat.label}</td>
+                  <td align="right" style="font-size:10px;font-weight:600;color:${DIM};font-family:${F};">${cat.abbrev}</td>
                 </tr>
               </table>
             </td>
@@ -350,7 +352,7 @@ ${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
 ${sectionPill('\u{1F4CA} SEASON LEADERS')}
 <tr><td style="padding:6px 24px 16px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
-    <tr><td style="padding:14px 14px 10px;">
+    <tr><td style="padding:14px 16px 12px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
         ${catBlocks}
       </table>
@@ -373,30 +375,27 @@ ${sectionPill('\u{1F4CA} SEASON LEADERS')}
 
       return `
       <tr>
-        <td style="padding:10px 0${isLast ? '' : ';border-bottom:1px solid #f0f1f3'};font-family:${F};">
+        <td style="padding:10px 0${isLast ? '' : `;border-bottom:1px solid ${ROW_BORDER}`};font-family:${F};">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
             <tr>
-              <td style="width:20px;font-size:13px;font-weight:700;color:${MUTED};vertical-align:top;padding-top:2px;font-family:${F};">${rank}</td>
-              <td style="width:28px;vertical-align:top;padding:2px 8px 0 0;">${logoImg(t.slug, 22)}</td>
+              <td style="width:18px;font-size:12px;font-weight:600;color:${DIM};vertical-align:top;padding-top:3px;font-family:${F};">${rank}</td>
+              <td style="width:28px;vertical-align:top;padding:2px 8px 0 0;">${logoImg(t.slug, 20)}</td>
               <td style="vertical-align:top;">
-                <!-- Team name + odds row -->
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                   <tr>
-                    <td style="font-size:14px;font-weight:700;color:${NAVY};font-family:${F};">${t.abbrev}</td>
+                    <td style="font-size:14px;font-weight:800;color:${NAVY};font-family:${F};">${t.abbrev}</td>
                     <td align="right">
-                      <span style="font-size:11px;font-weight:600;color:${RED};font-family:${F};">${fmtOdds(t.champOdds)}</span>
+                      <span style="font-size:11px;font-weight:700;color:${RED};font-family:${F};">${fmtOdds(t.champOdds)}</span>
                     </td>
                   </tr>
                 </table>
-                <!-- Model projection -->
-                <p style="margin:3px 0 0;font-family:${F};">
-                  <span style="font-size:11px;font-weight:600;color:${MUTED};text-transform:uppercase;letter-spacing:0.03em;">Model Projection:</span>
-                  <span style="font-size:18px;font-weight:800;color:${NAVY};padding-left:4px;">${t.projectedWins}</span>
-                  <span style="font-size:11px;font-weight:600;color:${MUTED};padding-left:2px;">wins</span>
+                <p style="margin:2px 0 0;font-family:${F};">
+                  <span style="font-size:20px;font-weight:800;color:${NAVY};line-height:24px;">${t.projectedWins}</span>
+                  <span style="font-size:10px;font-weight:500;color:${DIM};text-transform:uppercase;letter-spacing:0.04em;padding-left:3px;">projected wins</span>
                 </p>
-                ${signal ? `<span style="display:inline-block;font-size:10px;font-weight:600;color:${BODY};background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);border-radius:3px;padding:1px 7px;margin:4px 0 0;font-family:${F};">${signal}</span>` : ''}
-                ${shortRat ? `<p style="margin:4px 0 0;font-size:12px;line-height:17px;color:${MUTED};font-family:${F};">${normalizeSpacing(stripInlineEmoji(shortRat))}</p>` : ''}
-                ${t.rangeLabel ? `<p style="margin:3px 0 0;font-size:11px;color:#c9cdd4;font-family:${F};">Range: ${t.rangeLabel} &middot; ${capitalize(t.confidenceTier || '')}</p>` : ''}
+                ${signal ? `<span style="display:inline-block;font-size:9px;font-weight:600;color:#5a6577;background:#f0f1f3;border-radius:3px;padding:2px 7px;margin:3px 0 0;letter-spacing:0.02em;font-family:${F};">${signal}</span>` : ''}
+                ${shortRat ? `<p style="margin:4px 0 0;font-size:12px;line-height:17px;color:${DIM};font-family:${F};">${normalizeSpacing(stripInlineEmoji(shortRat))}</p>` : ''}
+                ${t.rangeLabel ? `<p style="margin:3px 0 0;font-size:10px;color:#c9cdd4;font-family:${F};">Range: ${t.rangeLabel} &middot; ${capitalize(t.confidenceTier || '')}</p>` : ''}
               </td>
             </tr>
           </table>
@@ -407,16 +406,16 @@ ${sectionPill('\u{1F4CA} SEASON LEADERS')}
     outlookHtml = `
 ${sectionPill('\u{1F3C6} WORLD SERIES OUTLOOK')}
 <tr><td style="padding:2px 24px 8px;">
-  <p style="margin:0;font-size:11px;font-weight:600;color:${MUTED};text-transform:uppercase;letter-spacing:0.04em;font-family:${F};">WHAT THE MAXIMUS PREDICTION MODEL SAYS</p>
+  <p style="margin:0;font-size:10px;font-weight:600;color:${DIM};text-transform:uppercase;letter-spacing:0.06em;font-family:${F};">WHAT THE MAXIMUS PREDICTION MODEL SAYS</p>
 </td></tr>
 
 <!-- AL Top 5 -->
 <tr><td style="padding:4px 24px 8px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
-    <tr><td style="padding:12px 14px 4px;">
-      <span style="font-size:11px;font-weight:700;color:${BLUE};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">AMERICAN LEAGUE &mdash; TOP 5</span>
+    <tr><td style="padding:12px 16px 4px;">
+      <span style="font-size:11px;font-weight:700;color:${BLUE};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">AMERICAN LEAGUE &mdash; TOP 5</span>
     </td></tr>
-    <tr><td style="padding:0 14px 10px;">
+    <tr><td style="padding:0 16px 10px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
         ${outlook.al.map((t, i) => renderOutlookTeam(t, i + 1, i === outlook.al.length - 1)).join('')}
       </table>
@@ -427,10 +426,10 @@ ${sectionPill('\u{1F3C6} WORLD SERIES OUTLOOK')}
 <!-- NL Top 5 -->
 <tr><td style="padding:4px 24px 16px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;">
-    <tr><td style="padding:12px 14px 4px;">
-      <span style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">NATIONAL LEAGUE &mdash; TOP 5</span>
+    <tr><td style="padding:12px 16px 4px;">
+      <span style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">NATIONAL LEAGUE &mdash; TOP 5</span>
     </td></tr>
-    <tr><td style="padding:0 14px 10px;">
+    <tr><td style="padding:0 16px 10px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
         ${outlook.nl.map((t, i) => renderOutlookTeam(t, i + 1, i === outlook.nl.length - 1)).join('')}
       </table>
