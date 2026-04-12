@@ -411,3 +411,92 @@ export function mlbTeamLogoImg(team, size = 22) {
   return `<img src="${logoUrl}" alt="${team?.name || slug}" width="${size}" height="${size}"
     style="width:${size}px;height:${size}px;min-width:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;line-height:1;outline:none;text-decoration:none;" />`;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SPORTSBOOK PARTNER CTA MODULE
+   Shared across all email templates that include sportsbook CTAs.
+   ═══════════════════════════════════════════════════════════════ */
+
+const PARTNERS = {
+  xbet: {
+    name: 'XBet',
+    offer: 'Welcome Offer',
+    trust: 'Fast markets \u00B7 broad MLB coverage',
+    url: 'https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/',
+  },
+  mybookie: {
+    name: 'MyBookie',
+    offer: 'Welcome Bonus',
+    trust: 'Bet-back protection for new users',
+    url: 'https://record.webpartners.co/_HSjxL9LMlaIxuOePL6NGnGNd7ZgqdRLk/1/',
+  },
+};
+
+function bookBrandMark(brand) {
+  if (brand === 'xbet') {
+    return `<span style="display:inline-block;font-size:16px;font-weight:800;color:${NAVY};letter-spacing:-0.02em;font-family:${FONT_STACK};">X<span style="color:${BRAND_RED};">Bet</span></span>`;
+  }
+  if (brand === 'mybookie') {
+    return `<span style="display:inline-block;font-size:15px;font-weight:800;color:${NAVY};letter-spacing:-0.01em;font-family:${FONT_STACK};">My<span style="color:${BRAND_RED};">Bookie</span></span>`;
+  }
+  return '';
+}
+
+/**
+ * Render the "ACT ON TODAY'S BOARD" sportsbook partner CTA module.
+ * Identical output regardless of which template calls it.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.padding] — outer td padding override (default '8px 28px 20px')
+ */
+export function renderPartnerModule(opts = {}) {
+  const outerPad = opts.padding || '8px 28px 20px';
+
+  const renderPartnerCard = (partner, brand) => `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;background:#ffffff;">
+      <tr>
+        <td style="padding:16px 18px 14px;">
+          <div style="margin:0 0 6px;">${bookBrandMark(brand)}</div>
+          <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:${NAVY};font-family:${FONT_STACK};">${partner.offer}</p>
+          <p style="margin:0 0 10px;font-size:11px;color:#b0b8c4;line-height:16px;font-family:${FONT_STACK};">${partner.trust}</p>
+          <a href="${partner.url}" style="display:inline-block;font-size:11px;font-weight:700;color:${BRAND_RED};text-decoration:none;border:1px solid ${BRAND_RED};border-radius:5px;padding:8px 18px;font-family:${FONT_STACK};line-height:14px;letter-spacing:0.02em;" target="_blank">Claim ${partner.offer} &rarr;</a>
+        </td>
+      </tr>
+    </table>`;
+
+  return `
+<tr>
+  <td style="padding:${outerPad};" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background:#f9fafb;border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
+      <tr>
+        <td style="padding:18px 18px 8px;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:${NAVY};letter-spacing:0.08em;text-transform:uppercase;font-family:${FONT_STACK};">ACT ON TODAY'S BOARD</p>
+          <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${TEXT_MUTED};font-family:${FONT_STACK};">If you\u2019re acting on today\u2019s Maximus Model signals, these partners provide live market access and new-user bonuses.</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 18px;">
+          <!--[if mso]>
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+            <td width="48%" valign="top">
+          <![endif]-->
+          <div style="display:inline-block;width:48%;vertical-align:top;min-width:200px;">
+            ${renderPartnerCard(PARTNERS.xbet, 'xbet')}
+          </div>
+          <!--[if mso]>
+            </td><td width="4%">&nbsp;</td><td width="48%" valign="top">
+          <![endif]-->
+          <div style="display:inline-block;width:48%;vertical-align:top;margin-left:3%;min-width:200px;">
+            ${renderPartnerCard(PARTNERS.mybookie, 'mybookie')}
+          </div>
+          <!--[if mso]>
+            </td></tr></table>
+          <![endif]-->
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+}
