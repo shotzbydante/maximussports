@@ -52,6 +52,7 @@ import {
   EMAIL_REGISTRY, VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey,
   isSeasonGated, getEmailConfig, getEmailSport,
   loadTeamLookup, filterSportSlugs, enrichMlbTeamDigests, emailPayloadDigest,
+  assembleEmailData, buildEmailData,
 } from '../_lib/emailPipeline.js';
 
 /**
@@ -439,48 +440,40 @@ export default async function handler(req, res) {
     let mlbData = null;
 
     if (tplType === 'globalBriefing') {
-      // ── Global briefing: fetch BOTH NCAAM + MLB data ──
+      // ── Global briefing: use CANONICAL assembleEmailData pipeline ──
+      // This is the same code path used by send-test.js, ensuring parity.
       const host = req.headers.host || 'localhost:3000';
+      const proto = host.includes('localhost') ? 'http' : 'https';
+      const baseUrl = `${proto}://${host}`;
 
-      // NCAAM data (existing pipeline)
-      const [scoresTodayRaw, rankingsData, atsResult, newsData] = await Promise.allSettled([
-        fetchScoresSource(), fetchRankingsSource(), getAtsLeadersPipeline(),
-        fetchNewsAggregateSource({ includeNational: true }),
-      ]);
-      scoresToday = scoresTodayRaw.status === 'fulfilled' ? (scoresTodayRaw.value || []) : [];
-      rankingsTop25 = rankingsData.status === 'fulfilled' ? (rankingsData.value?.rankings || []).slice(0, 25) : [];
-      atsLeaders = atsResult.status === 'fulfilled' ? { best: atsResult.value?.best || [], worst: atsResult.value?.worst || [] } : { best: [], worst: [] };
-      const headlinesRaw = newsData.status === 'fulfilled' ? (newsData.value?.items || []) : [];
-      headlines = dedupeNewsItems(headlinesRaw);
+      const assembled = await assembleEmailData(type, baseUrl);
 
-      // MLB data (via shared helper — include picks for summary card)
-      mlbData = await assembleMlbEmailData(`http://${host}`, { includeSummary: true, includePicks: true });
+      // Extract fields for the legacy emailData construction below
+      scoresToday = assembled.scoresToday;
+      rankingsTop25 = assembled.rankingsTop25;
+      atsLeaders = assembled.atsLeaders;
+      headlines = assembled.headlines;
+      oddsGames = assembled.oddsGames;
+      botIntelBullets = assembled.botIntelBullets || [];
+      mlbData = assembled.mlbData;
 
-      // Build pennant race data from projections (top 3 AL + top 3 NL)
-      try {
-        const { getSeasonProjections, filterTeams } = await import('../../src/data/mlb/seasonModel.js');
-        const allProj = getSeasonProjections();
-        const alTop = filterTeams(allProj, { league: 'AL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
-        const nlTop = filterTeams(allProj, { league: 'NL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
-        mlbData.pennantRace = { al: alTop, nl: nlTop };
-      } catch { /* projections not available */ }
-
-      console.log(`[run-daily] Global briefing: NCAAM headlines=${headlines.length} MLB headlines=${mlbData.headlines.length} MLB narrative=${!!mlbData.narrativeParagraph} pennant=${!!mlbData.pennantRace}`);
-      console.log('[GLOBAL BRIEFING PROD]', {
+      // Diagnostic logging
+      console.log('[run-daily] Global briefing (canonical pipeline):', {
         hasMlbData: !!mlbData,
-        mlbNarrativeLength: mlbData?.narrativeParagraph?.length || 0,
+        mlbNarrativeLen: mlbData?.narrativeParagraph?.length || 0,
         mlbHeadlineCount: mlbData?.headlines?.length || 0,
         hasPicks: !!mlbData?.picksBoard,
-        picksCount: mlbData?.picksBoard?.categories
-          ? Object.values(mlbData.picksBoard.categories).reduce((acc, arr) => acc + (arr?.length || 0), 0)
-          : 0,
         hasPennant: !!mlbData?.pennantRace,
+        hasOutlook: !!mlbData?.worldSeriesOutlook,
+        hasLeaders: !!mlbData?.leadersCategories && Object.keys(mlbData.leadersCategories).length > 0,
+        hasChampOdds: !!mlbData?.champOdds && Object.keys(mlbData.champOdds).length > 0,
       });
 
     } else if (isMLB) {
       // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──
       const host = req.headers.host || 'localhost:3000';
-      const mlbData = await assembleMlbEmailData(`http://${host}`, {
+      const proto = host.includes('localhost') ? 'http' : 'https';
+      const mlbData = await assembleMlbEmailData(`${proto}://${host}`, {
         includeSummary: tplType === 'mlbBriefing',
         includePicks: tplType === 'mlbPicks',
       });
@@ -652,26 +645,37 @@ export default async function handler(req, res) {
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
 
-      const emailData = {
-        displayName,
-        scoresToday,
-        rankingsTop25,
-        atsLeaders,
-        headlines,
-        pinnedTeams,
-        botIntelBullets,
-        maximusNote,
-        oddsGames,
-        modelSignals,
-        tournamentMeta,
-        // Enhanced briefing context for upgraded email
-        narrativeParagraph: isMLB ? mlbNarrativeParagraph : (briefingContext.narrativeParagraph || ''),
-        priorDayResults: briefingContext.priorDayResults || [],
-        todayUpcoming: briefingContext.todayUpcoming || [],
-        picksSummary: briefingContext.picksSummary || '',
-        picksBoard: picksBoard || null,
-        mlbData: mlbData || null,
-      };
+      // For globalBriefing, use buildEmailData() for parity with send-test
+      let emailData;
+      if (tplType === 'globalBriefing') {
+        const assembled = {
+          scoresToday, rankingsTop25, atsLeaders, headlines, oddsGames,
+          botIntelBullets, mlbData, modelSignals, tournamentMeta,
+          mlbNarrativeParagraph: mlbData?.narrativeParagraph || '',
+          briefingContext, picksBoard: mlbData?.picksBoard || picksBoard || null,
+        };
+        emailData = buildEmailData(type, assembled, { displayName, pinnedTeams, pinnedSlugs });
+      } else {
+        emailData = {
+          displayName,
+          scoresToday,
+          rankingsTop25,
+          atsLeaders,
+          headlines,
+          pinnedTeams,
+          botIntelBullets,
+          maximusNote,
+          oddsGames,
+          modelSignals,
+          tournamentMeta,
+          narrativeParagraph: isMLB ? mlbNarrativeParagraph : (briefingContext.narrativeParagraph || ''),
+          priorDayResults: briefingContext.priorDayResults || [],
+          todayUpcoming: briefingContext.todayUpcoming || [],
+          picksSummary: briefingContext.picksSummary || '',
+          picksBoard: picksBoard || null,
+          mlbData: mlbData || null,
+        };
+      }
 
       // Parity digest — same format as send-test for comparison
       if (i === 0) {

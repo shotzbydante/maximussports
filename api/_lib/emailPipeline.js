@@ -234,7 +234,9 @@ export async function assembleEmailData(type, baseUrl) {
         const alTop = filterTeams(all, { league: 'AL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
         const nlTop = filterTeams(all, { league: 'NL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 3);
         result.mlbData.pennantRace = { al: alTop, nl: nlTop };
-      } catch { /* projections not available */ }
+      } catch (err) {
+        console.warn(`[emailPipeline] Pennant race build failed: ${err.message}`);
+      }
     }
 
     // World Series Outlook (top 5 per league with full projection details)
@@ -267,7 +269,9 @@ export async function assembleEmailData(type, baseUrl) {
         const alTop5 = filterTeams(all, { league: 'AL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 5).map(enrichTeam);
         const nlTop5 = filterTeams(all, { league: 'NL' }).sort((a, b) => b.projectedWins - a.projectedWins).slice(0, 5).map(enrichTeam);
         result.mlbData.worldSeriesOutlook = { al: alTop5, nl: nlTop5 };
-      } catch { /* projections not available */ }
+      } catch (err) {
+        console.warn(`[emailPipeline] World Series Outlook build failed: ${err.message}`);
+      }
     }
   }
 

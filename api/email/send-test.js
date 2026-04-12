@@ -113,7 +113,8 @@ export default async function handler(req, res) {
     try {
       const displayName = getUserDisplayName({ user });
       const host = req.headers.host || 'localhost:3000';
-      const baseUrl = `http://${host}`;
+      const proto = host.includes('localhost') ? 'http' : 'https';
+      const baseUrl = `${proto}://${host}`;
 
       // Canonical data assembly (same logic as all send paths)
       const assembled = await assembleEmailData(type, baseUrl);
