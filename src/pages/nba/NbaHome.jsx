@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import NbaLoading from '../../components/nba/NbaLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
+import NbaPinnedTeamSection from '../../components/nba/NbaPinnedTeamSection';
 import NbaFinalsWatch from '../../components/nba/NbaFinalsWatch';
 import styles from './NbaHome.module.css';
 
@@ -197,6 +198,7 @@ export default function NbaHome() {
         </div>
       </section>
 
+      <NbaPinnedTeamSection />
       <NbaFinalsWatch />
     </div>
   );
