@@ -69,6 +69,16 @@ export default function RenderMlbDaily() {
         console.log('[RenderMlbDaily] Using injected data');
       }
 
+      // Debug: log leaders data shape for troubleshooting
+      const ldrs = slideData?.mlbLeaders;
+      console.log('[RenderMlbDaily] mlbLeaders keys:', ldrs ? Object.keys(ldrs) : 'null');
+      console.log('[RenderMlbDaily] mlbLeaders.categories keys:', ldrs?.categories ? Object.keys(ldrs.categories) : 'null');
+      const catKeys = Object.keys(ldrs?.categories || {});
+      for (const k of catKeys) {
+        const cat = ldrs.categories[k];
+        console.log(`[RenderMlbDaily]   ${k}: ${cat?.leaders?.length ?? 0} leaders`);
+      }
+
       if (!cancelled) setData(slideData);
     }
 
