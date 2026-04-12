@@ -297,7 +297,7 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
                 </div>
               </div>
             )) : (
-              <div className={styles.slide2LeadersEmpty}>Season leaders loading...</div>
+              <div className={styles.slide2LeadersEmpty}>Season leaders unavailable</div>
             )}
           </div>
         </article>

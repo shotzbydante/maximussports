@@ -23,7 +23,9 @@ import { createCache, coalesce } from '../_cache.js';
 import { MLB_TEAMS, MLB_ESPN_IDS } from '../../src/sports/mlb/teams.js';
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 min
+const STALE_TTL = 6 * 60 * 60 * 1000; // Serve stale up to 6 hours if fresh fetch fails
 const FETCH_TIMEOUT = 8000;
+const REF_TIMEOUT = 5000; // Per-$ref resolution timeout
 const cache = createCache(CACHE_TTL);
 
 // ESPN team ID → our slug
@@ -69,16 +71,7 @@ async function resolveEntry(entry) {
   let teamAbbrev = '';
   let teamName = '';
 
-  if (athleteRef) {
-    try {
-      const ar = await fetchWithTimeout(athleteRef, 4000);
-      if (ar.ok) {
-        const ad = await ar.json();
-        athleteName = ad.displayName || ad.fullName || '—';
-      }
-    } catch { /* fallback */ }
-  }
-
+  // Resolve team from $ref URL — no HTTP needed, just parse the ID
   if (teamRef) {
     const teamIdMatch = teamRef.match(/teams\/(\d+)/);
     if (teamIdMatch) {
@@ -90,6 +83,17 @@ async function resolveEntry(entry) {
         teamName = t?.name || '';
       }
     }
+  }
+
+  // Resolve athlete name via HTTP — non-fatal, falls back to '—'
+  if (athleteRef) {
+    try {
+      const ar = await fetchWithTimeout(athleteRef, REF_TIMEOUT);
+      if (ar.ok) {
+        const ad = await ar.json();
+        athleteName = ad.displayName || ad.fullName || '—';
+      }
+    } catch { /* non-fatal — name stays as '—' */ }
   }
 
   return {
@@ -133,9 +137,15 @@ async function fetchAllLeaders() {
       }
     }
 
-    // Phase 2: resolve top 3 for league-wide display
+    // Phase 2: resolve top 3 for league-wide display (non-fatal per entry)
     const top3Entries = allEntries.slice(0, 3);
-    const top3Resolved = await Promise.all(top3Entries.map(resolveEntry));
+    const top3Results = await Promise.allSettled(top3Entries.map(resolveEntry));
+    const top3Resolved = top3Results.map((r, i) =>
+      r.status === 'fulfilled' ? r.value : {
+        name: '—', team: '', teamAbbrev: teamAbbrevFromRef(top3Entries[i]?.team?.$ref),
+        value: top3Entries[i]?.value ?? 0, display: String(Math.round(top3Entries[i]?.value ?? 0)),
+      }
+    );
 
     // Phase 3: resolve team-best entries (skip any already resolved in top 3)
     const top3Refs = new Set(top3Entries.map(e => e.athlete?.$ref || ''));
@@ -162,7 +172,13 @@ async function fetchAllLeaders() {
     // Then resolve remaining in batches
     for (let i = 0; i < teamBestToResolve.length; i += batchSize) {
       const batch = teamBestToResolve.slice(i, i + batchSize);
-      const resolved = await Promise.all(batch.map(({ entry }) => resolveEntry(entry)));
+      const batchResults = await Promise.allSettled(batch.map(({ entry }) => resolveEntry(entry)));
+      const resolved = batchResults.map((r, idx) =>
+        r.status === 'fulfilled' ? r.value : {
+          name: '—', team: '', teamAbbrev: batch[idx].abbrev,
+          value: batch[idx].entry?.value ?? 0, display: String(Math.round(batch[idx].entry?.value ?? 0)),
+        }
+      );
       for (let j = 0; j < batch.length; j++) {
         const abbrev = batch[j].abbrev;
         const r = resolved[j];
@@ -192,19 +208,50 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const result = await coalesce('mlb:leaders', () => {
-      const cached = cache.get('mlb:leaders');
-      if (cached) return cached;
-      return fetchAllLeaders().then(data => {
-        cache.set('mlb:leaders', data);
-        return data;
-      });
+    const result = await coalesce('mlb:leaders', async () => {
+      // 1. Fresh cache hit — return immediately
+      const fresh = cache.get('mlb:leaders');
+      if (fresh) return fresh;
+
+      // 2. Try fresh fetch
+      try {
+        const data = await fetchAllLeaders();
+        // Only cache if we actually got categories
+        const catCount = Object.keys(data?.categories || {}).length;
+        if (catCount > 0) {
+          cache.set('mlb:leaders', data);
+          return data;
+        }
+        // ESPN returned 200 but no matching categories — fall through to stale
+        console.warn(`[mlb/leaders] fresh fetch returned 0 categories`);
+      } catch (fetchErr) {
+        console.warn(`[mlb/leaders] fresh fetch failed: ${fetchErr?.message}`);
+      }
+
+      // 3. Fresh fetch failed or empty — serve stale if available
+      const stale = cache.getMaybeStale('mlb:leaders', STALE_TTL);
+      if (stale?.value) {
+        console.log(`[mlb/leaders] serving stale data (age=${Math.round(stale.ageMs / 1000)}s)`);
+        return stale.value;
+      }
+
+      // 4. No stale data available — return empty
+      return { categories: {}, fetchedAt: new Date().toISOString(), partial: true };
     });
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
     return res.status(200).json(result);
   } catch (err) {
     console.error('[mlb/leaders] error:', err?.message);
+
+    // Last resort: serve stale even from outer catch
+    const stale = cache.getMaybeStale('mlb:leaders', STALE_TTL);
+    if (stale?.value) {
+      console.log(`[mlb/leaders] serving stale data from error handler`);
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=3600');
+      return res.status(200).json(stale.value);
+    }
+
     return res.status(500).json({ error: 'Failed to fetch leaders', categories: {} });
   }
 }
