@@ -92,7 +92,8 @@ function TeamLogoHero({ slug, name }) {
 
   return (
     <img src={url} alt={name} className={styles.teamLogo}
-      crossOrigin="anonymous" onError={() => setFailed(true)} />
+      data-fallback-text={initials}
+      onError={() => setFailed(true)} />
   );
 }
 
@@ -103,9 +104,11 @@ function OppLogo({ slug }) {
   if (!slug || failed) return null;
   const url = getMlbEspnLogoUrl(slug);
   if (!url) return null;
+  const abbr = slug?.toUpperCase()?.slice(0, 3) || '';
   return (
     <img src={url} alt="" className={styles.oppLogo}
-      crossOrigin="anonymous" onError={() => setFailed(true)} />
+      data-fallback-text={abbr}
+      onError={() => setFailed(true)} />
   );
 }
 
@@ -208,7 +211,7 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.logoRow}>
-          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} crossOrigin="anonymous" />
+          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} />
           <div className={styles.logoMeta}>
             <span className={styles.brandName}>MAXIMUS SPORTS</span>
             <span className={styles.intelChip}>MLB TEAM INTEL</span>

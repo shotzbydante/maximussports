@@ -14,19 +14,37 @@
  * This avoids CORS tainting issues in html-to-image by inlining the pixel data.
  */
 async function inlineImageAsDataUrl(img) {
+  // Strategy 1: fetch with CORS (works for well-configured CDNs)
   try {
     const resp = await fetch(img.src, { mode: 'cors' });
-    if (!resp.ok) return null;
-    const blob = await resp.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
+    if (resp.ok) {
+      const blob = await resp.blob();
+      return await blobToDataUrl(blob);
+    }
+  } catch { /* fall through to canvas strategy */ }
+
+  // Strategy 2: canvas drawImage (works if image loaded with crossOrigin attr)
+  try {
+    if (img.complete && img.naturalWidth > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      return canvas.toDataURL('image/png');
+    }
+  } catch { /* canvas tainted — fall through */ }
+
+  return null;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**
