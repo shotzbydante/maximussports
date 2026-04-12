@@ -23,6 +23,7 @@ import { ADMIN_EMAIL, isAdminUser } from '../config/admin';
 import { effectivePlanTier, getEntitlements, PRO_PRICE_LABEL } from '../lib/entitlements';
 import { invalidatePlanCache, markSyncing } from '../hooks/usePlan';
 import { invalidateProfileCache } from '../hooks/useUserProfile';
+import { useTeamPin } from '../hooks/useTeamPin';
 import { isEmbeddedBrowser, getEmbeddedSource, getPlatform } from '../utils/embeddedBrowser';
 import EmbeddedBrowserModal from '../components/auth/EmbeddedBrowserModal';
 import RobotAvatar, { DEFAULT_ROBOT_CONFIG } from '../components/profile/RobotAvatar';
@@ -2230,6 +2231,7 @@ function SocialCountsRow({ userId }) {
 function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const { pinTeam: serverPinTeam, unpinTeam: serverUnpinTeam } = useTeamPin();
 
   const [userTeams, setUserTeams]         = useState([]);
   const [teamsLoading, setTeamsLoading]   = useState(true);
@@ -2733,23 +2735,30 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 
   /* ── Remove team ── */
   async function handleRemoveTeam(slug) {
-    const sb = getSupabase();
-    if (!sb) return;
     setTeamsError('');
     try {
-      await sb.from('user_teams').delete().eq('user_id', user.id).eq('team_slug', slug);
+      // Server-validated remove
+      const result = await serverUnpinTeam(slug);
+      if (!result.ok) {
+        setTeamsError(result.error || 'Failed to remove team.');
+        return;
+      }
+
       const remaining = userTeams.filter(t => t.team_slug !== slug);
       const removedWasPrimary = userTeams.find(t => t.team_slug === slug)?.is_primary;
       if (removedWasPrimary && remaining.length > 0) {
-        const newPrimSlug = remaining[0].team_slug;
-        const sbI = getSupabase();
-        if (sbI) await sbI.from('user_teams').update({ is_primary: true }).eq('user_id', user.id).eq('team_slug', newPrimSlug);
+        // Set new primary via direct DB (primary is not part of the pin endpoint)
+        const sb = getSupabase();
+        if (sb) {
+          const newPrimSlug = remaining[0].team_slug;
+          await sb.from('user_teams').update({ is_primary: true }).eq('user_id', user.id).eq('team_slug', newPrimSlug);
+        }
         setUserTeams(remaining.map((t, i) => ({ ...t, is_primary: i === 0 })));
       } else {
         setUserTeams(remaining);
       }
       const remainingSlugs = remaining.map(t => t.team_slug);
-      // Remove from correct sport store
+      // Mirror to localStorage
       const isMlbSlug = MLB_TEAMS.some(t => t.slug === slug);
       if (isMlbSlug) {
         try { removePinnedForSport('mlb', slug); } catch {}
@@ -2760,31 +2769,33 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       track('team_unpinned', { team_slug: slug });
       trackFavoriteTeamsUpdated(user.id, remainingSlugs);
     } catch (err) {
-      setTeamsError(friendlyDbError(err));
+      setTeamsError(typeof err === 'string' ? err : err?.message || 'Failed to remove team.');
     }
   }
 
-  /* ── Add team (with free-tier gating) ── */
+  /* ── Add team (server-validated with free-tier gating) ── */
   async function handleAddTeam(slug) {
-    const sb = getSupabase();
-    if (!sb) throw new Error('Not connected');
     if (userTeams.find(t => t.team_slug === slug)) return;
 
-    // Free plan: enforce maxPinnedTeams limit
+    // Client-side pre-check for instant UX feedback
     if (userTeams.length >= entitlements.maxPinnedTeams) {
       setShowTeamPicker(false);
       setUpgradePrompt({ message: `Free plan supports up to ${entitlements.maxPinnedTeams} pinned teams. Upgrade to Pro for unlimited teams.` });
       return;
     }
 
+    // Server-validated add (source of truth)
+    const result = await serverPinTeam(slug);
+    if (!result.ok) {
+      setShowTeamPicker(false);
+      setUpgradePrompt({ message: result.error || 'Unable to pin team.' });
+      return;
+    }
+
     const isPrimary = userTeams.length === 0;
-    const { error } = await sb.from('user_teams').insert({
-      user_id: user.id, team_slug: slug, is_primary: isPrimary, created_at: new Date().toISOString(),
-    });
-    if (error) throw new Error(friendlyDbError(error));
     setUserTeams(prev => [...prev, { user_id: user.id, team_slug: slug, is_primary: isPrimary, created_at: new Date().toISOString() }]);
     setShowTeamPicker(false);
-    // Add to correct sport store
+    // Mirror to localStorage
     const isMlbSlug = MLB_TEAMS.some(t => t.slug === slug);
     try {
       if (isMlbSlug) { addPinnedForSport('mlb', slug); }
