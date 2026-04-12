@@ -4,11 +4,16 @@
  * Mirrors the MLB Home > Betting Intelligence > Maximus's Picks board.
  * 4 categories: Pick 'Ems, Against the Spread, Value Leans, Game Totals.
  * Each pick rendered as a mini-card with logos, metrics, and rationale.
+ *
+ * Logo fix: Team logos now use absolute ESPN CDN URLs via mlbTeamLogoImg()
+ * from MlbEmailShell.js, converting the slug from the pick data. The prior
+ * approach passed relative paths (/logos/mlb/nyy.png) from getMlbEspnLogoUrl()
+ * which email clients cannot resolve.
  */
 
 import {
   MlbEmailShell, mlbHeroBlock, mlbDividerRow,
-  normalizeSpacing, stripInlineEmoji,
+  normalizeSpacing, stripInlineEmoji, mlbTeamLogoImg,
 } from '../MlbEmailShell.js';
 import { mlbPicksSubject } from '../helpers/subjectGenerator.js';
 
@@ -28,25 +33,73 @@ export function getSubject(data = {}) {
 }
 
 const CATEGORY_META = [
-  { key: 'pickEms', icon: '\u{1F3AF}', title: "PICK 'EMS",           sub: 'Moneyline winners backed by Maximus\u2019s model \u2014 based on projected strength, market price, and matchup quality.' },
-  { key: 'ats',     icon: '\u{1F4CA}', title: 'AGAINST THE SPREAD',  sub: 'Run line picks where the model identifies pricing inefficiencies and matchup separation.' },
-  { key: 'leans',   icon: '\u{1F4C8}', title: 'VALUE LEANS',          sub: 'Directional value where the model believes market pricing understates a side.' },
-  { key: 'totals',  icon: '\u{26BE}',  title: 'GAME TOTALS',          sub: 'Over/under leans driven by the model\u2019s read on offense, pitching, and game environment.' },
+  { key: 'pickEms', icon: '\u{1F3AF}', title: "PICK 'EMS",           sub: 'Moneyline winners backed by the Maximus Model \u2014 projected strength, market price, and matchup quality.' },
+  { key: 'ats',     icon: '\u{1F4CA}', title: 'AGAINST THE SPREAD',  sub: 'Run line picks where the Maximus Model identifies pricing inefficiencies and matchup separation.' },
+  { key: 'leans',   icon: '\u{1F4C8}', title: 'VALUE LEANS',          sub: 'Directional value where the Maximus Model believes market pricing understates a side.' },
+  { key: 'totals',  icon: '\u{26BE}',  title: 'GAME TOTALS',          sub: 'Over/under leans driven by the Maximus Model\u2019s read on offense, pitching, and game environment.' },
 ];
 
-// ── Sportsbook partner links ────────────────────────────────────
+// ── Sportsbook partner config ───────────────────────────────────
 const PARTNERS = {
   xbet: {
     name: 'XBet',
     offer: 'Welcome Offer',
+    trust: 'Fast markets \u00B7 broad MLB coverage',
     url: 'https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/',
   },
   mybookie: {
     name: 'MyBookie',
     offer: 'Welcome Bonus',
+    trust: 'Bet-back protection for new users',
     url: 'https://record.webpartners.co/_HSjxL9LMlaIxuOePL6NGnGNd7ZgqdRLk/1/',
   },
 };
+
+// ── Logo helpers ────────────────────────────────────────────────
+
+/**
+ * Resolve team logo for email use.
+ *
+ * The pick data arrives with a `logo` field that's typically a relative
+ * path (/logos/mlb/nyy.png) from getMlbEspnLogoUrl(). Email clients
+ * cannot resolve relative URLs, so we convert the slug to an absolute
+ * ESPN CDN URL via mlbTeamLogoImg() from MlbEmailShell.
+ *
+ * Fallback chain:
+ *   1. team.slug → mlbTeamLogoImg() (absolute ESPN CDN URL)
+ *   2. team.logo if already absolute (https://...)
+ *   3. text abbreviation badge
+ */
+function teamLogo(team, size = 18) {
+  const slug = team?.slug;
+  if (slug) {
+    return mlbTeamLogoImg({ slug, abbrev: team.shortName || team.name || slug }, size);
+  }
+  // Fallback: if logo is already absolute, use it directly
+  const logoUrl = team?.logo;
+  if (logoUrl && logoUrl.startsWith('https://')) {
+    return `<img src="${logoUrl}" alt="${team.shortName || 'Team'}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;outline:none;text-decoration:none;" />`;
+  }
+  // Final fallback: text abbreviation
+  const abbr = (team?.shortName || team?.name || '??').slice(0, 3).toUpperCase();
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:8px;font-weight:700;color:#6b7280;background:#f0f1f3;border-radius:4px;vertical-align:middle;font-family:${F};">${abbr}</span>`;
+}
+
+/**
+ * Email-safe sportsbook brand mark.
+ * Uses a styled text badge matching the AffiliateCta BrandMark approach.
+ */
+function bookBrandMark(brand) {
+  if (brand === 'xbet') {
+    return `<span style="display:inline-block;font-size:16px;font-weight:800;color:${NAVY};letter-spacing:-0.02em;font-family:${F};">X<span style="color:${RED};">Bet</span></span>`;
+  }
+  if (brand === 'mybookie') {
+    return `<span style="display:inline-block;font-size:15px;font-weight:800;color:${NAVY};letter-spacing:-0.01em;font-family:${F};">My<span style="color:${RED};">Bookie</span></span>`;
+  }
+  return '';
+}
+
+// ── Formatting helpers ──────────────────────────────────────────
 
 function fmtTime(startTime) {
   if (!startTime) return '';
@@ -86,16 +139,7 @@ function confBadge(confidence) {
   return `<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.06em;color:${c.color};background:${c.bg};padding:3px 8px;border-radius:4px;font-family:${F};vertical-align:middle;">${c.label}</span>`;
 }
 
-/**
- * Email-safe MLB team logo <img>.
- */
-function logoImg(logoUrl, name, size = 24) {
-  if (!logoUrl) {
-    const abbr = (name || '??').slice(0, 3).toUpperCase();
-    return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:9px;font-weight:700;color:#6b7280;background:#f3f4f6;border-radius:4px;vertical-align:middle;font-family:${F};">${abbr}</span>`;
-  }
-  return `<img src="${logoUrl}" alt="${name || 'Team'}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;border-radius:4px;vertical-align:middle;display:inline-block;border:0;outline:none;text-decoration:none;" />`;
-}
+// ── Pick card ───────────────────────────────────────────────────
 
 function renderPickCard(pick) {
   const { matchup, pick: p, model, confidence, category } = pick;
@@ -112,12 +156,13 @@ function renderPickCard(pick) {
   const signals = (p?.topSignals || []).slice(0, 2);
   const pickLabel = p?.label || '';
 
-  const awayLogo = logoImg(away.logo, away.shortName, 20);
-  const homeLogo = logoImg(home.logo, home.shortName, 20);
+  // Use the canonical email logo helper (absolute ESPN CDN URLs)
+  const awayLogo = teamLogo(away, 18);
+  const homeLogo = teamLogo(home, 18);
   const awayName = away.shortName || away.name || 'Away';
   const homeName = home.shortName || home.name || 'Home';
 
-  // Pick pill — strong visual anchor
+  // Pick pill
   const pickPill = `<span style="display:inline-block;font-size:14px;font-weight:800;color:${NAVY};background:#f0f9ff;border:1px solid #bae6fd;border-radius:5px;padding:4px 12px;font-family:${F};vertical-align:middle;">${pickLabel}</span>`;
 
   // Matchup line
@@ -125,24 +170,24 @@ function renderPickCard(pick) {
   if (isTotal) {
     matchupHtml = `
       <p style="margin:0 0 8px;font-size:14px;font-weight:600;line-height:22px;color:${NAVY};font-family:${F};">
-        ${awayLogo}&nbsp;${awayName} <span style="color:${DIM};font-weight:400;">@</span> ${homeLogo}&nbsp;${homeName}
+        ${awayLogo}<span style="padding:0 6px 0 4px;">${awayName}</span><span style="color:${DIM};font-weight:400;">@</span><span style="padding:0 4px 0 6px;">${homeName}</span>${homeLogo}
       </p>
       <p style="margin:0 0 8px;">${pickPill} ${confBadge(confidence)}</p>`;
   } else {
     matchupHtml = `
       <p style="margin:0 0 6px;">${pickPill} ${confBadge(confidence)}</p>
       <p style="margin:0 0 8px;font-size:13px;line-height:18px;color:${MUTED};font-family:${F};">
-        ${awayLogo}&nbsp;${awayName} <span style="color:#d1d5db;margin:0 2px;">vs</span> ${homeLogo}&nbsp;${homeName}
+        ${awayLogo}<span style="padding:0 6px 0 4px;">${awayName}</span><span style="color:#d1d5db;">vs</span><span style="padding:0 4px 0 6px;">${homeName}</span>${homeLogo}
       </p>`;
   }
 
-  // Edge/DQ metrics — terminal-like treatment
+  // Model Edge / Data Quality — terminal-like metric strip
   const metricsHtml = `
     <td style="padding:0 14px 8px;">
       <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
         <tr>
           <td style="padding-right:16px;">
-            <span style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:${RED};font-family:${F};">EDGE</span>
+            <span style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:${RED};font-family:${F};">MODEL EDGE</span>
             <span style="font-size:12px;font-weight:800;color:${NAVY};padding-left:4px;font-family:${F};">${edgePct}</span>
           </td>
           <td>
@@ -153,7 +198,7 @@ function renderPickCard(pick) {
       </table>
     </td>`;
 
-  // Signals — slightly softer
+  // Signals
   const signalHtml = signals.map(s =>
     `<p style="margin:0 0 2px;font-size:12px;line-height:18px;color:${GREEN};font-family:${F};">\u2713 ${normalizeSpacing(stripInlineEmoji(s))}</p>`
   ).join('');
@@ -183,6 +228,8 @@ function renderPickCard(pick) {
 </table>`;
 }
 
+// ── Category section ────────────────────────────────────────────
+
 function renderCategorySection(catMeta, picks) {
   if (!picks || picks.length === 0) return '';
   const count = picks.length;
@@ -211,16 +258,18 @@ function renderCategorySection(catMeta, picks) {
 </tr>`;
 }
 
-/** Partner sportsbook module — premium utility placement */
+// ── Partner sportsbook module ───────────────────────────────────
+
 function renderPartnerModule() {
-  const renderPartnerCard = (partner) => `
+  const renderPartnerCard = (partner, brand) => `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
            style="border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;background:#ffffff;">
       <tr>
-        <td style="padding:14px 16px;">
-          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${NAVY};font-family:${F};">${partner.name}</p>
-          <p style="margin:0 0 10px;font-size:12px;color:${MUTED};font-family:${F};">${partner.offer}</p>
-          <a href="${partner.url}" style="display:inline-block;font-size:12px;font-weight:600;color:${RED};text-decoration:none;border:1px solid ${RED};border-radius:5px;padding:7px 18px;font-family:${F};line-height:16px;" target="_blank">Claim ${partner.offer} &rarr;</a>
+        <td style="padding:16px 18px 14px;">
+          <div style="margin:0 0 6px;">${bookBrandMark(brand)}</div>
+          <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:${NAVY};font-family:${F};">${partner.offer}</p>
+          <p style="margin:0 0 10px;font-size:11px;color:${DIM};line-height:16px;font-family:${F};">${partner.trust}</p>
+          <a href="${partner.url}" style="display:inline-block;font-size:11px;font-weight:700;color:${RED};text-decoration:none;border:1px solid ${RED};border-radius:5px;padding:8px 18px;font-family:${F};line-height:14px;letter-spacing:0.02em;" target="_blank">Claim ${partner.offer} &rarr;</a>
         </td>
       </tr>
     </table>`;
@@ -231,9 +280,9 @@ function renderPartnerModule() {
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
            style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
       <tr>
-        <td style="padding:18px 18px 6px;">
-          <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${NAVY};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">WHERE TO PLAY TODAY'S EDGES</p>
-          <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${MUTED};font-family:${F};">If you\u2019re acting on today\u2019s model signals, our partner books have welcome offers available.</p>
+        <td style="padding:18px 18px 8px;">
+          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:${NAVY};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">ACT ON TODAY'S BOARD</p>
+          <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${MUTED};font-family:${F};">If you\u2019re acting on today\u2019s Maximus Model signals, these partners provide live market access and new-user bonuses.</p>
         </td>
       </tr>
       <tr>
@@ -243,13 +292,13 @@ function renderPartnerModule() {
             <td width="48%" valign="top">
           <![endif]-->
           <div style="display:inline-block;width:48%;vertical-align:top;min-width:200px;">
-            ${renderPartnerCard(PARTNERS.xbet)}
+            ${renderPartnerCard(PARTNERS.xbet, 'xbet')}
           </div>
           <!--[if mso]>
             </td><td width="4%">&nbsp;</td><td width="48%" valign="top">
           <![endif]-->
           <div style="display:inline-block;width:48%;vertical-align:top;margin-left:3%;min-width:200px;">
-            ${renderPartnerCard(PARTNERS.mybookie)}
+            ${renderPartnerCard(PARTNERS.mybookie, 'mybookie')}
           </div>
           <!--[if mso]>
             </td></tr></table>
@@ -260,6 +309,8 @@ function renderPartnerModule() {
   </td>
 </tr>`;
 }
+
+// ── Main render ─────────────────────────────────────────────────
 
 export function renderHTML(data = {}) {
   const { displayName, picksBoard } = data;
@@ -297,6 +348,13 @@ export function renderHTML(data = {}) {
   const slateColor = highCount >= 8 ? '#166534' : highCount >= 4 ? '#166534' : '#92400e';
   const slateBg = highCount >= 8 ? '#dcfce7' : highCount >= 4 ? '#dcfce7' : '#fef3c7';
 
+  // Dynamic board framing line based on conviction quality
+  const framingLine = highCount >= 8
+    ? 'High-confidence Model signals across today\u2019s slate.'
+    : highCount >= 4
+      ? 'Solid Model conviction today. Focus on the strongest edges.'
+      : 'Selective Model signals today. Focus on the clearest edges.';
+
   // Category sections
   const categorySections = CATEGORY_META.map(cm => {
     const picks = categories[cm.key] || [];
@@ -309,14 +367,14 @@ ${mlbHeroBlock({ line: 'Your Daily Maximus\u2019s Picks Digest', sublabel: today
 <tr>
   <td style="padding:6px 28px 18px;" class="intro-td">
     <p style="margin:0;font-size:15px;line-height:24px;color:#4b5563;font-family:${F};">
-      Hey ${greetingName} \u2014 the Maximus model has evaluated today\u2019s MLB slate across moneyline, run line, value, and totals to surface the board\u2019s clearest edges.
+      Hey ${greetingName} \u2014 the Maximus Model has evaluated today\u2019s MLB slate across moneyline, run line, value, and totals to surface the board\u2019s clearest edges.
     </p>
   </td>
 </tr>
 
 ${totalPicks > 0 ? `
 <tr>
-  <td style="padding:0 28px 18px;" class="section-td">
+  <td style="padding:0 28px 4px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
            style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
       <tr>
@@ -339,6 +397,11 @@ ${totalPicks > 0 ? `
       </tr>
     </table>
   </td>
+</tr>
+<tr>
+  <td style="padding:2px 28px 16px;">
+    <p style="margin:0;font-size:11px;color:${DIM};font-family:${F};">${framingLine}</p>
+  </td>
 </tr>` : ''}
 
 ${mlbDividerRow()}
@@ -346,8 +409,8 @@ ${mlbDividerRow()}
 ${categorySections || `
 <tr>
   <td style="padding:28px;text-align:center;" class="section-td">
-    <p style="margin:0 0 8px;font-size:15px;font-weight:600;line-height:22px;color:${NAVY};font-family:${F};">No picks have cleared the model thresholds yet.</p>
-    <p style="margin:0;font-size:14px;line-height:22px;color:${MUTED};font-family:${F};">Maximus is monitoring the board \u2014 check back as the slate firms up.</p>
+    <p style="margin:0 0 8px;font-size:15px;font-weight:600;line-height:22px;color:${NAVY};font-family:${F};">No picks have cleared the Maximus Model thresholds yet.</p>
+    <p style="margin:0;font-size:14px;line-height:22px;color:${MUTED};font-family:${F};">The model is monitoring the board \u2014 check back as the slate firms up.</p>
   </td>
 </tr>`}
 
@@ -358,7 +421,7 @@ ${renderPartnerModule()}`;
   return MlbEmailShell({
     content,
     previewText: totalPicks > 0
-      ? `\u{1F9E0}\u26BE ${totalPicks} model-backed MLB picks across ${parts.length} categories`
+      ? `\u{1F9E0}\u26BE ${totalPicks} Maximus Model picks across ${parts.length} categories`
       : `\u{1F9E0}\u26BE Your Daily Maximus\u2019s Picks Digest`,
     ctaUrl: 'https://maximussports.ai/mlb/insights',
     ctaLabel: 'Open Full Picks Board &rarr;',
@@ -373,7 +436,7 @@ export function renderText(data = {}) {
   const lines = [
     '\u{1F9E0}\u26BE YOUR DAILY MAXIMUS\u2019S PICKS DIGEST',
     today, '',
-    `Hey ${name} \u2014 the Maximus model\u2019s best edges for today\u2019s MLB slate.`, '',
+    `Hey ${name} \u2014 the Maximus Model\u2019s best edges for today\u2019s MLB slate.`, '',
   ];
 
   for (const cm of CATEGORY_META) {
@@ -383,14 +446,14 @@ export function renderText(data = {}) {
     for (const p of picks.slice(0, 5)) {
       const away = p.matchup?.awayTeam?.shortName || 'Away';
       const home = p.matchup?.homeTeam?.shortName || 'Home';
-      const edge = p.model?.edge != null ? `Edge ${Math.round(p.model.edge * 100)}%` : '';
+      const edge = p.model?.edge != null ? `Model Edge ${Math.round(p.model.edge * 100)}%` : '';
       lines.push(`  ${p.pick?.label || ''} | ${away} @ ${home} | ${edge} | ${p.confidence?.toUpperCase() || ''}`);
     }
     lines.push('');
   }
 
   lines.push('Open Full Picks Board -> https://maximussports.ai/mlb/insights', '');
-  lines.push('WHERE TO PLAY TODAY\'S EDGES:');
+  lines.push('ACT ON TODAY\'S BOARD:');
   lines.push(`  XBet Welcome Offer: ${PARTNERS.xbet.url}`);
   lines.push(`  MyBookie Welcome Bonus: ${PARTNERS.mybookie.url}`);
   lines.push('');
