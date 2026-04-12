@@ -245,6 +245,14 @@
   border: 1px solid rgba(220, 53, 69, 0.16);
 }
 
+.formL10 {
+  font-size: 0.66rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  letter-spacing: -0.01em;
+}
+
 .formEmpty {
   font-size: 0.62rem;
   color: rgba(255, 255, 255, 0.18);
