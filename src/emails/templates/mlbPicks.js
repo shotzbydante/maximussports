@@ -17,20 +17,36 @@ const RED = '#c41e3a';
 const NAVY = '#0f2440';
 const BODY = '#1f2937';
 const MUTED = '#9ca3af';
+const DIM = '#b0b8c4';
 const BORDER = '#e5e7eb';
+const ROW_BORDER = '#eef0f2';
 const GREEN = '#059669';
-const CARD_BG = '#fafbfc';
+const CARD_BG = '#f9fafb';
 
 export function getSubject(data = {}) {
   return mlbPicksSubject(data);
 }
 
 const CATEGORY_META = [
-  { key: 'pickEms', icon: '\u{1F3AF}', title: "PICK 'EMS",           sub: 'Model-backed moneyline winners based on projections, odds, and team quality.', count: 0 },
-  { key: 'ats',     icon: '\u{1F4CA}', title: 'AGAINST THE SPREAD',  sub: 'Run line recommendations evaluating spread efficiency and matchup edges.', count: 0 },
-  { key: 'leans',   icon: '\u{1F4C8}', title: 'VALUE LEANS',          sub: 'Directional value where market pricing may underestimate a side.', count: 0 },
-  { key: 'totals',  icon: '\u{26BE}',  title: 'GAME TOTALS',          sub: 'Over/under leans based on team offense and pitching matchups.', count: 0 },
+  { key: 'pickEms', icon: '\u{1F3AF}', title: "PICK 'EMS",           sub: 'Moneyline winners backed by Maximus\u2019s model \u2014 based on projected strength, market price, and matchup quality.' },
+  { key: 'ats',     icon: '\u{1F4CA}', title: 'AGAINST THE SPREAD',  sub: 'Run line picks where the model identifies pricing inefficiencies and matchup separation.' },
+  { key: 'leans',   icon: '\u{1F4C8}', title: 'VALUE LEANS',          sub: 'Directional value where the model believes market pricing understates a side.' },
+  { key: 'totals',  icon: '\u{26BE}',  title: 'GAME TOTALS',          sub: 'Over/under leans driven by the model\u2019s read on offense, pitching, and game environment.' },
 ];
+
+// ── Sportsbook partner links ────────────────────────────────────
+const PARTNERS = {
+  xbet: {
+    name: 'XBet',
+    offer: 'Welcome Offer',
+    url: 'https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/',
+  },
+  mybookie: {
+    name: 'MyBookie',
+    offer: 'Welcome Bonus',
+    url: 'https://record.webpartners.co/_HSjxL9LMlaIxuOePL6NGnGNd7ZgqdRLk/1/',
+  },
+};
 
 function fmtTime(startTime) {
   if (!startTime) return '';
@@ -67,17 +83,14 @@ function confBadge(confidence) {
     low:    { bg: '#f3f4f6', color: '#6b7280', label: 'LOW' },
   };
   const c = map[confidence] || map.low;
-  return `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.05em;color:${c.color};background:${c.bg};padding:2px 8px;border-radius:4px;font-family:${F};vertical-align:middle;">${c.label}</span>`;
+  return `<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.06em;color:${c.color};background:${c.bg};padding:3px 8px;border-radius:4px;font-family:${F};vertical-align:middle;">${c.label}</span>`;
 }
 
 /**
  * Email-safe MLB team logo <img>.
- * Uses the logo URL from the pick data (ESPN CDN), with fallback to
- * abbreviation text if no URL is available.
  */
 function logoImg(logoUrl, name, size = 24) {
   if (!logoUrl) {
-    // Fallback: abbreviation in a neutral circle
     const abbr = (name || '??').slice(0, 3).toUpperCase();
     return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:9px;font-weight:700;color:#6b7280;background:#f3f4f6;border-radius:4px;vertical-align:middle;font-family:${F};">${abbr}</span>`;
   }
@@ -99,21 +112,20 @@ function renderPickCard(pick) {
   const signals = (p?.topSignals || []).slice(0, 2);
   const pickLabel = p?.label || '';
 
-  // Use the logo URL from the pick data (ESPN CDN), not a constructed path
-  const awayLogo = logoImg(away.logo, away.shortName, 22);
-  const homeLogo = logoImg(home.logo, home.shortName, 22);
+  const awayLogo = logoImg(away.logo, away.shortName, 20);
+  const homeLogo = logoImg(home.logo, home.shortName, 20);
   const awayName = away.shortName || away.name || 'Away';
   const homeName = home.shortName || home.name || 'Home';
 
-  // Pick pill
-  const pickPill = `<span style="display:inline-block;font-size:14px;font-weight:700;color:${NAVY};background:#f0f9ff;border:1px solid #bae6fd;border-radius:5px;padding:4px 12px;font-family:${F};vertical-align:middle;">${pickLabel}</span>`;
+  // Pick pill — strong visual anchor
+  const pickPill = `<span style="display:inline-block;font-size:14px;font-weight:800;color:${NAVY};background:#f0f9ff;border:1px solid #bae6fd;border-radius:5px;padding:4px 12px;font-family:${F};vertical-align:middle;">${pickLabel}</span>`;
 
   // Matchup line
   let matchupHtml;
   if (isTotal) {
     matchupHtml = `
       <p style="margin:0 0 8px;font-size:14px;font-weight:600;line-height:22px;color:${NAVY};font-family:${F};">
-        ${awayLogo}&nbsp;${awayName} <span style="color:${MUTED};font-weight:400;">@</span> ${homeLogo}&nbsp;${homeName}
+        ${awayLogo}&nbsp;${awayName} <span style="color:${DIM};font-weight:400;">@</span> ${homeLogo}&nbsp;${homeName}
       </p>
       <p style="margin:0 0 8px;">${pickPill} ${confBadge(confidence)}</p>`;
   } else {
@@ -124,7 +136,24 @@ function renderPickCard(pick) {
       </p>`;
   }
 
-  // Signals
+  // Edge/DQ metrics — terminal-like treatment
+  const metricsHtml = `
+    <td style="padding:0 14px 8px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding-right:16px;">
+            <span style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:${RED};font-family:${F};">EDGE</span>
+            <span style="font-size:12px;font-weight:800;color:${NAVY};padding-left:4px;font-family:${F};">${edgePct}</span>
+          </td>
+          <td>
+            <span style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:${DIM};font-family:${F};">DQ</span>
+            <span style="font-size:12px;font-weight:800;color:${NAVY};padding-left:4px;font-family:${F};">${dqPct}</span>
+          </td>
+        </tr>
+      </table>
+    </td>`;
+
+  // Signals — slightly softer
   const signalHtml = signals.map(s =>
     `<p style="margin:0 0 2px;font-size:12px;line-height:18px;color:${GREEN};font-family:${F};">\u2713 ${normalizeSpacing(stripInlineEmoji(s))}</p>`
   ).join('');
@@ -136,22 +165,19 @@ function renderPickCard(pick) {
     <td style="padding:10px 14px 4px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
         <tr>
-          <td style="font-size:10px;font-weight:700;letter-spacing:0.06em;color:${MUTED};font-family:${F};">${dayLabel} &middot; ${dateLabel}</td>
-          <td align="right" style="font-size:11px;color:${MUTED};font-family:${F};">${timeLabel}</td>
+          <td style="font-size:10px;font-weight:600;letter-spacing:0.06em;color:${DIM};font-family:${F};">${dayLabel} &middot; ${dateLabel}</td>
+          <td align="right" style="font-size:11px;color:${DIM};font-family:${F};">${timeLabel}</td>
         </tr>
       </table>
     </td>
   </tr>
   <tr>
-    <td style="padding:6px 14px 8px;">
+    <td style="padding:6px 14px 6px;">
       ${matchupHtml}
     </td>
   </tr>
   <tr>
-    <td style="padding:0 14px 6px;">
-      <span style="font-size:11px;font-family:${F};"><span style="font-weight:700;color:${RED};letter-spacing:0.02em;">EDGE</span> <span style="font-weight:700;color:${NAVY};">${edgePct}</span></span>
-      <span style="font-size:11px;font-family:${F};margin-left:14px;"><span style="font-weight:700;color:${MUTED};letter-spacing:0.02em;">DQ</span> <span style="font-weight:700;color:${NAVY};">${dqPct}</span></span>
-    </td>
+    ${metricsHtml}
   </tr>
   ${signalHtml ? `<tr><td style="padding:0 14px 10px;">${signalHtml}</td></tr>` : ''}
 </table>`;
@@ -167,8 +193,8 @@ function renderCategorySection(catMeta, picks) {
   <td style="padding:22px 28px 10px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
       <tr>
-        <td style="background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:5px 12px 5px 10px;">
-          <span style="font-size:12px;font-weight:700;line-height:16px;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">${catMeta.icon} ${catMeta.title}</span>
+        <td style="background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:5px 14px 5px 10px;">
+          <span style="font-size:11px;font-weight:700;line-height:16px;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">${catMeta.icon} ${catMeta.title}</span>
         </td>
         <td style="padding-left:10px;">
           <span style="display:inline-block;font-size:10px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 7px;border-radius:999px;font-family:${F};">${count}</span>
@@ -178,9 +204,59 @@ function renderCategorySection(catMeta, picks) {
   </td>
 </tr>
 <tr>
-  <td style="padding:0 28px 4px;" class="section-td">
-    <p style="margin:0 0 12px;font-size:13px;line-height:18px;color:${MUTED};font-family:${F};">${catMeta.sub}</p>
+  <td style="padding:4px 28px 4px;" class="section-td">
+    <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${DIM};font-family:${F};">${catMeta.sub}</p>
     ${cards}
+  </td>
+</tr>`;
+}
+
+/** Partner sportsbook module — premium utility placement */
+function renderPartnerModule() {
+  const renderPartnerCard = (partner) => `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;background:#ffffff;">
+      <tr>
+        <td style="padding:14px 16px;">
+          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${NAVY};font-family:${F};">${partner.name}</p>
+          <p style="margin:0 0 10px;font-size:12px;color:${MUTED};font-family:${F};">${partner.offer}</p>
+          <a href="${partner.url}" style="display:inline-block;font-size:12px;font-weight:600;color:${RED};text-decoration:none;border:1px solid ${RED};border-radius:5px;padding:7px 18px;font-family:${F};line-height:16px;" target="_blank">Claim ${partner.offer} &rarr;</a>
+        </td>
+      </tr>
+    </table>`;
+
+  return `
+<tr>
+  <td style="padding:8px 28px 20px;" class="section-td">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
+      <tr>
+        <td style="padding:18px 18px 6px;">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${NAVY};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};">WHERE TO PLAY TODAY'S EDGES</p>
+          <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${MUTED};font-family:${F};">If you\u2019re acting on today\u2019s model signals, our partner books have welcome offers available.</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 18px;">
+          <!--[if mso]>
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+            <td width="48%" valign="top">
+          <![endif]-->
+          <div style="display:inline-block;width:48%;vertical-align:top;min-width:200px;">
+            ${renderPartnerCard(PARTNERS.xbet)}
+          </div>
+          <!--[if mso]>
+            </td><td width="4%">&nbsp;</td><td width="48%" valign="top">
+          <![endif]-->
+          <div style="display:inline-block;width:48%;vertical-align:top;margin-left:3%;min-width:200px;">
+            ${renderPartnerCard(PARTNERS.mybookie)}
+          </div>
+          <!--[if mso]>
+            </td></tr></table>
+          <![endif]-->
+        </td>
+      </tr>
+    </table>
   </td>
 </tr>`;
 }
@@ -192,7 +268,7 @@ export function renderHTML(data = {}) {
   const greetingName = firstName || 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  // Defensive normalization — handle any shape variation
+  // Defensive normalization
   const raw = picksBoard?.categories || picksBoard || {};
   const categories = {
     pickEms: raw.pickEms || raw.pickEm || raw.pick_ems || [],
@@ -206,21 +282,20 @@ export function renderHTML(data = {}) {
   const totals = categories.totals;
   const totalPicks = pickEms.length + ats.length + leans.length + totals.length;
 
-  // Diagnostic: log what arrived at the template
   console.log(`[mlbPicks template] picksBoard exists=${!!picksBoard} totalPicks=${totalPicks} pickEms=${pickEms.length} ats=${ats.length} leans=${leans.length} totals=${totals.length}`);
 
   // Board summary
   const parts = [];
-  if (pickEms.length > 0) parts.push(`${pickEms.length} moneyline pick${pickEms.length !== 1 ? 's' : ''}`);
-  if (ats.length > 0) parts.push(`${ats.length} run line${ats.length !== 1 ? 's' : ''}`);
-  if (leans.length > 0) parts.push(`${leans.length} value lean${leans.length !== 1 ? 's' : ''}`);
-  if (totals.length > 0) parts.push(`${totals.length} total${totals.length !== 1 ? 's' : ''}`);
-  const boardSummary = parts.length > 0
-    ? `Today\u2019s board: ${parts.join(', ')} across the MLB slate.`
-    : '';
+  if (pickEms.length > 0) parts.push(`${pickEms.length} moneyline`);
+  if (ats.length > 0) parts.push(`${ats.length} run line`);
+  if (leans.length > 0) parts.push(`${leans.length} value`);
+  if (totals.length > 0) parts.push(`${totals.length} total`);
+  const boardSummary = parts.length > 0 ? parts.join(' \u00B7 ') : '';
 
   const highCount = [...pickEms, ...ats, ...leans, ...totals].filter(p => p.confidence === 'high').length;
   const slateQuality = highCount >= 8 ? 'STRONG' : highCount >= 4 ? 'SOLID' : 'MIXED';
+  const slateColor = highCount >= 8 ? '#166534' : highCount >= 4 ? '#166534' : '#92400e';
+  const slateBg = highCount >= 8 ? '#dcfce7' : highCount >= 4 ? '#dcfce7' : '#fef3c7';
 
   // Category sections
   const categorySections = CATEGORY_META.map(cm => {
@@ -232,26 +307,31 @@ export function renderHTML(data = {}) {
 ${mlbHeroBlock({ line: 'Your Daily Maximus\u2019s Picks Digest', sublabel: today })}
 
 <tr>
-  <td style="padding:6px 28px 16px;" class="intro-td">
-    <p style="margin:0;font-size:16px;line-height:26px;color:#4b5563;font-family:${F};">
-      Hey ${greetingName}, Maximus has processed today\u2019s slate across moneyline, run line, value, and totals to surface the strongest signals on the board.
+  <td style="padding:6px 28px 18px;" class="intro-td">
+    <p style="margin:0;font-size:15px;line-height:24px;color:#4b5563;font-family:${F};">
+      Hey ${greetingName} \u2014 the Maximus model has evaluated today\u2019s MLB slate across moneyline, run line, value, and totals to surface the board\u2019s clearest edges.
     </p>
   </td>
 </tr>
 
 ${totalPicks > 0 ? `
 <tr>
-  <td style="padding:0 28px 16px;" class="section-td">
+  <td style="padding:0 28px 18px;" class="section-td">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
            style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
       <tr>
-        <td style="padding:12px 16px;">
+        <td style="padding:14px 18px;">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
             <tr>
-              <td style="font-size:11px;font-weight:700;color:${RED};letter-spacing:0.06em;text-transform:uppercase;font-family:${F};padding-right:10px;white-space:nowrap;">MLB SLATE</td>
-              <td style="font-size:13px;line-height:18px;color:${BODY};font-family:${F};">${boardSummary}</td>
-              <td align="right" style="padding-left:10px;">
-                <span style="display:inline-block;font-size:10px;font-weight:700;color:#166534;background:#dcfce7;padding:3px 8px;border-radius:4px;letter-spacing:0.05em;font-family:${F};">${slateQuality}</span>
+              <td style="vertical-align:middle;">
+                <span style="font-size:10px;font-weight:700;color:${RED};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">MLB SLATE</span>
+                <span style="font-size:12px;color:${ROW_BORDER};padding:0 8px;">|</span>
+                <span style="font-size:13px;font-weight:600;color:${NAVY};font-family:${F};">${totalPicks} picks</span>
+                <span style="font-size:12px;color:${ROW_BORDER};padding:0 6px;">|</span>
+                <span style="font-size:12px;color:${MUTED};font-family:${F};">${boardSummary}</span>
+              </td>
+              <td align="right" style="vertical-align:middle;white-space:nowrap;padding-left:8px;">
+                <span style="display:inline-block;font-size:9px;font-weight:700;color:${slateColor};background:${slateBg};padding:3px 10px;border-radius:4px;letter-spacing:0.06em;font-family:${F};">${slateQuality}</span>
               </td>
             </tr>
           </table>
@@ -266,10 +346,14 @@ ${mlbDividerRow()}
 ${categorySections || `
 <tr>
   <td style="padding:28px;text-align:center;" class="section-td">
-    <p style="margin:0 0 8px;font-size:15px;font-weight:600;line-height:22px;color:${NAVY};font-family:${F};">No high-confidence picks have cleared the model thresholds yet.</p>
+    <p style="margin:0 0 8px;font-size:15px;font-weight:600;line-height:22px;color:${NAVY};font-family:${F};">No picks have cleared the model thresholds yet.</p>
     <p style="margin:0;font-size:14px;line-height:22px;color:${MUTED};font-family:${F};">Maximus is monitoring the board \u2014 check back as the slate firms up.</p>
   </td>
-</tr>`}`;
+</tr>`}
+
+${mlbDividerRow()}
+
+${renderPartnerModule()}`;
 
   return MlbEmailShell({
     content,
@@ -289,7 +373,7 @@ export function renderText(data = {}) {
   const lines = [
     '\u{1F9E0}\u26BE YOUR DAILY MAXIMUS\u2019S PICKS DIGEST',
     today, '',
-    `Hey ${name}, today\u2019s model-driven MLB edges are in.`, '',
+    `Hey ${name} \u2014 the Maximus model\u2019s best edges for today\u2019s MLB slate.`, '',
   ];
 
   for (const cm of CATEGORY_META) {
@@ -305,6 +389,11 @@ export function renderText(data = {}) {
     lines.push('');
   }
 
-  lines.push('Open Full Picks Board -> https://maximussports.ai/mlb/insights', '', 'Not betting advice. Manage preferences: https://maximussports.ai/settings');
+  lines.push('Open Full Picks Board -> https://maximussports.ai/mlb/insights', '');
+  lines.push('WHERE TO PLAY TODAY\'S EDGES:');
+  lines.push(`  XBet Welcome Offer: ${PARTNERS.xbet.url}`);
+  lines.push(`  MyBookie Welcome Bonus: ${PARTNERS.mybookie.url}`);
+  lines.push('');
+  lines.push('Not betting advice. Manage preferences: https://maximussports.ai/settings');
   return lines.join('\n');
 }
