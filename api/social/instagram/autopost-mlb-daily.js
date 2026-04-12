@@ -124,12 +124,16 @@ function validateAuth(req) {
 
 async function checkAlreadyPosted(supabase, dateKey, log) {
   try {
-    const dayStart = `${dateKey}T00:00:00-07:00`; // PT offset (approx — good enough for range)
-    const dayEnd = `${dateKey}T23:59:59-07:00`;
+    // Compute correct PT offset (PDT = -07:00, PST = -08:00)
+    const ptOffset = getPtOffset(dateKey);
+    const dayStart = `${dateKey}T00:00:00${ptOffset}`;
+    const dayEnd = `${dateKey}T23:59:59${ptOffset}`;
 
+    // NOTE: permalink is NOT a top-level column — it lives inside status_detail JSON.
+    // Selecting it would cause a PostgREST error that silently breaks idempotency.
     const { data, error } = await supabase
       .from('social_posts')
-      .select('id, posted_at, permalink, published_media_id')
+      .select('id, posted_at, published_media_id, status_detail')
       .eq('platform', 'instagram')
       .eq('content_studio_section', 'daily-briefing')
       .eq('lifecycle_status', 'posted')
@@ -143,13 +147,30 @@ async function checkAlreadyPosted(supabase, dateKey, log) {
     }
 
     if (data && data.length > 0) {
-      return { alreadyPosted: true, existing: data[0] };
+      // Extract permalink from status_detail JSON
+      let permalink = null;
+      try {
+        const detail = typeof data[0].status_detail === 'string'
+          ? JSON.parse(data[0].status_detail)
+          : data[0].status_detail;
+        permalink = detail?.permalink ?? null;
+      } catch { /* malformed JSON */ }
+
+      return { alreadyPosted: true, existing: { ...data[0], permalink } };
     }
     return { alreadyPosted: false, existing: null };
   } catch (e) {
     log.warn('idempotency check exception:', e.message);
     return { alreadyPosted: false, existing: null };
   }
+}
+
+/** Compute PT offset dynamically: PDT (-07:00) in summer, PST (-08:00) in winter */
+function getPtOffset(dateKey) {
+  // Create a date at noon PT and check its UTC offset
+  const testDate = new Date(`${dateKey}T12:00:00`);
+  const ptStr = testDate.toLocaleString('en-US', { timeZone: PT_TZ, timeZoneName: 'short' });
+  return ptStr.includes('PDT') ? '-07:00' : '-08:00';
 }
 
 // ── Data assembly (same sources as client-side slides) ─────────────────────
@@ -477,6 +498,30 @@ export default async function handler(req, res) {
     });
   }
 
+  // ── Failure persistence helper (visible in dashboard post history) ──
+  async function persistFailure(stage, errorMsg) {
+    try {
+      await supabase.from('social_posts').insert([{
+        platform: 'instagram',
+        lifecycle_status: 'failed',
+        content_type: 'carousel',
+        title: `MLB Daily Briefing — ${dateKey}`,
+        content_studio_section: 'daily-briefing',
+        generated_by: 'autopost_cron',
+        triggered_by: mode === 'force' ? 'manual_force' : 'cron_autopost',
+        template_type: 'mlb-daily',
+        route_used: '/api/social/instagram/autopost-mlb-daily',
+        asset_version: requestId,
+        response_stage: stage,
+        error_message: errorMsg,
+        status_detail: JSON.stringify({ mode, dateKey, stage, error: errorMsg, durationMs: Date.now() - startTs }),
+      }]);
+      log.info(`failure persisted to social_posts: stage=${stage}`);
+    } catch (e) {
+      log.warn('failure persistence failed (non-blocking):', e.message);
+    }
+  }
+
   // ── Assemble data ──
   const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
   log.info('assembling data from:', baseUrl);
@@ -492,6 +537,7 @@ export default async function handler(req, res) {
     log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${Object.keys(mlbLeaders?.categories || {}).length} leader cats, ${Object.keys(mlbStandings).length} standings`);
   } catch (e) {
     log.error('data assembly failed:', e.message);
+    if (mode === 'live' || mode === 'force') await persistFailure('data_assembly', e.message);
     return res.status(500).json({ ok: false, stage: 'data_assembly', error: e.message, requestId, dateKey });
   }
 
@@ -502,6 +548,7 @@ export default async function handler(req, res) {
     log.info(`content: headline="${content.headline?.slice(0, 50)}", ${content.bullets.length} bullets, ${content.raceTeams.length} race teams`);
   } catch (e) {
     log.error('content build failed:', e.message);
+    if (mode === 'live' || mode === 'force') await persistFailure('content_build', e.message);
     return res.status(500).json({ ok: false, stage: 'content_build', error: e.message, requestId, dateKey });
   }
 
@@ -519,6 +566,7 @@ export default async function handler(req, res) {
     log.info(`caption: ${captionText.length} chars, ${hashtags.length} hashtags`);
   } catch (e) {
     log.error('caption build failed:', e.message);
+    if (mode === 'live' || mode === 'force') await persistFailure('caption_build', e.message);
     return res.status(500).json({ ok: false, stage: 'caption_build', error: e.message, requestId, dateKey });
   }
 
@@ -557,6 +605,7 @@ export default async function handler(req, res) {
     }
   } catch (e) {
     log.error('slide render failed:', e.message, e.stack?.slice(0, 200));
+    if (mode === 'live' || mode === 'force') await persistFailure('slide_render', e.message);
     return res.status(500).json({ ok: false, stage: 'slide_render', error: e.message, requestId, dateKey });
   }
 
@@ -572,6 +621,7 @@ export default async function handler(req, res) {
     log.info('upload complete');
   } catch (e) {
     log.error('upload failed:', e.message);
+    if (mode === 'live' || mode === 'force') await persistFailure('upload', e.message);
     return res.status(500).json({ ok: false, stage: 'upload', error: e.message, requestId, dateKey });
   }
 
@@ -634,6 +684,8 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     log.error('publish failed:', e.message);
+    // Note: publish-carousel.js handles its own DB failure persistence internally,
+    // but the error from the autopost side should also be visible
     return res.status(502).json({
       ok: false, stage: 'publish', error: e.message,
       requestId, dateKey, mode,

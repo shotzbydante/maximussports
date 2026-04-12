@@ -154,6 +154,7 @@ export default async function handler(req, res) {
         caption:                caption,
         caption_snapshot:       caption,
         image_url:              imageUrls[0],
+        image_snapshot_url:     imageUrls[0],
         team_slug:              metadata.teamSlug           ?? null,
         team_name:              metadata.teamName           ?? null,
         content_studio_section: metadata.contentStudioSection ?? null,
