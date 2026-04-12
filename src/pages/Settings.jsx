@@ -1015,7 +1015,7 @@ function OnboardingWizard({ user, onComplete }) {
       const { error: teamsErr } = await sb.from('user_teams').insert(teamRows);
       if (teamsErr) throw new Error(friendlyDbError(teamsErr));
 
-      identifyUser(user, { username: allData.username }, teamSlugs);
+      identifyUser(user, { username: allData.username, plan_tier: 'free' }, teamSlugs);
       track('onboarding_step_submit', { step: 3, success: true });
 
       setStep(4); // Find Friends (optional)
@@ -2582,6 +2582,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         favorite_number: profile?.favorite_number != null ? String(profile.favorite_number) : null,
         primary_team:    primarySlug,
         team_count:      teamSlugs.length,
+        plan_tier:       profile?.plan_tier || 'free',
         sub_global_briefing:   prefs.global_briefing   ?? DEFAULT_PREFS.global_briefing,
         sub_mlb_briefing:      prefs.mlb_briefing      ?? DEFAULT_PREFS.mlb_briefing,
         sub_ncaam_briefing:    prefs.ncaam_briefing     ?? DEFAULT_PREFS.ncaam_briefing,

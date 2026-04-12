@@ -93,11 +93,14 @@ function isTestEmail(email) {
 function buildPersonProps(user, profile, teamSlugs = []) {
   const acq = captureAcquisitionProps();
   const email = user?.email ?? null;
+  // Read plan_tier from profile if available, default to 'free'
+  const planTier = profile?.plan_tier || 'free';
   return {
     username:       profile?.username ?? user?.user_metadata?.full_name ?? null,
     email,
     favorite_teams: teamSlugs.length > 0 ? teamSlugs.join(',') : null,
-    plan:           'free',
+    plan:           planTier,
+    plan_tier:      planTier,
     signup_source:  user?.app_metadata?.provider ?? null,
     is_test_user:   isTestEmail(email),
     ...acq,
