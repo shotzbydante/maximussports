@@ -139,6 +139,20 @@
 /* Intel text */
 .intelText { font-size: 0.76rem; line-height: 1.55; color: var(--color-text-secondary); margin: 0; }
 
+/* Hero video — matches MLB pattern */
+.heroVideo { display: flex; gap: 10px; text-decoration: none; color: var(--color-text);
+  border-radius: 6px; overflow: hidden; background: rgba(0,0,0,0.02);
+  border: 1px solid rgba(0,0,0,0.04); transition: box-shadow 0.12s; }
+.heroVideo:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+.heroVideoThumb { width: 120px; flex-shrink: 0; position: relative; aspect-ratio: 16/9;
+  overflow: hidden; background: #0a0a0a; }
+.heroVideoThumb img { width: 100%; height: 100%; object-fit: cover; }
+.playIcon { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); color: #fff; border-radius: 50%; font-size: 8px; }
+.heroVideoTitle { font-size: 0.70rem; font-weight: 600; line-height: 1.3; padding: 8px 10px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
 /* CTA */
 .viewTeamCta { font-size: 0.72rem; font-weight: 600; color: #1d428a; text-decoration: none; display: inline-flex; align-items: center; padding: 6px 14px; border: 1px solid rgba(29,66,138,0.18); border-radius: 6px; transition: all 0.12s; width: fit-content; }
 .viewTeamCta:hover { background: rgba(29,66,138,0.06); border-color: rgba(29,66,138,0.30); }

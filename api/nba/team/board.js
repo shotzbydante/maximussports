@@ -51,6 +51,18 @@ function parseStandings(data) {
       const pct = Number(stats.winPercent ?? stats.winPct ?? (wins / Math.max(wins + losses, 1)));
       const gb = stats.gamesBehind ?? stats.GB ?? null;
 
+      // L10 record — ESPN provides this as a stat or displayValue
+      const l10Stat = stats.record ?? stats['Last Ten Games'] ?? null;
+      // Try to find the L10 stat by name from the raw entries
+      let l10 = null;
+      for (const stat of entry.stats || []) {
+        const sName = (stat.name || stat.abbreviation || '').toLowerCase();
+        if (sName === 'lasttengames' || sName === 'l10' || sName === 'last ten games') {
+          l10 = stat.displayValue ?? stat.value ?? null;
+          break;
+        }
+      }
+
       teams[slug] = {
         slug,
         record,
@@ -60,6 +72,7 @@ function parseStandings(data) {
         confRank,
         standing: confRank ? `${ordinal(confRank)} in ${confLabel}` : null,
         streak: typeof streak === 'string' ? streak : null,
+        l10: typeof l10 === 'string' ? l10 : null,
         gb: gb != null ? String(gb) : null,
         conference: confLabel,
       };
@@ -113,6 +126,7 @@ export default async function handler(req, res) {
         confRank: standing.confRank || 0,
         standing: standing.standing || null,
         streak: standing.streak || null,
+        l10: standing.l10 || null,
         gb: standing.gb || null,
         logo: `https://a.espncdn.com/i/teamlogos/nba/500/${NBA_ESPN_IDS[t.slug]}.png`,
       };

@@ -38,8 +38,12 @@ function parseStreak(raw) {
   return null;
 }
 
-function FormDots({ streak, boardData }) {
-  // Try to render streak as a compact pill
+function FormDots({ streak, l10 }) {
+  // Prefer L10 record if available
+  if (l10) {
+    return <span className={styles.formL10}>{l10}</span>;
+  }
+  // Fallback to streak pill
   const parsed = parseStreak(streak);
   if (!parsed) return <span className={styles.formEmpty}>{'\u2014'}</span>;
 
@@ -73,7 +77,7 @@ function TeamRow({ team, boardData, odds, buildPath }) {
         {standingStr || '\u2014'}
       </span>
       <span className={styles.colFormCell}>
-        <FormDots streak={board?.streak} />
+        <FormDots streak={board?.streak} l10={board?.l10} />
       </span>
       <span className={styles.colOddsCell}>
         {oddsStr ? (
@@ -96,7 +100,7 @@ function DivisionCard({ division, teams, boardData, odds, buildPath }) {
         <span className={styles.hdrTeam}>Team</span>
         <span className={styles.hdrRecord}>Record</span>
         <span className={styles.hdrStanding}>Standing</span>
-        <span className={styles.hdrForm}>Form</span>
+        <span className={styles.hdrForm}>L10</span>
         <span className={styles.hdrOdds}>Title</span>
       </div>
       <div className={styles.teamList}>

@@ -114,6 +114,16 @@ function PinnedCard({ slug, odds, boardMap, schedule, onRemove, buildPath }) {
   const logo = team ? getNbaEspnLogoUrl(team.slug) : null;
   const teamOdds = odds?.[slug];
   const board = boardMap?.[slug];
+  const [videos, setVideos] = useState([]);
+
+  // Fetch team-specific video
+  useEffect(() => {
+    if (!team) return;
+    fetch(`/api/nba/youtube/team?teamSlug=${team.slug}&maxResults=1`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setVideos((d.items ?? []).slice(0, 1)); })
+      .catch(() => {});
+  }, [team]);
 
   if (!team) return null;
 
@@ -177,8 +187,8 @@ function PinnedCard({ slug, odds, boardMap, schedule, onRemove, buildPath }) {
           <span className={styles.statBoxValue}>{board?.standing?.replace(/\s+in\s+/i, ' ') || '\u2014'}</span>
         </div>
         <div className={styles.statBox}>
-          <span className={styles.statBoxLabel}>Streak</span>
-          <span className={styles.statBoxValue}>{board?.streak || '\u2014'}</span>
+          <span className={styles.statBoxLabel}>L10</span>
+          <span className={styles.statBoxValue}>{board?.l10 || board?.streak || '\u2014'}</span>
         </div>
         <div className={styles.statBox}>
           <span className={styles.statBoxLabel}>Title Odds</span>
@@ -203,6 +213,18 @@ function PinnedCard({ slug, odds, boardMap, schedule, onRemove, buildPath }) {
       )}
 
       <p className={styles.intelText}>{intel}</p>
+
+      {/* Hero video — matches MLB pattern */}
+      {videos[0] && (
+        <a href={`https://www.youtube.com/watch?v=${videos[0].videoId}`}
+          target="_blank" rel="noopener noreferrer" className={styles.heroVideo}>
+          <div className={styles.heroVideoThumb}>
+            <img src={videos[0].thumbUrl} alt={videos[0].title} loading="lazy" />
+            <span className={styles.playIcon}>{'\u25B6'}</span>
+          </div>
+          <span className={styles.heroVideoTitle}>{videos[0].title}</span>
+        </a>
+      )}
 
       <Link to={buildPath(`/teams/${slug}`)} className={styles.viewTeamCta}>
         View Team Intel &rarr;
