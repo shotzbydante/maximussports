@@ -107,6 +107,7 @@ export async function captureAccountCreated(authUser, {
     email,
     username,
     signup_method:  method,
+    plan_tier:      'free',
     is_test_user:   testUser,
     source_path:    sourcePath,
     created_at:     authUser.created_at || null,
@@ -117,6 +118,8 @@ export async function captureAccountCreated(authUser, {
     email,
     username,
     signup_method: method,
+    plan_tier:     'free',
+    plan:          'free',
     is_test_user:  testUser,
   };
 
