@@ -110,6 +110,25 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
   const mlbSummaryResult = includeSummary ? rest.shift() : null;
   const mlbPicksBuiltResult = includePicks ? rest.shift() : null;
 
+  // Log any fetch failures so empty briefings are diagnosable
+  const fetchLabels = ['headlines', 'liveFeed', 'leaders', 'champOdds'];
+  const coreResults = [mlbNewsResult, mlbLiveResult, mlbLeadersResult, mlbChampOddsResult];
+  const failures = coreResults.map((r, i) => r.status === 'rejected' ? fetchLabels[i] : null).filter(Boolean);
+  if (failures.length > 0) {
+    console.warn(`[mlbEmailData] FETCH FAILURES: ${failures.join(', ')} — these sections may be empty`);
+    for (let i = 0; i < coreResults.length; i++) {
+      if (coreResults[i].status === 'rejected') {
+        console.warn(`[mlbEmailData]   ${fetchLabels[i]}: ${coreResults[i].reason?.message || 'unknown error'}`);
+      }
+    }
+  }
+  if (includeSummary && mlbSummaryResult?.status === 'rejected') {
+    console.warn(`[mlbEmailData] FETCH FAILURE: summary — ${mlbSummaryResult.reason?.message || 'unknown'}`);
+  }
+  if (includePicks && mlbPicksBuiltResult?.status === 'rejected') {
+    console.warn(`[mlbEmailData] FETCH FAILURE: picks — ${mlbPicksBuiltResult.reason?.message || 'unknown'}`);
+  }
+
   // Headlines
   const mlbNews = mlbNewsResult.status === 'fulfilled' ? mlbNewsResult.value : {};
   const rawHeadlines = (mlbNews.headlines || []).map(h => ({
