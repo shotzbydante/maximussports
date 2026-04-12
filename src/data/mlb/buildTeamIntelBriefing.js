@@ -16,10 +16,10 @@
  * (slide, team page, caption) renders it in its own format.
  */
 
-import { getTeamProjection } from './seasonModel';
-import TEAM_INPUTS from './seasonModelInputs';
-import { MLB_TEAMS } from '../../sports/mlb/teams';
-import { buildTeamWhyItMatters } from './whyItMatters';
+import { getTeamProjection } from './seasonModel.js';
+import TEAM_INPUTS from './seasonModelInputs.js';
+import { MLB_TEAMS } from '../../sports/mlb/teams.js';
+import { buildTeamWhyItMatters } from './whyItMatters.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

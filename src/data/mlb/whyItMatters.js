@@ -25,8 +25,8 @@
  *            homeSummary prompt, email briefing
  */
 
-import { getTeamProjection } from './seasonModel';
-import { MLB_TEAMS } from '../../sports/mlb/teams';
+import { getTeamProjection } from './seasonModel.js';
+import { MLB_TEAMS } from '../../sports/mlb/teams.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

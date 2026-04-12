@@ -5,9 +5,9 @@
  * the same data pipeline without duplication.
  */
 
-import { MLB_TEAMS } from '../../../sports/mlb/teams';
-import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
+import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
+import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
+import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload.js';
 
 // ─── Text helpers ──────────────────────────────────────────────
 

@@ -8,11 +8,11 @@
  * Structure: identity opener → hero story → board/picks → outlook → CTA
  */
 
-import { MLB_TEAMS } from '../../../sports/mlb/teams';
-import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline';
-import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing';
-import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
+import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
+import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
+import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline.js';
+import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing.js';
+import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters.js';
 
 // ── Team emojis ─────────────────────────────────────────────────────────────
 

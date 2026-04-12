@@ -18,9 +18,9 @@
  * the actual source wording. Text is NEVER summarized or rewritten.
  */
 
-import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
-import { MLB_TEAMS } from '../../../sports/mlb/teams';
-import { getTeamProjection } from '../../../data/mlb/seasonModel';
+import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos.js';
+import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
+import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
 
 const SECTION_MAP = {
   'mlb-daily':    'daily-briefing',
