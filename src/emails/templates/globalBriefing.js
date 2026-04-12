@@ -458,11 +458,45 @@ ${sectionPill('\u{1F3C6} WORLD SERIES OUTLOOK')}
   }
 
   // ══════════════════════════════════════════════════════════════
-  // ASSEMBLE
+  // ASSEMBLE — build main briefing body, then append partner module
   // ══════════════════════════════════════════════════════════════
   const heroLine = sc
     ? 'Michigan captures the title \u2014 plus your daily MLB intel.'
     : 'Your daily cross-sport intelligence briefing.';
+
+  // ── Main briefing sections (all must render before partner module) ──
+  const mainBriefingSections = [
+    ncaamHtml,
+    hotPressHtml,
+    pennantHtml,
+    picksHtml,
+    leadersHtml,
+    outlookHtml,
+    headlineHtml ? divider() + headlineHtml : '',
+  ].filter(Boolean).join('\n');
+
+  const hasBriefingContent = mainBriefingSections.trim().length > 0;
+
+  // Guardrail: if no content sections rendered, show a meaningful empty state
+  // so the email never appears as just a greeting + affiliate module
+  const emptyStateFallback = !hasBriefingContent ? `
+${sectionPill('\u26BE MLB DAILY INTELLIGENCE')}
+<tr><td style="padding:8px 24px 16px;">
+  <p style="margin:0 0 8px;font-size:14px;line-height:22px;color:#4b5563;font-family:${F};">Today\u2019s MLB briefing is still being assembled. The Maximus Model is processing the latest data \u2014 check the app for the most current intelligence.</p>
+  <p style="margin:8px 0 0;"><a href="https://maximussports.ai/mlb" style="font-size:13px;color:${RED};text-decoration:none;font-weight:600;font-family:${F};">Open Maximus Sports &rarr;</a></p>
+</td></tr>` : '';
+
+  // Diagnostic: log what rendered
+  console.log('[globalBriefing] Content sections:', {
+    ncaam: ncaamHtml.length > 0,
+    narrative: hotPressHtml.length > 0,
+    pennant: pennantHtml.length > 0,
+    picks: picksHtml.length > 0,
+    leaders: leadersHtml.length > 0,
+    outlook: outlookHtml.length > 0,
+    headlines: headlineHtml.length > 0,
+    hasBriefingContent,
+  });
 
   const content = `
 ${heroBlock({ line: heroLine, sublabel: today })}
@@ -470,15 +504,9 @@ ${heroBlock({ line: heroLine, sublabel: today })}
   <p style="margin:0;font-size:15px;color:#4b5563;line-height:1.6;font-family:${F};">Good ${partOfDay}, ${greetingName}. Here\u2019s what matters across Maximus Sports today.</p>
 </td></tr>
 ${divider()}
-${ncaamHtml}
-${hotPressHtml}
-${pennantHtml}
-${picksHtml}
-${leadersHtml}
-${outlookHtml}
-${headlineHtml ? divider() + headlineHtml : ''}
-${divider()}
-${renderPartnerModule({ padding: '8px 24px 16px' })}`;
+${hasBriefingContent ? mainBriefingSections : emptyStateFallback}
+${hasBriefingContent ? divider() : ''}
+${hasBriefingContent ? renderPartnerModule({ padding: '8px 24px 16px' }) : ''}`;
 
   return EmailShell({
     content,
