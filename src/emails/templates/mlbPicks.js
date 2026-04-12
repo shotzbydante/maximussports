@@ -13,6 +13,7 @@
 import {
   MlbEmailShell, mlbHeroBlock, mlbDividerRow,
   normalizeSpacing, stripInlineEmoji, mlbTeamLogoImg,
+  renderPartnerModule,
 } from '../MlbEmailShell.js';
 import { mlbPicksSubject } from '../helpers/subjectGenerator.js';
 
@@ -38,21 +39,7 @@ const CATEGORY_META = [
   { key: 'totals',  icon: '\u{26BE}',  title: 'GAME TOTALS',          sub: 'Over/under leans driven by the Maximus Model\u2019s read on offense, pitching, and game environment.' },
 ];
 
-// ── Sportsbook partner config ───────────────────────────────────
-const PARTNERS = {
-  xbet: {
-    name: 'XBet',
-    offer: 'Welcome Offer',
-    trust: 'Fast markets \u00B7 broad MLB coverage',
-    url: 'https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/',
-  },
-  mybookie: {
-    name: 'MyBookie',
-    offer: 'Welcome Bonus',
-    trust: 'Bet-back protection for new users',
-    url: 'https://record.webpartners.co/_HSjxL9LMlaIxuOePL6NGnGNd7ZgqdRLk/1/',
-  },
-};
+// Sportsbook partner module is shared from MlbEmailShell (renderPartnerModule)
 
 // ── Logo helpers ────────────────────────────────────────────────
 
@@ -80,20 +67,6 @@ function teamLogo(team, size = 18) {
   // Final fallback: text abbreviation
   const abbr = (team?.shortName || team?.name || '??').slice(0, 3).toUpperCase();
   return `<span style="display:inline-block;width:${size}px;height:${size}px;line-height:${size}px;text-align:center;font-size:8px;font-weight:700;color:#6b7280;background:#f0f1f3;border-radius:4px;vertical-align:middle;font-family:${F};">${abbr}</span>`;
-}
-
-/**
- * Email-safe sportsbook brand mark.
- * Uses a styled text badge matching the AffiliateCta BrandMark approach.
- */
-function bookBrandMark(brand) {
-  if (brand === 'xbet') {
-    return `<span style="display:inline-block;font-size:16px;font-weight:800;color:${NAVY};letter-spacing:-0.02em;font-family:${F};">X<span style="color:${RED};">Bet</span></span>`;
-  }
-  if (brand === 'mybookie') {
-    return `<span style="display:inline-block;font-size:15px;font-weight:800;color:${NAVY};letter-spacing:-0.01em;font-family:${F};">My<span style="color:${RED};">Bookie</span></span>`;
-  }
-  return '';
 }
 
 // ── Formatting helpers ──────────────────────────────────────────
@@ -255,58 +228,6 @@ function renderCategorySection(catMeta, picks) {
 </tr>`;
 }
 
-// ── Partner sportsbook module ───────────────────────────────────
-
-function renderPartnerModule() {
-  const renderPartnerCard = (partner, brand) => `
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="border:1px solid ${BORDER};border-radius:6px;border-collapse:collapse;background:#ffffff;">
-      <tr>
-        <td style="padding:16px 18px 14px;">
-          <div style="margin:0 0 6px;">${bookBrandMark(brand)}</div>
-          <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:${NAVY};font-family:${F};">${partner.offer}</p>
-          <p style="margin:0 0 10px;font-size:11px;color:${DIM};line-height:16px;font-family:${F};">${partner.trust}</p>
-          <a href="${partner.url}" style="display:inline-block;font-size:11px;font-weight:700;color:${RED};text-decoration:none;border:1px solid ${RED};border-radius:5px;padding:8px 18px;font-family:${F};line-height:14px;letter-spacing:0.02em;" target="_blank">Claim ${partner.offer} &rarr;</a>
-        </td>
-      </tr>
-    </table>`;
-
-  return `
-<tr>
-  <td style="padding:8px 28px 20px;" class="section-td">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="background:${CARD_BG};border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;">
-      <tr>
-        <td style="padding:18px 18px 8px;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:${NAVY};letter-spacing:0.08em;text-transform:uppercase;font-family:${F};">ACT ON TODAY'S BOARD</p>
-          <p style="margin:0 0 14px;font-size:12px;line-height:18px;color:${MUTED};font-family:${F};">If you\u2019re acting on today\u2019s Maximus Model signals, these partners provide live market access and new-user bonuses.</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:0 18px 18px;">
-          <!--[if mso]>
-          <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-            <td width="48%" valign="top">
-          <![endif]-->
-          <div style="display:inline-block;width:48%;vertical-align:top;min-width:200px;">
-            ${renderPartnerCard(PARTNERS.xbet, 'xbet')}
-          </div>
-          <!--[if mso]>
-            </td><td width="4%">&nbsp;</td><td width="48%" valign="top">
-          <![endif]-->
-          <div style="display:inline-block;width:48%;vertical-align:top;margin-left:3%;min-width:200px;">
-            ${renderPartnerCard(PARTNERS.mybookie, 'mybookie')}
-          </div>
-          <!--[if mso]>
-            </td></tr></table>
-          <![endif]-->
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>`;
-}
-
 // ── Main render ─────────────────────────────────────────────────
 
 export function renderHTML(data = {}) {
@@ -451,8 +372,8 @@ export function renderText(data = {}) {
 
   lines.push('Open Full Picks Board -> https://maximussports.ai/mlb/insights', '');
   lines.push('ACT ON TODAY\'S BOARD:');
-  lines.push(`  XBet Welcome Offer: ${PARTNERS.xbet.url}`);
-  lines.push(`  MyBookie Welcome Bonus: ${PARTNERS.mybookie.url}`);
+  lines.push('  XBet Welcome Offer: https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/');
+  lines.push('  MyBookie Welcome Bonus: https://record.webpartners.co/_HSjxL9LMlaIxuOePL6NGnGNd7ZgqdRLk/1/');
   lines.push('');
   lines.push('Not betting advice. Manage preferences: https://maximussports.ai/settings');
   return lines.join('\n');

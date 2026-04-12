@@ -11,7 +11,7 @@
 
 import { EmailShell, heroBlock } from '../EmailShell.js';
 import { LEADER_CATEGORIES } from '../../data/mlb/seasonLeaders.js';
-import { stripInlineEmoji, normalizeSpacing, cleanNarrativeText, mlbTeamLogoImg } from '../MlbEmailShell.js';
+import { stripInlineEmoji, normalizeSpacing, cleanNarrativeText, mlbTeamLogoImg, renderPartnerModule } from '../MlbEmailShell.js';
 
 const F = "'DM Sans',Arial,Helvetica,sans-serif";
 const RED = '#c41e3a';
@@ -477,9 +477,8 @@ ${picksHtml}
 ${leadersHtml}
 ${outlookHtml}
 ${headlineHtml ? divider() + headlineHtml : ''}
-<tr><td style="padding:10px 24px 6px;">
-  <a href="https://maximussports.ai/mlb" style="font-size:12px;color:${RED};text-decoration:none;font-weight:600;font-family:${F};">Full MLB intelligence &rarr;</a>
-</td></tr>`;
+${divider()}
+${renderPartnerModule({ padding: '8px 24px 16px' })}`;
 
   return EmailShell({
     content,
@@ -553,6 +552,10 @@ export function renderText(data = {}) {
 
   // Headlines
   (mlbData?.headlines || []).slice(0, 4).forEach(h => lines.push(`\u2022 ${h.title || ''}`));
-  lines.push('', 'Open Maximus Sports -> https://maximussports.ai/mlb', '', 'Not betting advice. Manage preferences: https://maximussports.ai/settings');
+  lines.push('', 'Open Maximus Sports -> https://maximussports.ai/mlb', '');
+  lines.push('ACT ON TODAY\'S BOARD:');
+  lines.push('  XBet Welcome Offer: https://record.webpartners.co/_HSjxL9LMlaLhIFuQAd3mRWNd7ZgqdRLk/1/');
+  lines.push('  MyBookie Welcome Bonus: https://record.webpartners.co/_HSjxL9LMlaIxuOePL6NGnGNd7ZgqdRLk/1/');
+  lines.push('', 'Not betting advice. Manage preferences: https://maximussports.ai/settings');
   return lines.join('\n');
 }
