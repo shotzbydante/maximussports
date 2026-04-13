@@ -36,19 +36,19 @@
   color: #fff;
 }
 
-/* ── Background layers — dark navy base + muted red accents ── */
+/* ── Background layers — pure dark navy ── */
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(170deg,
-    #0c1a2e 0%, #122440 18%, #162a48 38%,
-    #0e1e36 58%, #08142a 82%, #040c18 100%);
+    #0b1a2b 0%, #10223a 18%, #13263f 38%,
+    #0d1c32 58%, #081428 82%, #040c18 100%);
 }
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
   background:
-    radial-gradient(ellipse 1000px 550px at 50% 12%, rgba(120,30,50,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 700px 400px at 50% 50%, rgba(80,20,40,0.08) 0%, transparent 50%),
-    radial-gradient(ellipse 600px 350px at 50% 85%, rgba(60,15,30,0.06) 0%, transparent 42%);
+    radial-gradient(ellipse 1000px 550px at 50% 12%, rgba(100,140,210,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 700px 400px at 50% 50%, rgba(70,110,180,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 600px 350px at 50% 85%, rgba(60,100,170,0.04) 0%, transparent 42%);
 }
 .bgRay {
   position: absolute; inset: 0; z-index: 2;
@@ -183,26 +183,24 @@
   align-items: center;
 }
 
-/* ── Background — dark navy base with muted red accent wash ── */
+/* ── Background — pure dark navy ── */
 .s1BgBase {
   position: absolute; inset: 0; z-index: 0;
   background:
-    radial-gradient(circle at 50% 32%, rgba(120,30,55,0.28), transparent 40%),
-    radial-gradient(circle at 50% 14%, rgba(100,25,50,0.30), transparent 32%),
-    radial-gradient(circle at 50% 58%, rgba(80,20,45,0.18), transparent 38%),
-    radial-gradient(circle at 50% 50%, rgba(90,30,55,0.08), transparent 50%),
-    linear-gradient(180deg, #1a2a48 0%, #1e3050 12%, #162844 38%, #0e1e36 68%, #060e1c 100%);
+    radial-gradient(circle at 50% 30%, rgba(80,120,190,0.12), transparent 42%),
+    radial-gradient(circle at 50% 14%, rgba(90,130,200,0.10), transparent 30%),
+    linear-gradient(180deg, #0f2238 0%, #132a44 12%, #10243c 38%, #0b1a2e 68%, #050e1a 100%);
 }
 .s1BgLights {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
     radial-gradient(circle at 14% 22%, rgba(255,255,255,0.28), transparent 12%),
     radial-gradient(circle at 86% 22%, rgba(255,255,255,0.28), transparent 12%),
-    radial-gradient(circle at 10% 28%, rgba(160,120,200,0.18), transparent 24%),
-    radial-gradient(circle at 90% 28%, rgba(160,120,200,0.18), transparent 24%),
-    radial-gradient(circle at 50% 8%, rgba(200,210,240,0.10), transparent 22%),
-    radial-gradient(circle at 50% 44%, rgba(100,40,70,0.12), transparent 36%),
-    radial-gradient(circle at 50% 78%, rgba(60,30,50,0.06), transparent 22%);
+    radial-gradient(circle at 10% 28%, rgba(120,160,230,0.12), transparent 24%),
+    radial-gradient(circle at 90% 28%, rgba(120,160,230,0.12), transparent 24%),
+    radial-gradient(circle at 50% 8%, rgba(180,200,240,0.08), transparent 22%),
+    radial-gradient(circle at 50% 44%, rgba(80,120,190,0.06), transparent 36%),
+    radial-gradient(circle at 50% 78%, rgba(60,100,170,0.04), transparent 22%);
 }
 .s1BgSeam {
   position: absolute; inset: 0; z-index: 2; pointer-events: none;
@@ -443,7 +441,7 @@
   margin-top: 1px;
 }
 .s1RaceTag {
-  font-size: 12px; font-weight: 600; color: rgba(255,180,200,0.60);
+  font-size: 12px; font-weight: 600; color: rgba(180,200,240,0.50);
   margin-top: 1px;
 }
 .s1RaceRight {
@@ -607,18 +605,18 @@
   font-style: italic;
 }
 
-/* Feature card — dark red accent backplate */
+/* Feature card — glass with red accent border */
 .slide2FeatureCard {
   position: relative; z-index: 10;
   min-height: 240px;
   border-radius: 20px;
   padding: 10px 18px 4px;
-  background: linear-gradient(180deg, rgba(80,20,35,0.25), rgba(50,15,25,0.18), rgba(255,255,255,0.03));
-  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
+  border: 1px solid rgba(220,60,80,0.22);
   box-shadow:
-    0 0 18px rgba(255,255,255,0.04),
-    0 0 30px rgba(60,20,40,0.12),
-    inset 0 1px 0 rgba(255,255,255,0.12);
+    0 0 18px rgba(255,255,255,0.03),
+    0 0 24px rgba(20,40,80,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.10);
   display: flex; flex-direction: column;
   justify-content: flex-start;
   flex-shrink: 0;
@@ -682,37 +680,37 @@
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-/* ── Maximus's Picks — full-width, dark red accent ── */
+/* ── Maximus's Picks — glass with red accent border ── */
 .slide2PicksSection {
   position: relative; z-index: 10;
-  margin-top: 6px;
+  margin-top: 8px;
   border-radius: 18px;
-  padding: 10px 16px 10px;
+  padding: 12px 16px 12px;
   flex: 0 0 auto;
-  background: linear-gradient(180deg, rgba(70,18,30,0.22), rgba(50,14,24,0.16), rgba(255,255,255,0.03));
-  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
+  border: 1px solid rgba(220,60,80,0.22);
   box-shadow:
     0 0 16px rgba(255,255,255,0.03),
-    0 0 24px rgba(50,20,35,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.10);
+    0 0 20px rgba(20,40,80,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.08);
 }
 .slide2PicksRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 12px;
   margin-top: 10px;
 }
 .slide2PickCard {
   border-radius: 12px;
-  padding: 10px 12px 9px;
+  padding: 12px 12px 10px;
   display: flex; flex-direction: column;
   justify-content: flex-start;
-  background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.08);
   box-shadow:
     0 0 12px rgba(255,255,255,0.03),
-    0 0 18px rgba(30,50,90,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.10);
+    0 0 14px rgba(20,40,80,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.08);
 }
 .slide2PickTopRow {
   display: flex; align-items: center;
@@ -838,18 +836,18 @@
   color: rgba(255,225,170,0.94);
 }
 
-/* ── Season Leaders — full-width, dark red accent, fills remaining height ── */
+/* ── Season Leaders — glass with red accent border, fills remaining height ── */
 .slide2LeadersSection {
   position: relative; z-index: 10;
-  margin-top: 6px;
+  margin-top: 8px;
   border-radius: 18px;
-  padding: 10px 16px 12px;
-  background: linear-gradient(180deg, rgba(70,18,30,0.20), rgba(50,14,24,0.14), rgba(255,255,255,0.025));
-  border: 1px solid rgba(255,255,255,0.10);
+  padding: 8px 14px 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
+  border: 1px solid rgba(220,60,80,0.22);
   box-shadow:
     0 0 16px rgba(255,255,255,0.03),
-    0 0 24px rgba(50,20,35,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.10);
+    0 0 20px rgba(20,40,80,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.08);
   flex: 1 1 auto;
   display: flex; flex-direction: column;
   min-height: 0;
@@ -858,8 +856,8 @@
 .slide2LeadersGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
   flex: 1;
 }
 /* Wins/Saves row: first two columns */
@@ -871,17 +869,17 @@
 }
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 8px 12px 8px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
-  border: 1px solid rgba(255,255,255,0.10);
+  padding: 6px 10px 6px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
   display: flex; flex-direction: column;
   justify-content: flex-start;
 }
 .slide2LeaderCatHeader {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.10);
-  padding-bottom: 4px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 3px;
 }
 .slide2LeaderCatLabel {
   font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
@@ -900,8 +898,8 @@
 .slide2LeaderRow {
   display: flex; align-items: center;
   gap: 6px;
-  font-size: 18px; line-height: 1.3;
-  padding: 3px 0;
+  font-size: 18px; line-height: 1.2;
+  padding: 2px 0;
 }
 .slide2LeaderRank {
   width: 16px; text-align: center;
