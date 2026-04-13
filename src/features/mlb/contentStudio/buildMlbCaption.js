@@ -207,30 +207,26 @@ function dailyCaption(payload) {
     allStandings: payload.mlbStandings || null,
   });
 
-  // ── 1. OPENER ──
-  parts.push('⚾ Your Daily MLB Intel Briefing is here.');
-  parts.push('');
+  // ── 1. HEADLINE — from Slide 1 hero (no generic opener) ──
+  const usedBullets = hotPress.filter(b => b?.text);
 
-  // ── 2. HEADLINE — from Slide 1 hero ──
   if (dynamicHL.heroTitle) {
     parts.push(`🔥 ${dynamicHL.heroTitle}`);
     parts.push('');
   }
 
-  // ── 3. WHAT HAPPENED — results + implications (from HOTP bullets) ──
-  const usedBullets = hotPress.filter(b => b?.text);
+  // ── 2. WHAT HAPPENED — results + implications (from HOTP bullets) ──
   if (usedBullets.length > 0) {
     parts.push('📊 What happened:');
     for (const b of usedBullets.slice(0, 3)) {
-      const emoji = b.logoSlug ? teamEmoji(nameFromSlug(b.logoSlug)) : '▸';
-      parts.push(`${emoji} ${b.text}`);
+      parts.push(`• ${b.text}`);
     }
     parts.push('');
   }
 
-  // ── 4. WHY IT MATTERS — standings + momentum (from subhead / signal) ──
+  // ── 3. WHY IT MATTERS — standings + momentum (from subhead / signal) ──
   if (dynamicHL.subhead) {
-    parts.push(`📈 Why it matters:`);
+    parts.push('📈 Why it matters:');
     parts.push(dynamicHL.subhead);
     // Add standings context from additional HOTP bullets (division/race implications)
     const extraBullets = usedBullets.slice(3).filter(b => b?.text && /GB|division|lead|race|gap|game/i.test(b.text));
@@ -240,7 +236,7 @@ function dailyCaption(payload) {
     parts.push('');
   }
 
-  // ── 5. PICKS TO WATCH — from Slide 2 picks ──
+  // ── 4. PICKS TO WATCH — from Slide 1/2 picks ──
   const pickCats = payload.mlbPicks?.categories || payload.canonicalPicks?.categories || {};
   const pickEms = pickCats.pickEms || [];
   const ats = pickCats.ats || [];
@@ -253,27 +249,26 @@ function dailyCaption(payload) {
       const conv = p.confidence || '';
       const away = p.matchup?.awayTeam?.shortName || '?';
       const home = p.matchup?.homeTeam?.shortName || '?';
-      parts.push(`▸ ${away} vs ${home}: ${label} (${conv})`);
+      parts.push(`• ${away} vs ${home}: ${label} (${conv})`);
     }
     parts.push('');
   }
 
-  // ── 6. LEADERS — from Slide 2 season leaders ──
+  // ── 5. LEAGUE LEADERS — from Slide 2 season leaders ──
   const leadersRaw = payload.mlbLeaders?.categories || payload.mlbLeaders || {};
   const leaderCats = Object.values(leadersRaw).filter(c => c?.leaders?.length > 0);
   if (leaderCats.length > 0) {
-    parts.push('🏆 Leaders:');
-    // Show top performer from first 2 categories
+    parts.push('🏆 League leaders:');
     for (const cat of leaderCats.slice(0, 2)) {
       const top = cat.leaders[0];
       if (top) {
-        parts.push(`▸ ${top.name} leads ${cat.label || cat.key || ''} with ${top.display || top.value}`);
+        parts.push(`• ${top.name} leads ${cat.label || cat.key || ''} with ${top.display || top.value}`);
       }
     }
     parts.push('');
   }
 
-  // ── 7. CTA ──
+  // ── 6. CTA ──
   const ctas = [
     '🚀 The board moves daily. Stay ahead of it → maximussports.ai',
     '🚀 Tomorrow brings more edges. Stay locked in → maximussports.ai',
