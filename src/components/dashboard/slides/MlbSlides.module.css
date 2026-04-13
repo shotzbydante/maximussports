@@ -374,16 +374,16 @@
 .s1BottomGrid {
   position: relative; z-index: 10;
   width: 100%;
-  display: flex; gap: 20px;
+  display: flex; gap: 16px;
   padding: 0 40px;
-  margin-top: 10px;
+  margin-top: 8px;
   flex: 1;
   min-height: 0;
 }
 .s1BottomCard {
   flex: 1;
   border-radius: 22px;
-  padding: 16px 20px;
+  padding: 12px 16px;
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,210,225,0.16);
   box-shadow:
@@ -393,51 +393,59 @@
   overflow: hidden;
 }
 .s1SectionLabel {
-  font-size: 15px; font-weight: 800; letter-spacing: 1.4px;
-  text-transform: uppercase; color: rgba(255,255,255,0.70);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+  font-size: 16px; font-weight: 800; letter-spacing: 1.4px;
+  text-transform: uppercase; color: rgba(255,255,255,0.75);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
 /* ── Pennant Race rows ── */
 .s1RaceList {
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; gap: 6px;
   flex: 1;
 }
 .s1RaceRow {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
+  flex: 1;
 }
 .s1RaceTeamId {
   display: flex; align-items: center; gap: 8px;
   flex-shrink: 0;
-  width: 90px;
+  width: 110px;
 }
 .s1RaceTeamId img {
   filter: drop-shadow(0 0 6px rgba(255,255,255,0.45)) drop-shadow(0 0 12px rgba(255,255,255,0.18));
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
 }
+.s1RaceTeamInfo {
+  display: flex; flex-direction: column; gap: 1px;
+}
 .s1RaceAbbrev {
-  font-size: 20px; font-weight: 800; color: #fff;
+  font-size: 22px; font-weight: 800; color: #fff; line-height: 1.1;
+}
+.s1RaceRecord {
+  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.60);
+  line-height: 1.1;
 }
 .s1RaceCenter {
   flex: 1;
   min-width: 0;
 }
 .s1RaceWins {
-  font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.90);
+  font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.92);
 }
 .s1RaceConviction {
-  font-size: 12px; font-weight: 600; color: rgba(255,200,160,0.70);
+  font-size: 13px; font-weight: 600; color: rgba(255,200,160,0.75);
   margin-top: 1px;
 }
 .s1RaceTag {
-  font-size: 11px; font-weight: 600; color: rgba(255,180,200,0.60);
+  font-size: 12px; font-weight: 600; color: rgba(255,180,200,0.60);
   margin-top: 1px;
 }
 .s1RaceRight {
@@ -445,53 +453,55 @@
   text-align: right;
 }
 .s1RaceDiv {
-  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55);
+  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.60);
 }
 .s1RaceOdds {
-  font-size: 14px; font-weight: 700; color: rgba(255,200,120,0.85);
+  font-size: 15px; font-weight: 800; color: rgba(255,200,120,0.90);
   margin-top: 2px;
 }
 
 /* ── Picks rows ── */
 .s1PicksList {
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 6px;
   flex: 1;
 }
 .s1PickRow {
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
+  flex: 1;
+  display: flex; flex-direction: column; justify-content: center;
 }
 .s1PickTop {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .s1PickMatchup {
-  font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.60);
+  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.65);
 }
 .s1PickType {
   font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-  text-transform: uppercase; color: rgba(255,200,160,0.75);
+  text-transform: uppercase; color: rgba(255,200,160,0.80);
   padding: 2px 8px; border-radius: 6px;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
 }
 .s1PickMid {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 .s1PickSelWrap {
   display: flex; align-items: center; gap: 6px;
 }
 .s1PickSel {
-  font-size: 20px; font-weight: 800; color: #fff;
+  font-size: 22px; font-weight: 800; color: #fff;
 }
 .s1PickConv {
-  font-size: 13px; font-weight: 700; color: rgba(255,200,160,0.80);
+  font-size: 14px; font-weight: 700; color: rgba(255,200,160,0.85);
 }
 .s1PickRationale {
-  font-size: 13px; line-height: 1.24; font-weight: 500;
+  font-size: 14px; line-height: 1.20; font-weight: 600;
   color: rgba(255,255,255,0.50);
 }
 
@@ -500,7 +510,7 @@
   position: relative; z-index: 10;
   width: 100%;
   display: flex; justify-content: center;
-  padding: 14px 0 28px;
+  padding: 10px 0 22px;
   flex-shrink: 0;
 }
 .s1CtaPill {
@@ -547,7 +557,7 @@
   display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
   min-height: 68px;
-  margin-top: 2px;
+  margin-top: 10px;
 }
 .slide2TopPill {
   height: 44px; padding: 0 24px;
@@ -576,9 +586,9 @@
 /* Headline block */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 6px; margin-bottom: 2px;
+  margin-top: 10px; margin-bottom: 4px;
   text-align: center;
-  min-height: 130px;
+  min-height: 120px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
@@ -699,14 +709,14 @@
 /* ── Maximus's Picks — game-intel pick modules ── */
 .slide2PicksList {
   display: flex; flex-direction: column;
-  gap: 7px;
-  margin-top: 8px;
+  gap: 5px;
+  margin-top: 6px;
   flex: 1;
 }
 .slide2PickCard {
   flex: 1; min-height: 0;
-  border-radius: 14px;
-  padding: 12px 12px 10px;
+  border-radius: 12px;
+  padding: 8px 10px 6px;
   display: flex; flex-direction: column;
   justify-content: flex-start;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
@@ -741,7 +751,7 @@
   display: flex; align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 7px;
+  margin-top: 4px;
 }
 .slide2PickSelectionWrap {
   display: inline-flex; align-items: center;
@@ -762,9 +772,10 @@
   flex-shrink: 0;
 }
 .slide2PickRationale {
-  margin-top: 6px;
-  font-size: 15px; line-height: 1.24; font-weight: 700;
-  color: rgba(255,255,255,0.72);
+  margin-top: 3px;
+  font-size: 13px; line-height: 1.18; font-weight: 600;
+  color: rgba(255,255,255,0.62);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* ── Pennant Race — 4 team modules (stretch to fill) ── */
@@ -843,13 +854,13 @@
 /* ── Season Leaders hero module ── */
 .slide2LeadersWrap {
   display: flex; flex-direction: column;
-  gap: 5px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
   flex: 1;
 }
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 7px 12px 6px;
+  padding: 8px 12px 7px;
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
   border: 1px solid rgba(255,255,255,0.10);
   flex: 1;
@@ -873,13 +884,13 @@
 }
 .slide2LeaderRows {
   display: flex; flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 .slide2LeaderRow {
   display: flex; align-items: center;
   gap: 6px;
-  font-size: 18px; line-height: 1.40;
-  padding: 2px 0;
+  font-size: 18px; line-height: 1.36;
+  padding: 3px 0;
 }
 .slide2LeaderRank {
   width: 18px; text-align: center;

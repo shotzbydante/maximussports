@@ -207,77 +207,77 @@ function dailyCaption(payload) {
     allStandings: payload.mlbStandings || null,
   });
 
-  // ── 1. OPENER — emoji-led, premium, energetic ──
+  // ── 1. OPENER ──
   parts.push('⚾ Your Daily MLB Intel Briefing is here.');
   parts.push('');
 
-  // ── 2. TOP STORY — from the headline engine ──
-  const topBullet = hotPress[0]?.text;
-  const topEmoji = hotPress[0]?.logoSlug ? teamEmoji(nameFromSlug(hotPress[0].logoSlug)) : '🚨';
-  if (topBullet) {
-    parts.push(`${topEmoji} ${topBullet}`);
-  } else if (dynamicHL.subhead) {
-    parts.push(`🚨 ${dynamicHL.subhead}`);
-  }
-  parts.push('');
-
-  // ── 3. SECOND STORY ──
-  const secondBullet = hotPress[1]?.text;
-  const secondEmoji = hotPress[1]?.logoSlug ? teamEmoji(nameFromSlug(hotPress[1].logoSlug)) : '🔥';
-  if (secondBullet) {
-    parts.push(`${secondEmoji} ${secondBullet}`);
+  // ── 2. HEADLINE — from Slide 1 hero ──
+  if (dynamicHL.heroTitle) {
+    parts.push(`🔥 ${dynamicHL.heroTitle}`);
     parts.push('');
   }
 
-  // ── 4. TRANSITION — standings-aware "why it matters" ──
-  const standingsContext = hotPress[2]?.text;
-  if (standingsContext && standingsContext.length > 30) {
-    // Use the standings-enriched HOTP bullet as the transition
-    parts.push(`📊 ${standingsContext}`);
-  } else {
-    const transitions = [
-      'And just like that — the board is already shifting. 👀',
-      'The early signals are loud. The model is reacting. 📡',
-      'Results like these ripple across the standings. 📊',
-    ];
-    parts.push(transitions[doy % transitions.length]);
-  }
-  parts.push('');
-
-  // ── 5. MODEL SIGNALS — projected wins leaders ──
-  const topTeams = getTopTeams(payload.seasonIntel, 4);
-  if (topTeams.length > 0) {
-    parts.push('📈 Model signals — projected wins leaders:');
-    for (const t of topTeams) {
-      const e = teamEmoji(t.name || t.abbrev);
-      parts.push(`${e} ${t.abbrev} — ${t.projectedWins} wins`);
+  // ── 3. WHAT HAPPENED — results + implications (from HOTP bullets) ──
+  const usedBullets = hotPress.filter(b => b?.text);
+  if (usedBullets.length > 0) {
+    parts.push('📊 What happened:');
+    for (const b of usedBullets.slice(0, 3)) {
+      const emoji = b.logoSlug ? teamEmoji(nameFromSlug(b.logoSlug)) : '▸';
+      parts.push(`${emoji} ${b.text}`);
     }
     parts.push('');
   }
 
-  // ── 6. PENNANT RACE IMPLICATION ──
-  const outlookLine = buildOutlookNarrative(payload.seasonIntel);
-  if (outlookLine) {
-    parts.push(`🏆 ${outlookLine}`);
+  // ── 4. WHY IT MATTERS — standings + momentum (from subhead / signal) ──
+  if (dynamicHL.subhead) {
+    parts.push(`📈 Why it matters:`);
+    parts.push(dynamicHL.subhead);
     parts.push('');
   }
 
-  // ── 7. ADDITIONAL CONTEXT (from HOTP bullet 4) ──
-  const contextBullet = hotPress[3]?.text;
-  if (contextBullet) {
-    parts.push(`🔎 ${contextBullet}`);
+  // ── 5. PICKS TO WATCH — from Slide 2 picks ──
+  const pickCats = payload.mlbPicks?.categories || payload.canonicalPicks?.categories || {};
+  const pickEms = pickCats.pickEms || [];
+  const ats = pickCats.ats || [];
+  const totals = pickCats.totals || [];
+  const allPicks = [...pickEms, ...ats, ...totals].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+  if (allPicks.length > 0) {
+    parts.push('🎯 Picks to watch:');
+    for (const p of allPicks.slice(0, 3)) {
+      const label = p.pick?.label || '—';
+      const conv = p.confidence || '';
+      const away = p.matchup?.awayTeam?.shortName || '?';
+      const home = p.matchup?.homeTeam?.shortName || '?';
+      parts.push(`▸ ${away} vs ${home}: ${label} (${conv})`);
+    }
     parts.push('');
   }
 
-  // ── 8. CTA — closing punch ──
+  // ── 6. LEADERS — from Slide 2 season leaders ──
+  const leadersRaw = payload.mlbLeaders?.categories || payload.mlbLeaders || {};
+  const leaderCats = Object.values(leadersRaw).filter(c => c?.leaders?.length > 0);
+  if (leaderCats.length > 0) {
+    parts.push('🏆 Leaders:');
+    // Show top performer from first 2 categories
+    for (const cat of leaderCats.slice(0, 2)) {
+      const top = cat.leaders[0];
+      if (top) {
+        parts.push(`▸ ${top.name} leads ${cat.label || cat.key || ''} with ${top.display || top.value}`);
+      }
+    }
+    parts.push('');
+  }
+
+  // ── 7. CTA ──
   const ctas = [
-    'The board moves daily. Stay ahead of it → maximussports.ai 🔥',
-    'Tomorrow brings more edges. Stay locked in → maximussports.ai ⚾',
-    'The model never sleeps. Neither should your edge → maximussports.ai 🧠',
+    '🚀 The board moves daily. Stay ahead of it → maximussports.ai',
+    '🚀 Tomorrow brings more edges. Stay locked in → maximussports.ai',
+    '🚀 The model never sleeps. Neither should your edge → maximussports.ai',
   ];
   parts.push(ctas[(doy + 1) % ctas.length]);
 
-  // ── 9. HASHTAGS — content-aware, story-specific ──
+  // ── 8. HASHTAGS — exactly 5, content-aware ──
+  const topTeams = getTopTeams(payload.seasonIntel, 4);
   const hashtags = buildDailyHashtags(hotPress, topTeams);
 
   return { caption: parts.join('\n'), hashtags };
