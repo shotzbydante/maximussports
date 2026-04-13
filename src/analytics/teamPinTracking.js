@@ -55,6 +55,7 @@ export function getTeamSport(slug) {
  */
 export function trackTeamPinAdded(slug, opts = {}) {
   const sport = getTeamSport(slug);
+  console.log(`[teamPinTracking] pin added slug=${slug} sport=${sport} surface=${opts.surface || 'unknown'}`);
   track('team_pin_added', {
     team_slug: slug,
     sport,
@@ -75,6 +76,7 @@ export function trackTeamPinAdded(slug, opts = {}) {
  */
 export function trackTeamPinRemoved(slug, opts = {}) {
   const sport = getTeamSport(slug);
+  console.log(`[teamPinTracking] pin removed slug=${slug} sport=${sport} surface=${opts.surface || 'unknown'}`);
   track('team_pin_removed', {
     team_slug: slug,
     sport,
@@ -109,6 +111,7 @@ export function trackTeamPinBlocked(slug, opts = {}) {
  */
 export function updateTeamPersonProperties(allSlugs = []) {
   const mlbSlugs = allSlugs.filter(s => MLB_SLUG_SET.has(s));
+  console.log(`[teamPinTracking] person props updated: all=${allSlugs.join(',')} mlb=${mlbSlugs.join(',')} total=${allSlugs.length}`);
   const ncaamSlugs = allSlugs.filter(s => !MLB_SLUG_SET.has(s));
 
   setUserProperties({
