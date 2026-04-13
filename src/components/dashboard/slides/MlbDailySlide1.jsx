@@ -94,15 +94,21 @@ function buildSlide1Content(data) {
     });
   }
   allTeams.sort((a, b) => (b.projectedWins ?? 0) - (a.projectedWins ?? 0));
-  const raceTeams = allTeams.slice(0, 3).map(t => ({
-    team: t.abbrev,
-    teamLogoSrc: logoUrl(t.slug),
-    division: shortDiv(t.division),
-    projectedWins: t.projectedWins,
-    convictionLabel: t.confidenceTier || 'Projected',
-    championshipOdds: t.odds != null ? fmtOdds(t.odds) : '—',
-    summaryTag: t.signals?.[0] || null,
-  }));
+  const standings = data?.mlbStandings || {};
+  const raceTeams = allTeams.slice(0, 3).map(t => {
+    const st = standings[t.slug];
+    const record = st?.record || (st?.wins != null ? `${st.wins}–${st.losses}` : null);
+    return {
+      team: t.abbrev,
+      teamLogoSrc: logoUrl(t.slug),
+      division: shortDiv(t.division),
+      projectedWins: t.projectedWins,
+      record,
+      convictionLabel: t.confidenceTier || 'Projected',
+      championshipOdds: t.odds != null ? fmtOdds(t.odds) : '—',
+      summaryTag: t.signals?.[0] || null,
+    };
+  });
 
   // ── Picks: top 3 from same pool as Slide 2 ──
   const pickCats = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
@@ -127,7 +133,8 @@ function buildSlide1Content(data) {
     const matchup = `${away} vs ${home}`;
     const selection = p.pick?.label || '—';
     const conviction = fmtConviction(p.confidence);
-    const rationale = p.pick?.explanation ? trim(p.pick.explanation, 48) : `Model edge: ${conviction.toLowerCase()}`;
+    const edgePct = p.pick?.edgePercent || p.confidenceScore;
+    const rationale = edgePct ? `Model favors ${selection.split(' ').pop()} with a ${Number(edgePct).toFixed(1)}% edge.` : `Model edge: ${conviction.toLowerCase()}`;
     const pickSide = p.pick?.side;
     const selTeam = pickSide === 'away' ? p.matchup?.awayTeam : p.matchup?.homeTeam;
     return { matchup, type: p.type, selection, selectionLogoSrc: logoUrl(selTeam?.slug || null), conviction, rationale };
@@ -246,13 +253,15 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
             {c.raceTeams.map((t, i) => (
               <div key={i} className={styles.s1RaceRow}>
                 <div className={styles.s1RaceTeamId}>
-                  <Logo src={t.teamLogoSrc} size={24} />
-                  <span className={styles.s1RaceAbbrev}>{t.team}</span>
+                  <Logo src={t.teamLogoSrc} size={28} />
+                  <div className={styles.s1RaceTeamInfo}>
+                    <span className={styles.s1RaceAbbrev}>{t.team}</span>
+                    {t.record && <span className={styles.s1RaceRecord}>{t.record}</span>}
+                  </div>
                 </div>
                 <div className={styles.s1RaceCenter}>
-                  <div className={styles.s1RaceWins}>Projected Wins: {t.projectedWins}</div>
+                  <div className={styles.s1RaceWins}>Proj: {t.projectedWins}W</div>
                   <div className={styles.s1RaceConviction}>{t.convictionLabel}</div>
-                  {t.summaryTag && <div className={styles.s1RaceTag}>{t.summaryTag}</div>}
                 </div>
                 <div className={styles.s1RaceRight}>
                   <div className={styles.s1RaceDiv}>{t.division}</div>

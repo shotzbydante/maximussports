@@ -195,7 +195,10 @@ function buildSlide2Content(data) {
     const matchup = `${away} vs ${home}`;
     const selection = p.pick?.label || '—';
     const conviction = fmtConviction(p.confidence);
-    const rationale = p.pick?.explanation ? trim(p.pick.explanation, 55) : `Model edge: ${conviction.toLowerCase()} conviction`;
+    const edgePct = p.pick?.edgePercent || p.confidenceScore;
+    const rationale = edgePct
+      ? `Model favors ${(selection || '').split(' ').pop()} with a ${Number(edgePct).toFixed(1)}% edge.`
+      : `Model edge: ${conviction.toLowerCase()} conviction`;
 
     // Find selected team's slug for logo
     const pickSide = p.pick?.side;
