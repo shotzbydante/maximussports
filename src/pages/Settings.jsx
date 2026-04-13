@@ -2738,7 +2738,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     setTeamsError('');
     try {
       // Server-validated remove
-      const result = await serverUnpinTeam(slug);
+      const remainingSlugsForTracking = userTeams.filter(t => t.team_slug !== slug).map(t => t.team_slug);
+      const result = await serverUnpinTeam(slug, { surface: 'settings', allSlugs: remainingSlugsForTracking });
       if (!result.ok) {
         setTeamsError(result.error || 'Failed to remove team.');
         return;
@@ -2766,8 +2767,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
         removePinnedTeam(slug);
       }
       notifyPinnedChanged(remainingSlugs, 'settings');
-      track('team_unpinned', { team_slug: slug });
-      trackFavoriteTeamsUpdated(user.id, remainingSlugs);
+      // Canonical tracking fires via serverUnpinTeam → useTeamPin → teamPinTracking
     } catch (err) {
       setTeamsError(typeof err === 'string' ? err : err?.message || 'Failed to remove team.');
     }
@@ -2785,7 +2785,8 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
     }
 
     // Server-validated add (source of truth)
-    const result = await serverPinTeam(slug);
+    const afterSlugs = [...userTeams.map(t => t.team_slug), slug];
+    const result = await serverPinTeam(slug, { surface: 'settings', allSlugs: afterSlugs });
     if (!result.ok) {
       setShowTeamPicker(false);
       setUpgradePrompt({ message: result.error || 'Unable to pin team.' });
@@ -2801,8 +2802,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (isMlbSlug) { addPinnedForSport('mlb', slug); }
       else { addPinnedTeam(slug); }
     } catch { /* ignore */ }
-    track('team_pinned', { team_slug: slug });
-    trackFavoriteTeamsUpdated(user.id, [...userTeams.map(t => t.team_slug), slug]);
+    // Canonical tracking fires via serverPinTeam → useTeamPin → teamPinTracking
   }
 
   /* ── Shared debounced Supabase preference writer ── */

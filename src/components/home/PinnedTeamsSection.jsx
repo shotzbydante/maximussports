@@ -22,6 +22,7 @@ import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import { getCachedVideos, setCachedVideos, getStaleVideos, setStaleVideos } from '../../utils/ytClientCache';
 import { track } from '../../analytics/index';
+import { trackTeamPinAdded, trackTeamPinRemoved, trackTeamPinBlocked, updateTeamPersonProperties } from '../../analytics/teamPinTracking';
 import TeamLogo from '../shared/TeamLogo';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
@@ -277,7 +278,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     const wasAdded = !pinned.includes(slug);
     if (wasAdded && !isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
-      track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
+      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: pinned.length });
       return;
     }
     setShowLimitPrompt(false);
@@ -290,10 +291,11 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       console.groupEnd();
     }
     setPinned(after);
-    track(wasAdded ? 'pinned_team_add' : 'pinned_team_remove', {
-      team_slug: slug,
-      method: 'picker',
-    });
+    if (wasAdded) {
+      trackTeamPinAdded(slug, { surface: 'home', allSlugs: after });
+    } else {
+      trackTeamPinRemoved(slug, { surface: 'home', allSlugs: after });
+    }
     notifyPinnedChanged(after, 'home');
     notify();
   }, [user, notify, pinned, isPro]);
@@ -302,7 +304,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     if (!user) { setShowAuthGate(true); return; }
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
-      track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
+      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: pinned.length });
       return;
     }
     const before = getPinnedTeams();
@@ -314,7 +316,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       console.groupEnd();
     }
     setPinned(after);
-    track('pinned_team_add', { team_slug: slug });
+    trackTeamPinAdded(slug, { surface: 'home', allSlugs: after });
     setSearch('');
     setShowAdd(false);
     notifyPinnedChanged(after, 'home');
@@ -332,7 +334,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       console.groupEnd();
     }
     setPinned(after);
-    track('pinned_team_remove', { team_slug: slug });
+    trackTeamPinRemoved(slug, { surface: 'home', allSlugs: after });
     notifyPinnedChanged(after, 'home');
     notify();
   }, [user, notify]);
@@ -359,7 +361,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
       setShowAdd(true); // open picker so user sees the inline prompt
-      track('free_limit_hit_pinned_team', { limit_type: 'pinned_teams', current_count: pinned.length, page: 'home' });
+      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: pinned.length });
       return;
     }
     const before = getPinnedTeams();
@@ -372,7 +374,7 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
       console.groupEnd();
     }
     setPinned(after);
-    track('pinned_team_add', { team_slug: slug, method: 'quick_chip' });
+    trackTeamPinAdded(slug, { surface: 'home', allSlugs: after });
     notifyPinnedChanged(after, 'home');
     notify();
   }, [user, notify, isPro, pinned.length]);
