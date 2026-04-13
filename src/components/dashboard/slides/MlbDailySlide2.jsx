@@ -233,9 +233,13 @@ function buildSlide2Content(data) {
 
 // ─── Component ──────────────────────────────────────────────────
 
-function InlineLogo({ src, size = 20 }) {
+function InlineLogo({ src, size = 22 }) {
   if (!src) return null;
-  return <img src={src} alt="" width={size} height={size} className={styles.slide2InlineLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  return (
+    <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>
+      <img src={src} alt="" width={size} height={size} className={styles.slide2InlineLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+    </span>
+  );
 }
 
 export default function MlbDailySlide2({ data, asOf, ...rest }) {
@@ -290,7 +294,7 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
               </div>
               <div className={styles.slide2PickMiddleRow}>
                 <div className={styles.slide2PickSelectionWrap}>
-                  {p.selectionLogoSrc && <img src={p.selectionLogoSrc} alt="" className={styles.slide2PickSelectionLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+                  {p.selectionLogoSrc && <span className={styles.logoBackplate} style={{ width: 32, height: 32 }}><img src={p.selectionLogoSrc} alt="" className={styles.slide2PickSelectionLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} /></span>}
                   <div className={styles.slide2PickSelection}>{p.selection}</div>
                 </div>
                 <div className={styles.slide2PickConviction}>{p.conviction}</div>
@@ -316,7 +320,7 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
                   {cat.leaders.map((l, li) => (
                     <div key={li} className={styles.slide2LeaderRow}>
                       <span className={styles.slide2LeaderRank}>{li + 1}</span>
-                      {l.teamLogoSrc && <img src={l.teamLogoSrc} alt="" className={styles.slide2LeaderTeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+                      {l.teamLogoSrc && <span className={styles.logoBackplate} style={{ width: 30, height: 30 }}><img src={l.teamLogoSrc} alt="" className={styles.slide2LeaderTeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} /></span>}
                       <span className={styles.slide2LeaderName}>{l.name}</span>
                       <span className={styles.slide2LeaderValue}>{l.value}</span>
                     </div>

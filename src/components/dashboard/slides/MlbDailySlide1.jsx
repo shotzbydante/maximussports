@@ -158,9 +158,11 @@ function buildSlide1Content(data) {
 
 // ── Inline logo helper ──────────────────────────────────────────────────
 
-function Logo({ src, size = 20 }) {
+function Logo({ src, size = 22, backplate = false }) {
   if (!src) return null;
-  return <img src={src} alt="" width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  const img = <img src={src} alt="" width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  if (!backplate) return img;
+  return <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>{img}</span>;
 }
 
 // ── Component ───────────────────────────────────────────────────────────
@@ -221,7 +223,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
           {c.bullets.map((b, i) => (
             <div key={i} className={styles.s1HotpRow}>
               <span className={styles.s1BulletDot}>▸</span>
-              {b.logoSrc && <Logo src={b.logoSrc} size={18} />}
+              {b.logoSrc && <Logo src={b.logoSrc} size={20} backplate />}
               <span className={styles.s1BulletText}>{b.text}</span>
             </div>
           ))}
@@ -237,7 +239,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
             {c.raceTeams.map((t, i) => (
               <div key={i} className={styles.s1RaceRow}>
                 <div className={styles.s1RaceTeamId}>
-                  <Logo src={t.teamLogoSrc} size={28} />
+                  <Logo src={t.teamLogoSrc} size={31} backplate />
                   <div className={styles.s1RaceTeamInfo}>
                     <span className={styles.s1RaceAbbrev}>{t.team}</span>
                     {t.record && <span className={styles.s1RaceRecord}>{t.record}</span>}
@@ -268,7 +270,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
                 </div>
                 <div className={styles.s1PickMid}>
                   <div className={styles.s1PickSelWrap}>
-                    {p.selectionLogoSrc && <Logo src={p.selectionLogoSrc} size={18} />}
+                    {p.selectionLogoSrc && <Logo src={p.selectionLogoSrc} size={20} backplate />}
                     <span className={styles.s1PickSel}>{p.selection}</span>
                   </div>
                   <span className={styles.s1PickConv}>{p.conviction}</span>

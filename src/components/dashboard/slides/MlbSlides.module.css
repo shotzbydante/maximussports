@@ -612,10 +612,11 @@
   border-radius: 20px;
   padding: 10px 18px 4px;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
-  border: 1px solid rgba(220,60,80,0.22);
+  border: 1.5px solid rgba(220,60,80,0.38);
   box-shadow:
     0 0 18px rgba(255,255,255,0.03),
     0 0 24px rgba(20,40,80,0.10),
+    inset 0 0 10px rgba(220,60,80,0.05),
     inset 0 1px 0 rgba(255,255,255,0.10);
   display: flex; flex-direction: column;
   justify-content: flex-start;
@@ -655,10 +656,19 @@
     0 0 14px rgba(80,120,200,0.16);
 }
 .slide2InlineLogo {
-  width: 20px; height: 20px;
+  width: 22px; height: 22px;
   object-fit: contain; border-radius: 2px; flex-shrink: 0;
   margin-top: 2px;
   filter: drop-shadow(0 0 4px rgba(255,255,255,0.10));
+}
+/* Glassy circle backplate for logos */
+.logoBackplate {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 0 8px rgba(255,255,255,0.04);
+  flex-shrink: 0;
 }
 /* Feature card bullet text */
 .slide2FeatureText {
@@ -685,24 +695,25 @@
   position: relative; z-index: 10;
   margin-top: 8px;
   border-radius: 18px;
-  padding: 12px 16px 12px;
+  padding: 14px 18px 14px;
   flex: 0 0 auto;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
-  border: 1px solid rgba(220,60,80,0.22);
+  border: 1.5px solid rgba(220,60,80,0.38);
   box-shadow:
     0 0 16px rgba(255,255,255,0.03),
     0 0 20px rgba(20,40,80,0.10),
+    inset 0 0 10px rgba(220,60,80,0.05),
     inset 0 1px 0 rgba(255,255,255,0.08);
 }
 .slide2PicksRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 14px;
   margin-top: 10px;
 }
 .slide2PickCard {
   border-radius: 12px;
-  padding: 12px 12px 10px;
+  padding: 14px 12px 12px;
   display: flex; flex-direction: column;
   justify-content: flex-start;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
@@ -744,7 +755,7 @@
   gap: 6px;
 }
 .slide2PickSelectionLogo {
-  width: 20px; height: 20px; object-fit: contain;
+  width: 22px; height: 22px; object-fit: contain;
   border-radius: 2px; flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(255,255,255,0.08));
 }
@@ -841,12 +852,13 @@
   position: relative; z-index: 10;
   margin-top: 8px;
   border-radius: 18px;
-  padding: 8px 14px 8px;
+  padding: 6px 12px 6px;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
-  border: 1px solid rgba(220,60,80,0.22);
+  border: 1.5px solid rgba(220,60,80,0.38);
   box-shadow:
     0 0 16px rgba(255,255,255,0.03),
     0 0 20px rgba(20,40,80,0.10),
+    inset 0 0 10px rgba(220,60,80,0.05),
     inset 0 1px 0 rgba(255,255,255,0.08);
   flex: 1 1 auto;
   display: flex; flex-direction: column;
@@ -856,8 +868,8 @@
 .slide2LeadersGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 6px;
+  gap: 5px;
+  margin-top: 5px;
   flex: 1;
 }
 /* Wins/Saves row: first two columns */
@@ -869,7 +881,7 @@
 }
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 6px 10px 6px;
+  padding: 4px 8px 4px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
   border: 1px solid rgba(255,255,255,0.08);
   display: flex; flex-direction: column;
@@ -877,9 +889,9 @@
 }
 .slide2LeaderCatHeader {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  padding-bottom: 3px;
+  padding-bottom: 2px;
 }
 .slide2LeaderCatLabel {
   font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
@@ -908,7 +920,7 @@
   flex-shrink: 0;
 }
 .slide2LeaderTeamLogo {
-  width: 20px; height: 20px;
+  width: 22px; height: 22px;
   object-fit: contain;
   flex-shrink: 0;
   opacity: 0.92;
