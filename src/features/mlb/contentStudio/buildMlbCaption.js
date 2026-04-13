@@ -14,6 +14,16 @@ import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline
 import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing';
 import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
 
+// ── Resolve nickname (handles multi-word names like "White Sox") ────────────
+
+function resolveNick(fullName) {
+  if (!fullName) return '???';
+  if (/White Sox$/i.test(fullName)) return 'White Sox';
+  if (/Red Sox$/i.test(fullName)) return 'Red Sox';
+  if (/Blue Jays$/i.test(fullName)) return 'Blue Jays';
+  return fullName.split(' ').pop();
+}
+
 // ── Team emojis ─────────────────────────────────────────────────────────────
 
 const TEAM_EMOJIS = {
@@ -511,7 +521,7 @@ function buildBottomLine(briefing, teamName, projection) {
   if (typeof wim === 'string') return wim;
 
   // Synthesize from projection + headline
-  const shortName = teamName.split(' ').pop();
+  const shortName = resolveNick(teamName);
   if (projection?.confidenceTier) {
     const tier = projection.confidenceTier.toLowerCase();
     if (tier.includes('high')) {
@@ -525,7 +535,7 @@ function buildBottomLine(briefing, teamName, projection) {
 }
 
 function buildTeamHashtags(teamName) {
-  const shortName = teamName.split(' ').pop();
+  const shortName = resolveNick(teamName);
   const fullTag = `#${teamName.replace(/\s+/g, '')}`;
 
   // Team-specific culture tags

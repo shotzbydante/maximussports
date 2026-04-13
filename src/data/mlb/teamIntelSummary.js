@@ -35,7 +35,10 @@ export function buildMlbTeamIntelSummary({ team, projection, meta, odds, current
   const slug = team.slug;
   const emoji = TEAM_EMOJI[slug] || '⚾';
   const name = team.name;
-  const mascot = name.split(' ').pop();
+  const mascot = /White Sox$/i.test(name) ? 'White Sox'
+    : /Red Sox$/i.test(name) ? 'Red Sox'
+    : /Blue Jays$/i.test(name) ? 'Blue Jays'
+    : name.split(' ').pop();
 
   if (!projection) {
     return `${emoji} ${name} intelligence is building. Check back for projected wins, market positioning, and season outlook.`;
