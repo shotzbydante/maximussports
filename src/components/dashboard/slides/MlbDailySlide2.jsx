@@ -213,6 +213,7 @@ function buildSlide2Content(data) {
     liveGames: data?.mlbLiveGames || [],
     briefing: data?.mlbBriefing,
     seasonIntel: null,
+    allStandings: data?.mlbStandings || null,
   });
 
   return {

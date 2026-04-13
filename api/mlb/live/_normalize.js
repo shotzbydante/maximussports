@@ -138,15 +138,32 @@ export function normalizeEvent(ev) {
 
 /* ── fetchScoreboard ──────────────────────────────────────────────────────── */
 
-export async function fetchScoreboard() {
+/**
+ * Fetch ESPN scoreboard for a specific date (YYYYMMDD) or today if omitted.
+ */
+export async function fetchScoreboard(dateStr) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const r = await fetch(ESPN_SCOREBOARD, { signal: controller.signal });
+    const url = dateStr
+      ? `${ESPN_SCOREBOARD}?dates=${dateStr}`
+      : ESPN_SCOREBOARD;
+    const r = await fetch(url, { signal: controller.signal });
     if (!r.ok) return [];
     const data = await r.json();
     const events = Array.isArray(data.events) ? data.events : [];
     return events.map(normalizeEvent).filter(Boolean);
   } catch { return []; }
   finally { clearTimeout(timer); }
+}
+
+/**
+ * Fetch yesterday's completed games. Returns only finals.
+ */
+export async function fetchYesterdayFinals() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+  const games = await fetchScoreboard(dateStr);
+  return games.filter(g => g.gameState?.isFinal || g.status === 'final');
 }
