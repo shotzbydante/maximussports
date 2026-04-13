@@ -17,27 +17,27 @@
   color: #fff;
 }
 
-/* ── Background — dramatic stadium-light atmosphere ── */
+/* ── Background — dark navy + subtle stadium atmosphere ── */
 .bgBase {
   position: absolute; inset: 0; z-index: 0;
   background: linear-gradient(175deg,
-    #2a0810 0%, #4a1220 20%, #5c1828 40%,
-    #4a1220 55%, #2a0810 75%, #120408 100%);
+    #0c1a2e 0%, #142640 20%, #183050 40%,
+    #142640 55%, #0c1a2e 75%, #060e1c 100%);
 }
 .bgGlow {
   position: absolute; inset: 0; z-index: 1;
   background:
-    radial-gradient(ellipse 900px 500px at 50% 8%, rgba(255,60,80,0.25) 0%, transparent 55%),
-    radial-gradient(ellipse 700px 400px at 50% 45%, rgba(200,30,50,0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 600px 350px at 50% 80%, rgba(160,20,40,0.08) 0%, transparent 45%);
+    radial-gradient(ellipse 900px 500px at 50% 8%, rgba(80,120,200,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 700px 400px at 50% 45%, rgba(60,90,160,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 600px 350px at 50% 80%, rgba(50,70,130,0.06) 0%, transparent 45%);
 }
 /* Stadium-light halftone overlay */
 .bgRay {
   position: absolute; inset: 0; z-index: 2;
   background:
-    radial-gradient(ellipse 1200px 300px at 50% -5%, rgba(255,120,130,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 400px 600px at 15% 0%, rgba(255,80,100,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse 400px 600px at 85% 0%, rgba(255,80,100,0.06) 0%, transparent 50%);
+    radial-gradient(ellipse 1200px 300px at 50% -5%, rgba(140,160,220,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 400px 600px at 15% 0%, rgba(100,130,200,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 400px 600px at 85% 0%, rgba(100,130,200,0.05) 0%, transparent 50%);
   pointer-events: none;
 }
 
