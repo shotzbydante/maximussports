@@ -162,7 +162,7 @@ function Logo({ src, size = 22, backplate = false }) {
   if (!src) return null;
   const img = <img src={src} alt="" width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
   if (!backplate) return img;
-  return <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>{img}</span>;
+  return <span className={styles.logoBackplate} style={{ width: size + 6, height: size + 6 }}>{img}</span>;
 }
 
 // ── Component ───────────────────────────────────────────────────────────

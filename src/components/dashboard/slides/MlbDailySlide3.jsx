@@ -17,7 +17,7 @@ function TeamLogo({ slug, size = 26 }) {
   const url = getMlbEspnLogoUrl(slug);
   if (!url) return null;
   return (
-    <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>
+    <span className={styles.logoBackplate} style={{ width: size + 6, height: size + 6 }}>
       <img src={url} alt="" width={size} height={size} className={styles.s3TeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
     </span>
   );
