@@ -225,7 +225,8 @@ async function fetchStandings(baseUrl, log) {
     const res = await fetch(`${baseUrl}/api/mlb/standings`);
     if (!res.ok) { log.warn('standings fetch failed:', res.status); return {}; }
     const data = await res.json();
-    // Normalize to { slug: standings } map if needed
+    // Extract .teams to get { [slug]: standings } shape (consistent with Dashboard)
+    if (data?.teams && typeof data.teams === 'object') return data.teams;
     if (data && typeof data === 'object' && !Array.isArray(data)) return data;
     return {};
   } catch (e) {
@@ -234,10 +235,10 @@ async function fetchStandings(baseUrl, log) {
   }
 }
 
-function buildSlideContent(liveGames, champOdds, dateLabel) {
-  // Headline + HOTP (same as Slide 1 & 2)
-  const hl = buildMlbDailyHeadline({ liveGames, briefing: null, seasonIntel: null });
-  const hotPress = buildMlbHotPress({ liveGames, briefing: null });
+function buildSlideContent(liveGames, champOdds, dateLabel, allStandings) {
+  // Headline + HOTP (same as Slide 1 & 2) — enriched with standings
+  const hl = buildMlbDailyHeadline({ liveGames, briefing: null, seasonIntel: null, allStandings });
+  const hotPress = buildMlbHotPress({ liveGames, briefing: null, allStandings });
   const bullets = hotPress.slice(0, 3).map(b => ({ text: trim(b.text), logoSlug: b.logoSlug }));
 
   // Pennant Race top teams (same as Slide 2)
@@ -422,11 +423,15 @@ export default async function handler(req, res) {
       fetchPicks(baseUrl, log),
     ]);
 
-    const content = buildSlideContent(liveGames, champOdds, dateLabel);
+    const content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
     const captionPayload = {
       section: 'daily-briefing',
       mlbLiveGames: liveGames,
       mlbBriefing: null,
+      mlbStandings: mlbStandings ?? null,
+      mlbPicks: mlbPicks ?? null,
+      canonicalPicks: mlbPicks ?? null,
+      mlbLeaders: mlbLeaders ?? null,
       seasonIntel: null,
     };
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);
@@ -460,7 +465,7 @@ export default async function handler(req, res) {
       fetchPicks(baseUrl, log),
     ]);
 
-    const content = buildSlideContent(liveGames, champOdds, dateLabel);
+    const content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
 
     // Attempt browser render
     const browserData = {
@@ -558,7 +563,7 @@ export default async function handler(req, res) {
   // ── Build content ──
   let content;
   try {
-    content = buildSlideContent(liveGames, champOdds, dateLabel);
+    content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
     log.info(`content: headline="${content.headline?.slice(0, 50)}", ${content.bullets.length} bullets, ${content.raceTeams.length} race teams`);
   } catch (e) {
     log.error('content build failed:', e.message);
@@ -573,6 +578,10 @@ export default async function handler(req, res) {
       section: 'daily-briefing',
       mlbLiveGames: liveGames,
       mlbBriefing: null,
+      mlbStandings: mlbStandings ?? null,
+      mlbPicks: mlbPicks ?? null,
+      canonicalPicks: mlbPicks ?? null,
+      mlbLeaders: mlbLeaders ?? null,
       seasonIntel: null,
     };
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);

@@ -13,10 +13,14 @@ import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { fmtOdds, fmtDelta } from './mlbDailyHelpers';
 import styles from './MlbSlides.module.css';
 
-function TeamLogo({ slug, size = 24 }) {
+function TeamLogo({ slug, size = 26 }) {
   const url = getMlbEspnLogoUrl(slug);
   if (!url) return null;
-  return <img src={url} alt="" width={size} height={size} className={styles.s3TeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  return (
+    <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>
+      <img src={url} alt="" width={size} height={size} className={styles.s3TeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+    </span>
+  );
 }
 
 function TrophyIcon({ size = 11 }) {
@@ -79,7 +83,7 @@ function TeamCard({ t, rank }) {
         <div className={styles.s3IdLeft}>
           <div className={styles.s3IdRow}>
             <span className={styles.s3Rank}>{rank}</span>
-            <TeamLogo slug={t.slug} size={24} />
+            <TeamLogo slug={t.slug} size={26} />
             <span className={styles.s3Name}>{t.abbrev}</span>
           </div>
         </div>

@@ -658,16 +658,20 @@
 .slide2InlineLogo {
   width: 22px; height: 22px;
   object-fit: contain; border-radius: 2px; flex-shrink: 0;
-  margin-top: 2px;
-  filter: drop-shadow(0 0 4px rgba(255,255,255,0.10));
+  margin-top: 0;
 }
-/* Glassy circle backplate for logos */
+/* Light gradient circle backplate for logos — lifts dark logos off navy */
 .logoBackplate {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 50%;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 0 8px rgba(255,255,255,0.04);
+  background: radial-gradient(circle at 45% 40%,
+    rgba(255,255,255,0.38) 0%,
+    rgba(230,238,250,0.28) 45%,
+    rgba(200,215,240,0.18) 100%);
+  border: 1px solid rgba(255,255,255,0.30);
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.25);
   flex-shrink: 0;
 }
 /* Feature card bullet text */
@@ -757,7 +761,6 @@
 .slide2PickSelectionLogo {
   width: 22px; height: 22px; object-fit: contain;
   border-radius: 2px; flex-shrink: 0;
-  filter: drop-shadow(0 0 3px rgba(255,255,255,0.08));
 }
 .slide2PickSelection {
   font-size: 22px; line-height: 1.12; font-weight: 900;

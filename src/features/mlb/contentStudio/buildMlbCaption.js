@@ -232,6 +232,11 @@ function dailyCaption(payload) {
   if (dynamicHL.subhead) {
     parts.push(`📈 Why it matters:`);
     parts.push(dynamicHL.subhead);
+    // Add standings context from additional HOTP bullets (division/race implications)
+    const extraBullets = usedBullets.slice(3).filter(b => b?.text && /GB|division|lead|race|gap|game/i.test(b.text));
+    for (const eb of extraBullets.slice(0, 1)) {
+      parts.push(eb.text);
+    }
     parts.push('');
   }
 
@@ -276,9 +281,9 @@ function dailyCaption(payload) {
   ];
   parts.push(ctas[(doy + 1) % ctas.length]);
 
-  // ── 8. HASHTAGS — exactly 5, content-aware ──
+  // ── 8. HASHTAGS — exactly 5, content-aware (from stories featured on slides) ──
   const topTeams = getTopTeams(payload.seasonIntel, 4);
-  const hashtags = buildDailyHashtags(hotPress, topTeams);
+  const hashtags = buildDailyHashtags(hotPress, topTeams, allPicks);
 
   return { caption: parts.join('\n'), hashtags };
 }
@@ -293,20 +298,30 @@ function nameFromSlug(slug) {
 
 // ── Dynamic hashtag builder ────────────────────────────────────────────────
 
-function buildDailyHashtags(hotPress, topTeams) {
+function buildDailyHashtags(hotPress, topTeams, allPicks = []) {
   const tags = new Set();
 
   // Always include the core MLB analysis tag
   tags.add('#MLB');
   tags.add('#MLBPredictions');
 
-  // Add team-specific hashtags from top stories
-  for (const b of hotPress.slice(0, 2)) {
+  // Add team-specific hashtags from top stories (up to 3 story teams)
+  for (const b of hotPress.slice(0, 3)) {
     if (b?.logoSlug) {
       const team = MLB_TEAMS.find(t => t.slug === b.logoSlug);
       if (team?.name) {
         tags.add(`#${team.name.replace(/\s+/g, '')}`);
       }
+    }
+  }
+
+  // Add top pick team if not already covered
+  if (tags.size < 5 && allPicks.length > 0) {
+    const topPick = allPicks[0];
+    const pickSide = topPick.pick?.side;
+    const selTeam = pickSide === 'away' ? topPick.matchup?.awayTeam : topPick.matchup?.homeTeam;
+    if (selTeam?.name) {
+      tags.add(`#${selTeam.name.replace(/\s+/g, '')}`);
     }
   }
 
