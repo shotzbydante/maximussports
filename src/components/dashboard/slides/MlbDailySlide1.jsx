@@ -244,7 +244,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
                   </div>
                 </div>
                 <div className={styles.s1RaceCenter}>
-                  <div className={styles.s1RaceWins}>Proj: {t.projectedWins}W</div>
+                  <div className={styles.s1RaceWins}>Projected Wins: {t.projectedWins}</div>
                   <div className={styles.s1RaceConviction}>{t.convictionLabel}</div>
                 </div>
                 <div className={styles.s1RaceRight}>

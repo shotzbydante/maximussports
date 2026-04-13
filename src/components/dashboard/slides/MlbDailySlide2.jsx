@@ -316,8 +316,8 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
                   {cat.leaders.map((l, li) => (
                     <div key={li} className={styles.slide2LeaderRow}>
                       <span className={styles.slide2LeaderRank}>{li + 1}</span>
-                      <span className={styles.slide2LeaderName}>{l.name}</span>
                       {l.teamLogoSrc && <img src={l.teamLogoSrc} alt="" className={styles.slide2LeaderTeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+                      <span className={styles.slide2LeaderName}>{l.name}</span>
                       <span className={styles.slide2LeaderValue}>{l.value}</span>
                     </div>
                   ))}

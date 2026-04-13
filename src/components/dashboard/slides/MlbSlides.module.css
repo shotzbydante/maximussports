@@ -402,12 +402,12 @@
 
 /* ── Pennant Race rows ── */
 .s1RaceList {
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; gap: 4px;
   flex: 1;
 }
 .s1RaceRow {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
@@ -419,18 +419,16 @@
   width: 110px;
 }
 .s1RaceTeamId img {
-  filter: drop-shadow(0 0 6px rgba(255,255,255,0.45)) drop-shadow(0 0 12px rgba(255,255,255,0.18));
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+  border-radius: 2px;
 }
 .s1RaceTeamInfo {
   display: flex; flex-direction: column; gap: 1px;
 }
 .s1RaceAbbrev {
-  font-size: 24px; font-weight: 900; color: #fff; line-height: 1.1;
+  font-size: 28px; font-weight: 900; color: #fff; line-height: 1.1;
 }
 .s1RaceRecord {
-  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.62);
+  font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.62);
   line-height: 1.1;
 }
 .s1RaceCenter {
@@ -438,10 +436,10 @@
   min-width: 0;
 }
 .s1RaceWins {
-  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.94);
+  font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.94);
 }
 .s1RaceConviction {
-  font-size: 14px; font-weight: 700; color: rgba(255,200,160,0.80);
+  font-size: 15px; font-weight: 700; color: rgba(255,200,160,0.80);
   margin-top: 1px;
 }
 .s1RaceTag {
@@ -453,20 +451,20 @@
   text-align: right;
 }
 .s1RaceDiv {
-  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.65);
+  font-size: 17px; font-weight: 700; color: rgba(255,255,255,0.65);
 }
 .s1RaceOdds {
-  font-size: 16px; font-weight: 800; color: rgba(255,200,120,0.92);
+  font-size: 18px; font-weight: 800; color: rgba(255,200,120,0.92);
   margin-top: 2px;
 }
 
 /* ── Picks rows ── */
 .s1PicksList {
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; gap: 4px;
   flex: 1;
 }
 .s1PickRow {
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
@@ -475,13 +473,13 @@
 }
 .s1PickTop {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 .s1PickMatchup {
-  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.65);
+  font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.65);
 }
 .s1PickType {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
   text-transform: uppercase; color: rgba(255,200,160,0.80);
   padding: 2px 8px; border-radius: 6px;
   background: rgba(255,255,255,0.06);
@@ -495,14 +493,15 @@
   display: flex; align-items: center; gap: 6px;
 }
 .s1PickSel {
-  font-size: 22px; font-weight: 800; color: #fff;
+  font-size: 26px; font-weight: 900; color: #fff;
 }
 .s1PickConv {
-  font-size: 14px; font-weight: 700; color: rgba(255,200,160,0.85);
+  font-size: 16px; font-weight: 800; color: rgba(255,220,140,0.92);
 }
 .s1PickRationale {
   font-size: 14px; line-height: 1.20; font-weight: 600;
   color: rgba(255,255,255,0.50);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* ── Bottom CTA pill ── */
@@ -686,9 +685,9 @@
 /* ── Maximus's Picks — full-width horizontal section ── */
 .slide2PicksSection {
   position: relative; z-index: 10;
-  margin-top: 6px;
+  margin-top: 8px;
   border-radius: 18px;
-  padding: 10px 16px 10px;
+  padding: 12px 16px 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
   border: 1px solid rgba(255,255,255,0.11);
   box-shadow:
@@ -699,12 +698,12 @@
 .slide2PicksRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 10px;
 }
 .slide2PickCard {
   border-radius: 12px;
-  padding: 8px 10px 7px;
+  padding: 10px 12px 9px;
   display: flex; flex-direction: column;
   justify-content: flex-start;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
@@ -720,14 +719,14 @@
   gap: 4px;
 }
 .slide2PickMatchup {
-  font-size: 13px; line-height: 1.1; font-weight: 800;
+  font-size: 14px; line-height: 1.1; font-weight: 800;
   text-transform: uppercase;
   color: rgba(255,255,255,0.84);
 }
 .slide2PickTypePill {
   font-size: 10px; font-weight: 800;
   letter-spacing: 0.8px; text-transform: uppercase;
-  height: 18px; padding: 0 6px;
+  height: 20px; padding: 0 7px;
   border-radius: 999px;
   display: flex; align-items: center;
   background: rgba(255,255,255,0.08);
@@ -739,29 +738,29 @@
   display: flex; align-items: baseline;
   justify-content: space-between;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .slide2PickSelectionWrap {
   display: inline-flex; align-items: center;
   gap: 6px;
 }
 .slide2PickSelectionLogo {
-  width: 18px; height: 18px; object-fit: contain;
+  width: 20px; height: 20px; object-fit: contain;
   border-radius: 2px; flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(255,255,255,0.08));
 }
 .slide2PickSelection {
-  font-size: 20px; line-height: 1.12; font-weight: 900;
+  font-size: 22px; line-height: 1.12; font-weight: 900;
   color: rgba(255,255,255,0.97);
 }
 .slide2PickConviction {
-  font-size: 13px; line-height: 1; font-weight: 800;
+  font-size: 14px; line-height: 1; font-weight: 800;
   color: rgba(255,220,140,0.95);
   flex-shrink: 0;
 }
 .slide2PickRationale {
-  margin-top: 3px;
-  font-size: 11px; line-height: 1.18; font-weight: 600;
+  margin-top: 4px;
+  font-size: 12px; line-height: 1.18; font-weight: 600;
   color: rgba(255,255,255,0.62);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -841,7 +840,7 @@
 /* ── Season Leaders — full-width section, 2-row grid ── */
 .slide2LeadersSection {
   position: relative; z-index: 10;
-  margin-top: 6px;
+  margin-top: 8px;
   border-radius: 18px;
   padding: 10px 16px 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
@@ -850,18 +849,17 @@
     0 0 16px rgba(255,255,255,0.03),
     0 0 24px rgba(255,90,120,0.08),
     inset 0 1px 0 rgba(255,255,255,0.12);
-  flex: 1;
+  flex: 0 1 auto;
   display: flex; flex-direction: column;
 }
-/* Row 1: HR / RBI / Hits (3 cols), Row 2: Wins / Saves (2 cols centered) */
+/* Row 1: HR / RBI / Hits (3 cols), Row 2: Wins / Saves (2 cols) */
 .slide2LeadersGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 8px;
-  flex: 1;
 }
-/* Wins/Saves row: span middle columns */
+/* Wins/Saves row: first two columns */
 .slide2LeaderCategory:nth-child(4) {
   grid-column: 1 / 2;
 }
@@ -870,7 +868,7 @@
 }
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 6px 10px 6px;
+  padding: 5px 10px 5px;
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
   border: 1px solid rgba(255,255,255,0.10);
   display: flex; flex-direction: column;
@@ -878,53 +876,53 @@
 }
 .slide2LeaderCatHeader {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   border-bottom: 1px solid rgba(255,255,255,0.10);
   padding-bottom: 2px;
 }
 .slide2LeaderCatLabel {
-  font-size: 14px; font-weight: 800; letter-spacing: 0.5px;
+  font-size: 15px; font-weight: 800; letter-spacing: 0.5px;
   color: rgba(255,255,255,0.97);
   text-transform: uppercase;
 }
 .slide2LeaderCatAbbrev {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
   color: rgba(255,220,140,0.96);
 }
 .slide2LeaderRows {
   display: flex; flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .slide2LeaderRow {
   display: flex; align-items: center;
-  gap: 4px;
-  font-size: 14px; line-height: 1.3;
+  gap: 5px;
+  font-size: 16px; line-height: 1.3;
   padding: 2px 0;
 }
 .slide2LeaderRank {
   width: 14px; text-align: center;
-  font-size: 12px; font-weight: 800;
-  color: rgba(255,255,255,0.58);
+  font-size: 13px; font-weight: 800;
+  color: rgba(255,255,255,0.50);
   flex-shrink: 0;
 }
-.slide2LeaderName {
-  flex: 1;
-  font-weight: 700;
-  font-size: 14px;
-  color: rgba(255,255,255,0.97);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 .slide2LeaderTeamLogo {
-  width: 16px; height: 16px;
+  width: 18px; height: 18px;
   object-fit: contain;
   flex-shrink: 0;
   opacity: 0.92;
 }
+.slide2LeaderName {
+  flex: 1;
+  font-weight: 700;
+  font-size: 16px;
+  color: rgba(255,255,255,0.94);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .slide2LeaderValue {
   font-weight: 900;
-  font-size: 16px;
+  font-size: 20px;
   color: rgba(255,225,170,1);
-  min-width: 24px; text-align: right;
+  min-width: 28px; text-align: right;
   flex-shrink: 0;
 }
 .slide2LeadersEmpty {
