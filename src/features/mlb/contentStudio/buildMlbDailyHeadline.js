@@ -421,7 +421,7 @@ export function buildMlbDailyHeadline({ liveGames, briefing, seasonIntel, allSta
     if (period > 25) heroTitle = heroTitle.slice(0, period + 1);
   }
 
-  return { heroTitle, mainHeadline, subhead };
+  return { heroTitle, mainHeadline, subhead, topStory: topStory || null, secondStory: secondStory || null };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -588,6 +588,45 @@ export function buildMlbHotPress({ liveGames, briefing, allStandings } = {}) {
     { text: 'Contenders look to make their move in today\'s action.', logoSlug: null },
     { text: 'Follow along as the races take shape across both leagues.', logoSlug: null },
   ];
+}
+
+/**
+ * Build a coherent card (title + subline) from a single story object.
+ * Used by Slide 1 to ensure each hero card is bound to exactly one game.
+ */
+export function buildStoryCard(story) {
+  if (!story) return null;
+  const w = teamName(story.winSlug);
+  const l = teamName(story.loseSlug);
+  const score = `${story.winScore}-${story.loseScore}`;
+  const div = teamDiv(story.winSlug);
+  const gb = gbTagLower(story);
+  const streak = streakTagLower(story);
+
+  let title = '';
+  if (story.isUpset) {
+    title = `${w.toUpperCase()} STUN ${l.toUpperCase()} ${score}`;
+  } else if (story.type === 'shutout') {
+    title = `${w.toUpperCase()} BLANK ${l.toUpperCase()} ${score}`;
+  } else if (story.type === 'blowout') {
+    title = `${w.toUpperCase()} ROLL ${score} OVER ${l.toUpperCase()}`;
+  } else {
+    title = `${w.toUpperCase()} TOP ${l.toUpperCase()} ${score}`;
+  }
+
+  // Subline: result context with standings — always from same story
+  let sub = '';
+  if (story.signal?.priority >= 70 && story.signal.short) {
+    sub = story.signal.short;
+  } else if (gb) {
+    sub = `${w} win ${score}${gb}`;
+  } else if (div) {
+    sub = `${w} win ${score} — ${div} implications`;
+  } else {
+    sub = `${w} win ${score} over ${l}${streak}`;
+  }
+
+  return { title, sub, div };
 }
 
 export default buildMlbDailyHeadline;

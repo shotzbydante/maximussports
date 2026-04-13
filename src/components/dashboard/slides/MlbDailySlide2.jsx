@@ -278,12 +278,35 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
         {c.featureTakeaway && <div className={styles.slide2CardTakeaway}>{c.featureTakeaway}</div>}
       </section>
 
-      <section className={styles.slide2SupportGrid}>
-        {/* SEASON LEADERS — top 3 in 5 stat categories */}
-        <article className={styles.slide2SupportCard}>
-          <div className={styles.slide2SectionPill}>SEASON LEADERS</div>
-          <div className={styles.slide2LeadersWrap}>
-            {c.leaderCategories.length > 0 ? c.leaderCategories.map((cat, ci) => (
+      {/* ── MAXIMUS'S PICKS — full-width horizontal row ── */}
+      <section className={styles.slide2PicksSection}>
+        <div className={styles.slide2SectionPill}>MAXIMUS'S PICKS</div>
+        <div className={styles.slide2PicksRow}>
+          {c.picks.map((p, i) => (
+            <div key={i} className={styles.slide2PickCard}>
+              <div className={styles.slide2PickTopRow}>
+                <div className={styles.slide2PickMatchup}>{p.matchup}</div>
+                <div className={styles.slide2PickTypePill}>{p.type}</div>
+              </div>
+              <div className={styles.slide2PickMiddleRow}>
+                <div className={styles.slide2PickSelectionWrap}>
+                  {p.selectionLogoSrc && <img src={p.selectionLogoSrc} alt="" className={styles.slide2PickSelectionLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+                  <div className={styles.slide2PickSelection}>{p.selection}</div>
+                </div>
+                <div className={styles.slide2PickConviction}>{p.conviction}</div>
+              </div>
+              <div className={styles.slide2PickRationale}>{p.rationale}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── SEASON LEADERS — full-width, 2 rows (HR/RBI/Hits + Wins/Saves) ── */}
+      <section className={styles.slide2LeadersSection}>
+        <div className={styles.slide2SectionPill}>SEASON LEADERS</div>
+        {c.leaderCategories.length > 0 ? (
+          <div className={styles.slide2LeadersGrid}>
+            {c.leaderCategories.map((cat, ci) => (
               <div key={ci} className={styles.slide2LeaderCategory}>
                 <div className={styles.slide2LeaderCatHeader}>
                   <span className={styles.slide2LeaderCatLabel}>{cat.label}</span>
@@ -300,34 +323,11 @@ export default function MlbDailySlide2({ data, asOf, ...rest }) {
                   ))}
                 </div>
               </div>
-            )) : (
-              <div className={styles.slide2LeadersEmpty}>Season leaders unavailable</div>
-            )}
-          </div>
-        </article>
-
-        {/* MAXIMUS'S PICKS — 4 pick modules with selected-team logos */}
-        <article className={styles.slide2SupportCard}>
-          <div className={styles.slide2SectionPill}>MAXIMUS'S PICKS</div>
-          <div className={styles.slide2PicksList}>
-            {c.picks.map((p, i) => (
-              <div key={i} className={styles.slide2PickCard}>
-                <div className={styles.slide2PickTopRow}>
-                  <div className={styles.slide2PickMatchup}>{p.matchup}</div>
-                  <div className={styles.slide2PickTypePill}>{p.type}</div>
-                </div>
-                <div className={styles.slide2PickMiddleRow}>
-                  <div className={styles.slide2PickSelectionWrap}>
-                    {p.selectionLogoSrc && <img src={p.selectionLogoSrc} alt="" className={styles.slide2PickSelectionLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />}
-                    <div className={styles.slide2PickSelection}>{p.selection}</div>
-                  </div>
-                  <div className={styles.slide2PickConviction}>{p.conviction}</div>
-                </div>
-                <div className={styles.slide2PickRationale}>{p.rationale}</div>
-              </div>
             ))}
           </div>
-        </article>
+        ) : (
+          <div className={styles.slide2LeadersEmpty}>Season leaders loading...</div>
+        )}
       </section>
 
       <footer className={styles.slide2Footer}>
