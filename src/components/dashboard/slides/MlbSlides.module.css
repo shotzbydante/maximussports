@@ -612,7 +612,7 @@
   position: relative; z-index: 10;
   min-height: 240px;
   border-radius: 20px;
-  padding: 10px 18px 6px;
+  padding: 10px 18px 4px;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow:
@@ -676,8 +676,8 @@
 /* Card takeaway */
 .slide2CardTakeaway {
   margin-top: auto;
-  padding-top: 6px;
-  font-size: 15px; line-height: 1.24; font-weight: 700;
+  padding-top: 4px;
+  font-size: 14px; line-height: 1.24; font-weight: 700;
   color: rgba(255,255,255,0.74);
   border-top: 1px solid rgba(255,255,255,0.06);
 }
@@ -685,9 +685,10 @@
 /* ── Maximus's Picks — full-width horizontal section ── */
 .slide2PicksSection {
   position: relative; z-index: 10;
-  margin-top: 8px;
+  margin-top: 6px;
   border-radius: 18px;
-  padding: 12px 16px 12px;
+  padding: 10px 16px 10px;
+  flex: 0 0 auto;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
   border: 1px solid rgba(255,255,255,0.11);
   box-shadow:
@@ -837,20 +838,21 @@
   color: rgba(255,225,170,0.94);
 }
 
-/* ── Season Leaders — full-width section, 2-row grid ── */
+/* ── Season Leaders — full-width section, fills remaining height ── */
 .slide2LeadersSection {
   position: relative; z-index: 10;
-  margin-top: 8px;
+  margin-top: 6px;
   border-radius: 18px;
-  padding: 10px 16px 10px;
+  padding: 10px 16px 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
   border: 1px solid rgba(255,255,255,0.11);
   box-shadow:
     0 0 16px rgba(255,255,255,0.03),
     0 0 24px rgba(255,90,120,0.08),
     inset 0 1px 0 rgba(255,255,255,0.12);
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   display: flex; flex-direction: column;
+  min-height: 0;
 }
 /* Row 1: HR / RBI / Hits (3 cols), Row 2: Wins / Saves (2 cols) */
 .slide2LeadersGrid {
@@ -858,6 +860,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 8px;
+  flex: 1;
 }
 /* Wins/Saves row: first two columns */
 .slide2LeaderCategory:nth-child(4) {
@@ -868,7 +871,7 @@
 }
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 5px 10px 5px;
+  padding: 8px 12px 8px;
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
   border: 1px solid rgba(255,255,255,0.10);
   display: flex; flex-direction: column;
@@ -876,37 +879,38 @@
 }
 .slide2LeaderCatHeader {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.10);
-  padding-bottom: 2px;
+  padding-bottom: 4px;
 }
 .slide2LeaderCatLabel {
-  font-size: 15px; font-weight: 800; letter-spacing: 0.5px;
+  font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
   color: rgba(255,255,255,0.97);
   text-transform: uppercase;
 }
 .slide2LeaderCatAbbrev {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.4px;
   color: rgba(255,220,140,0.96);
 }
 .slide2LeaderRows {
   display: flex; flex-direction: column;
-  gap: 1px;
+  flex: 1;
+  justify-content: space-between;
 }
 .slide2LeaderRow {
   display: flex; align-items: center;
-  gap: 5px;
-  font-size: 16px; line-height: 1.3;
-  padding: 2px 0;
+  gap: 6px;
+  font-size: 18px; line-height: 1.3;
+  padding: 3px 0;
 }
 .slide2LeaderRank {
-  width: 14px; text-align: center;
-  font-size: 13px; font-weight: 800;
+  width: 16px; text-align: center;
+  font-size: 14px; font-weight: 800;
   color: rgba(255,255,255,0.50);
   flex-shrink: 0;
 }
 .slide2LeaderTeamLogo {
-  width: 18px; height: 18px;
+  width: 20px; height: 20px;
   object-fit: contain;
   flex-shrink: 0;
   opacity: 0.92;
@@ -914,15 +918,15 @@
 .slide2LeaderName {
   flex: 1;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 18px;
   color: rgba(255,255,255,0.94);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .slide2LeaderValue {
   font-weight: 900;
-  font-size: 20px;
+  font-size: 24px;
   color: rgba(255,225,170,1);
-  min-width: 28px; text-align: right;
+  min-width: 32px; text-align: right;
   flex-shrink: 0;
 }
 .slide2LeadersEmpty {
@@ -935,7 +939,7 @@
 /* Footer */
 .slide2Footer {
   position: relative; z-index: 10;
-  margin-top: 6px;
+  margin-top: 4px;
   min-height: 18px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
