@@ -383,7 +383,7 @@
 .s1BottomCard {
   flex: 1;
   border-radius: 22px;
-  padding: 12px 16px;
+  padding: 14px 18px 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,210,225,0.16);
   box-shadow:
@@ -393,11 +393,11 @@
   overflow: hidden;
 }
 .s1SectionLabel {
-  font-size: 16px; font-weight: 800; letter-spacing: 1.4px;
-  text-transform: uppercase; color: rgba(255,255,255,0.75);
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 17px; font-weight: 800; letter-spacing: 1.6px;
+  text-transform: uppercase; color: rgba(255,255,255,0.80);
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
 }
 
 /* ── Pennant Race rows ── */
@@ -427,10 +427,10 @@
   display: flex; flex-direction: column; gap: 1px;
 }
 .s1RaceAbbrev {
-  font-size: 22px; font-weight: 800; color: #fff; line-height: 1.1;
+  font-size: 24px; font-weight: 900; color: #fff; line-height: 1.1;
 }
 .s1RaceRecord {
-  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.60);
+  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.62);
   line-height: 1.1;
 }
 .s1RaceCenter {
@@ -438,10 +438,10 @@
   min-width: 0;
 }
 .s1RaceWins {
-  font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.92);
+  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.94);
 }
 .s1RaceConviction {
-  font-size: 13px; font-weight: 600; color: rgba(255,200,160,0.75);
+  font-size: 14px; font-weight: 700; color: rgba(255,200,160,0.80);
   margin-top: 1px;
 }
 .s1RaceTag {
@@ -453,10 +453,10 @@
   text-align: right;
 }
 .s1RaceDiv {
-  font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.60);
+  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.65);
 }
 .s1RaceOdds {
-  font-size: 15px; font-weight: 800; color: rgba(255,200,120,0.90);
+  font-size: 16px; font-weight: 800; color: rgba(255,200,120,0.92);
   margin-top: 2px;
 }
 
@@ -586,7 +586,7 @@
 /* Headline block */
 .slide2HeadlineBlock {
   position: relative; z-index: 10;
-  margin-top: 10px; margin-bottom: 4px;
+  margin-top: 16px; margin-bottom: 6px;
   text-align: center;
   min-height: 120px;
   display: flex; flex-direction: column;
@@ -683,40 +683,28 @@
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-/* Support grid */
-.slide2SupportGrid {
+/* ── Maximus's Picks — full-width horizontal section ── */
+.slide2PicksSection {
   position: relative; z-index: 10;
-  margin-top: 4px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  flex: 1;
-}
-.slide2SupportCard {
-  min-height: 370px;
+  margin-top: 6px;
   border-radius: 18px;
-  padding: 12px 14px 10px;
+  padding: 10px 16px 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
   border: 1px solid rgba(255,255,255,0.11);
   box-shadow:
     0 0 16px rgba(255,255,255,0.03),
     0 0 24px rgba(255,90,120,0.08),
     inset 0 1px 0 rgba(255,255,255,0.12);
-  display: flex; flex-direction: column;
-  justify-content: flex-start;
 }
-
-/* ── Maximus's Picks — game-intel pick modules ── */
-.slide2PicksList {
-  display: flex; flex-direction: column;
-  gap: 5px;
-  margin-top: 6px;
-  flex: 1;
+.slide2PicksRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
 }
 .slide2PickCard {
-  flex: 1; min-height: 0;
   border-radius: 12px;
-  padding: 8px 10px 6px;
+  padding: 8px 10px 7px;
   display: flex; flex-direction: column;
   justify-content: flex-start;
   background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.04));
@@ -729,17 +717,17 @@
 .slide2PickTopRow {
   display: flex; align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
 }
 .slide2PickMatchup {
-  font-size: 16px; line-height: 1.1; font-weight: 800;
+  font-size: 13px; line-height: 1.1; font-weight: 800;
   text-transform: uppercase;
   color: rgba(255,255,255,0.84);
 }
 .slide2PickTypePill {
-  font-size: 11px; font-weight: 800;
-  letter-spacing: 1px; text-transform: uppercase;
-  height: 22px; padding: 0 8px;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  height: 18px; padding: 0 6px;
   border-radius: 999px;
   display: flex; align-items: center;
   background: rgba(255,255,255,0.08);
@@ -750,30 +738,30 @@
 .slide2PickMiddleRow {
   display: flex; align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
   margin-top: 4px;
 }
 .slide2PickSelectionWrap {
   display: inline-flex; align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .slide2PickSelectionLogo {
-  width: 20px; height: 20px; object-fit: contain;
+  width: 18px; height: 18px; object-fit: contain;
   border-radius: 2px; flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(255,255,255,0.08));
 }
 .slide2PickSelection {
-  font-size: 24px; line-height: 1.12; font-weight: 900;
+  font-size: 20px; line-height: 1.12; font-weight: 900;
   color: rgba(255,255,255,0.97);
 }
 .slide2PickConviction {
-  font-size: 15px; line-height: 1; font-weight: 800;
+  font-size: 13px; line-height: 1; font-weight: 800;
   color: rgba(255,220,140,0.95);
   flex-shrink: 0;
 }
 .slide2PickRationale {
   margin-top: 3px;
-  font-size: 13px; line-height: 1.18; font-weight: 600;
+  font-size: 11px; line-height: 1.18; font-weight: 600;
   color: rgba(255,255,255,0.62);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -850,72 +838,93 @@
   color: rgba(255,225,170,0.94);
 }
 
-/* Season Leaders */
-/* ── Season Leaders hero module ── */
-.slide2LeadersWrap {
+/* ── Season Leaders — full-width section, 2-row grid ── */
+.slide2LeadersSection {
+  position: relative; z-index: 10;
+  margin-top: 6px;
+  border-radius: 18px;
+  padding: 10px 16px 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.035));
+  border: 1px solid rgba(255,255,255,0.11);
+  box-shadow:
+    0 0 16px rgba(255,255,255,0.03),
+    0 0 24px rgba(255,90,120,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+  flex: 1;
   display: flex; flex-direction: column;
-  gap: 6px;
+}
+/* Row 1: HR / RBI / Hits (3 cols), Row 2: Wins / Saves (2 cols centered) */
+.slide2LeadersGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   margin-top: 8px;
   flex: 1;
 }
+/* Wins/Saves row: span middle columns */
+.slide2LeaderCategory:nth-child(4) {
+  grid-column: 1 / 2;
+}
+.slide2LeaderCategory:nth-child(5) {
+  grid-column: 2 / 3;
+}
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 8px 12px 7px;
+  padding: 6px 10px 6px;
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
   border: 1px solid rgba(255,255,255,0.10);
-  flex: 1;
   display: flex; flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .slide2LeaderCatHeader {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   border-bottom: 1px solid rgba(255,255,255,0.10);
-  padding-bottom: 3px;
+  padding-bottom: 2px;
 }
 .slide2LeaderCatLabel {
-  font-size: 18px; font-weight: 800; letter-spacing: 0.7px;
+  font-size: 14px; font-weight: 800; letter-spacing: 0.5px;
   color: rgba(255,255,255,0.97);
   text-transform: uppercase;
 }
 .slide2LeaderCatAbbrev {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
   color: rgba(255,220,140,0.96);
 }
 .slide2LeaderRows {
   display: flex; flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .slide2LeaderRow {
   display: flex; align-items: center;
-  gap: 6px;
-  font-size: 18px; line-height: 1.36;
-  padding: 3px 0;
+  gap: 4px;
+  font-size: 14px; line-height: 1.3;
+  padding: 2px 0;
 }
 .slide2LeaderRank {
-  width: 18px; text-align: center;
-  font-size: 15px; font-weight: 800;
+  width: 14px; text-align: center;
+  font-size: 12px; font-weight: 800;
   color: rgba(255,255,255,0.58);
   flex-shrink: 0;
 }
 .slide2LeaderName {
   flex: 1;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 14px;
   color: rgba(255,255,255,0.97);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .slide2LeaderTeamLogo {
-  width: 20px; height: 20px;
+  width: 16px; height: 16px;
   object-fit: contain;
   flex-shrink: 0;
   opacity: 0.92;
 }
 .slide2LeaderValue {
   font-weight: 900;
-  font-size: 21px;
+  font-size: 16px;
   color: rgba(255,225,170,1);
-  min-width: 30px; text-align: right;
+  min-width: 24px; text-align: right;
   flex-shrink: 0;
 }
 .slide2LeadersEmpty {

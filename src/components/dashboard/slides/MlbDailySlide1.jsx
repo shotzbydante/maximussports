@@ -16,7 +16,7 @@
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
+import { buildMlbDailyHeadline, buildMlbHotPress, buildStoryCard } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
 import { stripEmojis, fmtOdds } from './mlbDailyHelpers';
 import styles from './MlbSlides.module.css';
 
@@ -140,32 +140,16 @@ function buildSlide1Content(data) {
     return { matchup, type: p.type, selection, selectionLogoSrc: logoUrl(selTeam?.slug || null), conviction, rationale };
   });
 
+  // ── Build story cards from coherent per-story objects ──
+  const card1 = buildStoryCard(hl.topStory);
+  const card2 = buildStoryCard(hl.secondStory);
+
   return {
     dateLabel: today,
-    storyCard1Title: hl.heroTitle?.split('.')[0]?.replace(/[.!]$/, '') || 'Results Land',
-    storyCard1Sub: hl.subhead?.split('.')[0]?.replace(/[.!]$/, '') || '',
-    storyCard2Title: (() => {
-      // Second clause of heroTitle or a different phrasing
-      const parts = (hl.heroTitle || '').split('.');
-      if (parts.length >= 2 && parts[1].trim().length > 3) {
-        return parts[1].trim().replace(/[.!]$/, '');
-      }
-      // Derive from second bullet if available
-      if (hotPress[1]?.text) {
-        const s = hotPress[1].text.replace(/\.$/, '');
-        return s.length > 40 ? s.slice(0, 40).replace(/\s+\S*$/, '') : s;
-      }
-      return 'The Board Reacts';
-    })(),
-    storyCard2Sub: (() => {
-      if (hotPress[1]?.text) {
-        // Extract the score / result part
-        const m = hotPress[1].text.match(/(\w+\s+\w+\s+\w+\s+\d+[–-]\d+)/);
-        if (m) return m[1];
-        return hotPress[1].text.replace(/\.$/, '');
-      }
-      return '';
-    })(),
+    storyCard1Title: card1?.title || hl.heroTitle?.split('.')[0]?.replace(/[.!]$/, '') || 'Results Land',
+    storyCard1Sub: card1?.sub || hl.subhead?.split('.')[0]?.replace(/[.!]$/, '') || '',
+    storyCard2Title: card2?.title || (hotPress[1]?.text ? hotPress[1].text.replace(/\.$/, '').slice(0, 45).replace(/\s+\S*$/, '') : 'More Results Across The League'),
+    storyCard2Sub: card2?.sub || '',
     bullets,
     raceTeams,
     picks,
