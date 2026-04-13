@@ -22,6 +22,7 @@ import { getTeamColors } from '../../utils/teamColors';
 import { teamPersonality } from '../../utils/teamSnapshot';
 import { getPinnedTeams, togglePinnedTeam } from '../../utils/pinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
+import { trackTeamPinAdded, trackTeamPinRemoved } from '../../analytics/teamPinTracking';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, getTeamRegion, isBracketOfficial, isTournamentActive, getTournamentTeam } from '../../utils/tournamentHelpers';
 import { normalizeTeamCardFields, fmtRecord, fmtAts, fmtAtsLast10 } from '../../utils/teamCardFields';
@@ -302,7 +303,11 @@ export default function TeamPage() {
     const after = togglePinnedTeam(slug);
     setIsPinned(!isPinned);
     notifyPinnedChanged(after, 'home');
-    track(isPinned ? 'team_unpin' : 'team_pin', { team_slug: slug });
+    if (isPinned) {
+      trackTeamPinRemoved(slug, { surface: 'team_intel' });
+    } else {
+      trackTeamPinAdded(slug, { surface: 'team_intel' });
+    }
   };
 
   if (!team) {

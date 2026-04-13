@@ -1,28 +1,22 @@
 /**
  * useTeamPin — client-side hook for server-validated team pin/unpin.
  *
- * Calls POST /api/teams/pin with auth token.
- * Enforces free-tier limits server-side; returns upgrade prompt info
- * when blocked.
+ * Uses canonical tracking from teamPinTracking.js for consistent
+ * event names and person property updates across all surfaces.
  *
- * Usage:
- *   const { pinTeam, unpinTeam, isPinning } = useTeamPin();
- *   const result = await pinTeam('nyy');
- *   if (!result.ok) showUpgradePrompt(result.reason);
+ * The `surface` parameter should be passed by the calling component
+ * to identify where the action originated.
  */
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { track } from '../analytics';
+import { trackTeamPinAdded, trackTeamPinRemoved, trackTeamPinBlocked } from '../analytics/teamPinTracking';
 
-/**
- * @returns {{ pinTeam, unpinTeam, isPinning }}
- */
 export function useTeamPin() {
   const { session } = useAuth();
   const [isPinning, setIsPinning] = useState(false);
 
-  const callPin = useCallback(async (action, slug) => {
+  const callPin = useCallback(async (action, slug, { surface = 'unknown', planTier, allSlugs } = {}) => {
     if (!session?.access_token) {
       return { ok: false, error: 'Not signed in', reason: 'auth_required' };
     }
@@ -41,21 +35,32 @@ export function useTeamPin() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.ok) {
-        // Track successful pin/unpin
-        track(action === 'add' ? 'team_pin_added' : 'team_pin_removed', {
-          team_slug: slug,
-          team_count: data.teamCount,
-          grace_remaining: data.graceRemaining,
-        });
+        if (action === 'add') {
+          trackTeamPinAdded(slug, {
+            surface,
+            planTier,
+            teamCountAfter: data.teamCount,
+            graceRemaining: data.graceRemaining,
+            allSlugs,
+          });
+        } else {
+          trackTeamPinRemoved(slug, {
+            surface,
+            planTier,
+            teamCountAfter: data.teamCount,
+            allSlugs,
+          });
+        }
         return data;
       }
 
       // Blocked by limit
       if (data.reason) {
-        track('team_pin_attempt_blocked', {
+        trackTeamPinBlocked(slug, {
+          surface,
           reason: data.reason,
-          team_count: data.teamCount,
-          team_slug: slug,
+          planTier: planTier || 'free',
+          teamCount: data.teamCount,
         });
       }
 
@@ -67,8 +72,8 @@ export function useTeamPin() {
     }
   }, [session?.access_token]);
 
-  const pinTeam = useCallback((slug) => callPin('add', slug), [callPin]);
-  const unpinTeam = useCallback((slug) => callPin('remove', slug), [callPin]);
+  const pinTeam = useCallback((slug, opts) => callPin('add', slug, opts), [callPin]);
+  const unpinTeam = useCallback((slug, opts) => callPin('remove', slug, opts), [callPin]);
 
   return { pinTeam, unpinTeam, isPinning };
 }

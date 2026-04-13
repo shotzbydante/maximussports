@@ -324,7 +324,8 @@ export default function MlbPinnedTeamSection() {
     setLimitHit(false);
 
     // Server-validated persist (source of truth)
-    const result = await pinTeam(slug);
+    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
+    const result = await pinTeam(slug, { surface: 'home', allSlugs });
     if (!result.ok) {
       // Server rejected — revert optimistic update
       removeTeam(slug);
@@ -333,7 +334,6 @@ export default function MlbPinnedTeamSection() {
     }
 
     // Notify other surfaces
-    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
     notifyPinnedChanged(allSlugs, 'home');
   };
 
@@ -343,11 +343,11 @@ export default function MlbPinnedTeamSection() {
     setLimitHit(false);
 
     // Server-validated persist
-    await unpinTeam(slug);
+    const allSlugsAfter = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
+    await unpinTeam(slug, { surface: 'home', allSlugs: allSlugsAfter });
 
     // Notify other surfaces
-    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb')];
-    notifyPinnedChanged(allSlugs, 'home');
+    notifyPinnedChanged(allSlugsAfter, 'home');
   };
 
   const isEmpty = pinned.length === 0;
