@@ -4,11 +4,12 @@
  */
 
 import { createCache, coalesce } from '../../_cache.js';
-import { fetchScoreboard } from './_normalize.js';
+import { fetchScoreboard, fetchYesterdayFinals } from './_normalize.js';
 import { enrichGamesWithOdds } from './_odds.js';
 import { rankLiveGames } from './_scoring.js';
 
 const cache = createCache(30_000);
+const yesterdayCache = createCache(300_000); // 5 min — yesterday's results don't change often
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,6 +19,7 @@ export default async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const statusFilter = url.searchParams.get('status') || 'all';
   const sortMode = url.searchParams.get('sort') || 'importance';
+  const includeYesterday = url.searchParams.get('includeYesterday') === 'true';
 
   const cacheKey = 'mlb:live:games';
   let games = cache.get(cacheKey) || await coalesce(cacheKey + ':fetch', fetchScoreboard);
@@ -36,9 +38,29 @@ export default async function handler(req, res) {
 
   if (games.length > 0) cache.set(cacheKey, games);
 
-  let filtered = games;
+  // Merge yesterday's finals when requested (for daily briefing narratives)
+  let yesterdayFinals = [];
+  if (includeYesterday) {
+    const yCacheKey = 'mlb:live:yesterday';
+    yesterdayFinals = yesterdayCache.get(yCacheKey) || await coalesce(yCacheKey + ':fetch', fetchYesterdayFinals);
+    if (yesterdayFinals.length > 0) yesterdayCache.set(yCacheKey, yesterdayFinals);
+    // Tag yesterday's games so consumers can distinguish them
+    yesterdayFinals = yesterdayFinals.map(g => ({ ...g, _fromYesterday: true }));
+  }
+
+  let allGames = [...games, ...yesterdayFinals];
+
+  // Deduplicate by gameId (in case a yesterday game also appears in today's feed)
+  const seen = new Set();
+  allGames = allGames.filter(g => {
+    if (seen.has(g.gameId)) return false;
+    seen.add(g.gameId);
+    return true;
+  });
+
+  let filtered = allGames;
   if (statusFilter !== 'all') {
-    filtered = games.filter((g) => g.status === statusFilter);
+    filtered = allGames.filter((g) => g.status === statusFilter);
   }
 
   const ranked = rankLiveGames(filtered, sortMode);
@@ -48,6 +70,7 @@ export default async function handler(req, res) {
     total: ranked.length,
     statusFilter,
     sortMode,
+    includeYesterday,
     generatedAt: new Date().toISOString(),
   });
 }

@@ -156,7 +156,7 @@ async function checkAlreadyPosted(supabase, dateKey, log) {
 
 async function fetchLiveGames(baseUrl, log) {
   try {
-    const res = await fetch(`${baseUrl}/api/mlb/live/games?status=all`);
+    const res = await fetch(`${baseUrl}/api/mlb/live/games?status=all&includeYesterday=true`);
     if (!res.ok) { log.warn('live games fetch failed:', res.status); return []; }
     const data = await res.json();
     return data.games || [];

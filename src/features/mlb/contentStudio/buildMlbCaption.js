@@ -189,6 +189,7 @@ function dailyCaption(payload) {
     liveGames: payload.mlbLiveGames || [],
     briefing: payload.mlbBriefing || null,
     seasonIntel: null,
+    allStandings: payload.mlbStandings || null,
   });
   const hotPress = buildMlbHotPress({
     liveGames: payload.mlbLiveGames || [],

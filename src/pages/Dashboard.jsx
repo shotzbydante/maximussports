@@ -339,7 +339,7 @@ export default function Dashboard() {
       fetchMlbHeadlines().catch(() => []),
       fetch('/api/mlb/chat/homeSummary').then(r => r.ok ? r.json() : null).catch(() => null),
       fetchMlbChampionshipOdds().catch(() => ({ odds: {} })),
-      fetch('/api/mlb/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
+      fetch('/api/mlb/live/games?status=all&includeYesterday=true').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
       fetch('/api/mlb/standings').then(r => r.ok ? r.json() : { teams: {} }).catch(() => ({ teams: {} })),
       fetch('/api/mlb/leaders').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
     ]).then(([boardData, headlines, briefingData, champData, liveData, standingsData, leadersData]) => {
