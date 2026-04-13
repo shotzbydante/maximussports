@@ -191,10 +191,9 @@ function getTopTeams(seasonIntel, count = 4, leagueFilter = null) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function dailyCaption(payload) {
-  const doy = dayOfYear();
   const parts = [];
 
-  // ── Pull the same data the slides use ──
+  // ── Pull the SAME data objects the slides use — zero drift ──
   const dynamicHL = buildMlbDailyHeadline({
     liveGames: payload.mlbLiveGames || [],
     briefing: payload.mlbBriefing || null,
@@ -206,79 +205,125 @@ function dailyCaption(payload) {
     briefing: payload.mlbBriefing || null,
     allStandings: payload.mlbStandings || null,
   });
-
-  // ── 1. HEADLINE — from Slide 1 hero (no generic opener) ──
   const usedBullets = hotPress.filter(b => b?.text);
 
+  // ── 1. OPENER — locked identity line ──
+  parts.push('⚾ Your Daily MLB Intel Briefing is here.');
+  parts.push('');
+
+  // ── 2. HERO HEADLINE — from Slide 1 #1 story ──
   if (dynamicHL.heroTitle) {
     parts.push(`🔥 ${dynamicHL.heroTitle}`);
     parts.push('');
   }
 
-  // ── 2. WHAT HAPPENED — results + implications (from HOTP bullets) ──
+  // ── 3. WHAT HAPPENED — HOTP bullets (Slide 2), MANDATORY ──
+  parts.push('📊 What happened:');
   if (usedBullets.length > 0) {
-    parts.push('📊 What happened:');
-    for (const b of usedBullets.slice(0, 3)) {
+    for (const b of usedBullets.slice(0, 4)) {
       parts.push(`• ${b.text}`);
     }
-    parts.push('');
+  } else {
+    parts.push('• Full results and analysis inside.');
   }
+  parts.push('');
 
-  // ── 3. WHY IT MATTERS — standings + momentum (from subhead / signal) ──
+  // ── 4. WHY IT MATTERS — story signals from subhead ──
   if (dynamicHL.subhead) {
     parts.push('📈 Why it matters:');
     parts.push(dynamicHL.subhead);
-    // Add standings context from additional HOTP bullets (division/race implications)
-    const extraBullets = usedBullets.slice(3).filter(b => b?.text && /GB|division|lead|race|gap|game/i.test(b.text));
+    const extraBullets = usedBullets.slice(4).filter(b => b?.text && /GB|division|lead|race|gap|game/i.test(b.text));
     for (const eb of extraBullets.slice(0, 1)) {
       parts.push(eb.text);
     }
     parts.push('');
   }
 
-  // ── 4. PICKS TO WATCH — from Slide 1/2 picks ──
+  // ── 5. MAXIMUS'S PICKS — MANDATORY, all 3 with ▸ markers ──
   const pickCats = payload.mlbPicks?.categories || payload.canonicalPicks?.categories || {};
-  const pickEms = pickCats.pickEms || [];
-  const ats = pickCats.ats || [];
-  const totals = pickCats.totals || [];
-  const allPicks = [...pickEms, ...ats, ...totals].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+  const pickEms = (pickCats.pickEms || []).map(p => ({ ...p, type: "Pick 'Em" }));
+  const ats = (pickCats.ats || []).map(p => ({ ...p, type: 'ATS' }));
+  const totals = (pickCats.totals || []).map(p => ({ ...p, type: 'O/U' }));
+  // Mirror Slide 1 pick selection: best ATS first, then by confidence
+  const allByConf = [...pickEms, ...ats, ...totals].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+  const selected = [];
+  const usedIds = new Set();
+  if (ats.length > 0) {
+    const bestAts = [...ats].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0))[0];
+    selected.push(bestAts);
+    usedIds.add(bestAts.id);
+  }
+  for (const p of allByConf) {
+    if (selected.length >= 3) break;
+    if (!usedIds.has(p.id)) { selected.push(p); usedIds.add(p.id); }
+  }
+  const allPicks = selected.slice(0, 3);
+
+  parts.push('🎯 Maximus\'s Picks:');
   if (allPicks.length > 0) {
-    parts.push('🎯 Picks to watch:');
-    for (const p of allPicks.slice(0, 3)) {
+    for (const p of allPicks) {
       const label = p.pick?.label || '—';
       const conv = p.confidence || '';
-      const away = p.matchup?.awayTeam?.shortName || '?';
-      const home = p.matchup?.homeTeam?.shortName || '?';
-      parts.push(`• ${away} vs ${home}: ${label} (${conv})`);
+      const away = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || '?';
+      const home = p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.name || '?';
+      parts.push(`▸ ${away} vs ${home}: ${label} (${conv})`);
     }
-    parts.push('');
+  } else {
+    parts.push('▸ No games on today\'s slate — picks return tomorrow.');
+  }
+  parts.push('');
+
+  // ── 6. SEASON LEADERS — MANDATORY, ALL 5 categories with ▸ markers ──
+  const LEADER_ORDER = ['HR', 'RBI', 'H', 'W', 'SV'];
+  const LEADER_LABELS = { HR: 'HR', RBI: 'RBI', H: 'Hits', W: 'Wins', SV: 'Saves' };
+  const leadersRaw = payload.mlbLeaders?.categories || payload.mlbLeaders || {};
+  // Index by key for ordered lookup
+  const leadersByKey = {};
+  for (const [key, cat] of Object.entries(leadersRaw)) {
+    if (cat?.leaders?.length > 0) {
+      leadersByKey[cat.key || key] = cat;
+    }
   }
 
-  // ── 5. LEAGUE LEADERS — from Slide 2 season leaders ──
-  const leadersRaw = payload.mlbLeaders?.categories || payload.mlbLeaders || {};
-  const leaderCats = Object.values(leadersRaw).filter(c => c?.leaders?.length > 0);
-  if (leaderCats.length > 0) {
-    parts.push('🏆 League leaders:');
-    for (const cat of leaderCats.slice(0, 2)) {
+  parts.push('🏆 League Leaders:');
+  let leaderCount = 0;
+  for (const key of LEADER_ORDER) {
+    const cat = leadersByKey[key];
+    if (cat?.leaders?.[0]) {
       const top = cat.leaders[0];
-      if (top) {
-        parts.push(`• ${top.name} leads ${cat.label || cat.key || ''} with ${top.display || top.value}`);
+      const displayLabel = LEADER_LABELS[key] || key;
+      parts.push(`▸ ${displayLabel}: ${top.name} (${top.display || top.value})`);
+      leaderCount++;
+    }
+  }
+  // If structured lookup missed some, fall back to iterating all available
+  if (leaderCount < 5) {
+    for (const [key, cat] of Object.entries(leadersRaw)) {
+      if (leaderCount >= 5) break;
+      const catKey = cat?.key || key;
+      if (LEADER_ORDER.includes(catKey)) continue; // already handled
+      if (cat?.leaders?.[0]) {
+        const top = cat.leaders[0];
+        const displayLabel = LEADER_LABELS[catKey] || cat.label || catKey;
+        parts.push(`▸ ${displayLabel}: ${top.name} (${top.display || top.value})`);
+        leaderCount++;
       }
     }
-    parts.push('');
   }
+  if (leaderCount === 0) {
+    parts.push('▸ Season leaders update daily — check the app for live stats.');
+  }
+  parts.push('');
 
-  // ── 6. CTA ──
-  const ctas = [
-    '🚀 The board moves daily. Stay ahead of it → maximussports.ai',
-    '🚀 Tomorrow brings more edges. Stay locked in → maximussports.ai',
-    '🚀 The model never sleeps. Neither should your edge → maximussports.ai',
-  ];
-  parts.push(ctas[(doy + 1) % ctas.length]);
+  // ── 7. CTA — locked, single, no rotation ──
+  parts.push('🚀 The model never sleeps. Neither should your edge → maximussports.ai');
+  parts.push('');
 
-  // ── 8. HASHTAGS — exactly 5, content-aware (from stories featured on slides) ──
-  const topTeams = getTopTeams(payload.seasonIntel, 4);
-  const hashtags = buildDailyHashtags(hotPress, topTeams, allPicks);
+  // ── 8. DISCLAIMER ──
+  parts.push('For entertainment only. Please bet responsibly. 21+');
+
+  // ── 9. HASHTAGS — data-driven: top 3 story teams + 1 pick team + #MLB + #MLBPredictions ──
+  const hashtags = buildDailyHashtags(hotPress, [], allPicks);
 
   return { caption: parts.join('\n'), hashtags };
 }
@@ -293,15 +338,16 @@ function nameFromSlug(slug) {
 
 // ── Dynamic hashtag builder ────────────────────────────────────────────────
 
-function buildDailyHashtags(hotPress, topTeams, allPicks = []) {
+function buildDailyHashtags(hotPress, _topTeams, allPicks = []) {
   const tags = new Set();
 
-  // Always include the core MLB analysis tag
+  // Core tags — always present
   tags.add('#MLB');
   tags.add('#MLBPredictions');
 
-  // Add team-specific hashtags from top stories (up to 3 story teams)
-  for (const b of hotPress.slice(0, 3)) {
+  // Top 3 story teams from HOTP bullets (same data as slides)
+  for (const b of hotPress.slice(0, 5)) {
+    if (tags.size >= 5) break;
     if (b?.logoSlug) {
       const team = MLB_TEAMS.find(t => t.slug === b.logoSlug);
       if (team?.name) {
@@ -310,7 +356,7 @@ function buildDailyHashtags(hotPress, topTeams, allPicks = []) {
     }
   }
 
-  // Add top pick team if not already covered
+  // 1 pick team if not already covered
   if (tags.size < 5 && allPicks.length > 0) {
     const topPick = allPicks[0];
     const pickSide = topPick.pick?.side;
@@ -320,14 +366,8 @@ function buildDailyHashtags(hotPress, topTeams, allPicks = []) {
     }
   }
 
-  // Add top projected team if not already present
-  if (topTeams.length > 0) {
-    const topName = topTeams[0].name || topTeams[0].abbrev;
-    if (topName) tags.add(`#${topName.replace(/\s+/g, '')}`);
-  }
-
-  // Fill to 5 with strong category tags
-  const fillers = ['#BaseballAnalytics', '#MLBStandings', '#SportsBetting', '#BaseballIntel', '#MLBModel'];
+  // Fill remaining slots with category tags
+  const fillers = ['#BaseballIntel', '#SportsBetting', '#BaseballAnalytics'];
   for (const f of fillers) {
     if (tags.size >= 5) break;
     tags.add(f);
