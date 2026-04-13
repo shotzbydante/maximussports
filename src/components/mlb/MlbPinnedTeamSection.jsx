@@ -424,8 +424,8 @@ export default function MlbPinnedTeamSection() {
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
         pinnedTeams={pinned}
-        addTeam={addTeam}
-        removeTeam={removeTeam}
+        addTeam={handlePin}
+        removeTeam={handleRemove}
         isPinned={(slug) => pinned.includes(slug)}
         isPro={isPro}
       />
