@@ -35,7 +35,8 @@ async function fetchSlideData() {
   const games = gamesRes.status === 'fulfilled' ? (gamesRes.value.games || []) : [];
   const odds = oddsRes.status === 'fulfilled' ? oddsRes.value : {};
   const leaders = leadersRes.status === 'fulfilled' ? leadersRes.value : {};
-  const standings = standingsRes.status === 'fulfilled' ? standingsRes.value : {};
+  const standingsRaw = standingsRes.status === 'fulfilled' ? standingsRes.value : {};
+  const standings = standingsRaw?.teams || standingsRaw || {};
 
   return {
     mlbLiveGames: games,
