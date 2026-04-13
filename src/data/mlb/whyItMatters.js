@@ -32,6 +32,10 @@ import { MLB_TEAMS } from '../../sports/mlb/teams.js';
 
 function shortName(fullName) {
   if (!fullName) return '';
+  // Multi-word nicknames that must stay together
+  if (/White Sox$/i.test(fullName)) return 'White Sox';
+  if (/Red Sox$/i.test(fullName)) return 'Red Sox';
+  if (/Blue Jays$/i.test(fullName)) return 'Blue Jays';
   const parts = fullName.split(' ');
   return parts[parts.length - 1];
 }

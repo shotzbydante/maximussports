@@ -21,8 +21,20 @@ import { parseBriefingToIntel } from './normalizeMlbImagePayload';
 
 // ── Team metadata maps ──────────────────────────────────────────────────
 
+// Resolve editorial team nickname — handles multi-word nicknames correctly.
+// "Chicago White Sox" → "White Sox", "Boston Red Sox" → "Red Sox",
+// "Tampa Bay Rays" → "Rays", "New York Yankees" → "Yankees"
+function resolveNickname(fullName) {
+  if (!fullName) return '???';
+  // Multi-word nicknames that must stay together
+  if (/White Sox$/i.test(fullName)) return 'White Sox';
+  if (/Red Sox$/i.test(fullName)) return 'Red Sox';
+  if (/Blue Jays$/i.test(fullName)) return 'Blue Jays';
+  return fullName.split(' ').pop();
+}
+
 const TEAM_META = Object.fromEntries(
-  MLB_TEAMS.map(t => [t.slug, { name: t.name.split(' ').pop(), abbrev: t.abbrev, division: t.division, league: t.league }])
+  MLB_TEAMS.map(t => [t.slug, { name: resolveNickname(t.name), abbrev: t.abbrev, division: t.division, league: t.league }])
 );
 
 function teamName(slug) { return TEAM_META[slug]?.name || slug || '???'; }
@@ -493,48 +505,53 @@ export function buildMlbHotPress({ liveGames, briefing, allStandings } = {}) {
   // ── If we have game results, build ALL bullets from results ──
   if (stories.length >= 1) {
     const bullets = [];
-    const usedSlugs = new Set();
+    // Track BOTH winner and loser slugs to avoid any game appearing twice
+    const usedGameTeams = new Set();
+
+    function markUsed(story) {
+      usedGameTeams.add(story.winSlug);
+      usedGameTeams.add(story.loseSlug);
+    }
+    function isUnused(story) {
+      return !usedGameTeams.has(story.winSlug) && !usedGameTeams.has(story.loseSlug);
+    }
 
     // Bullet 1: Top story (highest signal priority)
     const top = stories[0];
     bullets.push({ text: bulletForStory(top), logoSlug: top.winSlug });
-    usedSlugs.add(top.winSlug);
+    markUsed(top);
 
-    // Bullet 2: Second key result (different division preferred)
+    // Bullet 2: Second key result — must be a DIFFERENT game
     const second = findSecondStory(stories, top);
-    if (second && !usedSlugs.has(second.winSlug)) {
+    if (second && isUnused(second)) {
       bullets.push({ text: bulletForStory(second), logoSlug: second.winSlug });
-      usedSlugs.add(second.winSlug);
-    } else if (stories.length >= 2) {
-      const alt = stories[1];
-      bullets.push({ text: bulletForStory(alt), logoSlug: alt.winSlug });
-      usedSlugs.add(alt.winSlug);
-    }
-
-    // Bullet 3: League-wide "why it matters" synthesis OR next game result
-    const leagueSignal = buildLeagueWhyItMatters(stories, allStandings);
-    if (leagueSignal?.long && stories.length >= 2) {
-      bullets.push({ text: leagueSignal.long, logoSlug: null });
+      markUsed(second);
     } else {
-      // Use the next unused game result
-      for (const s of stories) {
-        if (!usedSlugs.has(s.winSlug)) {
+      // Find any unused story
+      for (const s of stories.slice(1)) {
+        if (isUnused(s)) {
           bullets.push({ text: bulletForStory(s), logoSlug: s.winSlug });
-          usedSlugs.add(s.winSlug);
+          markUsed(s);
           break;
         }
       }
     }
 
-    // Bullet 4+: Additional game results
+    // Bullet 3+: Fill with distinct games, never repeating a game
     for (const s of stories) {
       if (bullets.length >= 4) break;
-      if (usedSlugs.has(s.winSlug)) continue;
+      if (!isUnused(s)) continue;
       bullets.push({ text: bulletForStory(s), logoSlug: s.winSlug });
-      usedSlugs.add(s.winSlug);
+      markUsed(s);
     }
 
-    // Pad with a volume summary if needed
+    // Pad with league-wide synthesis if we ran out of distinct games
+    if (bullets.length < 4) {
+      const leagueSignal = buildLeagueWhyItMatters(stories, allStandings);
+      if (leagueSignal?.long) {
+        bullets.push({ text: leagueSignal.long, logoSlug: null });
+      }
+    }
     while (bullets.length < 4) {
       const contenderWins = stories.filter(s => s.isContender).length;
       if (contenderWins >= 2) {
