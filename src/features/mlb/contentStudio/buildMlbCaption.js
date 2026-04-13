@@ -10,6 +10,7 @@
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
 import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
+import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders.js';
 import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline.js';
 import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing.js';
 import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters.js';
@@ -274,40 +275,17 @@ function dailyCaption(payload) {
   parts.push('');
 
   // ── 6. SEASON LEADERS — MANDATORY, ALL 5 categories with ▸ markers ──
-  const LEADER_ORDER = ['HR', 'RBI', 'H', 'W', 'SV'];
-  const LEADER_LABELS = { HR: 'HR', RBI: 'RBI', H: 'Hits', W: 'Wins', SV: 'Saves' };
-  const leadersRaw = payload.mlbLeaders?.categories || payload.mlbLeaders || {};
-  // Index by key for ordered lookup
-  const leadersByKey = {};
-  for (const [key, cat] of Object.entries(leadersRaw)) {
-    if (cat?.leaders?.length > 0) {
-      leadersByKey[cat.key || key] = cat;
-    }
-  }
+  // Uses LEADER_CATEGORIES (same mapping as Slide 2) — keys: homeRuns, RBIs, hits, wins, saves
+  const leadersRaw = payload.mlbLeaders?.categories || {};
 
   parts.push('🏆 League Leaders:');
   let leaderCount = 0;
-  for (const key of LEADER_ORDER) {
-    const cat = leadersByKey[key];
+  for (const { key, abbrev, label } of LEADER_CATEGORIES) {
+    const cat = leadersRaw[key];
     if (cat?.leaders?.[0]) {
       const top = cat.leaders[0];
-      const displayLabel = LEADER_LABELS[key] || key;
-      parts.push(`▸ ${displayLabel}: ${top.name} (${top.display || top.value})`);
+      parts.push(`▸ ${abbrev}: ${top.name} (${top.display || top.value})`);
       leaderCount++;
-    }
-  }
-  // If structured lookup missed some, fall back to iterating all available
-  if (leaderCount < 5) {
-    for (const [key, cat] of Object.entries(leadersRaw)) {
-      if (leaderCount >= 5) break;
-      const catKey = cat?.key || key;
-      if (LEADER_ORDER.includes(catKey)) continue; // already handled
-      if (cat?.leaders?.[0]) {
-        const top = cat.leaders[0];
-        const displayLabel = LEADER_LABELS[catKey] || cat.label || catKey;
-        parts.push(`▸ ${displayLabel}: ${top.name} (${top.display || top.value})`);
-        leaderCount++;
-      }
     }
   }
   if (leaderCount === 0) {
