@@ -53,7 +53,7 @@ import {
   isSeasonGated, getEmailConfig, getEmailSport,
   loadTeamLookup, filterSportSlugs, enrichMlbTeamDigests, emailPayloadDigest,
   assembleEmailData, buildEmailData, prepareEmailPayload,
-  globalBriefingSectionDigest, expectedHeroSections,
+  globalBriefingSectionDigest, expectedHeroSections, degradableHeroSections,
 } from '../_lib/emailPipeline.js';
 
 /**
@@ -649,9 +649,13 @@ export default async function handler(req, res) {
         if (i === 0) {
           const digest = globalBriefingSectionDigest(emailData);
           console.log('[run-daily] global_briefing section digest:', JSON.stringify(digest));
-          const missing = expectedHeroSections(digest);
-          if (missing.length > 0) {
-            console.warn(`[run-daily] global_briefing MISSING hero sections: ${missing.join(', ')}`);
+          const missingDurable = expectedHeroSections(digest);
+          if (missingDurable.length > 0) {
+            console.warn(`[run-daily] global_briefing MISSING DURABLE sections: ${missingDurable.join(', ')}`);
+          }
+          const missingDegradable = degradableHeroSections(digest);
+          if (missingDegradable.length > 0) {
+            console.log(`[run-daily] global_briefing degradable sections unavailable: ${missingDegradable.join(', ')}`);
           }
         }
       } else {
