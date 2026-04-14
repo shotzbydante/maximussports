@@ -20,7 +20,7 @@ const LLM_TTL_MS = 60_000;
 const CLIENT_TIMEOUT_MS = 15_000;
 
 const FALLBACK_BRIEFING =
-  'Welcome to NBA Intelligence. Our briefing is being prepared \u2014 check back shortly for today\u2019s freshest odds movement, headlines, and storylines across the NBA.';
+  'Welcome to NBA Playoffs Intelligence. Our briefing is being prepared \u2014 check back shortly for today\u2019s freshest playoff matchups, series predictions, odds movement, and storylines across the NBA postseason.';
 
 function fixPositiveOdds(text) {
   if (!text) return text;
@@ -171,27 +171,27 @@ export default function NbaHome() {
         </div>
       </section>
 
-      {/* Season Intelligence Hero */}
+      {/* NBA Bracketology Hero */}
       <section className={styles.seasonPromo}>
         <div className={styles.seasonPromoInner}>
           <div className={styles.seasonPromoContent}>
-            <span className={styles.seasonPromoEyebrow}>2025-26 Season</span>
-            <h3 className={styles.seasonPromoTitle}>Explore NBA Season Intelligence</h3>
+            <span className={styles.seasonPromoEyebrow}>2026 NBA Playoffs</span>
+            <h3 className={styles.seasonPromoTitle}>NBA Bracketology</h3>
             <p className={styles.seasonPromoBody}>
-              Championship odds, conference rankings, playoff paths, and team outlooks &mdash; powered by the Maximus model across all 30 teams.
+              Interactive playoff bracket with series predictions, championship simulations, and title probabilities &mdash; powered by the Maximus model.
             </p>
             <div className={styles.seasonPromoChips}>
+              <span className={styles.chip}>Playoff Bracket</span>
+              <span className={styles.chip}>Series Predictions</span>
+              <span className={styles.chip}>Title Simulation</span>
               <span className={styles.chip}>Championship Odds</span>
-              <span className={styles.chip}>Conference Rankings</span>
-              <span className={styles.chip}>Playoff Paths</span>
-              <span className={styles.chip}>Team Outlooks</span>
             </div>
             <div className={styles.seasonPromoCtas}>
-              <Link to={buildPath('/season-intel')} className={styles.seasonPromoPrimary}>
-                View Season Intel &rarr;
+              <Link to={buildPath('/bracketology')} className={styles.seasonPromoPrimary}>
+                Open Bracket &rarr;
               </Link>
               <Link to={buildPath('/teams')} className={styles.seasonPromoSecondary}>
-                Browse Teams
+                Team Intel
               </Link>
             </div>
           </div>

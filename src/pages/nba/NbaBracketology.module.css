@@ -1,0 +1,168 @@
+/* NBA Bracketology — playoff bracket (navy palette) */
+.page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-md);
+}
+
+/* Header */
+.header { margin-bottom: var(--space-lg); }
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+.pageTitle { font-size: 1.3rem; font-weight: 700; color: var(--color-text); }
+
+.headerActions { display: flex; gap: 6px; flex-wrap: wrap; }
+.actionBtn {
+  padding: 6px 16px; font-size: 0.72rem; font-weight: 600;
+  background: rgba(29, 66, 138, 0.08); color: #1d428a;
+  border: 1px solid rgba(29, 66, 138, 0.15); border-radius: 6px;
+  cursor: pointer; font-family: inherit; transition: all 0.12s;
+}
+.actionBtn:hover { background: rgba(29, 66, 138, 0.14); }
+.actionBtnPrimary { background: #1d428a; color: #fff; border-color: #1d428a; }
+.actionBtnPrimary:hover { background: #2451a0; }
+.actionBtnPrimary:disabled { opacity: 0.5; cursor: default; }
+.actionBtnMuted {
+  padding: 6px 12px; font-size: 0.68rem; font-weight: 500;
+  background: none; color: var(--color-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px;
+  cursor: pointer; font-family: inherit;
+}
+
+/* Round headers */
+.roundHeaders {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr 1fr 1fr 1fr;
+  gap: 8px;
+  text-align: center;
+}
+.roundLabel {
+  font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--color-text-muted);
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.roundLabelCenter {
+  composes: roundLabel;
+  color: #1d428a;
+  border-bottom-color: rgba(29, 66, 138, 0.2);
+  font-size: 0.6rem;
+}
+
+/* Conference labels */
+.confLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+.confLabelLeft, .confLabelRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text);
+}
+.confLogo { width: 24px; height: 24px; object-fit: contain; border-radius: 3px; }
+
+/* Bracket grid — 7 columns */
+.bracketContainer { overflow-x: auto; }
+
+.bracketGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr 1fr 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  min-width: 1100px;
+}
+
+.roundCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: space-around;
+}
+.roundColSpaced { gap: 60px; }
+.roundColWide { gap: 120px; }
+
+/* Finals center column */
+.finalsCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+.finalsHeader { text-align: center; }
+.finalsLabel {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: #1d428a;
+}
+
+/* Champion display */
+.championDisplay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: rgba(29, 66, 138, 0.06);
+  border: 1px solid rgba(29, 66, 138, 0.12);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+.champLogo { width: 40px; height: 40px; object-fit: contain; }
+.champTrophy { font-size: 1.2rem; }
+.champName {
+  font-size: 0.78rem; font-weight: 700; color: var(--color-text);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Simulation results */
+.simSection {
+  margin-top: var(--space-xl);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: var(--space-lg);
+}
+.simTitle {
+  font-size: 0.88rem; font-weight: 700; color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+.simGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.simTeam {
+  display: grid;
+  grid-template-columns: 24px auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+.simLogo { width: 24px; height: 24px; object-fit: contain; border-radius: 3px; }
+.simName { font-size: 0.72rem; font-weight: 700; color: var(--color-text); }
+.simPct { font-size: 0.72rem; font-weight: 700; color: #1d428a; font-variant-numeric: tabular-nums; }
+.simBar { height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 2px; overflow: hidden; grid-column: 1 / -1; }
+.simBarFill { height: 100%; background: linear-gradient(90deg, #1d428a, #3a7bd5); border-radius: 2px; transition: width 0.3s; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .bracketGrid { min-width: auto; grid-template-columns: 1fr; gap: 24px; }
+  .roundHeaders { display: none; }
+  .confLabels { flex-direction: column; gap: 8px; }
+  .roundColSpaced, .roundColWide { gap: 16px; }
+}

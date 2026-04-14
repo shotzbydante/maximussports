@@ -166,8 +166,8 @@ export const WORKSPACES = {
     seasonState: SeasonState.ACTIVE,
     badge: 'ADMIN',
     capabilities: {
-      bracketology: false,
-      seasonIntel: true,
+      bracketology: true,
+      seasonIntel: false,
       contentStudio: false,
       champOdds: true,
       atsLeaders: false,
@@ -186,7 +186,7 @@ export const WORKSPACES = {
     },
     labels: {
       sportName: 'NBA Basketball',
-      intelligence: 'NBA Intelligence',
+      intelligence: 'NBA Playoffs Intelligence',
       teamIntel: 'Team Intel',
       picks: 'Odds Insights',
       games: 'Games',

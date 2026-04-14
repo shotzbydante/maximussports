@@ -170,15 +170,15 @@ ${emojiMap}
 
 FORMAT — exactly 5 substantive paragraphs (no headers, no bullet lists, no numbered sections):
 
-P1 AROUND THE LEAGUE: Open with 3-4 top headlines from headlines[] with team emojis. Set the scene — where are we in the NBA season? Reference specific stories.
+P1 PLAYOFF SCENE: Open with 3-4 top headlines from headlines[] with team emojis. Set the scene — we are in the NBA playoffs / play-in tournament. Reference specific playoff matchups, series, or play-in results.
 
-P2 CHAMPIONSHIP ODDS PULSE: Reference 4-5 teams from champOdds whose stock is moving with exact odds (positive odds MUST include "+") and team emojis. Frame as market reads.
+P2 CHAMPIONSHIP ODDS PULSE: Reference 4-5 teams from champOdds with exact odds (positive odds MUST include "+") and team emojis. Frame as title race market reads — who are the favorites to win the championship?
 
-P3 CONFERENCE WATCH: Discuss 2-3 tight conference or playoff races. Use champOdds context and team emojis.
+P3 BRACKET WATCH: Discuss 2-3 compelling playoff matchups or series. Use champOdds context and team emojis. Frame as bracket paths — which conference has the tougher road to the Finals?
 
-P4 SLEEPERS & VALUE: Call out 1-2 teams from champSleepers overperforming, plus any major injury/roster news. Use team emojis.
+P4 DARK HORSES & VALUE: Call out 1-2 teams from champSleepers with upset potential in the playoffs, plus any major injury/roster news. Use team emojis. Frame as series value plays.
 
-P5 CLOSER: 2-3 remaining headlines. Surface buzzy storylines. End with a sharp, punchy closer.
+P5 CLOSER: 2-3 remaining headlines. Surface buzzy playoff storylines — eliminations, closeout games, buzzer-beaters. End with a sharp, punchy closer that captures playoff intensity.
 
 STYLE RULES:
 - Target 350-450 words total (hard limit: 500 words).
@@ -186,7 +186,7 @@ STYLE RULES:
 - Use the team emoji AFTER the bolded team name when first mentioned.
 - Max 1 additional decorative emoji per paragraph from: 🔥 😬 👀 🚨 🏆 🏀
 - Zero profanity. Clean humor only.
-- Use basketball language: "court", "paint", "three-ball", "roster", "rotation", "backcourt", "frontcourt", "matchup", "playoffs", "conference", "seed".
+- Use playoff basketball language: "series", "elimination", "closeout", "game 7", "home court", "bracket", "conference finals", "NBA Finals", "sweep", "gentlemen's sweep", "upset", "first round exit".
 - Do NOT use baseball terminology.
 - Each paragraph should have narrative flow and editorial opinion.
 - Write like a premium sports intelligence product.`;
