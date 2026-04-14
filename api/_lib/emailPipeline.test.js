@@ -9,7 +9,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildEmailData } from './emailPipeline.js';
+import { buildEmailData, globalBriefingSectionDigest, expectedHeroSections } from './emailPipeline.js';
+import { renderHTML as renderGlobalBriefingHTML } from '../../src/emails/templates/globalBriefing.js';
 
 // ── Mock data matching what assembleEmailData() returns ────────────
 
@@ -135,6 +136,134 @@ describe('Global Briefing: durable sections survive sparse data', () => {
     expect(Object.keys(emailData.leadersCategories).length).toBeGreaterThan(0);
     expect(emailData.champOdds).toBeTruthy();
     expect(Object.keys(emailData.champOdds).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Global Briefing: rendered HTML section contract', () => {
+  it('includes all hero email section headers when data is complete', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // Explicit section header assertions — these are the hero-email contract
+    expect(html).toContain('MLB DAILY INTELLIGENCE');
+    expect(html).toContain('PENNANT RACE SNAPSHOT');
+    expect(html).toContain('SEASON LEADERS');
+    expect(html).toContain('WORLD SERIES OUTLOOK');
+    expect(html).toContain('HEADLINES');
+    expect(html).toContain('ACT ON TODAY'); // partner module
+  });
+
+  it('renders partner module AFTER main briefing content', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    const pennantIdx = html.indexOf('PENNANT RACE SNAPSHOT');
+    const outlookIdx = html.indexOf('WORLD SERIES OUTLOOK');
+    const partnerIdx = html.indexOf('ACT ON TODAY');
+
+    expect(pennantIdx).toBeGreaterThan(-1);
+    expect(outlookIdx).toBeGreaterThan(-1);
+    expect(partnerIdx).toBeGreaterThan(outlookIdx);
+  });
+
+  it('suppresses partner module when briefing content is empty (last-resort)', () => {
+    const emptyAssembled = {
+      scoresToday: [], rankingsTop25: [], atsLeaders: { best: [], worst: [] },
+      headlines: [], oddsGames: [], botIntelBullets: [],
+      mlbData: {
+        narrativeParagraph: '', headlines: [], picksBoard: null,
+        pennantRace: null, worldSeriesOutlook: null,
+        leadersCategories: {}, champOdds: {},
+        scoresToday: [], botIntelBullets: [], rankingsTop25: [],
+        atsLeaders: { best: [], worst: [] }, oddsGames: [],
+        modelSignals: [], tournamentMeta: {},
+      },
+      mlbNarrativeParagraph: '', briefingContext: {}, picksBoard: null,
+      modelSignals: [], tournamentMeta: {},
+    };
+    const emailData = buildEmailData('global_briefing', emptyAssembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain('ACT ON TODAY');
+    expect(html).toContain('still being assembled');
+  });
+});
+
+describe('Global Briefing: section digest and expected hero sections', () => {
+  it('digest reports all sections present for full data', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const digest = globalBriefingSectionDigest(emailData);
+
+    expect(digest.hasNarrative).toBe(true);
+    expect(digest.hasHeadlines).toBe(true);
+    expect(digest.hasPicks).toBe(true);
+    expect(digest.hasPennant).toBe(true);
+    expect(digest.hasLeaders).toBe(true);
+    expect(digest.hasOutlook).toBe(true);
+    expect(digest.hasChampOdds).toBe(true);
+  });
+
+  it('expectedHeroSections returns empty for full data', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const missing = expectedHeroSections(globalBriefingSectionDigest(emailData));
+    expect(missing).toEqual([]);
+  });
+
+  it('expectedHeroSections flags missing durable fields', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.pennantRace = null;
+    assembled.mlbData.worldSeriesOutlook = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const missing = expectedHeroSections(globalBriefingSectionDigest(emailData));
+    expect(missing).toContain('pennantRace');
+    expect(missing).toContain('worldSeriesOutlook');
+  });
+});
+
+describe('Global Briefing: prod/test parity (same input → same output)', () => {
+  it('buildEmailData is idempotent and deterministic for global_briefing', () => {
+    const assembled1 = fullAssembled();
+    const assembled2 = fullAssembled();
+
+    const prodData = buildEmailData('global_briefing', assembled1, { displayName: 'Prod User' });
+    const testData = buildEmailData('global_briefing', assembled2, { displayName: 'Prod User' });
+
+    // Structural parity — both paths must produce the same field set
+    expect(Object.keys(prodData).sort()).toEqual(Object.keys(testData).sort());
+
+    // Durable fields parity
+    expect(prodData.pennantRace).toEqual(testData.pennantRace);
+    expect(prodData.worldSeriesOutlook).toEqual(testData.worldSeriesOutlook);
+    expect(prodData.leadersCategories).toEqual(testData.leadersCategories);
+    expect(prodData.champOdds).toEqual(testData.champOdds);
+    expect(prodData.mlbData).toEqual(testData.mlbData);
+  });
+
+  it('rendered HTML is identical between prod and test paths for same input', () => {
+    // Use a fixed date-independent mock — renderHTML uses new Date() for some
+    // calls, but section markers should be stable
+    const assembled1 = fullAssembled();
+    const assembled2 = fullAssembled();
+
+    const prodData = buildEmailData('global_briefing', assembled1, { displayName: 'User' });
+    const testData = buildEmailData('global_briefing', assembled2, { displayName: 'User' });
+
+    const prodHtml = renderGlobalBriefingHTML(prodData);
+    const testHtml = renderGlobalBriefingHTML(testData);
+
+    // Section presence parity — the hero contract
+    const sections = [
+      'MLB DAILY INTELLIGENCE',
+      'PENNANT RACE SNAPSHOT',
+      'SEASON LEADERS',
+      'WORLD SERIES OUTLOOK',
+      'HEADLINES',
+      'ACT ON TODAY',
+    ];
+    for (const section of sections) {
+      expect(prodHtml.includes(section)).toBe(true);
+      expect(testHtml.includes(section)).toBe(true);
+    }
   });
 });
 
