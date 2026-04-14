@@ -296,7 +296,9 @@
   margin-left: auto;
 }
 
-@media (max-width: 1024px) {
+/* Sidebar and desktop top-nav share the same threshold.
+   Below 1280 → hamburger mode (no sidebar, collapsed nav). */
+@media (max-width: 1279px) {
   .sidebar {
     display: none;
   }

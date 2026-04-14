@@ -13,13 +13,28 @@
 
 .main {
   flex: 1;
+  min-width: 0;
   padding: var(--space-lg);
   overflow-x: hidden;
   background: var(--color-bg);
 }
 
-@media (max-width: 768px) {
+/* Narrow laptop (13"/14" MBP): slightly tighter padding. */
+@media (max-width: 1439px) {
+  .main {
+    padding: var(--space-md) var(--space-lg);
+  }
+}
+
+/* Tablet / narrow laptop below 1280 — sidebar hidden, reclaim edge space. */
+@media (max-width: 1279px) {
   .main {
     padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: var(--space-sm);
   }
 }

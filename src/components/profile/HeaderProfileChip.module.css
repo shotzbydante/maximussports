@@ -69,15 +69,30 @@
   margin-left: -2px;
 }
 
-@media (max-width: 768px) {
-  .chipWrap {
-    margin-left: var(--space-sm);
+/* ≤1439px: drop the follower counts — too cramped on narrow laptops. */
+@media (max-width: 1439px) {
+  .chipCounts {
+    display: none;
   }
+  .chipName {
+    max-width: 100px;
+  }
+}
+
+/* ≤1339px: drop the name, keep the avatar + caret. */
+@media (max-width: 1339px) {
   .chipName {
     display: none;
   }
-  .chipCounts {
-    display: none;
+  .chip {
+    padding: 3px 6px 3px 3px;
+  }
+}
+
+/* ≤1279px: full collapse to circular avatar (matches hamburger mode). */
+@media (max-width: 1279px) {
+  .chipWrap {
+    margin-left: var(--space-sm);
   }
   .chipCaret {
     display: none;
