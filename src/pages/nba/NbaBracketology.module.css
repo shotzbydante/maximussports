@@ -1,168 +1,375 @@
-/* NBA Bracketology — playoff bracket (navy palette) */
+/* NBA Bracketology — premium dark mode, black + gold */
 .page {
+  --bk-bg: #050505;
+  --bk-elevated: #0d0d0f;
+  --bk-glass: rgba(255, 255, 255, 0.04);
+  --bk-glass-border: rgba(255, 255, 255, 0.08);
+  --bk-gold: #D4AF37;
+  --bk-gold-bright: #F2D675;
+  --bk-gold-soft: rgba(212, 175, 55, 0.12);
+  --bk-gold-border: rgba(212, 175, 55, 0.22);
+  --bk-text: rgba(255, 255, 255, 0.92);
+  --bk-muted: rgba(255, 255, 255, 0.45);
+  --bk-border: rgba(255, 255, 255, 0.06);
+
+  background: var(--bk-bg);
+  min-height: 100vh;
+  padding: 0;
+  margin: -16px -16px 0;
+  color: var(--bk-text);
+}
+
+/* ── Hero ── */
+.hero {
+  position: relative;
+  padding: 48px 32px 32px;
+  overflow: hidden;
+}
+.heroGlow {
+  position: absolute;
+  top: -40%;
+  left: 30%;
+  width: 40%;
+  height: 180%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+.heroInner {
   max-width: 1400px;
   margin: 0 auto;
-  padding: var(--space-lg) var(--space-md);
-}
-
-/* Header */
-.header { margin-bottom: var(--space-lg); }
-.headerTop {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-md);
+  gap: 24px;
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+  position: relative;
+  z-index: 1;
 }
-.pageTitle { font-size: 1.3rem; font-weight: 700; color: var(--color-text); }
-
-.headerActions { display: flex; gap: 6px; flex-wrap: wrap; }
-.actionBtn {
-  padding: 6px 16px; font-size: 0.72rem; font-weight: 600;
-  background: rgba(29, 66, 138, 0.08); color: #1d428a;
-  border: 1px solid rgba(29, 66, 138, 0.15); border-radius: 6px;
-  cursor: pointer; font-family: inherit; transition: all 0.12s;
-}
-.actionBtn:hover { background: rgba(29, 66, 138, 0.14); }
-.actionBtnPrimary { background: #1d428a; color: #fff; border-color: #1d428a; }
-.actionBtnPrimary:hover { background: #2451a0; }
-.actionBtnPrimary:disabled { opacity: 0.5; cursor: default; }
-.actionBtnMuted {
-  padding: 6px 12px; font-size: 0.68rem; font-weight: 500;
-  background: none; color: var(--color-text-muted);
-  border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px;
-  cursor: pointer; font-family: inherit;
-}
-
-/* Round headers */
-.roundHeaders {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr 1fr 1fr 1fr;
-  gap: 8px;
-  text-align: center;
-}
-.roundLabel {
-  font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--color-text-muted);
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.roundLabelCenter {
-  composes: roundLabel;
-  color: #1d428a;
-  border-bottom-color: rgba(29, 66, 138, 0.2);
-  font-size: 0.6rem;
-}
-
-/* Conference labels */
-.confLabels {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
-}
-.confLabelLeft, .confLabelRight {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.68rem;
+.heroText { max-width: 600px; }
+.heroEyebrow {
+  font-size: 0.58rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text);
+  letter-spacing: 0.14em;
+  color: var(--bk-gold);
+  display: block;
+  margin-bottom: 6px;
 }
-.confLogo { width: 24px; height: 24px; object-fit: contain; border-radius: 3px; }
+.heroTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.heroSub {
+  font-size: 0.82rem;
+  color: var(--bk-muted);
+  line-height: 1.5;
+}
 
-/* Bracket grid — 7 columns */
-.bracketContainer { overflow-x: auto; }
-
-.bracketGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr 1fr 1fr 1fr;
+/* ── Buttons ── */
+.heroActions {
+  display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 10px 22px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--bk-glass-border);
+  background: var(--bk-glass);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.14s;
+  letter-spacing: 0.02em;
+}
+.btn:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.14); }
+.btnGold {
+  background: linear-gradient(135deg, #D4AF37 0%, #C19B2A 100%);
+  color: #0a0a0a;
+  border-color: var(--bk-gold);
+}
+.btnGold:hover { filter: brightness(1.1); }
+.btnGold:disabled { opacity: 0.5; cursor: default; filter: none; }
+.btnGhost {
+  padding: 10px 16px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: none;
+  color: var(--bk-muted);
+  border: 1px solid var(--bk-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ── Round labels ── */
+.roundRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.3fr 1fr 1fr 1fr;
+  gap: 6px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.roundLabel {
+  font-size: 0.52rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--bk-muted);
+  text-align: center;
+  padding: 10px 0 6px;
+  border-bottom: 1px solid var(--bk-border);
+}
+.roundLabelGold {
+  color: var(--bk-gold);
+  border-bottom-color: var(--bk-gold-border);
+}
+
+/* ── Conference labels ── */
+.confRow {
+  display: flex;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 32px 8px;
+}
+.confLeft, .confRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: rgba(255, 255, 255, 0.6);
+}
+.confIcon { width: 22px; height: 22px; object-fit: contain; border-radius: 3px; opacity: 0.8; }
+
+/* ── Bracket Grid ── */
+.bracketScroll {
+  overflow-x: auto;
+  padding: 0 32px 24px;
+}
+.bracket {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.3fr 1fr 1fr 1fr;
+  gap: 6px;
   align-items: center;
   min-width: 1100px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
-
-.roundCol {
+.col {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   justify-content: space-around;
 }
-.roundColSpaced { gap: 60px; }
-.roundColWide { gap: 120px; }
+.colR2 { gap: 56px; }
+.colCF { gap: 120px; }
 
-/* Finals center column */
+/* ── Series Card ── */
+.card {
+  background: var(--bk-elevated);
+  border: 1px solid var(--bk-glass-border);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.card:hover {
+  border-color: rgba(212, 175, 55, 0.18);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.06);
+}
+.cardWaiting { opacity: 0.35; }
+
+.spread {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.48rem;
+  font-weight: 600;
+  color: var(--bk-muted);
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--bk-border);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.12s;
+  width: 100%;
+  color: var(--bk-text);
+}
+.slot:last-of-type { border-bottom: none; }
+.slot:hover:not(:disabled) { background: rgba(255, 255, 255, 0.03); }
+.slot:disabled { cursor: default; color: var(--bk-muted); }
+
+.slotPicked {
+  background: var(--bk-gold-soft);
+  border-left: 3px solid var(--bk-gold);
+}
+
+.slotLogo { width: 20px; height: 20px; object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+.seed { font-size: 0.6rem; font-weight: 800; color: var(--bk-muted); min-width: 14px; text-align: center; }
+.slotName { flex: 1; font-size: 0.74rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wins { font-size: 0.7rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--bk-muted); min-width: 14px; text-align: center; }
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+}
+.metaDate { font-size: 0.5rem; color: var(--bk-muted); }
+.metaNet { font-size: 0.46rem; font-weight: 700; text-transform: uppercase; color: var(--bk-muted); background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 3px; }
+.metaPred { font-size: 0.52rem; font-weight: 700; color: var(--bk-gold); margin-left: auto; }
+
+/* ── Finals Center ── */
 .finalsCol {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   justify-content: center;
+  position: relative;
 }
-.finalsHeader { text-align: center; }
-.finalsLabel {
-  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.10em; color: #1d428a;
+.finalsGlow {
+  position: absolute;
+  top: -60px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.10) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(30px);
+}
+.finalsTag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--bk-gold);
+}
+.finalsCol .card {
+  border-color: var(--bk-gold-border);
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.08);
+  min-width: 220px;
 }
 
-/* Champion display */
-.championDisplay {
+/* ── Champion Display ── */
+.champ {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 12px 16px;
-  background: rgba(29, 66, 138, 0.06);
-  border: 1px solid rgba(29, 66, 138, 0.12);
-  border-radius: 10px;
-  margin-top: 8px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.08) 0%, rgba(212, 175, 55, 0.02) 100%);
+  border: 1px solid var(--bk-gold-border);
+  border-radius: 12px;
 }
-.champLogo { width: 40px; height: 40px; object-fit: contain; }
-.champTrophy { font-size: 1.2rem; }
-.champName {
-  font-size: 0.78rem; font-weight: 700; color: var(--color-text);
-  text-transform: uppercase; letter-spacing: 0.04em;
-}
+.champLogo { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.3)); }
+.champTrophy { font-size: 1.4rem; }
+.champName { font-size: 0.88rem; font-weight: 800; color: var(--bk-gold-bright); text-transform: uppercase; letter-spacing: 0.04em; }
+.champLabel { font-size: 0.52rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.10em; color: var(--bk-muted); }
 
-/* Simulation results */
-.simSection {
-  margin-top: var(--space-xl);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: var(--space-lg);
+/* ── Simulation Results Panel ── */
+.simPanel {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px 48px;
 }
-.simTitle {
-  font-size: 0.88rem; font-weight: 700; color: var(--color-text);
-  margin-bottom: var(--space-md);
+.simHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-top: 24px;
+  border-top: 1px solid var(--bk-border);
 }
-.simGrid {
+.simTitle { font-size: 1.1rem; font-weight: 700; color: var(--bk-gold-bright); }
+.simRuns { font-size: 0.62rem; font-weight: 500; color: var(--bk-muted); }
+
+.simGrid { display: flex; flex-direction: column; gap: 4px; margin-bottom: 24px; }
+
+.simRow {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: 24px 28px 1fr auto 1fr;
   gap: 10px;
-}
-.simTeam {
-  display: grid;
-  grid-template-columns: 24px auto 1fr auto;
-  gap: 8px;
   align-items: center;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 10px 14px;
+  background: var(--bk-elevated);
+  border: 1px solid var(--bk-border);
   border-radius: 8px;
+  transition: border-color 0.12s;
 }
-.simLogo { width: 24px; height: 24px; object-fit: contain; border-radius: 3px; }
-.simName { font-size: 0.72rem; font-weight: 700; color: var(--color-text); }
-.simPct { font-size: 0.72rem; font-weight: 700; color: #1d428a; font-variant-numeric: tabular-nums; }
-.simBar { height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 2px; overflow: hidden; grid-column: 1 / -1; }
-.simBarFill { height: 100%; background: linear-gradient(90deg, #1d428a, #3a7bd5); border-radius: 2px; transition: width 0.3s; }
+.simRow:hover { border-color: var(--bk-gold-border); }
+.simRowTop {
+  border-color: var(--bk-gold-border);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.06) 0%, var(--bk-elevated) 100%);
+}
 
-/* Responsive */
+.simRank { font-size: 0.68rem; font-weight: 800; color: var(--bk-muted); text-align: center; font-variant-numeric: tabular-nums; }
+.simLogo { width: 28px; height: 28px; object-fit: contain; border-radius: 3px; }
+.simName { font-size: 0.8rem; font-weight: 700; color: var(--bk-text); }
+.simPct { font-size: 0.82rem; font-weight: 800; color: var(--bk-gold); font-variant-numeric: tabular-nums; text-align: right; }
+.simBar { height: 6px; background: rgba(255, 255, 255, 0.04); border-radius: 3px; overflow: hidden; }
+.simFill { height: 100%; background: linear-gradient(90deg, var(--bk-gold), var(--bk-gold-bright)); border-radius: 3px; transition: width 0.4s ease; }
+
+/* Conference champions */
+.confChampsRow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.confChampCard {
+  background: var(--bk-elevated);
+  border: 1px solid var(--bk-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.confChampLabel {
+  display: block;
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--bk-gold);
+  margin-bottom: 10px;
+}
+.confChampTeam {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--bk-text);
+  border-bottom: 1px solid var(--bk-border);
+}
+.confChampTeam:last-child { border-bottom: none; }
+.confChampLogo { width: 22px; height: 22px; object-fit: contain; border-radius: 2px; }
+.confChampPct { margin-left: auto; font-weight: 700; color: var(--bk-gold); font-variant-numeric: tabular-nums; }
+
+/* ── Responsive ── */
 @media (max-width: 900px) {
-  .bracketGrid { min-width: auto; grid-template-columns: 1fr; gap: 24px; }
-  .roundHeaders { display: none; }
-  .confLabels { flex-direction: column; gap: 8px; }
-  .roundColSpaced, .roundColWide { gap: 16px; }
+  .bracket { min-width: auto; grid-template-columns: 1fr; gap: 20px; }
+  .roundRow { display: none; }
+  .confRow { flex-direction: column; gap: 6px; }
+  .colR2, .colCF { gap: 12px; }
+  .heroTitle { font-size: 1.4rem; }
+  .hero { padding: 32px 16px 24px; }
+  .bracketScroll { padding: 0 16px 24px; }
+  .simPanel { padding: 0 16px 32px; }
+  .confChampsRow { grid-template-columns: 1fr; }
 }
