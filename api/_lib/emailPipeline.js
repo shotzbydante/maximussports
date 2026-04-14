@@ -379,14 +379,46 @@ export async function prepareEmailPayload(type, baseUrl, recipientContext = {}) 
   if (type === 'global_briefing') {
     const digest = globalBriefingSectionDigest(emailData);
     console.log('[prepareEmailPayload] global_briefing section digest:', JSON.stringify(digest));
-    const missing = expectedHeroSections(digest);
-    if (missing.length > 0) {
-      console.warn(`[prepareEmailPayload] global_briefing MISSING hero sections: ${missing.join(', ')}`);
+    const missingDurable = expectedHeroSections(digest);
+    if (missingDurable.length > 0) {
+      console.warn(`[prepareEmailPayload] global_briefing MISSING DURABLE sections: ${missingDurable.join(', ')}`);
+    }
+    const missingDegradable = degradableHeroSections(digest);
+    if (missingDegradable.length > 0) {
+      console.log(`[prepareEmailPayload] global_briefing degradable sections unavailable: ${missingDegradable.join(', ')}`);
     }
   }
 
   return { assembled, emailData };
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * GLOBAL DAILY BRIEFING — HERO EMAIL CONTRACT
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * The Global Daily Briefing is a hero email with a formal section contract.
+ * Sections are classified into three tiers:
+ *
+ *   TIER 1 — DURABLE (always-available, must be present):
+ *     - pennantRace        (from seasonModel projections — static data)
+ *     - worldSeriesOutlook (from seasonModel projections — static data)
+ *     - leadersCategories  (from /api/mlb/leaders — ESPN, 30min cache)
+ *     - champOdds          (from /api/mlb/odds/championship — 1hr cache)
+ *
+ *   TIER 2 — HERO-CRITICAL BUT DEGRADABLE (expected when source is available,
+ *            graceful-degrade if source is truly unavailable):
+ *     - narrative          (from /api/mlb/chat/homeSummary — AI-generated)
+ *     - picks              (from /api/mlb/picks/built — canonical picks board)
+ *     - headlines          (from /api/mlb/news/headlines — Google News RSS)
+ *
+ *   TIER 3 — ADDITIVE MONETIZATION (always appended when briefing has content):
+ *     - partner module     (ACT ON TODAY'S BOARD — sportsbook CTAs)
+ *
+ * Diagnostic policy:
+ *   - Missing TIER 1 section → WARN loudly (regression signal)
+ *   - Missing TIER 2 section → INFO (may be legitimate, check source)
+ */
 
 /**
  * Returns the explicit section presence profile for a global_briefing payload.
@@ -398,9 +430,11 @@ export function globalBriefingSectionDigest(emailData) {
   const picksCount = (picks.pickEms?.length || 0) + (picks.ats?.length || 0)
                    + (picks.leans?.length || 0) + (picks.totals?.length || 0);
   return {
+    // Tier 2 — hero-critical, degradable
     hasNarrative: !!(md.narrativeParagraph && md.narrativeParagraph.length > 30),
     hasHeadlines: Array.isArray(md.headlines) && md.headlines.length > 0,
     hasPicks: picksCount > 0,
+    // Tier 1 — durable, always-available
     hasPennant: !!(emailData?.pennantRace?.al?.length && emailData?.pennantRace?.nl?.length),
     hasLeaders: !!(emailData?.leadersCategories && Object.keys(emailData.leadersCategories).length > 0),
     hasOutlook: !!(emailData?.worldSeriesOutlook?.al?.length && emailData?.worldSeriesOutlook?.nl?.length),
@@ -409,16 +443,34 @@ export function globalBriefingSectionDigest(emailData) {
 }
 
 /**
- * Returns the list of hero-email sections that should be present but are not.
- * Used for runtime diagnostics — warns if a durable section is missing.
+ * Returns the list of TIER 1 (durable) hero sections that should be present
+ * but are not. These are regression signals — missing any of these indicates
+ * a pipeline drift or upstream failure.
+ *
+ * @returns {string[]} missing durable section names
  */
 export function expectedHeroSections(digest) {
   const missing = [];
-  // Durable sections (always-available) — MUST be present
   if (!digest.hasPennant) missing.push('pennantRace');
   if (!digest.hasOutlook) missing.push('worldSeriesOutlook');
   if (!digest.hasLeaders) missing.push('leadersCategories');
   if (!digest.hasChampOdds) missing.push('champOdds');
+  return missing;
+}
+
+/**
+ * Returns the list of TIER 2 (degradable) hero sections that are missing.
+ * Missing Tier 2 sections are expected when their canonical source is truly
+ * unavailable (e.g., narrative API down, no picks for the slate, no headlines).
+ * Emitted as INFO, not WARN.
+ *
+ * @returns {string[]} missing degradable section names
+ */
+export function degradableHeroSections(digest) {
+  const missing = [];
+  if (!digest.hasNarrative) missing.push('narrative');
+  if (!digest.hasPicks) missing.push('picks');
+  if (!digest.hasHeadlines) missing.push('headlines');
   return missing;
 }
 

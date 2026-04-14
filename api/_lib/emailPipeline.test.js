@@ -9,7 +9,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildEmailData, globalBriefingSectionDigest, expectedHeroSections } from './emailPipeline.js';
+import {
+  buildEmailData, globalBriefingSectionDigest, expectedHeroSections, degradableHeroSections,
+} from './emailPipeline.js';
 import { renderHTML as renderGlobalBriefingHTML } from '../../src/emails/templates/globalBriefing.js';
 
 // ── Mock data matching what assembleEmailData() returns ────────────
@@ -19,8 +21,22 @@ const MOCK_MLB_DATA = {
   headlines: [{ title: 'MLB Power Rankings', link: '#', source: 'ESPN' }],
   picksBoard: {
     categories: {
-      pickEms: [{ id: '1', matchup: {}, pick: { label: 'PHI -135' }, confidence: 'high' }],
-      ats: [], leans: [], totals: [],
+      pickEms: [{
+        id: '1',
+        matchup: { awayTeam: { slug: 'ari', shortName: 'ARI' }, homeTeam: { slug: 'phi', shortName: 'PHI' } },
+        pick: { label: 'PHI -135', side: 'home', explanation: 'Model favors Phillies with a 28.9% edge.' },
+        confidence: 'high',
+        confidenceScore: 85,
+      }],
+      ats: [{
+        id: '2',
+        matchup: { awayTeam: { slug: 'cws', shortName: 'CWS' }, homeTeam: { slug: 'kc', shortName: 'KC' } },
+        pick: { label: 'KC -1.5', side: 'home', explanation: 'Model favors KC to cover the run line.' },
+        confidence: 'high',
+        confidenceScore: 90,
+      }],
+      leans: [],
+      totals: [],
     },
   },
   pennantRace: {
@@ -147,6 +163,7 @@ describe('Global Briefing: rendered HTML section contract', () => {
     // Explicit section header assertions — these are the hero-email contract
     expect(html).toContain('MLB DAILY INTELLIGENCE');
     expect(html).toContain('PENNANT RACE SNAPSHOT');
+    expect(html).toContain("MAXIMUS'S PICKS"); // Tier 2 hero-critical
     expect(html).toContain('SEASON LEADERS');
     expect(html).toContain('WORLD SERIES OUTLOOK');
     expect(html).toContain('HEADLINES');
@@ -255,6 +272,7 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
     const sections = [
       'MLB DAILY INTELLIGENCE',
       'PENNANT RACE SNAPSHOT',
+      "MAXIMUS'S PICKS",
       'SEASON LEADERS',
       'WORLD SERIES OUTLOOK',
       'HEADLINES',
@@ -264,6 +282,75 @@ describe('Global Briefing: prod/test parity (same input → same output)', () =>
       expect(prodHtml.includes(section)).toBe(true);
       expect(testHtml.includes(section)).toBe(true);
     }
+  });
+});
+
+describe("Global Briefing: MAXIMUS'S PICKS contract (Tier 2 degradable)", () => {
+  it('renders picks section when canonical picks source is available', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).toContain("MAXIMUS'S PICKS");
+    // Mock pick labels should render
+    expect(html).toContain('PHI -135');
+    expect(html).toContain('KC -1.5');
+  });
+
+  it('digest reports hasPicks=true when board has picks', () => {
+    const emailData = buildEmailData('global_briefing', fullAssembled(), { displayName: 'Test' });
+    const digest = globalBriefingSectionDigest(emailData);
+    expect(digest.hasPicks).toBe(true);
+  });
+
+  it('gracefully degrades when picks source is null (still renders durable sections)', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.picksBoard = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    // Picks section should be absent
+    expect(html).not.toContain("MAXIMUS'S PICKS");
+    // Durable sections must still be present
+    expect(html).toContain('PENNANT RACE SNAPSHOT');
+    expect(html).toContain('SEASON LEADERS');
+    expect(html).toContain('WORLD SERIES OUTLOOK');
+    // Hero email still has substantive content — partner module should render
+    expect(html).toContain('ACT ON TODAY');
+  });
+
+  it('gracefully degrades when picks categories are all empty', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.picksBoard = { categories: { pickEms: [], ats: [], leans: [], totals: [] } };
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const html = renderGlobalBriefingHTML(emailData);
+
+    expect(html).not.toContain("MAXIMUS'S PICKS");
+    expect(html).toContain('PENNANT RACE SNAPSHOT');
+  });
+
+  it('missing picks is reported via degradableHeroSections (not expectedHeroSections)', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.picksBoard = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const digest = globalBriefingSectionDigest(emailData);
+
+    // Picks is NOT in the durable list — missing it must NOT fail the strict contract
+    expect(expectedHeroSections(digest)).toEqual([]);
+    // But it IS reported as a degradable gap for diagnostics
+    expect(degradableHeroSections(digest)).toContain('picks');
+  });
+
+  it('durable sections missing still reports via expectedHeroSections (stricter than picks)', () => {
+    const assembled = fullAssembled();
+    assembled.mlbData.pennantRace = null;
+    assembled.mlbData.worldSeriesOutlook = null;
+    const emailData = buildEmailData('global_briefing', assembled, { displayName: 'Test' });
+    const digest = globalBriefingSectionDigest(emailData);
+
+    // Durable misses trigger the strict contract
+    const missingDurable = expectedHeroSections(digest);
+    expect(missingDurable).toContain('pennantRace');
+    expect(missingDurable).toContain('worldSeriesOutlook');
   });
 });
 
