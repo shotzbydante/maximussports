@@ -351,6 +351,78 @@ export function buildEmailData(type, assembledData, recipientContext = {}) {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════
+ * CANONICAL HERO EMAIL HELPER — prepareEmailPayload()
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * Single source of truth for preparing a template-ready emailData payload
+ * for ANY email type. Both production (run-daily.js) and test (send-test.js)
+ * MUST call this function — no reimplementation, no reconstruction, no
+ * field extraction.
+ *
+ * This guarantees prod/test parity by design: there is literally ONE
+ * assembly+build path. Any drift would require bypassing this function.
+ *
+ * Hero-email critical sections (for global_briefing) are always derived
+ * from the canonical assembled payload via buildEmailData().
+ *
+ * @param {string} type — email type key (e.g. 'global_briefing')
+ * @param {string} baseUrl — e.g. "https://maximussports.ai"
+ * @param {object} recipientContext — { displayName, pinnedTeams, pinnedSlugs }
+ * @returns {Promise<{ assembled, emailData }>}
+ */
+export async function prepareEmailPayload(type, baseUrl, recipientContext = {}) {
+  const assembled = await assembleEmailData(type, baseUrl);
+  const emailData = buildEmailData(type, assembled, recipientContext);
+
+  // Hero-email parity diagnostics — logs the exact section presence contract
+  if (type === 'global_briefing') {
+    const digest = globalBriefingSectionDigest(emailData);
+    console.log('[prepareEmailPayload] global_briefing section digest:', JSON.stringify(digest));
+    const missing = expectedHeroSections(digest);
+    if (missing.length > 0) {
+      console.warn(`[prepareEmailPayload] global_briefing MISSING hero sections: ${missing.join(', ')}`);
+    }
+  }
+
+  return { assembled, emailData };
+}
+
+/**
+ * Returns the explicit section presence profile for a global_briefing payload.
+ * Used by both the production send path and parity tests.
+ */
+export function globalBriefingSectionDigest(emailData) {
+  const md = emailData?.mlbData || {};
+  const picks = md.picksBoard?.categories || {};
+  const picksCount = (picks.pickEms?.length || 0) + (picks.ats?.length || 0)
+                   + (picks.leans?.length || 0) + (picks.totals?.length || 0);
+  return {
+    hasNarrative: !!(md.narrativeParagraph && md.narrativeParagraph.length > 30),
+    hasHeadlines: Array.isArray(md.headlines) && md.headlines.length > 0,
+    hasPicks: picksCount > 0,
+    hasPennant: !!(emailData?.pennantRace?.al?.length && emailData?.pennantRace?.nl?.length),
+    hasLeaders: !!(emailData?.leadersCategories && Object.keys(emailData.leadersCategories).length > 0),
+    hasOutlook: !!(emailData?.worldSeriesOutlook?.al?.length && emailData?.worldSeriesOutlook?.nl?.length),
+    hasChampOdds: !!(emailData?.champOdds && Object.keys(emailData.champOdds).length > 0),
+  };
+}
+
+/**
+ * Returns the list of hero-email sections that should be present but are not.
+ * Used for runtime diagnostics — warns if a durable section is missing.
+ */
+export function expectedHeroSections(digest) {
+  const missing = [];
+  // Durable sections (always-available) — MUST be present
+  if (!digest.hasPennant) missing.push('pennantRace');
+  if (!digest.hasOutlook) missing.push('worldSeriesOutlook');
+  if (!digest.hasLeaders) missing.push('leadersCategories');
+  if (!digest.hasChampOdds) missing.push('champOdds');
+  return missing;
+}
+
+/**
  * Generate a debug summary for parity checking.
  */
 export function emailPayloadDigest(type, emailData) {

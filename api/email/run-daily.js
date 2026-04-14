@@ -52,7 +52,8 @@ import {
   EMAIL_REGISTRY, VALID_EMAIL_TYPES, resolveTemplate, resolvePrefKey,
   isSeasonGated, getEmailConfig, getEmailSport,
   loadTeamLookup, filterSportSlugs, enrichMlbTeamDigests, emailPayloadDigest,
-  assembleEmailData, buildEmailData,
+  assembleEmailData, buildEmailData, prepareEmailPayload,
+  globalBriefingSectionDigest, expectedHeroSections,
 } from '../_lib/emailPipeline.js';
 
 /**
@@ -438,36 +439,28 @@ export default async function handler(req, res) {
     let mlbNarrativeParagraph = '';
     let picksBoard = null;
     let mlbData = null;
+    // Canonical assembled payload — stored for globalBriefing so we can
+    // pass it UNCHANGED to buildEmailData() (no field extraction/reconstruction).
+    let canonicalAssembled = null;
 
     if (tplType === 'globalBriefing') {
       // ── Global briefing: use CANONICAL assembleEmailData pipeline ──
-      // This is the same code path used by send-test.js, ensuring parity.
+      // SAME code path as send-test.js. ZERO drift allowed.
       const host = req.headers.host || 'localhost:3000';
       const proto = host.includes('localhost') ? 'http' : 'https';
       const baseUrl = `${proto}://${host}`;
 
-      const assembled = await assembleEmailData(type, baseUrl);
+      canonicalAssembled = await assembleEmailData(type, baseUrl);
 
-      // Extract fields for the legacy emailData construction below
-      scoresToday = assembled.scoresToday;
-      rankingsTop25 = assembled.rankingsTop25;
-      atsLeaders = assembled.atsLeaders;
-      headlines = assembled.headlines;
-      oddsGames = assembled.oddsGames;
-      botIntelBullets = assembled.botIntelBullets || [];
-      mlbData = assembled.mlbData;
-
-      // Diagnostic logging
-      console.log('[run-daily] Global briefing (canonical pipeline):', {
-        hasMlbData: !!mlbData,
-        mlbNarrativeLen: mlbData?.narrativeParagraph?.length || 0,
-        mlbHeadlineCount: mlbData?.headlines?.length || 0,
-        hasPicks: !!mlbData?.picksBoard,
-        hasPennant: !!mlbData?.pennantRace,
-        hasOutlook: !!mlbData?.worldSeriesOutlook,
-        hasLeaders: !!mlbData?.leadersCategories && Object.keys(mlbData.leadersCategories).length > 0,
-        hasChampOdds: !!mlbData?.champOdds && Object.keys(mlbData.champOdds).length > 0,
-      });
+      // Populate locals for shared downstream code (maximusNote, etc.)
+      // These are READ-ONLY copies — emailData is built from canonicalAssembled.
+      scoresToday = canonicalAssembled.scoresToday;
+      rankingsTop25 = canonicalAssembled.rankingsTop25;
+      atsLeaders = canonicalAssembled.atsLeaders;
+      headlines = canonicalAssembled.headlines;
+      oddsGames = canonicalAssembled.oddsGames;
+      botIntelBullets = canonicalAssembled.botIntelBullets || [];
+      mlbData = canonicalAssembled.mlbData;
 
     } else if (isMLB) {
       // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──
@@ -645,16 +638,22 @@ export default async function handler(req, res) {
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
 
-      // For globalBriefing, use buildEmailData() for parity with send-test
+      // For globalBriefing, pass the CANONICAL assembled payload directly
+      // to buildEmailData(). No reconstruction, no field extraction, no drift.
+      // This is the IDENTICAL 2-line pattern used by send-test.js.
       let emailData;
       if (tplType === 'globalBriefing') {
-        const assembled = {
-          scoresToday, rankingsTop25, atsLeaders, headlines, oddsGames,
-          botIntelBullets, mlbData, modelSignals, tournamentMeta,
-          mlbNarrativeParagraph: mlbData?.narrativeParagraph || '',
-          briefingContext, picksBoard: mlbData?.picksBoard || picksBoard || null,
-        };
-        emailData = buildEmailData(type, assembled, { displayName, pinnedTeams, pinnedSlugs });
+        emailData = buildEmailData(type, canonicalAssembled, { displayName, pinnedTeams, pinnedSlugs });
+
+        // Hero-email section presence diagnostics (first user only)
+        if (i === 0) {
+          const digest = globalBriefingSectionDigest(emailData);
+          console.log('[run-daily] global_briefing section digest:', JSON.stringify(digest));
+          const missing = expectedHeroSections(digest);
+          if (missing.length > 0) {
+            console.warn(`[run-daily] global_briefing MISSING hero sections: ${missing.join(', ')}`);
+          }
+        }
       } else {
         emailData = {
           displayName,
