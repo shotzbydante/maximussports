@@ -14,10 +14,10 @@
  *   subhead      → Slide 2 subhead (1 sentence, ≤ 95 chars)
  */
 
-import { MLB_TEAMS } from '../../../sports/mlb/teams';
-import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { buildGameWhyItMatters, buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters';
-import { parseBriefingToIntel } from './normalizeMlbImagePayload';
+import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
+import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
+import { buildGameWhyItMatters, buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters.js';
+import { parseBriefingToIntel } from './normalizeMlbImagePayload.js';
 
 // ── Team metadata maps ──────────────────────────────────────────────────
 
