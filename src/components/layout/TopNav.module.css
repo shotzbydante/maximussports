@@ -5,20 +5,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 var(--space-lg);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
   position: sticky;
   top: 0;
   z-index: 100;
   color: rgba(255, 255, 255, 0.85);
+  min-width: 0;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  flex-shrink: 0;
-  margin-right: var(--space-lg);
+  flex-shrink: 1;
+  min-width: 0;
+  margin-right: var(--space-md);
 }
 
 .brandLink {
@@ -144,6 +147,8 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .navItem {
@@ -260,23 +265,57 @@
   line-height: 1.2;
 }
 
-@media (max-width: 768px) {
-  .brandLogo {
-    height: 54px;
-    max-height: 58px;
-    max-width: 340px;
-  }
+/* ─── Progressive compression for narrower desktop / laptop widths ─── */
+
+/* ≤1599px: hide the tagline text. Premium polish on 13"/14" MacBooks. */
+@media (max-width: 1599px) {
   .brandTagline {
     display: none;
   }
   .brandTaglineCluster {
-    gap: 4px;
+    gap: 6px;
     padding-left: var(--space-sm);
+    margin-left: 4px;
   }
-  .badgeFree,
-  .badgePro {
-    font-size: 0.54rem;
-    padding: 1px 6px;
+}
+
+/* ≤1439px: tighten nav link padding/size, shrink brand margin. */
+@media (max-width: 1439px) {
+  .topnav {
+    padding: 0 var(--space-md);
+    gap: 10px;
+  }
+  .brand {
+    margin-right: var(--space-sm);
+    gap: var(--space-sm);
+  }
+  .link {
+    padding: 5px 10px;
+    font-size: 0.76rem;
+  }
+  .nav {
+    gap: 1px;
+  }
+}
+
+/* ≤1339px: further compress — collapse workspace badge to icon only. */
+@media (max-width: 1339px) {
+  .workspaceBadge {
+    padding: 2px 5px;
+    font-size: 0;
+    gap: 0;
+  }
+  .link {
+    padding: 5px 8px;
+    font-size: 0.74rem;
+  }
+}
+
+/* ≤1279px: switch to hamburger mode. 13" MBP default (1280) sits above this.
+   Below 1280, the desktop nav + sidebar can't fit cleanly, so go tablet-style. */
+@media (max-width: 1279px) {
+  .brandTaglineCluster {
+    display: none;
   }
   .hamburger {
     display: flex;
@@ -286,6 +325,32 @@
   }
   .navOverlay {
     display: block;
+  }
+}
+
+/* ≤768px: mobile — further compress brand. */
+@media (max-width: 768px) {
+  .topnav {
+    padding: 0 var(--space-md);
+  }
+  .brandWordmarkMain {
+    font-size: 0.82rem;
+  }
+  .brandWordmarkSub {
+    font-size: 0.46rem;
+  }
+  .brandMascot {
+    width: 32px;
+    height: 32px;
+  }
+  .brand {
+    margin-right: 0;
+    gap: var(--space-sm);
+  }
+  .badgeFree,
+  .badgePro {
+    font-size: 0.54rem;
+    padding: 1px 6px;
   }
 }
 
@@ -383,7 +448,7 @@
   color: #5a9ee6 !important;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1280px) {
   .navOverlay {
     display: none !important;
   }
