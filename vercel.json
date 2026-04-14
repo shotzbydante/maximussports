@@ -9,7 +9,7 @@
       "maxDuration": 120
     },
     "api/social/instagram/autopost-mlb-daily.js": {
-      "maxDuration": 180,
+      "maxDuration": 300,
       "memory": 1024
     },
     "api/email/run-daily.js": {
