@@ -18,6 +18,7 @@
  */
 
 import puppeteerCore from 'puppeteer-core';
+import sharp from 'sharp';
 
 const SLIDE_W = 1080;
 const SLIDE_H = 1350;
@@ -39,6 +40,11 @@ const READY_POLL_INTERVAL = 250;
 // (which has no system fonts) renders text identically to the dashboard.
 const INTER_FONT_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
 `;
 
 /**
@@ -206,14 +212,25 @@ export async function renderSlidesWithBrowser(baseUrl, data, log) {
         throw new Error(`Slide ${i} element not found in render page`);
       }
 
-      const png = await element.screenshot({
+      const rawPng = await element.screenshot({
         type: 'png',
         clip: undefined, // Let Puppeteer use the element's bounding box
       });
 
-      const buffer = Buffer.from(png);
+      // Puppeteer captures at 2x DPR (2160×2700). Downscale to exactly 1080×1350
+      // using Lanczos3 interpolation for razor-sharp text and gradients.
+      // Without this, Instagram receives an oversized image and applies its own
+      // lower-quality downscaling, causing visible blur on text and logos.
+      const buffer = await sharp(Buffer.from(rawPng))
+        .resize(SLIDE_W, SLIDE_H, {
+          fit: 'cover',
+          kernel: sharp.kernel.lanczos3,
+        })
+        .png({ compressionLevel: 1, quality: 100 })
+        .toBuffer();
+
       slideBuffers.push(buffer);
-      log.info(`slide ${i} captured: ${(buffer.length / 1024).toFixed(0)}KB`);
+      log.info(`slide ${i} captured: raw=${(rawPng.length / 1024).toFixed(0)}KB → downscaled=${(buffer.length / 1024).toFixed(0)}KB (${SLIDE_W}×${SLIDE_H})`);
     }
 
     log.info(`all ${SLIDE_COUNT} slides captured successfully`);

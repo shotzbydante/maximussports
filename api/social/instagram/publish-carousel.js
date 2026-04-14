@@ -191,6 +191,15 @@ export default async function handler(req, res) {
   };
 
   log.info(`carousel publish start: ${imageUrls.length} images, caption_length=${caption.length}`);
+  // ── IMAGE QUALITY DIAGNOSTIC: HEAD-check each image for size ──
+  for (let i = 0; i < imageUrls.length; i++) {
+    try {
+      const headRes = await fetch(imageUrls[i], { method: 'HEAD' });
+      const contentLength = headRes.headers.get('content-length');
+      const contentType = headRes.headers.get('content-type');
+      log.info(`[IMAGE_UPLOAD_METADATA] slide=${i + 1} format=${contentType} sizeKB=${contentLength ? (Number(contentLength) / 1024).toFixed(0) : '?'}`);
+    } catch { /* non-blocking */ }
+  }
   // ── TRACE: log the EXACT caption received by publish-carousel ──
   log.info(`[CAPTION_RECEIVED_BY_PUBLISH] chars=${caption.length}`);
   log.info(`[CAPTION_RECEIVED_FULL]\n${caption}`);

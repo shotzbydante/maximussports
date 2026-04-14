@@ -46,6 +46,9 @@
   position: relative; width: 1080px; height: 1350px;
   overflow: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   display: flex; flex-direction: column;
   color: #fff;
 }
@@ -873,9 +876,9 @@
 /* ── Season Leaders — glass with red accent border, fills remaining height ── */
 .slide2LeadersSection {
   position: relative; z-index: 10;
-  margin-top: 8px;
+  margin-top: 10px;
   border-radius: 18px;
-  padding: 6px 12px 6px;
+  padding: 8px 14px 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
   border: 1.5px solid rgba(220,60,80,0.38);
   box-shadow:
@@ -891,8 +894,8 @@
 .slide2LeadersGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin-top: 5px;
+  gap: 10px;
+  margin-top: 6px;
   flex: 1;
 }
 /* Wins/Saves row: first two columns */
@@ -904,63 +907,65 @@
 }
 .slide2LeaderCategory {
   border-radius: 10px;
-  padding: 4px 8px 4px;
+  padding: 6px 10px 6px;
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.10);
   display: flex; flex-direction: column;
   justify-content: flex-start;
 }
 .slide2LeaderCatHeader {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 2px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  padding-bottom: 2px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  padding-bottom: 3px;
 }
 .slide2LeaderCatLabel {
-  font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
+  font-size: 14px; font-weight: 800; letter-spacing: 0.6px;
   color: rgba(255,255,255,0.97);
   text-transform: uppercase;
 }
 .slide2LeaderCatAbbrev {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.4px;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.4px;
   color: rgba(255,220,140,0.96);
 }
 .slide2LeaderRows {
   display: flex; flex-direction: column;
   flex: 1;
-  justify-content: space-between;
+  justify-content: space-evenly;
+  gap: 1px;
 }
 .slide2LeaderRow {
   display: flex; align-items: center;
   gap: 6px;
-  font-size: 18px; line-height: 1.2;
-  padding: 2px 0;
+  font-size: 16px; line-height: 1.15;
+  padding: 3px 0;
 }
 .slide2LeaderRank {
   width: 16px; text-align: center;
-  font-size: 14px; font-weight: 800;
-  color: rgba(255,255,255,0.50);
+  font-size: 13px; font-weight: 800;
+  color: rgba(255,255,255,0.45);
   flex-shrink: 0;
 }
 .slide2LeaderTeamLogo {
-  width: 22px; height: 22px;
+  width: 24px; height: 24px;
   object-fit: contain;
   flex-shrink: 0;
-  opacity: 0.92;
+  opacity: 0.94;
 }
 .slide2LeaderName {
   flex: 1;
   font-weight: 700;
-  font-size: 18px;
-  color: rgba(255,255,255,0.94);
+  font-size: 17px;
+  color: rgba(255,255,255,0.95);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .slide2LeaderValue {
   font-weight: 900;
-  font-size: 24px;
+  font-size: 22px;
   color: rgba(255,225,170,1);
-  min-width: 32px; text-align: right;
+  min-width: 30px; text-align: right;
   flex-shrink: 0;
+  margin-left: auto;
 }
 .slide2LeadersEmpty {
   flex: 1;
