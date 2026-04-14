@@ -164,7 +164,7 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
   // ── Stat band ──
   const statBand = [];
   if (projection) {
-    statBand.push({ label: 'MAXIMUS PROJ.', value: String(projection.projectedWins) });
+    statBand.push({ label: 'MAXIMUS MODEL PROJECTED WINS', value: String(projection.projectedWins) });
     statBand.push({ label: 'RANGE', value: `${projection.floor}\u2013${projection.ceiling}` });
     if (wsOdds != null) {
       statBand.push({ label: 'WS ODDS', value: fmtOdds(wsOdds) || '\u2014' });
@@ -277,17 +277,18 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
             <div className={styles.briefingTitle}>TEAM INTEL BRIEFING</div>
             <div className={styles.briefingAccent} />
           </div>
-          <ol className={styles.briefingList}>
+          <div className={styles.briefingList}>
             {briefing.items.map((item, i) => (
-              <li key={i} className={styles.briefingItem}>
+              <div key={i} className={styles.briefingItem}>
+                <span className={styles.bulletMarker} aria-hidden="true" />
                 {/* Inline opponent logo for recent/next game items */}
                 {item.oppSlug && (item.type === 'recent' || item.type === 'next') && (
                   <OppLogo slug={item.oppSlug} />
                 )}
                 <span className={styles.briefingText}>{item.text}</span>
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
       )}
 
