@@ -232,6 +232,103 @@ export function resolveFullNbaBracket(allMatchups, context = {}) {
 }
 
 /**
+ * Sample a probabilistic series outcome (not deterministic).
+ * Returns { winner, loser, winsA, winsB, seriesLength, seriesCall }.
+ */
+export function sampleSeriesOutcome(teamA, teamB, context = {}) {
+  if (!teamA || !teamB || teamA.isPlaceholder || teamB.isPlaceholder) return null;
+
+  const { gameWinProb } = computeGameWinProb(teamA, teamB, context);
+
+  // Simulate best-of-7 game by game
+  let wA = 0, wB = 0;
+  while (wA < 4 && wB < 4) {
+    if (Math.random() < gameWinProb) wA++;
+    else wB++;
+  }
+
+  const winner = wA === 4 ? teamA : teamB;
+  const loser = wA === 4 ? teamB : teamA;
+  const seriesLength = wA + wB;
+  const winnerWins = wA === 4 ? wA : wB;
+  const loserWins = wA === 4 ? wB : wA;
+  const seriesCall = `${winner.shortName || winner.name} in ${seriesLength}`;
+  const seriesScore = `${winnerWins}-${loserWins}`;
+
+  // Confidence from deterministic model for display
+  const sp = seriesWinProb(gameWinProb);
+  const winProb = wA === 4 ? sp : 1 - sp;
+  let confidenceLabel;
+  if (Math.max(sp, 1 - sp) >= 0.72) confidenceLabel = 'HIGH';
+  else if (Math.max(sp, 1 - sp) >= 0.58) confidenceLabel = 'MEDIUM';
+  else confidenceLabel = 'LOW';
+
+  return {
+    winner,
+    loser,
+    winProbability: winProb,
+    seriesCall,
+    seriesLength,
+    seriesScore,
+    topWins: wA,
+    bottomWins: wB,
+    confidenceLabel,
+    isUpset: winner.seed != null && loser.seed != null && winner.seed > loser.seed,
+  };
+}
+
+/**
+ * Simulate a single round — only matchups in the given round.
+ * Returns { picks, results } for that round only.
+ */
+export function simulateRound(allMatchups, round, context = {}) {
+  const picks = {};
+  const results = {};
+  const roundMatchups = Object.values(allMatchups).filter(m => m.round === round);
+
+  for (const m of roundMatchups) {
+    if (!m.topTeam || !m.bottomTeam || m.topTeam.isPlaceholder || m.bottomTeam.isPlaceholder) continue;
+    const outcome = sampleSeriesOutcome(m.topTeam, m.bottomTeam, context);
+    if (!outcome) continue;
+    picks[m.matchupId] = outcome.winner === m.topTeam ? 'top' : 'bottom';
+    results[m.matchupId] = outcome;
+  }
+
+  return { picks, results };
+}
+
+/**
+ * Simulate all unresolved rounds from current bracket state.
+ * Preserves existing picks/results, fills remaining rounds through Finals.
+ * @param {Object} rawBracket - base bracket scaffold
+ * @param {Object} existingPicks - already-locked picks
+ * @param {Function} applyFn - applyPicksToBracket function
+ * @param {Object} context - enrichment context
+ * @returns {{ picks, results }}
+ */
+export function simulateRemainingBracket(rawBracket, existingPicks, applyFn, context = {}) {
+  const allPicks = { ...existingPicks };
+  const allResults = {};
+
+  for (let round = 1; round <= 4; round++) {
+    const current = applyFn(rawBracket, allPicks);
+    const roundMatchups = Object.values(current).filter(m => m.round === round);
+
+    for (const m of roundMatchups) {
+      if (allPicks[m.matchupId]) continue;
+      if (!m.topTeam || !m.bottomTeam || m.topTeam.isPlaceholder || m.bottomTeam.isPlaceholder) continue;
+
+      const outcome = sampleSeriesOutcome(m.topTeam, m.bottomTeam, context);
+      if (!outcome) continue;
+      allPicks[m.matchupId] = outcome.winner === m.topTeam ? 'top' : 'bottom';
+      allResults[m.matchupId] = outcome;
+    }
+  }
+
+  return { picks: allPicks, results: allResults };
+}
+
+/**
  * Run Monte Carlo simulation of the full bracket.
  * Returns championship probabilities for each team.
  *
