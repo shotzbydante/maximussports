@@ -229,16 +229,42 @@ function dailyCaption(payload) {
   }
   parts.push('');
 
-  // ── 4. WHY IT MATTERS — story signals from subhead ──
-  if (dynamicHL.subhead) {
-    parts.push('📈 Why it matters:');
-    parts.push(dynamicHL.subhead);
-    const extraBullets = usedBullets.slice(4).filter(b => b?.text && /GB|division|lead|race|gap|game/i.test(b.text));
-    for (const eb of extraBullets.slice(0, 1)) {
-      parts.push(eb.text);
+  // ── 4. WHY IT MATTERS — real insight from signal engine, NOT score recap ──
+  // Uses the same signal objects attached to topStory/secondStory by
+  // buildGameWhyItMatters() — the identical engine the slides consume.
+  parts.push('📈 Why it matters:');
+  const topSignal = dynamicHL.topStory?.signal;
+  const secondSignal = dynamicHL.secondStory?.signal;
+
+  if (topSignal?.long) {
+    // Primary insight — standings implications, momentum, race context
+    parts.push(topSignal.long);
+    // Layer in second insight if it's high-priority and different type
+    if (secondSignal?.long && secondSignal.priority >= 70 && secondSignal.type !== topSignal.type) {
+      parts.push(secondSignal.long);
     }
-    parts.push('');
+  } else if (dynamicHL.topStory) {
+    // Signal engine returned null → build contextual insight from game type
+    const story = dynamicHL.topStory;
+    const winName = nameFromSlug(story.winSlug);
+    const loseName = nameFromSlug(story.loseSlug);
+    if (story.type === 'shutout') {
+      parts.push(`A shutout reinforces elite pitching depth. ${winName} blank ${loseName} — the kind of dominance that defines October contenders.`);
+    } else if (story.type === 'blowout') {
+      parts.push(`A statement win. ${winName} send a message with a ${story.margin}-run margin — this kind of offensive explosion shifts momentum.`);
+    } else if (story.isUpset) {
+      parts.push(`An upset that tightens the race. ${loseName} stumble against a team they should beat — the rest of the division gains ground.`);
+    } else if (story.isDivisionRival) {
+      parts.push(`A divisional result with real standings weight. Every head-to-head in this race carries double implications.`);
+    } else if (story.isContender) {
+      parts.push(`Contenders banking wins against the field is how you build separation. ${winName} protect their position.`);
+    } else {
+      parts.push(`Results across the league shape the standings picture. Every win and loss moves the needle this deep into the season.`);
+    }
+  } else {
+    parts.push('Today\'s results will shift the standings picture across both leagues.');
   }
+  parts.push('');
 
   // ── 5. MAXIMUS'S PICKS — MANDATORY, all 3 with ▸ markers ──
   const pickCats = payload.mlbPicks?.categories || payload.canonicalPicks?.categories || {};

@@ -437,6 +437,16 @@ export default async function handler(req, res) {
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);
     const captionText = hashtags.length > 0 ? `${shortCaption}\n\n${hashtags.join(' ')}` : shortCaption;
 
+    // Diagnostic: confirm data presence for caption debugging
+    const diag = {
+      leaderCatKeys: Object.keys(mlbLeaders?.categories || {}),
+      pickCatKeys: Object.keys(mlbPicks?.categories || {}),
+      pickEmCount: (mlbPicks?.categories?.pickEms || []).length,
+      atsCount: (mlbPicks?.categories?.ats || []).length,
+      totalsCount: (mlbPicks?.categories?.totals || []).length,
+      leadersHasHomeRuns: !!mlbLeaders?.categories?.homeRuns?.leaders?.length,
+    };
+
     return res.status(200).json({
       ok: true, mode: 'preview', requestId, dateKey, dateLabel,
       alreadyPosted, existing: existing ? { id: existing.id, permalink: existing.permalink } : null,
@@ -450,6 +460,7 @@ export default async function handler(req, res) {
       slideCount: 3,
       wouldPublish: !alreadyPosted,
       liveGameCount: liveGames.length,
+      captionDiagnostics: diag,
       durationMs: Date.now() - startTs,
     });
   }
@@ -553,7 +564,10 @@ export default async function handler(req, res) {
       fetchStandings(baseUrl, log),
       fetchPicks(baseUrl, log),
     ]);
-    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${Object.keys(mlbLeaders?.categories || {}).length} leader cats, ${Object.keys(mlbStandings).length} standings, ${Object.keys(mlbPicks?.categories || {}).length} pick cats`);
+    const leaderCatKeys = Object.keys(mlbLeaders?.categories || {});
+    const pickCatKeys = Object.keys(mlbPicks?.categories || {});
+    const pickCounts = pickCatKeys.map(k => `${k}:${(mlbPicks.categories[k] || []).length}`);
+    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${leaderCatKeys.length} leader cats [${leaderCatKeys.join(',')}], ${Object.keys(mlbStandings).length} standings, picks [${pickCounts.join(',')}]`);
   } catch (e) {
     log.error('data assembly failed:', e.message);
     if (mode === 'live' || mode === 'force') await persistFailure('data_assembly', e.message);
