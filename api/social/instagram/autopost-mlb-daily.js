@@ -41,6 +41,9 @@ import { stripEmojis, fmtOdds } from '../../../src/components/dashboard/slides/m
 import { renderSlidesWithBrowser } from '../../_lib/mlbBrowserRenderer.js';
 import { renderSlide1, renderSlide2, renderSlide3 } from '../../_lib/mlbSlideRenderer.js';
 
+// ── Caption version stamp (visible in logs + diagnostics for tracing) ────
+const CAPTION_VERSION = 'v4-traced';
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const CONTENT_TYPE = 'mlb-daily-briefing';
@@ -102,6 +105,24 @@ function trim(text, max = 80) {
   const sentEnd = s.lastIndexOf('.', max);
   if (sentEnd > max * 0.5) return s.slice(0, sentEnd + 1);
   return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
+}
+
+// ── Shared caption diagnostics builder ─────────────────────────────────────
+
+function buildCaptionDiagnostics(mlbPicks, mlbLeaders, captionText) {
+  return {
+    captionVersion: CAPTION_VERSION,
+    leaderCatKeys: Object.keys(mlbLeaders?.categories || {}),
+    pickCatKeys: Object.keys(mlbPicks?.categories || {}),
+    pickEmCount: (mlbPicks?.categories?.pickEms || []).length,
+    atsCount: (mlbPicks?.categories?.ats || []).length,
+    totalsCount: (mlbPicks?.categories?.totals || []).length,
+    leadersHasHomeRuns: !!mlbLeaders?.categories?.homeRuns?.leaders?.length,
+    leaderFirstName: mlbLeaders?.categories?.homeRuns?.leaders?.[0]?.name || 'NONE',
+    captionHasFallbackPicks: captionText.includes('picks return tomorrow'),
+    captionHasFallbackLeaders: captionText.includes('leaders update daily'),
+    captionLength: captionText.length,
+  };
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -438,16 +459,7 @@ export default async function handler(req, res) {
     const captionText = hashtags.length > 0 ? `${shortCaption}\n\n${hashtags.join(' ')}` : shortCaption;
 
     // Diagnostic: confirm data presence for caption debugging
-    const diag = {
-      captionVersion: 'v3-unified-resolvers',
-      leaderCatKeys: Object.keys(mlbLeaders?.categories || {}),
-      pickCatKeys: Object.keys(mlbPicks?.categories || {}),
-      pickEmCount: (mlbPicks?.categories?.pickEms || []).length,
-      atsCount: (mlbPicks?.categories?.ats || []).length,
-      totalsCount: (mlbPicks?.categories?.totals || []).length,
-      leadersHasHomeRuns: !!mlbLeaders?.categories?.homeRuns?.leaders?.length,
-      leaderFirstName: mlbLeaders?.categories?.homeRuns?.leaders?.[0]?.name || 'NONE',
-    };
+    const diag = buildCaptionDiagnostics(mlbPicks, mlbLeaders, captionText);
 
     return res.status(200).json({
       ok: true, mode: 'preview', requestId, dateKey, dateLabel,
@@ -589,6 +601,7 @@ export default async function handler(req, res) {
 
   // ── Build caption ──
   let captionText;
+  let liveDiag = null;
   try {
     const captionPayload = {
       section: 'daily-briefing',
@@ -609,7 +622,12 @@ export default async function handler(req, res) {
 
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);
     captionText = hashtags.length > 0 ? `${shortCaption}\n\n${hashtags.join(' ')}` : shortCaption;
-    log.info(`caption: ${captionText.length} chars, ${hashtags.length} hashtags`);
+
+    // ── TRACE: log the FULL caption string at build time ──
+    liveDiag = buildCaptionDiagnostics(mlbPicks, mlbLeaders, captionText);
+    log.info(`[CAPTION_BUILD_FINAL] version=${CAPTION_VERSION} chars=${captionText.length} hashtags=${hashtags.length} fallbackPicks=${liveDiag.captionHasFallbackPicks} fallbackLeaders=${liveDiag.captionHasFallbackLeaders}`);
+    log.info(`[CAPTION_BUILD_FULL_TEXT]\n${captionText}`);
+    log.info(`[CAPTION_BUILD_DIAG] ${JSON.stringify(liveDiag)}`);
   } catch (e) {
     log.error('caption build failed:', e.message);
     if (mode === 'live' || mode === 'force') await persistFailure('caption_build', e.message);
@@ -683,6 +701,7 @@ export default async function handler(req, res) {
       headline: content.headline,
       renderMethod,
       wouldPublish: true,
+      captionDiagnostics: liveDiag,
       durationMs: Date.now() - startTs,
     });
   }
@@ -690,6 +709,10 @@ export default async function handler(req, res) {
   // ── Live / Force: publish carousel ──
   try {
     log.info(`publishing carousel (mode=${mode})...`);
+    // ── TRACE: log the EXACT caption being sent to publish-carousel ──
+    log.info(`[CAPTION_SENT_TO_PUBLISH] version=${CAPTION_VERSION} chars=${captionText.length}`);
+    log.info(`[CAPTION_SENT_TO_PUBLISH_FULL]\n${captionText}`);
+
     const metadata = {
       title: `MLB Daily Briefing — ${dateKey}`,
       contentStudioSection: 'daily-briefing',
@@ -725,7 +748,9 @@ export default async function handler(req, res) {
       imageUrls,
       imageCount: imageUrls.length,
       renderMethod,
+      caption: captionText,
       captionLength: captionText.length,
+      captionDiagnostics: liveDiag,
       durationMs,
     });
   } catch (e) {

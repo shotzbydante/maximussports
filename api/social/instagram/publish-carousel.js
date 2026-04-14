@@ -191,6 +191,9 @@ export default async function handler(req, res) {
   };
 
   log.info(`carousel publish start: ${imageUrls.length} images, caption_length=${caption.length}`);
+  // ── TRACE: log the EXACT caption received by publish-carousel ──
+  log.info(`[CAPTION_RECEIVED_BY_PUBLISH] chars=${caption.length}`);
+  log.info(`[CAPTION_RECEIVED_FULL]\n${caption}`);
 
   // ── Step 1: Create child containers (one per image) ──
   const childIds = [];
@@ -242,6 +245,9 @@ export default async function handler(req, res) {
 
   // ── Step 3: Create parent carousel container ──
   log.info('creating parent carousel container...');
+  const captionForMeta = caption.trim();
+  log.info(`[CAPTION_SENT_TO_META] chars=${captionForMeta.length}`);
+  log.info(`[CAPTION_SENT_TO_META_FULL]\n${captionForMeta}`);
   let parentId = null;
   try {
     const parentRes = await fetch(`https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media`, {
@@ -250,7 +256,7 @@ export default async function handler(req, res) {
       body: new URLSearchParams({
         media_type: 'CAROUSEL',
         children: childIds.join(','),
-        caption: caption.trim(),
+        caption: captionForMeta,
         access_token: accessToken,
       }).toString(),
     });
