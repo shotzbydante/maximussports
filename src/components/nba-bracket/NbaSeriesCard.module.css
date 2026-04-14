@@ -1,0 +1,116 @@
+/* NbaSeriesCard — playoff series matchup card (navy palette) */
+.card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 260px;
+  position: relative;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  overflow: hidden;
+}
+.card:hover {
+  border-color: rgba(29, 66, 138, 0.18);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+.cardWaiting { opacity: 0.45; }
+.cardCompact { min-width: 180px; max-width: 220px; }
+
+/* Spread badge */
+.spreadBadge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Team slots */
+.teamSlot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.12s;
+  width: 100%;
+}
+.teamSlot:last-of-type { border-bottom: none; }
+.teamSlot:hover:not(:disabled) { background: rgba(29, 66, 138, 0.06); }
+.teamSlot:disabled { cursor: default; }
+
+.teamSelected {
+  background: rgba(29, 66, 138, 0.10);
+  border-left: 3px solid #1d428a;
+}
+
+.logo { width: 20px; height: 20px; object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+
+.seed {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  min-width: 14px;
+  text-align: center;
+}
+
+.teamName {
+  flex: 1;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seriesWins {
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  min-width: 14px;
+  text-align: center;
+}
+
+/* Meta row */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  flex-wrap: wrap;
+}
+
+.metaDate { font-size: 0.52rem; color: var(--color-text-muted); }
+.metaNetwork {
+  font-size: 0.48rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.predBadge {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: #1d428a;
+  margin-left: auto;
+}
+.predHIGH { color: #1a7a1a; }
+.predMEDIUM { color: #1d428a; }
+.predLOW { color: var(--color-text-muted); }

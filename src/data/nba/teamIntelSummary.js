@@ -44,40 +44,32 @@ export function buildNbaTeamIntelSummary({ team, odds, record, standing, streak 
     const total = w + l;
     if (total > 0) {
       const pct = w / total;
-      const pace82 = Math.round(pct * 82);
       if (pct >= 0.65) {
-        parts.push(`${emoji} The ${mascot} are on a dominant run at ${record}, on pace for ${pace82} wins${standing ? ` and currently sitting ${standing}` : ''}.`);
+        parts.push(`${emoji} The ${mascot} finished the regular season at ${record}${standing ? `, ${standing}` : ''}, entering the playoffs as a top contender.`);
       } else if (pct >= 0.55) {
-        parts.push(`${emoji} The ${mascot} hold a solid ${record} record${standing ? `, ${standing}` : ''}, positioning themselves as a legitimate playoff contender.`);
+        parts.push(`${emoji} The ${mascot} closed the regular season at ${record}${standing ? `, ${standing}` : ''}, earning a playoff berth as a legitimate contender.`);
       } else if (pct >= 0.45) {
-        parts.push(`${emoji} At ${record}${standing ? ` (${standing})` : ''}, the ${mascot} are in that competitive middle tier — close enough to make a push, but with work to do.`);
+        parts.push(`${emoji} At ${record}${standing ? ` (${standing})` : ''}, the ${mascot} are in the playoff mix but will need to prove themselves in a best-of-7 format.`);
       } else {
-        parts.push(`${emoji} The ${mascot} sit at ${record}${standing ? ` (${standing})` : ''}, facing an uphill climb in the conference standings.`);
+        parts.push(`${emoji} The ${mascot} finished at ${record}${standing ? ` (${standing})` : ''}. An uphill postseason road awaits.`);
       }
     } else {
-      parts.push(`${emoji} The ${mascot} are gearing up for the season${standing ? `, projected ${standing}` : ''}.`);
+      parts.push(`${emoji} ${name} playoff intelligence is building. Check back for updated bracket position and series outlook.`);
     }
   } else {
-    parts.push(`${emoji} ${name} intelligence is building. Check back for updated standings, odds, and season outlook.`);
+    parts.push(`${emoji} ${name} playoff intelligence is building. Check back for bracket position, series predictions, and title odds.`);
   }
 
-  // Streak context
-  if (streak) {
-    if (streak.startsWith('W') && parseInt(streak.slice(1)) >= 3) {
-      parts.push(`Currently riding a ${streak} streak, showing strong form heading into upcoming matchups.`);
-    } else if (streak.startsWith('L') && parseInt(streak.slice(1)) >= 3) {
-      parts.push(`A ${streak} skid has cooled momentum — the next few games will be crucial for righting the ship.`);
-    }
-  }
-
-  // Conference positioning
+  // Playoff seed context
   if (standing) {
     if (standing.includes('1st')) {
-      parts.push(`Holding the top spot in the conference puts them in prime position for home-court advantage through the playoffs.`);
+      parts.push(`The top seed gives them home-court advantage throughout the conference bracket \u2014 a significant edge in a seven-game series.`);
     } else if (standing.includes('2nd') || standing.includes('3rd')) {
-      parts.push(`A top-three conference seed gives them a favorable playoff path if they can maintain this level.`);
-    } else if (standing.includes('7th') || standing.includes('8th') || standing.includes('9th') || standing.includes('10th')) {
-      parts.push(`Sitting in play-in territory, every game carries extra weight down the stretch.`);
+      parts.push(`A top-three seed means home-court advantage in the first two rounds, setting up a favorable path through the bracket.`);
+    } else if (standing.includes('4th') || standing.includes('5th')) {
+      parts.push(`Seeded in the middle of the bracket, they could face a tough second-round matchup against a top seed.`);
+    } else if (standing.includes('7th') || standing.includes('8th')) {
+      parts.push(`Entered the playoffs through the play-in tournament \u2014 road-tested and battle-ready, but facing a top seed in the first round.`);
     }
   }
 

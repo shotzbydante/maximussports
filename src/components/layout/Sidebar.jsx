@@ -202,13 +202,13 @@ export default function Sidebar() {
             )}
             {hasCapability('bracketology') && (
               <NavLink
-                to="/bracketology"
+                to={isCbb ? '/bracketology' : buildPath('/bracketology')}
                 className={({ isActive }) =>
                   `${styles.link} ${styles.bracketLink}${isActive ? ` ${styles.active}` : ''}`
                 }
               >
                 <span className={styles.icon}><BracketIcon /></span>
-                <span>Bracketology</span>
+                <span>{isCbb ? 'Bracketology' : 'NBA Bracketology'}</span>
                 <span className={styles.bracketBadge}>NEW</span>
               </NavLink>
             )}

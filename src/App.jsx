@@ -43,6 +43,7 @@ const NbaTeamDetail = lazy(() => import('./pages/nba/NbaTeamDetail'));
 const NbaNewsFeed   = lazy(() => import('./pages/nba/NbaNewsFeed'));
 const NbaPicks      = lazy(() => import('./pages/nba/NbaPicks'));
 const NbaSeasonIntel = lazy(() => import('./pages/nba/NbaSeasonIntel'));
+const NbaBracketology = lazy(() => import('./pages/nba/NbaBracketology'));
 
 const RenderMlbDaily = lazy(() => import('./pages/RenderMlbDaily'));
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
@@ -135,6 +136,7 @@ export default function App() {
                     <Route path="news" element={<NbaNewsFeed />} />
                     <Route path="insights" element={<NbaPicks />} />
                     <Route path="season-intel" element={<NbaSeasonIntel />} />
+                    <Route path="bracketology" element={<NbaBracketology />} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
