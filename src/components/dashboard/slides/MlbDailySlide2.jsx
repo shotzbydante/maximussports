@@ -11,7 +11,8 @@
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { buildDailyContent, stripEmojis, fmtOdds, resolvePicks, resolveLeaders } from './mlbDailyHelpers';
+import { buildDailyContent, stripEmojis, fmtOdds } from './mlbDailyHelpers';
+import { resolvePicks, resolveLeaders } from '../../../data/mlb/resolveSlideData';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
 import styles from './MlbSlides.module.css';

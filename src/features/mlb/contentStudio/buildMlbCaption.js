@@ -11,7 +11,7 @@
 import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
 import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
 import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders.js';
-import { resolvePicks, resolveLeaders } from '../../../components/dashboard/slides/mlbDailyHelpers.js';
+import { resolvePicks, resolveLeaders } from '../../../data/mlb/resolveSlideData.js';
 import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline.js';
 import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing.js';
 import { buildLeagueWhyItMatters } from '../../../data/mlb/whyItMatters.js';

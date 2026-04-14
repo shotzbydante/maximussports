@@ -7,8 +7,6 @@
 
 import { MLB_TEAMS } from '../../../sports/mlb/teams.js';
 import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
-import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders.js';
-import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos.js';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload.js';
 
 // ─── Text helpers ──────────────────────────────────────────────
@@ -129,115 +127,6 @@ export function buildEditorialBlocks(intel) {
   }
 
   return blocks.length > 0 ? blocks : null;
-}
-
-// ─── Canonical pick resolver (SINGLE SOURCE OF TRUTH) ─────────
-// Used by Slide 1, Slide 2, and caption builder.
-// Returns the FINAL resolved picks array — no component should
-// re-derive picks from raw categories independently.
-
-function fmtConvictionShared(tier) {
-  if (!tier) return 'Edge';
-  if (tier === 'high') return 'High';
-  if (tier === 'medium-high') return 'Med-High';
-  if (tier === 'medium') return 'Medium';
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
-}
-
-/**
- * Resolve picks from raw data — identical logic for slides + caption.
- * @param {Object} data - { mlbPicks, canonicalPicks }
- * @param {number} count - max picks to return (3 for Slide 1/caption, 4 for Slide 2)
- * @param {boolean} pad - if true, pad to `count` with TBD placeholders (Slide 2 only)
- * @returns {Array} resolved pick objects
- */
-export function resolvePicks(data, count = 3, pad = false) {
-  const pickCats = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
-  const pickEms = (pickCats.pickEms || []).map(p => ({ ...p, type: "Pick 'Em" }));
-  const ats = (pickCats.ats || []).map(p => ({ ...p, type: 'ATS' }));
-  const totals = (pickCats.totals || []).map(p => ({ ...p, type: 'O/U' }));
-
-  const allByConf = [...pickEms, ...ats, ...totals].sort(
-    (a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0)
-  );
-  const selected = [];
-  const usedIds = new Set();
-
-  // Guarantee one ATS first if available
-  if (ats.length > 0) {
-    const bestAts = [...ats].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0))[0];
-    selected.push(bestAts);
-    usedIds.add(bestAts.id);
-  }
-  // Fill remaining with best by confidence
-  for (const p of allByConf) {
-    if (selected.length >= count) break;
-    if (!usedIds.has(p.id)) {
-      selected.push(p);
-      usedIds.add(p.id);
-    }
-  }
-
-  const picks = selected.slice(0, count).map(p => {
-    const away = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || '?';
-    const home = p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.name || '?';
-    const matchup = `${away} vs ${home}`;
-    const selection = p.pick?.label || '—';
-    const conviction = fmtConvictionShared(p.confidence);
-    const edgePct = p.pick?.edgePercent || p.confidenceScore;
-    const rationale = edgePct
-      ? `Model favors ${(selection || '').split(' ').pop()} with a ${Number(edgePct).toFixed(1)}% edge.`
-      : `Model edge: ${conviction.toLowerCase()} conviction`;
-    const pickSide = p.pick?.side;
-    const selectedTeam = pickSide === 'away' ? p.matchup?.awayTeam : p.matchup?.homeTeam;
-    const selectionLogoSrc = selectedTeam?.slug ? getMlbEspnLogoUrl(selectedTeam.slug) : null;
-    return { matchup, type: p.type, selection, selectionLogoSrc, conviction, rationale, confidence: p.confidence };
-  });
-
-  if (pad) {
-    while (picks.length < count) {
-      picks.push({
-        matchup: 'TBD vs TBD', type: "Pick 'Em", selection: '—',
-        selectionLogoSrc: null, conviction: 'Edge',
-        rationale: 'More picks in the full daily board',
-        confidence: null,
-      });
-    }
-  }
-
-  return picks;
-}
-
-// ─── Canonical leader resolver (SINGLE SOURCE OF TRUTH) ───────
-// Used by Slide 2 and caption builder.
-// Returns leaders using LEADER_CATEGORIES keys (homeRuns, RBIs, hits, wins, saves).
-
-/**
- * Resolve leaders from raw data — identical logic for slides + caption.
- * @param {Object} data - { mlbLeaders: { categories: { homeRuns, RBIs, ... } } }
- * @param {number} topN - number of leaders per category (3 for slides, 1 for caption)
- * @returns {Array} resolved leader category objects
- */
-export function resolveLeaders(data, topN = 3) {
-  const leadersRaw = data?.mlbLeaders?.categories || {};
-  const abbrevToSlug = Object.fromEntries(MLB_TEAMS.map(t => [t.abbrev, t.slug]));
-
-  return LEADER_CATEGORIES
-    .filter(cat => leadersRaw[cat.key]?.leaders?.length > 0)
-    .map(cat => ({
-      key: cat.key,
-      label: cat.label,
-      abbrev: cat.abbrev,
-      leaders: leadersRaw[cat.key].leaders.slice(0, topN).map(l => {
-        const slug = abbrevToSlug[l.teamAbbrev] || l.teamAbbrev?.toLowerCase() || null;
-        return {
-          name: l.name || '—',
-          teamAbbrev: l.teamAbbrev || '',
-          teamLogoSrc: slug ? getMlbEspnLogoUrl(slug) : null,
-          value: l.display || String(l.value || 0),
-        };
-      }),
-    }));
 }
 
 // ─── Content builder ───────────────────────────────────────────
