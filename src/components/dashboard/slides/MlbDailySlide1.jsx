@@ -17,7 +17,7 @@ import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
 import { buildMlbDailyHeadline, buildMlbHotPress, buildStoryCard } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
-import { stripEmojis, fmtOdds } from './mlbDailyHelpers';
+import { stripEmojis, fmtOdds, resolvePicks } from './mlbDailyHelpers';
 import styles from './MlbSlides.module.css';
 
 // ── Helpers (reused from Slide 2 pipeline) ──────────────────────────────
@@ -110,35 +110,8 @@ function buildSlide1Content(data) {
     };
   });
 
-  // ── Picks: top 3 from same pool as Slide 2 ──
-  const pickCats = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
-  const pickEms = (pickCats.pickEms || []).map(p => ({ ...p, type: "Pick 'Em" }));
-  const ats = (pickCats.ats || []).map(p => ({ ...p, type: 'ATS' }));
-  const totals = (pickCats.totals || []).map(p => ({ ...p, type: 'O/U' }));
-  const allByConf = [...pickEms, ...ats, ...totals].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-  const selected = [];
-  const usedIds = new Set();
-  if (ats.length > 0) {
-    const bestAts = [...ats].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0))[0];
-    selected.push(bestAts);
-    usedIds.add(bestAts.id);
-  }
-  for (const p of allByConf) {
-    if (selected.length >= 3) break;
-    if (!usedIds.has(p.id)) { selected.push(p); usedIds.add(p.id); }
-  }
-  const picks = selected.slice(0, 3).map(p => {
-    const away = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || '?';
-    const home = p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.name || '?';
-    const matchup = `${away} vs ${home}`;
-    const selection = p.pick?.label || '—';
-    const conviction = fmtConviction(p.confidence);
-    const edgePct = p.pick?.edgePercent || p.confidenceScore;
-    const rationale = edgePct ? `Model favors ${selection.split(' ').pop()} with a ${Number(edgePct).toFixed(1)}% edge.` : `Model edge: ${conviction.toLowerCase()}`;
-    const pickSide = p.pick?.side;
-    const selTeam = pickSide === 'away' ? p.matchup?.awayTeam : p.matchup?.homeTeam;
-    return { matchup, type: p.type, selection, selectionLogoSrc: logoUrl(selTeam?.slug || null), conviction, rationale };
-  });
+  // ── Picks: top 3 from canonical resolver (shared with Slide 2 + caption) ──
+  const picks = resolvePicks(data, 3, false);
 
   // ── Build story cards from coherent per-story objects ──
   const card1 = buildStoryCard(hl.topStory);

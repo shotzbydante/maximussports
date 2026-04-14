@@ -11,8 +11,7 @@
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { MLB_TEAMS } from '../../../sports/mlb/teams';
 import { getTeamProjection } from '../../../data/mlb/seasonModel';
-import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders';
-import { buildDailyContent, stripEmojis, fmtOdds } from './mlbDailyHelpers';
+import { buildDailyContent, stripEmojis, fmtOdds, resolvePicks, resolveLeaders } from './mlbDailyHelpers';
 import { parseBriefingToIntel } from '../../../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../features/mlb/contentStudio/buildMlbDailyHeadline';
 import styles from './MlbSlides.module.css';
@@ -141,75 +140,11 @@ function buildSlide2Content(data) {
     logoSrc: logoUrl(b.logoSlug),
   }));
 
-  // ── SEASON LEADERS: top 3 in each category from ESPN ──
-  const leadersRaw = data?.mlbLeaders?.categories || {};
-  // abbrev → slug lookup for team logos
-  const abbrevToSlug = Object.fromEntries(MLB_TEAMS.map(t => [t.abbrev, t.slug]));
+  // ── SEASON LEADERS: from canonical resolver (shared with caption) ──
+  const leaderCategories = resolveLeaders(data, 3);
 
-  const leaderCategories = LEADER_CATEGORIES
-    .filter(cat => leadersRaw[cat.key]?.leaders?.length > 0)
-    .map(cat => ({
-      key: cat.key,
-      label: cat.label,
-      abbrev: cat.abbrev,
-      leaders: leadersRaw[cat.key].leaders.slice(0, 3).map(l => {
-        const slug = abbrevToSlug[l.teamAbbrev] || l.teamAbbrev?.toLowerCase() || null;
-        return {
-          name: l.name || '—',
-          teamAbbrev: l.teamAbbrev || '',
-          teamLogoSrc: slug ? getMlbEspnLogoUrl(slug) : null,
-          value: l.display || String(l.value || 0),
-        };
-      }),
-    }));
-
-  // ── MAXIMUS'S PICKS: 4 pick modules, ensure ATS representation ──
-  const pickCats = data?.mlbPicks?.categories || data?.canonicalPicks?.categories || {};
-  const pickEms = (pickCats.pickEms || []).map(p => ({ ...p, type: "Pick 'Em" }));
-  const ats = (pickCats.ats || []).map(p => ({ ...p, type: 'ATS' }));
-  const totals = (pickCats.totals || []).map(p => ({ ...p, type: 'O/U' }));
-
-  // Ensure at least one ATS if available
-  const allByConf = [...pickEms, ...ats, ...totals].sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-  const selected = [];
-  const usedIds = new Set();
-
-  // Guarantee one ATS first if exists
-  if (ats.length > 0) {
-    const bestAts = ats.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0))[0];
-    selected.push(bestAts);
-    usedIds.add(bestAts.id);
-  }
-  // Fill remaining with best available
-  for (const p of allByConf) {
-    if (selected.length >= 4) break;
-    if (!usedIds.has(p.id)) {
-      selected.push(p);
-      usedIds.add(p.id);
-    }
-  }
-
-  const picks = selected.slice(0, 4).map(p => {
-    const away = p.matchup?.awayTeam?.shortName || p.matchup?.awayTeam?.name || '?';
-    const home = p.matchup?.homeTeam?.shortName || p.matchup?.homeTeam?.name || '?';
-    const matchup = `${away} vs ${home}`;
-    const selection = p.pick?.label || '—';
-    const conviction = fmtConviction(p.confidence);
-    const edgePct = p.pick?.edgePercent || p.confidenceScore;
-    const rationale = edgePct
-      ? `Model favors ${(selection || '').split(' ').pop()} with a ${Number(edgePct).toFixed(1)}% edge.`
-      : `Model edge: ${conviction.toLowerCase()} conviction`;
-
-    // Find selected team's slug for logo
-    const pickSide = p.pick?.side;
-    const selectedTeam = pickSide === 'away' ? p.matchup?.awayTeam : p.matchup?.homeTeam;
-    const selectionLogoSrc = logoUrl(selectedTeam?.slug || null);
-
-    return { matchup, type: p.type, selection, selectionLogoSrc, conviction, rationale };
-  });
-  while (picks.length < 4) {
-    picks.push({ matchup: 'TBD vs TBD', type: "Pick 'Em", selection: '—', selectionLogoSrc: null, conviction: 'Edge', rationale: 'More picks in the full daily board' });
-  }
+  // ── MAXIMUS'S PICKS: 4 from canonical resolver (shared with Slide 1 + caption) ──
+  const picks = resolvePicks(data, 4, true);
 
   // Dynamic headline from live games + briefing + model
   const dynamicHL = buildMlbDailyHeadline({
