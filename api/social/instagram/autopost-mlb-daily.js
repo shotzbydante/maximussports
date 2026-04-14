@@ -439,12 +439,14 @@ export default async function handler(req, res) {
 
     // Diagnostic: confirm data presence for caption debugging
     const diag = {
+      captionVersion: 'v3-unified-resolvers',
       leaderCatKeys: Object.keys(mlbLeaders?.categories || {}),
       pickCatKeys: Object.keys(mlbPicks?.categories || {}),
       pickEmCount: (mlbPicks?.categories?.pickEms || []).length,
       atsCount: (mlbPicks?.categories?.ats || []).length,
       totalsCount: (mlbPicks?.categories?.totals || []).length,
       leadersHasHomeRuns: !!mlbLeaders?.categories?.homeRuns?.leaders?.length,
+      leaderFirstName: mlbLeaders?.categories?.homeRuns?.leaders?.[0]?.name || 'NONE',
     };
 
     return res.status(200).json({
@@ -598,6 +600,13 @@ export default async function handler(req, res) {
       mlbLeaders: mlbLeaders ?? null,
       seasonIntel: null,
     };
+
+    // ── Diagnostic: trace exact data shape entering caption builder ──
+    const pickCatKeys = Object.keys(mlbPicks?.categories || {});
+    const pickCounts = pickCatKeys.map(k => `${k}:${(mlbPicks?.categories?.[k] || []).length}`);
+    const leaderCatKeys = Object.keys(mlbLeaders?.categories || {});
+    log.info(`[caption-diag] v3 picks=[${pickCounts.join(',')}] leaders=[${leaderCatKeys.join(',')}] liveGames=${liveGames.length} standings=${Object.keys(mlbStandings || {}).length}`);
+
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);
     captionText = hashtags.length > 0 ? `${shortCaption}\n\n${hashtags.join(' ')}` : shortCaption;
     log.info(`caption: ${captionText.length} chars, ${hashtags.length} hashtags`);
