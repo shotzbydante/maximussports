@@ -84,15 +84,29 @@ function getMlbTeamColors(slug) {
 function TeamLogoHero({ slug, name }) {
   const [failed, setFailed] = useState(false);
   const url = getMlbEspnLogoUrl(slug);
+  const abbrev = slug?.toUpperCase()?.slice(0, 3) || '';
   const initials = (name || '').split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
 
+  console.log('[MLB_TEAM_LOGO_RESOLUTION]', {
+    team: name, abbrev, slug, resolvedLogo: url, fallbackUsed: failed || !url,
+  });
+
   if (failed || !url) {
-    return <div className={styles.logoFallbackText}>{initials}</div>;
+    return (
+      <div className={styles.logoFallbackBadge}>
+        <span className={styles.logoFallbackText}>{abbrev || initials}</span>
+      </div>
+    );
   }
 
   return (
     <img src={url} alt={name} className={styles.teamLogo}
-      data-fallback-text={initials}
+      width={140} height={140}
+      loading="eager"
+      decoding="sync"
+      crossOrigin="anonymous"
+      data-fallback-text={abbrev || initials}
+      data-team-slug={slug}
       onError={() => setFailed(true)} />
   );
 }
@@ -107,7 +121,12 @@ function OppLogo({ slug }) {
   const abbr = slug?.toUpperCase()?.slice(0, 3) || '';
   return (
     <img src={url} alt="" className={styles.oppLogo}
+      width={24} height={24}
+      loading="eager"
+      decoding="sync"
+      crossOrigin="anonymous"
       data-fallback-text={abbr}
+      data-team-slug={slug}
       onError={() => setFailed(true)} />
   );
 }
@@ -211,7 +230,8 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.logoRow}>
-          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} />
+          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo}
+            loading="eager" decoding="sync" crossOrigin="anonymous" />
           <div className={styles.logoMeta}>
             <span className={styles.brandName}>MAXIMUS SPORTS</span>
             <span className={styles.intelChip}>MLB TEAM INTEL</span>

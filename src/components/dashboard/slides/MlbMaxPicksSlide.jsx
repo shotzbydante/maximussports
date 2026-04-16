@@ -51,7 +51,11 @@ function TeamLogo({ slug, size = 26 }) {
     <img
       src={url} alt="" width={size} height={size}
       className={styles.teamLogo}
+      loading="eager"
+      decoding="sync"
       crossOrigin="anonymous"
+      data-fallback-text={slug?.toUpperCase()?.slice(0, 3) || ''}
+      data-team-slug={slug}
       onError={() => setFailed(true)}
     />
   );
@@ -196,14 +200,16 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
 
       {/* Mascot watermark */}
       <div className={styles.mascotWrap} aria-hidden="true">
-        <img src="/mascot-mlb.png" alt="" className={styles.mascot} crossOrigin="anonymous"
+        <img src="/mascot-mlb.png" alt="" className={styles.mascot}
+          loading="eager" decoding="sync" crossOrigin="anonymous"
           onError={e => { e.currentTarget.style.display = 'none'; }} />
       </div>
 
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.logoRow}>
-          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo} crossOrigin="anonymous" />
+          <img src="/logo.png" alt="Maximus Sports" className={styles.brandLogo}
+            loading="eager" decoding="sync" crossOrigin="anonymous" />
           <div className={styles.logoMeta}>
             <span className={styles.brandName}>MAXIMUS SPORTS</span>
             <span className={styles.intelChip}>MAXIMUS'S PICKS</span>

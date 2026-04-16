@@ -220,33 +220,50 @@
 
 .teamLogo {
   position: relative;
-  max-width: 140px;
-  max-height: 140px;
-  width: auto;
-  height: auto;
+  width: 140px;
+  height: 140px;
   object-fit: contain;
   z-index: 2;
   animation: logoFloat 5.2s ease-in-out infinite, logoGlowPulse 3.8s ease-in-out infinite;
+  /* Drop-shadow ensures dark logos remain visible on dark backgrounds */
+  filter:
+    drop-shadow(0 2px 8px rgba(0, 0, 0, 0.50))
+    drop-shadow(0 0 20px color-mix(in srgb, var(--team-primary) 25%, transparent));
 }
 
-.logoFallbackText {
+/* Premium fallback badge — shown when logo fails to load */
+.logoFallbackBadge {
   position: relative;
   z-index: 2;
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--team-primary) 12%, transparent);
-  border: 2px solid color-mix(in srgb, var(--team-primary) 30%, transparent);
+  background:
+    radial-gradient(
+      circle at 40% 35%,
+      color-mix(in srgb, var(--team-primary) 18%, rgba(255,255,255,0.04)) 0%,
+      color-mix(in srgb, var(--team-primary) 8%, transparent) 70%
+    );
+  border: 2px solid color-mix(in srgb, var(--team-primary) 35%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: logoFloat 5.2s ease-in-out infinite;
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 4px 24px color-mix(in srgb, var(--team-primary) 20%, transparent),
+    inset 0 0 40px color-mix(in srgb, var(--team-primary) 10%, transparent);
+}
+
+.logoFallbackText {
   font-family: 'Oswald', sans-serif;
   font-size: 48px;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: color-mix(in srgb, var(--team-primary) 85%, #fff);
-  animation: logoFloat 5.2s ease-in-out infinite;
-  text-shadow: 0 0 40px color-mix(in srgb, var(--team-primary) 50%, transparent);
+  text-shadow:
+    0 0 40px color-mix(in srgb, var(--team-primary) 50%, transparent),
+    0 2px 4px rgba(0, 0, 0, 0.30);
 }
 
 /* ── Team identity ──────────────────────────────────────────────── */

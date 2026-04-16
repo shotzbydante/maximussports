@@ -17,11 +17,11 @@ import styles from './MlbSingleSlide.module.css';
 function TeamLogo({ slug, size = 28 }) {
   const url = getMlbEspnLogoUrl(slug);
   if (!url) return null;
-  return <img src={url} alt="" width={size} height={size} className={styles.teamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  return <img src={url} alt="" width={size} height={size} className={styles.teamLogo} loading="eager" decoding="sync" crossOrigin="anonymous" data-fallback-text={slug?.toUpperCase()?.slice(0, 3) || ''} onError={e => { e.currentTarget.style.display = 'none'; }} />;
 }
 
 function Mascot() {
-  return <img src="/mascot-mlb.png" alt="" className={styles.mascot} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  return <img src="/mascot-mlb.png" alt="" className={styles.mascot} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
 }
 
 function fmtOdds(v) {
@@ -266,7 +266,7 @@ export default function MlbSingleSlide({ data, teamData, game, asOf, options = {
       {/* ── HEADER — centered badge composition ── */}
       <div className={styles.header}>
         <div className={styles.heroBadgeRow}>
-          <img src="/mlb-logo.png" alt="" className={styles.mlbCrest} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/mlb-logo.png" alt="" className={styles.mlbCrest} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
           <span className={styles.heroBadge}>{content.category || 'MAXIMUS SPORTS'}</span>
         </div>
         <span className={styles.dateLine}>{today}</span>
