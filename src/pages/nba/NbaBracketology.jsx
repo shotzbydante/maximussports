@@ -10,7 +10,10 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { NBA_PLAYOFF_YEAR } from '../../config/nbaBracketology';
-import { buildFullNbaBracket, applyPicksToBracket } from '../../data/nba/playoffBracket';
+import {
+  buildFullNbaBracket, applyPicksToBracket,
+  resolvePlayIn, applyPlayInToBracket, hasUnresolvedPlayIn,
+} from '../../data/nba/playoffBracket';
 import {
   resolveFullNbaBracket, simulateNbaBracket,
   simulateRound, simulateRemainingBracket, sampleSeriesOutcome,
@@ -113,9 +116,28 @@ export default function NbaBracketology() {
     fetchNbaChampionshipOdds().then(d => setOdds(d.odds || {})).catch(() => {});
   }, []);
 
+  const [playInResults, setPlayInResults] = useState(null);
+
   const context = useMemo(() => ({ championshipOdds: odds }), [odds]);
-  const rawBracket = useMemo(() => buildFullNbaBracket(), []);
+  const rawBracketBase = useMemo(() => buildFullNbaBracket(), []);
+
+  // Apply play-in results to the base bracket, then apply picks on top
+  const rawBracket = useMemo(() => {
+    if (!playInResults) return rawBracketBase;
+    return applyPlayInToBracket(rawBracketBase, playInResults);
+  }, [rawBracketBase, playInResults]);
+
   const allMatchups = useMemo(() => applyPicksToBracket(rawBracket, picks), [rawBracket, picks]);
+
+  /** Resolve play-in if needed, returns the bracket with play-in seeds filled */
+  const ensurePlayInResolved = useCallback(() => {
+    if (!hasUnresolvedPlayIn(rawBracket)) return rawBracket;
+    const westPI = resolvePlayIn('western', context);
+    const eastPI = resolvePlayIn('eastern', context);
+    const piResults = { western: westPI, eastern: eastPI };
+    setPlayInResults(piResults);
+    return applyPlayInToBracket(rawBracketBase, piResults);
+  }, [rawBracket, rawBracketBase, context]);
 
   // Deterministic predictions for display hints
   useEffect(() => {
@@ -162,19 +184,19 @@ export default function NbaBracketology() {
 
   // Simulate a specific round (dice reroll)
   const handleSimRound = useCallback((round) => {
-    // Clear this round's picks and all downstream
-    const current = applyPicksToBracket(rawBracket, picks);
+    // Resolve play-in first if R1 and seeds are TBD
+    const base = round === 1 ? ensurePlayInResolved() : rawBracket;
+
+    const current = applyPicksToBracket(base, picks);
     const roundMatchupIds = Object.values(current)
       .filter(m => m.round === round)
       .map(m => m.matchupId);
 
-    // Collect all IDs to clear: this round + downstream
     const toClear = new Set(roundMatchupIds);
     for (const mid of roundMatchupIds) {
-      for (const id of getDownstream(mid, rawBracket)) toClear.add(id);
+      for (const id of getDownstream(mid, base)) toClear.add(id);
     }
 
-    // Clear them
     const cleanedPicks = { ...picks };
     const cleanedResults = { ...seriesResults };
     for (const id of toClear) {
@@ -182,31 +204,33 @@ export default function NbaBracketology() {
       delete cleanedResults[id];
     }
 
-    // Now simulate this round on the cleaned bracket
-    const freshBracket = applyPicksToBracket(rawBracket, cleanedPicks);
+    const freshBracket = applyPicksToBracket(base, cleanedPicks);
     const { picks: roundPicks, results: roundResults } = simulateRound(freshBracket, round, context);
 
     setPicks({ ...cleanedPicks, ...roundPicks });
     setSeriesResults({ ...cleanedResults, ...roundResults });
-  }, [rawBracket, picks, seriesResults, context]);
+  }, [rawBracket, picks, seriesResults, context, ensurePlayInResolved]);
 
   // Simulate full bracket from current state
   const handleSimBracket = useCallback(() => {
     setSimRunning(true);
     setTimeout(() => {
-      const { picks: newPicks, results: newResults } = simulateRemainingBracket(rawBracket, picks, applyPicksToBracket, context);
+      // Resolve play-in first
+      const base = ensurePlayInResolved();
+      const { picks: newPicks, results: newResults } = simulateRemainingBracket(base, picks, applyPicksToBracket, context);
       setPicks(newPicks);
       setSeriesResults(prev => ({ ...prev, ...newResults }));
-      const mcResults = simulateNbaBracket(rawBracket, context, 1000);
+      const mcResults = simulateNbaBracket(base, context, 1000);
       setSimResults(mcResults);
       setSimRunning(false);
     }, 50);
-  }, [rawBracket, picks, context]);
+  }, [rawBracket, picks, context, ensurePlayInResolved]);
 
   const handleClear = useCallback(() => {
     setPicks({});
     setSeriesResults({});
     setSimResults(null);
+    setPlayInResults(null);
   }, []);
 
   // Maximus's Picks — simulate next unresolved round
@@ -368,7 +392,7 @@ export default function NbaBracketology() {
             </div>
 
             <div className={styles.finalsCenter}>
-              <img src="/nba-logo.png" alt="NBA" className={styles.finalsLogo} />
+              <img src="/nba-finals-logo.svg" alt="NBA Finals" className={styles.finalsLogo} />
               <span className={styles.finalsTag}>NBA Finals</span>
             </div>
 

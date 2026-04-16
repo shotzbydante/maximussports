@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" fill="none">
+  <!-- NBA Finals Trophy - Larry O'Brien inspired -->
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E7CC84"/>
+      <stop offset="50%" stop-color="#C9A24A"/>
+      <stop offset="100%" stop-color="#9B7428"/>
+    </linearGradient>
+    <linearGradient id="goldLight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F2E0A0"/>
+      <stop offset="100%" stop-color="#C9A24A"/>
+    </linearGradient>
+    <radialGradient id="ballGold" cx="0.4" cy="0.35">
+      <stop offset="0%" stop-color="#F2E0A0"/>
+      <stop offset="60%" stop-color="#D4B04C"/>
+      <stop offset="100%" stop-color="#9B7428"/>
+    </radialGradient>
+  </defs>
+  <!-- Base platform -->
+  <ellipse cx="60" cy="152" rx="38" ry="6" fill="url(#gold)" opacity="0.7"/>
+  <ellipse cx="60" cy="148" rx="34" ry="5" fill="url(#gold)"/>
+  <rect x="28" y="143" width="64" height="6" rx="2" fill="url(#gold)"/>
+  <!-- Stem -->
+  <path d="M48 143 Q42 120 46 100 Q50 80 60 75 Q70 80 74 100 Q78 120 72 143" fill="url(#gold)" stroke="#9B7428" stroke-width="0.5"/>
+  <!-- Net/cup -->
+  <path d="M38 78 Q40 95 60 100 Q80 95 82 78" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <path d="M42 82 Q44 93 60 97 Q76 93 78 82" fill="none" stroke="url(#gold)" stroke-width="1.5" opacity="0.6"/>
+  <path d="M46 86 Q48 92 60 95 Q72 92 74 86" fill="none" stroke="url(#gold)" stroke-width="1" opacity="0.4"/>
+  <!-- Ring under ball -->
+  <ellipse cx="60" cy="42" rx="22" ry="5" fill="url(#gold)" stroke="#9B7428" stroke-width="0.5"/>
+  <!-- Ball -->
+  <circle cx="60" cy="28" r="22" fill="url(#ballGold)" stroke="#9B7428" stroke-width="0.5"/>
+  <!-- Ball seams -->
+  <path d="M38 28 Q49 22 60 28 Q71 34 82 28" fill="none" stroke="#B8952E" stroke-width="0.8" opacity="0.5"/>
+  <path d="M60 6 L60 50" stroke="#B8952E" stroke-width="0.6" opacity="0.4"/>
+  <path d="M42 14 Q60 28 78 14" fill="none" stroke="#B8952E" stroke-width="0.6" opacity="0.4"/>
+  <path d="M42 42 Q60 28 78 42" fill="none" stroke="#B8952E" stroke-width="0.6" opacity="0.4"/>
+  <!-- NBA text on base -->
+  <text x="60" y="151" text-anchor="middle" fill="#0a0a0a" font-size="7" font-family="Arial,sans-serif" font-weight="bold" letter-spacing="2">NBA</text>
+</svg>
