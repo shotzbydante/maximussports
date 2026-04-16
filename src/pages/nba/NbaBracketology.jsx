@@ -309,8 +309,7 @@ export default function NbaBracketology() {
               {eastChamp && !eastChamp.isPlaceholder && <div className={styles.confBadge}>{eastChamp.logo && <img src={eastChamp.logo} alt="" className={styles.confBadgeLogo} />}<span>East</span></div>}
             </div>
             <div className={styles.finalsCenter}>
-              <img src="/nba-finals-logo.svg" alt="NBA Finals" className={styles.finalsLogo} />
-              <span className={styles.finalsTag}>NBA Finals</span>
+              <img src="/nba-finals-logo.png" alt="NBA Finals" className={styles.finalsLogo} />
             </div>
             {finals && <SeriesCard matchup={finals} result={seriesResults['finals']} prediction={predictions['finals']} userPick={picks['finals']} onPick={handlePick} emphasis />}
             {champion && !champion.isPlaceholder && (
