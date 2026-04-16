@@ -13,6 +13,7 @@ import {
   buildEmailData, globalBriefingSectionDigest, expectedHeroSections, degradableHeroSections,
 } from './emailPipeline.js';
 import { renderHTML as renderGlobalBriefingHTML } from '../../src/emails/templates/globalBriefing.js';
+import { renderHTML as renderMlbPicksHTML } from '../../src/emails/templates/mlbPicks.js';
 
 // ── Mock data matching what assembleEmailData() returns ────────────
 
@@ -386,5 +387,140 @@ describe('Global Briefing: empty-state is last resort only', () => {
 
     // But mlbData should still be present (template needs it for guard checks)
     expect(emailData.mlbData).toBeTruthy();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MLB PICKS EMAIL — PARITY TESTS
+// ═══════════════════════════════════════════════════════════════
+
+function fullPicksAssembled() {
+  return {
+    scoresToday: [],
+    rankingsTop25: [],
+    atsLeaders: { best: [], worst: [] },
+    headlines: [],
+    oddsGames: [],
+    botIntelBullets: [],
+    mlbData: null,
+    mlbNarrativeParagraph: '',
+    briefingContext: {},
+    picksBoard: {
+      categories: {
+        pickEms: [
+          { id: 'p1', matchup: { awayTeam: { slug: 'ari', shortName: 'ARI' }, homeTeam: { slug: 'phi', shortName: 'PHI' } }, pick: { label: 'PHI -135', side: 'home', explanation: 'Model favors Phillies.', topSignals: ['Strong rotation edge'] }, model: { edge: 0.289, dataQuality: 0.92 }, confidence: 'high', confidenceScore: 85, category: 'pickEms' },
+          { id: 'p2', matchup: { awayTeam: { slug: 'mia', shortName: 'MIA' }, homeTeam: { slug: 'det', shortName: 'DET' } }, pick: { label: 'DET -145', side: 'home', explanation: 'Pitching mismatch.', topSignals: ['Home advantage'] }, model: { edge: 0.379, dataQuality: 0.88 }, confidence: 'high', confidenceScore: 90, category: 'pickEms' },
+        ],
+        ats: [
+          { id: 'a1', matchup: { awayTeam: { slug: 'cws', shortName: 'CWS' }, homeTeam: { slug: 'kc', shortName: 'KC' } }, pick: { label: 'KC -1.5', side: 'home', explanation: 'Run line value.', topSignals: ['Run line value'] }, model: { edge: 0.15, dataQuality: 0.85 }, confidence: 'high', confidenceScore: 88, category: 'ats' },
+        ],
+        leans: [
+          { id: 'l1', matchup: { awayTeam: { slug: 'sf', shortName: 'SF' }, homeTeam: { slug: 'col', shortName: 'COL' } }, pick: { label: 'SF +110', side: 'away', explanation: 'Value lean.', topSignals: ['Road edge'] }, model: { edge: 0.08, dataQuality: 0.75 }, confidence: 'medium', confidenceScore: 65, category: 'leans' },
+        ],
+        totals: [
+          { id: 't1', matchup: { awayTeam: { slug: 'nyy', shortName: 'NYY' }, homeTeam: { slug: 'bos', shortName: 'BOS' } }, pick: { label: 'OVER 8.5', side: 'over', explanation: 'Both offenses hot.', topSignals: ['Both offenses hot'] }, model: { edge: 0.12, dataQuality: 0.78 }, confidence: 'medium', confidenceScore: 70, category: 'totals' },
+        ],
+      },
+    },
+    modelSignals: [],
+    tournamentMeta: {},
+  };
+}
+
+describe('MLB Picks: buildEmailData produces correct payload', () => {
+  it('includes picksBoard with all four categories at top level', () => {
+    const emailData = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'Test' });
+
+    expect(emailData.picksBoard).toBeTruthy();
+    expect(emailData.picksBoard.categories).toBeTruthy();
+    expect(emailData.picksBoard.categories.pickEms).toHaveLength(2);
+    expect(emailData.picksBoard.categories.ats).toHaveLength(1);
+    expect(emailData.picksBoard.categories.leans).toHaveLength(1);
+    expect(emailData.picksBoard.categories.totals).toHaveLength(1);
+  });
+
+  it('preserves pick detail fields through buildEmailData', () => {
+    const emailData = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'Test' });
+    const pick = emailData.picksBoard.categories.pickEms[0];
+
+    expect(pick.pick.label).toBe('PHI -135');
+    expect(pick.model.edge).toBe(0.289);
+    expect(pick.confidence).toBe('high');
+    expect(pick.matchup.homeTeam.shortName).toBe('PHI');
+  });
+});
+
+describe('MLB Picks: rendered HTML section contract', () => {
+  it('renders all pick sections when board is populated', () => {
+    const emailData = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'Test' });
+    const html = renderMlbPicksHTML(emailData);
+
+    expect(html).toContain('MLB SLATE');
+    expect(html).toContain("PICK 'EMS");
+    expect(html).toContain('AGAINST THE SPREAD');
+    expect(html).toContain('VALUE LEANS');
+    expect(html).toContain('GAME TOTALS');
+    expect(html).toContain('ACT ON TODAY');
+    // Actual pick labels
+    expect(html).toContain('PHI -135');
+    expect(html).toContain('KC -1.5');
+    expect(html).toContain('OVER 8.5');
+    // MODEL EDGE metric
+    expect(html).toContain('MODEL EDGE');
+  });
+
+  it('does NOT render "no picks" message when board is populated', () => {
+    const emailData = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'Test' });
+    const html = renderMlbPicksHTML(emailData);
+
+    expect(html).not.toContain('No picks have cleared');
+    expect(html).not.toContain('monitoring the board');
+  });
+
+  it('renders "no picks" only when board is truly empty', () => {
+    const assembled = fullPicksAssembled();
+    assembled.picksBoard = null;
+    const emailData = buildEmailData('mlb_picks', assembled, { displayName: 'Test' });
+    const html = renderMlbPicksHTML(emailData);
+
+    expect(html).toContain('No picks have cleared');
+    expect(html).not.toContain("PICK 'EMS");
+    expect(html).not.toContain('AGAINST THE SPREAD');
+  });
+
+  it('renders board even if one category is empty', () => {
+    const assembled = fullPicksAssembled();
+    assembled.picksBoard.categories.leans = [];
+    assembled.picksBoard.categories.totals = [];
+    const emailData = buildEmailData('mlb_picks', assembled, { displayName: 'Test' });
+    const html = renderMlbPicksHTML(emailData);
+
+    // Board should still render with available categories
+    expect(html).toContain("PICK 'EMS");
+    expect(html).toContain('AGAINST THE SPREAD');
+    expect(html).not.toContain('VALUE LEANS');
+    expect(html).not.toContain('GAME TOTALS');
+    expect(html).not.toContain('No picks have cleared');
+  });
+});
+
+describe('MLB Picks: prod/test parity (same input → same output)', () => {
+  it('buildEmailData is deterministic for mlb_picks', () => {
+    const prod = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'User' });
+    const test = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'User' });
+
+    expect(Object.keys(prod).sort()).toEqual(Object.keys(test).sort());
+    expect(prod.picksBoard).toEqual(test.picksBoard);
+  });
+
+  it('rendered HTML has same sections for same input', () => {
+    const prodHtml = renderMlbPicksHTML(buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'User' }));
+    const testHtml = renderMlbPicksHTML(buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'User' }));
+
+    const sections = ["PICK 'EMS", 'AGAINST THE SPREAD', 'VALUE LEANS', 'GAME TOTALS', 'ACT ON TODAY', 'MLB SLATE'];
+    for (const s of sections) {
+      expect(prodHtml.includes(s)).toBe(true);
+      expect(testHtml.includes(s)).toBe(true);
+    }
   });
 });
