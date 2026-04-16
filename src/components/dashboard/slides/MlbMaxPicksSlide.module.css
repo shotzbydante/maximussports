@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   MlbMaxPicksSlide — MLB Maximus's Picks · 1080×1350 · IG 4:5 portrait
+   MlbMaxPicksSlide — 4-Quadrant Board · 1080×1350 · IG 4:5 portrait
+   8 games · 4 quadrants · 2 picks each
    Dark navy gradient + crimson accents + glassy cards
-   Density-first layout — NCAAM structural patterns, MLB visual language
    ───────────────────────────────────────────────────────────────────────── */
 
 @keyframes bgGlowBreath {
@@ -12,11 +12,6 @@
 @keyframes scanFade {
   0%, 100% { opacity: 0.04; }
   50%      { opacity: 0.07; }
-}
-
-@keyframes shimmerSweep {
-  0%   { background-position: -240% center; }
-  100% { background-position:  240% center; }
 }
 
 /* ── Root artboard ───────────────────────────────────────────────── */
@@ -55,8 +50,8 @@
   inset: 0;
   z-index: 1;
   background: radial-gradient(
-    ellipse 900px 500px at 50% 8%,
-    rgba(220, 20, 60, 0.14) 0%,
+    ellipse 900px 500px at 50% 6%,
+    rgba(220, 20, 60, 0.13) 0%,
     rgba(220, 20, 60, 0.04) 40%,
     transparent 70%
   );
@@ -71,7 +66,7 @@
   background: linear-gradient(
     180deg,
     rgba(220, 20, 60, 0.03) 0%,
-    transparent 40%
+    transparent 35%
   );
   pointer-events: none;
 }
@@ -92,20 +87,20 @@
 
 .mascotWrap {
   position: absolute;
-  bottom: 56px;
-  right: 36px;
+  bottom: 50px;
+  right: 32px;
   z-index: 5;
   pointer-events: none;
-  opacity: 0.32;
+  opacity: 0.22;
 }
 
 .mascot {
-  width: 140px;
+  width: 120px;
   height: auto;
   display: block;
   filter:
     drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45))
-    drop-shadow(0 0 14px rgba(220, 20, 60, 0.18));
+    drop-shadow(0 0 10px rgba(220, 20, 60, 0.15));
 }
 
 /* ── Header ──────────────────────────────────────────────────────── */
@@ -116,20 +111,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 36px 8px;
-  border-bottom: 1px solid rgba(220, 20, 60, 0.08);
+  padding: 16px 36px 6px;
   flex-shrink: 0;
 }
 
 .logoRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brandLogo {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   border-radius: 5px;
 }
@@ -137,12 +131,12 @@
 .logoMeta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .brandName {
   font-family: 'Oswald', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.07em;
   color: #ffffff;
@@ -150,12 +144,12 @@
 
 .intelChip {
   font-family: 'Oswald', sans-serif;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
   border: 1px solid rgba(220, 20, 60, 0.40);
   background: rgba(220, 20, 60, 0.12);
   color: #DC143C;
@@ -167,120 +161,210 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 3px;
-}
-
-.asOf {
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.42);
-  font-weight: 400;
-}
-
-.maxIntel {
-  font-family: 'Oswald', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: rgba(220, 20, 60, 0.70);
-}
-
-/* ── Date zone ───────────────────────────────────────────────────── */
-
-.dateZone {
-  position: relative;
-  z-index: 10;
-  padding: 10px 36px 6px;
-  text-align: center;
+  gap: 2px;
 }
 
 .dateLine {
   font-family: 'Oswald', sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(240, 244, 248, 0.50);
 }
 
-.dateSubtitle {
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.32);
-  margin-top: 2px;
+.asOf {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.35);
+}
+
+/* ── Summary strip ───────────────────────────────────────────────── */
+
+.summaryStrip {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 18px;
+  margin: 2px 36px 6px;
+  background: rgba(0, 0, 0, 0.30);
+  border: 1px solid rgba(220, 20, 60, 0.16);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+}
+
+.topPlayChip {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #DC143C;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.boardComp {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.42);
+  white-space: nowrap;
 }
 
 /* ── Team logo (shared) ──────────────────────────────────────────── */
 
 .teamLogo {
-  border-radius: 4px;
+  border-radius: 3px;
   object-fit: contain;
   flex-shrink: 0;
 }
 
-/* ── Hero Pick Card ──────────────────────────────────────────────── */
+/* ── Quadrant Grid (2×2) ─────────────────────────────────────────── */
 
-.heroCard {
+.quadrantGrid {
   position: relative;
   z-index: 10;
-  margin: 6px 36px 10px;
-  padding: 20px 24px 16px;
-  background: rgba(10, 14, 22, 0.50);
-  border: 1px solid rgba(220, 20, 60, 0.28);
-  border-left: 3px solid rgba(220, 20, 60, 0.60);
-  border-radius: 14px;
-  backdrop-filter: blur(6px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  padding: 0 36px;
+  flex: 1;
+  min-height: 0;
 }
 
-.heroCardHeader {
+/* ── Quadrant Module ─────────────────────────────────────────────── */
+
+.quadrant {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(220, 20, 60, 0.14);
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+}
+
+.quadrantHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+  flex-shrink: 0;
+}
+
+.quadrantTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #DC143C;
+}
+
+.quadrantSubtitle {
+  font-size: 10px;
+  color: rgba(240, 244, 248, 0.32);
+}
+
+.quadrantDivider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(220, 20, 60, 0.30) 0%,
+    rgba(220, 20, 60, 0.06) 100%
+  );
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.quadrantPicks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+
+.quadrantEmpty {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  justify-content: center;
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.18);
+  font-style: italic;
+  border: 1px dashed rgba(220, 20, 60, 0.10);
+  border-radius: 8px;
 }
 
-.heroLabel {
+/* ── Pick Row (inside quadrant) ──────────────────────────────────── */
+
+.pickRow {
+  background: rgba(10, 14, 22, 0.45);
+  border: 1px solid rgba(220, 20, 60, 0.10);
+  border-left: 2px solid rgba(220, 20, 60, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+}
+
+.pickMatchup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pickTeam {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.78);
+  white-space: nowrap;
+}
+
+.pickAt {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.22);
+  margin: 0 1px;
+  flex-shrink: 0;
+}
+
+.pickMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pickLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #DC143C;
-  background:
-    linear-gradient(
-      105deg,
-      #DC143C 0%,
-      #ff3a5c 40%,
-      #DC143C 60%,
-      #ff3a5c 100%
-    );
-  background-size: 240% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmerSweep 6s linear infinite;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.heroCatPill {
+.pickConf {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(240, 244, 248, 0.60);
-}
-
-.heroConfPill {
-  font-family: 'Oswald', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: 4px;
+  padding: 2px 7px;
+  border-radius: 3px;
   border: 1px solid;
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Confidence color variants */
@@ -305,345 +389,37 @@
   color: #6b7280;
 }
 
-/* Hero matchup */
-.heroMatchup {
+.pickMeta {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  margin-bottom: 10px;
-}
-
-.heroTeamSide {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  min-width: 110px;
-}
-
-.heroTeamName {
-  font-family: 'Oswald', sans-serif;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #ffffff;
-}
-
-.heroVsBlock {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.heroVs {
-  font-family: 'Oswald', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: rgba(240, 244, 248, 0.25);
-}
-
-.heroTime {
-  font-size: 11px;
-  color: rgba(240, 244, 248, 0.35);
-  white-space: nowrap;
-}
-
-/* Hero selection */
-.heroSelection {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.heroPickLabel {
-  font-family: 'Oswald', sans-serif;
-  font-size: 44px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  color: #ffffff;
-  text-shadow: 0 2px 14px rgba(220, 20, 60, 0.30);
-}
-
-/* Hero metrics */
-.heroMetrics {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  margin-bottom: 8px;
-  padding: 8px 0;
-  border-top: 1px solid rgba(220, 20, 60, 0.10);
-  border-bottom: 1px solid rgba(220, 20, 60, 0.10);
-}
-
-.heroMetric {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.heroMetricLabel {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(240, 244, 248, 0.40);
-}
-
-.heroMetricValue {
-  font-family: 'Oswald', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: #DC143C;
-}
-
-/* Hero signals */
-.heroSignals {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 4px 4px;
-}
-
-.heroSignalItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.52);
-  line-height: 1.35;
-}
-
-.heroSignalCheck {
-  color: rgba(220, 20, 60, 0.65);
-  font-weight: 700;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-/* Hero rationale */
-.heroRationale {
-  font-size: 12px;
-  color: rgba(240, 244, 248, 0.40);
-  text-align: center;
-  line-height: 1.4;
-  font-style: italic;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  margin-top: 4px;
-}
-
-/* ── Board Summary Strip ─────────────────────────────────────────── */
-
-.summaryStrip {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 10px;
-  padding: 8px 20px;
-  margin: 0 36px 8px;
-  background: rgba(0, 0, 0, 0.26);
-  border: 1px solid rgba(220, 20, 60, 0.12);
-  border-radius: 8px;
-  backdrop-filter: blur(4px);
 }
 
-.summaryItem {
-  font-size: 13px;
-  color: rgba(240, 244, 248, 0.48);
-  white-space: nowrap;
-}
-
-.summaryCount {
-  font-family: 'Oswald', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: #DC143C;
-  margin-right: 4px;
-}
-
-.summaryDot {
-  font-size: 14px;
-  color: rgba(240, 244, 248, 0.18);
-}
-
-/* ── Board Section Title ─────────────────────────────────────────── */
-
-.boardSectionTitle {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 36px;
-  margin-bottom: 8px;
-}
-
-.boardSectionRule {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    rgba(220, 20, 60, 0.25) 0%,
-    rgba(220, 20, 60, 0.06) 100%
-  );
-}
-
-.boardSectionRuleRight {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    rgba(220, 20, 60, 0.06) 0%,
-    rgba(220, 20, 60, 0.25) 100%
-  );
-}
-
-.boardSectionLabel {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(220, 20, 60, 0.55);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ── Board Row (3-column) ────────────────────────────────────────── */
-
-.boardRow {
-  position: relative;
-  z-index: 10;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-  padding: 0 36px;
-  margin-bottom: 10px;
-}
-
-/* ── Board Pick Card ─────────────────────────────────────────────── */
-
-.boardCard {
-  background: rgba(0, 0, 0, 0.24);
-  border: 1px solid rgba(220, 20, 60, 0.16);
-  border-left: 3px solid rgba(220, 20, 60, 0.35);
-  border-radius: 10px;
-  padding: 14px 16px 12px;
-  backdrop-filter: blur(4px);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.boardCardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.boardCatLabel {
-  font-family: 'Oswald', sans-serif;
+.pickMetaItem {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(220, 20, 60, 0.80);
-}
-
-.boardConfPill {
-  font-family: 'Oswald', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 3px;
-  border: 1px solid;
-}
-
-/* Board matchup */
-.boardMatchup {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: nowrap;
-}
-
-.boardTeamAbbrev {
-  font-family: 'Oswald', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(240, 244, 248, 0.78);
-  white-space: nowrap;
-}
-
-.boardVs {
-  font-family: 'Oswald', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(240, 244, 248, 0.22);
-  flex-shrink: 0;
-}
-
-/* Board selection */
-.boardSelection {
-  font-family: 'Oswald', sans-serif;
-  font-size: 24px;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: 0.02em;
-}
-
-/* Board metrics */
-.boardMetrics {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.boardMetricItem {
-  font-size: 11px;
-  color: rgba(240, 244, 248, 0.45);
+  color: rgba(240, 244, 248, 0.42);
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Board signal */
-.boardSignal {
+.pickDriver {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(240, 244, 248, 0.48);
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 10px;
+  color: rgba(240, 244, 248, 0.45);
   line-height: 1.35;
-  padding-top: 2px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
 }
 
-.boardSignalCheck {
+.pickDriverCheck {
   color: rgba(220, 20, 60, 0.55);
   font-weight: 700;
-  font-size: 10px;
+  font-size: 9px;
   flex-shrink: 0;
-}
-
-/* Board rationale */
-.boardRationale {
-  font-size: 11px;
-  color: rgba(240, 244, 248, 0.35);
-  line-height: 1.35;
-  font-style: italic;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin-top: 1px;
 }
 
 /* ── Narrative Module ────────────────────────────────────────────── */
@@ -651,44 +427,39 @@
 .narrativeModule {
   position: relative;
   z-index: 10;
-  margin: 0 36px 8px;
-  padding: 14px 20px 14px;
-  background: rgba(10, 14, 22, 0.40);
-  border: 1px solid rgba(220, 20, 60, 0.12);
-  border-radius: 10px;
-  backdrop-filter: blur(4px);
-}
-
-.narrativeModuleHead {
+  margin: 4px 36px 4px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  background: rgba(10, 14, 22, 0.35);
+  border: 1px solid rgba(220, 20, 60, 0.10);
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
-.narrativeModuleLabel {
+.narrativeLabel {
   font-family: 'Oswald', sans-serif;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(220, 20, 60, 0.55);
+  color: rgba(220, 20, 60, 0.50);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.narrativeModuleRule {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    rgba(220, 20, 60, 0.20) 0%,
-    transparent 100%
-  );
+.narrativeRule {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(220, 20, 60, 0.20);
+  flex-shrink: 0;
 }
 
 .narrativeText {
-  font-size: 14px;
-  color: rgba(240, 244, 248, 0.55);
-  line-height: 1.5;
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.50);
+  line-height: 1.4;
   font-style: italic;
   margin: 0;
 }
@@ -701,22 +472,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 36px 16px;
-  border-top: 1px solid rgba(220, 20, 60, 0.10);
+  padding: 6px 36px 14px;
+  border-top: 1px solid rgba(220, 20, 60, 0.08);
   flex-shrink: 0;
-  margin-top: auto;
 }
 
 .footerUrl {
   font-family: 'Oswald', sans-serif;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: #DC143C;
 }
 
 .footerDisclaimer {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(240, 244, 248, 0.22);
   font-style: italic;
 }

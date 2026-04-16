@@ -14,6 +14,7 @@ import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders.js';
 import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline.js';
 import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing.js';
 import { buildMlbPicks, hasAnyPicks } from '../../../features/mlb/picks/buildMlbPicks.js';
+import { selectFeaturedQuadrants, buildQuadrantNarrative } from '../../../features/mlb/picks/selectFeaturedQuadrants.js';
 
 // ── Canonical resolvers (INLINED from resolveSlideData.js for serverless compat) ──
 // These are the SAME functions used by Slide 1 and Slide 2.
@@ -735,77 +736,90 @@ function picksCaption(payload) {
     try { board = buildMlbPicks({ games }); } catch { board = { categories: {} }; }
   }
 
-  const cats = board?.categories || {};
-  const pickEms = cats.pickEms || [];
-  const ats = cats.ats || [];
-  const leans = cats.leans || [];
-  const totals = cats.totals || [];
+  // ── Use SHARED resolver — same 8 games as the slide ──
+  const quadrants = selectFeaturedQuadrants(board);
+  const { moneyline, ats, leans, totals, boardCounts, topPlay, totalFeatured } = quadrants;
+  const narrative = buildQuadrantNarrative(quadrants);
 
-  // ── Select same featured picks as the slide ──
-  const allPicks = [
-    ...pickEms.map(p => ({ ...p, _cat: 'Moneyline' })),
-    ...ats.map(p => ({ ...p, _cat: 'Spread' })),
-    ...leans.map(p => ({ ...p, _cat: 'Value' })),
-    ...totals.map(p => ({ ...p, _cat: 'Total' })),
-  ];
-  allPicks.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-  const hero = allPicks[0] || null;
-  const heroGameId = hero?.gameId;
-  const bestSpread = ats.find(p => p.gameId !== heroGameId) || ats[0] || null;
-  const bestValue = leans.find(p => p.gameId !== heroGameId) || leans[0] || null;
-  const bestTotal = totals.find(p => p.gameId !== heroGameId) || totals[0] || null;
-
-  const totalPicks = pickEms.length + ats.length + leans.length + totals.length;
+  // ── Helper: format a pick line for caption ──
+  function fmtPickLine(pick) {
+    if (!pick) return null;
+    const away = pick.matchup?.awayTeam?.shortName || '?';
+    const home = pick.matchup?.homeTeam?.shortName || '?';
+    const label = pick.pick?.label || '—';
+    const conf = pick.confidence === 'high' ? '🟢' : pick.confidence === 'medium' ? '🟡' : '⚪';
+    const selectedSlug = pick.pick?.side === 'away' ? pick.matchup?.awayTeam?.slug : pick.matchup?.homeTeam?.slug;
+    const emoji = selectedSlug ? teamEmojiFromSlug(selectedSlug) : '⚾';
+    return `▸ ${away} vs ${home}: ${emoji} ${label} ${conf}`;
+  }
 
   // ── 1. OPENER ──
   parts.push('⚾ Maximus\'s Picks are in.');
+  parts.push('📈 The board is up. Here\'s where the model sees the cleanest edge.');
   parts.push('');
 
-  // ── 2. HERO LINE ──
-  if (hero) {
-    const confEmoji = hero.confidence === 'high' ? '🟢' : hero.confidence === 'medium' ? '🟡' : '⚪';
-    parts.push(`🔥 Top Play: ${hero.pick?.label || '—'} (${hero._cat}) ${confEmoji}`);
+  // ── 2. TOP LINE / BOARD POV ──
+  if (topPlay) {
+    const topConf = topPlay.confidence === 'high' ? '🟢' : topPlay.confidence === 'medium' ? '🟡' : '⚪';
+    parts.push(`🔥 Top board position: ${topPlay.pick?.label || '—'} (${topPlay._cat || 'ML'}) ${topConf}`);
+    parts.push(narrative);
     parts.push('');
   }
 
-  // ── 3. BOARD SUMMARY ──
+  // ── 3. BOARD COMPOSITION ──
   parts.push('📊 Board composition:');
-  parts.push(`▸ ${pickEms.length} moneyline · ${ats.length} run line · ${leans.length} value · ${totals.length} total`);
-  parts.push(`▸ ${totalPicks} total picks across today's slate`);
+  parts.push(`▸ ${moneyline.length} pick 'ems`);
+  parts.push(`▸ ${ats.length} run line plays`);
+  parts.push(`▸ ${leans.length} value leans`);
+  parts.push(`▸ ${totals.length} totals`);
+  parts.push(`▸ ${totalFeatured} featured games on the board`);
   parts.push('');
 
-  // ── 4. FEATURED PICKS ──
-  parts.push('🎯 Featured picks:');
-  if (hero) {
-    const heroTeamSlug = hero.pick?.side === 'away' ? hero.matchup?.awayTeam?.slug : hero.matchup?.homeTeam?.slug;
-    const heroEmoji = heroTeamSlug ? teamEmojiFromSlug(heroTeamSlug) : '⚾';
-    parts.push(`▸ Top Play: ${hero.pick?.label || '—'} (${hero._cat}) ${heroEmoji}`);
-  }
-  if (bestSpread) {
-    const spreadSlug = bestSpread.pick?.side === 'away' ? bestSpread.matchup?.awayTeam?.slug : bestSpread.matchup?.homeTeam?.slug;
-    const spreadEmoji = spreadSlug ? teamEmojiFromSlug(spreadSlug) : '⚾';
-    parts.push(`▸ Best Run Line: ${bestSpread.pick?.label || '—'} ${spreadEmoji}`);
-  }
-  if (bestValue) {
-    const valueSlug = bestValue.pick?.side === 'away' ? bestValue.matchup?.awayTeam?.slug : bestValue.matchup?.homeTeam?.slug;
-    const valueEmoji = valueSlug ? teamEmojiFromSlug(valueSlug) : '⚾';
-    parts.push(`▸ Best Value: ${bestValue.pick?.label || '—'} ${valueEmoji}`);
-  }
-  if (bestTotal) {
-    parts.push(`▸ Best Total: ${bestTotal.pick?.label || '—'} ⚾`);
-  }
-  parts.push('');
+  // ── 4. FEATURED PLAYS BY SECTION — mirrors slide exactly ──
 
-  // ── 5. WHY THE MODEL LIKES THIS BOARD ──
-  if (hero) {
-    const topSignals = hero.pick?.topSignals || [];
-    if (topSignals.length >= 2) {
-      parts.push(`📈 Key drivers: ${topSignals.slice(0, 3).join(', ')}.`);
-    } else if (hero.model?.edge) {
-      parts.push(`📈 Model edge: ${(hero.model.edge * 100).toFixed(1)}% on the top play.`);
+  // Pick 'Ems
+  if (moneyline.length > 0) {
+    parts.push('🎯 Pick \'Ems');
+    for (const p of moneyline) {
+      const line = fmtPickLine(p);
+      if (line) parts.push(line);
     }
     parts.push('');
   }
+
+  // Run Line
+  if (ats.length > 0) {
+    parts.push('📏 Run Line');
+    for (const p of ats) {
+      const line = fmtPickLine(p);
+      if (line) parts.push(line);
+    }
+    parts.push('');
+  }
+
+  // Value Leans
+  if (leans.length > 0) {
+    parts.push('💸 Value Leans');
+    for (const p of leans) {
+      const line = fmtPickLine(p);
+      if (line) parts.push(line);
+    }
+    parts.push('');
+  }
+
+  // Totals
+  if (totals.length > 0) {
+    parts.push('⚾ Totals');
+    for (const p of totals) {
+      const line = fmtPickLine(p);
+      if (line) parts.push(line);
+    }
+    parts.push('');
+  }
+
+  // ── 5. MODEL TAKEAWAY ──
+  parts.push(`📈 ${narrative}`);
+  parts.push('');
 
   // ── 6. CTA ──
   parts.push('🚀 The model never sleeps. Neither should your edge → maximussports.ai');

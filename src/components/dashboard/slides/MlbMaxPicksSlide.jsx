@@ -1,25 +1,27 @@
 /**
- * MlbMaxPicksSlide — Flagship MLB Maximus's Picks Instagram poster (1080×1350).
+ * MlbMaxPicksSlide — MLB Maximus's Picks · 4-Quadrant Board (1080×1350).
  *
  * CANONICAL DATA: Uses buildMlbPicks() — the SAME engine that powers the
  * MLB home board / Odds Insights page. Zero drift.
  *
- * Layout (density-first, NCAAM structural patterns):
- *   Header    — Maximus branding + "MAXIMUS'S PICKS" chip + date
- *   Hero      — Top Play card: matchup + pick + metrics + signals + rationale
- *   Summary   — Board composition strip (counts per category)
- *   Section   — "TODAY'S BOARD" labeled divider
- *   Board     — 3-column row: Best Run Line, Best Value, Best Total
- *   Narrative — Model narrative module (styled card, not floating text)
- *   Footer    — URL + disclaimer
+ * SHARED RESOLVER: selectFeaturedQuadrants() is imported from a shared
+ * module so slide and caption always show the same 8 games.
  *
- * Visual language: Daily Briefing dark navy gradient + crimson accents.
- * Structural density: NCAAM PicksSlideShell / MaxPicksATSSlide packing.
+ * Layout:
+ *   Header       — compact brand + date
+ *   Summary      — top play callout + board composition
+ *   Quadrant Grid — 2×2: Pick'Ems | Run Line | Value | Totals
+ *   Narrative    — board takeaway strip
+ *   Footer       — URL + disclaimer
+ *
+ * Each quadrant: 2 featured games with matchup, pick, conf, edge, driver.
+ * Total: 8 games on the slide.
  */
 
 import { useState } from 'react';
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { buildMlbPicks, hasAnyPicks } from '../../../features/mlb/picks/buildMlbPicks';
+import { selectFeaturedQuadrants, buildQuadrantNarrative } from '../../../features/mlb/picks/selectFeaturedQuadrants';
 import styles from './MlbMaxPicksSlide.module.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,17 +43,7 @@ function fmtDQ(model) {
   return `${Math.round(dq * 100)}%`;
 }
 
-function fmtTime(startTime) {
-  if (!startTime) return '';
-  try {
-    const d = new Date(startTime);
-    return d.toLocaleTimeString('en-US', {
-      hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York',
-    });
-  } catch { return ''; }
-}
-
-function TeamLogo({ slug, size = 36 }) {
+function TeamLogo({ slug, size = 26 }) {
   const [failed, setFailed] = useState(false);
   const url = getMlbEspnLogoUrl(slug);
   if (!url || failed) return null;
@@ -65,190 +57,74 @@ function TeamLogo({ slug, size = 36 }) {
   );
 }
 
-// ─── Pick Selection (deterministic, editorial) ───────────────────────────────
+// ─── Quadrant Pick Row ──────────────────────────────────────────────────────
 
-/**
- * Select the 4 featured picks for the slide from the canonical board.
- * Returns { hero, spread, value, total, boardCounts }.
- */
-function selectFeaturedPicks(board) {
-  const cats = board?.categories || {};
-  const pickEms = cats.pickEms || [];
-  const ats = cats.ats || [];
-  const leans = cats.leans || [];
-  const totals = cats.totals || [];
-
-  const boardCounts = {
-    moneyline: pickEms.length,
-    spread: ats.length,
-    value: leans.length,
-    totals: totals.length,
-    total: pickEms.length + ats.length + leans.length + totals.length,
-  };
-
-  // Hero: highest confidence pick across the entire board
-  const allPicks = [
-    ...pickEms.map(p => ({ ...p, _cat: 'Moneyline' })),
-    ...ats.map(p => ({ ...p, _cat: 'Spread' })),
-    ...leans.map(p => ({ ...p, _cat: 'Value' })),
-    ...totals.map(p => ({ ...p, _cat: 'Total' })),
-  ];
-  allPicks.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-
-  const hero = allPicks[0] || null;
-  const heroGameId = hero?.gameId;
-
-  // Best per category (skip hero's game for diversity if possible)
-  const bestOf = (arr) => {
-    const diverse = arr.find(p => p.gameId !== heroGameId);
-    return diverse || arr[0] || null;
-  };
-
-  const spread = bestOf(ats);
-  const value = bestOf(leans);
-  const total = bestOf(totals);
-
-  return { hero, spread, value, total, boardCounts };
-}
-
-// ─── Narrative Builder ───────────────────────────────────────────────────────
-
-function buildNarrative(featured) {
-  const { hero, spread, value, total, boardCounts } = featured;
-  if (!hero) return 'The model is evaluating today\'s slate.';
-
-  const heroTeam = hero.pick?.label?.split(/\s+/)[0] || 'the favorite';
-  const parts = [];
-
-  // What the hero play is
-  const heroCategory = hero._cat || 'Moneyline';
-  if (hero.confidence === 'high') {
-    parts.push(`The model is locked in on a ${heroCategory.toLowerCase()} position with ${heroTeam}`);
-  } else {
-    parts.push(`Today's card is led by a ${heroCategory.toLowerCase()} lean toward ${heroTeam}`);
-  }
-
-  // What else the board shows
-  const supporting = [];
-  if (spread) supporting.push('run-line value');
-  if (value) supporting.push('market mispricing');
-  if (total) supporting.push('a totals edge');
-
-  if (supporting.length > 0) {
-    parts[0] += `, with supporting ${supporting.join(', ')}.`;
-  } else {
-    parts[0] += '.';
-  }
-
-  return parts.join(' ');
-}
-
-// ─── Pick Card Sub-components ────────────────────────────────────────────────
-
-function HeroPickCard({ pick }) {
+function QuadrantPickRow({ pick }) {
   if (!pick) return null;
   const away = pick.matchup?.awayTeam;
   const home = pick.matchup?.homeTeam;
   const edge = fmtEdge(pick.model);
   const dq = fmtDQ(pick.model);
-  const time = fmtTime(pick.matchup?.startTime);
-  const catLabel = pick._cat || 'Moneyline';
-  const signals = pick.pick?.topSignals?.slice(0, 3) || [];
+  const conf = fmtConf(pick.confidence);
+  const driver = pick.pick?.topSignals?.[0] || null;
+  const explanation = pick.pick?.explanation || null;
 
   return (
-    <div className={styles.heroCard}>
-      <div className={styles.heroCardHeader}>
-        <span className={styles.heroLabel}>TOP PLAY</span>
-        <span className={styles.heroCatPill}>{catLabel.toUpperCase()}</span>
-        <span className={`${styles.heroConfPill} ${styles[`conf${fmtConf(pick.confidence)}`] || ''}`}>
-          {fmtConf(pick.confidence)}
+    <div className={styles.pickRow}>
+      <div className={styles.pickMatchup}>
+        <TeamLogo slug={away?.slug} size={26} />
+        <span className={styles.pickTeam}>{away?.shortName || '?'}</span>
+        <span className={styles.pickAt}>@</span>
+        <TeamLogo slug={home?.slug} size={26} />
+        <span className={styles.pickTeam}>{home?.shortName || '?'}</span>
+      </div>
+      <div className={styles.pickMain}>
+        <span className={styles.pickLabel}>{pick.pick?.label || '—'}</span>
+        <span className={`${styles.pickConf} ${styles[`conf${conf}`] || ''}`}>
+          {conf}
         </span>
       </div>
-      <div className={styles.heroMatchup}>
-        <div className={styles.heroTeamSide}>
-          <TeamLogo slug={away?.slug} size={52} />
-          <span className={styles.heroTeamName}>{away?.shortName || '?'}</span>
-        </div>
-        <div className={styles.heroVsBlock}>
-          <span className={styles.heroVs}>VS</span>
-          {time && <span className={styles.heroTime}>{time} ET</span>}
-        </div>
-        <div className={styles.heroTeamSide}>
-          <TeamLogo slug={home?.slug} size={52} />
-          <span className={styles.heroTeamName}>{home?.shortName || '?'}</span>
-        </div>
+      <div className={styles.pickMeta}>
+        {edge && <span className={styles.pickMetaItem}>Edge {edge}</span>}
+        {dq && <span className={styles.pickMetaItem}>DQ {dq}</span>}
       </div>
-      <div className={styles.heroSelection}>
-        <span className={styles.heroPickLabel}>{pick.pick?.label || '—'}</span>
-      </div>
-      <div className={styles.heroMetrics}>
-        {edge && (
-          <div className={styles.heroMetric}>
-            <span className={styles.heroMetricLabel}>EDGE</span>
-            <span className={styles.heroMetricValue}>{edge}</span>
-          </div>
-        )}
-        {dq && (
-          <div className={styles.heroMetric}>
-            <span className={styles.heroMetricLabel}>DATA QUALITY</span>
-            <span className={styles.heroMetricValue}>{dq}</span>
-          </div>
-        )}
-      </div>
-      {signals.length > 0 && (
-        <div className={styles.heroSignals}>
-          {signals.map((sig, i) => (
-            <div key={i} className={styles.heroSignalItem}>
-              <span className={styles.heroSignalCheck}>&#x2713;</span>
-              <span>{sig}</span>
-            </div>
-          ))}
+      {driver && (
+        <div className={styles.pickDriver}>
+          <span className={styles.pickDriverCheck}>&#x2713;</span>
+          <span>{driver}</span>
         </div>
       )}
-      {pick.pick?.explanation && (
-        <div className={styles.heroRationale}>{pick.pick.explanation}</div>
+      {!driver && explanation && (
+        <div className={styles.pickDriver}>
+          <span className={styles.pickDriverCheck}>&#x2713;</span>
+          <span>{explanation}</span>
+        </div>
       )}
     </div>
   );
 }
 
-function BoardPickCard({ pick, label }) {
-  if (!pick) return null;
-  const away = pick.matchup?.awayTeam;
-  const home = pick.matchup?.homeTeam;
-  const edge = fmtEdge(pick.model);
-  const dq = fmtDQ(pick.model);
-  const topSignal = pick.pick?.topSignals?.[0];
+// ─── Quadrant Module ────────────────────────────────────────────────────────
 
+function QuadrantModule({ title, subtitle, picks }) {
   return (
-    <div className={styles.boardCard}>
-      <div className={styles.boardCardHeader}>
-        <span className={styles.boardCatLabel}>{label}</span>
-        <span className={`${styles.boardConfPill} ${styles[`conf${fmtConf(pick.confidence)}`] || ''}`}>
-          {fmtConf(pick.confidence)}
-        </span>
+    <div className={styles.quadrant}>
+      <div className={styles.quadrantHead}>
+        <span className={styles.quadrantTitle}>{title}</span>
+        <span className={styles.quadrantSubtitle}>{subtitle}</span>
       </div>
-      <div className={styles.boardMatchup}>
-        <TeamLogo slug={away?.slug} size={28} />
-        <span className={styles.boardTeamAbbrev}>{away?.shortName || '?'}</span>
-        <span className={styles.boardVs}>@</span>
-        <TeamLogo slug={home?.slug} size={28} />
-        <span className={styles.boardTeamAbbrev}>{home?.shortName || '?'}</span>
+      <div className={styles.quadrantDivider} />
+      <div className={styles.quadrantPicks}>
+        {picks.map((pick, i) => (
+          <QuadrantPickRow key={i} pick={pick} />
+        ))}
+        {picks.length === 0 && (
+          <div className={styles.quadrantEmpty}>Insufficient signal for this category</div>
+        )}
+        {picks.length === 1 && (
+          <div className={styles.quadrantEmpty}>1 more pick on the full board</div>
+        )}
       </div>
-      <div className={styles.boardSelection}>{pick.pick?.label || '—'}</div>
-      <div className={styles.boardMetrics}>
-        {edge && <span className={styles.boardMetricItem}>Edge {edge}</span>}
-        {dq && <span className={styles.boardMetricItem}>DQ {dq}</span>}
-      </div>
-      {topSignal && (
-        <div className={styles.boardSignal}>
-          <span className={styles.boardSignalCheck}>&#x2713;</span>
-          <span>{topSignal}</span>
-        </div>
-      )}
-      {pick.pick?.explanation && (
-        <div className={styles.boardRationale}>{pick.pick.explanation}</div>
-      )}
     </div>
   );
 }
@@ -260,8 +136,6 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
   const games = data?.mlbGames ?? data?.picksGames ?? data?.odds?.games ?? [];
   let board = data?.canonicalPicks ?? data?.mlbPicks ?? null;
 
-  // If board is from /api/mlb/picks/built, it already has categories.
-  // If it's raw games, we need to build.
   if (!board?.categories || !hasAnyPicks(board)) {
     try {
       board = buildMlbPicks({ games });
@@ -271,16 +145,22 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
     }
   }
 
-  // ── Validation ──
   const hasPicks = hasAnyPicks(board);
-  const featured = selectFeaturedPicks(board);
+  const quadrants = selectFeaturedQuadrants(board);
 
-  console.log('[MLB_PICKS_STUDIO_VALIDATION]', {
-    hasBoard: !!board,
-    categories: Object.keys(board?.categories || {}),
-    counts: featured.boardCounts,
-    hasHero: !!featured.hero,
+  // ── Validation (spec requirement) ──
+  console.log('[MLB_PICKS_QUADRANT_VALIDATION]', {
+    moneyline: quadrants.moneyline?.length,
+    ats: quadrants.ats?.length,
+    leans: quadrants.leans?.length,
+    totals: quadrants.totals?.length,
+    totalGames: quadrants.totalFeatured,
   });
+
+  if (quadrants.moneyline.length < 2) console.warn('[MLB_PICKS] Moneyline quadrant has < 2 picks:', quadrants.moneyline.length);
+  if (quadrants.ats.length < 2)       console.warn('[MLB_PICKS] ATS quadrant has < 2 picks:', quadrants.ats.length);
+  if (quadrants.leans.length < 2)     console.warn('[MLB_PICKS] Value quadrant has < 2 picks:', quadrants.leans.length);
+  if (quadrants.totals.length < 2)    console.warn('[MLB_PICKS] Totals quadrant has < 2 picks:', quadrants.totals.length);
 
   if (!hasPicks) {
     return (
@@ -290,14 +170,16 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
         <div className={styles.emptyState}>
           <div className={styles.emptyTitle}>NO PICKS AVAILABLE</div>
           <div className={styles.emptySubtitle}>
-            The model hasn't generated picks yet. Check back when games are on the slate.
+            The model hasn&apos;t generated picks yet. Check back when games are on the slate.
           </div>
         </div>
       </div>
     );
   }
 
-  const narrative = buildNarrative(featured);
+  const narrative = buildQuadrantNarrative(quadrants);
+  const topPlayLabel = quadrants.topPlay?.pick?.label || '';
+  const topPlayCat = quadrants.topPlay?._cat || '';
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
@@ -328,59 +210,35 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
           </div>
         </div>
         <div className={styles.headerRight}>
+          <div className={styles.dateLine}>{today}</div>
           {asOf && <div className={styles.asOf}>As of {asOf}</div>}
-          <div className={styles.maxIntel}>MLB PICKS BOARD</div>
         </div>
       </header>
 
-      {/* Date + subtitle */}
-      <div className={styles.dateZone}>
-        <div className={styles.dateLine}>{today}</div>
-        <div className={styles.dateSubtitle}>Model-backed edges across today's MLB slate</div>
-      </div>
-
-      {/* Hero: Top Play */}
-      <HeroPickCard pick={featured.hero} />
-
-      {/* Board summary strip */}
+      {/* Summary strip: top play callout + board composition */}
       <div className={styles.summaryStrip}>
-        <span className={styles.summaryItem}>
-          <span className={styles.summaryCount}>{featured.boardCounts.moneyline}</span> Moneyline
-        </span>
-        <span className={styles.summaryDot}>&middot;</span>
-        <span className={styles.summaryItem}>
-          <span className={styles.summaryCount}>{featured.boardCounts.spread}</span> Run Line
-        </span>
-        <span className={styles.summaryDot}>&middot;</span>
-        <span className={styles.summaryItem}>
-          <span className={styles.summaryCount}>{featured.boardCounts.value}</span> Value
-        </span>
-        <span className={styles.summaryDot}>&middot;</span>
-        <span className={styles.summaryItem}>
-          <span className={styles.summaryCount}>{featured.boardCounts.totals}</span> Total
+        {topPlayLabel && (
+          <span className={styles.topPlayChip}>
+            Top Play: {topPlayLabel}{topPlayCat ? ` (${topPlayCat})` : ''}
+          </span>
+        )}
+        <span className={styles.boardComp}>
+          {quadrants.moneyline.length} ML &middot; {quadrants.ats.length} RL &middot; {quadrants.leans.length} Val &middot; {quadrants.totals.length} Tot &middot; {quadrants.totalFeatured} games
         </span>
       </div>
 
-      {/* Board section title */}
-      <div className={styles.boardSectionTitle}>
-        <div className={styles.boardSectionRule} />
-        <span className={styles.boardSectionLabel}>TODAY'S BOARD</span>
-        <div className={styles.boardSectionRuleRight} />
+      {/* 2×2 Quadrant Grid */}
+      <div className={styles.quadrantGrid}>
+        <QuadrantModule title="PICK 'EMS" subtitle="Moneyline edges" picks={quadrants.moneyline} />
+        <QuadrantModule title="RUN LINE" subtitle="Spread positions" picks={quadrants.ats} />
+        <QuadrantModule title="VALUE LEANS" subtitle="Market mispricing" picks={quadrants.leans} />
+        <QuadrantModule title="TOTALS" subtitle="Over/under spots" picks={quadrants.totals} />
       </div>
 
-      {/* Board: 3 featured category picks */}
-      <div className={styles.boardRow}>
-        <BoardPickCard pick={featured.spread} label="BEST RUN LINE" />
-        <BoardPickCard pick={featured.value} label="BEST VALUE" />
-        <BoardPickCard pick={featured.total} label="BEST TOTAL" />
-      </div>
-
-      {/* Editorial narrative module */}
+      {/* Narrative module — horizontal strip */}
       <div className={styles.narrativeModule}>
-        <div className={styles.narrativeModuleHead}>
-          <span className={styles.narrativeModuleLabel}>MODEL NARRATIVE</span>
-          <div className={styles.narrativeModuleRule} />
-        </div>
+        <span className={styles.narrativeLabel}>BOARD TAKEAWAY</span>
+        <div className={styles.narrativeRule} />
         <p className={styles.narrativeText}>{narrative}</p>
       </div>
 
@@ -396,7 +254,6 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
 }
 
 /**
- * Export the featured pick selector for use by the caption builder.
- * Ensures caption and slide show the exact same picks.
+ * Re-export shared resolver so external consumers can import from either location.
  */
-export { selectFeaturedPicks, buildNarrative };
+export { selectFeaturedQuadrants, buildQuadrantNarrative };
