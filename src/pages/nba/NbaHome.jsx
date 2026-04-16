@@ -10,6 +10,8 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import NbaLoading from '../../components/nba/NbaLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
 import NbaPinnedTeamSection from '../../components/nba/NbaPinnedTeamSection';
+import NbaMaximusPicksSection from '../../components/nba/NbaMaximusPicksSection';
+import NbaIntelFeed from '../../components/nba/NbaIntelFeed';
 import NbaFinalsWatch from '../../components/nba/NbaFinalsWatch';
 import styles from './NbaHome.module.css';
 
@@ -171,35 +173,40 @@ export default function NbaHome() {
         </div>
       </section>
 
-      {/* NBA Bracketology Hero */}
-      <section className={styles.seasonPromo}>
-        <div className={styles.seasonPromoInner}>
-          <div className={styles.seasonPromoContent}>
-            <span className={styles.seasonPromoEyebrow}>2026 NBA Playoffs</span>
-            <h3 className={styles.seasonPromoTitle}>NBA Bracketology</h3>
-            <p className={styles.seasonPromoBody}>
-              Interactive playoff bracket with series predictions, championship simulations, and title probabilities &mdash; powered by the Maximus model.
+      {/* NBA Bracketology Hero — premium gold gradient */}
+      <section className={styles.bracketPromo}>
+        <div className={styles.bracketPromoGlow} />
+        <div className={styles.bracketPromoInner}>
+          <div className={styles.bracketPromoContent}>
+            <span className={styles.bracketPromoEyebrow}>2026 NBA Playoffs</span>
+            <h3 className={styles.bracketPromoTitle}>Explore NBA Bracketology</h3>
+            <p className={styles.bracketPromoBody}>
+              Interactive playoff bracket, series projections, championship simulations, and title paths &mdash; powered by the Maximus model.
             </p>
-            <div className={styles.seasonPromoChips}>
-              <span className={styles.chip}>Playoff Bracket</span>
-              <span className={styles.chip}>Series Predictions</span>
-              <span className={styles.chip}>Title Simulation</span>
-              <span className={styles.chip}>Championship Odds</span>
+            <div className={styles.bracketPromoChips}>
+              <span className={styles.bracketChip}>Playoff Bracket</span>
+              <span className={styles.bracketChip}>Series Predictions</span>
+              <span className={styles.bracketChip}>Title Simulation</span>
+              <span className={styles.bracketChip}>Championship Odds</span>
             </div>
-            <div className={styles.seasonPromoCtas}>
-              <Link to={buildPath('/bracketology')} className={styles.seasonPromoPrimary}>
-                Open Bracket &rarr;
+            <div className={styles.bracketPromoCtas}>
+              <Link to={buildPath('/bracketology')} className={styles.bracketPromoPrimary}>
+                Open Bracketology &rarr;
               </Link>
-              <Link to={buildPath('/teams')} className={styles.seasonPromoSecondary}>
+              <Link to={buildPath('/teams')} className={styles.bracketPromoSecondary}>
                 Team Intel
               </Link>
             </div>
           </div>
+          <img src="/nba-finals-logo.png" alt="" className={styles.bracketPromoAsset}
+            onError={(e) => { e.target.style.display = 'none'; }} />
         </div>
       </section>
 
       <NbaPinnedTeamSection />
+      <NbaMaximusPicksSection />
       <NbaFinalsWatch />
+      <NbaIntelFeed />
     </div>
   );
 }

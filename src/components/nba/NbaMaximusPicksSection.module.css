@@ -1,0 +1,91 @@
+/* NbaMaximusPicksSection — 4-column picks board (navy palette) */
+
+.section { margin-bottom: var(--space-xl); }
+
+.header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-md); }
+.eyebrow { font-size: 0.52rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #1d428a; display: block; margin-bottom: 2px; }
+.title { font-size: 1.05rem; font-weight: 700; color: var(--color-text); margin: 0; }
+.boardBadge { font-size: 0.58rem; font-weight: 600; color: #1d428a; background: rgba(29,66,138,0.08); border: 1px solid rgba(29,66,138,0.14); padding: 3px 10px; border-radius: 6px; }
+
+.loading { font-size: 0.82rem; color: var(--color-text-muted); }
+
+/* Grid */
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 860px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+
+/* Column */
+.column {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.colHeader {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px;
+  background: rgba(29,66,138,0.04);
+  border-bottom: 1px solid var(--color-border-light);
+}
+.colIcon { font-size: 0.8rem; }
+.colLabel { font-size: 0.72rem; font-weight: 700; color: var(--color-text); flex: 1; }
+.colCount { font-size: 0.56rem; font-weight: 700; color: #1d428a; background: rgba(29,66,138,0.08); padding: 1px 6px; border-radius: 4px; }
+
+.colBody { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+
+.emptyCol { font-size: 0.72rem; color: var(--color-text-muted); text-align: center; padding: 12px; margin: 0; }
+
+/* Pick Card */
+.pickCard {
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid rgba(0,0,0,0.04);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pickMatchup { display: flex; align-items: center; gap: 4px; }
+.pickTeam { display: flex; align-items: center; gap: 4px; }
+.pickLogo { width: 16px; height: 16px; object-fit: contain; border-radius: 2px; }
+.pickTeamName { font-size: 0.62rem; font-weight: 700; color: var(--color-text); }
+.pickVs { font-size: 0.52rem; color: var(--color-text-muted); margin: 0 2px; }
+
+.pickBody { display: flex; align-items: center; gap: 6px; }
+.pickLabel { font-size: 0.74rem; font-weight: 700; color: var(--color-text); }
+
+.confBadge { font-size: 0.48rem; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; }
+.confhigh { color: #1a7a1a; background: rgba(34,139,34,0.1); }
+.confmedium { color: #1d428a; background: rgba(29,66,138,0.08); }
+.conflow { color: var(--color-text-muted); background: rgba(0,0,0,0.04); }
+
+.pickSignals { display: flex; gap: 4px; flex-wrap: wrap; }
+.signal { font-size: 0.48rem; font-weight: 600; color: var(--color-text-muted); background: rgba(0,0,0,0.03); padding: 1px 5px; border-radius: 3px; }
+
+.pickExplainer { font-size: 0.62rem; color: var(--color-text-muted); line-height: 1.4; margin: 0; }
+
+/* Expand */
+.expandBtn {
+  display: block; width: 100%; padding: 8px;
+  background: none; border: none; border-top: 1px solid var(--color-border-light);
+  font-size: 0.68rem; font-weight: 500; color: #1d428a;
+  cursor: pointer; font-family: inherit; text-align: center;
+  transition: background 0.12s;
+}
+.expandBtn:hover { background: rgba(29,66,138,0.04); }
+
+/* Empty state */
+.emptyState {
+  text-align: center; padding: var(--space-xxl) var(--space-lg);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+.emptyState h3 { font-size: 1rem; font-weight: 600; color: var(--color-text); margin: 8px 0 4px; }
+.emptyState p { font-size: 0.82rem; color: var(--color-text-muted); margin: 0; }
+.emptyIcon { font-size: 2rem; }
+
+.disclaimer { font-size: 0.56rem; color: var(--color-text-muted); text-align: center; margin-top: var(--space-sm); }
