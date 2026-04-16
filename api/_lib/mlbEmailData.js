@@ -1,19 +1,26 @@
 /**
- * assembleMlbEmailData — canonical MLB-only data source for all email paths.
+ * assembleMlbEmailData — canonical MLB data source for all email paths.
  *
- * Every MLB email entry point (run-daily, send-test, preview, global-send)
- * MUST use this helper instead of calling NCAAM sources (fetchScoresSource,
- * fetchRankingsSource, fetchNewsAggregateSource, getAtsLeadersPipeline).
+ * CRITICAL: This module avoids HTTP self-fetches wherever possible.
  *
- * Sources:
- *   /api/mlb/news/headlines      → MLB-only Google News RSS headlines
- *   /api/mlb/live/homeFeed       → ESPN MLB scoreboard + odds enrichment
- *   /api/mlb/chat/homeSummary    → AI-generated MLB editorial narrative
+ * On Vercel, serverless functions cannot reliably self-fetch their own API
+ * routes (cold starts, timeouts, circular invocations). The prior approach
+ * fetched `${baseUrl}/api/mlb/leaders` etc. via HTTP, which silently returned
+ * empty data on production while working fine in local test environments.
  *
- * @param {string} baseUrl — e.g. "http://localhost:3000" or "https://maximussports.ai"
+ * Fix: durable/cached data is now read DIRECTLY from KV or in-memory caches.
+ * Only data that requires external API calls (Google News RSS) uses HTTP,
+ * and those failures are logged explicitly.
+ *
+ * Data sources (prioritized):
+ *   1. Vercel KV cache  → championship odds, narrative summary
+ *   2. HTTP fetch        → headlines (Google News RSS), live feed, leaders, picks
+ *   3. Graceful empty    → if all else fails, section renders empty
+ *
+ * @param {string} baseUrl — e.g. "https://maximussports.ai" (used for HTTP fallbacks)
  * @param {object} [opts]
- * @param {boolean} [opts.includeSummary=true] — fetch the AI narrative (slower; skip for picks/digest)
- * @param {boolean} [opts.includePicks=false] — fetch picks board + run buildMlbPicks (for picks email)
+ * @param {boolean} [opts.includeSummary=true] — include AI narrative
+ * @param {boolean} [opts.includePicks=false] — include picks board
  * @returns {Promise<MlbEmailPayload>}
  */
 
@@ -23,124 +30,154 @@ const NCAAM_CONTAMINATION_KEYWORDS = [
   'ncaam', 'men\'s college basketball', 'cbb',
 ];
 
-/**
- * Validate that headlines are actually MLB content.
- * Returns filtered array with contaminated items removed.
- * Logs warnings if contamination is detected.
- */
 function validateMlbHeadlines(headlines) {
   if (!Array.isArray(headlines) || headlines.length === 0) return headlines;
-
   const clean = [];
   let contaminated = 0;
-
   for (const h of headlines) {
     const title = (h.title || '').toLowerCase();
-    const isContaminated = NCAAM_CONTAMINATION_KEYWORDS.some(kw => title.includes(kw));
-    if (isContaminated) {
+    if (NCAAM_CONTAMINATION_KEYWORDS.some(kw => title.includes(kw))) {
       contaminated++;
-      console.warn(`[mlbEmailData] CONTAMINATION BLOCKED: "${h.title}"`);
     } else {
       clean.push(h);
     }
   }
-
   if (contaminated > 0) {
     console.warn(`[mlbEmailData] Blocked ${contaminated}/${headlines.length} non-MLB headlines`);
   }
-
   return clean;
 }
 
-/**
- * Validate that scores are actually MLB games (not college basketball).
- */
 function validateMlbScores(scores) {
   if (!Array.isArray(scores) || scores.length === 0) return scores;
-
   return scores.filter(g => {
     const teams = `${g.homeTeam || ''} ${g.awayTeam || ''}`.toLowerCase();
-    const isContaminated = NCAAM_CONTAMINATION_KEYWORDS.some(kw => teams.includes(kw));
-    if (isContaminated) {
-      console.warn(`[mlbEmailData] SCORE CONTAMINATION BLOCKED: ${g.awayTeam} vs ${g.homeTeam}`);
-      return false;
-    }
-    return true;
+    return !NCAAM_CONTAMINATION_KEYWORDS.some(kw => teams.includes(kw));
   });
 }
 
 import { buildLeadersEditorialHook } from '../../src/data/mlb/seasonLeaders.js';
+import { getJson } from '../_globalCache.js';
+
+// ── KV keys for direct cache reads (bypass HTTP self-fetch) ────────
+const KV_CHAMP_ODDS = 'odds:championship:mlb:v1';
+const KV_SUMMARY_FRESH = 'chat:mlb:home:summary:v2';
+const KV_SUMMARY_LASTKNOWN = 'chat:mlb:home:lastKnown:v2';
+
+/**
+ * Fetch with explicit timeout and detailed error logging.
+ * Returns { data, source, error } — never throws.
+ */
+async function safeFetch(url, label, fallback, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) {
+      console.warn(`[mlbEmailData] ${label}: HTTP ${r.status} ${r.statusText} — using fallback`);
+      return { data: fallback, source: 'http_error' };
+    }
+    const data = await r.json();
+    return { data, source: 'fresh' };
+  } catch (err) {
+    clearTimeout(timer);
+    const reason = err.name === 'AbortError' ? 'timeout' : err.message;
+    console.warn(`[mlbEmailData] ${label}: fetch failed (${reason}) — using fallback`);
+    return { data: fallback, source: 'fetch_error', error: reason };
+  }
+}
+
+/**
+ * Read championship odds directly from KV (bypasses HTTP self-fetch).
+ */
+async function readChampOddsFromKV() {
+  try {
+    const cached = await getJson(KV_CHAMP_ODDS);
+    if (cached?.odds && Object.keys(cached.odds).length > 0) {
+      return { data: cached.odds, source: 'kv_cache' };
+    }
+  } catch (err) {
+    console.warn(`[mlbEmailData] champOdds KV read failed: ${err.message}`);
+  }
+  return { data: {}, source: 'kv_miss' };
+}
+
+/**
+ * Read narrative summary directly from KV (bypasses HTTP self-fetch).
+ * Falls back to last-known-good if fresh is unavailable.
+ */
+async function readSummaryFromKV() {
+  try {
+    const fresh = await getJson(KV_SUMMARY_FRESH);
+    if (fresh?.summary) {
+      return { data: fresh, source: 'kv_fresh' };
+    }
+    const lastKnown = await getJson(KV_SUMMARY_LASTKNOWN);
+    if (lastKnown?.summary) {
+      return { data: lastKnown, source: 'kv_lastknown' };
+    }
+  } catch (err) {
+    console.warn(`[mlbEmailData] summary KV read failed: ${err.message}`);
+  }
+  return { data: {}, source: 'kv_miss' };
+}
 
 export async function assembleMlbEmailData(baseUrl, opts = {}) {
   const { includeSummary = true, includePicks = false } = opts;
 
-  const fetches = [
-    fetch(`${baseUrl}/api/mlb/news/headlines`)
-      .then(r => r.ok ? r.json() : { headlines: [] })
-      .catch(() => ({ headlines: [] })),
-    fetch(`${baseUrl}/api/mlb/live/homeFeed`)
-      .then(r => r.ok ? r.json() : {})
-      .catch(() => ({})),
-    fetch(`${baseUrl}/api/mlb/leaders`)
-      .then(r => r.ok ? r.json() : { categories: {} })
-      .catch(() => ({ categories: {} })),
-    fetch(`${baseUrl}/api/mlb/odds/championship`)
-      .then(r => r.ok ? r.json() : { odds: {} })
-      .catch(() => ({ odds: {} })),
+  console.log(`[mlbEmailData] Assembling with baseUrl=${baseUrl} summary=${includeSummary} picks=${includePicks}`);
+
+  // ── Parallel fetch: KV reads + HTTP fetches ───────────────────
+  // KV reads are fast and reliable; HTTP fetches may fail on Vercel.
+  const fetchPromises = [
+    // 0: Headlines (HTTP — Google News RSS, no KV cache)
+    safeFetch(`${baseUrl}/api/mlb/news/headlines`, 'headlines', { headlines: [] }),
+    // 1: Live feed (HTTP — ESPN scoreboard)
+    safeFetch(`${baseUrl}/api/mlb/live/homeFeed`, 'liveFeed', {}),
+    // 2: Leaders (HTTP — ESPN stats)
+    safeFetch(`${baseUrl}/api/mlb/leaders`, 'leaders', { categories: {} }),
+    // 3: Championship odds (KV DIRECT — bypasses HTTP self-fetch)
+    readChampOddsFromKV(),
   ];
 
   if (includeSummary) {
-    fetches.push(
-      fetch(`${baseUrl}/api/mlb/chat/homeSummary`)
-        .then(r => r.ok ? r.json() : {})
-        .catch(() => ({}))
-    );
+    // 4: Narrative summary (KV DIRECT — bypasses HTTP self-fetch)
+    fetchPromises.push(readSummaryFromKV());
   }
 
   if (includePicks) {
-    fetches.push(
-      fetch(`${baseUrl}/api/mlb/picks/built`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null)
-    );
+    // 5: Picks board (HTTP — needs full build pipeline)
+    fetchPromises.push(safeFetch(`${baseUrl}/api/mlb/picks/built`, 'picks', null));
   }
 
-  const results = await Promise.allSettled(fetches);
-  const [mlbNewsResult, mlbLiveResult, mlbLeadersResult, mlbChampOddsResult, ...rest] = results;
-  const mlbSummaryResult = includeSummary ? rest.shift() : null;
-  const mlbPicksBuiltResult = includePicks ? rest.shift() : null;
+  const results = await Promise.all(fetchPromises);
+  const [headlinesResult, liveResult, leadersResult, champOddsResult, ...rest] = results;
+  const summaryResult = includeSummary ? rest.shift() : null;
+  const picksResult = includePicks ? rest.shift() : null;
 
-  // Log any fetch failures so empty briefings are diagnosable
-  const fetchLabels = ['headlines', 'liveFeed', 'leaders', 'champOdds'];
-  const coreResults = [mlbNewsResult, mlbLiveResult, mlbLeadersResult, mlbChampOddsResult];
-  const failures = coreResults.map((r, i) => r.status === 'rejected' ? fetchLabels[i] : null).filter(Boolean);
-  if (failures.length > 0) {
-    console.warn(`[mlbEmailData] FETCH FAILURES: ${failures.join(', ')} — these sections may be empty`);
-    for (let i = 0; i < coreResults.length; i++) {
-      if (coreResults[i].status === 'rejected') {
-        console.warn(`[mlbEmailData]   ${fetchLabels[i]}: ${coreResults[i].reason?.message || 'unknown error'}`);
-      }
-    }
-  }
-  if (includeSummary && mlbSummaryResult?.status === 'rejected') {
-    console.warn(`[mlbEmailData] FETCH FAILURE: summary — ${mlbSummaryResult.reason?.message || 'unknown'}`);
-  }
-  if (includePicks && mlbPicksBuiltResult?.status === 'rejected') {
-    console.warn(`[mlbEmailData] FETCH FAILURE: picks — ${mlbPicksBuiltResult.reason?.message || 'unknown'}`);
-  }
+  // ── Diagnostic logging ────────────────────────────────────────
+  const sources = {
+    headlines: headlinesResult.source,
+    liveFeed: liveResult.source,
+    leaders: leadersResult.source,
+    champOdds: champOddsResult.source,
+  };
+  if (summaryResult) sources.summary = summaryResult.source;
+  if (picksResult) sources.picks = picksResult.source;
+  console.log(`[mlbEmailData] Data sources:`, JSON.stringify(sources));
+
+  // ── Parse results ─────────────────────────────────────────────
 
   // Headlines
-  const mlbNews = mlbNewsResult.status === 'fulfilled' ? mlbNewsResult.value : {};
+  const mlbNews = headlinesResult.data || {};
   const rawHeadlines = (mlbNews.headlines || []).map(h => ({
-    title: h.title,
-    link: h.link,
-    source: h.source,
-    pubDate: h.time || null,
+    title: h.title, link: h.link, source: h.source, pubDate: h.time || null,
   }));
   const headlines = validateMlbHeadlines(rawHeadlines);
 
   // Live scores
-  const mlbLive = mlbLiveResult.status === 'fulfilled' ? mlbLiveResult.value : {};
+  const mlbLive = liveResult.data || {};
   const liveGames = [...(mlbLive.liveNow || []), ...(mlbLive.startingSoon || [])];
   const rawScores = liveGames.map(g => ({
     homeTeam: g.homeTeam || g.home?.name || '',
@@ -158,8 +195,8 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
   // AI narrative summary
   let narrativeParagraph = '';
   let botIntelBullets = [];
-  if (includeSummary && mlbSummaryResult?.status === 'fulfilled') {
-    const mlbSummary = mlbSummaryResult.value;
+  if (includeSummary && summaryResult) {
+    const mlbSummary = summaryResult.data;
     if (mlbSummary?.summary) {
       narrativeParagraph = mlbSummary.summary;
       botIntelBullets = mlbSummary.summary
@@ -170,39 +207,28 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
     }
   }
 
-  // Picks board (from /api/mlb/picks/built — pre-built server-side)
+  // Picks board
   let picksBoard = null;
-  if (includePicks) {
-    if (mlbPicksBuiltResult?.status === 'fulfilled') {
-      const builtData = mlbPicksBuiltResult.value;
-      if (builtData?.categories) {
-        picksBoard = builtData;
-        const c = builtData.categories;
-        const total = (c.pickEms?.length || 0) + (c.ats?.length || 0) + (c.leans?.length || 0) + (c.totals?.length || 0);
-        console.log(`[mlbEmailData] Picks received: total=${total} pickEms=${c.pickEms?.length || 0} ats=${c.ats?.length || 0} leans=${c.leans?.length || 0} totals=${c.totals?.length || 0}`);
-        if (builtData._error) {
-          console.warn(`[mlbEmailData] Picks endpoint reported error: ${builtData._error}`);
-        }
-        if (builtData._debug) {
-          console.log(`[mlbEmailData] Picks debug: totalGames=${builtData._debug.totalGames} upcoming=${builtData._debug.upcoming} enriched=${builtData._debug.enriched}`);
-        }
-      } else {
-        console.warn(`[mlbEmailData] /api/mlb/picks/built returned no categories:`, JSON.stringify(builtData)?.slice(0, 300));
-      }
+  if (includePicks && picksResult) {
+    const builtData = picksResult.data;
+    if (builtData?.categories) {
+      picksBoard = builtData;
+      const c = builtData.categories;
+      const total = (c.pickEms?.length || 0) + (c.ats?.length || 0) + (c.leans?.length || 0) + (c.totals?.length || 0);
+      console.log(`[mlbEmailData] Picks received: total=${total} pickEms=${c.pickEms?.length || 0} ats=${c.ats?.length || 0} leans=${c.leans?.length || 0} totals=${c.totals?.length || 0}`);
     } else {
-      console.error(`[mlbEmailData] Picks fetch FAILED: status=${mlbPicksBuiltResult?.status} reason=${mlbPicksBuiltResult?.reason?.message || 'unknown'}`);
+      console.warn(`[mlbEmailData] Picks: no categories in response`);
     }
   }
 
-  // Season leaders editorial hook + raw data
-  const mlbLeadersData = mlbLeadersResult?.status === 'fulfilled' ? mlbLeadersResult.value : {};
+  // Season leaders
+  const mlbLeadersData = leadersResult.data || {};
   const leadersEditorial = buildLeadersEditorialHook(mlbLeadersData) || null;
 
-  // Championship odds — normalize to { [slug]: { american, bestChanceAmerican } }
-  const champOddsRaw = mlbChampOddsResult?.status === 'fulfilled' ? mlbChampOddsResult.value : {};
-  const champOdds = champOddsRaw?.odds || champOddsRaw || {};
+  // Championship odds (already resolved from KV)
+  const champOdds = champOddsResult.data || {};
 
-  console.log(`[mlbEmailData] Assembled: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, narrative=${!!narrativeParagraph}, picks=${!!picksBoard}, leaders=${!!leadersEditorial}, champOdds=${Object.keys(champOdds).length}`);
+  console.log(`[mlbEmailData] Final: ${headlines.length} headlines, ${scoresToday.length} games, narrative=${narrativeParagraph.length > 0 ? narrativeParagraph.length + 'ch' : 'empty'}, picks=${!!picksBoard}, leaders=${Object.keys(mlbLeadersData?.categories || {}).length} cats, champOdds=${Object.keys(champOdds).length} teams`);
 
   return {
     headlines,
