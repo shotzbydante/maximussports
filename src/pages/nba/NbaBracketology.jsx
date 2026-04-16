@@ -192,34 +192,56 @@ export default function NbaBracketology() {
     return { west: f(simResults.confChampCounts.Western || {}), east: f(simResults.confChampCounts.Eastern || {}) };
   }, [simResults]);
 
-  // Generate narrative commentary
+  // Generate narrative commentary — punchy headline + supporting insight
   const narrative = useMemo(() => {
     if (!simResults || simChamps.length === 0) return null;
     const top = simChamps[0];
     const topFull = slugToFull[top.slug] || top.name;
+    const topRecord = NBA_TEAMS.find(t => t.slug === top.slug)?.record || '';
     const second = simChamps[1];
     const westTop = confChamps?.west?.[0];
     const eastTop = confChamps?.east?.[0];
 
-    // Find biggest upset threat (low seed with >5% title probability)
+    // Biggest upset threat
     const upset = simChamps.find(t => {
       const team = NBA_TEAMS.find(x => x.slug === t.slug);
-      return team && (team.seed || 99) >= 4 && t.pct >= 5;
+      return team && (team.seed || 99) >= 5 && t.pct >= 4;
     });
 
+    // Most volatile series (closest R1 matchup in predictions)
+    const closestSeries = Object.values(predictions).reduce((best, p) => {
+      if (!p || !p.winProbability) return best;
+      const gap = Math.abs(p.winProbability - 0.5);
+      return (!best || gap < best.gap) ? { gap, pred: p } : best;
+    }, null);
+
     const lines = [];
-    lines.push(`The **${topFull}** lead the title race at **${top.pct}%** across ${simResults.numSims.toLocaleString()} simulations \u2014 their ${NBA_TEAMS.find(t => t.slug === top.slug)?.record || ''} record and top-seed positioning give them the most favorable bracket path.`);
 
-    if (second) lines.push(`**${slugToFull[second.slug] || second.name}** trail at ${second.pct}%, making this a ${top.pct - second.pct > 10 ? 'clear frontrunner race' : 'competitive two-horse battle'} for the Larry O\u2019Brien Trophy.`);
+    // Headline
+    lines.push(`**${topFull} own the title race at ${top.pct}%.** Their ${topRecord} regular season and top-seed bracket path make them the clear favorite across ${simResults.numSims.toLocaleString()} simulated playoffs.`);
 
-    if (westTop && eastTop) lines.push(`The model\u2019s most likely Finals matchup: **${slugToFull[westTop.slug] || westTop.name}** (${westTop.pct}% to win the West) vs. **${slugToFull[eastTop.slug] || eastTop.name}** (${eastTop.pct}% to win the East).`);
+    // Title race framing
+    if (second) {
+      const delta = top.pct - second.pct;
+      if (delta > 15) lines.push(`**${slugToFull[second.slug] || second.name}** are the next-closest contender at ${second.pct}%, but the gap suggests this is ${topFull.split(' ').pop()}\u2019s title to lose.`);
+      else if (delta > 5) lines.push(`**${slugToFull[second.slug] || second.name}** sit at ${second.pct}% \u2014 a real threat, but the model gives the edge to the higher seed\u2019s bracket path.`);
+      else lines.push(`**${slugToFull[second.slug] || second.name}** are right there at ${second.pct}%, making this a genuine two-team race for the Larry O\u2019Brien Trophy.`);
+    }
 
-    if (upset) lines.push(`Upset watch: the **${slugToFull[upset.slug] || upset.name}** carry ${upset.pct}% title equity despite a lower seed \u2014 a testament to their late-season form and matchup potential.`);
+    // Projected Finals
+    if (westTop && eastTop) lines.push(`Most likely Finals: **${slugToFull[westTop.slug] || westTop.name}** (${westTop.pct}% to win the West) vs. **${slugToFull[eastTop.slug] || eastTop.name}** (${eastTop.pct}% to win the East).`);
 
-    lines.push(`These probabilities reflect seed, regular-season record, championship futures market, and home-court advantage across a best-of-7 format where higher seeds hold a structural edge.`);
+    // Insight hooks
+    if (upset) lines.push(`**Upset watch:** ${slugToFull[upset.slug] || upset.name} carry ${upset.pct}% title equity as a lower seed \u2014 their matchup profile and market price suggest real dark-horse potential.`);
+
+    if (closestSeries?.pred) {
+      const w = closestSeries.pred.winner;
+      const l = closestSeries.pred.loser;
+      if (w && l) lines.push(`**Key volatility:** The ${w.shortName || w.name} vs. ${l.shortName || l.name} series is the closest call in the bracket \u2014 a coin-flip matchup that could reshape the entire conference path.`);
+    }
 
     return lines;
-  }, [simResults, simChamps, confChamps]);
+  }, [simResults, simChamps, confChamps, predictions]);
 
   function RoundHeader({ label, round, gold }) {
     const canSim = roundResolvable(round);
