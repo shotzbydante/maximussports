@@ -65,7 +65,7 @@ function resolvePicks(data, count = 3, pad = false) {
       : `Model edge: ${conviction.toLowerCase()} conviction`;
     const pickSide = p.pick?.side;
     const selectedTeam = pickSide === 'away' ? p.matchup?.awayTeam : p.matchup?.homeTeam;
-    return { matchup, type: p.type, selection, selectionLogoSrc: _logoUrl(selectedTeam?.slug), conviction, rationale, confidence: p.confidence };
+    return { matchup, type: p.type, selection, selectionLogoSrc: _logoUrl(selectedTeam?.slug), conviction, rationale, confidence: p.confidence, selectedTeamSlug: selectedTeam?.slug || null };
   });
   if (pad) { while (picks.length < count) picks.push({ matchup: 'TBD vs TBD', type: "Pick 'Em", selection: '—', selectionLogoSrc: null, conviction: 'Edge', rationale: 'More picks in the full daily board', confidence: null }); }
   return picks;
@@ -114,6 +114,34 @@ function teamEmoji(name) {
   }
   return '⚾';
 }
+
+// ── Team lookup helpers for caption ────────────────────────────────────────
+
+function teamEmojiFromSlug(slug) {
+  if (!slug) return '⚾';
+  const team = MLB_TEAMS.find(t => t.slug === slug);
+  if (!team) return '⚾';
+  return teamEmoji(team.name);
+}
+
+function teamEmojiFromAbbrev(abbrev) {
+  if (!abbrev) return '⚾';
+  const team = MLB_TEAMS.find(t => t.abbrev === abbrev);
+  if (!team) return '⚾';
+  return teamEmoji(team.name);
+}
+
+function fullTeamNameFromAbbrev(abbrev) {
+  if (!abbrev) return '';
+  const team = MLB_TEAMS.find(t => t.abbrev === abbrev);
+  return team?.name || abbrev;
+}
+
+const PICK_TYPE_LABELS = {
+  'ATS': 'Spread',
+  "Pick 'Em": 'Moneyline',
+  'O/U': 'Total',
+};
 
 // ── Day-of-year seed ────────────────────────────────────────────────────────
 
@@ -279,6 +307,18 @@ function dailyCaption(payload) {
   });
   const usedBullets = hotPress.filter(b => b?.text);
 
+  // ── Resolve ALL picks and ALL leaders FIRST — validate before building ──
+  const resolvedPicks = resolvePicks(payload, 999, false);
+  const resolvedLeaders = resolveLeaders(payload, 3);
+
+  // ── HARD VALIDATION — throw if critical data is missing ──
+  if (resolvedPicks.length === 0) {
+    throw new Error(`[CAPTION_VALIDATION_FAILED] Zero picks resolved. payload keys: ${Object.keys(payload.mlbPicks?.categories || {}).join(',') || 'NONE'}`);
+  }
+  if (resolvedLeaders.length === 0) {
+    throw new Error(`[CAPTION_VALIDATION_FAILED] Zero leader categories resolved. payload keys: ${Object.keys(payload.mlbLeaders?.categories || {}).join(',') || 'NONE'}`);
+  }
+
   // ── 1. OPENER — locked identity line ──
   parts.push('⚾ Your Daily MLB Intel Briefing is here.');
   parts.push('');
@@ -337,47 +377,53 @@ function dailyCaption(payload) {
   }
   parts.push('');
 
-  // ── 5. MAXIMUS'S PICKS — from canonical resolver (SAME as Slides 1/2) ──
-  // resolvePicks() is the SINGLE function used by Slide 1, Slide 2, and caption.
-  // If slides show picks, caption shows picks. No divergence possible.
-  const resolvedPicks = resolvePicks(payload, 3, false);
-
+  // ── 5. MAXIMUS'S PICKS — ALL resolved picks with type + team emoji ──
   parts.push('🎯 Maximus\'s Picks:');
-  if (resolvedPicks.length > 0) {
-    for (const p of resolvedPicks) {
-      parts.push(`▸ ${p.matchup}: ${p.selection} (${p.conviction})`);
-    }
-  } else {
-    parts.push('▸ No games on today\'s slate — picks return tomorrow.');
+  for (const p of resolvedPicks) {
+    const typeLabel = PICK_TYPE_LABELS[p.type] || p.type;
+    const pEmoji = p.selectedTeamSlug ? teamEmojiFromSlug(p.selectedTeamSlug) : '⚾';
+    parts.push(`▸ ${typeLabel} | ${p.matchup}: ${pEmoji} ${p.selection} (${p.conviction})`);
   }
   parts.push('');
 
-  // ── 6. SEASON LEADERS — from canonical resolver (SAME as Slide 2) ──
-  // resolveLeaders() is the SINGLE function used by Slide 2 and caption.
-  // Uses LEADER_CATEGORIES keys (homeRuns, RBIs, hits, wins, saves).
-  const resolvedLeaders = resolveLeaders(payload, 1);
-
+  // ── 6. LEAGUE LEADERS — ALL 5 categories, TOP 3 each, full names + teams + emojis ──
   parts.push('🏆 League Leaders:');
-  if (resolvedLeaders.length > 0) {
-    for (const cat of resolvedLeaders) {
-      const top = cat.leaders[0];
-      if (top) {
-        parts.push(`▸ ${cat.abbrev}: ${top.name} (${top.value})`);
-      }
-    }
-  } else {
-    parts.push('▸ Season leaders update daily — check the app for live stats.');
+  for (const cat of resolvedLeaders) {
+    const catIcon = LEADER_CATEGORIES.find(c => c.key === cat.key)?.icon || '⚾';
+    parts.push('');
+    parts.push(`${catIcon} ${cat.label}:`);
+    cat.leaders.forEach((l, rank) => {
+      const fullTeam = fullTeamNameFromAbbrev(l.teamAbbrev);
+      const lEmoji = teamEmojiFromAbbrev(l.teamAbbrev);
+      parts.push(`${rank + 1}. ${l.name} — ${fullTeam} ${lEmoji} (${l.value})`);
+    });
   }
   parts.push('');
 
-  // ── 7. CTA — locked, single, no rotation ──
+  // ── 7. BIG PICTURE — model projections snapshot ──
+  parts.push('🔭 Big Picture:');
+  const modelTop = [];
+  for (const team of MLB_TEAMS) {
+    const proj = getTeamProjection(team.slug);
+    if (proj?.projectedWins) {
+      modelTop.push({ name: team.name, slug: team.slug, projectedWins: proj.projectedWins, confidenceTier: proj.confidenceTier });
+    }
+  }
+  modelTop.sort((a, b) => b.projectedWins - a.projectedWins);
+  for (const t of modelTop.slice(0, 3)) {
+    const bpEmoji = teamEmoji(t.name);
+    parts.push(`▸ ${bpEmoji} ${t.name} — ${t.projectedWins} projected wins`);
+  }
+  parts.push('');
+
+  // ── 8. CTA — locked, single, no rotation ──
   parts.push('🚀 The model never sleeps. Neither should your edge → maximussports.ai');
   parts.push('');
 
-  // ── 8. DISCLAIMER ──
+  // ── 9. DISCLAIMER ──
   parts.push('For entertainment only. Please bet responsibly. 21+');
 
-  // ── 9. HASHTAGS — data-driven: top 3 story teams + 1 pick team + #MLB + #MLBPredictions ──
+  // ── 10. HASHTAGS — data-driven: top 3 story teams + 1 pick team + #MLB + #MLBPredictions ──
   const hashtags = buildDailyHashtags(hotPress, [], resolvedPicks);
 
   return { caption: parts.join('\n'), hashtags };
