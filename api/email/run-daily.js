@@ -463,23 +463,26 @@ export default async function handler(req, res) {
       mlbData = canonicalAssembled.mlbData;
 
     } else if (isMLB) {
-      // ── MLB-specific data via shared helper (no NCAAM contamination possible) ──
+      // ── MLB-specific: use CANONICAL assembleEmailData pipeline ──
+      // Same as send-test.js for guaranteed parity. No manual assembly.
       const host = req.headers.host || 'localhost:3000';
       const proto = host.includes('localhost') ? 'http' : 'https';
-      const mlbData = await assembleMlbEmailData(`${proto}://${host}`, {
-        includeSummary: tplType === 'mlbBriefing',
-        includePicks: tplType === 'mlbPicks',
-      });
-      headlines = mlbData.headlines;
-      scoresToday = mlbData.scoresToday;
-      botIntelBullets = mlbData.botIntelBullets;
-      mlbNarrativeParagraph = mlbData.narrativeParagraph;
-      rankingsTop25 = mlbData.rankingsTop25;
-      atsLeaders = mlbData.atsLeaders;
-      oddsGames = mlbData.oddsGames;
-      picksBoard = mlbData.picksBoard;
+      const baseUrl = `${proto}://${host}`;
 
-      console.log(`[run-daily] MLB data: ${headlines.length} headlines, ${scoresToday.length} games, ${botIntelBullets.length} intel bullets, picks=${!!picksBoard}`);
+      canonicalAssembled = await assembleEmailData(type, baseUrl);
+
+      // Populate locals for shared downstream code (maximusNote, etc.)
+      scoresToday = canonicalAssembled.scoresToday;
+      rankingsTop25 = canonicalAssembled.rankingsTop25;
+      atsLeaders = canonicalAssembled.atsLeaders;
+      headlines = canonicalAssembled.headlines;
+      oddsGames = canonicalAssembled.oddsGames;
+      botIntelBullets = canonicalAssembled.botIntelBullets || [];
+      mlbNarrativeParagraph = canonicalAssembled.mlbNarrativeParagraph || '';
+      mlbData = canonicalAssembled.mlbData;
+      picksBoard = canonicalAssembled.picksBoard || mlbData?.picksBoard || null;
+
+      console.log(`[run-daily] MLB ${type} (canonical pipeline): headlines=${headlines.length} games=${scoresToday.length} picks=${!!picksBoard} narrative=${!!mlbNarrativeParagraph}`);
 
     } else {
       // ── NCAAM / Global data fetching (original pipeline) ──
@@ -638,15 +641,16 @@ export default async function handler(req, res) {
 
       const maximusNote = botIntelBullets.length > 0 ? botIntelBullets[0] : '';
 
-      // For globalBriefing, pass the CANONICAL assembled payload directly
-      // to buildEmailData(). No reconstruction, no field extraction, no drift.
-      // This is the IDENTICAL 2-line pattern used by send-test.js.
+      // For canonical pipeline types (globalBriefing + all MLB), pass the
+      // assembled payload DIRECTLY to buildEmailData(). No reconstruction,
+      // no field extraction, no drift. This is the IDENTICAL pattern
+      // used by send-test.js.
       let emailData;
-      if (tplType === 'globalBriefing') {
+      if (canonicalAssembled) {
         emailData = buildEmailData(type, canonicalAssembled, { displayName, pinnedTeams, pinnedSlugs });
 
         // Hero-email section presence diagnostics (first user only)
-        if (i === 0) {
+        if (i === 0 && tplType === 'globalBriefing') {
           const digest = globalBriefingSectionDigest(emailData);
           console.log('[run-daily] global_briefing section digest:', JSON.stringify(digest));
           const missingDurable = expectedHeroSections(digest);
@@ -656,6 +660,21 @@ export default async function handler(req, res) {
           const missingDegradable = degradableHeroSections(digest);
           if (missingDegradable.length > 0) {
             console.log(`[run-daily] global_briefing degradable sections unavailable: ${missingDegradable.join(', ')}`);
+          }
+        }
+        // MLB Picks diagnostics — log board state to catch "no picks" regression
+        if (i === 0 && tplType === 'mlbPicks') {
+          const pb = emailData?.picksBoard?.categories || {};
+          const counts = {
+            pickEms: pb.pickEms?.length || 0,
+            ats: pb.ats?.length || 0,
+            leans: pb.leans?.length || 0,
+            totals: pb.totals?.length || 0,
+          };
+          const total = counts.pickEms + counts.ats + counts.leans + counts.totals;
+          console.log(`[run-daily] mlb_picks board: total=${total}`, JSON.stringify(counts));
+          if (total === 0) {
+            console.warn(`[run-daily] mlb_picks: ZERO PICKS — email will show empty-state fallback`);
           }
         }
       } else {
