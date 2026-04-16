@@ -134,7 +134,7 @@ function buildSlide1Content(data) {
 
 function Logo({ src, size = 22, backplate = false }) {
   if (!src) return null;
-  const img = <img src={src} alt="" width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
+  const img = <img src={src} alt="" width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />;
   if (!backplate) return img;
   return <span className={styles.logoBackplate} style={{ width: size + 6, height: size + 6 }}>{img}</span>;
 }
@@ -155,7 +155,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
       {/* ── Top brand pill ── */}
       <header className={styles.s1TopBar}>
         <div className={styles.s1BrandPill}>
-          <img src="/mlb-logo.png" alt="" className={styles.s1BrandIcon} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/mlb-logo.png" alt="" className={styles.s1BrandIcon} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
           <span>MAXIMUS SPORTS</span>
         </div>
       </header>
@@ -171,7 +171,7 @@ export default function MlbDailySlide1({ data, asOf, ...rest }) {
         {/* Mascot — left overlap */}
         <div className={styles.s1MascotWrap}>
           <div className={styles.s1MascotGlow} />
-          <img src="/mascot-mlb.png" alt="Maximus" className={styles.s1MascotImg} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/mascot-mlb.png" alt="Maximus" className={styles.s1MascotImg} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
         </div>
 
         {/* Two stacked glass story cards */}

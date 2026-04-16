@@ -18,7 +18,7 @@ function TeamLogo({ slug, size = 26 }) {
   if (!url) return null;
   return (
     <span className={styles.logoBackplate} style={{ width: size + 6, height: size + 6 }}>
-      <img src={url} alt="" width={size} height={size} className={styles.s3TeamLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+      <img src={url} alt="" width={size} height={size} className={styles.s3TeamLogo} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
     </span>
   );
 }
@@ -125,7 +125,7 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
       {/* Top badge — matching Slide 2 */}
       <div className={styles.s3TopBadge}>
         <div className={styles.s3TopPill}>
-          <img src="/mlb-logo.png" alt="" className={styles.s3TopLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/mlb-logo.png" alt="" className={styles.s3TopLogo} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
           <span>MAXIMUS SPORTS</span>
         </div>
         <div className={styles.s3TopDate}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })}</div>
@@ -143,7 +143,7 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
         <div className={styles.s3Col}>
           <div className={styles.s3ColHead}>
             <div className={styles.s3ColHeadMain}>
-              <img src="/al-logo.png" alt="" className={styles.s3LeagueLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+              <img src="/al-logo.png" alt="" className={styles.s3LeagueLogo} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
               <span className={styles.s3ColTitle}>AMERICAN LEAGUE</span>
             </div>
             <span className={styles.s3ColSub}>TOP 5 BY PROJECTED WINS</span>
@@ -157,7 +157,7 @@ export default function MlbDailySlide3({ data, asOf, ...rest }) {
         <div className={styles.s3Col}>
           <div className={styles.s3ColHead}>
             <div className={styles.s3ColHeadMain}>
-              <img src="/nl-logo.png" alt="" className={styles.s3LeagueLogo} crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
+              <img src="/nl-logo.png" alt="" className={styles.s3LeagueLogo} loading="eager" decoding="sync" crossOrigin="anonymous" onError={e => { e.currentTarget.style.display = 'none'; }} />
               <span className={styles.s3ColTitle}>NATIONAL LEAGUE</span>
             </div>
             <span className={styles.s3ColSub}>TOP 5 BY PROJECTED WINS</span>
