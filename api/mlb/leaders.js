@@ -21,6 +21,7 @@
 
 import { createCache, coalesce } from '../_cache.js';
 import { MLB_TEAMS, MLB_ESPN_IDS } from '../../src/sports/mlb/teams.js';
+import { setJson } from '../_globalCache.js';
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 min
 const STALE_TTL = 6 * 60 * 60 * 1000; // Serve stale up to 6 hours if fresh fetch fails
@@ -238,6 +239,9 @@ export default async function handler(req, res) {
       // 4. No stale data available — return empty
       return { categories: {}, fetchedAt: new Date().toISOString(), partial: true };
     });
+
+    // Persist to KV so email pipeline can read directly (avoid self-fetch)
+    setJson('mlb:leaders:latest', result, { exSeconds: 3600 }).catch(() => {});
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
     return res.status(200).json(result);
