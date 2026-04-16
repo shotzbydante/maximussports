@@ -17,6 +17,7 @@
  */
 
 import { createCache, coalesce } from '../../_cache.js';
+import { setJson } from '../../_globalCache.js';
 import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../live/_normalize.js';
 import { enrichGamesWithOdds } from '../live/_odds.js';
 import { buildMlbPicks } from '../../../src/features/mlb/picks/buildMlbPicks.js';
@@ -89,6 +90,8 @@ export default async function handler(req, res) {
     };
 
     cache.set(cacheKey, payload);
+    // Persist to KV so email pipeline can read directly (avoid self-fetch)
+    setJson('mlb:picks:built:latest', payload, { exSeconds: 900 }).catch(() => {});
     return res.status(200).json(payload);
 
   } catch (err) {

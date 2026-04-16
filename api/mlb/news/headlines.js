@@ -4,6 +4,7 @@
  */
 
 import { createCache } from '../../_cache.js';
+import { setJson } from '../../_globalCache.js';
 
 const cache = createCache(15 * 60 * 1000);
 const CACHE_KEY = 'mlb:headlines';
@@ -93,6 +94,8 @@ export default async function handler(req, res) {
 
     const payload = { headlines, fetchedAt: new Date().toISOString() };
     cache.set(CACHE_KEY, payload);
+    // Persist to KV so email pipeline can read directly (avoid self-fetch)
+    setJson('mlb:headlines:latest', payload, { exSeconds: 1800 }).catch(() => {});
     return res.status(200).json(payload);
   } catch (err) {
     return res.status(200).json({ headlines: [], error: err?.message });

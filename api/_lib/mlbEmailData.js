@@ -63,6 +63,9 @@ import { getJson } from '../_globalCache.js';
 const KV_CHAMP_ODDS = 'odds:championship:mlb:v1';
 const KV_SUMMARY_FRESH = 'chat:mlb:home:summary:v2';
 const KV_SUMMARY_LASTKNOWN = 'chat:mlb:home:lastKnown:v2';
+const KV_LEADERS = 'mlb:leaders:latest';
+const KV_HEADLINES = 'mlb:headlines:latest';
+const KV_PICKS = 'mlb:picks:built:latest';
 
 /**
  * Fetch with explicit timeout and detailed error logging.
@@ -86,6 +89,26 @@ async function safeFetch(url, label, fallback, timeoutMs = 8000) {
     console.warn(`[mlbEmailData] ${label}: fetch failed (${reason}) — using fallback`);
     return { data: fallback, source: 'fetch_error', error: reason };
   }
+}
+
+/**
+ * Read from KV with HTTP fallback. Prefers KV (instant, reliable on Vercel)
+ * but falls back to HTTP fetch if KV is empty/stale.
+ */
+async function kvThenHttp(kvKey, kvLabel, httpUrl, httpLabel, httpFallback) {
+  try {
+    const cached = await getJson(kvKey);
+    if (cached && typeof cached === 'object' && Object.keys(cached).length > 0) {
+      return { data: cached, source: `kv:${kvLabel}` };
+    }
+  } catch (err) {
+    console.warn(`[mlbEmailData] KV read failed for ${kvLabel}: ${err.message}`);
+  }
+  // KV miss — fall back to HTTP
+  if (httpUrl) {
+    return safeFetch(httpUrl, httpLabel, httpFallback);
+  }
+  return { data: httpFallback, source: 'kv_miss_no_http' };
 }
 
 /**
@@ -128,27 +151,28 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
 
   console.log(`[mlbEmailData] Assembling with baseUrl=${baseUrl} summary=${includeSummary} picks=${includePicks}`);
 
-  // ── Parallel fetch: KV reads + HTTP fetches ───────────────────
-  // KV reads are fast and reliable; HTTP fetches may fail on Vercel.
+  // ── Parallel fetch: KV-first reads with HTTP fallback ──────────
+  // KV reads are instant and reliable on Vercel. HTTP self-fetches are
+  // the fallback for when KV hasn't been populated yet.
   const fetchPromises = [
-    // 0: Headlines (HTTP — Google News RSS, no KV cache)
-    safeFetch(`${baseUrl}/api/mlb/news/headlines`, 'headlines', { headlines: [] }),
-    // 1: Live feed (HTTP — ESPN scoreboard)
+    // 0: Headlines — KV first, HTTP fallback
+    kvThenHttp(KV_HEADLINES, 'headlines', `${baseUrl}/api/mlb/news/headlines`, 'headlines', { headlines: [] }),
+    // 1: Live feed — HTTP only (30s cache, no KV persistence)
     safeFetch(`${baseUrl}/api/mlb/live/homeFeed`, 'liveFeed', {}),
-    // 2: Leaders (HTTP — ESPN stats)
-    safeFetch(`${baseUrl}/api/mlb/leaders`, 'leaders', { categories: {} }),
-    // 3: Championship odds (KV DIRECT — bypasses HTTP self-fetch)
+    // 2: Leaders — KV first, HTTP fallback
+    kvThenHttp(KV_LEADERS, 'leaders', `${baseUrl}/api/mlb/leaders`, 'leaders', { categories: {} }),
+    // 3: Championship odds — KV direct (already persisted by odds endpoint)
     readChampOddsFromKV(),
   ];
 
   if (includeSummary) {
-    // 4: Narrative summary (KV DIRECT — bypasses HTTP self-fetch)
+    // 4: Narrative summary — KV direct with last-known-good fallback
     fetchPromises.push(readSummaryFromKV());
   }
 
   if (includePicks) {
-    // 5: Picks board (HTTP — needs full build pipeline)
-    fetchPromises.push(safeFetch(`${baseUrl}/api/mlb/picks/built`, 'picks', null));
+    // 5: Picks board — KV first, HTTP fallback
+    fetchPromises.push(kvThenHttp(KV_PICKS, 'picks', `${baseUrl}/api/mlb/picks/built`, 'picks', null));
   }
 
   const results = await Promise.all(fetchPromises);
