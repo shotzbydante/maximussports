@@ -4,15 +4,17 @@
  * CANONICAL DATA: Uses buildMlbPicks() — the SAME engine that powers the
  * MLB home board / Odds Insights page. Zero drift.
  *
- * Layout:
- *   Header   — Maximus branding + "MAXIMUS'S PICKS" chip + date
- *   Hero     — Top Play card with team logos, matchup, line, confidence, edge
- *   Summary  — Board composition strip (counts per category)
- *   Board    — 3-column row: Best Spread, Best Value, Best Total
- *   Narrative — 1-2 editorial sentences derived from featured picks
- *   Footer   — URL + disclaimer
+ * Layout (density-first, NCAAM structural patterns):
+ *   Header    — Maximus branding + "MAXIMUS'S PICKS" chip + date
+ *   Hero      — Top Play card: matchup + pick + metrics + signals + rationale
+ *   Summary   — Board composition strip (counts per category)
+ *   Section   — "TODAY'S BOARD" labeled divider
+ *   Board     — 3-column row: Best Run Line, Best Value, Best Total
+ *   Narrative — Model narrative module (styled card, not floating text)
+ *   Footer    — URL + disclaimer
  *
- * Visual language: Daily Briefing dark navy gradient + NCAAM picks packaging.
+ * Visual language: Daily Briefing dark navy gradient + crimson accents.
+ * Structural density: NCAAM PicksSlideShell / MaxPicksATSSlide packing.
  */
 
 import { useState } from 'react';
@@ -97,14 +99,14 @@ function selectFeaturedPicks(board) {
   const heroGameId = hero?.gameId;
 
   // Best per category (skip hero's game for diversity if possible)
-  const bestOf = (arr, catLabel) => {
+  const bestOf = (arr) => {
     const diverse = arr.find(p => p.gameId !== heroGameId);
     return diverse || arr[0] || null;
   };
 
-  const spread = bestOf(ats, 'Spread');
-  const value = bestOf(leans, 'Value');
-  const total = bestOf(totals, 'Total');
+  const spread = bestOf(ats);
+  const value = bestOf(leans);
+  const total = bestOf(totals);
 
   return { hero, spread, value, total, boardCounts };
 }
@@ -151,6 +153,7 @@ function HeroPickCard({ pick }) {
   const dq = fmtDQ(pick.model);
   const time = fmtTime(pick.matchup?.startTime);
   const catLabel = pick._cat || 'Moneyline';
+  const signals = pick.pick?.topSignals?.slice(0, 3) || [];
 
   return (
     <div className={styles.heroCard}>
@@ -163,7 +166,7 @@ function HeroPickCard({ pick }) {
       </div>
       <div className={styles.heroMatchup}>
         <div className={styles.heroTeamSide}>
-          <TeamLogo slug={away?.slug} size={48} />
+          <TeamLogo slug={away?.slug} size={52} />
           <span className={styles.heroTeamName}>{away?.shortName || '?'}</span>
         </div>
         <div className={styles.heroVsBlock}>
@@ -171,7 +174,7 @@ function HeroPickCard({ pick }) {
           {time && <span className={styles.heroTime}>{time} ET</span>}
         </div>
         <div className={styles.heroTeamSide}>
-          <TeamLogo slug={home?.slug} size={48} />
+          <TeamLogo slug={home?.slug} size={52} />
           <span className={styles.heroTeamName}>{home?.shortName || '?'}</span>
         </div>
       </div>
@@ -187,17 +190,21 @@ function HeroPickCard({ pick }) {
         )}
         {dq && (
           <div className={styles.heroMetric}>
-            <span className={styles.heroMetricLabel}>DQ</span>
+            <span className={styles.heroMetricLabel}>DATA QUALITY</span>
             <span className={styles.heroMetricValue}>{dq}</span>
           </div>
         )}
-        {pick.pick?.topSignals?.[0] && (
-          <div className={styles.heroMetric}>
-            <span className={styles.heroMetricLabel}>DRIVER</span>
-            <span className={styles.heroMetricValue}>{pick.pick.topSignals[0]}</span>
-          </div>
-        )}
       </div>
+      {signals.length > 0 && (
+        <div className={styles.heroSignals}>
+          {signals.map((sig, i) => (
+            <div key={i} className={styles.heroSignalItem}>
+              <span className={styles.heroSignalCheck}>&#x2713;</span>
+              <span>{sig}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {pick.pick?.explanation && (
         <div className={styles.heroRationale}>{pick.pick.explanation}</div>
       )}
@@ -211,6 +218,7 @@ function BoardPickCard({ pick, label }) {
   const home = pick.matchup?.homeTeam;
   const edge = fmtEdge(pick.model);
   const dq = fmtDQ(pick.model);
+  const topSignal = pick.pick?.topSignals?.[0];
 
   return (
     <div className={styles.boardCard}>
@@ -221,17 +229,23 @@ function BoardPickCard({ pick, label }) {
         </span>
       </div>
       <div className={styles.boardMatchup}>
-        <TeamLogo slug={away?.slug} size={24} />
+        <TeamLogo slug={away?.slug} size={28} />
         <span className={styles.boardTeamAbbrev}>{away?.shortName || '?'}</span>
         <span className={styles.boardVs}>@</span>
-        <TeamLogo slug={home?.slug} size={24} />
+        <TeamLogo slug={home?.slug} size={28} />
         <span className={styles.boardTeamAbbrev}>{home?.shortName || '?'}</span>
       </div>
       <div className={styles.boardSelection}>{pick.pick?.label || '—'}</div>
       <div className={styles.boardMetrics}>
-        {edge && <span className={styles.boardMetricItem}>Edge: {edge}</span>}
-        {dq && <span className={styles.boardMetricItem}>DQ: {dq}</span>}
+        {edge && <span className={styles.boardMetricItem}>Edge {edge}</span>}
+        {dq && <span className={styles.boardMetricItem}>DQ {dq}</span>}
       </div>
+      {topSignal && (
+        <div className={styles.boardSignal}>
+          <span className={styles.boardSignalCheck}>&#x2713;</span>
+          <span>{topSignal}</span>
+        </div>
+      )}
       {pick.pick?.explanation && (
         <div className={styles.boardRationale}>{pick.pick.explanation}</div>
       )}
@@ -333,18 +347,25 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
         <span className={styles.summaryItem}>
           <span className={styles.summaryCount}>{featured.boardCounts.moneyline}</span> Moneyline
         </span>
-        <span className={styles.summaryDot}>·</span>
+        <span className={styles.summaryDot}>&middot;</span>
         <span className={styles.summaryItem}>
           <span className={styles.summaryCount}>{featured.boardCounts.spread}</span> Run Line
         </span>
-        <span className={styles.summaryDot}>·</span>
+        <span className={styles.summaryDot}>&middot;</span>
         <span className={styles.summaryItem}>
           <span className={styles.summaryCount}>{featured.boardCounts.value}</span> Value
         </span>
-        <span className={styles.summaryDot}>·</span>
+        <span className={styles.summaryDot}>&middot;</span>
         <span className={styles.summaryItem}>
           <span className={styles.summaryCount}>{featured.boardCounts.totals}</span> Total
         </span>
+      </div>
+
+      {/* Board section title */}
+      <div className={styles.boardSectionTitle}>
+        <div className={styles.boardSectionRule} />
+        <span className={styles.boardSectionLabel}>TODAY'S BOARD</span>
+        <div className={styles.boardSectionRuleRight} />
       </div>
 
       {/* Board: 3 featured category picks */}
@@ -354,9 +375,12 @@ export default function MlbMaxPicksSlide({ data, asOf, options = {}, ...rest }) 
         <BoardPickCard pick={featured.total} label="BEST TOTAL" />
       </div>
 
-      {/* Editorial narrative */}
-      <div className={styles.narrativeZone}>
-        <div className={styles.narrativeDivider} />
+      {/* Editorial narrative module */}
+      <div className={styles.narrativeModule}>
+        <div className={styles.narrativeModuleHead}>
+          <span className={styles.narrativeModuleLabel}>MODEL NARRATIVE</span>
+          <div className={styles.narrativeModuleRule} />
+        </div>
         <p className={styles.narrativeText}>{narrative}</p>
       </div>
 
