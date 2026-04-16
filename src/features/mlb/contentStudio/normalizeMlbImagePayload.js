@@ -252,7 +252,7 @@ export function normalizeMlbImagePayload({
     case 'game-insights':
       return buildGamePayload(base, mlbSelectedGame, mlbGameAngle);
     case 'maximus-picks':
-      return buildPicksPayload(base, mlbPicks, intelBriefing);
+      return buildPicksPayload(base, mlbPicks, intelBriefing, mlbGames);
     default:
       return { ...base, headline: 'MLB Intelligence', subhead: 'Model-driven analysis' };
   }
@@ -387,7 +387,7 @@ function buildGamePayload(base, game, angle) {
   };
 }
 
-function buildPicksPayload(base, picks, intelBriefing) {
+function buildPicksPayload(base, picks, intelBriefing, mlbGames) {
   const cats = picks?.categories ?? {};
   const pickRows = [];
   const addPick = (cat, items) => {
@@ -404,6 +404,10 @@ function buildPicksPayload(base, picks, intelBriefing) {
     subhead: pickRows.length > 0 ? `${pickRows.length} qualified pick${pickRows.length !== 1 ? 's' : ''} across today's board` : 'Model is waiting for stronger signal alignment',
     keyPick: topPick,
     signals: pickRows.map(p => `${p.market}: ${p.label}`),
+    // Pass canonical board data so picksCaption() can mirror the slide exactly
+    mlbPicks: picks,
+    canonicalPicks: picks,
+    mlbGames: mlbGames || [],
     ...(intelBriefing ? { intelBriefing } : {}),
   };
 }

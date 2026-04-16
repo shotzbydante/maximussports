@@ -13,6 +13,7 @@ import { getTeamProjection } from '../../../data/mlb/seasonModel.js';
 import { LEADER_CATEGORIES } from '../../../data/mlb/seasonLeaders.js';
 import { buildMlbDailyHeadline, buildMlbHotPress } from './buildMlbDailyHeadline.js';
 import { buildMlbTeamIntelBriefing, extractTeamContext } from '../../../data/mlb/buildTeamIntelBriefing.js';
+import { buildMlbPicks, hasAnyPicks } from '../../../features/mlb/picks/buildMlbPicks.js';
 
 // ── Canonical resolvers (INLINED from resolveSlideData.js for serverless compat) ──
 // These are the SAME functions used by Slide 1 and Slide 2.
@@ -725,16 +726,98 @@ function gameCaption(payload) {
 }
 
 function picksCaption(payload) {
-  const conf = payload.keyPick?.confidence;
-  const lines = ['⚾ Today\'s MLB picks board is LIVE.\n', payload.headline || "Maximus's Picks", ''];
-  if (payload.keyPick) {
-    const cl = conf === 'high' ? '🟢 HIGH' : conf === 'medium' ? '🟡 MEDIUM' : '⚪ LOW';
-    lines.push(`🎯 Top play: ${payload.keyPick.label} (${cl})\n`);
+  const parts = [];
+
+  // ── Build canonical board from same source as slide ──
+  const games = payload.mlbGames ?? payload.picksGames ?? [];
+  let board = payload.canonicalPicks ?? payload.mlbPicks ?? null;
+  if (!board?.categories || !hasAnyPicks(board)) {
+    try { board = buildMlbPicks({ games }); } catch { board = { categories: {} }; }
   }
-  const signals = payload.signals || [];
-  if (signals.length > 0) { lines.push('📊 Board signals:'); for (const s of signals) lines.push(`• ${s}`); lines.push(''); }
-  lines.push('More → maximussports.ai');
-  return { caption: lines.join('\n'), hashtags: ['#MLB', '#Baseball', '#SportsBetting', '#MaximusPicks', '#MaximusSports'] };
+
+  const cats = board?.categories || {};
+  const pickEms = cats.pickEms || [];
+  const ats = cats.ats || [];
+  const leans = cats.leans || [];
+  const totals = cats.totals || [];
+
+  // ── Select same featured picks as the slide ──
+  const allPicks = [
+    ...pickEms.map(p => ({ ...p, _cat: 'Moneyline' })),
+    ...ats.map(p => ({ ...p, _cat: 'Spread' })),
+    ...leans.map(p => ({ ...p, _cat: 'Value' })),
+    ...totals.map(p => ({ ...p, _cat: 'Total' })),
+  ];
+  allPicks.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+  const hero = allPicks[0] || null;
+  const heroGameId = hero?.gameId;
+  const bestSpread = ats.find(p => p.gameId !== heroGameId) || ats[0] || null;
+  const bestValue = leans.find(p => p.gameId !== heroGameId) || leans[0] || null;
+  const bestTotal = totals.find(p => p.gameId !== heroGameId) || totals[0] || null;
+
+  const totalPicks = pickEms.length + ats.length + leans.length + totals.length;
+
+  // ── 1. OPENER ──
+  parts.push('⚾ Maximus\'s Picks are in.');
+  parts.push('');
+
+  // ── 2. HERO LINE ──
+  if (hero) {
+    const confEmoji = hero.confidence === 'high' ? '🟢' : hero.confidence === 'medium' ? '🟡' : '⚪';
+    parts.push(`🔥 Top Play: ${hero.pick?.label || '—'} (${hero._cat}) ${confEmoji}`);
+    parts.push('');
+  }
+
+  // ── 3. BOARD SUMMARY ──
+  parts.push('📊 Board composition:');
+  parts.push(`▸ ${pickEms.length} moneyline · ${ats.length} run line · ${leans.length} value · ${totals.length} total`);
+  parts.push(`▸ ${totalPicks} total picks across today's slate`);
+  parts.push('');
+
+  // ── 4. FEATURED PICKS ──
+  parts.push('🎯 Featured picks:');
+  if (hero) {
+    const heroTeamSlug = hero.pick?.side === 'away' ? hero.matchup?.awayTeam?.slug : hero.matchup?.homeTeam?.slug;
+    const heroEmoji = heroTeamSlug ? teamEmojiFromSlug(heroTeamSlug) : '⚾';
+    parts.push(`▸ Top Play: ${hero.pick?.label || '—'} (${hero._cat}) ${heroEmoji}`);
+  }
+  if (bestSpread) {
+    const spreadSlug = bestSpread.pick?.side === 'away' ? bestSpread.matchup?.awayTeam?.slug : bestSpread.matchup?.homeTeam?.slug;
+    const spreadEmoji = spreadSlug ? teamEmojiFromSlug(spreadSlug) : '⚾';
+    parts.push(`▸ Best Run Line: ${bestSpread.pick?.label || '—'} ${spreadEmoji}`);
+  }
+  if (bestValue) {
+    const valueSlug = bestValue.pick?.side === 'away' ? bestValue.matchup?.awayTeam?.slug : bestValue.matchup?.homeTeam?.slug;
+    const valueEmoji = valueSlug ? teamEmojiFromSlug(valueSlug) : '⚾';
+    parts.push(`▸ Best Value: ${bestValue.pick?.label || '—'} ${valueEmoji}`);
+  }
+  if (bestTotal) {
+    parts.push(`▸ Best Total: ${bestTotal.pick?.label || '—'} ⚾`);
+  }
+  parts.push('');
+
+  // ── 5. WHY THE MODEL LIKES THIS BOARD ──
+  if (hero) {
+    const topSignals = hero.pick?.topSignals || [];
+    if (topSignals.length >= 2) {
+      parts.push(`📈 Key drivers: ${topSignals.slice(0, 3).join(', ')}.`);
+    } else if (hero.model?.edge) {
+      parts.push(`📈 Model edge: ${(hero.model.edge * 100).toFixed(1)}% on the top play.`);
+    }
+    parts.push('');
+  }
+
+  // ── 6. CTA ──
+  parts.push('🚀 The model never sleeps. Neither should your edge → maximussports.ai');
+  parts.push('');
+
+  // ── 7. DISCLAIMER ──
+  parts.push('For entertainment only. Please bet responsibly. 21+');
+
+  // ── 8. HASHTAGS ──
+  const tags = ['#MLB', '#MLBPredictions', '#SportsBetting', '#BaseballIntel', '#MaximusPicks'];
+
+  return { caption: parts.join('\n'), hashtags: tags };
 }
 
 function genericCaption(payload) {
@@ -760,7 +843,7 @@ export function buildMlbCaption(payload) {
   const result = builder(payload);
   // Daily briefing: short and long are identical (unified caption)
   // team-intel and daily-briefing include their own disclaimer
-  const hasOwnDisclaimer = payload.section === 'daily-briefing' || payload.section === 'team-intel';
+  const hasOwnDisclaimer = payload.section === 'daily-briefing' || payload.section === 'team-intel' || payload.section === 'maximus-picks';
   const fullCaption = hasOwnDisclaimer
     ? result.caption
     : result.caption + '\n\nFor entertainment only. Please bet responsibly. 21+';

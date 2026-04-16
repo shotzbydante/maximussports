@@ -1,0 +1,617 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   MlbMaxPicksSlide — MLB Maximus's Picks · 1080×1350 · IG 4:5 portrait
+   Dark navy gradient + crimson accents + glassy cards
+   Visual language: Daily Briefing base + NCAAM picks packaging
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes bgGlowBreath {
+  0%, 100% { opacity: 0.70; }
+  50%      { opacity: 1.0;  }
+}
+
+@keyframes scanFade {
+  0%, 100% { opacity: 0.04; }
+  50%      { opacity: 0.07; }
+}
+
+/* ── Root artboard ───────────────────────────────────────────────── */
+
+.artboard {
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #f0f4f8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Background layers ───────────────────────────────────────────── */
+
+.bgBase {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    165deg,
+    #0e1e2f 0%,
+    #071422 40%,
+    #050d1a 70%,
+    #02060c 100%
+  );
+  pointer-events: none;
+}
+
+.bgGlow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(
+    ellipse 900px 500px at 50% 8%,
+    rgba(220, 20, 60, 0.14) 0%,
+    rgba(220, 20, 60, 0.04) 40%,
+    transparent 70%
+  );
+  animation: bgGlowBreath 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.bgRay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    rgba(220, 20, 60, 0.03) 0%,
+    transparent 40%
+  );
+  pointer-events: none;
+}
+
+.bgNoise {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.04;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  animation: scanFade 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Mascot watermark ────────────────────────────────────────────── */
+
+.mascotWrap {
+  position: absolute;
+  bottom: 70px;
+  right: 40px;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.10;
+}
+
+.mascot {
+  width: 160px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+}
+
+/* ── Header ──────────────────────────────────────────────────────── */
+
+.header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 40px 10px;
+  flex-shrink: 0;
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brandLogo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.logoMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.brandName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: #ffffff;
+}
+
+.intelChip {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(220, 20, 60, 0.40);
+  background: rgba(220, 20, 60, 0.12);
+  color: #DC143C;
+  display: inline-block;
+  width: fit-content;
+}
+
+.headerRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.asOf {
+  font-size: 13px;
+  color: rgba(240, 244, 248, 0.35);
+  font-weight: 400;
+}
+
+.maxIntel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(220, 20, 60, 0.70);
+}
+
+/* ── Date zone ───────────────────────────────────────────────────── */
+
+.dateZone {
+  position: relative;
+  z-index: 10;
+  padding: 4px 40px 12px;
+  text-align: center;
+}
+
+.dateLine {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.50);
+}
+
+.dateSubtitle {
+  font-size: 14px;
+  color: rgba(240, 244, 248, 0.32);
+  margin-top: 2px;
+}
+
+/* ── Team logo (shared) ──────────────────────────────────────────── */
+
+.teamLogo {
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* ── Hero Pick Card ──────────────────────────────────────────────── */
+
+.heroCard {
+  position: relative;
+  z-index: 10;
+  margin: 0 40px 12px;
+  padding: 22px 28px 18px;
+  background: rgba(220, 20, 60, 0.06);
+  border: 1px solid rgba(220, 20, 60, 0.25);
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+}
+
+.heroCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.heroLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #DC143C;
+}
+
+.heroCatPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(240, 244, 248, 0.60);
+}
+
+.heroConfPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  margin-left: auto;
+}
+
+/* Confidence color variants */
+.confHIGH {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.40);
+  color: #22c55e;
+}
+.confMEDIUM {
+  background: rgba(250, 204, 21, 0.10);
+  border-color: rgba(250, 204, 21, 0.35);
+  color: #facc15;
+}
+.confLOW {
+  background: rgba(156, 163, 175, 0.10);
+  border-color: rgba(156, 163, 175, 0.30);
+  color: #9ca3af;
+}
+.confEDGE {
+  background: rgba(156, 163, 175, 0.08);
+  border-color: rgba(156, 163, 175, 0.20);
+  color: #6b7280;
+}
+
+/* Hero matchup */
+.heroMatchup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+
+.heroTeamSide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+}
+
+.heroTeamName {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+}
+
+.heroVsBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.heroVs {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(240, 244, 248, 0.25);
+}
+
+.heroTime {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.30);
+  white-space: nowrap;
+}
+
+/* Hero selection */
+.heroSelection {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.heroPickLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(220, 20, 60, 0.25);
+}
+
+/* Hero metrics */
+.heroMetrics {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 10px;
+}
+
+.heroMetric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.heroMetricLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(240, 244, 248, 0.35);
+}
+
+.heroMetricValue {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #DC143C;
+}
+
+/* Hero rationale */
+.heroRationale {
+  font-size: 13px;
+  color: rgba(240, 244, 248, 0.45);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── Board Summary Strip ─────────────────────────────────────────── */
+
+.summaryStrip {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 40px;
+  margin: 0 40px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.summaryItem {
+  font-size: 13px;
+  color: rgba(240, 244, 248, 0.45);
+  white-space: nowrap;
+}
+
+.summaryCount {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #DC143C;
+  margin-right: 4px;
+}
+
+.summaryDot {
+  font-size: 14px;
+  color: rgba(240, 244, 248, 0.18);
+}
+
+/* ── Board Row (3-column) ────────────────────────────────────────── */
+
+.boardRow {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 0 40px;
+  margin-bottom: 12px;
+}
+
+/* ── Board Pick Card ─────────────────────────────────────────────── */
+
+.boardCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 16px 14px;
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.boardCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.boardCatLabel {
+  font-family: 'Oswald', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(220, 20, 60, 0.80);
+}
+
+.boardConfPill {
+  font-family: 'Oswald', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+/* Board matchup */
+.boardMatchup {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.boardTeamAbbrev {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.75);
+  white-space: nowrap;
+}
+
+.boardVs {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(240, 244, 248, 0.20);
+  flex-shrink: 0;
+}
+
+/* Board selection */
+.boardSelection {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+/* Board metrics */
+.boardMetrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.boardMetricItem {
+  font-size: 11px;
+  color: rgba(240, 244, 248, 0.40);
+}
+
+/* Board rationale */
+.boardRationale {
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.35);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Narrative Zone ──────────────────────────────────────────────── */
+
+.narrativeZone {
+  position: relative;
+  z-index: 10;
+  padding: 0 40px;
+  margin-top: auto;
+  margin-bottom: 8px;
+}
+
+.narrativeDivider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(220, 20, 60, 0.30) 20%,
+    rgba(220, 20, 60, 0.50) 50%,
+    rgba(220, 20, 60, 0.30) 80%,
+    transparent 100%
+  );
+  margin-bottom: 12px;
+}
+
+.narrativeText {
+  font-size: 15px;
+  color: rgba(240, 244, 248, 0.50);
+  line-height: 1.45;
+  text-align: center;
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+.footer {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 40px 18px;
+  border-top: 1px solid rgba(220, 20, 60, 0.10);
+  flex-shrink: 0;
+}
+
+.footerUrl {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #DC143C;
+}
+
+.footerDisclaimer {
+  font-size: 12px;
+  color: rgba(240, 244, 248, 0.22);
+  font-style: italic;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+
+.emptyState {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+}
+
+.emptyTitle {
+  font-family: 'Oswald', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(240, 244, 248, 0.30);
+  margin-bottom: 12px;
+}
+
+.emptySubtitle {
+  font-size: 16px;
+  color: rgba(240, 244, 248, 0.20);
+  text-align: center;
+  max-width: 400px;
+}

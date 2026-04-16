@@ -45,6 +45,8 @@ import ConferenceIntelSlide from './slides/ConferenceIntelSlide';
 import MlbSingleSlide from './slides/MlbSingleSlide';
 // MLB Team Intel — premium cinematic slide (ported from NCAAM TeamIntelSlide4)
 import MlbTeamIntelSlide from './slides/MlbTeamIntelSlide';
+// MLB Maximus's Picks — flagship picks poster
+import MlbMaxPicksSlide from './slides/MlbMaxPicksSlide';
 // MLB Daily Briefing carousel (3 slides)
 import MlbDailySlide1 from './slides/MlbDailySlide1';
 import MlbDailySlide2 from './slides/MlbDailySlide2';
@@ -103,10 +105,11 @@ function getSlides(template, slideCount, options = {}) {
       return [MlbTeamIntelSlide];
     case 'mlb-daily':
       return [MlbDailySlide1, MlbDailySlide2, MlbDailySlide3].slice(0, Math.min(slideCount, 3));
+    case 'mlb-picks':
+      return [MlbMaxPicksSlide];
     case 'mlb-league':
     case 'mlb-division':
     case 'mlb-game':
-    case 'mlb-picks':
       return [MlbSingleSlide];
 
     // ── NCAAM templates (untouched) ──
