@@ -17,6 +17,8 @@ import { buildNbaTeamIntelSummary } from '../../data/nba/teamIntelSummary';
 import usePinnedTeams, { getPinnedForSport } from '../../hooks/usePinnedTeams';
 import { notifyPinnedChanged } from '../../utils/pinnedSync';
 import { usePlan } from '../../hooks/usePlan';
+import { useTeamPin } from '../../hooks/useTeamPin';
+import { refreshTeamPersonPropertiesFromBackend } from '../../analytics/teamPinTracking';
 import { NBA_TEAMS } from '../../sports/nba/teams';
 import { fetchNbaChampionshipOdds } from '../../api/nbaChampionshipOdds';
 import { fetchNbaTeamBoard } from '../../api/nbaTeamBoard';
@@ -240,6 +242,7 @@ export default function NbaPinnedTeamSection() {
   const navigate = useNavigate();
   const { pinnedTeams: pinned, addTeam, removeTeam } = usePinnedTeams({ sport: 'nba' });
   const { isPro } = usePlan();
+  const { pinTeam, unpinTeam } = useTeamPin();
   const [odds, setOdds] = useState(null);
   const [boardMap, setBoardMap] = useState({});
   const [schedules, setSchedules] = useState({});
@@ -280,38 +283,58 @@ export default function NbaPinnedTeamSection() {
 
   const handlePin = async (slug) => {
     if (!user) { navigate('/settings'); return; }
-    if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
+
+    // Cross-sport total check — free cap is 3 across ALL sports, not 3 per sport.
+    // (Server will re-validate via /api/teams/pin, this is just pre-emptive UX.)
+    const totalPinned =
+      getPinnedForSport('ncaam').length +
+      getPinnedForSport('mlb').length +
+      getPinnedForSport('nba').length;
+    if (!isPro && totalPinned >= FREE_PIN_LIMIT) {
       setLimitHit(true);
       return;
     }
+
+    // Optimistic local update
     addTeam(slug);
     setLimitHit(false);
+
+    // SERVER-VALIDATED persistence via /api/teams/pin (same path MLB uses).
+    // Server counts ALL sports together and enforces the cap with grace window.
     const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb'), ...getPinnedForSport('nba')];
-    notifyPinnedChanged(allSlugs, 'home');
+    const result = await pinTeam(slug, { surface: 'nba_home', allSlugs });
+
+    if (!result.ok) {
+      // Revert optimistic update — server rejected.
+      removeTeam(slug);
+      setLimitHit(true);
+      return;
+    }
+
+    // Refresh PostHog person props from validated backend state.
     try {
       const sb = getSupabase();
-      if (sb && user?.id) {
-        await sb.from('user_teams').upsert({
-          user_id: user.id,
-          team_slug: slug,
-          is_primary: pinned.length === 0,
-          created_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,team_slug' });
-      }
-    } catch { /* best-effort */ }
+      if (sb && user?.id) await refreshTeamPersonPropertiesFromBackend(sb, user.id);
+    } catch { /* non-fatal */ }
+
+    notifyPinnedChanged(allSlugs, 'home');
   };
 
   const handleRemove = async (slug) => {
+    // Optimistic local update
     removeTeam(slug);
     setLimitHit(false);
-    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb'), ...getPinnedForSport('nba')];
-    notifyPinnedChanged(allSlugs, 'home');
+
+    // SERVER-VALIDATED unpin via /api/teams/pin.
+    await unpinTeam(slug, { surface: 'nba_home' });
+
     try {
       const sb = getSupabase();
-      if (sb && user?.id) {
-        await sb.from('user_teams').delete().eq('user_id', user.id).eq('team_slug', slug);
-      }
-    } catch { /* best-effort */ }
+      if (sb && user?.id) await refreshTeamPersonPropertiesFromBackend(sb, user.id);
+    } catch { /* non-fatal */ }
+
+    const allSlugs = [...getPinnedForSport('ncaam'), ...getPinnedForSport('mlb'), ...getPinnedForSport('nba')];
+    notifyPinnedChanged(allSlugs, 'home');
   };
 
   const isEmpty = pinned.length === 0;

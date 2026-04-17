@@ -442,13 +442,29 @@ function StepTeams({ onNext, initialSelected = [] }) {
     return t.name.toLowerCase().includes(q) || t.division.toLowerCase().includes(q) || t.abbrev.toLowerCase().includes(q);
   });
 
+  // Free-tier cap for onboarding — new users are always free at this step.
+  // This is enforced again server-side via /api/teams/pin-set.
+  const ONBOARDING_FREE_LIMIT = 3;
+
   const toggleTeam = (slug) => {
-    setSelected((prev) => prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]);
+    setSelected((prev) => {
+      if (prev.includes(slug)) return prev.filter((s) => s !== slug);
+      if (prev.length >= ONBOARDING_FREE_LIMIT) {
+        setError(`Free plan supports up to ${ONBOARDING_FREE_LIMIT} teams. Upgrade to Pro for unlimited tracking — for now, deselect one to swap.`);
+        return prev;
+      }
+      return [...prev, slug];
+    });
     setError('');
   };
 
   const handleNext = () => {
     if (selected.length === 0) { setError('Select at least one team to continue.'); return; }
+    if (selected.length > ONBOARDING_FREE_LIMIT) {
+      // Defensive — UI toggleTeam should prevent this, but guard anyway.
+      setError(`Free plan supports up to ${ONBOARDING_FREE_LIMIT} teams. Deselect extras to continue.`);
+      return;
+    }
     track('onboarding_step_submit', { step: 1, success: true, primary_team: selected[0], team_count: selected.length });
     onNext(selected);
   };
@@ -1008,16 +1024,40 @@ function OnboardingWizard({ user, onComplete }) {
         throw new Error(friendlyDbError(coreErr));
       }
 
-      // Idempotently replace user_teams
-      await sb.from('user_teams').delete().eq('user_id', userId);
-      const teamRows = teamSlugs.map((slug, i) => ({
-        user_id: userId, team_slug: slug, is_primary: i === 0, created_at: new Date().toISOString(),
-      }));
-      const { error: teamsErr } = await sb.from('user_teams').insert(teamRows);
-      if (teamsErr) throw new Error(friendlyDbError(teamsErr));
+      // SERVER-VALIDATED full-set persistence via /api/teams/pin-set.
+      // This enforces the free-tier cap of 3 teams — the server rejects
+      // any set exceeding the limit with 403 regardless of grace window.
+      const { data: { session } } = await sb.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Session expired. Please sign in again.');
 
-      identifyUser(user, { username: allData.username, plan_tier: 'free' }, teamSlugs);
-      track('onboarding_step_submit', { step: 3, success: true });
+      const pinSetRes = await fetch('/api/teams/pin-set', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ slugs: teamSlugs, source: 'onboarding' }),
+      });
+      const pinSetData = await pinSetRes.json().catch(() => ({}));
+      if (!pinSetRes.ok || !pinSetData.ok) {
+        throw new Error(pinSetData.error || 'Failed to save teams. Please try again.');
+      }
+
+      // Re-read validated backend state for person properties — NEVER trust
+      // the optimistic client list for analytics truth.
+      const { data: validatedRows } = await sb.from('user_teams')
+        .select('team_slug')
+        .eq('user_id', userId);
+      const validatedSlugs = (validatedRows || []).map(r => r.team_slug).filter(Boolean);
+
+      identifyUser(user, { username: allData.username, plan_tier: pinSetData.plan_tier || 'free' }, validatedSlugs);
+      track('onboarding_step_submit', {
+        step: 3,
+        success: true,
+        validated_team_count: pinSetData.teamCount,
+        attempted_count: teamSlugs.length,
+      });
 
       setStep(4); // Find Friends (optional)
       if (onComplete) onComplete({ teamSlugs });
@@ -2639,29 +2679,14 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
       if (!sb) { setTeamsLoading(false); return; }
       const { data, error } = await sb.from('user_teams').select('*').eq('user_id', user.id).order('created_at');
       if (error) throw error;
-      let teams = data || [];
-      const dbSlugs = new Set(teams.map((t) => t.team_slug));
+      const teams = data || [];
 
-      // Merge localStorage MLB pins that may not yet be in the DB
-      // (covers the case where the DB write from Home was best-effort and failed)
-      const localMlbPins = getPinnedForSport('mlb');
-      for (const slug of localMlbPins) {
-        if (!dbSlugs.has(slug) && MLB_TEAMS.some(t => t.slug === slug)) {
-          teams = [...teams, {
-            user_id: user.id,
-            team_slug: slug,
-            is_primary: false,
-            created_at: new Date().toISOString(),
-          }];
-          // Best-effort: push the missing pin to the DB
-          try {
-            await sb.from('user_teams').upsert(
-              { user_id: user.id, team_slug: slug, is_primary: false, created_at: new Date().toISOString() },
-              { onConflict: 'user_id,team_slug', ignoreDuplicates: true }
-            );
-          } catch { /* swallow */ }
-        }
-      }
+      // NOTE: Previously merged stale localStorage MLB pins directly into
+      // user_teams via unvalidated upsert — this was a free-tier bypass
+      // (users could end up with >3 teams). Server state is now canonical.
+      // If localStorage drifts, usePinnedTeamsSync reconciles it from the
+      // server; any pins added via Home already went through the validated
+      // /api/teams/pin endpoint, so missing pins are genuinely not pinned.
 
       setUserTeams(teams);
 

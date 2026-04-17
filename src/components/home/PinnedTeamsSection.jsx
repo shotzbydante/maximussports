@@ -22,7 +22,9 @@ import { ESPNGamecastLink } from '../shared/ESPNGamecastLink';
 import { fetchTeamSummary } from '../../api/summary';
 import { getCachedVideos, setCachedVideos, getStaleVideos, setStaleVideos } from '../../utils/ytClientCache';
 import { track } from '../../analytics/index';
-import { trackTeamPinAdded, trackTeamPinRemoved, trackTeamPinBlocked, updateTeamPersonProperties } from '../../analytics/teamPinTracking';
+import { trackTeamPinAdded, trackTeamPinRemoved, trackTeamPinBlocked, updateTeamPersonProperties, refreshTeamPersonPropertiesFromBackend } from '../../analytics/teamPinTracking';
+import { useTeamPin } from '../../hooks/useTeamPin';
+import { getPinnedForSport } from '../../hooks/usePinnedTeams';
 import TeamLogo from '../shared/TeamLogo';
 import SeedBadge from '../common/SeedBadge';
 import { getTeamSeed, isBracketOfficial } from '../../utils/tournamentHelpers';
@@ -199,6 +201,7 @@ function recordFromBatchData(batchSlot) {
 
 export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapProp = {}, games: gamesProp, teamNewsBySlug: teamNewsBySlugProp = {}, pinnedTeamDataBySlug = {}, compact = false }) {
   const { user } = useAuth();
+  const { pinTeam, unpinTeam } = useTeamPin();
 
   // Plan state — fetched once on mount (optimistic free until confirmed)
   const [planTier, setPlanTier] = useState('free');
@@ -272,72 +275,105 @@ export default function PinnedTeamsSection({ onPinnedChange, rankMap: rankMapPro
     onPinnedChange?.(getPinnedTeams());
   }, [onPinnedChange]);
 
-  const handleToggle = useCallback((slug) => {
+  const handleToggle = useCallback(async (slug) => {
     if (!user) { setShowAuthGate(true); return; }
-    const before = getPinnedTeams();
     const wasAdded = !pinned.includes(slug);
-    if (wasAdded && !isPro && pinned.length >= FREE_PIN_LIMIT) {
+
+    // Cross-sport total — free cap is 3 across ALL sports, not per sport.
+    const totalPinned =
+      getPinnedForSport('ncaam').length +
+      getPinnedForSport('mlb').length +
+      getPinnedForSport('nba').length;
+
+    if (wasAdded && !isPro && totalPinned >= FREE_PIN_LIMIT) {
       setShowLimitPrompt(true);
-      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: pinned.length });
+      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: totalPinned });
       return;
     }
     setShowLimitPrompt(false);
-    const after = togglePinnedTeam(slug);   // writes to localStorage, returns new array
-    if (debugPinsRef.current) {
-      console.group(`[debugPins] handleToggle — ${wasAdded ? 'ADD' : 'REMOVE'} ${slug}`);
-      console.log('  before:', before);
-      console.log('  after:', after);
-      console.log('  localStorage now:', localStorage.getItem('maximus-pinned-teams'));
-      console.groupEnd();
-    }
-    setPinned(after);
-    if (wasAdded) {
-      trackTeamPinAdded(slug, { surface: 'home', allSlugs: after });
-    } else {
-      trackTeamPinRemoved(slug, { surface: 'home', allSlugs: after });
-    }
-    notifyPinnedChanged(after, 'home');
-    notify();
-  }, [user, notify, pinned, isPro]);
 
-  const handleAdd = useCallback((slug) => {
-    if (!user) { setShowAuthGate(true); return; }
-    if (!isPro && pinned.length >= FREE_PIN_LIMIT) {
+    // Optimistic local update
+    const after = togglePinnedTeam(slug);
+    setPinned(after);
+
+    // SERVER-VALIDATED persistence via /api/teams/pin.
+    const result = wasAdded
+      ? await pinTeam(slug, { surface: 'home', allSlugs: after })
+      : await unpinTeam(slug, { surface: 'home', allSlugs: after });
+
+    if (!result.ok && wasAdded) {
+      // Server rejected — revert local state.
+      const reverted = togglePinnedTeam(slug);
+      setPinned(reverted);
       setShowLimitPrompt(true);
-      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: pinned.length });
       return;
     }
-    const before = getPinnedTeams();
-    const after = addPinnedTeam(slug);
-    if (debugPinsRef.current) {
-      console.group(`[debugPins] handleAdd — ADD ${slug}`);
-      console.log('  before:', before);
-      console.log('  after:', after);
-      console.groupEnd();
+
+    // Refresh PostHog person props from validated backend state.
+    try {
+      const sb = getSupabase();
+      if (sb && user?.id) await refreshTeamPersonPropertiesFromBackend(sb, user.id);
+    } catch { /* non-fatal */ }
+
+    notifyPinnedChanged(after, 'home');
+    notify();
+  }, [user, notify, pinned, isPro, pinTeam, unpinTeam]);
+
+  const handleAdd = useCallback(async (slug) => {
+    if (!user) { setShowAuthGate(true); return; }
+
+    const totalPinned =
+      getPinnedForSport('ncaam').length +
+      getPinnedForSport('mlb').length +
+      getPinnedForSport('nba').length;
+
+    if (!isPro && totalPinned >= FREE_PIN_LIMIT) {
+      setShowLimitPrompt(true);
+      trackTeamPinBlocked(slug, { surface: 'home', reason: 'limit_exceeded', teamCount: totalPinned });
+      return;
     }
+
+    // Optimistic local update
+    const after = addPinnedTeam(slug);
     setPinned(after);
-    trackTeamPinAdded(slug, { surface: 'home', allSlugs: after });
     setSearch('');
     setShowAdd(false);
-    notifyPinnedChanged(after, 'home');
-    notify();
-  }, [user, notify, isPro, pinned.length]);
 
-  const handleRemove = useCallback((slug) => {
-    if (!user) { setShowAuthGate(true); return; }
-    const before = getPinnedTeams();
-    const after = removePinnedTeam(slug);
-    if (debugPinsRef.current) {
-      console.group(`[debugPins] handleRemove — REMOVE ${slug}`);
-      console.log('  before:', before);
-      console.log('  after:', after);
-      console.groupEnd();
+    // SERVER-VALIDATED persistence.
+    const result = await pinTeam(slug, { surface: 'home', allSlugs: after });
+    if (!result.ok) {
+      // Revert
+      const reverted = removePinnedTeam(slug);
+      setPinned(reverted);
+      setShowLimitPrompt(true);
+      return;
     }
-    setPinned(after);
-    trackTeamPinRemoved(slug, { surface: 'home', allSlugs: after });
+
+    try {
+      const sb = getSupabase();
+      if (sb && user?.id) await refreshTeamPersonPropertiesFromBackend(sb, user.id);
+    } catch { /* non-fatal */ }
+
     notifyPinnedChanged(after, 'home');
     notify();
-  }, [user, notify]);
+  }, [user, notify, isPro, pinned.length, pinTeam]);
+
+  const handleRemove = useCallback(async (slug) => {
+    if (!user) { setShowAuthGate(true); return; }
+    const after = removePinnedTeam(slug);
+    setPinned(after);
+
+    // SERVER-VALIDATED unpin.
+    await unpinTeam(slug, { surface: 'home', allSlugs: after });
+
+    try {
+      const sb = getSupabase();
+      if (sb && user?.id) await refreshTeamPersonPropertiesFromBackend(sb, user.id);
+    } catch { /* non-fatal */ }
+
+    notifyPinnedChanged(after, 'home');
+    notify();
+  }, [user, notify, unpinTeam]);
 
   const handleClearAll = useCallback(() => {
     if (!user) { setShowAuthGate(true); return; }

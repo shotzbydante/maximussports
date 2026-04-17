@@ -160,10 +160,18 @@ export function usePinnedTeamsSync(user) {
     } catch { /* swallow */ }
   }, [user]);
 
-  // ── Write-through: Home pin/unpin → user_teams ───────────────────────────
-  // When PinnedTeamsSection dispatches a 'home' event while signed in,
-  // mirror the change to the user_teams table so Settings "My Teams" is canonical.
-  // prevSlugsRef tracks the last known list so we only write deltas.
+  // ── Write-through: Home pin/unpin → validated backend ────────────────────
+  //
+  // HARDENED: this listener no longer performs direct upserts/deletes to
+  // user_teams. Home pin/unpin surfaces (MLB, NCAAM, NBA) now call
+  // /api/teams/pin via useTeamPin — which validates the free-tier cap
+  // server-side and already writes to user_teams. Duplicating the write
+  // here was a bypass path that could persist invalid state when a
+  // surface forgot to call the API.
+  //
+  // We still track prevSlugsRef so the initial sync can seed it, and we
+  // skip write-through entirely — the API is now the sole persistence
+  // path for home pin actions.
   const prevSlugsRef = useRef([]);
 
   useEffect(() => {
@@ -173,41 +181,16 @@ export function usePinnedTeamsSync(user) {
       if (source !== 'home') return; // only react to Home actions; avoid loops
 
       const prev = prevSlugsRef.current;
-      // Skip write-through when the set of slugs hasn't changed
       if (slugArraysEqual(prev, slugs)) return;
       prevSlugsRef.current = slugs;
 
-      const sb = getSupabase();
-      if (!sb) return;
-
-      const prevSet = new Set(prev);
-      const nextSet = new Set(slugs);
-
-      const added   = slugs.filter((s) => !prevSet.has(s));
-      const removed = prev.filter((s) => !nextSet.has(s));
-
-      if (added.length === 0 && removed.length === 0) return;
-
-      try {
-        if (added.length > 0) {
-          const rows = added.map((slug) => ({
-            user_id:    user.id,
-            team_slug:  slug,
-            is_primary: false,
-            created_at: new Date().toISOString(),
-          }));
-          await sb
-            .from('user_teams')
-            .upsert(rows, { onConflict: 'user_id,team_slug', ignoreDuplicates: true });
-        }
-        for (const slug of removed) {
-          await sb
-            .from('user_teams')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('team_slug', slug);
-        }
-      } catch { /* swallow — local state already correct, DB is best-effort */ }
+      // NOTE: Do NOT write to user_teams here. Validated surface hooks
+      // (useTeamPin) are the sole write path. This prevents any future
+      // component from accidentally persisting unvalidated local state.
+      console.log('[usePinnedTeamsSync] local set changed (persistence handled by validated API)', {
+        prev_count: prev.length,
+        next_count: slugs.length,
+      });
     });
   }, [user]);
 

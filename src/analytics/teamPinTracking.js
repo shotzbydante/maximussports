@@ -138,3 +138,35 @@ export function trackOnboardingTeamsSelected(slugs = [], planTier = 'free') {
   }
   updateTeamPersonProperties(slugs);
 }
+
+/**
+ * Refresh PostHog person properties from VALIDATED backend state.
+ *
+ * Call this after any mutation to user_teams to ensure PostHog reflects
+ * the actual persisted count — never optimistic/stale client state.
+ *
+ * @param {object} sb — Supabase client (authenticated)
+ * @param {string} userId
+ * @returns {Promise<{ count: number, slugs: string[] } | null>}
+ */
+export async function refreshTeamPersonPropertiesFromBackend(sb, userId) {
+  if (!sb || !userId) return null;
+  try {
+    const { data, error } = await sb.from('user_teams')
+      .select('team_slug')
+      .eq('user_id', userId);
+    if (error) {
+      console.warn('[teamPinTracking] refresh failed:', error.message);
+      return null;
+    }
+    const slugs = (data || []).map(r => r.team_slug).filter(Boolean);
+    updateTeamPersonProperties(slugs);
+    console.log('[teamPinTracking] person props refreshed from backend:', {
+      userId, count: slugs.length, slugs,
+    });
+    return { count: slugs.length, slugs };
+  } catch (err) {
+    console.warn('[teamPinTracking] refresh exception:', err?.message);
+    return null;
+  }
+}
