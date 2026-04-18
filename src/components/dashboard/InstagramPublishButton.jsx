@@ -159,6 +159,24 @@ export default function InstagramPublishButton({
       return;
     }
 
+    // ── HARD SAFETY CHECK — prevent blank/generic captions from reaching IG ──
+    // A legitimate daily/team/picks caption is always 300+ chars.
+    // The only way to get under 80 is a fallback string or a builder failure.
+    const MIN_CAPTION_CHARS = 80;
+    if (captionText.length < MIN_CAPTION_CHARS) {
+      console.error('[InstagramPublish] Caption too short — blocking publish:', {
+        length: captionText.length,
+        preview: captionText.slice(0, 200),
+      });
+      setErrorMessage(`Caption looks incomplete (${captionText.length} chars). Refresh the page or regenerate before publishing.`);
+      setStage('error');
+      return;
+    }
+    console.log('[InstagramPublish] caption OK', {
+      length: captionText.length,
+      preview: captionText.slice(0, 200),
+    });
+
     if (!exportRef?.current) {
       setErrorMessage('Export artboard not ready. Wait for slides to load.');
       setStage('error');

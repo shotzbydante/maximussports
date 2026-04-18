@@ -742,8 +742,22 @@ export default function Dashboard() {
   const caption = useMemo(() => {
     // ── MLB caption (sourced from intelBriefing + payload normalizer) ──
     if (mlbActive) {
+      // ── PAYLOAD DIAGNOSTIC — log completeness before caption build ──
+      const payloadDiag = {
+        activeSection,
+        hasBriefing: !!mlbBriefing,
+        liveGamesCount: mlbLiveGames?.length ?? 0,
+        pickCats: Object.keys(mlbPicks?.categories || {}),
+        leaderCats: Object.keys(mlbLeaders?.categories || {}),
+        standingsTeams: Object.keys(mlbStandings || {}).length,
+        hasChampOdds: !!mlbChampOdds && Object.keys(mlbChampOdds).length > 0,
+        hasSelectedTeam: !!mlbSelectedTeam,
+      };
+      console.log('[DAILY_CAPTION_PAYLOAD]', payloadDiag);
+
+      let payload;
       try {
-        const payload = normalizeMlbImagePayload({
+        payload = normalizeMlbImagePayload({
           activeSection,
           mlbPicks,
           mlbGames,
@@ -759,13 +773,46 @@ export default function Dashboard() {
           mlbStandings,
           mlbLeaders,
         });
-        return buildMlbCaption(payload);
-      } catch {
-        return {
-          shortCaption: 'MLB Intelligence — maximussports.ai',
-          longCaption: 'MLB Intelligence — maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+',
-          hashtags: ['#MLB', '#Baseball', '#MaximusSports'],
-        };
+      } catch (err) {
+        console.error('[CAPTION_PAYLOAD_FAILED]', err?.message || err);
+        // Return null so InstagramPublishButton blocks publish.
+        // NEVER silently fall back to a generic caption — that was the
+        // bug that posted "MLB Intelligence — maximussports.ai" to IG.
+        return null;
+      }
+
+      try {
+        const built = buildMlbCaption(payload);
+        const bodyLen = (built?.shortCaption || '').length;
+        const tagLen  = (built?.hashtags || []).join(' ').length;
+        const totalLen = bodyLen + tagLen;
+        console.log('[DAILY_CAPTION_BUILT]', {
+          section: payload?.section,
+          bodyLength: bodyLen,
+          hashtagLength: tagLen,
+          totalLength: totalLen,
+          preview: (built?.shortCaption || '').slice(0, 200),
+        });
+
+        // Hard guard: reject obviously-broken captions BEFORE they reach
+        // the publish layer. 80 chars is well below any real daily/team/picks
+        // caption but safely above the generic fallback (~40 chars).
+        if (bodyLen < 80) {
+          console.error('[CAPTION_BUILD_TOO_SHORT]', {
+            section: payload?.section,
+            bodyLength: bodyLen,
+            preview: (built?.shortCaption || '').slice(0, 200),
+          });
+          return null;
+        }
+
+        return built;
+      } catch (err) {
+        // Caption builder threw (e.g., validation on missing picks/leaders).
+        // Surface as null so publish is blocked — do NOT fall back to a
+        // generic caption. This is what caused the blank IG post.
+        console.error('[CAPTION_BUILD_FAILED]', err?.message || err);
+        return null;
       }
     }
 

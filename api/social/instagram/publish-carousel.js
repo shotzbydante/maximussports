@@ -128,6 +128,20 @@ export default async function handler(req, res) {
     });
   }
 
+  // ── HARD SERVER-SIDE GUARD — reject blank/generic captions ──
+  // Any legitimate caption built by buildMlbCaption() / buildCaption() is
+  // 300+ chars. A caption under 80 chars is always the generic fallback
+  // that caused the blank IG post. Reject with 400 so the client sees
+  // a clear error instead of silently posting junk.
+  const MIN_CAPTION_CHARS = 80;
+  if (caption.trim().length < MIN_CAPTION_CHARS) {
+    log.error(`[PUBLISH_CAROUSEL] rejected short caption: chars=${caption.length} preview="${caption.slice(0, 120)}"`);
+    return res.status(400).json({
+      ok: false, stage: 'validation', requestId,
+      error: `caption is too short (${caption.trim().length} chars). A legitimate caption is at least ${MIN_CAPTION_CHARS} chars. This likely indicates a caption-builder failure upstream.`,
+    });
+  }
+
   const accountId   = sanitizeEnv(process.env.INSTAGRAM_ACCOUNT_ID);
   const accessToken = sanitizeEnv(process.env.INSTAGRAM_ACCESS_TOKEN);
 

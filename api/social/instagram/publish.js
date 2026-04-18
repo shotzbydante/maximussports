@@ -344,6 +344,19 @@ export default async function handler(req, res) {
   }
 
   const trimmedCaption = caption.trim();
+
+  // ── HARD SERVER-SIDE GUARD — reject blank/generic captions ──
+  // Same threshold as carousel endpoint. Blocks the "MLB Intelligence —
+  // maximussports.ai" fallback that caused a blank production post.
+  const MIN_CAPTION_CHARS = 80;
+  if (trimmedCaption.length < MIN_CAPTION_CHARS) {
+    console.error(`[publish/single req=${requestId.slice(0,8)}] rejected short caption: chars=${trimmedCaption.length} preview="${trimmedCaption.slice(0, 120)}"`);
+    return res.status(400).json({
+      ok: false, stage: 'validate', requestId,
+      error: `caption is too short (${trimmedCaption.length} chars). A legitimate caption is at least ${MIN_CAPTION_CHARS} chars. This likely indicates a caption-builder failure upstream.`,
+      debug,
+    });
+  }
   if (trimmedCaption.length > 2200) {
     return res.status(400).json({
       ok: false, stage: 'validate', requestId,

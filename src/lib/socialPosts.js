@@ -86,6 +86,19 @@ export async function uploadAsset(base64, filename) {
 export async function publishToInstagram(payload) {
   const { imageUrl, caption, ...metaFields } = payload;
 
+  // ── Client-side safety net — same threshold as carousel + server-side. ──
+  if (!caption || typeof caption !== 'string' || caption.trim().length < 80) {
+    const err = new Error(`Caption is too short (${caption?.length ?? 0} chars). A legitimate caption is at least 80 chars. Refresh and regenerate before publishing.`);
+    err.stage = 'validation';
+    throw err;
+  }
+
+  console.log('[CAPTION_SENT_TO_META]', {
+    length: caption.length,
+    preview: caption.slice(0, 200),
+    section: metaFields?.contentStudioSection,
+  });
+
   let res;
   try {
     res = await fetch('/api/social/instagram/publish', {
@@ -153,6 +166,21 @@ export async function publishToInstagram(payload) {
  */
 export async function publishCarouselToInstagram(payload) {
   const { imageUrls, caption, ...metaFields } = payload;
+
+  // ── Client-side safety net — reject obviously blank captions before
+  //    round-tripping to the server. Same threshold as server-side guard.
+  if (!caption || typeof caption !== 'string' || caption.trim().length < 80) {
+    const err = new Error(`Caption is too short (${caption?.length ?? 0} chars). A legitimate caption is at least 80 chars. Refresh and regenerate before publishing.`);
+    err.stage = 'validation';
+    throw err;
+  }
+
+  console.log('[CAPTION_SENT_TO_META]', {
+    length: caption.length,
+    preview: caption.slice(0, 200),
+    imageCount: imageUrls?.length,
+    section: metaFields?.contentStudioSection,
+  });
 
   let res;
   try {
