@@ -139,9 +139,15 @@ export default function InstagramPublishButton({
   const isWorking = stage === 'rendering' || stage === 'uploading' || stage === 'publishing';
   const elapsed = useElapsedTimer(isWorking);
 
+  // ── Caption contract: prefer the canonical .fullCaption from
+  //    normalizeStudioCaption(); fall back to legacy { shortCaption,
+  //    hashtags } shape for any path that hasn't migrated yet.
   const buildCaptionText = useCallback(() => {
     if (!caption) return '';
-    const body     = caption.shortCaption ?? '';
+    if (typeof caption.fullCaption === 'string' && caption.fullCaption.length > 0) {
+      return caption.fullCaption;
+    }
+    const body     = caption.shortCaption ?? caption.longCaption ?? caption.caption ?? '';
     const hashStr  = (caption.hashtags ?? []).join(' ');
     return hashStr ? `${body}\n\n${hashStr}` : body;
   }, [caption]);
@@ -151,6 +157,41 @@ export default function InstagramPublishButton({
 
     setErrorMessage(null);
     setLastResult(null);
+
+    // ── Diagnostic: log exactly what the button received ──
+    console.log('[PUBLISH_BUTTON_INPUT]', {
+      hasCaption: !!caption,
+      captionType: typeof caption,
+      captionKeys: caption && typeof caption === 'object' ? Object.keys(caption) : [],
+      ok: caption?.ok,
+      reason: caption?.reason,
+      derivedLength: buildCaptionText().length,
+    });
+
+    // ── Differentiate failure modes for actionable user feedback ──
+    if (!caption) {
+      setErrorMessage('No generated content found. Generate content first.');
+      setStage('error');
+      return;
+    }
+    if (caption.ok === false) {
+      // Tagged failure from the caption builder — distinguish reasons.
+      if (caption.reason === 'payload_build_failed') {
+        setErrorMessage('Caption payload could not be assembled. Refresh the page or regenerate content before publishing.');
+      } else if (caption.reason === 'caption_build_failed') {
+        setErrorMessage('Caption generation failed for this post. Refresh or regenerate content before publishing.');
+      } else if (caption.reason === 'too_short') {
+        setErrorMessage(`Caption looks incomplete (${caption.totalLength ?? 0} chars). Refresh or regenerate before publishing.`);
+      } else if (caption.reason === 'missing_body') {
+        setErrorMessage('Caption builder returned an unexpected shape. Refresh and try again.');
+      } else if (caption.reason === 'null_builder_output') {
+        setErrorMessage('No caption was produced. Generate content first.');
+      } else {
+        setErrorMessage('Caption is not ready to publish. Refresh or regenerate before publishing.');
+      }
+      setStage('error');
+      return;
+    }
 
     const captionText = buildCaptionText();
     if (!captionText.trim()) {

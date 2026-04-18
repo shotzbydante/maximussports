@@ -48,6 +48,7 @@ import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
 import { normalizeMlbImagePayload } from '../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbCaption } from '../features/mlb/contentStudio/buildMlbCaption';
+import { normalizeStudioCaption, MIN_PUBLISHABLE_CAPTION_CHARS } from '../features/mlb/contentStudio/normalizeStudioCaption';
 import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import { fetchMlbChampionshipOdds } from '../api/mlbChampionshipOdds';
@@ -753,7 +754,7 @@ export default function Dashboard() {
         hasChampOdds: !!mlbChampOdds && Object.keys(mlbChampOdds).length > 0,
         hasSelectedTeam: !!mlbSelectedTeam,
       };
-      console.log('[DAILY_CAPTION_PAYLOAD]', payloadDiag);
+      console.log('[DASHBOARD_CAPTION_STATE]', payloadDiag);
 
       let payload;
       try {
@@ -775,45 +776,38 @@ export default function Dashboard() {
         });
       } catch (err) {
         console.error('[CAPTION_PAYLOAD_FAILED]', err?.message || err);
-        // Return null so InstagramPublishButton blocks publish.
-        // NEVER silently fall back to a generic caption — that was the
-        // bug that posted "MLB Intelligence — maximussports.ai" to IG.
-        return null;
+        // Tagged failure — InstagramPublishButton uses .reason for
+        // user-facing error copy ("Caption generation failed for this
+        // post. Refresh or regenerate before publishing.")
+        return { ok: false, reason: 'payload_build_failed', error: err?.message || 'normalizer threw' };
       }
 
+      let built;
       try {
-        const built = buildMlbCaption(payload);
-        const bodyLen = (built?.shortCaption || '').length;
-        const tagLen  = (built?.hashtags || []).join(' ').length;
-        const totalLen = bodyLen + tagLen;
-        console.log('[DAILY_CAPTION_BUILT]', {
-          section: payload?.section,
-          bodyLength: bodyLen,
-          hashtagLength: tagLen,
-          totalLength: totalLen,
-          preview: (built?.shortCaption || '').slice(0, 200),
-        });
-
-        // Hard guard: reject obviously-broken captions BEFORE they reach
-        // the publish layer. 80 chars is well below any real daily/team/picks
-        // caption but safely above the generic fallback (~40 chars).
-        if (bodyLen < 80) {
-          console.error('[CAPTION_BUILD_TOO_SHORT]', {
-            section: payload?.section,
-            bodyLength: bodyLen,
-            preview: (built?.shortCaption || '').slice(0, 200),
-          });
-          return null;
-        }
-
-        return built;
+        built = buildMlbCaption(payload);
       } catch (err) {
-        // Caption builder threw (e.g., validation on missing picks/leaders).
-        // Surface as null so publish is blocked — do NOT fall back to a
-        // generic caption. This is what caused the blank IG post.
         console.error('[CAPTION_BUILD_FAILED]', err?.message || err);
-        return null;
+        return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildMlbCaption threw' };
       }
+
+      // Single canonical contract — every consumer downstream uses
+      // .fullCaption only. No more shape drift between layers.
+      const normalized = normalizeStudioCaption(built);
+
+      console.log('[DAILY_CAPTION_BUILT]', {
+        section: payload?.section,
+        ok: normalized.ok,
+        reason: normalized.reason,
+        bodyLength: normalized.bodyLength,
+        totalLength: normalized.totalLength,
+        hashtagCount: normalized.hashtags.length,
+        preview: normalized.fullCaption.slice(0, 200),
+      });
+
+      // Preserve back-compat: still expose shortCaption + longCaption for
+      // any consumer that hasn't migrated to fullCaption yet, but the
+      // canonical field is .fullCaption.
+      return normalized;
     }
 
     // ── CBB caption (unchanged) ──
@@ -836,22 +830,29 @@ export default function Dashboard() {
       atsRecord,
     };
 
-    return buildCaption({
-      template: activeSection,
-      team: enhancedTeamData?.team ?? selectedTeam,
-      game: selectedGame,
-      picks,
-      stats,
-      atsLeaders: dashData?.atsLeaders ?? { best: [], worst: [] },
-      headlines: dashData?.headlines ?? [],
-      asOf,
-      styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
-      chatDigest: activeSection === 'daily' ? dailyDigest : null,
-      nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
-      conference: activeSection === 'conference' ? selectedConference : null,
-      tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
-    });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
+    let cbbBuilt;
+    try {
+      cbbBuilt = buildCaption({
+        template: activeSection,
+        team: enhancedTeamData?.team ?? selectedTeam,
+        game: selectedGame,
+        picks,
+        stats,
+        atsLeaders: dashData?.atsLeaders ?? { best: [], worst: [] },
+        headlines: dashData?.headlines ?? [],
+        asOf,
+        styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
+        chatDigest: activeSection === 'daily' ? dailyDigest : null,
+        nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
+        conference: activeSection === 'conference' ? selectedConference : null,
+        tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
+      });
+    } catch (err) {
+      console.error('[CBB_CAPTION_BUILD_FAILED]', err?.message || err);
+      return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildCaption threw' };
+    }
+    return normalizeStudioCaption(cbbBuilt);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption

@@ -240,21 +240,45 @@ export function normalizeMlbImagePayload({
     layoutVariant: 'headline-heavy',
   };
 
+  // Canonical data that EVERY section's caption builder may need.
+  // These are spread into every returned payload so dailyCaption /
+  // teamCaption / picksCaption / gameCaption all have them available
+  // — never rebuild or re-fetch downstream.
+  const canonicalData = {
+    mlbPicks:       mlbPicks ?? null,
+    canonicalPicks: mlbPicks ?? null,
+    mlbLeaders:     mlbLeaders ?? null,
+    mlbStandings:   mlbStandings ?? null,
+    mlbChampOdds:   mlbChampOdds ?? null,
+    mlbGames:       mlbGames ?? [],
+    mlbLiveGames:   mlbLiveGames ?? [],
+    mlbBriefing:    mlbBriefing ?? null,
+  };
+
   switch (section) {
     case 'daily-briefing':
-      return { ...buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks, mlbChampOdds), mlbLiveGames, mlbBriefing };
+      return {
+        ...canonicalData,
+        ...buildDailyPayload(base, intelBriefing, mlbGames, mlbPicks, mlbChampOdds),
+      };
     case 'team-intel':
-      return buildTeamPayload(base, mlbSelectedTeam, { mlbLiveGames, mlbStandings, mlbLeaders, mlbChampOdds });
+      return {
+        ...canonicalData,
+        ...buildTeamPayload(base, mlbSelectedTeam, { mlbLiveGames, mlbStandings, mlbLeaders, mlbChampOdds }),
+      };
     case 'league-intel':
-      return buildLeaguePayload(base, mlbLeague);
+      return { ...canonicalData, ...buildLeaguePayload(base, mlbLeague) };
     case 'division-intel':
-      return buildDivisionPayload(base, mlbDivision);
+      return { ...canonicalData, ...buildDivisionPayload(base, mlbDivision) };
     case 'game-insights':
-      return buildGamePayload(base, mlbSelectedGame, mlbGameAngle);
+      return { ...canonicalData, ...buildGamePayload(base, mlbSelectedGame, mlbGameAngle) };
     case 'maximus-picks':
-      return buildPicksPayload(base, mlbPicks, intelBriefing, mlbGames);
+      return {
+        ...canonicalData,
+        ...buildPicksPayload(base, mlbPicks, intelBriefing, mlbGames),
+      };
     default:
-      return { ...base, headline: 'MLB Intelligence', subhead: 'Model-driven analysis' };
+      return { ...canonicalData, ...base, headline: 'MLB Intelligence', subhead: 'Model-driven analysis' };
   }
 }
 
