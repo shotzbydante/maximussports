@@ -1,30 +1,22 @@
 -- ═════════════════════════════════════════════════════════════════════════════
--- MLB Picks v2 — Supabase migration (persistence + RLS + seed config)
+-- MLB PICKS v2 — PRODUCTION DEPLOY SQL (copy / paste into Supabase SQL Editor)
 --
--- Apply via: Supabase Dashboard → SQL Editor → paste + run.
---   (This repo has no migration automation; every *.sql in docs/ is run by hand.)
+-- Run ONCE against the production Supabase project. Idempotent — safe to re-run.
+-- Wrapped in a transaction; either the whole schema lands or nothing does.
 --
--- Idempotent: safe to re-run. Wrapped in a single transaction so either the
--- whole schema lands or nothing does.
+-- After running, paste docs/mlb-picks-persistence-verification.sql to confirm.
 --
--- Creates the following tables in the `public` schema:
---   picks_runs, picks, pick_results, picks_daily_scorecards,
---   picks_config, picks_tuning_log, picks_audit_artifacts
---
--- Seeds one active MLB tuning config if one does not already exist.
---
--- After running, execute docs/mlb-picks-persistence-verification.sql to
--- confirm. See docs/mlb-picks-persistence-runbook.md for the full flow.
+-- DO NOT run this against the wrong environment. Confirm the Supabase project
+-- name at the top of the SQL editor before you click Run.
 -- ═════════════════════════════════════════════════════════════════════════════
 
 begin;
 
--- UUID generator (Supabase has pgcrypto by default)
+-- 1. Extensions ──────────────────────────────────────────────────────────────
 create extension if not exists pgcrypto;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- picks_runs — one row per published canonical payload
--- ─────────────────────────────────────────────────────────────────────────────
+-- 2. Tables ──────────────────────────────────────────────────────────────────
+
 create table if not exists public.picks_runs (
   id                 uuid primary key default gen_random_uuid(),
   sport              text not null,
@@ -39,9 +31,6 @@ create table if not exists public.picks_runs (
 create index if not exists picks_runs_sport_slate_idx
   on public.picks_runs (sport, slate_date desc, generated_at desc);
 
--- ─────────────────────────────────────────────────────────────────────────────
--- picks — one row per published pick inside a run
--- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.picks (
   id                   uuid primary key default gen_random_uuid(),
   run_id               uuid not null references public.picks_runs(id) on delete cascade,
@@ -70,18 +59,13 @@ create table if not exists public.picks (
   config_version       text not null,
   created_at           timestamptz not null default now()
 );
-
--- (run_id, pick_key) must be unique so .upsert(onConflict:'run_id,pick_key') works.
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'picks_run_pickkey_unique'
-  ) then
+  if not exists (select 1 from pg_constraint where conname = 'picks_run_pickkey_unique') then
     alter table public.picks
       add constraint picks_run_pickkey_unique unique (run_id, pick_key);
   end if;
 end$$;
-
 create index if not exists picks_sport_slate_tier_idx
   on public.picks (sport, slate_date desc, tier);
 create index if not exists picks_gameid_idx
@@ -89,9 +73,6 @@ create index if not exists picks_gameid_idx
 create index if not exists picks_sport_slate_mkt_idx
   on public.picks (sport, slate_date desc, market_type);
 
--- ─────────────────────────────────────────────────────────────────────────────
--- pick_results — settlement outcome for each pick
--- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.pick_results (
   pick_id            uuid primary key references public.picks(id) on delete cascade,
   status             text not null check (status in ('won','lost','push','void','pending')),
@@ -102,9 +83,6 @@ create table if not exists public.pick_results (
 );
 create index if not exists pick_results_status_idx on public.pick_results (status);
 
--- ─────────────────────────────────────────────────────────────────────────────
--- picks_daily_scorecards — one row per sport per slate
--- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.picks_daily_scorecards (
   id                 uuid primary key default gen_random_uuid(),
   sport              text not null,
@@ -117,21 +95,14 @@ create table if not exists public.picks_daily_scorecards (
   note               text,
   computed_at        timestamptz not null default now()
 );
-
--- Named unique constraint for PostgREST upsert(onConflict: 'sport,slate_date')
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'picks_daily_scorecards_sport_date_unique'
-  ) then
+  if not exists (select 1 from pg_constraint where conname = 'picks_daily_scorecards_sport_date_unique') then
     alter table public.picks_daily_scorecards
       add constraint picks_daily_scorecards_sport_date_unique unique (sport, slate_date);
   end if;
 end$$;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- picks_config — versioned tuning configurations (one active per sport)
--- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.picks_config (
   version            text primary key,
   sport              text not null,
@@ -142,14 +113,9 @@ create table if not exists public.picks_config (
   activated_at       timestamptz,
   deactivated_at     timestamptz
 );
-
--- Exactly one active config per sport (partial unique index)
 create unique index if not exists picks_config_one_active_per_sport
   on public.picks_config (sport) where is_active;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- picks_tuning_log — every proposed / applied / rolled-back config change
--- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.picks_tuning_log (
   id                  uuid primary key default gen_random_uuid(),
   sport               text not null,
@@ -167,9 +133,6 @@ create table if not exists public.picks_tuning_log (
 create index if not exists picks_tuning_log_sport_status_idx
   on public.picks_tuning_log (sport, status, slate_date desc);
 
--- ─────────────────────────────────────────────────────────────────────────────
--- picks_audit_artifacts — one row per sport per slate
--- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.picks_audit_artifacts (
   id                   uuid primary key default gen_random_uuid(),
   sport                text not null,
@@ -180,23 +143,16 @@ create table if not exists public.picks_audit_artifacts (
   applied_tuning_id    uuid references public.picks_tuning_log(id),
   created_at           timestamptz not null default now()
 );
-
--- Named unique constraint for PostgREST upsert(onConflict: 'sport,slate_date')
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'picks_audit_artifacts_sport_date_unique'
-  ) then
+  if not exists (select 1 from pg_constraint where conname = 'picks_audit_artifacts_sport_date_unique') then
     alter table public.picks_audit_artifacts
       add constraint picks_audit_artifacts_sport_date_unique unique (sport, slate_date);
   end if;
 end$$;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- Row Level Security
---   - Anonymous clients can SELECT (read-only public transparency)
---   - All writes go through the service-role key, which bypasses RLS
--- ─────────────────────────────────────────────────────────────────────────────
+-- 3. Row Level Security ──────────────────────────────────────────────────────
+-- Read-open for anon; writes require service-role (which bypasses RLS).
 alter table public.picks_runs              enable row level security;
 alter table public.picks                   enable row level security;
 alter table public.pick_results            enable row level security;
@@ -226,9 +182,7 @@ create policy       picks_tuning_log_read       on public.picks_tuning_log      
 drop policy if exists picks_audit_artifacts_read  on public.picks_audit_artifacts;
 create policy       picks_audit_artifacts_read  on public.picks_audit_artifacts  for select using (true);
 
--- ─────────────────────────────────────────────────────────────────────────────
--- Seed the initial MLB tuning config (idempotent; no-op if version exists)
--- ─────────────────────────────────────────────────────────────────────────────
+-- 4. Seed initial MLB tuning config ──────────────────────────────────────────
 insert into public.picks_config (version, sport, is_active, is_shadow, config, activated_at)
 values (
   'mlb-picks-tuning-2026-04-17a',
@@ -259,3 +213,21 @@ values (
 on conflict (version) do nothing;
 
 commit;
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- QUICK CONFIRMATION (copy/paste this block into a separate SQL Editor tab).
+-- Run this AFTER the transaction commits. Should return 7 tables and 1 config.
+-- ═════════════════════════════════════════════════════════════════════════════
+--
+-- select count(*) as tables_present
+-- from information_schema.tables
+-- where table_schema = 'public'
+--   and table_name in (
+--     'picks_runs','picks','pick_results','picks_daily_scorecards',
+--     'picks_config','picks_tuning_log','picks_audit_artifacts'
+--   );
+--
+-- select version, sport, is_active from public.picks_config
+-- where sport = 'mlb' and is_active = true;
+--
+-- ═════════════════════════════════════════════════════════════════════════════

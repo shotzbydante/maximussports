@@ -26,8 +26,13 @@ export default async function handler(req, res) {
 
   try {
     const run = await getLatestRunForDate({ sport: 'mlb', slateDate });
-    if (!run || !run.picks?.length) {
-      return res.status(200).json({ ok: true, slateDate, graded: 0, note: 'no picks run for date' });
+    if (!run) {
+      console.warn(`[cron/mlb/settle-yesterday] no picks_run found for ${slateDate} — persistence may be disabled`);
+      return res.status(200).json({ ok: false, slateDate, graded: 0, note: 'no picks_run for date (persistence may be disabled)' });
+    }
+    if (!run.picks?.length) {
+      console.log(`[cron/mlb/settle-yesterday] 0 picks to settle for ${slateDate}`);
+      return res.status(200).json({ ok: true, slateDate, graded: 0, note: 'no picks recorded' });
     }
 
     const finals = await fetchYesterdayFinals();
@@ -45,10 +50,17 @@ export default async function handler(req, res) {
 
     const rows = gradePicks(run.picks, finalsByGameId, alreadyGraded);
     const writeable = rows.filter(r => r.status !== 'pending' || !alreadyGraded.has(r.pick_id));
-    const { count, error } = await upsertPickResults(writeable);
+    const { count, ok: writeOk, error } = await upsertPickResults(writeable);
+
+    if (!writeOk) {
+      console.error(`[cron/mlb/settle-yesterday] ⚠ write failed: ${error?.kind} ${error?.message || ''}`);
+    }
+    if (writeOk && count === 0 && writeable.length > 0) {
+      console.warn(`[cron/mlb/settle-yesterday] ⚠ attempted ${writeable.length} writes but 0 rows persisted`);
+    }
 
     return res.status(200).json({
-      ok: !error,
+      ok: writeOk !== false,
       slateDate,
       totalPicks: run.picks.length,
       alreadyGraded: alreadyGraded.size,

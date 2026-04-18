@@ -24,6 +24,9 @@ export default async function handler(req, res) {
 
   try {
     const run = await getRun({ sport: 'mlb', slateDate });
+    if (!run) {
+      console.warn(`[cron/mlb/build-scorecard] no picks_run for ${slateDate} — persistence may be disabled`);
+    }
     if (!run || !run.picks) {
       // Still write a scorecard row with zero to allow UI display
       const empty = {
@@ -60,8 +63,10 @@ export default async function handler(req, res) {
 
     const row = buildScorecard({ sport: 'mlb', slateDate, picks: run.picks, recentRecords: recent });
     const saved = await upsertCard(row);
-
-    return res.status(200).json({ ok: true, slateDate, picks: run.picks.length, scorecard: saved || row });
+    if (!saved) {
+      console.error(`[cron/mlb/build-scorecard] ⚠ scorecard upsert returned null for ${slateDate} — check picks_daily_scorecards existence`);
+    }
+    return res.status(200).json({ ok: !!saved, slateDate, picks: run.picks.length, scorecard: saved || row });
   } catch (e) {
     console.error('[cron/mlb/build-scorecard] fatal:', e);
     return res.status(200).json({ ok: false, error: e?.message, slateDate });
