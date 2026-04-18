@@ -121,23 +121,37 @@ export default async function handler(req, res) {
       );
       payload = { ...v2, _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' } };
 
-      // Best-effort persistence — never block the hot path.
-      // Structured return value lets us surface loud diagnostics without crashing.
-      Promise.resolve()
-        .then(() => writePicksRun(payload))
-        .then(r => {
-          if (!r) return;
-          if (!r.ok) {
-            console.error(
-              `[mlb/picks/built] ⚠ persist failed reason=${r.reason} ` +
-              (r.detail?.code ? `code=${r.detail.code} ` : '') +
-              (r.detail?.message ? `msg="${r.detail.message}"` : '')
-            );
-          } else if (r.picksWritten === 0 && (payload.meta?.picksPublished || 0) > 0) {
-            console.warn('[mlb/picks/built] ⚠ picks payload had published picks but 0 rows written');
-          }
-        })
-        .catch(err => console.error('[mlb/picks/built] persist threw:', err?.message));
+      // Persistence — we SYNCHRONOUSLY await it when ?debug=persistence is set
+      // so the operator can inspect per-row success in the HTTP response. In
+      // normal mode we still fire-and-forget to keep the hot path fast.
+      const wantPersistDebug = req?.query?.debug === 'persistence';
+      if (wantPersistDebug) {
+        // Mark the payload so writePicksRun emits a first-row preview log
+        const persistResult = await writePicksRun({ ...payload, _persistDebug: true });
+        payload._persistence = persistResult;
+        if (!persistResult?.ok) {
+          console.error(
+            `[mlb/picks/built] ❌ debug persist failed reason=${persistResult?.reason} ` +
+            `inserted=${persistResult?.picksInserted}/${persistResult?.picksAttempted} ` +
+            `first=${persistResult?.failures?.[0]?.message || 'n/a'}`
+          );
+        }
+      } else {
+        // Best-effort, non-blocking
+        Promise.resolve()
+          .then(() => writePicksRun(payload))
+          .then(r => {
+            if (!r) return;
+            if (!r.ok) {
+              console.error(
+                `[mlb/picks/built] ⚠ persist failed reason=${r.reason} ` +
+                `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} ` +
+                `firstFailure="${r.failures?.[0]?.message || 'n/a'}"`
+              );
+            }
+          })
+          .catch(err => console.error('[mlb/picks/built] persist threw:', err?.message));
+      }
     } else {
       const result = buildMlbPicks({ games: enriched });
       const c = result.categories;
