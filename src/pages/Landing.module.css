@@ -19,7 +19,9 @@
   position: relative;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
-  padding: 72px 24px 44px;
+  /* 32px top — tightened from 72px to reduce dead air under the sticky topnav
+     while keeping the mascot and wordmark composition airy. */
+  padding: 32px 24px 44px;
   overflow: hidden;
 }
 .heroGlow {
@@ -408,7 +410,7 @@
   .modulesRow { grid-template-columns: 1fr; }
   .newsGrid { grid-template-columns: 1fr; }
   .moduleCards { grid-template-columns: 1fr; }
-  .hero { padding: 56px 20px 36px; }
+  .hero { padding: 28px 20px 36px; }
   .tile { padding: 28px 24px 24px; min-height: 200px; }
 }
 
