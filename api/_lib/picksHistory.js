@@ -67,20 +67,100 @@ function slateDateFromPayload(payload) {
 }
 
 /**
+ * Required NOT-NULL / CHECK-constrained fields on public.picks.
+ * If any is missing on a row, that row is preemptively rejected with a clear
+ * reason instead of being sent to Postgres for a cryptic error.
+ */
+const REQUIRED_PICK_FIELDS = Object.freeze([
+  'run_id', 'sport', 'slate_date', 'game_id', 'pick_key', 'tier',
+  'market_type', 'selection_side', 'away_team_slug', 'home_team_slug',
+  'bet_score', 'model_version', 'config_version',
+]);
+
+const VALID_TIER = new Set(['tier1', 'tier2', 'tier3']);
+const VALID_MARKET = new Set(['moneyline', 'runline', 'total']);
+
+/**
+ * Map a single canonical v2 pick to a picks-table row and record any
+ * validation problems. Returns { row, issues }.
+ */
+export function buildPickRow({ pick, runId, sport, slateDate, modelVersion, configVersion }) {
+  const row = {
+    run_id: runId,
+    sport,
+    slate_date: slateDate,
+    game_id: pick?.gameId ?? null,
+    pick_key: pick?.id ?? null,
+    tier: pick?.tier ?? null,
+    market_type: pick?.market?.type ?? null,
+    selection_side: pick?.selection?.side ?? null,
+    line_value: pick?.market?.line ?? null,
+    price_american: pick?.market?.priceAmerican ?? null,
+    away_team_slug: pick?.matchup?.awayTeam?.slug ?? null,
+    home_team_slug: pick?.matchup?.homeTeam?.slug ?? null,
+    start_time: pick?.matchup?.startTime ?? null,
+    bet_score: pick?.betScore?.total ?? 0,
+    bet_score_components: pick?.betScore?.components ?? {},
+    model_prob: pick?.modelProb ?? null,
+    implied_prob: pick?.impliedProb ?? null,
+    raw_edge: pick?.rawEdge ?? null,
+    data_quality: pick?.model?.dataQuality ?? null,
+    signal_agreement: pick?.model?.signalAgreement ?? null,
+    rationale: pick?.rationale ?? {},
+    top_signals: pick?.pick?.topSignals ?? [],
+    model_version: modelVersion,
+    config_version: configVersion,
+  };
+
+  const issues = [];
+  for (const k of REQUIRED_PICK_FIELDS) {
+    if (row[k] === null || row[k] === undefined) issues.push(`missing ${k}`);
+  }
+  if (row.tier && !VALID_TIER.has(row.tier)) issues.push(`invalid tier ${row.tier}`);
+  if (row.market_type && !VALID_MARKET.has(row.market_type)) issues.push(`invalid market_type ${row.market_type}`);
+
+  return { row, issues };
+}
+
+/**
  * Persist a published picks run (picks_runs) and its child picks (picks).
- * Best-effort: returns a structured result. Never throws.
  *
- * @param {object} payload — canonical v2 payload from buildMlbPicksV2
- * @returns {Promise<{ ok:boolean, runId?:string, picksWritten?:number, reason?:string, detail?:object }>}
+ * Returns a detailed summary so /api/mlb/picks/built can surface it:
+ *
+ *   {
+ *     ok,                    // true iff runInserted && picksInserted === picksAttempted
+ *     runInserted,           // did the parent row land?
+ *     runId,                 // UUID of the persisted run (if inserted)
+ *     picksAttempted,        // total child rows we tried to write
+ *     picksInserted,         // child rows actually inserted
+ *     picksFailed,           // rows that errored (pre-flight or DB)
+ *     picksSkipped,          // rows rejected pre-flight for missing fields
+ *     failures: [            // per-row failure detail (first 20)
+ *       { index, pick_key, kind, code, message }
+ *     ],
+ *     reason,                // short top-level reason when ok===false
+ *     detail,
+ *   }
  */
 export async function writePicksRun(payload) {
   const sb = safeAdmin();
-  if (!sb) return { ok: false, reason: 'no_supabase' };
-  if (!payload?.tiers) return { ok: false, reason: 'no_tiers_in_payload' };
+  if (!sb) return {
+    ok: false, runInserted: false, picksAttempted: 0, picksInserted: 0,
+    picksFailed: 0, picksSkipped: 0, failures: [], reason: 'no_supabase',
+  };
+  if (!payload?.tiers) return {
+    ok: false, runInserted: false, picksAttempted: 0, picksInserted: 0,
+    picksFailed: 0, picksSkipped: 0, failures: [], reason: 'no_tiers_in_payload',
+  };
 
   const sport = payload.sport || 'mlb';
   const slateDate = slateDateFromPayload(payload);
+  const modelVersion = payload.modelVersion;
+  const configVersion = payload.configVersion;
+  const debug = !!payload?._persistDebug || process.env.PICKS_PERSIST_DEBUG === '1';
 
+  // ── 1. Parent row ──────────────────────────────────────────────────────────
+  let runId = null;
   try {
     const { data: run, error: runErr } = await sb
       .from('picks_runs')
@@ -88,8 +168,8 @@ export async function writePicksRun(payload) {
         sport,
         slate_date: slateDate,
         generated_at: payload.generatedAt || new Date().toISOString(),
-        model_version: payload.modelVersion,
-        config_version: payload.configVersion,
+        model_version: modelVersion,
+        config_version: configVersion,
         meta: payload.meta || {},
         payload,
       })
@@ -99,72 +179,183 @@ export async function writePicksRun(payload) {
     if (runErr) {
       const cls = classifyError(runErr);
       if (cls.kind === 'missing_table') warnMissingOnce('picks_runs', runErr);
-      else console.warn('[picksHistory] picks_runs insert error:', runErr.message);
-      return { ok: false, reason: cls.kind, detail: cls };
+      else console.error('[picksHistory] picks_runs insert error:', runErr.code, runErr.message);
+      return {
+        ok: false, runInserted: false, picksAttempted: 0, picksInserted: 0,
+        picksFailed: 0, picksSkipped: 0, failures: [],
+        reason: cls.kind, detail: cls,
+      };
     }
-
-    const runId = run.id;
-
-    const published = [
-      ...(payload.tiers?.tier1 || []),
-      ...(payload.tiers?.tier2 || []),
-      ...(payload.tiers?.tier3 || []),
-    ];
-
-    let picksWritten = 0;
-    if (published.length > 0) {
-      const rows = published.map(p => ({
-        run_id: runId,
-        sport,
-        slate_date: slateDate,
-        game_id: p.gameId,
-        pick_key: p.id,
-        tier: p.tier,
-        market_type: p.market?.type,
-        selection_side: p.selection?.side,
-        line_value: p.market?.line ?? null,
-        price_american: p.market?.priceAmerican ?? null,
-        away_team_slug: p.matchup?.awayTeam?.slug,
-        home_team_slug: p.matchup?.homeTeam?.slug,
-        start_time: p.matchup?.startTime,
-        bet_score: p.betScore?.total ?? 0,
-        bet_score_components: p.betScore?.components ?? {},
-        model_prob: p.modelProb ?? null,
-        implied_prob: p.impliedProb ?? null,
-        raw_edge: p.rawEdge ?? null,
-        data_quality: p.model?.dataQuality ?? null,
-        signal_agreement: p.model?.signalAgreement ?? null,
-        rationale: p.rationale ?? {},
-        top_signals: p.pick?.topSignals ?? [],
-        model_version: payload.modelVersion,
-        config_version: payload.configVersion,
-      }));
-
-      const { error: picksErr, count } = await sb
-        .from('picks')
-        .upsert(rows, { onConflict: 'run_id,pick_key', ignoreDuplicates: true, count: 'exact' });
-
-      if (picksErr) {
-        const cls = classifyError(picksErr);
-        if (cls.kind === 'missing_table') warnMissingOnce('picks', picksErr);
-        else console.warn('[picksHistory] picks upsert error:', picksErr.message);
-        // runs row DID land — return partial-success so operators see it.
-        return { ok: false, reason: cls.kind, runId, picksWritten: 0, detail: cls };
-      }
-      picksWritten = typeof count === 'number' ? count : rows.length;
-    }
-
-    const msg = `[picksHistory] persisted run=${runId} picks=${picksWritten}`;
-    if (picksWritten === 0 && published.length > 0) {
-      console.warn(`${msg} ⚠ all picks were duplicates or ignored (upsert count=0)`);
-    } else {
-      console.log(msg);
-    }
-    return { ok: true, runId, picksWritten };
+    runId = run.id;
   } catch (e) {
-    console.warn('[picksHistory] writePicksRun failed:', e?.message);
-    return { ok: false, reason: 'exception', detail: { message: e?.message } };
+    console.error('[picksHistory] picks_runs insert threw:', e?.message);
+    return {
+      ok: false, runInserted: false, picksAttempted: 0, picksInserted: 0,
+      picksFailed: 0, picksSkipped: 0, failures: [],
+      reason: 'exception', detail: { message: e?.message },
+    };
   }
+
+  // ── 2. Collect published picks from every tier ─────────────────────────────
+  const published = [
+    ...(payload.tiers?.tier1 || []),
+    ...(payload.tiers?.tier2 || []),
+    ...(payload.tiers?.tier3 || []),
+  ];
+
+  if (published.length === 0) {
+    console.log(`[picksHistory] persisted run=${runId} picks=0 (empty tiers)`);
+    return {
+      ok: true, runInserted: true, runId,
+      picksAttempted: 0, picksInserted: 0, picksFailed: 0, picksSkipped: 0,
+      failures: [],
+    };
+  }
+
+  // ── 3. Pre-flight: map each pick to a row, collect validation issues ──────
+  const rows = [];
+  const skippedFailures = [];
+  published.forEach((pick, idx) => {
+    const { row, issues } = buildPickRow({
+      pick, runId, sport, slateDate, modelVersion, configVersion,
+    });
+    if (issues.length > 0) {
+      skippedFailures.push({
+        index: idx,
+        pick_key: row.pick_key || pick?.id || `idx:${idx}`,
+        kind: 'preflight_invalid',
+        message: issues.join('; '),
+      });
+    } else {
+      rows.push(row);
+    }
+  });
+
+  if (skippedFailures.length > 0) {
+    console.error(
+      `[picksHistory] ⚠ ${skippedFailures.length}/${published.length} picks rejected pre-flight; ` +
+      `first issue: ${skippedFailures[0].message} (${skippedFailures[0].pick_key})`
+    );
+  }
+
+  // Log the first row shape so production operators can see exactly what we send
+  if (debug && rows.length > 0) {
+    try {
+      const preview = JSON.stringify(rows[0]).slice(0, 500);
+      console.log(`[picksHistory] first-row preview run=${runId}: ${preview}`);
+    } catch { /* ignore */ }
+  }
+
+  // ── 4. Primary path: batch INSERT with .select() to force response body ──
+  //     We use INSERT (not UPSERT) because run_id is freshly generated above,
+  //     so there cannot be a (run_id, pick_key) collision within a single call.
+  //     Forcing .select('id') makes the count authoritative.
+  let picksInserted = 0;
+  const dbFailures = [];
+  if (rows.length > 0) {
+    try {
+      const { data, error } = await sb
+        .from('picks')
+        .insert(rows)
+        .select('id, pick_key');
+      if (error) {
+        const cls = classifyError(error);
+        console.error(
+          `[picksHistory] picks batch insert failed run=${runId} ` +
+          `code=${error.code} message="${error.message}" — falling back to per-row insert`
+        );
+        if (cls.kind === 'missing_table') warnMissingOnce('picks', error);
+        // Fall through to per-row fallback
+        picksInserted = await perRowInsert(sb, rows, runId, dbFailures);
+      } else {
+        picksInserted = Array.isArray(data) ? data.length : 0;
+        if (picksInserted !== rows.length) {
+          console.error(
+            `[picksHistory] ⚠ batch returned ${picksInserted}/${rows.length} rows — ` +
+            `investigating with per-row fallback`
+          );
+          picksInserted = await perRowInsert(sb, rows, runId, dbFailures);
+        }
+      }
+    } catch (e) {
+      console.error('[picksHistory] picks insert threw:', e?.message);
+      picksInserted = await perRowInsert(sb, rows, runId, dbFailures);
+    }
+  }
+
+  const allFailures = [...skippedFailures, ...dbFailures];
+  const picksFailed = allFailures.length;
+  const picksAttempted = published.length;
+  const ok = picksInserted === picksAttempted;
+
+  const summary = {
+    ok,
+    runInserted: true,
+    runId,
+    picksAttempted,
+    picksInserted,
+    picksFailed,
+    picksSkipped: skippedFailures.length,
+    failures: allFailures.slice(0, 20),
+    reason: ok ? undefined
+      : picksInserted === 0 ? 'all_picks_failed'
+      : 'partial_failure',
+  };
+
+  if (ok) {
+    console.log(`[picksHistory] ✅ persisted run=${runId} picks=${picksInserted}/${picksAttempted}`);
+  } else {
+    console.error(
+      `[picksHistory] ❌ fan-out failed run=${runId} ` +
+      `inserted=${picksInserted}/${picksAttempted} failed=${picksFailed} ` +
+      `first=${allFailures[0]?.message || 'unknown'}`
+    );
+  }
+
+  return summary;
+}
+
+/**
+ * Fallback when the batch insert fails or reports a row-count mismatch.
+ * Inserts each row individually, recording per-row failures with full detail.
+ * Returns the count of successfully inserted rows.
+ */
+async function perRowInsert(sb, rows, runId, failures) {
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      const { error } = await sb.from('picks').insert(row);
+      if (error) {
+        const cls = classifyError(error);
+        failures.push({
+          index: i,
+          pick_key: row.pick_key,
+          kind: cls.kind,
+          code: error.code || null,
+          message: error.message || 'unknown',
+        });
+        // Only log the first 3 per-row errors to avoid log spam
+        if (failures.length <= 3) {
+          console.error(
+            `[picksHistory] per-row fail run=${runId} i=${i} pick=${row.pick_key} ` +
+            `code=${error.code} msg="${error.message}"`
+          );
+        }
+      } else {
+        inserted += 1;
+      }
+    } catch (e) {
+      failures.push({
+        index: i,
+        pick_key: row.pick_key,
+        kind: 'exception',
+        code: null,
+        message: e?.message || 'unknown',
+      });
+    }
+  }
+  return inserted;
 }
 
 /**
