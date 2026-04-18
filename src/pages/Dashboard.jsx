@@ -1922,6 +1922,8 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            <div className={styles.sectionLabel}>Actions</div>
             <button className={styles.btnSecondary} onClick={handleRegenerate} disabled={isWorking || exporting || zipping}>
               {dataLoading ? 'Loading…' : 'Regenerate'}
             </button>
@@ -1936,6 +1938,7 @@ export default function Dashboard() {
             {mlbActive && (
               <>
                 <div className={styles.publishDivider} />
+                <div className={styles.sectionLabel}>AI Generation</div>
                 <button
                   className={styles.btnGemini}
                   onClick={handleGeminiGenerate}
@@ -1961,14 +1964,40 @@ export default function Dashboard() {
             )}
 
             <div className={styles.publishDivider} />
-            <InstagramPublishButton
-              exportRef={exportRef}
-              caption={caption}
-              canPublish={canExport && !exporting && !zipping}
-              metadata={publishMetadata}
-              onSuccess={handlePublishSuccess}
-              template={activeSection}
-            />
+            <div className={styles.sectionLabel}>Publish</div>
+            <div className={styles.postBlock}>
+              <InstagramPublishButton
+                exportRef={exportRef}
+                caption={caption}
+                canPublish={canExport && !exporting && !zipping}
+                metadata={publishMetadata}
+                onSuccess={handlePublishSuccess}
+                template={activeSection}
+              />
+              {canExport && (
+                <div className={styles.postMeta}>
+                  {(() => {
+                    const labelMap = {
+                      'mlb-daily': 'Daily Briefing',
+                      'mlb-team': 'Team Intel',
+                      'mlb-picks': "Maximus's Picks",
+                      'mlb-league': 'League Intel',
+                      'mlb-division': 'Division Intel',
+                      'mlb-game': 'Game Insights',
+                      daily: 'Daily Briefing',
+                      team: 'Team Intel',
+                      picks: "Maximus's Picks",
+                      game: 'Game Insights',
+                      conference: 'Conference Intel',
+                      odds: 'Odds Insights',
+                    };
+                    const sectionLabel = labelMap[activeSection] || 'Post';
+                    const slideSuffix = slideCount ? `${slideCount} slide${slideCount === 1 ? '' : 's'}` : '1 slide';
+                    return `Posts ${slideSuffix} · ${sectionLabel}`;
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Instagram Hero Summary Caption (Team Intel — Slide 4) */}
@@ -1997,7 +2026,10 @@ export default function Dashboard() {
           )}
 
           {/* Caption panel (standard — non-Team Intel or fallback) */}
-          {caption && activeSection !== 'team' && (
+          {/* Only render when the normalized caption is actually publish-ready.
+              When caption.ok === false (builder threw / missing data / too short),
+              render a small empty-state so the user sees why preview is blank. */}
+          {caption && activeSection !== 'team' && caption.ok !== false && (caption.shortCaption || caption.longCaption || caption.fullCaption) && (
             <div className={styles.captionPanel}>
               <div className={styles.captionHeader}>
                 <span className={styles.captionTitle}>Caption</span>
@@ -2023,6 +2055,23 @@ export default function Dashboard() {
                 <div className={styles.captionHashtags}>
                   {(caption.hashtags || []).join(' ')}
                 </div>
+              </div>
+            </div>
+          )}
+          {caption && caption.ok === false && activeSection !== 'team' && (
+            <div className={styles.captionPanel}>
+              <div className={styles.captionHeader}>
+                <span className={styles.captionTitle}>Caption</span>
+              </div>
+              <div className={styles.captionBody}>
+                <pre className={styles.captionText} style={{ opacity: 0.7 }}>
+                  {caption.reason === 'caption_build_failed' && 'Caption generation failed for this post. Regenerate content to retry.'}
+                  {caption.reason === 'payload_build_failed' && 'Caption payload could not be assembled. Regenerate content to retry.'}
+                  {caption.reason === 'too_short' && `Caption is incomplete (${caption.totalLength ?? 0} chars). Regenerate to retry.`}
+                  {caption.reason === 'missing_body' && 'Caption builder returned unexpected shape. Regenerate to retry.'}
+                  {caption.reason === 'null_builder_output' && 'No caption was produced. Generate content first.'}
+                  {!['caption_build_failed','payload_build_failed','too_short','missing_body','null_builder_output'].includes(caption.reason) && 'Caption is not ready. Regenerate content before publishing.'}
+                </pre>
               </div>
             </div>
           )}
