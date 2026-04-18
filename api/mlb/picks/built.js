@@ -121,10 +121,23 @@ export default async function handler(req, res) {
       );
       payload = { ...v2, _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' } };
 
-      // Best-effort persistence — never block the hot path
+      // Best-effort persistence — never block the hot path.
+      // Structured return value lets us surface loud diagnostics without crashing.
       Promise.resolve()
         .then(() => writePicksRun(payload))
-        .catch(err => console.warn('[mlb/picks/built] persist error:', err?.message));
+        .then(r => {
+          if (!r) return;
+          if (!r.ok) {
+            console.error(
+              `[mlb/picks/built] ⚠ persist failed reason=${r.reason} ` +
+              (r.detail?.code ? `code=${r.detail.code} ` : '') +
+              (r.detail?.message ? `msg="${r.detail.message}"` : '')
+            );
+          } else if (r.picksWritten === 0 && (payload.meta?.picksPublished || 0) > 0) {
+            console.warn('[mlb/picks/built] ⚠ picks payload had published picks but 0 rows written');
+          }
+        })
+        .catch(err => console.error('[mlb/picks/built] persist threw:', err?.message));
     } else {
       const result = buildMlbPicks({ games: enriched });
       const c = result.categories;

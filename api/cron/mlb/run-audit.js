@@ -60,6 +60,9 @@ export default async function handler(req, res) {
   try {
     const run = await getLatestRunForDate({ sport: 'mlb', slateDate });
     const picks = run?.picks || [];
+    if (!run) {
+      console.warn(`[cron/mlb/run-audit] no picks_run for ${slateDate} — audit will produce a zero-sample artifact`);
+    }
 
     const { summary, signalAttribution, recommendedDeltas } = analyzePicks({ sport: 'mlb', slateDate, picks });
 
@@ -71,6 +74,9 @@ export default async function handler(req, res) {
       signal_attribution: signalAttribution,
       recommended_deltas: recommendedDeltas,
     });
+    if (!artifact) {
+      console.error(`[cron/mlb/run-audit] ⚠ audit artifact write returned null — check picks_audit_artifacts existence`);
+    }
 
     // If deltas exist, validate + propose a shadow config row.
     let shadowVersion = null;
