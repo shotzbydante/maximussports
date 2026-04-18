@@ -1,99 +1,121 @@
 /**
- * MlbMaximusPicksSectionV2 — conviction-ordered MLB picks UI.
+ * MlbMaximusPicksSectionV2 — canonical MLB picks presentation layer.
  *
- *   ┌ Yesterday's Scorecard ─┐
- *   ┌ Today's Top Play ──────┐
- *   ┌ Tier 1 Top Plays ──────┐
- *   ┌ Tier 2 Strong Plays ───┐
- *   ┌ Tier 3 Leans ──────────┐
+ * Modes:
+ *   - "page"  → full Odds Insights layout (Scorecard → Top Play → Tier 1/2/3)
+ *   - "home"  → compact Home-Daily-Briefing layout (Scorecard + Top Play + Tier 1)
  *
- * Reads /api/mlb/picks/built (v2 payload). Falls back to a legacy-friendly
- * render if tiers are missing (keeps previous consumers alive).
+ * Both modes consume the SAME useMlbPicks() hook. No drift.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMlbPicks, withTopPickCrossReference } from '../../../features/mlb/picks/useMlbPicks';
 import YesterdayScorecard from './YesterdayScorecard';
 import TopPlayHero from './TopPlayHero';
 import TierSection from './TierSection';
+import tokens from './picks.tokens.module.css';
 import styles from './MlbMaximusPicksSectionV2.module.css';
 
 export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
-  const [payload, setPayload] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { payload, loading, scorecardSummary, topPick, tiers, modelVersion, configVersion } = useMlbPicks();
 
-  useEffect(() => {
-    fetch('/api/mlb/picks/built')
-      .then(r => r.json())
-      .then(d => setPayload(d))
-      .catch(() => setPayload(null))
-      .finally(() => setLoading(false));
-  }, []);
+  if (loading) return <LoadingShell mode={mode} />;
 
-  const tiers = payload?.tiers;
-  const topPick = payload?.topPick || tiers?.tier1?.[0] || null;
+  const totalPicks = (tiers.tier1?.length || 0) + (tiers.tier2?.length || 0) + (tiers.tier3?.length || 0);
+  const noData = !payload || totalPicks === 0;
 
-  // Legacy fallback — synthesize tiers from categories (old API) so UI never crashes
-  const fallbackTiers = useMemo(() => {
-    if (tiers) return null;
-    const cats = payload?.categories || {};
-    const all = [...(cats.pickEms || []), ...(cats.ats || []), ...(cats.leans || []), ...(cats.totals || [])];
-    const sorted = all.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
-    return {
-      tier1: sorted.filter(p => p.confidence === 'high').slice(0, 3),
-      tier2: sorted.filter(p => p.confidence === 'medium').slice(0, 5),
-      tier3: sorted.filter(p => p.confidence === 'low').slice(0, 5),
-    };
-  }, [tiers, payload]);
+  // Annotate picks with cross-reference flags so tier cards can show "Top Play"
+  // badges without re-rendering the same matchup as a separate card.
+  const tier1 = withTopPickCrossReference(tiers.tier1 || [], topPick);
+  const tier2 = withTopPickCrossReference(tiers.tier2 || [], topPick);
+  const tier3 = withTopPickCrossReference(tiers.tier3 || [], topPick);
 
-  const activeTiers = tiers || fallbackTiers || { tier1: [], tier2: [], tier3: [] };
-  const activeTopPick = topPick || activeTiers.tier1?.[0] || null;
-
-  if (loading) {
+  if (mode === 'home') {
     return (
-      <section className={styles.root}>
-        <div className={styles.header}>
-          <span className={styles.eyebrow}>Betting Intelligence</span>
-          <h2 className={styles.title}>{mode === 'page' ? 'MLB Odds Insights' : "Maximus's Picks"}</h2>
+      <section className={`${tokens.root} ${styles.root} ${styles.modeHome}`} aria-label="Maximus's Picks">
+        <header className={styles.header}>
+          <div className={styles.headerLeft}>
+            <span className={styles.eyebrow}>Maximus's Picks</span>
+            <h2 className={styles.title}>Today's Betting Intelligence</h2>
+          </div>
+          <a href="/mlb/insights" className={styles.headerCta}>Full board →</a>
+        </header>
+
+        <div className={styles.homeGrid}>
+          {scorecardSummary && (
+            <YesterdayScorecard summary={scorecardSummary} compact />
+          )}
+          {topPick && <TopPlayHero pick={topPick} />}
         </div>
-        <div className={styles.skeleton} />
+
+        {!noData ? (
+          <TierSection tier="tier1" picks={tier1} mode="home" />
+        ) : (
+          <EmptyBoard />
+        )}
+
+        <footer className={styles.homeFooter}>
+          <a href="/mlb/insights" className={styles.fullBoardLink}>See all {totalPicks || ''} picks →</a>
+        </footer>
       </section>
     );
   }
 
-  const totalPicks = (activeTiers.tier1?.length || 0) + (activeTiers.tier2?.length || 0) + (activeTiers.tier3?.length || 0);
-
+  // ── Full page mode ──
   return (
-    <section className={styles.root}>
+    <section className={`${tokens.root} ${styles.root}`} aria-label="MLB Odds Insights">
       <header className={styles.header}>
-        <span className={styles.eyebrow}>Betting Intelligence</span>
-        <h2 className={styles.title}>{mode === 'page' ? 'MLB Odds Insights' : "Maximus's Picks"}</h2>
+        <div className={styles.headerLeft}>
+          <span className={styles.eyebrow}>Betting Intelligence</span>
+          <h1 className={styles.title}>MLB Odds Insights</h1>
+          <p className={styles.subtitle}>
+            Model-scored picks across today's slate. Tiered by conviction, not market.
+          </p>
+        </div>
       </header>
 
-      <YesterdayScorecard />
+      {scorecardSummary && <YesterdayScorecard summary={scorecardSummary} />}
 
-      {activeTopPick ? (
-        <TopPlayHero pick={activeTopPick} />
-      ) : (
-        totalPicks === 0 && (
-          <div className={styles.emptyBoard}>
-            <p className={styles.emptyTitle}>No qualified MLB edges right now</p>
-            <p className={styles.emptyDesc}>The model is waiting for stronger signal alignment before publishing today's board.</p>
-          </div>
-        )
+      {topPick && <TopPlayHero pick={topPick} featured />}
+
+      {noData && !topPick && <EmptyBoard />}
+
+      {!noData && (
+        <>
+          <TierSection tier="tier1" picks={tier1} />
+          <TierSection tier="tier2" picks={tier2} />
+          <TierSection tier="tier3" picks={tier3} initialCollapsed />
+        </>
       )}
 
-      <TierSection tier="tier1" picks={activeTiers.tier1 || []} />
-      <TierSection tier="tier2" picks={activeTiers.tier2 || []} />
-      <TierSection tier="tier3" picks={activeTiers.tier3 || []} initialCollapsed />
-
       <footer className={styles.footer}>
-        <p>For entertainment only. Please bet responsibly. Leans are data-driven, not advice.</p>
-        {payload?.modelVersion && (
-          <p className={styles.versionLine}>
-            Model {payload.modelVersion} · Config {payload.configVersion || '—'}
+        <p className={styles.footerLegal}>
+          For entertainment only. Please bet responsibly. Model output is not advice.
+        </p>
+        {modelVersion && (
+          <p className={styles.footerVersion}>
+            Model {modelVersion} · Config {configVersion || '—'}
           </p>
         )}
       </footer>
     </section>
+  );
+}
+
+function LoadingShell({ mode }) {
+  return (
+    <section className={`${tokens.root} ${styles.root}`} aria-busy="true">
+      <div className={styles.skeletonStrip} />
+      <div className={styles.skeletonHero} />
+      {mode !== 'home' && <div className={styles.skeletonTier} />}
+    </section>
+  );
+}
+
+function EmptyBoard() {
+  return (
+    <div className={styles.emptyBoard}>
+      <p className={styles.emptyBoardTitle}>No qualified MLB edges today</p>
+      <p className={styles.emptyBoardDesc}>The model is being selective — check back as the slate firms up.</p>
+    </div>
   );
 }

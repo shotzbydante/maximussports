@@ -11,7 +11,7 @@ import MlbLoading from '../../components/mlb/MlbLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
 import LiveNowRail from '../../components/mlb/LiveNowRail';
 import MlbPinnedTeamSection from '../../components/mlb/MlbPinnedTeamSection';
-import MlbMaximusPicksSection from '../../components/mlb/MlbMaximusPicksSection';
+import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
 import PennantWatch from '../../components/mlb/PennantWatch';
 import MlbIntelFeed from '../../components/mlb/MlbIntelFeed';
 import styles from './MlbHome.module.css';
@@ -205,7 +205,7 @@ export default function MlbHome() {
       </section>
 
       <MlbPinnedTeamSection />
-      <MlbMaximusPicksSection />
+      <MlbMaximusPicksSectionV2 mode="home" />
       <LiveNowRail />
       <PennantWatch />
       <MlbIntelFeed />

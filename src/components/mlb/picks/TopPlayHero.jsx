@@ -1,18 +1,32 @@
 /**
  * TopPlayHero — the single highest-conviction pick of the day.
- * Designed to feel editorially important, not like one of a grid.
+ *
+ * Premium navy glass treatment. No red/pink. Every metric explicitly labeled.
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import styles from './TopPlayHero.module.css';
 
-function formatTime(iso) {
+function fmtTime(iso) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
   catch { return ''; }
 }
 
-export default function TopPlayHero({ pick }) {
+function fmtPct(v, { sign = false } = {}) {
+  if (v == null || !isFinite(v)) return null;
+  const n = v * 100;
+  const s = sign && n > 0 ? '+' : '';
+  return `${s}${n.toFixed(1)}%`;
+}
+
+const MARKET_LABEL = {
+  moneyline: 'Moneyline',
+  runline: 'Run Line',
+  total: 'Total',
+};
+
+export default function TopPlayHero({ pick, featured = false }) {
   if (!pick) return null;
 
   const awaySlug = pick.matchup?.awayTeam?.slug;
@@ -21,29 +35,39 @@ export default function TopPlayHero({ pick }) {
   const homeLogo = homeSlug ? getMlbEspnLogoUrl(homeSlug) : null;
   const away = pick.matchup?.awayTeam?.shortName || 'AWY';
   const home = pick.matchup?.homeTeam?.shortName || 'HOM';
-  const time = formatTime(pick.matchup?.startTime);
+  const time = fmtTime(pick.matchup?.startTime);
   const label = pick.selection?.label || pick.pick?.label || '';
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
   const bullets = (pick.rationale?.bullets || []).slice(0, 2);
 
-  const conv = pick.conviction?.score ?? Math.round((pick.betScore?.total ?? 0) * 100);
-  const edgePct = pick.rawEdge != null ? (Math.abs(pick.rawEdge) * 100).toFixed(1) : null;
-  const confPct = pick.betScore?.components?.modelConfidence != null
+  // Metrics — all EXPLICITLY labeled
+  const conviction = pick.conviction?.score ?? Math.round((pick.betScore?.total ?? 0) * 100);
+  const betScore = Math.round((pick.betScore?.total ?? 0) * 100);
+  const edgePct = pick.rawEdge != null ? fmtPct(pick.rawEdge, { sign: true }) : null;
+  const confidencePct = pick.betScore?.components?.modelConfidence != null
     ? Math.round(pick.betScore.components.modelConfidence * 100)
     : null;
 
+  const marketLabel = MARKET_LABEL[pick.market?.type] || pick.market?.type;
+
   return (
-    <section className={styles.hero} aria-label="Today's Top Play">
+    <section className={`${styles.hero} ${featured ? styles.heroFeatured : ''}`} aria-label="Today's Top Play">
+      <div className={styles.gradient} aria-hidden="true" />
+      <div className={styles.glow} aria-hidden="true" />
+
       <header className={styles.header}>
-        <span className={styles.eyebrow}>Today's Top Play</span>
-        <span className={styles.convictionPill}>CONVICTION {conv}</span>
+        <div className={styles.eyebrowRow}>
+          <span className={styles.eyebrow}>Today's Top Play</span>
+          {marketLabel && <span className={styles.marketTag}>{marketLabel}</span>}
+        </div>
+        <ConvictionBadge value={conviction} />
       </header>
 
       <div className={styles.matchupLine}>
-        {awayLogo && <img src={awayLogo} alt="" width={22} height={22} className={styles.logo} loading="eager" />}
+        {awayLogo && <img src={awayLogo} alt="" width={24} height={24} className={styles.logo} loading="eager" />}
         <span className={styles.team}>{away}</span>
         <span className={styles.at}>@</span>
-        {homeLogo && <img src={homeLogo} alt="" width={22} height={22} className={styles.logo} loading="eager" />}
+        {homeLogo && <img src={homeLogo} alt="" width={24} height={24} className={styles.logo} loading="eager" />}
         <span className={styles.team}>{home}</span>
         {time && <span className={styles.time}>{time}</span>}
       </div>
@@ -61,23 +85,32 @@ export default function TopPlayHero({ pick }) {
       )}
 
       <footer className={styles.metrics}>
-        {edgePct && (
-          <span className={styles.metric}>
-            <span className={styles.metricLabel}>Edge</span>
-            <span className={styles.metricValue}>{edgePct}%</span>
-          </span>
+        {edgePct != null && (
+          <Metric label="Edge" value={edgePct} />
         )}
-        {confPct != null && (
-          <span className={styles.metric}>
-            <span className={styles.metricLabel}>Confidence</span>
-            <span className={styles.metricValue}>{confPct}%</span>
-          </span>
+        {confidencePct != null && (
+          <Metric label="Confidence" value={`${confidencePct}%`} />
         )}
-        <span className={styles.metric}>
-          <span className={styles.metricLabel}>Bet Score</span>
-          <span className={styles.metricValue}>{Math.round((pick.betScore?.total ?? 0) * 100)}</span>
-        </span>
+        <Metric label="Bet Score" value={betScore} accent />
       </footer>
     </section>
+  );
+}
+
+function Metric({ label, value, accent }) {
+  return (
+    <div className={`${styles.metric} ${accent ? styles.metricAccent : ''}`}>
+      <span className={styles.metricLabel}>{label}</span>
+      <span className={styles.metricValue}>{value}</span>
+    </div>
+  );
+}
+
+function ConvictionBadge({ value }) {
+  return (
+    <div className={styles.convictionBadge} aria-label={`Conviction score ${value} out of 100`}>
+      <span className={styles.convictionLabel}>Conviction</span>
+      <span className={styles.convictionValue}>{value}</span>
+    </div>
   );
 }
