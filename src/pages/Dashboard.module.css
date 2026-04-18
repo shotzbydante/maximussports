@@ -209,44 +209,33 @@
 }
 
 /* ── Controls panel ─────────────────────────────────────── */
+/*
+  Layout model: the panel flows naturally in the grid column and scrolls
+  with the page. This is a deliberate change from the previous
+  position:sticky + max-height + overflow-y:auto pattern, which created
+  TWO overlapping problems:
+    (1) Wheel-event trap — the outer page intercepted the mouse wheel,
+        so the sidebar's inner scrollbar was only reachable by explicit
+        targeting.
+    (2) Sticky pinning prevented access to content below the viewport
+        fold — when the sidebar exceeded viewport height, the bottom
+        portion (including the caption preview) was NEVER visible while
+        the sidebar was pinned.
+  Letting the sidebar flow naturally means the caption is always
+  reachable via normal page scroll. The caption panel still has its own
+  compact 320px internal scroll (.captionBody) so very long captions
+  stay visually contained.
+*/
 .controls {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card, 12px);
-  padding: 16px;
-  padding-bottom: 24px; /* breathing room at bottom of scroll area */
+  padding: 16px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 96px);
-  overflow-y: auto;
-  overscroll-behavior: contain; /* don't chain scroll to page when panel scrolls */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
-}
-
-.controls::-webkit-scrollbar {
-  width: 8px;
-}
-
-.controls::-webkit-scrollbar-track {
-  background: transparent;
-  margin: 6px 0;
-}
-
-.controls::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-.controls::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
-  background-clip: padding-box;
-  border: 2px solid transparent;
+  align-self: start; /* don't stretch to preview column height */
+  min-height: 0;     /* flexbox scroll-safe ancestor */
 }
 
 /* Small uppercase label used above action groups for visual hierarchy */

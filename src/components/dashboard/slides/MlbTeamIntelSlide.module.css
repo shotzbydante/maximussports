@@ -278,47 +278,90 @@
 }
 
 .metaRow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  flex-wrap: nowrap;
+  margin: 0 auto 8px;
+  /* Horizontal centering in the parent .identity column */
+  width: 100%;
+  /* Prevent any ancestor font/line-height drift from affecting the row */
+  line-height: 1;
+}
+
+/* ── Shared pill base — guarantees identical vertical height and center
+      alignment across all three badge variants. This is what keeps the
+      championship odds badge from shifting between Studio preview and
+      canvas export: fixed min-height + inline-flex + line-height: 1
+      means font-metric differences (emoji vs Oswald baselines) can no
+      longer change the pill's box height. ────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+/* Text inside a pill — explicit line-height and display keep the Oswald
+   ascent/descent from influencing the pill box height. */
+.pillText {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  font-family: 'Oswald', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Icon (emoji) inside a pill — isolated from the text span so its
+   taller system-emoji ascent never stretches the pill height. The icon
+   is boxed to an explicit size, vertically centered by flex, never
+   participating in baseline layout. */
+.pillIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  line-height: 1;
+  /* Emoji fonts vary in intrinsic box — this caps the rendered glyph */
+  flex-shrink: 0;
 }
 
 .statPill {
-  font-family: 'Oswald', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
   background: rgba(220, 40, 60, 0.18);
   border: 1px solid rgba(220, 40, 60, 0.40);
   color: rgba(255, 180, 180, 0.90);
-  border-radius: 7px;
-  padding: 3px 12px;
-  letter-spacing: 0.04em;
 }
 
 .oddsPill {
-  font-family: 'Oswald', sans-serif;
-  font-size: 17px;
-  font-weight: 700;
   background: rgba(107, 214, 158, 0.13);
   border: 1px solid rgba(107, 214, 158, 0.30);
   color: #6BD69E;
-  border-radius: 7px;
-  padding: 3px 11px;
-  letter-spacing: 0.03em;
 }
 
 .confPill {
-  font-size: 14px;
-  font-weight: 600;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.13);
   color: rgba(240, 244, 248, 0.68);
-  border-radius: 7px;
-  padding: 3px 11px;
-  letter-spacing: 0.04em;
+}
+
+/* confPill uses sans (division label reads better with native sans) */
+.confPill .pillText {
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .teamName {
