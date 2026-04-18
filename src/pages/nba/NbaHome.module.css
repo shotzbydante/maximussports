@@ -273,16 +273,54 @@
 }
 .bracketPromoSecondary:hover { color: rgba(255, 255, 255, 0.8); }
 
+/* Finals logo readability treatment — layered glow + contrast plate */
+.bracketPromoAssetWrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 220px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Outer gold glow — very soft, radiates from behind */
+.bracketPromoAssetGlowOuter {
+  position: absolute; inset: -40px;
+  background: radial-gradient(circle, rgba(201, 162, 74, 0.14) 0%, transparent 65%);
+  pointer-events: none;
+  filter: blur(20px);
+}
+
+/* Inner blue glow — lifts the dark logo off the background */
+.bracketPromoAssetGlowInner {
+  position: absolute; inset: 10px;
+  background: radial-gradient(circle, rgba(80, 140, 220, 0.22) 0%, transparent 55%);
+  pointer-events: none;
+  filter: blur(16px);
+}
+
+/* Dark blue contrast plate — creates a subtle spotlight */
+.bracketPromoAssetPlate {
+  position: absolute; inset: 20px;
+  background: radial-gradient(ellipse, rgba(6, 18, 38, 0.65) 0%, rgba(6, 18, 38, 0.3) 55%, transparent 80%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 .bracketPromoAsset {
-  width: 180px;
+  position: relative;
+  z-index: 1;
+  width: 200px;
   height: auto;
   object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 20px rgba(201, 162, 74, 0.15));
-  opacity: 0.85;
+  filter:
+    drop-shadow(0 0 16px rgba(201, 162, 74, 0.25))
+    drop-shadow(0 0 8px rgba(80, 140, 220, 0.3));
 }
 
 @media (max-width: 640px) {
   .bracketPromoInner { flex-direction: column; }
-  .bracketPromoAsset { width: 120px; align-self: center; }
+  .bracketPromoAssetWrap { width: 160px; height: 130px; align-self: center; }
+  .bracketPromoAsset { width: 140px; }
 }
