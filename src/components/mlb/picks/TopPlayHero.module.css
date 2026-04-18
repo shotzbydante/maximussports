@@ -1,160 +1,218 @@
 .hero {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px 22px;
-  margin: 0 0 18px;
-  background:
-    radial-gradient(1200px 200px at -10% -60%, rgba(184, 41, 61, 0.14), transparent 55%),
-    linear-gradient(180deg, #0f2440 0%, #142a4a 100%);
-  border-radius: 14px;
+  gap: 12px;
+  padding: 22px 24px 20px;
+  margin: 0 0 var(--picks-gap-lg);
+  border-radius: var(--picks-radius-xl);
+  background: var(--picks-tier1-grad);
   color: #fff;
-  box-shadow: 0 8px 32px rgba(15, 36, 64, 0.22);
-  position: relative;
+  box-shadow: var(--picks-glass-shadow-strong);
+  isolation: isolate;
   overflow: hidden;
 }
 
-.hero::before {
-  content: '';
+.heroFeatured {
+  min-height: 260px;
+  padding: 26px 28px 22px;
+}
+
+.gradient {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(800px 300px at 110% -20%, rgba(167,138,61,0.18), transparent 55%),
+    radial-gradient(500px 300px at -10% 120%, rgba(71,102,176,0.22), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(800px 140px at 120% 110%, rgba(255, 255, 255, 0.06), transparent 55%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 40%);
   pointer-events: none;
+  z-index: 0;
 }
+
+.hero > * { position: relative; z-index: 1; }
 
 .header {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
   gap: 12px;
-  position: relative;
-  z-index: 1;
 }
 
+.eyebrowRow { display: flex; align-items: center; gap: 10px; }
+
 .eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(234, 227, 204, 0.9);
+}
+
+.marketTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #fca5a5;
-  font-family: 'DM Sans', sans-serif;
+  color: rgba(255,255,255,0.88);
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
 }
 
-.convictionPill {
-  font-size: 10px;
+/* ── Conviction badge — silver/brass glass, no red ── */
+.convictionBadge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--picks-radius);
+  background: var(--picks-conv-t1-bg);
+  border: 1px solid var(--picks-conv-t1-border);
+  box-shadow: var(--picks-conv-shadow);
+  min-width: 100px;
+}
+
+.convictionLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--picks-conv-t1-ink);
+  opacity: 0.72;
+  line-height: 1;
+}
+
+.convictionValue {
+  font-size: 26px;
   font-weight: 800;
-  letter-spacing: 0.1em;
-  padding: 4px 10px;
-  background: #b8293d;
-  color: #fff;
-  border-radius: 4px;
-  font-family: 'DM Sans', sans-serif;
+  color: var(--picks-conv-t1-ink);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
 }
 
+/* ── Matchup line ── */
 .matchupLine {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #e5e7eb;
-  position: relative;
-  z-index: 1;
+  font-size: 14px;
+  color: rgba(255,255,255,0.92);
 }
 
-.logo {
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-}
+.logo { border-radius: 5px; background: rgba(255,255,255,0.1); padding: 1px; }
 
-.team {
-  font-weight: 700;
-}
+.team { font-weight: 800; letter-spacing: 0.02em; }
+.at { color: rgba(255,255,255,0.5); font-weight: 500; padding: 0 2px; }
+.time { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 500; }
 
-.at {
-  color: #94a3b8;
-  font-weight: 400;
-}
-
-.time {
-  margin-left: auto;
-  font-size: 12px;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.pickRow {
-  margin: 4px 0 6px;
-  position: relative;
-  z-index: 1;
-}
+/* ── Pick label ── */
+.pickRow { margin: 4px 0 2px; }
 
 .pickLabel {
   display: inline-block;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
 }
 
+.heroFeatured .pickLabel { font-size: 38px; }
+
+/* ── Editorial rationale ── */
 .headline {
   margin: 0;
   font-size: 14px;
-  line-height: 22px;
-  color: #e5e7eb;
-  position: relative;
-  z-index: 1;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.82);
+  font-style: italic;
+  max-width: 640px;
 }
 
 .bullets {
-  margin: 2px 0 0;
-  padding: 0 0 0 18px;
-  font-size: 13px;
-  color: #cbd5e1;
+  margin: 4px 0 0;
+  padding-left: 18px;
+  list-style: none;
   position: relative;
-  z-index: 1;
 }
 
 .bullets li {
-  margin-bottom: 2px;
-  line-height: 20px;
+  position: relative;
+  margin-bottom: 3px;
+  padding-left: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.72);
 }
 
+.bullets li::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 9px;
+  width: 4px; height: 4px;
+  background: rgba(167,138,61,0.7);
+  border-radius: 50%;
+}
+
+/* ── Metrics footer ── */
 .metrics {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  position: relative;
-  z-index: 1;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.12);
 }
 
 .metric {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 2px 12px 2px 0;
+  border-right: 1px solid rgba(255,255,255,0.08);
 }
+.metric:last-child { border-right: none; padding-right: 0; }
 
 .metricLabel {
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #94a3b8;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
 }
 
 .metricValue {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-@media (max-width: 560px) {
-  .hero { padding: 16px 16px; }
-  .pickLabel { font-size: 22px; }
-  .matchupLine { flex-wrap: wrap; }
+.metricAccent .metricValue { color: rgba(234, 227, 204, 1); }
+
+@media (max-width: 620px) {
+  .hero { padding: 18px 18px 16px; }
+  .heroFeatured { min-height: unset; padding: 20px 20px 18px; }
+  .pickLabel, .heroFeatured .pickLabel { font-size: 26px; }
+  .matchupLine { flex-wrap: wrap; font-size: 13px; }
+  .time { margin-left: 0; }
+  .metrics { gap: 8px; }
+  .metric { padding-right: 10px; }
+  .convictionValue { font-size: 22px; }
+  .convictionBadge { min-width: 86px; padding: 6px 10px; }
 }

@@ -1,55 +1,62 @@
 .scorecard {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px;
-  margin: 0 0 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
-  border: 1px solid #e5e7eb;
-  border-left: 3px solid #b8293d;
-  border-radius: 10px;
-  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+  gap: var(--picks-gap);
+  padding: 16px 20px;
+  margin: 0 0 var(--picks-gap-md);
+  border-radius: var(--picks-radius-lg);
+  background: var(--picks-glass-bg-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--picks-glass-border);
+  box-shadow: var(--picks-glass-shadow);
+  overflow: hidden;
 }
 
-.skeleton {
-  min-height: 72px;
-  background: linear-gradient(90deg, #f3f4f6 0%, #f9fafb 50%, #f3f4f6 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-  border-left: 3px solid #e5e7eb;
+.glassFrame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(71,102,176,0.08), transparent 50%),
+    radial-gradient(60% 100% at 100% 100%, rgba(167,138,61,0.05), transparent 50%);
 }
 
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+.scorecard.compact { padding: 14px 16px; }
+
+.loading { min-height: 92px; background: linear-gradient(90deg, var(--picks-haze), var(--picks-fog), var(--picks-haze)); background-size: 200% 100%; animation: sc-shimmer 1.6s infinite; }
+@keyframes sc-shimmer { 0%{ background-position: 200% 0; } 100%{ background-position: -200% 0; } }
 
 .header {
+  position: relative;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: baseline;
   gap: 12px;
 }
 
 .eyebrow {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #b8293d;
-  font-family: 'DM Sans', sans-serif;
+  color: var(--picks-accent);
 }
 
 .dateLabel {
   font-size: 11px;
-  color: #9ca3af;
-  font-family: 'DM Sans', sans-serif;
+  color: var(--picks-silver);
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .body {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: var(--picks-gap-lg);
   flex-wrap: wrap;
 }
 
@@ -60,21 +67,32 @@
   min-width: 0;
 }
 
+.recordLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+
 .recordValue {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
-  color: #0f2440;
-  font-family: 'DM Sans', sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  color: var(--picks-ink);
+  font-variant-numeric: tabular-nums;
 }
+
+.compact .recordValue { font-size: 24px; }
 
 .recordMeta {
+  margin-top: 4px;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--picks-steel);
 }
 
-.chipRow {
+.chipRow, .chipRowCompact {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -82,44 +100,57 @@
 
 .chip {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: #f3f4f6;
-  border-radius: 999px;
-  font-size: 12px;
-  font-family: 'DM Sans', sans-serif;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 12px;
+  min-width: 62px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--picks-glass-border);
+  border-radius: var(--picks-radius);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
 }
 
+.chipRowCompact .chip { padding: 4px 10px; min-width: 52px; }
+
 .chipLabel {
+  font-size: 9px;
   font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
 }
 
 .chipValue {
+  font-size: 14px;
   font-weight: 800;
-  color: #0f2440;
+  color: var(--picks-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-.note {
+.compact .chipValue { font-size: 13px; }
+
+/* ── Intent pill for Top Play result ── */
+.intentPill {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  border-radius: 4px;
   letter-spacing: 0.04em;
-  font-family: 'DM Sans', sans-serif;
+  background: var(--picks-accent-soft);
+  color: var(--picks-accent);
+  border: 1px solid transparent;
 }
 
-.noteWin { background: #dcfce7; color: #166534; }
-.noteLoss { background: #fee2e2; color: #991b1b; }
-.noteNeutral { background: #f3f4f6; color: #4b5563; }
+.intent_won { background: var(--picks-mint-soft); color: var(--picks-mint); border-color: rgba(47,138,122,0.2); }
+.intent_loss { background: var(--picks-rose-soft); color: var(--picks-rose); border-color: rgba(161,74,90,0.2); }
+.intent_neutral { background: var(--picks-fog); color: var(--picks-steel); border-color: var(--picks-glass-border); }
 
 @media (max-width: 560px) {
-  .recordValue { font-size: 22px; }
-  .body { gap: 10px; }
-  .note { margin-left: 0; }
+  .body { gap: 12px; }
+  .recordValue { font-size: 26px; }
+  .intentPill { margin-left: 0; }
 }
