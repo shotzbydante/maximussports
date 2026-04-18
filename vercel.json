@@ -79,6 +79,10 @@
     {"path": "/api/email/run-daily?type=ncaam_briefing",    "schedule": "0 14 * * *"},
     {"path": "/api/email/run-daily?type=ncaam_team_digest", "schedule": "45 22 * * *"},
     {"path": "/api/email/run-daily?type=ncaam_picks",       "schedule": "0 20 * * *"},
-    {"path": "/api/social/instagram/autopost-mlb-daily?mode=live", "schedule": "0 13 * * *"}
+    {"path": "/api/social/instagram/autopost-mlb-daily?mode=live", "schedule": "0 13 * * *"},
+
+    {"path": "/api/cron/mlb/settle-yesterday",                     "schedule": "30 7 * * *"},
+    {"path": "/api/cron/mlb/build-scorecard",                      "schedule": "45 7 * * *"},
+    {"path": "/api/cron/mlb/run-audit",                            "schedule": "0 8 * * *"}
   ]
 }

@@ -21,6 +21,9 @@ import { setJson } from '../../_globalCache.js';
 import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../live/_normalize.js';
 import { enrichGamesWithOdds } from '../live/_odds.js';
 import { buildMlbPicks } from '../../../src/features/mlb/picks/buildMlbPicks.js';
+import { buildMlbPicksV2 } from '../../../src/features/mlb/picks/v2/buildMlbPicksV2.js';
+import { MLB_DEFAULT_CONFIG } from '../../../src/features/picks/tuning/defaultConfig.js';
+import { writePicksRun, getActiveConfig, getScorecard } from '../../_lib/picksHistory.js';
 
 const cache = createCache(120_000); // 2 min
 
@@ -77,17 +80,57 @@ export default async function handler(req, res) {
 
     console.log(`[mlb/picks/built] Games: total=${allGames.length} upcoming=${upcoming.length} enriched=${enriched.length}`);
 
-    // Build picks
-    const result = buildMlbPicks({ games: enriched });
+    // Resolve active tuning config (DB > default) — fail safe to default
+    let activeConfig = MLB_DEFAULT_CONFIG;
+    try {
+      const dbCfg = await getActiveConfig({ sport: 'mlb' });
+      if (dbCfg) activeConfig = dbCfg;
+    } catch (e) { console.warn('[mlb/picks/built] getActiveConfig failed:', e?.message); }
 
-    const c = result.categories;
-    console.log(`[mlb/picks/built] Picks: pickEms=${c.pickEms.length} ats=${c.ats.length} leans=${c.leans.length} totals=${c.totals.length} qualified=${result.meta.qualifiedGames}`);
+    // ── V2 canonical build (default when PICKS_V2 != '0') ──
+    const useV2 = process.env.PICKS_V2 !== '0';
+    let payload;
+    if (useV2) {
+      // Attach yesterday's scorecard summary if available
+      let scorecardSummary = null;
+      try {
+        const y = new Date(); y.setDate(y.getDate() - 1);
+        const ymd = y.toISOString().slice(0, 10);
+        const card = await getScorecard({ sport: 'mlb', slateDate: ymd });
+        if (card) {
+          scorecardSummary = {
+            date: ymd,
+            overall: card.record,
+            byMarket: card.by_market,
+            byTier: card.by_tier,
+            topPlayResult: card.top_play_result,
+            streak: card.streak,
+            note: card.note,
+          };
+        }
+      } catch (e) { /* non-fatal */ }
 
-    const payload = {
-      ...result,
-      generatedAt: new Date().toISOString(),
-      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length },
-    };
+      const v2 = buildMlbPicksV2({
+        games: enriched,
+        config: activeConfig,
+        scorecardSummary,
+      });
+      console.log(
+        `[mlb/picks/built] V2 tiers: t1=${v2.tiers.tier1.length} t2=${v2.tiers.tier2.length} t3=${v2.tiers.tier3.length} ` +
+        `qualified=${v2.meta.qualifiedGames} published=${v2.meta.picksPublished}`
+      );
+      payload = { ...v2, _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' } };
+
+      // Best-effort persistence — never block the hot path
+      Promise.resolve()
+        .then(() => writePicksRun(payload))
+        .catch(err => console.warn('[mlb/picks/built] persist error:', err?.message));
+    } else {
+      const result = buildMlbPicks({ games: enriched });
+      const c = result.categories;
+      console.log(`[mlb/picks/built] V1 Picks: pickEms=${c.pickEms.length} ats=${c.ats.length} leans=${c.leans.length} totals=${c.totals.length} qualified=${result.meta.qualifiedGames}`);
+      payload = { ...result, generatedAt: new Date().toISOString(), _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v1' } };
+    }
 
     cache.set(cacheKey, payload);
     // Persist to KV so email pipeline can read directly (avoid self-fetch)
