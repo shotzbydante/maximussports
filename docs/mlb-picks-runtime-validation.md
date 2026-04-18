@@ -1,229 +1,165 @@
-# MLB Picks v2 — Runtime Validation Checklist
+# MLB Picks v2 — Runtime Validation
 
-**Use this after** running `docs/mlb-picks-persistence-deploy.sql` to confirm the full data flow is writing real rows. Gate all product work on this being green.
+**Status:** The persistence schema is NOT yet deployed to production. This document describes the exact checks to run after the operator executes `docs/mlb-picks-persistence-deploy.sql` in Supabase, and what genuine confirmation looks like.
 
-> I cannot verify production Supabase state from the repo — this document gives you the exact checks to run and the exact outputs to expect.
-
----
-
-## Stage A — Schema (immediate)
-
-Run `docs/mlb-picks-persistence-verification.sql` in Supabase SQL Editor.
-
-Expected: **every row in sections 1–6 reads `OK`**. Data-table counts may be 0.
-
-If any row is FAIL → stop, re-deploy, re-run.
+I cannot hit the production database from the repo; this is the checklist for the operator and for future sessions inheriting this work.
 
 ---
 
-## Stage B — Runtime sees the schema (immediate)
+## What was broken
+
+1. **Persistence tables did not exist.** Direct `information_schema.tables` query returned no rows. The migration SQL had been written but never executed in the SQL Editor.
+2. **Health endpoint was unreliable.** It relied on PostgREST error codes to infer "table missing" and could return `ok: true` in several failure modes (schema-cache desync, schema-path mismatch, error-code false negatives, stale deploy). It had no database-side oracle.
+3. **Silent failures throughout.** `picksHistory.js` swallowed write errors. No loud signal when persistence was off.
+
+## What was fixed
+
+| Layer | Change |
+|---|---|
+| Migration | Wrapped in `begin/commit`, added named unique constraints, added `public.picks_persistence_inventory()` RPC, added `notify pgrst, 'reload schema'` outside the transaction, added an inline post-commit verification SELECT. |
+| Deploy SQL | Copy-paste-ready with unambiguous operator banner. Final SELECT returns `tables_created=7, rpc_created=true, active_mlb_config_present=true` on success. |
+| Runbook | Explicit step: "open this `.sql` file, select all, copy, paste into Supabase SQL Editor." Expected outputs at each step. |
+| Verification SQL | Sections 1–7 now validate tables + constraints + RLS + seed + RPC. |
+| Health endpoint | Rebuilt to call the authoritative RPC first; falls back to advisory probe only if RPC is missing. Cross-checks RPC vs. probe to detect cache desync. Distinguishes seven distinct `rootCause` values. `ok:true` now *requires* `source:'rpc'`. |
+| Persistence client | Loud one-time logs on missing tables, structured return objects, zero-row detection. |
+| Cron jobs | Fail loud when no source run found or when write returns null. |
+
+---
+
+## How to verify first writes after deploy
+
+### Stage A — Schema exists (immediate, in SQL Editor)
+
+Ground truth — run as a new query in SQL Editor:
+
+```sql
+select table_schema, table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in (
+    'picks_runs','picks','pick_results','picks_daily_scorecards',
+    'picks_config','picks_tuning_log','picks_audit_artifacts'
+  )
+order by table_name;
+```
+
+Expected: **7 rows**, one per required table. Any fewer and the migration did not complete.
+
+Also:
+```sql
+select public.picks_persistence_inventory();
+```
+
+Expected: JSON containing `tables_in_public` array of 7 entries, `active_config` object with `version` and `sport='mlb'`, `rows` object, `latest` object.
+
+### Stage B — Runtime agrees (from Vercel deployment)
 
 ```
-GET https://<host>/api/health/picks-persistence
+curl -s https://<host>/api/health/picks-persistence | jq .
 ```
 
-Expected JSON fields:
-
+Expected response fields:
 ```json
 {
   "ok": true,
-  "missing": [],
-  "warnings": [],
+  "rootCause": "none",
+  "source": "rpc",
+  "schema": {
+    "picks_runs": { "state": "present", "rows": 0 },
+    ...all 7 with state:"present"
+  },
   "activeConfig": { "version": "mlb-picks-tuning-2026-04-17a", "sport": "mlb" },
-  "tables": {
-    "picks_runs":             { "ok": true, "count": 0 },
-    "picks":                  { "ok": true, "count": 0 },
-    "pick_results":           { "ok": true, "count": 0 },
-    "picks_daily_scorecards": { "ok": true, "count": 0 },
-    "picks_config":           { "ok": true, "count": 1 },
-    "picks_tuning_log":       { "ok": true, "count": 0 },
-    "picks_audit_artifacts":  { "ok": true, "count": 0 }
-  }
+  "missing": [],
+  "probeCrosscheck": { "disagreements": [] }
 }
 ```
 
-Failure modes:
+**Critical:** `source` must be `rpc`. If it says `probe`, the RPC isn't visible to the runtime yet (either migration incomplete or PostgREST cache stale).
 
-| `ok`=false & … | Likely cause | Fix |
-|---|---|---|
-| `missing` lists tables | SQL migration didn't land in this Supabase project | Re-run deploy SQL |
-| `missing: []`, `activeConfig: null` | Seed config row was deleted | Re-insert the seed or keep the config in source of truth |
-| Every table shows `error: "service-role client unavailable"` | Vercel envs `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` not set | Set them and redeploy |
-
----
-
-## Stage C — `/api/mlb/picks/built` writes rows (within 1 min)
-
-Hit the picks endpoint to trigger a fresh build:
+### Stage C — `/api/mlb/picks/built` writes rows
 
 ```
-GET https://<host>/api/mlb/picks/built
+curl -s https://<host>/api/mlb/picks/built > /dev/null
+sleep 5
+curl -s "https://<host>/api/health/picks-persistence" | jq .schema.picks_runs
 ```
 
-The HTTP response returns immediately (the DB write is async). **Wait ~5 seconds, then:**
+Expected: `{ state: "present", rows: ≥1 }`.
 
-1. **Check Vercel logs for the function.** Look for exactly one of:
-   ```
-   [picksHistory] persisted run=<uuid> picks=<n>
-   ```
-   If you see:
-   ```
-   [picksHistory] ❌ persistence table "<name>" does NOT exist
-   ```
-   the migration didn't land — stop and re-run the deploy SQL.
-
-2. **Query Supabase:**
-   ```sql
-   select id, slate_date, model_version, config_version, generated_at
-   from public.picks_runs
-   where sport = 'mlb'
-   order by generated_at desc
-   limit 1;
-
-   select count(*) as rows, array_agg(distinct tier) as tiers
-   from public.picks
-   where run_id = (select id from public.picks_runs where sport='mlb' order by generated_at desc limit 1);
-   ```
-   Expected:
-   - One row for the latest run with a timestamp within the last 60s.
-   - `picks.count` equals the published pick count from the build logs.
-   - `tiers` is a subset of `{tier1, tier2, tier3}`.
-
-3. **Re-check the health endpoint:** `picks_runs.count ≥ 1`, `picks.count ≥ 0`.
-
-Zero-picks day (`picks.count = 0`) is legitimate — the model can be selective. As long as `picks_runs.count` is growing daily, the persistence loop is alive.
-
----
-
-## Stage D — Settlement + scorecard (next morning ET, or manual)
-
-Either wait for the 7:30 / 7:45 UTC crons to fire, or trigger them manually:
-
+In Vercel logs for the `/api/mlb/picks/built` function:
 ```
-GET /api/cron/mlb/settle-yesterday?date=YYYY-MM-DD
-GET /api/cron/mlb/build-scorecard?date=YYYY-MM-DD
+[picksHistory] persisted run=<uuid> picks=<n>
 ```
 
-`YYYY-MM-DD` is yesterday's slate date (ET).
+If you see:
+```
+[picksHistory] ❌ persistence table "..." does NOT exist
+```
+then the runtime is pointed at a different Supabase project than the migration was applied to, or the PostgREST cache hasn't refreshed (wait 60s and re-hit).
 
-Expected response from settle:
-```json
-{ "ok": true, "slateDate": "...", "totalPicks": N, "graded": M, "finalsSeen": F }
+### Stage D — Settlement + scorecard (next morning ET, or manual)
+
+Manual trigger today (adjust date):
+```
+curl -s "https://<host>/api/cron/mlb/settle-yesterday?date=YYYY-MM-DD" | jq .
+curl -s "https://<host>/api/cron/mlb/build-scorecard?date=YYYY-MM-DD" | jq .
+curl -s "https://<host>/api/cron/mlb/run-audit?date=YYYY-MM-DD" | jq .
 ```
 
-Expected response from scorecard:
-```json
-{ "ok": true, "slateDate": "...", "scorecard": { "record": { "won": …, "lost": …, "push": …, "pending": … }, ... } }
+Each should return `{ ok: true, ... }`.
+
+Then:
+```
+curl -s "https://<host>/api/health/picks-persistence" | jq '.schema | with_entries(.value |= .rows)'
 ```
 
-Then verify:
+Expected: `pick_results`, `picks_daily_scorecards`, `picks_audit_artifacts` row counts all ≥ 1.
 
+And `/mlb/insights` in a browser renders the Yesterday's Scorecard strip with a real record.
+
+### Stage E — 24-hour compounding check
+
+A day later:
 ```sql
-select status, count(*) from public.pick_results group by status;
-select * from public.picks_daily_scorecards
-where sport='mlb'
-order by slate_date desc limit 3;
-```
-
-And the UI endpoint:
-
-```
-GET https://<host>/api/mlb/picks/scorecard
-```
-
-Should return the most recent row.
-
-Failure modes:
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| `graded = 0` when games finished | ESPN `gameId` doesn't match the stored one | Inspect one pick: `select game_id, away_team_slug, home_team_slug from public.picks where run_id=… limit 3` and compare with `fetchYesterdayFinals()` shape |
-| Settle returns `ok: false` with "no picks_run for date" | Stage C didn't run on that date | Expected if this is the first slate — no fix, wait for real data |
-| Scorecard row missing after successful cron | Upsert error | Check Vercel logs for `scorecard upsert returned null` |
-
----
-
-## Stage E — Audit pipeline (next morning ET, or manual)
-
-```
-GET /api/cron/mlb/run-audit?date=YYYY-MM-DD
-```
-
-Expected:
-```json
-{ "ok": true, "slateDate": "...", "sampleSize": N, "proposed": false, "shadowVersion": null, ... }
-```
-
-`proposed: true` only happens when the analyzer's rules fire. In the first week, expect `false`.
-
-Verify:
-
-```sql
-select slate_date, (summary->>'sampleSize')::int as sample, created_at
-from public.picks_audit_artifacts
-where sport='mlb'
-order by slate_date desc limit 3;
-
-select status, count(*)
-from public.picks_tuning_log
-where sport='mlb'
-group by status;
-```
-
-Expected: a fresh audit row per day, tuning log grows only when the analyzer proposes deltas.
-
----
-
-## Stage F — UI shows the scorecard
-
-Load `https://<host>/mlb/insights`. The **Yesterday's Scorecard** strip renders above the Top Play hero with the record from the most recent `picks_daily_scorecards` row. If the strip is absent, the `/api/mlb/picks/scorecard` endpoint returned no row — check Stage D.
-
----
-
-## 24-hour compounding check
-
-Run this 24 hours after deploy:
-
-```sql
-select slate_date, count(*) as runs
+select slate_date, count(*)
 from public.picks_runs
-where sport='mlb' and slate_date >= current_date - interval '3 days'
+where sport = 'mlb'
+  and slate_date >= current_date - interval '3 days'
 group by slate_date
 order by slate_date desc;
 
 select slate_date, record, top_play_result, note
 from public.picks_daily_scorecards
-where sport='mlb'
-order by slate_date desc
-limit 5;
-
-select slate_date, (summary->>'sampleSize')::int as sample, (recommended_deltas->'rationale') as proposals
-from public.picks_audit_artifacts
-where sport='mlb'
+where sport = 'mlb'
 order by slate_date desc
 limit 5;
 ```
 
-You should see:
-- `picks_runs` growing by at least 1 row per day (often more — the endpoint re-persists on cold starts).
-- `picks_daily_scorecards` with a new row per day as games settle.
-- `picks_audit_artifacts` with a new row per day.
-
-If any of these stops growing, the pipeline has broken — use the health endpoint and the Vercel logs to localize the break.
+`picks_runs` should have at least one row per active slate date. `picks_daily_scorecards` should have a fresh row per day.
 
 ---
 
-## Completion criteria
+## Is persistence genuinely confirmed?
 
-Persistence is ✅ **working in production** when all of the following are true on the same day:
+**Not yet** — I can't run Supabase from the repo. Persistence is confirmed when **all of the following** are observed simultaneously:
 
-- `/api/health/picks-persistence` returns `ok: true` with `missing: []` and a non-null `activeConfig`.
-- `picks_runs` has at least 1 row with `generated_at > now() - 1 hour`.
-- After the next settlement cycle, `pick_results` contains rows for the most recent `run_id`.
-- `picks_daily_scorecards` has a row for yesterday.
-- `picks_audit_artifacts` has a row for yesterday.
-- The app's `/mlb/insights` page renders a Yesterday's Scorecard strip with a real record.
+1. `information_schema.tables` query returns 7 rows in `public`.
+2. `select public.picks_persistence_inventory();` returns a JSON with `tables_in_public` containing all 7 names.
+3. `/api/health/picks-persistence` returns `ok:true`, `source:"rpc"`, `rootCause:"none"`.
+4. `/api/mlb/picks/built` triggers a write → `picks_runs.rows` grows by at least 1 within 10 s.
+5. The next daily cron cycle produces rows in `pick_results`, `picks_daily_scorecards`, `picks_audit_artifacts`.
 
-Only after these are green is it safe to proceed to product improvements (Phase 6+ of the original brief).
+Until check 3 is green in production, nothing downstream is trustworthy.
 
-*End of runtime validation.*
+---
+
+## Exact next steps for the operator
+
+1. Open `docs/mlb-picks-persistence-deploy.sql`. Select all, copy.
+2. Open Supabase dashboard → SQL Editor → New Query. Paste. Run.
+3. Confirm final row shows `tables_created = 7`, `rpc_created = true`, `active_mlb_config_present = true`.
+4. Hit `GET https://<host>/api/health/picks-persistence`. Confirm `ok:true`, `source:"rpc"`.
+5. Hit `GET https://<host>/api/mlb/picks/built`. Wait 5 s. Re-check health; `picks_runs.rows` should be ≥1.
+6. Report the outputs of steps 3–5 to confirm we can proceed to product work.
+
+If any step returns an unexpected value, stop and consult the runbook's Troubleshooting table.

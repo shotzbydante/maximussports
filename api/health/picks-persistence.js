@@ -1,127 +1,115 @@
 /**
  * GET /api/health/picks-persistence
  *
- * Probes every v2 persistence table. Returns:
- *   {
- *     ok:           boolean,            // false if any required table is missing
- *     sport:        'mlb',
- *     tables:       { <name>: { ok, count, error? }, ... },
- *     missing:      [ <table-names-the-runtime-couldnt-read> ],
- *     warnings:     [ ... ],
- *     activeConfig: { version, sport } | null,
- *     env:          { hasUrl, hasServiceKey },
- *     durationMs:   number,
- *     generatedAt:  ISO,
- *   }
+ * Authoritative health probe for the MLB Picks v2 persistence layer.
  *
- * Cacheable for 30s (s-maxage=30). Useful as an uptime probe and as the
- * reverse side of the deploy runbook: operators hit this and see green.
+ * PRIMARY (authoritative): calls public.picks_persistence_inventory() via RPC,
+ * which queries information_schema.tables from inside the database. This is
+ * the same oracle an operator would use in the SQL editor — not inferred.
+ *
+ * SECONDARY (advisory): a per-table HEAD probe. Compared against the RPC to
+ * detect PostgREST schema-cache desync.
+ *
+ * Distinguishes these states:
+ *   - ok:true, source:'rpc', rootCause:'none'        → everything green
+ *   - ok:false, rootCause:'env_missing'              → Vercel envs not set
+ *   - ok:false, rootCause:'auth_error'               → envs set but not valid
+ *   - ok:false, rootCause:'migration_not_run'        → RPC absent; schema not deployed
+ *   - ok:false, rootCause:'tables_missing'           → RPC present; some tables absent
+ *   - ok:false, rootCause:'no_active_config'         → tables present; seed config missing
+ *   - ok:false, rootCause:'cache_desync'             → RPC says present, probe says missing (or v.v.)
+ *   - ok:false, rootCause:'rpc_error'                → other RPC failure
+ *
+ * Not cached. Every call is a ground-truth check. Use ?sport=mlb (default).
  */
 
 import { getSupabaseAdmin, getEnvStatus } from '../_lib/supabaseAdmin.js';
-
-const REQUIRED_TABLES = [
-  'picks_runs',
-  'picks',
-  'pick_results',
-  'picks_daily_scorecards',
-  'picks_config',
-  'picks_tuning_log',
-  'picks_audit_artifacts',
-];
+import {
+  REQUIRED_TABLES,
+  classifyRpcError,
+  classifyProbeError,
+  buildHealthReport,
+} from '../../src/features/picks/health/persistenceHealth.js';
 
 export default async function handler(req, res) {
   const t0 = Date.now();
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+  // No caching — this endpoint must reflect ground truth on every call
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   const env = getEnvStatus();
   const sport = (req?.query?.sport || 'mlb').toString();
 
+  // ── Short-circuit if envs are missing — no DB call possible ──
+  if (!env.hasUrl || !env.hasServiceRoleKey) {
+    return res.status(200).json(buildHealthReport({
+      rpcResult: { ok: false, kind: 'env_missing' },
+      probeResults: {},
+      env,
+      sport,
+    }));
+  }
+
   let admin;
   try { admin = getSupabaseAdmin(); }
   catch (e) {
-    return res.status(200).json({
-      ok: false,
-      sport,
-      tables: {},
-      missing: REQUIRED_TABLES,
-      warnings: ['service-role client unavailable'],
-      activeConfig: null,
+    return res.status(200).json(buildHealthReport({
+      rpcResult: { ok: false, kind: 'auth_error', error: { message: e?.message } },
+      probeResults: {},
       env,
-      durationMs: Date.now() - t0,
-      generatedAt: new Date().toISOString(),
-      error: e?.message,
-    });
+      sport,
+    }));
   }
 
-  const results = {};
-  const missing = [];
-  const warnings = [];
+  // ── Primary: authoritative RPC ──
+  let rpcResult;
+  try {
+    const { data, error } = await admin.rpc('picks_persistence_inventory');
+    if (error) {
+      const cls = classifyRpcError(error);
+      rpcResult = { ok: false, kind: cls.kind, error: { code: error.code, message: error.message } };
+    } else {
+      rpcResult = { ok: true, data };
+    }
+  } catch (e) {
+    const cls = classifyRpcError(e);
+    rpcResult = { ok: false, kind: cls.kind, error: { code: e?.code, message: e?.message } };
+  }
 
+  // ── Secondary: per-table advisory probe (cross-checks RPC for cache desync) ──
+  const probeResults = {};
   await Promise.all(REQUIRED_TABLES.map(async (table) => {
     try {
-      // HEAD request with exact count. If the table doesn't exist, PostgREST
-      // returns PGRST205 / 42P01 and we treat it as missing.
-      const { count, error } = await admin
-        .from(table)
-        .select('*', { count: 'exact', head: true });
+      const { count, error } = await admin.from(table).select('*', { count: 'exact', head: true });
       if (error) {
-        const isMissing =
-          error.code === '42P01' ||            // undefined_table
-          error.code === 'PGRST205' ||         // schema cache miss
-          /relation .* does not exist/i.test(error.message || '') ||
-          /Could not find the table/i.test(error.message || '');
-        results[table] = { ok: false, count: null, error: error.message, code: error.code };
-        if (isMissing) missing.push(table);
-        else warnings.push(`${table}: ${error.message}`);
+        const cls = classifyProbeError(error);
+        probeResults[table] = {
+          state: cls.kind === 'missing_table' ? 'missing' : 'unknown',
+          rows: null,
+          error: error.message,
+          code: error.code,
+        };
       } else {
-        results[table] = { ok: true, count: count ?? 0 };
+        probeResults[table] = { state: 'present', rows: count ?? 0 };
       }
     } catch (e) {
-      results[table] = { ok: false, count: null, error: e?.message || 'unknown' };
-      missing.push(table);
+      probeResults[table] = { state: 'unknown', rows: null, error: e?.message };
     }
   }));
 
-  // Active config probe (only if picks_config exists)
-  let activeConfig = null;
-  if (results.picks_config?.ok) {
-    try {
-      const { data, error } = await admin
-        .from('picks_config')
-        .select('version, sport, is_active')
-        .eq('sport', sport)
-        .eq('is_active', true)
-        .maybeSingle();
-      if (error) warnings.push(`picks_config query: ${error.message}`);
-      else if (!data) warnings.push(`no active picks_config for sport=${sport}`);
-      else activeConfig = data;
-    } catch (e) {
-      warnings.push(`picks_config query failed: ${e?.message}`);
-    }
-  }
+  const report = buildHealthReport({ rpcResult, probeResults, env, sport });
+  report.durationMs = Date.now() - t0;
 
-  const ok = missing.length === 0 && !!activeConfig;
-
-  // Loud log on failure so operators notice in Vercel logs
-  if (!ok) {
-    console.error('[health/picks-persistence] FAIL', { missing, warnings, env, sport });
+  // Structured log for operators
+  if (report.ok) {
+    console.log(`[health/picks-persistence] OK rootCause=${report.rootCause} source=${report.source} config=${report.activeConfig?.version}`);
   } else {
-    console.log(`[health/picks-persistence] OK sport=${sport} tables=${REQUIRED_TABLES.length} config=${activeConfig?.version}`);
+    console.error(
+      `[health/picks-persistence] FAIL rootCause=${report.rootCause} reason="${report.reason}" missing=${report.missing.length}`
+    );
   }
 
-  return res.status(200).json({
-    ok,
-    sport,
-    tables: results,
-    missing,
-    warnings,
-    activeConfig,
-    env,
-    durationMs: Date.now() - t0,
-    generatedAt: new Date().toISOString(),
-  });
+  return res.status(200).json(report);
 }
 
 export { REQUIRED_TABLES };

@@ -227,6 +227,54 @@ drop policy if exists picks_audit_artifacts_read  on public.picks_audit_artifact
 create policy       picks_audit_artifacts_read  on public.picks_audit_artifacts  for select using (true);
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Inventory RPC — authoritative health-endpoint backbone
+-- ─────────────────────────────────────────────────────────────────────────────
+create or replace function public.picks_persistence_inventory()
+returns jsonb
+language sql
+security definer
+set search_path = public, pg_catalog
+as $$
+  select jsonb_build_object(
+    'schema_version', 'v2.0.0',
+    'checked_at', now(),
+    'tables_in_public', coalesce((
+      select jsonb_agg(table_name order by table_name)
+      from information_schema.tables
+      where table_schema = 'public'
+        and table_name = any(array[
+          'picks_runs','picks','pick_results','picks_daily_scorecards',
+          'picks_config','picks_tuning_log','picks_audit_artifacts'
+        ])
+    ), '[]'::jsonb),
+    'active_config', (
+      select jsonb_build_object('version', version, 'sport', sport)
+      from public.picks_config
+      where sport = 'mlb' and is_active = true
+      limit 1
+    ),
+    'rows', jsonb_build_object(
+      'picks_runs',             (select count(*) from public.picks_runs),
+      'picks',                  (select count(*) from public.picks),
+      'pick_results',           (select count(*) from public.pick_results),
+      'picks_daily_scorecards', (select count(*) from public.picks_daily_scorecards),
+      'picks_config',           (select count(*) from public.picks_config),
+      'picks_tuning_log',       (select count(*) from public.picks_tuning_log),
+      'picks_audit_artifacts',  (select count(*) from public.picks_audit_artifacts)
+    ),
+    'latest', jsonb_build_object(
+      'picks_run_generated_at',
+        (select max(generated_at) from public.picks_runs where sport='mlb'),
+      'scorecard_slate_date',
+        (select max(slate_date)::text from public.picks_daily_scorecards where sport='mlb'),
+      'audit_slate_date',
+        (select max(slate_date)::text from public.picks_audit_artifacts where sport='mlb')
+    )
+  );
+$$;
+grant execute on function public.picks_persistence_inventory() to anon, authenticated, service_role;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Seed the initial MLB tuning config (idempotent; no-op if version exists)
 -- ─────────────────────────────────────────────────────────────────────────────
 insert into public.picks_config (version, sport, is_active, is_shadow, config, activated_at)
@@ -259,3 +307,7 @@ values (
 on conflict (version) do nothing;
 
 commit;
+
+-- Tell PostgREST to refresh its schema cache so the new tables & RPC are
+-- immediately visible to the anon/service-role clients.
+notify pgrst, 'reload schema';
