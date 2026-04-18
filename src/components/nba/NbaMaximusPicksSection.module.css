@@ -9,6 +9,33 @@
 
 .loading { font-size: 0.82rem; color: var(--color-text-muted); }
 
+.headerRight { display: flex; align-items: center; gap: 10px; }
+.viewAllLink { font-size: 0.66rem; font-weight: 600; color: #1d428a; text-decoration: none; transition: opacity 0.12s; }
+.viewAllLink:hover { opacity: 0.75; }
+
+/* Loading skeleton */
+.loadingGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 860px) { .loadingGrid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .loadingGrid { grid-template-columns: 1fr; } }
+
+.loadingCol {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg, 12px);
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 180px;
+}
+.skelHeader {
+  height: 24px; background: rgba(29, 66, 138, 0.06); border-radius: 4px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.skelCard {
+  height: 64px; background: rgba(0, 0, 0, 0.03); border-radius: 6px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.7; } }
+
 /* Grid */
 .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 @media (max-width: 860px) { .grid { grid-template-columns: repeat(2, 1fr); } }
