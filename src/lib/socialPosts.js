@@ -13,14 +13,60 @@
 // ── Upload ──────────────────────────────────────────────────────────────────
 
 /**
- * Uploads a base64-encoded PNG to Supabase Storage via the backend.
- * Returns the permanent public URL.
+ * Parse a Response body, tolerating non-JSON (e.g. HTML from a Vercel 502
+ * or plain-text proxy error). Returns { ok, data, text, isJson }.
  *
- * @param {string} base64     — data URI or raw base64 string
- * @param {string} [filename] — optional suggested filename
- * @returns {Promise<{ url: string, filename: string, sizeBytes: number }>}
+ * This is critical because Vercel function timeouts / crashes / request-
+ * too-large responses come back as HTML, not JSON — and calling res.json()
+ * on that throws a SyntaxError, destroying the step context we need for
+ * actionable error messages.
  */
-export async function uploadAsset(base64, filename) {
+async function safeParseResponse(res) {
+  const text = await res.text();
+  if (!text) return { ok: res.ok, data: null, text: '', isJson: false };
+  try {
+    return { ok: res.ok, data: JSON.parse(text), text, isJson: true };
+  } catch {
+    return { ok: res.ok, data: null, text, isJson: false };
+  }
+}
+
+/**
+ * Translate an HTTP status + non-JSON body into an actionable step-specific
+ * error. This fires when the server returns raw HTML (Vercel 502 / 504 /
+ * 413) instead of our structured JSON error.
+ */
+function httpStatusToStep(status, operation) {
+  if (status === 413) return { step: 'payload_too_large', message: `Image is too large for the upload endpoint (HTTP 413). Try again with a smaller slide.` };
+  if (status === 502) return { step: 'gateway_timeout',  message: `Server timed out during ${operation} (HTTP 502 Bad Gateway). The upload service took too long to respond. Retry in a moment.` };
+  if (status === 504) return { step: 'function_timeout', message: `Upload function timed out (HTTP 504). Retry in a moment.` };
+  if (status === 503) return { step: 'service_unavailable', message: `Upload service is temporarily unavailable (HTTP 503). Retry in a moment.` };
+  if (status >= 500) return { step: 'server_error',     message: `Server error during ${operation} (HTTP ${status}). Retry in a moment.` };
+  if (status === 408) return { step: 'request_timeout', message: `Request timed out (HTTP 408). Retry in a moment.` };
+  if (status === 401 || status === 403) return { step: 'auth_error', message: `Upload was not authorized (HTTP ${status}).` };
+  return { step: 'http_error', message: `${operation} failed (HTTP ${status}).` };
+}
+
+/**
+ * Transient failures that are safe to retry idempotently.
+ * Upload to Supabase Storage is idempotent because we use a unique filename
+ * per request (timestamp + random suffix), so a retried upload just produces
+ * a new object — never duplicates an existing post.
+ */
+function isTransientUploadStep(step) {
+  return (
+    step === 'network'
+    || step === 'gateway_timeout'
+    || step === 'function_timeout'
+    || step === 'service_unavailable'
+    || step === 'request_timeout'
+    || step === 'server_error'
+    || step === 'storage_upload'
+    || step === 'bucket_config'
+  );
+}
+
+async function uploadAssetOnce(base64, filename) {
   let res;
   try {
     res = await fetch('/api/social/upload-asset', {
@@ -28,13 +74,27 @@ export async function uploadAsset(base64, filename) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ base64, filename }),
     });
-  } catch {
-    const err = new Error('Network error — could not reach the upload service.');
+  } catch (fetchErr) {
+    const err = new Error('Network error — could not reach the upload service. Check your connection and retry.');
     err.stage = 'network';
+    err.httpStatus = 0;
+    err.cause = fetchErr;
     throw err;
   }
 
-  const data = await res.json();
+  const parsed = await safeParseResponse(res);
+
+  // Non-JSON response (Vercel 502 HTML, proxy error, etc.) OR JSON with ok:false
+  if (!parsed.isJson) {
+    const { step, message } = httpStatusToStep(res.status, 'image upload');
+    const err = new Error(message);
+    err.stage = step;
+    err.httpStatus = res.status;
+    err.rawBody = parsed.text.slice(0, 200);
+    throw err;
+  }
+
+  const data = parsed.data;
 
   if (!res.ok || !data.ok) {
     const stage = data.stage ?? 'upload';
@@ -46,15 +106,76 @@ export async function uploadAsset(base64, filename) {
       bucket_missing: `Storage bucket '${data.bucket ?? 'social-assets'}' does not exist. Create it in Supabase Dashboard → Storage.`,
       storage_auth:   'Storage credentials are invalid or expired. Check SUPABASE_SERVICE_ROLE_KEY in Vercel.',
       size_limit:     'Image is too large for the storage bucket.',
+      storage_upload: `Image upload to storage failed: ${raw}. Retry in a moment.`,
     };
 
     const message = STAGE_HINTS[stage] ?? raw;
     const err = new Error(message);
     err.stage = stage;
+    err.httpStatus = res.status;
     throw err;
   }
 
   return { url: data.url, filename: data.filename, sizeBytes: data.sizeBytes };
+}
+
+/**
+ * Uploads a base64-encoded PNG to Supabase Storage via the backend.
+ * Returns the permanent public URL.
+ *
+ * Automatically retries transient failures (gateway timeout, server error,
+ * transient storage failure) with exponential backoff. Uses a unique
+ * filename per attempt, so retries are idempotent — never duplicate uploads.
+ *
+ * @param {string} base64     — data URI or raw base64 string
+ * @param {string} [filename] — optional suggested filename
+ * @param {{ maxAttempts?: number }} [opts]
+ * @returns {Promise<{ url: string, filename: string, sizeBytes: number }>}
+ */
+export async function uploadAsset(base64, filename, opts = {}) {
+  const approxBytes = base64 ? Math.round((base64.length * 3) / 4) : 0;
+  console.log('[CLIENT_PUBLISH_PAYLOAD]', {
+    endpoint: '/api/social/upload-asset',
+    filename,
+    approxBytes,
+    approxKB: Math.round(approxBytes / 1024),
+    approxMB: (approxBytes / (1024 * 1024)).toFixed(2),
+  });
+
+  const maxAttempts = opts.maxAttempts ?? 3;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Vary the filename suffix across attempts so each attempt writes to
+      // a distinct object in the bucket (prevents any conflict if a previous
+      // attempt partially succeeded on the server).
+      const attemptFilename = attempt === 1
+        ? filename
+        : (filename ? filename.replace(/(\.(png|jpe?g))?$/i, `_r${attempt}$1`) : undefined);
+
+      const result = await uploadAssetOnce(base64, attemptFilename);
+      if (attempt > 1) {
+        console.log('[UPLOAD_RETRY_SUCCESS]', { attempt, filename: attemptFilename });
+      }
+      return result;
+    } catch (err) {
+      lastErr = err;
+      const retryable = isTransientUploadStep(err.stage);
+      console.warn('[UPLOAD_ATTEMPT_FAILED]', {
+        attempt,
+        maxAttempts,
+        stage: err.stage,
+        httpStatus: err.httpStatus ?? null,
+        retryable,
+        message: err.message,
+      });
+      if (!retryable || attempt === maxAttempts) break;
+      // Exponential backoff: 400ms, 1200ms, ...
+      const backoffMs = 400 * Math.pow(3, attempt - 1);
+      await new Promise(r => setTimeout(r, backoffMs));
+    }
+  }
+  throw lastErr;
 }
 
 // ── Publish ──────────────────────────────────────────────────────────────────
@@ -110,13 +231,28 @@ export async function publishToInstagram(payload) {
         metadata: metaFields,
       }),
     });
-  } catch {
+  } catch (fetchErr) {
     const err = new Error('Network error — could not reach the Instagram publish service. Check your connection and retry.');
     err.stage = 'network';
+    err.httpStatus = 0;
+    err.cause = fetchErr;
     throw err;
   }
 
-  const data = await res.json();
+  const parsed = await safeParseResponse(res);
+
+  // Non-JSON response → Vercel/proxy error. Surface it as a step-specific
+  // failure instead of crashing on res.json().
+  if (!parsed.isJson) {
+    const { step, message } = httpStatusToStep(res.status, 'Instagram publish');
+    const err = new Error(message);
+    err.stage = step;
+    err.httpStatus = res.status;
+    err.rawBody = parsed.text.slice(0, 200);
+    throw err;
+  }
+
+  const data = parsed.data;
 
   if (!res.ok || !data.ok) {
     const errData = data.error ?? {};
@@ -129,6 +265,7 @@ export async function publishToInstagram(payload) {
     err.postId      = data.postId         ?? null;
     err.requestId   = data.requestId      ?? null;
     err.serverDebug = data.debug          ?? null;
+    err.httpStatus  = res.status;
     throw err;
   }
 
@@ -193,13 +330,26 @@ export async function publishCarouselToInstagram(payload) {
         metadata: metaFields,
       }),
     });
-  } catch {
+  } catch (fetchErr) {
     const err = new Error('Network error — could not reach the Instagram carousel publish service.');
     err.stage = 'network';
+    err.httpStatus = 0;
+    err.cause = fetchErr;
     throw err;
   }
 
-  const data = await res.json();
+  const parsed = await safeParseResponse(res);
+
+  if (!parsed.isJson) {
+    const { step, message } = httpStatusToStep(res.status, 'Instagram carousel publish');
+    const err = new Error(message);
+    err.stage = step;
+    err.httpStatus = res.status;
+    err.rawBody = parsed.text.slice(0, 200);
+    throw err;
+  }
+
+  const data = parsed.data;
 
   if (!res.ok || !data.ok) {
     const errData = data.error ?? {};
@@ -212,6 +362,7 @@ export async function publishCarouselToInstagram(payload) {
     err.postId      = data.postId         ?? null;
     err.requestId   = data.requestId      ?? null;
     err.serverDebug = data.debug          ?? null;
+    err.httpStatus  = res.status;
     throw err;
   }
 

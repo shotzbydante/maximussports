@@ -2,6 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
+    "api/social/upload-asset.js": {
+      "maxDuration": 120,
+      "memory": 1024
+    },
     "api/social/instagram/publish.js": {
       "maxDuration": 120
     },

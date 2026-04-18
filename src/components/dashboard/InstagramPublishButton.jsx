@@ -305,13 +305,49 @@ export default function InstagramPublishButton({
     try {
       const templateSlug = metadata.templateType ?? 'slide';
       const ts = Date.now();
+      const totalApproxBytes = dataUrls.reduce((n, u) => n + (u?.length || 0), 0);
+      console.log('[MANUAL_PUBLISH_REQUEST]', {
+        isCarousel,
+        imageCount: dataUrls.length,
+        captionLength: captionText.length,
+        totalApproxKB: Math.round(totalApproxBytes / 1024),
+        totalApproxMB: (totalApproxBytes / (1024 * 1024)).toFixed(2),
+        slideKinds: Array.from(exportRef.current.querySelectorAll('[data-slide]')).map(el => el.getAttribute('data-slide')),
+      });
       for (let i = 0; i < dataUrls.length; i++) {
         const { url } = await uploadAsset(dataUrls[i], `${templateSlug}_${ts}_slide${i + 1}.png`);
         imageUrls.push(url);
         if (DEBUG) console.log(`[InstagramPublish:debug] uploaded slide ${i + 1}:`, url);
       }
     } catch (err) {
-      setErrorMessage(`Upload failed: ${err.message ?? 'Storage error'}`);
+      // Step-specific user-facing copy, using the structured err.stage from
+      // uploadAsset — no more generic "Bad Gateway" surfacing to the UI.
+      const stageCopy = {
+        network:             'Network error during image upload. Check your connection and retry.',
+        gateway_timeout:     'Server timed out while uploading slides. Try again in a moment.',
+        function_timeout:    'Upload function timed out. Try again in a moment.',
+        service_unavailable: 'Upload service is temporarily unavailable. Retry in a moment.',
+        request_timeout:     'Upload request timed out. Retry in a moment.',
+        server_error:        'Server error during image upload. Retry in a moment.',
+        payload_too_large:   'Slide image is too large for the upload endpoint. Refresh and retry.',
+        auth_error:          'Upload was not authorized. Check storage credentials and retry.',
+        supabase_init:       'Storage service is not configured. Check server environment.',
+        bucket_config:       'Storage bucket is not configured. Check Supabase Dashboard → Storage.',
+        bucket_missing:      'Storage bucket is missing. Create it in Supabase Dashboard → Storage.',
+        storage_auth:        'Storage credentials are invalid or expired.',
+        size_limit:          'Slide image is too large for the storage bucket.',
+        storage_upload:      'Image upload to storage failed. Retry in a moment.',
+        validate:            'Image payload failed validation before upload.',
+        decode:              'Image could not be decoded. Refresh and retry.',
+      };
+      const userMsg = stageCopy[err.stage] || `Upload failed during image preparation: ${err.message ?? 'storage error'}`;
+      console.error('[UPLOAD_FAILED_FINAL]', {
+        stage: err.stage,
+        httpStatus: err.httpStatus ?? null,
+        message: err.message,
+        rawBodyPreview: err.rawBody ?? null,
+      });
+      setErrorMessage(userMsg);
       setStage('error');
       return;
     }
