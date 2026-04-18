@@ -83,6 +83,22 @@ select
 from public.picks_config
 where sport = 'mlb' and is_active = true;
 
+-- 7. Inventory RPC present (authoritative check used by the health endpoint) ──
+select
+  '7. inventory_rpc'                                              as section,
+  count(*)                                                        as present,
+  1                                                               as expected,
+  case when count(*) = 1 then 'OK' else 'FAIL' end                as status
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'picks_persistence_inventory';
+
+-- 7b. Inventory RPC output (should list all 7 tables) ─────────────────────────
+select
+  '7b. inventory_rpc_call'                                        as section,
+  public.picks_persistence_inventory()                            as result;
+
 -- ═════════════════════════════════════════════════════════════════════════════
 -- DATA-TABLE SNAPSHOT (for post-deploy health checks; zero rows is expected
 -- the first time, but should grow after the first cron cycle)
