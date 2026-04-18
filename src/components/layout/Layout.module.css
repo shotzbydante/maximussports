@@ -9,6 +9,14 @@
   display: flex;
   align-items: flex-start;
   min-height: calc(100vh - var(--topnav-height));
+  /* Match the sidebar's base dark color. The sidebar is position:sticky with
+     height = viewport - topnav, so on long pages it can be pushed up past
+     the parent boundary at scroll-end, exposing the body bg in the left rail.
+     Painting body dark makes that bleed-through invisible — the left column
+     looks visually continuous at any scroll position.
+     `.main` has its own --color-bg, so the dark only ever shows in the
+     sidebar column or behind the sidebar at scroll-end. */
+  background: #0a1628;
 }
 
 .main {
