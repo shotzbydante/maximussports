@@ -13,6 +13,14 @@ const NavHomeIcon = () => (
     <path d="M2 7L8 2l6 5v7h-4v-4H6v4H2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
   </svg>
 );
+const NavBriefingIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
+    <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="5.5" y1="5" x2="10.5" y2="5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <line x1="5.5" y1="7.5" x2="10.5" y2="7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <line x1="5.5" y1="10" x2="8.5" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
 const NavGamesIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
     <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
@@ -60,6 +68,7 @@ const NavSettingsIcon = () => (
 
 const ICON_COMPONENTS = {
   home: NavHomeIcon,
+  briefing: NavBriefingIcon,
   games: NavGamesIcon,
   teams: NavTeamsIcon,
   insights: NavTrendIcon,
@@ -121,8 +130,8 @@ export default function TopNav() {
 
   const NAV_LINKS = useMemo(() => {
     const links = [
-      { to: '/', end: true, label: 'Home', iconKey: 'home' },
-      { to: buildPath('/'), end: true, label: 'Daily Briefing', iconKey: 'briefing' },
+      { to: '/', end: true, label: 'Home', iconKey: 'home', isAppHome: true },
+      { to: buildPath('/'), end: true, label: `${workspace.shortLabel} Briefing`, iconKey: 'briefing' },
       { to: buildPath('/games'), end: false, label: workspace.labels.games, iconKey: 'games' },
       { to: buildPath('/teams'), end: false, label: workspace.labels.teamIntel, iconKey: 'teams' },
       { to: buildPath('/insights'), end: false, label: workspace.labels.picks, iconKey: 'insights' },
@@ -207,6 +216,24 @@ export default function TopNav() {
       {menuOpen && (
         <div className={styles.navOverlay} aria-hidden>
           <nav className={styles.navDropdown} onClick={(e) => e.stopPropagation()}>
+            {/* App-level Home — sits above the workspace switcher to signal
+                it's the overall Maximus Sports destination, not workspace-scoped. */}
+            {NAV_LINKS.filter((l) => l.isAppHome).map(({ to, label, iconKey }) => {
+              const IconComp = ICON_COMPONENTS[iconKey] || null;
+              return (
+                <div key={to} className={styles.mobileAppHome}>
+                  <NavLink
+                    to={to}
+                    end
+                    className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {IconComp && <span className={styles.navDropdownIcon}><IconComp /></span>}
+                    <span>{label}</span>
+                  </NavLink>
+                </div>
+              );
+            })}
             {showWorkspaceSwitcher && (
               <div className={styles.mobileWsSwitcher}>
                 <span className={styles.mobileWsHeader}>Workspace</span>
@@ -230,7 +257,7 @@ export default function TopNav() {
                 </div>
               </div>
             )}
-            {NAV_LINKS.map(({ to, end, label, testId, isBracketology, isDashboard, iconKey }) => {
+            {NAV_LINKS.filter((l) => !l.isAppHome).map(({ to, end, label, testId, isBracketology, isDashboard, iconKey }) => {
               const IconComp = ICON_COMPONENTS[iconKey] || null;
               return (
                 <span key={to} className={styles.navDropdownItem}>
