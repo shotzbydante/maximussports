@@ -230,6 +230,64 @@ function renderCategorySection(catMeta, picks) {
 
 // ── Main render ─────────────────────────────────────────────────
 
+/**
+ * Render a compact Top Play hero block from a v2 topPick. Safe to call with
+ * null — returns an empty string.
+ */
+function renderTopPlayHero(topPick) {
+  if (!topPick) return '';
+  const away = topPick.matchup?.awayTeam?.shortName || 'AWY';
+  const home = topPick.matchup?.homeTeam?.shortName || 'HOM';
+  const label = topPick.selection?.label || topPick.pick?.label || '';
+  const headline = topPick.rationale?.headline || topPick.pick?.explanation || '';
+  const conv = topPick.conviction?.score ?? Math.round(((topPick.betScore?.total) ?? 0) * 100);
+  return `
+<tr>
+  <td style="padding:12px 28px 4px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="border-collapse:collapse;background:${NAVY};border-radius:10px;">
+      <tr>
+        <td style="padding:14px 18px;">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:0.1em;color:#fca5a5;font-family:${F};">
+            TODAY'S TOP PLAY &middot; CONVICTION ${conv}
+          </p>
+          <p style="margin:0 0 4px;font-size:22px;font-weight:800;color:#ffffff;font-family:${F};letter-spacing:-0.01em;">
+            ${label}
+          </p>
+          <p style="margin:0 0 4px;font-size:13px;color:#e5e7eb;font-family:${F};">
+            ${away} @ ${home}
+          </p>
+          ${headline ? `<p style="margin:0;font-size:12px;color:#cbd5e1;font-family:${F};">${normalizeSpacing(stripInlineEmoji(headline))}</p>` : ''}
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+}
+
+/**
+ * Render the "Yesterday: 3-1 · Top Play hit" line from v2 scorecardSummary.
+ * Safe to call with null — returns an empty string.
+ */
+function renderScorecardHeader(scorecard) {
+  if (!scorecard || !scorecard.overall) return '';
+  const o = scorecard.overall;
+  const graded = o.won + o.lost;
+  if (graded === 0 && !scorecard.note) return '';
+  const record = graded > 0 ? `${o.won}-${o.lost}${o.push ? ` (${o.push} push)` : ''}` : null;
+  const note = scorecard.topPlayResult === 'won' ? 'Top Play hit' : scorecard.topPlayResult === 'lost' ? 'Top Play missed' : scorecard.note || '';
+  return `
+<tr>
+  <td style="padding:8px 28px 0;">
+    <p style="margin:0;font-size:11px;color:${DIM};font-family:${F};">
+      <span style="font-weight:700;color:${RED};letter-spacing:0.04em;">YESTERDAY</span>
+      ${record ? ` &middot; <span style="font-weight:700;color:${NAVY};">${record}</span>` : ''}
+      ${note ? ` &middot; ${note}` : ''}
+    </p>
+  </td>
+</tr>`;
+}
+
 export function renderHTML(data = {}) {
   const { displayName, picksBoard } = data;
 
@@ -237,8 +295,11 @@ export function renderHTML(data = {}) {
   const greetingName = firstName || 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  // Defensive normalization
+  // v2-aware: prefer top-level `categories` and `topPick` if present,
+  // but continue to accept the legacy `picksBoard.categories` shape too.
   const raw = picksBoard?.categories || picksBoard || {};
+  const topPick = picksBoard?.topPick || null;
+  const scorecard = picksBoard?.scorecardSummary || null;
   const categories = {
     pickEms: raw.pickEms || raw.pickEm || raw.pick_ems || [],
     ats: raw.ats || raw.spreads || raw.against_the_spread || [],
@@ -281,6 +342,9 @@ export function renderHTML(data = {}) {
 
   const content = `
 ${mlbHeroBlock({ line: 'Your Daily Maximus\u2019s Picks Digest', sublabel: today })}
+
+${renderScorecardHeader(scorecard)}
+${renderTopPlayHero(topPick)}
 
 <tr>
   <td style="padding:6px 28px 18px;" class="intro-td">
