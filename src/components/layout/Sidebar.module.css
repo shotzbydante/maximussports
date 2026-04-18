@@ -36,6 +36,12 @@
   padding: var(--space-xs) var(--space-md) 0;
 }
 
+/* Subtle separation between IA layers (Maximus / {Sport} / Account)
+   without adding loud dividers — extra top spacing on follow-on groups. */
+.section + .section {
+  margin-top: var(--space-md);
+}
+
 .sectionTitle {
   font-size: 0.62rem;
   font-weight: 700;
@@ -45,6 +51,18 @@
   display: block;
   margin-bottom: var(--space-sm);
   padding: 0 var(--space-sm);
+}
+
+/* Workspace home (e.g. "MLB Briefing") — slightly bolder so it reads
+   as the entry point for the selected sport. Inactive only — active
+   state inherits the existing strong .active treatment. */
+.link.workspaceHomeLink {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.link.workspaceHomeLink:hover {
+  color: #fff;
 }
 
 .nav {

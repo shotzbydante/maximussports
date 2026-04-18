@@ -151,6 +151,35 @@
   flex-shrink: 1;
 }
 
+/* Group wrapper: lets the desktop top nav render 3 IA layers
+   (app · workspace · account) with subtle vertical dividers between. */
+.navGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.navDivider {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  margin: 0 8px;
+  background: rgba(255, 255, 255, 0.10);
+  flex-shrink: 0;
+}
+
+/* Workspace home (e.g. "MLB Briefing") — slightly bolder than peer items
+   so it reads as the entry point for the selected sport. Inactive state
+   only; active state inherits the existing strong .active treatment. */
+.link.workspaceHomeLink {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.link.workspaceHomeLink:hover {
+  color: #fff;
+}
+
 .navItem {
   display: inline-flex;
   align-items: center;
@@ -354,10 +383,22 @@
   }
 }
 
+/* ── Group headers (App / Workspace / Account) ──────────────── */
+
+.mobileGroupHeader {
+  display: block;
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0 var(--space-sm) 6px;
+}
+
 /* ── Mobile app-level Home (sits above the workspace switcher) ── */
 
 .mobileAppHome {
-  padding: 4px var(--space-sm) 10px;
+  padding: 8px var(--space-sm) 12px;
   margin-bottom: 4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
@@ -377,6 +418,8 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+/* Legacy alias kept for backward compat; .mobileGroupHeader is the
+   canonical class used across all three IA-layer headers now. */
 .mobileWsHeader {
   display: block;
   font-size: 0.56rem;
@@ -385,6 +428,14 @@
   letter-spacing: 0.10em;
   color: rgba(255, 255, 255, 0.35);
   padding: 0 var(--space-sm) 6px;
+}
+
+/* ── Mobile account section (below workspace items) ─────────── */
+
+.mobileAccountSection {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .mobileWsOptions {
