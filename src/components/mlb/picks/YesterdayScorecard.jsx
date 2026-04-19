@@ -12,6 +12,19 @@ import { useEffect, useState } from 'react';
 import { scorecardTakeaway, trailingRecord } from '../../../features/mlb/picks/scorecardTakeaway';
 import styles from './YesterdayScorecard.module.css';
 
+function TierChip({ label, variant, rec }) {
+  const graded = (rec?.won ?? 0) + (rec?.lost ?? 0);
+  const record = graded > 0
+    ? `${rec?.won ?? 0}-${rec?.lost ?? 0}${rec?.push ? `-${rec.push}` : ''}`
+    : '—';
+  return (
+    <span className={`${styles.tierChip} ${styles[`tierChip_${variant}`]}`}>
+      <span className={styles.tierChipLabel}>{label}</span>
+      <span className={styles.tierChipValue}>{record}</span>
+    </span>
+  );
+}
+
 function Chip({ label, won, lost, push }) {
   const hasData = (won + lost + push) > 0;
   return (
@@ -53,6 +66,9 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
   const ml = bm.moneyline || {};
   const rl = bm.runline || {};
   const tot = bm.total || {};
+  const bt = card.byTier || {};
+  const tierHasData = (tier) => ((tier?.won ?? 0) + (tier?.lost ?? 0) + (tier?.push ?? 0)) > 0;
+  const showByTier = !compact && (tierHasData(bt.tier1) || tierHasData(bt.tier2) || tierHasData(bt.tier3));
 
   const dateLabel = card.date
     ? new Date(card.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
@@ -103,6 +119,21 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
             <Chip label="ML" won={ml.won ?? 0} lost={ml.lost ?? 0} push={ml.push ?? 0} />
             <Chip label="RL" won={rl.won ?? 0} lost={rl.lost ?? 0} push={rl.push ?? 0} />
             <Chip label="Tot" won={tot.won ?? 0} lost={tot.lost ?? 0} push={tot.push ?? 0} />
+          </div>
+        )}
+
+        {showByTier && (
+          <div className={styles.tierRow} role="list" aria-label="By tier">
+            <span className={styles.tierRowLabel}>By tier</span>
+            {tierHasData(bt.tier1) && (
+              <TierChip label="Tier 1" variant="tier1" rec={bt.tier1} />
+            )}
+            {tierHasData(bt.tier2) && (
+              <TierChip label="Tier 2" variant="tier2" rec={bt.tier2} />
+            )}
+            {tierHasData(bt.tier3) && (
+              <TierChip label="Tier 3" variant="tier3" rec={bt.tier3} />
+            )}
           </div>
         )}
 

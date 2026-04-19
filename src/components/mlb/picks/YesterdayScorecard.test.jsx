@@ -74,4 +74,23 @@ describe('YesterdayScorecard', () => {
     const html = renderToStaticMarkup(<YesterdayScorecard summary={sampleSummary()} />);
     expect(html).toMatch(/Record/);
   });
+
+  it('renders the by-tier row when byTier has data', () => {
+    const html = renderToStaticMarkup(<YesterdayScorecard summary={sampleSummary()} />);
+    expect(html).toMatch(/By tier/);
+  });
+
+  it('hides the by-tier row when byTier is empty', () => {
+    const s = {
+      ...sampleSummary(),
+      byTier: { tier1: { won: 0, lost: 0, push: 0 }, tier2: { won: 0, lost: 0, push: 0 }, tier3: { won: 0, lost: 0, push: 0 } },
+    };
+    const html = renderToStaticMarkup(<YesterdayScorecard summary={s} />);
+    expect(html).not.toMatch(/By tier/);
+  });
+
+  it('compact mode omits the by-tier row', () => {
+    const html = renderToStaticMarkup(<YesterdayScorecard summary={sampleSummary()} compact />);
+    expect(html).not.toMatch(/By tier/);
+  });
 });

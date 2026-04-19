@@ -135,6 +135,48 @@
 
 .compact .chipValue { font-size: 13px; }
 
+/* ── Tier row ── */
+.tierRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tierRowLabel {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+.tierChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.65);
+  border: 1px solid var(--picks-glass-border);
+}
+.tierChipLabel {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+.tierChipValue {
+  font-weight: 800;
+  color: var(--picks-ink);
+  font-variant-numeric: tabular-nums;
+}
+.tierChip_tier1 { background: var(--picks-gold-soft); border-color: rgba(167,138,61,0.25); }
+.tierChip_tier1 .tierChipLabel { color: var(--picks-gold); }
+.tierChip_tier2 { background: var(--picks-accent-soft); border-color: rgba(71,102,176,0.25); }
+.tierChip_tier2 .tierChipLabel { color: var(--picks-accent); }
+.tierChip_tier3 .tierChipLabel { color: var(--picks-slate); }
+
 /* ── Meta row: streak + trailing ── */
 .metaRow {
   display: flex;

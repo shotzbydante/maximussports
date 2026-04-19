@@ -25,6 +25,9 @@ import TopPlayHero from './TopPlayHero';
 import TierSection from './TierSection';
 import HowItWorks from './HowItWorks';
 import TrackRecord from './TrackRecord';
+import PerformanceLearning from './PerformanceLearning';
+import AuditInsights from './AuditInsights';
+import AboutTheModel from './AboutTheModel';
 import tokens from './picks.tokens.module.css';
 import styles from './MlbMaximusPicksSectionV2.module.css';
 
@@ -129,6 +132,8 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
           {topPick && <TopPlayHero pick={topPick} relativeStrength={topPickStrength} />}
         </div>
 
+        <PerformanceLearning compact />
+        <AboutTheModel variant="compact" />
         <HowItWorks variant="home" />
 
         {totalPicks > 0 ? (
@@ -173,6 +178,13 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
       {scorecardSummary && <YesterdayScorecard summary={scorecardSummary} />}
 
       {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} />}
+
+      <div className={styles.intelligenceGrid}>
+        <PerformanceLearning />
+        <AuditInsights />
+      </div>
+
+      <AboutTheModel />
 
       <HowItWorks />
 
