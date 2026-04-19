@@ -35,15 +35,49 @@ export function classifyNbaPick(matchup, score, thresholds) {
   const dqSa = score.dataQuality * (0.6 + 0.4 * score.signalAgreement);
   const adjEdge = score.edge * dqSa;
 
+  // NBA-native signal builder — reads playoff / home-court / record context
+  function buildNbaSignals(team, opp, pickHome, tier) {
+    const signals = [];
+    // Home-court advantage
+    if (pickHome) signals.push(`Home-court edge at ${team.shortName || team.name}`);
+    // Record comparison
+    const homePct = homeTeam.record ? parseRecord(homeTeam.record) : null;
+    const awayPct = awayTeam.record ? parseRecord(awayTeam.record) : null;
+    if (homePct != null && awayPct != null) {
+      const betterPct = Math.max(homePct, awayPct);
+      const worsePct = Math.min(homePct, awayPct);
+      if (betterPct - worsePct >= 0.08) {
+        signals.push(`${team.shortName || team.name} hold the better regular-season record`);
+      }
+    }
+    // Spread-implied market signal
+    if (spread != null) {
+      const homeFavorite = spread < 0;
+      if (pickHome === homeFavorite) {
+        signals.push(`Market has ${team.shortName || team.name} as favorite at ${formatSpread(pickHome ? spread : -spread)}`);
+      } else {
+        signals.push(`Taking underdog value vs. market favorite`);
+      }
+    }
+    // Conviction tier
+    signals.push(tier === 'high' ? 'High-conviction play' : tier === 'medium' ? 'Solid lean' : 'Slight edge');
+    return signals.slice(0, 3);
+  }
+
+  function parseRecord(r) {
+    if (!r) return null;
+    const parts = r.split('-').map(Number);
+    const total = parts[0] + parts[1];
+    return total > 0 ? parts[0] / total : null;
+  }
+
   // ── Pick 'Ems — moneyline pick (adjusted edge) ──
   const pickEmTier = confidenceTier(adjEdge, thresholds.moneyline);
   if (pickEmTier && mlHome != null) {
     const pickHome = score.edge > 0;
     const team = pickHome ? homeTeam : awayTeam;
     const opp = pickHome ? awayTeam : homeTeam;
-    // Use home ML directly; away side is approximated by flipping sign conservatively
     const mlVal = pickHome ? mlHome : (mlHome > 0 ? -mlHome : Math.abs(mlHome));
-    const edgePct = Math.round(Math.abs(score.edge) * 1000) / 10;
     picks.push({
       id: `${gameId}-pickems`,
       gameId,
@@ -52,17 +86,14 @@ export function classifyNbaPick(matchup, score, thresholds) {
       confidenceScore: Math.abs(adjEdge),
       matchup: { awayTeam, homeTeam, startTime, network },
       market: { moneyline: mlHome, spread, total },
+      model: { edge: Math.abs(score.edge), dataQuality: score.dataQuality, signalAgreement: score.signalAgreement },
       pick: {
         label: `${team.abbrev || team.shortName} ${formatOdds(mlVal)}`,
         side: pickHome ? 'home' : 'away',
         value: mlVal,
         marketType: 'moneyline',
-        explanation: `Model gives ${team.shortName || team.name} ${Math.round((pickHome ? score.homeWinProb : score.awayWinProb) * 100)}% win probability vs. ${Math.round((pickHome ? (score.impliedHomeWinProb ?? 0.5) : (score.impliedAwayWinProb ?? 0.5)) * 100)}% implied.`,
-        topSignals: [
-          `${edgePct}% edge`,
-          `${Math.round(score.dataQuality * 100)}% data quality`,
-          pickEmTier === 'high' ? 'High conviction' : pickEmTier === 'medium' ? 'Solid lean' : 'Slight edge',
-        ],
+        explanation: `Model gives ${team.shortName || team.name} ${Math.round((pickHome ? score.homeWinProb : score.awayWinProb) * 100)}% win probability vs. ${Math.round((pickHome ? (score.impliedHomeWinProb ?? 0.5) : (score.impliedAwayWinProb ?? 0.5)) * 100)}% implied by the market.`,
+        topSignals: buildNbaSignals(team, opp, pickHome, pickEmTier),
       },
     });
   }
@@ -70,9 +101,9 @@ export function classifyNbaPick(matchup, score, thresholds) {
   // ── ATS — spread pick (adjusted spread edge) ──
   const atsTier = confidenceTier(score.spreadEdge, thresholds.spread);
   if (atsTier && spread != null) {
-    // Positive spreadEdge means model thinks HOME should be favored MORE than market
     const pickHome = score.spreadEdge > 0;
     const team = pickHome ? homeTeam : awayTeam;
+    const opp = pickHome ? awayTeam : homeTeam;
     const spreadVal = pickHome ? spread : -spread;
     picks.push({
       id: `${gameId}-ats`,
@@ -82,27 +113,29 @@ export function classifyNbaPick(matchup, score, thresholds) {
       confidenceScore: Math.abs(score.spreadEdge),
       matchup: { awayTeam, homeTeam, startTime, network },
       market: { moneyline: mlHome, spread, total },
+      model: { edge: Math.abs(score.spreadEdge) / 20, dataQuality: score.dataQuality, signalAgreement: score.signalAgreement },
       pick: {
         label: `${team.abbrev || team.shortName} ${formatSpread(spreadVal)}`,
         side: pickHome ? 'home' : 'away',
         value: spreadVal,
         marketType: 'spread',
-        explanation: `Model fair spread differs from market by ${Math.abs(score.spreadEdge).toFixed(1)} points \u2014 lean ${team.shortName || team.name} against the number.`,
+        explanation: `Model fair spread disagrees with the market by ${Math.abs(score.spreadEdge).toFixed(1)} points. Value is on ${team.shortName || team.name} at ${formatSpread(spreadVal)}.`,
         topSignals: [
-          `${Math.abs(score.spreadEdge).toFixed(1)}pt spread edge`,
-          `Market ${formatSpread(spread)}`,
-          atsTier === 'high' ? 'High conviction' : atsTier === 'medium' ? 'Strong lean' : 'Mild lean',
+          `${Math.abs(score.spreadEdge).toFixed(1)}pt disagreement vs. market`,
+          pickHome ? `${team.shortName} at home` : `Road value on ${team.shortName}`,
+          atsTier === 'high' ? 'High-conviction cover' : atsTier === 'medium' ? 'Strong lean' : 'Mild lean',
         ],
       },
     });
   }
 
-  // ── Value Leans — softer ML threshold, only if pickEm didn't fire (or fired low) ──
+  // ── Value Leans — softer ML threshold, only if pickEm didn't fire ──
   const leanTier = confidenceTier(score.edge, thresholds.lean);
   const pickEmFired = picks.some(p => p.category === 'pickEms');
   if (!pickEmFired && leanTier && mlHome != null) {
     const pickHome = score.edge > 0;
     const team = pickHome ? homeTeam : awayTeam;
+    const opp = pickHome ? awayTeam : homeTeam;
     picks.push({
       id: `${gameId}-leans`,
       gameId,
@@ -111,31 +144,29 @@ export function classifyNbaPick(matchup, score, thresholds) {
       confidenceScore: Math.abs(score.edge),
       matchup: { awayTeam, homeTeam, startTime, network },
       market: { moneyline: mlHome, spread, total },
+      model: { edge: Math.abs(score.edge), dataQuality: score.dataQuality, signalAgreement: score.signalAgreement },
       pick: {
         label: `Lean ${team.abbrev || team.shortName}`,
         side: pickHome ? 'home' : 'away',
         marketType: 'moneyline',
-        explanation: `Slight value on ${team.shortName || team.name} \u2014 model sees a small edge vs. the market price.`,
+        explanation: `Soft value on ${team.shortName || team.name}. Model sees a small pricing gap vs. ${opp.shortName || opp.name} that may be underpriced by the market.`,
         topSignals: [
-          'Value lean',
-          `${Math.round(Math.abs(score.edge) * 1000) / 10}% edge`,
+          `${Math.round(Math.abs(score.edge) * 1000) / 10}% moneyline edge`,
+          pickHome ? 'Home-court value' : 'Road underdog value',
+          'Market mispricing signal',
         ],
       },
     });
   }
 
   // ── Totals ──
-  // We don't currently have a team-total model, so totals only fire when
-  // the game has a total line AND we have a usable spread edge to borrow
-  // variance context. Conservative by design.
+  // Uses spread dislocation as a variance proxy for pace/scoring environment.
   if (total != null && score.modelSpread != null && Math.abs(score.modelSpread - (spread ?? 0)) >= thresholds.total.low) {
-    // Use spread dislocation as a loose total proxy — wider-than-expected edge
-    // often implies higher variance which correlates with totals.
     const tEdge = Math.abs(score.spreadEdge ?? 0) * 1.8;
     const totalTier = confidenceTier(tEdge, thresholds.total);
     if (totalTier) {
-      // Default lean: if model sees home much stronger, expect higher-scoring (more blowout volatility)
       const overUnder = (score.spreadEdge ?? 0) > 0 ? 'Over' : 'Under';
+      const isOver = overUnder === 'Over';
       picks.push({
         id: `${gameId}-totals`,
         gameId,
@@ -144,15 +175,19 @@ export function classifyNbaPick(matchup, score, thresholds) {
         confidenceScore: tEdge,
         matchup: { awayTeam, homeTeam, startTime, network },
         market: { moneyline: mlHome, spread, total },
+        model: { edge: tEdge / 20, dataQuality: score.dataQuality, signalAgreement: score.signalAgreement },
         pick: {
           label: `${overUnder} ${total}`,
           side: overUnder.toLowerCase(),
           value: total,
           marketType: 'total',
-          explanation: `Spread dislocation (${Math.abs(score.spreadEdge ?? 0).toFixed(1)}pt) suggests variance trends ${overUnder.toLowerCase()} the ${total} total.`,
+          explanation: isOver
+            ? `Model projects a higher-scoring pace than the ${total} total suggests. Value on the Over.`
+            : `Model expects a tighter defensive game than the ${total} total suggests. Value on the Under.`,
           topSignals: [
-            `O/U ${total}`,
-            `${totalTier} conviction`,
+            isOver ? 'Higher-pace scoring environment' : 'Tighter defensive projection',
+            `${Math.abs(score.spreadEdge ?? 0).toFixed(1)}pt spread disagreement`,
+            `Line: ${total}`,
           ],
         },
       });
