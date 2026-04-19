@@ -46,6 +46,28 @@ describe('PickCardV2', () => {
     expect(html).toMatch(/Bet Score/);
   });
 
+  it('renders the Recommended kicker above the pick', () => {
+    const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" />);
+    expect(html).toMatch(/Recommended/);
+  });
+
+  it('renders the conviction tier label (Elite for 93)', () => {
+    const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" />);
+    expect(html).toMatch(/Elite/);
+  });
+
+  it('renders Strong label for an 82 score', () => {
+    const p = { ...samplePick(), conviction: { score: 82 }, betScore: { total: 0.82, components: { edgeStrength: 0.7, modelConfidence: 0.7, situationalEdge: 0.55, marketQuality: 0.6 } } };
+    const html = renderToStaticMarkup(<PickCardV2 pick={p} tier="tier2" />);
+    expect(html).toMatch(/Strong/);
+  });
+
+  it('renders Lean label for a 52 score', () => {
+    const p = { ...samplePick(), conviction: { score: 52 }, betScore: { total: 0.52, components: { edgeStrength: 0.45, modelConfidence: 0.55, situationalEdge: 0.5, marketQuality: 0.5 } } };
+    const html = renderToStaticMarkup(<PickCardV2 pick={p} tier="tier3" />);
+    expect(html).toMatch(/Lean/);
+  });
+
   it('renders the conviction number', () => {
     const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" />);
     expect(html).toMatch(/>93</);

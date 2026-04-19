@@ -1,10 +1,20 @@
 /**
- * TopPlayHero — the single highest-conviction pick of the day.
+ * TopPlayHero — flagship decision-card for today's Top Play.
  *
- * Premium navy glass treatment. No red/pink. Every metric explicitly labeled.
+ * Layout:
+ *   [ TODAY'S TOP PLAY · Moneyline ]                     [ Conviction: 93 Elite ]
+ *   NYY  @  BOS                                               7:05 PM
+ *   RECOMMENDED
+ *   NYY ML −135                                        (very large)
+ *   "Yankees priced below model on rotation mismatch."
+ *   · Rotation quality strong away edge
+ *   · Line steamed 4 cents our direction
+ *   ─────────────────────────────────────────────────────
+ *   Edge +6.9%   ·   Confidence 78%   ·   Bet Score 93
  */
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
 import styles from './TopPlayHero.module.css';
 
 function fmtTime(iso) {
@@ -40,9 +50,9 @@ export default function TopPlayHero({ pick, featured = false }) {
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
   const bullets = (pick.rationale?.bullets || []).slice(0, 2);
 
-  // Metrics — all EXPLICITLY labeled
   const conviction = pick.conviction?.score ?? Math.round((pick.betScore?.total ?? 0) * 100);
   const betScore = Math.round((pick.betScore?.total ?? 0) * 100);
+  const tier = convictionTier(conviction);
   const edgePct = pick.rawEdge != null ? fmtPct(pick.rawEdge, { sign: true }) : null;
   const confidencePct = pick.betScore?.components?.modelConfidence != null
     ? Math.round(pick.betScore.components.modelConfidence * 100)
@@ -52,27 +62,34 @@ export default function TopPlayHero({ pick, featured = false }) {
 
   return (
     <section className={`${styles.hero} ${featured ? styles.heroFeatured : ''}`} aria-label="Today's Top Play">
+      <div className={styles.beam} aria-hidden="true" />
       <div className={styles.gradient} aria-hidden="true" />
       <div className={styles.glow} aria-hidden="true" />
 
       <header className={styles.header}>
         <div className={styles.eyebrowRow}>
           <span className={styles.eyebrow}>Today's Top Play</span>
-          {marketLabel && <span className={styles.marketTag}>{marketLabel}</span>}
+          {marketLabel && (
+            <>
+              <span className={styles.eyebrowDot}>·</span>
+              <span className={styles.marketTag}>{marketLabel}</span>
+            </>
+          )}
         </div>
-        <ConvictionBadge value={conviction} />
+        <ConvictionBadge value={conviction} tier={tier} />
       </header>
 
       <div className={styles.matchupLine}>
-        {awayLogo && <img src={awayLogo} alt="" width={24} height={24} className={styles.logo} loading="eager" />}
+        {awayLogo && <img src={awayLogo} alt="" width={26} height={26} className={styles.logo} loading="eager" />}
         <span className={styles.team}>{away}</span>
         <span className={styles.at}>@</span>
-        {homeLogo && <img src={homeLogo} alt="" width={24} height={24} className={styles.logo} loading="eager" />}
+        {homeLogo && <img src={homeLogo} alt="" width={26} height={26} className={styles.logo} loading="eager" />}
         <span className={styles.team}>{home}</span>
         {time && <span className={styles.time}>{time}</span>}
       </div>
 
-      <div className={styles.pickRow}>
+      <div className={styles.recommendedBlock}>
+        <span className={styles.recommendedKicker}>Recommended Bet</span>
         <span className={styles.pickLabel}>{label}</span>
       </div>
 
@@ -85,12 +102,8 @@ export default function TopPlayHero({ pick, featured = false }) {
       )}
 
       <footer className={styles.metrics}>
-        {edgePct != null && (
-          <Metric label="Edge" value={edgePct} />
-        )}
-        {confidencePct != null && (
-          <Metric label="Confidence" value={`${confidencePct}%`} />
-        )}
+        {edgePct != null && <Metric label="Edge" value={edgePct} />}
+        {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
         <Metric label="Bet Score" value={betScore} accent />
       </footer>
     </section>
@@ -106,11 +119,18 @@ function Metric({ label, value, accent }) {
   );
 }
 
-function ConvictionBadge({ value }) {
+function ConvictionBadge({ value, tier }) {
   return (
-    <div className={styles.convictionBadge} aria-label={`Conviction score ${value} out of 100`}>
-      <span className={styles.convictionLabel}>Conviction</span>
-      <span className={styles.convictionValue}>{value}</span>
+    <div
+      className={`${styles.convictionBadge} ${styles[`tier_${tier.variant}`]}`}
+      aria-label={convictionDescription(value)}
+      title={convictionDescription(value)}
+    >
+      <span className={styles.convictionTop}>
+        <span className={styles.convictionLabel}>Conviction</span>
+        <span className={styles.convictionValue}>{value}</span>
+      </span>
+      <span className={styles.convictionTier}>{tier.label}</span>
     </div>
   );
 }

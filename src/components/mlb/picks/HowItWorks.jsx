@@ -10,23 +10,23 @@ import styles from './HowItWorks.module.css';
 const POINTS = [
   {
     icon: '●',
-    title: 'Model-scored, not hand-picked',
-    body: 'Every pick is graded 0–100 by a composite that blends edge, model confidence, situational context, and market quality.',
+    title: 'Every pick carries a conviction score',
+    body: 'A 0–100 composite of edge, model confidence, situational context, and market quality. No hand-picks.',
   },
   {
     icon: '◆',
-    title: 'Tiered by conviction',
-    body: 'Top Plays require a score of 75+ and rank in today\'s top 10%. Strong Plays and Leans follow proportionally.',
+    title: 'Only the best edges surface as Top Plays',
+    body: 'Elite band (90+) demands both score and percentile. Strong, Solid, and Lean follow proportionally.',
   },
   {
     icon: '◇',
-    title: 'Grouped by bet type',
-    body: "Inside each tier, picks are organized as Pick 'Ems, Spreads, Game Totals, and Value Leans.",
+    title: "Bet-type structure inside every tier",
+    body: "Pick 'Ems, Spreads, Game Totals, and Value Leans are organized inside each conviction level.",
   },
   {
     icon: '▲',
-    title: 'Evaluated every day',
-    body: 'Yesterday\'s scorecard grades real results and feeds the model\'s self-improvement loop.',
+    title: 'Graded daily. Built to compound.',
+    body: "Yesterday's scorecard feeds a self-improvement loop. The system learns from what it got right and wrong.",
   },
 ];
 
@@ -38,7 +38,7 @@ export default function HowItWorks({ variant = 'full' }) {
         <div className={styles.header}>
           <span className={styles.kicker}>How it works</span>
           <p className={styles.title}>
-            Model-scored picks, tiered by conviction. Every day's results are graded and feed the system's self-improvement loop.
+            Every pick is model-scored 0–100 and tiered by conviction. Top Plays clear the highest bar. Results are graded daily.
           </p>
         </div>
         <a href="/mlb/insights" className={styles.cta}>See the full board →</a>
@@ -51,7 +51,7 @@ export default function HowItWorks({ variant = 'full' }) {
       <div className={styles.frame} aria-hidden="true" />
       <header className={styles.header}>
         <span className={styles.kicker}>How it works</span>
-        <h3 className={styles.title}>Model-scored. Conviction-first. Graded every day.</h3>
+        <h3 className={styles.title}>Model-scored. Tiered by conviction. Graded every day.</h3>
       </header>
       <div className={styles.grid}>
         {POINTS.map((p, i) => (

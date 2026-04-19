@@ -46,4 +46,14 @@ describe('TopPlayHero', () => {
     const html = renderToStaticMarkup(<TopPlayHero pick={samplePick()} featured />);
     expect(html).toMatch(/Moneyline/);
   });
+
+  it('renders the Recommended Bet kicker', () => {
+    const html = renderToStaticMarkup(<TopPlayHero pick={samplePick()} featured />);
+    expect(html).toMatch(/Recommended Bet/);
+  });
+
+  it('renders the Elite tier label for 93', () => {
+    const html = renderToStaticMarkup(<TopPlayHero pick={samplePick()} featured />);
+    expect(html).toMatch(/Elite/);
+  });
 });
