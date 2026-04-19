@@ -38,13 +38,12 @@ function samplePick(overrides = {}) {
 }
 
 describe('PickCardV2', () => {
-  it('renders all required labels (Conviction, Edge, Confidence, Bet Score, Selection)', () => {
+  it('renders all required metric labels (Conviction, Edge, Confidence, Bet Score)', () => {
     const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" />);
     expect(html).toMatch(/Conviction/);
     expect(html).toMatch(/Edge/);
     expect(html).toMatch(/Confidence/);
     expect(html).toMatch(/Bet Score/);
-    expect(html).toMatch(/Selection/);
   });
 
   it('renders the conviction number', () => {
@@ -62,18 +61,26 @@ describe('PickCardV2', () => {
     expect(html).toMatch(/Top Play/);
   });
 
-  it('renders the Linked tag when _sharesTopMatchup is set', () => {
-    const html = renderToStaticMarkup(<PickCardV2 pick={{ ...samplePick(), _sharesTopMatchup: true }} tier="tier1" />);
-    expect(html).toMatch(/Linked to Top Play/);
+  it('renders the Game 1/2 tag for doubleheaders', () => {
+    const html = renderToStaticMarkup(<PickCardV2 pick={{ ...samplePick(), _doubleheaderGame: 2 }} tier="tier1" />);
+    expect(html).toMatch(/Game 2/);
   });
 
   it('renders the component bar with all 4 score components labeled', () => {
     const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" />);
     expect(html).toMatch(/Edge/);
-    expect(html).toMatch(/Confidence/);
-    expect(html).toMatch(/Situation/);
+    expect(html).toMatch(/Conf\./);
+    expect(html).toMatch(/Sit\./);
     expect(html).toMatch(/Market/);
     expect(html).toMatch(/Score Composition/);
+  });
+
+  it('renders sibling rows when siblings are provided', () => {
+    const sibling = { ...samplePick(), id: 'g1-total-over', market: { type: 'total', line: 8.5 }, selection: { side: 'over', label: 'Over 8.5' }, betScore: { total: 0.68, components: {} } };
+    const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" siblings={[sibling]} />);
+    expect(html).toMatch(/Also from this matchup/);
+    expect(html).toMatch(/Over 8\.5/);
+    expect(html).toMatch(/Bet Score/);
   });
 
   it('initial render has detailOpen class (default expanded)', () => {
@@ -97,6 +104,5 @@ describe('PickCardV2', () => {
     });
     const html = renderToStaticMarkup(<PickCardV2 pick={totalsPick} tier="tier2" />);
     expect(html).toMatch(/Over 8\.5/);
-    expect(html).toMatch(/Total/);
   });
 });

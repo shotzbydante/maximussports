@@ -1,8 +1,8 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin: 0 0 var(--picks-gap-xl);
+  gap: 10px;
+  margin: 0 0 var(--picks-gap-lg);
 }
 
 .header {
@@ -10,7 +10,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  padding: 10px 14px;
+  padding: 9px 14px;
   background: var(--picks-glass-bg);
   backdrop-filter: blur(10px);
   border-radius: var(--picks-radius);
@@ -19,7 +19,7 @@
   border-left-style: solid;
 }
 
-.headerLeft { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.headerLeft { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .headerRight { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .kicker {
@@ -31,8 +31,8 @@
 }
 
 .title {
-  margin: 2px 0 0;
-  font-size: 16px;
+  margin: 1px 0 0;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--picks-ink);
@@ -40,11 +40,11 @@
 }
 
 .sub {
-  margin: 3px 0 0;
-  font-size: 11px;
+  margin: 2px 0 0;
+  font-size: 10.5px;
   color: var(--picks-steel);
   line-height: 1.4;
-  max-width: 520px;
+  max-width: 580px;
 }
 
 .countPill {
@@ -68,14 +68,13 @@
   border: none;
   padding: 3px 6px;
   cursor: pointer;
-  letter-spacing: 0.02em;
 }
 .collapseBtn:hover { text-decoration: underline; }
 
 .empty {
   margin: 0;
-  padding: 18px 16px;
-  font-size: 13px;
+  padding: 14px 14px;
+  font-size: 12.5px;
   color: var(--picks-silver);
   background: var(--picks-glass-bg);
   backdrop-filter: blur(8px);
@@ -84,18 +83,66 @@
   text-align: center;
 }
 
+/* ── Subgroup stack ── */
+.subgroupStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.subgroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px 2px;
+}
+
+.subgroupIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--picks-accent);
+  background: var(--picks-accent-soft);
+  border-radius: 5px;
+}
+
+.subgroupLabel {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--picks-ink);
+}
+
+.subgroupCount {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+
+/* ── Grid ── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 8px;
 }
 
 .gridTier3 {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
-/* ── Tier-specific accent strips on the header ── */
+/* ── Tier-specific accents ── */
 .tier1 .header { border-left-color: var(--picks-gold); background: linear-gradient(90deg, rgba(234,227,204,0.45), var(--picks-glass-bg) 60%); }
 .tier1 .kicker { color: var(--picks-gold); }
 
@@ -103,9 +150,9 @@
 .tier2 .kicker { color: var(--picks-accent); }
 
 .tier3 .header { border-left-color: var(--picks-silver); background: var(--picks-fog); }
-.tier3 .title { font-size: 14px; }
+.tier3 .title { font-size: 13.5px; }
 
-/* Home mode: single card in a narrower rail */
+/* ── Home mode ── */
 .sectionHome .grid { grid-template-columns: 1fr; }
 .sectionHome .sub { display: none; }
 

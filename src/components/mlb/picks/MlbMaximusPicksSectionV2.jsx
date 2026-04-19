@@ -1,33 +1,50 @@
 /**
  * MlbMaximusPicksSectionV2 — canonical MLB picks presentation layer.
  *
- * Modes:
- *   - "page"  → full Odds Insights layout (Scorecard → Top Play → Tier 1/2/3)
- *   - "home"  → compact Home-Daily-Briefing layout (Scorecard + Top Play + Tier 1)
+ *   mode="page"  → full Odds Insights:
+ *     Scorecard → Top Play → HowItWorks → Tier 1 → Tier 2 → Tier 3 (collapsed)
+ *
+ *   mode="home"  → compact Home-Daily-Briefing:
+ *     Scorecard + Top Play (row) → HowItWorks (inline) → Tier 1 → Tier 2 → CTA
  *
  * Both modes consume the SAME useMlbPicks() hook. No drift.
+ *
+ * Before rendering, picks are:
+ *   1. Doubleheader-annotated — two games same teams same day get Game 1 / 2.
+ *   2. Grouped by matchup — one card per game; additional markets become
+ *      sibling rows inside that card. This kills accidental duplicates.
+ *   3. Cross-referenced against topPick so the tier card that is the Top
+ *      Play shows a ★ tag.
  */
 
 import { useMlbPicks, withTopPickCrossReference } from '../../../features/mlb/picks/useMlbPicks';
+import { groupByMatchup, annotateDoubleheaders } from '../../../features/mlb/picks/groupPicks';
 import YesterdayScorecard from './YesterdayScorecard';
 import TopPlayHero from './TopPlayHero';
 import TierSection from './TierSection';
+import HowItWorks from './HowItWorks';
 import tokens from './picks.tokens.module.css';
 import styles from './MlbMaximusPicksSectionV2.module.css';
+
+function prepareTier(picks, topPick, slateDate) {
+  const annotated = annotateDoubleheaders(picks || [], { slateDate });
+  const withCrossRef = withTopPickCrossReference(annotated, topPick);
+  return groupByMatchup(withCrossRef);
+}
 
 export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
   const { payload, loading, scorecardSummary, topPick, tiers, modelVersion, configVersion } = useMlbPicks();
 
   if (loading) return <LoadingShell mode={mode} />;
 
-  const totalPicks = (tiers.tier1?.length || 0) + (tiers.tier2?.length || 0) + (tiers.tier3?.length || 0);
-  const noData = !payload || totalPicks === 0;
+  const slateDate = payload?.date || null;
 
-  // Annotate picks with cross-reference flags so tier cards can show "Top Play"
-  // badges without re-rendering the same matchup as a separate card.
-  const tier1 = withTopPickCrossReference(tiers.tier1 || [], topPick);
-  const tier2 = withTopPickCrossReference(tiers.tier2 || [], topPick);
-  const tier3 = withTopPickCrossReference(tiers.tier3 || [], topPick);
+  const tier1Cards = prepareTier(tiers.tier1 || [], topPick, slateDate);
+  const tier2Cards = prepareTier(tiers.tier2 || [], topPick, slateDate);
+  const tier3Cards = prepareTier(tiers.tier3 || [], topPick, slateDate);
+
+  const totalCards = tier1Cards.length + tier2Cards.length + tier3Cards.length;
+  const totalPicks = (tiers.tier1?.length || 0) + (tiers.tier2?.length || 0) + (tiers.tier3?.length || 0);
 
   if (mode === 'home') {
     return (
@@ -37,24 +54,39 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
             <span className={styles.eyebrow}>Maximus's Picks</span>
             <h2 className={styles.title}>Today's Betting Intelligence</h2>
           </div>
-          <a href="/mlb/insights" className={styles.headerCta}>Full board →</a>
+          {totalPicks > 0 && (
+            <a href="/mlb/insights" className={styles.headerCta}>
+              See all {totalPicks} picks →
+            </a>
+          )}
         </header>
 
         <div className={styles.homeGrid}>
-          {scorecardSummary && (
-            <YesterdayScorecard summary={scorecardSummary} compact />
-          )}
+          {scorecardSummary && <YesterdayScorecard summary={scorecardSummary} compact />}
           {topPick && <TopPlayHero pick={topPick} />}
         </div>
 
-        {!noData ? (
-          <TierSection tier="tier1" picks={tier1} mode="home" />
+        <HowItWorks variant="home" />
+
+        {totalCards > 0 ? (
+          <>
+            {tier1Cards.length > 0 && (
+              <TierSection tier="tier1" cards={tier1Cards} mode="home" />
+            )}
+            {tier2Cards.length > 0 && (
+              <TierSection tier="tier2" cards={tier2Cards.slice(0, 2)} mode="home" />
+            )}
+          </>
         ) : (
-          <EmptyBoard />
+          !topPick && <EmptyBoard />
         )}
 
         <footer className={styles.homeFooter}>
-          <a href="/mlb/insights" className={styles.fullBoardLink}>See all {totalPicks || ''} picks →</a>
+          {totalPicks > 0 && (
+            <a href="/mlb/insights" className={styles.fullBoardLink}>
+              See all {totalPicks} picks →
+            </a>
+          )}
         </footer>
       </section>
     );
@@ -68,7 +100,7 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
           <span className={styles.eyebrow}>Betting Intelligence</span>
           <h1 className={styles.title}>MLB Odds Insights</h1>
           <p className={styles.subtitle}>
-            Model-scored picks across today's slate. Tiered by conviction, not market.
+            Model-scored picks across today's slate. Tiered by conviction, grouped by bet type.
           </p>
         </div>
       </header>
@@ -77,13 +109,15 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
 
       {topPick && <TopPlayHero pick={topPick} featured />}
 
-      {noData && !topPick && <EmptyBoard />}
+      <HowItWorks />
 
-      {!noData && (
+      {totalCards === 0 && !topPick && <EmptyBoard />}
+
+      {totalCards > 0 && (
         <>
-          <TierSection tier="tier1" picks={tier1} />
-          <TierSection tier="tier2" picks={tier2} />
-          <TierSection tier="tier3" picks={tier3} initialCollapsed />
+          <TierSection tier="tier1" cards={tier1Cards} />
+          <TierSection tier="tier2" cards={tier2Cards} />
+          <TierSection tier="tier3" cards={tier3Cards} initialCollapsed />
         </>
       )}
 

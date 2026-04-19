@@ -1,0 +1,125 @@
+.block {
+  position: relative;
+  padding: 16px 18px;
+  margin: 0 0 var(--picks-gap-md);
+  border-radius: var(--picks-radius-lg);
+  background: var(--picks-glass-bg-strong);
+  border: 1px solid var(--picks-glass-border);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--picks-glass-shadow);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(71,102,176,0.07), transparent 50%),
+    radial-gradient(70% 60% at 0% 100%, rgba(167,138,61,0.04), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.block > * { position: relative; z-index: 1; }
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.kicker {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--picks-accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--picks-ink);
+  line-height: 1.3;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 16px;
+}
+
+.point {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--picks-radius);
+  background: rgba(255,255,255,0.65);
+  border: 1px solid var(--picks-glass-border);
+}
+
+.pointIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+  color: var(--picks-accent);
+  background: var(--picks-accent-soft);
+  border-radius: 6px;
+}
+
+.pointText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.pointTitle {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--picks-ink);
+}
+
+.pointBody {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--picks-steel);
+}
+
+/* ── Home variant (compact single-line explainer) ── */
+.blockHome {
+  padding: 12px 14px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.blockHome .header { margin-bottom: 0; flex: 1; min-width: 0; }
+.blockHome .title { font-size: 12.5px; font-weight: 600; color: var(--picks-steel); font-style: italic; line-height: 1.4; }
+
+.cta {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--picks-accent);
+  text-decoration: none;
+  padding: 6px 10px;
+  background: var(--picks-accent-soft);
+  border-radius: 999px;
+  transition: background 160ms var(--picks-ease), transform 160ms var(--picks-ease);
+}
+.cta:hover { background: #d1dbf0; transform: translateX(2px); }
+
+@media (max-width: 540px) {
+  .blockHome { flex-direction: column; align-items: flex-start; }
+  .cta { align-self: flex-start; }
+}
