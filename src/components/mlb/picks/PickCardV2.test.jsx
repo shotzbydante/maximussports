@@ -97,12 +97,22 @@ describe('PickCardV2', () => {
     expect(html).toMatch(/Score Composition/);
   });
 
-  it('renders sibling rows when siblings are provided', () => {
+  it('no longer renders sibling rows (hard dedupe rule)', () => {
     const sibling = { ...samplePick(), id: 'g1-total-over', market: { type: 'total', line: 8.5 }, selection: { side: 'over', label: 'Over 8.5' }, betScore: { total: 0.68, components: {} } };
     const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" siblings={[sibling]} />);
-    expect(html).toMatch(/Also from this matchup/);
-    expect(html).toMatch(/Over 8\.5/);
-    expect(html).toMatch(/Bet Score/);
+    expect(html).not.toMatch(/Also from this matchup/);
+  });
+
+  it('renders the Primary Driver pill', () => {
+    const html = renderToStaticMarkup(<PickCardV2 pick={samplePick()} tier="tier1" />);
+    expect(html).toMatch(/Primary Driver/);
+  });
+
+  it('renders the relative-strength pill when provided', () => {
+    const html = renderToStaticMarkup(
+      <PickCardV2 pick={samplePick()} tier="tier1" relativeStrength={{ kind: 'highest', text: "Highest conviction on today's slate" }} />
+    );
+    expect(html).toMatch(/Highest conviction on today/);
   });
 
   it('initial render has detailOpen class (default expanded)', () => {

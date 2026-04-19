@@ -1,0 +1,103 @@
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  margin: 0 0 var(--picks-gap-md);
+  border-radius: var(--picks-radius-lg);
+  background: var(--picks-glass-bg-strong);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--picks-glass-border);
+  box-shadow: var(--picks-glass-shadow);
+  overflow: hidden;
+  isolation: isolate;
+}
+.compact { padding: 10px 14px; }
+
+.frame {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(100% 50% at 0% 0%, rgba(47,138,122,0.06), transparent 60%),
+    radial-gradient(80% 100% at 100% 100%, rgba(71,102,176,0.04), transparent 60%);
+  pointer-events: none;
+}
+.root > * { position: relative; z-index: 1; }
+
+.lead { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.kicker {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--picks-mint);
+}
+
+.primary { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+.primaryLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+
+.primaryRecord {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--picks-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.compact .primaryRecord { font-size: 17px; }
+
+.primaryMeta {
+  font-size: 11.5px;
+  color: var(--picks-steel);
+}
+
+.primaryDot { color: var(--picks-mist); padding: 0 2px; }
+
+.unitsPos { color: var(--picks-mint); font-weight: 700; }
+.unitsNeg { color: var(--picks-rose); font-weight: 700; }
+
+.secondary {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding-left: 16px;
+  border-left: 1px solid var(--picks-glass-border);
+  flex-shrink: 0;
+}
+
+.secondaryLabel {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+
+.secondaryValue {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--picks-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.secondaryMeta {
+  font-size: 10.5px;
+  color: var(--picks-silver);
+}
+
+@media (max-width: 560px) {
+  .root { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .secondary { align-items: flex-start; padding-left: 0; border-left: none; padding-top: 10px; border-top: 1px solid var(--picks-glass-border); width: 100%; }
+}

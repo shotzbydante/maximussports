@@ -212,6 +212,60 @@
 .resultLost { background: var(--picks-rose-soft); color: var(--picks-rose); }
 .resultPush { background: var(--picks-fog); color: var(--picks-steel); }
 
+/* ── Insight row (relative-strength + primary driver) ──────────────────── */
+.insightRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.strengthPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--picks-gold);
+  background: var(--picks-gold-soft);
+  border: 1px solid rgba(167,138,61,0.28);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.strengthGlyph { font-size: 8px; }
+
+.driverPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--picks-fog);
+  border: 1px solid var(--picks-glass-border);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+}
+.driverKicker {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+.driverLabel { font-weight: 700; color: var(--picks-slate); }
+
+.driver_edge       .driverKicker { color: var(--picks-accent); }
+.driver_edge       { background: var(--picks-accent-soft); border-color: rgba(71,102,176,0.25); }
+
+.driver_confidence .driverKicker { color: var(--picks-mint); }
+.driver_confidence { background: var(--picks-mint-soft); border-color: rgba(47,138,122,0.25); }
+
+.driver_situation  { background: rgba(255,255,255,0.8); }
+
+.driver_market     { background: var(--picks-fog); }
+
 /* ── Headline ───────────────────────────────────────────────────────────── */
 .headline {
   margin: 0;
@@ -340,126 +394,6 @@
   background: var(--picks-accent);
   border-radius: 50%;
   opacity: 0.8;
-}
-
-/* ── Sibling picks — indented, muted, clearly secondary ─────────────────── */
-.siblings {
-  position: relative;
-  padding: 8px 0 2px 12px;
-  margin-top: 2px;
-  border-top: 1px dashed var(--picks-glass-border);
-}
-
-.siblingsHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  padding-left: 2px;
-}
-
-.siblingsTitle {
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--picks-silver);
-}
-
-.siblingsCount {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 14px;
-  padding: 0 5px;
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--picks-steel);
-  background: var(--picks-fog);
-  border-radius: 999px;
-}
-
-.siblingsList {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.sibling {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 8px 4px 10px;
-  background: rgba(255,255,255,0.5);
-  border: 1px solid var(--picks-glass-border);
-  border-radius: 6px;
-  opacity: 0.94;
-  transition: opacity 160ms var(--picks-ease), background 160ms var(--picks-ease);
-}
-.sibling:hover { opacity: 1; background: rgba(255,255,255,0.7); }
-
-.siblingBar {
-  position: absolute;
-  left: -7px;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  background: var(--picks-mist);
-  border-radius: 999px;
-}
-
-.siblingMkt {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  min-width: 40px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--picks-steel);
-  background: var(--picks-fog);
-  border-radius: 4px;
-}
-
-.siblingLabel {
-  flex: 1 1 auto;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--picks-slate);
-  min-width: 0;
-  letter-spacing: -0.005em;
-}
-
-.siblingMeta { display: inline-flex; align-items: center; gap: 6px; }
-
-.siblingTier {
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.siblingTier_elite  { color: var(--picks-gold); }
-.siblingTier_strong { color: var(--picks-accent); }
-.siblingTier_solid  { color: var(--picks-slate); opacity: 0.72; }
-.siblingTier_lean   { color: var(--picks-silver); }
-
-.siblingScore { display: inline-flex; align-items: baseline; gap: 4px; }
-.siblingScoreLabel {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--picks-silver);
-}
-.siblingScoreValue {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--picks-accent);
-  font-variant-numeric: tabular-nums;
 }
 
 /* ── Toggle ─────────────────────────────────────────────────────────────── */

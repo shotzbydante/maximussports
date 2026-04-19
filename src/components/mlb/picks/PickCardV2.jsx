@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
+import { primaryDriver } from '../../../features/mlb/picks/pickInsights';
 import styles from './PickCardV2.module.css';
 
 function fmtTime(iso) {
@@ -26,12 +27,6 @@ function fmtPct(v, { sign = false } = {}) {
   return `${s}${n.toFixed(1)}%`;
 }
 
-const MARKET_SHORT = {
-  moneyline: 'ML',
-  runline: 'Spread',
-  total: 'Total',
-};
-
 const COMPONENT_META = [
   { key: 'edgeStrength',    label: 'Edge' },
   { key: 'modelConfidence', label: 'Conf.' },
@@ -39,8 +34,9 @@ const COMPONENT_META = [
   { key: 'marketQuality',   label: 'Market' },
 ];
 
-export default function PickCardV2({ pick, tier, siblings = [] }) {
+export default function PickCardV2({ pick, tier, siblings = [], relativeStrength = null }) {
   const [expanded, setExpanded] = useState(true);
+  const driver = primaryDriver(pick);
 
   const awaySlug = pick.matchup?.awayTeam?.slug;
   const homeSlug = pick.matchup?.homeTeam?.slug;
@@ -105,6 +101,23 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
         </div>
       </div>
 
+      {(driver || relativeStrength) && (
+        <div className={styles.insightRow}>
+          {relativeStrength && (
+            <span className={styles.strengthPill} title={relativeStrength.text}>
+              <span className={styles.strengthGlyph} aria-hidden="true">◆</span>
+              {relativeStrength.text}
+            </span>
+          )}
+          {driver && (
+            <span className={`${styles.driverPill} ${styles[`driver_${driver.bucket}`]}`}>
+              <span className={styles.driverKicker}>Primary Driver</span>
+              <span className={styles.driverLabel}>{driver.label}</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {headline && <p className={styles.headline}>{headline}</p>}
 
       <div className={`${styles.detail} ${expanded ? styles.detailOpen : styles.detailClosed}`}>
@@ -133,17 +146,7 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
             </ul>
           )}
 
-          {siblings.length > 0 && (
-            <div className={styles.siblings}>
-              <div className={styles.siblingsHeader}>
-                <span className={styles.siblingsTitle}>Also from this matchup</span>
-                <span className={styles.siblingsCount}>{siblings.length}</span>
-              </div>
-              <div className={styles.siblingsList}>
-                {siblings.map(s => <SiblingRow key={s.id} pick={s} />)}
-              </div>
-            </div>
-          )}
+          {/* Sibling rendering suppressed: hard dedupe rule = one pick per matchup. */}
         </div>
       </div>
 
@@ -160,27 +163,6 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
         </svg>
       </button>
     </article>
-  );
-}
-
-function SiblingRow({ pick }) {
-  const mkt = MARKET_SHORT[pick.market?.type] || pick.market?.type || '';
-  const label = pick.selection?.label || pick.pick?.label || '';
-  const score = Math.round((pick.betScore?.total ?? 0) * 100);
-  const tierLabel = convictionTier(score);
-  return (
-    <div className={styles.sibling} title={convictionDescription(score)}>
-      <span className={styles.siblingBar} aria-hidden="true" />
-      <span className={styles.siblingMkt}>{mkt}</span>
-      <span className={styles.siblingLabel}>{label}</span>
-      <span className={styles.siblingMeta}>
-        <span className={`${styles.siblingTier} ${styles[`siblingTier_${tierLabel.variant}`]}`}>{tierLabel.label}</span>
-        <span className={styles.siblingScore}>
-          <span className={styles.siblingScoreLabel}>Score</span>
-          <span className={styles.siblingScoreValue}>{score}</span>
-        </span>
-      </span>
-    </div>
   );
 }
 
