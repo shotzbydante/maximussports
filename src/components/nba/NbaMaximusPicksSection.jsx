@@ -209,7 +209,7 @@ function PickCard({ pick, category }) {
         <div className={styles.signalPanel}>
           {p.topSignals.slice(0, 2).map((s, i) => (
             <div key={i} className={styles.signalRow}>
-              <span className={styles.signalCheck}>\u2713</span>
+              <span className={styles.signalCheck}>&#10003;</span>
               <span className={styles.signalText}>{s}</span>
             </div>
           ))}

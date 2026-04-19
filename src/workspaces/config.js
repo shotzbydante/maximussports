@@ -164,7 +164,6 @@ export const WORKSPACES = {
     logo: '/nba-logo.png',
     sportKey: 'basketball_nba',
     seasonState: SeasonState.ACTIVE,
-    badge: 'ADMIN',
     capabilities: {
       bracketology: true,
       seasonIntel: false,
@@ -180,10 +179,7 @@ export const WORKSPACES = {
       newsFeed: true,
       picks: true,
     },
-    access: {
-      public: false,
-      allowedEmails: ['dantedicicco@gmail.com'],
-    },
+    access: { public: true },
     labels: {
       sportName: 'NBA Basketball',
       intelligence: 'NBA Playoffs Intelligence',
