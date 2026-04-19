@@ -51,6 +51,20 @@
 }
 .headerCta:hover { background: #d1dbf0; transform: translateX(2px); }
 
+/* ── Intelligence grid — Performance + Audit side-by-side on desktop ── */
+.intelligenceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 var(--picks-gap-md);
+  align-items: stretch;
+}
+.intelligenceGrid > * { display: flex; flex-direction: column; }
+
+@media (max-width: 860px) {
+  .intelligenceGrid { grid-template-columns: 1fr; }
+}
+
 /* ── Home mode — two-column hero strip ── */
 .modeHome .title { font-size: 20px; }
 

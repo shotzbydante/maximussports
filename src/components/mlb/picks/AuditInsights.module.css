@@ -1,0 +1,77 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  border-radius: var(--picks-radius-lg);
+  background: var(--picks-glass-bg-strong);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--picks-glass-border);
+  box-shadow: var(--picks-glass-shadow);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.loading { min-height: 120px; background: linear-gradient(90deg, var(--picks-haze), var(--picks-fog), var(--picks-haze)); background-size: 200% 100%; animation: ai-shimmer 1.6s infinite; }
+@keyframes ai-shimmer { 0%{ background-position: 200% 0 } 100%{ background-position: -200% 0 } }
+
+.frame {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(90% 70% at 100% 0%, rgba(71,102,176,0.07), transparent 55%),
+    radial-gradient(60% 60% at 0% 100%, rgba(167,138,61,0.04), transparent 55%);
+}
+.card > * { position: relative; z-index: 1; }
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kicker {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--picks-accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 13px;
+  color: var(--picks-steel);
+  line-height: 1.35;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--picks-ink);
+  border: 1px solid var(--picks-glass-border);
+  border-left-width: 3px;
+  border-radius: 6px;
+}
+.itemGlyph { font-size: 9px; padding-top: 3px; }
+.itemText { flex: 1 1 auto; }
+
+.item_positive { background: rgba(47,138,122,0.06); border-left-color: var(--picks-mint); }
+.item_positive .itemGlyph { color: var(--picks-mint); }
+.item_neutral  { background: rgba(71,102,176,0.05); border-left-color: var(--picks-accent); }
+.item_neutral .itemGlyph { color: var(--picks-accent); }
+.item_negative { background: rgba(161,74,90,0.06); border-left-color: var(--picks-rose); }
+.item_negative .itemGlyph { color: var(--picks-rose); }
