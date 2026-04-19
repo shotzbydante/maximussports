@@ -66,6 +66,29 @@ function isTransientUploadStep(step) {
   );
 }
 
+/**
+ * Validate the upload-asset response contract: must return an absolute
+ * https URL we can hand to Instagram. Catches contract drift between
+ * uploader and consumer (e.g. server returning storage path instead of
+ * publicUrl, or returning a tokenized signed URL when public was expected).
+ */
+function validateUploadResponse(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Upload response was not an object');
+  }
+  const url = data.url ?? data.publicUrl ?? null;
+  if (!url || typeof url !== 'string') {
+    throw new Error('Upload succeeded but no valid public image URL was returned');
+  }
+  if (!/^https:\/\//i.test(url)) {
+    throw new Error(`Upload returned a non-https URL: ${url.slice(0, 100)}`);
+  }
+  if (/^https?:\/\/(localhost|127\.|0\.0\.0\.0)/i.test(url)) {
+    throw new Error('Upload returned a localhost URL — Instagram cannot reach private hostnames');
+  }
+  return url;
+}
+
 async function uploadAssetOnce(base64, filename) {
   let res;
   try {
@@ -116,7 +139,27 @@ async function uploadAssetOnce(base64, filename) {
     throw err;
   }
 
-  return { url: data.url, filename: data.filename, sizeBytes: data.sizeBytes };
+  // Validate response contract — single source of truth for what a "good
+  // upload" looks like. Catches storage-bucket misconfig / signed URL
+  // drift / non-https paths before they ever reach a publish endpoint.
+  let publicUrl;
+  try {
+    publicUrl = validateUploadResponse(data);
+  } catch (validateErr) {
+    const err = new Error(validateErr.message);
+    err.stage = 'upload_contract';
+    err.httpStatus = res.status;
+    throw err;
+  }
+
+  console.log('[TEAM_INTEL_ASSET_UPLOADED]', {
+    filename: data.filename,
+    publicUrl,
+    urlLength: publicUrl?.length || 0,
+    sizeBytes: data.sizeBytes,
+  });
+
+  return { url: publicUrl, filename: data.filename, sizeBytes: data.sizeBytes };
 }
 
 /**
@@ -220,6 +263,13 @@ export async function publishToInstagram(payload) {
     section: metaFields?.contentStudioSection,
   });
 
+  console.log('[CLIENT_SINGLE_PUBLISH_PAYLOAD]', {
+    imageUrl,
+    captionLength: caption.length,
+    preview: caption.slice(0, 120),
+    section: metaFields?.contentStudioSection,
+  });
+
   let res;
   try {
     res = await fetch('/api/social/instagram/publish', {
@@ -256,16 +306,22 @@ export async function publishToInstagram(payload) {
 
   if (!res.ok || !data.ok) {
     const errData = data.error ?? {};
+    // Server may surface a `step` field (preferred) for fine-grained
+    // failure context, in addition to `stage`. Step lets the client
+    // pick a more actionable user message than stage alone.
     const err = new Error(
-      errData.userMessage ?? errData.message ?? data.error ?? 'Instagram publish failed',
+      typeof data.error === 'string' ? data.error
+        : errData.userMessage ?? errData.message ?? data.error ?? 'Instagram publish failed',
     );
     err.stage       = data.stage          ?? 'publish';
+    err.step        = data.step           ?? null;
     err.code        = errData.code        ?? null;
     err.category    = errData.category    ?? null;
     err.postId      = data.postId         ?? null;
     err.requestId   = data.requestId      ?? null;
     err.serverDebug = data.debug          ?? null;
     err.httpStatus  = res.status;
+    err.imageUrl    = data.imageUrl       ?? null;
     throw err;
   }
 

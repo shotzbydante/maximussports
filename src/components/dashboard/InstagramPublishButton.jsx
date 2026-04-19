@@ -109,6 +109,19 @@ const STAGE_MESSAGES = {
   network:        'Network error — check your connection and retry.',
 };
 
+// Fine-grained step messages (preferred over stage when server returns one).
+// These cover the single-image publish failure modes we surface from the
+// server's structured { step, error } response.
+const STEP_MESSAGES = {
+  url_self_check:       'The uploaded image URL is not in a shape Instagram can reach. Refresh and retry.',
+  storage_propagation:  'The uploaded image is not yet publicly reachable — storage may still be propagating. Wait a few seconds and retry.',
+  verify_image_url:     'Instagram publish failed because the image URL did not resolve to a valid image response. Try again in a moment.',
+  upload_contract:      'The upload step did not return a valid public image URL. Refresh and retry.',
+  missing_image_url:    'Single-image publish was sent without an image URL. Regenerate the slide and retry.',
+  meta_publish:         'Instagram publish failed at the Meta API. Retry in a moment.',
+  validation:           'The publish request failed validation. Refresh and retry.',
+};
+
 const CATEGORY_MESSAGES = {
   auth:          'Instagram access token is invalid or expired. Reconnect in Settings.',
   permission:    'This Instagram account lacks publish permissions. Check Settings.',
@@ -233,6 +246,15 @@ export default function InstagramPublishButton({
     }
 
     const isCarousel = allSlides.length > 1;
+
+    console.log('[TEAM_INTEL_PUBLISH_REQUEST]', {
+      mode: isCarousel ? 'carousel' : 'single',
+      section: metadata?.contentStudioSection ?? metadata?.templateType ?? null,
+      hasCaption: !!captionText,
+      captionLength: captionText.length,
+      hasExportRef: !!exportRef?.current,
+      imageCount: allSlides.length,
+    });
 
     // ── Step 1: Render all slides to PNGs ──────────────────────────────────
     setStage('rendering');
@@ -386,10 +408,16 @@ export default function InstagramPublishButton({
       setTimeout(() => setStage('idle'), 8000);
     } catch (err) {
       const failStage = err.stage ?? 'publish';
+      const failStep  = err.step ?? null;
       const category  = err.category ?? null;
 
+      // Priority: explicit step (most specific) → category → stage → raw msg.
+      // Step lets us tell apart a propagation race (retry-able) from a
+      // genuinely bad URL (re-upload needed) from a Meta-side failure.
       let userMsg;
-      if (category && CATEGORY_MESSAGES[category]) {
+      if (failStep && STEP_MESSAGES[failStep]) {
+        userMsg = STEP_MESSAGES[failStep];
+      } else if (category && CATEGORY_MESSAGES[category]) {
         userMsg = CATEGORY_MESSAGES[category];
       } else if (STAGE_MESSAGES[failStage]) {
         userMsg = STAGE_MESSAGES[failStage];
@@ -398,13 +426,24 @@ export default function InstagramPublishButton({
       }
 
       const isRetryable = ['transient', 'rate_limit'].includes(category) ||
-                          failStage === 'poll_container';
+                          failStage === 'poll_container' ||
+                          failStep === 'storage_propagation' ||
+                          failStep === 'verify_image_url';
 
-      if (!isRetryable && category !== 'unknown') {
+      if (!isRetryable && category !== 'unknown' && !failStep) {
         userMsg += ' Check the image and account configuration before retrying.';
       }
 
-      if (DEBUG) console.error('[InstagramPublish:debug] error:', { stage: failStage, category, code: err.code, message: err.message, requestId: err.requestId });
+      console.error('[PUBLISH_FAILED]', {
+        stage: failStage,
+        step: failStep,
+        category,
+        code: err.code,
+        httpStatus: err.httpStatus,
+        message: err.message,
+        imageUrl: err.imageUrl,
+        requestId: err.requestId,
+      });
 
       setErrorMessage(userMsg);
       setStage('error');
