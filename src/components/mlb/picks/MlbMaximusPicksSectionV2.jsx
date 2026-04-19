@@ -4,16 +4,18 @@
  *   mode="page"  → full Odds Insights
  *   mode="home"  → MLB Home preview
  *
- * Both modes consume useMlbPicks(). Before rendering:
+ * Behavior in this phase:
  *
- *   1. Tier picks are HARD-DEDUPED by normalized matchup key
- *      (away|home|slateDate). Only the highest bet-score pick per matchup
- *      reaches the UI. This is the trust-layer rule — the user must never
- *      see the same matchup twice.
- *   2. Relative strength is computed across the surviving slate so
- *      Top Play / Tier 1 can show "Highest conviction on today's slate"
- *      or "Top 5%" signals.
- *   3. Cross-reference annotations flag which tier card IS the top pick.
+ *   1. Every tier is deduped by normalized matchup key and across tiers so
+ *      the same matchup never renders twice.
+ *   2. If tier1+2+3 surviving count < 5, we PULL FROM THE COVERAGE POOL
+ *      (scored but below-tier candidates) to guarantee minimum slate
+ *      coverage. Those fill an "Expanded Coverage" section below Tier 3
+ *      with clearly weaker visual emphasis.
+ *   3. Top Play carries a "Highest conviction / Top N%" signal and a small
+ *      reinforcement line.
+ *   4. YesterdayContinuity shows above Top Play when there's a real graded
+ *      result ("Top Play cashed yesterday · 3-1 board").
  */
 
 import { useMemo } from 'react';
@@ -21,6 +23,7 @@ import { useMlbPicks, withTopPickCrossReference } from '../../../features/mlb/pi
 import { dedupeByMatchupKey } from '../../../features/mlb/picks/groupPicks';
 import { relativeStrength } from '../../../features/mlb/picks/pickInsights';
 import YesterdayScorecard from './YesterdayScorecard';
+import YesterdayContinuity from './YesterdayContinuity';
 import TopPlayHero from './TopPlayHero';
 import TierSection from './TierSection';
 import HowItWorks from './HowItWorks';
@@ -31,30 +34,30 @@ import AboutTheModel from './AboutTheModel';
 import tokens from './picks.tokens.module.css';
 import styles from './MlbMaximusPicksSectionV2.module.css';
 
+const MIN_COVERAGE = 5;
+const MAX_COVERAGE_FROM_POOL = 6;
+
 function asCards(picks) {
-  // TierSection expects cards of shape { primary, siblings }. After dedupe
-  // we have 1 pick per matchup, so siblings is always empty.
   return (picks || []).map(p => ({ primary: p, siblings: [] }));
 }
 
 export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
   const {
     payload, loading,
-    scorecardSummary, topPick: rawTopPick, tiers,
+    scorecardSummary, topPick: rawTopPick, tiers, coverage,
     modelVersion, configVersion,
   } = useMlbPicks();
 
   const prepared = useMemo(() => {
-    if (!tiers) return { tier1: [], tier2: [], tier3: [], allSurviving: [], topPick: null, droppedTotal: 0 };
+    if (!tiers) {
+      return { tier1: [], tier2: [], tier3: [], coverage: [], allSurviving: [], topPick: null };
+    }
     const slateDate = payload?.date || null;
 
-    // 1. Dedupe each tier independently by matchup key.
     const t1 = dedupeByMatchupKey(tiers.tier1 || [], { slateDate });
     const t2 = dedupeByMatchupKey(tiers.tier2 || [], { slateDate });
     const t3 = dedupeByMatchupKey(tiers.tier3 || [], { slateDate });
 
-    // 2. Cross-tier dedupe — a matchup that shows in Tier 1 must NOT reappear
-    //    in Tier 2 or Tier 3.
     const takenKeys = new Set();
     const keyOf = (p) => {
       const a = p?.matchup?.awayTeam?.slug || '';
@@ -70,12 +73,21 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
     const tier1 = filterAcrossTiers(t1.picks);
     const tier2 = filterAcrossTiers(t2.picks);
     const tier3 = filterAcrossTiers(t3.picks);
-    const droppedTotal = t1.droppedCount + t2.droppedCount + t3.droppedCount +
-      (t1.picks.length + t2.picks.length + t3.picks.length - (tier1.length + tier2.length + tier3.length));
 
-    // 3. Top pick: use the provided one if it still survives dedupe; otherwise
-    //    fall back to the highest-conviction tier-1 survivor.
-    const allSurviving = [...tier1, ...tier2, ...tier3];
+    // Expansion: if we have fewer than MIN_COVERAGE picks, fill from
+    // the coverage pool — already dedupe-aware via takenKeys.
+    let expanded = [];
+    const totalSoFar = tier1.length + tier2.length + tier3.length;
+    if (totalSoFar < MIN_COVERAGE && Array.isArray(coverage) && coverage.length > 0) {
+      const needed = MIN_COVERAGE - totalSoFar;
+      const extraCap = Math.min(MAX_COVERAGE_FROM_POOL, needed + 2);
+      expanded = dedupeByMatchupKey(coverage, { slateDate }).picks
+        .filter(p => !takenKeys.has(keyOf(p)))
+        .slice(0, extraCap);
+      for (const p of expanded) takenKeys.add(keyOf(p));
+    }
+
+    const allSurviving = [...tier1, ...tier2, ...tier3, ...expanded];
     let topPick = rawTopPick;
     if (topPick) {
       const topKey = keyOf(topPick);
@@ -86,27 +98,33 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
       topPick = tier1[0] || tier2[0] || null;
     }
 
-    return { tier1, tier2, tier3, allSurviving, topPick, droppedTotal };
-  }, [tiers, payload?.date, rawTopPick]);
+    return { tier1, tier2, tier3, coverage: expanded, allSurviving, topPick };
+  }, [tiers, payload?.date, rawTopPick, coverage]);
 
   if (loading) return <LoadingShell mode={mode} />;
 
-  const { tier1, tier2, tier3, allSurviving, topPick } = prepared;
+  const { tier1, tier2, tier3, coverage: expanded, allSurviving, topPick } = prepared;
   const tier1Annotated = withTopPickCrossReference(tier1, topPick);
   const tier2Annotated = withTopPickCrossReference(tier2, topPick);
   const tier3Annotated = withTopPickCrossReference(tier3, topPick);
+  const expandedAnnotated = withTopPickCrossReference(expanded, topPick);
 
   const totalPicks = allSurviving.length;
   const topPickStrength = topPick ? relativeStrength(topPick, allSurviving) : null;
 
   const tier1Cards = asCards(tier1Annotated).map(c => ({
-    ...c,
-    _relativeStrength: relativeStrength(c.primary, allSurviving),
+    ...c, _relativeStrength: relativeStrength(c.primary, allSurviving),
   }));
   const tier2Cards = asCards(tier2Annotated);
   const tier3Cards = asCards(tier3Annotated);
+  const coverageCards = asCards(expandedAnnotated);
 
   if (mode === 'home') {
+    // MLB Home preview — goal: show ≥5 picks when available
+    const homePreviewCount =
+      tier1Cards.length + Math.min(tier2Cards.length, 3) + Math.min(tier3Cards.length, 2);
+    const needCoverageOnHome = homePreviewCount < MIN_COVERAGE && coverageCards.length > 0;
+
     return (
       <section className={`${tokens.root} ${styles.root} ${styles.modeHome}`} aria-label="Maximus's Picks">
         <header className={styles.header}>
@@ -117,15 +135,20 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
               Every pick is scored 0–100 based on edge, confidence, situational context, and market quality.
               Top Plays represent the highest-conviction opportunities on today's slate.
             </p>
+            <p className={styles.whyThisMatters}>
+              Designed to surface the most actionable bets — from highest conviction to broader slate coverage.
+            </p>
           </div>
           {totalPicks > 0 && (
             <a href="/mlb/insights" className={styles.headerCta}>
-              See all {totalPicks} picks →
+              View full Odds Insights →
             </a>
           )}
         </header>
 
         <TrackRecord payload={payload} scorecard={scorecardSummary} compact />
+
+        {scorecardSummary && <YesterdayContinuity summary={scorecardSummary} />}
 
         <div className={styles.homeGrid}>
           {scorecardSummary && <YesterdayScorecard summary={scorecardSummary} compact />}
@@ -138,11 +161,18 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
 
         {totalPicks > 0 ? (
           <>
+            <FramingBlock />
             {tier1Cards.length > 0 && (
               <TierSection tier="tier1" cards={tier1Cards} mode="home" />
             )}
             {tier2Cards.length > 0 && (
               <TierSection tier="tier2" cards={tier2Cards.slice(0, 3)} mode="home" />
+            )}
+            {tier3Cards.length > 0 && (
+              <TierSection tier="tier3" cards={tier3Cards.slice(0, 2)} mode="home" />
+            )}
+            {needCoverageOnHome && (
+              <TierSection tier="coverage" cards={coverageCards.slice(0, Math.max(0, MIN_COVERAGE - homePreviewCount))} mode="home" />
             )}
           </>
         ) : (
@@ -152,9 +182,12 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
         <footer className={styles.homeFooter}>
           {totalPicks > 0 && (
             <a href="/mlb/insights" className={styles.fullBoardLink}>
-              See all {totalPicks} picks →
+              View full Odds Insights →
             </a>
           )}
+          <p className={styles.homeFollowLine}>
+            Track performance daily. Picks are graded and refined over time.
+          </p>
         </footer>
       </section>
     );
@@ -177,6 +210,8 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
 
       {scorecardSummary && <YesterdayScorecard summary={scorecardSummary} />}
 
+      {scorecardSummary && <YesterdayContinuity summary={scorecardSummary} />}
+
       {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} />}
 
       <div className={styles.intelligenceGrid}>
@@ -192,9 +227,13 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
 
       {totalPicks > 0 && (
         <>
+          <TodaysPicksHeader totalPicks={totalPicks} />
           <TierSection tier="tier1" cards={tier1Cards} />
           <TierSection tier="tier2" cards={tier2Cards} />
           <TierSection tier="tier3" cards={tier3Cards} initialCollapsed />
+          {coverageCards.length > 0 && (
+            <TierSection tier="coverage" cards={coverageCards} initialCollapsed />
+          )}
         </>
       )}
 
@@ -209,6 +248,39 @@ export default function MlbMaximusPicksSectionV2({ mode = 'page' }) {
         )}
       </footer>
     </section>
+  );
+}
+
+function TodaysPicksHeader({ totalPicks }) {
+  return (
+    <header className={styles.todaysHeader}>
+      <div className={styles.todaysHeaderLeft}>
+        <span className={styles.todaysKicker}>Today's Picks</span>
+        <h2 className={styles.todaysTitle}>
+          Tiered by conviction — not all picks are equal.
+        </h2>
+        <p className={styles.todaysCopy}>
+          Top Plays represent the highest-conviction edges. Additional picks reflect
+          broader coverage across today's slate with varying confidence levels.
+        </p>
+      </div>
+      <span className={styles.todaysCountPill}>
+        <span className={styles.todaysCountLabel}>Published</span>
+        <span className={styles.todaysCountValue}>{totalPicks}</span>
+      </span>
+    </header>
+  );
+}
+
+function FramingBlock() {
+  return (
+    <div className={styles.framingBlock}>
+      <span className={styles.framingKicker}>Today's Picks</span>
+      <p className={styles.framingCopy}>
+        Top Plays represent the highest-conviction edges. Additional picks reflect broader
+        coverage across today's slate with varying confidence levels.
+      </p>
+    </div>
   );
 }
 

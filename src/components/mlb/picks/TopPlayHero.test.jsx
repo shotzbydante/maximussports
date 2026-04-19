@@ -56,4 +56,9 @@ describe('TopPlayHero', () => {
     const html = renderToStaticMarkup(<TopPlayHero pick={samplePick()} featured />);
     expect(html).toMatch(/Elite/);
   });
+
+  it('renders the reinforcement line', () => {
+    const html = renderToStaticMarkup(<TopPlayHero pick={samplePick()} featured />);
+    expect(html).toMatch(/strongest recommendation/);
+  });
 });
