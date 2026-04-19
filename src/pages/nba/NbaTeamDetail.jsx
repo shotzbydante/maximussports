@@ -139,14 +139,14 @@ function ScheduleSection({ events }) {
                             {lost && <span className={`${styles.wlBadge} ${styles.wlLoss}`}>L</span>}
                           </>
                         ) : (
-                          <span className={styles.schedDash}>\u2014</span>
+                          <span className={styles.schedDash}>&mdash;</span>
                         )}
                       </span>
                       <span className={styles.schedColStatus}>
                         <GameStatusBadge ev={ev} />
                       </span>
                       <span className={styles.schedColNetwork}>
-                        {ev.network ? <span className={styles.networkBadge}>{ev.network}</span> : <span className={styles.schedMuted}>\u2014</span>}
+                        {ev.network ? <span className={styles.networkBadge}>{ev.network}</span> : <span className={styles.schedMuted}>&mdash;</span>}
                       </span>
                       <span className={styles.schedColLink}>
                         {ev.gamecastUrl && (
