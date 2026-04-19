@@ -78,6 +78,7 @@ export function useMlbPicks({ endpoint = '/api/mlb/picks/built' } = {}) {
     scorecardSummary: payload?.scorecardSummary || null,
     topPick,
     tiers,
+    coverage: Array.isArray(payload?.coverage) ? payload.coverage : [],
     meta: payload?.meta || null,
     modelVersion: payload?.modelVersion || null,
     configVersion: payload?.configVersion || null,

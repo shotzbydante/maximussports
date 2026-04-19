@@ -120,6 +120,8 @@ export default function TopPlayHero({ pick, featured = false, relativeStrength =
         </ul>
       )}
 
+      <p className={styles.reinforce}>The model's strongest recommendation today.</p>
+
       <footer className={styles.metrics}>
         {edgePct != null && <Metric label="Edge" value={edgePct} />}
         {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}

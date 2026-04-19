@@ -161,6 +161,22 @@ export function buildMlbPicksV2({
   meta.picksPublished = assigned.published.length;
   const topPick = assigned.tier1[0] || assigned.tier2[0] || null;
 
+  // ── Coverage pool ────────────────────────────────────────────────────────
+  // Additional graded candidates that did NOT clear any tier threshold but
+  // still have a meaningful bet-score. The UI uses this pool to guarantee
+  // minimum coverage (5–10 picks/day) without altering tier assignments.
+  // These are explicitly LOWER-CONFIDENCE and must be rendered with weaker
+  // visual emphasis and framing copy.
+  const publishedIds = new Set(assigned.published.map(p => p.id));
+  const COVERAGE_MIN_SCORE = 0.30;
+  const COVERAGE_MAX_PICKS = 15;
+  const coverage = allPickCandidates
+    .filter(p => !publishedIds.has(p.id) && (p.betScore?.total ?? 0) >= COVERAGE_MIN_SCORE)
+    .map(p => ({ ...p, tier: 'coverage', _coverage: true }))
+    .sort((a, b) => (b.betScore?.total ?? 0) - (a.betScore?.total ?? 0))
+    .slice(0, COVERAGE_MAX_PICKS);
+  meta.coverageAvailable = coverage.length;
+
   // Build legacy.categories for back-compat
   const legacy = buildLegacyCategories(assigned.published);
 
@@ -176,6 +192,7 @@ export function buildMlbPicksV2({
       tier2: assigned.tier2,
       tier3: assigned.tier3,
     },
+    coverage,
     scorecardSummary: scorecardSummary || null,
     meta,
     // Back-compat — mirror of v1 shape driven from the same picks.

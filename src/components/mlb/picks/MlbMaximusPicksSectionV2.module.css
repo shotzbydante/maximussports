@@ -51,6 +51,115 @@
 }
 .headerCta:hover { background: #d1dbf0; transform: translateX(2px); }
 
+/* ── Today's Picks header (Odds Insights) ── */
+.todaysHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  margin: 0 0 12px;
+  background: var(--picks-glass-bg-strong);
+  border: 1px solid var(--picks-glass-border);
+  border-left-width: 3px;
+  border-left-color: var(--picks-gold);
+  border-radius: var(--picks-radius-lg);
+  backdrop-filter: blur(10px);
+}
+
+.todaysHeaderLeft { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.todaysKicker {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--picks-gold);
+}
+
+.todaysTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--picks-ink);
+  line-height: 1.2;
+}
+
+.todaysCopy {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--picks-steel);
+  max-width: 640px;
+}
+
+.todaysCountPill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--picks-gold-soft);
+  border: 1px solid rgba(167,138,61,0.25);
+  border-radius: 999px;
+  font-family: var(--picks-font);
+}
+.todaysCountLabel {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--picks-gold);
+}
+.todaysCountValue {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--picks-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Home framing block (between HowItWorks and tiers) ── */
+.framingBlock {
+  padding: 10px 14px;
+  margin: 4px 0 8px;
+  background: var(--picks-fog);
+  border: 1px solid var(--picks-glass-border);
+  border-left: 3px solid var(--picks-gold);
+  border-radius: var(--picks-radius);
+}
+.framingKicker {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--picks-gold);
+  margin-bottom: 2px;
+}
+.framingCopy {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--picks-steel);
+}
+
+/* ── Why this matters (home header) ── */
+.whyThisMatters {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--picks-silver);
+  font-style: italic;
+}
+
+/* ── Home footer follow-line ── */
+.homeFollowLine {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--picks-silver);
+  text-align: right;
+}
+
 /* ── Intelligence grid — Performance + Audit side-by-side on desktop ── */
 .intelligenceGrid {
   display: grid;

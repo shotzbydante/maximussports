@@ -17,20 +17,26 @@ const TIER_META = {
   tier1: {
     title: 'Maximus Top Plays',
     kicker: 'Tier 1',
-    sub: 'Highest-conviction picks — model score ≥ 75 and top 10% of today\'s slate.',
+    sub: 'Highest-conviction opportunities — elite-band edges on today\'s slate.',
     variant: 'tier1',
   },
   tier2: {
     title: 'Strong Plays',
     kicker: 'Tier 2',
-    sub: 'Above-threshold edges with solid model + situational alignment.',
+    sub: 'Strong model-aligned edges with solid situational support.',
     variant: 'tier2',
   },
   tier3: {
     title: 'Leans',
     kicker: 'Tier 3',
-    sub: 'Softer edges. Directional value — not standalone bets.',
+    sub: 'Lower-confidence angles across the slate — optional, smaller-edge signals.',
     variant: 'tier3',
+  },
+  coverage: {
+    title: 'Expanded Coverage',
+    kicker: 'Broader slate',
+    sub: 'Lower-confidence signals from the model\'s broader candidate pool. Treat as optional, low-stakes reads only.',
+    variant: 'coverage',
   },
 };
 
@@ -125,12 +131,13 @@ export default function TierSection({ tier, cards = [], initialCollapsed = false
                   </span>
                 </div>
               )}
-              <div className={`${styles.grid} ${tier === 'tier3' ? styles.gridTier3 : ''}`}>
+              <div className={`${styles.grid} ${tier === 'tier3' || tier === 'coverage' ? styles.gridTier3 : ''}`}>
                 {sg.cards.map(c => (
                   <PickCardV2
                     key={c.primary.id}
                     pick={c.primary}
-                    tier={tier}
+                    // coverage cards render with tier-3 de-emphasis
+                    tier={tier === 'coverage' ? 'tier3' : tier}
                     siblings={c.siblings || []}
                     relativeStrength={c._relativeStrength || null}
                   />
