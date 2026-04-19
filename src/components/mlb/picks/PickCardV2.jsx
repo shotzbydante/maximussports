@@ -1,8 +1,11 @@
 /**
- * PickCardV2 — premium, glassy, default-expanded pick card.
+ * PickCardV2 — compact, glass, default-expanded pick card.
  *
- * Every numeric metric is explicitly labeled (Conviction / Edge / Confidence /
- * Bet Score). Conviction badge is cool-toned glass — no red/pink.
+ * One card per MATCHUP (not per pick). When a matchup has multiple qualifying
+ * markets, the primary is rendered large; siblings appear as compact rows.
+ *
+ * Every number carries an explicit label: Conviction / Edge / Confidence /
+ * Bet Score. Conviction badge is cool glass — no red/pink.
  */
 
 import { useState } from 'react';
@@ -21,22 +24,21 @@ function fmtPct(v, { sign = false } = {}) {
   return `${s}${n.toFixed(1)}%`;
 }
 
-const MARKET_LABEL = {
-  moneyline: 'Moneyline',
-  runline: 'Run Line',
+const MARKET_SHORT = {
+  moneyline: 'ML',
+  runline: 'Spread',
   total: 'Total',
 };
 
 const COMPONENT_META = [
-  { key: 'edgeStrength',      label: 'Edge' },
-  { key: 'modelConfidence',   label: 'Confidence' },
-  { key: 'situationalEdge',   label: 'Situation' },
-  { key: 'marketQuality',     label: 'Market' },
+  { key: 'edgeStrength',    label: 'Edge' },
+  { key: 'modelConfidence', label: 'Conf.' },
+  { key: 'situationalEdge', label: 'Sit.' },
+  { key: 'marketQuality',   label: 'Market' },
 ];
 
-export default function PickCardV2({ pick, tier }) {
-  // Cards default EXPANDED. Users can collapse after.
-  const [expanded, setExpanded] = useState(true);
+export default function PickCardV2({ pick, tier, siblings = [] }) {
+  const [expanded, setExpanded] = useState(true);   // default EXPANDED
 
   const awaySlug = pick.matchup?.awayTeam?.slug;
   const homeSlug = pick.matchup?.homeTeam?.slug;
@@ -47,9 +49,8 @@ export default function PickCardV2({ pick, tier }) {
   const time = fmtTime(pick.matchup?.startTime);
   const label = pick.selection?.label || pick.pick?.label || '';
   const marketType = pick.market?.type || pick.pick?.marketType;
-  const marketLabel = MARKET_LABEL[marketType] || marketType;
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
-  const bullets = (pick.rationale?.bullets || []).slice(0, 3);
+  const bullets = (pick.rationale?.bullets || []).slice(0, 2);
 
   const conviction = pick.conviction?.score ?? Math.round((pick.betScore?.total ?? 0) * 100);
   const betScore = Math.round((pick.betScore?.total ?? 0) * 100);
@@ -63,46 +64,42 @@ export default function PickCardV2({ pick, tier }) {
     : tier === 'tier2' ? styles.cardTier2
     : styles.cardTier3;
 
-  // Historical result
   const result = pick.result?.status || pick.pick_results?.[0]?.status;
   const resultBadge = result === 'won' ? <span className={`${styles.resultBadge} ${styles.resultWon}`}>Won</span>
     : result === 'lost' ? <span className={`${styles.resultBadge} ${styles.resultLost}`}>Lost</span>
     : result === 'push' ? <span className={`${styles.resultBadge} ${styles.resultPush}`}>Push</span>
     : null;
 
-  // Cross-reference annotations from withTopPickCrossReference()
   const isTopPick = pick._isTopPick;
-  const sharesTopMatchup = pick._sharesTopMatchup;
+  const doubleheader = pick._doubleheaderGame;
 
   return (
     <article className={`${styles.card} ${tierClass} ${isTopPick ? styles.cardIsTop : ''}`}>
       <div className={styles.glassFrame} aria-hidden="true" />
 
-      {/* ── Meta row (matchup + tags) ── */}
-      <header className={styles.meta}>
-        <span className={styles.matchupMeta}>
-          {awayLogo && <img src={awayLogo} alt="" width={18} height={18} className={styles.miniLogo} loading="lazy" />}
+      {/* ── Top row: matchup + tags (single line, tight) ── */}
+      <header className={styles.topRow}>
+        <span className={styles.matchup}>
+          {awayLogo && <img src={awayLogo} alt="" width={16} height={16} className={styles.miniLogo} loading="lazy" />}
           <span className={styles.teamMini}>{away}</span>
           <span className={styles.atMini}>@</span>
-          {homeLogo && <img src={homeLogo} alt="" width={18} height={18} className={styles.miniLogo} loading="lazy" />}
+          {homeLogo && <img src={homeLogo} alt="" width={16} height={16} className={styles.miniLogo} loading="lazy" />}
           <span className={styles.teamMini}>{home}</span>
         </span>
-        <div className={styles.tagRow}>
-          {marketLabel && <span className={styles.mktTag}>{marketLabel}</span>}
+        <div className={styles.tags}>
+          {doubleheader && <span className={styles.dhTag}>Game {doubleheader}</span>}
           {isTopPick && <span className={styles.topTag}>★ Top Play</span>}
-          {sharesTopMatchup && !isTopPick && <span className={styles.linkedTag}>Linked to Top Play</span>}
           {time && <span className={styles.time}>{time}</span>}
         </div>
       </header>
 
-      {/* ── The pick itself ── */}
+      {/* ── Pick row: label + conviction + result ── */}
       <div className={styles.pickRow}>
-        <div className={styles.pickLabelBlock}>
-          <span className={styles.pickLabelKicker}>Selection</span>
-          <span className={styles.pickLabel}>{label}</span>
+        <span className={styles.pickLabel}>{label}</span>
+        <div className={styles.pickRowRight}>
+          {resultBadge}
+          <ConvictionBadge value={conviction} tier={tier} />
         </div>
-        <ConvictionBadge value={conviction} tier={tier} />
-        {resultBadge}
       </div>
 
       {/* ── Editorial rationale ── */}
@@ -111,18 +108,19 @@ export default function PickCardV2({ pick, tier }) {
       {/* ── Expanded detail (default open) ── */}
       <div className={`${styles.detail} ${expanded ? styles.detailOpen : styles.detailClosed}`}>
         <div className={styles.detailInner}>
-          {/* Metrics row — explicit labels */}
+
+          {/* Metrics strip — explicit labels, inline */}
           <div className={styles.metrics}>
-            {edgePct != null && <MetricChip label="Edge" value={edgePct} />}
-            {confidencePct != null && <MetricChip label="Confidence" value={`${confidencePct}%`} />}
-            <MetricChip label="Bet Score" value={betScore} emphasize />
+            {edgePct != null && <Metric label="Edge" value={edgePct} />}
+            {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
+            <Metric label="Bet Score" value={betScore} emphasize />
           </div>
 
-          {/* Component bar with labels */}
-          {components && (
-            <div className={styles.componentBar} aria-label="Bet-score components breakdown">
+          {/* Compact inline component bar (tier 1+2 only) */}
+          {components && tier !== 'tier3' && (
+            <div className={styles.componentBar}>
               <span className={styles.componentTitle}>Score Composition</span>
-              <div className={styles.componentSegments}>
+              <div className={styles.componentStrip}>
                 {COMPONENT_META.map(c => (
                   <ComponentSegment key={c.key} label={c.label} value={components[c.key]} />
                 ))}
@@ -134,6 +132,14 @@ export default function PickCardV2({ pick, tier }) {
             <ul className={styles.bullets}>
               {bullets.map((b, i) => <li key={i}>{b}</li>)}
             </ul>
+          )}
+
+          {/* Sibling markets from the SAME matchup — compact rows */}
+          {siblings.length > 0 && (
+            <div className={styles.siblings}>
+              <span className={styles.siblingsTitle}>Also from this matchup</span>
+              {siblings.map(s => <SiblingRow key={s.id} pick={s} />)}
+            </div>
           )}
         </div>
       </div>
@@ -154,9 +160,25 @@ export default function PickCardV2({ pick, tier }) {
   );
 }
 
-function MetricChip({ label, value, emphasize }) {
+function SiblingRow({ pick }) {
+  const mkt = MARKET_SHORT[pick.market?.type] || pick.market?.type || '';
+  const label = pick.selection?.label || pick.pick?.label || '';
+  const score = Math.round((pick.betScore?.total ?? 0) * 100);
   return (
-    <div className={`${styles.metricChip} ${emphasize ? styles.metricEmphasize : ''}`}>
+    <div className={styles.sibling}>
+      <span className={styles.siblingMkt}>{mkt}</span>
+      <span className={styles.siblingLabel}>{label}</span>
+      <span className={styles.siblingScore}>
+        <span className={styles.siblingScoreLabel}>Bet Score</span>
+        <span className={styles.siblingScoreValue}>{score}</span>
+      </span>
+    </div>
+  );
+}
+
+function Metric({ label, value, emphasize }) {
+  return (
+    <div className={`${styles.metric} ${emphasize ? styles.metricEmphasize : ''}`}>
       <span className={styles.metricLabel}>{label}</span>
       <span className={styles.metricValue}>{value}</span>
     </div>
@@ -167,21 +189,18 @@ function ComponentSegment({ label, value }) {
   const pct = Math.max(0, Math.min(1, value || 0));
   return (
     <div className={styles.segment}>
-      <div className={styles.segmentHead}>
-        <span className={styles.segmentLabel}>{label}</span>
-        <span className={styles.segmentValue}>{Math.round(pct * 100)}</span>
-      </div>
       <div className={styles.segmentTrack}>
         <div className={styles.segmentFill} style={{ width: `${pct * 100}%` }} />
       </div>
+      <span className={styles.segmentLabel}>{label}</span>
     </div>
   );
 }
 
 function ConvictionBadge({ value, tier }) {
+  const tierClass = tier === 'tier1' ? styles.convictionT1 : tier === 'tier2' ? styles.convictionT2 : styles.convictionT3;
   return (
-    <div className={`${styles.conviction} ${tier === 'tier1' ? styles.convictionT1 : tier === 'tier2' ? styles.convictionT2 : styles.convictionT3}`}
-         aria-label={`Conviction score ${value} out of 100`}>
+    <div className={`${styles.conviction} ${tierClass}`} aria-label={`Conviction ${value} out of 100`}>
       <span className={styles.convictionLabel}>Conviction</span>
       <span className={styles.convictionValue}>{value}</span>
     </div>

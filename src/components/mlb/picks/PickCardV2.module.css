@@ -1,16 +1,17 @@
+/* ── Card base ───────────────────────────────────────────────────────────── */
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px 12px;
+  gap: 6px;                                     /* was 10px */
+  padding: 11px 13px 9px;                       /* was 14/16/12 */
   border-radius: var(--picks-radius-lg);
   background: var(--picks-glass-bg-strong);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--picks-glass-border);
   box-shadow: var(--picks-glass-shadow);
-  transition: box-shadow 200ms var(--picks-ease), transform 200ms var(--picks-ease);
+  transition: box-shadow 180ms var(--picks-ease), transform 180ms var(--picks-ease);
   overflow: hidden;
   isolation: isolate;
 }
@@ -26,86 +27,84 @@
 }
 .card > * { position: relative; z-index: 1; }
 
-/* ── Tier accents — top border strip ── */
-.cardTier1 { border-top: 2px solid transparent; background-image: var(--picks-tier1-edge), var(--picks-glass-bg-strong); background-origin: border-box; background-clip: border-box, padding-box; }
-.cardTier1 { background: linear-gradient(var(--picks-glass-bg-strong), var(--picks-glass-bg-strong)) padding-box, var(--picks-tier1-edge) border-box; border: 1px solid transparent; border-top-width: 2px; }
-.cardTier2 { border-top: 2px solid #4766b0; }
-.cardTier3 { border-top: 2px solid #8a97ae; background: var(--picks-tier3-grad); }
+/* ── Tier accents ───────────────────────────────────────────────────────── */
+.cardTier1 { border-top: 2px solid transparent; background: linear-gradient(var(--picks-glass-bg-strong), var(--picks-glass-bg-strong)) padding-box, var(--picks-tier1-edge) border-box; border-width: 1px; border-top-width: 2px; }
+.cardTier2 { border-top: 2px solid var(--picks-accent); }
+.cardTier3 { border-top: 2px solid var(--picks-silver); background: var(--picks-tier3-grad); padding: 10px 12px 8px; gap: 5px; }
 
-.cardIsTop {
-  box-shadow: 0 4px 12px rgba(167,138,61,0.12), var(--picks-glass-shadow-strong);
-}
+.cardIsTop { box-shadow: 0 4px 10px rgba(167,138,61,0.12), var(--picks-glass-shadow-strong); }
 
-/* ── Meta row ── */
-.meta {
+/* ── Top row: matchup + tags ───────────────────────────────────────────── */
+.topRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 18px;
   flex-wrap: wrap;
 }
 
-.matchupMeta {
+.matchup {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--picks-slate);
+  min-width: 0;
 }
-.miniLogo { border-radius: 3px; background: var(--picks-fog); padding: 1px; }
+
+.miniLogo { border-radius: 3px; background: var(--picks-fog); padding: 0; }
 .teamMini { font-weight: 800; color: var(--picks-ink); letter-spacing: 0.02em; }
-.atMini { color: var(--picks-silver); font-weight: 500; }
+.atMini { color: var(--picks-silver); font-weight: 500; padding: 0 1px; }
 
-.tagRow { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-.mktTag, .topTag, .linkedTag, .time {
+.tags {
   display: inline-flex;
   align-items: center;
-  height: 20px;
-  padding: 0 8px;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.topTag, .dhTag, .time {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   border-radius: 999px;
   white-space: nowrap;
 }
-.mktTag { background: var(--picks-fog); color: var(--picks-slate); border: 1px solid var(--picks-glass-border); }
-.topTag { background: var(--picks-gold-soft); color: var(--picks-gold); border: 1px solid rgba(167,138,61,0.3); }
-.linkedTag { background: var(--picks-accent-soft); color: var(--picks-accent); }
-.time { background: transparent; color: var(--picks-silver); text-transform: none; font-weight: 500; letter-spacing: 0.02em; }
 
-/* ── Pick row ── */
+.topTag { background: var(--picks-gold-soft); color: var(--picks-gold); border: 1px solid rgba(167,138,61,0.3); }
+.dhTag  { background: var(--picks-accent-soft); color: var(--picks-accent); border: 1px solid rgba(71,102,176,0.2); }
+.time   { background: transparent; color: var(--picks-silver); text-transform: none; font-weight: 500; letter-spacing: 0.02em; padding: 0 4px; }
+
+/* ── Pick row ───────────────────────────────────────────────────────────── */
 .pickRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.pickLabelBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.pickLabelKicker {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--picks-silver);
-}
-
 .pickLabel {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--picks-ink);
   line-height: 1.1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pickRowRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ── Conviction badge — cool glass, no red ── */
@@ -114,8 +113,8 @@
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  padding: 6px 12px;
-  min-width: 86px;
+  padding: 5px 10px;
+  min-width: 72px;
   border-radius: var(--picks-radius);
   background: var(--picks-conv-bg);
   border: 1px solid var(--picks-conv-border);
@@ -123,7 +122,7 @@
 }
 
 .convictionLabel {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -132,13 +131,13 @@
 }
 
 .convictionValue {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--picks-ink);
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .convictionT1 {
@@ -148,20 +147,20 @@
 .convictionT1 .convictionValue { color: var(--picks-conv-t1-ink); }
 .convictionT1 .convictionLabel { color: #6b5a2e; }
 
-.convictionT2 { /* default silver */ }
-
 .convictionT3 {
   background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(242,244,248,0.85));
   border-color: rgba(90,107,133,0.3);
+  min-width: 62px;
+  padding: 4px 8px;
 }
-.convictionT3 .convictionValue { color: var(--picks-slate); font-size: 18px; }
+.convictionT3 .convictionValue { color: var(--picks-slate); font-size: 15px; }
 
-/* ── Result badge ── */
+/* ── Result badge ───────────────────────────────────────────────────────── */
 .resultBadge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 10px;
+  padding: 3px 8px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -171,98 +170,93 @@
 .resultLost { background: var(--picks-rose-soft); color: var(--picks-rose); }
 .resultPush { background: var(--picks-fog); color: var(--picks-steel); }
 
-/* ── Headline ── */
+/* ── Headline ───────────────────────────────────────────────────────────── */
 .headline {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.4;
   color: var(--picks-slate);
   font-style: italic;
 }
 
-/* ── Detail expand/collapse with smooth transition ── */
+/* ── Detail expand/collapse ─────────────────────────────────────────────── */
 .detail {
   display: grid;
-  transition: grid-template-rows 250ms var(--picks-ease), opacity 250ms var(--picks-ease);
+  transition: grid-template-rows 220ms var(--picks-ease), opacity 220ms var(--picks-ease);
 }
-.detailOpen {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-.detailClosed {
-  grid-template-rows: 0fr;
-  opacity: 0;
-}
+.detailOpen  { grid-template-rows: 1fr; opacity: 1; }
+.detailClosed { grid-template-rows: 0fr; opacity: 0; }
 .detailInner {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
 }
 
-/* ── Metrics chips ── */
+/* ── Metrics strip ──────────────────────────────────────────────────────── */
 .metrics {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
-.metricChip {
+.metric {
   display: inline-flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 6px 12px;
+  gap: 0;
+  padding: 4px 9px;
   background: rgba(255,255,255,0.8);
   border: 1px solid var(--picks-glass-border);
-  border-radius: var(--picks-radius);
+  border-radius: 7px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
 }
 
 .metricEmphasize {
-  background: linear-gradient(135deg, rgba(71,102,176,0.10), rgba(226,232,246,0.9));
-  border-color: rgba(71,102,176,0.25);
+  background: linear-gradient(135deg, rgba(71,102,176,0.1), rgba(226,232,246,0.9));
+  border-color: rgba(71,102,176,0.22);
 }
 
 .metricLabel {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--picks-silver);
+  line-height: 1.05;
 }
 
 .metricValue {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--picks-ink);
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
 }
-
 .metricEmphasize .metricValue { color: var(--picks-accent); }
 
-/* ── Component bar ── */
+/* ── Component bar (horizontal inline) ──────────────────────────────────── */
 .componentBar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  background: rgba(247,249,252,0.8);
+  gap: 4px;
+  padding: 7px 10px 8px;
+  background: rgba(247,249,252,0.75);
   border-radius: var(--picks-radius);
   border: 1px solid var(--picks-glass-border);
 }
 
 .componentTitle {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--picks-silver);
 }
 
-.componentSegments {
+.componentStrip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -270,30 +264,16 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
-.segmentHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.segmentLabel {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--picks-slate);
-  letter-spacing: 0.02em;
-}
-.segmentValue {
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--picks-ink);
-  font-variant-numeric: tabular-nums;
-}
+
 .segmentTrack {
-  height: 5px;
+  height: 4px;
   background: var(--picks-haze);
   border-radius: 999px;
   overflow: hidden;
 }
+
 .segmentFill {
   height: 100%;
   background: linear-gradient(90deg, var(--picks-accent), var(--picks-accent-bright));
@@ -301,39 +281,112 @@
   transition: width 260ms var(--picks-ease);
 }
 
-/* ── Supporting bullets ── */
+.segmentLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--picks-silver);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* ── Bullets ────────────────────────────────────────────────────────────── */
 .bullets {
   margin: 0;
-  padding: 0 0 0 16px;
+  padding: 0 0 0 14px;
   list-style: none;
 }
 .bullets li {
   position: relative;
-  margin-bottom: 3px;
-  padding-left: 10px;
-  font-size: 12px;
-  line-height: 1.45;
+  margin-bottom: 2px;
+  padding-left: 8px;
+  font-size: 11.5px;
+  line-height: 1.4;
   color: var(--picks-steel);
 }
 .bullets li::before {
   content: '';
   position: absolute;
-  left: -6px; top: 7px;
-  width: 4px; height: 4px;
+  left: -6px; top: 6px;
+  width: 3px; height: 3px;
   background: var(--picks-accent);
   border-radius: 50%;
   opacity: 0.8;
 }
 
-/* ── Toggle ── */
+/* ── Sibling picks — same matchup, smaller rows ─────────────────────────── */
+.siblings {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px 4px;
+  border-top: 1px dashed var(--picks-glass-border);
+}
+.siblingsTitle {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+.sibling {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid var(--picks-glass-border);
+  border-radius: 6px;
+}
+.siblingMkt {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  min-width: 46px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--picks-slate);
+  background: var(--picks-fog);
+  border-radius: 4px;
+}
+.siblingLabel {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--picks-ink);
+  min-width: 0;
+  letter-spacing: -0.01em;
+}
+.siblingScore {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.siblingScoreLabel {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--picks-silver);
+}
+.siblingScoreValue {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--picks-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Toggle ─────────────────────────────────────────────────────────────── */
 .toggle {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 0;
-  margin-top: 2px;
-  font-size: 11px;
+  margin-top: 0;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--picks-silver);
@@ -347,13 +400,13 @@
 .chevron { transition: transform 200ms var(--picks-ease); }
 .chevronUp { transform: rotate(180deg); transition: transform 200ms var(--picks-ease); }
 
-/* ── Tier 3 compacter look ── */
-.cardTier3 { padding: 12px 14px 10px; }
-.cardTier3 .pickLabel { font-size: 18px; }
-.cardTier3 .headline { font-size: 12px; }
+/* ── Tier 3 compacter ───────────────────────────────────────────────────── */
+.cardTier3 .pickLabel { font-size: 16px; }
+.cardTier3 .headline { font-size: 11.5px; }
 .cardTier3 .componentBar { display: none; }
+.cardTier3 .bullets li { font-size: 10.5px; }
 
 @media (max-width: 520px) {
-  .pickLabel { font-size: 19px; }
-  .card { padding: 12px 14px 10px; }
+  .pickLabel { font-size: 17px; }
+  .card { padding: 10px 12px 8px; }
 }
