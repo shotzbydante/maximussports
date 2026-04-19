@@ -1,15 +1,17 @@
 /**
- * PickCardV2 — compact, glass, default-expanded pick card.
+ * PickCardV2 — compact, glass, default-expanded matchup card.
  *
- * One card per MATCHUP (not per pick). When a matchup has multiple qualifying
- * markets, the primary is rendered large; siblings appear as compact rows.
- *
- * Every number carries an explicit label: Conviction / Edge / Confidence /
- * Bet Score. Conviction badge is cool glass — no red/pink.
+ * Adds:
+ *   - "Recommended" kicker above the pick label (explicit action framing)
+ *   - Conviction tier word ("Elite" / "Strong" / "Solid" / "Lean") next to
+ *     the numeric score, derived from convictionTier().
+ *   - Stronger hierarchy for sibling rows — indent, smaller type, muted
+ *     treatment so they're clearly secondary to the primary pick.
  */
 
 import { useState } from 'react';
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
 import styles from './PickCardV2.module.css';
 
 function fmtTime(iso) {
@@ -38,7 +40,7 @@ const COMPONENT_META = [
 ];
 
 export default function PickCardV2({ pick, tier, siblings = [] }) {
-  const [expanded, setExpanded] = useState(true);   // default EXPANDED
+  const [expanded, setExpanded] = useState(true);
 
   const awaySlug = pick.matchup?.awayTeam?.slug;
   const homeSlug = pick.matchup?.homeTeam?.slug;
@@ -48,7 +50,6 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
   const home = pick.matchup?.homeTeam?.shortName || 'HOM';
   const time = fmtTime(pick.matchup?.startTime);
   const label = pick.selection?.label || pick.pick?.label || '';
-  const marketType = pick.market?.type || pick.pick?.marketType;
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
   const bullets = (pick.rationale?.bullets || []).slice(0, 2);
 
@@ -58,6 +59,7 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
   const edgePct = pick.rawEdge != null ? fmtPct(pick.rawEdge, { sign: true }) : null;
   const confidencePct = components?.modelConfidence != null
     ? Math.round(components.modelConfidence * 100) : null;
+  const tierLabel = convictionTier(conviction);
 
   const tierClass =
     tier === 'tier1' ? styles.cardTier1
@@ -77,7 +79,6 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
     <article className={`${styles.card} ${tierClass} ${isTopPick ? styles.cardIsTop : ''}`}>
       <div className={styles.glassFrame} aria-hidden="true" />
 
-      {/* ── Top row: matchup + tags (single line, tight) ── */}
       <header className={styles.topRow}>
         <span className={styles.matchup}>
           {awayLogo && <img src={awayLogo} alt="" width={16} height={16} className={styles.miniLogo} loading="lazy" />}
@@ -93,30 +94,28 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
         </div>
       </header>
 
-      {/* ── Pick row: label + conviction + result ── */}
       <div className={styles.pickRow}>
-        <span className={styles.pickLabel}>{label}</span>
+        <div className={styles.pickLabelBlock}>
+          <span className={styles.recommendedKicker}>Recommended</span>
+          <span className={styles.pickLabel}>{label}</span>
+        </div>
         <div className={styles.pickRowRight}>
           {resultBadge}
-          <ConvictionBadge value={conviction} tier={tier} />
+          <ConvictionBadge value={conviction} tier={tier} tierLabel={tierLabel} />
         </div>
       </div>
 
-      {/* ── Editorial rationale ── */}
       {headline && <p className={styles.headline}>{headline}</p>}
 
-      {/* ── Expanded detail (default open) ── */}
       <div className={`${styles.detail} ${expanded ? styles.detailOpen : styles.detailClosed}`}>
         <div className={styles.detailInner}>
 
-          {/* Metrics strip — explicit labels, inline */}
           <div className={styles.metrics}>
             {edgePct != null && <Metric label="Edge" value={edgePct} />}
             {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
             <Metric label="Bet Score" value={betScore} emphasize />
           </div>
 
-          {/* Compact inline component bar (tier 1+2 only) */}
           {components && tier !== 'tier3' && (
             <div className={styles.componentBar}>
               <span className={styles.componentTitle}>Score Composition</span>
@@ -134,11 +133,15 @@ export default function PickCardV2({ pick, tier, siblings = [] }) {
             </ul>
           )}
 
-          {/* Sibling markets from the SAME matchup — compact rows */}
           {siblings.length > 0 && (
             <div className={styles.siblings}>
-              <span className={styles.siblingsTitle}>Also from this matchup</span>
-              {siblings.map(s => <SiblingRow key={s.id} pick={s} />)}
+              <div className={styles.siblingsHeader}>
+                <span className={styles.siblingsTitle}>Also from this matchup</span>
+                <span className={styles.siblingsCount}>{siblings.length}</span>
+              </div>
+              <div className={styles.siblingsList}>
+                {siblings.map(s => <SiblingRow key={s.id} pick={s} />)}
+              </div>
             </div>
           )}
         </div>
@@ -164,13 +167,18 @@ function SiblingRow({ pick }) {
   const mkt = MARKET_SHORT[pick.market?.type] || pick.market?.type || '';
   const label = pick.selection?.label || pick.pick?.label || '';
   const score = Math.round((pick.betScore?.total ?? 0) * 100);
+  const tierLabel = convictionTier(score);
   return (
-    <div className={styles.sibling}>
+    <div className={styles.sibling} title={convictionDescription(score)}>
+      <span className={styles.siblingBar} aria-hidden="true" />
       <span className={styles.siblingMkt}>{mkt}</span>
       <span className={styles.siblingLabel}>{label}</span>
-      <span className={styles.siblingScore}>
-        <span className={styles.siblingScoreLabel}>Bet Score</span>
-        <span className={styles.siblingScoreValue}>{score}</span>
+      <span className={styles.siblingMeta}>
+        <span className={`${styles.siblingTier} ${styles[`siblingTier_${tierLabel.variant}`]}`}>{tierLabel.label}</span>
+        <span className={styles.siblingScore}>
+          <span className={styles.siblingScoreLabel}>Score</span>
+          <span className={styles.siblingScoreValue}>{score}</span>
+        </span>
       </span>
     </div>
   );
@@ -197,12 +205,21 @@ function ComponentSegment({ label, value }) {
   );
 }
 
-function ConvictionBadge({ value, tier }) {
+function ConvictionBadge({ value, tier, tierLabel }) {
   const tierClass = tier === 'tier1' ? styles.convictionT1 : tier === 'tier2' ? styles.convictionT2 : styles.convictionT3;
   return (
-    <div className={`${styles.conviction} ${tierClass}`} aria-label={`Conviction ${value} out of 100`}>
-      <span className={styles.convictionLabel}>Conviction</span>
-      <span className={styles.convictionValue}>{value}</span>
+    <div
+      className={`${styles.conviction} ${tierClass}`}
+      aria-label={convictionDescription(value)}
+      title={convictionDescription(value)}
+    >
+      <span className={styles.convictionTop}>
+        <span className={styles.convictionLabel}>Conviction</span>
+        <span className={styles.convictionValue}>{value}</span>
+      </span>
+      <span className={`${styles.convictionTierLabel} ${styles[`convictionTier_${tierLabel.variant}`]}`}>
+        {tierLabel.label}
+      </span>
     </div>
   );
 }

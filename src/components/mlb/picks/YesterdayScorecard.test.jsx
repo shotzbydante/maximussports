@@ -23,11 +23,30 @@ function sampleSummary() {
 }
 
 describe('YesterdayScorecard', () => {
-  it('renders the record, win rate, and Top Play intent when summary is injected', () => {
+  it('renders the record and win rate when summary is injected', () => {
     const html = renderToStaticMarkup(<YesterdayScorecard summary={sampleSummary()} />);
     expect(html).toMatch(/3-1/);
     expect(html).toMatch(/75% win rate/);
-    expect(html).toMatch(/Top Play hit/);
+  });
+
+  it('renders the editorial Takeaway line', () => {
+    const html = renderToStaticMarkup(<YesterdayScorecard summary={sampleSummary()} />);
+    expect(html).toMatch(/Takeaway/);
+    // With topPlayResult:'won' and 3-1 record, takeaway mentions Top Play cashed
+    expect(html).toMatch(/Top Play cashed/);
+  });
+
+  it('renders the streak chip when streak.count ≥ 2', () => {
+    const html = renderToStaticMarkup(<YesterdayScorecard summary={sampleSummary()} />);
+    expect(html).toMatch(/2-day winning run/);
+  });
+
+  it('renders the trailing-3d chip when provided', () => {
+    const s = { ...sampleSummary(), trailing3d: { won: 8, lost: 4, push: 0 } };
+    const html = renderToStaticMarkup(<YesterdayScorecard summary={s} />);
+    expect(html).toMatch(/Last 3 days/);
+    expect(html).toMatch(/8-4/);
+    expect(html).toMatch(/67%/);
   });
 
   it('renders the market chips with friendly labels in page mode', () => {

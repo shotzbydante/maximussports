@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 22px 24px 20px;
+  padding: 24px 26px 22px;
   margin: 0 0 var(--picks-gap-lg);
   border-radius: var(--picks-radius-xl);
   background: var(--picks-tier1-grad);
@@ -11,48 +11,62 @@
   box-shadow: var(--picks-glass-shadow-strong);
   isolation: isolate;
   overflow: hidden;
+  animation: heroRise 480ms var(--picks-ease);
 }
 
 .heroFeatured {
-  min-height: 260px;
-  padding: 26px 28px 22px;
+  min-height: 280px;
+  padding: 30px 32px 26px;
 }
 
+@keyframes heroRise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Layered atmospherics ───────────────────────────────────────────────── */
 .gradient {
   position: absolute; inset: 0;
   background:
-    radial-gradient(800px 300px at 110% -20%, rgba(167,138,61,0.18), transparent 55%),
-    radial-gradient(500px 300px at -10% 120%, rgba(71,102,176,0.22), transparent 50%);
+    radial-gradient(900px 320px at 110% -20%, rgba(167,138,61,0.22), transparent 55%),
+    radial-gradient(520px 300px at -10% 120%, rgba(71,102,176,0.26), transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
-
 .glow {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 40%);
-  pointer-events: none;
-  z-index: 0;
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 40%);
+  pointer-events: none; z-index: 0;
 }
+.beam {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(234,227,204,0.6) 20%, rgba(234,227,204,0.9) 50%, rgba(234,227,204,0.6) 80%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+.hero > *:not(.beam):not(.gradient):not(.glow) { position: relative; z-index: 1; }
 
-.hero > * { position: relative; z-index: 1; }
-
+/* Header row ─────────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 
-.eyebrowRow { display: flex; align-items: center; gap: 10px; }
+.eyebrowRow { display: flex; align-items: center; gap: 8px; }
 
 .eyebrow {
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(234, 227, 204, 0.9);
+  color: rgba(234, 227, 204, 0.95);
 }
+
+.eyebrowDot { color: rgba(234,227,204,0.35); font-weight: 400; }
 
 .marketTag {
   display: inline-flex;
@@ -62,14 +76,14 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.88);
+  color: rgba(255,255,255,0.9);
   background: rgba(255,255,255,0.10);
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 999px;
   backdrop-filter: blur(8px);
 }
 
-/* ── Conviction badge — silver/brass glass, no red ── */
+/* Conviction badge ───────────────────────────────────────────────────── */
 .convictionBadge {
   display: inline-flex;
   flex-direction: column;
@@ -80,8 +94,10 @@
   background: var(--picks-conv-t1-bg);
   border: 1px solid var(--picks-conv-t1-border);
   box-shadow: var(--picks-conv-shadow);
-  min-width: 100px;
+  min-width: 116px;
 }
+
+.convictionTop { display: inline-flex; align-items: baseline; gap: 6px; }
 
 .convictionLabel {
   font-size: 9px;
@@ -94,16 +110,30 @@
 }
 
 .convictionValue {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--picks-conv-t1-ink);
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
 }
 
-/* ── Matchup line ── */
+.convictionTier {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--picks-conv-t1-ink);
+  opacity: 0.75;
+}
+
+.tier_elite  .convictionTier { color: #6b5a2e; opacity: 1; }
+.tier_strong .convictionTier { color: #6b5a2e; opacity: 0.9; }
+.tier_solid  .convictionTier { color: #6b5a2e; opacity: 0.7; }
+.tier_lean   .convictionTier { color: #6b5a2e; opacity: 0.55; }
+
+/* Matchup line ───────────────────────────────────────────────────────── */
 .matchupLine {
   display: flex;
   align-items: center;
@@ -113,67 +143,78 @@
 }
 
 .logo { border-radius: 5px; background: rgba(255,255,255,0.1); padding: 1px; }
-
-.team { font-weight: 800; letter-spacing: 0.02em; }
+.team { font-weight: 800; letter-spacing: 0.02em; font-size: 15px; }
 .at { color: rgba(255,255,255,0.5); font-weight: 500; padding: 0 2px; }
-.time { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 500; }
+.time { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.65); font-weight: 500; }
 
-/* ── Pick label ── */
-.pickRow { margin: 4px 0 2px; }
-
-.pickLabel {
-  display: inline-block;
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: #fff;
+/* Recommended block ─────────────────────────────────────────────────── */
+.recommendedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.10);
 }
 
-.heroFeatured .pickLabel { font-size: 38px; }
+.recommendedKicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(234,227,204,0.82);
+}
 
-/* ── Editorial rationale ── */
+.pickLabel {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  color: #fff;
+  margin-top: 4px;
+}
+.heroFeatured .pickLabel { font-size: 42px; }
+
+/* Rationale ──────────────────────────────────────────────────────────── */
 .headline {
-  margin: 0;
+  margin: 4px 0 0;
   font-size: 14px;
-  line-height: 1.5;
-  color: rgba(255,255,255,0.82);
+  line-height: 1.55;
+  color: rgba(255,255,255,0.85);
   font-style: italic;
-  max-width: 640px;
+  max-width: 680px;
 }
 
 .bullets {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   padding-left: 18px;
   list-style: none;
   position: relative;
 }
-
 .bullets li {
   position: relative;
   margin-bottom: 3px;
   padding-left: 8px;
   font-size: 13px;
-  line-height: 1.4;
-  color: rgba(255,255,255,0.72);
+  line-height: 1.45;
+  color: rgba(255,255,255,0.75);
 }
-
 .bullets li::before {
   content: '';
   position: absolute;
   left: -12px;
   top: 9px;
   width: 4px; height: 4px;
-  background: rgba(167,138,61,0.7);
+  background: rgba(167,138,61,0.75);
   border-radius: 50%;
 }
 
-/* ── Metrics footer ── */
+/* Metrics footer ─────────────────────────────────────────────────────── */
 .metrics {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 4px;
   padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,0.12);
 }
@@ -182,7 +223,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 2px 12px 2px 0;
+  padding: 2px 14px 2px 0;
   border-right: 1px solid rgba(255,255,255,0.08);
 }
 .metric:last-child { border-right: none; padding-right: 0; }
@@ -206,13 +247,15 @@
 .metricAccent .metricValue { color: rgba(234, 227, 204, 1); }
 
 @media (max-width: 620px) {
-  .hero { padding: 18px 18px 16px; }
-  .heroFeatured { min-height: unset; padding: 20px 20px 18px; }
-  .pickLabel, .heroFeatured .pickLabel { font-size: 26px; }
+  .hero { padding: 20px 20px 18px; }
+  .heroFeatured { min-height: unset; padding: 22px 22px 20px; }
+  .pickLabel { font-size: 28px; }
+  .heroFeatured .pickLabel { font-size: 32px; }
   .matchupLine { flex-wrap: wrap; font-size: 13px; }
+  .team { font-size: 14px; }
   .time { margin-left: 0; }
-  .metrics { gap: 8px; }
-  .metric { padding-right: 10px; }
-  .convictionValue { font-size: 22px; }
-  .convictionBadge { min-width: 86px; padding: 6px 10px; }
+  .metrics { gap: 10px; }
+  .metric { padding-right: 12px; }
+  .convictionValue { font-size: 20px; }
+  .convictionBadge { min-width: 100px; padding: 6px 12px; }
 }

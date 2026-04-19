@@ -1,16 +1,19 @@
 /**
- * YesterdayScorecard — premium glass strip summarizing yesterday's picks.
+ * YesterdayScorecard — premium glass strip with editorial takeaway.
  *
- * Consumes the canonical `scorecardSummary` from useMlbPicks() — no independent
- * fetch. When `summary` is omitted (legacy call site), falls back to fetching
- * /api/mlb/picks/scorecard once; deprecated path.
+ * New in this revision:
+ *   - scorecardTakeaway() one-liner (positive/negative/neutral tone)
+ *   - Optional trailing-3-day rolling record (rendered only if the backend
+ *     provides scorecardSummary.trailing3d)
+ *   - Streak elevated into a dedicated chip when meaningful (≥2)
  */
 
 import { useEffect, useState } from 'react';
+import { scorecardTakeaway, trailingRecord } from '../../../features/mlb/picks/scorecardTakeaway';
 import styles from './YesterdayScorecard.module.css';
 
 function Chip({ label, won, lost, push }) {
-  const hasData = won + lost + push > 0;
+  const hasData = (won + lost + push) > 0;
   return (
     <div className={styles.chip}>
       <span className={styles.chipLabel}>{label}</span>
@@ -21,15 +24,7 @@ function Chip({ label, won, lost, push }) {
   );
 }
 
-function resultIntent(topPlayResult) {
-  if (topPlayResult === 'won') return { text: 'Top Play hit', variant: 'won' };
-  if (topPlayResult === 'lost') return { text: 'Top Play missed', variant: 'loss' };
-  if (topPlayResult === 'push') return { text: 'Top Play pushed', variant: 'neutral' };
-  return null;
-}
-
 export default function YesterdayScorecard({ summary: injected, compact = false, dateOverride }) {
-  // ── Data resolution: injected > fetched fallback ──
   const [fetched, setFetched] = useState(null);
   const [loading, setLoading] = useState(!injected);
 
@@ -53,7 +48,7 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
   if (!card) return null;
 
   const overall = card.overall || { won: 0, lost: 0, push: 0, pending: 0 };
-  const graded = overall.won + overall.lost;
+  const graded = (overall.won ?? 0) + (overall.lost ?? 0);
   const bm = card.byMarket || {};
   const ml = bm.moneyline || {};
   const rl = bm.runline || {};
@@ -63,9 +58,17 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
     ? new Date(card.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
     : 'Yesterday';
 
-  const intent = resultIntent(card.topPlayResult);
   const record = graded > 0 ? `${overall.won}-${overall.lost}${overall.push ? `-${overall.push}` : ''}` : '—';
   const winPct = graded > 0 ? Math.round((overall.won / graded) * 100) : null;
+
+  const takeaway = scorecardTakeaway(card);
+  const trailing = trailingRecord(card, 'trailing3d');
+
+  const intentCls = takeaway.tone === 'positive' ? styles.intent_positive
+                  : takeaway.tone === 'negative' ? styles.intent_negative
+                  : styles.intent_neutral;
+
+  const streak = card.streak && (card.streak.count ?? 0) >= 2 ? card.streak : null;
 
   return (
     <section className={`${styles.scorecard} ${compact ? styles.compact : ''}`} aria-label="Yesterday's scorecard">
@@ -103,8 +106,31 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
           </div>
         )}
 
-        {intent && (
-          <span className={`${styles.intentPill} ${styles[`intent_${intent.variant}`]}`}>{intent.text}</span>
+        <div className={styles.metaRow}>
+          {streak && (
+            <span className={`${styles.streakChip} ${streak.type === 'won' ? styles.streak_won : streak.type === 'lost' ? styles.streak_lost : ''}`}>
+              <span className={styles.streakGlyph} aria-hidden="true">
+                {streak.type === 'won' ? '▲' : streak.type === 'lost' ? '▼' : '•'}
+              </span>
+              <span className={styles.streakLabel}>
+                {streak.count}-day {streak.type === 'won' ? 'winning run' : streak.type === 'lost' ? 'cold streak' : 'even streak'}
+              </span>
+            </span>
+          )}
+          {trailing && (
+            <span className={styles.trailingChip} title={`${trailing.label}: ${trailing.record} (${trailing.winRate}%)`}>
+              <span className={styles.trailingLabel}>{trailing.label}</span>
+              <span className={styles.trailingValue}>{trailing.record}</span>
+              <span className={styles.trailingPct}>{trailing.winRate}%</span>
+            </span>
+          )}
+        </div>
+
+        {takeaway.text && (
+          <p className={`${styles.takeaway} ${intentCls}`}>
+            <span className={styles.takeawayKicker}>Takeaway</span>
+            <span className={styles.takeawayText}>{takeaway.text}</span>
+          </p>
         )}
       </div>
     </section>
