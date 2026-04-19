@@ -962,17 +962,17 @@ export function buildIntelBriefingItems({
     const projBit = wins ? `, with the Maximus model projecting ${wins} wins` : '';
 
     if (teamTier === 'contender' && rank === 1 && (gb == null || gb === 0)) {
-      standingsText = `${recPart}, ${rankLabel} \u2014 leading the division${projBit}, and every series creates more separation between the ${sn} and the chasers.`;
+      standingsText = `${recPart}, ${rankLabel} \u2014 leading the division${projBit}, with every series creating more separation from the chasers.`;
     } else if (teamTier === 'contender' && gb === 0) {
-      standingsText = `${recPart}, ${rankLabel} \u2014 tied for the division lead${projBit}. The next two weeks decide whether the ${sn} create separation or get caught.`;
+      standingsText = `${recPart}, ${rankLabel} \u2014 tied for the division lead${projBit}. The next two weeks decide whether ${sn} create separation or get caught.`;
     } else if (teamTier === 'contender') {
-      standingsText = `${recPart}, ${rankLabel}, ${gb} ${gb === 1 ? 'game' : 'games'} back${projBit} \u2014 firmly in control of their own path, with every series creating real division weight.`;
+      standingsText = `${recPart}, ${rankLabel}, ${gb} ${gb === 1 ? 'game' : 'games'} back${projBit} \u2014 firmly in control of their path, with every series creating real division weight.`;
     } else if (teamTier === 'in_race' && gb != null) {
-      standingsText = `${recPart}, ${rankLabel}, sitting ${gb} games back${projBit} \u2014 firmly in the mix, but every loss puts more pressure on the next series as the ${division} tightens.`;
+      standingsText = `${recPart}, ${rankLabel}, ${gb} games back${projBit} \u2014 firmly in the mix, but every loss puts more pressure on the next series as the ${division} tightens.`;
     } else if (teamTier === 'falling_behind' && gb != null) {
-      standingsText = `${recPart}, ${rankLabel}, now ${gb} games off the pace in the ${division}${projBit} \u2014 the gap is becoming difficult to close, and only a sustained run keeps the ${sn} in the playoff conversation.`;
+      standingsText = `${recPart}, ${rankLabel}, ${gb} games off the pace in the ${division}${projBit} \u2014 the gap is widening, and only a sustained run keeps ${sn} in the playoff conversation.`;
     } else {
-      standingsText = `${recPart}, ${rankLabel}${projBit} \u2014 the next month puts real pressure on the ${sn} to define this season's identity.`;
+      standingsText = `${recPart}, ${rankLabel}${projBit} \u2014 the next month puts real pressure on ${sn} to define this season's identity.`;
     }
   } else if (recPart && division) {
     if (teamTier === 'contender') {
@@ -1073,13 +1073,13 @@ export function buildIntelBriefingItems({
     const oqWinFrame = (() => {
       if (opponentQuality === 'elite' || opponentQuality === 'strong') {
         return isDivisionGame
-          ? `a statement win against a division opponent that creates real standings weight in the ${division}`
+          ? `a statement win that creates real weight in the ${division} race`
           : `a statement win against a strong opponent that puts the league on notice`;
       }
       if (opponentQuality === 'weak') {
         return isDivisionGame
-          ? `a needed divisional result that keeps ${sn} from losing more ground in the ${division}`
-          : `a needed result against a weaker club that keeps the standings from slipping further, but the kind of game ${sn} are expected to bank`;
+          ? `a needed divisional result that keeps ${sn} from losing ground in the ${division}`
+          : `a needed result the ${sn} are expected to bank \u2014 keeps the standings from slipping further`;
       }
       // average / unknown
       return isDivisionGame
@@ -1090,13 +1090,13 @@ export function buildIntelBriefingItems({
     const oqLossFrame = (() => {
       if (opponentQuality === 'elite' || opponentQuality === 'strong') {
         return isDivisionGame
-          ? `a tough divisional loss to a strong opponent that still puts pressure on the next series`
-          : `a loss to a strong opponent \u2014 context matters, but it still costs ${sn} ground and puts pressure on the next series to respond`;
+          ? `a tough divisional loss to a strong opponent that puts pressure on the next series`
+          : `a loss to a strong opponent \u2014 context matters, but it costs ${sn} ground and puts pressure on the next series`;
       }
       if (opponentQuality === 'weak') {
         return isDivisionGame
-          ? `a divisional stumble against a weaker club that quietly widens the gap in the ${division} and puts pressure on the next series to respond`
-          : `losing to a weaker club is the kind of stumble that quietly widens the deficit and forces a sharper response`;
+          ? `a divisional stumble that quietly widens the gap in the ${division} and puts pressure on the next series`
+          : `losing to a weaker club is a stumble that quietly widens the deficit and forces a sharper response`;
       }
       // average / unknown
       return isDivisionGame
@@ -1156,14 +1156,14 @@ export function buildIntelBriefingItems({
     const pLine = `${p.last}'s ${p.value} ${p.cat}`;
 
     if (driverProfile === 'balanced') {
-      driverText = `${hLine} and ${pLine} are combining to keep ${sn} competitive \u2014 both sides of the ball are creating enough margin to stay in the mix even when one side has an off night.`;
+      driverText = `${hLine} and ${pLine} are giving ${sn} balance \u2014 enough on both sides to keep the team in control even when one side has an off night.`;
     } else if (driverProfile === 'offense_driven') {
-      driverText = `${hLine} are doing a lot of the offensive heavy lifting right now \u2014 without that production, ${sn} have not consistently created enough run support, which puts every start by the rotation under real pressure.`;
+      driverText = `${hLine} are carrying the offense right now \u2014 without that production, ${sn} struggle to create run support, which puts every rotation start under real pressure.`;
     } else if (driverProfile === 'pitching_driven') {
-      driverText = `${pLine} have stabilized the rotation, and the staff is doing more than its share to keep ${sn} afloat \u2014 the offense still needs to put together more consistent run support to lift the team's ceiling.`;
+      driverText = `${pLine} have stabilized the rotation, keeping ${sn} afloat \u2014 the offense still needs to put together more consistent run support to lift the team's ceiling.`;
     } else {
       // thin
-      driverText = `Much of the ${sn} production is concentrated in too few places \u2014 ${hLine} and ${pLine} carry real weight because there is not much margin behind them, which forces the team to depend on a small group staying healthy.`;
+      driverText = `Much of the ${sn} production is concentrated in too few places \u2014 ${hLine} and ${pLine} matter because there's little margin behind them, which forces dependence on a small healthy core.`;
     }
   } else if (hit.length >= 2) {
     const [a, b] = hit;
