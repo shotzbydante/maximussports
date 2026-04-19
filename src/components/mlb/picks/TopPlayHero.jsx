@@ -15,6 +15,7 @@
 
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
+import { primaryDriver } from '../../../features/mlb/picks/pickInsights';
 import styles from './TopPlayHero.module.css';
 
 function fmtTime(iso) {
@@ -36,8 +37,9 @@ const MARKET_LABEL = {
   total: 'Total',
 };
 
-export default function TopPlayHero({ pick, featured = false }) {
+export default function TopPlayHero({ pick, featured = false, relativeStrength = null }) {
   if (!pick) return null;
+  const driver = primaryDriver(pick);
 
   const awaySlug = pick.matchup?.awayTeam?.slug;
   const homeSlug = pick.matchup?.homeTeam?.slug;
@@ -92,6 +94,23 @@ export default function TopPlayHero({ pick, featured = false }) {
         <span className={styles.recommendedKicker}>Recommended Bet</span>
         <span className={styles.pickLabel}>{label}</span>
       </div>
+
+      {(relativeStrength || driver) && (
+        <div className={styles.insightRow}>
+          {relativeStrength && (
+            <span className={styles.strengthPill}>
+              <span className={styles.strengthGlyph} aria-hidden="true">◆</span>
+              {relativeStrength.text}
+            </span>
+          )}
+          {driver && (
+            <span className={styles.driverPill}>
+              <span className={styles.driverKicker}>Primary Driver</span>
+              <span className={styles.driverLabel}>{driver.label}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {headline && <p className={styles.headline}>{headline}</p>}
 

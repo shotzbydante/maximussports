@@ -1,10 +1,14 @@
 /**
  * Pure grouping helpers for picks rendering.
  *
- *   groupByMatchup(picks)          — one card per (gameId); primary pick = best bet-score;
- *                                    others become compact "siblings" on the same card.
- *   annotateDoubleheaders(picks)   — when two games share (awaySlug, homeSlug, slateDate)
- *                                    tag them Game 1 / Game 2 by startTime ordering.
+ *   dedupeByMatchupKey(picks)      — HARD DEDUPE: one pick per (away|home|slateDate).
+ *                                    Keeps only the highest bet-score pick across ALL
+ *                                    markets and doubleheader game-ids. This is the
+ *                                    trust-layer rule — the user must never see the
+ *                                    same matchup twice on screen.
+ *   groupByMatchup(picks)          — legacy: one card per (gameId); deprecated in
+ *                                    favor of dedupe. Kept for any internal callers.
+ *   annotateDoubleheaders(picks)   — tags Game 1/2 pre-dedupe in case callers need it.
  *   groupByMarketType(picks)       — for subsection rendering inside a tier.
  *
  * Deterministic: stable sort by (bet_score desc, original index asc).
@@ -49,6 +53,72 @@ export function subgroupLabel(marketType, tier, count = 2) {
  * @returns {Array<{ primary, siblings }>} — preserves the original tier order
  *          (first-pick-per-game wins the slot) so the tier sort is respected.
  */
+/**
+ * HARD DEDUPE — one pick per normalized matchup key.
+ *
+ *   key = `${away_team_slug}|${home_team_slug}|${slate_date_ET}`
+ *
+ * This collapses:
+ *   - multi-market picks for the same game (ML + Total both qualify) → keeps the best
+ *   - doubleheaders (two gameIds same teams same day) → keeps the best
+ *
+ * Returns a flat array of picks (not card objects). Tier ordering preserved from
+ * the INPUT order — the first appearance of a matchup wins its slot.
+ *
+ * @param {Array} picks
+ * @param {object} [opts]
+ * @param {string} [opts.slateDate] — fallback date if picks don't carry startTime
+ * @returns {{ picks: Array, droppedCount: number, droppedIds: string[] }}
+ */
+export function dedupeByMatchupKey(picks = [], { slateDate = null } = {}) {
+  const dateKey = p => {
+    if (slateDate) return slateDate;
+    const iso = p?.matchup?.startTime;
+    if (!iso) return '';
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(iso));
+    } catch { return String(iso).slice(0, 10); }
+  };
+
+  const keyFor = p => {
+    const away = p?.matchup?.awayTeam?.slug || '';
+    const home = p?.matchup?.homeTeam?.slug || '';
+    if (!away || !home) return p?.id || `__noidx_${Math.random()}`;
+    return `${away}|${home}|${dateKey(p)}`;
+  };
+
+  const bestByKey = new Map(); // key → { pick, order }
+  const droppedIds = [];
+
+  picks.forEach((pick, order) => {
+    const k = keyFor(pick);
+    const score = pick?.betScore?.total ?? 0;
+    const existing = bestByKey.get(k);
+    if (!existing) {
+      bestByKey.set(k, { pick, order });
+    } else {
+      // Keep whichever has the higher bet-score; tie → keep original order.
+      const existingScore = existing.pick?.betScore?.total ?? 0;
+      if (score > existingScore) {
+        droppedIds.push(existing.pick.id);
+        bestByKey.set(k, { pick, order });
+      } else {
+        droppedIds.push(pick.id);
+      }
+    }
+  });
+
+  const picksOut = Array.from(bestByKey.values())
+    .sort((a, b) => a.order - b.order)
+    .map(e => e.pick);
+
+  return {
+    picks: picksOut,
+    droppedCount: droppedIds.length,
+    droppedIds,
+  };
+}
+
 export function groupByMatchup(picks = []) {
   const byGame = new Map();
   picks.forEach((p, idx) => {

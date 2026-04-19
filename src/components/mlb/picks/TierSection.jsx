@@ -132,6 +132,7 @@ export default function TierSection({ tier, cards = [], initialCollapsed = false
                     pick={c.primary}
                     tier={tier}
                     siblings={c.siblings || []}
+                    relativeStrength={c._relativeStrength || null}
                   />
                 ))}
               </div>
