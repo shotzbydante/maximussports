@@ -11,6 +11,7 @@ import { AuthProvider } from './context/AuthContext';
 import { initOfficialBracket } from './utils/bracketInit';
 import { WorkspaceProvider } from './workspaces/WorkspaceContext';
 import WorkspaceGate from './workspaces/WorkspaceGate';
+import RouteGate from './components/common/RouteGate';
 import { WorkspaceId } from './workspaces/config';
 
 const Teams       = lazy(() => import('./pages/Teams'));
@@ -43,6 +44,8 @@ const NbaNewsFeed   = lazy(() => import('./pages/nba/NbaNewsFeed'));
 const NbaPicks      = lazy(() => import('./pages/nba/NbaPicks'));
 const NbaSeasonIntel = lazy(() => import('./pages/nba/NbaSeasonIntel'));
 const NbaBracketology = lazy(() => import('./pages/nba/NbaBracketology'));
+
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 
 const RenderMlbDaily = lazy(() => import('./pages/RenderMlbDaily'));
 const CollegeBasketballPicksToday = lazy(() => import('./pages/CollegeBasketballPicksToday'));
@@ -112,33 +115,36 @@ export default function App() {
                   <Route path="college-basketball-picks-today" element={<LegacyRedirect to="/ncaam/college-basketball-picks-today" />} />
                   <Route path="march-madness-betting-intelligence" element={<LegacyRedirect to="/ncaam/march-madness-betting-intelligence" />} />
 
-                  {/* ══ MLB routes (gated workspace: /mlb/...) ══ */}
+                  {/* ══ MLB routes (public workspace, non-home preview-gated for guests) ══ */}
                   <Route path="mlb" element={<WorkspaceGate workspaceId={WorkspaceId.MLB} />}>
                     <Route index element={<MlbHome />} />
-                    <Route path="games" element={<MlbGames />} />
-                    <Route path="teams" element={<MlbTeams />} />
-                    <Route path="teams/:slug" element={<MlbTeamDetail />} />
-                    <Route path="news" element={<MlbNewsFeed />} />
-                    <Route path="insights" element={<MlbPicks />} />
-                    <Route path="season-model" element={<MlbSeasonModel />} />
-                    <Route path="compare" element={<MlbCompare />} />
+                    <Route path="games" element={<RouteGate><MlbGames /></RouteGate>} />
+                    <Route path="teams" element={<RouteGate><MlbTeams /></RouteGate>} />
+                    <Route path="teams/:slug" element={<RouteGate><MlbTeamDetail /></RouteGate>} />
+                    <Route path="news" element={<RouteGate><MlbNewsFeed /></RouteGate>} />
+                    <Route path="insights" element={<RouteGate><MlbPicks /></RouteGate>} />
+                    <Route path="season-model" element={<RouteGate><MlbSeasonModel /></RouteGate>} />
+                    <Route path="compare" element={<RouteGate><MlbCompare /></RouteGate>} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
 
-                  {/* ══ NBA routes (admin-gated workspace: /nba/...) ══ */}
+                  {/* ══ NBA routes (public workspace, non-home preview-gated for guests) ══ */}
                   <Route path="nba" element={<WorkspaceGate workspaceId={WorkspaceId.NBA} />}>
                     <Route index element={<NbaHome />} />
-                    <Route path="games" element={<NbaGames />} />
-                    <Route path="teams" element={<NbaTeams />} />
-                    <Route path="teams/:slug" element={<NbaTeamDetail />} />
-                    <Route path="news" element={<NbaNewsFeed />} />
-                    <Route path="insights" element={<NbaPicks />} />
-                    <Route path="season-intel" element={<NbaSeasonIntel />} />
-                    <Route path="bracketology" element={<NbaBracketology />} />
+                    <Route path="games" element={<RouteGate><NbaGames /></RouteGate>} />
+                    <Route path="teams" element={<RouteGate><NbaTeams /></RouteGate>} />
+                    <Route path="teams/:slug" element={<RouteGate><NbaTeamDetail /></RouteGate>} />
+                    <Route path="news" element={<RouteGate><NbaNewsFeed /></RouteGate>} />
+                    <Route path="insights" element={<RouteGate><NbaPicks /></RouteGate>} />
+                    <Route path="season-intel" element={<RouteGate><NbaSeasonIntel /></RouteGate>} />
+                    <Route path="bracketology" element={<RouteGate><NbaBracketology /></RouteGate>} />
                     <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
                     <Route path="settings" element={<Navigate to="/settings" replace />} />
                   </Route>
+
+                  {/* ══ Auth callback for magic-link sign-up ══ */}
+                  <Route path="auth/callback" element={<AuthCallback />} />
 
                   {/* ══ Global / shared routes (no sport prefix) ══ */}
                   <Route path="settings" element={<Settings />} />

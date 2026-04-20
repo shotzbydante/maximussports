@@ -1,0 +1,156 @@
+/* GatedContent — shared preview+fade+CTA treatment */
+
+.root {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ── Content clip (real page content above the fold) ── */
+.contentClip {
+  position: relative;
+  overflow: hidden;
+  transition: max-height 0.25s ease-out;
+}
+.contentInner {
+  /* Render children at their natural size; clip handled by parent */
+}
+
+/* ── Fade band — CSS gradient over bottom of clipped content ── */
+.fadeBand {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 280px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(250, 250, 250, 0.55) 35%,
+    rgba(250, 250, 250, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+
+@media (max-width: 720px) {
+  .fadeBand { height: 200px; }
+}
+
+/* Sport-tinted fades (very subtle) */
+.fade_mlb {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(252, 246, 248, 0.55) 35%,
+    rgba(252, 246, 248, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+.fade_nba {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(246, 250, 255, 0.55) 35%,
+    rgba(246, 250, 255, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+.fade_ncaam {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(246, 249, 255, 0.55) 35%,
+    rgba(246, 249, 255, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+
+/* ── CTA fill (solid region below the fade) ── */
+.ctaFill {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 24px 64px;
+  background: var(--color-bg, #f8f8f8);
+}
+
+/* ── CTA card ── */
+.ctaCard {
+  max-width: 440px;
+  width: 100%;
+  padding: 32px 28px 28px;
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.lockIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: var(--color-text-secondary, #3d5a73);
+  background: rgba(60, 100, 160, 0.06);
+  border: 1px solid rgba(60, 100, 160, 0.10);
+  margin-bottom: 4px;
+}
+
+.ctaTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.ctaSub {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin: 0 0 6px;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 26px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #fff;
+  background: #1d428a;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: filter 0.14s, transform 0.14s;
+  letter-spacing: 0.01em;
+}
+.ctaPrimary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* Sport-tinted primary CTAs */
+.btn_mlb  { background: #b8293d; }
+.btn_nba  { background: #1d428a; }
+.btn_ncaam { background: #3885e0; }
+
+.ctaFoot {
+  font-size: 0.64rem;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .ctaCard {
+    padding: 26px 20px 22px;
+    margin: 0 4px;
+  }
+  .ctaTitle { font-size: 1rem; }
+  .ctaSub { font-size: 0.78rem; }
+  .ctaFill { padding: 24px 16px 48px; }
+}
