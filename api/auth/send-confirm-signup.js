@@ -47,7 +47,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email } = req.body || {};
+  const { email, next } = req.body || {};
+
+  // Sanitize `next`: must be a relative path, no scheme, no protocol-relative.
+  let safeNext = null;
+  if (typeof next === 'string' && next.length > 0 && next.length < 512) {
+    if (next.startsWith('/') && !next.startsWith('//') && !/^[a-z]+:/i.test(next)) {
+      safeNext = next;
+    }
+  }
 
   // Basic normalisation and sanity check
   const normalised = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -69,9 +77,12 @@ export default async function handler(req, res) {
   try {
     const sb = getSupabaseAdmin();
 
-    // Fixed redirect — never accept from client to prevent open redirect
+    // Magic link returns to /auth/callback which handles session restoration,
+    // new-user onboarding routing, and destination preservation.
     const APP_URL   = process.env.APP_URL || process.env.VITE_APP_URL || 'https://maximussports.ai';
-    const redirectTo = `${APP_URL}/settings`;
+    const redirectTo = safeNext
+      ? `${APP_URL}/auth/callback?next=${encodeURIComponent(safeNext)}`
+      : `${APP_URL}/auth/callback`;
 
     // Generate a magic link using the Admin API (does NOT send Supabase's default email)
     const { data, error } = await sb.auth.admin.generateLink({

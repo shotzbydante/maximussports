@@ -3400,6 +3400,7 @@ function PremiumProfile({ user, profile, onProfileUpdate, onSignOut, signingOut 
 /* ─── Authenticated Settings Panel ──────────────────────────────────────── */
 function AuthenticatedSettings({ user }) {
   const { signOut } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile]               = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showWizard, setShowWizard]         = useState(false);
@@ -3459,6 +3460,15 @@ function AuthenticatedSettings({ user }) {
     const isFirstOnboarding = wasNewUserRef.current;
     wasNewUserRef.current = false;
     setShowWizard(false);
+
+    // Redirect to intended destination if present (preserved through the auth flow)
+    try {
+      const n = new URLSearchParams(window.location.search).get('next');
+      if (n && n.startsWith('/') && !n.startsWith('//') && !/^[a-z]+:/i.test(n)) {
+        navigate(n, { replace: true });
+      }
+    } catch { /* ignore */ }
+
     const sb = getSupabase();
     if (sb) {
       sb.from('profiles').select('*').eq('id', user.id).maybeSingle()
@@ -3581,9 +3591,18 @@ function UnauthenticatedPanel() {
     if (!sb) { setError('Auth service is not configured. Please contact support.'); setGoogleLoading(false); return; }
     track('auth_start_google', {});
     trackSignupStarted({ method: 'google' });
+    // Preserve intended destination from ?next= query
+    let oauthNext = '';
+    try {
+      const n = new URLSearchParams(window.location.search).get('next');
+      if (n && n.startsWith('/') && !n.startsWith('//') && !/^[a-z]+:/i.test(n)) {
+        oauthNext = `?next=${encodeURIComponent(n)}`;
+      }
+    } catch { /* ignore */ }
+
     const { error: oauthErr } = await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/settings` },
+      options: { redirectTo: `${window.location.origin}/auth/callback${oauthNext}` },
     });
     if (oauthErr) {
       track('oauth_error', { provider: 'google', error: oauthErr.message?.slice(0, 200) });
@@ -3596,11 +3615,21 @@ function UnauthenticatedPanel() {
     setEmailLoading(true); setError('');
     track('auth_start_email', {});
     trackSignupStarted({ method: 'email' });
+
+    // Preserve intended destination from ?next= (set by RouteGate redirects)
+    let nextPath = null;
+    try {
+      const n = new URLSearchParams(window.location.search).get('next');
+      if (n && n.startsWith('/') && !n.startsWith('//') && !/^[a-z]+:/i.test(n)) {
+        nextPath = n;
+      }
+    } catch { /* ignore */ }
+
     try {
       const res = await fetch('/api/auth/send-confirm-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailAddress }),
+        body: JSON.stringify({ email: emailAddress, next: nextPath }),
       });
       // Endpoint always returns { ok: true } — no enumeration possible
       await res.json().catch(() => ({}));

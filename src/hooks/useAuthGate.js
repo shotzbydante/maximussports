@@ -1,109 +1,66 @@
 /**
- * useAuthGate — centralized guest-access policy.
+ * useAuthGate — centralized route access policy for guests.
  *
- * Route categories:
- *   OPEN        — fully accessible to guests (home, briefings, legal)
- *   PREVIEW     — guests see top ~25% with gate CTA (sport sub-pages)
- *   GATED       — authenticated only (dashboard, settings actions)
+ * Three access tiers:
+ *   - 'open'    Guest can view the full page (home pages, landing, auth, legal)
+ *   - 'preview' Guest sees ~25% of content + fade + create-account CTA
+ *   - 'gated'   Authenticated-only; guest redirected to /settings?next=<path>
  *
- * For PREVIEW pages, the page component wraps its content in <GatedContent>.
- * This hook just provides the policy logic and a navigation guard.
+ * Route decisions live here so both client (RouteGate) and server (future SSR)
+ * can share one source of truth.
  */
 
-import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-
-/**
- * Routes fully open to guests (no gating, no preview).
- */
-const OPEN_ROUTES = [
+const OPEN_ROUTES = new Set([
   '/',
   '/mlb',
   '/ncaam',
+  '/nba',
   '/settings',
   '/privacy',
   '/terms',
   '/contact',
-];
+  '/auth/callback',
+]);
 
 /**
- * Route prefixes where guests get preview treatment (top 25% + gate CTA).
- * The actual GatedContent wrapping is done in the page component.
+ * Any sport sub-route (e.g. /mlb/games, /nba/teams/bos) is preview-gated.
+ * The home page itself (/mlb, /nba, /ncaam) stays open.
  */
-const PREVIEW_PREFIXES = [
-  '/mlb/games',
-  '/mlb/teams',
-  '/mlb/news',
-  '/mlb/insights',
-  '/mlb/season-model',
-  '/mlb/compare',
-  '/ncaam/teams',
-  '/ncaam/games',
-  '/ncaam/insights',
-  '/ncaam/news',
-  '/ncaam/alerts',
-  '/ncaam/bracketology',
-  '/ncaam/college-basketball-picks-today',
-  '/ncaam/march-madness-betting-intelligence',
-];
+const PREVIEW_PREFIXES = ['/mlb/', '/ncaam/', '/nba/'];
 
-function normalizePath(path) {
-  return (path || '/').toLowerCase().replace(/\/$/, '') || '/';
+const GATED_ROUTES = new Set([
+  '/dashboard',
+]);
+
+/** Resolve which sport palette a preview gate should use based on path. */
+export function getSportFromPath(path) {
+  if (path.startsWith('/mlb')) return 'mlb';
+  if (path.startsWith('/nba')) return 'nba';
+  if (path.startsWith('/ncaam')) return 'ncaam';
+  return 'mlb';
 }
 
 /**
- * Determine the access level for a given path.
- * Returns: 'open' | 'preview' | 'gated'
+ * Normalize a pathname by stripping trailing slash + query/hash.
+ * Keeps dynamic segments intact (/mlb/teams/nyy stays matchable).
  */
-export function getRouteAccess(path) {
-  const p = normalizePath(path);
-  if (OPEN_ROUTES.some(r => p === r)) return 'open';
-  if (PREVIEW_PREFIXES.some(prefix => p === prefix || p.startsWith(prefix + '/'))) return 'preview';
-  return 'gated';
+function normalize(path) {
+  if (!path) return '/';
+  const noHash = path.split('#')[0].split('?')[0];
+  if (noHash.length > 1 && noHash.endsWith('/')) return noHash.slice(0, -1);
+  return noHash;
 }
 
-/**
- * Determine which sport context a path belongs to.
- */
-export function getRouteSport(path) {
-  const p = normalizePath(path);
-  if (p.startsWith('/mlb')) return 'mlb';
-  if (p.startsWith('/ncaam')) return 'ncaam';
-  if (p.startsWith('/nba')) return 'nba';
-  return null;
-}
+export function getRouteAccess(pathname) {
+  const p = normalize(pathname);
 
-export function useAuthGate() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  if (OPEN_ROUTES.has(p)) return 'open';
+  if (GATED_ROUTES.has(p)) return 'gated';
 
-  /**
-   * Guard a navigation attempt. Returns true if allowed.
-   * For guests on gated routes, redirects to /settings.
-   * For preview routes, allows navigation (page handles gating).
-   */
-  const guardNavigation = useCallback((targetPath) => {
-    if (user) return true;
-    const access = getRouteAccess(targetPath);
-    if (access === 'open' || access === 'preview') return true;
-    navigate('/settings', { state: { from: targetPath } });
-    return false;
-  }, [user, navigate]);
+  // Preview-gated: any sport sub-route
+  for (const prefix of PREVIEW_PREFIXES) {
+    if (p.startsWith(prefix)) return 'preview';
+  }
 
-  /**
-   * Check if user can access a route (no side effects).
-   */
-  const canAccess = useCallback((path) => {
-    if (user) return true;
-    return getRouteAccess(path) !== 'gated';
-  }, [user]);
-
-  return {
-    guardNavigation,
-    canAccess,
-    isAuthenticated: !!user,
-    getRouteAccess,
-    getRouteSport,
-  };
+  return 'open';
 }
