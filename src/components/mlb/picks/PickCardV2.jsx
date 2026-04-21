@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react';
-import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
+import { resolveTeamLogo } from '../../../utils/teamLogo';
 import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
 import { primaryDriver } from '../../../features/mlb/picks/pickInsights';
 import { resolveConviction, resolveBetScoreDisplay } from '../../../features/picks/conviction';
@@ -41,8 +41,8 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
 
   const awaySlug = pick.matchup?.awayTeam?.slug;
   const homeSlug = pick.matchup?.homeTeam?.slug;
-  const awayLogo = awaySlug ? getMlbEspnLogoUrl(awaySlug) : null;
-  const homeLogo = homeSlug ? getMlbEspnLogoUrl(homeSlug) : null;
+  const awayLogo = resolveTeamLogo({ pick, slug: awaySlug, team: pick.matchup?.awayTeam });
+  const homeLogo = resolveTeamLogo({ pick, slug: homeSlug, team: pick.matchup?.homeTeam });
   const away = pick.matchup?.awayTeam?.shortName || 'AWY';
   const home = pick.matchup?.homeTeam?.shortName || 'HOM';
   const time = fmtTime(pick.matchup?.startTime);
