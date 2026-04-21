@@ -421,18 +421,481 @@ export function buildTopicalHeadline({ teamName, slug, projection, teamContext, 
   return { headline: w.headline, subtext: sub };
 }
 
+// ─── Team Tier Classification ─────────────────────────────────────────────
+
+/**
+ * Classify a team's competitive position into one of three editorial tiers.
+ * Tone, implication phrasing, and bullet framing all branch on this tier
+ * so a contender doesn't sound like a fringe team and a falling team
+ * doesn't sound like a contender.
+ *
+ * @param {{ divisionRank?: number|null, gamesBack?: number|null, projectedWins?: number|null }} ctx
+ * @returns {'contender' | 'in_race' | 'falling_behind'}
+ */
+export function classifyTeamTier({ divisionRank, gamesBack, projectedWins } = {}) {
+  if (divisionRank != null && gamesBack != null) {
+    if (divisionRank <= 2 && gamesBack <= 3) return 'contender';
+    if (gamesBack <= 6) return 'in_race';
+    return 'falling_behind';
+  }
+  // Fallback when standings are unavailable: lean on projection
+  if (projectedWins != null) {
+    if (projectedWins >= 92) return 'contender';
+    if (projectedWins >= 80) return 'in_race';
+    return 'falling_behind';
+  }
+  return 'in_race'; // neutral middle ground
+}
+
+// ─── Narrative Validation ─────────────────────────────────────────────────
+
+/**
+ * Banned vague phrases. Any bullet containing these strings will fail
+ * validation. The list is exhaustive of the model jargon and editorially
+ * weak language we explicitly do not want surfaced to users.
+ */
+const BANNED_VAGUE_PHRASES = [
+  'overperf. corr',
+  'overperf corr',
+  'underperf. corr',
+  'underperf corr',
+  'roster misc',
+  'proj. wins',
+  'market mispricing',
+  'market delta',
+  'carrying the load',
+  'momentum alive',
+  'depth is mixed',
+  'solid enough',
+  'late-inning volatility',
+  'roster construction',
+  'searching for an identity',
+  'middle of the pack',
+];
+
+function containsBannedLanguage(text) {
+  if (!text) return true;
+  const lower = text.toLowerCase();
+  return BANNED_VAGUE_PHRASES.some(p => lower.includes(p));
+}
+
+/**
+ * Implication verb gate — every bullet must communicate a CONSEQUENCE,
+ * not just a description. The five canonical verbs (per spec) cover all
+ * standard conjugations: keep/keeps/kept/keeping, put/puts/putting,
+ * limit/limits/limited/limiting, create/creates/created/creating,
+ * force/forces/forced/forcing.
+ */
+const IMPLICATION_PATTERN = /\b(keep[a-z]*|put[a-z]*|limit[a-z]*|creat[a-z]*|forc[a-z]*)\b/i;
+
+function hasImplicationVerb(text) {
+  if (!text) return false;
+  return IMPLICATION_PATTERN.test(text);
+}
+
+/**
+ * Risk consequence verb gate — risk bullets must explicitly name what
+ * BREAKS when the weakness continues, not just describe the weakness.
+ * Soft phrasings like "limits the ceiling" alone are not enough — risk
+ * bullets must also include a consequence verb from this set.
+ *
+ * Pattern covers: turn/turns/turning, make/makes/making/made,
+ * force/forces/forcing/forced, widen/widens/widening,
+ * cost/costs/costing, expose/exposes/exposing/exposed,
+ * push/pushes/pushing/pushed.
+ */
+const RISK_CONSEQUENCE_PATTERN = /\b(turn[a-z]*|mak[a-z]*|forc[a-z]*|widen[a-z]*|cost[a-z]*|expos[a-z]*|push[a-z]*)\b/i;
+
+function hasRiskConsequenceVerb(text) {
+  if (!text) return false;
+  return RISK_CONSEQUENCE_PATTERN.test(text);
+}
+
+/**
+ * A bullet must contain at least one of:
+ *   - a digit (specific stat / score / rank)
+ *   - the team's short name or full name
+ *   - a recognizable proper noun (capitalized word past position 0)
+ *
+ * This rules out generic copy that doesn't anchor to a real entity.
+ */
+function hasSpecificEntity(text, expectedEntities = []) {
+  if (!text) return false;
+  if (/\b\d+\b/.test(text)) return true;
+  for (const e of expectedEntities) {
+    if (e && text.includes(e)) return true;
+  }
+  const words = text.split(/\s+/);
+  for (let i = 1; i < words.length; i++) {
+    if (/^[A-Z][a-z]/.test(words[i])) return true;
+  }
+  return false;
+}
+
+/**
+ * Multi-stage validation. Every bullet must pass:
+ *   [TEAM_INTEL_NARRATIVE_TOO_GENERIC] — banned vague phrasing,
+ *     empty/short text, or no anchored entity
+ *   [TEAM_INTEL_LOW_SIGNAL_BULLET] — bullet describes data without
+ *     communicating an implication (no keep/put/limit/create/force verb)
+ *
+ * Position-specific bullets get additional checks via `extra` flags:
+ *   extra.requireRiskConsequence — risk bullet must include
+ *     turns/makes/forces/widens/costs/exposes/pushes (not just soft
+ *     ceiling phrasing). Throws [TEAM_INTEL_RISK_TOO_SOFT].
+ *   extra.requireDriverSpecificity — driver bullet (when player data
+ *     is available) must include both a digit and a Capitalized name.
+ *     Throws [TEAM_INTEL_DRIVER_TOO_GENERIC].
+ *   extra.requireRecentGameContext — recent game bullet (when scores
+ *     are available) must reference an opponent and a score and an
+ *     implication. Throws [TEAM_INTEL_RECENT_GAME_TOO_WEAK].
+ *
+ * All throws fire immediately so any template drift fails loudly during
+ * development and never silently ships generic copy.
+ */
+function validateBullet(text, position, expectedEntities, extra = {}) {
+  if (!text || text.trim().length === 0) {
+    throw new Error(`[TEAM_INTEL_NARRATIVE_TOO_GENERIC] Bullet ${position} is empty`);
+  }
+  if (text.length < 60) {
+    throw new Error(`[TEAM_INTEL_NARRATIVE_TOO_GENERIC] Bullet ${position} too short (${text.length} chars): "${text}"`);
+  }
+  if (containsBannedLanguage(text)) {
+    throw new Error(`[TEAM_INTEL_NARRATIVE_TOO_GENERIC] Bullet ${position} contains banned vague phrasing: "${text}"`);
+  }
+  if (!hasSpecificEntity(text, expectedEntities)) {
+    throw new Error(`[TEAM_INTEL_NARRATIVE_TOO_GENERIC] Bullet ${position} lacks specific entity (player/stat/team): "${text}"`);
+  }
+  if (!hasImplicationVerb(text)) {
+    throw new Error(`[TEAM_INTEL_LOW_SIGNAL_BULLET] Bullet ${position} lacks implication verb (keeps/puts/limits/creates/forces): "${text}"`);
+  }
+  if (extra.requireRiskConsequence && !hasRiskConsequenceVerb(text)) {
+    throw new Error(`[TEAM_INTEL_RISK_TOO_SOFT] Bullet ${position} (risk) lacks consequence verb (turns/makes/forces/widens/costs/exposes/pushes): "${text}"`);
+  }
+  if (extra.requireDriverSpecificity) {
+    // Must contain a digit (stat) AND a Capitalized name past pos 0 (player)
+    const hasDigit = /\b\d+\b/.test(text);
+    const words = text.split(/\s+/);
+    let hasPlayerName = false;
+    for (let i = 1; i < words.length; i++) {
+      if (/^[A-Z][a-z]+/.test(words[i])) { hasPlayerName = true; break; }
+    }
+    if (!hasDigit || !hasPlayerName) {
+      throw new Error(`[TEAM_INTEL_DRIVER_TOO_GENERIC] Bullet ${position} (driver) must mention a named player and a stat value: "${text}"`);
+    }
+  }
+  if (extra.requireRecentGameContext) {
+    // Must reference an opponent (proper noun past pos 0) AND a score/digit
+    const hasDigit = /\b\d+\b/.test(text);
+    const words = text.split(/\s+/);
+    let hasOpponent = false;
+    for (let i = 1; i < words.length; i++) {
+      if (/^[A-Z][a-z]+/.test(words[i])) { hasOpponent = true; break; }
+    }
+    if (!hasDigit || !hasOpponent) {
+      throw new Error(`[TEAM_INTEL_RECENT_GAME_TOO_WEAK] Bullet ${position} (recent game) must reference opponent + score + implication: "${text}"`);
+    }
+  }
+}
+
+// ─── Plain-English Translators ────────────────────────────────────────────
+
+/**
+ * Translate raw model "biggestDrag" jargon into a fan-readable risk
+ * narrative. The model emits compact codes like "Overperf. Corr." or
+ * "Bullpen Volatility" — these are not acceptable for end-user copy.
+ */
+function translateDragToPlainEnglish(rawDrag, sn, ctx = {}) {
+  if (!rawDrag) return null;
+  const lower = rawDrag.toLowerCase();
+  if (lower.includes('overperf')) {
+    return `${sn}'s recent results may not hold — regression turns hot stretches into ordinary ones, which puts real pressure on the win pace and exposes the gap between current results and underlying talent.`;
+  }
+  if (lower.includes('underperf')) {
+    return `${sn} have underperformed their underlying numbers — execution gaps keep costing winnable games, which limits how often the breaks turn their way even when the talent suggests better outcomes.`;
+  }
+  if (lower.includes('bullpen')) {
+    return `Bullpen instability keeps putting late innings at risk — the misses turn winnable games into losses and expose ${sn} in the kinds of close contests contenders usually win.`;
+  }
+  if (lower.includes('rotation')) {
+    return `Beyond the top of the rotation, innings quality falls off quickly — the gap forces ${sn} into bullpen-heavy games and costs them in series losses over longer stretches.`;
+  }
+  if (lower.includes('lineup top') || lower.includes('top of') || lower.includes('top-of')) {
+    return `Thin top-of-order on-base forces the heart of the lineup into low-leverage at-bats, which limits run support and costs ${sn} real margin for the pitching staff.`;
+  }
+  if (lower.includes('lineup')) {
+    return `Run production remains inconsistent — the gaps turn competitive games into losses whenever the pitching staff does not dominate, which puts real pressure on every start.`;
+  }
+  if (lower.includes('depth')) {
+    return `Roster depth is the limiting factor — one injury to a core contributor exposes ${sn} in a way contenders absorb without flinching, and forces reactive moves that limit any in-season fix.`;
+  }
+  if (lower.includes('defense')) {
+    return `Defense has cost ${sn} runs in close spots — when margins are tight, fielding mistakes turn winnable games into losses and keep the team losing the kinds of contests contenders bank.`;
+  }
+  if (lower.includes('age') || lower.includes('aging')) {
+    return `Age is catching up to key players — injury risk to veterans exposes the lack of help behind them, which forces ${sn} into reactive moves and pushes the team toward midseason patches.`;
+  }
+  return null;
+}
+
+/**
+ * Translate raw model "strongestDriver" jargon into a fan-readable
+ * positive driver narrative. Used as a fallback when no league-leader
+ * data is available for the team.
+ */
+function translateDriverToPlainEnglish(rawDriver, sn) {
+  if (!rawDriver) return null;
+  const lower = rawDriver.toLowerCase();
+  if (lower.includes('rotation')) {
+    return `${sn}'s rotation has been the engine — quality starts keep ${sn} in games most nights, even when the offense goes quiet.`;
+  }
+  if (lower.includes('bullpen')) {
+    return `${sn}'s bullpen has been a real strength — high-leverage outs late keep close games tilted in their favor more often than not.`;
+  }
+  if (lower.includes('lineup top') || lower.includes('top of')) {
+    return `${sn}'s top of the order has set the tone — table-setters reaching base consistently keeps the heart of the lineup in run-scoring spots.`;
+  }
+  if (lower.includes('lineup') || lower.includes('offense')) {
+    return `${sn}'s offense has carried this team — the lineup creates runs in volume and puts pitching in a position to win on most nights.`;
+  }
+  if (lower.includes('defense')) {
+    return `${sn}'s defense has saved runs in critical spots — clean fielding keeps small leads from turning into chaotic late innings.`;
+  }
+  if (lower.includes('manager') || lower.includes('coach')) {
+    return `${sn}'s in-game management has squeezed out wins — sharp bullpen usage and lineup construction keep them in games that other teams give away.`;
+  }
+  return null;
+}
+
+// ─── Narrative Spike (1A) ──────────────────────────────────────────────────
+
+/**
+ * Returns ONE sharp editorial line that adds memorability to a team's
+ * briefing without feeling templated. Use at most once per briefing,
+ * appended naturally to bullet 1 or bullet 2.
+ *
+ * Variation seed (l10Wins + gamesBack + streakLen) selects across
+ * multiple phrasings per branch so the same team doesn't get the
+ * exact same spike on consecutive renders.
+ */
+export function injectNarrativeSpike({ teamTier, l10Wins, gamesBack, divisionRank, streak, projectedWins } = {}) {
+  void divisionRank; void projectedWins; // accepted for API stability
+
+  const streakLen = (typeof streak === 'string')
+    ? (parseInt(streak.replace(/[^\d]/g, '')) || 0)
+    : (typeof streak === 'number' ? streak : 0);
+  const isWin = (typeof streak === 'string') ? streak.toUpperCase().startsWith('W') : true;
+
+  const seed = (l10Wins ?? 0) + (gamesBack ?? 0) + streakLen;
+
+  if (teamTier === 'contender' && (l10Wins ?? 0) >= 7) {
+    const variants = [
+      'They are starting to look like the team to beat in this division.',
+      'This stretch is exactly what separates contenders from the field.',
+      'The standings are bending in their direction in a real way.',
+    ];
+    return variants[seed % variants.length];
+  }
+  if (teamTier === 'in_race' && (gamesBack ?? 99) <= 3) {
+    const variants = [
+      'One strong week could completely change the shape of the standings.',
+      'A short hot streak from here would put them right at the front of the race.',
+      'The division is bunched enough that a single sweep changes everything.',
+    ];
+    return variants[seed % variants.length];
+  }
+  if (teamTier === 'falling_behind' && (gamesBack ?? 0) >= 6) {
+    const variants = [
+      'They are approaching a stretch where every series starts to feel must-win.',
+      'The runway to make a real run is starting to shorten.',
+      'Without a sustained surge, the wild-card path is the realistic ceiling.',
+    ];
+    return variants[seed % variants.length];
+  }
+  if (streakLen >= 4 && isWin) {
+    return 'This is the kind of stretch that can reset the tone of a season.';
+  }
+  if (streakLen >= 4 && !isWin) {
+    return 'A skid like this one can reshape the rest of the season if it does not stop now.';
+  }
+  return null;
+}
+
+// ─── Driver Balance Classification (1B) ────────────────────────────────────
+
+/**
+ * Classify how a team's production is distributed:
+ *   'offense_driven'   — bats are doing the heavy lifting, pitching mediocre
+ *   'pitching_driven'  — pitching is the reason they stay competitive
+ *   'balanced'         — both sides contributing meaningfully
+ *   'thin'             — one player or unit masking broader weakness
+ *
+ * Used by bullet 4 to choose between four diagnostic templates.
+ */
+export function classifyDriverBalance({
+  hittingDrivers = [],
+  pitchingDrivers = [],
+  teamInputs = null,
+  recentGames = [],
+} = {}) {
+  void recentGames; // accepted for API stability — future signal
+
+  const hasStrongHit = hittingDrivers.some(h => h.isLeagueBest) || hittingDrivers.length >= 2;
+  const hasStrongPit = pitchingDrivers.some(p => p.isLeagueBest) || pitchingDrivers.length >= 2;
+  const hasAnyHit = hittingDrivers.length >= 1;
+  const hasAnyPit = pitchingDrivers.length >= 1;
+
+  const inputs = teamInputs || {};
+  const offenseStrong = (inputs.topOfLineup ?? 5) >= 7;
+  const offenseWeak   = (inputs.topOfLineup ?? 5) <= 4;
+  const pitchStrong   = (inputs.frontlineRotation ?? 5) >= 7;
+  const pitchWeak     = (inputs.frontlineRotation ?? 5) <= 4;
+
+  // Thin: a single league-best player is essentially the entire production
+  if (hittingDrivers.length + pitchingDrivers.length === 1) {
+    const only = hittingDrivers[0] || pitchingDrivers[0];
+    if (only?.isLeagueBest) return 'thin';
+  }
+
+  // Balanced: clear strength on both sides
+  if (hasStrongHit && hasStrongPit) return 'balanced';
+  if (hasAnyHit && hasAnyPit && offenseStrong && pitchStrong) return 'balanced';
+
+  // Offense-driven: hitting strong, pitching mediocre/weak
+  if (hasStrongHit && (pitchWeak || !hasStrongPit)) return 'offense_driven';
+  if (offenseStrong && pitchWeak) return 'offense_driven';
+
+  // Pitching-driven: pitching strong, offense mediocre/weak
+  if (hasStrongPit && (offenseWeak || !hasStrongHit)) return 'pitching_driven';
+  if (pitchStrong && offenseWeak) return 'pitching_driven';
+
+  // Default: balanced if both sides have any contributors
+  if (hasAnyHit && hasAnyPit) return 'balanced';
+
+  // Single-side-only known
+  if (hasAnyHit) return 'offense_driven';
+  if (hasAnyPit) return 'pitching_driven';
+  return 'thin';
+}
+
+// ─── Opponent Quality Classification (1D) ──────────────────────────────────
+
+/**
+ * Classify the strength of an opponent so wins and losses can be framed
+ * with judgment rather than equally:
+ *   'elite' / 'strong' / 'average' / 'weak' / 'unknown'
+ *
+ * Prefers ESPN standings win% (real, current); falls back to the season
+ * model's projected wins; returns 'unknown' when neither source is
+ * available, in which case bullet 3 keeps generic framing.
+ */
+export function classifyOpponentQuality(opponentSlug, mlbStandings, opponentProjection) {
+  if (!opponentSlug) return 'unknown';
+
+  const standing = mlbStandings?.[opponentSlug];
+  if (standing && standing.wins != null && standing.losses != null) {
+    const games = standing.wins + standing.losses;
+    if (games >= 10) {
+      const pct = standing.wins / games;
+      if (pct >= 0.580) return 'elite';
+      if (pct >= 0.520) return 'strong';
+      if (pct >= 0.460) return 'average';
+      return 'weak';
+    }
+  }
+
+  const proj = opponentProjection || (opponentSlug ? getTeamProjection(opponentSlug) : null);
+  if (proj?.projectedWins != null) {
+    const w = proj.projectedWins;
+    if (w >= 92) return 'elite';
+    if (w >= 84) return 'strong';
+    if (w >= 75) return 'average';
+    return 'weak';
+  }
+  return 'unknown';
+}
+
+// ─── Player Driver Resolution ──────────────────────────────────────────────
+
+/**
+ * Find the best hitter and best pitcher for a team across the league
+ * leaders + team-best maps. Returns { hitting: [...], pitching: [...] }
+ * with named players, stats, and value.
+ */
+function findTeamPlayerDrivers(slug, mlbLeaders) {
+  const teamAbbrev = MLB_TEAMS.find(t => t.slug === slug)?.abbrev || '';
+  if (!teamAbbrev || !mlbLeaders?.categories) {
+    return { hitting: [], pitching: [], teamAbbrev: '' };
+  }
+  const cats = mlbLeaders.categories;
+  const mentions = [];
+  const catMap = [
+    ['homeRuns', 'home runs', 'home runs'],
+    ['RBIs',     'RBIs',      'RBIs'],
+    ['hits',     'hits',      'hits'],
+    ['wins',     'wins',      'wins'],
+    ['saves',    'saves',     'saves'],
+  ];
+  for (const [catKey, catLabel] of catMap) {
+    const cat = cats[catKey];
+    if (!cat) continue;
+    const isPitching = catKey === 'wins' || catKey === 'saves';
+    const leaders = cat.leaders || [];
+    for (let i = 0; i < leaders.length; i++) {
+      if (leaders[i].teamAbbrev === teamAbbrev) {
+        mentions.push({
+          full: leaders[i].name || '',
+          last: (leaders[i].name || '').split(' ').pop(),
+          cat: catLabel, rank: i + 1,
+          value: leaders[i].display || String(leaders[i].value || 0),
+          isPitching,
+          isLeagueBest: true,
+        });
+      }
+    }
+    const tb = cat.teamBest?.[teamAbbrev];
+    if (tb && tb.name && tb.name !== '\u2014') {
+      const exists = mentions.some(m => m.full === tb.name && m.cat === catLabel);
+      if (!exists) {
+        mentions.push({
+          full: tb.name,
+          last: (tb.name || '').split(' ').pop(),
+          cat: catLabel, rank: null,
+          value: tb.display || String(tb.value || 0),
+          isPitching,
+          isLeagueBest: false,
+        });
+      }
+    }
+  }
+  return {
+    hitting: mentions.filter(m => !m.isPitching),
+    pitching: mentions.filter(m => m.isPitching),
+    teamAbbrev,
+  };
+}
+
 // ─── Structured Briefing Builder ──────────────────────────────────────────
 
 /**
- * Build 5 structured briefing items that power both the slide and team page.
+ * Build EXACTLY 5 structured briefing items in fixed order:
+ *   1. Standings Context  — record, division rank, GB, implication
+ *   2. Recent Form        — L10 record + interpretation (+ streak if ≥3)
+ *   3. Most Recent Game   — opponent, score, narrative framing
+ *   4. Core Team Driver   — named players + specific stats
+ *   5. Risk / Limitation  — plain-English risk derived from model signal
  *
- * Each item is an object: { text, oppSlug?, type }
- *   - text: the briefing line (mini-narrative, not a data fragment)
- *   - oppSlug: opponent team slug for inline logo (optional)
- *   - type: 'division' | 'l10' | 'recent' | 'news' | 'next' | 'model' | 'profile'
+ * Every bullet must:
+ *   - contain a specific entity (digit, team name, or proper noun)
+ *   - be at least 60 chars
+ *   - contain no banned vague phrasing
  *
- * Priority: division/standings → L10 → recent games → news/profile → next game
- * Each bullet should feel like a mini-story, not a data label.
+ * If any bullet fails these rules, throws [TEAM_INTEL_NARRATIVE_TOO_GENERIC]
+ * so we never silently ship vague copy to users.
+ *
+ * Each item is { text, type, oppSlug? } — preserved for downstream
+ * consumers (slide, team page, caption). 'recent' type retains its
+ * opponent-logo behavior in the slide renderer.
  */
 export function buildIntelBriefingItems({
   slug,
@@ -441,305 +904,355 @@ export function buildIntelBriefingItems({
   divOutlook,
   projection,
   teamContext,
-  newsHeadlines,
-  nextGame,
-  nextLine,
+  newsHeadlines,    // unused in new structure — kept for back-compat call sites
+  nextGame,         // unused
+  nextLine,         // unused
   record,
   standings,
   divContext,
   mlbLeaders,
 }) {
-  const items = [];
+  void newsHeadlines; void nextGame; void nextLine; void divOutlook;
+
   const wins = projection?.projectedWins;
   const tk = projection?.takeaways || {};
   const inputs = slug ? TEAM_INPUTS[slug] : null;
   const { streak, l10Record, l10Wins, recentGames } = teamContext || {};
-  const sn = shortName(teamName);
+  const sn = shortName(teamName) || teamName || 'The team';
+  const expectedEntities = [sn, teamName, division].filter(Boolean);
 
-  // ── 1. Division / standings context — explicit rank + GB ──
+  // ── Tier classification — drives tone + framing across all 5 bullets ──
   const rank = divContext?.rank ?? standings?.rank ?? null;
   const gb = divContext?.gb ?? standings?.gb ?? null;
+  const teamTier = classifyTeamTier({ divisionRank: rank, gamesBack: gb, projectedWins: wins });
 
-  if (division && rank != null) {
-    // We have real standings data — use explicit rank + GB
+  // ── Driver balance + opponent quality + narrative spike ──
+  const drivers = findTeamPlayerDrivers(slug, mlbLeaders);
+  const driverProfile = classifyDriverBalance({
+    hittingDrivers: drivers.hitting,
+    pitchingDrivers: drivers.pitching,
+    teamInputs: inputs,
+    recentGames,
+  });
+  const r1 = recentGames?.[0] || null;
+  // Opponent-quality lookup falls back to projection when no full standings
+  // map is in scope (buildIntelBriefingItems doesn't receive one currently).
+  // The projection-based path covers every MLB team via getTeamProjection().
+  const opponentQuality = r1 ? classifyOpponentQuality(r1.oppSlug, null, null) : 'unknown';
+  const narrativeSpike = injectNarrativeSpike({
+    teamTier,
+    l10Wins: standings?.l10
+      ? (parseInt(standings.l10.split('-')[0]) || 0)
+      : l10Wins,
+    gamesBack: gb,
+    divisionRank: rank,
+    streak: standings?.streak || streak,
+    projectedWins: wins,
+  });
+
+  const bullets = [];
+  const recPart = record ? `${record.replace(/-/g, '\u2013')}` : null;
+
+  // ── 1. STANDINGS CONTEXT ─────────────────────────────────────────────
+  // Tier-aware: contender = control / separation, in_race = pressure /
+  // tight margins, falling_behind = urgency / fading window.
+  let standingsText;
+  if (recPart && rank != null && division) {
     const rankLabel = `${ordinal(rank)} in the ${division}`;
-    const recPrefix = record ? `${record}, ` : '';
+    const projBit = wins ? `, with the Maximus model projecting ${wins} wins` : '';
 
-    if (rank === 1) {
-      items.push({ text: `${recPrefix}${rankLabel} — leading the division. ${wins ? `Maximus model projects ${wins} wins.` : `The ${sn} are the team to beat.`}`, type: 'division' });
-    } else if (gb != null && gb <= 3) {
-      items.push({ text: `${recPrefix}${rankLabel}, ${gb === 0 ? 'tied for the lead' : `${gb} ${gb === 1 ? 'game' : 'games'} back`}. Within striking distance as every series carries weight.`, type: 'division' });
-    } else if (gb != null && gb <= 8) {
-      items.push({ text: `${recPrefix}${rankLabel}, sitting ${gb} games back. Still in the race, but the margin for error is shrinking fast.`, type: 'division' });
-    } else if (gb != null && gb > 8) {
-      items.push({ text: `${recPrefix}${rankLabel}, ${gb} games off the pace. The gap is real — this stretch will define whether they stay in it or start looking ahead.`, type: 'division' });
+    if (teamTier === 'contender' && rank === 1 && (gb == null || gb === 0)) {
+      standingsText = `${recPart}, ${rankLabel} \u2014 leading the division${projBit}, with every series creating more separation from the chasers.`;
+    } else if (teamTier === 'contender' && gb === 0) {
+      standingsText = `${recPart}, ${rankLabel} \u2014 tied for the division lead${projBit}. The next two weeks decide whether ${sn} create separation or get caught.`;
+    } else if (teamTier === 'contender') {
+      standingsText = `${recPart}, ${rankLabel}, ${gb} ${gb === 1 ? 'game' : 'games'} back${projBit} \u2014 firmly in control of their path, with every series creating real division weight.`;
+    } else if (teamTier === 'in_race' && gb != null) {
+      standingsText = `${recPart}, ${rankLabel}, ${gb} games back${projBit} \u2014 firmly in the mix, but every loss puts more pressure on the next series as the ${division} tightens.`;
+    } else if (teamTier === 'falling_behind' && gb != null) {
+      standingsText = `${recPart}, ${rankLabel}, ${gb} games off the pace in the ${division}${projBit} \u2014 the gap is widening, and only a sustained run keeps ${sn} in the playoff conversation.`;
     } else {
-      items.push({ text: `${recPrefix}${rankLabel}. ${wins ? `Maximus model projects ${wins} wins` : 'Competing'} — the next few weeks will shape the outlook.`, type: 'division' });
+      standingsText = `${recPart}, ${rankLabel}${projBit} \u2014 the next month puts real pressure on ${sn} to define this season's identity.`;
     }
+  } else if (recPart && division) {
+    if (teamTier === 'contender') {
+      standingsText = `${recPart} on the season in the ${division}${wins ? `, projecting at ${wins} wins` : ''} \u2014 the model keeps the ${sn} firmly in the contender tier with most of the schedule still ahead.`;
+    } else if (teamTier === 'falling_behind') {
+      standingsText = `${recPart} on the season in the ${division}${wins ? `, projecting at ${wins} wins` : ''} \u2014 a slow start that puts real pressure on the ${sn} to find a sustained run quickly.`;
+    } else {
+      standingsText = `${recPart} on the season in the ${division}${wins ? `, projecting at ${wins} wins` : ''} \u2014 every series from here either creates separation or limits the upside as the division tightens.`;
+    }
+  } else if (recPart) {
+    standingsText = `${recPart} on the season${wins ? `, with the Maximus model projecting ${wins} total wins` : ''} \u2014 the ${sn} need to start stacking results before the division leaders create more separation.`;
+  } else if (wins && division) {
+    standingsText = `The ${sn} project for ${wins} wins in the ${division} \u2014 a clear measuring stick that puts every series on this calendar in proper context.`;
   } else if (division) {
-    // No standings data — fall back to model-based framing
-    const outlookLow = (divOutlook || '').toLowerCase();
-    const recPrefix = record ? `${record} in the ${division}` : `Competing in the ${division}`;
-    if (outlookLow.includes('lead') || (wins && wins >= 94)) {
-      items.push({ text: `${recPrefix} — model projects ${wins} wins, the pace-setter in the division.`, type: 'division' });
-    } else if (outlookLow.includes('contend') || (wins && wins >= 86)) {
-      items.push({ text: `${recPrefix}. Projected for ${wins} wins — right in the race, where every series carries weight.`, type: 'division' });
-    } else if (wins && wins >= 78) {
-      items.push({ text: `${recPrefix}. Projected at ${wins} wins — on the fringe, but the window is narrowing.`, type: 'division' });
-    } else if (wins && wins < 72) {
-      items.push({ text: `${recPrefix}. Rebuilding at ${wins} projected wins — the focus is development, not October.`, type: 'division' });
-    } else {
-      items.push({ text: `${recPrefix}. ${wins ? `${wins} projected wins` : 'Middle of the pack'} — searching for an identity.`, type: 'division' });
-    }
-  } else if (record) {
-    items.push({ text: `${record} on the season. ${wins ? `Maximus model projects ${wins} wins.` : ''}`, type: 'division' });
+    standingsText = `The ${sn} are working through their early stretch in the ${division} \u2014 the next two weeks put real pressure on this group to define what kind of team they are.`;
+  } else {
+    standingsText = `The ${sn} are still searching for a defining stretch this season \u2014 the next month puts the spotlight on whether this group has another gear.`;
   }
+  validateBullet(standingsText, 1, expectedEntities);
+  bullets.push({ text: standingsText, type: 'standings' });
 
-  // ── 2. L10 / recent form — prefer ESPN standings L10 (always full 10 games) ──
+  // ── 2. RECENT FORM (L10 + trend) ────────────────────────────────────
+  // Tier-aware: surging vs treading vs struggling, with streak detection
+  // when ≥3 and a directional implication tied to the division.
   const espnL10 = standings?.l10 ?? null;
   const effectiveL10 = espnL10 || l10Record;
   const effectiveL10Wins = espnL10
-    ? parseInt(espnL10.split('-')[0]) || 0
+    ? (parseInt(espnL10.split('-')[0]) || 0)
     : l10Wins;
   const effectiveStreak = standings?.streak || streak;
+  const streakNum = effectiveStreak ? parseInt(effectiveStreak.replace(/[^\d]/g, '')) || 0 : 0;
+  const isWinStreak = effectiveStreak ? effectiveStreak.toUpperCase().startsWith('W') : false;
+  const divLabel = division ? `the ${division}` : 'the division';
 
+  let formText;
   if (effectiveL10 && effectiveL10Wins != null) {
-    let narrative;
-    if (effectiveL10Wins >= 8) narrative = `${sn} are surging at ${effectiveL10} over their last 10 — the hottest stretch of their season, and the standings reflect it.`;
-    else if (effectiveL10Wins >= 7) narrative = `A strong ${effectiveL10} over their last 10 games. Real momentum is building — this is when contenders start separating.`;
-    else if (effectiveL10Wins === 6) narrative = `Going ${effectiveL10} over their last 10 — slightly above .500 recently, solid enough to hold position but not pulling away.`;
-    else if (effectiveL10Wins === 5) narrative = `Treading water at ${effectiveL10} over the last 10 — no clear momentum in either direction, which benefits the teams above them.`;
-    else if (effectiveL10Wins === 4) narrative = `A ${effectiveL10} run over the last 10 games signals inconsistency. The margin for error is thinning with every loss.`;
-    else if (effectiveL10Wins === 3) narrative = `At ${effectiveL10} over the last 10, the ${sn} are losing ground fast. Something needs to shift before the deficit becomes insurmountable.`;
-    else narrative = `A brutal ${effectiveL10} over their last 10. This kind of skid costs real standings ground and demands immediate answers.`;
-
-    if (effectiveStreak) {
-      const streakNum = effectiveStreak.replace(/[WL]/i, '');
-      const isWin = effectiveStreak.toUpperCase().startsWith('W');
-      if (isWin && parseInt(streakNum) >= 3) {
-        narrative += ` Riding a ${effectiveStreak} streak — the momentum is real.`;
-      } else if (!isWin && parseInt(streakNum) >= 3) {
-        narrative += ` The ${effectiveStreak} skid adds urgency.`;
-      }
-    }
-    items.push({
-      text: narrative,
-      type: 'l10',
-    });
-  }
-
-  // ── 3. Last 1–2 games — tell the story of recent results ──
-  const recent2 = (recentGames || []).slice(0, 2);
-  if (recent2.length >= 2) {
-    const r1 = recent2[0];
-    const r2 = recent2[1];
-    const opp1 = shortName(r1.opponent) || r1.oppAbbrev;
-    const opp2 = shortName(r2.opponent) || r2.oppAbbrev;
-    const sameOpp = r1.oppAbbrev === r2.oppAbbrev;
-    const w = recent2.filter(r => r.won).length;
-
-    let text;
-    if (sameOpp && w === 2) {
-      text = `Took both from ${opp1} — ${r2.won ? 'W' : 'L'} ${r2.ourScore}\u2013${r2.oppScore}, then ${r1.won ? 'W' : 'L'} ${r1.ourScore}\u2013${r1.oppScore}. A statement series.`;
-    } else if (sameOpp && w === 0) {
-      text = `Dropped both to ${opp1} — ${r2.won ? 'W' : 'L'} ${r2.ourScore}\u2013${r2.oppScore}, then ${r1.won ? 'W' : 'L'} ${r1.ourScore}\u2013${r1.oppScore}. A rough stretch that needs a response.`;
-    } else if (sameOpp) {
-      text = `Split with ${opp1} — ${r2.won ? 'W' : 'L'} ${r2.ourScore}\u2013${r2.oppScore}, then ${r1.won ? 'W' : 'L'} ${r1.ourScore}\u2013${r1.oppScore}. Competitive but no separation.`;
-    } else if (w === 2) {
-      text = `Won their last two: ${r1.ourScore}\u2013${r1.oppScore} over ${opp1} and ${r2.ourScore}\u2013${r2.oppScore} over ${opp2}. Offense and pitching both showing up.`;
-    } else if (w === 0) {
-      text = `Dropped their last two: ${r1.ourScore}\u2013${r1.oppScore} to ${opp1} and ${r2.ourScore}\u2013${r2.oppScore} to ${opp2}. The slide needs to stop here.`;
+    const l10Display = effectiveL10.replace(/-/g, '\u2013');
+    if (effectiveL10Wins >= 8) {
+      formText = `${l10Display} over their last 10 \u2014 ${sn} are surging, and the run is creating real separation from the rest of ${divLabel}.`;
+    } else if (effectiveL10Wins >= 7) {
+      formText = `A strong ${l10Display} over the last 10 \u2014 the momentum is building, and the surge is putting ${divLabel} on notice.`;
+    } else if (effectiveL10Wins === 6) {
+      formText = `Going ${l10Display} over the last 10 \u2014 above .500, but ${sn} need a hotter run to actually create ground on the leaders in ${divLabel}.`;
+    } else if (effectiveL10Wins === 5) {
+      formText = `At ${l10Display} over the last 10, ${sn} are treading water \u2014 not enough to gain ground as teams above them keep stacking wins.`;
+    } else if (effectiveL10Wins === 4) {
+      formText = `A ${l10Display} run over the last 10 has ${sn} struggling \u2014 the pace is losing close to a game a week to the field, which puts the division deficit firmly in play.`;
+    } else if (effectiveL10Wins === 3) {
+      formText = `Just ${l10Display} over the last 10, ${sn} are struggling and losing real ground \u2014 the slide forces a sharper response before the deficit becomes the season's defining story.`;
     } else {
-      const winGame = recent2.find(r => r.won);
-      const lossGame = recent2.find(r => !r.won);
-      const wOpp = shortName(winGame.opponent) || winGame.oppAbbrev;
-      const lOpp = shortName(lossGame.opponent) || lossGame.oppAbbrev;
-      text = `Split the last two — beat ${wOpp} ${winGame.ourScore}\u2013${winGame.oppScore}, fell to ${lOpp} ${lossGame.ourScore}\u2013${lossGame.oppScore}. Inconsistency remains the story.`;
+      formText = `A brutal ${l10Display} over the last 10 \u2014 the skid is costing ${sn} standings position and forces an immediate response before more games slip away.`;
     }
-
-    items.push({
-      text,
-      type: 'recent',
-      oppSlug: r1.oppSlug || null,
-    });
-  } else if (recent2.length === 1) {
-    const r = recent2[0];
-    const opp = shortName(r.opponent) || r.oppAbbrev;
-    const margin = Math.abs(r.ourScore - r.oppScore);
-    let context;
-    if (r.won && margin >= 5) {
-      context = `A dominant ${r.ourScore}\u2013${r.oppScore} win over ${opp} — the kind of performance that sends a message to the rest of the division.`;
-    } else if (r.won && r.oppScore === 0) {
-      context = `Blanked ${opp} ${r.ourScore}\u2013${r.oppScore}. A shutout reinforces pitching depth and builds confidence heading into the next series.`;
-    } else if (r.won) {
-      context = `Took down ${opp} ${r.ourScore}\u2013${r.oppScore}. Every win matters for positioning, and this one keeps the momentum pointed forward.`;
-    } else if (!r.won && margin >= 5) {
-      context = `Dropped a lopsided ${r.ourScore}\u2013${r.oppScore} result to ${opp}. A loss like this raises questions about where the next win is coming from.`;
-    } else {
-      context = `Fell to ${opp} ${r.ourScore}\u2013${r.oppScore} in a tight game. Close losses carry double weight — the pressure to respond is immediate.`;
+    if (streakNum >= 3) {
+      formText += isWinStreak
+        ? ` Riding a ${effectiveStreak} streak that keeps the energy in the room.`
+        : ` The ${effectiveStreak} skid only puts more pressure on the next series.`;
     }
-    items.push({
-      text: context,
-      type: 'recent',
-      oppSlug: r.oppSlug || null,
-    });
+  } else if (recentGames && recentGames.length > 0) {
+    const w = recentGames.filter(r => r.won).length;
+    const total = recentGames.length;
+    formText = `${w} wins in the last ${total} games \u2014 not a full sample yet, but the early pace puts pressure on ${sn} to start stacking results before the leaders pull away.`;
+  } else if (effectiveStreak && streakNum >= 2) {
+    formText = isWinStreak
+      ? `${sn} have won ${streakNum} in a row \u2014 a short surge that creates early-season belief and puts the next series in real focus.`
+      : `${sn} have dropped ${streakNum} in a row \u2014 a short slide that puts pressure on the next series before the losses start to compound.`;
+  } else {
+    formText = `Recent form data is still building for ${sn} \u2014 the next 10 games put real definition on whether this group is closer to a contender or a rebuild.`;
   }
 
-  // ── 4. Team news / pitching / lineup / player storyline ──
-  const cleanedNews = (newsHeadlines || [])
-    .map(n => typeof n === 'string' ? n : cleanHeadline(n.headline || n.title || ''))
-    .filter(Boolean);
-
-  if (cleanedNews.length > 0) {
-    items.push({ text: cleanedNews[0], type: 'news' });
-  } else if (inputs) {
-    // Fall back to editorial rotation/lineup profile narrative
-    if (inputs.frontlineRotation >= 8) {
-      items.push({ text: `Pitching continues to anchor this roster — the rotation is rated among the best in baseball and gives them a chance every night.`, type: 'profile' });
-    } else if (inputs.topOfLineup >= 8) {
-      items.push({ text: `The lineup is the engine here. Top-of-the-order production has been elite, giving the pitching staff real margin for error.`, type: 'profile' });
-    } else if (inputs.bullpenQuality <= 4 || inputs.bullpenVolatility >= 5) {
-      items.push({ text: `The bullpen remains a question mark — late-inning volatility continues to cost them in close games.`, type: 'profile' });
-    } else if (inputs.frontlineRotation <= 4) {
-      items.push({ text: `Rotation depth is a real concern. Without top-end arms, the margin for error is paper-thin.`, type: 'profile' });
-    } else if (tk.strongestDriver) {
-      const driver = tk.strongestDriver;
-      const drag = tk.biggestDrag && tk.biggestDrag !== 'None significant' ? tk.biggestDrag : null;
-      items.push({ text: `${driver} is carrying the load.${drag ? ` The risk: ${drag.toLowerCase()} could limit the ceiling.` : ''}`, type: 'profile' });
-    }
-  } else if (tk.strongestDriver) {
-    items.push({ text: `${tk.strongestDriver} drives the outlook. The model's read hinges on that strength holding up over 162.`, type: 'profile' });
+  // ── Narrative spike (1A): one sharp editorial line appended to the
+  //    form bullet so it lands where the momentum/streak language already
+  //    lives. Skipped when no spike condition is met.
+  if (narrativeSpike) {
+    formText += ` ${narrativeSpike}`;
   }
 
-  // ── 5. Upcoming game — why it matters ──
-  const nOpp = nextGame?.opponent || nextLine?.nextEvent?.opponent;
-  const nSpread = nextLine?.consensus?.spread;
-  const nMl = nextLine?.consensus?.moneyline;
-  const nTime = nextGame?.date || nextLine?.nextEvent?.commenceTime;
-  const nOppSlug = nextGame?.oppSlug || slugFromName(nOpp);
+  validateBullet(formText, 2, expectedEntities);
+  bullets.push({ text: formText, type: 'l10' });
 
-  if (nOpp) {
-    const oppShort = shortName(nOpp) || nOpp;
-    let text = `Next up: ${oppShort}`;
-    if (nSpread != null) {
-      const sp = parseFloat(nSpread);
-      text += ` (${sp > 0 ? '+' : ''}${sp})`;
-    } else if (nMl != null) {
-      text += ` (${nMl > 0 ? '+' : ''}${nMl} ML)`;
-    }
-    if (nTime) {
-      const d = new Date(nTime);
-      if (!isNaN(d)) {
-        text += ` — ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}`;
+  // ── 3. MOST RECENT GAME ──────────────────────────────────────────────
+  // Smart framing: shutout / blowout / one-run / divisional + opponent
+  // quality (1D). Wins and losses are NOT framed equally — beating an
+  // elite team is a statement, beating a weak team is a needed result;
+  // losing to a weak team widens the gap, losing to elite contextualizes.
+  let recentText;
+  let recentOppSlug = null;
+  if (r1 && r1.ourScore != null && r1.oppScore != null) {
+    const opp = shortName(r1.opponent) || r1.oppAbbrev || 'their opponent';
+    const score = `${r1.ourScore}\u2013${r1.oppScore}`;
+    const margin = Math.abs(r1.ourScore - r1.oppScore);
+    const isDivisionGame = r1.oppSlug && division &&
+      MLB_TEAMS.find(t => t.slug === r1.oppSlug)?.division === division;
+    recentOppSlug = r1.oppSlug || null;
+
+    // ── Opponent-quality-aware tail clauses ──
+    // Division games still surface standings impact; opponent quality
+    // adjusts the editorial weight of the result.
+    const oqWinFrame = (() => {
+      if (opponentQuality === 'elite' || opponentQuality === 'strong') {
+        return isDivisionGame
+          ? `a statement win that creates real weight in the ${division} race`
+          : `a statement win against a strong opponent that puts the league on notice`;
       }
-    }
-    // Add context about why it matters
-    const isDivision = nOppSlug && division && MLB_TEAMS.find(t => t.slug === nOppSlug)?.division === division;
-    if (isDivision) {
-      text += '. A divisional matchup with standings implications.';
-    } else {
-      text += '.';
-    }
-    items.push({ text, type: 'next', oppSlug: nOppSlug || null });
-  }
-
-  // ── 5. Team leaders — WHO is driving production (preferred bullet 5) ──
-  // This replaces the old "depth is mixed" generic filler.
-  // Leaders bullet always takes priority over depth profile.
-  let leadersBulletAdded = false;
-  const teamAbbrev = MLB_TEAMS.find(t => t.slug === slug)?.abbrev || '';
-  if (teamAbbrev && mlbLeaders?.categories) {
-    const cats = mlbLeaders.categories;
-
-    // Scan both league leaders AND team-best data for this team
-    const teamMentions = [];
-    for (const [catKey, catLabel] of [['homeRuns', 'homers'], ['RBIs', 'RBIs'], ['hits', 'hits'], ['wins', 'wins'], ['saves', 'saves']]) {
-      const cat = cats[catKey];
-      if (!cat) continue;
-      const isPitching = catKey === 'wins' || catKey === 'saves';
-
-      // Check league leaders first (higher signal — ranked among MLB best)
-      const leaders = cat.leaders || [];
-      for (let i = 0; i < leaders.length; i++) {
-        if (leaders[i].teamAbbrev === teamAbbrev) {
-          teamMentions.push({
-            name: (leaders[i].name || '').split(' ').pop(),
-            full: leaders[i].name || '',
-            cat: catLabel, rank: i + 1,
-            value: leaders[i].display || String(leaders[i].value || 0),
-            isPitching, isLeagueBest: true,
-          });
-        }
+      if (opponentQuality === 'weak') {
+        return isDivisionGame
+          ? `a needed divisional result that keeps ${sn} from losing ground in the ${division}`
+          : `a needed result the ${sn} are expected to bank \u2014 keeps the standings from slipping further`;
       }
+      // average / unknown
+      return isDivisionGame
+        ? `a divisional win that keeps ${sn} in the ${division} conversation`
+        : `a win that keeps the recent stretch pointed in the right direction`;
+    })();
 
-      // Check team-best (covers everyone, not just top-3 league)
-      const tb = cat.teamBest?.[teamAbbrev];
-      if (tb && tb.name && tb.name !== '—') {
-        const alreadyListed = teamMentions.some(m => m.full === tb.name && m.cat === catLabel);
-        if (!alreadyListed) {
-          teamMentions.push({
-            name: (tb.name || '').split(' ').pop(),
-            full: tb.name,
-            cat: catLabel, rank: null,
-            value: tb.display || String(tb.value || 0),
-            isPitching, isLeagueBest: false,
-          });
-        }
+    const oqLossFrame = (() => {
+      if (opponentQuality === 'elite' || opponentQuality === 'strong') {
+        return isDivisionGame
+          ? `a tough divisional loss to a strong opponent that puts pressure on the next series`
+          : `a loss to a strong opponent \u2014 context matters, but it costs ${sn} ground and puts pressure on the next series`;
       }
-    }
+      if (opponentQuality === 'weak') {
+        return isDivisionGame
+          ? `a divisional stumble that quietly widens the gap in the ${division} and puts pressure on the next series`
+          : `losing to a weaker club is a stumble that quietly widens the deficit and forces a sharper response`;
+      }
+      // average / unknown
+      return isDivisionGame
+        ? `a divisional loss that puts pressure on the next series in the ${division}`
+        : `a loss that puts a fresh dent in the margin for error`;
+    })();
 
-    // Build narrative from best available mentions
-    const hitting = teamMentions.filter(m => !m.isPitching);
-    const pitching = teamMentions.filter(m => m.isPitching);
+    // Tier modulates urgency overlay
+    const tierUrgency = teamTier === 'falling_behind'
+      ? `, and time is becoming the bigger opponent`
+      : '';
 
-    if (hitting.length > 0 && pitching.length > 0) {
-      // Best of both worlds — offense + pitching
-      const h = hitting[0];
-      const p = pitching[0];
-      items.push({
-        text: `The offense runs through ${h.name}, who ${h.isLeagueBest ? 'ranks among MLB leaders' : 'leads the club'} in ${h.cat} (${h.value}). On the mound, ${p.name} anchors the staff with ${p.value} ${p.cat}.`,
-        type: 'leaders',
-      });
-      leadersBulletAdded = true;
-    } else if (hitting.length >= 2) {
-      const [a, b] = hitting;
-      items.push({
-        text: `${a.name} (${a.value} ${a.cat}) and ${b.name} (${b.value} ${b.cat}) are driving the offense — both ${a.isLeagueBest || b.isLeagueBest ? 'ranking among MLB\'s best' : 'leading the club'}.`,
-        type: 'leaders',
-      });
-      leadersBulletAdded = true;
-    } else if (teamMentions.length >= 1) {
-      const m = teamMentions[0];
-      items.push({
-        text: `${m.name} ${m.isLeagueBest ? 'ranks among MLB leaders' : 'leads the club'} in ${m.cat} with ${m.value}, setting the standard for the rest of the roster.`,
-        type: 'leaders',
-      });
-      leadersBulletAdded = true;
-    }
-  }
+    const winTail = ` \u2014 ${oqWinFrame}${tierUrgency}.`;
+    const lossTail = ` \u2014 ${oqLossFrame}${tierUrgency}.`;
 
-  // ── Pad remaining slots if under 5 ──
-  if (items.length < 5 && cleanedNews.length > 1) {
-    items.push({ text: cleanedNews[1], type: 'news' });
-  }
-  if (items.length < 5 && !leadersBulletAdded && tk.depthProfile) {
-    // Only use depth profile as last resort when leaders data is unavailable
-    const depth = tk.depthProfile.toLowerCase();
-    let depthNarrative;
-    if (depth.includes('deep') || depth.includes('strong')) {
-      depthNarrative = `Roster depth is a genuine advantage — built to absorb the attrition of a 162-game season without losing competitive edge.`;
-    } else if (depth.includes('thin') || depth.includes('shallow')) {
-      depthNarrative = `Depth remains the biggest concern. One significant injury to a core contributor could accelerate the timeline in the wrong direction.`;
+    if (r1.won && r1.oppScore === 0) {
+      recentText = `${sn} blanked ${opp} ${score}${isDivisionGame ? ` in a divisional matchup` : ''} \u2014 a shutout that reinforces the pitching staff and keeps ${sn} pointed forward${isDivisionGame ? `, with the standings impact in the ${division} backing it up` : ''}.`;
+    } else if (r1.won && margin >= 5) {
+      recentText = `${sn} rolled ${opp} ${score}${isDivisionGame ? ` in a key ${division} matchup` : ''} \u2014 a dominant offensive showing${isDivisionGame ? ` that creates real standings weight in the ${division}` : ' that puts the rest of the league on notice'}.`;
+    } else if (r1.won && margin <= 1) {
+      recentText = `${sn} edged ${opp} ${score}${isDivisionGame ? ` in a tight ${division} battle` : ''}, executing in high-leverage spots${winTail}`;
+    } else if (r1.won) {
+      recentText = `${sn} took down ${opp} ${score}${isDivisionGame ? ` in a divisional contest` : ''}${winTail}`;
+    } else if (r1.oppScore !== 0 && r1.ourScore === 0) {
+      recentText = `${sn} were shut out by ${opp} ${score}${isDivisionGame ? ` in a divisional spot` : ''} \u2014 zero runs is the kind of game that lingers and forces a quick offensive response${isDivisionGame ? `, with real implications in the ${division}` : ''}.`;
+    } else if (!r1.won && margin >= 5) {
+      recentText = `${sn} were blown out by ${opp} ${score}${isDivisionGame ? ` in a key ${division} matchup` : ''} \u2014 a lopsided loss that puts real questions on the table${isDivisionGame ? ` and limits standings progress in the ${division}` : ''}.`;
+    } else if (!r1.won && margin <= 1) {
+      recentText = `${sn} fell to ${opp} ${score} in a one-run game${isDivisionGame ? ` against a ${division} rival` : ''}${lossTail}`;
     } else {
-      depthNarrative = `The roster has enough to stay competitive, but lacks the depth insurance that true contenders carry into the second half.`;
+      recentText = `${sn} dropped a ${score} game to ${opp}${isDivisionGame ? ` in a divisional spot` : ''}${lossTail}`;
     }
-    items.push({ text: depthNarrative, type: 'profile' });
+  } else if (recentGames && recentGames.length > 0) {
+    recentText = `${sn} have ${recentGames.filter(r => r.won).length} wins in their last ${recentGames.length} games \u2014 not a defining stretch yet, but the next series puts real definition on where this team stands.`;
+  } else {
+    recentText = `${sn} are between meaningful results right now \u2014 the next series puts the first real pressure on this group to define their tier.`;
   }
-  if (items.length < 5 && cleanedNews.length > 2) {
-    items.push({ text: cleanedNews[2], type: 'news' });
+  validateBullet(recentText, 3, expectedEntities, {
+    requireRecentGameContext: !!(r1 && r1.ourScore != null && r1.oppScore != null),
+  });
+  bullets.push({ text: recentText, type: 'recent', oppSlug: recentOppSlug });
+
+  // ── 4. CORE TEAM DRIVER (asymmetric, diagnostic — 1B) ────────────────
+  // Driver profile (offense_driven / pitching_driven / balanced / thin)
+  // selects between four diagnostic templates that explicitly identify
+  // who is carrying production and what's NOT supporting them.
+  const hit = drivers.hitting;
+  const pit = drivers.pitching;
+
+  let driverText;
+  const hasPlayerData = hit.length > 0 || pit.length > 0;
+
+  if (hit.length > 0 && pit.length > 0) {
+    const h = hit[0];
+    const p = pit[0];
+    const hLine = `${h.last}'s ${h.value} ${h.cat}`;
+    const pLine = `${p.last}'s ${p.value} ${p.cat}`;
+
+    if (driverProfile === 'balanced') {
+      driverText = `${hLine} and ${pLine} are giving ${sn} balance \u2014 enough on both sides to keep the team in control even when one side has an off night.`;
+    } else if (driverProfile === 'offense_driven') {
+      driverText = `${hLine} are carrying the offense right now \u2014 without that production, ${sn} struggle to create run support, which puts every rotation start under real pressure.`;
+    } else if (driverProfile === 'pitching_driven') {
+      driverText = `${pLine} have stabilized the rotation, keeping ${sn} afloat \u2014 the offense still needs to put together more consistent run support to lift the team's ceiling.`;
+    } else {
+      // thin
+      driverText = `Much of the ${sn} production is concentrated in too few places \u2014 ${hLine} and ${pLine} matter because there's little margin behind them, which forces dependence on a small healthy core.`;
+    }
+  } else if (hit.length >= 2) {
+    const [a, b] = hit;
+    const eliteTag = (a.isLeagueBest || b.isLeagueBest)
+      ? `both rank among MLB's best at their spots and keep opposing pitching honest every night`
+      : `both lead the club, and the offense needs them to keep producing or the run support dries up`;
+    driverText = `${a.last}'s ${a.value} ${a.cat} and ${b.last}'s ${b.value} ${b.cat} are powering the ${sn} offense \u2014 ${eliteTag}.`;
+  } else if (hit.length === 1) {
+    const h = hit[0];
+    if (driverProfile === 'thin' || h.isLeagueBest) {
+      driverText = `${h.last} is carrying nearly all of the ${sn} offense, ranking among the team's leaders with ${h.value} ${h.cat} \u2014 when his bat goes cold, run production drops sharply, which makes any pitching slip-up costly.`;
+    } else {
+      driverText = `${h.last} leads the ${sn} with ${h.value} ${h.cat}, powering most of the run production \u2014 the rest of the lineup needs to create more support before the offense becomes a real strength.`;
+    }
+  } else if (pit.length >= 2) {
+    const [a, b] = pit;
+    driverText = `${a.last}'s ${a.value} ${a.cat} and ${b.last}'s ${b.value} ${b.cat} are anchoring the ${sn} staff \u2014 pitching keeps this team competitive while the offense still searches for consistent run support.`;
+  } else if (pit.length === 1) {
+    const p = pit[0];
+    if (driverProfile === 'thin' || p.isLeagueBest) {
+      driverText = `${p.last}'s ${p.value} ${p.cat} are the rotation's only real anchor \u2014 when his start lines up, ${sn} have a chance; otherwise the staff struggles to keep games close, which costs them winnable contests.`;
+    } else {
+      driverText = `${p.last} anchors the ${sn} staff with ${p.value} ${p.cat} \u2014 a top arm that keeps the rotation tier-defined and forces the rest of the staff to match the standard.`;
+    }
+  } else {
+    // No player-leader data — translate the model's strongestDriver
+    const driverPhrase = translateDriverToPlainEnglish(tk.strongestDriver, sn);
+    if (driverPhrase) {
+      driverText = driverPhrase;
+    } else if (inputs && inputs.frontlineRotation >= 7) {
+      driverText = `The ${sn} rotation has been the team's clearest strength \u2014 quality starts keep ${sn} in games every night, even on days the offense goes quiet.`;
+    } else if (inputs && inputs.topOfLineup >= 7) {
+      driverText = `The ${sn} top of the order has set the tone all season \u2014 table-setters reaching base consistently puts the heart of the lineup in run-scoring spots night after night.`;
+    } else if (inputs && inputs.bullpenQuality >= 7) {
+      driverText = `The ${sn} bullpen has been a true difference-maker \u2014 high-leverage outs late keep close games tilted in their favor more often than not.`;
+    } else if (wins != null) {
+      driverText = `The ${sn} are projected for ${wins} wins by the Maximus model \u2014 a ceiling that depends on the pitching staff continuing to keep games within reach for the offense.`;
+    } else {
+      driverText = `The ${sn} are still figuring out which unit \u2014 rotation, bullpen, or lineup \u2014 puts this team over the top; the next month should force the identity into focus.`;
+    }
+  }
+  validateBullet(driverText, 4, expectedEntities, {
+    requireDriverSpecificity: hasPlayerData,
+  });
+  bullets.push({ text: driverText, type: 'driver' });
+
+  // ── 5. RISK / LIMITATION (consequence-oriented — 1C) ─────────────────
+  // Every risk bullet must explicitly answer:
+  //   what is the weakness · what breaks if it continues · what happens
+  //   in standings/game outcomes
+  // Soft phrasings like "limits the ceiling" alone are not enough — the
+  // requireRiskConsequence validator forces a turn/make/force/widen/cost/
+  // expose/push verb in every risk bullet.
+  const drag = (tk.biggestDrag && tk.biggestDrag !== 'None significant') ? tk.biggestDrag : null;
+  const translatedRisk = translateDragToPlainEnglish(drag, sn);
+
+  let riskText;
+  if (translatedRisk) {
+    riskText = `The risk: ${translatedRisk}`;
+  } else if (inputs && inputs.bullpenVolatility >= 5) {
+    riskText = `The risk: ${sn} bullpen instability keeps putting late innings at risk \u2014 the misses turn winnable games into losses and expose the team in the kinds of close contests contenders usually win.`;
+  } else if (inputs && inputs.frontlineRotation <= 4) {
+    riskText = `The risk: beyond the top of the rotation, ${sn} innings quality falls off quickly \u2014 the gap forces the bullpen into too many high-leverage spots and costs them in series losses over longer stretches.`;
+  } else if (inputs && inputs.topOfLineup <= 4) {
+    riskText = `The risk: thin top-of-order on-base forces the heart of the ${sn} lineup into low-leverage at-bats, which limits run support and costs the pitching staff real margin every night.`;
+  } else if (hit.length === 0 && pit.length > 0) {
+    riskText = `The risk: ${sn} have leaned on pitching to win, but until the offense produces more runs, the inconsistency turns winnable games into losses and limits how high this team can realistically finish.`;
+  } else if (pit.length === 0 && hit.length > 0) {
+    riskText = `The risk: the ${sn} offense is doing the heavy lifting, but without more reliable starting pitching the rotation keeps putting the team in early-game holes that cost wins.`;
+  } else if (wins != null && wins <= 78) {
+    riskText = `The risk: at ${wins} projected wins, the ${sn} margin for error is razor-thin \u2014 every losing series costs them ground and limits the realistic path back into contention.`;
+  } else if (wins != null && wins >= 92) {
+    riskText = `The risk: the bar is set high at ${wins} projected wins \u2014 if ${sn} stop hitting that pace, the perception turns quickly from contender to disappointment, which puts the season's ceiling in question.`;
+  } else {
+    riskText = `The risk: ${sn} performance has been streaky enough that one cold week puts the entire division narrative in flux \u2014 sustained, daily execution is the only thing that keeps the season on track and stops a cold stretch from costing real ground.`;
   }
 
-  return items.slice(0, 5);
+  // Falling-behind overlay: time-pressure clause. If the base risk doesn't
+  // already mention time/games-back urgency, append a short clause.
+  if (teamTier === 'falling_behind' && !/games?\s*back|time|gap|deficit|insurmountable/i.test(riskText)) {
+    riskText += ` Time is becoming the biggest opponent \u2014 without a strong run soon, the deficit limits any realistic comeback and forces ${sn} into must-win mode for every series.`;
+  }
+
+  validateBullet(riskText, 5, expectedEntities, { requireRiskConsequence: true });
+  bullets.push({ text: riskText, type: 'risk' });
+
+  // Additive metadata for downstream consumers (slide, page, caption,
+  // emails). All fields are optional — existing consumers keep working.
+  return { items: bullets, teamTier, narrativeSpike, driverProfile, opponentQuality };
 }
 
 // ─── Full Structured Briefing ──────────────────────────────────────────────
@@ -776,7 +1289,7 @@ export function buildMlbTeamIntelBriefing(opts) {
     teamName, slug, projection, teamContext, division, record, divContext,
   });
 
-  const items = buildIntelBriefingItems({
+  const { items, teamTier, narrativeSpike, driverProfile, opponentQuality } = buildIntelBriefingItems({
     slug, teamName, division, divOutlook, projection, teamContext,
     newsHeadlines: opts.newsHeadlines,
     nextGame: opts.nextGame,
@@ -810,7 +1323,18 @@ export function buildMlbTeamIntelBriefing(opts) {
   // ── Team Leaders: best player per stat category for this team ──
   const teamLeaders = extractTeamLeaders(slug, opts.mlbLeaders);
 
-  return { headline, subtext: enrichedSubtext, items, projection, whyItMatters, teamLeaders };
+  return {
+    headline,
+    subtext: enrichedSubtext,
+    items,
+    teamTier,
+    narrativeSpike,
+    driverProfile,
+    opponentQuality,
+    projection,
+    whyItMatters,
+    teamLeaders,
+  };
 }
 
 /**

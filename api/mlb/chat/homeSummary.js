@@ -9,6 +9,7 @@ import { getJson, setJson, tryAcquireLock } from '../../_globalCache.js';
 import { getQueryParam } from '../../_requestUrl.js';
 import { createCache } from '../../_cache.js';
 import { MLB_TEAMS } from '../../../src/sports/mlb/teams.js';
+import { buildMlbEditorialSummary } from '../../../src/data/mlb/narrative/buildMlbEditorialSummary.js';
 
 const FRESH_KEY      = 'chat:mlb:home:summary:v2';
 const LASTKNOWN_KEY  = 'chat:mlb:home:lastKnown:v2';
@@ -461,8 +462,38 @@ async function readCached() {
 
 async function generateAndCache() {
   const data = await buildMlbSummaryData();
-  const { systemPrompt, userPrompt } = buildPrompt(data);
-  const summary = await generateWithOpenAI(systemPrompt, userPrompt);
+
+  // ── Deterministic editorial engine (replaces LLM) ─────────────────
+  // Single canonical narrative source for MLB Home + all 3 emails
+  // (mlb_briefing, mlb_team_digest, global_briefing). Output shape is
+  // unchanged ({ summary: string }) so all consumers keep working with
+  // no UI / template changes. The 5-section paragraph format remains
+  // compatible with mlbBriefing.js's parseNarrativeToSections().
+  let summary = null;
+  try {
+    const editorial = buildMlbEditorialSummary({
+      standings: data.standings || {},
+      championshipOdds: data.championshipOdds || {},
+      headlines: data.headlines || [],
+      leaders: data.leaders || null,
+      liveGames: data.liveGames || [],
+      picks: data.picks || null,
+    });
+    summary = editorial.narrativeParagraph;
+    console.log('[mlb/chat/homeSummary] editorial engine:', {
+      headlineLen: editorial.headline?.length || 0,
+      storylines: editorial.keyStorylines?.length || 0,
+      whyItMattersLen: editorial.whyItMatters?.length || 0,
+      narrativeLen: summary?.length || 0,
+    });
+  } catch (err) {
+    // Validation throws (MLB_EDITORIAL_*) bubble up here. Log and surface
+    // null so the caller can fall back to cached output — never silently
+    // ship a broken narrative, but also never crash the page.
+    console.error('[mlb/chat/homeSummary] editorial engine failed:', err?.message);
+    summary = null;
+  }
+
   if (summary) {
     const payload = { summary, generatedAt: new Date().toISOString() };
     await Promise.all([

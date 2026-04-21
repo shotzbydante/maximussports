@@ -504,6 +504,37 @@ describe('MLB Picks: rendered HTML section contract', () => {
   });
 });
 
+describe('MLB Picks: reliability — partial board renders available categories', () => {
+  it('renders only pickEms when other categories are empty', () => {
+    const assembled = fullPicksAssembled();
+    assembled.picksBoard.categories.ats = [];
+    assembled.picksBoard.categories.leans = [];
+    assembled.picksBoard.categories.totals = [];
+    const emailData = buildEmailData('mlb_picks', assembled, { displayName: 'Test' });
+    const html = renderMlbPicksHTML(emailData);
+
+    expect(html).toContain("PICK 'EMS");
+    expect(html).not.toContain('AGAINST THE SPREAD');
+    expect(html).not.toContain('VALUE LEANS');
+    expect(html).not.toContain('GAME TOTALS');
+    expect(html).not.toContain('No picks have cleared');
+  });
+
+  it('board summary strip reflects only populated categories', () => {
+    const assembled = fullPicksAssembled();
+    assembled.picksBoard.categories.leans = [];
+    assembled.picksBoard.categories.totals = [];
+    const emailData = buildEmailData('mlb_picks', assembled, { displayName: 'Test' });
+    const html = renderMlbPicksHTML(emailData);
+
+    // Summary shows actual counts, not phantom zero categories
+    expect(html).toContain('2 moneyline');
+    expect(html).toContain('1 run line');
+    expect(html).not.toContain('0 value');
+    expect(html).not.toContain('0 total');
+  });
+});
+
 describe('MLB Picks: prod/test parity (same input → same output)', () => {
   it('buildEmailData is deterministic for mlb_picks', () => {
     const prod = buildEmailData('mlb_picks', fullPicksAssembled(), { displayName: 'User' });

@@ -209,38 +209,61 @@
 }
 
 /* ── Controls panel ─────────────────────────────────────── */
+/*
+  Layout model: the panel flows naturally in the grid column and scrolls
+  with the page. This is a deliberate change from the previous
+  position:sticky + max-height + overflow-y:auto pattern, which created
+  TWO overlapping problems:
+    (1) Wheel-event trap — the outer page intercepted the mouse wheel,
+        so the sidebar's inner scrollbar was only reachable by explicit
+        targeting.
+    (2) Sticky pinning prevented access to content below the viewport
+        fold — when the sidebar exceeded viewport height, the bottom
+        portion (including the caption preview) was NEVER visible while
+        the sidebar was pinned.
+  Letting the sidebar flow naturally means the caption is always
+  reachable via normal page scroll. The caption panel still has its own
+  compact 320px internal scroll (.captionBody) so very long captions
+  stay visually contained.
+*/
 .controls {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card, 12px);
-  padding: 16px;
+  padding: 16px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 96px);
-  overflow-y: auto;
-  /* Make scrollbar always visible so users know content continues */
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border, #4a5568) transparent;
+  align-self: start; /* don't stretch to preview column height */
+  min-height: 0;     /* flexbox scroll-safe ancestor */
 }
 
-.controls::-webkit-scrollbar {
-  width: 5px;
+/* Small uppercase label used above action groups for visual hierarchy */
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  padding: 0 2px;
+  margin: 2px 0 -2px;
 }
 
-.controls::-webkit-scrollbar-track {
-  background: transparent;
+/* Wrapper around the Instagram publish button + meta line */
+.postBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
 }
 
-.controls::-webkit-scrollbar-thumb {
-  background: var(--color-border, #4a5568);
-  border-radius: 4px;
-}
-
-.controls::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted, #718096);
+.postMeta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0.65;
+  line-height: 1.4;
+  padding: 0 2px;
 }
 
 @media (max-width: 900px) {
@@ -796,7 +819,7 @@
 .actionGroup {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 9px;
 }
 
 @media (max-width: 900px) {
@@ -838,8 +861,9 @@
   background: var(--color-primary);
   color: #fff;
   border: none;
-  border-radius: var(--radius-md);
-  padding: 9px 16px;
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-height: 40px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -855,8 +879,9 @@
   background: var(--color-bg);
   color: var(--color-text);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 8px 16px;
+  border-radius: 10px;
+  padding: 9px 16px;
+  min-height: 38px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -868,11 +893,12 @@
 .btnSecondary:hover:not(:disabled) { border-color: var(--color-primary); }
 .btnSecondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Separator between export actions and Instagram publish button */
+/* Separator between action sections */
 .publishDivider {
   height: 1px;
   background: var(--color-border);
-  margin: 2px 0;
+  margin: 6px 0 2px;
+  opacity: 0.6;
 }
 
 /* ── Gemini generation (MLB only) ──────────────────────── */
@@ -1009,12 +1035,28 @@
 .copyBtn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
 .captionBody {
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 420px;
+  max-height: 320px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.captionBody::-webkit-scrollbar {
+  width: 6px;
+}
+
+.captionBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+.captionBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .captionText {

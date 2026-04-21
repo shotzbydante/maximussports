@@ -1,160 +1,156 @@
-.gatedWrapper {
+/* GatedContent — shared preview+fade+CTA treatment */
+
+.root {
   position: relative;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
-/* ── Layer 1: Clipped real content ───────────────────────────── */
+/* ── Content clip (real page content above the fold) ── */
 .contentClip {
-  overflow: hidden;
   position: relative;
+  overflow: hidden;
+  transition: max-height 0.25s ease-out;
+}
+.contentInner {
+  /* Render children at their natural size; clip handled by parent */
 }
 
-/* ── Layer 2: Fade band over bottom of clipped content ───────── */
-/* Positioned absolutely at the bottom of contentClip so real
-   cards/modules are visible through the early transparent stops */
+/* ── Fade band — CSS gradient over bottom of clipped content ── */
 .fadeBand {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  left: 0; right: 0; bottom: 0;
   height: 280px;
   pointer-events: none;
+  z-index: 3;
   background: linear-gradient(
     to bottom,
-    rgba(11, 20, 35, 0) 0%,
-    rgba(11, 20, 35, 0.04) 15%,
-    rgba(11, 20, 35, 0.12) 30%,
-    rgba(11, 20, 35, 0.28) 45%,
-    rgba(11, 20, 35, 0.5) 58%,
-    rgba(11, 20, 35, 0.72) 70%,
-    rgba(11, 20, 35, 0.88) 82%,
-    rgba(11, 20, 35, 0.96) 92%,
-    rgb(11, 20, 35) 100%
+    transparent 0%,
+    rgba(250, 250, 250, 0.55) 35%,
+    rgba(250, 250, 250, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
   );
 }
 
-/* ── Layer 3: CTA fill region ────────────────────────────────── */
-/* Solid dark background that continues below the fade band,
-   filling the remaining viewport. No white space possible. */
+@media (max-width: 720px) {
+  .fadeBand { height: 200px; }
+}
+
+/* Sport-tinted fades (very subtle) */
+.fade_mlb {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(252, 246, 248, 0.55) 35%,
+    rgba(252, 246, 248, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+.fade_nba {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(246, 250, 255, 0.55) 35%,
+    rgba(246, 250, 255, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+.fade_ncaam {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(246, 249, 255, 0.55) 35%,
+    rgba(246, 249, 255, 0.92) 70%,
+    var(--color-bg, #f8f8f8) 100%
+  );
+}
+
+/* ── CTA fill (solid region below the fade) ── */
 .ctaFill {
-  background-color: rgb(11, 20, 35);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 48px;
+  padding: 32px 24px 64px;
+  background: var(--color-bg, #f8f8f8);
 }
 
-/* ── CTA Card ────────────────────────────────────────────────── */
+/* ── CTA card ── */
 .ctaCard {
+  max-width: 440px;
+  width: 100%;
+  padding: 32px 28px 28px;
+  background: var(--color-bg-elevated, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
   text-align: center;
-  max-width: 420px;
-  padding: 0 28px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-.lockBadge {
-  display: inline-flex;
+.lockIcon {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: rgba(196, 30, 58, 0.08);
-  border: 1px solid rgba(196, 30, 58, 0.12);
-  color: #c41e3a;
-  margin-bottom: 20px;
-  box-shadow: 0 0 24px rgba(196, 30, 58, 0.06);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: var(--color-text-secondary, #3d5a73);
+  background: rgba(60, 100, 160, 0.06);
+  border: 1px solid rgba(60, 100, 160, 0.10);
+  margin-bottom: 4px;
 }
 
 .ctaTitle {
-  font-size: 22px;
+  font-size: 1.1rem;
   font-weight: 800;
-  color: #f0f4f8;
-  margin: 0 0 10px;
+  color: var(--color-text);
+  margin: 0;
   letter-spacing: -0.01em;
-  line-height: 1.25;
 }
 
 .ctaSub {
-  font-size: 14px;
-  color: rgba(240, 244, 248, 0.5);
-  margin: 0 0 24px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
   line-height: 1.55;
-  max-width: 340px;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 0 6px;
 }
 
-.ctaBtn {
-  display: inline-block;
-  padding: 14px 36px;
-  font-size: 15px;
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 26px;
+  font-size: 0.84rem;
   font-weight: 700;
-  color: #ffffff;
-  background: #c41e3a;
-  border: none;
+  color: #fff;
+  background: #1d428a;
   border-radius: 10px;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-  font-family: inherit;
-  box-shadow:
-    0 2px 12px rgba(196, 30, 58, 0.2),
-    0 0 40px rgba(196, 30, 58, 0.08);
+  text-decoration: none;
+  transition: filter 0.14s, transform 0.14s;
+  letter-spacing: 0.01em;
+}
+.ctaPrimary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* Sport-tinted primary CTAs */
+.btn_mlb  { background: #b8293d; }
+.btn_nba  { background: #1d428a; }
+.btn_ncaam { background: #3885e0; }
+
+.ctaFoot {
+  font-size: 0.64rem;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
 }
 
-.ctaBtn:hover {
-  background: #a81832;
-  transform: translateY(-1px);
-  box-shadow:
-    0 4px 20px rgba(196, 30, 58, 0.3),
-    0 0 50px rgba(196, 30, 58, 0.1);
-}
-
-.ctaBtn:active {
-  transform: translateY(0);
-}
-
-.ctaNote {
-  font-size: 12px;
-  color: rgba(240, 244, 248, 0.25);
-  margin: 14px 0 0;
-  line-height: 1.4;
-}
-
-/* ── Desktop refinement ──────────────────────────────────────── */
-@media (min-width: 769px) {
-  .fadeBand {
-    height: 320px;
-  }
-  .ctaFill {
-    padding-top: 56px;
-  }
-}
-
-/* ── Mobile ──────────────────────────────────────────────────── */
-@media (max-width: 480px) {
-  .fadeBand {
-    height: 200px;
-  }
-  .ctaFill {
-    padding-top: 28px;
-  }
+/* ── Responsive ── */
+@media (max-width: 640px) {
   .ctaCard {
-    padding: 0 20px 36px;
+    padding: 26px 20px 22px;
+    margin: 0 4px;
   }
-  .ctaTitle {
-    font-size: 19px;
-  }
-  .ctaSub {
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 380px) {
-  .ctaCard {
-    padding: 0 16px 32px;
-  }
-  .ctaTitle {
-    font-size: 17px;
-  }
+  .ctaTitle { font-size: 1rem; }
+  .ctaSub { font-size: 0.78rem; }
+  .ctaFill { padding: 24px 16px 48px; }
 }

@@ -153,26 +153,121 @@ async function updateRecord(supabase, id, patch) {
 
 // ── Pre-flight image check ──────────────────────────────────────────────────
 
-async function verifyImageUrl(url) {
+/**
+ * Verify a single image URL is reachable and serves an image. The carousel
+ * publish path uses HEAD diagnostics that don't BLOCK on failure; the
+ * single-image path historically blocked on a single HEAD attempt, which
+ * caused two real failure modes:
+ *
+ *   1. HEAD vs GET divergence — some Supabase/CDN edges return
+ *      different status codes for HEAD on freshly-cached objects.
+ *      A bare HEAD that 4xxs would block a publish that GET would have
+ *      passed, even though Meta successfully fetches the image.
+ *   2. Storage propagation race — `upload-asset` returns the public
+ *      URL the moment Supabase write succeeds, but the object can take
+ *      ~500-2000ms to be fetchable from every edge. A bare check timed
+ *      to immediately after upload can hit the propagation gap.
+ *
+ * Fix: try HEAD first; on any non-2xx OR throw, fall back to a
+ * lightweight GET (Range: bytes=0-1 to avoid downloading the whole
+ * image). Up to 3 attempts with 600/1200ms backoff. Returns the same
+ * shape as before so all downstream code is unchanged.
+ */
+async function attemptHead(url) {
   try {
-    const resp = await fetch(url, { method: 'HEAD' });
-    const ct = resp.headers.get('content-type') ?? '';
-    const cl = resp.headers.get('content-length');
-    const parsed = new URL(url);
-    const pathExt = parsed.pathname.match(/\.(png|jpe?g|gif|webp)$/i)?.[1] ?? null;
-
+    const resp = await fetch(url, { method: 'HEAD', redirect: 'follow' });
     return {
-      reachable:     resp.ok,
-      status:        resp.status,
-      contentType:   ct,
-      isImage:       ct.startsWith('image/'),
-      contentLength: cl ? Number(cl) : null,
-      hasExtension:  !!pathExt,
-      extension:     pathExt,
+      ok: resp.ok,
+      status: resp.status,
+      contentType: resp.headers.get('content-type') ?? '',
+      contentLength: resp.headers.get('content-length'),
+      method: 'HEAD',
     };
   } catch (err) {
-    return { reachable: false, status: 0, contentType: null, isImage: false, hasExtension: false, extension: null, error: err.message };
+    return { ok: false, status: 0, contentType: null, contentLength: null, method: 'HEAD', error: err.message };
   }
+}
+
+async function attemptRangeGet(url) {
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: { Range: 'bytes=0-1' },
+    });
+    // Range request returns 206 (Partial Content) on success, or 200 if
+    // server doesn't support range (still a valid signal of reachability).
+    const ok = resp.ok || resp.status === 206;
+    return {
+      ok,
+      status: resp.status,
+      contentType: resp.headers.get('content-type') ?? '',
+      contentLength: resp.headers.get('content-length'),
+      method: 'GET',
+    };
+  } catch (err) {
+    return { ok: false, status: 0, contentType: null, contentLength: null, method: 'GET', error: err.message };
+  }
+}
+
+async function verifyImageUrl(url) {
+  const parsed = (() => { try { return new URL(url); } catch { return null; } })();
+  const pathExt = parsed?.pathname.match(/\.(png|jpe?g|gif|webp)$/i)?.[1] ?? null;
+
+  const attempts = [];
+  const MAX_ATTEMPTS = 3;
+  const BACKOFFS_MS = [0, 600, 1200];
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    if (BACKOFFS_MS[i] > 0) {
+      await new Promise(r => setTimeout(r, BACKOFFS_MS[i]));
+    }
+
+    // Try HEAD first
+    let result = await attemptHead(url);
+    attempts.push(result);
+
+    // If HEAD failed (network error, non-2xx, or returned non-image content-type),
+    // try a Range-GET as a more reliable second-opinion. Some edges respond
+    // differently to GET vs HEAD on freshly-cached objects.
+    if (!result.ok || (result.contentType && !result.contentType.startsWith('image/'))) {
+      const getResult = await attemptRangeGet(url);
+      attempts.push(getResult);
+      // Prefer the GET result if it's a clear win
+      if (getResult.ok && (getResult.contentType?.startsWith('image/') || pathExt)) {
+        result = getResult;
+      }
+    }
+
+    if (result.ok && (result.contentType?.startsWith('image/') || pathExt)) {
+      return {
+        reachable:     true,
+        status:        result.status,
+        contentType:   result.contentType,
+        isImage:       result.contentType?.startsWith('image/') || !!pathExt,
+        contentLength: result.contentLength ? Number(result.contentLength) : null,
+        hasExtension:  !!pathExt,
+        extension:     pathExt,
+        verifyMethod:  result.method,
+        attempts:      attempts.length,
+      };
+    }
+  }
+
+  // All attempts exhausted — return the most informative failure
+  const last = attempts[attempts.length - 1] || {};
+  return {
+    reachable:     false,
+    status:        last.status ?? 0,
+    contentType:   last.contentType ?? null,
+    isImage:       false,
+    contentLength: null,
+    hasExtension:  !!pathExt,
+    extension:     pathExt,
+    error:         last.error ?? `${attempts.length} verification attempts failed (last status ${last.status})`,
+    attempts:      attempts.length,
+    attemptDetails: attempts,
+  };
 }
 
 // ── Container status polling ────────────────────────────────────────────────
@@ -322,9 +417,16 @@ export default async function handler(req, res) {
   // --- Stage: validate ---
   const { imageUrl, caption, metadata = {} } = req.body ?? {};
 
+  console.log('[PUBLISH_SINGLE_START]', {
+    hasImageUrl: !!imageUrl,
+    imageUrl: typeof imageUrl === 'string' ? imageUrl : null,
+    captionLength: caption?.length || 0,
+    section: metadata?.contentStudioSection ?? null,
+  });
+
   if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
     return res.status(400).json({
-      ok: false, stage: 'validate', requestId,
+      ok: false, stage: 'validate', step: 'missing_image_url', requestId,
       error: 'imageUrl is required and must be a non-empty string', debug,
     });
   }
@@ -344,6 +446,19 @@ export default async function handler(req, res) {
   }
 
   const trimmedCaption = caption.trim();
+
+  // ── HARD SERVER-SIDE GUARD — reject blank/generic captions ──
+  // Same threshold as carousel endpoint. Blocks the "MLB Intelligence —
+  // maximussports.ai" fallback that caused a blank production post.
+  const MIN_CAPTION_CHARS = 80;
+  if (trimmedCaption.length < MIN_CAPTION_CHARS) {
+    console.error(`[publish/single req=${requestId.slice(0,8)}] rejected short caption: chars=${trimmedCaption.length} preview="${trimmedCaption.slice(0, 120)}"`);
+    return res.status(400).json({
+      ok: false, stage: 'validate', requestId,
+      error: `caption is too short (${trimmedCaption.length} chars). A legitimate caption is at least ${MIN_CAPTION_CHARS} chars. This likely indicates a caption-builder failure upstream.`,
+      debug,
+    });
+  }
   if (trimmedCaption.length > 2200) {
     return res.status(400).json({
       ok: false, stage: 'validate', requestId,
@@ -363,16 +478,54 @@ export default async function handler(req, res) {
 
   log.info('validated — image:', imageUrl.slice(0, 100), '| caption:', trimmedCaption.length, 'chars |', hashtagCount, 'hashtags');
 
-  // --- Stage: preflight (verify image URL is reachable) ---
-  const imgCheck = await verifyImageUrl(imageUrl.trim());
+  // --- Stage: URL self-check (sanity before any network attempts) ---
+  const trimmedUrl = imageUrl.trim();
+  const urlSafetyError = (() => {
+    if (!/^https:\/\//i.test(trimmedUrl)) return 'Image URL must be absolute https://';
+    if (/^https?:\/\/(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(trimmedUrl))
+      return 'Image URL points to a private/local hostname Instagram cannot reach';
+    if (/^data:/i.test(trimmedUrl)) return 'Data URLs cannot be passed to Instagram — must be a public HTTPS URL';
+    if (/^blob:/i.test(trimmedUrl)) return 'Blob URLs cannot be passed to Instagram — must be a public HTTPS URL';
+    return null;
+  })();
+  if (urlSafetyError) {
+    log.error('url self-check FAILED:', urlSafetyError);
+    return res.status(400).json({
+      ok: false, stage: 'preflight', step: 'url_self_check', requestId,
+      error: urlSafetyError,
+      imageUrl: trimmedUrl,
+      debug,
+    });
+  }
+
+  console.log('[PUBLISH_SINGLE_VERIFY_URL]', { imageUrl: trimmedUrl });
+
+  // --- Stage: preflight (verify image URL is reachable, with HEAD→GET
+  //     fallback + retry for storage propagation race conditions) ---
+  const imgCheck = await verifyImageUrl(trimmedUrl);
   debug.imageUrlCheck = imgCheck;
   log.info('preflight:', JSON.stringify(imgCheck));
+  console.log('[PUBLISH_SINGLE_VERIFY_RESULT]', {
+    status: imgCheck.status,
+    ok: imgCheck.reachable,
+    contentType: imgCheck.contentType,
+    contentLength: imgCheck.contentLength,
+    verifyMethod: imgCheck.verifyMethod ?? null,
+    attempts: imgCheck.attempts ?? 0,
+  });
 
   if (!imgCheck.reachable) {
-    log.error('preflight FAILED — image unreachable');
+    log.error('preflight FAILED — image unreachable after retries');
+    // Choose the most actionable step + message based on what we observed.
+    const isPropagation = imgCheck.attempts >= 2 && (imgCheck.status === 0 || imgCheck.status === 404);
+    const step = isPropagation ? 'storage_propagation' : 'verify_image_url';
+    const message = isPropagation
+      ? `The uploaded image is not yet publicly reachable (verified ${imgCheck.attempts} times, last HTTP ${imgCheck.status}). The storage object may still be propagating — retry in a moment.`
+      : `Image URL verification failed (HTTP ${imgCheck.status}, content-type ${imgCheck.contentType || 'unknown'}). Instagram will not be able to fetch it.`;
     return res.status(400).json({
-      ok: false, stage: 'preflight', requestId,
-      error: `Image URL is not reachable (HTTP ${imgCheck.status}). Instagram will not be able to fetch it.`,
+      ok: false, stage: 'preflight', step, requestId,
+      error: message,
+      imageUrl: trimmedUrl,
       debug,
     });
   }
@@ -453,6 +606,11 @@ export default async function handler(req, res) {
   }
 
   // --- Stage: create_media ---
+  console.log('[PUBLISH_SINGLE_TO_META]', {
+    imageUrl: imageUrl.trim(),
+    captionPreview: caption.trim().slice(0, 120),
+    captionLength: caption.trim().length,
+  });
   const createEndpoint = `https://graph.instagram.com/${IG_API_VERSION}/${accountId}/media`;
   const createBody = new URLSearchParams({
     image_url:    imageUrl.trim(),

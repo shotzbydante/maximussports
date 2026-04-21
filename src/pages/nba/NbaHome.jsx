@@ -198,8 +198,13 @@ export default function NbaHome() {
               </Link>
             </div>
           </div>
-          <img src="/nba-finals-logo.png" alt="" className={styles.bracketPromoAsset}
-            onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className={styles.bracketPromoAssetWrap}>
+            <div className={styles.bracketPromoAssetPlate} />
+            <div className={styles.bracketPromoAssetGlowInner} />
+            <div className={styles.bracketPromoAssetGlowOuter} />
+            <img src="/nba-finals-logo.png" alt="NBA Finals" className={styles.bracketPromoAsset}
+              onError={(e) => { e.target.style.display = 'none'; }} />
+          </div>
         </div>
       </section>
 

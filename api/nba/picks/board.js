@@ -1,164 +1,103 @@
 /**
  * GET /api/nba/picks/board
- * NBA picks board — fetches upcoming games with odds, classifies picks.
- * Mirrors MLB picks/board pattern.
+ *
+ * Canonical NBA picks board — mirrors MLB pattern.
+ * Fetches 3 days of scheduled games (today + next 2), enriches with odds,
+ * returns a normalized candidate list. Picks are classified CLIENT-SIDE
+ * from this payload so Home + Odds Insights consume the same contract.
  */
 
-import { createCache, coalesce } from '../../_cache.js';
-import { fetchScoreboard } from '../live/_normalize.js';
+import { createCache } from '../../_cache.js';
+import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../live/_normalize.js';
 import { enrichGamesWithOdds } from '../live/_odds.js';
 
-const cache = createCache(2 * 60 * 1000);
-const CACHE_KEY = 'nba:picks:board';
+const cache = createCache(90_000); // 90s — don't let empty boards linger
 
-function classifyPick(game) {
-  const picks = [];
-  const m = game.model || {};
-  const mkt = game.market || {};
-  const away = game.teams?.away;
-  const home = game.teams?.home;
-  if (!away || !home) return picks;
+async function fetchScoreboardForDate(dateStr) {
+  const url = `${ESPN_SCOREBOARD}?dates=${dateStr}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    if (!r.ok) return [];
+    const data = await r.json();
+    const events = Array.isArray(data.events) ? data.events : [];
+    return events.map(normalizeEvent).filter(Boolean);
+  } catch { return []; }
+  finally { clearTimeout(timer); }
+}
 
-  const edge = m.pregameEdge ?? 0;
-  const absEdge = Math.abs(edge);
-  const conf = m.confidence ?? 0;
-  const spread = mkt.pregameSpread;
-  const total = mkt.pregameTotal;
-  const ml = mkt.moneyline;
-
-  // Confidence tier
-  const tier = absEdge >= 2.5 ? 'high' : absEdge >= 1.0 ? 'medium' : 'low';
-
-  // Pick 'Ems — moneyline pick
-  if (absEdge >= 0.8 && ml != null) {
-    const side = edge > 0 ? 'home' : 'away';
-    const team = side === 'home' ? home : away;
-    const mlVal = side === 'home' ? ml : (ml > 0 ? -ml : Math.abs(ml));
-    picks.push({
-      id: `${game.gameId}-pickems`,
-      gameId: game.gameId,
-      category: 'pickEms',
-      confidence: tier,
-      matchup: { awayTeam: away, homeTeam: home, startTime: game.startTime },
-      pick: {
-        label: `${team.abbrev} ${mlVal > 0 ? '+' : ''}${mlVal}`,
-        side,
-        explanation: `Model sees ${absEdge.toFixed(1)}-point edge for ${team.shortName || team.name}`,
-        topSignals: [`${absEdge.toFixed(1)}pt edge`, `${Math.round(conf * 100)}% confidence`],
-      },
-      market: { spread, total, moneyline: ml },
-    });
+function getDateStrings(days = 2) {
+  const dates = [];
+  for (let i = 0; i <= days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
   }
-
-  // ATS — spread pick
-  if (absEdge >= 1.2 && spread != null) {
-    const side = edge > 0 ? 'home' : 'away';
-    const team = side === 'home' ? home : away;
-    const spreadVal = side === 'home' ? spread : -spread;
-    picks.push({
-      id: `${game.gameId}-ats`,
-      gameId: game.gameId,
-      category: 'ats',
-      confidence: tier,
-      matchup: { awayTeam: away, homeTeam: home, startTime: game.startTime },
-      pick: {
-        label: `${team.abbrev} ${spreadVal > 0 ? '+' : ''}${spreadVal}`,
-        side,
-        explanation: `Model projects cover by ${Math.abs(absEdge - Math.abs(spread)).toFixed(1)} points`,
-        topSignals: [`${spreadVal > 0 ? '+' : ''}${spreadVal} spread`, `${tier} conviction`],
-      },
-      market: { spread, total, moneyline: ml },
-    });
-  }
-
-  // Value Leans — softer moneyline
-  if (absEdge >= 0.4 && absEdge < 1.5 && ml != null) {
-    const side = edge > 0 ? 'home' : 'away';
-    const team = side === 'home' ? home : away;
-    picks.push({
-      id: `${game.gameId}-leans`,
-      gameId: game.gameId,
-      category: 'leans',
-      confidence: 'low',
-      matchup: { awayTeam: away, homeTeam: home, startTime: game.startTime },
-      pick: {
-        label: `Lean ${team.abbrev}`,
-        side,
-        explanation: `Slight ${absEdge.toFixed(1)}-point model lean`,
-        topSignals: ['Value lean', `${absEdge.toFixed(1)}pt edge`],
-      },
-      market: { spread, total, moneyline: ml },
-    });
-  }
-
-  // Game Totals
-  if (total != null && m.fairTotal != null) {
-    const totalEdge = m.fairTotal - total;
-    const absTotalEdge = Math.abs(totalEdge);
-    if (absTotalEdge >= 1.5) {
-      const overUnder = totalEdge > 0 ? 'Over' : 'Under';
-      const totalTier = absTotalEdge >= 4 ? 'high' : absTotalEdge >= 2.5 ? 'medium' : 'low';
-      picks.push({
-        id: `${game.gameId}-totals`,
-        gameId: game.gameId,
-        category: 'totals',
-        confidence: totalTier,
-        matchup: { awayTeam: away, homeTeam: home, startTime: game.startTime },
-        pick: {
-          label: `${overUnder} ${total}`,
-          side: overUnder.toLowerCase(),
-          explanation: `Model projects ${Math.abs(totalEdge).toFixed(1)} points ${overUnder === 'Over' ? 'above' : 'below'} the line`,
-          topSignals: [`O/U ${total}`, `${totalTier} conviction`],
-        },
-        market: { spread, total, moneyline: ml },
-      });
-    }
-  }
-
-  return picks;
+  return dates;
 }
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+  res.setHeader('Cache-Control', 'public, s-maxage=90, stale-while-revalidate=240');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const cached = cache.get(CACHE_KEY);
-  if (cached) return res.status(200).json(cached);
+  const t0 = Date.now();
+  const cacheKey = 'nba:picks:board:v2';
 
-  try {
-    let games = await coalesce(CACHE_KEY + ':fetch', fetchScoreboard);
-    games = await enrichGamesWithOdds(games).catch(() => games);
-
-    // Filter to upcoming/scheduled only
-    const upcoming = games.filter(g => g.status === 'upcoming');
-
-    // Classify picks
-    const allPicks = [];
-    for (const game of upcoming) {
-      allPicks.push(...classifyPick(game));
-    }
-
-    // Group by category, cap at 5 per column
-    const categories = { pickEms: [], ats: [], leans: [], totals: [] };
-    for (const pick of allPicks) {
-      if (categories[pick.category] && categories[pick.category].length < 5) {
-        categories[pick.category].push(pick);
-      }
-    }
-
-    const payload = {
-      categories,
-      meta: {
-        totalGames: upcoming.length,
-        totalPicks: allPicks.length,
-        generatedAt: new Date().toISOString(),
-      },
-    };
-
-    cache.set(CACHE_KEY, payload);
-    return res.status(200).json(payload);
-  } catch (err) {
-    return res.status(200).json({ categories: { pickEms: [], ats: [], leans: [], totals: [] }, meta: { error: err?.message } });
+  // Only serve cached payload if it has content; empty caches expire fast
+  const cached = cache.get(cacheKey);
+  if (cached?.games?.length > 0) {
+    return res.status(200).json({ ...cached, _cached: true });
   }
+
+  // Fetch 3 days of games
+  const dateStrings = getDateStrings(2);
+  const allGamesArrays = await Promise.all(dateStrings.map(fetchScoreboardForDate));
+  let allGames = allGamesArrays.flat();
+
+  // Dedupe by gameId
+  const seen = new Set();
+  allGames = allGames.filter(g => {
+    if (seen.has(g.gameId)) return false;
+    seen.add(g.gameId);
+    return true;
+  });
+
+  // Upcoming/scheduled only (exclude live + final)
+  const upcoming = allGames.filter(g =>
+    g.status === 'upcoming' && !g.gameState?.isLive && !g.gameState?.isFinal
+  );
+
+  // Enrich with Odds API (non-blocking — keep games if enrichment fails)
+  let enriched = upcoming;
+  let oddsJoined = 0;
+  let oddsError = null;
+  try {
+    enriched = await enrichGamesWithOdds(upcoming);
+    oddsJoined = enriched.filter(g =>
+      g.market?.moneyline != null || g.market?.pregameSpread != null || g.market?.pregameTotal != null
+    ).length;
+  } catch (err) {
+    oddsError = err?.message || 'odds enrichment failed';
+    console.warn('[nba/picks/board] odds enrichment failed:', oddsError);
+  }
+
+  const payload = {
+    games: enriched,
+    meta: {
+      totalFetched: allGames.length,
+      upcoming: upcoming.length,
+      withOdds: oddsJoined,
+      dates: dateStrings,
+      generatedAt: new Date().toISOString(),
+      durationMs: Date.now() - t0,
+      oddsError,
+    },
+  };
+
+  // Cache only when we have content to serve
+  if (enriched.length > 0) cache.set(cacheKey, payload);
+
+  return res.status(200).json(payload);
 }

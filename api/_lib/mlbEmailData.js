@@ -58,6 +58,7 @@ function validateMlbScores(scores) {
 
 import { buildLeadersEditorialHook } from '../../src/data/mlb/seasonLeaders.js';
 import { getJson } from '../_globalCache.js';
+import { buildPicksBoard } from './mlbPicksBuilder.js';
 
 // ── KV keys for direct cache reads (bypass HTTP self-fetch) ────────
 const KV_CHAMP_ODDS = 'odds:championship:mlb:v1';
@@ -171,8 +172,17 @@ export async function assembleMlbEmailData(baseUrl, opts = {}) {
   }
 
   if (includePicks) {
-    // 5: Picks board — KV first, HTTP fallback
-    fetchPromises.push(kvThenHttp(KV_PICKS, 'picks', `${baseUrl}/api/mlb/picks/built`, 'picks', null));
+    // 5: Picks board — DIRECT in-process build (no HTTP self-fetch)
+    // Uses mlbPicksBuilder with fresh → KV latest → KV lastknown → empty chain
+    fetchPromises.push(
+      buildPicksBoard().then(({ board, source, counts }) => {
+        console.log(`[mlbEmailData] picks board from: ${source} counts:`, JSON.stringify(counts));
+        return { data: board, source: `picks:${source}` };
+      }).catch(err => {
+        console.warn(`[mlbEmailData] picks build failed: ${err.message}`);
+        return { data: null, source: 'picks:error' };
+      })
+    );
   }
 
   const results = await Promise.all(fetchPromises);

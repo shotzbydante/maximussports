@@ -38,6 +38,13 @@ const MLB_MODULES = [
   { title: 'Season Intelligence', desc: 'Projected wins, playoff odds, and market inefficiencies.', to: '/mlb/season-model' },
 ];
 
+const NBA_MODULES = [
+  { title: 'Daily Briefing', desc: 'AI-powered playoff briefings covering series, injuries, and market edges.', to: '/nba' },
+  { title: 'Team Intel', desc: 'Playoff seeds, records, championship odds, and team outlooks.', to: '/nba/teams' },
+  { title: "Maximus's Picks", desc: 'Model-driven picks across moneyline, spread, and totals.', to: '/nba/insights' },
+  { title: 'Bracketology', desc: 'Interactive playoff bracket with series simulation and title probabilities.', to: '/nba/bracketology' },
+];
+
 const NCAAM_MODULES = [
   { title: 'Tournament Recap', desc: 'Full March Madness breakdown, results, and key storylines.', to: '/ncaam' },
   { title: 'Team Intel', desc: 'Season records, conference performance, and roster depth.', to: '/ncaam/teams' },
@@ -199,6 +206,28 @@ export default function Landing() {
             </div>
           </Link>
 
+          {/* NBA — Playoffs Live */}
+          <Link to="/nba" className={`${styles.tile} ${styles.tileNba}`}>
+            <div className={styles.tileGlow} />
+            <div className={styles.tileHeader}>
+              <img src="/nba-logo.png" alt="NBA" className={styles.tileLogo} width={42} height={42} />
+              <div>
+                <h2 className={styles.tileTitle}>National Basketball Association</h2>
+                <span className={`${styles.tileStatus} ${styles.statusPlayoffs}`}>
+                  <span className={`${styles.statusDot} ${styles.statusDotGold}`} /> Playoffs Live
+                </span>
+              </div>
+            </div>
+            <p className={styles.tileDesc}>
+              Interactive playoff bracketology, daily postseason briefings, team intel,
+              Maximus&rsquo;s Picks, series simulations, and championship odds across every round.
+            </p>
+            <div className={styles.tileCta}>
+              <span className={styles.ctaBtn}>Enter NBA Intelligence &rarr;</span>
+              <span className={styles.ctaMicro}>Bracketology &middot; Team Intel &middot; Daily Briefing &rarr;</span>
+            </div>
+          </Link>
+
           {/* NCAAM */}
           <Link to="/ncaam" className={`${styles.tile} ${styles.tileNcaam}`}>
             <div className={styles.tileGlow} />
@@ -237,6 +266,19 @@ export default function Landing() {
               {MLB_MODULES.map((m, i) => (
                 <Link key={i} to={m.to} className={styles.moduleCard}>
                   <span className={styles.moduleTitle}>{m.title} <span className={styles.moduleArrow}>→</span></span>
+                  <span className={styles.moduleDesc}>{m.desc}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className={styles.moduleSection}>
+            <h3 className={styles.moduleSectionTitle}>
+              <img src="/nba-logo.png" alt="" width={18} height={18} /> NBA Intelligence
+            </h3>
+            <div className={styles.moduleCards}>
+              {NBA_MODULES.map((m, i) => (
+                <Link key={i} to={m.to} className={styles.moduleCard}>
+                  <span className={styles.moduleTitle}>{m.title} <span className={styles.moduleArrow}>&rarr;</span></span>
                   <span className={styles.moduleDesc}>{m.desc}</span>
                 </Link>
               ))}

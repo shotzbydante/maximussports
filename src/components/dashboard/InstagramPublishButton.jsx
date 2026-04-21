@@ -109,6 +109,19 @@ const STAGE_MESSAGES = {
   network:        'Network error — check your connection and retry.',
 };
 
+// Fine-grained step messages (preferred over stage when server returns one).
+// These cover the single-image publish failure modes we surface from the
+// server's structured { step, error } response.
+const STEP_MESSAGES = {
+  url_self_check:       'The uploaded image URL is not in a shape Instagram can reach. Refresh and retry.',
+  storage_propagation:  'The uploaded image is not yet publicly reachable — storage may still be propagating. Wait a few seconds and retry.',
+  verify_image_url:     'Instagram publish failed because the image URL did not resolve to a valid image response. Try again in a moment.',
+  upload_contract:      'The upload step did not return a valid public image URL. Refresh and retry.',
+  missing_image_url:    'Single-image publish was sent without an image URL. Regenerate the slide and retry.',
+  meta_publish:         'Instagram publish failed at the Meta API. Retry in a moment.',
+  validation:           'The publish request failed validation. Refresh and retry.',
+};
+
 const CATEGORY_MESSAGES = {
   auth:          'Instagram access token is invalid or expired. Reconnect in Settings.',
   permission:    'This Instagram account lacks publish permissions. Check Settings.',
@@ -139,9 +152,15 @@ export default function InstagramPublishButton({
   const isWorking = stage === 'rendering' || stage === 'uploading' || stage === 'publishing';
   const elapsed = useElapsedTimer(isWorking);
 
+  // ── Caption contract: prefer the canonical .fullCaption from
+  //    normalizeStudioCaption(); fall back to legacy { shortCaption,
+  //    hashtags } shape for any path that hasn't migrated yet.
   const buildCaptionText = useCallback(() => {
     if (!caption) return '';
-    const body     = caption.shortCaption ?? '';
+    if (typeof caption.fullCaption === 'string' && caption.fullCaption.length > 0) {
+      return caption.fullCaption;
+    }
+    const body     = caption.shortCaption ?? caption.longCaption ?? caption.caption ?? '';
     const hashStr  = (caption.hashtags ?? []).join(' ');
     return hashStr ? `${body}\n\n${hashStr}` : body;
   }, [caption]);
@@ -152,12 +171,65 @@ export default function InstagramPublishButton({
     setErrorMessage(null);
     setLastResult(null);
 
+    // ── Diagnostic: log exactly what the button received ──
+    console.log('[PUBLISH_BUTTON_INPUT]', {
+      hasCaption: !!caption,
+      captionType: typeof caption,
+      captionKeys: caption && typeof caption === 'object' ? Object.keys(caption) : [],
+      ok: caption?.ok,
+      reason: caption?.reason,
+      derivedLength: buildCaptionText().length,
+    });
+
+    // ── Differentiate failure modes for actionable user feedback ──
+    if (!caption) {
+      setErrorMessage('No generated content found. Generate content first.');
+      setStage('error');
+      return;
+    }
+    if (caption.ok === false) {
+      // Tagged failure from the caption builder — distinguish reasons.
+      if (caption.reason === 'payload_build_failed') {
+        setErrorMessage('Caption payload could not be assembled. Refresh the page or regenerate content before publishing.');
+      } else if (caption.reason === 'caption_build_failed') {
+        setErrorMessage('Caption generation failed for this post. Refresh or regenerate content before publishing.');
+      } else if (caption.reason === 'too_short') {
+        setErrorMessage(`Caption looks incomplete (${caption.totalLength ?? 0} chars). Refresh or regenerate before publishing.`);
+      } else if (caption.reason === 'missing_body') {
+        setErrorMessage('Caption builder returned an unexpected shape. Refresh and try again.');
+      } else if (caption.reason === 'null_builder_output') {
+        setErrorMessage('No caption was produced. Generate content first.');
+      } else {
+        setErrorMessage('Caption is not ready to publish. Refresh or regenerate before publishing.');
+      }
+      setStage('error');
+      return;
+    }
+
     const captionText = buildCaptionText();
     if (!captionText.trim()) {
       setErrorMessage('No caption available. Generate content first.');
       setStage('error');
       return;
     }
+
+    // ── HARD SAFETY CHECK — prevent blank/generic captions from reaching IG ──
+    // A legitimate daily/team/picks caption is always 300+ chars.
+    // The only way to get under 80 is a fallback string or a builder failure.
+    const MIN_CAPTION_CHARS = 80;
+    if (captionText.length < MIN_CAPTION_CHARS) {
+      console.error('[InstagramPublish] Caption too short — blocking publish:', {
+        length: captionText.length,
+        preview: captionText.slice(0, 200),
+      });
+      setErrorMessage(`Caption looks incomplete (${captionText.length} chars). Refresh the page or regenerate before publishing.`);
+      setStage('error');
+      return;
+    }
+    console.log('[InstagramPublish] caption OK', {
+      length: captionText.length,
+      preview: captionText.slice(0, 200),
+    });
 
     if (!exportRef?.current) {
       setErrorMessage('Export artboard not ready. Wait for slides to load.');
@@ -174,6 +246,15 @@ export default function InstagramPublishButton({
     }
 
     const isCarousel = allSlides.length > 1;
+
+    console.log('[TEAM_INTEL_PUBLISH_REQUEST]', {
+      mode: isCarousel ? 'carousel' : 'single',
+      section: metadata?.contentStudioSection ?? metadata?.templateType ?? null,
+      hasCaption: !!captionText,
+      captionLength: captionText.length,
+      hasExportRef: !!exportRef?.current,
+      imageCount: allSlides.length,
+    });
 
     // ── Step 1: Render all slides to PNGs ──────────────────────────────────
     setStage('rendering');
@@ -246,13 +327,49 @@ export default function InstagramPublishButton({
     try {
       const templateSlug = metadata.templateType ?? 'slide';
       const ts = Date.now();
+      const totalApproxBytes = dataUrls.reduce((n, u) => n + (u?.length || 0), 0);
+      console.log('[MANUAL_PUBLISH_REQUEST]', {
+        isCarousel,
+        imageCount: dataUrls.length,
+        captionLength: captionText.length,
+        totalApproxKB: Math.round(totalApproxBytes / 1024),
+        totalApproxMB: (totalApproxBytes / (1024 * 1024)).toFixed(2),
+        slideKinds: Array.from(exportRef.current.querySelectorAll('[data-slide]')).map(el => el.getAttribute('data-slide')),
+      });
       for (let i = 0; i < dataUrls.length; i++) {
         const { url } = await uploadAsset(dataUrls[i], `${templateSlug}_${ts}_slide${i + 1}.png`);
         imageUrls.push(url);
         if (DEBUG) console.log(`[InstagramPublish:debug] uploaded slide ${i + 1}:`, url);
       }
     } catch (err) {
-      setErrorMessage(`Upload failed: ${err.message ?? 'Storage error'}`);
+      // Step-specific user-facing copy, using the structured err.stage from
+      // uploadAsset — no more generic "Bad Gateway" surfacing to the UI.
+      const stageCopy = {
+        network:             'Network error during image upload. Check your connection and retry.',
+        gateway_timeout:     'Server timed out while uploading slides. Try again in a moment.',
+        function_timeout:    'Upload function timed out. Try again in a moment.',
+        service_unavailable: 'Upload service is temporarily unavailable. Retry in a moment.',
+        request_timeout:     'Upload request timed out. Retry in a moment.',
+        server_error:        'Server error during image upload. Retry in a moment.',
+        payload_too_large:   'Slide image is too large for the upload endpoint. Refresh and retry.',
+        auth_error:          'Upload was not authorized. Check storage credentials and retry.',
+        supabase_init:       'Storage service is not configured. Check server environment.',
+        bucket_config:       'Storage bucket is not configured. Check Supabase Dashboard → Storage.',
+        bucket_missing:      'Storage bucket is missing. Create it in Supabase Dashboard → Storage.',
+        storage_auth:        'Storage credentials are invalid or expired.',
+        size_limit:          'Slide image is too large for the storage bucket.',
+        storage_upload:      'Image upload to storage failed. Retry in a moment.',
+        validate:            'Image payload failed validation before upload.',
+        decode:              'Image could not be decoded. Refresh and retry.',
+      };
+      const userMsg = stageCopy[err.stage] || `Upload failed during image preparation: ${err.message ?? 'storage error'}`;
+      console.error('[UPLOAD_FAILED_FINAL]', {
+        stage: err.stage,
+        httpStatus: err.httpStatus ?? null,
+        message: err.message,
+        rawBodyPreview: err.rawBody ?? null,
+      });
+      setErrorMessage(userMsg);
       setStage('error');
       return;
     }
@@ -291,10 +408,16 @@ export default function InstagramPublishButton({
       setTimeout(() => setStage('idle'), 8000);
     } catch (err) {
       const failStage = err.stage ?? 'publish';
+      const failStep  = err.step ?? null;
       const category  = err.category ?? null;
 
+      // Priority: explicit step (most specific) → category → stage → raw msg.
+      // Step lets us tell apart a propagation race (retry-able) from a
+      // genuinely bad URL (re-upload needed) from a Meta-side failure.
       let userMsg;
-      if (category && CATEGORY_MESSAGES[category]) {
+      if (failStep && STEP_MESSAGES[failStep]) {
+        userMsg = STEP_MESSAGES[failStep];
+      } else if (category && CATEGORY_MESSAGES[category]) {
         userMsg = CATEGORY_MESSAGES[category];
       } else if (STAGE_MESSAGES[failStage]) {
         userMsg = STAGE_MESSAGES[failStage];
@@ -303,13 +426,24 @@ export default function InstagramPublishButton({
       }
 
       const isRetryable = ['transient', 'rate_limit'].includes(category) ||
-                          failStage === 'poll_container';
+                          failStage === 'poll_container' ||
+                          failStep === 'storage_propagation' ||
+                          failStep === 'verify_image_url';
 
-      if (!isRetryable && category !== 'unknown') {
+      if (!isRetryable && category !== 'unknown' && !failStep) {
         userMsg += ' Check the image and account configuration before retrying.';
       }
 
-      if (DEBUG) console.error('[InstagramPublish:debug] error:', { stage: failStage, category, code: err.code, message: err.message, requestId: err.requestId });
+      console.error('[PUBLISH_FAILED]', {
+        stage: failStage,
+        step: failStep,
+        category,
+        code: err.code,
+        httpStatus: err.httpStatus,
+        message: err.message,
+        imageUrl: err.imageUrl,
+        requestId: err.requestId,
+      });
 
       setErrorMessage(userMsg);
       setStage('error');

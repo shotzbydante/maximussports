@@ -193,11 +193,34 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
     }
   }
 
-  // Identity chips
+  // Identity chips — structured for export-stable alignment.
+  // Each pill is rendered with explicit inline-flex centering and the odds
+  // pill separates its trophy glyph from the number so font-metric drift
+  // between the system emoji font and Oswald cannot shift the baseline.
   const chips = [];
-  if (projection?.projectedWins) chips.push({ text: `Maximus Model: ${projection.projectedWins} W`, type: 'stat' });
-  if (wsOdds != null) chips.push({ text: `\uD83C\uDFC6 ${fmtOdds(wsOdds)}`, type: 'odds' });
-  if (division) chips.push({ text: division, type: 'conf' });
+  if (projection?.projectedWins) {
+    chips.push({ type: 'stat', parts: [{ kind: 'text', value: `Maximus Model: ${projection.projectedWins} W` }] });
+  }
+  if (wsOdds != null) {
+    chips.push({
+      type: 'odds',
+      parts: [
+        { kind: 'icon', value: '\uD83C\uDFC6' },
+        { kind: 'text', value: fmtOdds(wsOdds) },
+      ],
+    });
+  }
+  if (division) {
+    chips.push({ type: 'conf', parts: [{ kind: 'text', value: division }] });
+  }
+
+  console.log('[TEAM_INTEL_EXPORT_META_ROW]', {
+    team: name,
+    odds: wsOdds,
+    hasModelBadge: chips.some(c => c.type === 'stat'),
+    hasOddsBadge:  chips.some(c => c.type === 'odds'),
+    hasDivisionBadge: chips.some(c => c.type === 'conf'),
+  });
 
   // Record / form line — ESPN standings → live context → model fallback
   const recordParts = [];
@@ -253,7 +276,13 @@ export default function MlbTeamIntelSlide({ data, teamData, asOf, options = {}, 
       <div className={styles.identity}>
         <div className={styles.metaRow}>
           {chips.map((chip, i) => (
-            <span key={i} className={styles[`${chip.type}Pill`] || styles.confPill}>{chip.text}</span>
+            <span key={i} className={`${styles.pill} ${styles[`${chip.type}Pill`] || styles.confPill}`}>
+              {chip.parts.map((part, pi) =>
+                part.kind === 'icon'
+                  ? <span key={pi} className={styles.pillIcon} aria-hidden="true">{part.value}</span>
+                  : <span key={pi} className={styles.pillText}>{part.value}</span>
+              )}
+            </span>
           ))}
         </div>
         <h1 className={styles.teamName}>{name.toUpperCase()}</h1>

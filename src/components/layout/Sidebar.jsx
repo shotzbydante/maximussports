@@ -17,11 +17,13 @@ const HomeIcon = () => (
   </svg>
 );
 const BriefingIcon = () => (
+  // Briefing card — bordered rect with a filled header bar and 2 content lines.
+  // Reads as "editorial summary / overview", not "checklist".
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden focusable="false">
-    <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-    <line x1="5.5" y1="5" x2="10.5" y2="5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    <line x1="5.5" y1="7.5" x2="10.5" y2="7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    <line x1="5.5" y1="10" x2="8.5" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <rect x="2.5" y="2.75" width="11" height="10.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M2.5 6.25 H 13.5" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="5" y1="9.25" x2="11" y2="9.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <line x1="5" y1="11.5" x2="9" y2="11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
 const GamesIcon = () => (
@@ -90,8 +92,9 @@ export default function Sidebar() {
     <aside className={styles.sidebar}>
       <div className={styles.navArea}>
         <WorkspaceSwitcher />
+        {/* ─── App layer ─── */}
         <div className={styles.section}>
-          <span className={styles.sectionTitle}>Navigate</span>
+          <span className={styles.sectionTitle}>Maximus</span>
           <nav className={styles.nav}>
             <NavLink
               to="/"
@@ -101,10 +104,16 @@ export default function Sidebar() {
               <span className={styles.icon}><HomeIcon /></span>
               <span>Home</span>
             </NavLink>
+          </nav>
+        </div>
+        {/* ─── Workspace layer ─── */}
+        <div className={styles.section}>
+          <span className={styles.sectionTitle}>{workspace.shortLabel}</span>
+          <nav className={styles.nav}>
             <NavLink
               to={buildPath('/')}
               end
-              className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
+              className={({ isActive }) => `${styles.link} ${styles.workspaceHomeLink}${isActive ? ` ${styles.active}` : ''}`}
             >
               <span className={styles.icon}><BriefingIcon /></span>
               <span>{`${workspace.shortLabel} Briefing`}</span>
@@ -212,6 +221,12 @@ export default function Sidebar() {
                 <span className={styles.bracketBadge}>NEW</span>
               </NavLink>
             )}
+          </nav>
+        </div>
+        {/* ─── Account layer ─── */}
+        <div className={styles.section}>
+          <span className={styles.sectionTitle}>Account</span>
+          <nav className={styles.nav}>
             <NavLink
               to="/settings"
               data-testid="nav-settings"

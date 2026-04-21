@@ -48,6 +48,7 @@ import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
 import { normalizeMlbImagePayload } from '../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbCaption } from '../features/mlb/contentStudio/buildMlbCaption';
+import { normalizeStudioCaption, MIN_PUBLISHABLE_CAPTION_CHARS } from '../features/mlb/contentStudio/normalizeStudioCaption';
 import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
 import { fetchMlbChampionshipOdds } from '../api/mlbChampionshipOdds';
@@ -742,8 +743,22 @@ export default function Dashboard() {
   const caption = useMemo(() => {
     // ── MLB caption (sourced from intelBriefing + payload normalizer) ──
     if (mlbActive) {
+      // ── PAYLOAD DIAGNOSTIC — log completeness before caption build ──
+      const payloadDiag = {
+        activeSection,
+        hasBriefing: !!mlbBriefing,
+        liveGamesCount: mlbLiveGames?.length ?? 0,
+        pickCats: Object.keys(mlbPicks?.categories || {}),
+        leaderCats: Object.keys(mlbLeaders?.categories || {}),
+        standingsTeams: Object.keys(mlbStandings || {}).length,
+        hasChampOdds: !!mlbChampOdds && Object.keys(mlbChampOdds).length > 0,
+        hasSelectedTeam: !!mlbSelectedTeam,
+      };
+      console.log('[DASHBOARD_CAPTION_STATE]', payloadDiag);
+
+      let payload;
       try {
-        const payload = normalizeMlbImagePayload({
+        payload = normalizeMlbImagePayload({
           activeSection,
           mlbPicks,
           mlbGames,
@@ -759,14 +774,40 @@ export default function Dashboard() {
           mlbStandings,
           mlbLeaders,
         });
-        return buildMlbCaption(payload);
-      } catch {
-        return {
-          shortCaption: 'MLB Intelligence — maximussports.ai',
-          longCaption: 'MLB Intelligence — maximussports.ai\n\nFor entertainment only. Please bet responsibly. 21+',
-          hashtags: ['#MLB', '#Baseball', '#MaximusSports'],
-        };
+      } catch (err) {
+        console.error('[CAPTION_PAYLOAD_FAILED]', err?.message || err);
+        // Tagged failure — InstagramPublishButton uses .reason for
+        // user-facing error copy ("Caption generation failed for this
+        // post. Refresh or regenerate before publishing.")
+        return { ok: false, reason: 'payload_build_failed', error: err?.message || 'normalizer threw' };
       }
+
+      let built;
+      try {
+        built = buildMlbCaption(payload);
+      } catch (err) {
+        console.error('[CAPTION_BUILD_FAILED]', err?.message || err);
+        return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildMlbCaption threw' };
+      }
+
+      // Single canonical contract — every consumer downstream uses
+      // .fullCaption only. No more shape drift between layers.
+      const normalized = normalizeStudioCaption(built);
+
+      console.log('[DAILY_CAPTION_BUILT]', {
+        section: payload?.section,
+        ok: normalized.ok,
+        reason: normalized.reason,
+        bodyLength: normalized.bodyLength,
+        totalLength: normalized.totalLength,
+        hashtagCount: normalized.hashtags.length,
+        preview: normalized.fullCaption.slice(0, 200),
+      });
+
+      // Preserve back-compat: still expose shortCaption + longCaption for
+      // any consumer that hasn't migrated to fullCaption yet, but the
+      // canonical field is .fullCaption.
+      return normalized;
     }
 
     // ── CBB caption (unchanged) ──
@@ -789,22 +830,29 @@ export default function Dashboard() {
       atsRecord,
     };
 
-    return buildCaption({
-      template: activeSection,
-      team: enhancedTeamData?.team ?? selectedTeam,
-      game: selectedGame,
-      picks,
-      stats,
-      atsLeaders: dashData?.atsLeaders ?? { best: [], worst: [] },
-      headlines: dashData?.headlines ?? [],
-      asOf,
-      styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
-      chatDigest: activeSection === 'daily' ? dailyDigest : null,
-      nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
-      conference: activeSection === 'conference' ? selectedConference : null,
-      tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
-    });
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
+    let cbbBuilt;
+    try {
+      cbbBuilt = buildCaption({
+        template: activeSection,
+        team: enhancedTeamData?.team ?? selectedTeam,
+        game: selectedGame,
+        picks,
+        stats,
+        atsLeaders: dashData?.atsLeaders ?? { best: [], worst: [] },
+        headlines: dashData?.headlines ?? [],
+        asOf,
+        styleMode: activeSection === 'daily' ? dailyStyleMode : 'generic',
+        chatDigest: activeSection === 'daily' ? dailyDigest : null,
+        nextGame: activeSection === 'team' ? (enhancedTeamData?.nextLine?.nextEvent ?? null) : null,
+        conference: activeSection === 'conference' ? selectedConference : null,
+        tournamentInsights: activeSection === 'game' ? (tournamentInsightsData ?? null) : null,
+      });
+    } catch (err) {
+      console.error('[CBB_CAPTION_BUILD_FAILED]', err?.message || err);
+      return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildCaption threw' };
+    }
+    return normalizeStudioCaption(cbbBuilt);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -1874,6 +1922,8 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            <div className={styles.sectionLabel}>Actions</div>
             <button className={styles.btnSecondary} onClick={handleRegenerate} disabled={isWorking || exporting || zipping}>
               {dataLoading ? 'Loading…' : 'Regenerate'}
             </button>
@@ -1888,6 +1938,7 @@ export default function Dashboard() {
             {mlbActive && (
               <>
                 <div className={styles.publishDivider} />
+                <div className={styles.sectionLabel}>AI Generation</div>
                 <button
                   className={styles.btnGemini}
                   onClick={handleGeminiGenerate}
@@ -1913,14 +1964,40 @@ export default function Dashboard() {
             )}
 
             <div className={styles.publishDivider} />
-            <InstagramPublishButton
-              exportRef={exportRef}
-              caption={caption}
-              canPublish={canExport && !exporting && !zipping}
-              metadata={publishMetadata}
-              onSuccess={handlePublishSuccess}
-              template={activeSection}
-            />
+            <div className={styles.sectionLabel}>Publish</div>
+            <div className={styles.postBlock}>
+              <InstagramPublishButton
+                exportRef={exportRef}
+                caption={caption}
+                canPublish={canExport && !exporting && !zipping}
+                metadata={publishMetadata}
+                onSuccess={handlePublishSuccess}
+                template={activeSection}
+              />
+              {canExport && (
+                <div className={styles.postMeta}>
+                  {(() => {
+                    const labelMap = {
+                      'mlb-daily': 'Daily Briefing',
+                      'mlb-team': 'Team Intel',
+                      'mlb-picks': "Maximus's Picks",
+                      'mlb-league': 'League Intel',
+                      'mlb-division': 'Division Intel',
+                      'mlb-game': 'Game Insights',
+                      daily: 'Daily Briefing',
+                      team: 'Team Intel',
+                      picks: "Maximus's Picks",
+                      game: 'Game Insights',
+                      conference: 'Conference Intel',
+                      odds: 'Odds Insights',
+                    };
+                    const sectionLabel = labelMap[activeSection] || 'Post';
+                    const slideSuffix = slideCount ? `${slideCount} slide${slideCount === 1 ? '' : 's'}` : '1 slide';
+                    return `Posts ${slideSuffix} · ${sectionLabel}`;
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Instagram Hero Summary Caption (Team Intel — Slide 4) */}
@@ -1949,7 +2026,10 @@ export default function Dashboard() {
           )}
 
           {/* Caption panel (standard — non-Team Intel or fallback) */}
-          {caption && activeSection !== 'team' && (
+          {/* Only render when the normalized caption is actually publish-ready.
+              When caption.ok === false (builder threw / missing data / too short),
+              render a small empty-state so the user sees why preview is blank. */}
+          {caption && activeSection !== 'team' && caption.ok !== false && (caption.shortCaption || caption.longCaption || caption.fullCaption) && (
             <div className={styles.captionPanel}>
               <div className={styles.captionHeader}>
                 <span className={styles.captionTitle}>Caption</span>
@@ -1975,6 +2055,23 @@ export default function Dashboard() {
                 <div className={styles.captionHashtags}>
                   {(caption.hashtags || []).join(' ')}
                 </div>
+              </div>
+            </div>
+          )}
+          {caption && caption.ok === false && activeSection !== 'team' && (
+            <div className={styles.captionPanel}>
+              <div className={styles.captionHeader}>
+                <span className={styles.captionTitle}>Caption</span>
+              </div>
+              <div className={styles.captionBody}>
+                <pre className={styles.captionText} style={{ opacity: 0.7 }}>
+                  {caption.reason === 'caption_build_failed' && 'Caption generation failed for this post. Regenerate content to retry.'}
+                  {caption.reason === 'payload_build_failed' && 'Caption payload could not be assembled. Regenerate content to retry.'}
+                  {caption.reason === 'too_short' && `Caption is incomplete (${caption.totalLength ?? 0} chars). Regenerate to retry.`}
+                  {caption.reason === 'missing_body' && 'Caption builder returned unexpected shape. Regenerate to retry.'}
+                  {caption.reason === 'null_builder_output' && 'No caption was produced. Generate content first.'}
+                  {!['caption_build_failed','payload_build_failed','too_short','missing_body','null_builder_output'].includes(caption.reason) && 'Caption is not ready. Regenerate content before publishing.'}
+                </pre>
               </div>
             </div>
           )}
