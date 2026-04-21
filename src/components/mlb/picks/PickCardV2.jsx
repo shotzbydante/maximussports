@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
 import { primaryDriver } from '../../../features/mlb/picks/pickInsights';
+import { resolveConviction, resolveBetScoreDisplay } from '../../../features/picks/conviction';
 import styles from './PickCardV2.module.css';
 
 function fmtTime(iso) {
@@ -49,13 +50,13 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
   const bullets = (pick.rationale?.bullets || []).slice(0, 2);
 
-  const conviction = pick.conviction?.score ?? Math.round((pick.betScore?.total ?? 0) * 100);
-  const betScore = Math.round((pick.betScore?.total ?? 0) * 100);
+  const conviction = resolveConviction(pick);           // null when unknown
+  const betScore = resolveBetScoreDisplay(pick);        // null when unknown
   const components = pick.betScore?.components || null;
   const edgePct = pick.rawEdge != null ? fmtPct(pick.rawEdge, { sign: true }) : null;
   const confidencePct = components?.modelConfidence != null
     ? Math.round(components.modelConfidence * 100) : null;
-  const tierLabel = convictionTier(conviction);
+  const tierLabel = conviction != null ? convictionTier(conviction) : null;
 
   const tierClass =
     tier === 'tier1' ? styles.cardTier1
@@ -97,7 +98,9 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
         </div>
         <div className={styles.pickRowRight}>
           {resultBadge}
-          <ConvictionBadge value={conviction} tier={tier} tierLabel={tierLabel} />
+          {conviction != null && tierLabel && (
+            <ConvictionBadge value={conviction} tier={tier} tierLabel={tierLabel} />
+          )}
         </div>
       </div>
 
@@ -126,7 +129,7 @@ export default function PickCardV2({ pick, tier, siblings = [], relativeStrength
           <div className={styles.metrics}>
             {edgePct != null && <Metric label="Edge" value={edgePct} />}
             {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
-            <Metric label="Bet Score" value={betScore} emphasize />
+            {betScore != null && <Metric label="Bet Score" value={betScore} emphasize />}
           </div>
 
           {components && tier !== 'tier3' && (

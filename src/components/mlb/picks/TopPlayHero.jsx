@@ -16,6 +16,7 @@
 import { getMlbEspnLogoUrl } from '../../../utils/espnMlbLogos';
 import { convictionTier, convictionDescription } from '../../../features/mlb/picks/convictionTier';
 import { primaryDriver } from '../../../features/mlb/picks/pickInsights';
+import { resolveConviction, resolveBetScoreDisplay } from '../../../features/picks/conviction';
 import styles from './TopPlayHero.module.css';
 
 function fmtTime(iso) {
@@ -52,9 +53,10 @@ export default function TopPlayHero({ pick, featured = false, relativeStrength =
   const headline = pick.rationale?.headline || pick.pick?.explanation || '';
   const bullets = (pick.rationale?.bullets || []).slice(0, 2);
 
-  const conviction = pick.conviction?.score ?? Math.round((pick.betScore?.total ?? 0) * 100);
-  const betScore = Math.round((pick.betScore?.total ?? 0) * 100);
-  const tier = convictionTier(conviction);
+  // Hide rather than fallback to 0 when score data is missing.
+  const conviction = resolveConviction(pick);
+  const betScore = resolveBetScoreDisplay(pick);
+  const tier = conviction != null ? convictionTier(conviction) : null;
   const edgePct = pick.rawEdge != null ? fmtPct(pick.rawEdge, { sign: true }) : null;
   const confidencePct = pick.betScore?.components?.modelConfidence != null
     ? Math.round(pick.betScore.components.modelConfidence * 100)
@@ -78,7 +80,7 @@ export default function TopPlayHero({ pick, featured = false, relativeStrength =
             </>
           )}
         </div>
-        <ConvictionBadge value={conviction} tier={tier} />
+        {conviction != null && tier && <ConvictionBadge value={conviction} tier={tier} />}
       </header>
 
       <div className={styles.matchupLine}>
@@ -125,7 +127,7 @@ export default function TopPlayHero({ pick, featured = false, relativeStrength =
       <footer className={styles.metrics}>
         {edgePct != null && <Metric label="Edge" value={edgePct} />}
         {confidencePct != null && <Metric label="Confidence" value={`${confidencePct}%`} />}
-        <Metric label="Bet Score" value={betScore} accent />
+        {betScore != null && <Metric label="Bet Score" value={betScore} accent />}
       </footer>
     </section>
   );
