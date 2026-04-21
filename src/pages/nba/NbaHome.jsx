@@ -10,7 +10,7 @@ import { useWorkspace } from '../../workspaces/WorkspaceContext';
 import NbaLoading from '../../components/nba/NbaLoading';
 import FormattedSummary from '../../components/shared/FormattedSummary';
 import NbaPinnedTeamSection from '../../components/nba/NbaPinnedTeamSection';
-import NbaMaximusPicksSection from '../../components/nba/NbaMaximusPicksSection';
+import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
 import NbaIntelFeed from '../../components/nba/NbaIntelFeed';
 import NbaFinalsWatch from '../../components/nba/NbaFinalsWatch';
 import styles from './NbaHome.module.css';
@@ -204,7 +204,7 @@ export default function NbaHome() {
       </section>
 
       <NbaPinnedTeamSection />
-      <NbaMaximusPicksSection />
+      <MlbMaximusPicksSectionV2 mode="home" sport="nba" endpoint="/api/nba/picks/built" />
       <NbaFinalsWatch />
       <NbaIntelFeed />
     </div>

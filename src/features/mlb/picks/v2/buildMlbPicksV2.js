@@ -156,9 +156,26 @@ export function buildMlbPicksV2({
     }
   }
 
+  // Guard: no pick should ever carry a zero/invalid bet-score into the UI.
+  // situationalEdge + marketQuality both default to non-zero neutrals, so a
+  // true 0 implies a scoring bug — drop and log loudly instead of publishing.
+  const invalidBS = allPickCandidates.filter(
+    p => !Number.isFinite(p?.betScore?.total) || p.betScore.total <= 0
+  );
+  if (invalidBS.length > 0) {
+    console.warn(
+      `[buildMlbPicksV2] dropped ${invalidBS.length} candidate(s) with invalid betScore — ` +
+      `likely missing odds or scoring inputs. sample=${invalidBS.slice(0, 3).map(p => p.id).join(',')}`
+    );
+  }
+  const cleanCandidates = allPickCandidates.filter(
+    p => Number.isFinite(p?.betScore?.total) && p.betScore.total > 0
+  );
+
   // Sort + assign tiers
-  const assigned = assignTiers(allPickCandidates, config);
+  const assigned = assignTiers(cleanCandidates, config);
   meta.picksPublished = assigned.published.length;
+  meta.invalidBetScoreDropped = invalidBS.length;
   const topPick = assigned.tier1[0] || assigned.tier2[0] || null;
 
   // ── Coverage pool ────────────────────────────────────────────────────────
@@ -170,7 +187,7 @@ export function buildMlbPicksV2({
   const publishedIds = new Set(assigned.published.map(p => p.id));
   const COVERAGE_MIN_SCORE = 0.30;
   const COVERAGE_MAX_PICKS = 15;
-  const coverage = allPickCandidates
+  const coverage = cleanCandidates
     .filter(p => !publishedIds.has(p.id) && (p.betScore?.total ?? 0) >= COVERAGE_MIN_SCORE)
     .map(p => ({ ...p, tier: 'coverage', _coverage: true }))
     .sort((a, b) => (b.betScore?.total ?? 0) - (a.betScore?.total ?? 0))
