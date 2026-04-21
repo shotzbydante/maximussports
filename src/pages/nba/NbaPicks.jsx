@@ -1,23 +1,21 @@
 /**
- * NBA Odds Insights — standalone picks/odds intelligence page.
- * Consumes the same canonical picks payload as NBA Home, rendered
- * in `page` mode for fuller display of the full picks board.
+ * /nba/insights — premium NBA Odds Insights page.
+ *
+ * Uses the shared sport-agnostic picks container with NBA endpoint + sport.
+ * Full parity with /mlb/insights: Top Play hero, Tier 1/2/3, coverage pool,
+ * conviction badges, trust layer, performance module, etc.
  */
 
-import { useWorkspace } from '../../workspaces/WorkspaceContext';
-import NbaMaximusPicksSection from '../../components/nba/NbaMaximusPicksSection';
-import styles from './NbaShared.module.css';
+import MlbMaximusPicksSectionV2 from '../../components/mlb/picks/MlbMaximusPicksSectionV2';
 
 export default function NbaPicks() {
-  const { workspace } = useWorkspace();
-
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.pageTitle}>{workspace.emoji} NBA Odds Insights</h1>
-        <p className={styles.subtitle}>Model picks, lines, and market edges across today&rsquo;s NBA slate</p>
-      </header>
-      <NbaMaximusPicksSection mode="page" />
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'var(--space-lg) 16px' }}>
+      <MlbMaximusPicksSectionV2
+        mode="page"
+        sport="nba"
+        endpoint="/api/nba/picks/built"
+      />
     </div>
   );
 }

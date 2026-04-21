@@ -174,8 +174,38 @@
   .intelligenceGrid { grid-template-columns: 1fr; }
 }
 
-/* ── Home mode — two-column hero strip ── */
+/* ── Home mode — Top Play first, then horizontal trust strip ── */
 .modeHome .title { font-size: 20px; }
+
+.homeHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 var(--picks-gap-md);
+}
+
+.trustStrip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin: var(--picks-gap) 0 var(--picks-gap-md);
+  align-items: stretch;
+}
+
+.trustCell { display: flex; flex-direction: column; min-width: 0; }
+.trustCell > * { flex: 1 1 auto; margin: 0 !important; }
+
+/* Continuity pill spans both columns beneath, left-aligned */
+.trustCellWide {
+  grid-column: 1 / -1;
+  display: flex;
+}
+.trustCellWide > * { margin: 0 !important; }
+
+@media (max-width: 820px) {
+  .trustStrip { grid-template-columns: 1fr; }
+}
 
 .homeGrid {
   display: grid;
@@ -188,6 +218,13 @@
 @media (max-width: 720px) {
   .homeGrid { grid-template-columns: 1fr; }
 }
+
+/* Compact Today's header for home mode */
+.todaysHeaderCompact {
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.todaysHeaderCompact .todaysTitle { font-size: 14px; }
 
 .homeFooter {
   margin-top: var(--picks-gap);

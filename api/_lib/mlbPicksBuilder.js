@@ -17,8 +17,10 @@
 
 import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../mlb/live/_normalize.js';
 import { enrichGamesWithOdds } from '../mlb/live/_odds.js';
-import { buildMlbPicks } from '../../src/features/mlb/picks/buildMlbPicks.js';
+import { buildMlbPicksV2 } from '../../src/features/mlb/picks/v2/buildMlbPicksV2.js';
+import { MLB_DEFAULT_CONFIG } from '../../src/features/picks/tuning/defaultConfig.js';
 import { getJson, setJson } from '../_globalCache.js';
+import { writePicksRun, getActiveConfig, getScorecard } from './picksHistory.js';
 
 const KV_LATEST = 'mlb:picks:built:latest';
 const KV_LASTKNOWN = 'mlb:picks:built:lastknown';
@@ -53,6 +55,13 @@ async function fetchScoreboardForDate(dateStr) {
 }
 
 function countPicks(board) {
+  // v2 shape
+  if (board?.tiers) {
+    return (board.tiers.tier1?.length || 0)
+      + (board.tiers.tier2?.length || 0)
+      + (board.tiers.tier3?.length || 0);
+  }
+  // legacy v1 shape
   const c = board?.categories || {};
   return (c.pickEms?.length || 0) + (c.ats?.length || 0)
        + (c.leans?.length || 0) + (c.totals?.length || 0);
@@ -98,21 +107,70 @@ export async function buildPicksBoard(opts = {}) {
       console.warn(`[mlbPicksBuilder] odds enrichment failed: ${err.message}`);
     }
 
-    const result = buildMlbPicks({ games: enriched });
+    // ── V2 canonical build ────────────────────────────────────────────────
+    // Resolve active tuning config (DB > default); never fail the build on
+    // config read.
+    let activeConfig = MLB_DEFAULT_CONFIG;
+    try {
+      const dbCfg = await getActiveConfig({ sport: 'mlb' });
+      if (dbCfg) activeConfig = dbCfg;
+    } catch (e) { console.warn(`[mlbPicksBuilder] getActiveConfig failed: ${e?.message}`); }
+
+    // Attach yesterday's scorecard summary when available
+    let scorecardSummary = null;
+    try {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      const ymd = y.toISOString().slice(0, 10);
+      const card = await getScorecard({ sport: 'mlb', slateDate: ymd });
+      if (card) {
+        scorecardSummary = {
+          date: ymd,
+          overall: card.record,
+          byMarket: card.by_market,
+          byTier: card.by_tier,
+          topPlayResult: card.top_play_result,
+          streak: card.streak,
+          note: card.note,
+        };
+      }
+    } catch (e) { /* non-fatal */ }
+
+    const result = buildMlbPicksV2({ games: enriched, config: activeConfig, scorecardSummary });
     freshBoard = {
       ...result,
-      generatedAt: new Date().toISOString(),
-      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length },
+      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' },
     };
 
     const freshCount = countPicks(freshBoard);
-    console.log(`[mlbPicksBuilder] fresh build: total=${freshCount} upcoming=${upcoming.length} enriched=${enriched.length}`);
+    console.log(
+      `[mlbPicksBuilder] fresh V2 build: total=${freshCount} ` +
+      `t1=${freshBoard.tiers?.tier1?.length || 0} ` +
+      `t2=${freshBoard.tiers?.tier2?.length || 0} ` +
+      `t3=${freshBoard.tiers?.tier3?.length || 0} ` +
+      `coverage=${freshBoard.coverage?.length || 0} ` +
+      `upcoming=${upcoming.length} enriched=${enriched.length}`
+    );
 
     // Persist fresh to KV
     if (freshCount > 0) {
       setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
-      // Only update lastknown when we have a substantive board
       setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+
+      // Best-effort DB persistence (non-blocking). Any failure just logs.
+      Promise.resolve()
+        .then(() => writePicksRun(freshBoard))
+        .then(r => {
+          if (!r) return;
+          if (!r.ok) {
+            console.error(
+              `[mlbPicksBuilder] ⚠ persist failed reason=${r.reason} ` +
+              `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} ` +
+              `first="${r.failures?.[0]?.message || 'n/a'}"`
+            );
+          }
+        })
+        .catch(err => console.error(`[mlbPicksBuilder] persist threw: ${err?.message}`));
+
       return { board: freshBoard, source: 'fresh', counts: getCounts(freshBoard) };
     }
   } catch (err) {
@@ -158,6 +216,21 @@ export async function buildPicksBoard(opts = {}) {
 }
 
 function getCounts(board) {
+  // v2 payload: surface tier counts alongside legacy categories
+  if (board?.tiers) {
+    const c = board.categories || {};
+    return {
+      tier1: board.tiers.tier1?.length || 0,
+      tier2: board.tiers.tier2?.length || 0,
+      tier3: board.tiers.tier3?.length || 0,
+      coverage: board.coverage?.length || 0,
+      pickEms: c.pickEms?.length || 0,
+      ats: c.ats?.length || 0,
+      leans: c.leans?.length || 0,
+      totals: c.totals?.length || 0,
+      total: countPicks(board),
+    };
+  }
   const c = board?.categories || {};
   return {
     pickEms: c.pickEms?.length || 0,
