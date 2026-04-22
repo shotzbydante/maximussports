@@ -19,22 +19,36 @@ import styles from './PerformanceLearning.module.css';
 
 function WindowStat({ win, label }) {
   if (!win) return null;
-  if (win.sparse && !win.record) {
+  const state = win.state || (win.record ? 'partial' : 'none');
+
+  if (state === 'none') {
     return (
       <div className={styles.stat}>
         <span className={styles.statLabel}>{label}</span>
         <span className={styles.statValue}>—</span>
-        <span className={styles.statMeta}>Building</span>
+        <span className={styles.statMeta}>No scorecards in window</span>
       </div>
     );
   }
+  if (state === 'pending') {
+    return (
+      <div className={styles.stat}>
+        <span className={styles.statLabel}>{label}</span>
+        <span className={styles.statValue}>—</span>
+        <span className={styles.statMeta}>
+          {win.pending ? `${win.pending} pick${win.pending === 1 ? '' : 's'} awaiting settlement` : 'Awaiting settlement'}
+        </span>
+      </div>
+    );
+  }
+  // 'full' or 'partial' — both render the record
   return (
     <div className={styles.stat}>
       <span className={styles.statLabel}>{label}</span>
       <span className={styles.statValue}>{win.record}</span>
       <span className={styles.statMeta}>
         {win.winRate != null ? `${win.winRate}% win rate` : 'no graded picks'}
-        {win.sparse && win.sample > 0 ? ' · partial window' : ''}
+        {state === 'partial' ? ` · ${win.sample} graded · building` : ''}
       </span>
     </div>
   );
@@ -83,14 +97,21 @@ export default function PerformanceLearning({ compact = false }) {
 
   const nothingToShow = !win7 && !win30 && !topPlay && insights.length === 0;
   if (nothingToShow) {
+    // Distinguish: truly empty DB vs backend error (usePerformance surfaces
+    // a `_error` field when the endpoint couldn't reach Supabase).
+    const hadError = data?._error;
     return (
       <section className={`${styles.card} ${compact ? styles.cardCompact : ''}`} aria-label="Performance & Learning">
         <div className={styles.frame} aria-hidden="true" />
         <header className={styles.header}>
           <span className={styles.kicker}>Performance & Learning</span>
-          <h3 className={styles.title}>Building track record</h3>
+          <h3 className={styles.title}>{hadError ? 'Performance data unavailable' : 'Building track record'}</h3>
         </header>
-        <p className={styles.empty}>Real results accumulate daily. The first window will surface after a few graded slates.</p>
+        <p className={styles.empty}>
+          {hadError
+            ? 'The performance API is temporarily unreachable — check back shortly.'
+            : 'Real results accumulate daily. The first window will surface after the next slate grades.'}
+        </p>
       </section>
     );
   }

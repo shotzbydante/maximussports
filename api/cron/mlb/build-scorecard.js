@@ -10,14 +10,7 @@ import { buildScorecard } from '../../../src/features/mlb/picks/v2/scorecard.js'
 import { getLatestRunForDate as getRun, upsertScorecard as upsertCard } from '../../_lib/picksHistory.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 
-function yesterdayET() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  try {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    return fmt.format(d);
-  } catch { return d.toISOString().slice(0, 10); }
-}
+import { yesterdayET } from '../../_lib/dateWindows.js';
 
 export default async function handler(req, res) {
   const slateDate = req?.query?.date || yesterdayET();

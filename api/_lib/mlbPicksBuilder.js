@@ -21,6 +21,7 @@ import { buildMlbPicksV2 } from '../../src/features/mlb/picks/v2/buildMlbPicksV2
 import { MLB_DEFAULT_CONFIG } from '../../src/features/picks/tuning/defaultConfig.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { writePicksRun, getActiveConfig, getScorecard } from './picksHistory.js';
+import { yesterdayET } from './dateWindows.js';
 
 const KV_LATEST = 'mlb:picks:built:latest';
 const KV_LASTKNOWN = 'mlb:picks:built:lastknown';
@@ -116,11 +117,11 @@ export async function buildPicksBoard(opts = {}) {
       if (dbCfg) activeConfig = dbCfg;
     } catch (e) { console.warn(`[mlbPicksBuilder] getActiveConfig failed: ${e?.message}`); }
 
-    // Attach yesterday's scorecard summary when available
+    // Attach yesterday's scorecard summary when available.
+    // CRITICAL: must use ET date — picks_daily_scorecards.slate_date is ET.
     let scorecardSummary = null;
     try {
-      const y = new Date(); y.setDate(y.getDate() - 1);
-      const ymd = y.toISOString().slice(0, 10);
+      const ymd = yesterdayET();
       const card = await getScorecard({ sport: 'mlb', slateDate: ymd });
       if (card) {
         scorecardSummary = {

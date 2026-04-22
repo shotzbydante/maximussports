@@ -22,24 +22,9 @@
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
 import { aggregateScorecards, shapeWindow } from '../../../src/features/mlb/picks/performanceInsights.js';
+import { yesterdayET, daysAgoFromYesterdayET } from '../../_lib/dateWindows.js';
 
-function yesterdayET() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  try {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    return fmt.format(d);
-  } catch { return d.toISOString().slice(0, 10); }
-}
-
-function isoDaysAgoFromYesterday(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - days - 1);
-  try {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    return fmt.format(d);
-  } catch { return d.toISOString().slice(0, 10); }
-}
+const isoDaysAgoFromYesterday = daysAgoFromYesterdayET;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

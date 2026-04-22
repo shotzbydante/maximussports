@@ -76,6 +76,8 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
 
   const record = graded > 0 ? `${overall.won}-${overall.lost}${overall.push ? `-${overall.push}` : ''}` : '—';
   const winPct = graded > 0 ? Math.round((overall.won / graded) * 100) : null;
+  const pendingCount = overall.pending ?? 0;
+  const allPending = graded === 0 && pendingCount > 0;
 
   const takeaway = scorecardTakeaway(card);
   const trailing = trailingRecord(card, 'trailing3d');
@@ -101,8 +103,10 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
           <span className={styles.recordValue}>{record}</span>
           <span className={styles.recordMeta}>
             {graded > 0
-              ? `${graded} graded${winPct !== null ? ` · ${winPct}% win rate` : ''}${overall.pending ? ` · ${overall.pending} pending` : ''}`
-              : (card.note || 'Awaiting settlement')}
+              ? `${graded} graded${winPct !== null ? ` · ${winPct}% win rate` : ''}${pendingCount ? ` · ${pendingCount} pending` : ''}`
+              : allPending
+                ? `Awaiting settlement · ${pendingCount} pick${pendingCount === 1 ? '' : 's'} pending`
+                : (card.note || 'No graded picks yet')}
           </span>
         </div>
 

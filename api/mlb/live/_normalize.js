@@ -158,12 +158,19 @@ export async function fetchScoreboard(dateStr) {
 }
 
 /**
- * Fetch yesterday's completed games. Returns only finals.
+ * Fetch yesterday's completed games (ET calendar day) — returns only finals.
+ *
+ * Uses the shared ET-aware dateWindows helper so the settle cron looks up
+ * the SAME date that picks_daily_scorecards.slate_date is keyed by.
+ *
+ * Accepts an optional explicit override so manual triggers can target a
+ * specific day: fetchYesterdayFinals({ slateDate: '2026-04-19' }).
  */
-export async function fetchYesterdayFinals() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+export async function fetchYesterdayFinals({ slateDate } = {}) {
+  // Lazy import to avoid circular reference with _lib helpers.
+  const { yesterdayET, etDateCompact } = await import('../../_lib/dateWindows.js');
+  const ymd = slateDate || yesterdayET();
+  const dateStr = etDateCompact(ymd);
   const games = await fetchScoreboard(dateStr);
   return games.filter(g => g.gameState?.isFinal || g.status === 'final');
 }

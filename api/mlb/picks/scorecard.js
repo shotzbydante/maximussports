@@ -7,15 +7,7 @@
  */
 
 import { getScorecard, getLatestRunForDate } from '../../_lib/picksHistory.js';
-
-function yesterdayET() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  try {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    return fmt.format(d);
-  } catch { return d.toISOString().slice(0, 10); }
-}
+import { yesterdayET } from '../../_lib/dateWindows.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
