@@ -6,7 +6,7 @@
  * (never auto-applies; needs sample + shadow-period + admin promote).
  */
 
-import { getLatestRunForDate, writeAuditArtifact, getActiveConfig, logTuning } from '../../_lib/picksHistory.js';
+import { getPicksForSlate, writeAuditArtifact, getActiveConfig, logTuning } from '../../_lib/picksHistory.js';
 import { analyzePicks } from '../../../src/features/mlb/picks/v2/audit.js';
 import { validateTuningDelta, diffConfig } from '../../../src/features/picks/tuning/validator.js';
 import { MLB_DEFAULT_CONFIG } from '../../../src/features/picks/tuning/defaultConfig.js';
@@ -50,10 +50,9 @@ export default async function handler(req, res) {
   const slateDate = req?.query?.date || yesterdayET();
 
   try {
-    const run = await getLatestRunForDate({ sport: 'mlb', slateDate });
-    const picks = run?.picks || [];
-    if (!run) {
-      console.warn(`[cron/mlb/run-audit] no picks_run for ${slateDate} — audit will produce a zero-sample artifact`);
+    const { picks, runIds } = await getPicksForSlate({ sport: 'mlb', slateDate });
+    if (picks.length === 0) {
+      console.warn(`[cron/mlb/run-audit] no persisted picks for ${slateDate} (runIds=${runIds.size}) — audit will produce a zero-sample artifact`);
     }
 
     const { summary, signalAttribution, recommendedDeltas } = analyzePicks({ sport: 'mlb', slateDate, picks });
