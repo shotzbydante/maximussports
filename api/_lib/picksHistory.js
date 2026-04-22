@@ -362,6 +362,66 @@ async function perRowInsert(sb, rows, runId, failures) {
  * Fetch the most recent picks_run for a sport+date, with all child picks.
  * Used by settlement and scorecard builders.
  */
+/**
+ * Fetch every persisted pick for a slate_date, regardless of run_id.
+ *
+ * Why this exists (production bug, 2026-04-22):
+ *   Concurrent calls to /api/mlb/picks/built can create multiple picks_runs
+ *   rows for the same slate. The child `picks` batch attaches to ONE run_id;
+ *   the others end up with zero child rows. `getLatestRunForDate` picked the
+ *   newest run by generated_at, which may have been the empty one — causing
+ *   settle + build-scorecard to silently exit with 0 picks while 16 picks
+ *   actually lived in the table.
+ *
+ * This helper bypasses runs entirely. It:
+ *   1. Selects all picks with (sport, slate_date) match.
+ *   2. Joins pick_results.
+ *   3. Dedupes by pick_key, keeping the row with the highest bet_score so a
+ *      re-run that produced an updated score wins.
+ *
+ * Returns: { picks: [...deduped], runIds: Set<uuid>, totalRaw: number,
+ *            droppedDuplicates: number }
+ */
+export async function getPicksForSlate({ sport, slateDate }) {
+  const sb = safeAdmin();
+  if (!sb) return { picks: [], runIds: new Set(), totalRaw: 0, droppedDuplicates: 0 };
+  try {
+    const { data, error } = await sb
+      .from('picks')
+      .select('*, pick_results(*)')
+      .eq('sport', sport)
+      .eq('slate_date', slateDate);
+    if (error) {
+      if (isMissingTableError(error)) warnMissingOnce('picks', error);
+      else console.warn('[picksHistory] getPicksForSlate read error:', error.message);
+      return { picks: [], runIds: new Set(), totalRaw: 0, droppedDuplicates: 0 };
+    }
+    const rows = data || [];
+
+    // Dedupe by pick_key — keep the highest bet_score
+    const bestByKey = new Map();
+    const runIds = new Set();
+    for (const p of rows) {
+      if (p.run_id) runIds.add(p.run_id);
+      const existing = bestByKey.get(p.pick_key);
+      const score = Number(p.bet_score ?? 0);
+      if (!existing || score > Number(existing.bet_score ?? 0)) {
+        bestByKey.set(p.pick_key, p);
+      }
+    }
+    const picks = Array.from(bestByKey.values());
+    return {
+      picks,
+      runIds,
+      totalRaw: rows.length,
+      droppedDuplicates: rows.length - picks.length,
+    };
+  } catch (e) {
+    console.warn('[picksHistory] getPicksForSlate failed:', e?.message);
+    return { picks: [], runIds: new Set(), totalRaw: 0, droppedDuplicates: 0 };
+  }
+}
+
 export async function getLatestRunForDate({ sport, slateDate }) {
   const sb = safeAdmin();
   if (!sb) return null;
