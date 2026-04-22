@@ -103,8 +103,22 @@ export function getTemplateDimensions(template) {
 /**
  * Template → ordered slide component list.
  * Each entry is a component that accepts { data, teamData, game, asOf, slideNumber, slideTotal, options }.
+ *
+ * HARD-FAIL GUARD: any template that STARTS WITH 'nba-' but isn't in the
+ * explicit NBA switch below throws, rather than silently falling through
+ * to the default NCAAM path (which caused the "NBA renders NCAAM placeholder
+ * slides" regression reported in Phase 2 acceptance testing).
  */
 function getSlides(template, slideCount, options = {}) {
+  // ── NBA safety: never let an NBA template fall through to NCAAM ──
+  const isNba = typeof template === 'string' && template.startsWith('nba-');
+  const allowedNba = new Set(['nba-daily', 'nba-team']);
+  if (isNba && !allowedNba.has(template)) {
+    const msg = `[NBA_RENDER_FALLBACK] Unknown NBA template "${template}" — refusing to fall back to NCAAM/default. Known NBA templates: ${[...allowedNba].join(', ')}.`;
+    console.error(msg);
+    throw new Error(msg);
+  }
+
   switch (template) {
     // ── MLB templates ──
     case 'mlb-team':
@@ -218,6 +232,40 @@ export default function CarouselComposer({
   const slides = getSlides(template, slideCount, options);
   const total = slides.length;
   const dims = getTemplateDimensions(template);
+
+  // ── Diagnostic logging for NBA render path ───────────────────────────
+  // Emits once whenever template or data reference changes. Makes it
+  // obvious from the browser console whether NBA is actually getting the
+  // NBA components + NBA data, or silently falling through.
+  if (typeof template === 'string' && template.startsWith('nba-')) {
+    const slideNames = slides.map(S => S?.displayName || S?.name || 'AnonymousSlide');
+    const nbaStarts = slideNames.every(n => /^Nba/.test(n));
+    const diag = {
+      template,
+      slideCount: total,
+      slideComponents: slideNames,
+      nbaComponentsOnly: nbaStarts,
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data).slice(0, 20) : [],
+      nbaLiveGamesCount: Array.isArray(data?.nbaLiveGames) ? data.nbaLiveGames.length : null,
+      nbaPicksCategoryKeys: data?.nbaPicks?.categories ? Object.keys(data.nbaPicks.categories) : [],
+      nbaLeaderCategoryKeys: data?.nbaLeaders?.categories ? Object.keys(data.nbaLeaders.categories) : [],
+      nbaStandingsCount: data?.nbaStandings ? Object.keys(data.nbaStandings).length : 0,
+      nbaChampOddsCount: data?.nbaChampOdds ? Object.keys(data.nbaChampOdds).length : 0,
+      nbaNewsCount: Array.isArray(data?.nbaNews) ? data.nbaNews.length : 0,
+      hasTeam: !!teamData?.team,
+    };
+    console.log('[NBA_RENDER_TEMPLATE]', diag);
+    if (!nbaStarts) {
+      console.error('[NBA_RENDER_FALLBACK] Non-NBA components resolved for NBA template', {
+        template,
+        slideComponents: slideNames,
+      });
+    }
+    if (template === 'nba-team' && !teamData?.team) {
+      console.warn('[NBA_TEAM_INTEL] Missing team payload — select a team to populate Team Intel.');
+    }
+  }
 
   const dayCards = options?.dayCards;
   const isMultiDayUpsetRadar = options?.gameMode === 'upset-radar' && dayCards && dayCards.length > 1;

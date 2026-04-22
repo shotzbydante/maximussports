@@ -2313,18 +2313,49 @@ export default function Dashboard() {
               template={activeSection}
               slideCount={effectiveSlideCount}
               data={(() => {
-                // NBA data path — playoff-framed canonical payload
+                // NBA data path — route EVERYTHING through normalizeNbaImagePayload
+                // so every slide and the caption consume the same canonical shape.
+                // No hand-rolled payload construction.
                 if (nbaActive) {
-                  return {
-                    nbaLiveGames,
-                    nbaPicks: nbaPicks ?? { categories: {} },
-                    canonicalPicks: nbaPicks ?? { categories: {} },
-                    nbaLeaders: nbaLeaders ?? { categories: {} },
-                    nbaStandings: nbaStandings ?? {},
-                    nbaChampOdds: nbaChampOdds ?? {},
-                    nbaNews: nbaNews ?? [],
-                    games: [],
-                  };
+                  try {
+                    const payload = normalizeNbaImagePayload({
+                      activeSection,
+                      nbaPicks,
+                      nbaGames: [],
+                      nbaLiveGames,
+                      nbaSelectedTeam,
+                      nbaChampOdds,
+                      nbaStandings,
+                      nbaLeaders,
+                      nbaNews,
+                    });
+                    console.log('[NBA_CONTENT_STUDIO_PAYLOAD_CANONICAL]', {
+                      section: payload.section,
+                      heroTitle: payload.heroTitle?.slice(0, 80),
+                      bulletCount: payload.bullets?.length || 0,
+                      playoffRound: payload.nbaPlayoffContext?.round,
+                      seriesCount: payload.nbaPlayoffContext?.series?.length || 0,
+                      outlookEastCount: payload.playoffOutlook?.east?.length || 0,
+                      outlookWestCount: payload.playoffOutlook?.west?.length || 0,
+                    });
+                    return payload;
+                  } catch (err) {
+                    console.error('[NBA_PAYLOAD_BUILD_FAILED]', err?.message || err);
+                    // Fall back to raw fields so the slide's internal normalizer
+                    // still has something to work with. Do NOT silently render
+                    // NCAAM — the hard-fail guard in getSlides() catches template drift.
+                    return {
+                      nbaLiveGames: nbaLiveGames ?? [],
+                      nbaPicks: nbaPicks ?? { categories: {} },
+                      canonicalPicks: nbaPicks ?? { categories: {} },
+                      nbaLeaders: nbaLeaders ?? { categories: {} },
+                      nbaStandings: nbaStandings ?? {},
+                      nbaChampOdds: nbaChampOdds ?? {},
+                      nbaNews: nbaNews ?? [],
+                      nbaSelectedTeam: nbaSelectedTeam ?? null,
+                      games: [],
+                    };
+                  }
                 }
                 // MLB data path — includes briefing + championship odds
                 if (mlbActive) {
