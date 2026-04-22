@@ -52,6 +52,12 @@ import MlbDailySlide1 from './slides/MlbDailySlide1';
 import MlbDailySlide2 from './slides/MlbDailySlide2';
 import MlbDailySlide3 from './slides/MlbDailySlide3';
 
+// NBA Daily Briefing carousel + Team Intel (Phase 2)
+import NbaDailySlide1 from './slides/NbaDailySlide1';
+import NbaDailySlide2 from './slides/NbaDailySlide2';
+import NbaDailySlide3 from './slides/NbaDailySlide3';
+import NbaTeamIntelSlide from './slides/NbaTeamIntelSlide';
+
 import styles from './CarouselComposer.module.css';
 
 /** Error boundary that prevents a single broken slide from crashing the whole Dashboard. */
@@ -112,6 +118,12 @@ function getSlides(template, slideCount, options = {}) {
     case 'mlb-game':
       return [MlbSingleSlide];
 
+    // ── NBA templates (Phase 2) ──
+    case 'nba-daily':
+      return [NbaDailySlide1, NbaDailySlide2, NbaDailySlide3].slice(0, Math.min(slideCount, 3));
+    case 'nba-team':
+      return [NbaTeamIntelSlide];
+
     // ── NCAAM templates (untouched) ──
     case 'team':
       return [TeamIntelSlide4, TeamIntelSlide1, TeamIntelSlide2, TeamIntelSlide3].slice(0, Math.min(slideCount, 4));
@@ -169,6 +181,8 @@ const TEMPLATE_LABELS = {
   'mlb-division':  'MLB Division Intel',
   'mlb-game':      'MLB Game Insights',
   'mlb-picks':     "MLB Maximus's Picks",
+  'nba-daily':     'NBA Daily Briefing',
+  'nba-team':      'NBA Team Intel',
 };
 
 /**

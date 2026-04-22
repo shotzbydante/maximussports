@@ -46,8 +46,11 @@ import { useWorkspace } from '../workspaces/WorkspaceContext';
 import { WorkspaceId, WORKSPACES } from '../workspaces/config';
 import { getVisibleWorkspaces } from '../workspaces/access';
 import { MLB_TEAMS, MLB_DIVISIONS } from '../sports/mlb/teams';
+import { NBA_TEAMS } from '../sports/nba/teams';
 import { normalizeMlbImagePayload } from '../features/mlb/contentStudio/normalizeMlbImagePayload';
 import { buildMlbCaption } from '../features/mlb/contentStudio/buildMlbCaption';
+import { normalizeNbaImagePayload } from '../features/nba/contentStudio/normalizeNbaImagePayload';
+import { buildNbaCaption } from '../features/nba/contentStudio/buildNbaCaption';
 import { normalizeStudioCaption, MIN_PUBLISHABLE_CAPTION_CHARS } from '../features/mlb/contentStudio/normalizeStudioCaption';
 import { buildMlbPicks, hasAnyPicks as hasAnyMlbPicks } from '../features/mlb/picks/buildMlbPicks';
 import { fetchMlbHeadlines } from '../api/mlbNews';
@@ -77,8 +80,24 @@ const MLB_SECTIONS = [
   { id: 'videos',       label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
 ];
 
+/**
+ * NBA Content Studio sections — Phase 2 launch.
+ *
+ * Daily Briefing + Team Intel are fully implemented. Other NBA sections
+ * are intentionally NOT listed here (not even as "coming soon") so NBA
+ * never silently renders NCAAM placeholder slides. When Phase 3 adds
+ * Picks/Game Insights/Conference Intel we'll append them here.
+ */
+const NBA_SECTIONS = [
+  { id: 'nba-daily',    label: 'Daily Briefing',    icon: '📅',  requiredCap: null },
+  { id: 'nba-team',     label: 'Team Intel',         icon: '🏀',  requiredCap: 'teamIntel' },
+  { id: 'videos',       label: 'Videos',             icon: '🎬',  requiredCap: null,  shared: true },
+];
+
 function getSectionsForWorkspace(workspaceConfig) {
-  const sections = workspaceConfig.id === WorkspaceId.MLB ? MLB_SECTIONS : CBB_SECTIONS;
+  let sections = CBB_SECTIONS;
+  if (workspaceConfig.id === WorkspaceId.MLB) sections = MLB_SECTIONS;
+  else if (workspaceConfig.id === WorkspaceId.NBA) sections = NBA_SECTIONS;
   return sections.filter(sec =>
     sec.requiredCap === null || workspaceConfig.capabilities[sec.requiredCap],
   );
@@ -89,9 +108,19 @@ function isMlbSection(sectionId) {
   return sectionId?.startsWith('mlb-');
 }
 
+/** Returns true if the active section is an NBA template */
+function isNbaSection(sectionId) {
+  return sectionId?.startsWith('nba-');
+}
+
 /** Extracts MLB template type from section id: 'mlb-daily' → 'daily' */
 function mlbTemplateType(sectionId) {
   return sectionId?.replace('mlb-', '') || 'daily';
+}
+
+/** Extracts NBA template type from section id: 'nba-daily' → 'daily' */
+function nbaTemplateType(sectionId) {
+  return sectionId?.replace('nba-', '') || 'daily';
 }
 
 function gameLabel(g) {
@@ -174,6 +203,17 @@ export default function Dashboard() {
   const [mlbStandings, setMlbStandings] = useState(null);  // { slug: { wins, losses, record, gb, rank, l10, streak, division } }
   const [mlbLeaders, setMlbLeaders] = useState(null);     // { categories: { homeRuns, RBIs, hits, wins, saves } }
   const isMlbStudio = studioWorkspaceId === WorkspaceId.MLB;
+
+  // ── NBA Content Studio state (mirrors MLB exactly; playoff-framed) ──
+  const [nbaPicks, setNbaPicks] = useState(null);          // canonical picks board from /api/nba/picks/built (V2)
+  const [nbaLiveGames, setNbaLiveGames] = useState([]);    // /api/nba/live/games
+  const [nbaChampOdds, setNbaChampOdds] = useState(null);  // { slug: { bestChanceAmerican } }  ← inner map only
+  const [nbaStandings, setNbaStandings] = useState(null);  // { slug: { wins, losses, record, rank, conference, playoffSeed } }
+  const [nbaLeaders, setNbaLeaders] = useState(null);      // { categories: { avgPoints, avgAssists, avgRebounds, avgSteals, avgBlocks } }
+  const [nbaNews, setNbaNews] = useState([]);
+  const [nbaSelectedTeam, setNbaSelectedTeam] = useState(null);
+  const [nbaGamesLoading, setNbaGamesLoading] = useState(false);
+  const isNbaStudio = studioWorkspaceId === WorkspaceId.NBA;
 
   // ── Gemini image generation state (MLB only) ───────────
   const [geminiImage, setGeminiImage] = useState(null);       // { base64, mimeType }
@@ -360,6 +400,37 @@ export default function Dashboard() {
     try { return buildMlbPicks({ games: mlbGames }); }
     catch { return null; }
   }, [mlbGames]);
+
+  // ── NBA data loading (canonical endpoints only; no hand-rolled shape) ──
+  useEffect(() => {
+    if (!isAuthorized || !isNbaStudio) return;
+    setNbaGamesLoading(true);
+    Promise.all([
+      fetch('/api/nba/picks/built').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
+      fetch('/api/nba/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
+      fetch('/api/nba/odds/championship').then(r => r.ok ? r.json() : { odds: {} }).catch(() => ({ odds: {} })),
+      fetch('/api/nba/standings').then(r => r.ok ? r.json() : { teams: {} }).catch(() => ({ teams: {} })),
+      fetch('/api/nba/leaders').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
+      fetch('/api/nba/news/headlines').then(r => r.ok ? r.json() : { headlines: [] }).catch(() => ({ headlines: [] })),
+    ]).then(([picksData, liveData, champData, standingsData, leadersData, newsData]) => {
+      setNbaPicks(picksData ?? null);
+      setNbaLiveGames(liveData?.games ?? []);
+      // IMPORTANT: /api/nba/odds/championship returns { odds: {...}, source } —
+      // we store the INNER map to match what slide components expect. Same
+      // shape guarantee we enforced for MLB after the autopost fix.
+      setNbaChampOdds(champData?.odds ?? null);
+      setNbaStandings(standingsData?.teams ?? null);
+      setNbaLeaders(leadersData ?? null);
+      setNbaNews(Array.isArray(newsData) ? newsData : newsData?.headlines ?? []);
+      console.log('[NBA_CONTENT_STUDIO_PAYLOAD]', {
+        picksCategoryKeys: Object.keys(picksData?.categories || {}),
+        liveGamesCount: liveData?.games?.length || 0,
+        standingsTeams: Object.keys(standingsData?.teams || {}).length,
+        leaderCategoryKeys: Object.keys(leadersData?.categories || {}),
+        champOddsTeams: Object.keys(champData?.odds || {}).length,
+      });
+    }).finally(() => setNbaGamesLoading(false));
+  }, [isAuthorized, isNbaStudio, refreshKey]);
 
   // ── patch dashData.atsLeaders when hook resolves late ─────
   useEffect(() => {
@@ -736,11 +807,64 @@ export default function Dashboard() {
     }
   }, [canonicalPicks]);
 
-  // ── MLB active flag (must precede caption useMemo which references it) ──
+  // ── MLB / NBA active flags (must precede caption useMemo which references them) ──
   const mlbActive = isMlbSection(activeSection);
+  const nbaActive = isNbaSection(activeSection);
 
   // ── compute caption ───────────────────────────────────────
   const caption = useMemo(() => {
+    // ── NBA caption (playoff-framed, canonical normalizer path) ──
+    if (nbaActive) {
+      const payloadDiag = {
+        activeSection,
+        liveGamesCount: nbaLiveGames?.length ?? 0,
+        pickCats: Object.keys(nbaPicks?.categories || {}),
+        leaderCats: Object.keys(nbaLeaders?.categories || {}),
+        standingsTeams: Object.keys(nbaStandings || {}).length,
+        hasChampOdds: !!nbaChampOdds && Object.keys(nbaChampOdds).length > 0,
+        hasSelectedTeam: !!nbaSelectedTeam,
+      };
+      console.log('[NBA_CAPTION_STATE]', payloadDiag);
+
+      let payload;
+      try {
+        payload = normalizeNbaImagePayload({
+          activeSection,
+          nbaPicks,
+          nbaGames: [],
+          nbaLiveGames,
+          nbaSelectedTeam,
+          nbaChampOdds,
+          nbaStandings,
+          nbaLeaders,
+          nbaNews,
+        });
+      } catch (err) {
+        console.error('[NBA_CAPTION_PAYLOAD_FAILED]', err?.message || err);
+        return { ok: false, reason: 'payload_build_failed', error: err?.message || 'normalizer threw' };
+      }
+
+      let built;
+      try {
+        built = buildNbaCaption(payload);
+      } catch (err) {
+        console.error('[NBA_CAPTION_BUILD_FAILED]', err?.message || err);
+        return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildNbaCaption threw' };
+      }
+
+      const normalized = normalizeStudioCaption(built);
+      console.log('[NBA_DAILY_CAPTION_BUILT]', {
+        section: payload?.section,
+        ok: normalized.ok,
+        reason: normalized.reason,
+        bodyLength: normalized.bodyLength,
+        totalLength: normalized.totalLength,
+        hashtagCount: normalized.hashtags.length,
+        preview: normalized.fullCaption.slice(0, 200),
+      });
+      return normalized;
+    }
+
     // ── MLB caption (sourced from intelBriefing + payload normalizer) ──
     if (mlbActive) {
       // ── PAYLOAD DIAGNOSTIC — log completeness before caption build ──
@@ -852,7 +976,7 @@ export default function Dashboard() {
       return { ok: false, reason: 'caption_build_failed', error: err?.message || 'buildCaption threw' };
     }
     return normalizeStudioCaption(cbbBuilt);
-  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle]);
+  }, [activeSection, dashData, teamPageData, selectedTeam, selectedGame, dailyStyleMode, dailyDigest, selectedConference, tournamentInsightsData, canonicalRenderedPicks, canonicalPicksGames, mlbActive, mlbGames, mlbLiveGames, mlbPicks, mlbLeaders, mlbStandings, mlbChampOdds, mlbSelectedTeam, mlbSelectedGame, mlbBriefing, mlbHeadlines, mlbLeague, mlbDivision, mlbGameAngle, nbaActive, nbaPicks, nbaLiveGames, nbaLeaders, nbaStandings, nbaChampOdds, nbaNews, nbaSelectedTeam]);
 
   // ── Instagram Hero Summary caption (Slide 4 — Team Intel only) ────────────
   // Separate from the generic team caption — this is the viral-optimized caption
@@ -1145,20 +1269,30 @@ export default function Dashboard() {
       return ta.localeCompare(tb);
     });
   })();
-  // mlbActive is declared earlier (before caption useMemo)
-  const isWorking = mlbActive ? mlbGamesLoading : (dataLoading || teamPageLoading);
-  const canExport = mlbActive
-    ? (!mlbGamesLoading && (activeSection !== 'mlb-game' || !!mlbSelectedGame))
-    : (!isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference));
+  // mlbActive / nbaActive are declared earlier (before caption useMemo)
+  const isWorking = nbaActive
+    ? nbaGamesLoading
+    : (mlbActive ? mlbGamesLoading : (dataLoading || teamPageLoading));
+  const canExport = nbaActive
+    ? (!nbaGamesLoading && (activeSection !== 'nba-team' || !!nbaSelectedTeam))
+    : (mlbActive
+      ? (!mlbGamesLoading && (activeSection !== 'mlb-game' || !!mlbSelectedGame))
+      : (!isWorking && !!dashData && (activeSection !== 'team' || !!enhancedTeamData) && (activeSection !== 'conference' || !!selectedConference)));
   const previewScale = PREVIEW_SCALES[previewSize] || PREVIEW_SCALES.medium;
 
-  // MLB: mlb-daily gets 3 slides (carousel), other MLB templates get 1
+  // MLB / NBA slide counts — daily gets 3-slide carousel, team intel 1 slide
   const MLB_SLIDE_COUNTS = { 'mlb-daily': 3, 'mlb-team': 1 };
-  const effectiveSlideCount = mlbActive
-    ? (MLB_SLIDE_COUNTS[activeSection] ?? 1)
-    : slideCount;
+  const NBA_SLIDE_COUNTS = { 'nba-daily': 3, 'nba-team': 1 };
+  const effectiveSlideCount = nbaActive
+    ? (NBA_SLIDE_COUNTS[activeSection] ?? 1)
+    : (mlbActive
+      ? (MLB_SLIDE_COUNTS[activeSection] ?? 1)
+      : slideCount);
 
-  const options = mlbActive ? {
+  const options = nbaActive ? {
+    nbaTemplate: nbaTemplateType(activeSection),
+    slideCount: effectiveSlideCount,
+  } : mlbActive ? {
     mlbTemplate: mlbTemplateType(activeSection),
     mlbLeague,
     mlbDivision,
@@ -1209,7 +1343,12 @@ export default function Dashboard() {
                   onClick={() => {
                     setStudioWorkspaceId(ws.id);
                     setAssetsReady(false);
-                    setActiveSection(ws.id === WorkspaceId.MLB ? 'mlb-daily' : 'daily');
+                    const nextSection = ws.id === WorkspaceId.MLB
+                      ? 'mlb-daily'
+                      : ws.id === WorkspaceId.NBA
+                        ? 'nba-daily'
+                        : 'daily';
+                    setActiveSection(nextSection);
                   }}
                 >
                   {ws.emoji} {ws.shortLabel}
@@ -1743,6 +1882,48 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ─── NBA controls ─────────────────────────── */}
+          {nbaActive && (
+            <div className={styles.sectionControls}>
+              <div className={styles.controlGroup}>
+                <label className={styles.controlLabel}>Format</label>
+                <div className={styles.chipGroup}>
+                  <span className={styles.chip} style={{ opacity: 0.6, cursor: 'default' }}>
+                    {activeSection === 'nba-daily' ? '3-Slide Carousel · 1080 × 1350' : 'Single Slide · 1080 × 1350'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Team picker for NBA Team Intel */}
+              {activeSection === 'nba-team' && (
+                <div className={styles.controlGroup}>
+                  <label className={styles.controlLabel}>Team</label>
+                  <div className={styles.selectWrap}>
+                    <select
+                      className={styles.select}
+                      value={nbaSelectedTeam?.slug || ''}
+                      onChange={e => {
+                        const slug = e.target.value;
+                        const team = NBA_TEAMS.find(t => t.slug === slug) || null;
+                        setNbaSelectedTeam(team);
+                        setAssetsReady(false);
+                      }}
+                    >
+                      <option value="">Select team…</option>
+                      {['Eastern', 'Western'].map(conf => (
+                        <optgroup key={conf} label={`${conf} Conference`}>
+                          {NBA_TEAMS.filter(t => t.conference === conf).sort((a, b) => a.name.localeCompare(b.name)).map(t => (
+                            <option key={t.slug} value={t.slug}>{t.name}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ─── MLB controls ─────────────────────────── */}
           {mlbActive && (
             <div className={styles.sectionControls}>
@@ -2114,7 +2295,7 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-          ) : isWorking || (!mlbActive && !dashData) ? (
+          ) : isWorking || (!mlbActive && !nbaActive && !dashData) ? (
             <div className={styles.skeletonRow}>
               {Array.from({ length: effectiveSlideCount }).map((_, i) => (
                 <div
@@ -2132,6 +2313,19 @@ export default function Dashboard() {
               template={activeSection}
               slideCount={effectiveSlideCount}
               data={(() => {
+                // NBA data path — playoff-framed canonical payload
+                if (nbaActive) {
+                  return {
+                    nbaLiveGames,
+                    nbaPicks: nbaPicks ?? { categories: {} },
+                    canonicalPicks: nbaPicks ?? { categories: {} },
+                    nbaLeaders: nbaLeaders ?? { categories: {} },
+                    nbaStandings: nbaStandings ?? {},
+                    nbaChampOdds: nbaChampOdds ?? {},
+                    nbaNews: nbaNews ?? [],
+                    games: [],
+                  };
+                }
                 // MLB data path — includes briefing + championship odds
                 if (mlbActive) {
                   return {
@@ -2169,7 +2363,11 @@ export default function Dashboard() {
                 enrichments.canonicalPicks = canonicalPicks ?? { pickEmPicks: [], atsPicks: [], valuePicks: [], totalsPicks: [] };
                 return Object.keys(enrichments).length > 0 ? { ...d, ...enrichments } : d;
               })()}
-              teamData={mlbActive && mlbSelectedTeam ? { team: mlbSelectedTeam } : enhancedTeamData}
+              teamData={
+                nbaActive && nbaSelectedTeam ? { team: nbaSelectedTeam }
+                  : mlbActive && mlbSelectedTeam ? { team: mlbSelectedTeam }
+                  : enhancedTeamData
+              }
               conferenceData={activeSection === 'conference' && selectedConference ? { conference: selectedConference } : null}
               selectedGame={mlbActive ? mlbSelectedGame : selectedGame}
               exportRef={exportRef}
