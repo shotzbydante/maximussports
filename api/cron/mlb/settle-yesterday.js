@@ -11,14 +11,7 @@ import { fetchYesterdayFinals } from '../../mlb/live/_normalize.js';
 import { getLatestRunForDate, upsertPickResults } from '../../_lib/picksHistory.js';
 import { gradePicks } from '../../../src/features/mlb/picks/v2/settle.js';
 
-function yesterdayET() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  try {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    return fmt.format(d);
-  } catch { return d.toISOString().slice(0, 10); }
-}
+import { yesterdayET } from '../../_lib/dateWindows.js';
 
 export default async function handler(req, res) {
   const t0 = Date.now();
@@ -35,7 +28,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, slateDate, graded: 0, note: 'no picks recorded' });
     }
 
-    const finals = await fetchYesterdayFinals();
+    const finals = await fetchYesterdayFinals({ slateDate });
     const finalsByGameId = new Map();
     for (const g of (finals || [])) {
       if (g.gameId) finalsByGameId.set(String(g.gameId), g);

@@ -11,15 +11,7 @@ import { analyzePicks } from '../../../src/features/mlb/picks/v2/audit.js';
 import { validateTuningDelta, diffConfig } from '../../../src/features/picks/tuning/validator.js';
 import { MLB_DEFAULT_CONFIG } from '../../../src/features/picks/tuning/defaultConfig.js';
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
-
-function yesterdayET() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  try {
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
-    return fmt.format(d);
-  } catch { return d.toISOString().slice(0, 10); }
-}
+import { yesterdayET } from '../../_lib/dateWindows.js';
 
 function applyDeltasToConfig(current, deltas) {
   const next = JSON.parse(JSON.stringify(current));

@@ -191,20 +191,41 @@ export function summarizeInsights(agg) {
  *
  *   { label, record, winRate, units, sample, sparse, insights[] }
  */
+/**
+ * State machine for display copy:
+ *   'full'    — graded >= MIN_WINDOW_SAMPLE; confident window
+ *   'partial' — 1..MIN_WINDOW_SAMPLE-1 graded; show record with "partial" note
+ *   'pending' — scorecards exist but nothing graded yet (all pending)
+ *   'none'    — no scorecards in window at all
+ */
+export function classifyWindow(agg) {
+  const graded = (agg?.overall?.won ?? 0) + (agg?.overall?.lost ?? 0);
+  const pending = agg?.overall?.pending ?? 0;
+  const days = agg?.sampleDays ?? 0;
+  if (graded >= MIN_WINDOW_SAMPLE) return 'full';
+  if (graded > 0) return 'partial';
+  if (days > 0 && pending > 0) return 'pending';
+  return 'none';
+}
+
 export function shapeWindow(scorecards, label = 'Last 7 days') {
   const agg = aggregateScorecards(scorecards);
   const graded = agg.overall.won + agg.overall.lost;
+  const pending = agg.overall.pending ?? 0;
   const record = graded > 0
     ? `${agg.overall.won}–${agg.overall.lost}${agg.overall.push ? `–${agg.overall.push}` : ''}`
     : null;
   const winRate = pct(agg.overall);
+  const state = classifyWindow(agg);
   return {
     label,
     record,
     winRate,
     sample: graded,
+    pending,
     days: agg.sampleDays,
     sparse: agg.sparse || graded < 5,
+    state, // 'full' | 'partial' | 'pending' | 'none'
     insights: summarizeInsights(agg),
     agg,
   };
