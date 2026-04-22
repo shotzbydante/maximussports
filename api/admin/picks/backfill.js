@@ -1,23 +1,30 @@
 /**
- * POST /api/admin/picks/backfill?sport=mlb&date=YYYY-MM-DD
+ * GET/POST /api/admin/picks/backfill
  *
- * Reruns settle-yesterday + build-scorecard + run-audit for a specific ET
- * slate date. Used to backfill historical days after a pipeline fix.
+ * Reruns settle → build-scorecard → run-audit for one or more ET slate dates.
+ * Used to repair historical days after a pipeline fix.
  *
- * Ordering: settle → build-scorecard → run-audit. Each stage's output is
- * returned so the caller can see exactly how many picks were graded, how
- * many matched finals, and what the scorecard record ended up being.
+ * Usage (single day):
+ *   GET /api/admin/picks/backfill?sport=mlb&date=2026-04-21&key=$ADMIN_API_KEY
  *
- * Requires `x-admin-key: ${ADMIN_API_KEY}`. Also accepts the key via
- * `?key=<key>` for easy one-off curl testing.
+ * Usage (inclusive range):
+ *   GET /api/admin/picks/backfill?sport=mlb&from=2026-04-18&to=2026-04-21&key=$ADMIN_API_KEY
  *
- * ALSO ACCEPTS GET for convenience (same semantics), since Vercel cron
- * endpoints fire GETs and some curl flows are easier without -X POST.
+ * Usage (comma-separated list):
+ *   GET /api/admin/picks/backfill?sport=mlb&dates=2026-04-18,2026-04-19&key=$ADMIN_API_KEY
+ *
+ * Auth: `x-admin-key` header OR `?key=` query param.
+ *
+ * Response includes each stage's output per date so the operator can see
+ * exactly how many picks were graded and what the scorecard record became.
+ * Also invalidates the mlb:picks:built KV snapshot so the next request to
+ * `/api/mlb/picks/built` re-embeds `scorecardSummary` with fresh data.
  */
 
 import settleHandler from '../../cron/mlb/settle-yesterday.js';
 import scorecardHandler from '../../cron/mlb/build-scorecard.js';
 import auditHandler from '../../cron/mlb/run-audit.js';
+import { setJson } from '../../_globalCache.js';
 
 function requireAdminKey(req) {
   const expected = process.env.ADMIN_API_KEY;
@@ -31,8 +38,6 @@ function requireAdminKey(req) {
   return null;
 }
 
-/** Simple in-memory res-collector so we can invoke cron handlers and read
- *  their JSON without an HTTP round-trip. */
 function mockRes() {
   let payload = null; let statusCode = 200;
   const headers = {};
@@ -52,6 +57,34 @@ async function invokeHandler(handler, query) {
   return mock.get().payload;
 }
 
+function validYmd(s) {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
+}
+
+/** Inclusive daily range from `from` to `to` (ISO YYYY-MM-DD). Capped at 60 days. */
+export function rangeDates(from, to) {
+  const out = [];
+  if (!validYmd(from) || !validYmd(to)) return out;
+  const start = new Date(from + 'T00:00:00Z');
+  const end = new Date(to + 'T00:00:00Z');
+  const d = new Date(start);
+  while (d <= end) {
+    if (out.length >= 60) break; // hard safety cap
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+export function resolveDates(q = {}) {
+  if (q.dates) {
+    return String(q.dates).split(',').map(s => s.trim()).filter(validYmd);
+  }
+  if (q.from && q.to) return rangeDates(q.from, q.to);
+  if (q.date && validYmd(q.date)) return [q.date];
+  return [];
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -59,42 +92,48 @@ export default async function handler(req, res) {
   if (authErr) return res.status(401).json({ error: authErr });
 
   const sport = (req.query?.sport || 'mlb').toString();
-  const date = (req.query?.date || '').toString();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json({ error: 'date must be YYYY-MM-DD (ET)' });
-  }
   if (sport !== 'mlb') {
     return res.status(400).json({ error: `backfill currently supports sport=mlb only; got ${sport}` });
   }
 
-  const stages = {};
-  try {
-    stages.settle = await invokeHandler(settleHandler, { date });
-  } catch (e) {
-    stages.settle = { ok: false, error: e?.message };
+  const dates = resolveDates(req.query || {});
+  if (dates.length === 0) {
+    return res.status(400).json({
+      error: 'must supply one of: ?date=YYYY-MM-DD, ?from=YYYY-MM-DD&to=YYYY-MM-DD, or ?dates=YYYY-MM-DD,YYYY-MM-DD',
+    });
   }
 
-  try {
-    stages.scorecard = await invokeHandler(scorecardHandler, { date });
-  } catch (e) {
-    stages.scorecard = { ok: false, error: e?.message };
+  const perDate = [];
+  for (const date of dates) {
+    const stages = {};
+    try { stages.settle = await invokeHandler(settleHandler, { date }); }
+    catch (e) { stages.settle = { ok: false, error: e?.message }; }
+
+    try { stages.scorecard = await invokeHandler(scorecardHandler, { date }); }
+    catch (e) { stages.scorecard = { ok: false, error: e?.message }; }
+
+    try { stages.audit = await invokeHandler(auditHandler, { date }); }
+    catch (e) { stages.audit = { ok: false, error: e?.message }; }
+
+    const ok = stages.settle?.ok !== false
+      && stages.scorecard?.ok !== false
+      && stages.audit?.ok !== false;
+
+    perDate.push({ date, ok, stages });
   }
 
+  // Invalidate the mlb:picks:built KV snapshot so the next /built request
+  // re-embeds the refreshed scorecardSummary on the client immediately.
   try {
-    stages.audit = await invokeHandler(auditHandler, { date });
-  } catch (e) {
-    stages.audit = { ok: false, error: e?.message };
-  }
-
-  const allOk = stages.settle?.ok !== false
-    && stages.scorecard?.ok !== false
-    && stages.audit?.ok !== false;
+    await setJson('mlb:picks:built:latest', null, { exSeconds: 1 });
+  } catch { /* non-fatal */ }
 
   return res.status(200).json({
-    ok: allOk,
+    ok: perDate.every(d => d.ok),
     sport,
-    date,
-    stages,
+    datesRequested: dates,
+    datesProcessed: perDate.length,
     generatedAt: new Date().toISOString(),
+    results: perDate,
   });
 }

@@ -58,7 +58,29 @@ export default function YesterdayScorecard({ summary: injected, compact = false,
   if (loading && !card) {
     return <div className={`${styles.scorecard} ${styles.loading} ${compact ? styles.compact : ''}`} aria-hidden="true" />;
   }
-  if (!card) return null;
+
+  // No row for yesterday — don't leave a hole in the grid; render a quiet
+  // placeholder that explains the state truthfully.
+  if (!card) {
+    return (
+      <section className={`${styles.scorecard} ${compact ? styles.compact : ''}`} aria-label="Yesterday's scorecard — pending">
+        <div className={styles.glassFrame} />
+        <header className={styles.header}>
+          <span className={styles.eyebrow}>Yesterday's Scorecard</span>
+          <span className={styles.dateLabel}>Pending</span>
+        </header>
+        <div className={styles.body}>
+          <div className={styles.recordBlock}>
+            <span className={styles.recordLabel}>Record</span>
+            <span className={styles.recordValue}>—</span>
+            <span className={styles.recordMeta}>
+              Yesterday's scorecard is not yet generated. Results publish shortly after each slate completes.
+            </span>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const overall = card.overall || { won: 0, lost: 0, push: 0, pending: 0 };
   const graded = (overall.won ?? 0) + (overall.lost ?? 0);

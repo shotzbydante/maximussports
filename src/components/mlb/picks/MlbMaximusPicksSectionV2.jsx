@@ -162,21 +162,19 @@ export default function MlbMaximusPicksSectionV2({
         {/* 2. Top Play FIRST — the entry point */}
         {topPick && <TopPlayHero pick={topPick} relativeStrength={topPickStrength} />}
 
-        {/* 3. Horizontal trust strip */}
+        {/* 3. Horizontal trust strip — components always mount and self-fetch
+            when `scorecardSummary` embed is null (e.g. /built cache is stale
+            but the picks_daily_scorecards row was just written). */}
         <div className={styles.trustStrip}>
-          {scorecardSummary && (
-            <div className={styles.trustCell}>
-              <YesterdayScorecard summary={scorecardSummary} compact />
-            </div>
-          )}
+          <div className={styles.trustCell}>
+            <YesterdayScorecard summary={scorecardSummary} compact />
+          </div>
           <div className={styles.trustCell}>
             <TrackRecord payload={payload} scorecard={scorecardSummary} compact />
           </div>
-          {scorecardSummary && (
-            <div className={styles.trustCellWide}>
-              <YesterdayContinuity summary={scorecardSummary} />
-            </div>
-          )}
+          <div className={styles.trustCellWide}>
+            <YesterdayContinuity summary={scorecardSummary} />
+          </div>
         </div>
 
         {/* 4. Today's Picks section header — framing copy lives HERE */}
@@ -233,8 +231,9 @@ export default function MlbMaximusPicksSectionV2({
       </header>
 
       <TrackRecord payload={payload} scorecard={scorecardSummary} />
-      {scorecardSummary && <YesterdayScorecard summary={scorecardSummary} />}
-      {scorecardSummary && <YesterdayContinuity summary={scorecardSummary} />}
+      {/* Always mount — self-fetches when embed is null. */}
+      <YesterdayScorecard summary={scorecardSummary} />
+      <YesterdayContinuity summary={scorecardSummary} />
       {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} />}
 
       <div className={styles.intelligenceGrid}>
