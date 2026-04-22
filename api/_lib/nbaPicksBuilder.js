@@ -1,0 +1,167 @@
+/**
+ * nbaPicksBuilder — direct in-process NBA picks board builder.
+ *
+ * Mirrors `api/_lib/mlbPicksBuilder.js` exactly. Replaces HTTP self-fetches
+ * which are unreliable on Vercel serverless (cold starts, timeouts,
+ * circular invocations). Both the HTTP handler and any autopost/email
+ * pipeline should call this function — single source of truth.
+ *
+ * Fallback precedence:
+ *   1. Fresh build from ESPN scoreboard + NBA odds enrichment
+ *   2. KV latest snapshot (nba:picks:built:latest, 15min TTL)
+ *   3. KV last-known-good snapshot (nba:picks:built:lastknown, 48hr TTL)
+ *      — written whenever a fresh build yields ≥1 pick
+ *   4. Empty board (true last resort)
+ *
+ * NBA-specific notes:
+ *   - Uses the V2 engine (buildNbaPicksV2) which returns both `categories`
+ *     (legacy pickEms/ats/leans/totals shape the caption builder consumes)
+ *     AND `tiers` (V2 output). Downstream caption/normalize code reads
+ *     `categories` — identical contract to MLB.
+ *   - NBA scoreboard endpoint has no `includeYesterday` flag, so we fetch
+ *     today + tomorrow directly (same window MLB uses).
+ */
+
+import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../nba/live/_normalize.js';
+import { enrichGamesWithOdds } from '../nba/live/_odds.js';
+import { buildNbaPicksV2 } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
+import { getJson, setJson } from '../_globalCache.js';
+
+const KV_LATEST = 'nba:picks:built:latest';
+const KV_LASTKNOWN = 'nba:picks:built:lastknown';
+const LATEST_TTL_SEC = 15 * 60;
+const LASTKNOWN_TTL_SEC = 48 * 60 * 60;
+
+function getDateStrings(days = 2) {
+  const dates = [];
+  for (let i = 0; i <= days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
+  }
+  return dates;
+}
+
+async function fetchScoreboardForDate(dateStr) {
+  const url = `${ESPN_SCOREBOARD}?dates=${dateStr}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (Array.isArray(data.events) ? data.events : []).map(normalizeEvent).filter(Boolean);
+  } catch (err) {
+    console.warn(`[nbaPicksBuilder] scoreboard fetch failed for ${dateStr}: ${err.message}`);
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function countPicks(board) {
+  const c = board?.categories || {};
+  return (c.pickEms?.length || 0) + (c.ats?.length || 0)
+       + (c.leans?.length || 0) + (c.totals?.length || 0);
+}
+
+function getCounts(board) {
+  const c = board?.categories || {};
+  return {
+    pickEms: c.pickEms?.length || 0,
+    ats: c.ats?.length || 0,
+    leans: c.leans?.length || 0,
+    totals: c.totals?.length || 0,
+    total: countPicks(board),
+  };
+}
+
+/**
+ * Build NBA picks board directly (no HTTP self-fetch).
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.preferFresh=false] — force fresh rebuild, ignore KV latest
+ * @returns {Promise<{ board, source, counts }>}
+ */
+export async function buildNbaPicksBoard(opts = {}) {
+  const { preferFresh = false } = opts;
+
+  let freshBoard = null;
+  let freshError = null;
+  try {
+    const dateStrings = getDateStrings(2);
+    const allGamesArrays = await Promise.all(dateStrings.map(fetchScoreboardForDate));
+    let allGames = allGamesArrays.flat();
+
+    // Dedupe
+    const seen = new Set();
+    allGames = allGames.filter(g => {
+      if (seen.has(g.gameId)) return false;
+      seen.add(g.gameId);
+      return true;
+    });
+
+    const upcoming = allGames.filter(g =>
+      g.status === 'upcoming' && !g.gameState?.isLive && !g.gameState?.isFinal
+    );
+
+    let enriched = upcoming;
+    try {
+      enriched = await enrichGamesWithOdds(upcoming);
+    } catch (err) {
+      console.warn(`[nbaPicksBuilder] odds enrichment failed: ${err.message}`);
+    }
+
+    const result = buildNbaPicksV2({ games: enriched });
+    freshBoard = {
+      ...result,
+      generatedAt: new Date().toISOString(),
+      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length },
+    };
+
+    const freshCount = countPicks(freshBoard);
+    console.log(`[nbaPicksBuilder] fresh build: total=${freshCount} upcoming=${upcoming.length} enriched=${enriched.length}`);
+
+    if (freshCount > 0) {
+      setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
+      setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+      return { board: freshBoard, source: 'fresh', counts: getCounts(freshBoard) };
+    }
+  } catch (err) {
+    freshError = err.message;
+    console.warn(`[nbaPicksBuilder] fresh build failed: ${err.message}`);
+  }
+
+  if (!preferFresh) {
+    try {
+      const latest = await getJson(KV_LATEST);
+      const latestCount = countPicks(latest);
+      if (latestCount > 0) {
+        console.log(`[nbaPicksBuilder] using KV latest snapshot: total=${latestCount}`);
+        return { board: latest, source: 'kv_latest', counts: getCounts(latest) };
+      }
+    } catch (err) {
+      console.warn(`[nbaPicksBuilder] KV latest read failed: ${err.message}`);
+    }
+  }
+
+  try {
+    const lastknown = await getJson(KV_LASTKNOWN);
+    const lastknownCount = countPicks(lastknown);
+    if (lastknownCount > 0) {
+      console.log(`[nbaPicksBuilder] using KV last-known-good: total=${lastknownCount}`);
+      return { board: lastknown, source: 'kv_lastknown', counts: getCounts(lastknown) };
+    }
+  } catch (err) {
+    console.warn(`[nbaPicksBuilder] KV lastknown read failed: ${err.message}`);
+  }
+
+  const emptyBoard = freshBoard || {
+    categories: { pickEms: [], ats: [], leans: [], totals: [] },
+    meta: { totalCandidates: 0, qualifiedGames: 0, skippedGames: 0 },
+    generatedAt: new Date().toISOString(),
+    _error: freshError || 'no data available',
+  };
+  console.warn(`[nbaPicksBuilder] all sources empty — returning empty board (last resort)`);
+  return { board: emptyBoard, source: 'empty', counts: getCounts(emptyBoard) };
+}
