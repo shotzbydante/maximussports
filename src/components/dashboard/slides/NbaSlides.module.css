@@ -1,0 +1,628 @@
+/* ══════════════════════════════════════════════════════════════
+   NbaSlides — Shared design system for NBA Daily Briefing carousel
+   1080×1350 · IG 4:5 portrait · 3 slides + Team Intel
+
+   Theme:
+     BG   : black → dark charcoal → deep graphite gradient
+     Text : #fff primary, #a7a29a secondary
+     Accent: gold #d4af37, warm metallic highlights
+     Cards: glass w/ gold hairlines (not crimson/navy)
+
+   Structural scale locked to the 1080×1350 artboard, matching the
+   MLB typography scale so exported NBA slides feel like the same
+   product family.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Gold accent tokens ──────────────────────────────────────── */
+:root {
+  --nba-gold:        #d4af37;
+  --nba-gold-soft:   #b8982e;
+  --nba-gold-bright: #f0cf6b;
+}
+
+/* ── Keyframes (decorative, export-safe) ─────────────────────── */
+@keyframes nbaGoldPulse {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1.0; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED — Artboard + Background
+   ══════════════════════════════════════════════════════════════ */
+
+.artboard {
+  position: relative;
+  width: 1080px; height: 1350px;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  display: flex; flex-direction: column;
+  color: #fff;
+}
+
+.bgBase {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(170deg,
+    #1a1408 0%, #13100a 18%, #0d0b08 38%,
+    #080705 58%, #050403 82%, #020202 100%);
+}
+.bgGlow {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    radial-gradient(ellipse 1000px 550px at 50% 12%, rgba(212,175,55,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 700px 400px at 50% 50%, rgba(212,175,55,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 600px 350px at 50% 85%, rgba(184,152,46,0.04) 0%, transparent 42%);
+  pointer-events: none;
+}
+.bgStreaks {
+  position: absolute; inset: 0; z-index: 2;
+  background:
+    linear-gradient(135deg, transparent 30%, rgba(212,175,55,0.04) 45%, transparent 55%),
+    linear-gradient(155deg, transparent 40%, rgba(212,175,55,0.03) 52%, transparent 58%);
+  pointer-events: none;
+}
+.bgNoise {
+  position: absolute; inset: 0; z-index: 3;
+  opacity: 0.05;
+  background-image: repeating-radial-gradient(circle at 50% 50%, #000 0, #000 1px, transparent 1px, transparent 3px);
+  pointer-events: none;
+}
+
+/* ── Shared glass card ───────────────────────────────────────── */
+.glassCard {
+  position: relative;
+  background: linear-gradient(160deg, rgba(40,32,14,0.72) 0%, rgba(20,16,8,0.82) 100%);
+  border: 1.5px solid rgba(212,175,55,0.35);
+  border-radius: 28px;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(212,175,55,0.2),
+    inset 0 -1px 0 rgba(0,0,0,0.4);
+  overflow: hidden;
+  z-index: 5;
+}
+
+.sectionPill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 18px; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(212,175,55,0.20) 0%, rgba(212,175,55,0.08) 100%);
+  border: 1px solid rgba(212,175,55,0.4);
+  font-size: 13px; font-weight: 800; letter-spacing: 1.4px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  z-index: 6;
+}
+
+.logoBackplate {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  background: radial-gradient(circle, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.06) 60%, transparent 100%);
+  border: 1px solid rgba(212,175,55,0.35);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 1 — COVER
+   ══════════════════════════════════════════════════════════════ */
+
+.s1 {
+  composes: artboard;
+  padding: 44px 48px 40px;
+  position: relative;
+}
+
+.s1TopBar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.s1BrandPill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 20px; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(212,175,55,0.22) 0%, rgba(212,175,55,0.08) 100%);
+  border: 1px solid rgba(212,175,55,0.45);
+  font-size: 13px; font-weight: 800; letter-spacing: 1.8px;
+  color: #fff;
+}
+.s1BrandIcon { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
+.s1RoundPill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(212,175,55,0.5);
+  font-size: 12px; font-weight: 800; letter-spacing: 1.2px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+}
+
+.s1TitleBlock {
+  position: relative; z-index: 10;
+  margin-top: 14px; margin-bottom: 18px;
+}
+.s1Title {
+  font-size: 76px; font-weight: 900; letter-spacing: -1px; line-height: 0.95;
+  margin: 0;
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(212,175,55,0.18);
+}
+.s1TitleAccent {
+  display: block;
+  font-size: 76px; font-weight: 900;
+  background: linear-gradient(92deg, var(--nba-gold) 0%, var(--nba-gold-bright) 55%, var(--nba-gold) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.s1Date {
+  margin-top: 10px;
+  font-size: 22px; font-weight: 600; letter-spacing: 0.5px;
+  color: #a7a29a;
+}
+
+.s1StoryZone {
+  position: relative; z-index: 10;
+  display: grid; grid-template-columns: 1fr; gap: 14px;
+  margin-top: 18px;
+}
+.s1StoryCard {
+  composes: glassCard;
+  padding: 22px 26px;
+}
+.s1StoryTitle {
+  font-size: 40px; font-weight: 800; line-height: 1.05;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+.s1StorySub {
+  margin-top: 8px;
+  font-size: 22px; font-weight: 600; line-height: 1.35;
+  color: #cfc6b3;
+}
+
+.s1HotpZone {
+  position: relative; z-index: 10;
+  margin-top: 22px;
+  composes: glassCard;
+  padding: 22px 26px;
+}
+.s1HotpPill {
+  composes: sectionPill;
+  margin-bottom: 14px;
+}
+.s1HotpBullets { display: flex; flex-direction: column; gap: 12px; }
+.s1HotpRow {
+  display: flex; align-items: center; gap: 12px;
+}
+.s1BulletDot {
+  color: var(--nba-gold-bright); font-weight: 900; font-size: 20px;
+  flex-shrink: 0;
+}
+.s1BulletText {
+  font-size: 20px; font-weight: 700; line-height: 1.3;
+  color: #f2ecdc;
+}
+
+.s1BottomGrid {
+  position: relative; z-index: 10;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  margin-top: 18px; flex: 1;
+}
+.s1BottomCard {
+  composes: glassCard;
+  padding: 20px 22px;
+  display: flex; flex-direction: column;
+}
+.s1SectionLabel {
+  font-size: 13px; font-weight: 900; letter-spacing: 2px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.s1RaceList { display: flex; flex-direction: column; gap: 12px; }
+.s1RaceRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px; align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212,175,55,0.12);
+}
+.s1RaceRow:last-child { border-bottom: none; }
+.s1RaceTeamId { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.s1RaceTeamInfo { display: flex; flex-direction: column; min-width: 0; }
+.s1RaceAbbrev { font-size: 20px; font-weight: 900; color: #fff; }
+.s1RaceRecord { font-size: 12px; font-weight: 700; color: #a7a29a; letter-spacing: 0.5px; }
+.s1RaceCenter { display: flex; flex-direction: column; text-align: center; }
+.s1RaceLabel { font-size: 14px; font-weight: 800; color: #f2ecdc; line-height: 1.15; }
+.s1RaceSub { font-size: 11px; font-weight: 700; color: #a7a29a; margin-top: 2px; }
+.s1RaceRight { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.s1RaceConf { font-size: 11px; font-weight: 800; color: var(--nba-gold); letter-spacing: 1px; }
+.s1RaceOdds { font-size: 15px; font-weight: 800; color: #fff; }
+
+.s1PicksList { display: flex; flex-direction: column; gap: 10px; }
+.s1PickRow {
+  padding: 10px 12px;
+  border: 1px solid rgba(212,175,55,0.2);
+  border-radius: 14px;
+  background: rgba(0,0,0,0.25);
+}
+.s1PickTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.s1PickMatchup { font-size: 14px; font-weight: 800; color: #f2ecdc; letter-spacing: 0.2px; }
+.s1PickType {
+  font-size: 10px; font-weight: 900; letter-spacing: 1.2px;
+  padding: 3px 8px; border-radius: 6px;
+  background: rgba(212,175,55,0.2); color: var(--nba-gold-bright);
+  text-transform: uppercase;
+}
+.s1PickMid { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.s1PickSel { font-size: 18px; font-weight: 900; color: #fff; }
+.s1PickConv {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.6px;
+  padding: 2px 8px; border-radius: 999px;
+  background: rgba(212,175,55,0.15); color: var(--nba-gold-bright);
+  text-transform: uppercase;
+}
+
+.s1Footer {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center;
+  margin-top: 14px;
+}
+.s1CtaPill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 22px; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%);
+  border: 1px solid rgba(212,175,55,0.35);
+  color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 1.2px;
+}
+.s1CtaLabel { color: #a7a29a; }
+.s1CtaSite { color: var(--nba-gold-bright); font-weight: 900; }
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 2 — INTEL BRIEFING
+   ══════════════════════════════════════════════════════════════ */
+
+.s2 {
+  composes: artboard;
+  padding: 44px 48px 40px;
+}
+
+.s2TopBar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.s2Pill {
+  composes: sectionPill;
+}
+
+.s2HeadlineBlock {
+  position: relative; z-index: 10;
+  margin-top: 8px; margin-bottom: 14px;
+}
+.s2Headline {
+  font-size: 48px; font-weight: 900; line-height: 1.04;
+  color: #fff;
+  letter-spacing: -0.8px;
+}
+.s2Subhead {
+  margin-top: 10px;
+  font-size: 21px; font-weight: 600; line-height: 1.35;
+  color: #cfc6b3;
+}
+
+.s2HotpZone {
+  position: relative; z-index: 10;
+  composes: glassCard;
+  padding: 22px 26px;
+  margin-bottom: 14px;
+}
+.s2HotpHeader {
+  composes: sectionPill;
+  margin-bottom: 14px;
+}
+.s2HotpList { display: flex; flex-direction: column; gap: 11px; }
+.s2HotpRow {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212,175,55,0.10);
+}
+.s2HotpRow:last-child { border-bottom: none; padding-bottom: 0; }
+.s2HotpDot {
+  color: var(--nba-gold-bright); font-weight: 900; font-size: 18px;
+  flex-shrink: 0; padding-top: 2px;
+}
+.s2HotpText { font-size: 19px; font-weight: 700; line-height: 1.35; color: #f2ecdc; }
+
+.s2PicksZone {
+  position: relative; z-index: 10;
+  composes: glassCard;
+  padding: 20px 24px;
+  margin-bottom: 14px;
+}
+.s2PicksHeader {
+  composes: sectionPill;
+  margin-bottom: 12px;
+}
+.s2PicksRow {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+}
+.s2PickTile {
+  padding: 10px 12px; border-radius: 14px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(212,175,55,0.22);
+}
+.s2PickTileTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.s2PickTileMatch { font-size: 12px; font-weight: 800; color: #cfc6b3; letter-spacing: 0.2px; }
+.s2PickTileType {
+  font-size: 9px; font-weight: 900; letter-spacing: 1px;
+  padding: 2px 7px; border-radius: 5px;
+  background: rgba(212,175,55,0.22); color: var(--nba-gold-bright);
+  text-transform: uppercase;
+}
+.s2PickTileSel { font-size: 16px; font-weight: 900; color: #fff; margin-top: 4px; }
+.s2PickTileConv { font-size: 11px; font-weight: 800; color: var(--nba-gold-bright); margin-top: 2px; }
+
+.s2LeadersZone {
+  position: relative; z-index: 10;
+  composes: glassCard;
+  padding: 20px 24px;
+  flex: 1;
+}
+.s2LeadersHeader {
+  composes: sectionPill;
+  margin-bottom: 12px;
+}
+.s2LeadersGrid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+}
+.s2LeaderCat {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 6px; border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(212,175,55,0.18);
+}
+.s2LeaderCatLabel {
+  font-size: 11px; font-weight: 900; letter-spacing: 1.1px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.s2LeaderName { font-size: 13px; font-weight: 800; color: #fff; text-align: center; line-height: 1.1; }
+.s2LeaderTeam { font-size: 11px; font-weight: 700; color: #a7a29a; margin-top: 2px; }
+.s2LeaderValue { font-size: 22px; font-weight: 900; color: var(--nba-gold); margin-top: 4px; }
+
+.s2Footer {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center; margin-top: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 3 — NBA PLAYOFF OUTLOOK
+   ══════════════════════════════════════════════════════════════ */
+
+.s3 {
+  composes: artboard;
+  padding: 44px 48px 40px;
+}
+
+.s3TopBar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.s3TitleBlock {
+  position: relative; z-index: 10;
+  margin-top: 6px; margin-bottom: 20px;
+}
+.s3Title {
+  font-size: 52px; font-weight: 900; line-height: 1.0;
+  letter-spacing: -0.8px;
+  background: linear-gradient(92deg, var(--nba-gold) 0%, var(--nba-gold-bright) 55%, var(--nba-gold) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.s3SubTitle {
+  margin-top: 10px;
+  font-size: 20px; font-weight: 600;
+  color: #cfc6b3;
+}
+
+.s3ConfGrid {
+  position: relative; z-index: 10;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  flex: 1;
+}
+.s3ConfCard {
+  composes: glassCard;
+  padding: 18px 20px;
+  display: flex; flex-direction: column;
+}
+.s3ConfHeader {
+  composes: sectionPill;
+  margin-bottom: 12px;
+}
+.s3TeamList { display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.s3TeamRow {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 8px; align-items: start;
+  padding: 9px 10px;
+  border: 1px solid rgba(212,175,55,0.18);
+  border-radius: 14px;
+  background: rgba(0,0,0,0.28);
+}
+.s3TeamRank {
+  font-size: 18px; font-weight: 900;
+  color: var(--nba-gold-bright);
+  text-align: center;
+  line-height: 1.1;
+}
+.s3TeamBody { min-width: 0; }
+.s3TeamAbbrev { font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 0.5px; }
+.s3TeamLabel {
+  display: inline-block;
+  font-size: 10px; font-weight: 900; letter-spacing: 1px;
+  padding: 1px 6px; border-radius: 4px;
+  background: rgba(212,175,55,0.22); color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  margin-left: 8px;
+  vertical-align: 2px;
+}
+.s3TeamRationale { font-size: 13px; font-weight: 600; color: #cfc6b3; line-height: 1.3; margin-top: 3px; }
+.s3TeamRight { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.s3TeamOdds { font-size: 15px; font-weight: 900; color: #fff; }
+.s3TeamSeed { font-size: 10px; font-weight: 700; color: #a7a29a; letter-spacing: 0.8px; }
+
+.s3Footer {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center; margin-top: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TEAM INTEL — mirrors MLB Team Intel structure
+   ══════════════════════════════════════════════════════════════ */
+
+.ti {
+  composes: artboard;
+  padding: 44px 48px 40px;
+}
+
+.tiTopBar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.tiLabel {
+  composes: sectionPill;
+}
+.tiTimestamp { font-size: 12px; font-weight: 700; color: #a7a29a; letter-spacing: 1.2px; text-transform: uppercase; }
+
+.tiHero {
+  position: relative; z-index: 10;
+  display: grid; grid-template-columns: 180px 1fr; gap: 20px;
+  margin-bottom: 18px;
+}
+.tiLogoWrap {
+  width: 180px; height: 180px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 24px;
+  background: radial-gradient(circle, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.04) 60%, transparent 100%);
+  border: 1px solid rgba(212,175,55,0.3);
+}
+.tiLogo { width: 140px; height: 140px; object-fit: contain; }
+.tiHeroRight {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0;
+}
+.tiTeamName {
+  font-size: 42px; font-weight: 900; line-height: 1.0;
+  color: #fff; letter-spacing: -0.5px;
+}
+.tiChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tiChip {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.9px;
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(212,175,55,0.15);
+  border: 1px solid rgba(212,175,55,0.32);
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+}
+.tiRecord { font-size: 15px; font-weight: 800; color: #cfc6b3; margin-top: 10px; letter-spacing: 0.3px; }
+
+.tiHeadline {
+  position: relative; z-index: 10;
+  font-size: 32px; font-weight: 900; line-height: 1.08;
+  color: #fff;
+  margin-top: 6px; margin-bottom: 8px;
+  letter-spacing: -0.4px;
+}
+.tiSubhead {
+  position: relative; z-index: 10;
+  font-size: 18px; font-weight: 600; line-height: 1.4;
+  color: #cfc6b3;
+  margin-bottom: 16px;
+}
+
+.tiStatStrip {
+  position: relative; z-index: 10;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.tiStatTile {
+  padding: 14px 10px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.32);
+  border: 1px solid rgba(212,175,55,0.22);
+  display: flex; flex-direction: column; align-items: center;
+}
+.tiStatLabel {
+  font-size: 10px; font-weight: 900; letter-spacing: 1.3px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.tiStatValue {
+  font-size: 26px; font-weight: 900; color: #fff;
+}
+.tiStatSub { font-size: 11px; font-weight: 700; color: #a7a29a; margin-top: 2px; }
+
+.tiBriefing {
+  position: relative; z-index: 10;
+  composes: glassCard;
+  padding: 20px 24px;
+  margin-bottom: 14px;
+}
+.tiBriefingHeader {
+  composes: sectionPill;
+  margin-bottom: 12px;
+}
+.tiBulletList { display: flex; flex-direction: column; gap: 10px; }
+.tiBulletRow {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212,175,55,0.10);
+}
+.tiBulletRow:last-child { border-bottom: none; padding-bottom: 0; }
+.tiBulletTag {
+  font-size: 10px; font-weight: 900; letter-spacing: 1.1px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  flex-shrink: 0; min-width: 90px; padding-top: 2px;
+}
+.tiBulletText { font-size: 16px; font-weight: 600; line-height: 1.35; color: #f2ecdc; }
+
+.tiLeaders {
+  position: relative; z-index: 10;
+  composes: glassCard;
+  padding: 20px 24px;
+  margin-bottom: 14px;
+}
+.tiLeadersHeader {
+  composes: sectionPill;
+  margin-bottom: 12px;
+}
+.tiLeadersGrid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+}
+.tiLeaderCat {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 6px; border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(212,175,55,0.18);
+}
+.tiLeaderCatLabel {
+  font-size: 10px; font-weight: 900; letter-spacing: 1.1px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.tiLeaderName { font-size: 12px; font-weight: 800; color: #fff; text-align: center; line-height: 1.1; }
+.tiLeaderValue { font-size: 20px; font-weight: 900; color: var(--nba-gold); margin-top: 4px; }
+
+.tiFooter {
+  position: relative; z-index: 10;
+  display: flex; justify-content: center; margin-top: 12px;
+}

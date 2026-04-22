@@ -167,7 +167,7 @@ export const WORKSPACES = {
     capabilities: {
       bracketology: true,
       seasonIntel: false,
-      contentStudio: false,
+      contentStudio: true,
       champOdds: true,
       atsLeaders: false,
       conferenceIntel: true,
@@ -188,12 +188,12 @@ export const WORKSPACES = {
       games: 'Games',
       news: 'News Feed',
     },
-    /** Sport-aware theme — deep navy palette */
+    /** Sport-aware theme — NBA Daily Briefing identity: black + gold */
     theme: {
       mascot: '/mascot.png',
-      accent: '#1d428a',
-      accentRgb: '29, 66, 138',
-      gradientBg: 'radial-gradient(ellipse at center, #0a1628 0%, #060d1a 60%, #020408 100%)',
+      accent: '#d4af37',
+      accentRgb: '212, 175, 55',
+      gradientBg: 'radial-gradient(ellipse at center, #1a1408 0%, #0d0a04 60%, #050403 100%)',
       loadingTitle: 'Initializing NBA Intelligence',
       loadingSubtext: 'Loading court data\u2026',
       splashKey: '__maximus_nba_splash_shown',
