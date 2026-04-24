@@ -128,7 +128,10 @@ function seriesSummary(matchup, top, bottom) {
   const leader = top > bottom ? topAbbr : btmAbbr;
   const hi = Math.max(top, bottom);
   const lo = Math.min(top, bottom);
-  return `${leader} leads ${hi}-${lo}`;
+  // Plural verb form is natural for both abbreviations ("TOR lead 2-1")
+  // and nicknames ("Raptors lead 2-1"), and avoids subject-verb errors
+  // when downstream copy interpolates a team name here.
+  return `${leader} lead ${hi}-${lo}`;
 }
 
 /**
