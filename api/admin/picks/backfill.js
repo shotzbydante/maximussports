@@ -21,10 +21,18 @@
  * `/api/mlb/picks/built` re-embeds `scorecardSummary` with fresh data.
  */
 
-import settleHandler from '../../cron/mlb/settle-yesterday.js';
-import scorecardHandler from '../../cron/mlb/build-scorecard.js';
-import auditHandler from '../../cron/mlb/run-audit.js';
+import mlbSettle from '../../cron/mlb/settle-yesterday.js';
+import mlbScorecard from '../../cron/mlb/build-scorecard.js';
+import mlbAudit from '../../cron/mlb/run-audit.js';
+import nbaSettle from '../../cron/nba/settle-yesterday.js';
+import nbaScorecard from '../../cron/nba/build-scorecard.js';
+import nbaAudit from '../../cron/nba/run-audit.js';
 import { setJson } from '../../_globalCache.js';
+
+const HANDLERS = {
+  mlb: { settle: mlbSettle, scorecard: mlbScorecard, audit: mlbAudit, kvKey: 'mlb:picks:built:latest' },
+  nba: { settle: nbaSettle, scorecard: nbaScorecard, audit: nbaAudit, kvKey: 'nba:picks:built' },
+};
 
 function requireAdminKey(req) {
   const expected = process.env.ADMIN_API_KEY;
@@ -92,8 +100,9 @@ export default async function handler(req, res) {
   if (authErr) return res.status(401).json({ error: authErr });
 
   const sport = (req.query?.sport || 'mlb').toString();
-  if (sport !== 'mlb') {
-    return res.status(400).json({ error: `backfill currently supports sport=mlb only; got ${sport}` });
+  const handlers = HANDLERS[sport];
+  if (!handlers) {
+    return res.status(400).json({ error: `backfill supports sport=mlb|nba; got ${sport}` });
   }
 
   const dates = resolveDates(req.query || {});
@@ -106,13 +115,13 @@ export default async function handler(req, res) {
   const perDate = [];
   for (const date of dates) {
     const stages = {};
-    try { stages.settle = await invokeHandler(settleHandler, { date }); }
+    try { stages.settle = await invokeHandler(handlers.settle, { date }); }
     catch (e) { stages.settle = { ok: false, error: e?.message }; }
 
-    try { stages.scorecard = await invokeHandler(scorecardHandler, { date }); }
+    try { stages.scorecard = await invokeHandler(handlers.scorecard, { date }); }
     catch (e) { stages.scorecard = { ok: false, error: e?.message }; }
 
-    try { stages.audit = await invokeHandler(auditHandler, { date }); }
+    try { stages.audit = await invokeHandler(handlers.audit, { date }); }
     catch (e) { stages.audit = { ok: false, error: e?.message }; }
 
     const ok = stages.settle?.ok !== false
@@ -122,10 +131,10 @@ export default async function handler(req, res) {
     perDate.push({ date, ok, stages });
   }
 
-  // Invalidate the mlb:picks:built KV snapshot so the next /built request
+  // Invalidate the sport's built-KV snapshot so the next /built request
   // re-embeds the refreshed scorecardSummary on the client immediately.
   try {
-    await setJson('mlb:picks:built:latest', null, { exSeconds: 1 });
+    await setJson(handlers.kvKey, null, { exSeconds: 1 });
   } catch { /* non-fatal */ }
 
   return res.status(200).json({

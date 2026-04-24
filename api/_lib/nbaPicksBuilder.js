@@ -24,8 +24,10 @@
 
 import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../nba/live/_normalize.js';
 import { enrichGamesWithOdds } from '../nba/live/_odds.js';
-import { buildNbaPicksV2 } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
+import { buildNbaPicksV2, NBA_DEFAULT_CONFIG } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 import { getJson, setJson } from '../_globalCache.js';
+import { writePicksRun, getActiveConfig, getScorecard } from './picksHistory.js';
+import { yesterdayET } from './dateWindows.js';
 
 const KV_LATEST = 'nba:picks:built:latest';
 const KV_LASTKNOWN = 'nba:picks:built:lastknown';
@@ -112,19 +114,65 @@ export async function buildNbaPicksBoard(opts = {}) {
       console.warn(`[nbaPicksBuilder] odds enrichment failed: ${err.message}`);
     }
 
-    const result = buildNbaPicksV2({ games: enriched });
+    // Resolve active NBA tuning config (DB > default)
+    let activeConfig = NBA_DEFAULT_CONFIG;
+    try {
+      const dbCfg = await getActiveConfig({ sport: 'nba' });
+      if (dbCfg) activeConfig = dbCfg;
+    } catch (e) { console.warn(`[nbaPicksBuilder] getActiveConfig failed: ${e?.message}`); }
+
+    // Attach yesterday's ET NBA scorecard summary when available
+    let scorecardSummary = null;
+    try {
+      const card = await getScorecard({ sport: 'nba', slateDate: yesterdayET() });
+      if (card) {
+        scorecardSummary = {
+          date: card.slate_date,
+          overall: card.record,
+          byMarket: card.by_market,
+          byTier: card.by_tier,
+          topPlayResult: card.top_play_result,
+          streak: card.streak,
+          note: card.note,
+        };
+      }
+    } catch { /* non-fatal */ }
+
+    const result = buildNbaPicksV2({ games: enriched, config: activeConfig, scorecardSummary });
     freshBoard = {
       ...result,
-      generatedAt: new Date().toISOString(),
-      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length },
+      _debug: { totalGames: allGames.length, upcoming: upcoming.length, enriched: enriched.length, engine: 'v2' },
     };
 
     const freshCount = countPicks(freshBoard);
-    console.log(`[nbaPicksBuilder] fresh build: total=${freshCount} upcoming=${upcoming.length} enriched=${enriched.length}`);
+    console.log(
+      `[nbaPicksBuilder] fresh V2 build: total=${freshCount} ` +
+      `t1=${freshBoard.tiers?.tier1?.length || 0} ` +
+      `t2=${freshBoard.tiers?.tier2?.length || 0} ` +
+      `t3=${freshBoard.tiers?.tier3?.length || 0} ` +
+      `coverage=${freshBoard.coverage?.length || 0} ` +
+      `upcoming=${upcoming.length} enriched=${enriched.length}`
+    );
 
     if (freshCount > 0) {
       setJson(KV_LATEST, freshBoard, { exSeconds: LATEST_TTL_SEC }).catch(() => {});
       setJson(KV_LASTKNOWN, freshBoard, { exSeconds: LASTKNOWN_TTL_SEC }).catch(() => {});
+
+      // Best-effort DB persistence — non-blocking. Any failure just logs.
+      Promise.resolve()
+        .then(() => writePicksRun(freshBoard))
+        .then(r => {
+          if (!r) return;
+          if (!r.ok) {
+            console.error(
+              `[nbaPicksBuilder] ⚠ persist failed reason=${r.reason} ` +
+              `inserted=${r.picksInserted ?? 0}/${r.picksAttempted ?? 0} ` +
+              `first="${r.failures?.[0]?.message || 'n/a'}"`
+            );
+          }
+        })
+        .catch(err => console.error(`[nbaPicksBuilder] persist threw: ${err?.message}`));
+
       return { board: freshBoard, source: 'fresh', counts: getCounts(freshBoard) };
     }
   } catch (err) {

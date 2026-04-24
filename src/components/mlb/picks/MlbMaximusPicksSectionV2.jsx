@@ -199,7 +199,7 @@ export default function MlbMaximusPicksSectionV2({
         )}
 
         {/* 6. Performance + About */}
-        <PerformanceLearning compact />
+        <PerformanceLearning compact sport={sport} />
         <AboutTheModel variant="compact" />
 
         {/* 7. How it works — moved to BOTTOM */}
@@ -237,8 +237,8 @@ export default function MlbMaximusPicksSectionV2({
       {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} />}
 
       <div className={styles.intelligenceGrid}>
-        <PerformanceLearning />
-        <AuditInsights />
+        <PerformanceLearning sport={sport} />
+        <AuditInsights sport={sport} />
       </div>
 
       <AboutTheModel />
