@@ -87,6 +87,9 @@
 
     {"path": "/api/cron/mlb/settle-yesterday",                     "schedule": "30 7 * * *"},
     {"path": "/api/cron/mlb/build-scorecard",                      "schedule": "45 7 * * *"},
-    {"path": "/api/cron/mlb/run-audit",                            "schedule": "0 8 * * *"}
+    {"path": "/api/cron/mlb/run-audit",                            "schedule": "0 8 * * *"},
+    {"path": "/api/cron/nba/settle-yesterday",                     "schedule": "30 8 * * *"},
+    {"path": "/api/cron/nba/build-scorecard",                      "schedule": "45 8 * * *"},
+    {"path": "/api/cron/nba/run-audit",                            "schedule": "0 9 * * *"}
   ]
 }
