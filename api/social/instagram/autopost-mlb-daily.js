@@ -35,14 +35,22 @@ import { MLB_TEAMS } from '../../../src/sports/mlb/teams.js';
 import { getTeamProjection } from '../../../src/data/mlb/seasonModel.js';
 import { buildMlbDailyHeadline, buildMlbHotPress } from '../../../src/features/mlb/contentStudio/buildMlbDailyHeadline.js';
 import { buildMlbCaption } from '../../../src/features/mlb/contentStudio/buildMlbCaption.js';
+// Canonical payload normalizer — SAME source Dashboard (preview/manual) uses
+// before calling buildMlbCaption(). Using this guarantees zero drift between
+// the autopost and manual paths.
+import { normalizeMlbImagePayload } from '../../../src/features/mlb/contentStudio/normalizeMlbImagePayload.js';
 import { stripEmojis, fmtOdds } from '../../../src/components/dashboard/slides/mlbDailyHelpers.js';
+// In-process picks builder — avoids HTTP self-fetch to /api/mlb/picks/built
+// which is unreliable on Vercel serverless (cold starts, circular invocations).
+// Falls back through fresh build → KV latest → KV last-known-good → empty.
+import { buildPicksBoard } from '../../_lib/mlbPicksBuilder.js';
 
 // Pixel-perfect browser renderer (primary) + Satori fallback
 import { renderSlidesWithBrowser } from '../../_lib/mlbBrowserRenderer.js';
 import { renderSlide1, renderSlide2, renderSlide3 } from '../../_lib/mlbSlideRenderer.js';
 
 // ── Caption version stamp (visible in logs + diagnostics for tracing) ────
-const CAPTION_VERSION = 'v4-traced';
+const CAPTION_VERSION = 'v5-canonical';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -212,21 +220,46 @@ async function fetchChampOdds(baseUrl, log) {
   try {
     const res = await fetch(`${baseUrl}/api/mlb/odds/championship`);
     if (!res.ok) { log.warn('champ odds fetch failed:', res.status); return {}; }
-    return await res.json();
+    const data = await res.json();
+    // Endpoint returns { odds: { [slug]: {...} }, source }. Downstream
+    // consumers (slides, seasonIntel builder) expect the INNER odds map,
+    // not the wrapper. Mirror Dashboard.jsx which stores `champData.odds`.
+    return data?.odds ?? {};
   } catch (e) {
     log.warn('champ odds fetch error:', e.message);
     return {};
   }
 }
 
-async function fetchPicks(baseUrl, log) {
+/**
+ * Build picks board DIRECTLY in-process (no HTTP self-fetch).
+ *
+ * Self-fetches to /api/mlb/picks/built were the root cause of repeated
+ * `[CAPTION_VALIDATION_FAILED] Zero picks resolved. payload keys: NONE`
+ * autopost failures — when the internal fetch failed (cold start,
+ * serverless DNS, or circular invocation), the endpoint fell through to
+ * an empty { categories: {} } response, which then produced an empty
+ * payload and a caption-validation throw.
+ *
+ * buildPicksBoard() runs the same logic the HTTP handler runs, but with
+ * full KV fallback chain: fresh ESPN build → KV latest (15min) → KV
+ * last-known-good (48hr) → empty. This is also what the email pipeline
+ * uses (single source of truth).
+ *
+ * Returns: { board: { categories, meta, generatedAt, _source }, source, counts }
+ */
+async function fetchPicksInProcess(log) {
   try {
-    const res = await fetch(`${baseUrl}/api/mlb/picks/built`);
-    if (!res.ok) { log.warn('picks fetch failed:', res.status); return { categories: {} }; }
-    return await res.json();
+    const { board, source, counts } = await buildPicksBoard();
+    log.info(`[picks] in-process build source=${source} counts=${JSON.stringify(counts)}`);
+    return { board: board ?? { categories: {} }, source, counts };
   } catch (e) {
-    log.warn('picks fetch error:', e.message);
-    return { categories: {} };
+    log.error('[picks] in-process build threw:', e.message);
+    return {
+      board: { categories: { pickEms: [], ats: [], leans: [], totals: [] }, _error: e.message },
+      source: 'error',
+      counts: { pickEms: 0, ats: 0, leans: 0, totals: 0, total: 0 },
+    };
   }
 }
 
@@ -436,30 +469,37 @@ export default async function handler(req, res) {
   // ── Preview mode: return metadata only ──
   if (mode === 'preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks] = await Promise.all([
+    const [liveGames, champOdds, mlbLeaders, mlbStandings, picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
       fetchLeaders(baseUrl, log),
       fetchStandings(baseUrl, log),
-      fetchPicks(baseUrl, log),
+      fetchPicksInProcess(log),
     ]);
+    const mlbPicks = picksResult.board;
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
-    const captionPayload = {
-      section: 'daily-briefing',
+
+    // Build caption payload via the SAME canonical normalizer the Dashboard uses.
+    // Eliminates the parallel reduced-payload builder that caused autopost drift.
+    const captionPayload = normalizeMlbImagePayload({
+      activeSection: 'mlb-daily',
+      mlbPicks,
+      mlbGames: [],
       mlbLiveGames: liveGames,
+      mlbHeadlines: [],
       mlbBriefing: null,
+      mlbChampOdds: champOdds ?? {},
       mlbStandings: mlbStandings ?? null,
-      mlbPicks: mlbPicks ?? null,
-      canonicalPicks: mlbPicks ?? null,
       mlbLeaders: mlbLeaders ?? null,
-      seasonIntel: null,
-    };
+    });
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);
     const captionText = hashtags.length > 0 ? `${shortCaption}\n\n${hashtags.join(' ')}` : shortCaption;
 
     // Diagnostic: confirm data presence for caption debugging
     const diag = buildCaptionDiagnostics(mlbPicks, mlbLeaders, captionText);
+    diag.picksSource = picksResult.source;
+    diag.picksCounts = picksResult.counts;
 
     return res.status(200).json({
       ok: true, mode: 'preview', requestId, dateKey, dateLabel,
@@ -482,17 +522,20 @@ export default async function handler(req, res) {
   // ── Render-preview mode: render slides, return base64 images (no publish) ──
   if (mode === 'render-preview') {
     const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
-    const [liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks] = await Promise.all([
+    const [liveGames, champOdds, mlbLeaders, mlbStandings, picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
       fetchLeaders(baseUrl, log),
       fetchStandings(baseUrl, log),
-      fetchPicks(baseUrl, log),
+      fetchPicksInProcess(log),
     ]);
+    const mlbPicks = picksResult.board;
 
     const content = buildSlideContent(liveGames, champOdds, dateLabel, mlbStandings);
 
-    // Attempt browser render
+    // Attempt browser render — data shape MUST match what MlbDailySlide1/2/3
+    // expect (and what Dashboard state passes). mlbChampOdds is the INNER
+    // odds map, not the wrapper.
     const browserData = {
       mlbLiveGames: liveGames,
       mlbChampOdds: champOdds ?? {},
@@ -542,8 +585,25 @@ export default async function handler(req, res) {
   }
 
   // ── Failure persistence helper (visible in dashboard post history) ──
-  async function persistFailure(stage, errorMsg) {
+  //
+  // `stage` is one of: data_assembly | content_build | payload_build |
+  //   caption_build | slide_render | upload | publish
+  // `step` and `reason` are free-form but should be diagnostic, e.g.
+  //   step='picks_fetch', reason='picks_builder_empty_board'
+  //   step='caption_validation', reason='zero_picks_resolved'
+  //   step='no_slate', reason='no_upcoming_games'
+  async function persistFailure(stage, errorMsg, { step = null, reason = null, context = {} } = {}) {
     try {
+      const statusDetail = {
+        mode,
+        dateKey,
+        stage,
+        step,
+        reason,
+        error: errorMsg,
+        durationMs: Date.now() - startTs,
+        ...context,
+      };
       await supabase.from('social_posts').insert([{
         platform: 'instagram',
         lifecycle_status: 'failed',
@@ -557,11 +617,37 @@ export default async function handler(req, res) {
         asset_version: requestId,
         response_stage: stage,
         error_message: errorMsg,
-        status_detail: JSON.stringify({ mode, dateKey, stage, error: errorMsg, durationMs: Date.now() - startTs }),
+        status_detail: JSON.stringify(statusDetail),
       }]);
-      log.info(`failure persisted to social_posts: stage=${stage}`);
+      log.info(`failure persisted to social_posts: stage=${stage} step=${step} reason=${reason}`);
     } catch (e) {
       log.warn('failure persistence failed (non-blocking):', e.message);
+    }
+  }
+
+  // ── Intentional-skip helper: records a `skipped` lifecycle row with
+  // structured context so post-history can distinguish real no-slate
+  // days from broken-payload failures.
+  async function persistSkip(reason, context = {}) {
+    try {
+      await supabase.from('social_posts').insert([{
+        platform: 'instagram',
+        lifecycle_status: 'skipped',
+        content_type: 'carousel',
+        title: `MLB Daily Briefing — ${dateKey}`,
+        content_studio_section: 'daily-briefing',
+        generated_by: 'autopost_cron',
+        triggered_by: mode === 'force' ? 'manual_force' : 'cron_autopost',
+        template_type: 'mlb-daily',
+        route_used: '/api/social/instagram/autopost-mlb-daily',
+        asset_version: requestId,
+        response_stage: 'skipped',
+        error_message: reason,
+        status_detail: JSON.stringify({ mode, dateKey, stage: 'skipped', reason, ...context }),
+      }]);
+      log.info(`skip persisted to social_posts: reason=${reason}`);
+    } catch (e) {
+      log.warn('skip persistence failed (non-blocking):', e.message);
     }
   }
 
@@ -569,23 +655,74 @@ export default async function handler(req, res) {
   const baseUrl = `https://${req.headers.host || 'maximussports.ai'}`;
   log.info('assembling data from:', baseUrl);
 
-  let liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks;
+  let liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks, picksSource, picksCounts;
   try {
-    [liveGames, champOdds, mlbLeaders, mlbStandings, mlbPicks] = await Promise.all([
+    const [_liveGames, _champOdds, _mlbLeaders, _mlbStandings, _picksResult] = await Promise.all([
       fetchLiveGames(baseUrl, log),
       fetchChampOdds(baseUrl, log),
       fetchLeaders(baseUrl, log),
       fetchStandings(baseUrl, log),
-      fetchPicks(baseUrl, log),
+      fetchPicksInProcess(log),
     ]);
+    liveGames = _liveGames;
+    champOdds = _champOdds;
+    mlbLeaders = _mlbLeaders;
+    mlbStandings = _mlbStandings;
+    mlbPicks = _picksResult.board;
+    picksSource = _picksResult.source;
+    picksCounts = _picksResult.counts;
     const leaderCatKeys = Object.keys(mlbLeaders?.categories || {});
     const pickCatKeys = Object.keys(mlbPicks?.categories || {});
-    const pickCounts = pickCatKeys.map(k => `${k}:${(mlbPicks.categories[k] || []).length}`);
-    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${leaderCatKeys.length} leader cats [${leaderCatKeys.join(',')}], ${Object.keys(mlbStandings).length} standings, picks [${pickCounts.join(',')}]`);
+    const pickCountsStr = pickCatKeys.map(k => `${k}:${(mlbPicks.categories[k] || []).length}`);
+    log.info(`data: ${liveGames.length} games, ${Object.keys(champOdds).length} odds, ${leaderCatKeys.length} leader cats [${leaderCatKeys.join(',')}], ${Object.keys(mlbStandings).length} standings, picks source=${picksSource} [${pickCountsStr.join(',')}]`);
   } catch (e) {
     log.error('data assembly failed:', e.message);
-    if (mode === 'live' || mode === 'force') await persistFailure('data_assembly', e.message);
+    if (mode === 'live' || mode === 'force') {
+      await persistFailure('data_assembly', e.message, {
+        step: 'parallel_fetch',
+        reason: 'unexpected_throw',
+      });
+    }
     return res.status(500).json({ ok: false, stage: 'data_assembly', error: e.message, requestId, dateKey });
+  }
+
+  // ── No-slate detection (explicit, before payload build) ──
+  //
+  // We skip autopost ONLY when we're confident today has nothing to post:
+  //   - picksSource === 'empty' means all fallbacks (fresh + KV latest +
+  //     KV last-known-good within 48h) returned zero picks
+  //   - AND there are no upcoming games in the live feed today
+  //
+  // This protects against confusing a real no-slate day (All-Star break,
+  // offseason, full postponement) with a transient picks/data outage.
+  // Note: KV last-known-good has a 48hr TTL, so a transient outage that
+  // wiped the cache is already very unlikely to reach this branch.
+  const upcomingToday = (liveGames || []).filter(g => {
+    const isLive = g?.gameState?.isLive;
+    const isFinal = g?.gameState?.isFinal;
+    const status = (g?.status || '').toLowerCase();
+    return !isLive && !isFinal && status !== 'final' && status !== 'in_progress';
+  });
+  const totalPickCount = (picksCounts?.total ?? 0);
+  const isNoSlate = picksSource === 'empty' && upcomingToday.length === 0 && totalPickCount === 0;
+
+  log.info(`[AUTO_MLB_DAILY_NO_SLATE_CHECK] picksSource=${picksSource} totalPicks=${totalPickCount} upcomingToday=${upcomingToday.length} isNoSlate=${isNoSlate}`);
+
+  if (isNoSlate && (mode === 'live' || mode === 'force')) {
+    log.info('intentional skip: no upcoming games and no pick fallbacks available');
+    await persistSkip('no_upcoming_games', {
+      picksSource,
+      totalPickCount,
+      upcomingTodayCount: upcomingToday.length,
+      liveGamesCount: liveGames.length,
+    });
+    return res.status(200).json({
+      ok: true, skipped: true,
+      reason: 'no_upcoming_games', stage: 'payload_build',
+      requestId, dateKey, mode,
+      picksSource, totalPickCount, upcomingTodayCount: upcomingToday.length,
+      durationMs: Date.now() - startTs,
+    });
   }
 
   // ── Build content ──
@@ -595,52 +732,153 @@ export default async function handler(req, res) {
     log.info(`content: headline="${content.headline?.slice(0, 50)}", ${content.bullets.length} bullets, ${content.raceTeams.length} race teams`);
   } catch (e) {
     log.error('content build failed:', e.message);
-    if (mode === 'live' || mode === 'force') await persistFailure('content_build', e.message);
+    if (mode === 'live' || mode === 'force') {
+      await persistFailure('content_build', e.message, {
+        step: 'buildSlideContent',
+        reason: 'content_builder_threw',
+      });
+    }
     return res.status(500).json({ ok: false, stage: 'content_build', error: e.message, requestId, dateKey });
+  }
+
+  // ── Build canonical caption payload via normalizeMlbImagePayload ──
+  //
+  // This is the SAME normalizer Dashboard.jsx calls for preview/manual.
+  // Using it here guarantees the autopost captionPayload has every
+  // canonical field buildMlbCaption() expects (mlbPicks, canonicalPicks,
+  // mlbLeaders, mlbStandings, mlbChampOdds, mlbGames, mlbLiveGames,
+  // mlbBriefing, etc.) — no parallel reduced payload builder.
+  let captionPayload;
+  try {
+    captionPayload = normalizeMlbImagePayload({
+      activeSection: 'mlb-daily',
+      mlbPicks,
+      mlbGames: [],
+      mlbLiveGames: liveGames,
+      mlbHeadlines: [],
+      mlbBriefing: null,
+      mlbChampOdds: champOdds ?? {},
+      mlbStandings: mlbStandings ?? null,
+      mlbLeaders: mlbLeaders ?? null,
+    });
+
+    // ── Structured payload diagnostic (matches the format requested in
+    // the autopost audit brief — useful for grepping post-history logs)
+    const payloadDiag = {
+      hasPayload: !!captionPayload,
+      payloadKeys: captionPayload ? Object.keys(captionPayload) : [],
+      hasStories: !!captionPayload?.stories,
+      hotPressCount: captionPayload?.hotPress?.length || 0,
+      picksResolved: captionPayload?.picksResolved?.length || 0,
+      leaderCategories: captionPayload?.leadersResolved?.categories?.length || 0,
+      hasStandings: !!captionPayload?.mlbStandings && Object.keys(captionPayload.mlbStandings).length > 0,
+      hasSignals: !!captionPayload?.signals,
+      hasMlbPicks: !!captionPayload?.mlbPicks,
+      hasMlbLeaders: !!captionPayload?.mlbLeaders,
+      hasMlbStandings: !!captionPayload?.mlbStandings,
+      mlbPickCategories: captionPayload?.mlbPicks?.categories ? Object.keys(captionPayload.mlbPicks.categories) : [],
+    };
+    log.info('[AUTO_MLB_DAILY_PAYLOAD]', JSON.stringify(payloadDiag));
+  } catch (e) {
+    log.error('payload build (normalizeMlbImagePayload) failed:', e.message);
+    if (mode === 'live' || mode === 'force') {
+      await persistFailure('payload_build', e.message, {
+        step: 'normalizeMlbImagePayload',
+        reason: 'normalizer_threw',
+        picksSource,
+      });
+    }
+    return res.status(500).json({ ok: false, stage: 'payload_build', error: e.message, requestId, dateKey });
   }
 
   // ── Build caption ──
   let captionText;
   let liveDiag = null;
   try {
-    const captionPayload = {
-      section: 'daily-briefing',
-      mlbLiveGames: liveGames,
-      mlbBriefing: null,
-      mlbStandings: mlbStandings ?? null,
-      mlbPicks: mlbPicks ?? null,
-      canonicalPicks: mlbPicks ?? null,
-      mlbLeaders: mlbLeaders ?? null,
-      seasonIntel: null,
+    // ── Pre-build diagnostic: trace the exact data shape entering buildMlbCaption()
+    const preDiag = {
+      keys: captionPayload ? Object.keys(captionPayload) : [],
+      picksResolved: captionPayload?.picksResolved?.length || 0,
+      leaderCategories: captionPayload?.leadersResolved?.categories?.length || 0,
+      mlbPickCategories: captionPayload?.mlbPicks?.categories ? Object.keys(captionPayload.mlbPicks.categories) : [],
+      mlbLeaderCategories: Object.keys(captionPayload?.mlbLeaders?.categories || {}),
+      liveGamesCount: captionPayload?.mlbLiveGames?.length || 0,
+      standingsTeams: Object.keys(captionPayload?.mlbStandings || {}).length,
+      picksSource,
+      picksCounts,
     };
-
-    // ── Diagnostic: trace exact data shape entering caption builder ──
-    const pickCatKeys = Object.keys(mlbPicks?.categories || {});
-    const pickCounts = pickCatKeys.map(k => `${k}:${(mlbPicks?.categories?.[k] || []).length}`);
-    const leaderCatKeys = Object.keys(mlbLeaders?.categories || {});
-    log.info(`[caption-diag] v3 picks=[${pickCounts.join(',')}] leaders=[${leaderCatKeys.join(',')}] liveGames=${liveGames.length} standings=${Object.keys(mlbStandings || {}).length}`);
+    log.info('[AUTO_MLB_DAILY_CAPTION_INPUT]', JSON.stringify(preDiag));
 
     const { shortCaption, hashtags } = buildMlbCaption(captionPayload);
     captionText = hashtags.length > 0 ? `${shortCaption}\n\n${hashtags.join(' ')}` : shortCaption;
 
-    // ── TRACE: log the FULL caption string at build time ──
+    // ── Post-build diagnostic
     liveDiag = buildCaptionDiagnostics(mlbPicks, mlbLeaders, captionText);
-    log.info(`[CAPTION_BUILD_FINAL] version=${CAPTION_VERSION} chars=${captionText.length} hashtags=${hashtags.length} fallbackPicks=${liveDiag.captionHasFallbackPicks} fallbackLeaders=${liveDiag.captionHasFallbackLeaders}`);
+    liveDiag.picksSource = picksSource;
+    liveDiag.picksCounts = picksCounts;
+    log.info('[AUTO_MLB_DAILY_CAPTION_BUILT]', JSON.stringify({
+      length: captionText?.length || 0,
+      hashtagCount: hashtags.length,
+      fallbackPicks: liveDiag.captionHasFallbackPicks,
+      fallbackLeaders: liveDiag.captionHasFallbackLeaders,
+      preview: captionText?.slice(0, 200),
+    }));
+    log.info(`[CAPTION_BUILD_FINAL] version=${CAPTION_VERSION} chars=${captionText.length} hashtags=${hashtags.length}`);
     log.info(`[CAPTION_BUILD_FULL_TEXT]\n${captionText}`);
     log.info(`[CAPTION_BUILD_DIAG] ${JSON.stringify(liveDiag)}`);
   } catch (e) {
     log.error('caption build failed:', e.message);
-    if (mode === 'live' || mode === 'force') await persistFailure('caption_build', e.message);
-    return res.status(500).json({ ok: false, stage: 'caption_build', error: e.message, requestId, dateKey });
+
+    // Classify the caption build failure so post-history shows actionable context
+    let step = 'buildMlbCaption';
+    let reason = 'builder_threw';
+    const msg = e.message || '';
+    if (msg.includes('[CAPTION_VALIDATION_FAILED]')) {
+      if (msg.includes('Zero picks resolved')) {
+        step = 'caption_validation';
+        reason = picksSource === 'empty'
+          ? 'zero_picks_resolved_no_slate_candidate'
+          : `zero_picks_resolved_despite_picks_source=${picksSource}`;
+      } else if (msg.includes('Zero leader categories')) {
+        step = 'caption_validation';
+        reason = 'zero_leader_categories_resolved';
+      } else {
+        step = 'caption_validation';
+        reason = 'validation_failed';
+      }
+    }
+
+    if (mode === 'live' || mode === 'force') {
+      await persistFailure('caption_build', e.message, {
+        step, reason,
+        picksSource,
+        picksCounts,
+        mlbPickCategoryKeys: Object.keys(captionPayload?.mlbPicks?.categories || {}),
+        mlbLeaderCategoryKeys: Object.keys(captionPayload?.mlbLeaders?.categories || {}),
+        liveGamesCount: liveGames.length,
+      });
+    }
+    return res.status(500).json({ ok: false, stage: 'caption_build', step, reason, error: e.message, requestId, dateKey });
   }
 
   // ── Render slides (browser primary, Satori fallback) ──
+  //
+  // Parity guarantee: the browser renderer navigates to /render/mlb-daily
+  // which mounts the SAME MlbDailySlide1/2/3 React components that
+  // Content Studio preview/export renders, using the identical data
+  // shape (mlbLiveGames, mlbChampOdds map, mlbLeaders, mlbStandings,
+  // mlbPicks, canonicalPicks). Viewport is 1080×1350 at DPR=2 → sharp
+  // downscaled to exactly 1080×1350. Font readiness + image settle
+  // wait is enforced before capture. No separate autopost render path.
   let slideBuffers;
   let renderMethod = 'unknown';
   try {
     log.info('rendering 3 slides via headless browser...');
 
-    // Build the data shape the real React slide components expect
+    // Build the data shape the real React slide components expect.
+    // mlbChampOdds MUST be the INNER odds map (Dashboard stores
+    // champData.odds, not the wrapper) — fetchChampOdds already
+    // extracts .odds before returning.
     const browserData = {
       mlbLiveGames: liveGames,
       mlbChampOdds: champOdds ?? {},
@@ -667,9 +905,22 @@ export default async function handler(req, res) {
       renderMethod = 'satori-fallback';
       log.info(`Satori fallback rendered: ${slideBuffers.map(b => `${(b.length / 1024).toFixed(0)}KB`).join(', ')}`);
     }
+
+    log.info('[AUTO_MLB_DAILY_IMAGES]', JSON.stringify({
+      imageCount: slideBuffers.length,
+      formats: slideBuffers.map(() => 'png'),
+      dimensions: slideBuffers.map(() => '1080x1350'),
+      approxSizes: slideBuffers.map(b => `${Math.round(b.length / 1024)}KB`),
+      renderMethod,
+    }));
   } catch (e) {
     log.error('slide render failed:', e.message, e.stack?.slice(0, 200));
-    if (mode === 'live' || mode === 'force') await persistFailure('slide_render', e.message);
+    if (mode === 'live' || mode === 'force') {
+      await persistFailure('slide_render', e.message, {
+        step: renderMethod === 'browser' ? 'browser_render' : 'satori_render',
+        reason: 'render_threw',
+      });
+    }
     return res.status(500).json({ ok: false, stage: 'slide_render', error: e.message, requestId, dateKey });
   }
 
@@ -685,7 +936,12 @@ export default async function handler(req, res) {
     log.info('upload complete');
   } catch (e) {
     log.error('upload failed:', e.message);
-    if (mode === 'live' || mode === 'force') await persistFailure('upload', e.message);
+    if (mode === 'live' || mode === 'force') {
+      await persistFailure('upload', e.message, {
+        step: 'supabase_storage_upload',
+        reason: 'upload_threw',
+      });
+    }
     return res.status(500).json({ ok: false, stage: 'upload', error: e.message, requestId, dateKey });
   }
 

@@ -52,6 +52,12 @@ import MlbDailySlide1 from './slides/MlbDailySlide1';
 import MlbDailySlide2 from './slides/MlbDailySlide2';
 import MlbDailySlide3 from './slides/MlbDailySlide3';
 
+// NBA Daily Briefing carousel + Team Intel (Phase 2)
+import NbaDailySlide1 from './slides/NbaDailySlide1';
+import NbaDailySlide2 from './slides/NbaDailySlide2';
+import NbaDailySlide3 from './slides/NbaDailySlide3';
+import NbaTeamIntelSlide from './slides/NbaTeamIntelSlide';
+
 import styles from './CarouselComposer.module.css';
 
 /** Error boundary that prevents a single broken slide from crashing the whole Dashboard. */
@@ -97,8 +103,22 @@ export function getTemplateDimensions(template) {
 /**
  * Template → ordered slide component list.
  * Each entry is a component that accepts { data, teamData, game, asOf, slideNumber, slideTotal, options }.
+ *
+ * HARD-FAIL GUARD: any template that STARTS WITH 'nba-' but isn't in the
+ * explicit NBA switch below throws, rather than silently falling through
+ * to the default NCAAM path (which caused the "NBA renders NCAAM placeholder
+ * slides" regression reported in Phase 2 acceptance testing).
  */
 function getSlides(template, slideCount, options = {}) {
+  // ── NBA safety: never let an NBA template fall through to NCAAM ──
+  const isNba = typeof template === 'string' && template.startsWith('nba-');
+  const allowedNba = new Set(['nba-daily', 'nba-team']);
+  if (isNba && !allowedNba.has(template)) {
+    const msg = `[NBA_RENDER_FALLBACK] Unknown NBA template "${template}" — refusing to fall back to NCAAM/default. Known NBA templates: ${[...allowedNba].join(', ')}.`;
+    console.error(msg);
+    throw new Error(msg);
+  }
+
   switch (template) {
     // ── MLB templates ──
     case 'mlb-team':
@@ -111,6 +131,12 @@ function getSlides(template, slideCount, options = {}) {
     case 'mlb-division':
     case 'mlb-game':
       return [MlbSingleSlide];
+
+    // ── NBA templates (Phase 2) ──
+    case 'nba-daily':
+      return [NbaDailySlide1, NbaDailySlide2, NbaDailySlide3].slice(0, Math.min(slideCount, 3));
+    case 'nba-team':
+      return [NbaTeamIntelSlide];
 
     // ── NCAAM templates (untouched) ──
     case 'team':
@@ -169,6 +195,8 @@ const TEMPLATE_LABELS = {
   'mlb-division':  'MLB Division Intel',
   'mlb-game':      'MLB Game Insights',
   'mlb-picks':     "MLB Maximus's Picks",
+  'nba-daily':     'NBA Daily Briefing',
+  'nba-team':      'NBA Team Intel',
 };
 
 /**
@@ -204,6 +232,40 @@ export default function CarouselComposer({
   const slides = getSlides(template, slideCount, options);
   const total = slides.length;
   const dims = getTemplateDimensions(template);
+
+  // ── Diagnostic logging for NBA render path ───────────────────────────
+  // Emits once whenever template or data reference changes. Makes it
+  // obvious from the browser console whether NBA is actually getting the
+  // NBA components + NBA data, or silently falling through.
+  if (typeof template === 'string' && template.startsWith('nba-')) {
+    const slideNames = slides.map(S => S?.displayName || S?.name || 'AnonymousSlide');
+    const nbaStarts = slideNames.every(n => /^Nba/.test(n));
+    const diag = {
+      template,
+      slideCount: total,
+      slideComponents: slideNames,
+      nbaComponentsOnly: nbaStarts,
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data).slice(0, 20) : [],
+      nbaLiveGamesCount: Array.isArray(data?.nbaLiveGames) ? data.nbaLiveGames.length : null,
+      nbaPicksCategoryKeys: data?.nbaPicks?.categories ? Object.keys(data.nbaPicks.categories) : [],
+      nbaLeaderCategoryKeys: data?.nbaLeaders?.categories ? Object.keys(data.nbaLeaders.categories) : [],
+      nbaStandingsCount: data?.nbaStandings ? Object.keys(data.nbaStandings).length : 0,
+      nbaChampOddsCount: data?.nbaChampOdds ? Object.keys(data.nbaChampOdds).length : 0,
+      nbaNewsCount: Array.isArray(data?.nbaNews) ? data.nbaNews.length : 0,
+      hasTeam: !!teamData?.team,
+    };
+    console.log('[NBA_RENDER_TEMPLATE]', diag);
+    if (!nbaStarts) {
+      console.error('[NBA_RENDER_FALLBACK] Non-NBA components resolved for NBA template', {
+        template,
+        slideComponents: slideNames,
+      });
+    }
+    if (template === 'nba-team' && !teamData?.team) {
+      console.warn('[NBA_TEAM_INTEL] Missing team payload — select a team to populate Team Intel.');
+    }
+  }
 
   const dayCards = options?.dayCards;
   const isMultiDayUpsetRadar = options?.gameMode === 'upset-radar' && dayCards && dayCards.length > 1;
