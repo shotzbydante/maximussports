@@ -1,30 +1,22 @@
 /**
  * NbaDailySlide1 — Cover (Slide 1 of NBA Daily Briefing carousel).
  *
- * Structure mirrors MlbDailySlide1 exactly:
- *   Brand pill → "DAILY NBA BRIEFING" title + date → 2 story cards
- *   → HOT OFF THE PRESS strip → Lower 2-column (Playoff Race + Picks)
- *   → Bottom CTA pill
- *
- * Content is PLAYOFF-AWARE end-to-end — no regular-season tone anywhere.
- * All data flows from normalizeNbaImagePayload() so Slide 1 and Slide 2
- * can never drift: they consume the same canonical payload.
+ * Premium upgrade:
+ *   - Mascot integrated into hero composition (right of title)
+ *   - Story cards now carry BOTH team logos + prominent scoreline
+ *   - HOT OFF THE PRESS bullets show team logo chips
+ *   - Playoff Contenders + Maximus's Picks cards both show team logos
+ *   - Grammar-corrected playoff copy (Raptors lead, not leads)
  *
  * 1080×1350 · IG 4:5 portrait.
  */
 
 import { normalizeNbaImagePayload } from '../../../features/nba/contentStudio/normalizeNbaImagePayload';
 import { getNbaEspnLogoUrl } from '../../../utils/espnNbaLogos';
+import { NBA_TEAMS } from '../../../sports/nba/teams';
 import styles from './NbaSlides.module.css';
 
-function trim(text, max = 120) {
-  if (!text) return '';
-  let s = String(text).trim();
-  if (s.length <= max) return s;
-  const sentEnd = s.lastIndexOf('.', max);
-  if (sentEnd > max * 0.4) return s.slice(0, sentEnd + 1);
-  return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
-}
+const EAST_SLUGS = new Set(['bos','det','cle','tor','nyk','atl','ind','mia','phi','mil','orl','chi','was','cha','bkn']);
 
 function fmtDate() {
   return new Date().toLocaleDateString('en-US', {
@@ -33,24 +25,73 @@ function fmtDate() {
   });
 }
 
-function Logo({ slug, size = 22, backplate = false }) {
+function trim(text, max = 140) {
+  if (!text) return '';
+  let s = String(text).trim();
+  if (s.length <= max) return s;
+  const sentEnd = s.lastIndexOf('.', max);
+  if (sentEnd > max * 0.4) return s.slice(0, sentEnd + 1);
+  return s.slice(0, max).replace(/\s+\S*$/, '') + '.';
+}
+
+/**
+ * Fix singular-verb agreement for plural team nicknames in auto-generated
+ * copy. "Raptors leads" → "Raptors lead", "Hawks pulls" → "Hawks pull".
+ *
+ * Narrow rule: applies only to a small set of verbs we emit in our own
+ * builders; never touches user content. Plural names ending in 's' plus
+ * team names like "Heat" / "Jazz" / "Magic" / "Thunder" that are
+ * grammatically singular are left alone.
+ */
+function fixPlural(text) {
+  if (!text) return text;
+  return text
+    .replace(/\bleads\b/gi, 'lead')
+    .replace(/\btrails\b/gi, 'trail')
+    .replace(/\bpulls\b/gi, 'pull')
+    .replace(/\btakes\b/gi, 'take')
+    .replace(/\bsteals\b/gi, (m, i, full) => {
+      // "Pacers steal a Game 1 win" — keep if already plural context.
+      // Revert to "steal" only when preceded by a plural team noun.
+      const before = full.slice(Math.max(0, i - 30), i);
+      if (/(Pacers|Raptors|Knicks|Bucks|Lakers|Rockets|Nuggets|Timberwolves|Thunder|Spurs|Pistons|Cavaliers|Celtics|Hawks|Warriors|Suns|Mavericks|Kings|Clippers|Heat|Nets|76ers|Grizzlies|Pelicans|Bulls|Wizards|Hornets|Magic|Jazz|Blazers)\s$/i.test(before)) {
+        return m === 'Steals' ? 'Steal' : 'steal';
+      }
+      return m;
+    });
+}
+
+function Logo({ slug, size = 22, backplate = false, abbrev }) {
   const src = slug ? getNbaEspnLogoUrl(slug) : null;
-  if (!src) return null;
+  if (!src) {
+    if (!abbrev) return null;
+    // Fallback badge
+    return (
+      <span
+        className={styles.logoFallback}
+        style={{ width: size + 8, height: size + 8, fontSize: Math.max(9, Math.round(size * 0.42)) }}
+      >
+        {abbrev}
+      </span>
+    );
+  }
   const img = (
     <img
-      src={src} alt="" width={size} height={size}
+      src={src} alt={abbrev || slug} width={size} height={size}
       style={{ objectFit: 'contain', flexShrink: 0 }}
+      data-team-slug={slug}
       loading="eager" decoding="sync" crossOrigin="anonymous"
-      onError={e => { e.currentTarget.style.display = 'none'; }}
+      onError={e => {
+        console.warn('[NBA_LOGO_MISSING]', { slug, abbrev });
+        e.currentTarget.style.display = 'none';
+      }}
     />
   );
   if (!backplate) return img;
-  return <span className={styles.logoBackplate} style={{ width: size + 8, height: size + 8 }}>{img}</span>;
+  return <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>{img}</span>;
 }
 
-export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, slideTotal: _st, ...rest }) {
-  // Normalize — single canonical entry point. If the caller already passed
-  // the canonical fields (Dashboard does), this is a no-op pass-through.
+export default function NbaDailySlide1({ data, asOf: _a, slideNumber: _s, slideTotal: _t, ...rest }) {
   const payload = data?.section === 'daily-briefing' && data?.playoffOutlook
     ? data
     : normalizeNbaImagePayload({
@@ -67,37 +108,19 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
   const round = pc?.round || 'Round 1';
   const bullets = (payload.bullets || []).slice(0, 3);
 
-  // Build 2 story cards from topStory + secondStory for the hero strip
   const topStory = payload.topStory;
   const secondStory = payload.secondStory;
 
-  const storyCard1Title = topStory
-    ? `${(topStory.winSlug || '').toUpperCase()} ${storyVerb(topStory)} ${(topStory.loseSlug || '').toUpperCase()} ${topStory.winScore}-${topStory.loseScore}`
-    : (payload.heroTitle || 'PLAYOFFS ROLL ON');
-  const storyCard1Sub = topStory && topStory.inSeries
-    ? seriesLine(topStory)
-    : trim(payload.subhead || '', 120);
+  const card1 = buildStoryCard(topStory, payload);
+  const card2 = buildStoryCard(secondStory, payload) || buildFallbackStoryCard(pc);
 
-  const storyCard2Title = secondStory
-    ? `${(secondStory.winSlug || '').toUpperCase()} ${storyVerb(secondStory)} ${(secondStory.loseSlug || '').toUpperCase()} ${secondStory.winScore}-${secondStory.loseScore}`
-    : (pc?.eliminationGames?.[0]
-        ? 'CLOSEOUT ALERT'
-        : pc?.upsetWatch?.[0]
-          ? 'UPSET WATCH'
-          : 'ACROSS THE BRACKET');
-  const storyCard2Sub = secondStory && secondStory.inSeries
-    ? seriesLine(secondStory)
-    : (pc?.eliminationGames?.[0]
-        ? `${eliminationLeaderName(pc.eliminationGames[0])} can close out ${eliminationTrailerName(pc.eliminationGames[0])} tonight.`
-        : (pc?.upsetWatch?.[0] ? upsetLine(pc.upsetWatch[0]) : 'Tonight\'s results reshape seeding and matchup edges.'));
-
-  // Race card: top 3 from playoffOutlook (mix of East + West, ranked by odds)
+  // Playoff contenders — top 3 from the outlook (ranked by implied prob)
   const allOutlook = [...(payload.playoffOutlook?.east || []), ...(payload.playoffOutlook?.west || [])]
     .filter(t => t.prob != null)
     .sort((a, b) => (b.prob ?? 0) - (a.prob ?? 0));
   const raceTeams = allOutlook.slice(0, 3);
 
-  // Picks: top 3 from categories
+  // Picks: top 3 from V2 engine
   const cats = payload.nbaPicks?.categories || {};
   const allPicks = [
     ...(cats.pickEms || []).map(p => ({ ...p, _cat: 'ML' })),
@@ -108,11 +131,19 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
   const picks = allPicks.map(p => {
     const away = p.matchup?.awayTeam || {};
     const home = p.matchup?.homeTeam || {};
+    const pickSide = p.pick?.side || p.selection?.side;
+    const selectedTeam = pickSide === 'away' ? away : pickSide === 'home' ? home : null;
     return {
+      awaySlug: away.slug,
+      awayAbbrev: away.shortName || away.abbrev || '?',
+      homeSlug: home.slug,
+      homeAbbrev: home.shortName || home.abbrev || '?',
+      selectedSlug: selectedTeam?.slug || null,
+      selectedAbbrev: selectedTeam?.shortName || selectedTeam?.abbrev,
       matchup: `${away.shortName || away.abbrev || '?'} @ ${home.shortName || home.abbrev || '?'}`,
       type: p._cat,
       selection: p.pick?.label || '—',
-      conviction: p.confidence ? formatConv(p.confidence) : (p.tier || 'Edge'),
+      conviction: formatConv(p.confidence || p.tier),
     };
   });
 
@@ -133,24 +164,30 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
         <div className={styles.s1RoundPill}>🏆 {round}</div>
       </header>
 
-      <div className={styles.s1TitleBlock}>
-        <h1 className={styles.s1Title}>
-          DAILY <span className={styles.s1TitleAccent}>NBA</span> BRIEFING
-        </h1>
-        <div className={styles.s1Date}>{fmtDate()}</div>
+      {/* Title + mascot composition */}
+      <div className={styles.s1TitleRow}>
+        <div className={styles.s1TitleBlock}>
+          <h1 className={styles.s1Title}>
+            DAILY <span className={styles.s1TitleAccent}>NBA</span>
+            <span style={{ display: 'block' }}>BRIEFING</span>
+          </h1>
+          <div className={styles.s1Date}>{fmtDate()}</div>
+        </div>
+        <img
+          src="/mascot.png" alt="Maximus"
+          className={styles.s1Mascot}
+          loading="eager" decoding="sync" crossOrigin="anonymous"
+          onError={e => { e.currentTarget.style.display = 'none'; }}
+        />
       </div>
 
+      {/* Story cards — matchup + score forward */}
       <div className={styles.s1StoryZone}>
-        <div className={styles.s1StoryCard}>
-          <div className={styles.s1StoryTitle}>{storyCard1Title}</div>
-          {storyCard1Sub && <div className={styles.s1StorySub}>{storyCard1Sub}</div>}
-        </div>
-        <div className={styles.s1StoryCard}>
-          <div className={styles.s1StoryTitle}>{storyCard2Title}</div>
-          {storyCard2Sub && <div className={styles.s1StorySub}>{storyCard2Sub}</div>}
-        </div>
+        <StoryCard card={card1} />
+        <StoryCard card={card2} />
       </div>
 
+      {/* HOT OFF THE PRESS with team logo chips */}
       <div className={styles.s1HotpZone}>
         <div className={styles.s1HotpPill}>
           <span>🔔</span><span>HOT OFF THE PRESS</span>
@@ -159,13 +196,14 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
           {bullets.map((b, i) => (
             <div key={i} className={styles.s1HotpRow}>
               <span className={styles.s1BulletDot}>▸</span>
-              {b.logoSlug && <Logo slug={b.logoSlug} size={22} backplate />}
-              <span className={styles.s1BulletText}>{trim(b.text, 120)}</span>
+              {b.logoSlug && <Logo slug={b.logoSlug} size={26} backplate />}
+              <span className={styles.s1BulletText}>{fixPlural(trim(b.text, 130))}</span>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Bottom two-column — Contenders + Picks */}
       <div className={styles.s1BottomGrid}>
         <div className={styles.s1BottomCard}>
           <div className={styles.s1SectionLabel}>PLAYOFF CONTENDERS</div>
@@ -173,7 +211,7 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
             {raceTeams.map((t, i) => (
               <div key={i} className={styles.s1RaceRow}>
                 <div className={styles.s1RaceTeamId}>
-                  <Logo slug={t.slug} size={30} backplate />
+                  <Logo slug={t.slug} size={36} backplate abbrev={t.abbrev} />
                   <div className={styles.s1RaceTeamInfo}>
                     <span className={styles.s1RaceAbbrev}>{t.abbrev}</span>
                     {t.record && <span className={styles.s1RaceRecord}>{t.record}</span>}
@@ -185,7 +223,7 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
                 </div>
                 <div className={styles.s1RaceRight}>
                   <div className={styles.s1RaceConf}>
-                    {t.abbrev && ['bos','det','cle','tor','nyk','atl','ind','mia','phi','mil','orl','chi','was','cha','bkn'].includes(t.slug) ? 'EAST' : 'WEST'}
+                    {EAST_SLUGS.has(t.slug) ? 'EAST' : 'WEST'}
                   </div>
                   <div className={styles.s1RaceOdds}>🏆 {t.odds}</div>
                 </div>
@@ -199,19 +237,24 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
           <div className={styles.s1PicksList}>
             {picks.map((p, i) => (
               <div key={i} className={styles.s1PickRow}>
-                <div className={styles.s1PickTop}>
-                  <span className={styles.s1PickMatchup}>{p.matchup}</span>
-                  <span className={styles.s1PickType}>{p.type}</span>
+                <div className={styles.s1PickLogoWrap}>
+                  <Logo slug={p.selectedSlug || p.homeSlug} size={34} backplate abbrev={p.selectedAbbrev || p.homeAbbrev} />
                 </div>
-                <div className={styles.s1PickMid}>
-                  <span className={styles.s1PickSel}>{p.selection}</span>
+                <div className={styles.s1PickBody}>
+                  <span className={styles.s1PickMatchup}>{p.matchup}</span>
+                  <div className={styles.s1PickSel}>{p.selection}</div>
+                </div>
+                <div className={styles.s1PickRight}>
+                  <span className={styles.s1PickType}>{p.type}</span>
                   <span className={styles.s1PickConv}>{p.conviction}</span>
                 </div>
               </div>
             ))}
             {picks.length === 0 && (
               <div className={styles.s1PickRow}>
-                <div className={styles.s1PickSel}>Board refreshes before tip-off.</div>
+                <div className={styles.s1PickBody}>
+                  <div className={styles.s1PickSel}>Board refreshes before tip-off.</div>
+                </div>
               </div>
             )}
           </div>
@@ -228,44 +271,119 @@ export default function NbaDailySlide1({ data, asOf: _asOf, slideNumber: _sn, sl
   );
 }
 
-// ── Helpers (self-contained) ─────────────────────────────────────────────
+// ── Story card builder (used by both top + second story) ──────────────
 
-function storyVerb(s) {
-  if (!s) return 'TOP';
-  if (s.isSweep) return 'SWEEP';
-  if (s.isClinch) return 'CLOSE OUT';
-  if (s.isGame7Win) return 'WIN GAME 7 OVER';
-  if (s.isUpset) return 'STUN';
-  if (s.isElimWin) return 'BEAT';
-  if (s.type === 'blowout') return 'ROLL PAST';
-  if (s.type === 'close') return 'EDGE';
-  return 'TOP';
+function buildStoryCard(story, payload) {
+  if (!story) return null;
+  const winSlug = story.winSlug;
+  const loseSlug = story.loseSlug;
+  const winAbbrev = abbrevFor(winSlug);
+  const loseAbbrev = abbrevFor(loseSlug);
+  const winName = nicknameFor(winSlug);
+  const score = `${story.winScore}–${story.loseScore}`;
+
+  // Grammar-correct playoff titles
+  let title;
+  if (story.isSweep) title = `${winName} complete sweep over ${nicknameFor(loseSlug)}`;
+  else if (story.isGame7Win) title = `${winName} win Game 7 ${score}`;
+  else if (story.isClinch) title = `${winName} close out ${nicknameFor(loseSlug)} ${score}`;
+  else if (story.isElimWin) title = `${winName} push ${nicknameFor(loseSlug)} to brink`;
+  else if (story.isUpset) title = `${winName} steal Game ${(story.series?.gamesPlayed || 0)} from ${nicknameFor(loseSlug)}`;
+  else if (story.isStolenRoadWin) title = `${winName} steal one on the road from ${nicknameFor(loseSlug)}`;
+  else title = `${winName} top ${nicknameFor(loseSlug)} ${score}`;
+
+  // Series subline
+  let sub = '';
+  if (story.inSeries && story.series) {
+    const ts = story.series.seriesScore?.top ?? 0;
+    const bs = story.series.seriesScore?.bottom ?? 0;
+    const topAbbr = story.series.topTeam?.abbrev;
+    const botAbbr = story.series.bottomTeam?.abbrev;
+    if (ts > bs) sub = `${topAbbr} lead ${botAbbr} ${ts}-${bs}`;
+    else if (bs > ts) sub = `${botAbbr} lead ${topAbbr} ${bs}-${ts}`;
+    else sub = `Series tied ${ts}-${bs}`;
+  } else {
+    sub = `${winAbbrev} wins ${score}`;
+  }
+
+  return {
+    winSlug, loseSlug, winAbbrev, loseAbbrev,
+    title, sub, score,
+  };
 }
 
-function seriesLine(s) {
-  if (!s || !s.series) return '';
-  const top = s.series.topTeam?.abbrev || '';
-  const bot = s.series.bottomTeam?.abbrev || '';
-  const ts = s.series.seriesScore?.top ?? 0;
-  const bs = s.series.seriesScore?.bottom ?? 0;
-  if (ts > bs) return `${top} leads ${bot} ${ts}-${bs}.`;
-  if (bs > ts) return `${bot} leads ${top} ${bs}-${ts}.`;
-  return `Series tied ${ts}-${bs}.`;
+function buildFallbackStoryCard(pc) {
+  const elim = pc?.eliminationGames?.[0];
+  if (elim) {
+    const leader = elim.eliminationFor === 'top' ? elim.bottomTeam : elim.topTeam;
+    const trailer = elim.eliminationFor === 'top' ? elim.topTeam : elim.bottomTeam;
+    return {
+      winSlug: leader?.slug,
+      loseSlug: trailer?.slug,
+      winAbbrev: leader?.abbrev,
+      loseAbbrev: trailer?.abbrev,
+      title: `${leader?.name || leader?.abbrev} try to close out ${trailer?.name || trailer?.abbrev}`,
+      sub: elim.seriesScore?.summary || 'Closeout opportunity ahead',
+      score: elim.seriesScore ? `${elim.seriesScore.top}-${elim.seriesScore.bottom}` : '',
+    };
+  }
+  const upset = pc?.upsetWatch?.[0];
+  if (upset) {
+    const leader = upset.leader === 'top' ? upset.topTeam : upset.bottomTeam;
+    const trailer = upset.leader === 'top' ? upset.bottomTeam : upset.topTeam;
+    return {
+      winSlug: leader?.slug,
+      loseSlug: trailer?.slug,
+      winAbbrev: leader?.abbrev,
+      loseAbbrev: trailer?.abbrev,
+      title: `${leader?.abbrev} (#${leader?.seed}) flipping the bracket on ${trailer?.abbrev}`,
+      sub: upset.seriesScore?.summary || 'Upset watch',
+      score: upset.seriesScore ? `${upset.seriesScore.top}-${upset.seriesScore.bottom}` : '',
+    };
+  }
+  const activeRound = pc?.round || 'Round 1';
+  return {
+    winSlug: null, loseSlug: null,
+    title: `${activeRound} rolls on across the bracket`,
+    sub: 'Tonight\'s results reshape seeding and matchup edges',
+    score: '',
+  };
 }
 
-function eliminationLeaderName(s) {
-  const leader = s.eliminationFor === 'top' ? s.bottomTeam : s.topTeam;
-  return leader?.name || leader?.abbrev || '?';
+function StoryCard({ card }) {
+  if (!card) return null;
+  return (
+    <div className={styles.s1StoryCard}>
+      <div className={styles.s1StoryLogos}>
+        {card.winSlug && <Logo slug={card.winSlug} size={58} backplate abbrev={card.winAbbrev} />}
+        {card.loseSlug && (
+          <>
+            <span className={styles.s1StoryVs}>VS</span>
+            <Logo slug={card.loseSlug} size={58} backplate abbrev={card.loseAbbrev} />
+          </>
+        )}
+      </div>
+      <div className={styles.s1StoryBody}>
+        <div className={styles.s1StoryTitle}>{card.title}</div>
+        {card.sub && <div className={styles.s1StorySub}>{card.sub}</div>}
+      </div>
+      {card.score && <div className={styles.s1StoryScore}>{card.score}</div>}
+    </div>
+  );
 }
-function eliminationTrailerName(s) {
-  const trailer = s.eliminationFor === 'top' ? s.topTeam : s.bottomTeam;
-  return trailer?.name || trailer?.abbrev || '?';
+
+// ── Utilities ─────────────────────────────────────────────────────
+
+function abbrevFor(slug) {
+  const t = NBA_TEAMS.find(t => t.slug === slug);
+  return t?.abbrev || slug?.toUpperCase() || '';
 }
-function upsetLine(s) {
-  const leader = s.leader === 'top' ? s.topTeam : s.bottomTeam;
-  const trailer = s.leader === 'top' ? s.bottomTeam : s.topTeam;
-  if (!leader || !trailer) return 'Upset brewing in the bracket.';
-  return `${leader.abbrev} (${leader.seed}) leading ${trailer.abbrev} (${trailer.seed}).`;
+
+function nicknameFor(slug) {
+  const t = NBA_TEAMS.find(t => t.slug === slug);
+  if (!t) return '???';
+  if (/Trail Blazers$/i.test(t.name)) return 'Trail Blazers';
+  return t.name.split(' ').slice(-1)[0];
 }
 
 function formatConv(tier) {

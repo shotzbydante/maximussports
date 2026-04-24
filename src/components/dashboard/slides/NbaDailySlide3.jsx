@@ -1,34 +1,48 @@
 /**
- * NbaDailySlide3 — NBA Playoff Outlook (Slide 3 of NBA Daily Briefing).
+ * NbaDailySlide3 — NBA Playoff Outlook.
  *
- * Mirrors MlbDailySlide3 (World Series Outlook) structure, replacing
- * MLB's projected-wins framing with NBA-appropriate:
- *   - Title odds
- *   - Contender label (Title Favorite / Contender / Upside Team / Long Shot)
- *   - Series-state rationale (e.g. "lead Rockets 2-1 in the first round")
- *
- * Data: top 5 Eastern + top 5 Western from payload.playoffOutlook, built
- * by normalizeNbaImagePayload from championship odds + playoff context.
+ * Premium upgrade:
+ *   - 64px gold title
+ *   - 14px gold divider
+ *   - Each contender card now carries a large team logo, abbreviation,
+ *     contender label, rationale, odds, and seed
+ *   - Subtle mascot watermark anchored near the footer
  */
 
 import { normalizeNbaImagePayload } from '../../../features/nba/contentStudio/normalizeNbaImagePayload';
 import { getNbaEspnLogoUrl } from '../../../utils/espnNbaLogos';
 import styles from './NbaSlides.module.css';
 
-function Logo({ slug, size = 26 }) {
+function Logo({ slug, size = 26, backplate = true, abbrev }) {
   const src = slug ? getNbaEspnLogoUrl(slug) : null;
-  if (!src) return null;
-  return (
-    <span className={styles.logoBackplate} style={{ width: size + 8, height: size + 8 }}>
-      <img src={src} alt="" width={size} height={size}
-           style={{ objectFit: 'contain' }}
-           loading="eager" decoding="sync" crossOrigin="anonymous"
-           onError={e => { e.currentTarget.style.display = 'none'; }} />
-    </span>
+  if (!src) {
+    if (!abbrev) return null;
+    return (
+      <span
+        className={styles.logoFallback}
+        style={{ width: size + 10, height: size + 10, fontSize: Math.max(9, Math.round(size * 0.42)) }}
+      >
+        {abbrev}
+      </span>
+    );
+  }
+  const img = (
+    <img
+      src={src} alt={abbrev || slug} width={size} height={size}
+      style={{ objectFit: 'contain', flexShrink: 0 }}
+      data-team-slug={slug}
+      loading="eager" decoding="sync" crossOrigin="anonymous"
+      onError={e => {
+        console.warn('[NBA_LOGO_MISSING]', { slug, abbrev });
+        e.currentTarget.style.display = 'none';
+      }}
+    />
   );
+  if (!backplate) return img;
+  return <span className={styles.logoBackplate} style={{ width: size + 10, height: size + 10 }}>{img}</span>;
 }
 
-export default function NbaDailySlide3({ data, asOf: _asOf, slideNumber: _sn, slideTotal: _st, ...rest }) {
+export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideTotal: _t, ...rest }) {
   const payload = data?.section === 'daily-briefing' && data?.playoffOutlook
     ? data
     : normalizeNbaImagePayload({
@@ -51,6 +65,14 @@ export default function NbaDailySlide3({ data, asOf: _asOf, slideNumber: _sn, sl
       <div className={styles.bgStreaks} />
       <div className={styles.bgNoise} />
 
+      {/* Subtle mascot watermark */}
+      <img
+        src="/mascot.png" alt=""
+        className={styles.s3MascotWatermark}
+        loading="eager" decoding="sync" crossOrigin="anonymous"
+        onError={e => { e.currentTarget.style.display = 'none'; }}
+      />
+
       <header className={styles.s3TopBar}>
         <div className={styles.s2Pill}>
           <span>🏆</span><span>TITLE PATH</span>
@@ -60,7 +82,8 @@ export default function NbaDailySlide3({ data, asOf: _asOf, slideNumber: _sn, sl
 
       <div className={styles.s3TitleBlock}>
         <h2 className={styles.s3Title}>NBA PLAYOFF OUTLOOK</h2>
-        <div className={styles.s3SubTitle}>Top contenders by championship odds, shaped by live series state.</div>
+        <div className={styles.s3SubTitle}>Title paths and contenders by conference.</div>
+        <div className={styles.s3TitleDivider} />
       </div>
 
       <div className={styles.s3ConfGrid}>
@@ -70,20 +93,7 @@ export default function NbaDailySlide3({ data, asOf: _asOf, slideNumber: _sn, sl
           </div>
           <div className={styles.s3TeamList}>
             {east.slice(0, 5).map((t, i) => (
-              <div key={t.slug} className={styles.s3TeamRow}>
-                <div className={styles.s3TeamRank}>{i + 1}</div>
-                <div className={styles.s3TeamBody}>
-                  <span className={styles.s3TeamAbbrev}>
-                    <Logo slug={t.slug} size={22} /> {t.abbrev}
-                  </span>
-                  <span className={styles.s3TeamLabel}>{t.label}</span>
-                  <div className={styles.s3TeamRationale}>{t.rationale}</div>
-                </div>
-                <div className={styles.s3TeamRight}>
-                  <div className={styles.s3TeamOdds}>🏆 {t.odds}</div>
-                  {t.seed && <div className={styles.s3TeamSeed}>#{t.seed} seed</div>}
-                </div>
-              </div>
+              <ConfRow key={t.slug} rank={i + 1} team={t} />
             ))}
           </div>
         </div>
@@ -94,20 +104,7 @@ export default function NbaDailySlide3({ data, asOf: _asOf, slideNumber: _sn, sl
           </div>
           <div className={styles.s3TeamList}>
             {west.slice(0, 5).map((t, i) => (
-              <div key={t.slug} className={styles.s3TeamRow}>
-                <div className={styles.s3TeamRank}>{i + 1}</div>
-                <div className={styles.s3TeamBody}>
-                  <span className={styles.s3TeamAbbrev}>
-                    <Logo slug={t.slug} size={22} /> {t.abbrev}
-                  </span>
-                  <span className={styles.s3TeamLabel}>{t.label}</span>
-                  <div className={styles.s3TeamRationale}>{t.rationale}</div>
-                </div>
-                <div className={styles.s3TeamRight}>
-                  <div className={styles.s3TeamOdds}>🏆 {t.odds}</div>
-                  {t.seed && <div className={styles.s3TeamSeed}>#{t.seed} seed</div>}
-                </div>
-              </div>
+              <ConfRow key={t.slug} rank={i + 1} team={t} />
             ))}
           </div>
         </div>
@@ -119,6 +116,28 @@ export default function NbaDailySlide3({ data, asOf: _asOf, slideNumber: _sn, sl
           <span className={styles.s1CtaSite}>maximussports.ai</span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function ConfRow({ rank, team }) {
+  return (
+    <div className={styles.s3TeamRow}>
+      <div className={styles.s3TeamRank}>{rank}</div>
+      <div className={styles.s3TeamLogoBox}>
+        <Logo slug={team.slug} size={40} backplate abbrev={team.abbrev} />
+      </div>
+      <div className={styles.s3TeamBody}>
+        <div className={styles.s3TeamTop}>
+          <span className={styles.s3TeamAbbrev}>{team.abbrev}</span>
+          <span className={styles.s3TeamLabel}>{team.label}</span>
+        </div>
+        <div className={styles.s3TeamRationale}>{team.rationale}</div>
+      </div>
+      <div className={styles.s3TeamRight}>
+        <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
+        {team.seed && <div className={styles.s3TeamSeed}>#{team.seed} seed</div>}
+      </div>
     </div>
   );
 }
