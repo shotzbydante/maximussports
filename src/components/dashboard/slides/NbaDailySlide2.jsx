@@ -226,7 +226,7 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
                     <div key={idx} className={styles.s2LeaderRow}>
                       <span className={styles.s2LeaderRank}>{idx + 1}</span>
                       {l.slug
-                        ? <Logo slug={l.slug} size={18} abbrev={l.teamAbbrev} />
+                        ? <Logo slug={l.slug} size={22} abbrev={l.teamAbbrev} />
                         : <span style={{ width: 18, display: 'inline-block' }} />}
                       <span>
                         <span className={styles.s2LeaderName}>{l.name}</span>

@@ -116,7 +116,7 @@ describe('buildNbaHotPress narrative content', () => {
     expect(text).toMatch(/bracket flips|reshuffles|upset|title path/);
   });
 
-  it('closeout bullet includes ESPN/Vegas voice + closeout shot + season on the line', () => {
+  it('closeout bullet includes plain-English stake + Game N + score', () => {
     const playoffContext = {
       round: 'Round 1',
       series: [
@@ -136,12 +136,13 @@ describe('buildNbaHotPress narrative content', () => {
     const text = bullets.find(b => b.source === 'closeout')?.text || '';
     expect(text).toMatch(/3–2/);
     expect(text).toMatch(/Game 6/);
-    expect(text).toMatch(/closeout shot/);
-    expect(text).toMatch(/season on the line/);
+    // Audit Part 2: plain-English stake — refined to drop "closeout shot"
+    // jargon in favor of "season is on the line tonight"
+    expect(text).toMatch(/season is on the line/);
     expect(text).toMatch(/🔥/);
   });
 
-  it('Game 7 bullet uses "decides the series" + market shakeup framing', () => {
+  it('Game 7 bullet uses "decides the series" + title-path framing', () => {
     const playoffContext = {
       round: 'Round 1',
       series: [
@@ -162,7 +163,8 @@ describe('buildNbaHotPress narrative content', () => {
     const text = bullets.find(b => b.source === 'game7')?.text || '';
     expect(text).toMatch(/Game 7/);
     expect(text).toMatch(/decides the series/);
-    expect(text).toMatch(/title-path|market/);
+    // Audit Part 2: refined wording uses "shakes the title path"
+    expect(text).toMatch(/title path/);
     expect(text).toMatch(/⚔️/);
   });
 

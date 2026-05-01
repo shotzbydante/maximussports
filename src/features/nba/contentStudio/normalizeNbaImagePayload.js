@@ -77,25 +77,98 @@ function classifyContender(prob) {
 }
 
 /**
- * Build the Playoff Outlook view (Slide 3) from championship odds +
- * standings + playoff context. Top 5 per conference.
+ * Compute the set of teams that are STILL ALIVE in the playoffs.
  *
- * Each card: { team, abbrev, seed, odds, prob, label, rationale }
- *   - rationale is playoff-aware and specific (per Part 7 requirement)
- *   - if team has a live series, rationale notes current series state
+ * A team is active if:
+ *   - It is in an incomplete series (in `playoffContext.series`), OR
+ *   - It won a completed series (winnerSlug of any completedSeries)
+ *
+ * A team is NOT active if:
+ *   - It lost a completed series
+ *   - It is a stale placeholder
+ *   - It is not currently in a tracked playoff series
+ *
+ * Returns:
+ *   { activeSlugs: Set<string>, eliminatedSlugs: Set<string> }
+ *
+ * Note: when no series have been played yet (preseason / Round 1 G1
+ * pending) we treat every team that's listed in the bracket as active
+ * — otherwise Slide 3 would render empty during the warm-up period.
+ */
+function computeActivePlayoffTeams(playoffContext) {
+  const activeSlugs = new Set();
+  const eliminatedSlugs = new Set();
+
+  // Teams in incomplete series stay active
+  for (const s of (playoffContext?.series || [])) {
+    if (s.isStalePlaceholder) continue;
+    if (s.isComplete) {
+      if (s.winnerSlug) activeSlugs.add(s.winnerSlug);
+      if (s.loserSlug)  eliminatedSlugs.add(s.loserSlug);
+    } else {
+      if (s.topTeam?.slug) activeSlugs.add(s.topTeam.slug);
+      if (s.bottomTeam?.slug) activeSlugs.add(s.bottomTeam.slug);
+    }
+  }
+  // Teams from completedSeries (back-compat alias) — winners stay alive
+  for (const s of (playoffContext?.completedSeries || [])) {
+    if (s.winnerSlug) activeSlugs.add(s.winnerSlug);
+    if (s.loserSlug)  eliminatedSlugs.add(s.loserSlug);
+  }
+
+  return { activeSlugs, eliminatedSlugs };
+}
+
+/** American odds → implied probability. Negative odds rank highest;
+ *  missing odds rank last (0). Used to sort Slide 3 contenders. */
+function americanToImplied(odds) {
+  if (odds == null) return 0;
+  const n = typeof odds === 'string' ? parseFloat(odds.replace(/[^\d-+.]/g, '')) : Number(odds);
+  if (!Number.isFinite(n) || n === 0) return 0;
+  return n < 0 ? -n / (-n + 100) : 100 / (n + 100);
+}
+
+/**
+ * Build the Playoff Outlook view (Slide 3) from championship odds +
+ * standings + playoff context.
+ *
+ * Filters:
+ *   - Only includes teams still alive in the playoffs (audit Part 4)
+ *   - Excludes stale placeholders + Play-In Winner placeholders
+ *
+ * Ranking (audit Part 5):
+ *   - Negative odds (favorites) first
+ *   - Then lowest positive odds
+ *   - Missing odds rank last
+ *   - Seed is the tiebreaker
+ *
+ * Output:
+ *   { east: [...top5], west: [...top5],
+ *     eastAlsoAlive: [...remaining], westAlsoAlive: [...remaining],
+ *     eliminatedTeams: [...slugs] }
+ *   Cards include `team, abbrev, seed, odds, oddsRaw, prob, label,
+ *   rationale, liveSeries`.
  */
 function buildPlayoffOutlook({ champOdds, standings, playoffContext }) {
+  const { activeSlugs, eliminatedSlugs } = computeActivePlayoffTeams(playoffContext);
+  const hasAnyContext = activeSlugs.size > 0 || eliminatedSlugs.size > 0;
+
   const conf = { Eastern: [], Western: [] };
 
   for (const team of NBA_TEAMS) {
+    // Audit Part 4: skip eliminated teams entirely. When playoff context
+    // isn't yet populated (no games played) we keep all teams listed
+    // so Slide 3 still has content during the warm-up window.
+    if (hasAnyContext && !activeSlugs.has(team.slug)) continue;
+
     const oddsEntry = champOdds?.[team.slug];
     const american = oddsEntry?.bestChanceAmerican ?? oddsEntry?.american ?? null;
-    const prob = oddsToProb(american);
+    const prob = americanToImplied(american);
     const st = standings?.[team.slug] || null;
 
-    // Find the team's current playoff series (if any)
     let liveSeries = null;
     for (const s of (playoffContext?.series || [])) {
+      if (s.isStalePlaceholder) continue;
       if (s.topTeam?.slug === team.slug || s.bottomTeam?.slug === team.slug) {
         liveSeries = s;
         break;
@@ -110,32 +183,46 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext }) {
       seed: st?.playoffSeed ?? null,
       record: st?.record ?? null,
       odds: fmtAmerican(american),
+      oddsRaw: american,
       prob,
       label: classifyContender(prob),
       liveSeries,
     });
   }
 
-  function rank(list) {
-    return list
-      .sort((a, b) => {
-        // Playoff teams first (those in active series), then by odds
-        const aActive = a.liveSeries ? 1 : 0;
-        const bActive = b.liveSeries ? 1 : 0;
-        if (aActive !== bActive) return bActive - aActive;
-        const aP = a.prob ?? 0;
-        const bP = b.prob ?? 0;
-        if (bP !== aP) return bP - aP;
-        // Fall back to seed
-        return (a.seed ?? 99) - (b.seed ?? 99);
-      })
-      .slice(0, 5)
-      .map(t => ({ ...t, rationale: buildTeamRationale(t) }));
+  // Audit Part 5: rank by best title odds, with seed as tiebreaker.
+  // Negative odds → highest implied probability → top of list.
+  function sortByOdds(a, b) {
+    if (b.prob !== a.prob) return b.prob - a.prob;
+    return (a.seed ?? 99) - (b.seed ?? 99);
   }
 
+  function rank(list) {
+    return list.sort(sortByOdds).map(t => ({ ...t, rationale: buildTeamRationale(t) }));
+  }
+
+  const eastFull = rank(conf['Eastern'] || []);
+  const westFull = rank(conf['Western'] || []);
+
+  // Audit Part 8: when more than 5 active teams per conference, promote
+  // the top 5 to full cards and surface the rest in a compact "Also
+  // alive" strip so the user can see ALL surviving teams.
+  console.log('[NBA_PLAYOFF_OUTLOOK_ACTIVE_TEAMS]', JSON.stringify({
+    activeCount: activeSlugs.size,
+    activeTeams: [...activeSlugs],
+    excludedTeams: [...eliminatedSlugs],
+    eastTop5: eastFull.slice(0, 5).map(t => t.abbrev),
+    eastAlsoAlive: eastFull.slice(5).map(t => t.abbrev),
+    westTop5: westFull.slice(0, 5).map(t => t.abbrev),
+    westAlsoAlive: westFull.slice(5).map(t => t.abbrev),
+  }));
+
   return {
-    east: rank(conf['Eastern'] || []),
-    west: rank(conf['Western'] || []),
+    east: eastFull.slice(0, 5),
+    west: westFull.slice(0, 5),
+    eastAlsoAlive: eastFull.slice(5),
+    westAlsoAlive: westFull.slice(5),
+    eliminatedTeams: [...eliminatedSlugs],
   };
 }
 
