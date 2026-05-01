@@ -13,7 +13,7 @@
  */
 
 import { getSupabaseAdmin } from '../../_lib/supabaseAdmin.js';
-import { getPicksForSlate, getScorecard, getLatestGradedScorecard } from '../../_lib/picksHistory.js';
+import { getPicksForSlate, getScorecard, getLatestGradedScorecard, findLatestGradedSlate } from '../../_lib/picksHistory.js';
 import { fetchYesterdayFinals } from '../../nba/live/_normalize.js';
 import { yesterdayET } from '../../_lib/dateWindows.js';
 
@@ -88,16 +88,36 @@ export default async function handler(req, res) {
     out._scorecardError = e?.message;
   }
 
-  // 5) Latest graded slate (lookback fallback target)
+  // 5) Latest graded slate — both source-of-truth surfaces
   try {
-    const fallback = await getLatestGradedScorecard({ sport: 'nba', lookbackDays: 14 });
-    if (fallback) {
-      out.latestGradedSlate = {
-        slate_date: fallback.slate_date,
-        record: fallback.record,
-        note: fallback.note,
-      };
+    const [aggRow, rowGraded] = await Promise.all([
+      getLatestGradedScorecard({ sport: 'nba', lookbackDays: 21 }),
+      findLatestGradedSlate({ sport: 'nba', lookbackDays: 21 }),
+    ]);
+    out.latestScorecardSlate = aggRow ? {
+      slate_date: aggRow.slate_date,
+      record: aggRow.record,
+      note: aggRow.note,
+    } : null;
+    out.latestPickResultsSlate = rowGraded.latestGradedSlate;
+    out.aggregateScorecardsFound = !!aggRow;
+    out.gradedRowsFound = !!rowGraded.latestGradedSlate;
+    out.skippedPendingOnlySlates = rowGraded.skippedPendingOnlySlates;
+    out.scannedSlates = rowGraded.scannedSlates;
+    // Resolve dataMode the same way the scorecard endpoint does.
+    if (rowGraded.latestGradedSlate) {
+      out.selectedDataMode = 'graded_with_rows';
+      out.selectedSource = 'pick_results';
+    } else if (aggRow) {
+      out.selectedDataMode = 'graded_aggregate_only';
+      out.selectedSource = 'picks_daily_scorecards';
+    } else {
+      out.selectedDataMode = 'no_graded_history';
+      out.selectedSource = null;
+      out.reasonIfNoGradedData = 'No graded pick_results rows and no graded picks_daily_scorecards rows in 21-day lookback.';
     }
+    // legacy alias
+    out.latestGradedSlate = out.latestScorecardSlate;
   } catch (e) {
     out._fallbackError = e?.message;
   }

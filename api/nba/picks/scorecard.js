@@ -159,38 +159,52 @@ export default async function handler(req, res) {
       selectedSlate = explicitDate;
       selectedReason = 'explicit_date';
     } else {
-      // Inspect actual picks/pick_results for graded data.
-      const graded = await findLatestGradedSlate({ sport: 'nba', lookbackDays: 21 });
-      diagnostics.latestGradedSlate = graded.latestGradedSlate;
+      // Inspect both source-of-truth surfaces in parallel:
+      //   a) per-pick rows (picks ⨝ pick_results)
+      //   b) aggregate scorecard rows (picks_daily_scorecards.record)
+      // Pick whichever is most recent. This avoids regressing to a stale
+      // row-level slate when the aggregate has more recent graded data
+      // (or vice-versa).
+      const [graded, aggRow] = await Promise.all([
+        findLatestGradedSlate({ sport: 'nba', lookbackDays: 21 }),
+        getLatestGradedScorecard({ sport: 'nba', lookbackDays: 21 }),
+      ]);
+      diagnostics.latestPickResultsSlate = graded.latestGradedSlate;
+      diagnostics.latestScorecardSlate = aggRow?.slate_date || null;
+      diagnostics.latestGradedSlate = graded.latestGradedSlate; // legacy alias
       diagnostics.skippedPendingOnlySlates = graded.skippedPendingOnlySlates;
       diagnostics.scannedSlates = graded.scannedSlates;
+      diagnostics.gradedRowsFound = !!graded.latestGradedSlate;
+      diagnostics.aggregateScorecardsFound = !!aggRow;
       // Track the most recent pending-only slate so the UI can show a
       // small "Today's slate is still pending" note.
       diagnostics.todayPendingSlate = graded.skippedPendingOnlySlates[0] || null;
 
       const yesterday = requestedSlate;
-      if (graded.latestGradedSlate === yesterday) {
+      const rowSlate = graded.latestGradedSlate;
+      const aggSlate = aggRow?.slate_date || null;
+      // Pick the most recent of the two. String compare works for ISO dates.
+      const preferAgg = aggSlate && (!rowSlate || aggSlate > rowSlate);
+
+      if (preferAgg) {
+        card = aggRow;
+        selectedSlate = aggSlate;
+        selectedReason = (aggSlate === yesterday) ? 'yesterday_graded' : 'scorecard_table_fallback';
+        usedFallback = aggSlate !== yesterday;
+      } else if (rowSlate === yesterday) {
         card = await getScorecard({ sport: 'nba', slateDate: yesterday });
         selectedSlate = yesterday;
         selectedReason = 'yesterday_graded';
-      } else if (graded.latestGradedSlate) {
-        card = await getScorecard({ sport: 'nba', slateDate: graded.latestGradedSlate });
-        selectedSlate = graded.latestGradedSlate;
+      } else if (rowSlate) {
+        card = await getScorecard({ sport: 'nba', slateDate: rowSlate });
+        selectedSlate = rowSlate;
         selectedReason = 'latest_graded_fallback';
         usedFallback = true;
       } else {
-        // Last-ditch: scorecard row from picks_daily_scorecards (covers data
-        // re-imports where the picks rows may have been pruned).
-        const fallbackRow = await getLatestGradedScorecard({ sport: 'nba', lookbackDays: 21 });
-        if (fallbackRow) {
-          card = fallbackRow;
-          selectedSlate = fallbackRow.slate_date;
-          selectedReason = 'scorecard_table_fallback';
-          usedFallback = true;
-        } else {
-          selectedSlate = yesterday;
-          selectedReason = 'no_graded_slate';
-        }
+        selectedSlate = yesterday;
+        selectedReason = 'no_graded_slate';
+        diagnostics.reasonIfNoGradedData =
+          'No graded pick_results rows and no graded picks_daily_scorecards rows in 21-day lookback.';
       }
     }
 
@@ -230,41 +244,85 @@ export default async function handler(req, res) {
       };
     }
 
-    // ── Invariant enforcement ─────────────────────────────────────────
-    // If selection claimed a graded slate but the picks we fetched have
-    // zero graded rows, demote to no_graded_slate. This protects the UI
-    // from ever showing "Most Recent Graded Slate · …" with 0 graded —
-    // a state we observed when the picks_daily_scorecards row had stale
-    // record counts that disagreed with the picks/pick_results table.
-    if (
-      !explicitDate &&
-      includePicks &&
-      totals &&
-      totals.graded === 0 &&
-      (selectedReason === 'yesterday_graded' ||
-       selectedReason === 'latest_graded_fallback' ||
-       selectedReason === 'scorecard_table_fallback')
-    ) {
-      diagnostics.invariantViolated = {
-        priorReason: selectedReason,
-        priorSelectedSlate: selectedSlate,
-        priorPublished: totals.published,
-        priorGraded: totals.graded,
+    // ── dataMode resolution ────────────────────────────────────────────
+    // Two source-of-truth surfaces can independently report "graded":
+    //   • Per-pick rows: picks ⨝ pick_results, status in won/lost/push
+    //   • Aggregate row: picks_daily_scorecards.record (won+lost+push > 0)
+    //
+    // Resolve into one of three explicit modes so the UI can render
+    // appropriately without ever mislabeling pending data:
+    //   graded_with_rows       → row-level graded data exists
+    //   graded_aggregate_only  → aggregate scorecard is graded, but per-
+    //                            pick rows are unavailable / all pending
+    //                            (e.g. picks rows pruned, or settle wrote
+    //                            results into the scorecard but pick_results
+    //                            join failed)
+    //   no_graded_history      → no graded data anywhere
+    const aggregateGraded = card?.record
+      ? ((card.record.won ?? 0) + (card.record.lost ?? 0) + (card.record.push ?? 0))
+      : 0;
+    const rowGraded = totals?.graded ?? 0;
+
+    let dataMode;
+    let selectedSource;
+
+    if (rowGraded > 0) {
+      dataMode = 'graded_with_rows';
+      selectedSource = 'pick_results';
+    } else if (aggregateGraded > 0 && card) {
+      // Aggregate has graded data but per-pick rows are unavailable. Build
+      // synthetic totals from the scorecard's record so the UI's chips +
+      // headline still render with truthful numbers — but mark picks as
+      // unavailable so the UI suppresses pick-by-pick rows.
+      dataMode = 'graded_aggregate_only';
+      selectedSource = 'picks_daily_scorecards';
+      const m = card.by_market || {};
+      // Normalize MLB-era 'runline' → 'spread' for UI consistency.
+      const spread = m.spread || m.runline || { won: 0, lost: 0, push: 0, pending: 0 };
+      const moneyline = m.moneyline || { won: 0, lost: 0, push: 0, pending: 0 };
+      const total = m.total || { won: 0, lost: 0, push: 0, pending: 0 };
+      totals = {
+        published:
+          (card.record?.won ?? 0) + (card.record?.lost ?? 0) +
+          (card.record?.push ?? 0) + (card.record?.pending ?? 0),
+        graded: aggregateGraded,
+        pending: card.record?.pending ?? 0,
+        record: card.record || { won: 0, lost: 0, push: 0, pending: 0 },
+        byMarket: { moneyline, spread, total },
       };
-      console.warn(
-        '[nba/scorecard] invariant: %s claimed graded but picks show 0 graded for slate %s — demoting to no_graded_slate',
-        selectedReason, selectedSlate
-      );
-      // Treat the previously-selected slate as a pending-only slate so
-      // the UI shows the "Today's slate is still pending" note.
-      diagnostics.todayPendingSlate = selectedSlate;
-      diagnostics.todayPendingCount = totals.pending;
+      picks = []; // No row-level data — UI will show "details unavailable"
+    } else {
+      // Neither row-level nor aggregate graded data is available.
+      dataMode = 'no_graded_history';
+      selectedSource = null;
+      diagnostics.invariantViolated = (selectedReason && selectedReason !== 'no_graded_slate')
+        ? {
+            priorReason: selectedReason,
+            priorSelectedSlate: selectedSlate,
+            priorPublished: totals?.published ?? 0,
+            priorGraded: rowGraded,
+            priorAggregateGraded: aggregateGraded,
+          }
+        : undefined;
+      if (diagnostics.invariantViolated) {
+        console.warn(
+          '[nba/scorecard] invariant: %s claimed graded but neither rows nor aggregate had graded data for slate %s — demoting to no_graded_history',
+          selectedReason, selectedSlate
+        );
+      }
+      // Surface today's pending slate so UI can show "Today's slate pending".
+      diagnostics.todayPendingSlate = diagnostics.todayPendingSlate || selectedSlate;
+      diagnostics.todayPendingCount = diagnostics.todayPendingCount || (totals?.pending ?? picks.length);
       selectedReason = 'no_graded_slate';
       usedFallback = false;
       card = null;
       picks = [];
       totals = null;
     }
+    diagnostics.dataMode = dataMode;
+    diagnostics.selectedSource = selectedSource;
+    diagnostics.aggregateGraded = aggregateGraded;
+    diagnostics.rowGraded = rowGraded;
 
     // If we fell back, see if there's a current (today/yesterday) slate
     // with pending picks so the UI can render a small note.
@@ -283,6 +341,8 @@ export default async function handler(req, res) {
       requestedSlate,
       selectedSlateDate: selectedSlate,
       selectedReason,
+      dataMode: diagnostics.dataMode,
+      selectedSource: diagnostics.selectedSource,
       usedFallback,
       diagnostics: {
         ...diagnostics,
