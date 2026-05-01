@@ -12,14 +12,18 @@ import NbaScorecardReport from '../../components/nba/picks/NbaScorecardReport';
 export default function NbaPicks() {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'var(--space-lg) 16px' }}>
-      {/* Full daily scorecard report — sits above the picks board on /nba/insights.
-          On NBA Home, the compact scorecard inside MlbMaximusPicksSectionV2 stays
-          (with a "View full scorecard →" CTA pointing here). */}
+      {/* Unified Model Performance hero — combines yesterday's scorecard,
+          per-pick report, category chips, rolling performance, and grading
+          explainer. Replaces the duplicate Track Record / Yesterday's
+          Scorecard / Performance & Learning blocks that V2 normally renders
+          in page mode. suppressPerformanceBlocks silences those duplicates
+          on NBA without regressing MLB. */}
       <NbaScorecardReport />
       <MlbMaximusPicksSectionV2
         mode="page"
         sport="nba"
         endpoint="/api/nba/picks/built"
+        suppressPerformanceBlocks
       />
     </div>
   );

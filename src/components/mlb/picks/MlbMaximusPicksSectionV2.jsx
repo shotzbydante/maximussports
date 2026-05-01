@@ -64,6 +64,12 @@ export default function MlbMaximusPicksSectionV2({
   mode = 'page',
   sport = 'mlb',
   endpoint = '/api/mlb/picks/built',
+  // When true (NBA Odds Insights uses this), skip the embedded
+  // YesterdayScorecard / TrackRecord / YesterdayContinuity / Performance
+  // Learning / Audit Insights blocks so a parent component (like
+  // NbaScorecardReport) can own a single unified performance section
+  // without duplication. MLB defaults to false → no regression.
+  suppressPerformanceBlocks = false,
 }) {
   const {
     payload, loading,
@@ -230,16 +236,22 @@ export default function MlbMaximusPicksSectionV2({
         </div>
       </header>
 
-      <TrackRecord payload={payload} scorecard={scorecardSummary} />
-      {/* Always mount — self-fetches when embed is null. */}
-      <YesterdayScorecard summary={scorecardSummary} />
-      <YesterdayContinuity summary={scorecardSummary} />
+      {!suppressPerformanceBlocks && (
+        <>
+          <TrackRecord payload={payload} scorecard={scorecardSummary} />
+          {/* Always mount — self-fetches when embed is null. */}
+          <YesterdayScorecard summary={scorecardSummary} />
+          <YesterdayContinuity summary={scorecardSummary} />
+        </>
+      )}
       {topPick && <TopPlayHero pick={topPick} featured relativeStrength={topPickStrength} />}
 
-      <div className={styles.intelligenceGrid}>
-        <PerformanceLearning sport={sport} />
-        <AuditInsights sport={sport} />
-      </div>
+      {!suppressPerformanceBlocks && (
+        <div className={styles.intelligenceGrid}>
+          <PerformanceLearning sport={sport} />
+          <AuditInsights sport={sport} />
+        </div>
+      )}
 
       <AboutTheModel />
 

@@ -154,6 +154,7 @@ function PickRow({ pick }) {
 
 export default function NbaScorecardReport({ dateOverride } = {}) {
   const [data, setData] = useState(null);
+  const [perf, setPerf] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -168,6 +169,16 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [dateOverride]);
+
+  // Rolling 7d/30d performance — non-blocking; report still renders without it
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/nba/picks/performance?sport=nba')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setPerf(d || null); })
+      .catch(() => { if (!cancelled) setPerf(null); });
+    return () => { cancelled = true; };
+  }, []);
 
   if (loading) {
     return (
@@ -212,11 +223,11 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
       {/* Header strip */}
       <div className={styles.headerStrip}>
         <div className={styles.headerLeft}>
-          <span className={styles.eyebrow}>Scorecard Report</span>
-          <h2 className={styles.title}>
-            {usedFallback ? 'Most Recent Slate' : "Yesterday’s Picks"}
-          </h2>
-          <span className={styles.slateDate}>{slateLabel}</span>
+          <span className={styles.eyebrow}>Model Performance</span>
+          <h2 className={styles.title}>How Maximus&rsquo;s Picks Are Performing</h2>
+          <span className={styles.slateDate}>
+            {usedFallback ? 'Most Recent Graded Slate' : "Yesterday"} &middot; {slateLabel}
+          </span>
         </div>
         {totals && (
           <div className={styles.headerStats}>
@@ -260,16 +271,109 @@ export default function NbaScorecardReport({ dateOverride } = {}) {
       {sortedPicks.length > 0 ? (
         <div className={styles.picksList}>
           <div className={styles.picksHeader}>
-            <span>Picks</span>
+            <span>Pick-by-Pick Results</span>
             <span className={styles.picksHeaderHint}>sorted by result</span>
           </div>
           {sortedPicks.map(p => <PickRow key={p.id || p.pickKey} pick={p} />)}
         </div>
       ) : (
         <p className={styles.noPicks}>
-          Per-pick detail is unavailable for this slate. The summary card above reflects the persisted scorecard row.
+          Per-pick detail is unavailable for this slate. The summary above reflects the persisted scorecard row.
         </p>
       )}
+
+      {/* Rolling performance */}
+      <RollingPerformance perf={perf} />
+
+      {/* Model grading explainer */}
+      <div className={styles.explainer}>
+        <h3 className={styles.explainerTitle}>How the model is graded</h3>
+        <ul className={styles.explainerList}>
+          <li>Every published pick is persisted at slate publish time and graded after final scores post.</li>
+          <li><strong>Pick &rsquo;Em</strong> — graded against the game&rsquo;s outright winner.</li>
+          <li><strong>ATS</strong> — graded against the published spread; pushes are exact landings.</li>
+          <li><strong>Totals</strong> — graded against the projected line; over/under or push.</li>
+          <li>Daily results inform future confidence calibration — performance is tracked, not invented.</li>
+        </ul>
+      </div>
     </section>
+  );
+}
+
+/* ── Rolling Performance subsection ── */
+function RollingPerformance({ perf }) {
+  if (!perf) return null;
+  const w7 = perf.windows?.trailing7d;
+  const w30 = perf.windows?.trailing30d;
+  const tp = perf.topPlay;
+
+  // Hide the entire block when nothing meaningful is available
+  const hasAny = (w7 && w7.state !== 'none') || (w30 && w30.state !== 'none') || (tp && tp.graded > 0);
+  if (!hasAny) {
+    return (
+      <div className={styles.rolling}>
+        <h3 className={styles.rollingTitle}>Rolling Performance</h3>
+        <p className={styles.rollingEmpty}>
+          Rolling track record builds after the next graded slate. Each finalized day adds to the trailing window.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.rolling}>
+      <h3 className={styles.rollingTitle}>Rolling Performance</h3>
+      <div className={styles.rollingGrid}>
+        <RollingCol label="Last 7 days" win={w7} />
+        <RollingCol label="Last 30 days" win={w30} />
+        {tp && tp.graded > 0 && (
+          <div className={styles.rollingCard}>
+            <span className={styles.rollingCardLabel}>Top Play (30d)</span>
+            <span className={styles.rollingCardValue}>
+              {tp.won}–{tp.lost}
+              {tp.push ? `–${tp.push}` : ''}
+            </span>
+            {tp.hitRate != null && (
+              <span className={styles.rollingCardRate}>{Math.round(tp.hitRate * 100)}%</span>
+            )}
+            <span className={styles.rollingCardSample}>{tp.graded} graded</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RollingCol({ label, win }) {
+  if (!win || win.state === 'none') {
+    return (
+      <div className={styles.rollingCard}>
+        <span className={styles.rollingCardLabel}>{label}</span>
+        <span className={styles.rollingCardEmpty}>—</span>
+        <span className={styles.rollingCardSample}>tracking</span>
+      </div>
+    );
+  }
+  if (win.state === 'pending') {
+    return (
+      <div className={styles.rollingCard}>
+        <span className={styles.rollingCardLabel}>{label}</span>
+        <span className={styles.rollingCardEmpty}>Awaiting</span>
+        <span className={styles.rollingCardSample}>{win.pending} picks pending</span>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.rollingCard}>
+      <span className={styles.rollingCardLabel}>{label}</span>
+      <span className={styles.rollingCardValue}>{win.record || '—'}</span>
+      {win.winRate != null && (
+        <span className={styles.rollingCardRate}>{win.winRate}%</span>
+      )}
+      <span className={styles.rollingCardSample}>
+        {win.sample ? `${win.sample} graded` : 'tracking'}
+        {win.sparse ? ' · small sample' : ''}
+      </span>
+    </div>
   );
 }
