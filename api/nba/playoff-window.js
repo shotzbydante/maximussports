@@ -21,11 +21,17 @@
 import { createCache } from '../_cache.js';
 import { fetchNbaPlayoffScheduleWindow } from '../_lib/nbaPlayoffSchedule.js';
 
-const cache = createCache(120_000);
+// Short in-process memo to avoid hammering ESPN on quick repeat
+// requests, but keep the CDN cache aggressive-low so series state
+// updates within a few seconds of new finals landing.
+const cache = createCache(30_000);
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  // 30s edge cache during playoffs — series scores change fast, and a
+  // stale 5-min cache would echo the wrong "Lakers lead 2-1" everywhere
+  // until it expired. SWR keeps perceived latency low.
+  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const url = new URL(req.url, 'http://localhost');

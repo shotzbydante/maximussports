@@ -38,19 +38,21 @@ function dayKey(iso) {
  * Build a date list from `daysBack` ago (inclusive) through `daysForward`.
  *
  * @param {object} opts
- * @param {number} [opts.daysBack=14]
+ * @param {number} [opts.daysBack=21]
  * @param {number} [opts.daysForward=1]
  *
- * Default 14 days back: NBA Round 1 series start ~13 days before the
- * latest possible Game 7. With a 7-day window we missed the early
- * games (e.g. Lakers vs Rockets Games 1-2 from Apr 18-20 when
- * processing on May 1), which produced wrong series scores ("HOU
- * lead 2-1" instead of "LAL lead 3-2"). 14 days covers Round 1 even
- * with rest days; 21+ would cover Round 2.
+ * Default 21 days back: NBA Round 1 series can extend up to 17 calendar
+ * days (Game 1 to Game 7 with travel days). Plus we add safety margin
+ * for ESPN's date convention quirks — games that start at 9pm Pacific
+ * appear under the next UTC day in some ESPN endpoints, so a 14-day
+ * window from May 1 might not see an Apr 18 9pm-Pacific tipoff at all
+ * (it'd be filed under Apr 19 UTC, but only if our query happened to
+ * hit that day). 21 days covers any Round 1 series start through Round 2
+ * with comfortable overlap.
  *
  * @returns {string[]} array of YYYYMMDD strings
  */
-function getDateRange({ daysBack = 14, daysForward = 1 } = {}) {
+function getDateRange({ daysBack = 21, daysForward = 1 } = {}) {
   const dates = [];
   const today = new Date();
   for (let i = -daysBack; i <= daysForward; i++) {
@@ -67,11 +69,22 @@ async function fetchScoreboardForDate(dateStr) {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const r = await fetch(url, { signal: controller.signal });
-    if (!r.ok) return [];
+    if (!r.ok) {
+      console.warn(`[NBA_PLAYOFF_WINDOW_FETCH] ${dateStr} http=${r.status} games=0`);
+      return [];
+    }
     const data = await r.json();
     const events = Array.isArray(data.events) ? data.events : [];
-    return events.map(normalizeEvent).filter(Boolean);
+    const normalized = events.map(normalizeEvent).filter(Boolean);
+    // Per-date diagnostic so we can see exactly what ESPN returned for
+    // each day. Critical when debugging series-score bugs (e.g.
+    // "Lakers lead 3-2" vs "Rockets lead 2-1" — if a Game 1 is missing,
+    // this log shows the gap).
+    const finalCount = normalized.filter(g => g.gameState?.isFinal || g.status === 'final').length;
+    console.log(`[NBA_PLAYOFF_WINDOW_FETCH] ${dateStr} games=${normalized.length} finals=${finalCount}`);
+    return normalized;
   } catch (err) {
+    console.warn(`[NBA_PLAYOFF_WINDOW_FETCH] ${dateStr} error="${err.message}" games=0`);
     return [];
   } finally {
     clearTimeout(timer);

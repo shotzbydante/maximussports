@@ -294,11 +294,16 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
   // wrong-score bugs (e.g. "HOU lead 2-1" when truth is "LAL lead 3-2")
   // are diagnosable straight from the browser/server console without
   // needing to instrument the failing run.
-  if (typeof console !== 'undefined' && (top + bottom) > 0) {
+  //
+  // ALWAYS emits — including 0-0 series — so we can see "I have no
+  // games for this matchup" cases (= window too short / ESPN gap)
+  // separately from "I see the games but counted them wrong" cases.
+  if (typeof console !== 'undefined' && bothTeamsResolved) {
     const aAbbr = matchup.topTeam?.shortName || matchup.topTeam?.abbrev || matchup.topTeam?.slug?.toUpperCase() || '???';
     const bAbbr = matchup.bottomTeam?.shortName || matchup.bottomTeam?.abbrev || matchup.bottomTeam?.slug?.toUpperCase() || '???';
     console.log('[NBA_SERIES_DEBUG]', JSON.stringify({
       matchup: `${aAbbr} vs ${bAbbr}`,
+      gamesCounted: games.length,
       countedGames: games.map(g => ({
         id: g.gameId,
         date: g.gameDate,
@@ -308,7 +313,11 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
       })),
       winsA: top,
       winsB: bottom,
-      leader: leader === 'top' ? aAbbr : leader === 'bottom' ? bAbbr : 'tied',
+      leaderText: top === bottom
+        ? (top === 0 ? 'no games yet' : `tied ${top}-${bottom}`)
+        : (top > bottom ? `${aAbbr} leads ${top}-${bottom}` : `${bAbbr} leads ${bottom}-${top}`),
+      hasNextGame: !!next,
+      isStalePlaceholder,
       isComplete,
       isClincher: !!isClincher,
       isCloseoutGame,

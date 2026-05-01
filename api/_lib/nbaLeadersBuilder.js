@@ -314,7 +314,7 @@ export async function buildNbaLeadersData(opts = {}) {
   if (seasonType === 'postseason') {
     try {
       console.log('[nbaLeadersBuilder] postseason types/3 empty — trying box-score aggregation');
-      const { games } = await fetchNbaPlayoffScheduleWindow({ daysBack: 14, daysForward: 0 });
+      const { games } = await fetchNbaPlayoffScheduleWindow({ daysBack: 21, daysForward: 0 });
       const aggregate = await buildNbaPostseasonLeadersFromBoxScores({ windowGames: games });
       if (aggregate && categoryCount(aggregate) >= MIN_CATEGORIES_FOR_LASTKNOWN_WRITE) {
         // Persist to KV so subsequent requests are fast (and the cron
