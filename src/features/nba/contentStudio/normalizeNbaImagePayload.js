@@ -79,28 +79,31 @@ function classifyContender(prob) {
 /**
  * Compute the set of teams that are STILL ALIVE in the playoffs.
  *
- * A team is active if:
- *   - It is in an incomplete series (in `playoffContext.series`), OR
- *   - It won a completed series (winnerSlug of any completedSeries)
+ * Audit Part 5 — cross-round derivation:
+ *   - Active = teams in incomplete series  + winners of completed
+ *     series (any round, including Round-1 winners who have advanced
+ *     to Round 2)
+ *   - Eliminated = losers of any completed series
+ *   - Eliminated wins ties: a team that won R1 but lost R2 is
+ *     eliminated, not active.
  *
- * A team is NOT active if:
- *   - It lost a completed series
- *   - It is a stale placeholder
- *   - It is not currently in a tracked playoff series
+ * Reads from `playoffContext.allSeries` (cross-round, no stale rows).
+ * Falls back to `playoffContext.series` for back-compat if a caller
+ * passes an older context shape.
  *
- * Returns:
- *   { activeSlugs: Set<string>, eliminatedSlugs: Set<string> }
- *
- * Note: when no series have been played yet (preseason / Round 1 G1
- * pending) we treat every team that's listed in the bracket as active
- * — otherwise Slide 3 would render empty during the warm-up period.
+ * When no playoff data exists yet (preseason / R1 G1 pending) we
+ * leave both sets empty so the outlook builder treats it as "no
+ * filtering" and shows every team.
  */
 function computeActivePlayoffTeams(playoffContext) {
   const activeSlugs = new Set();
   const eliminatedSlugs = new Set();
 
-  // Teams in incomplete series stay active
-  for (const s of (playoffContext?.series || [])) {
+  const seriesPool = playoffContext?.allSeries
+    || playoffContext?.series
+    || [];
+
+  for (const s of seriesPool) {
     if (s.isStalePlaceholder) continue;
     if (s.isComplete) {
       if (s.winnerSlug) activeSlugs.add(s.winnerSlug);
@@ -110,11 +113,31 @@ function computeActivePlayoffTeams(playoffContext) {
       if (s.bottomTeam?.slug) activeSlugs.add(s.bottomTeam.slug);
     }
   }
-  // Teams from completedSeries (back-compat alias) — winners stay alive
-  for (const s of (playoffContext?.completedSeries || [])) {
-    if (s.winnerSlug) activeSlugs.add(s.winnerSlug);
-    if (s.loserSlug)  eliminatedSlugs.add(s.loserSlug);
+
+  // Eliminated wins ties — strip out any team that ever lost a series.
+  // (E.g. a hypothetical R1 winner who then lost R2 should not appear
+  // active even though they were a winner of an earlier series.)
+  for (const slug of eliminatedSlugs) {
+    activeSlugs.delete(slug);
   }
+
+  // Audit Part 5 diagnostic — visible from a single console line.
+  console.log('[NBA_ACTIVE_PLAYOFF_TEAM_DERIVATION]', JSON.stringify({
+    activeTeams: [...activeSlugs],
+    eliminatedTeams: [...eliminatedSlugs],
+    completedSeries: seriesPool.filter(s => s.isComplete).map(s => ({
+      winner: s.winnerSlug,
+      loser: s.loserSlug,
+      score: `${s.seriesScore?.top ?? 0}-${s.seriesScore?.bottom ?? 0}`,
+      round: s.round,
+    })),
+    incompleteSeries: seriesPool.filter(s => !s.isComplete && !s.isStalePlaceholder).map(s => ({
+      teamA: s.topTeam?.abbrev,
+      teamB: s.bottomTeam?.abbrev,
+      score: `${s.seriesScore?.top ?? 0}-${s.seriesScore?.bottom ?? 0}`,
+      round: s.round,
+    })),
+  }));
 
   return { activeSlugs, eliminatedSlugs };
 }
@@ -166,9 +189,12 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext }) {
     const prob = americanToImplied(american);
     const st = standings?.[team.slug] || null;
 
+    // Look across ALL active series (any round) so a R1 winner who's
+    // now in R2 still surfaces with their current series state.
     let liveSeries = null;
-    for (const s of (playoffContext?.series || [])) {
+    for (const s of (playoffContext?.allSeries || playoffContext?.series || [])) {
       if (s.isStalePlaceholder) continue;
+      if (s.isComplete) continue;
       if (s.topTeam?.slug === team.slug || s.bottomTeam?.slug === team.slug) {
         liveSeries = s;
         break;

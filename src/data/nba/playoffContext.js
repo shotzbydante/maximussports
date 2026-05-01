@@ -463,11 +463,22 @@ export function buildNbaPlayoffContext({ liveGames = [], windowGames = null, bra
     } catch { return false; }
   });
 
+  // Cross-round bookkeeping (audit Part 5): expose every enriched
+  // series — including completed prior-round series — so the active-
+  // team derivation can include winners that have already advanced.
+  // Without this, when Round 2 starts the Round-1 winners would
+  // disappear from `series` (filtered to current round) and Slide 3
+  // would lose Boston / OKC / etc.
+  const allSeries = enrichedSeries.filter(s => !s.isStalePlaceholder);
+  const completedSeriesAllRounds = allSeries.filter(s => s.isComplete);
+
   return {
     round,
     roundNumber,
-    series: activeNonStaleSeries,    // EXCLUDES stale placeholders by default
+    series: activeNonStaleSeries,    // EXCLUDES stale placeholders by default (current round only)
     seriesAll: activeSeries,          // back-compat: includes stale rows for any caller that needs them
+    allSeries,                        // NEW: all rounds, no-stale, all enriched
+    completedSeriesAllRounds,         // NEW: any completed series across all rounds
     eliminationGames,
     upsetWatch,
     sweepWatch,
