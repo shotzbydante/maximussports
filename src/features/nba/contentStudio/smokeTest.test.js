@@ -268,15 +268,16 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(Array.isArray(payload.bullets)).toBe(true);
     expect(payload.bullets.length).toBeGreaterThanOrEqual(3);
 
-    // Playoff outlook: top 5 East + top 5 West (or fewer if the
-    // active-team filter excluded eliminated teams in the fixture).
-    // Audit Part 4 explicitly removed eliminated teams; this test now
-    // asserts at least one card per conference with a sane upper cap.
+    // Playoff outlook: ALL active teams per conference (no truncation).
+    // Audit Part 4 + Part 6 explicitly removed the top-5 slice — Slide 3
+    // uses compact mode when >5 active teams. Upper cap is conference
+    // size (15 teams). This assertion just confirms we render at least
+    // one card per conference and no team is silently dropped.
     expect(payload.playoffOutlook).toBeDefined();
     expect(payload.playoffOutlook.east.length).toBeGreaterThan(0);
-    expect(payload.playoffOutlook.east.length).toBeLessThanOrEqual(5);
+    expect(payload.playoffOutlook.east.length).toBeLessThanOrEqual(15);
     expect(payload.playoffOutlook.west.length).toBeGreaterThan(0);
-    expect(payload.playoffOutlook.west.length).toBeLessThanOrEqual(5);
+    expect(payload.playoffOutlook.west.length).toBeLessThanOrEqual(15);
 
     // Every outlook card has a non-generic rationale
     for (const card of [...payload.playoffOutlook.east, ...payload.playoffOutlook.west]) {
@@ -491,6 +492,35 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(topPts).toBeTruthy();
     expect(Number.isInteger(topPts.value)).toBe(true);
     expect(topPts.display).toMatch(/^\d+$/);
+  });
+
+  it('Slide 3 active set includes teams whose bracket opponent is a play-in placeholder (game-data fallback)', () => {
+    // Bracket says BOS vs tbd("Play-In Winner") → series isStalePlaceholder.
+    // Real games show BOS sweeping PHI 4-0. Without the game-data
+    // fallback, BOS is dropped from active. With the fallback, BOS
+    // stays active and PHI is eliminated.
+    const games = [1, 2, 3, 4].map((g, i) => ({
+      gameId: `g-bos-phi-${g}`,
+      sport: 'nba', status: 'final',
+      startTime: new Date(Date.now() - (12 - i * 2) * 24 * 3600 * 1000).toISOString(),
+      teams: {
+        away: { slug: i % 2 === 0 ? 'phi' : 'bos', score: i % 2 === 0 ? 95 : 110 },
+        home: { slug: i % 2 === 0 ? 'bos' : 'phi', score: i % 2 === 0 ? 110 : 95 },
+      },
+      gameState: { isFinal: true, isLive: false },
+    }));
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: games,
+      nbaWindowGames: games,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const eastSlugs = (payload.playoffOutlook?.east || []).map(t => t.slug);
+    expect(eastSlugs).toContain('bos');     // active despite bracket placeholder
+    expect(eastSlugs).not.toContain('phi'); // eliminated via game data
   });
 
   it('Slide 3 active set includes completed-series winners (cross-round)', () => {
