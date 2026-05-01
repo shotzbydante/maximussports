@@ -246,7 +246,7 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
     categories[catKey] = categoryFromTopN(catKey, top);
   }
 
-  return {
+  const result = {
     categories,
     fetchedAt: new Date().toISOString(),
     seasonType: 'postseason',
@@ -256,4 +256,14 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
       uniquePlayers: playerCount,
     },
   };
+
+  // Audit Part 3 diagnostic — visible when box-score aggregation runs.
+  console.log('[NBA_BOXSCORE_LEADERS_AGG]', JSON.stringify({
+    gamesUsed: parsedGames,
+    playersAggregated: playerCount,
+    categories: Object.keys(categories || {}),
+    topPpg: categories?.avgPoints?.leaders?.[0] || null,
+  }));
+
+  return result;
 }

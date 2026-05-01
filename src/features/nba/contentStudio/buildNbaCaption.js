@@ -11,7 +11,7 @@
  *   📊 What happened  — 3-5 HOTP bullets
  *   📈 Why it matters — playoff implication, not generic analysis
  *   🎯 Maximus's Picks — ALL resolved picks with type + team
- *   🏆 Season Leaders — all 5 NBA categories (PPG/APG/RPG/SPG/BPG), top 3
+ *   🏆 Postseason Leaders — all 5 NBA categories (PPG/APG/RPG/SPG/BPG)
  *   🚀 CTA
  *   disclaimer
  *   hashtags (data-driven, 5 tags)

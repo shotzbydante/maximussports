@@ -204,24 +204,29 @@ function buildPlayoffOutlook({ champOdds, standings, playoffContext }) {
   const eastFull = rank(conf['Eastern'] || []);
   const westFull = rank(conf['Western'] || []);
 
-  // Audit Part 8: when more than 5 active teams per conference, promote
-  // the top 5 to full cards and surface the rest in a compact "Also
-  // alive" strip so the user can see ALL surviving teams.
+  // Audit Part 4: show ALL active playoff teams per conference. The
+  // previous implementation silently truncated to top-5 + "Also alive"
+  // strip, which user reports kept it at 3 visible cards because the
+  // strip wasn't surfacing as expected. Now we expose the full active
+  // list and Slide 3 chooses dense vs compact mode based on length.
+  // Conference cards show every active team as a real card.
   console.log('[NBA_PLAYOFF_OUTLOOK_ACTIVE_TEAMS]', JSON.stringify({
     activeCount: activeSlugs.size,
     activeTeams: [...activeSlugs],
     excludedTeams: [...eliminatedSlugs],
-    eastTop5: eastFull.slice(0, 5).map(t => t.abbrev),
-    eastAlsoAlive: eastFull.slice(5).map(t => t.abbrev),
-    westTop5: westFull.slice(0, 5).map(t => t.abbrev),
-    westAlsoAlive: westFull.slice(5).map(t => t.abbrev),
+    eastCount: eastFull.length,
+    westCount: westFull.length,
+    eastTeams: eastFull.map(t => t.abbrev),
+    westTeams: westFull.map(t => t.abbrev),
   }));
 
   return {
-    east: eastFull.slice(0, 5),
-    west: westFull.slice(0, 5),
-    eastAlsoAlive: eastFull.slice(5),
-    westAlsoAlive: westFull.slice(5),
+    east: eastFull,
+    west: westFull,
+    // Back-compat aliases — kept so any consumer that read these stays
+    // functional. New code should iterate `east` / `west` directly.
+    eastAlsoAlive: [],
+    westAlsoAlive: [],
     eliminatedTeams: [...eliminatedSlugs],
   };
 }

@@ -623,24 +623,52 @@
 }
 .s3TeamList {
   display: flex; flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
-  /* Spread the 5 rows across the entire card height — eliminates the
-     dead space below the contender list that was the audit Part 4
-     complaint. */
-  justify-content: space-between;
+  /* Audit Part 4: when there are 6-8 active teams per conference,
+     `justify-content: space-between` would over-stretch the rows.
+     Instead let rows flow naturally with a fixed gap and let the
+     compact-mode CSS handle density when the count is high. */
+  justify-content: flex-start;
+  /* Hard ceiling so a long active list doesn't push past the footer */
+  min-height: 0;
+  overflow: hidden;
 }
+/* Audit Part 5: 2-row card layout — top line for identity/odds/seed,
+   rationale beneath. Eliminates the cramped 4-column grid that made
+   long rationales overflow into the next column. */
 .s3TeamRow {
-  display: grid;
-  grid-template-columns: 34px auto 1fr auto;
-  gap: 14px; align-items: center;
-  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
   border: 1.5px solid rgba(212,175,55,0.24);
   border-radius: 18px;
   background: rgba(0,0,0,0.36);
 }
-/* Top-seed emphasis — slightly stronger gold border + soft glow.
-   Applied via a data attribute so we don't need a JS-side class swap. */
+.s3TeamTopLine {
+  display: grid;
+  grid-template-columns: 30px auto 1fr auto;
+  gap: 14px; align-items: center;
+}
+/* Audit Part 6: compact density mode — kicks in when a conference has
+   >5 active teams. Smaller padding + smaller logo + 1-line rationale
+   so 6-8 contenders all fit without dropping any team. */
+.s3TeamRowCompact {
+  padding: 10px 14px;
+  gap: 5px;
+}
+.s3TeamRowCompact .s3TeamTopLine {
+  grid-template-columns: 24px auto 1fr auto;
+  gap: 10px;
+}
+.s3TeamRowCompact .s3TeamAbbrev { font-size: 22px; }
+.s3TeamRowCompact .s3TeamOdds { font-size: 22px; }
+.s3TeamRowCompact .s3Rationale {
+  -webkit-line-clamp: 1;
+  font-size: 12.5px;
+}
+/* Top-seed emphasis — slightly stronger gold border + soft glow. */
 .s3TeamRow[data-top-seed="true"] {
   border-color: rgba(240,207,107,0.55);
   background: linear-gradient(160deg, rgba(50,40,18,0.62) 0%, rgba(20,16,8,0.78) 100%);
@@ -662,21 +690,33 @@
 .s3TeamLogoBox {
   display: flex; align-items: center; justify-content: center;
 }
-.s3TeamBody { min-width: 0; }
-.s3TeamTop {
-  display: flex; align-items: center; gap: 9px;
-  margin-bottom: 4px;
+/* Identity column: team abbrev stacked above contender pill so the
+   horizontal grid stays compact even with long contender labels. */
+.s3TeamIdentity {
+  display: flex; flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
-.s3TeamAbbrev { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: 0.5px; }
+.s3TeamAbbrev { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: 0.5px; line-height: 1.0; }
 .s3TeamLabel {
   display: inline-block;
   font-size: 11px; font-weight: 900; letter-spacing: 1.1px;
   padding: 3px 9px; border-radius: 6px;
   background: rgba(212,175,55,0.28); color: var(--nba-gold-bright);
   text-transform: uppercase;
+  align-self: flex-start;
 }
-.s3TeamRationale { font-size: 14px; font-weight: 600; color: #cfc6b3; line-height: 1.38; }
-.s3TeamRight { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+/* Market block aligned right — odds + seed badge stacked. */
+.s3MarketBlock { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+/* Rationale lives BELOW the top line — full card width, line-clamped
+   to 2 lines (or 1 in compact mode). */
+.s3Rationale {
+  font-size: 14px; font-weight: 600; color: #cfc6b3; line-height: 1.38;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .s3TeamOdds {
   font-size: 26px; font-weight: 900;
   color: #fff;

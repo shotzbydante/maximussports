@@ -56,8 +56,6 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
 
   const east = payload.playoffOutlook?.east || [];
   const west = payload.playoffOutlook?.west || [];
-  const eastAlsoAlive = payload.playoffOutlook?.eastAlsoAlive || [];
-  const westAlsoAlive = payload.playoffOutlook?.westAlsoAlive || [];
   const round = payload.nbaPlayoffContext?.round || 'Round 1';
 
   return (
@@ -94,13 +92,14 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
             <span>🧭</span><span>EASTERN CONFERENCE</span>
           </div>
           <div className={styles.s3TeamList}>
-            {east.slice(0, 5).map((t, i) => (
-              <ConfRow key={t.slug} rank={i + 1} team={t} />
+            {/* Audit Part 4: show ALL active teams. Audit Part 6: when
+                more than 5 teams are still alive in a conference, switch
+                to compact mode (smaller logos, single-line rationale) so
+                the slide remains readable without dropping any team. */}
+            {east.map((t, i) => (
+              <ConfRow key={t.slug} rank={i + 1} team={t} compact={east.length > 5} />
             ))}
           </div>
-          {eastAlsoAlive.length > 0 && (
-            <AlsoAliveStrip teams={eastAlsoAlive} />
-          )}
         </div>
 
         <div className={styles.s3ConfCard}>
@@ -108,13 +107,10 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
             <span>🌅</span><span>WESTERN CONFERENCE</span>
           </div>
           <div className={styles.s3TeamList}>
-            {west.slice(0, 5).map((t, i) => (
-              <ConfRow key={t.slug} rank={i + 1} team={t} />
+            {west.map((t, i) => (
+              <ConfRow key={t.slug} rank={i + 1} team={t} compact={west.length > 5} />
             ))}
           </div>
-          {westAlsoAlive.length > 0 && (
-            <AlsoAliveStrip teams={westAlsoAlive} />
-          )}
         </div>
       </div>
 
@@ -128,54 +124,43 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
   );
 }
 
-function ConfRow({ rank, team }) {
-  // Top-seed emphasis: rank #1 in either conference card gets a stronger
-  // gold border + subtle glow via data attribute (CSS handles the styling).
+/**
+ * ConfRow — single contender card. Audit Part 5 layout:
+ *   Top line:   rank | logo | abbrev + contender pill | odds + seed
+ *   Below:      rationale (clamped 2 lines, or 1 in compact mode)
+ *
+ * `compact` mode kicks in when a conference has more than 5 active
+ * teams (audit Part 6). Compact rows shrink padding + logo + clamp
+ * rationale to a single line so 6-8 teams remain readable.
+ */
+function ConfRow({ rank, team, compact = false }) {
   const isTopSeed = rank === 1 || team.seed === 1;
-  // Audit Part 6: every card gets a prominent seed badge, not the
-  // dim gray sub-text. Falls back to "—" when seed isn't published yet
-  // so the badge stays visible and aligned across all rows.
+  // Audit Part 6: every card gets a prominent seed badge. Falls back
+  // to "—" when seed isn't published so the badge stays aligned.
   const seedDisplay = team.seed != null ? `#${team.seed} seed` : '—';
+  const logoSize = compact ? 36 : 50;
   return (
-    <div className={styles.s3TeamRow} data-top-seed={isTopSeed ? 'true' : 'false'}>
-      <div className={styles.s3TeamRank}>{rank}</div>
-      <div className={styles.s3TeamLogoBox}>
-        <Logo slug={team.slug} size={50} backplate abbrev={team.abbrev} />
-      </div>
-      <div className={styles.s3TeamBody}>
-        <div className={styles.s3TeamTop}>
+    <div
+      className={`${styles.s3TeamRow} ${compact ? styles.s3TeamRowCompact : ''}`}
+      data-top-seed={isTopSeed ? 'true' : 'false'}
+    >
+      <div className={styles.s3TeamTopLine}>
+        <div className={styles.s3TeamRank}>{rank}</div>
+        <div className={styles.s3TeamLogoBox}>
+          <Logo slug={team.slug} size={logoSize} backplate abbrev={team.abbrev} />
+        </div>
+        <div className={styles.s3TeamIdentity}>
           <span className={styles.s3TeamAbbrev}>{team.abbrev}</span>
           <span className={styles.s3TeamLabel}>{team.label}</span>
         </div>
-        <div className={styles.s3TeamRationale}>{team.rationale}</div>
+        <div className={styles.s3MarketBlock}>
+          <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
+          <div className={styles.s3SeedBadge}>{seedDisplay}</div>
+        </div>
       </div>
-      <div className={styles.s3TeamRight}>
-        <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
-        <div className={styles.s3SeedBadge}>{seedDisplay}</div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Compact "Also alive" strip — surfaces remaining active teams beyond
- * the top-5 cards (audit Part 8). Each entry shows just a logo + abbrev
- * so the user can see EVERY surviving team somewhere on the slide.
- */
-function AlsoAliveStrip({ teams }) {
-  if (!teams || teams.length === 0) return null;
-  return (
-    <div className={styles.s3AlsoAlive}>
-      <div className={styles.s3AlsoAliveLabel}>Also alive</div>
-      <div className={styles.s3AlsoAliveRow}>
-        {teams.map(t => (
-          <div key={t.slug} className={styles.s3AlsoAliveChip}>
-            <Logo slug={t.slug} size={22} abbrev={t.abbrev} />
-            <span className={styles.s3AlsoAliveAbbrev}>{t.abbrev}</span>
-            {t.seed != null && <span className={styles.s3AlsoAliveSeed}>#{t.seed}</span>}
-          </div>
-        ))}
-      </div>
+      {team.rationale && (
+        <div className={styles.s3Rationale}>{team.rationale}</div>
+      )}
     </div>
   );
 }
