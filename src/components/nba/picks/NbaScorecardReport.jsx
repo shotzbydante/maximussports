@@ -205,24 +205,31 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
     );
   }
 
-  // No graded slate anywhere in lookback → render a tight "awaiting"
-  // tile rather than re-listing today's pending picks (those already
-  // show in the Today's Picks board on Home, and on /insights the
-  // pending-only state is also clearer than a misleading 0–0 record).
+  // Render based on the server-resolved dataMode (tri-state):
+  //   • graded_with_rows      → full report (header, chips, takeaway, rows)
+  //   • graded_aggregate_only → header, chips, takeaway + "details unavailable"
+  //   • no_graded_history     → "Awaiting first graded slate" / "Today's slate pending"
   //
-  // HARD INVARIANT: if the selected slate has zero graded picks, never
-  // show it as a graded scorecard — regardless of selectedReason. This
-  // is the UI-side safety net for any server bug or stale cache that
-  // returns "graded fallback" with all-pending rows.
+  // HARD INVARIANT (UI safety net): if dataMode is missing for any reason
+  // and totals.graded === 0 with no aggregate scorecard, fall back to the
+  // pending state — never let a 0-graded slate render as graded.
   const apiGraded = data?.totals?.graded ?? 0;
   const apiPending = data?.totals?.pending ?? 0;
-  const noGradedSlate = data?.selectedReason === 'no_graded_slate'
-    || apiGraded === 0
-    || (!data?.scorecard && !(data?.picks?.length));
+  const aggregateGraded = data?.scorecard?.overall
+    ? ((data.scorecard.overall.won ?? 0) + (data.scorecard.overall.lost ?? 0) + (data.scorecard.overall.push ?? 0))
+    : 0;
+  const dataMode = data?.dataMode
+    || (apiGraded > 0 ? 'graded_with_rows'
+        : aggregateGraded > 0 ? 'graded_aggregate_only'
+        : 'no_graded_history');
+  const aggregateOnly = dataMode === 'graded_aggregate_only';
+  const noGradedSlate = dataMode === 'no_graded_history';
+
   if (noGradedSlate) {
-    if (apiGraded === 0 && data?.selectedReason && data?.selectedReason !== 'no_graded_slate') {
+    if (apiGraded === 0 && aggregateGraded === 0 && data?.selectedReason
+        && data.selectedReason !== 'no_graded_slate') {
       // eslint-disable-next-line no-console
-      console.warn('[NbaScorecardReport] invariant: server returned %s with 0 graded — rendering awaiting state',
+      console.warn('[NbaScorecardReport] invariant: server returned %s with no graded data — rendering awaiting state',
         data.selectedReason);
     }
     const pendingForNote = apiPending || data?.diagnostics?.todayPendingCount || 0;
@@ -346,7 +353,11 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
       )}
 
       {/* Per-pick report */}
-      {displayPicks.length > 0 ? (
+      {aggregateOnly ? (
+        <p className={styles.noPicks}>
+          Detailed pick-by-pick results are unavailable for this slate. The summary above reflects the persisted scorecard.
+        </p>
+      ) : displayPicks.length > 0 ? (
         <div className={styles.picksList}>
           {!isCompact && (
             <div className={styles.picksHeader}>
