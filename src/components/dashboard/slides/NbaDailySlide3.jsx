@@ -121,11 +121,14 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
 }
 
 function ConfRow({ rank, team }) {
+  // Top-seed emphasis: rank #1 in either conference card gets a stronger
+  // gold border + subtle glow via data attribute (CSS handles the styling).
+  const isTopSeed = rank === 1 || team.seed === 1;
   return (
-    <div className={styles.s3TeamRow}>
+    <div className={styles.s3TeamRow} data-top-seed={isTopSeed ? 'true' : 'false'}>
       <div className={styles.s3TeamRank}>{rank}</div>
       <div className={styles.s3TeamLogoBox}>
-        <Logo slug={team.slug} size={40} backplate abbrev={team.abbrev} />
+        <Logo slug={team.slug} size={44} backplate abbrev={team.abbrev} />
       </div>
       <div className={styles.s3TeamBody}>
         <div className={styles.s3TeamTop}>

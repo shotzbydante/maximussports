@@ -85,7 +85,9 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
     ...(cats.leans   || []).map(p => ({ ...p, _cat: 'Lean' })),
   ].sort((a, b) => (b.betScore?.total ?? b.confidenceScore ?? 0) - (a.betScore?.total ?? a.confidenceScore ?? 0)).slice(0, 3);
 
-  // Leaders — top 3 per category w/ team logos
+  // Leaders — top 3 per category w/ team logos.
+  // Source diagnostic so we can see in the console whether the source is
+  // fresh ESPN, KV cache, or empty (matches the autopost diagnostic shape).
   const leadersRaw = payload.nbaLeaders?.categories || {};
   const leaderCards = LEADER_CATEGORIES.map(cat => {
     const leaders = (leadersRaw[cat.key]?.leaders || []).slice(0, 3).map(l => {
@@ -99,6 +101,15 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
     });
     return { key: cat.key, abbrev: cat.abbrev, leaders };
   });
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[NBA_LEADERS_SOURCE]', {
+      source: payload.nbaLeaders?._source || 'unknown',
+      categoryKeys: Object.keys(leadersRaw),
+      perCategoryCount: leaderCards.map(c => `${c.abbrev}:${c.leaders.length}`),
+      anyMissing: leaderCards.some(c => c.leaders.length === 0),
+    });
+  }
 
   return (
     <div className={styles.s2} data-slide="2" {...rest}>
@@ -187,24 +198,37 @@ export default function NbaDailySlide2({ data, asOf: _a, slideNumber: _s, slideT
           <span>🏆</span><span>SEASON LEADERS</span>
         </div>
         <div className={styles.s2LeadersGrid}>
-          {leaderCards.map(cat => (
-            <div key={cat.key} className={styles.s2LeaderCat}>
-              <div className={styles.s2LeaderCatLabel}>{cat.abbrev}</div>
-              {cat.leaders.length === 0 ? (
-                <div className={styles.s2LeaderName}>—</div>
-              ) : (
-                cat.leaders.map((l, i) => (
-                  <div key={i} className={styles.s2LeaderRow}>
-                    <div className={styles.s2LeaderTopRow}>
-                      {l.slug && <Logo slug={l.slug} size={16} abbrev={l.teamAbbrev} />}
-                      <span className={styles.s2LeaderName}>{l.name}</span>
-                    </div>
-                    <div className={styles.s2LeaderValue}>{l.value}</div>
+          {leaderCards.map((cat, i) => {
+            // Row 1 (PPG/APG/RPG) spans 2 cols; Row 2 (SPG/BPG) spans 3 cols.
+            // Together each row uses 6 cols → matches grid-template-columns: repeat(6, 1fr).
+            const rowClass = i < 3 ? styles.s2LeaderCatRow1 : styles.s2LeaderCatRow2;
+            return (
+              <div key={cat.key} className={`${styles.s2LeaderCat} ${rowClass}`}>
+                <div className={styles.s2LeaderCatLabel}>{cat.abbrev}</div>
+                {cat.leaders.length === 0 ? (
+                  <div className={styles.s2LeaderRow} style={{ gridTemplateColumns: '1fr' }}>
+                    <span className={styles.s2LeaderName} style={{ color: '#a7a29a', textAlign: 'center' }}>
+                      Awaiting feed
+                    </span>
                   </div>
-                ))
-              )}
-            </div>
-          ))}
+                ) : (
+                  cat.leaders.map((l, idx) => (
+                    <div key={idx} className={styles.s2LeaderRow}>
+                      <span className={styles.s2LeaderRank}>{idx + 1}</span>
+                      {l.slug
+                        ? <Logo slug={l.slug} size={18} abbrev={l.teamAbbrev} />
+                        : <span style={{ width: 18, display: 'inline-block' }} />}
+                      <span>
+                        <span className={styles.s2LeaderName}>{l.name}</span>
+                        {l.teamAbbrev && <span className={styles.s2LeaderTeam}>{l.teamAbbrev}</span>}
+                      </span>
+                      <span className={styles.s2LeaderValue}>{l.value}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
