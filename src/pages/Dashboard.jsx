@@ -409,11 +409,12 @@ export default function Dashboard() {
     Promise.all([
       fetch('/api/nba/picks/built').then(r => r.ok ? r.json() : { categories: {} }).catch(() => ({ categories: {} })),
       fetch('/api/nba/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
-      // NEW: 7-day playoff schedule window — feeds real game results into
+      // 14-day playoff schedule window — feeds real game results into
       // playoffContext so series state isn't computed from static bracket
-      // 0-0 placeholders. Fixes the "OKC vs Play-In Winner — series tied
-      // 0-0, pivot game up next" bug.
-      fetch('/api/nba/playoff-window?daysBack=7&daysForward=1').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
+      // 0-0 placeholders. 14 days covers full Round 1 (Apr 18 → May 4).
+      // Earlier 7-day window missed Games 1-2 of series and produced
+      // wrong scores like "HOU lead 2-1" instead of "LAL lead 3-2".
+      fetch('/api/nba/playoff-window?daysBack=14&daysForward=1').then(r => r.ok ? r.json() : { games: [] }).catch(() => ({ games: [] })),
       fetch('/api/nba/odds/championship').then(r => r.ok ? r.json() : { odds: {} }).catch(() => ({ odds: {} })),
       fetch('/api/nba/standings').then(r => r.ok ? r.json() : { teams: {} }).catch(() => ({ teams: {} })),
       // POSTSEASON leaders during the playoffs (was: regular season).

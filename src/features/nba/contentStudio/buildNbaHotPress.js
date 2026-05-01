@@ -2,180 +2,252 @@
  * buildNbaHotPress — "Hot Off The Press" bullet builder for NBA Daily
  * Briefing. PLAYOFF-AWARE.
  *
- * Priority order (per Part 4 of the data-accuracy audit):
- *   1. Series-clinching results in the last 24-48hr
- *      → "Timberwolves beat Nuggets to win the series 4-2."
- *   2. Elimination games today
- *      → "Lakers lead Rockets 3-2 entering Game 6 tonight."
- *   3. Major upset / road steal / underdog series lead
- *   4. Today's pivot games (Game 2/3 with active series)
- *   5. Other current playoff storylines (close games, blowouts)
- *   6. Upcoming neutral games (last resort, only when other slots empty)
+ * Series importance scoring (Phase B audit Part 3):
+ *   isClincher          120
+ *   isComplete          100   (recent series wrap)
+ *   isGameSeven          95
+ *   isElimination        90   (next game can end the series)
+ *   isCloseoutGame       85   (leader has 3, but not necessarily today)
+ *   isUpset              75
+ *   isSwingGame          65   (1-1 / 2-2 with active next game)
+ *   has recent final     50
+ *   has next game        30
  *
- * STRICT EXCLUSIONS (this is the data-accuracy fix):
- *   - Stale "series tied 0-0" placeholders for matchups with NO finals
- *     AND NO upcoming game in the schedule window. Phase 4 of the data
- *     audit calls this out explicitly: don't show OKC-PlayInWinner as a
- *     "pivot game up next" when no game has been played and no game is
- *     scheduled in the window.
- *   - Completed series shown as "upcoming"
- *   - Finals older than 48hr unless they remain narrative-relevant via
- *     isClincher
+ * The score is computed per series candidate and used to RANK rather
+ * than the previous priority constants. Bullets are then formatted
+ * with playoff-aware narrative templates (audit Part 4):
+ *   Clincher  : "Timberwolves eliminate Nuggets 4-2 — a major Round 1 surprise."
+ *   Closeout  : "Lakers lead Rockets 3-2 entering Game 6 — L.A. can close the series tonight."
+ *   Game 7    : "Celtics and 76ers are tied 3-3 — Game 7 decides the series."
+ *   Swing     : "Cavaliers and Raptors are tied 1-1 — Game 3 swings the series."
+ *   Upset     : "Hawks lead Knicks 2-1 — the lower seed has flipped home-court pressure."
  *
- * Empty array signals true no-slate; caption/autopost layers handle
- * that explicitly.
+ * Strict exclusions:
+ *   - isStalePlaceholder series (no game signal in window)
+ *   - completed series older than 48hr (the clincher narrative ages out)
+ *   - 0-0 placeholder bullets unless Game 1 is genuinely upcoming
  */
 
 import { extractGameStories, teamName, seriesTagLower, findSecondStory } from './buildNbaDailyHeadline.js';
+import { NBA_TEAMS } from '../../../sports/nba/teams.js';
 
-function bulletForStory(s) {
-  const w = teamName(s.winSlug);
-  const l = teamName(s.loseSlug);
-  const score = `${s.winScore}-${s.loseScore}`;
-  const tag = seriesTagLower(s);
+const MAX_BULLETS = 4;
+const CLINCHER_FRESHNESS_MS = 48 * 60 * 60 * 1000;
 
-  if (s.isSweep) return `${w} sweep ${l} ${score}${tag}.`;
-  if (s.isGame7Win) return `${w} win Game 7 over ${l} ${score} and advance.`;
-  if (s.isClinch) return `${w} close out ${l} ${score}${tag}.`;
-  if (s.isElimWin) return `${w} beat ${l} ${score}${tag} — one win from closing out.`;
-  if (s.isUpset) return `${w} pull the upset over ${l} ${score}${tag}.`;
-  if (s.isStolenRoadWin && s.winSeriesWins >= s.loseSeriesWins) {
+function nameOf(slug) {
+  if (!slug) return '???';
+  const t = NBA_TEAMS.find(t => t.slug === slug);
+  if (!t) return slug.toUpperCase();
+  if (/Trail Blazers$/i.test(t.name)) return 'Trail Blazers';
+  return t.name.split(' ').slice(-1)[0];
+}
+
+/** Score a series for HOTP ranking — Phase B audit Part 3 spec. */
+function scoreSeriesEvent(s) {
+  if (!s || s.isStalePlaceholder) return 0;
+  let score = 0;
+  if (s.isClincher) score += 120;
+  if (s.isComplete) score += 100;
+  if (s.isGameSeven) score += 95;
+  if (s.isElimination) score += 90;
+  if (s.isCloseoutGame) score += 85;
+  if (s.isUpset) score += 75;
+  if (s.isSwingGame) score += 65;
+  if (s.mostRecentGame) score += 50;
+  if (s.nextGame) score += 30;
+  return score;
+}
+
+// ── Narrative templates ─────────────────────────────────────────────
+
+function clincherText(s) {
+  const winner = s.winnerSlug === s.topTeam?.slug ? s.topTeam : s.bottomTeam;
+  const loser = s.winnerSlug === s.topTeam?.slug ? s.bottomTeam : s.topTeam;
+  if (!winner || !loser) return null;
+  const winnerName = winner.name || winner.abbrev;
+  const loserName = loser.name || loser.abbrev;
+  const winsW = Math.max(s.seriesScore?.top ?? 0, s.seriesScore?.bottom ?? 0);
+  const winsL = Math.min(s.seriesScore?.top ?? 0, s.seriesScore?.bottom ?? 0);
+  const verb = s.isUpset ? 'eliminate' : 'beat';
+  const tag = s.isUpset ? ' — a major Round 1 surprise.' : '.';
+  return `${winnerName} ${verb} ${loserName} ${winsW}-${winsL}${tag}`;
+}
+
+function gameSevenText(s) {
+  const a = s.topTeam?.abbrev || s.topTeam?.slug?.toUpperCase();
+  const b = s.bottomTeam?.abbrev || s.bottomTeam?.slug?.toUpperCase();
+  if (!a || !b) return null;
+  const aName = nameOf(s.topTeam?.slug);
+  const bName = nameOf(s.bottomTeam?.slug);
+  return `${aName} and ${bName} are tied ${s.seriesScore.top}-${s.seriesScore.bottom} — Game 7 decides the series.`;
+}
+
+function closeoutText(s) {
+  const ts = s.seriesScore?.top ?? 0;
+  const bs = s.seriesScore?.bottom ?? 0;
+  const leader = ts >= bs ? s.topTeam : s.bottomTeam;
+  const trailer = ts >= bs ? s.bottomTeam : s.topTeam;
+  if (!leader || !trailer) return null;
+  const leaderName = nameOf(leader.slug);
+  const trailerName = nameOf(trailer.slug);
+  const lead = Math.max(ts, bs);
+  const trail = Math.min(ts, bs);
+  const gameNum = s.nextGameNumber || (ts + bs + 1);
+  // City-style short name e.g. "L.A." for the closeout phrasing
+  const leaderCity = teamCity(leader.slug) || leaderName;
+  return `${leaderName} lead ${trailerName} ${lead}-${trail} entering Game ${gameNum} — ${leaderCity} can close the series tonight.`;
+}
+
+function eliminationText(s) {
+  const ts = s.seriesScore?.top ?? 0;
+  const bs = s.seriesScore?.bottom ?? 0;
+  const leader = ts >= bs ? s.topTeam : s.bottomTeam;
+  const trailer = ts >= bs ? s.bottomTeam : s.topTeam;
+  if (!leader || !trailer) return null;
+  const leaderName = nameOf(leader.slug);
+  const trailerName = nameOf(trailer.slug);
+  const gameNum = s.nextGameNumber || (ts + bs + 1);
+  return `${leaderName} lead ${trailerName} ${Math.max(ts, bs)}-${Math.min(ts, bs)} entering Game ${gameNum} — closeout chance.`;
+}
+
+function swingText(s) {
+  const a = nameOf(s.topTeam?.slug);
+  const b = nameOf(s.bottomTeam?.slug);
+  const tied = s.seriesScore?.top ?? 0;
+  const gameNum = s.nextGameNumber || (tied * 2 + 1);
+  return `${a} and ${b} are tied ${tied}-${tied} — Game ${gameNum} swings the series.`;
+}
+
+function upsetText(s) {
+  const ts = s.seriesScore?.top ?? 0;
+  const bs = s.seriesScore?.bottom ?? 0;
+  const leader = ts >= bs ? s.topTeam : s.bottomTeam;
+  const trailer = ts >= bs ? s.bottomTeam : s.topTeam;
+  if (!leader || !trailer) return null;
+  const leaderName = nameOf(leader.slug);
+  const trailerName = nameOf(trailer.slug);
+  const lead = Math.max(ts, bs);
+  const trail = Math.min(ts, bs);
+  return `${leaderName} lead ${trailerName} ${lead}-${trail} — the lower seed has flipped home-court pressure.`;
+}
+
+function activeSeriesText(s) {
+  const ts = s.seriesScore?.top ?? 0;
+  const bs = s.seriesScore?.bottom ?? 0;
+  const a = nameOf(s.topTeam?.slug);
+  const b = nameOf(s.bottomTeam?.slug);
+  const gameNum = s.nextGameNumber || (ts + bs + 1);
+
+  if (ts > bs) return `${a} lead ${b} ${ts}-${bs} entering Game ${gameNum}.`;
+  if (bs > ts) return `${b} lead ${a} ${bs}-${ts} entering Game ${gameNum}.`;
+  if ((ts + bs) === 0 && s.nextGame) return `${a} and ${b} open the series tonight.`;
+  return null;
+}
+
+function teamCity(slug) {
+  if (!slug) return null;
+  const t = NBA_TEAMS.find(t => t.slug === slug);
+  if (!t) return null;
+  // Conventional city short tag for closeout copy
+  const cityMap = {
+    lal: 'L.A.', lac: 'L.A.', gsw: 'Golden State', sf: 'Bay Area',
+    bos: 'Boston', nyk: 'New York', bkn: 'Brooklyn', phi: 'Philly',
+    mia: 'Miami', orl: 'Orlando', atl: 'Atlanta', cha: 'Charlotte',
+    det: 'Detroit', cle: 'Cleveland', mil: 'Milwaukee', chi: 'Chicago', ind: 'Indiana',
+    tor: 'Toronto', was: 'D.C.',
+    okc: 'OKC', hou: 'Houston', sas: 'San Antonio', dal: 'Dallas', mem: 'Memphis', nop: 'New Orleans',
+    den: 'Denver', min: 'Minnesota', uta: 'Utah', por: 'Portland', sac: 'Sacramento',
+    phx: 'Phoenix',
+  };
+  return cityMap[slug] || null;
+}
+
+// ── Bullet builder by event type ────────────────────────────────────
+
+function bulletForSeries(s, score) {
+  const isFreshClincher = s.isClincher && s.mostRecentGameTs &&
+    (Date.now() - s.mostRecentGameTs) <= CLINCHER_FRESHNESS_MS;
+
+  let text = null;
+  let _source = 'series';
+
+  if (isFreshClincher) {
+    text = clincherText(s);
+    _source = 'clincher';
+  } else if (s.isGameSeven) {
+    text = gameSevenText(s);
+    _source = 'game7';
+  } else if (s.isCloseoutGame && s.isElimination && s.nextGame) {
+    text = closeoutText(s);
+    _source = 'closeout';
+  } else if (s.isElimination && s.nextGame) {
+    text = eliminationText(s);
+    _source = 'elimination';
+  } else if (s.isUpset && !s.isComplete) {
+    text = upsetText(s);
+    _source = 'upset';
+  } else if (s.isSwingGame) {
+    text = swingText(s);
+    _source = 'swing';
+  } else if (!s.isComplete) {
+    text = activeSeriesText(s);
+    _source = 'active_series';
+  } else if (s.isComplete) {
+    // Past clincher (>48hr) — surface as "team awaits next opponent"
+    const winner = s.winnerSlug === s.topTeam?.slug ? s.topTeam : s.bottomTeam;
+    if (winner) {
+      text = `${nameOf(winner.slug)} await their next opponent.`;
+      _source = 'awaiting';
+    }
+  }
+
+  if (!text) return null;
+  return {
+    text,
+    logoSlug: pickLogoSlug(s, _source),
+    source: _source,
+    _score: score,
+  };
+}
+
+function pickLogoSlug(s, source) {
+  if (source === 'clincher') return s.winnerSlug;
+  if (source === 'awaiting') return s.winnerSlug;
+  if (source === 'closeout' || source === 'elimination') {
+    const ts = s.seriesScore?.top ?? 0;
+    const bs = s.seriesScore?.bottom ?? 0;
+    return ts >= bs ? s.topTeam?.slug : s.bottomTeam?.slug;
+  }
+  if (source === 'upset') {
+    const ts = s.seriesScore?.top ?? 0;
+    const bs = s.seriesScore?.bottom ?? 0;
+    return ts >= bs ? s.topTeam?.slug : s.bottomTeam?.slug;
+  }
+  return s.topTeam?.slug || s.bottomTeam?.slug;
+}
+
+// ── Game-story bullets (close/blowout/individual finals) ────────────
+
+function bulletForGameStory(story) {
+  const w = teamName(story.winSlug);
+  const l = teamName(story.loseSlug);
+  const score = `${story.winScore}-${story.loseScore}`;
+  const tag = seriesTagLower(story);
+  if (story.isSweep) return `${w} sweep ${l} ${score}${tag}.`;
+  if (story.isGame7Win) return `${w} win Game 7 over ${l} ${score} and advance.`;
+  if (story.isClinch) return `${w} close out ${l} ${score}${tag}.`;
+  if (story.isElimWin) return `${w} beat ${l} ${score}${tag} — one win from closing out.`;
+  if (story.isUpset) return `${w} pull the upset over ${l} ${score}${tag}.`;
+  if (story.isStolenRoadWin && story.winSeriesWins >= story.loseSeriesWins) {
     return `${w} steal one on the road from ${l} ${score}${tag}.`;
   }
-  if (s.type === 'blowout') return `${w} roll past ${l} ${score}${tag}.`;
-  if (s.type === 'close') return `${w} edge ${l} ${score}${tag}.`;
+  if (story.type === 'blowout') return `${w} roll past ${l} ${score}${tag}.`;
+  if (story.type === 'close') return `${w} edge ${l} ${score}${tag}.`;
   return `${w} beat ${l} ${score}${tag}.`;
 }
 
-/**
- * Build bullets describing CLINCHED series (priority #1).
- *
- * Reads playoffContext.completedSeries; the most-recent clincher in the
- * last 48hr is surfaced first. Each completed series renders as a single
- * bullet (we don't repeat the clinching game AND the series result).
- */
-function clincherBullets(playoffContext) {
-  const completed = (playoffContext?.completedSeries || [])
-    .filter(s => s.isClincher && s.mostRecentGameTs)
-    .sort((a, b) => (b.mostRecentGameTs || 0) - (a.mostRecentGameTs || 0));
+// ── Last-resort filler ──────────────────────────────────────────────
 
-  return completed.map(s => {
-    const winnerSide = s.winnerSlug === s.topTeam?.slug ? s.topTeam : s.bottomTeam;
-    const loserSide  = s.winnerSlug === s.topTeam?.slug ? s.bottomTeam : s.topTeam;
-    if (!winnerSide || !loserSide) return null;
-    const w = winnerSide.name || winnerSide.abbrev;
-    const l = loserSide.name || loserSide.abbrev;
-    const ts = s.seriesScore?.top ?? 0;
-    const bs = s.seriesScore?.bottom ?? 0;
-    const winsW = Math.max(ts, bs);
-    const winsL = Math.min(ts, bs);
-    const verb = s.isUpset ? 'eliminate' : 'beat';
-    const upsetTag = s.isUpset ? ' — a major Round 1 surprise' : '';
-    return {
-      text: `${w} ${verb} ${l} to win the series ${winsW}-${winsL}${upsetTag}.`,
-      logoSlug: winnerSide.slug || null,
-      _priority: 100,
-      _source: 'clincher',
-    };
-  }).filter(Boolean);
-}
-
-/**
- * Build bullets for elimination games scheduled TODAY (priority #2).
- */
-function eliminationTodayBullets(playoffContext) {
-  const elim = (playoffContext?.eliminationGames || [])
-    .filter(s => s.nextGame && !s.isComplete);
-
-  return elim.map(s => {
-    const leader  = s.eliminationFor === 'top' ? s.bottomTeam : s.topTeam;
-    const trailer = s.eliminationFor === 'top' ? s.topTeam : s.bottomTeam;
-    if (!leader || !trailer) return null;
-    const ts = s.seriesScore?.top ?? 0;
-    const bs = s.seriesScore?.bottom ?? 0;
-    const lead = Math.max(ts, bs);
-    const trail = Math.min(ts, bs);
-    const gameNum = s.nextGameNumber || (ts + bs + 1);
-    return {
-      text: `${leader.name || leader.abbrev} lead ${trailer.name || trailer.abbrev} ${lead}-${trail} entering Game ${gameNum} tonight — closeout chance.`,
-      logoSlug: leader.slug || null,
-      _priority: 90,
-      _source: 'elimination',
-    };
-  }).filter(Boolean);
-}
-
-/**
- * Active upset / underdog-series-lead bullets (priority #3).
- */
-function upsetBullets(playoffContext, excludeMatchupIds) {
-  return (playoffContext?.upsetWatch || [])
-    .filter(s => !s.isComplete && !excludeMatchupIds.has(s.matchupId))
-    .map(s => {
-      const leader = s.leader === 'top' ? s.topTeam : s.bottomTeam;
-      const trailer = s.leader === 'top' ? s.bottomTeam : s.topTeam;
-      if (!leader || !trailer) return null;
-      return {
-        text: `${leader.name || leader.abbrev} (${leader.seed}) lead ${trailer.name || trailer.abbrev} (${trailer.seed}) — ${s.seriesScore.summary}.`,
-        logoSlug: leader.slug || null,
-        _priority: 75,
-        _source: 'upset',
-      };
-    })
-    .filter(Boolean);
-}
-
-/**
- * Pivot-game / active-series-with-real-state bullets (priority #4-5).
- *
- * EXCLUDES isStalePlaceholder series (the "0-0 with no schedule" rows
- * that caused the user-reported bug).
- */
-function activeSeriesBullets(playoffContext, excludeMatchupIds) {
-  return (playoffContext?.series || [])
-    .filter(s => !s.isStalePlaceholder)
-    .filter(s => !s.isComplete)
-    .filter(s => !excludeMatchupIds.has(s.matchupId))
-    .map(s => {
-      const ts = s.seriesScore?.top ?? 0;
-      const bs = s.seriesScore?.bottom ?? 0;
-      const a = s.topTeam;
-      const b = s.bottomTeam;
-      if (!a || !b) return null;
-      const aName = a.name || a.abbrev;
-      const bName = b.name || b.abbrev;
-      const gameNum = s.nextGameNumber || (ts + bs + 1);
-
-      let text;
-      let logoSlug;
-      let priority = 50;
-      if (ts > bs) {
-        text = `${aName} lead ${bName} ${ts}-${bs} entering Game ${gameNum}.`;
-        logoSlug = a.slug;
-      } else if (bs > ts) {
-        text = `${bName} lead ${aName} ${bs}-${ts} entering Game ${gameNum}.`;
-        logoSlug = b.slug;
-      } else if (ts === bs && (ts + bs) > 0) {
-        // Series tied with games played — pivot game framing
-        text = `${aName} and ${bName} tied ${ts}-${bs} — Game ${gameNum} swings the series.`;
-        logoSlug = a.slug;
-        priority = 65;
-      } else {
-        // ts === bs === 0 BUT we have a scheduled next game (otherwise
-        // isStalePlaceholder would be true). This is "Game 1 tonight".
-        text = `${aName} and ${bName} open the series tonight.`;
-        logoSlug = a.slug;
-        priority = 40;
-      }
-
-      return { text, logoSlug, _priority: priority, _source: 'active_series' };
-    })
-    .filter(Boolean);
-}
-
-/**
- * Last-resort filler: upcoming non-playoff-tracked games today.
- */
 function neutralUpcomingBullets(liveGames, excludeSlugs) {
   return (liveGames || [])
     .filter(g => g?.status === 'upcoming' && !g?.gameState?.isFinal && !g?.gameState?.isLive)
@@ -190,43 +262,10 @@ function neutralUpcomingBullets(liveGames, excludeSlugs) {
       return {
         text: `${home.name || home.abbrev} host ${away.name || away.abbrev} tonight.`,
         logoSlug: home.slug || null,
-        _priority: 20,
-        _source: 'neutral_upcoming',
+        source: 'neutral_upcoming',
+        _score: 20,
       };
     });
-}
-
-/**
- * Result-driven bullets from raw final-game stories (when story-priority
- * info is richer than the per-series rollup, e.g. blowouts/close finishes
- * that don't trip the clincher/elim filters).
- */
-function gameStoryBullets(liveGames, playoffContext, excludeMatchupIds) {
-  const stories = extractGameStories(liveGames, playoffContext);
-  const out = [];
-  const usedIds = new Set();
-
-  function add(s) {
-    if (!s || usedIds.has(s.gameId)) return;
-    if (excludeMatchupIds.has(s.series?.matchupId)) return;
-    out.push({
-      text: bulletForStory(s),
-      logoSlug: s.winSlug,
-      _priority: s.priority || 50,
-      _source: 'story',
-    });
-    usedIds.add(s.gameId);
-  }
-
-  if (stories.length === 0) return out;
-  add(stories[0]);
-  const second = findSecondStory(stories, stories[0]);
-  if (second) add(second);
-  for (const s of stories) {
-    if (out.length >= 4) break;
-    add(s);
-  }
-  return out;
 }
 
 /**
@@ -235,72 +274,62 @@ function gameStoryBullets(liveGames, playoffContext, excludeMatchupIds) {
  * @param {object} opts
  * @param {Array}  opts.liveGames
  * @param {object} [opts.playoffContext]
- * @returns {Array<{ text, logoSlug }>}  up to 4 bullets, priority-ranked
+ * @returns {Array<{ text, logoSlug, source }>}  up to 4 bullets, score-ranked
  */
 export function buildNbaHotPress({ liveGames = [], playoffContext = null } = {}) {
-  const all = [];
-  const excludeMatchups = new Set();
+  const candidates = [];
   const excludeSlugs = new Set();
 
-  // ── Priority 1: clinchers ──
-  for (const b of clincherBullets(playoffContext)) {
-    all.push(b);
-    // We don't know the matchupId on the bullet (we don't carry it
-    // through the bullet contract for back-compat), so use logoSlug as
-    // a proxy to avoid double-billing the same team in lower priorities.
-    if (b.logoSlug) excludeSlugs.add(b.logoSlug);
+  // ── Series-driven candidates (every active non-stale series gets scored) ──
+  const seriesList = (playoffContext?.series || []).filter(s => !s.isStalePlaceholder);
+  for (const s of seriesList) {
+    const score = scoreSeriesEvent(s);
+    if (score === 0) continue;
+    // For completed series older than 48hr, suppress unless really fresh
+    const isStale = s.isComplete && s.mostRecentGameTs &&
+      (Date.now() - s.mostRecentGameTs) > CLINCHER_FRESHNESS_MS;
+    if (isStale) continue;
+    const bullet = bulletForSeries(s, score);
+    if (bullet) candidates.push(bullet);
   }
 
-  // ── Priority 2: elimination today ──
-  for (const b of eliminationTodayBullets(playoffContext)) {
-    if (b.logoSlug && excludeSlugs.has(b.logoSlug)) continue;
-    all.push(b);
-    if (b.logoSlug) excludeSlugs.add(b.logoSlug);
+  // ── Game-story candidates (individual final-game narratives) ──
+  // These complement series-level bullets when there's a notably close
+  // or blowout result that the series rollup doesn't surface.
+  const stories = extractGameStories(liveGames, playoffContext);
+  const usedGameIds = new Set();
+  for (const story of stories) {
+    if (usedGameIds.has(story.gameId)) continue;
+    usedGameIds.add(story.gameId);
+    candidates.push({
+      text: bulletForGameStory(story),
+      logoSlug: story.winSlug,
+      source: 'game_story',
+      _score: story.priority || 40,
+    });
   }
 
-  // Build matchup-id exclusion set from active-series view of the same
-  // collections we've already covered, so per-series bullets don't
-  // duplicate the elim/upset framing.
-  const eliminatedIds = (playoffContext?.eliminationGames || []).map(s => s.matchupId);
-  const upsetIds = (playoffContext?.upsetWatch || []).map(s => s.matchupId);
-  for (const id of eliminatedIds) excludeMatchups.add(id);
-
-  // ── Priority 3: upsets ──
-  for (const b of upsetBullets(playoffContext, excludeMatchups)) {
-    if (b.logoSlug && excludeSlugs.has(b.logoSlug)) continue;
-    all.push(b);
-    if (b.logoSlug) excludeSlugs.add(b.logoSlug);
-  }
-  for (const id of upsetIds) excludeMatchups.add(id);
-
-  // ── Priority 4-5: active series + game stories ──
-  for (const b of gameStoryBullets(liveGames, playoffContext, excludeMatchups)) {
-    if (b.logoSlug && excludeSlugs.has(b.logoSlug)) continue;
-    all.push(b);
-    if (b.logoSlug) excludeSlugs.add(b.logoSlug);
-  }
-  for (const b of activeSeriesBullets(playoffContext, excludeMatchups)) {
-    if (b.logoSlug && excludeSlugs.has(b.logoSlug)) continue;
-    all.push(b);
-    if (b.logoSlug) excludeSlugs.add(b.logoSlug);
+  // ── Neutral upcoming filler (only if we're starved) ──
+  if (candidates.length < MAX_BULLETS) {
+    const filler = neutralUpcomingBullets(liveGames, excludeSlugs);
+    candidates.push(...filler);
   }
 
-  // ── Priority 6: neutral upcoming (last resort) ──
-  if (all.length < 4) {
-    for (const b of neutralUpcomingBullets(liveGames, excludeSlugs)) {
-      if (all.length >= 4) break;
-      all.push(b);
-      if (b.logoSlug) excludeSlugs.add(b.logoSlug);
-    }
+  // ── Rank, dedupe by team slug, take top N ──
+  candidates.sort((a, b) => (b._score || 0) - (a._score || 0));
+
+  const final = [];
+  const used = new Set();
+  for (const c of candidates) {
+    if (final.length >= MAX_BULLETS) break;
+    // Don't repeat the same team across consecutive HOTP slots
+    if (c.logoSlug && used.has(c.logoSlug)) continue;
+    final.push({ text: c.text, logoSlug: c.logoSlug, source: c.source });
+    if (c.logoSlug) used.add(c.logoSlug);
   }
 
-  // Sort by priority desc, take up to 4, strip internals
-  all.sort((a, b) => (b._priority || 0) - (a._priority || 0));
-  return all.slice(0, 4).map(({ text, logoSlug, _source }) => ({
-    text,
-    logoSlug,
-    source: _source,
-  }));
+  return final;
 }
 
 export default buildNbaHotPress;
+export { scoreSeriesEvent };

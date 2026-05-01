@@ -33,7 +33,7 @@ async function fetchSlideData() {
   // season leaders.
   const [gamesRes, windowRes, picksRes, oddsRes, leadersRes, standingsRes, newsRes] = await Promise.allSettled([
     fetch('/api/nba/live/games?status=all').then(r => r.ok ? r.json() : { games: [] }),
-    fetch('/api/nba/playoff-window?daysBack=7&daysForward=1').then(r => r.ok ? r.json() : { games: [] }),
+    fetch('/api/nba/playoff-window?daysBack=14&daysForward=1').then(r => r.ok ? r.json() : { games: [] }),
     fetch('/api/nba/picks/built').then(r => r.ok ? r.json() : { categories: {} }),
     fetch('/api/nba/odds/championship').then(r => r.ok ? r.json() : { odds: {} }),
     fetch('/api/nba/leaders?seasonType=postseason').then(r => r.ok ? r.json() : { categories: {} }),

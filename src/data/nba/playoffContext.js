@@ -250,6 +250,16 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
   const next = findNextGameInWindow(slugA, slugB, allGames);
   const nextGameNumber = next ? gamesPlayed + 1 : null;
 
+  // ── New series flags (Phase B: data-accuracy upgrade) ───────────
+  //   isCloseoutGame:     not complete + leading team has 3 wins
+  //                       (a single win away from clinching the series)
+  //   isGameSeven:        the next scheduled game would be Game 7
+  //   isSwingGame:        series tied 1-1 or 2-2; next game tilts the
+  //                       series leverage decisively
+  const isCloseoutGame = !isComplete && (top === 3 || bottom === 3);
+  const isGameSeven = !isComplete && nextGameNumber === 7;
+  const isSwingGame = !isComplete && top === bottom && (top === 1 || top === 2) && !!next;
+
   // Stale placeholder detection: bracket has both teams resolved but no
   // games (final OR scheduled) reference this matchup. This covers the
   // "Round 1 OKC vs Play-In Winner — series tied 0-0, pivot game up next"
@@ -279,6 +289,34 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
     isPlaceholder: !!matchup.bottomTeam.isPlaceholder,
   } : null;
 
+  // ── Diagnostic log per series ───────────────────────────────────
+  // Emits the EXACT games counted into the series score so future
+  // wrong-score bugs (e.g. "HOU lead 2-1" when truth is "LAL lead 3-2")
+  // are diagnosable straight from the browser/server console without
+  // needing to instrument the failing run.
+  if (typeof console !== 'undefined' && (top + bottom) > 0) {
+    const aAbbr = matchup.topTeam?.shortName || matchup.topTeam?.abbrev || matchup.topTeam?.slug?.toUpperCase() || '???';
+    const bAbbr = matchup.bottomTeam?.shortName || matchup.bottomTeam?.abbrev || matchup.bottomTeam?.slug?.toUpperCase() || '???';
+    console.log('[NBA_SERIES_DEBUG]', JSON.stringify({
+      matchup: `${aAbbr} vs ${bAbbr}`,
+      countedGames: games.map(g => ({
+        id: g.gameId,
+        date: g.gameDate,
+        winner: g.winnerSlug,
+        loser: g.loserSlug,
+        score: `${g.winScore}-${g.loseScore}`,
+      })),
+      winsA: top,
+      winsB: bottom,
+      leader: leader === 'top' ? aAbbr : leader === 'bottom' ? bAbbr : 'tied',
+      isComplete,
+      isClincher: !!isClincher,
+      isCloseoutGame,
+      isGameSeven,
+      isSwingGame,
+    }));
+  }
+
   return {
     matchupId: matchup.matchupId,
     conference: matchup.conference,
@@ -302,6 +340,9 @@ function enrichMatchup(matchup, finalGames, allGames = []) {
     winnerSlug,
     loserSlug,
     isClincher: !!isClincher,
+    isCloseoutGame,
+    isGameSeven,
+    isSwingGame,
     mostRecentGame: mostRecent,
     mostRecentGameTs,
     nextGame: next,

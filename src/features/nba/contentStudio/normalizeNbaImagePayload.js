@@ -192,6 +192,56 @@ function buildTeamRationale(card) {
   return `${abbrev} a deep-bracket flier at current championship odds.`;
 }
 
+/**
+ * Filter the picks board so picks for completed-series matchups are
+ * dropped. Audit Part 7: the picks engine doesn't know about series
+ * state and may surface a Game-N pick after a series has already been
+ * clinched (e.g. Lakers/Rockets Game 7 pick after the series ended in 6).
+ *
+ * Only filters when we have an active playoff context with at least one
+ * completed series. Regular-season picks pass through untouched.
+ */
+function filterPicksForCompletedSeries(rawPicks, playoffContext) {
+  if (!rawPicks?.categories) return rawPicks;
+  if (!playoffContext?.completedSeries?.length) return rawPicks;
+
+  // Build a Set of {slugA-slugB} pairs that have completed.
+  const completedPairs = new Set();
+  for (const s of playoffContext.completedSeries) {
+    const a = s.topTeam?.slug;
+    const b = s.bottomTeam?.slug;
+    if (a && b) {
+      completedPairs.add(`${a}|${b}`);
+      completedPairs.add(`${b}|${a}`);
+    }
+  }
+  if (completedPairs.size === 0) return rawPicks;
+
+  function pickInvolvesCompletedSeries(p) {
+    const a = p.matchup?.awayTeam?.slug;
+    const h = p.matchup?.homeTeam?.slug;
+    if (!a || !h) return false;
+    return completedPairs.has(`${a}|${h}`);
+  }
+
+  const cats = rawPicks.categories;
+  const filtered = {};
+  let droppedCount = 0;
+  for (const [k, list] of Object.entries(cats)) {
+    if (!Array.isArray(list)) { filtered[k] = list; continue; }
+    const kept = list.filter(p => !pickInvolvesCompletedSeries(p));
+    droppedCount += list.length - kept.length;
+    filtered[k] = kept;
+  }
+  if (droppedCount > 0) {
+    console.log('[NBA_PICKS_FILTERED_COMPLETED_SERIES]', {
+      droppedCount,
+      completedPairs: Array.from(completedPairs).slice(0, 5),
+    });
+  }
+  return { ...rawPicks, categories: filtered };
+}
+
 // ── Section builders ──────────────────────────────────────────────────────
 
 function buildDailyPayload({ base, playoffContext, liveGames, champOdds, standings }) {
@@ -256,7 +306,7 @@ export function normalizeNbaImagePayload({
   nbaPicks = null,
   nbaGames = [],
   nbaLiveGames = [],
-  /** Multi-day ESPN scoreboard window (last ~7 days + today + tomorrow).
+  /** Multi-day ESPN scoreboard window (last ~14 days + today + tomorrow).
    *  Threaded through to playoffContext so series state reflects real
    *  finals, not just static bracket placeholders. */
   nbaWindowGames = null,
@@ -273,6 +323,13 @@ export function normalizeNbaImagePayload({
   const playoffContext = nbaPlayoffContext
     || buildNbaPlayoffContext({ liveGames: nbaLiveGames, windowGames: nbaWindowGames });
 
+  // ── Picks filter: exclude completed-series picks ──
+  // When a series is decided (one team has 4 wins), we shouldn't surface
+  // picks for hypothetical further games in that matchup. The picks
+  // engine doesn't know about series state, so we apply that filter here
+  // and replace `nbaPicks` for downstream consumers.
+  const filteredPicks = filterPicksForCompletedSeries(nbaPicks, playoffContext);
+
   const base = {
     workspace: 'nba',
     sport: 'nba',
@@ -286,8 +343,8 @@ export function normalizeNbaImagePayload({
 
   // Canonical data spread into every section (same contract as MLB)
   const canonicalData = {
-    nbaPicks:           nbaPicks ?? null,
-    canonicalPicks:     nbaPicks ?? null,
+    nbaPicks:           filteredPicks ?? null,
+    canonicalPicks:     filteredPicks ?? null,
     nbaLeaders:         nbaLeaders ?? null,
     nbaStandings:       nbaStandings ?? null,
     nbaChampOdds:       nbaChampOdds ?? null,
