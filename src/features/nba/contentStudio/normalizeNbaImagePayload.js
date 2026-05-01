@@ -77,32 +77,111 @@ function classifyContender(prob) {
 }
 
 /**
+ * Detect a play-in game from a normalized scoreboard event. Mirrors
+ * api/_lib/nbaBoxScoreLeaders.js#isPlayInGame but lives here so the
+ * client-side normalizer (which can't import from api/_lib) has its
+ * own copy. We only need a quick text-based check at this layer.
+ */
+function isPlayInGameClientSide(g) {
+  if (!g) return false;
+  const blob = [
+    g?.notes,
+    g?.competitions?.[0]?.notes,
+    g?.competitions?.[0]?.series?.type,
+    g?.competitions?.[0]?.series?.title,
+    g?.season?.slug,
+    g?.season?.displayName,
+    g?.week?.text,
+  ]
+    .map(v => {
+      if (!v) return '';
+      if (typeof v === 'string') return v;
+      if (Array.isArray(v)) return v.map(n => (typeof n === 'string' ? n : (n?.headline || n?.text || ''))).join(' ');
+      return '';
+    })
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (!blob) return false;
+  return /play[\s-]*in\b/.test(blob);
+}
+
+/**
+ * Walk all completed playoff games (excluding play-in) and derive the
+ * active team set directly from real game results — no dependency on
+ * the static bracket's placeholder slots. This catches the case where
+ * the bracket lists `BOS vs (Play-In Winner)` but BOS has actually
+ * played 4 real games against PHI: the bracket-anchored series is
+ * marked stale, but the games speak for themselves.
+ *
+ * Counts wins per (sortedSlug-pair) → if any team has ≥4 wins in a
+ * pair, that side is active and the opponent is eliminated. Any pair
+ * with <4 wins both sides means an in-progress series — both teams
+ * stay active.
+ */
+function deriveActiveFromGames(allGames) {
+  const active = new Set();
+  const eliminated = new Set();
+  if (!Array.isArray(allGames) || allGames.length === 0) return { active, eliminated };
+
+  // Group by (slugA, slugB) pair (sorted for stable key) and count
+  // wins per side from completed playoff games (excluding play-in).
+  const pairs = new Map();
+  for (const g of allGames) {
+    const isFinal = g?.gameState?.isFinal || g?.status === 'final';
+    if (!isFinal) continue;
+    if (isPlayInGameClientSide(g)) continue;
+    const a = g?.teams?.away;
+    const h = g?.teams?.home;
+    if (!a?.slug || !h?.slug) continue;
+    const aScore = Number(a.score ?? 0);
+    const hScore = Number(h.score ?? 0);
+    if (aScore === 0 && hScore === 0) continue;
+    const winner = aScore > hScore ? a.slug : h.slug;
+    const key = [a.slug, h.slug].sort().join('|');
+    if (!pairs.has(key)) pairs.set(key, {});
+    const counts = pairs.get(key);
+    counts[winner] = (counts[winner] || 0) + 1;
+  }
+
+  for (const [key, counts] of pairs) {
+    const [slug1, slug2] = key.split('|');
+    const w1 = counts[slug1] || 0;
+    const w2 = counts[slug2] || 0;
+    if (w1 >= 4) { active.add(slug1); eliminated.add(slug2); }
+    else if (w2 >= 4) { active.add(slug2); eliminated.add(slug1); }
+    else {
+      // In-progress series — both teams alive
+      active.add(slug1);
+      active.add(slug2);
+    }
+  }
+  return { active, eliminated };
+}
+
+/**
  * Compute the set of teams that are STILL ALIVE in the playoffs.
  *
- * Audit Part 5 — cross-round derivation:
- *   - Active = teams in incomplete series  + winners of completed
- *     series (any round, including Round-1 winners who have advanced
- *     to Round 2)
- *   - Eliminated = losers of any completed series
- *   - Eliminated wins ties: a team that won R1 but lost R2 is
- *     eliminated, not active.
+ * UNION of two sources:
+ *   1. Bracket-anchored derivation from playoffContext.allSeries
+ *      (uses static bracket, captures Round-1 winners awaiting R2
+ *      via the scaffold)
+ *   2. Game-data derivation from raw scoreboard events (catches
+ *      teams whose bracket entry has unresolved play-in placeholders
+ *      — e.g. BOS vs tbd("Play-In Winner") still shows BOS as active
+ *      once BOS plays real games)
  *
- * Reads from `playoffContext.allSeries` (cross-round, no stale rows).
- * Falls back to `playoffContext.series` for back-compat if a caller
- * passes an older context shape.
- *
- * When no playoff data exists yet (preseason / R1 G1 pending) we
- * leave both sets empty so the outlook builder treats it as "no
- * filtering" and shows every team.
+ * Eliminated wins ties across BOTH sources: a team that lost any
+ * series is excluded.
  */
-function computeActivePlayoffTeams(playoffContext) {
+function computeActivePlayoffTeams(playoffContext, rawGames = []) {
   const activeSlugs = new Set();
   const eliminatedSlugs = new Set();
 
+  // Source 1: bracket-anchored series
   const seriesPool = playoffContext?.allSeries
     || playoffContext?.series
     || [];
-
   for (const s of seriesPool) {
     if (s.isStalePlaceholder) continue;
     if (s.isComplete) {
@@ -114,14 +193,29 @@ function computeActivePlayoffTeams(playoffContext) {
     }
   }
 
+  // Source 2: real game data (catches BOS/OKC/SAS-style cases where
+  // the bracket has placeholder opponents but actual playoff games
+  // have been played). Use rawGames if available, otherwise any
+  // games stored on playoffContext.
+  const gamePool = rawGames.length > 0
+    ? rawGames
+    : (playoffContext?.todayGames || []).concat(playoffContext?.recentFinals || []);
+  const fromGames = deriveActiveFromGames(gamePool);
+  for (const slug of fromGames.active) activeSlugs.add(slug);
+  for (const slug of fromGames.eliminated) eliminatedSlugs.add(slug);
+
   // Eliminated wins ties — strip out any team that ever lost a series.
-  // (E.g. a hypothetical R1 winner who then lost R2 should not appear
-  // active even though they were a winner of an earlier series.)
   for (const slug of eliminatedSlugs) {
     activeSlugs.delete(slug);
   }
 
-  // Audit Part 5 diagnostic — visible from a single console line.
+  // Audit diagnostic — visible from a single console line.
+  console.log('[NBA_ACTIVE_TEAMS_FINAL]', JSON.stringify({
+    activeTeams: [...activeSlugs],
+    eliminatedTeams: [...eliminatedSlugs],
+    bracketDerivedSeriesCount: seriesPool.filter(s => !s.isStalePlaceholder).length,
+    gameDerivedPairsCount: gamePool.length > 0 ? fromGames.active.size + fromGames.eliminated.size : 0,
+  }));
   console.log('[NBA_ACTIVE_PLAYOFF_TEAM_DERIVATION]', JSON.stringify({
     activeTeams: [...activeSlugs],
     eliminatedTeams: [...eliminatedSlugs],
@@ -172,8 +266,8 @@ function americanToImplied(odds) {
  *   Cards include `team, abbrev, seed, odds, oddsRaw, prob, label,
  *   rationale, liveSeries`.
  */
-function buildPlayoffOutlook({ champOdds, standings, playoffContext }) {
-  const { activeSlugs, eliminatedSlugs } = computeActivePlayoffTeams(playoffContext);
+function buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames = [] }) {
+  const { activeSlugs, eliminatedSlugs } = computeActivePlayoffTeams(playoffContext, rawGames);
   const hasAnyContext = activeSlugs.size > 0 || eliminatedSlugs.size > 0;
 
   const conf = { Eastern: [], Western: [] };
@@ -362,10 +456,14 @@ function filterPicksForCompletedSeries(rawPicks, playoffContext) {
 
 // ── Section builders ──────────────────────────────────────────────────────
 
-function buildDailyPayload({ base, playoffContext, liveGames, champOdds, standings }) {
+function buildDailyPayload({ base, playoffContext, liveGames, windowGames, champOdds, standings }) {
   const hl = buildNbaDailyHeadline({ liveGames, playoffContext });
   const hotPress = buildNbaHotPress({ liveGames, playoffContext });
-  const playoffOutlook = buildPlayoffOutlook({ champOdds, standings, playoffContext });
+  // Pass the full game window into the outlook builder so the active-
+  // team derivation can use real-game data when the static bracket has
+  // unresolved play-in placeholders (e.g. BOS vs tbd("Play-In Winner")).
+  const rawGames = [...(windowGames || []), ...(liveGames || [])];
+  const playoffOutlook = buildPlayoffOutlook({ champOdds, standings, playoffContext, rawGames });
 
   return {
     ...base,
@@ -482,6 +580,7 @@ export function normalizeNbaImagePayload({
           base,
           playoffContext,
           liveGames: nbaLiveGames,
+          windowGames: nbaWindowGames,
           champOdds: nbaChampOdds,
           standings: nbaStandings,
         }),

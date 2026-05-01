@@ -40,8 +40,15 @@ import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 const SUMMARY_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary';
 const FETCH_TIMEOUT_MS = 6000;
 const MAX_PARALLEL_GAMES = 30;
-const MIN_GAMES_FOR_LEADER = 2;
-const RELAXED_MIN_GAMES = 1; // when there are fewer than 4 total games, drop the floor
+// Audit Part 1: stricter threshold to drop low-sample outliers. A
+// player with one 40-pt game from a single playoff appearance should
+// NOT lead the postseason board. The audit explicitly asked for ≥3.
+const MIN_GAMES_PLAYED = 3;
+// When the entire window has fewer than 6 games (very early Round 1),
+// fall back to ≥2 — otherwise the leaderboard would be empty for the
+// first 24-48 hours of the playoffs. We never go below 2.
+const RELAXED_MIN_GAMES = 2;
+const RELAXED_THRESHOLD_TOTAL_GAMES = 6;
 
 const espnIdToSlug = {};
 for (const [slug, eid] of Object.entries(NBA_ESPN_IDS)) espnIdToSlug[String(eid)] = slug;
@@ -221,19 +228,19 @@ async function fetchOneSummary(gameId) {
 
 /**
  * Pick the top N players by absolute total of `srcKey`.
- * Audit Part 3: leaders are sorted by total descending, integer values.
+ * Audit Part 1: leaders sorted by total desc, integers, with
+ * MIN_GAMES_PLAYED gate so a single-game outlier can't lead.
  */
 function topByTotal(playerMap, srcKey, totalGameCount, n = 3) {
-  const minGames = totalGameCount < 4 ? RELAXED_MIN_GAMES : MIN_GAMES_FOR_LEADER;
+  const minGames = totalGameCount < RELAXED_THRESHOLD_TOTAL_GAMES
+    ? RELAXED_MIN_GAMES
+    : MIN_GAMES_PLAYED;
   return Object.values(playerMap)
     .filter(p => p.gamesPlayed >= minGames)
     .filter(p => p[srcKey] > 0)
     .sort((a, b) => {
-      // Primary: total descending. Tiebreaker: fewer games (more
-      // efficient) — keeps the leaderboard from rewarding pure volume
-      // when two players have identical totals.
       if (b[srcKey] !== a[srcKey]) return b[srcKey] - a[srcKey];
-      return a.gamesPlayed - b.gamesPlayed;
+      return a.gamesPlayed - b.gamesPlayed; // tiebreaker: fewer games
     })
     .slice(0, n)
     .map(p => ({
@@ -323,6 +330,24 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
   const playerCount = Object.keys(playerMap).length;
   console.log(`[nbaBoxScoreLeaders] parsed ${parsedGames}/${games.length} summaries, ${playerCount} unique players`);
   if (playerCount === 0) return null;
+
+  // Audit Part 1: emit before/after counts for the MIN_GAMES_PLAYED
+  // filter so the leaderboard's quality is auditable from a single
+  // console line. `filteredOutLowGames` = players we dropped because
+  // they didn't reach the games-played floor.
+  const minGamesUsed = parsedGames < RELAXED_THRESHOLD_TOTAL_GAMES
+    ? RELAXED_MIN_GAMES
+    : MIN_GAMES_PLAYED;
+  const playersBefore = playerCount;
+  const playersAfter = Object.values(playerMap).filter(p => p.gamesPlayed >= minGamesUsed).length;
+  console.log('[NBA_LEADER_FILTER_DEBUG]', JSON.stringify({
+    playersBefore,
+    playersAfter,
+    minGamesUsed,
+    parsedGames,
+    filteredOutLowGames: playersBefore - playersAfter,
+    filteredOutPlayIn: excludedPlayInGames.length,
+  }));
 
   // Map category accumulator-key → canonical leader key
   const SRC_TO_KEY = {
