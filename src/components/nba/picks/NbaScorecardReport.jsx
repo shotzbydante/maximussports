@@ -168,10 +168,16 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
 
   useEffect(() => {
     let cancelled = false;
-    const url = dateOverride
+    // 1-minute cache-buster bucket — keeps results responsive to mid-day
+    // pending → graded transitions while still allowing edge re-use within
+    // the bucket. Combined with the endpoint's 30s s-maxage this prevents
+    // stale "Most Recent Graded Slate · …" headlines from sticking.
+    const bucket = Math.floor(Date.now() / 60000);
+    const base = dateOverride
       ? `/api/nba/picks/scorecard?includePicks=1&date=${dateOverride}`
       : '/api/nba/picks/scorecard?includePicks=1';
-    fetch(url)
+    const url = `${base}&t=${bucket}`;
+    fetch(url, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setData(d || null); })
       .catch(() => { if (!cancelled) setData(null); })
@@ -203,26 +209,44 @@ export default function NbaScorecardReport({ dateOverride, variant = 'full', ins
   // tile rather than re-listing today's pending picks (those already
   // show in the Today's Picks board on Home, and on /insights the
   // pending-only state is also clearer than a misleading 0–0 record).
+  //
+  // HARD INVARIANT: if the selected slate has zero graded picks, never
+  // show it as a graded scorecard — regardless of selectedReason. This
+  // is the UI-side safety net for any server bug or stale cache that
+  // returns "graded fallback" with all-pending rows.
+  const apiGraded = data?.totals?.graded ?? 0;
+  const apiPending = data?.totals?.pending ?? 0;
   const noGradedSlate = data?.selectedReason === 'no_graded_slate'
+    || apiGraded === 0
     || (!data?.scorecard && !(data?.picks?.length));
   if (noGradedSlate) {
+    if (apiGraded === 0 && data?.selectedReason && data?.selectedReason !== 'no_graded_slate') {
+      // eslint-disable-next-line no-console
+      console.warn('[NbaScorecardReport] invariant: server returned %s with 0 graded — rendering awaiting state',
+        data.selectedReason);
+    }
+    const pendingForNote = apiPending || data?.diagnostics?.todayPendingCount || 0;
     return (
       <section className={`${styles.section} ${isCompact ? styles.sectionCompact : ''}`}>
         <div className={styles.headerStrip}>
           <div className={styles.headerLeft}>
             <span className={styles.eyebrow}>Model Performance</span>
             <h2 className={styles.title}>How Maximus&rsquo;s Picks Are Performing</h2>
-            <span className={styles.slateDate}>Awaiting first graded slate</span>
+            <span className={styles.slateDate}>
+              {pendingForNote > 0 ? "Today's slate pending" : 'Awaiting first graded slate'}
+            </span>
           </div>
         </div>
         <p className={styles.takeaway + ' ' + styles.takeaway_neutral}>
           <span className={styles.takeawayKicker}>Tracking</span>
-          Scorecard tracking begins after the first graded slate. Today&rsquo;s picks are listed in the picks board below; results post here once games go final.
+          {pendingForNote > 0
+            ? `Today's picks are live (${pendingForNote} pick${pendingForNote === 1 ? '' : 's'}) and will grade after final scores post. Results will appear here once games go final.`
+            : "Scorecard tracking begins after the first graded slate. Today's picks are listed in the picks board below; results post here once games go final."}
         </p>
         {isCompact && (
           <div className={styles.compactCtaRow}>
             <a href={insightsHref} className={styles.compactCta}>
-              View full scorecard &rarr;
+              View today&rsquo;s picks &rarr;
             </a>
           </div>
         )}
