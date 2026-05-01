@@ -268,6 +268,18 @@ function dailyCaption(payload) {
   }
   parts.push('');
 
+  // ── 5.5. WATCH TONIGHT ──
+  // Audit Part 9: surface today's most-anticipated playoff games with
+  // their elimination/closeout context. Cap at 3 items so the caption
+  // doesn't get unwieldy. Skip the section entirely when there are no
+  // active games today (e.g. travel days between Game 5 and Game 6).
+  const watchTonight = buildWatchTonight(payload);
+  if (watchTonight.length > 0) {
+    parts.push('👀 Watch tonight:');
+    for (const line of watchTonight) parts.push(`▸ ${line}`);
+    parts.push('');
+  }
+
   // ── 6. POSTSEASON LEADERS ──
   // PPG / APG / RPG / SPG / BPG, top 1 each (compact for IG caption).
   // Renders "Postseason leader feed updating" inline if no categories
@@ -315,6 +327,67 @@ const EAST_SLUGS_FOR_TITLE_PATH = new Set([
 ]);
 function isEastSlug(slug) {
   return slug ? EAST_SLUGS_FOR_TITLE_PATH.has(slug) : false;
+}
+
+/**
+ * Build the "Watch tonight" caption section.
+ *
+ * Sources today's scheduled games from playoffContext.todayGames and
+ * pairs each with its series state (closeout / elimination / G7).
+ * Returns up to 3 strings ranked by leverage (closeout/G7 first, then
+ * pivot/swing). Returns [] when there's nothing to watch tonight.
+ *
+ * Examples:
+ *   "LAL vs HOU — Game 6, Houston faces elimination"
+ *   "CLE vs TOR — Game 6, Toronto faces elimination"
+ *   "BOS vs PHI — Game 7 decides the series"
+ */
+function buildWatchTonight(payload) {
+  const pc = payload.nbaPlayoffContext;
+  const today = pc?.todayGames || [];
+  const series = pc?.series || [];
+  if (today.length === 0) return [];
+
+  const lines = [];
+  for (const g of today) {
+    const a = g?.teams?.away;
+    const h = g?.teams?.home;
+    if (!a?.slug || !h?.slug) continue;
+
+    // Find the series this game belongs to
+    const ser = series.find(s => {
+      const top = s.topTeam?.slug;
+      const btm = s.bottomTeam?.slug;
+      return (top === a.slug && btm === h.slug) || (top === h.slug && btm === a.slug);
+    });
+
+    const aAbbr = a.abbrev || a.slug?.toUpperCase();
+    const hAbbr = h.abbrev || h.slug?.toUpperCase();
+    const matchup = `${aAbbr} vs ${hAbbr}`;
+    const gameNum = ser?.nextGameNumber || (ser ? (ser.gamesPlayed + 1) : null);
+    const gameTag = gameNum ? `Game ${gameNum}` : 'Tonight';
+
+    let stake = '';
+    if (ser?.isGameSeven) {
+      stake = ', winner takes the series';
+    } else if (ser?.isElimination && ser.eliminationFor) {
+      const trailer = ser.eliminationFor === 'top' ? ser.topTeam : ser.bottomTeam;
+      const trailerName = trailer?.name?.split(' ').pop() || trailer?.abbrev;
+      stake = `, ${trailerName} faces elimination`;
+    } else if (ser?.isSwingGame) {
+      stake = ', series swings tonight';
+    } else if (ser?.gamesPlayed === 0) {
+      stake = ', series tips off tonight';
+    }
+
+    lines.push({
+      text: `${matchup} — ${gameTag}${stake}`,
+      _priority: ser?.isGameSeven ? 100 : (ser?.isElimination ? 90 : (ser?.isSwingGame ? 60 : 30)),
+    });
+  }
+
+  lines.sort((x, y) => (y._priority || 0) - (x._priority || 0));
+  return lines.slice(0, 3).map(l => l.text);
 }
 
 // ── Dynamic hashtag builder ───────────────────────────────────────────────

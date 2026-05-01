@@ -79,25 +79,24 @@ function clincherText(s) {
   const winsW = Math.max(s.seriesScore?.top ?? 0, s.seriesScore?.bottom ?? 0);
   const winsL = Math.min(s.seriesScore?.top ?? 0, s.seriesScore?.bottom ?? 0);
   const conf = s.conference === 'Western' ? 'West' : s.conference === 'Eastern' ? 'East' : null;
+  const bracketTag = conf ? `${conf} bracket` : 'bracket';
 
-  if (s.isUpset && winsL <= 1) {
-    // Sweep or 4-1 upset — strongest market reaction
-    return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — ${conf ? `${conf} bracket flips` : 'bracket flips'} and a major upset ticket cashes.`;
-  }
   if (s.isUpset) {
-    return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — ${conf ? `${conf} bracket reshuffles` : 'bracket reshuffles'} and the upset reprices the title path.`;
+    // Lower seed eliminates the higher seed — single, plain-English line
+    // that lands the upset stake without forced betting jargon.
+    return `🚨 ${winnerName} finish ${loserName} ${winsW}–${winsL} — a major Round 1 upset that reshapes the ${bracketTag}.`;
   }
   if (winsL === 0) {
-    return `🚨 ${winnerName} sweep ${loserName} ${winsW}–${winsL} — sitting on rest and momentum while the rest of the bracket grinds.`;
+    return `🚨 ${winnerName} sweep ${loserName} ${winsW}–${winsL} — full week of rest while the rest of the ${bracketTag} keeps grinding.`;
   }
-  return `🚨 ${winnerName} eliminate ${loserName} ${winsW}–${winsL} — series is over and ${winnerName} await the next round.`;
+  return `🚨 ${winnerName} eliminate ${loserName} ${winsW}–${winsL} — series done, ${winnerName} advance and shift the title path.`;
 }
 
 function gameSevenText(s) {
   if (!s.topTeam || !s.bottomTeam) return null;
   const aName = nameOf(s.topTeam?.slug);
   const bName = nameOf(s.bottomTeam?.slug);
-  return `⚔️ ${aName}–${bName} goes the distance — Game 7 decides the series and the market's next title-path shakeup.`;
+  return `⚔️ ${aName}–${bName} go the distance — Game 7 decides the series and shakes the title path.`;
 }
 
 function closeoutText(s) {
@@ -111,8 +110,7 @@ function closeoutText(s) {
   const lead = Math.max(ts, bs);
   const trail = Math.min(ts, bs);
   const gameNum = s.nextGameNumber || (ts + bs + 1);
-  const leaderCity = teamCity(leaderTeam.slug) || leaderName;
-  return `🔥 ${leaderName} lead ${trailerName} ${lead}–${trail} entering Game ${gameNum} — ${leaderCity} gets the first closeout shot, with ${trailerName}'s season on the line.`;
+  return `🔥 ${leaderName} lead ${trailerName} ${lead}–${trail} entering Game ${gameNum} — ${trailerName}'s season is on the line tonight.`;
 }
 
 function eliminationText(s) {
@@ -124,7 +122,7 @@ function eliminationText(s) {
   const leaderName = nameOf(leaderTeam.slug);
   const trailerName = nameOf(trailerTeam.slug);
   const gameNum = s.nextGameNumber || (ts + bs + 1);
-  return `🔥 ${trailerName} face elimination — ${leaderName} lead ${Math.max(ts, bs)}–${Math.min(ts, bs)} entering Game ${gameNum}, market tightening on the favorite.`;
+  return `🔥 ${trailerName} face elimination — ${leaderName} lead ${Math.max(ts, bs)}–${Math.min(ts, bs)} entering Game ${gameNum}, win-or-go-home tonight.`;
 }
 
 function swingText(s) {
@@ -133,7 +131,7 @@ function swingText(s) {
   const b = nameOf(s.bottomTeam?.slug);
   const tied = s.seriesScore?.top ?? 0;
   const gameNum = s.nextGameNumber || (tied * 2 + 1);
-  return `📈 ${a}–${b} hits Game ${gameNum} tied ${tied}–${tied} — winner grabs series control and pricing leverage.`;
+  return `📈 ${a}–${b} hit Game ${gameNum} tied ${tied}–${tied} — winner grabs series control and pricing leverage.`;
 }
 
 function upsetText(s) {

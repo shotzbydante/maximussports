@@ -56,6 +56,8 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
 
   const east = payload.playoffOutlook?.east || [];
   const west = payload.playoffOutlook?.west || [];
+  const eastAlsoAlive = payload.playoffOutlook?.eastAlsoAlive || [];
+  const westAlsoAlive = payload.playoffOutlook?.westAlsoAlive || [];
   const round = payload.nbaPlayoffContext?.round || 'Round 1';
 
   return (
@@ -96,6 +98,9 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
               <ConfRow key={t.slug} rank={i + 1} team={t} />
             ))}
           </div>
+          {eastAlsoAlive.length > 0 && (
+            <AlsoAliveStrip teams={eastAlsoAlive} />
+          )}
         </div>
 
         <div className={styles.s3ConfCard}>
@@ -107,6 +112,9 @@ export default function NbaDailySlide3({ data, asOf: _a, slideNumber: _s, slideT
               <ConfRow key={t.slug} rank={i + 1} team={t} />
             ))}
           </div>
+          {westAlsoAlive.length > 0 && (
+            <AlsoAliveStrip teams={westAlsoAlive} />
+          )}
         </div>
       </div>
 
@@ -124,6 +132,10 @@ function ConfRow({ rank, team }) {
   // Top-seed emphasis: rank #1 in either conference card gets a stronger
   // gold border + subtle glow via data attribute (CSS handles the styling).
   const isTopSeed = rank === 1 || team.seed === 1;
+  // Audit Part 6: every card gets a prominent seed badge, not the
+  // dim gray sub-text. Falls back to "—" when seed isn't published yet
+  // so the badge stays visible and aligned across all rows.
+  const seedDisplay = team.seed != null ? `#${team.seed} seed` : '—';
   return (
     <div className={styles.s3TeamRow} data-top-seed={isTopSeed ? 'true' : 'false'}>
       <div className={styles.s3TeamRank}>{rank}</div>
@@ -139,7 +151,30 @@ function ConfRow({ rank, team }) {
       </div>
       <div className={styles.s3TeamRight}>
         <div className={styles.s3TeamOdds}>🏆 {team.odds}</div>
-        {team.seed && <div className={styles.s3TeamSeed}>#{team.seed} seed</div>}
+        <div className={styles.s3SeedBadge}>{seedDisplay}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Compact "Also alive" strip — surfaces remaining active teams beyond
+ * the top-5 cards (audit Part 8). Each entry shows just a logo + abbrev
+ * so the user can see EVERY surviving team somewhere on the slide.
+ */
+function AlsoAliveStrip({ teams }) {
+  if (!teams || teams.length === 0) return null;
+  return (
+    <div className={styles.s3AlsoAlive}>
+      <div className={styles.s3AlsoAliveLabel}>Also alive</div>
+      <div className={styles.s3AlsoAliveRow}>
+        {teams.map(t => (
+          <div key={t.slug} className={styles.s3AlsoAliveChip}>
+            <Logo slug={t.slug} size={22} abbrev={t.abbrev} />
+            <span className={styles.s3AlsoAliveAbbrev}>{t.abbrev}</span>
+            {t.seed != null && <span className={styles.s3AlsoAliveSeed}>#{t.seed}</span>}
+          </div>
+        ))}
       </div>
     </div>
   );

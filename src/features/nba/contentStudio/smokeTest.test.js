@@ -264,10 +264,15 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(Array.isArray(payload.bullets)).toBe(true);
     expect(payload.bullets.length).toBeGreaterThanOrEqual(3);
 
-    // Playoff outlook: top 5 East + top 5 West
+    // Playoff outlook: top 5 East + top 5 West (or fewer if the
+    // active-team filter excluded eliminated teams in the fixture).
+    // Audit Part 4 explicitly removed eliminated teams; this test now
+    // asserts at least one card per conference with a sane upper cap.
     expect(payload.playoffOutlook).toBeDefined();
-    expect(payload.playoffOutlook.east.length).toBe(5);
-    expect(payload.playoffOutlook.west.length).toBe(5);
+    expect(payload.playoffOutlook.east.length).toBeGreaterThan(0);
+    expect(payload.playoffOutlook.east.length).toBeLessThanOrEqual(5);
+    expect(payload.playoffOutlook.west.length).toBeGreaterThan(0);
+    expect(payload.playoffOutlook.west.length).toBeLessThanOrEqual(5);
 
     // Every outlook card has a non-generic rationale
     for (const card of [...payload.playoffOutlook.east, ...payload.playoffOutlook.west]) {
@@ -404,5 +409,108 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     const slugs = [match.series.topTeam?.slug, match.series.bottomTeam?.slug];
     expect(slugs).toContain('lal');
     expect(slugs).toContain('hou');
+  });
+
+  it('Slide 3 playoffOutlook ranks active teams by best title odds with seed tiebreaker', () => {
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: liveGames,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const east = payload.playoffOutlook?.east || [];
+    const west = payload.playoffOutlook?.west || [];
+
+    // Probabilities should be monotonically non-increasing within each
+    // conference (audit Part 5: best odds first)
+    function nonIncreasing(list) {
+      for (let i = 1; i < list.length; i++) {
+        if ((list[i].prob ?? 0) > (list[i - 1].prob ?? 0)) return false;
+      }
+      return true;
+    }
+    expect(nonIncreasing(east)).toBe(true);
+    expect(nonIncreasing(west)).toBe(true);
+  });
+
+  it('Slide 3 playoffOutlook excludes losers of completed series (active-team filter)', () => {
+    // Build a context where one series has completed in an upset (MIN
+    // beats DEN 4-2). DEN should be excluded from the West outlook.
+    const completedFinals = [];
+    for (let i = 0; i < 6; i++) {
+      const minWins = [true, false, true, true, false, true][i];
+      const date = new Date(Date.now() - (12 - i * 2) * 24 * 3600 * 1000).toISOString();
+      completedFinals.push({
+        gameId: `g-min-den-${i + 1}`,
+        sport: 'nba',
+        status: 'final',
+        startTime: date,
+        teams: {
+          away: { slug: minWins ? 'min' : 'den', score: minWins ? 110 : 95 },
+          home: { slug: minWins ? 'den' : 'min', score: minWins ? 100 : 105 },
+        },
+        gameState: { isFinal: true, isLive: false },
+      });
+    }
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: completedFinals,
+      nbaWindowGames: completedFinals,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const westSlugs = (payload.playoffOutlook?.west || []).map(t => t.slug);
+    expect(westSlugs).toContain('min'); // winner stays active
+    expect(westSlugs).not.toContain('den'); // loser excluded
+  });
+
+  it('caption Watch Tonight section appears for closeout games', () => {
+    // Build a series where Lakers lead Rockets 3-2 with Game 6 today.
+    const now = Date.now();
+    const games = [];
+    for (let i = 1; i <= 5; i++) {
+      const lalWins = [true, true, false, false, true][i - 1];
+      games.push({
+        gameId: `g-lal-hou-${i}`,
+        sport: 'nba',
+        status: 'final',
+        startTime: new Date(now - (10 - i * 2) * 24 * 3600 * 1000).toISOString(),
+        teams: {
+          away: { slug: lalWins ? 'lal' : 'hou', score: lalWins ? 110 : 100 },
+          home: { slug: lalWins ? 'hou' : 'lal', score: lalWins ? 105 : 95 },
+        },
+        gameState: { isFinal: true, isLive: false },
+      });
+    }
+    games.push({
+      gameId: 'g-lal-hou-6',
+      sport: 'nba',
+      status: 'upcoming',
+      startTime: new Date(now + 4 * 3600 * 1000).toISOString(),
+      teams: {
+        away: { slug: 'hou', score: null },
+        home: { slug: 'lal', score: null },
+      },
+      gameState: { isFinal: false, isLive: false },
+    });
+
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: games,
+      nbaWindowGames: games,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const { shortCaption } = buildNbaCaption(payload);
+    expect(shortCaption).toMatch(/👀 Watch tonight:/);
+    // Some form of "Game 6" + elimination framing should appear
+    expect(shortCaption).toMatch(/Game 6/);
+    expect(shortCaption.toLowerCase()).toMatch(/elimination|win.{0,5}or.{0,5}go.{0,5}home|series tips|series swings|takes the series/);
   });
 });

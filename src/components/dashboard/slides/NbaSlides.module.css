@@ -157,7 +157,9 @@
   grid-template-columns: 1fr auto;
   align-items: end;
   gap: 8px;
-  margin-top: 10px; margin-bottom: 18px;
+  /* Tighter top + bottom spacing reclaims ~12px for the HOTP module
+     so 3 bullets render without clipping. */
+  margin-top: 6px; margin-bottom: 12px;
 }
 .s1TitleBlock {
   position: relative;
@@ -237,25 +239,36 @@
 /* ── HOT OFF THE PRESS ── */
 .s1HotpZone {
   position: relative; z-index: 10;
-  margin-top: 14px;
+  margin-top: 10px;
   composes: glassCard;
-  padding: 20px 26px;
+  /* Slightly tighter padding so 3 bullets at 21px / 1.32 line-height
+     fit comfortably without clipping the bottom of the module. */
+  padding: 16px 24px;
 }
 .s1HotpPill {
   composes: sectionPill;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
-.s1HotpBullets { display: flex; flex-direction: column; gap: 11px; }
+.s1HotpBullets { display: flex; flex-direction: column; gap: 10px; }
 .s1HotpRow {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: flex-start; gap: 14px;
 }
 .s1BulletDot {
   color: var(--nba-gold-bright); font-weight: 900; font-size: 22px;
   flex-shrink: 0;
+  line-height: 1.3;
 }
 .s1BulletText {
-  font-size: 21px; font-weight: 700; line-height: 1.3;
+  font-size: 19px; font-weight: 700; line-height: 1.32;
   color: #f2ecdc;
+  /* Hard 2-line ceiling so a long ESPN-alert bullet can't push the
+     HOTP module past its allotted vertical space. Long text gets a
+     clean ellipsis instead of overflowing into Playoff Contenders. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1; min-width: 0;
 }
 
 /* ── Bottom two-column (Contenders + Picks) ── */
@@ -491,39 +504,47 @@
 .s2LeaderCatRow1 { grid-column: span 2; }
 .s2LeaderCatRow2 { grid-column: span 3; }
 .s2LeaderCatLabel {
-  font-size: 13px; font-weight: 900; letter-spacing: 1.5px;
+  font-size: 16px; font-weight: 900; letter-spacing: 1.6px;
   color: var(--nba-gold-bright);
   text-transform: uppercase;
-  margin-bottom: 7px;
-  border-bottom: 1px solid rgba(212,175,55,0.28);
-  padding-bottom: 5px;
+  margin-bottom: 9px;
+  border-bottom: 1.5px solid rgba(212,175,55,0.42);
+  padding-bottom: 6px;
   width: 100%; text-align: center;
   flex-shrink: 0;
+  /* More prominent gold per audit Part 3 — labels feel like card headers,
+     not overlooked accents. */
+  text-shadow: 0 1px 4px rgba(212,175,55,0.32);
 }
 .s2LeaderRow {
   display: grid;
-  grid-template-columns: 16px auto 1fr auto;
+  grid-template-columns: 18px auto 1fr auto;
   align-items: center;
-  gap: 7px;
-  padding: 3px 3px;
-  border-bottom: 1px dashed rgba(212,175,55,0.10);
-  /* Trim leader name overflow rather than push the card taller */
+  gap: 9px;
+  padding: 5px 4px;
+  border-bottom: 1px dashed rgba(212,175,55,0.12);
   overflow: hidden;
 }
 .s2LeaderRow:last-child { border-bottom: none; }
 .s2LeaderRank {
-  font-size: 12px; font-weight: 900;
+  font-size: 13px; font-weight: 900;
   color: var(--nba-gold-bright);
   text-align: center;
   line-height: 1;
 }
 .s2LeaderName {
-  font-size: 13px; font-weight: 800; color: #fff; line-height: 1.12;
+  /* Audit Part 3: player name +1-2px (was 13 → 15) for readability on
+     mobile + better visual weight in the card. */
+  font-size: 15px; font-weight: 800; color: #fff; line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   min-width: 0;
 }
-.s2LeaderTeam { font-size: 10px; font-weight: 700; color: #a7a29a; letter-spacing: 0.4px; margin-left: 3px; }
-.s2LeaderValue { font-size: 16px; font-weight: 900; color: var(--nba-gold); letter-spacing: 0.2px; text-align: right; }
+.s2LeaderTeam { font-size: 11px; font-weight: 700; color: #a7a29a; letter-spacing: 0.4px; margin-left: 4px; }
+.s2LeaderValue {
+  /* Audit Part 3: stat value +3-5px (was 16 → 20) — the leader's number
+     is the headline of every row and was previously underweight. */
+  font-size: 20px; font-weight: 900; color: var(--nba-gold); letter-spacing: 0.2px; text-align: right;
+}
 
 .s2Footer {
   position: relative; z-index: 10;
@@ -663,6 +684,56 @@
   text-shadow: 0 0 8px rgba(212,175,55,0.32);
 }
 .s3TeamSeed { font-size: 12px; font-weight: 800; color: #a7a29a; letter-spacing: 0.8px; }
+
+/* Prominent seed badge (audit Part 6) — every card carries it; uses
+   the gold pill treatment so it scans as a stat, not a footnote. */
+.s3SeedBadge {
+  display: inline-block;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.8px;
+  padding: 3px 9px; border-radius: 999px;
+  background: rgba(212,175,55,0.18);
+  border: 1px solid rgba(212,175,55,0.45);
+  color: var(--nba-gold-bright);
+  text-transform: lowercase;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+/* Audit Part 8 — "Also alive" compact strip when more than 5 teams
+   per conference are still in. Each chip is small enough to keep the
+   top-5 cards visually dominant but readable enough to scan all
+   remaining survivors at a glance. */
+.s3AlsoAlive {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.32);
+  border: 1px solid rgba(212,175,55,0.18);
+  flex-shrink: 0;
+}
+.s3AlsoAliveLabel {
+  font-size: 11px; font-weight: 900; letter-spacing: 1.4px;
+  color: var(--nba-gold-bright);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.s3AlsoAliveRow {
+  display: flex; flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.s3AlsoAliveChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 10px;
+  background: rgba(212,175,55,0.10);
+  border: 1px solid rgba(212,175,55,0.28);
+}
+.s3AlsoAliveAbbrev {
+  font-size: 12px; font-weight: 900; color: #fff; letter-spacing: 0.4px;
+}
+.s3AlsoAliveSeed {
+  font-size: 10px; font-weight: 800; color: var(--nba-gold-bright); letter-spacing: 0.4px;
+}
 
 .s3Footer {
   position: relative; z-index: 10;
