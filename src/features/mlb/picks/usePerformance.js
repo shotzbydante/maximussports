@@ -29,14 +29,24 @@ function useJson(url) {
 }
 
 /**
- * Both performance and insights endpoints currently live under /api/mlb/picks
- * but accept a `?sport=` query param and query the correct sport-scoped rows
- * from Supabase. Passing sport here ensures NBA pages receive NBA data.
+ * Performance/insights endpoints exist per-sport at /api/<sport>/picks/...
+ * Each accepts a `?sport=` query param and queries the correct sport-scoped
+ * rows from Supabase. We prefer the sport-native endpoint so caching and
+ * future sport-specific tweaks land on the right surface.
  */
+const SPORT_ENDPOINTS = {
+  mlb: '/api/mlb/picks',
+  nba: '/api/nba/picks',
+};
+
+function endpointBase(sport) {
+  return SPORT_ENDPOINTS[sport] || '/api/mlb/picks';
+}
+
 export function usePerformance({ sport = 'mlb' } = {}) {
-  return useJson(`/api/mlb/picks/performance?sport=${sport}`);
+  return useJson(`${endpointBase(sport)}/performance?sport=${sport}`);
 }
 
 export function useAuditInsights({ sport = 'mlb', days = 30 } = {}) {
-  return useJson(`/api/mlb/picks/insights?sport=${sport}&days=${days}`);
+  return useJson(`${endpointBase(sport)}/insights?sport=${sport}&days=${days}`);
 }

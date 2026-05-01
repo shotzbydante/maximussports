@@ -26,7 +26,7 @@ import { normalizeEvent, ESPN_SCOREBOARD, FETCH_TIMEOUT_MS } from '../nba/live/_
 import { enrichGamesWithOdds } from '../nba/live/_odds.js';
 import { buildNbaPicksV2, NBA_DEFAULT_CONFIG } from '../../src/features/nba/picks/v2/buildNbaPicksV2.js';
 import { getJson, setJson } from '../_globalCache.js';
-import { writePicksRun, getActiveConfig, getScorecard } from './picksHistory.js';
+import { writePicksRun, getActiveConfig, getScorecard, getLatestGradedScorecard } from './picksHistory.js';
 import { yesterdayET } from './dateWindows.js';
 
 const KV_LATEST = 'nba:picks:built:latest';
@@ -121,10 +121,21 @@ export async function buildNbaPicksBoard(opts = {}) {
       if (dbCfg) activeConfig = dbCfg;
     } catch (e) { console.warn(`[nbaPicksBuilder] getActiveConfig failed: ${e?.message}`); }
 
-    // Attach yesterday's ET NBA scorecard summary when available
+    // Attach the most recent graded NBA scorecard. We prefer "yesterday" when
+    // it actually has results, but fall back to the most recent slate that
+    // produced real graded data so the UI never shows a dead blank state when
+    // an earlier slate did finish (e.g. yesterday was an off-day).
     let scorecardSummary = null;
     try {
-      const card = await getScorecard({ sport: 'nba', slateDate: yesterdayET() });
+      const ymd = yesterdayET();
+      let card = await getScorecard({ sport: 'nba', slateDate: ymd });
+      const graded = card?.record
+        ? ((card.record.won ?? 0) + (card.record.lost ?? 0) + (card.record.push ?? 0))
+        : 0;
+      if (!card || graded === 0) {
+        const fallback = await getLatestGradedScorecard({ sport: 'nba', lookbackDays: 14 });
+        if (fallback) card = fallback;
+      }
       if (card) {
         scorecardSummary = {
           date: card.slate_date,
@@ -134,6 +145,8 @@ export async function buildNbaPicksBoard(opts = {}) {
           topPlayResult: card.top_play_result,
           streak: card.streak,
           note: card.note,
+          // Flag whether this is yesterday or an older fallback slate
+          isFallback: card.slate_date !== ymd,
         };
       }
     } catch { /* non-fatal */ }
