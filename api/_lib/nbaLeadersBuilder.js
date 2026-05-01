@@ -34,7 +34,7 @@
  */
 
 import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
-import { LEADER_CATEGORIES, LEADER_KEYS } from '../../src/data/nba/seasonLeaders.js';
+import { LEADER_CATEGORIES, LEADER_KEYS, ESPN_CATEGORY_MAP } from '../../src/data/nba/seasonLeaders.js';
 import { getJson, setJson } from '../_globalCache.js';
 import { fetchNbaPlayoffScheduleWindow } from './nbaPlayoffSchedule.js';
 import { buildNbaPostseasonLeadersFromBoxScores } from './nbaBoxScoreLeaders.js';
@@ -62,7 +62,13 @@ function espnSeasonType(seasonType) {
 const FETCH_TIMEOUT = 8000;
 const REF_TIMEOUT = 5000;
 
-const TARGET_CATS = LEADER_KEYS;            // avgPoints, avgAssists, avgRebounds, avgSteals, avgBlocks
+// Canonical category keys (audit Part 1: TOTALS, not averages).
+//   pts / ast / reb / stl / blk
+// ESPN's leaders endpoint may emit either the canonical key OR the
+// alternate names (e.g. `points`, `totalAssists`) — ESPN_CATEGORY_MAP
+// resolves both. Anything that doesn't map to a canonical key is
+// skipped.
+const TARGET_CATS = LEADER_KEYS;
 const MIN_CATEGORIES_FOR_LASTKNOWN_WRITE = 3;
 
 const espnIdToSlug = {};
@@ -105,10 +111,15 @@ function teamAbbrevFromRef(teamRef) {
   return m ? (espnIdToAbbrev[m[1]] || '') : '';
 }
 
-function formatPerGame(v) {
+/**
+ * Integer total formatter — audit Part 1 requires absolute totals,
+ * not per-game averages. ESPN occasionally returns floats (e.g.
+ * 156.0); we round to the nearest integer for display.
+ */
+function formatTotal(v) {
   const n = Number(v);
-  if (!Number.isFinite(n)) return '0.0';
-  return n.toFixed(1);
+  if (!Number.isFinite(n)) return '0';
+  return String(Math.round(n));
 }
 
 async function resolveEntry(entry) {
@@ -148,7 +159,7 @@ async function resolveEntry(entry) {
     team: teamName,
     teamAbbrev,
     value,
-    display: formatPerGame(value),
+    display: formatTotal(value),
   };
 }
 
@@ -164,7 +175,12 @@ async function fetchLeadersFresh(seasonType = 'regular') {
   const categories = {};
 
   for (const cat of cats) {
-    if (!TARGET_CATS.includes(cat.name)) continue;
+    // Map ESPN's category name to our canonical key. Accepts both
+    // totals (`points`, `totalPoints`) AND legacy averages
+    // (`avgPoints`) so we don't break if ESPN renames mid-season.
+    // We KEEP the canonical key so consumers iterate `pts/ast/...`.
+    const canonicalKey = ESPN_CATEGORY_MAP[cat.name];
+    if (!canonicalKey || !TARGET_CATS.includes(canonicalKey)) continue;
 
     const allEntries = cat.leaders || [];
 
@@ -182,7 +198,7 @@ async function fetchLeadersFresh(seasonType = 'regular') {
       r.status === 'fulfilled' ? r.value : {
         name: '—', team: '', teamAbbrev: teamAbbrevFromRef(top3Entries[i]?.team?.$ref),
         value: Number(top3Entries[i]?.value ?? 0),
-        display: formatPerGame(top3Entries[i]?.value ?? 0),
+        display: formatTotal(top3Entries[i]?.value ?? 0),
       }
     );
 
@@ -212,7 +228,7 @@ async function fetchLeadersFresh(seasonType = 'regular') {
         r.status === 'fulfilled' ? r.value : {
           name: '—', team: '', teamAbbrev: batch[idx].abbrev,
           value: Number(batch[idx].entry?.value ?? 0),
-          display: formatPerGame(batch[idx].entry?.value ?? 0),
+          display: formatTotal(batch[idx].entry?.value ?? 0),
         }
       );
       for (let j = 0; j < batch.length; j++) {
@@ -222,10 +238,10 @@ async function fetchLeadersFresh(seasonType = 'regular') {
       }
     }
 
-    const labels = LABEL_BY_KEY[cat.name] || {};
-    categories[cat.name] = {
-      label: labels.label || cat.displayName || cat.name,
-      abbrev: labels.abbrev || cat.abbreviation || cat.name,
+    const labels = LABEL_BY_KEY[canonicalKey] || {};
+    categories[canonicalKey] = {
+      label: labels.label || cat.displayName || canonicalKey,
+      abbrev: labels.abbrev || cat.abbreviation || canonicalKey,
       leaders: top3Resolved,
       teamBest,
     };

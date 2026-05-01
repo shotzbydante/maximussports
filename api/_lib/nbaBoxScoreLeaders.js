@@ -1,31 +1,37 @@
 /**
- * nbaBoxScoreLeaders — fallback postseason leaders builder via per-game
- * ESPN box-score aggregation.
+ * nbaBoxScoreLeaders — postseason leaders builder via per-game ESPN
+ * box-score aggregation. Returns ABSOLUTE TOTALS, not per-game averages
+ * (audit Part 1 requirement).
  *
- * Used when /v2/.../seasons/{year}/types/3/leaders returns empty (which
- * happens early in the postseason, when ESPN's leaders feed lags by 1-2
- * games). Aggregates player stats across the recent playoff window and
- * computes per-game averages.
+ * Used as the primary post-ESPN-fetch fallback for postseason leaders.
+ * ESPN's `types/3` leaders endpoint is unreliable early in the playoffs;
+ * this aggregates real box-score data so we always have a reliable
+ * answer when there are completed playoff games in the window.
  *
  * Trade-offs:
  *   - 1 HTTP call per completed playoff game (parallel, capped)
  *   - Athlete name resolution comes from the box score itself, no extra
  *     $ref calls
  *   - Includes only players with ≥2 games to avoid a single 40-pt outlier
- *     dominating the slide
+ *     dominating the slide (relaxed if total game count is small)
  *
- * Output shape matches the ESPN leaders endpoint so downstream
- * consumers (normalizer / Slide 2) don't change:
+ * Output shape (audit Part 1 — totals, not averages):
  *   {
  *     categories: {
- *       avgPoints:   { label, abbrev, leaders: [...top3], teamBest: {...} },
- *       avgAssists:  { ... },
- *       avgRebounds: { ... },
- *       avgSteals:   { ... },
- *       avgBlocks:   { ... },
+ *       pts: { label: 'Points',   abbrev: 'PTS', leaders: [...top3], teamBest: {} },
+ *       ast: { label: 'Assists',  abbrev: 'AST', leaders: [...] },
+ *       reb: { label: 'Rebounds', abbrev: 'REB', leaders: [...] },
+ *       stl: { label: 'Steals',   abbrev: 'STL', leaders: [...] },
+ *       blk: { label: 'Blocks',   abbrev: 'BLK', leaders: [...] },
  *     },
- *     fetchedAt, seasonType: 'postseason', _source: 'boxscore_aggregate',
+ *     fetchedAt, seasonType: 'postseason', statType: 'totals',
+ *     _source: 'boxscore_aggregate',
+ *     _meta: { gamesAggregated, uniquePlayers, excludedPlayInGames },
  *   }
+ *
+ * Each leader entry:
+ *   { name, team, teamAbbrev, teamSlug, value (integer total),
+ *     display (string), gamesPlayed }
  */
 
 import { LEADER_CATEGORIES, LEADER_KEYS } from '../../src/data/nba/seasonLeaders.js';
@@ -33,8 +39,9 @@ import { NBA_TEAMS, NBA_ESPN_IDS } from '../../src/sports/nba/teams.js';
 
 const SUMMARY_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary';
 const FETCH_TIMEOUT_MS = 6000;
-const MAX_PARALLEL_GAMES = 30; // cap to keep total time bounded
+const MAX_PARALLEL_GAMES = 30;
 const MIN_GAMES_FOR_LEADER = 2;
+const RELAXED_MIN_GAMES = 1; // when there are fewer than 4 total games, drop the floor
 
 const espnIdToSlug = {};
 for (const [slug, eid] of Object.entries(NBA_ESPN_IDS)) espnIdToSlug[String(eid)] = slug;
@@ -62,12 +69,6 @@ async function fetchWithTimeout(url, ms = FETCH_TIMEOUT_MS) {
   }
 }
 
-/**
- * Find the column-index of a given stat label inside a box-score
- * statistics block. ESPN exposes:
- *   stats: ['MIN', '17:38'] keyed at row level via labels[]
- * We just match by upper-cased label name.
- */
 function statIndexByLabel(labels, target) {
   if (!Array.isArray(labels)) return -1;
   const wanted = target.toLowerCase();
@@ -83,12 +84,91 @@ function asNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// ─── Play-In exclusion helpers ──────────────────────────────────────
+//
+// Audit Part 2: postseason leaders must EXCLUDE play-in tournament
+// games. ESPN sometimes treats play-in as `season.type === 3` (same as
+// playoffs proper), so a season-type filter alone isn't enough. We
+// look at three signals:
+//   1. event/competition `notes[]` text containing "Play-In"
+//   2. event/competition `series.type` (e.g. 'play-in')
+//   3. season/week labels that mention play-in
+// A game is play-in if ANY of those signals fires. False positives
+// here are safer than false negatives (we'd just lose a game from the
+// aggregate, not contaminate the leaderboard).
+
+function notesText(arr) {
+  if (!Array.isArray(arr)) return '';
+  return arr.map(n => (typeof n === 'string' ? n : (n?.headline || n?.text || ''))).join(' ').toLowerCase();
+}
+
 /**
- * Pull player stat rows from a single ESPN summary response.
+ * Detect play-in / play-in tournament games from an ESPN event payload
+ * OR from a normalized game object that retains the event passthrough.
  *
- * Returns an array of:
- *   { playerId, name, teamAbbrev, teamSlug, points, assists, rebounds, steals, blocks }
+ * Returns true ONLY when we see an explicit play-in marker. Returns
+ * false on uncertainty so we don't silently drop legitimate playoff
+ * games.
  */
+export function isPlayInGame(eventOrGame) {
+  if (!eventOrGame) return false;
+
+  // Pull text from any plausible field ESPN might have populated.
+  const fields = [];
+  fields.push(notesText(eventOrGame?.notes));
+  fields.push(notesText(eventOrGame?.competitions?.[0]?.notes));
+  fields.push(String(eventOrGame?.competitions?.[0]?.series?.type || '').toLowerCase());
+  fields.push(String(eventOrGame?.competitions?.[0]?.series?.title || '').toLowerCase());
+  fields.push(String(eventOrGame?.competitions?.[0]?.series?.summary || '').toLowerCase());
+  fields.push(String(eventOrGame?.season?.slug || '').toLowerCase());
+  fields.push(String(eventOrGame?.season?.displayName || '').toLowerCase());
+  fields.push(String(eventOrGame?.week?.text || '').toLowerCase());
+  // Some normalized game objects we built may carry a `_raw` event for
+  // pass-through (we don't currently store it but allow for it).
+  if (eventOrGame?._raw) {
+    fields.push(notesText(eventOrGame._raw?.notes));
+    fields.push(notesText(eventOrGame._raw?.competitions?.[0]?.notes));
+  }
+
+  const blob = fields.filter(Boolean).join(' ');
+  if (!blob) return false;
+  // Tight regex — match "play-in" / "play in" / "play-in tournament"
+  // but not "playin field" or unrelated phrases.
+  return /play[\s-]*in\b/.test(blob);
+}
+
+/**
+ * Best-effort detection that a game is a NBA Playoff (Round 1+) game.
+ * Used in conjunction with !isPlayInGame to filter the box-score window.
+ */
+export function isNbaPostseasonGame(eventOrGame) {
+  if (!eventOrGame) return false;
+  const sType = eventOrGame?.season?.type;
+  if (sType === 3) return true; // ESPN postseason marker
+  const slug = String(eventOrGame?.season?.slug || '').toLowerCase();
+  if (slug.includes('post-season') || slug.includes('postseason') || slug.includes('playoffs')) return true;
+  // Fallback: rely on the schedule window which is itself postseason-
+  // focused; if no negative signal is present, treat as playoff.
+  return false;
+}
+
+function isCompleted(g) {
+  return !!(g?.gameState?.isFinal || g?.status === 'final');
+}
+
+/** Combined gate (audit Part 2 helper): completed && playoff && !play-in. */
+export function isNbaPlayoffProperGame(g) {
+  if (!isCompleted(g)) return false;
+  // If the game has clear postseason markers, require non-play-in.
+  if (isNbaPostseasonGame(g)) return !isPlayInGame(g);
+  // No explicit postseason marker — fall back to !play-in. This keeps
+  // true playoff games that ESPN normalizers strip down, while still
+  // dropping anything that overtly says "Play-In".
+  return !isPlayInGame(g);
+}
+
+// ─── Box-score parsing ──────────────────────────────────────────────
+
 function parseBoxScore(summary) {
   const rows = [];
   const teams = summary?.boxscore?.players || [];
@@ -97,8 +177,6 @@ function parseBoxScore(summary) {
     const teamAbbrev = espnIdToAbbrev[espnTeamId] || teamBlock?.team?.abbreviation || '';
     const teamSlug = espnIdToSlug[espnTeamId] || null;
 
-    // ESPN groups stats per team by category (e.g. starters/bench).
-    // Iterate every group and aggregate at the player level.
     for (const stat of (teamBlock?.statistics || [])) {
       const labels = stat?.labels || [];
       const ptsIdx = statIndexByLabel(labels, 'PTS');
@@ -106,14 +184,12 @@ function parseBoxScore(summary) {
       const rebIdx = statIndexByLabel(labels, 'REB');
       const stlIdx = statIndexByLabel(labels, 'STL');
       const blkIdx = statIndexByLabel(labels, 'BLK');
-      // Need at least PTS to count this row meaningfully
       if (ptsIdx < 0) continue;
 
       for (const athleteRow of (stat?.athletes || [])) {
         const athlete = athleteRow?.athlete;
         if (!athlete) continue;
         const stats = athleteRow?.stats || [];
-        // ESPN sometimes emits 'DNP' rows where stats is shorter than labels
         if (stats.length < ptsIdx + 1) continue;
 
         rows.push({
@@ -143,60 +219,78 @@ async function fetchOneSummary(gameId) {
   }
 }
 
-function topN(playerMap, key, n = 3) {
+/**
+ * Pick the top N players by absolute total of `srcKey`.
+ * Audit Part 3: leaders are sorted by total descending, integer values.
+ */
+function topByTotal(playerMap, srcKey, totalGameCount, n = 3) {
+  const minGames = totalGameCount < 4 ? RELAXED_MIN_GAMES : MIN_GAMES_FOR_LEADER;
   return Object.values(playerMap)
-    .filter(p => p.gamesPlayed >= MIN_GAMES_FOR_LEADER)
+    .filter(p => p.gamesPlayed >= minGames)
+    .filter(p => p[srcKey] > 0)
+    .sort((a, b) => {
+      // Primary: total descending. Tiebreaker: fewer games (more
+      // efficient) — keeps the leaderboard from rewarding pure volume
+      // when two players have identical totals.
+      if (b[srcKey] !== a[srcKey]) return b[srcKey] - a[srcKey];
+      return a.gamesPlayed - b.gamesPlayed;
+    })
+    .slice(0, n)
     .map(p => ({
-      ...p,
-      avg: p.gamesPlayed > 0 ? p[key] / p.gamesPlayed : 0,
-    }))
-    .filter(p => p.avg > 0)
-    .sort((a, b) => b.avg - a.avg)
-    .slice(0, n);
-}
-
-function categoryFromTopN(catKey, top) {
-  const labels = LABEL_BY_KEY[catKey] || {};
-  return {
-    label: labels.label || catKey,
-    abbrev: labels.abbrev || catKey,
-    leaders: top.map(p => ({
       name: p.name,
       team: '',
       teamAbbrev: p.teamAbbrev,
       teamSlug: p.teamSlug,
-      value: p.avg,
-      display: p.avg.toFixed(1),
-    })),
+      value: Math.round(p[srcKey]),
+      display: String(Math.round(p[srcKey])),
+      gamesPlayed: p.gamesPlayed,
+    }));
+}
+
+function categoryFromLeaders(catKey, leaders) {
+  const labels = LABEL_BY_KEY[catKey] || {};
+  return {
+    label: labels.label || catKey,
+    abbrev: labels.abbrev || catKey,
+    leaders,
     teamBest: {},
   };
 }
 
 /**
  * Build postseason leaders by aggregating box scores from completed
- * playoff games in the supplied schedule window.
+ * playoff games. Audit Part 1 — emits absolute totals.
  *
  * @param {object} opts
- * @param {Array}  opts.windowGames — output of fetchNbaPlayoffScheduleWindow
- *                                    (only games with status='final' are used)
- * @returns {Promise<{ categories, fetchedAt, seasonType, _source }|null>}
- *          Returns null if there are no completed games to aggregate.
+ * @param {Array}  opts.windowGames — schedule window (filter applied
+ *                                    inside: completed + !play-in)
+ * @returns {Promise<{ categories, fetchedAt, seasonType, statType, _source }|null>}
  */
 export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] } = {}) {
-  const finals = (windowGames || []).filter(g =>
-    g?.gameState?.isFinal || g?.status === 'final'
-  );
-  if (finals.length === 0) {
-    console.warn('[nbaBoxScoreLeaders] no completed games in window — cannot aggregate');
+  // Audit Part 2: filter to true playoff games only
+  const totalWindowGames = (windowGames || []).length;
+  const includedGames = (windowGames || []).filter(isNbaPlayoffProperGame);
+  const excludedPlayInGames = (windowGames || [])
+    .filter(g => isCompleted(g))
+    .filter(g => isPlayInGame(g));
+
+  console.log('[NBA_PLAYOFF_LEADER_GAMES]', JSON.stringify({
+    totalWindowGames,
+    includedGames: includedGames.length,
+    excludedPlayInGames: excludedPlayInGames.length,
+    includedGameIds: includedGames.slice(0, 30).map(g => g.gameId),
+    excludedGameIds: excludedPlayInGames.map(g => g.gameId),
+  }));
+
+  if (includedGames.length === 0) {
+    console.warn('[nbaBoxScoreLeaders] no playoff-proper games in window — cannot aggregate');
     return null;
   }
 
-  const games = finals.slice(0, MAX_PARALLEL_GAMES);
-  console.log(`[nbaBoxScoreLeaders] aggregating ${games.length} games`);
+  const games = includedGames.slice(0, MAX_PARALLEL_GAMES);
+  console.log(`[nbaBoxScoreLeaders] aggregating ${games.length} playoff-proper games`);
 
-  const summaries = await Promise.all(
-    games.map(g => fetchOneSummary(g.gameId))
-  );
+  const summaries = await Promise.all(games.map(g => fetchOneSummary(g.gameId)));
 
   const playerMap = {};
   let parsedGames = 0;
@@ -220,7 +314,6 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
       p.rebounds += row.rebounds;
       p.steals += row.steals;
       p.blocks += row.blocks;
-      // Refresh team in case a player was traded mid-postseason — keep most recent
       p.teamAbbrev = row.teamAbbrev || p.teamAbbrev;
       p.teamSlug = row.teamSlug || p.teamSlug;
       playerMap[row.playerId] = p;
@@ -231,38 +324,40 @@ export async function buildNbaPostseasonLeadersFromBoxScores({ windowGames = [] 
   console.log(`[nbaBoxScoreLeaders] parsed ${parsedGames}/${games.length} summaries, ${playerCount} unique players`);
   if (playerCount === 0) return null;
 
-  const categories = {};
-  // Source key in the playerMap accumulator → ESPN-style category key
+  // Map category accumulator-key → canonical leader key
   const SRC_TO_KEY = {
-    points: 'avgPoints',
-    assists: 'avgAssists',
-    rebounds: 'avgRebounds',
-    steals: 'avgSteals',
-    blocks: 'avgBlocks',
+    points: 'pts',
+    assists: 'ast',
+    rebounds: 'reb',
+    steals: 'stl',
+    blocks: 'blk',
   };
+  const categories = {};
   for (const [src, catKey] of Object.entries(SRC_TO_KEY)) {
     if (!LEADER_KEYS.includes(catKey)) continue;
-    const top = topN(playerMap, src, 3);
-    categories[catKey] = categoryFromTopN(catKey, top);
+    const top = topByTotal(playerMap, src, parsedGames, 3);
+    categories[catKey] = categoryFromLeaders(catKey, top);
   }
 
   const result = {
     categories,
     fetchedAt: new Date().toISOString(),
     seasonType: 'postseason',
+    statType: 'totals',
     _source: 'boxscore_aggregate',
     _meta: {
       gamesAggregated: parsedGames,
       uniquePlayers: playerCount,
+      excludedPlayInGames: excludedPlayInGames.length,
     },
   };
 
   // Audit Part 3 diagnostic — visible when box-score aggregation runs.
-  console.log('[NBA_BOXSCORE_LEADERS_AGG]', JSON.stringify({
+  console.log('[NBA_BOXSCORE_TOTAL_LEADERS_AGG]', JSON.stringify({
     gamesUsed: parsedGames,
     playersAggregated: playerCount,
     categories: Object.keys(categories || {}),
-    topPpg: categories?.avgPoints?.leaders?.[0] || null,
+    topPts: categories?.pts?.leaders?.[0] || null,
   }));
 
   return result;

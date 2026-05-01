@@ -118,32 +118,36 @@ const synthPicks = {
   },
 };
 
+// Audit Part 1: postseason leaders are TOTALS now (PTS/AST/REB/STL/BLK).
+// Synthetic numbers reflect a partial Round 1 sample (5-6 games each).
 const synthLeaders = {
+  seasonType: 'postseason',
+  statType: 'totals',
   categories: {
-    avgPoints:   { label: 'Points Per Game',   abbrev: 'PPG', leaders: [
-      { name: 'Luka Doncic',   teamAbbrev: 'DAL', value: 32.1, display: '32.1' },
-      { name: 'Shai Gilgeous-Alexander', teamAbbrev: 'OKC', value: 31.4, display: '31.4' },
-      { name: 'Giannis Antetokounmpo', teamAbbrev: 'MIL', value: 30.2, display: '30.2' },
+    pts: { label: 'Points',   abbrev: 'PTS', leaders: [
+      { name: 'Anthony Edwards',       teamAbbrev: 'MIN', value: 156, display: '156', gamesPlayed: 5 },
+      { name: 'Shai Gilgeous-Alexander', teamAbbrev: 'OKC', value: 142, display: '142', gamesPlayed: 5 },
+      { name: 'Jayson Tatum',          teamAbbrev: 'BOS', value: 138, display: '138', gamesPlayed: 5 },
     ]},
-    avgAssists:  { label: 'Assists Per Game',  abbrev: 'APG', leaders: [
-      { name: 'Trae Young',    teamAbbrev: 'ATL', value: 11.0, display: '11.0' },
-      { name: 'Tyrese Haliburton', teamAbbrev: 'IND', value: 10.4, display: '10.4' },
-      { name: 'Nikola Jokic',  teamAbbrev: 'DEN', value: 9.8,  display: '9.8'  },
+    ast: { label: 'Assists',  abbrev: 'AST', leaders: [
+      { name: 'Tyrese Haliburton',     teamAbbrev: 'IND', value: 54,  display: '54',  gamesPlayed: 5 },
+      { name: 'Trae Young',            teamAbbrev: 'ATL', value: 48,  display: '48',  gamesPlayed: 5 },
+      { name: 'Nikola Jokic',          teamAbbrev: 'DEN', value: 42,  display: '42',  gamesPlayed: 5 },
     ]},
-    avgRebounds: { label: 'Rebounds Per Game', abbrev: 'RPG', leaders: [
-      { name: 'Domantas Sabonis', teamAbbrev: 'SAC', value: 13.9, display: '13.9' },
-      { name: 'Nikola Jokic',  teamAbbrev: 'DEN', value: 12.4, display: '12.4' },
-      { name: 'Anthony Davis', teamAbbrev: 'LAL', value: 11.6, display: '11.6' },
+    reb: { label: 'Rebounds', abbrev: 'REB', leaders: [
+      { name: 'Nikola Jokic',          teamAbbrev: 'DEN', value: 78,  display: '78',  gamesPlayed: 5 },
+      { name: 'Domantas Sabonis',      teamAbbrev: 'SAC', value: 70,  display: '70',  gamesPlayed: 5 },
+      { name: 'Anthony Davis',         teamAbbrev: 'LAL', value: 64,  display: '64',  gamesPlayed: 5 },
     ]},
-    avgSteals:   { label: 'Steals Per Game',   abbrev: 'SPG', leaders: [
-      { name: "De'Aaron Fox",  teamAbbrev: 'SAS', value: 2.2, display: '2.2' },
-      { name: 'Dyson Daniels', teamAbbrev: 'ATL', value: 2.1, display: '2.1' },
-      { name: 'Jrue Holiday',  teamAbbrev: 'BOS', value: 1.9, display: '1.9' },
+    stl: { label: 'Steals',   abbrev: 'STL', leaders: [
+      { name: 'OG Anunoby',            teamAbbrev: 'NYK', value: 12,  display: '12',  gamesPlayed: 5 },
+      { name: 'Dyson Daniels',         teamAbbrev: 'ATL', value: 10,  display: '10',  gamesPlayed: 5 },
+      { name: 'Jrue Holiday',          teamAbbrev: 'BOS', value: 9,   display: '9',   gamesPlayed: 5 },
     ]},
-    avgBlocks:   { label: 'Blocks Per Game',   abbrev: 'BPG', leaders: [
-      { name: 'Victor Wembanyama', teamAbbrev: 'SAS', value: 3.8, display: '3.8' },
-      { name: 'Anthony Davis', teamAbbrev: 'LAL', value: 2.4, display: '2.4' },
-      { name: 'Chet Holmgren', teamAbbrev: 'OKC', value: 2.3, display: '2.3' },
+    blk: { label: 'Blocks',   abbrev: 'BLK', leaders: [
+      { name: 'Victor Wembanyama',     teamAbbrev: 'SAS', value: 18,  display: '18',  gamesPlayed: 5 },
+      { name: 'Anthony Davis',         teamAbbrev: 'LAL', value: 13,  display: '13',  gamesPlayed: 5 },
+      { name: 'Chet Holmgren',         teamAbbrev: 'OKC', value: 11,  display: '11',  gamesPlayed: 5 },
     ]},
   },
 };
@@ -336,12 +340,15 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     expect(shortCaption).toMatch(/🎯 Maximus's Picks:/);
     // Updated label: "Postseason Leaders" (audit Part 2)
     expect(shortCaption).toMatch(/🏆 Postseason Leaders:/);
-    // Postseason leaders block must include all 5 abbreviations
-    expect(shortCaption).toMatch(/PPG:/);
-    expect(shortCaption).toMatch(/APG:/);
-    expect(shortCaption).toMatch(/RPG:/);
-    expect(shortCaption).toMatch(/SPG:/);
-    expect(shortCaption).toMatch(/BPG:/);
+    // Postseason leaders block must include all 5 totals abbreviations
+    // (audit Part 1: PTS/AST/REB/STL/BLK, not per-game averages).
+    expect(shortCaption).toMatch(/PTS:/);
+    expect(shortCaption).toMatch(/AST:/);
+    expect(shortCaption).toMatch(/REB:/);
+    expect(shortCaption).toMatch(/STL:/);
+    expect(shortCaption).toMatch(/BLK:/);
+    // Daily caption MUST NOT carry per-game averages.
+    expect(shortCaption).not.toMatch(/PPG:|APG:|RPG:|SPG:|BPG:/);
     expect(shortCaption).toMatch(/For entertainment only/);
     expect(shortCaption).toMatch(/maximussports\.ai/);
 
@@ -466,6 +473,52 @@ describe('NBA Daily Briefing — Phase 1 foundation', () => {
     const westSlugs = (payload.playoffOutlook?.west || []).map(t => t.slug);
     expect(westSlugs).toContain('min'); // winner stays active
     expect(westSlugs).not.toContain('den'); // loser excluded
+  });
+
+  it('postseason leaders use canonical totals categories pts/ast/reb/stl/blk', () => {
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: liveGames,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const cats = payload.nbaLeaders?.categories || {};
+    expect(Object.keys(cats).sort()).toEqual(['ast', 'blk', 'pts', 'reb', 'stl']);
+    // Values are integer totals, not decimals
+    const topPts = cats.pts?.leaders?.[0];
+    expect(topPts).toBeTruthy();
+    expect(Number.isInteger(topPts.value)).toBe(true);
+    expect(topPts.display).toMatch(/^\d+$/);
+  });
+
+  it('Slide 3 active set includes completed-series winners (cross-round)', () => {
+    // Synthesize: NYK sweeps ATL 4-0 (r1-east-2 — both teams resolved
+    // in the static bracket). After the sweep the active outlook MUST
+    // still include NYK (winner advancing) and MUST exclude ATL.
+    const games = [1, 2, 3, 4].map((g, i) => ({
+      gameId: `g-nyk-atl-${g}`,
+      sport: 'nba', status: 'final',
+      startTime: new Date(Date.now() - (12 - i * 2) * 24 * 3600 * 1000).toISOString(),
+      teams: {
+        away: { slug: i % 2 === 0 ? 'atl' : 'nyk', score: i % 2 === 0 ? 95 : 110 },
+        home: { slug: i % 2 === 0 ? 'nyk' : 'atl', score: i % 2 === 0 ? 110 : 95 },
+      },
+      gameState: { isFinal: true, isLive: false },
+    }));
+    const payload = normalizeNbaImagePayload({
+      activeSection: 'nba-daily',
+      nbaPicks: synthPicks,
+      nbaLiveGames: games,
+      nbaWindowGames: games,
+      nbaLeaders: synthLeaders,
+      nbaStandings: synthStandings,
+      nbaChampOdds: synthChampOdds,
+    });
+    const eastSlugs = (payload.playoffOutlook?.east || []).map(t => t.slug);
+    expect(eastSlugs).toContain('nyk');     // winner advances — stays active
+    expect(eastSlugs).not.toContain('atl'); // loser eliminated
   });
 
   it('caption Watch Tonight section appears for closeout games', () => {
