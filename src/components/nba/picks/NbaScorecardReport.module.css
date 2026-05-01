@@ -190,6 +190,90 @@
   border-top: 1px solid rgba(0, 0, 0, 0.04);
 }
 
+/* ── Rolling performance ── */
+.rolling {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.rollingTitle {
+  font-size: 0.76rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--color-text);
+  margin: 0 0 10px;
+}
+.rollingEmpty {
+  font-size: 0.74rem; color: var(--color-text-muted);
+  margin: 0; line-height: 1.55;
+}
+.rollingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .rollingGrid { grid-template-columns: 1fr; }
+}
+.rollingCard {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 11px 14px; border-radius: 10px;
+  background: rgba(29, 66, 138, 0.03);
+  border: 1px solid rgba(29, 66, 138, 0.10);
+}
+.rollingCardLabel {
+  font-size: 0.5rem; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-muted);
+}
+.rollingCardValue {
+  font-size: 1.05rem; font-weight: 800; color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.rollingCardEmpty {
+  font-size: 0.92rem; font-weight: 700; color: var(--color-text-muted);
+}
+.rollingCardRate {
+  font-size: 0.7rem; font-weight: 700; color: var(--color-text-secondary);
+}
+.rollingCardSample {
+  font-size: 0.56rem; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ── Grading explainer ── */
+.explainer {
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.explainerTitle {
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--color-text-secondary);
+  margin: 0 0 8px;
+}
+.explainerList {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.explainerList li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 0.74rem; line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.explainerList li::before {
+  content: '\2022';
+  position: absolute; left: 0; top: 0;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+.explainerList strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
 /* Skeleton */
 .skel { display: flex; flex-direction: column; gap: 10px; }
 .skelBlock {
